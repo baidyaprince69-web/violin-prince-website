@@ -720,3 +720,211 @@ body.motion-ready .intro-strip.is-visible > p:nth-of-type(3) { animation-delay: 
 @media(prefers-reduced-motion:reduce) {
   .support-no.is-bouncing { transition:none!important; }
 }
+
+
+/* Final polish pass: focus clarity, balanced song cards, and comfortable responsive spacing. */
+:where(a,button,input,select,textarea,[tabindex]):focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 3px;
+}
+:where(button,a,input,select,textarea) {
+  -webkit-tap-highlight-color: transparent;
+}
+.brand, .site-nav a, .card-link, .back-top, .music-bar-youtube,
+.yt-open-link, .support-channel-link {
+  transition: color .18s ease, background-color .18s ease, opacity .18s ease;
+}
+.site-nav a:focus-visible,
+.site-nav .nav-cta:focus-visible {
+  border-radius: 3px;
+}
+.music-grid {
+  align-items: stretch;
+}
+.music-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border-radius: 4px;
+}
+.video-thumb {
+  flex: 0 0 auto;
+}
+.video-thumb:focus-visible {
+  outline-offset: -4px;
+}
+.card-copy {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.card-copy h3 {
+  text-wrap: balance;
+}
+.card-copy p {
+  flex: 0 0 auto;
+}
+.card-link {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  min-height: 42px;
+  margin-top: auto;
+  padding-top: .35rem;
+  text-underline-offset: .24em;
+}
+.filter-chip {
+  min-height: 40px;
+  cursor: pointer;
+  transition: color .2s ease, background-color .2s ease, border-color .2s ease, transform .2s ease;
+}
+.filter-chip:active,
+.button:active,
+.support-button:active,
+.music-bar-play:active,
+.yt-play-toggle:active {
+  transform: translateY(1px);
+}
+.request-form input,
+.request-form select,
+.request-form textarea {
+  min-height: 44px;
+  border-radius: 6px;
+}
+.request-form textarea {
+  min-height: 104px;
+  resize: vertical;
+}
+.request-form input:focus-visible,
+.request-form select:focus-visible,
+.request-form textarea:focus-visible {
+  outline-color: #e8cb8d;
+  outline-offset: 2px;
+  border-color: #e8cb8d;
+  box-shadow: 0 0 0 3px rgba(214,183,122,.13);
+}
+.request-form .submit-button {
+  min-height: 48px;
+  margin-top: .65rem;
+}
+.form-status:not(:empty) {
+  margin-top: .7rem;
+  padding: .7rem .8rem;
+  border-left: 2px solid var(--gold);
+  background: rgba(214,183,122,.08);
+}
+.site-footer .back-top {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+}
+.support-channel-link,
+.yt-open-link,
+.music-bar-youtube {
+  min-height: 40px;
+  align-items: center;
+}
+.yt-open-link {
+  display: inline-flex;
+  justify-content: center;
+}
+.music-bar-youtube {
+  display: inline-flex;
+}
+.music-bar-play {
+  min-width: 42px;
+  min-height: 42px;
+}
+.yt-minimize,
+.yt-minimized-toggle {
+  min-width: 36px;
+  min-height: 36px;
+}
+img {
+  max-width: 100%;
+}
+@media (hover: hover) and (pointer: fine) {
+  .brand:hover { color: var(--gold); }
+  .filter-chip:hover { transform: translateY(-1px); }
+  .card-link:hover { text-decoration: underline; }
+  .mood-card:hover { box-shadow: 0 16px 34px rgba(20,39,31,.18); }
+}
+@media (min-width: 561px) {
+  .site-footer {
+    padding-bottom: 118px;
+  }
+}
+@media (max-width: 720px) {
+  .site-nav a {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+  }
+  .site-header {
+    gap: 1rem;
+  }
+  .hero {
+    background-position: center;
+  }
+  .section-heading {
+    gap: 1.15rem;
+  }
+  .section-intro {
+    max-width: 58ch;
+  }
+  .request-form {
+    border-radius: 12px;
+    padding: clamp(1.2rem, 5vw, 2rem);
+  }
+  .site-footer {
+    grid-template-columns: 1fr auto;
+    gap: .75rem 1rem;
+    padding-bottom: 1.5rem;
+  }
+  .site-footer > p {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .site-footer > small {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 420px) {
+  .brand {
+    gap: .5rem;
+    font-size: .69rem;
+    letter-spacing: .13em;
+  }
+  .brand-mark {
+    width: 31px;
+    height: 31px;
+  }
+  .hero-actions .button {
+    min-height: 46px;
+  }
+  .filter-row {
+    gap: .45rem;
+  }
+  .filter-chip {
+    padding-inline: .72rem;
+    font-size: .7rem;
+  }
+  .site-footer {
+    grid-template-columns: 1fr;
+  }
+  .site-footer > p,
+  .site-footer > small {
+    grid-column: 1;
+  }
+  .site-footer > p {
+    grid-row: auto;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand, .site-nav a, .card-link, .back-top, .music-bar-youtube,
+  .yt-open-link, .support-channel-link, .filter-chip {
+    transition: none !important;
+  }
+}
