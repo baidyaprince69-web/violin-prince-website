@@ -9,7 +9,7 @@ A lightweight, responsive portfolio for **Violin Prince (Prince Baidya)**, built
 - Curated video gallery linking to verified videos from the Violin Prince YouTube channel
 - Category filters for Bengali, Bollywood, Rabindra Sangeet and English covers
 - Mood-based song request shortcuts
-- Song-request form that prepares an email draft in the visitor's email app
+- Song-request form that prepares an email addressed to baidyaprince69@gmail.com in the visitor's email app
 - SEO title, description, Open Graph metadata and Person structured data
 - `robots.txt` and an initial `sitemap.xml`
 - Accessibility basics including keyboard-friendly controls, labels and reduced-motion support
@@ -28,9 +28,9 @@ The canonical URL, Open Graph URL, structured-data URL, robots sitemap line and 
 
 ## Song-request form: important note
 
-This is a static website, so it does not store requests in a database or silently send email. On submit, it opens the visitor's default email app with a prepared message. The visitor must add your preferred email address in the **To** field, review the message, and send it. This means no email address has been guessed or exposed in the public source.
+This is a static website, so it does not store requests in a database or silently send email. On submit, it opens the visitor's default email app with a prepared message addressed to **baidyaprince69@gmail.com**. The visitor must review the message and press Send. The visitor needs a configured email app for this flow to work smoothly; if it does not open, they can email you directly.
 
-If you want one-click delivery to a fixed inbox later, choose an email form provider or a server-side form endpoint, and configure it securely. Do not place private API keys in client-side JavaScript.
+The email address is included in public client-side code and should be treated as public. If you later want one-click form delivery without relying on a visitor's email app, use a form provider or server-side endpoint and configure it securely. Do not place private API keys in client-side JavaScript.
 
 ## Search engine setup
 
