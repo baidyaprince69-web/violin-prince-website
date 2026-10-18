@@ -402,15 +402,29 @@
     supportCelebrationTimer = window.setTimeout(clearSupportCelebration, 3900);
   }
 
+  let supportNavigationPending = false;
+
   if (supportYes && supportReward && supportStatus) {
-    supportYes.addEventListener('click', () => {
-      // The link still works normally in a new tab; celebrate locally before the visitor leaves.
+    supportYes.addEventListener('click', (event) => {
+      // Keep the visitor on this page for the full celebration before opening YouTube.
+      event.preventDefault();
+      if (supportNavigationPending) return;
+      supportNavigationPending = true;
+      supportYes.setAttribute('aria-disabled', 'true');
       supportReward.hidden = false;
       supportStatus.textContent = 'You unlocked the Golden Bloom — thank you for the encouragement!';
       launchSupportFlowers();
+
       const rewardHeading = supportReward.querySelector('h3');
-      if (rewardHeading) rewardHeading.setAttribute('tabindex','-1');
-      window.setTimeout(() => { if (rewardHeading) rewardHeading.focus({preventScroll:true}); }, 80);
+      if (rewardHeading) rewardHeading.setAttribute('tabindex', '-1');
+      window.setTimeout(() => {
+        if (rewardHeading) rewardHeading.focus({ preventScroll: true });
+      }, 80);
+
+      // The flowers animate for about four seconds; then continue to the channel.
+      window.setTimeout(() => {
+        window.location.assign(supportYes.href);
+      }, 4200);
     });
   }
 
