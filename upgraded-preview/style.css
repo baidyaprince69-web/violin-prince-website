@@ -557,3 +557,154 @@ body.motion-ready .intro-strip.is-visible > p:nth-of-type(3) { animation-delay: 
 @media(prefers-reduced-motion:reduce) {
   .hero-art .geometric-bloom { opacity:.95; transform:translate(-50%,-50%) scale(1); animation:none!important; }
 }
+
+
+/* Final interactive support invitation — celebratory, playful, and opt-out friendly */
+.support-section {
+  position:relative;
+  isolation:isolate;
+  overflow:hidden;
+  padding:clamp(76px,10vw,132px) 6vw;
+  color:var(--ivory);
+  background-color:#10281b;
+  background-image:linear-gradient(135deg,rgba(7,20,13,.80),rgba(12,31,21,.68)),url("https://png.pngtree.com/thumb_back/fw800/background/20240726/pngtree-green-leaves-pattern-background-natural-and-wallpaper-image_16115474.jpg");
+  background-size:cover;
+  background-position:center;
+  text-align:center;
+}
+.support-section:before {
+  content:"";
+  position:absolute;inset:0;z-index:-1;
+  background:radial-gradient(ellipse at 50% 12%,rgba(214,183,122,.17),transparent 55%);
+  pointer-events:none;
+}
+.support-card {
+  position:relative;
+  isolation:isolate;
+  width:min(940px,100%);
+  margin:0 auto;
+  padding:clamp(28px,5vw,58px) clamp(18px,5vw,52px);
+  overflow:hidden;
+  border:1px solid rgba(214,183,122,.36);
+  border-radius:24px;
+  background:linear-gradient(145deg,rgba(13,35,23,.85),rgba(13,28,20,.80));
+  box-shadow:0 24px 72px rgba(0,0,0,.22),inset 0 0 70px rgba(214,183,122,.045);
+  -webkit-backdrop-filter:blur(8px);
+  backdrop-filter:blur(8px);
+}
+.support-flower-halo {
+  position:absolute;
+  z-index:-1;
+  width:min(68vw,560px);
+  aspect-ratio:1;
+  top:50%;left:50%;
+  transform:translate(-50%,-54%);
+  opacity:.11;
+  pointer-events:none;
+}
+.support-flower-halo img {display:block;width:100%;height:100%;object-fit:contain}
+.support-section .eyebrow {color:var(--gold);position:relative}
+.support-section h2 {
+  position:relative;
+  max-width:800px;
+  margin:0 auto;
+  font-family:var(--serif);
+  font-weight:500;
+  line-height:1.13;
+  letter-spacing:-.035em;
+  font-size:clamp(2.5rem,6vw,4.7rem);
+}
+.support-section h2 em {color:var(--gold);font-weight:500}
+.support-intro {max-width:590px;margin:1.2rem auto 1.6rem;color:#d2d9ce;font-size:.94rem;position:relative}
+.support-action-stage {
+  position:relative;
+  width:min(100%,760px);
+  min-height:154px;
+  margin:0 auto;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:clamp(12px,3vw,28px);
+}
+.support-button {
+  min-height:52px;
+  min-width:165px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  padding:13px 21px;
+  border-radius:999px;
+  font-family:var(--sans);
+  font-size:.87rem;
+  font-weight:700;
+  text-decoration:none;
+  cursor:pointer;
+  transition:transform .22s ease,background .22s ease,box-shadow .22s ease,left .24s ease,top .24s ease;
+}
+.support-button:focus-visible {outline:3px solid #f5e7bd;outline-offset:4px}
+.support-yes {
+  color:#17291d;
+  border:1px solid #e4c991;
+  background:linear-gradient(135deg,#f2dca6,#d6b77a);
+  box-shadow:0 8px 30px rgba(214,183,122,.2);
+}
+.support-yes:hover {transform:translateY(-3px) scale(1.025);box-shadow:0 12px 35px rgba(214,183,122,.34)}
+.support-no {
+  color:#f1eee5;
+  border:1px solid rgba(245,240,230,.32);
+  background:rgba(245,240,230,.07);
+  position:relative;
+}
+.support-no:hover {background:rgba(245,240,230,.13)}
+.support-status {position:relative;min-height:1.5em;margin:0 auto;color:#b9c7b8;font-size:.76rem}
+.support-reward {
+  position:relative;
+  margin:24px auto 0;
+  max-width:540px;
+  padding:25px 24px 22px;
+  border:1px solid rgba(230,203,145,.5);
+  border-radius:18px;
+  background:linear-gradient(145deg,rgba(214,183,122,.12),rgba(14,37,24,.78));
+  animation:support-reward-in .65s cubic-bezier(.2,.72,.2,1) both;
+}
+.support-reward[hidden] {display:none!important}
+.support-reward-flower {display:block;width:min(150px,42vw);height:auto;margin:0 auto 6px;filter:drop-shadow(0 0 20px rgba(214,183,122,.3))}
+.support-reward-kicker {margin:0 0 8px;color:var(--gold);font-size:.66rem;letter-spacing:.20em;font-weight:700}
+.support-reward h3 {margin:.3rem 0 .55rem;font-family:var(--serif);font-weight:500;font-size:clamp(1.7rem,4vw,2.4rem);line-height:1.2}
+.support-reward>p:not(.support-reward-kicker) {color:#d3dccf;font-size:.84rem;max-width:440px;margin:0 auto 17px}
+.support-channel-link {display:inline-flex;align-items:center;justify-content:center;padding:11px 16px;border-radius:999px;background:var(--gold);color:var(--forest);font-size:.78rem;font-weight:700}
+.support-channel-link:hover {background:#f1dba5}
+.support-celebration {position:fixed;inset:0;z-index:150;overflow:hidden;pointer-events:none}
+.support-particle {
+  position:absolute;left:var(--start-x);top:var(--start-y);
+  display:block;line-height:1;user-select:none;
+  color:var(--particle-color);
+  font-size:var(--particle-size);
+  text-shadow:0 0 15px rgba(255,224,145,.35);
+  transform:translate(-50%,-50%) scale(.25) rotate(0);
+  animation:support-firework 2.7s cubic-bezier(.12,.7,.24,1) var(--particle-delay) both;
+}
+@keyframes support-firework {
+  0% {opacity:0;transform:translate(-50%,-50%) scale(.2) rotate(0)}
+  10% {opacity:1}
+  70% {opacity:1;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(1) rotate(var(--spin))}
+  100% {opacity:0;transform:translate(calc(-50% + var(--dx2)),calc(-50% + var(--dy2))) scale(.5) rotate(calc(var(--spin) * 1.4))}
+}
+@keyframes support-reward-in {
+  from {opacity:0;transform:translateY(20px) scale(.97)}
+  to {opacity:1;transform:translateY(0) scale(1)}
+}
+@media(max-width:640px) {
+  .support-section {padding:70px 5vw}
+  .support-card {padding:32px 17px;border-radius:19px}
+  .support-action-stage {min-height:166px;gap:12px}
+  .support-button {min-width:0;padding:12px 14px;font-size:.77rem}
+  .support-yes {position:absolute;left:calc(50% - 168px);top:27px}
+  .support-no {position:absolute;left:calc(50% + 6px);top:27px}
+  .support-reward {padding:19px 15px}
+}
+@media(prefers-reduced-motion:reduce) {
+  .support-button,.support-reward {transition:none!important;animation:none!important}
+  .support-particle {display:none!important}
+}
