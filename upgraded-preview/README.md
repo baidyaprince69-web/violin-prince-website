@@ -12,9 +12,9 @@ Reviewable candidate at `/upgraded-preview/`. The official root homepage is inte
 - Font preconnect, lazy/async images, reduced-motion support, keyboard focus styles and selected contrast improvements.
 
 ## Action needed for the song-request form
-The form uses FormSubmit's AJAX endpoint for `baidyaprince69@gmail.com`. The site owner must confirm FormSubmit's first activation email before delivery works. I cannot access that inbox from this workflow, so test submission after activation. The page reports failure if the service does not accept a request.
+The form submits through the provided Formspree endpoint (`https://formspree.io/f/xjygzejd`) using an AJAX request. The form ID is public by design; the recipient's Gmail address is not embedded in the page. The hidden `_gotcha` field is included as a Formspree honeypot for spam filtering. No Formspree API key or password is placed in client-side JavaScript.
 
-The receiving address remains visible in the static page's client-side endpoint. No private API key is included. A server-side endpoint or form service with a dashboard offers stronger spam controls and delivery tracking.
+The website's request flow has been connected to this endpoint, but no real submission was sent from this workflow, so delivery and notification email are not independently verified. The owner should submit one harmless test request from the preview and check the Formspree dashboard and `princebaidya386@gmail.com`. If the service asks to verify the notification recipient or activate the form, complete that action in the Formspree dashboard.
 
 ## SEO rollout
 The preview remains `noindex,follow` and canonical points to the official root. Keep this protection until the official homepage is selected. Then update canonical/share URLs for the chosen official version, submit the sitemap in Google Search Console, and monitor impressions, clicks, CTR and queries.
