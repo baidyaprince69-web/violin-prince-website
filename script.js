@@ -64,8 +64,8 @@
       'Thank you!'
     ].filter((line, index, all) => line !== '' || (index > 0 && all[index - 1] !== '')).join('\n');
     const subject = 'Song request for Violin Prince: ' + song;
-    const mailto = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
-    status.textContent = 'Opening your email app. Please add the artist’s email address in the To field, review the message, and send when ready.';
+    const mailto = 'mailto:baidyaprince69@gmail.com?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+    status.textContent = 'Opening an email addressed to baidyaprince69@gmail.com. Please review the request and press Send in your email app.';
     window.location.href = mailto;
   });
 })();
