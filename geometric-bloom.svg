@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" fill="none" role="img" aria-label="Symmetrical golden geometric lotus mandala">
+ <defs>
+  <radialGradient id="halo"><stop offset="0" stop-color="#f2d9a0" stop-opacity=".38"/><stop offset=".42" stop-color="#d6b77a" stop-opacity=".12"/><stop offset="1" stop-color="#d6b77a" stop-opacity="0"/></radialGradient>
+  <linearGradient id="petalGold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f6e5b7" stop-opacity=".68"/><stop offset=".48" stop-color="#d6b77a" stop-opacity=".25"/><stop offset="1" stop-color="#78916a" stop-opacity=".20"/></linearGradient>
+  <linearGradient id="petalGreen" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#c1cd94" stop-opacity=".52"/><stop offset=".5" stop-color="#6f9166" stop-opacity=".23"/><stop offset="1" stop-color="#d6b77a" stop-opacity=".19"/></linearGradient>
+  <linearGradient id="lineGold" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#f8e8bd"/><stop offset="1" stop-color="#b89654"/></linearGradient>
+  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  <g id="outerPetal">
+   <path d="M300 300 C272 265 235 229 245 176 C254 130 284 79 300 39 C317 81 346 130 355 176 C365 229 328 266 300 300Z" fill="url(#petalGold)" stroke="#ddc17f" stroke-opacity=".88" stroke-width="1.45"/>
+   <path d="M300 288 C288 250 264 214 267 178 C271 141 292 96 300 61 C310 100 330 141 333 178 C337 215 312 253 300 288Z" stroke="#f3dda9" stroke-opacity=".66" stroke-width="1" />
+   <path d="M300 279 Q300 190 300 48" stroke="#ead39b" stroke-opacity=".76" stroke-width="1"/>
+   <circle cx="300" cy="69" r="3" fill="#f0d79f"/>
+  </g>
+  <g id="middlePetal">
+   <path d="M300 300 C279 276 259 247 265 212 C271 179 290 145 300 117 C313 147 329 180 335 212 C341 248 319 278 300 300Z" fill="url(#petalGreen)" stroke="#c7cd92" stroke-opacity=".72" stroke-width="1.15"/>
+   <path d="M300 290 Q300 220 300 130" stroke="#e7d9a2" stroke-opacity=".68" stroke-width=".9"/>
+  </g>
+  <g id="innerPetal">
+   <path d="M300 300 C279 280 273 252 287 228 C292 218 297 209 300 198 C305 211 313 226 317 239 C325 262 317 283 300 300Z" fill="#d6b77a" fill-opacity=".24" stroke="#ebd6a0" stroke-opacity=".9" stroke-width="1.15"/>
+  </g>
+  <g id="diamond">
+   <path d="M300 245 L309 265 L300 285 L291 265Z" fill="#e8cf91" fill-opacity=".34" stroke="#e7d29b" stroke-opacity=".8" stroke-width=".85"/>
+  </g>
+ </defs>
+ <circle cx="300" cy="300" r="295" fill="url(#halo)"/>
+ <g stroke="#d6b77a" stroke-opacity=".33" stroke-width=".9"><line x1="300" y1="27" x2="300" y2="573" transform="rotate(0 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(10 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(20 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(30 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(40 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(50 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(60 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(70 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(80 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(90 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(100 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(110 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(120 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(130 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(140 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(150 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(160 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(170 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(180 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(190 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(200 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(210 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(220 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(230 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(240 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(250 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(260 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(270 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(280 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(290 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(300 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(310 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(320 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(330 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(340 300 300)"/>
+<line x1="300" y1="27" x2="300" y2="573" transform="rotate(350 300 300)"/></g>
+ <g stroke="#d9c489" stroke-opacity=".7" stroke-width="1">
+  <circle cx="300" cy="300" r="285"/><circle cx="300" cy="300" r="266"/>
+  <circle cx="300" cy="300" r="231"/><circle cx="300" cy="300" r="207"/>
+  <circle cx="300" cy="300" r="166"/><circle cx="300" cy="300" r="145"/>
+  <circle cx="300" cy="300" r="105"/><circle cx="300" cy="300" r="83"/>
+  <circle cx="300" cy="300" r="52"/>
+ </g>
+ <g stroke="#e0c789" stroke-opacity=".63" stroke-width="1"><path d="M300 15 L310 36 L300 57 L290 36Z" transform="rotate(0 300 300)"/><path d="M300 15 L310 36 L300 57 L290 36Z" transform="rotate(30 300 300)"/><path d="M300 15 L310 36 L300 57 L290 36Z" transform="rotate(60 300 300)"/><path d="M300 15 L310 36 L300 57 L290 36Z" transform="rotate(90 300 300)"/><path d="M300 15 L310 36 L300 57 L290 36Z" transform="rotate(120 300 300)"/><path d="M300 15 L310 36 L300 57 L290 36Z" transform="rotate(150 300 300)"/><path d="M300 15 L310 36 L300 57 L290 36Z" transform="rotate(180 300 300)"/><path d="M300 15 L310 36 L300 57 L290 36Z" transform="rotate(210 300 300)"/><path d="M300 15 L310 36 L300 57 L290 36Z" transform="rotate(240 300 300)"/><path d="M300 15 L310 36 L300 57 L290 36Z" transform="rotate(270 300 300)"/><path d="M300 15 L310 36 L300 57 L290 36Z" transform="rotate(300 300 300)"/><path d="M300 15 L310 36 L300 57 L290 36Z" transform="rotate(330 300 300)"/></g>
+ <g><use href="#outerPetal" transform="rotate(0 300 300)"/>
+<use href="#outerPetal" transform="rotate(30 300 300)"/>
+<use href="#outerPetal" transform="rotate(60 300 300)"/>
+<use href="#outerPetal" transform="rotate(90 300 300)"/>
+<use href="#outerPetal" transform="rotate(120 300 300)"/>
+<use href="#outerPetal" transform="rotate(150 300 300)"/>
+<use href="#outerPetal" transform="rotate(180 300 300)"/>
+<use href="#outerPetal" transform="rotate(210 300 300)"/>
+<use href="#outerPetal" transform="rotate(240 300 300)"/>
+<use href="#outerPetal" transform="rotate(270 300 300)"/>
+<use href="#outerPetal" transform="rotate(300 300 300)"/>
+<use href="#outerPetal" transform="rotate(330 300 300)"/></g>
+ <g><use href="#middlePetal" transform="rotate(0 300 300)"/>
+<use href="#middlePetal" transform="rotate(22.5 300 300)"/>
+<use href="#middlePetal" transform="rotate(45 300 300)"/>
+<use href="#middlePetal" transform="rotate(67.5 300 300)"/>
+<use href="#middlePetal" transform="rotate(90 300 300)"/>
+<use href="#middlePetal" transform="rotate(112.5 300 300)"/>
+<use href="#middlePetal" transform="rotate(135 300 300)"/>
+<use href="#middlePetal" transform="rotate(157.5 300 300)"/>
+<use href="#middlePetal" transform="rotate(180 300 300)"/>
+<use href="#middlePetal" transform="rotate(202.5 300 300)"/>
+<use href="#middlePetal" transform="rotate(225 300 300)"/>
+<use href="#middlePetal" transform="rotate(247.5 300 300)"/>
+<use href="#middlePetal" transform="rotate(270 300 300)"/>
+<use href="#middlePetal" transform="rotate(292.5 300 300)"/>
+<use href="#middlePetal" transform="rotate(315 300 300)"/>
+<use href="#middlePetal" transform="rotate(337.5 300 300)"/></g>
+ <g><use href="#innerPetal" transform="rotate(0 300 300)"/>
+<use href="#innerPetal" transform="rotate(15 300 300)"/>
+<use href="#innerPetal" transform="rotate(30 300 300)"/>
+<use href="#innerPetal" transform="rotate(45 300 300)"/>
+<use href="#innerPetal" transform="rotate(60 300 300)"/>
+<use href="#innerPetal" transform="rotate(75 300 300)"/>
+<use href="#innerPetal" transform="rotate(90 300 300)"/>
+<use href="#innerPetal" transform="rotate(105 300 300)"/>
+<use href="#innerPetal" transform="rotate(120 300 300)"/>
+<use href="#innerPetal" transform="rotate(135 300 300)"/>
+<use href="#innerPetal" transform="rotate(150 300 300)"/>
+<use href="#innerPetal" transform="rotate(165 300 300)"/>
+<use href="#innerPetal" transform="rotate(180 300 300)"/>
+<use href="#innerPetal" transform="rotate(195 300 300)"/>
+<use href="#innerPetal" transform="rotate(210 300 300)"/>
+<use href="#innerPetal" transform="rotate(225 300 300)"/>
+<use href="#innerPetal" transform="rotate(240 300 300)"/>
+<use href="#innerPetal" transform="rotate(255 300 300)"/>
+<use href="#innerPetal" transform="rotate(270 300 300)"/>
+<use href="#innerPetal" transform="rotate(285 300 300)"/>
+<use href="#innerPetal" transform="rotate(300 300 300)"/>
+<use href="#innerPetal" transform="rotate(315 300 300)"/>
+<use href="#innerPetal" transform="rotate(330 300 300)"/>
+<use href="#innerPetal" transform="rotate(345 300 300)"/></g>
+ <g><use href="#diamond" transform="rotate(0 300 300)"/>
+<use href="#diamond" transform="rotate(15 300 300)"/>
+<use href="#diamond" transform="rotate(30 300 300)"/>
+<use href="#diamond" transform="rotate(45 300 300)"/>
+<use href="#diamond" transform="rotate(60 300 300)"/>
+<use href="#diamond" transform="rotate(75 300 300)"/>
+<use href="#diamond" transform="rotate(90 300 300)"/>
+<use href="#diamond" transform="rotate(105 300 300)"/>
+<use href="#diamond" transform="rotate(120 300 300)"/>
+<use href="#diamond" transform="rotate(135 300 300)"/>
+<use href="#diamond" transform="rotate(150 300 300)"/>
+<use href="#diamond" transform="rotate(165 300 300)"/>
+<use href="#diamond" transform="rotate(180 300 300)"/>
+<use href="#diamond" transform="rotate(195 300 300)"/>
+<use href="#diamond" transform="rotate(210 300 300)"/>
+<use href="#diamond" transform="rotate(225 300 300)"/>
+<use href="#diamond" transform="rotate(240 300 300)"/>
+<use href="#diamond" transform="rotate(255 300 300)"/>
+<use href="#diamond" transform="rotate(270 300 300)"/>
+<use href="#diamond" transform="rotate(285 300 300)"/>
+<use href="#diamond" transform="rotate(300 300 300)"/>
+<use href="#diamond" transform="rotate(315 300 300)"/>
+<use href="#diamond" transform="rotate(330 300 300)"/>
+<use href="#diamond" transform="rotate(345 300 300)"/></g>
+ <g fill="#f2dca3" filter="url(#glow)"><circle cx="300.00" cy="58.00" r="3"/><circle cx="362.63" cy="66.25" r="1.8"/><circle cx="421.00" cy="90.42" r="3"/><circle cx="471.12" cy="128.88" r="1.8"/><circle cx="509.58" cy="179.00" r="3"/><circle cx="533.75" cy="237.37" r="1.8"/><circle cx="542.00" cy="300.00" r="3"/><circle cx="533.75" cy="362.63" r="1.8"/><circle cx="509.58" cy="421.00" r="3"/><circle cx="471.12" cy="471.12" r="1.8"/><circle cx="421.00" cy="509.58" r="3"/><circle cx="362.63" cy="533.75" r="1.8"/><circle cx="300.00" cy="542.00" r="3"/><circle cx="237.37" cy="533.75" r="1.8"/><circle cx="179.00" cy="509.58" r="3"/><circle cx="128.88" cy="471.12" r="1.8"/><circle cx="90.42" cy="421.00" r="3"/><circle cx="66.25" cy="362.63" r="1.8"/><circle cx="58.00" cy="300.00" r="3"/><circle cx="66.25" cy="237.37" r="1.8"/><circle cx="90.42" cy="179.00" r="3"/><circle cx="128.88" cy="128.88" r="1.8"/><circle cx="179.00" cy="90.42" r="3"/><circle cx="237.37" cy="66.25" r="1.8"/></g>
+ <g stroke="url(#lineGold)" stroke-width="1.15" stroke-opacity=".8">
+  <path d="M300 220 L323 277 L380 300 L323 323 L300 380 L277 323 L220 300 L277 277Z"/>
+  <path d="M300 239 L317 283 L361 300 L317 317 L300 361 L283 317 L239 300 L283 283Z"/>
+  <path d="M300 155 L318 179 L345 186 L326 207 L331 235 L300 223 L269 235 L274 207 L255 186 L282 179Z"/>
+ </g>
+ <circle cx="300" cy="300" r="34" fill="#d6b77a" fill-opacity=".11" stroke="#e8d29a" stroke-opacity=".8"/>
+ <circle cx="300" cy="300" r="15" fill="#d6b77a" fill-opacity=".16" stroke="#f0dba6" stroke-opacity=".94"/>
+ <circle cx="300" cy="300" r="4" fill="#f7e7b9" filter="url(#glow)"/>
+</svg>
