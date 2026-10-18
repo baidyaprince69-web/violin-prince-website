@@ -716,7 +716,7 @@ body.motion-ready .intro-strip.is-visible > p:nth-of-type(3) { animation-delay: 
   box-shadow:0 8px 28px rgba(0,0,0,.28);
   transition: left .27s cubic-bezier(.3,.8,.4,1), top .27s cubic-bezier(.3,.8,.4,1), background .2s ease;
 }
-.support-no.is-bouncing { background:rgba(214,183,122,.18); border-color:rgba(214,183,122,.65); }
+.support-no.is-bouncing { background:rgba(214,183,122,.18); border-color:rgba(214,183,122,.65); will-change:transform; z-index:4; }
 @media(prefers-reduced-motion:reduce) {
   .support-no.is-bouncing { transition:none!important; }
 }
