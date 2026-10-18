@@ -38,12 +38,11 @@
       }
     });
     document.body.classList.add('motion-ready');
-    const revealObserver = new IntersectionObserver((entries, observer) => {
+    // Toggle on every entry/exit so the reveal plays again when scrolling back up.
+    // Removing .is-visible lets CSS play the reverse/outro transition as the item leaves view.
+    const revealObserver = new IntersectionObserver(entries => {
       entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('is-visible');
-          observer.unobserve(entry.target);
-        }
+        entry.target.classList.toggle('is-visible', entry.isIntersecting);
       });
     }, { threshold: 0.14, rootMargin: '0px 0px -36px 0px' });
     revealTargets.forEach(element => revealObserver.observe(element));
