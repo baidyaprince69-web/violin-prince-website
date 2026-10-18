@@ -273,8 +273,9 @@
         }
       });
     }, { threshold: [0, 0.5, 0.75, 1] });
-    const playerMount = document.getElementById('violinYouTubePlayer');
-    if (playerMount) playerVisibilityObserver.observe(playerMount);
+    // Observe the stable wrapper; the YouTube API replaces the inner mount node with an iframe.
+    const playerVisibilityTarget = document.querySelector('.yt-player-shell');
+    if (playerVisibilityTarget) playerVisibilityObserver.observe(playerVisibilityTarget);
   } else {
     coverVisible = true;
   }
