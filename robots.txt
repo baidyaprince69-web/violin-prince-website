@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://baidyaprince69-web.github.io/violin-prince-website/sitemap.xml
