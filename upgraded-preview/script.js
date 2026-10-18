@@ -92,8 +92,6 @@
     const originalLabel = submitButton ? submitButton.innerHTML : '';
     const data = new FormData(form);
     const song = String(data.get('songTitle') || '').trim();
-    if (String(data.get('_honey') || '').trim()) return;
-    data.delete('_honey');
     data.set('_subject', 'Song request for Violin Prince: ' + song);
     data.set('_template', 'table');
     if (submitButton) { submitButton.disabled = true; submitButton.textContent = 'Sending your request…'; }
@@ -103,16 +101,19 @@
       const response = await fetch(form.dataset.endpoint, {method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(Object.fromEntries(data.entries()))});
       let result = {};
       try { result = await response.json(); } catch (error) {}
-      const serviceMessage = String(result.message || '');
-      const serviceSaysActivate = /activat|verif|confirm/i.test(serviceMessage);
-      if (!response.ok || result.success === false || result.success === 'false' || serviceSaysActivate) throw new Error((serviceMessage || 'The form service did not accept the request.') + ' (HTTP ' + response.status + ')');
+      const serviceMessage = String(result.message || result.error || '');
+      const validationErrors = Array.isArray(result.errors) ? result.errors : [];
+      if (!response.ok || result.ok === false || result.success === false || result.success === 'false' || Boolean(result.error) || validationErrors.length > 0) {
+        const details = validationErrors.map(item => item.message || item.field || '').filter(Boolean).join(' ');
+        throw new Error(details || serviceMessage || 'Formspree did not accept the request.');
+      }
       form.reset();
       status.className = 'form-status is-success';
       status.textContent = 'Thank you! Your song request has been sent to Violin Prince.';
     } catch (error) {
       console.error('Song request submission failed:',error);
       status.className = 'form-status is-error';
-      status.textContent = 'Your request could not be sent right now. Please try again. The form may need first-time email activation from the site owner.';
+      status.textContent = 'Your request could not be sent right now. Please try again. If the problem continues, check that the Formspree form is active and its notification email is verified.';
     } finally {
       if (submitButton) { submitButton.disabled = false; submitButton.innerHTML = originalLabel; }
     }
