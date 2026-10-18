@@ -990,3 +990,40 @@ img {
   right: max(12px, env(safe-area-inset-right));
   bottom: calc(122px + env(safe-area-inset-bottom));
 }
+
+
+/* Phone-friendly support actions: keep both choices in a stable two-column layout. */
+@media (max-width: 640px) {
+  .support-action-stage {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: center;
+    justify-content: stretch;
+    width: 100%;
+    min-height: 104px;
+    gap: 10px;
+  }
+  .support-action-stage .support-button {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 50px;
+    padding: 10px 8px;
+    gap: 6px;
+    font-size: clamp(.66rem, 3vw, .77rem);
+    line-height: 1.25;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .support-action-stage .support-yes,
+  .support-action-stage .support-no {
+    left: auto;
+    top: auto;
+  }
+  .support-action-stage .support-no.is-bouncing {
+    z-index: 4;
+  }
+}
