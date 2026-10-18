@@ -18,6 +18,37 @@
 
   const filters = [...document.querySelectorAll('.filter-chip')];
   const cards = [...document.querySelectorAll('.music-card')];
+
+  // Scroll reveal animations: lightweight, one-time, and respectful of reduced-motion settings.
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!reduceMotion && 'IntersectionObserver' in window) {
+    const revealTargets = [
+      ...cards,
+      ...document.querySelectorAll(
+        '.about-section, .section-heading, .section-intro, .filter-row, ' +
+        '.mood-card, .request-copy, .request-form, .connect-section, .site-footer'
+      )
+    ];
+    revealTargets.forEach((element, index) => {
+      if (!element.classList.contains('music-card')) {
+        element.classList.add('scroll-reveal');
+      }
+      if (element.classList.contains('mood-card')) {
+        element.style.transitionDelay = (index % 4) * 70 + 'ms';
+      }
+    });
+    document.body.classList.add('motion-ready');
+    const revealObserver = new IntersectionObserver((entries, observer) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.14, rootMargin: '0px 0px -36px 0px' });
+    revealTargets.forEach(element => revealObserver.observe(element));
+  }
+
   const emptyState = document.getElementById('emptyState');
   filters.forEach(button => button.addEventListener('click', () => {
     const filter = button.dataset.filter;
