@@ -19,7 +19,7 @@
   const filters = [...document.querySelectorAll('.filter-chip')];
   const cards = [...document.querySelectorAll('.music-card')];
 
-  // Scroll reveal animations: lightweight, one-time, and respectful of reduced-motion settings.
+  // Bidirectional scroll reveals: animate both entrance and exit, and replay on every re-entry.
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (!reduceMotion && 'IntersectionObserver' in window) {
     const revealTargets = [
@@ -29,22 +29,33 @@
         '.mood-card, .request-copy, .request-form, .connect-section, .site-footer'
       )
     ];
+    let lastScrollY = window.scrollY;
     revealTargets.forEach((element, index) => {
-      if (!element.classList.contains('music-card')) {
-        element.classList.add('scroll-reveal');
-      }
-      if (element.classList.contains('mood-card')) {
-        element.style.transitionDelay = (index % 4) * 70 + 'ms';
-      }
+      if (!element.classList.contains('music-card')) element.classList.add('scroll-reveal');
+      if (element.classList.contains('mood-card')) element.style.transitionDelay = (index % 4) * 70 + 'ms';
     });
     document.body.classList.add('motion-ready');
-    // Toggle on every entry/exit so the reveal plays again when scrolling back up.
-    // Removing .is-visible lets CSS play the reverse/outro transition as the item leaves view.
+
+    // Inset observer bounds so the reverse transition starts while items are still visible.
     const revealObserver = new IntersectionObserver(entries => {
+      const currentScrollY = window.scrollY;
+      const scrollDirection = currentScrollY >= lastScrollY ? 'down' : 'up';
+      lastScrollY = currentScrollY;
+
       entries.forEach(entry => {
-        entry.target.classList.toggle('is-visible', entry.isIntersecting);
+        const element = entry.target;
+        if (entry.isIntersecting) {
+          element.dataset.revealSeen = 'true';
+          element.classList.remove('exit-up', 'exit-down');
+          element.classList.add('is-visible');
+        } else if (element.dataset.revealSeen === 'true') {
+          element.classList.remove('is-visible');
+          element.classList.toggle('exit-up', scrollDirection === 'down');
+          element.classList.toggle('exit-down', scrollDirection === 'up');
+        }
       });
-    }, { threshold: 0.14, rootMargin: '0px 0px -36px 0px' });
+    }, { threshold: 0, rootMargin: '-72px 0px -72px 0px' });
+
     revealTargets.forEach(element => revealObserver.observe(element));
   }
 
