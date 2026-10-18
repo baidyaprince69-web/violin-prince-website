@@ -78,3 +78,24 @@ body.motion-ready .request-copy {
     will-change: auto !important;
   }
 }
+
+/* Direction-aware scroll outro: start exiting while the item is still partly visible. */
+body.motion-ready .music-card.exit-up:not(.is-visible),
+body.motion-ready .scroll-reveal.exit-up:not(.is-visible) {
+  opacity: 0;
+  transform: translate3d(0, -34px, 0) scale(.99);
+}
+body.motion-ready .music-card.exit-down:not(.is-visible),
+body.motion-ready .scroll-reveal.exit-down:not(.is-visible) {
+  opacity: 0;
+  transform: translate3d(0, 34px, 0) scale(.99);
+}
+@media (prefers-reduced-motion: reduce) {
+  body.motion-ready .music-card.exit-up,
+  body.motion-ready .music-card.exit-down,
+  body.motion-ready .scroll-reveal.exit-up,
+  body.motion-ready .scroll-reveal.exit-down {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
