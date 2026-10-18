@@ -450,3 +450,7 @@ html{scroll-padding-bottom:120px}body{padding-bottom:calc(110px + env(safe-area-
 @media(max-width:360px){.music-bar{left:5px;right:5px;grid-template-columns:30px minmax(76px,1fr) 34px;gap:7px;padding:7px 8px}.music-bar-art{width:30px;height:30px}.music-bar-play{width:34px;height:34px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 .site-footer small{color:#9ba99e}.yt-dock-note{color:#9ba99e}
+
+
+/* Lift the expanded video dock above the persistent bottom player bar. */
+.youtube-music-dock:not(.is-minimized){bottom:calc(96px + env(safe-area-inset-bottom));}
