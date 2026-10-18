@@ -25,7 +25,10 @@
     const revealTargets = [
       ...cards,
       ...document.querySelectorAll(
-        '.about-section, .section-heading, .section-intro, .filter-row, ' +
+        '.hero-content, .hero-art, .intro-strip, .about-section, .artist-portrait, .about-copy, ' +
+        '.hero-content .eyebrow, .hero-content h1, .hero-copy, .hero-actions, .hero-note, ' +
+        '.about-copy > .eyebrow, .about-copy h2, .about-copy p, .about-copy .text-link, ' +
+        '.artist-portrait img, .artist-portrait figcaption, .section-heading, .section-intro, .filter-row, ' +
         '.mood-card, .request-copy, .request-form, .connect-section, .site-footer'
       )
     ];
@@ -33,6 +36,21 @@
     revealTargets.forEach((element, index) => {
       if (!element.classList.contains('music-card')) element.classList.add('scroll-reveal');
       if (element.classList.contains('mood-card')) element.style.transitionDelay = (index % 4) * 70 + 'ms';
+      // Cinematic, editorial motion: hero copy arrives in a gentle stagger, the violin artwork glides in,
+      // and the artist portrait/copy reveal separately as the visitor reaches that section.
+      if (element.matches('.hero-content .eyebrow')) element.style.transitionDelay = '80ms';
+      if (element.matches('.hero-content h1')) element.style.transitionDelay = '180ms';
+      if (element.matches('.hero-copy')) element.style.transitionDelay = '300ms';
+      if (element.matches('.hero-actions')) element.style.transitionDelay = '410ms';
+      if (element.matches('.hero-note')) element.style.transitionDelay = '520ms';
+      if (element.matches('.hero-art')) element.classList.add('reveal-from-right');
+      if (element.matches('.artist-portrait')) element.classList.add('reveal-from-left');
+      if (element.matches('.artist-portrait img')) element.classList.add('reveal-soft-scale');
+      if (element.matches('.about-copy > .eyebrow')) element.style.transitionDelay = '80ms';
+      if (element.matches('.about-copy h2')) element.style.transitionDelay = '170ms';
+      if (element.matches('.about-copy p:nth-of-type(2)')) element.style.transitionDelay = '280ms';
+      if (element.matches('.about-copy p:nth-of-type(3)')) element.style.transitionDelay = '380ms';
+      if (element.matches('.about-copy .text-link')) element.style.transitionDelay = '480ms';
     });
     document.body.classList.add('motion-ready');
 
