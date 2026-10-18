@@ -524,32 +524,36 @@ body.motion-ready .intro-strip.is-visible > p:nth-of-type(3) { animation-delay: 
 }
 
 
-/* Living botanical ornament around the hero violin */
-.botanical-blooms{position:absolute;inset:0;z-index:5;pointer-events:none;overflow:visible}
-.bloom-flower{position:absolute;width:42px;height:42px;transform-origin:center;animation:flower-sway 5.8s ease-in-out infinite}
-.bloom-flower i{position:absolute;left:14px;top:1px;width:14px;height:22px;border-radius:80% 80% 48% 48%;background:linear-gradient(150deg,#f4dfb0,#c99b61 72%,#87643e);border:1px solid rgba(255,235,184,.55);transform-origin:7px 20px;box-shadow:0 2px 8px rgba(0,0,0,.13)}
-.bloom-flower i:nth-child(1){transform:rotate(0deg)}
-.bloom-flower i:nth-child(2){transform:rotate(72deg)}
-.bloom-flower i:nth-child(3){transform:rotate(144deg)}
-.bloom-flower i:nth-child(4){transform:rotate(216deg)}
-.bloom-flower i:nth-child(5){transform:rotate(288deg)}
-.bloom-flower b{position:absolute;left:17px;top:15px;width:9px;height:9px;border-radius:50%;background:#6b4b25;border:2px solid #f4d58f;box-shadow:0 0 12px rgba(214,183,122,.7)}
-.flower-a{top:22%;left:22%;transform:scale(.82);animation-delay:-1.2s}
-.flower-b{top:56%;right:13%;transform:scale(.68);animation-delay:-3.5s}
-.flower-c{bottom:17%;left:25%;transform:scale(.55);animation-delay:-2.4s}
-.bloom-leaf{position:absolute;width:37px;height:19px;border-radius:100% 0 100% 0;background:linear-gradient(135deg,#b7c58b,#527b4c 62%,#29482e);border:1px solid rgba(215,220,158,.48);transform-origin:0 100%;animation:leaf-dance 6.4s ease-in-out infinite;box-shadow:0 3px 9px rgba(0,0,0,.14)}
-.bloom-leaf:after{content:"";position:absolute;left:4px;right:3px;top:9px;height:1px;background:rgba(239,230,174,.72);transform:rotate(-9deg)}
-.leaf-a{top:20%;left:31%;transform:rotate(-30deg) scale(.9)}
-.leaf-b{top:36%;right:10%;transform:rotate(155deg) scale(.78);animation-delay:-2s}
-.leaf-c{bottom:23%;right:19%;transform:rotate(28deg) scale(.95);animation-delay:-3.8s}
-.leaf-d{top:65%;left:17%;transform:rotate(165deg) scale(.7);animation-delay:-1.1s}
-.leaf-e{top:14%;right:23%;transform:rotate(20deg) scale(.58);animation-delay:-4.1s}
-.leaf-f{bottom:12%;left:37%;transform:rotate(-24deg) scale(.62);animation-delay:-2.7s}
-.bloom-bud{position:absolute;width:13px;height:18px;border-radius:80% 10% 80% 10%;background:linear-gradient(145deg,#e7c989,#a76e56);animation:bud-open 4.8s ease-in-out infinite}
-.bud-a{top:41%;left:24%;animation-delay:-.8s}
-.bud-b{bottom:29%;right:24%;animation-delay:-2.6s}
-@keyframes flower-sway{0%,100%{margin-top:0;filter:brightness(.92)}50%{margin-top:-7px;filter:brightness(1.16)}}
-@keyframes leaf-dance{0%,100%{filter:brightness(.92)}50%{filter:brightness(1.22)}}
-@keyframes bud-open{0%,100%{transform:rotate(-8deg) scale(.8)}50%{transform:rotate(12deg) scale(1.08)}}
-@media(max-width:720px){.hero{background-position:57% center}.botanical-blooms{transform:scale(.82);transform-origin:center}.flower-a{left:10%;top:18%}.flower-b{right:2%;top:52%}.flower-c{left:10%;bottom:14%}.leaf-a{left:15%}.leaf-d{left:7%}}
-@media(prefers-reduced-motion:reduce){.bloom-flower,.bloom-leaf,.bloom-bud{animation:none!important}}
+
+/* Large mandala-like floral geometry unfolding out from the hero violin */
+.hero-art .geometric-bloom {
+  position:absolute;
+  left:50%;
+  top:49%;
+  z-index:1;
+  display:block;
+  width:min(48vw,530px);
+  max-width:none;
+  height:auto;
+  aspect-ratio:1;
+  object-fit:contain;
+  pointer-events:none;
+  opacity:0;
+  transform:translate(-50%,-50%) scale(.035) rotate(-24deg);
+  transform-origin:center;
+  filter:drop-shadow(0 0 20px rgba(214,183,122,.13));
+  animation:geometric-bloom-unfurl 2.1s cubic-bezier(.16,.82,.19,1) 280ms forwards;
+}
+.hero-art .violin-illustration { z-index:2; }
+@keyframes geometric-bloom-unfurl {
+  0% { opacity:0; transform:translate(-50%,-50%) scale(.035) rotate(-24deg); filter:drop-shadow(0 0 0 rgba(214,183,122,0)); }
+  62% { opacity:.98; transform:translate(-50%,-50%) scale(1.065) rotate(3deg); filter:drop-shadow(0 0 24px rgba(214,183,122,.22)); }
+  82% { opacity:1; transform:translate(-50%,-50%) scale(.975) rotate(-1deg); }
+  100% { opacity:.95; transform:translate(-50%,-50%) scale(1) rotate(0deg); filter:drop-shadow(0 0 17px rgba(214,183,122,.13)); }
+}
+@media(max-width:720px) {
+  .hero-art .geometric-bloom { width:min(94vw,410px); top:49%; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .hero-art .geometric-bloom { opacity:.95; transform:translate(-50%,-50%) scale(1); animation:none!important; }
+}
