@@ -110,310 +110,194 @@
     window.location.href = mailto;
   });
 
-  // Original, lightweight ambient motif generated with the Web Audio API.
-  // Browsers may block first-visit autoplay; the visible Play control always remains available.
-  const ambientPlayer = document.getElementById('ambientPlayer');
-  const ambientToggle = document.getElementById('ambientToggle');
-  const ambientLabel = document.getElementById('ambientLabel');
-  const ambientStatus = document.getElementById('ambientStatus');
-  const ambientSymbol = document.getElementById('ambientToggleSymbol');
-  const ambientVolume = document.getElementById('ambientVolume');
+  
+  // Play Prince's YouTube cover using the official YouTube IFrame Player API.
+  // The player stays visible (200px minimum viewport), and native controls remain available.
+  const coverVideoId = '3NHpKon_Uq8';
+  const coverDock = document.getElementById('youtubeMusicDock');
+  const coverToggle = document.getElementById('ytPlayPause');
+  const coverButtonIcon = document.getElementById('ytButtonIcon');
+  const coverButtonLabel = document.getElementById('ytButtonLabel');
+  const coverStatus = document.getElementById('ytPlayerStatus');
+  const coverVolume = document.getElementById('ytVolume');
 
-  let audioContext = null;
-  let musicBus = null;
-  let masterGain = null;
-  let compressor = null;
-  let dryGain = null;
-  let wetGain = null;
-  let reverb = null;
-  let schedulerId = null;
-  let isMusicPlaying = false;
-  let shouldPlayMusic = false;
-  let resumeAfterVisibility = false;
-  let stepIndex = 0;
-  let nextStepTime = 0;
-  let closeContextTimer = null;
-  const bpm = 66;
-  const stepDuration = 60 / bpm / 2;
-  const stepsPerPhrase = 32;
-  const phraseLength = stepDuration * stepsPerPhrase;
+  let coverPlayer = null;
+  let coverReady = false;
+  let coverPlaying = false;
+  let coverWantsPlayback = true;
+  let coverVisible = false;
+  let coverPauseReason = null;
+  let resumeCoverWhenVisible = false;
+  let playerVisibilityObserver = null;
 
-  function setAmbientStatus(playing, message) {
-    if (ambientPlayer) ambientPlayer.classList.toggle('is-playing', playing);
-    if (ambientToggle) {
-      ambientToggle.setAttribute('aria-pressed', String(playing));
-      ambientToggle.setAttribute('aria-label', playing
-        ? 'Pause background music'
-        : 'Play soft piano and violin ambience');
+  function setCoverUI(playing, message) {
+    coverPlaying = playing;
+    if (coverDock) coverDock.classList.toggle('is-playing', playing);
+    if (coverToggle) coverToggle.setAttribute('aria-pressed', String(playing));
+    if (coverButtonIcon) coverButtonIcon.textContent = playing ? 'Ⅱ' : '▶';
+    if (coverButtonLabel) coverButtonLabel.textContent = playing ? 'Pause my cover' : 'Play my cover';
+    if (coverStatus && message) coverStatus.textContent = message;
+  }
+
+  function safePlayCover() {
+    if (!coverReady || !coverPlayer || !coverWantsPlayback) return;
+    if (!coverVisible) {
+      if (coverStatus) coverStatus.textContent = 'Player ready · press Play when it is in view';
+      return;
     }
-    if (ambientLabel) ambientLabel.textContent = playing ? 'Ambience is playing' : 'Play the ambience';
-    if (ambientStatus) ambientStatus.textContent = message;
-    if (ambientSymbol) ambientSymbol.textContent = playing ? 'Ⅱ' : '♫';
-  }
-
-  function midiFrequency(midi) {
-    return 440 * Math.pow(2, (midi - 69) / 12);
-  }
-
-  function createReverbImpulse(context) {
-    const seconds = 2.1;
-    const length = Math.floor(context.sampleRate * seconds);
-    const buffer = context.createBuffer(2, length, context.sampleRate);
-    for (let channel = 0; channel < 2; channel += 1) {
-      const data = buffer.getChannelData(channel);
-      for (let i = 0; i < length; i += 1) {
-        const decay = Math.pow(1 - i / length, 3.1);
-        data[i] = (Math.random() * 2 - 1) * decay * 0.32;
-      }
-    }
-    return buffer;
-  }
-
-  function createAudioEngine() {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextClass) throw new Error('Web Audio is not supported in this browser.');
-    audioContext = new AudioContextClass();
-    musicBus = audioContext.createGain();
-    dryGain = audioContext.createGain();
-    wetGain = audioContext.createGain();
-    reverb = audioContext.createConvolver();
-    masterGain = audioContext.createGain();
-    compressor = audioContext.createDynamicsCompressor();
-
-    dryGain.gain.value = 0.88;
-    wetGain.gain.value = 0.22;
-    reverb.buffer = createReverbImpulse(audioContext);
-    masterGain.gain.value = 0.0001;
-    compressor.threshold.value = -20;
-    compressor.knee.value = 18;
-    compressor.ratio.value = 2.4;
-    compressor.attack.value = 0.012;
-    compressor.release.value = 0.22;
-
-    musicBus.connect(dryGain);
-    dryGain.connect(masterGain);
-    musicBus.connect(reverb);
-    reverb.connect(wetGain);
-    wetGain.connect(masterGain);
-    masterGain.connect(compressor);
-    compressor.connect(audioContext.destination);
-  }
-
-  function applyMasterVolume(duration) {
-    if (!audioContext || !masterGain) return;
-    const now = audioContext.currentTime;
-    const sliderValue = ambientVolume ? Number(ambientVolume.value) / 100 : 0.42;
-    const target = Math.max(0.0001, sliderValue * 0.78);
-    masterGain.gain.cancelScheduledValues(now);
-    masterGain.gain.setValueAtTime(Math.max(0.0001, masterGain.gain.value), now);
-    masterGain.gain.linearRampToValueAtTime(isMusicPlaying ? target : 0.0001, now + (duration || 0.18));
-  }
-
-  function pianoNote(midi, start, strength, length) {
-    if (!audioContext || !musicBus) return;
-    const context = audioContext;
-    const fundamental = midiFrequency(midi);
-    const envelope = context.createGain();
-    const filter = context.createBiquadFilter();
-    const now = Math.max(start, context.currentTime + 0.006);
-    const duration = length || 1.55;
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(2700, now);
-    filter.Q.value = 0.5;
-    envelope.gain.setValueAtTime(0.0001, now);
-    envelope.gain.linearRampToValueAtTime(strength, now + 0.014);
-    envelope.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-    filter.connect(envelope);
-    envelope.connect(musicBus);
-
-    const harmonics = [
-      { ratio: 1, gain: 1 },
-      { ratio: 2, gain: 0.23 },
-      { ratio: 3, gain: 0.07 }
-    ];
-    harmonics.forEach(partial => {
-      const oscillator = context.createOscillator();
-      const partialGain = context.createGain();
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(fundamental * partial.ratio, now);
-      oscillator.detune.value = partial.ratio === 1 ? -1 : 1;
-      partialGain.gain.value = partial.gain;
-      oscillator.connect(partialGain);
-      partialGain.connect(filter);
-      oscillator.start(now);
-      oscillator.stop(now + duration + 0.04);
-    });
-  }
-
-  function violinNote(midi, start, duration, strength) {
-    if (!audioContext || !musicBus) return;
-    const context = audioContext;
-    const now = Math.max(start, context.currentTime + 0.006);
-    const noteLength = duration || 1.0;
-    const oscillator = context.createOscillator();
-    const filter = context.createBiquadFilter();
-    const envelope = context.createGain();
-    const vibrato = context.createOscillator();
-    const vibratoDepth = context.createGain();
-
-    oscillator.type = 'sawtooth';
-    oscillator.frequency.setValueAtTime(midiFrequency(midi), now);
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(1550, now);
-    filter.Q.value = 0.7;
-
-    vibrato.type = 'sine';
-    vibrato.frequency.value = 5.1;
-    vibratoDepth.gain.value = 3.1;
-    vibrato.connect(vibratoDepth);
-    vibratoDepth.connect(oscillator.detune);
-
-    envelope.gain.setValueAtTime(0.0001, now);
-    envelope.gain.linearRampToValueAtTime(strength, now + 0.19);
-    envelope.gain.setValueAtTime(strength * 0.78, now + Math.max(0.24, noteLength - 0.17));
-    envelope.gain.exponentialRampToValueAtTime(0.0001, now + noteLength + 0.24);
-
-    oscillator.connect(filter);
-    filter.connect(envelope);
-    envelope.connect(musicBus);
-    oscillator.start(now);
-    vibrato.start(now);
-    oscillator.stop(now + noteLength + 0.28);
-    vibrato.stop(now + noteLength + 0.28);
-  }
-
-  const chordProgression = [
-    [60, 64, 67, 71], // Cmaj7
-    [57, 60, 64, 67], // Am7
-    [53, 57, 60, 64], // Fmaj7
-    [55, 57, 62, 67]  // Gsus2
-  ];
-  const arpeggioPattern = [0, 2, 1, 2, 3, 2, 1, 2];
-  const violinSteps = [
-    { step: 0, note: 72 }, { step: 3, note: 76 },
-    { step: 8, note: 79 }, { step: 11, note: 76 },
-    { step: 16, note: 74 }, { step: 19, note: 72 },
-    { step: 24, note: 67 }, { step: 27, note: 72 }
-  ];
-
-  function scheduleStep(index, start) {
-    const step = index % stepsPerPhrase;
-    const bar = Math.floor(step / 8);
-    const stepInBar = step % 8;
-    const chord = chordProgression[bar];
-    const noteIndex = arpeggioPattern[stepInBar];
-    const pianoStrength = (stepInBar === 0 || stepInBar === 4) ? 0.23 : 0.17;
-
-    pianoNote(chord[noteIndex], start, pianoStrength, stepInBar === 0 ? 1.7 : 1.35);
-    if (stepInBar === 0) {
-      pianoNote(chord[0] - 12, start, 0.105, 2.0);
-    }
-    const violin = violinSteps.find(item => item.step === step);
-    if (violin) violinNote(violin.note, start, 1.13, 0.105);
-  }
-
-  function scheduleAhead() {
-    if (!audioContext || !isMusicPlaying) return;
-    const horizon = audioContext.currentTime + 0.28;
-    while (nextStepTime < horizon) {
-      scheduleStep(stepIndex, nextStepTime);
-      stepIndex += 1;
-      nextStepTime += stepDuration;
-    }
-  }
-
-  function beginScheduler() {
-    if (schedulerId) window.clearInterval(schedulerId);
-    stepIndex = 0;
-    nextStepTime = audioContext.currentTime + 0.18;
-    scheduleAhead();
-    schedulerId = window.setInterval(scheduleAhead, 90);
-  }
-
-  async function startAmbientMusic(userInitiated) {
     try {
-      if (closeContextTimer) {
-        window.clearTimeout(closeContextTimer);
-        closeContextTimer = null;
-      }
-      if (!audioContext || audioContext.state === 'closed') createAudioEngine();
-      await audioContext.resume();
-      if (audioContext.state !== 'running') throw new Error('Audio playback has not been activated.');
-      isMusicPlaying = true;
-      shouldPlayMusic = true;
-      resumeAfterVisibility = false;
-      beginScheduler();
-      applyMasterVolume(1.35);
-      setAmbientStatus(true, 'Softly playing · continues as you scroll');
+      coverPlayer.playVideo();
+      if (coverStatus) coverStatus.textContent = 'Starting your violin cover…';
     } catch (error) {
-      isMusicPlaying = false;
-      if (userInitiated) {
-        setAmbientStatus(false, 'Audio could not start · try checking browser sound settings');
+      setCoverUI(false, 'Press Play to start your cover.');
+    }
+  }
+
+  function createCoverPlayer() {
+    if (!window.YT || !window.YT.Player || coverPlayer) return;
+    coverPlayer = new window.YT.Player('violinYouTubePlayer', {
+      width: '360',
+      height: '203',
+      videoId: coverVideoId,
+      playerVars: {
+        autoplay: 0,
+        controls: 1,
+        loop: 1,
+        playlist: coverVideoId,
+        playsinline: 1,
+        rel: 0,
+        enablejsapi: 1,
+        origin: window.location.origin
+      },
+      events: {
+        onReady: event => {
+          coverReady = true;
+          try {
+            event.target.getIframe().setAttribute('title', "Say You Won't Let Go — Violin Prince violin cover");
+            event.target.setVolume(Number(coverVolume ? coverVolume.value : 42));
+          } catch (error) {}
+          if (coverStatus) coverStatus.textContent = 'Your cover is ready · trying to start music';
+          safePlayCover();
+        },
+        onStateChange: event => {
+          const states = window.YT.PlayerState;
+          if (event.data === states.PLAYING) {
+            resumeCoverWhenVisible = false;
+            setCoverUI(true, "Playing · Say You Won't Let Go");
+          } else if (event.data === states.PAUSED) {
+            setCoverUI(false, coverPauseReason === 'visibility'
+              ? 'Paused while this tab is away'
+              : 'Paused · press Play to continue');
+            if (coverPauseReason !== 'visibility') coverWantsPlayback = false;
+            coverPauseReason = null;
+          } else if (event.data === states.ENDED && coverWantsPlayback && coverVisible) {
+            // Loop parameter is enabled too; this is a fallback if the player reports ENDED.
+            try {
+              event.target.seekTo(0, true);
+              event.target.playVideo();
+            } catch (error) {}
+          } else if (event.data === states.CUED) {
+            if (!coverPlaying && coverStatus) coverStatus.textContent = 'Ready · press Play to listen';
+          }
+        },
+        onAutoplayBlocked: () => {
+          coverWantsPlayback = false;
+          setCoverUI(false, 'Autoplay blocked · press Play to listen');
+        },
+        onError: () => {
+          coverWantsPlayback = false;
+          setCoverUI(false, 'Could not load the cover · use Open on YouTube');
+        }
+      }
+    });
+  }
+
+  function loadCoverPlayerAPI() {
+    if (window.YT && window.YT.Player) {
+      createCoverPlayer();
+      return;
+    }
+    const previousReadyCallback = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      if (typeof previousReadyCallback === 'function') previousReadyCallback();
+      createCoverPlayer();
+    };
+    if (!document.querySelector('script[data-violin-prince-youtube-api]')) {
+      const apiScript = document.createElement('script');
+      apiScript.src = 'https://www.youtube.com/iframe_api';
+      apiScript.async = true;
+      apiScript.dataset.violinPrinceYoutubeApi = 'true';
+      apiScript.onerror = () => setCoverUI(false, 'YouTube player could not load · check your connection');
+      document.head.appendChild(apiScript);
+    }
+  }
+
+  if (coverToggle) {
+    coverToggle.addEventListener('click', () => {
+      if (!coverReady || !coverPlayer) {
+        coverWantsPlayback = true;
+        if (coverStatus) coverStatus.textContent = 'Loading YouTube player…';
+        loadCoverPlayerAPI();
+        return;
+      }
+      if (coverPlaying) {
+        coverWantsPlayback = false;
+        coverPlayer.pauseVideo();
+        setCoverUI(false, 'Paused · press Play to continue');
       } else {
-        setAmbientStatus(false, 'Tap to begin · soft piano + violin');
+        coverWantsPlayback = true;
+        safePlayCover();
       }
-    }
-  }
-
-  function stopAmbientMusic(options) {
-    const keepIntent = Boolean(options && options.keepIntent);
-    if (!keepIntent) {
-      shouldPlayMusic = false;
-      resumeAfterVisibility = false;
-    }
-    isMusicPlaying = false;
-    if (schedulerId) {
-      window.clearInterval(schedulerId);
-      schedulerId = null;
-    }
-    applyMasterVolume(0.45);
-    setAmbientStatus(false, keepIntent ? 'Pausing while this tab is away' : 'Paused · your soundtrack is waiting');
-    if (closeContextTimer) window.clearTimeout(closeContextTimer);
-    closeContextTimer = window.setTimeout(() => {
-      if (!isMusicPlaying && audioContext) {
-        const oldContext = audioContext;
-        audioContext = null;
-        musicBus = null;
-        masterGain = null;
-        dryGain = null;
-        wetGain = null;
-        reverb = null;
-        compressor = null;
-        oldContext.close().catch(() => {});
-      }
-    }, 620);
-  }
-
-  if (ambientToggle) {
-    ambientToggle.addEventListener('click', () => {
-      if (isMusicPlaying) stopAmbientMusic();
-      else startAmbientMusic(true);
     });
   }
-  if (ambientVolume) {
-    ambientVolume.addEventListener('input', () => {
-      if (isMusicPlaying) applyMasterVolume(0.08);
+
+  if (coverVolume) {
+    coverVolume.addEventListener('input', () => {
+      if (coverReady && coverPlayer) coverPlayer.setVolume(Number(coverVolume.value));
     });
+  }
+
+  // Only attempt automatic playback while more than half of the visible player is on screen.
+  if ('IntersectionObserver' in window) {
+    playerVisibilityObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        coverVisible = entry.isIntersecting && entry.intersectionRatio > 0.5;
+        if (coverVisible && coverWantsPlayback && coverReady && !coverPlaying) {
+          safePlayCover();
+        } else if (!coverVisible && coverPlaying) {
+          resumeCoverWhenVisible = true;
+          coverPauseReason = 'visibility';
+          if (coverPlayer) coverPlayer.pauseVideo();
+        } else if (coverVisible && resumeCoverWhenVisible && coverWantsPlayback) {
+          safePlayCover();
+        }
+      });
+    }, { threshold: [0, 0.5, 0.75, 1] });
+    const playerMount = document.getElementById('violinYouTubePlayer');
+    if (playerMount) playerVisibilityObserver.observe(playerMount);
+  } else {
+    coverVisible = true;
   }
 
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden && isMusicPlaying) {
-      resumeAfterVisibility = shouldPlayMusic;
-      stopAmbientMusic({ keepIntent: true });
-    } else if (!document.hidden && resumeAfterVisibility && shouldPlayMusic) {
-      startAmbientMusic(false);
+    if (document.hidden && coverPlaying && coverPlayer) {
+      resumeCoverWhenVisible = true;
+      coverPauseReason = 'visibility';
+      coverPlayer.pauseVideo();
+    } else if (!document.hidden && resumeCoverWhenVisible && coverWantsPlayback) {
+      safePlayCover();
     }
   });
 
   window.addEventListener('pagehide', () => {
-    if (schedulerId) window.clearInterval(schedulerId);
-    schedulerId = null;
-    isMusicPlaying = false;
-    shouldPlayMusic = false;
-    if (audioContext && audioContext.state !== 'closed') audioContext.close().catch(() => {});
+    coverWantsPlayback = false;
+    if (playerVisibilityObserver) playerVisibilityObserver.disconnect();
+    if (coverPlayer && coverReady) {
+      try { coverPlayer.stopVideo(); } catch (error) {}
+    }
   });
 
-  // Attempt autoplay only where the browser permits it. Otherwise show the Play control.
-  window.setTimeout(() => startAmbientMusic(false), 280);
+  // The API is loaded on page open; autoplay is attempted only once the player is visible.
+  loadCoverPlayerAPI();
 
 })();
