@@ -416,56 +416,105 @@
     });
   }
 
-  if (supportNo && supportStage && supportStatus) {
-    supportNo.addEventListener('pointerenter', event => {
-      // No dodging on touch, keyboard focus, or reduced-motion settings.
-      if (event.pointerType === 'touch' || prefersReducedMotion || supportNoDodgeCount >= 4 || supportNo.matches(':focus-visible')) return;
-      const stageRect = supportStage.getBoundingClientRect();
-      const buttonRect = supportNo.getBoundingClientRect();
-      const maxX = Math.max(0, stageRect.width-buttonRect.width);
-      const maxY = Math.max(0, stageRect.height-buttonRect.height);
-      if (!supportNoHasDodgePosition) {
-        supportNo.style.position = 'absolute';
-        supportNo.style.right = 'auto';
-        supportNoHasDodgePosition = true;
-      }
-      const candidates = [
-        {x:0,y:0},{x:maxX,y:0},{x:0,y:maxY},{x:maxX,y:maxY},
-        {x:maxX*.5,y:0},{x:maxX*.5,y:maxY},{x:0,y:maxY*.5},{x:maxX,y:maxY*.5}
-      ];
-      let choice = candidates[Math.floor(Math.random()*candidates.length)];
-      if (supportNo.style.left) {
-        const currentX = parseFloat(supportNo.style.left);
-        const currentY = parseFloat(supportNo.style.top);
-        const distant = candidates.filter(p => Math.abs(p.x-currentX)>maxX*.25 || Math.abs(p.y-currentY)>maxY*.25);
-        if (distant.length) choice = distant[Math.floor(Math.random()*distant.length)];
-      }
-      supportNo.style.left = Math.max(0,Math.min(maxX,choice.x))+'px';
-      supportNo.style.top = Math.max(0,Math.min(maxY,choice.y))+'px';
-      supportNoDodgeCount += 1;
-      supportStatus.textContent = supportNoDodgeCount < 4
-        ? 'Hehe, that was close! 😄'
-        : 'Okay, you caught me. You can choose either option now.';
-    });
-    supportNo.addEventListener('focus', () => {
-      // Always make the decline choice easy to reach with a keyboard.
-      supportNo.style.position = 'relative';
-      supportNo.style.left = '';
-      supportNo.style.top = '';
-      supportNo.style.right = '';
-      supportNoHasDodgePosition = false;
-      supportNoDodgeCount = 4;
-    });
-    supportNo.addEventListener('click', () => {
+  let supportNoIsBouncing = false;
+  let supportNoCanDecline = false;
+
+  function settleSupportNoButton() {
+    if (!supportNo) return;
+    supportNoIsBouncing = false;
+    supportNo.classList.remove('is-bouncing');
+    supportNo.textContent = 'Not this time';
+    supportNo.style.pointerEvents = '';
+    supportNoCanDecline = true;
+    if (supportStatus) {
+      supportStatus.textContent = 'You caught it! Click “Not this time” to finish your choice.';
+    }
+  }
+
+  function startSupportNoPingPong(event) {
+    if (!supportNo || !supportStage || !supportStatus || supportNoIsBouncing) return;
+
+    // The first click triggers the game. Keyboard users and reduced-motion users get
+    // the same two-step choice without the movement.
+    if (supportNoCanDecline) {
       clearSupportCelebration();
       if (supportReward) supportReward.hidden = true;
       supportStatus.textContent = 'No worries at all — thanks for spending a little time with my music. 🌿';
-      supportNoDodgeCount = 4;
       supportNo.style.position = 'relative';
       supportNo.style.left = '';
       supportNo.style.top = '';
       supportNo.style.right = '';
-      supportNoHasDodgePosition = false;
+      supportNo.style.bottom = '';
+      supportNo.style.margin = '';
+      supportNo.textContent = 'Not this time';
+      return;
+    }
+
+    if (prefersReducedMotion || (event && event.detail === 0)) {
+      settleSupportNoButton();
+      if (supportStatus) {
+        supportStatus.textContent = 'Ready when you are — click “Not this time” to finish your choice.';
+      }
+      return;
+    }
+
+    supportNoIsBouncing = true;
+    supportNo.classList.add('is-bouncing');
+    supportNo.textContent = 'Catch me!';
+    supportNo.style.position = 'absolute';
+    supportNo.style.right = 'auto';
+    supportNo.style.bottom = 'auto';
+    supportNo.style.margin = '0';
+    supportNo.style.pointerEvents = 'none';
+    supportStatus.textContent = 'Ping… pong… ping… pong! 😄';
+
+    const stageRect = supportStage.getBoundingClientRect();
+    const buttonRect = supportNo.getBoundingClientRect();
+    const maxX = Math.max(0, stageRect.width - buttonRect.width);
+    const maxY = Math.max(0, stageRect.height - buttonRect.height);
+    const startX = Math.max(0, Math.min(maxX, buttonRect.left - stageRect.left));
+    const startY = Math.max(0, Math.min(maxY, buttonRect.top - stageRect.top));
+    supportNo.style.left = startX + 'px';
+    supportNo.style.top = startY + 'px';
+
+    const corners = [
+      {x: maxX, y: 0},
+      {x: 0, y: maxY},
+      {x: maxX, y: maxY},
+      {x: 0, y: 0},
+      {x: maxX * .5, y: maxY},
+      {x: maxX * .5, y: 0}
+    ];
+    let move = 0;
+    function nextBounce() {
+      if (!supportNo || !supportNoIsBouncing) return;
+      if (move >= corners.length) {
+        settleSupportNoButton();
+        return;
+      }
+      const point = corners[move];
+      supportNo.style.left = Math.max(0, Math.min(maxX, point.x)) + 'px';
+      supportNo.style.top = Math.max(0, Math.min(maxY, point.y)) + 'px';
+      supportNo.textContent = move % 2 === 0 ? 'Ping!' : 'Pong!';
+      move += 1;
+      window.setTimeout(nextBounce, 330);
+    }
+    window.setTimeout(nextBounce, 80);
+  }
+
+  if (supportNo && supportStage && supportStatus) {
+    // Unlike the previous version, the button stays put until the visitor clicks it.
+    supportNo.addEventListener('click', startSupportNoPingPong);
+    supportNo.addEventListener('focus', () => {
+      // Keyboard focus always leaves the decline option easy to reach.
+      if (!supportNoIsBouncing) {
+        supportNo.style.position = 'relative';
+        supportNo.style.left = '';
+        supportNo.style.top = '';
+        supportNo.style.right = '';
+        supportNo.style.bottom = '';
+        supportNo.style.margin = '';
+      }
     });
   }
 
