@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#29432f"/><stop offset=".5" stop-color="#14271f"/><stop offset="1" stop-color="#09170f"/></linearGradient>
+<radialGradient id="sun"><stop stop-color="#f1d59b" stop-opacity=".8"/><stop offset=".35" stop-color="#d6b77a" stop-opacity=".24"/><stop offset="1" stop-color="#d6b77a" stop-opacity="0"/></radialGradient>
+<linearGradient id="leaf" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#a4b17a"/><stop offset=".5" stop-color="#58764b"/><stop offset="1" stop-color="#203b29"/></linearGradient>
+<linearGradient id="goldleaf" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#d7c58d"/><stop offset=".5" stop-color="#7f9460"/><stop offset="1" stop-color="#2d4a31"/></linearGradient>
+<filter id="soft"><feGaussianBlur stdDeviation="30"/></filter>
+<g id="leafshape"><path d="M0 0 C24 -38 65 -40 92 -5 C65 29 28 33 0 0Z" fill="url(#leaf)"/><path d="M3 0 Q45 -3 88 -5" fill="none" stroke="#e0d6a7" stroke-opacity=".55" stroke-width="1.6"/></g>
+<g id="leafgold"><path d="M0 0 C20 -33 57 -39 83 -5 C63 26 24 30 0 0Z" fill="url(#goldleaf)"/><path d="M2 0 Q42 -3 79 -5" fill="none" stroke="#e9d8a0" stroke-opacity=".65" stroke-width="1.5"/></g>
+<g id="sprig" fill="none" stroke="#5b7549" stroke-width="5" stroke-linecap="round"><path d="M0 0 Q55 -45 120 -135"/><use href="#leafshape" transform="translate(25 -25) rotate(-32) scale(.85)"/><use href="#leafshape" transform="translate(45 -50) rotate(150) scale(.8)"/><use href="#leafgold" transform="translate(67 -83) rotate(-35) scale(.72)"/><use href="#leafshape" transform="translate(90 -111) rotate(145) scale(.65)"/></g>
+</defs>
+<rect width="1600" height="1000" fill="url(#bg)"/>
+<ellipse cx="1230" cy="150" rx="520" ry="420" fill="url(#sun)"/>
+<g opacity=".5"><path d="M1050 0h190L900 760h-130Z" fill="#e9d5a0" opacity=".15"/><path d="M1320 0h130L1190 580h-90Z" fill="#e9d5a0" opacity=".13"/><path d="M1470 0h100L1370 420h-65Z" fill="#e9d5a0" opacity=".12"/></g>
+<g filter="url(#soft)" opacity=".32"><ellipse cx="1270" cy="380" rx="400" ry="160" fill="#b9b47a"/><ellipse cx="900" cy="780" rx="420" ry="200" fill="#426344"/></g>
+<g opacity=".95">
+<use href="#sprig" transform="translate(20 155) rotate(-18) scale(2.05)"/><use href="#sprig" transform="translate(160 20) rotate(12) scale(1.8)"/><use href="#sprig" transform="translate(360 40) rotate(40) scale(1.35)"/>
+<use href="#sprig" transform="translate(1580 85) rotate(190) scale(2.05)"/><use href="#sprig" transform="translate(1510 15) rotate(155) scale(1.65)"/><use href="#sprig" transform="translate(1580 500) rotate(198) scale(1.25)"/>
+<use href="#sprig" transform="translate(20 770) rotate(-32) scale(1.35)"/><use href="#sprig" transform="translate(200 990) rotate(-20) scale(1.45)"/><use href="#sprig" transform="translate(1560 900) rotate(180) scale(1.6)"/>
+<use href="#leafgold" transform="translate(240 160) rotate(20) scale(1.45)"/><use href="#leafshape" transform="translate(430 220) rotate(160) scale(1.1)"/><use href="#leafgold" transform="translate(1370 200) rotate(175) scale(1.45)"/><use href="#leafshape" transform="translate(1500 320) rotate(195) scale(1.3)"/><use href="#leafgold" transform="translate(1350 790) rotate(200) scale(1.4)"/><use href="#leafshape" transform="translate(320 850) rotate(10) scale(1.2)"/>
+</g>
+<rect width="1600" height="1000" fill="#09170f" opacity=".23"/>
+</svg>
