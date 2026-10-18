@@ -435,11 +435,14 @@
   function resetSupportNoPosition() {
     if (!supportNo) return;
     supportNo.classList.remove('is-bouncing');
-    supportNo.style.position = 'relative';
+    // Clear temporary inline positioning so the original desktop/mobile CSS is restored.
+    // Keeping "position: relative" inline overrides the phone layout after the first tap.
+    supportNo.style.position = '';
     supportNo.style.left = '';
     supportNo.style.top = '';
     supportNo.style.right = '';
     supportNo.style.bottom = '';
+    supportNo.style.width = '';
     supportNo.style.margin = '';
     supportNo.style.transform = '';
     supportNo.style.pointerEvents = '';
@@ -487,6 +490,7 @@
     supportNo.style.position = 'absolute';
     supportNo.style.right = 'auto';
     supportNo.style.bottom = 'auto';
+    supportNo.style.width = buttonRect.width + 'px';
     supportNo.style.margin = '0';
     supportNo.style.left = startX + 'px';
     supportNo.style.top = startY + 'px';
