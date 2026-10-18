@@ -351,8 +351,6 @@
 
   // Keep the page light: load the YouTube API only after the visitor presses Play.
 
-}
-
   // Support finale: floral fireworks on support; a short, playful dodge with a real opt-out.
   const supportYes = document.getElementById('supportYes');
   const supportNo = document.getElementById('supportNo');
