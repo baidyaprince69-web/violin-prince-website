@@ -418,13 +418,31 @@
 
   let supportNoIsBouncing = false;
   let supportNoCanDecline = false;
+  let supportBounceAnimation = null;
+  let supportBounceRunId = 0;
 
-  function settleSupportNoButton() {
+  function resetSupportNoPosition() {
     if (!supportNo) return;
-    supportNoIsBouncing = false;
     supportNo.classList.remove('is-bouncing');
-    supportNo.textContent = 'Not this time';
+    supportNo.style.position = 'relative';
+    supportNo.style.left = '';
+    supportNo.style.top = '';
+    supportNo.style.right = '';
+    supportNo.style.bottom = '';
+    supportNo.style.margin = '';
+    supportNo.style.transform = '';
     supportNo.style.pointerEvents = '';
+    if (supportBounceAnimation) {
+      try { supportBounceAnimation.cancel(); } catch (error) {}
+      supportBounceAnimation = null;
+    }
+  }
+
+  function settleSupportNoButton(runId) {
+    if (!supportNo || (runId !== undefined && runId !== supportBounceRunId)) return;
+    supportNoIsBouncing = false;
+    resetSupportNoPosition();
+    supportNo.textContent = 'Not this time';
     supportNoCanDecline = true;
     if (supportStatus) {
       supportStatus.textContent = 'You caught it! Click “Not this time” to finish your choice.';
@@ -434,89 +452,118 @@
   function startSupportNoPingPong(event) {
     if (!supportNo || !supportStage || !supportStatus || supportNoIsBouncing) return;
 
-    // The first click triggers the game. Keyboard users and reduced-motion users get
-    // the same two-step choice without the movement.
     if (supportNoCanDecline) {
       clearSupportCelebration();
       if (supportReward) supportReward.hidden = true;
       supportStatus.textContent = 'No worries at all — thanks for spending a little time with my music. 🌿';
-      supportNo.style.position = 'relative';
-      supportNo.style.left = '';
-      supportNo.style.top = '';
-      supportNo.style.right = '';
-      supportNo.style.bottom = '';
-      supportNo.style.margin = '';
+      resetSupportNoPosition();
       supportNo.textContent = 'Not this time';
       return;
     }
 
-    if (prefersReducedMotion || (event && event.detail === 0)) {
+    // Keyboard or assistive-technology activation gets the same two-step choice without
+    // moving the button. A direct pointer click explicitly starts the playful animation.
+    if (event && event.detail === 0) {
       settleSupportNoButton();
-      if (supportStatus) {
-        supportStatus.textContent = 'Ready when you are — click “Not this time” to finish your choice.';
-      }
+      supportStatus.textContent = 'Click “Not this time” to finish your choice.';
       return;
     }
 
     supportNoIsBouncing = true;
     supportNo.classList.add('is-bouncing');
-    supportNo.textContent = 'Catch me!';
-    supportNo.style.position = 'absolute';
-    supportNo.style.right = 'auto';
-    supportNo.style.bottom = 'auto';
-    supportNo.style.margin = '0';
+    supportNo.textContent = 'PING!';
     supportNo.style.pointerEvents = 'none';
-    supportStatus.textContent = 'Ping… pong… ping… pong! 😄';
+    supportStatus.textContent = 'Ping… pong… ping… pong! Catch the button!';
 
+    // Measure its current visible position before taking it out of the flex flow.
     const stageRect = supportStage.getBoundingClientRect();
     const buttonRect = supportNo.getBoundingClientRect();
     const maxX = Math.max(0, stageRect.width - buttonRect.width);
     const maxY = Math.max(0, stageRect.height - buttonRect.height);
     const startX = Math.max(0, Math.min(maxX, buttonRect.left - stageRect.left));
     const startY = Math.max(0, Math.min(maxY, buttonRect.top - stageRect.top));
+
+    supportNo.style.position = 'absolute';
+    supportNo.style.right = 'auto';
+    supportNo.style.bottom = 'auto';
+    supportNo.style.margin = '0';
     supportNo.style.left = startX + 'px';
     supportNo.style.top = startY + 'px';
+    supportNo.style.transform = 'translate(0px, 0px)';
 
     const corners = [
-      {x: maxX, y: 0},
-      {x: 0, y: maxY},
-      {x: maxX, y: maxY},
-      {x: 0, y: 0},
-      {x: maxX * .5, y: maxY},
-      {x: maxX * .5, y: 0}
+      {x:maxX, y:0},
+      {x:0, y:maxY},
+      {x:maxX, y:maxY},
+      {x:0, y:0},
+      {x:maxX*.5, y:maxY},
+      {x:maxX*.5, y:0}
     ];
     let move = 0;
+    let currentX = 0;
+    let currentY = 0;
+    const runId = ++supportBounceRunId;
+
     function nextBounce() {
-      if (!supportNo || !supportNoIsBouncing) return;
+      if (!supportNo || !supportNoIsBouncing || runId !== supportBounceRunId) return;
       if (move >= corners.length) {
-        settleSupportNoButton();
+        settleSupportNoButton(runId);
         return;
       }
+
       const point = corners[move];
-      supportNo.style.left = Math.max(0, Math.min(maxX, point.x)) + 'px';
-      supportNo.style.top = Math.max(0, Math.min(maxY, point.y)) + 'px';
-      supportNo.textContent = move % 2 === 0 ? 'Ping!' : 'Pong!';
+      const nextX = Math.max(0, Math.min(maxX, point.x)) - startX;
+      const nextY = Math.max(0, Math.min(maxY, point.y)) - startY;
+      supportNo.textContent = move % 2 === 0 ? 'PONG!' : 'PING!';
+      const from = 'translate(' + currentX + 'px, ' + currentY + 'px)';
+      const to = 'translate(' + nextX + 'px, ' + nextY + 'px)';
       move += 1;
-      window.setTimeout(nextBounce, 330);
+
+      // Web Animations API avoids dependence on CSS transition timing or cached animation rules.
+      if (typeof supportNo.animate === 'function') {
+        supportBounceAnimation = supportNo.animate(
+          [{transform:from},{transform:to}],
+          {duration:280, easing:'cubic-bezier(.22,.8,.25,1)', fill:'forwards'}
+        );
+        supportBounceAnimation.onfinish = () => {
+          if (!supportNoIsBouncing || runId !== supportBounceRunId) return;
+          currentX = nextX;
+          currentY = nextY;
+          supportNo.style.transform = to;
+          if (supportBounceAnimation) {
+            supportBounceAnimation.onfinish = null;
+            supportBounceAnimation.cancel();
+            supportBounceAnimation = null;
+          }
+          window.setTimeout(nextBounce, 45);
+        };
+      } else {
+        // Simple fallback for older browsers: explicit CSS movement.
+        supportNo.style.transition = 'left 280ms ease, top 280ms ease';
+        supportNo.style.left = Math.max(0, Math.min(maxX, point.x)) + 'px';
+        supportNo.style.top = Math.max(0, Math.min(maxY, point.y)) + 'px';
+        currentX = nextX;
+        currentY = nextY;
+        window.setTimeout(nextBounce, 325);
+      }
     }
-    window.setTimeout(nextBounce, 80);
+
+    // Force layout once so every hop begins from the button's actual rendered position.
+    void supportNo.offsetWidth;
+    window.setTimeout(nextBounce, 60);
   }
 
   if (supportNo && supportStage && supportStatus) {
-    // Unlike the previous version, the button stays put until the visitor clicks it.
     supportNo.addEventListener('click', startSupportNoPingPong);
     supportNo.addEventListener('focus', () => {
-      // Keyboard focus always leaves the decline option easy to reach.
-      if (!supportNoIsBouncing) {
-        supportNo.style.position = 'relative';
-        supportNo.style.left = '';
-        supportNo.style.top = '';
-        supportNo.style.right = '';
-        supportNo.style.bottom = '';
-        supportNo.style.margin = '';
+      // Keyboard focus keeps the decline choice stationary and available.
+      if (supportNoIsBouncing) {
+        supportNoIsBouncing = false;
+        supportBounceRunId += 1;
       }
+      resetSupportNoPosition();
+      if (!supportNoCanDecline) supportNo.textContent = 'I’ll not support';
     });
   }
-
 
 })();
