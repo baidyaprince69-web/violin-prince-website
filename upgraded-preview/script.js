@@ -93,7 +93,6 @@
     const data = new FormData(form);
     const song = String(data.get('songTitle') || '').trim();
     data.set('_subject', 'Song request for Violin Prince: ' + song);
-    data.set('_template', 'table');
     if (submitButton) { submitButton.disabled = true; submitButton.textContent = 'Sending your request…'; }
     status.className = 'form-status';
     status.textContent = 'Sending your song request…';
