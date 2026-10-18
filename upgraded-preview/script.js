@@ -103,7 +103,9 @@
       const response = await fetch(form.dataset.endpoint, {method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(Object.fromEntries(data.entries()))});
       let result = {};
       try { result = await response.json(); } catch (error) {}
-      if (!response.ok || result.success === false) throw new Error((result.message || 'The form service did not accept the request.') + ' (HTTP ' + response.status + ')');
+      const serviceMessage = String(result.message || '');
+      const serviceSaysActivate = /activat|verif|confirm/i.test(serviceMessage);
+      if (!response.ok || result.success === false || result.success === 'false' || serviceSaysActivate) throw new Error((serviceMessage || 'The form service did not accept the request.') + ' (HTTP ' + response.status + ')');
       form.reset();
       status.className = 'form-status is-success';
       status.textContent = 'Thank you! Your song request has been sent to Violin Prince.';
