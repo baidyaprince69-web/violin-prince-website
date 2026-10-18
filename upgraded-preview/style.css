@@ -982,3 +982,11 @@ img {
     transition: none !important;
   }
 }
+
+
+/* Keep the minimized video button clear of the bottom player bar. */
+.youtube-music-dock.is-minimized {
+  z-index: 75;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: calc(122px + env(safe-area-inset-bottom));
+}
