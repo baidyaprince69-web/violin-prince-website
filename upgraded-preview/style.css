@@ -454,3 +454,8 @@ html{scroll-padding-bottom:120px}body{padding-bottom:calc(110px + env(safe-area-
 
 /* Lift the expanded video dock above the persistent bottom player bar. */
 .youtube-music-dock:not(.is-minimized){bottom:calc(96px + env(safe-area-inset-bottom));}
+
+
+/* Category filters must hide cards even when the narrow-phone layout sets display:grid. */
+.music-card[hidden] { display: none !important; }
+.empty-state[hidden] { display: none !important; }
