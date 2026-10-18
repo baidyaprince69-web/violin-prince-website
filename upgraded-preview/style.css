@@ -459,3 +459,66 @@ html{scroll-padding-bottom:120px}body{padding-bottom:calc(110px + env(safe-area-
 /* Category filters must hide cards even when the narrow-phone layout sets display:grid. */
 .music-card[hidden] { display: none !important; }
 .empty-state[hidden] { display: none !important; }
+
+
+/* Signature motion for the hero and artist story: soft, cinematic, and restrained. */
+body.motion-ready .hero-content .eyebrow,
+body.motion-ready .hero-content h1,
+body.motion-ready .hero-copy,
+body.motion-ready .hero-actions,
+body.motion-ready .hero-note,
+body.motion-ready .about-copy > *,
+body.motion-ready .artist-portrait img,
+body.motion-ready .artist-portrait figcaption {
+  transition:
+    opacity 780ms cubic-bezier(.2,.72,.2,1),
+    transform 920ms cubic-bezier(.18,.72,.18,1),
+    filter 920ms cubic-bezier(.18,.72,.18,1);
+}
+body.motion-ready .hero-art.reveal-from-right:not(.is-visible) {
+  opacity: 0;
+  transform: translate3d(42px, 10px, 0) scale(.97);
+}
+body.motion-ready .artist-portrait.reveal-from-left:not(.is-visible) {
+  opacity: 0;
+  transform: translate3d(-38px, 14px, 0);
+}
+body.motion-ready .artist-portrait img.reveal-soft-scale:not(.is-visible) {
+  opacity: 0;
+  transform: scale(.94);
+  filter: saturate(.72);
+}
+body.motion-ready .hero-art.reveal-from-right.is-visible,
+body.motion-ready .artist-portrait.reveal-from-left.is-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+}
+body.motion-ready .artist-portrait img.reveal-soft-scale.is-visible {
+  opacity: 1;
+  transform: scale(1);
+  filter: saturate(1);
+}
+body.motion-ready .intro-strip.is-visible > p {
+  animation: intro-word-arrive 680ms both cubic-bezier(.2,.72,.2,1);
+}
+body.motion-ready .intro-strip.is-visible > p:nth-of-type(2) { animation-delay: 100ms; }
+body.motion-ready .intro-strip.is-visible > p:nth-of-type(3) { animation-delay: 200ms; }
+@keyframes intro-word-arrive {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.motion-ready .hero-content .eyebrow,
+  body.motion-ready .hero-content h1,
+  body.motion-ready .hero-copy,
+  body.motion-ready .hero-actions,
+  body.motion-ready .hero-note,
+  body.motion-ready .about-copy > *,
+  body.motion-ready .artist-portrait img,
+  body.motion-ready .artist-portrait figcaption,
+  body.motion-ready .intro-strip.is-visible > p {
+    animation: none !important;
+    transition: none !important;
+    filter: none !important;
+  }
+}
