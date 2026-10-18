@@ -351,4 +351,123 @@
 
   // Keep the page light: load the YouTube API only after the visitor presses Play.
 
+}
+
+  // Support finale: floral fireworks on support; a short, playful dodge with a real opt-out.
+  const supportYes = document.getElementById('supportYes');
+  const supportNo = document.getElementById('supportNo');
+  const supportStage = document.getElementById('supportActionStage');
+  const supportReward = document.getElementById('supportReward');
+  const supportStatus = document.getElementById('supportStatus');
+  const supportCelebration = document.getElementById('supportCelebration');
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let supportNoDodgeCount = 0;
+  let supportNoHasDodgePosition = false;
+  let supportCelebrationTimer = null;
+
+  function clearSupportCelebration() {
+    if (supportCelebrationTimer) window.clearTimeout(supportCelebrationTimer);
+    if (supportCelebration) supportCelebration.replaceChildren();
+    supportCelebrationTimer = null;
+  }
+
+  function launchSupportFlowers() {
+    if (!supportCelebration || prefersReducedMotion) return;
+    clearSupportCelebration();
+    const flowers = ['✿','❀','✽','✾','❋','✦','✧','✺'];
+    const colors = ['#f4dca4','#d6b77a','#f4b8c8','#f2eee0','#c4d890','#f0a7a7','#b9d8bc'];
+    const centers = [
+      {x:18,y:58},{x:50,y:50},{x:82,y:58}
+    ];
+    centers.forEach((center, burstIndex) => {
+      const count = 24;
+      for (let i=0;i<count;i+=1) {
+        const angle = (Math.PI*2*i/count) + (Math.random()*.12);
+        const distance = 120 + Math.random()*260;
+        const drift = 18 + Math.random()*90;
+        const particle = document.createElement('span');
+        particle.className = 'support-particle';
+        particle.textContent = flowers[Math.floor(Math.random()*flowers.length)];
+        particle.style.setProperty('--start-x', center.x + '%');
+        particle.style.setProperty('--start-y', center.y + '%');
+        particle.style.setProperty('--dx', Math.cos(angle)*distance + 'px');
+        particle.style.setProperty('--dy', Math.sin(angle)*distance + 'px');
+        particle.style.setProperty('--dx2', (Math.cos(angle)*distance + (Math.random()-.5)*drift) + 'px');
+        particle.style.setProperty('--dy2', (Math.sin(angle)*distance + 65 + Math.random()*95) + 'px');
+        particle.style.setProperty('--spin', (Math.random()>.5?1:-1)*(100+Math.random()*600) + 'deg');
+        particle.style.setProperty('--particle-color',colors[Math.floor(Math.random()*colors.length)]);
+        particle.style.setProperty('--particle-size',(13+Math.random()*23)+'px');
+        particle.style.setProperty('--particle-delay',(Math.random()*.46+burstIndex*.08)+'s');
+        supportCelebration.appendChild(particle);
+      }
+    });
+    supportCelebrationTimer = window.setTimeout(clearSupportCelebration, 3900);
+  }
+
+  if (supportYes && supportReward && supportStatus) {
+    supportYes.addEventListener('click', () => {
+      // The link still works normally in a new tab; celebrate locally before the visitor leaves.
+      supportReward.hidden = false;
+      supportStatus.textContent = 'You unlocked the Golden Bloom — thank you for the encouragement!';
+      launchSupportFlowers();
+      const rewardHeading = supportReward.querySelector('h3');
+      if (rewardHeading) rewardHeading.setAttribute('tabindex','-1');
+      window.setTimeout(() => { if (rewardHeading) rewardHeading.focus({preventScroll:true}); }, 80);
+    });
+  }
+
+  if (supportNo && supportStage && supportStatus) {
+    supportNo.addEventListener('pointerenter', event => {
+      // No dodging on touch, keyboard focus, or reduced-motion settings.
+      if (event.pointerType === 'touch' || prefersReducedMotion || supportNoDodgeCount >= 4 || supportNo.matches(':focus-visible')) return;
+      const stageRect = supportStage.getBoundingClientRect();
+      const buttonRect = supportNo.getBoundingClientRect();
+      const maxX = Math.max(0, stageRect.width-buttonRect.width);
+      const maxY = Math.max(0, stageRect.height-buttonRect.height);
+      if (!supportNoHasDodgePosition) {
+        supportNo.style.position = 'absolute';
+        supportNo.style.right = 'auto';
+        supportNoHasDodgePosition = true;
+      }
+      const candidates = [
+        {x:0,y:0},{x:maxX,y:0},{x:0,y:maxY},{x:maxX,y:maxY},
+        {x:maxX*.5,y:0},{x:maxX*.5,y:maxY},{x:0,y:maxY*.5},{x:maxX,y:maxY*.5}
+      ];
+      let choice = candidates[Math.floor(Math.random()*candidates.length)];
+      if (supportNo.style.left) {
+        const currentX = parseFloat(supportNo.style.left);
+        const currentY = parseFloat(supportNo.style.top);
+        const distant = candidates.filter(p => Math.abs(p.x-currentX)>maxX*.25 || Math.abs(p.y-currentY)>maxY*.25);
+        if (distant.length) choice = distant[Math.floor(Math.random()*distant.length)];
+      }
+      supportNo.style.left = Math.max(0,Math.min(maxX,choice.x))+'px';
+      supportNo.style.top = Math.max(0,Math.min(maxY,choice.y))+'px';
+      supportNoDodgeCount += 1;
+      supportStatus.textContent = supportNoDodgeCount < 4
+        ? 'Hehe, that was close! 😄'
+        : 'Okay, you caught me. You can choose either option now.';
+    });
+    supportNo.addEventListener('focus', () => {
+      // Always make the decline choice easy to reach with a keyboard.
+      supportNo.style.position = 'relative';
+      supportNo.style.left = '';
+      supportNo.style.top = '';
+      supportNo.style.right = '';
+      supportNoHasDodgePosition = false;
+      supportNoDodgeCount = 4;
+    });
+    supportNo.addEventListener('click', () => {
+      clearSupportCelebration();
+      if (supportReward) supportReward.hidden = true;
+      supportStatus.textContent = 'No worries at all — thanks for spending a little time with my music. 🌿';
+      supportNoDodgeCount = 4;
+      supportNo.style.position = 'relative';
+      supportNo.style.left = '';
+      supportNo.style.top = '';
+      supportNo.style.right = '';
+      supportNoHasDodgePosition = false;
+    });
+  }
+
+
 })();
