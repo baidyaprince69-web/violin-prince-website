@@ -4,23 +4,23 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d1014">
-  <meta name="description" content="Discover Hai Apna Dil To Awara, a classic Hindi film melody reimagined on violin by Prince Baidya — Violin Prince. Watch the full performance and explore the story behind this timeless song.">
+  <meta name="description" content="Watch Prince Baidya’s violin cover of Hai Apna Dil To Awara, the classic song from Solva Saal. Explore the performance, song story and more violin covers.">
   <meta name="robots" content="index,follow,max-image-preview:large">
   <link rel="canonical" href="https://baidyaprince69-web.github.io/violin-prince-website/hai-apna-dil-to-awara/">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Violin Prince">
   <meta property="og:url" content="https://baidyaprince69-web.github.io/violin-prince-website/hai-apna-dil-to-awara/">
   <meta property="og:title" content="Hai Apna Dil To Awara — Violin Cover by Prince Baidya | Violin Prince">
-  <meta property="og:description" content="A wandering melody, heard anew. Watch Prince Baidya's violin interpretation of the Hindi classic Hai Apna Dil To Awara.">
+  <meta property="og:description" content="Watch Prince Baidya’s violin cover of Hai Apna Dil To Awara, the classic song from Solva Saal. Explore the performance, song story and more violin covers.">
   <meta property="og:image" content="https://i.ytimg.com/vi/StnvyGduJ0s/maxresdefault.jpg">
   <meta property="og:image:alt" content="Hai Apna Dil To Awara violin cover by Prince Baidya, Violin Prince">
   <meta property="og:image:width" content="1280">
   <meta property="og:image:height" content="720">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Hai Apna Dil To Awara — Violin Cover by Prince Baidya">
-  <meta name="twitter:description" content="A classic Hindi film melody reimagined on violin by Prince Baidya — Violin Prince.">
+  <meta name="twitter:description" content="Watch Prince Baidya’s violin cover of Hai Apna Dil To Awara, the classic song from Solva Saal. Explore the performance, song story and more violin covers.">
   <meta name="twitter:image" content="https://i.ytimg.com/vi/StnvyGduJ0s/maxresdefault.jpg">
-  <title>Hai Apna Dil To Awara Violin Cover | Prince Baidya — Violin Prince</title>
+  <title>Hai Apna Dil To Awara Violin Cover | Prince Baidya</title>
   <!-- Optimizer - Canonical -->
   <!-- Optimizer - Custom Meta -->
   <!-- Optimizer - Open Graph -->
@@ -1705,6 +1705,44 @@
       body::after { animation: none !important; }
     }
   </style>
+
+  <style id="above-fold-featured-video">
+    .hero-video-frame {
+      position: relative;
+      overflow: hidden;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border: 1px solid rgba(255,179,44,.68);
+      background: #0d1014;
+      box-shadow: inset 0 0 0 1px rgba(255,243,229,.17),
+                  0 0 0 1px rgba(120,200,215,.15);
+    }
+    .hero-video-frame iframe {
+      position: absolute;
+      inset: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+    .art-caption { align-items: center; border-top: 1px solid rgba(120,200,215,.27); }
+    .art-caption > div { min-width: 0; flex: 1; }
+    .hero-youtube-link {
+      display: inline-block;
+      margin-top: 6px;
+      color: #a5e3ed;
+      font-size: .70rem;
+      font-weight: 700;
+      text-decoration: underline;
+      text-decoration-color: rgba(120,200,215,.55);
+      text-underline-offset: 4px;
+    }
+    .hero-youtube-link:hover { color: #ffdda0; text-decoration-color: #ffb32c; }
+    @media (max-width: 760px) {
+      .hero-video-frame { border-width: 1px; }
+    }
+  </style>
+
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -1743,43 +1781,30 @@
           <div class="hero-fact"><strong>Strings</strong><span>Instrumental reimagining</span></div>
         </div>
       </div>
-      <div class="hero-art" aria-label="Featured video artwork">
+      <div class="hero-art" aria-label="Featured violin video player">
         <div class="art-frame">
-          <a href="#watch" aria-label="Go to the Hai Apna Dil To Awara featured violin performance">
-            <img class="hero-image" src="https://i.ytimg.com/vi/StnvyGduJ0s/maxresdefault.jpg" alt="Thumbnail for Hai Apna Dil To Awara, a violin cover by Violin Prince" fetchpriority="high" width="1280" height="720">
-          </a>
+          <div class="video-frame hero-video-frame" id="watch">
+            <iframe
+              id="songPlayer"
+              title="Can the Violin Capture This Classic? Hai Apna Dil To Awara — violin cover by Prince Baidya"
+              src="https://www.youtube.com/embed/StnvyGduJ0s?enablejsapi=1&amp;origin=https%3A%2F%2Fbaidyaprince69-web.github.io&amp;playsinline=1&amp;rel=0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              referrerpolicy="origin"
+              loading="eager"
+              allowfullscreen></iframe>
+          </div>
           <div class="art-caption">
-            <div><small>Featured violin cover</small><strong>A classic, in a new voice</strong></div>
+            <div>
+              <small>Featured violin cover</small>
+              <strong>A classic, in a new voice</strong>
+              <a class="hero-youtube-link" href="https://www.youtube.com/watch?v=StnvyGduJ0s" target="_blank" rel="noopener noreferrer">Open on YouTube ↗</a>
+            </div>
             <span class="art-index" aria-hidden="true">01</span>
           </div>
         </div>
         <div class="art-note"><span>From the film</span><strong>Solva Saal</strong><span>1958 · Hindi cinema</span></div>
       </div>
       <div class="scroll-cue" aria-hidden="true">Scroll into the melody</div>
-    </section>
-
-    <section class="section watch-section" id="watch" aria-labelledby="watchTitle">
-      <div class="wrap">
-        <div class="watch-heading reveal">
-          <div><p class="eyebrow">The featured performance</p><h2 id="watchTitle">Hear it in strings.</h2></div>
-          <p>Settle in, press play, and let the familiar melody take a different path. The player below is the original YouTube video.</p>
-        </div>
-        <div class="video-shell reveal reveal-delay-1">
-          <div class="video-frame">
-            <iframe
-              id="songPlayer"
-              title="Can the Violin Capture This Classic? Hai Apna Dil To Awara — violin cover by Prince Baidya"
-              src="https://www.youtube.com/embed/StnvyGduJ0s?enablejsapi=1&amp;origin=https%3A%2F%2Fbaidyaprince69-web.github.io&amp;playsinline=1&amp;rel=0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              referrerpolicy="strict-origin-when-cross-origin"
-              allowfullscreen></iframe>
-          </div>
-          <div class="video-underbar">
-            <p>Hai Apna Dil To Awara · Violin cover by Prince Baidya</p>
-            <a class="text-link" href="https://www.youtube.com/watch?v=StnvyGduJ0s" target="_blank" rel="noopener noreferrer">Open on YouTube ↗</a>
-          </div>
-        </div>
-      </div>
     </section>
 
     <section class="section section-paper" id="story" aria-labelledby="storyTitle">
@@ -1909,7 +1934,7 @@
     <div class="player-main">
       <img class="player-art" src="https://i.ytimg.com/vi/StnvyGduJ0s/hqdefault.jpg" alt="" width="96" height="72" loading="lazy" decoding="async">
       <div class="player-copy">
-        <div class="player-state"><span class="player-dot" aria-hidden="true"></span><span id="playerStatus" role="status" aria-live="polite">Ready when you are</span></div>
+        <div class="player-state"><span class="player-dot" aria-hidden="true"></span><span id="playerStatus" role="status" aria-live="polite">Connecting to YouTube…</span></div>
         <strong>Hai Apna Dil To Awara</strong>
         <small>Violin cover · Prince Baidya</small>
       </div>
@@ -1918,8 +1943,8 @@
         <input id="seekBar" type="range" min="0" max="1000" step="1" value="0" aria-label="Seek through Hai Apna Dil To Awara" disabled>
         <span id="duration">4:33</span>
       </div>
-      <button class="player-button" id="playToggle" type="button" aria-label="Play Hai Apna Dil To Awara violin cover" title="Play cover" disabled>▶</button>
-      <a class="player-jump" href="#watch">Jump to video ↗</a>
+      <button class="player-button" id="playToggle" type="button" aria-label="Play Hai Apna Dil To Awara violin cover" title="Play cover">▶</button>
+      <a class="player-jump" href="https://www.youtube.com/watch?v=StnvyGduJ0s" target="_blank" rel="noopener noreferrer">Open on YouTube ↗</a>
     </div>
     <div class="player-hint" id="playerHint">Use the bar to play, pause, seek, or return to the full video.</div>
   </aside>
@@ -1927,10 +1952,21 @@
   <script>
     (function () {
       'use strict';
+
       var videoId = 'StnvyGduJ0s';
+      var videoUrl = 'https://www.youtube.com/watch?v=' + videoId;
       var player = null;
       var playerReady = false;
+      var playerInitStarted = false;
+      var apiLoading = false;
+      var apiFailed = false;
+      var pendingPlay = false;
+      var apiScript = null;
+      var apiLoadTimer = null;
+      var playerReadyTimer = null;
       var progressTimer = null;
+      var userSeeking = false;
+
       var menuToggle = document.getElementById('menuToggle');
       var siteNav = document.getElementById('siteNav');
       var playToggle = document.getElementById('playToggle');
@@ -1940,11 +1976,15 @@
       var playerStatus = document.getElementById('playerStatus');
       var playerBar = document.getElementById('floatingPlayer');
       var playerHint = document.getElementById('playerHint');
-      var userSeeking = false;
 
-      function setStatus(text) {
-        if (playerStatus) playerStatus.textContent = text;
+      function setStatus(message) {
+        if (playerStatus) playerStatus.textContent = message;
       }
+
+      function clearTimer(timer) {
+        if (timer !== null) window.clearTimeout(timer);
+      }
+
       function formatTime(seconds) {
         if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
         var total = Math.floor(seconds);
@@ -1952,6 +1992,7 @@
         var secs = total % 60;
         return mins + ':' + String(secs).padStart(2, '0');
       }
+
       function updateProgress() {
         if (!playerReady || !player || userSeeking) return;
         try {
@@ -1965,22 +2006,78 @@
             durationEl.textContent = formatTime(total);
           }
         } catch (error) {
-          /* The embedded player may not be ready to report timing yet. */
+          /* The player may be transitioning between states. */
         }
       }
+
+      function showPlayerFallback(message) {
+        if (playerReady) return;
+        apiFailed = true;
+        apiLoading = false;
+        playerInitStarted = false;
+        clearTimer(apiLoadTimer);
+        clearTimer(playerReadyTimer);
+        apiLoadTimer = null;
+        playerReadyTimer = null;
+        playerBar.classList.remove('is-playing');
+        playToggle.disabled = false;
+        playToggle.textContent = '↗';
+        playToggle.setAttribute('aria-label', 'Open Hai Apna Dil To Awara on YouTube');
+        playToggle.title = 'Open on YouTube';
+        seekBar.disabled = true;
+        setStatus('Open on YouTube');
+        if (playerHint) {
+          playerHint.textContent = message || 'The floating controls could not connect. Play the video in the player above or use Open on YouTube.';
+          playerHint.style.display = 'block';
+        }
+      }
+
+      function openYouTube() {
+        var opened = window.open(videoUrl, '_blank', 'noopener');
+        if (!opened) window.location.href = videoUrl;
+      }
+
       function onReady(event) {
         player = event.target;
         playerReady = true;
+        playerInitStarted = true;
+        apiLoading = false;
+        apiFailed = false;
+        clearTimer(apiLoadTimer);
+        clearTimer(playerReadyTimer);
+        apiLoadTimer = null;
+        playerReadyTimer = null;
         playToggle.disabled = false;
+        playToggle.textContent = '▶';
+        playToggle.setAttribute('aria-label', 'Play Hai Apna Dil To Awara violin cover');
+        playToggle.title = 'Play cover';
         seekBar.disabled = false;
         setStatus('Ready when you are');
-        if (playerHint) playerHint.textContent = 'Use the bar to play, pause, seek, or return to the full video.';
+        if (playerHint) {
+          playerHint.textContent = 'Use the bar to play, pause, seek, or return to the full video.';
+          playerHint.style.display = 'none';
+        }
         try {
           player.getIframe().setAttribute('title', 'Hai Apna Dil To Awara — violin cover by Prince Baidya, Violin Prince');
         } catch (error) {}
         updateProgress();
         if (progressTimer === null) progressTimer = window.setInterval(updateProgress, 500);
+
+        if (pendingPlay) {
+          pendingPlay = false;
+          try {
+            player.playVideo();
+            setStatus('Starting cover');
+          } catch (error) {
+            setStatus('Tap play in the video');
+            if (playerHint) {
+              playerHint.textContent = 'Your browser may block playback started during loading. Press play inside the video above.';
+              playerHint.style.display = 'block';
+            }
+          }
+        }
       }
+
       function onStateChange(event) {
         if (!window.YT || !window.YT.PlayerState) return;
         var states = window.YT.PlayerState;
@@ -2019,45 +2116,115 @@
         }
         updateProgress();
       }
-      function loadYouTubeAPI() {
-        if (window.YT && window.YT.Player) {
-          createPlayer();
-          return;
+
+      function onPlayerError(event) {
+        var code = event && typeof event.data === 'number' ? event.data : 0;
+        var message = 'The floating controls could not connect. You can still use the video above or open it on YouTube.';
+        if (code === 100) {
+          message = 'YouTube says this video is unavailable or private. Try opening the video directly on YouTube.';
+        } else if (code === 101 || code === 150) {
+          message = 'YouTube is not allowing playback in this embedded player. Open the video directly on YouTube.';
+        } else if (code === 153) {
+          message = 'YouTube did not receive the required referrer information. Open the video directly on YouTube; the page controls will remain available if the connection recovers.';
         }
-        if (document.querySelector('script[data-youtube-iframe-api]')) return;
-        var script = document.createElement('script');
-        script.src = 'https://www.youtube.com/iframe_api';
-        script.async = true;
-        script.dataset.youtubeIframeApi = 'true';
-        var first = document.getElementsByTagName('script')[0];
-        first.parentNode.insertBefore(script, first);
+        showPlayerFallback(message);
       }
+
+      function onAutoplayBlocked() {
+        pendingPlay = false;
+        setStatus('Tap play in the video');
+        if (playerHint) {
+          playerHint.textContent = 'Your browser blocked remote playback. Press play inside the video above; the floating bar will then follow the playback.';
+          playerHint.style.display = 'block';
+        }
+      }
+
       function createPlayer() {
-        if (player || !window.YT || !window.YT.Player) return;
+        if (playerReady || playerInitStarted) return;
+        if (!window.YT || !window.YT.Player) return;
+        playerInitStarted = true;
+        apiLoading = false;
+        clearTimer(apiLoadTimer);
+        apiLoadTimer = null;
         try {
           player = new window.YT.Player('songPlayer', {
             events: {
               onReady: onReady,
               onStateChange: onStateChange,
-              onError: function () {
-                playerReady = false;
-                playToggle.disabled = true;
-                seekBar.disabled = true;
-                playerBar.classList.remove('is-playing');
-                setStatus('Open video on YouTube');
-                if (playerHint) playerHint.textContent = 'Playback controls are unavailable. Use the Open on YouTube link above the video.';
-              }
+              onError: onPlayerError,
+              onAutoplayBlocked: onAutoplayBlocked
             }
           });
+          playerReadyTimer = window.setTimeout(function () {
+            if (!playerReady) {
+              showPlayerFallback('YouTube did not finish connecting the floating controls. You can still play the embedded video above or open it directly on YouTube.');
+            }
+          }, 14000);
         } catch (error) {
-          setStatus('Open video on YouTube');
+          showPlayerFallback('The YouTube controls could not initialize in this browser. Use the video above or open it on YouTube.');
         }
       }
+
+      function loadYouTubeAPI() {
+        if (playerReady) return;
+        if (window.YT && window.YT.Player) {
+          apiLoading = false;
+          createPlayer();
+          return;
+        }
+        if (apiLoading) return;
+
+        apiLoading = true;
+        apiFailed = false;
+        setStatus('Connecting to YouTube…');
+        playToggle.disabled = false;
+        playToggle.textContent = '…';
+        playToggle.setAttribute('aria-label', 'Connecting to YouTube');
+        playToggle.title = 'Connecting to YouTube';
+
+        var existing = document.querySelector('script[data-youtube-iframe-api]');
+        if (existing && !window.YT) existing.parentNode.removeChild(existing);
+
+        apiScript = document.createElement('script');
+        apiScript.src = 'https://www.youtube.com/iframe_api';
+        apiScript.async = true;
+        apiScript.dataset.youtubeIframeApi = 'true';
+        apiScript.onload = function () {
+          apiLoading = false;
+          if (window.YT && window.YT.Player) {
+            createPlayer();
+          } else {
+            window.setTimeout(function () {
+              if (window.YT && window.YT.Player) createPlayer();
+              else showPlayerFallback('The YouTube API loaded without becoming ready. Play the embedded video above or open it directly on YouTube.');
+            }, 1200);
+          }
+        };
+        apiScript.onerror = function () {
+          if (apiScript && apiScript.parentNode) apiScript.parentNode.removeChild(apiScript);
+          apiScript = null;
+          showPlayerFallback('Your browser or network blocked the YouTube control script. The embedded video and direct YouTube link are still available.');
+        };
+        document.head.appendChild(apiScript);
+
+        apiLoadTimer = window.setTimeout(function () {
+          if (!playerReady && !playerInitStarted && !(window.YT && window.YT.Player)) {
+            if (apiScript && apiScript.parentNode) apiScript.parentNode.removeChild(apiScript);
+            apiScript = null;
+            showPlayerFallback('YouTube controls are taking too long to load. Play the embedded video above or open it directly on YouTube.');
+          }
+        }, 12000);
+      }
+
       window.onYouTubeIframeAPIReady = createPlayer;
 
       playToggle.addEventListener('click', function () {
+        if (apiFailed) {
+          openYouTube();
+          return;
+        }
         if (!playerReady || !player || !window.YT) {
-          setStatus('Loading player…');
+          pendingPlay = true;
           loadYouTubeAPI();
           return;
         }
@@ -2071,29 +2238,36 @@
             setStatus('Starting cover');
           }
         } catch (error) {
-          setStatus('Open video on YouTube');
+          showPlayerFallback('The floating controls stopped responding. Open the video directly on YouTube.');
         }
       });
+
       seekBar.addEventListener('input', function () {
         userSeeking = true;
         var value = Math.max(0, Math.min(1000, Number(seekBar.value) || 0));
         seekBar.style.setProperty('--seek-progress', (value / 10) + '%');
         if (playerReady && player) {
-          var total = player.getDuration();
-          if (total > 0) currentTimeEl.textContent = formatTime((value / 1000) * total);
+          try {
+            var total = player.getDuration();
+            if (total > 0) currentTimeEl.textContent = formatTime((value / 1000) * total);
+          } catch (error) {}
         }
       });
+
       seekBar.addEventListener('change', function () {
         if (playerReady && player) {
-          var total = player.getDuration();
-          if (total > 0) {
-            var value = Math.max(0, Math.min(1000, Number(seekBar.value) || 0));
-            player.seekTo((value / 1000) * total, true);
-          }
+          try {
+            var total = player.getDuration();
+            if (total > 0) {
+              var value = Math.max(0, Math.min(1000, Number(seekBar.value) || 0));
+              player.seekTo((value / 1000) * total, true);
+            }
+          } catch (error) {}
         }
         userSeeking = false;
         updateProgress();
       });
+
       if (menuToggle && siteNav) {
         menuToggle.addEventListener('click', function () {
           var isOpen = siteNav.classList.toggle('is-open');
@@ -2119,6 +2293,7 @@
           }
         });
       }
+
       var revealItems = document.querySelectorAll('.reveal, .hero-copy > *, .hero-art');
       if ('IntersectionObserver' in window) {
         var observer = new IntersectionObserver(function (entries) {
@@ -2137,14 +2312,9 @@
       } else {
         revealItems.forEach(function (item) { item.classList.add('is-visible'); });
       }
+
       document.getElementById('year').textContent = String(new Date().getFullYear());
-      window.setTimeout(function () {
-        if (!playerReady) {
-          setStatus('Tap play to load');
-          playToggle.disabled = false;
-          if (playerHint) playerHint.textContent = 'If playback controls do not connect, open the full performance on YouTube.';
-        }
-      }, 9000);
+      setStatus('Connecting to YouTube…');
       loadYouTubeAPI();
     })();
   </script>
