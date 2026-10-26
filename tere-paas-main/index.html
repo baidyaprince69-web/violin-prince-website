@@ -357,6 +357,113 @@
       .faq-answer { animation:none !important; }
     }
 
+  
+    /* Floating music bar: controls the existing Tere Paas Main YouTube embed. */
+    .floating-music-bar {
+      position: fixed; z-index: 50; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+      width: min(920px, calc(100% - 30px));
+      display: grid; grid-template-columns: 58px minmax(155px, 205px) minmax(125px, 1fr) auto 46px;
+      align-items: center; gap: 14px; padding: 11px 13px;
+      border: 1px solid rgba(242,185,92,.36); border-radius: 21px;
+      background: linear-gradient(120deg, rgba(10,53,56,.98), rgba(5,29,32,.97));
+      -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px);
+      box-shadow: 0 18px 58px rgba(0,0,0,.45), 0 0 34px rgba(24,186,188,.11), inset 0 1px 0 rgba(255,231,172,.10);
+      opacity: 0; visibility: hidden; pointer-events: none; transform: translate(-50%, 14px);
+      transition: opacity .28s ease, transform .34s cubic-bezier(.2,.72,.22,1), visibility .28s ease;
+    }
+    .floating-music-bar.is-visible { opacity: 1; visibility: visible; pointer-events: auto; transform: translate(-50%, 0); }
+    .floating-music-bar::before {
+      content: ""; position: absolute; left: 12%; right: 12%; top: -1px; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,231,172,.78), rgba(24,186,188,.72), transparent);
+      pointer-events: none;
+    }
+    .floating-music-art {
+      width: 58px; height: 48px; display: block; object-fit: cover; border-radius: 11px;
+      border: 1px solid rgba(242,185,92,.34); box-shadow: 0 5px 18px rgba(0,0,0,.24); background: #10464A;
+    }
+    .floating-track-copy { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+    .floating-track-copy strong {
+      color: #FFF3DC; font-family: var(--serif); font-size: 1.17rem; font-weight: 600; line-height: 1.12;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .floating-track-copy small { color: #C9D6CC; font-size: .68rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .floating-player-status {
+      display: flex; align-items: center; gap: 6px; color: #FFE7AC; font-size: .54rem; font-weight: 800;
+      letter-spacing: .15em; text-transform: uppercase; line-height: 1.1; margin-bottom: 3px;
+    }
+    .floating-status-dot { width: 5px; height: 5px; flex: 0 0 5px; border-radius: 50%; background: #F2B95C; box-shadow: 0 0 10px rgba(242,185,92,.72); }
+    .floating-music-bar.is-playing .floating-status-dot { background: #18BABC; box-shadow: 0 0 12px rgba(24,186,188,.9); }
+    .floating-timeline { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+    .floating-progress-range {
+      --bar-progress: 0%; display: block; width: 100%; height: 28px; margin: 0; padding: 0;
+      appearance: none; -webkit-appearance: none; cursor: pointer; border: 0; border-radius: 999px;
+      background: transparent; outline-offset: 5px; touch-action: manipulation;
+    }
+    .floating-progress-range:disabled { cursor: default; opacity: .48; }
+    .floating-progress-range:focus-visible { outline: 2px solid #FFE7AC; }
+    .floating-progress-range::-webkit-slider-runnable-track {
+      height: 5px; border: 0; border-radius: 999px;
+      background: linear-gradient(to right, #F2B95C 0%, #18BABC var(--bar-progress), rgba(255,243,220,.16) var(--bar-progress), rgba(255,243,220,.16) 100%);
+    }
+    .floating-progress-range::-moz-range-track {
+      height: 5px; border: 0; border-radius: 999px;
+      background: linear-gradient(to right, #F2B95C 0%, #18BABC var(--bar-progress), rgba(255,243,220,.16) var(--bar-progress), rgba(255,243,220,.16) 100%);
+    }
+    .floating-progress-range::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none; width: 11px; height: 11px; margin-top: -3px;
+      border-radius: 50%; background: #FFF3DC; border: 2px solid #18BABC; box-shadow: 0 0 12px rgba(24,186,188,.44);
+    }
+    .floating-progress-range::-moz-range-thumb {
+      width: 11px; height: 11px; box-sizing: border-box; border-radius: 50%; background: #FFF3DC;
+      border: 2px solid #18BABC; box-shadow: 0 0 12px rgba(24,186,188,.44);
+    }
+    .floating-time-row { display: flex; justify-content: space-between; gap: 8px; color: #AFC8C3; font-size: .61rem; font-variant-numeric: tabular-nums; }
+    .floating-video-jump {
+      display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 38px; padding: 0 12px;
+      border: 1px solid rgba(242,185,92,.28); border-radius: 999px; background: rgba(255,255,255,.035);
+      color: #FFE7AC; text-decoration: none; font: 700 .69rem var(--sans); white-space: nowrap; cursor: pointer;
+      transition: border-color .22s ease, background .22s ease, transform .22s ease;
+    }
+    .floating-video-jump:hover { border-color: rgba(24,186,188,.7); background: rgba(24,186,188,.08); transform: translateY(-1px); }
+    .floating-play-icon { display: grid; place-items: center; width: 18px; height: 18px; flex: 0 0 18px; line-height: 0; }
+    .floating-play-icon svg { display: block; width: 18px; height: 18px; }
+    .floating-play-button {
+      width: 46px; height: 46px; flex: 0 0 46px; display: grid; place-items: center;
+      border: 1px solid rgba(255,231,172,.72); border-radius: 50%;
+      background: linear-gradient(135deg, #FFE7AC, #F2B95C 55%, #18BABC); color: #082E32;
+      box-shadow: 0 6px 22px rgba(24,186,188,.20), inset 0 1px 0 rgba(255,255,255,.55);
+      font: 800 1rem var(--sans); cursor: pointer; transition: transform .22s ease, box-shadow .22s ease, filter .22s ease;
+      -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+    }
+    .floating-play-button:hover:not(:disabled) { transform: scale(1.05); filter: saturate(1.08); box-shadow: 0 8px 28px rgba(24,186,188,.3), inset 0 1px 0 rgba(255,255,255,.58); }
+    .floating-play-button:focus-visible { outline: 2px solid #FFE7AC; outline-offset: 4px; }
+    .floating-play-button:disabled { cursor: wait; filter: saturate(.45); opacity: .72; }
+    .floating-music-bar .floating-progress-range, .floating-music-bar .floating-play-button, .floating-music-bar .floating-video-jump { touch-action: manipulation; }
+    footer { padding-bottom: calc(30px + 96px + env(safe-area-inset-bottom, 0px)); }
+    @media (max-width: 720px) {
+      .floating-music-bar {
+        width: calc(100% - 18px); grid-template-columns: 46px minmax(0, 1fr) 48px;
+        grid-template-areas: "cover copy play" "timeline timeline timeline";
+        gap: 8px 11px; padding: 10px 12px; border-radius: 18px; bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+      }
+      .floating-music-art { grid-area: cover; width: 46px; height: 44px; border-radius: 9px; }
+      .floating-track-copy { grid-area: copy; }
+      .floating-track-copy strong { font-size: 1.08rem; }
+      .floating-track-copy small { font-size: .64rem; }
+      .floating-player-status { font-size: .5rem; }
+      .floating-timeline { grid-area: timeline; gap: 5px; padding: 0 2px 1px; }
+      .floating-video-jump { display: none; }
+      .floating-play-button { grid-area: play; width: 48px; height: 48px; min-height: 48px; }
+      footer { padding-bottom: calc(36px + 140px + env(safe-area-inset-bottom, 0px)); }
+    }
+    @media (max-width: 390px) {
+      .floating-music-bar { width: calc(100% - 12px); gap: 8px 9px; padding: 9px 10px; }
+      .floating-music-art { width: 42px; height: 42px; }
+      .floating-track-copy strong { font-size: .98rem; }
+      .floating-track-copy small { font-size: .61rem; }
+      .floating-player-status { letter-spacing: .10em; }
+    }
+
   </style>
 </head>
 <body>
@@ -393,8 +500,8 @@
 
       <div class="performance-card scroll-reveal" style="--reveal-delay:160ms" id="performance">
         <div class="player-top"><span class="player-state">The full performance</span><span>Official YouTube player</span></div>
-        <div class="video-frame">
-          <iframe id="youtube-player" src="https://www.youtube-nocookie.com/embed/FOV-lwpwcd0?rel=0&amp;playsinline=1" title="Tere Paas Main violin cover by Prince Baidya | A. R. Rahman" loading="eager" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+        <div class="video-frame" id="cover-video-frame">
+          <iframe id="youtube-player" src="https://www.youtube-nocookie.com/embed/FOV-lwpwcd0?rel=0&amp;enablejsapi=1&amp;playsinline=1&amp;origin=https%3A%2F%2Fbaidyaprince69-web.github.io" title="Tere Paas Main violin cover by Prince Baidya | A. R. Rahman" loading="eager" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
         </div>
         <div class="player-caption">
           <div><strong id="player-caption-title">Tere Paas Main — violin cover</strong><small>By Prince Baidya · Violin Prince</small></div>
@@ -622,6 +729,22 @@
     </section>
   </main>
 
+
+  <div class="floating-music-bar is-visible" id="floating-music-bar" role="region" aria-label="Tere Paas Main floating music player">
+    <img class="floating-music-art" src="https://img.youtube.com/vi/FOV-lwpwcd0/hqdefault.jpg" alt="" width="58" height="48" loading="eager" decoding="async" aria-hidden="true">
+    <div class="floating-track-copy">
+      <span class="floating-player-status"><span class="floating-status-dot" aria-hidden="true"></span><span id="floating-player-status">READY WHEN YOU ARE</span></span>
+      <strong>Tere Paas Main</strong>
+      <small>Prince Baidya · Violin Prince</small>
+    </div>
+    <div class="floating-timeline">
+      <input id="floating-progress" class="floating-progress-range" type="range" min="0" max="1000" step="1" value="0" aria-label="Seek through Tere Paas Main violin cover" disabled>
+      <div class="floating-time-row"><span id="floating-current-time">0:00</span><span id="floating-duration">--:--</span></div>
+    </div>
+    <button class="floating-video-jump" id="floating-video-jump" type="button" aria-label="Jump to the Tere Paas Main video player">Video <span aria-hidden="true">↗</span></button>
+    <button class="floating-play-button" id="floating-play-button" type="button" aria-label="Play Tere Paas Main violin cover" disabled><span id="floating-play-icon" class="floating-play-icon" aria-hidden="true"><svg viewBox="0 0 20 20" focusable="false"><path d="M6 3.8v12.4c0 .6.7 1 1.2.7l9-6.2a.9.9 0 0 0 0-1.4l-9-6.2c-.5-.3-1.2.1-1.2.7Z" fill="currentColor"></path></svg></span></button>
+  </div>
+
   <footer>
     <div class="wrap foot-inner">
       <p>© <span id="year">2026</span> Prince Baidya · Violin Prince</p>
@@ -708,5 +831,127 @@
       }
     })();
   </script>
+
+  <script>
+  (function () {
+    var bar = document.getElementById('floating-music-bar');
+    var frame = document.getElementById('youtube-player');
+    var playButton = document.getElementById('floating-play-button');
+    var playIcon = document.getElementById('floating-play-icon');
+    var status = document.getElementById('floating-player-status');
+    var progress = document.getElementById('floating-progress');
+    var currentTimeLabel = document.getElementById('floating-current-time');
+    var durationLabel = document.getElementById('floating-duration');
+    var jumpButton = document.getElementById('floating-video-jump');
+    if (!bar || !frame || !playButton || !progress) return;
+
+    var player = null;
+    var playerReady = false;
+    var progressTimer = null;
+
+    function formatTime(seconds) {
+      if (!isFinite(seconds) || seconds < 0) return '0:00';
+      var whole = Math.floor(seconds);
+      var minutes = Math.floor(whole / 60);
+      var remainder = whole % 60;
+      return minutes + ':' + (remainder < 10 ? '0' : '') + remainder;
+    }
+    function setStatus(message) { if (status) status.textContent = message; }
+    function setControlIcon(mode) {
+      var icons = {
+        play: "<svg viewBox='0 0 20 20' aria-hidden='true' focusable='false'><path d='M6 3.8v12.4c0 .6.7 1 1.2.7l9-6.2a.9.9 0 0 0 0-1.4l-9-6.2c-.5-.3-1.2.1-1.2.7Z' fill='currentColor'></path></svg>",
+        pause: "<svg viewBox='0 0 20 20' aria-hidden='true' focusable='false'><rect x='5' y='5' width='10' height='10' rx='1.2' fill='currentColor'></rect></svg>",
+        replay: "<svg viewBox='0 0 20 20' aria-hidden='true' focusable='false'><path d='M16.2 7.1A6.4 6.4 0 1 0 16.4 12h-2.1a4.3 4.3 0 1 1-1.1-3l-2.1 2.1H17V5.2l-.8 1.9Z' fill='currentColor'></path></svg>"
+      };
+      if (playIcon) playIcon.innerHTML = icons[mode] || icons.play;
+    }
+    function updateProgress() {
+      if (!playerReady || !player) return;
+      var duration = player.getDuration ? player.getDuration() : 0;
+      var current = player.getCurrentTime ? player.getCurrentTime() : 0;
+      if (duration > 0) {
+        var value = Math.max(0, Math.min(1000, Math.round((current / duration) * 1000)));
+        progress.value = String(value);
+        progress.style.setProperty('--bar-progress', (value / 10) + '%');
+        currentTimeLabel.textContent = formatTime(current);
+        durationLabel.textContent = formatTime(duration);
+      }
+    }
+    function onPlayerStateChange(event) {
+      if (!window.YT || !window.YT.PlayerState) return;
+      var state = event.data;
+      var states = window.YT.PlayerState;
+      if (state === states.PLAYING) {
+        bar.classList.add('is-playing'); setControlIcon('pause');
+        playButton.setAttribute('aria-label', 'Pause Tere Paas Main violin cover'); setStatus('NOW PLAYING');
+      } else if (state === states.BUFFERING) {
+        setControlIcon('pause'); playButton.setAttribute('aria-label', 'Pause Tere Paas Main violin cover'); setStatus('BUFFERING');
+      } else if (state === states.PAUSED) {
+        bar.classList.remove('is-playing'); setControlIcon('play');
+        playButton.setAttribute('aria-label', 'Play Tere Paas Main violin cover'); setStatus('PAUSED');
+      } else if (state === states.ENDED) {
+        bar.classList.remove('is-playing'); setControlIcon('replay');
+        playButton.setAttribute('aria-label', 'Replay Tere Paas Main violin cover'); setStatus('PLAY AGAIN');
+        progress.value = '0'; progress.style.setProperty('--bar-progress', '0%'); currentTimeLabel.textContent = '0:00';
+      } else if (state === states.CUED || state === states.UNSTARTED) {
+        bar.classList.remove('is-playing'); setControlIcon('play');
+        playButton.setAttribute('aria-label', 'Play Tere Paas Main violin cover'); setStatus('READY WHEN YOU ARE');
+      }
+      updateProgress();
+    }
+    function onPlayerReady(event) {
+      player = event.target; playerReady = true;
+      playButton.disabled = false; progress.disabled = false; setStatus('READY WHEN YOU ARE');
+      updateProgress();
+      if (progressTimer === null) progressTimer = window.setInterval(updateProgress, 500);
+    }
+    window.onYouTubeIframeAPIReady = function () {
+      if (player) return;
+      try {
+        player = new YT.Player(frame, {
+          events: {
+            onReady: onPlayerReady,
+            onStateChange: onPlayerStateChange,
+            onError: function () {
+              playerReady = false; playButton.disabled = true; progress.disabled = true;
+              bar.classList.remove('is-playing'); setStatus('OPEN VIDEO TO LISTEN');
+            }
+          }
+        });
+      } catch (e) { setStatus('OPEN VIDEO TO LISTEN'); }
+    };
+    playButton.addEventListener('click', function () {
+      if (!playerReady || !player || !window.YT) return;
+      var state = player.getPlayerState();
+      if (state === window.YT.PlayerState.PLAYING || state === window.YT.PlayerState.BUFFERING) {
+        player.pauseVideo();
+      } else {
+        if (state === window.YT.PlayerState.ENDED) player.seekTo(0, true);
+        player.playVideo(); setStatus('STARTING COVER');
+      }
+    });
+    progress.addEventListener('input', function () {
+      var value = Math.max(0, Math.min(1000, Number(progress.value) || 0));
+      progress.style.setProperty('--bar-progress', (value / 10) + '%');
+    });
+    progress.addEventListener('change', function () {
+      if (!playerReady || !player) return;
+      var duration = player.getDuration();
+      if (duration > 0) player.seekTo(duration * (Number(progress.value) / 1000), true);
+      updateProgress();
+    });
+    if (jumpButton) jumpButton.addEventListener('click', function () {
+      var target = document.getElementById('cover-video-frame');
+      var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (target) target.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
+    });
+    bar.classList.add('is-visible');
+    var tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api'; tag.async = true;
+    tag.onerror = function () { setStatus('OPEN VIDEO TO LISTEN'); };
+    document.head.appendChild(tag);
+  })();
+  </script>
+
 </body>
 </html>
