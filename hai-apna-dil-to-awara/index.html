@@ -926,6 +926,111 @@
       }
     }
   </style>
+
+  <style id="song-story-champagne-lighting">
+    /* Warm, dimensional light section — replaces the nearly-white wash with a
+       deliberate champagne/ivory surface and thumbnail-matched sunset + aqua light. */
+    .section-paper {
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
+      color: #203a31;
+      background-color: #f0dfbd;
+      background-image:
+        radial-gradient(ellipse 46% 65% at 7% 18%,
+          rgba(245,181,42,.28) 0%, rgba(245,181,42,.13) 32%, rgba(245,181,42,0) 72%),
+        radial-gradient(ellipse 48% 59% at 98% 78%,
+          rgba(86,170,163,.24) 0%, rgba(86,170,163,.11) 36%, rgba(86,170,163,0) 76%),
+        radial-gradient(ellipse 39% 32% at 63% 4%,
+          rgba(239,128,88,.14) 0%, rgba(239,128,88,0) 77%),
+        radial-gradient(ellipse 80% 74% at 50% 48%,
+          rgba(255,249,231,.56) 0%, rgba(255,249,231,.12) 55%, rgba(161,128,78,.09) 100%),
+        linear-gradient(128deg, #f8ecd2 0%, #f0dfbd 48%, #e6d1a9 100%);
+      border-top: 1px solid rgba(245,181,42,.30);
+      border-bottom: 1px solid rgba(86,170,163,.27);
+      box-shadow: inset 0 18px 34px rgba(255,248,225,.23),
+                  inset 0 -28px 54px rgba(103,83,49,.055);
+    }
+    .section-paper::before,
+    .section-paper::after {
+      content: "";
+      position: absolute;
+      z-index: 0;
+      pointer-events: none;
+      border-radius: 50%;
+    }
+    .section-paper::before {
+      width: clamp(300px, 45vw, 620px);
+      aspect-ratio: 1;
+      left: -13%;
+      top: 7%;
+      background: radial-gradient(circle,
+        rgba(255,198,61,.19) 0%,
+        rgba(255,198,61,.075) 38%,
+        rgba(255,198,61,0) 72%);
+      filter: blur(14px);
+      opacity: .95;
+    }
+    .section-paper::after {
+      width: clamp(280px, 42vw, 570px);
+      aspect-ratio: 1;
+      right: -12%;
+      bottom: -17%;
+      background: radial-gradient(circle,
+        rgba(76,166,157,.21) 0%,
+        rgba(76,166,157,.075) 43%,
+        rgba(76,166,157,0) 73%);
+      filter: blur(18px);
+      opacity: .94;
+    }
+    .section-paper > .wrap {
+      position: relative;
+      z-index: 1;
+    }
+    .section-paper .eyebrow { color: #99542f; }
+    .section-paper .eyebrow::before {
+      background: #d86f4e;
+      box-shadow: 0 0 13px rgba(216,111,78,.17);
+    }
+    .section-paper .section-intro { color: #53665a; }
+    .story-aside {
+      border: 1px solid rgba(126,103,62,.22);
+      background:
+        radial-gradient(ellipse at 8% 0%, rgba(245,181,42,.12), transparent 70%),
+        linear-gradient(145deg, rgba(255,250,235,.78), rgba(230,211,172,.57));
+      box-shadow:
+        0 2px 5px rgba(62,48,26,.025),
+        0 18px 48px rgba(62,48,26,.075),
+        inset 0 1px 0 rgba(255,255,255,.68);
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+    }
+    .story-aside .big-year {
+      color: #b95f31;
+      text-shadow: 0 2px 0 rgba(255,248,223,.5);
+    }
+    .story-aside h3 { color: #203a31; }
+    .story-aside p { color: #53665a; }
+    .story-copy p { color: #40554a; }
+    .fact-line { border-top-color: rgba(72,91,72,.24); }
+    .fact + .fact { border-left-color: rgba(72,91,72,.2); }
+    .fact span { color: #985d34; }
+    .fact strong { color: #203a31; }
+    @media (max-width: 760px) {
+      .section-paper {
+        background-image:
+          radial-gradient(ellipse 90% 36% at 0% 5%, rgba(245,181,42,.19), transparent 82%),
+          radial-gradient(ellipse 90% 42% at 100% 92%, rgba(86,170,163,.19), transparent 80%),
+          radial-gradient(ellipse 100% 68% at 50% 40%, rgba(255,249,231,.49), transparent 100%),
+          linear-gradient(150deg, #f8ecd2 0%, #f0dfbd 52%, #e6d1a9 100%);
+      }
+      .section-paper::before { left: -36%; top: 1%; opacity: .7; }
+      .section-paper::after { right: -35%; bottom: -5%; opacity: .7; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .section-paper::before, .section-paper::after { filter: none; }
+    }
+  </style>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
