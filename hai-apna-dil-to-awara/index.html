@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#100807">
+  <meta name="theme-color" content="#172b26">
   <meta name="description" content="Discover Hai Apna Dil To Awara, a classic Hindi film melody reimagined on violin by Prince Baidya — Violin Prince. Watch the full performance and explore the story behind this timeless song.">
   <meta name="robots" content="index,follow,max-image-preview:large">
   <link rel="canonical" href="https://baidyaprince69-web.github.io/violin-prince-website/hai-apna-dil-to-awara/">
@@ -506,6 +506,214 @@
     .player-jump { color: #ead2b8; border-color: rgba(255,244,231,.2); }
     .player-jump:hover { color: #ffe0a0; border-color: #ffd064; }
     .closing { background: #ffd064; }
+    @media (prefers-reduced-motion: reduce) {
+      .js .reveal { opacity: 1; transform: none; }
+    }
+  </style>
+
+
+  <style id="thumbnail-color-theory">
+    /* Hai Apna Dil To Awara — palette sampled visually from the actual thumbnail:
+       sun-yellow / sunset amber, peach-coral sky, aqua-teal horizon, olive-green land,
+       dark silhouette and warm ivory lettering. */
+    :root {
+      --ink: #172b26;
+      --ink-deep: #091916;
+      --ink-soft: #203b33;
+      --paper: #f4e7cf;
+      --paper-deep: #e6d0aa;
+      --cream: #fff5e7;
+      --muted: #c5d0c1;
+      --muted-dark: #53665a;
+      --amber: #f5b52a;
+      --amber-light: #ffe2a1;
+      --vermilion: #ef8058;
+      --sage: #56aaa3;
+      --line: rgba(245, 181, 42, .24);
+    }
+    html { background: var(--ink-deep); }
+    body {
+      color: var(--cream);
+      background:
+        radial-gradient(ellipse at 9% 5%, rgba(245,181,42,.19), transparent 29rem),
+        radial-gradient(ellipse at 91% 8%, rgba(86,170,163,.17), transparent 31rem),
+        radial-gradient(ellipse at 4% 63%, rgba(239,128,88,.09), transparent 33rem),
+        linear-gradient(153deg, #1b3931 0%, #142d27 37%, #091916 100%);
+    }
+    a:focus-visible, button:focus-visible, input:focus-visible {
+      outline-color: var(--amber-light);
+    }
+    .nav { border-bottom-color: rgba(245,181,42,.2); }
+    .brand-mark {
+      color: #172b26; border-color: var(--amber); background: var(--amber);
+      box-shadow: 0 0 28px rgba(245,181,42,.18);
+    }
+    .nav-links a:hover { color: #8bd2c9; }
+    .nav-links .nav-cta {
+      border-color: rgba(86,170,163,.64);
+      color: #a7e3db;
+      background: rgba(86,170,163,.055);
+    }
+    .nav-links .nav-cta:hover { background: rgba(86,170,163,.13); }
+    .menu-toggle { border-color: rgba(86,170,163,.42); }
+    .hero::before { color: rgba(245,181,42,.075); }
+    .eyebrow { color: var(--amber-light); }
+    .eyebrow::before {
+      background: var(--amber);
+      box-shadow: 0 0 14px rgba(245,181,42,.42);
+    }
+    h1 em { color: var(--amber); }
+    .hero-lead { color: #d6dfd1; }
+    .hero-artist { color: #e5d7bd; }
+    .hero-artist .seal {
+      border-color: rgba(86,170,163,.62);
+      color: #83cec5;
+      background: rgba(86,170,163,.06);
+    }
+    .separator { background: var(--vermilion); }
+    .button-primary {
+      background: var(--amber);
+      color: #172b26;
+      box-shadow: 0 10px 32px rgba(245,181,42,.17);
+    }
+    .button-primary:hover { background: var(--amber-light); }
+    .button-secondary {
+      border-color: rgba(255,245,231,.3);
+      color: var(--cream);
+      background: rgba(86,170,163,.045);
+    }
+    .button-secondary:hover {
+      border-color: var(--sage);
+      background: rgba(86,170,163,.1);
+    }
+    .hero-facts { border-top-color: rgba(255,245,231,.16); }
+    .hero-fact strong { color: var(--amber-light); }
+    .hero-fact span { color: #b8cabe; }
+    .art-frame {
+      border-color: rgba(245,181,42,.54);
+      background: linear-gradient(140deg, rgba(255,226,161,.14), rgba(86,170,163,.045));
+      box-shadow: 0 30px 100px rgba(0,0,0,.3), 0 0 44px rgba(86,170,163,.06),
+                  inset 0 0 0 5px rgba(255,255,255,.018);
+    }
+    .art-frame::before, .art-frame::after { border-color: var(--amber); }
+    .hero-image { filter: none; }
+    .art-caption small { color: #c5d0c1; }
+    .art-index {
+      border-color: rgba(86,170,163,.65);
+      color: #9adbd2;
+      background: rgba(86,170,163,.055);
+    }
+    .art-note {
+      color: var(--ink);
+      background: var(--paper);
+      border-top: 3px solid var(--vermilion);
+    }
+    .art-note span { color: #617266; }
+    .scroll-cue { color: #adc2b5; }
+    .scroll-cue::before { background: var(--vermilion); }
+    .section-paper {
+      color: var(--ink);
+      background:
+        radial-gradient(ellipse at 100% 0%, rgba(86,170,163,.1), transparent 27rem),
+        linear-gradient(125deg, #f8eedb 0%, #f0dfbd 100%);
+    }
+    .section-paper .eyebrow { color: #9f5836; }
+    .section-paper .eyebrow::before { background: var(--vermilion); box-shadow: none; }
+    .section-paper .section-intro { color: #53665a; }
+    .story-aside {
+      border-color: rgba(23,43,38,.18);
+      background: rgba(255,255,255,.34);
+      box-shadow: 0 16px 45px rgba(63,49,28,.045);
+    }
+    .story-aside .big-year { color: #c56d34; }
+    .story-aside h3 { color: #203a31; }
+    .story-aside p { color: #53665a; }
+    .story-copy p { color: #40554a; }
+    .story-copy .dropcap::first-letter { color: #c96748; }
+    .fact-line { border-top-color: rgba(23,43,38,.2); }
+    .fact + .fact { border-left-color: rgba(23,43,38,.18); }
+    .fact span { color: #9b6338; }
+    .fact strong { color: #1e382f; }
+    .mood-section::after { color: rgba(245,181,42,.045); }
+    .mood-card {
+      border-color: rgba(86,170,163,.23);
+      background: linear-gradient(145deg, rgba(86,170,163,.07), rgba(255,255,255,.012));
+    }
+    .mood-card:hover {
+      border-color: rgba(245,181,42,.62);
+      background: linear-gradient(145deg, rgba(245,181,42,.075), rgba(86,170,163,.045));
+    }
+    .mood-number { color: var(--amber); }
+    .mood-symbol {
+      border-color: rgba(86,170,163,.56);
+      color: #8bd2c9;
+      background: rgba(86,170,163,.04);
+    }
+    .artist-visual {
+      background:
+        radial-gradient(circle at 26% 25%, rgba(245,181,42,.2), transparent 30%),
+        radial-gradient(circle at 78% 37%, rgba(86,170,163,.19), transparent 34%),
+        linear-gradient(145deg, #23483b, #0b1c18);
+    }
+    .artist-visual::before { border-color: rgba(245,181,42,.39); }
+    .artist-visual::after { border-color: rgba(86,170,163,.3); }
+    .artist-emblem {
+      color: var(--amber-light);
+      border-color: rgba(245,181,42,.75);
+      background: rgba(9,25,22,.74);
+      box-shadow: 0 0 65px rgba(245,181,42,.09), inset 0 0 35px rgba(86,170,163,.06);
+    }
+    .artist-label { color: #d4e1d3; }
+    .artist-signoff { color: var(--amber-light); }
+    .artist-signoff::before { background: var(--vermilion); }
+    .related-section { background: #0b1c18; }
+    .related-card {
+      border-color: rgba(86,170,163,.22);
+      background: #152b25;
+    }
+    .related-card:hover { border-color: rgba(245,181,42,.58); }
+    .related-thumb { background: #203b33; }
+    .related-thumb img { filter: saturate(1.02); }
+    .related-copy span { color: var(--amber); }
+    .related-copy p { color: #bfcdc0; }
+    .related-copy a { color: #91d5cc; text-decoration-color: rgba(86,170,163,.5); }
+    .related-copy a:hover { color: var(--amber-light); }
+    .closing {
+      color: #172b26;
+      background:
+        radial-gradient(ellipse at 95% 0%, rgba(86,170,163,.2), transparent 28rem),
+        linear-gradient(110deg, #f5b52a 0%, #f7c66b 67%, #f0a27b 100%);
+    }
+    .closing .eyebrow { color: #77422d; }
+    .closing .eyebrow::before { background: #c96748; box-shadow: none; }
+    .closing p { color: #4b5547; }
+    .closing .button-primary {
+      color: var(--cream);
+      background: #173129;
+      box-shadow: 0 10px 28px rgba(23,43,38,.18);
+    }
+    .closing .button-primary:hover { background: #23483b; }
+    .site-footer { background: #081511; }
+    .footer-copyright { border-top-color: rgba(86,170,163,.18); }
+    .floating-player {
+      border-color: rgba(245,181,42,.48);
+      background: rgba(10,25,21,.97);
+      box-shadow: 0 15px 50px rgba(0,0,0,.42), 0 0 28px rgba(86,170,163,.055),
+                  inset 0 1px 0 rgba(255,255,255,.05);
+    }
+    .player-art { border-color: rgba(245,181,42,.44); background: #203b33; }
+    .player-state { color: var(--amber-light); }
+    .player-dot { background: var(--vermilion); }
+    .is-playing .player-dot { background: var(--sage); box-shadow: 0 0 9px rgba(86,170,163,.72); }
+    .player-seek input {
+      background: linear-gradient(to right, var(--amber) var(--seek-progress,0%), rgba(255,245,231,.2) var(--seek-progress,0%));
+    }
+    .player-seek input::-webkit-slider-thumb { background: var(--amber-light); box-shadow: 0 0 0 1px var(--amber); }
+    .player-seek input::-moz-range-thumb { background: var(--amber-light); box-shadow: 0 0 0 1px var(--amber); }
+    .player-button { color: #172b26; border-color: var(--amber); background: var(--amber); }
+    .player-button:hover:not(:disabled) { background: var(--amber-light); }
+    .player-jump { color: #a8ded6; border-color: rgba(86,170,163,.34); }
+    .player-jump:hover { color: var(--amber-light); border-color: var(--amber); }
     @media (prefers-reduced-motion: reduce) {
       .js .reveal { opacity: 1; transform: none; }
     }
