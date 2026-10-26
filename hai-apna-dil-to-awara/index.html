@@ -1031,6 +1031,236 @@
       .section-paper::before, .section-paper::after { filter: none; }
     }
   </style>
+
+  <style id="cinematic-border-system">
+    /* One consistent frame language: sunset gold + horizon teal + restrained coral.
+       Uses layered backgrounds for gradient borders instead of relying on newer
+       background-clip:border-area, so the design remains broadly compatible. */
+    :root {
+      --frame-gold: rgba(245,181,42,.82);
+      --frame-teal: rgba(86,170,163,.72);
+      --frame-coral: rgba(239,128,88,.60);
+      --frame-soft: rgba(255,245,231,.24);
+      --frame-deep: rgba(8,25,21,.94);
+    }
+
+    /* Hero thumbnail: a crisp photo mat, a thin illuminated outer keyline,
+       plus the existing corner brackets. */
+    .art-frame {
+      border: 1px solid transparent;
+      background:
+        linear-gradient(145deg, rgba(30,57,47,.98), rgba(9,25,21,.98)) padding-box,
+        linear-gradient(125deg, var(--frame-gold) 0%, rgba(255,226,161,.78) 24%,
+          var(--frame-teal) 59%, var(--frame-coral) 83%, var(--frame-gold) 100%) border-box;
+      outline: 1px solid rgba(86,170,163,.32);
+      outline-offset: 5px;
+      box-shadow:
+        0 30px 100px rgba(0,0,0,.34),
+        0 0 0 1px rgba(245,181,42,.10),
+        0 0 42px rgba(86,170,163,.085),
+        inset 0 0 0 1px rgba(255,245,231,.20);
+    }
+    .art-frame::before,
+    .art-frame::after {
+      width: 48px;
+      height: 48px;
+      opacity: .98;
+      filter: drop-shadow(0 0 5px rgba(245,181,42,.20));
+    }
+    .hero-image {
+      border: 1px solid rgba(255,245,231,.20);
+      outline: 1px solid rgba(8,25,21,.55);
+      outline-offset: -4px;
+    }
+    .art-caption { border-top: 1px solid rgba(86,170,163,.22); }
+    .art-index {
+      box-shadow: inset 0 0 0 3px rgba(86,170,163,.055);
+    }
+
+    /* Featured video: the clearest and strongest border on the page. */
+    .video-shell {
+      border: 2px solid transparent;
+      background:
+        linear-gradient(145deg, rgba(19,43,35,.98), rgba(8,23,19,.98)) padding-box,
+        linear-gradient(125deg, #f5b52a 0%, rgba(255,226,161,.88) 19%,
+          #56aaa3 47%, rgba(239,128,88,.80) 76%, #f5b52a 100%) border-box;
+      outline: 1px solid rgba(86,170,163,.32);
+      outline-offset: 5px;
+      box-shadow:
+        0 28px 75px rgba(0,0,0,.30),
+        0 0 0 1px rgba(245,181,42,.10),
+        0 0 48px rgba(86,170,163,.075),
+        inset 0 0 0 1px rgba(255,245,231,.09);
+    }
+    .video-shell::before {
+      border: 1px solid rgba(255,245,231,.62);
+      outline: 1px solid rgba(245,181,42,.38);
+      box-shadow: 0 4px 14px rgba(0,0,0,.16);
+    }
+    .video-frame {
+      border: 1px solid rgba(245,181,42,.52);
+      box-shadow:
+        inset 0 0 0 1px rgba(255,245,231,.12),
+        0 0 0 1px rgba(5,18,15,.72);
+    }
+    .video-underbar {
+      border-top: 1px solid rgba(86,170,163,.24);
+      margin-top: 10px;
+    }
+
+    /* Related video cards: tidy gradient keyline, then a small inset frame around
+       the actual thumbnail. The border gets brighter on hover without a loud glow. */
+    .related-card {
+      border: 1px solid transparent;
+      background:
+        linear-gradient(150deg, rgba(21,43,37,.98), rgba(9,25,21,.98)) padding-box,
+        linear-gradient(135deg, rgba(245,181,42,.60), rgba(86,170,163,.55) 47%,
+          rgba(239,128,88,.42) 82%, rgba(245,181,42,.52)) border-box;
+      box-shadow: inset 0 0 0 1px rgba(255,245,231,.035),
+                  0 9px 28px rgba(0,0,0,.13);
+      transition: transform .28s ease, background .28s ease, box-shadow .28s ease;
+    }
+    .related-card:hover {
+      border-color: transparent;
+      background:
+        linear-gradient(150deg, rgba(25,49,41,.99), rgba(10,27,22,.99)) padding-box,
+        linear-gradient(135deg, #f5b52a 0%, #8ad4c9 43%, #ef8058 75%, #f5b52a 100%) border-box;
+      box-shadow: inset 0 0 0 1px rgba(255,245,231,.065),
+                  0 13px 32px rgba(0,0,0,.19);
+      transform: translateY(-3px);
+    }
+    .related-thumb {
+      border-bottom: 1px solid rgba(245,181,42,.42);
+      isolation: isolate;
+    }
+    .related-thumb::after {
+      content: "";
+      position: absolute;
+      z-index: 1;
+      inset: 9px;
+      border: 1px solid rgba(255,245,231,.42);
+      box-shadow: inset 0 0 0 1px rgba(9,25,21,.12);
+      pointer-events: none;
+      transition: border-color .25s ease, inset .25s ease;
+    }
+    .related-card:hover .related-thumb::after {
+      inset: 7px;
+      border-color: rgba(255,226,161,.76);
+    }
+
+    /* Supporting content uses quieter lines so media remains the visual priority. */
+    .story-aside {
+      border: 1px solid rgba(86,116,88,.36);
+      outline: 1px solid rgba(245,181,42,.23);
+      outline-offset: 4px;
+      box-shadow:
+        0 2px 5px rgba(62,48,26,.025),
+        0 18px 48px rgba(62,48,26,.075),
+        inset 0 0 0 1px rgba(255,255,255,.48);
+    }
+    .mood-card {
+      position: relative;
+      border: 1px solid transparent;
+      background:
+        linear-gradient(145deg, rgba(24,48,39,.94), rgba(9,25,21,.96)) padding-box,
+        linear-gradient(135deg, rgba(245,181,42,.57), rgba(86,170,163,.48) 56%,
+          rgba(239,128,88,.32)) border-box;
+      box-shadow: inset 0 0 0 1px rgba(255,245,231,.035);
+    }
+    .mood-card::before {
+      content: "";
+      position: absolute;
+      top: -1px;
+      left: 20px;
+      width: 58px;
+      height: 2px;
+      background: linear-gradient(90deg, #f5b52a, rgba(245,181,42,0));
+      pointer-events: none;
+    }
+    .mood-card::after {
+      content: "";
+      position: absolute;
+      right: 16px;
+      bottom: 15px;
+      width: 22px;
+      height: 22px;
+      border-right: 1px solid rgba(86,170,163,.56);
+      border-bottom: 1px solid rgba(86,170,163,.56);
+      opacity: .8;
+      pointer-events: none;
+    }
+    .mood-card:hover {
+      border-color: transparent;
+      background:
+        linear-gradient(145deg, rgba(26,54,43,.98), rgba(10,28,22,.98)) padding-box,
+        linear-gradient(135deg, #f5b52a, #56aaa3 52%, #ef8058) border-box;
+    }
+    .artist-visual {
+      border: 1px solid transparent;
+      background:
+        radial-gradient(circle at 26% 25%, rgba(245,181,42,.20), transparent 30%),
+        radial-gradient(circle at 78% 37%, rgba(86,170,163,.19), transparent 34%),
+        linear-gradient(145deg, #23483b, #0b1c18) padding-box,
+        linear-gradient(135deg, #f5b52a, #56aaa3 58%, #ef8058) border-box;
+      box-shadow:
+        0 22px 62px rgba(0,0,0,.16),
+        inset 0 0 0 1px rgba(255,245,231,.09);
+    }
+
+    /* Give each section a fine boundary, with stronger rules only at major breaks. */
+    .watch-section,
+    #interpretation,
+    #about,
+    .related-section {
+      border-top: 1px solid transparent;
+      border-image: linear-gradient(90deg, rgba(245,181,42,0), rgba(245,181,42,.55) 22%,
+        rgba(86,170,163,.58) 72%, rgba(86,170,163,0)) 1;
+    }
+    .section-paper {
+      border-top: 1px solid rgba(183,133,55,.38);
+      border-bottom: 1px solid rgba(86,170,163,.44);
+    }
+    .closing {
+      border-top: 1px solid rgba(255,245,231,.52);
+      border-bottom: 1px solid rgba(23,43,38,.38);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.24),
+                  inset 0 -1px 0 rgba(23,43,38,.10);
+    }
+    .site-footer { border-top: 1px solid rgba(86,170,163,.30); }
+
+    /* The player is a small framed object too, but not brighter than the video. */
+    .floating-player {
+      border: 1px solid transparent;
+      background:
+        linear-gradient(rgba(10,25,21,.98), rgba(10,25,21,.98)) padding-box,
+        linear-gradient(110deg, rgba(245,181,42,.88), rgba(86,170,163,.70) 58%,
+          rgba(239,128,88,.52)) border-box;
+      box-shadow: 0 15px 50px rgba(0,0,0,.42),
+                  0 0 22px rgba(86,170,163,.06),
+                  inset 0 1px 0 rgba(255,255,255,.05);
+    }
+    .player-art {
+      border: 1px solid rgba(245,181,42,.62);
+      box-shadow: inset 0 0 0 1px rgba(255,245,231,.14);
+    }
+    .player-button {
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.30),
+                  0 0 0 2px rgba(245,181,42,.11);
+    }
+    .nav { border-bottom-color: rgba(86,170,163,.26); }
+    .nav-links .nav-cta { box-shadow: inset 0 0 0 1px rgba(86,170,163,.11); }
+
+    @media (max-width: 760px) {
+      .art-frame { outline-offset: 3px; }
+      .video-shell { outline-offset: 3px; }
+      .related-thumb::after { inset: 6px; }
+      .story-aside { outline-offset: 2px; }
+      .mood-card::after { right: 12px; bottom: 12px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .related-card, .related-thumb::after { transition: none !important; }
+    }
+  </style>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
