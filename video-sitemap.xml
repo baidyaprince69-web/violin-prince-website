@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset
+  xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+  xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
+  <url>
+    <loc>https://baidyaprince69-web.github.io/violin-prince-website/hai-apna-dil-to-awara/</loc>
+    <video:video>
+      <video:thumbnail_loc>https://i.ytimg.com/vi/StnvyGduJ0s/maxresdefault.jpg</video:thumbnail_loc>
+      <video:title>Can the Violin Capture This Classic? Hai Apna Dil To Awara</video:title>
+      <video:description>Prince Baidya, Violin Prince, performs a violin cover of Hai Apna Dil To Awara, the classic Hindi song from Solva Saal. Explore the performance and the story behind the song.</video:description>
+      <video:player_loc allow_embed="yes">https://www.youtube.com/embed/StnvyGduJ0s</video:player_loc>
+      <video:duration>273</video:duration>
+      <video:publication_date>2026-06-27T00:00:00+00:00</video:publication_date>
+      <video:family_friendly>yes</video:family_friendly>
+    </video:video>
+  </url>
+</urlset>
