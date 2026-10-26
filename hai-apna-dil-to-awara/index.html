@@ -719,6 +719,213 @@
     }
   </style>
 
+
+  <style id="ambient-thumbnail-background-and-blur-motion">
+    /* Atmosphere: move the thumbnail's sunset, aqua sky and dark landscape into the page itself. */
+    html { background: #091916; }
+    body {
+      position: relative;
+      isolation: isolate;
+      background-color: #091916;
+      background-image:
+        radial-gradient(ellipse 52% 38% at 8% 3%, rgba(245,181,42,.22) 0%, rgba(245,181,42,.08) 38%, transparent 76%),
+        radial-gradient(ellipse 45% 40% at 95% 7%, rgba(86,170,163,.22) 0%, rgba(86,170,163,.08) 43%, transparent 78%),
+        radial-gradient(ellipse 53% 32% at 47% 46%, rgba(239,128,88,.08) 0%, transparent 76%),
+        radial-gradient(ellipse 48% 42% at 91% 78%, rgba(245,181,42,.10) 0%, transparent 76%),
+        radial-gradient(ellipse 48% 40% at 5% 87%, rgba(86,170,163,.12) 0%, transparent 75%),
+        linear-gradient(145deg, #203d33 0%, #172f28 31%, #10251f 62%, #091916 100%);
+      background-attachment: fixed;
+    }
+    /* A slow, soft atmospheric colour bloom — no extra imagery or stock visuals. */
+    body::after {
+      content: "";
+      position: fixed;
+      z-index: 0;
+      inset: -12%;
+      pointer-events: none;
+      opacity: .8;
+      background:
+        radial-gradient(ellipse 32% 27% at 17% 17%, rgba(245,181,42,.20), transparent 74%),
+        radial-gradient(ellipse 34% 30% at 86% 14%, rgba(86,170,163,.19), transparent 75%),
+        radial-gradient(ellipse 29% 24% at 73% 67%, rgba(239,128,88,.10), transparent 73%),
+        radial-gradient(ellipse 38% 28% at 18% 81%, rgba(79,127,88,.13), transparent 78%);
+      filter: blur(18px);
+      transform: translate3d(0,0,0);
+      animation: sunset-bloom-drift 26s ease-in-out infinite alternate;
+      will-change: transform;
+    }
+    .site-header, main, .site-footer { position: relative; z-index: 1; }
+    .floating-player { z-index: 40; }
+    .hero { isolation: isolate; }
+    .hero::after {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      width: clamp(320px, 47vw, 680px);
+      aspect-ratio: 1;
+      right: -12%;
+      top: 0;
+      border-radius: 50%;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 37% 38%, rgba(86,170,163,.17), transparent 48%),
+        radial-gradient(circle at 67% 58%, rgba(245,181,42,.14), transparent 59%),
+        radial-gradient(circle, rgba(239,128,88,.055), transparent 70%);
+      filter: blur(7px);
+    }
+    .watch-section {
+      background-image:
+        radial-gradient(ellipse 46% 40% at 88% 42%, rgba(86,170,163,.10), transparent 75%),
+        radial-gradient(ellipse 35% 30% at 12% 75%, rgba(245,181,42,.075), transparent 75%);
+    }
+    .mood-section {
+      background-image:
+        radial-gradient(ellipse 37% 44% at 8% 18%, rgba(86,170,163,.105), transparent 74%),
+        radial-gradient(ellipse 39% 34% at 90% 82%, rgba(245,181,42,.08), transparent 75%);
+    }
+    #about {
+      background-image:
+        radial-gradient(ellipse 45% 55% at 8% 52%, rgba(86,170,163,.095), transparent 74%),
+        radial-gradient(ellipse 39% 37% at 92% 4%, rgba(245,181,42,.08), transparent 75%);
+    }
+    .art-frame {
+      box-shadow:
+        0 30px 100px rgba(0,0,0,.32),
+        0 0 70px rgba(86,170,163,.075),
+        inset 0 0 0 5px rgba(255,255,255,.018);
+    }
+    .video-shell {
+      box-shadow:
+        0 28px 75px rgba(0,0,0,.28),
+        0 0 55px rgba(86,170,163,.07),
+        0 0 90px rgba(245,181,42,.035);
+    }
+    .mood-card { backdrop-filter: blur(4px); }
+    .floating-player {
+      backdrop-filter: blur(22px) saturate(1.18);
+      -webkit-backdrop-filter: blur(22px) saturate(1.18);
+    }
+
+    /* Blur-in / blur-out motion modelled on the Tere Paas Main page.
+       Scroll reveal remains progressive-enhancement safe: no JS means visible content. */
+    .js .reveal {
+      opacity: 0;
+      transform: translate3d(0, 30px, 0) scale(.985);
+      filter: blur(6px);
+      transition:
+        opacity .58s cubic-bezier(.22,.7,.2,1),
+        transform .74s cubic-bezier(.22,.7,.2,1),
+        filter .62s ease;
+      transition-delay: var(--reveal-delay, 0ms);
+      will-change: opacity, transform, filter;
+    }
+    .js .reveal.is-visible {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+      filter: blur(0);
+      transition-delay: var(--reveal-delay, 0ms);
+    }
+    .js .reveal.is-leaving-up {
+      opacity: 0;
+      transform: translate3d(0, -21px, 0) scale(.985);
+      filter: blur(7px);
+    }
+    .js .reveal.is-leaving-down {
+      opacity: 0;
+      transform: translate3d(0, 22px, 0) scale(.985);
+      filter: blur(7px);
+    }
+    .reveal-delay-1 { --reveal-delay: 90ms; }
+    .reveal-delay-2 { --reveal-delay: 180ms; }
+    .reveal-delay-3 { --reveal-delay: 270ms; }
+
+    /* Let the hero participate in the same bidirectional reveal choreography. */
+    .js .hero-copy > *,
+    .js .hero-art {
+      opacity: 0;
+      transform: translate3d(0, 28px, 0) scale(.985);
+      filter: blur(6px);
+      animation: none !important;
+      transition:
+        opacity .62s cubic-bezier(.22,.7,.2,1),
+        transform .76s cubic-bezier(.22,.7,.2,1),
+        filter .65s ease;
+      will-change: opacity, transform, filter;
+    }
+    .js .hero-copy > h1 {
+      transform: translate3d(0, 34px, 0) scale(.975);
+      filter: blur(8px);
+      transition-duration: .72s, .84s, .72s;
+    }
+    .js .hero-copy > *.is-visible,
+    .js .hero-art.is-visible {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+      filter: blur(0);
+    }
+    .js .hero-copy > *.is-leaving-up,
+    .js .hero-art.is-leaving-up {
+      opacity: 0;
+      transform: translate3d(0, -20px, 0) scale(.985);
+      filter: blur(7px);
+    }
+    .js .hero-copy > *.is-leaving-down,
+    .js .hero-art.is-leaving-down {
+      opacity: 0;
+      transform: translate3d(0, 22px, 0) scale(.985);
+      filter: blur(7px);
+    }
+    .js .hero-copy > *:nth-child(1) { transition-delay: 0ms; }
+    .js .hero-copy > *:nth-child(2) { transition-delay: 80ms; }
+    .js .hero-copy > *:nth-child(3) { transition-delay: 140ms; }
+    .js .hero-copy > *:nth-child(4) { transition-delay: 200ms; }
+    .js .hero-copy > *:nth-child(5) { transition-delay: 250ms; }
+    .js .hero-art { transition-delay: 110ms; }
+
+    /* Decorative light around key type fades from a soft halo into crisp lettering. */
+    .js .hero-copy > h1.is-visible,
+    .js .section-head h2,
+    .js .watch-heading h2,
+    .js .story-copy h2,
+    .js .artist-copy h2,
+    .js .closing h2 {
+      text-shadow: 0 0 28px rgba(86,170,163,.075);
+    }
+
+    @keyframes sunset-bloom-drift {
+      0%   { transform: translate3d(-1.2%, -0.6%, 0) scale(1); }
+      50%  { transform: translate3d(1.0%, .8%, 0) scale(1.025); }
+      100% { transform: translate3d(-.4%, 1.2%, 0) scale(1.012); }
+    }
+    @media (max-width: 760px) {
+      body { background-attachment: scroll; }
+      body::after { inset: -5%; opacity: .62; animation-duration: 34s; filter: blur(24px); }
+      .hero::after { width: 100vw; right: -27%; top: 28%; opacity: .82; }
+      .js .hero-copy > *, .js .hero-art { filter: blur(4px); }
+      .js .hero-copy > h1 { filter: blur(6px); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      body::after { animation: none !important; }
+      .js .reveal,
+      .js .reveal.is-visible,
+      .js .reveal.is-leaving-up,
+      .js .reveal.is-leaving-down,
+      .js .hero-copy > *,
+      .js .hero-art,
+      .js .hero-copy > *.is-visible,
+      .js .hero-art.is-visible,
+      .js .hero-copy > *.is-leaving-up,
+      .js .hero-copy > *.is-leaving-down,
+      .js .hero-art.is-leaving-up,
+      .js .hero-art.is-leaving-down {
+        opacity: 1 !important;
+        transform: none !important;
+        filter: none !important;
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+  </style>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -1133,7 +1340,7 @@
           }
         });
       }
-      var revealItems = document.querySelectorAll('.reveal');
+      var revealItems = document.querySelectorAll('.reveal, .hero-copy > *, .hero-art');
       if ('IntersectionObserver' in window) {
         var observer = new IntersectionObserver(function (entries) {
           entries.forEach(function (entry) {
