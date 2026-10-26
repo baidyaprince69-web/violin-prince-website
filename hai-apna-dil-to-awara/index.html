@@ -2011,7 +2011,7 @@
       }
 
       function showPlayerFallback(message) {
-        if (playerReady) return;
+        playerReady = false;
         apiFailed = true;
         apiLoading = false;
         playerInitStarted = false;
@@ -2019,6 +2019,10 @@
         clearTimer(playerReadyTimer);
         apiLoadTimer = null;
         playerReadyTimer = null;
+        if (progressTimer !== null) {
+          window.clearInterval(progressTimer);
+          progressTimer = null;
+        }
         playerBar.classList.remove('is-playing');
         playToggle.disabled = false;
         playToggle.textContent = '↗';
@@ -2033,8 +2037,7 @@
       }
 
       function openYouTube() {
-        var opened = window.open(videoUrl, '_blank', 'noopener');
-        if (!opened) window.location.href = videoUrl;
+        window.open(videoUrl, '_blank', 'noopener,noreferrer');
       }
 
       function onReady(event) {
