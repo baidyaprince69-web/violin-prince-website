@@ -1528,6 +1528,183 @@
       .section-paper::after { background: radial-gradient(circle, rgba(120,200,215,.21) 0%, rgba(120,200,215,.07) 43%, transparent 73%); }
     }
   </style>
+
+  <style id="luminous-sunset-lighting">
+    /* Brighter atmospheric lighting while preserving the approved charcoal base. */
+    body {
+      background-color: #0d1014;
+      background-image:
+        radial-gradient(ellipse 60% 46% at 4% 3%,
+          rgba(255,179,44,.34) 0%, rgba(255,179,44,.16) 30%, rgba(255,179,44,.035) 62%, transparent 78%),
+        radial-gradient(ellipse 55% 46% at 99% 4%,
+          rgba(120,200,215,.32) 0%, rgba(120,200,215,.14) 34%, rgba(120,200,215,.035) 62%, transparent 80%),
+        radial-gradient(ellipse 62% 42% at 50% 39%,
+          rgba(239,128,107,.12) 0%, rgba(239,128,107,.04) 47%, transparent 78%),
+        radial-gradient(ellipse 50% 45% at 91% 85%,
+          rgba(120,200,215,.14) 0%, transparent 74%),
+        radial-gradient(ellipse 52% 43% at 10% 88%,
+          rgba(255,179,44,.10) 0%, transparent 75%),
+        linear-gradient(148deg, #30262a 0%, #242125 26%, #191a20 57%, #0d1014 100%);
+      background-attachment: fixed;
+    }
+    body::after {
+      opacity: .96;
+      background:
+        radial-gradient(ellipse 40% 34% at 13% 12%,
+          rgba(255,179,44,.30) 0%, rgba(255,179,44,.11) 42%, transparent 76%),
+        radial-gradient(ellipse 40% 34% at 88% 10%,
+          rgba(120,200,215,.29) 0%, rgba(120,200,215,.10) 45%, transparent 77%),
+        radial-gradient(ellipse 34% 31% at 65% 52%,
+          rgba(239,128,107,.12) 0%, transparent 76%),
+        radial-gradient(ellipse 45% 34% at 17% 85%,
+          rgba(151,121,104,.13) 0%, transparent 78%);
+      filter: blur(15px);
+      animation-duration: 22s;
+    }
+
+    /* Hero lighting: soft sunrise at the text, cyan rim light around the picture. */
+    .hero {
+      background-image:
+        radial-gradient(ellipse 57% 72% at 6% 28%,
+          rgba(255,179,44,.105) 0%, rgba(255,179,44,.035) 47%, transparent 78%),
+        radial-gradient(ellipse 50% 72% at 90% 38%,
+          rgba(120,200,215,.10) 0%, transparent 76%);
+    }
+    .hero::before {
+      color: rgba(255,179,44,.11);
+      text-shadow: 0 0 62px rgba(255,179,44,.075);
+    }
+    .hero::after {
+      background:
+        radial-gradient(circle at 37% 38%, rgba(120,200,215,.28), transparent 49%),
+        radial-gradient(circle at 67% 58%, rgba(255,179,44,.24), transparent 59%),
+        radial-gradient(circle, rgba(239,128,107,.10), transparent 70%);
+      filter: blur(11px);
+    }
+    .hero-copy > .eyebrow::before {
+      box-shadow: 0 0 8px rgba(255,179,44,.55), 0 0 22px rgba(255,179,44,.3);
+    }
+    h1 em {
+      text-shadow: 0 0 25px rgba(255,179,44,.20), 0 0 54px rgba(255,179,44,.08);
+    }
+
+    /* Build a clearer glow behind the featured media without lowering contrast. */
+    .art-frame {
+      box-shadow:
+        0 30px 100px rgba(0,0,0,.33),
+        0 0 0 1px rgba(255,179,44,.18),
+        0 0 24px rgba(255,179,44,.16),
+        0 0 62px rgba(120,200,215,.17),
+        inset 0 0 0 1px rgba(255,243,229,.27);
+    }
+    .art-frame::before, .art-frame::after {
+      filter:
+        drop-shadow(0 0 4px rgba(255,179,44,.42))
+        drop-shadow(0 0 11px rgba(255,179,44,.16));
+    }
+    .video-shell {
+      box-shadow:
+        0 28px 75px rgba(0,0,0,.30),
+        0 0 0 1px rgba(255,179,44,.17),
+        0 0 28px rgba(255,179,44,.14),
+        0 0 64px rgba(120,200,215,.14),
+        inset 0 0 0 1px rgba(255,243,229,.13);
+    }
+    .video-frame {
+      box-shadow:
+        inset 0 0 0 1px rgba(255,243,229,.18),
+        inset 0 0 30px rgba(120,200,215,.035),
+        0 0 0 1px rgba(5,18,15,.72);
+    }
+    .video-shell::before {
+      box-shadow: 0 4px 14px rgba(0,0,0,.16), 0 0 18px rgba(255,179,44,.15);
+    }
+
+    /* Carry light across each dark section so the page doesn't fall into one flat tone. */
+    .watch-section {
+      background-image:
+        radial-gradient(ellipse 48% 50% at 88% 5%,
+          rgba(120,200,215,.16), transparent 76%),
+        radial-gradient(ellipse 42% 34% at 7% 89%,
+          rgba(255,179,44,.12), transparent 76%),
+        linear-gradient(180deg, rgba(255,255,255,.012), transparent 58%);
+    }
+    .mood-section {
+      background-image:
+        radial-gradient(ellipse 45% 56% at 7% 14%,
+          rgba(120,200,215,.18), transparent 74%),
+        radial-gradient(ellipse 47% 43% at 94% 86%,
+          rgba(255,179,44,.14), transparent 76%),
+        radial-gradient(ellipse 60% 56% at 50% 49%,
+          rgba(239,128,107,.045), transparent 80%);
+    }
+    #about {
+      background-image:
+        radial-gradient(ellipse 50% 61% at 9% 42%,
+          rgba(120,200,215,.17), transparent 76%),
+        radial-gradient(ellipse 44% 46% at 91% 8%,
+          rgba(255,179,44,.14), transparent 75%),
+        linear-gradient(135deg, rgba(255,255,255,.016), transparent 70%);
+    }
+    .related-section {
+      background-color: #0e1116;
+      background-image:
+        radial-gradient(ellipse 48% 44% at 5% 3%,
+          rgba(255,179,44,.15), transparent 75%),
+        radial-gradient(ellipse 48% 48% at 98% 43%,
+          rgba(120,200,215,.16), transparent 76%),
+        radial-gradient(ellipse 52% 33% at 53% 100%,
+          rgba(239,128,107,.07), transparent 78%);
+    }
+    .closing {
+      background-image:
+        radial-gradient(ellipse 50% 115% at 100% 0%, rgba(120,200,215,.34), transparent 72%),
+        radial-gradient(ellipse 50% 100% at 0% 100%, rgba(239,128,107,.27), transparent 72%),
+        radial-gradient(ellipse 42% 72% at 48% 4%, rgba(255,238,187,.23), transparent 78%),
+        linear-gradient(110deg, #ffb32c 0%, #f8c77e 54%, #f0a58c 100%);
+    }
+
+    /* Fine, visible light on controls and cards; the art itself stays the brightest subject. */
+    .related-card {
+      box-shadow:
+        inset 0 0 0 1px rgba(255,243,229,.055),
+        0 9px 28px rgba(0,0,0,.13),
+        0 0 22px rgba(120,200,215,.045);
+    }
+    .related-card:hover {
+      box-shadow:
+        inset 0 0 0 1px rgba(255,243,229,.09),
+        0 13px 32px rgba(0,0,0,.19),
+        0 0 28px rgba(255,179,44,.10);
+    }
+    .floating-player {
+      box-shadow:
+        0 15px 50px rgba(0,0,0,.43),
+        0 0 25px rgba(255,179,44,.13),
+        0 0 46px rgba(120,200,215,.09),
+        inset 0 1px 0 rgba(255,243,229,.07);
+    }
+    .player-button {
+      box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,.34),
+        0 0 0 2px rgba(255,179,44,.16),
+        0 0 20px rgba(255,179,44,.16);
+    }
+    .player-state { text-shadow: 0 0 15px rgba(255,179,44,.16); }
+
+    @media (max-width: 760px) {
+      body { background-attachment: scroll; }
+      body::after { opacity: .8; animation-duration: 30s; filter: blur(22px); }
+      .hero {
+        background-image:
+          radial-gradient(ellipse 92% 49% at 0% 4%, rgba(255,179,44,.14), transparent 80%),
+          radial-gradient(ellipse 94% 55% at 100% 84%, rgba(120,200,215,.14), transparent 80%);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      body::after { animation: none !important; }
+    }
+  </style>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
