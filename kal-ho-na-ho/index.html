@@ -736,6 +736,36 @@
       *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
       .js .scroll-reveal, .js .scroll-reveal.is-visible { opacity: 1 !important; transform: none !important; transition: none !important; }
     }
+
+    /* Video-first watch-page layout: make the performance the primary content. */
+    .hero {
+      min-height: 0;
+      grid-template-columns: minmax(0, 1fr);
+      align-items: start;
+      gap: clamp(22px, 3vw, 34px);
+      padding: clamp(36px, 5vw, 62px) 0 58px;
+    }
+    .hero-copy {
+      width: 100%;
+      max-width: 920px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    .hero-copy .eyebrow { justify-content: center; }
+    .hero-copy h1 { max-width: none; }
+    .hero-copy .lead {
+      max-width: 760px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .hero-copy .artistline { justify-content: center; }
+    .hero-copy .actions { justify-content: center; }
+    .player-shell {
+      width: 100%;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    #watch { scroll-margin-top: 24px; }
   </style>
 </head>
 <body>
