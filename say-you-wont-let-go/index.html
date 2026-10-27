@@ -57,7 +57,7 @@
     *{box-sizing:border-box}
     html{scroll-behavior:smooth;scroll-padding-top:92px}
     body{margin:0;background:radial-gradient(ellipse at 78% 8%,rgba(255,77,35,.19),transparent 33rem),radial-gradient(ellipse at 95% 36%,rgba(255,178,54,.1),transparent 29rem),radial-gradient(ellipse at 3% 78%,rgba(173,42,23,.13),transparent 34rem),linear-gradient(155deg,#100807 0%,#1b0d09 48%,#0a0605 100%);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.7;overflow-x:hidden;padding-bottom:118px}
-    body:before{content:"";position:fixed;inset:0;pointer-events:none;z-index:8;opacity:.035;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.6'/%3E%3C/svg%3E")}
+    
     a{color:inherit}
     a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-offset:4px}
     button,input{font:inherit}
@@ -366,6 +366,42 @@
     @media(max-width:850px){.listening-lab{grid-template-columns:1fr}.mood-grid{grid-template-columns:1fr}.mood-choice{min-height:0}.mood-choice .mood-no{margin-bottom:14px}.social-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.recommendation-panel{grid-template-columns:1fr}.recommendation-actions{flex-direction:row;flex-wrap:wrap}.faq-list{grid-template-columns:1fr}}
     @media(max-width:560px){.social-grid{grid-template-columns:1fr}.social-card{min-height:120px;flex-direction:row;align-items:center}.social-card .social-top{flex:1}.social-open{white-space:nowrap}.share-panel{align-items:flex-start;flex-direction:column;padding:20px}.guide-tabs{gap:7px}.guide-tab{padding:9px 12px;font-size:.72rem}}
     @media(prefers-reduced-motion:reduce){.social-card,.mood-choice,.guide-tab,.share-button{transition:none!important}}
+
+
+    /* Forest Concert Hall: layered evergreen lights, music line art and fine printed texture. */
+    body{
+      margin:0;
+      color:var(--text);
+      font-family:var(--sans);
+      font-size:16px;
+      line-height:1.7;
+      overflow-x:clip;
+      padding-bottom:118px;
+      background:
+        radial-gradient(ellipse at 14% 8%,rgba(24,186,188,.22),transparent 33rem),
+        radial-gradient(ellipse at 88% 14%,rgba(237,185,92,.18),transparent 30rem),
+        radial-gradient(ellipse at 78% 66%,rgba(47,112,98,.24),transparent 34rem),
+        radial-gradient(ellipse at 7% 91%,rgba(24,90,83,.24),transparent 36rem),
+        url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20760%20600%22%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23edb95c%22%20stroke-width%3D%221.2%22%20opacity%3D%22.24%22%3E%3Cg%3E%3Cpath%20d%3D%22M-50%2095%20C80%2053%20160%20145%20300%20104%20S550%2051%20810%2095%22%2F%3E%3Cpath%20d%3D%22M-50%20109%20C80%2067%20160%20159%20300%20118%20S550%2065%20810%20109%22%2F%3E%3Cpath%20d%3D%22M-50%20123%20C80%2081%20160%20173%20300%20132%20S550%2079%20810%20123%22%2F%3E%3Cpath%20d%3D%22M-50%20137%20C80%2095%20160%20187%20300%20146%20S550%2093%20810%20137%22%2F%3E%3Cpath%20d%3D%22M-50%20151%20C80%20109%20160%20201%20300%20160%20S550%20107%20810%20151%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate(390%20318)%20rotate(-8)%22%20stroke%3D%22%2385aa97%22%20opacity%3D%22.52%22%3E%3Cpath%20d%3D%22M-55%20102%20C58%2048%20130%20132%20245%2084%20S420%2045%20492%2074%22%2F%3E%3Cpath%20d%3D%22M-55%20116%20C58%2062%20130%20146%20245%2098%20S420%2059%20492%2088%22%2F%3E%3Cpath%20d%3D%22M-55%20130%20C58%2076%20130%20160%20245%20112%20S420%2073%20492%20102%22%2F%3E%3Cpath%20d%3D%22M-55%20144%20C58%2090%20130%20174%20245%20126%20S420%2087%20492%20116%22%2F%3E%3Cpath%20d%3D%22M-55%20158%20C58%20104%20130%20188%20245%20140%20S420%20101%20492%20130%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20fill%3D%22%23edb95c%22%20stroke%3D%22%23edb95c%22%20stroke-width%3D%221.7%22%20opacity%3D%22.30%22%3E%3Cellipse%20cx%3D%22178%22%20cy%3D%22109%22%20rx%3D%228%22%20ry%3D%225%22%20transform%3D%22rotate(-22%20178%20109)%22%2F%3E%3Cpath%20d%3D%22M185%20107%20V46%20C203%2048%20214%2057%20210%2067%20C207%2074%20198%2073%20194%2067%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3Cellipse%20cx%3D%22271%22%20cy%3D%22126%22%20rx%3D%228%22%20ry%3D%225%22%20transform%3D%22rotate(-22%20271%20126)%22%2F%3E%3Cpath%20d%3D%22M278%20124%20V65%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3Cellipse%20cx%3D%22476%22%20cy%3D%22402%22%20rx%3D%228%22%20ry%3D%225%22%20transform%3D%22rotate(-22%20476%20402)%22%2F%3E%3Cpath%20d%3D%22M483%20400%20V343%20C502%20345%20512%20354%20508%20364%20C505%20371%20496%20370%20492%20364%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3Cellipse%20cx%3D%22547%22%20cy%3D%22386%22%20rx%3D%228%22%20ry%3D%225%22%20transform%3D%22rotate(-22%20547%20386)%22%2F%3E%3Cpath%20d%3D%22M554%20384%20V326%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fg%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%2385aa97%22%20stroke-width%3D%221.4%22%20opacity%3D%22.25%22%3E%3Cpath%20d%3D%22M36%20422%20C58%20403%2073%20405%2090%20422%20S121%20441%20139%20420%20S173%20401%20191%20420%22%2F%3E%3Cpath%20d%3D%22M36%20434%20C58%20415%2073%20417%2090%20434%20S121%20453%20139%20432%20S173%20413%20191%20432%22%2F%3E%3Cpath%20d%3D%22M36%20446%20C58%20427%2073%20429%2090%20446%20S121%20465%20139%20444%20S173%20425%20191%20444%22%2F%3E%3Ccircle%20cx%3D%2267%22%20cy%3D%22481%22%20r%3D%222%22%20fill%3D%22%23edb95c%22%20stroke%3D%22none%22%2F%3E%3Ccircle%20cx%3D%2288%22%20cy%3D%22495%22%20r%3D%221.5%22%20fill%3D%22%23edb95c%22%20stroke%3D%22none%22%2F%3E%3Ccircle%20cx%3D%22108%22%20cy%3D%22480%22%20r%3D%222%22%20fill%3D%22%2385aa97%22%20stroke%3D%22none%22%2F%3E%3C%2Fg%3E%3Cg%20fill%3D%22%23edb95c%22%20opacity%3D%22.26%22%3E%3Ccircle%20cx%3D%22610%22%20cy%3D%22205%22%20r%3D%221.8%22%2F%3E%3Ccircle%20cx%3D%22634%22%20cy%3D%22226%22%20r%3D%221.3%22%2F%3E%3Ccircle%20cx%3D%22660%22%20cy%3D%22204%22%20r%3D%221.8%22%2F%3E%3Ccircle%20cx%3D%22685%22%20cy%3D%22238%22%20r%3D%221.2%22%2F%3E%3Ccircle%20cx%3D%22628%22%20cy%3D%22252%22%20r%3D%221.1%22%2F%3E%3Ccircle%20cx%3D%22701%22%20cy%3D%22194%22%20r%3D%221.4%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
+        radial-gradient(circle,rgba(244,234,214,.075) .65px,transparent .95px),
+        linear-gradient(155deg,#143331 0%,#102726 36%,#0b1c1c 70%,#071313 100%);
+      background-size:auto,auto,auto,auto,760px 600px,24px 24px,auto;
+      background-position:center top,right top,center 60%,left bottom,center top,0 0,center;
+      background-repeat:no-repeat,no-repeat,no-repeat,no-repeat,repeat,repeat,no-repeat;
+    }
+    /* The old animated SVG turbulence grain is removed; all texture is now static vector/CSS paint. */
+    body:before{content:none!important;display:none!important}
+    @keyframes ambientGrade{
+      0%{opacity:.20}
+      50%{opacity:.34}
+      100%{opacity:.24}
+    }
+    .floating-player{
+      background:rgba(7,19,19,.96);
+      border-top-color:rgba(237,185,92,.24);
+      box-shadow:0 -13px 48px rgba(0,0,0,.42);
+    }
+    .site-header{background:rgba(16,39,38,.82);border-bottom-color:rgba(237,185,92,.20)}
 
     /* Reliability and performance fixes: clip animated reveals, fit tiny screens, reduce expensive effects on modest hardware. */
     html{overflow-x:clip}
