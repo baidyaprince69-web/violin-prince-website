@@ -34,4 +34,14 @@
       <video:family_friendly>yes</video:family_friendly>
     </video:video>
   </url>
+  <url>
+    <loc>https://baidyaprince69-web.github.io/violin-prince-website/say-you-wont-let-go/</loc>
+    <video:video>
+      <video:thumbnail_loc>https://i.ytimg.com/vi/3NHpKon_Uq8/hqdefault.jpg</video:thumbnail_loc>
+      <video:title>Say You Won't Let Go — Violin Cover by Prince Baidya | Violin Prince</video:title>
+      <video:description>Prince Baidya, Violin Prince, performs an instrumental violin interpretation of Say You Won't Let Go, the song originally performed by James Arthur.</video:description>
+      <video:player_loc allow_embed="yes">https://www.youtube-nocookie.com/embed/3NHpKon_Uq8</video:player_loc>
+      <video:family_friendly>yes</video:family_friendly>
+    </video:video>
+  </url>
 </urlset>
