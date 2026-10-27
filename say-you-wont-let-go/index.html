@@ -381,7 +381,7 @@
     .poster-copy strong{display:block;color:#fff8e9;font-size:.9rem;text-shadow:0 2px 15px rgba(0,0,0,.5)}
     .poster-copy small{display:block;color:#d1dfd2;font-size:.7rem;margin-top:3px}
     .song-player-host{position:absolute;inset:0;width:100%;height:100%;background:#081615}
-    .song-player-host[hidden]{display:none}
+    .song-player-host{display:none}.song-player-host.player-active{display:block}
     #songPlayer,#songPlayer iframe{width:100%;height:100%;border:0}
     .js .reveal{will-change:auto;filter:blur(8px) saturate(.9) contrast(.985)}
     .js .reveal.leaving{filter:blur(8px) saturate(.9) contrast(.985)}
@@ -468,7 +468,7 @@
             <span class="poster-shade" aria-hidden="true"></span>
             <span class="poster-center"><span class="poster-play" aria-hidden="true">▶</span><span class="poster-copy"><strong>Play the violin cover</strong><small>Tap to load the performance</small></span></span>
           </button>
-          <div id="songPlayer" class="song-player-host" hidden aria-label="YouTube player for Say You Won't Let Go, violin cover by Prince Baidya"></div>
+          <div id="songPlayer" class="song-player-host" aria-label="YouTube player for Say You Won't Let Go, violin cover by Prince Baidya"></div>
         </div>
         <div class="video-caption"><div><strong>Say You Won't Let Go</strong><small>Violin cover · Prince Baidya</small></div><a href="https://www.youtube.com/watch?v=3NHpKon_Uq8" target="_blank" rel="noopener noreferrer">Open on YouTube ↗</a></div>
         <span class="art-stamp" aria-hidden="true">a melody<br>to keep</span>
@@ -653,6 +653,7 @@
       }
       function onReady(event){
         player=event.target;ready=true;apiLoading=false;playToggle.disabled=false;
+        try{player.getIframe().hidden=false;player.getIframe().style.display='block';}catch(e){}
         if(apiTimer!==null){window.clearTimeout(apiTimer);apiTimer=null;}
         if(playerTimer!==null){window.clearTimeout(playerTimer);playerTimer=null;}
         if(poster)poster.hidden=true;
@@ -671,7 +672,7 @@
         if(playerTimer!==null){window.clearTimeout(playerTimer);playerTimer=null;}
         if(poster)poster.hidden=false;
         var currentHost=document.getElementById('songPlayer');
-        if(currentHost)currentHost.hidden=true;
+        if(currentHost)currentHost.classList.remove('player-active');
         playToggle.disabled=false;playIcon.textContent='↗';
         playToggle.setAttribute('aria-label','Open this cover on YouTube');playToggle.title='Open on YouTube';
         if(poster)poster.setAttribute('aria-label','Open this cover on YouTube');
@@ -683,7 +684,7 @@
       function initPlayer(){
         if(apiStarted||!window.YT||!window.YT.Player)return;
         apiStarted=true;apiLoading=false;
-        if(playerHost)playerHost.hidden=false;
+        if(playerHost)playerHost.classList.add('player-active');
         try{
           player=new window.YT.Player('songPlayer',{
             videoId:videoId,
