@@ -14,4 +14,24 @@
       <video:family_friendly>yes</video:family_friendly>
     </video:video>
   </url>
+  <url>
+    <loc>https://baidyaprince69-web.github.io/violin-prince-website/kal-ho-na-ho/</loc>
+    <video:video>
+      <video:thumbnail_loc>https://img.youtube.com/vi/FlA76nbkReM/hqdefault.jpg</video:thumbnail_loc>
+      <video:title>Kal Ho Naa Ho — Violin Cover by Prince Baidya | Violin Prince</video:title>
+      <video:description>Listen to Kal Ho Naa Ho reimagined on violin by Prince Baidya, Violin Prince. Watch the full performance and discover more violin covers.</video:description>
+      <video:player_loc allow_embed="yes">https://www.youtube-nocookie.com/embed/FlA76nbkReM</video:player_loc>
+      <video:family_friendly>yes</video:family_friendly>
+    </video:video>
+  </url>
+  <url>
+    <loc>https://baidyaprince69-web.github.io/violin-prince-website/tere-paas-main/</loc>
+    <video:video>
+      <video:thumbnail_loc>https://img.youtube.com/vi/FOV-lwpwcd0/hqdefault.jpg</video:thumbnail_loc>
+      <video:title>Tere Paas Main Violin Cover | A.R. Rahman | Prince Baidya | Violin Prince</video:title>
+      <video:description>Listen to Tere Paas Main from Main Vaapas Aaunga reimagined as a violin cover by Prince Baidya, Violin Prince.</video:description>
+      <video:player_loc allow_embed="yes">https://www.youtube-nocookie.com/embed/FOV-lwpwcd0</video:player_loc>
+      <video:family_friendly>yes</video:family_friendly>
+    </video:video>
+  </url>
 </urlset>
