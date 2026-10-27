@@ -206,10 +206,11 @@
     body{
       isolation:isolate;
       background:
-        radial-gradient(ellipse at 84% 4%,rgba(237,185,92,.16),transparent 28rem),
-        radial-gradient(ellipse at 4% 45%,rgba(80,143,125,.14),transparent 34rem),
-        radial-gradient(ellipse at 92% 63%,rgba(41,105,94,.13),transparent 36rem),
-        radial-gradient(ellipse at 52% 105%,rgba(237,185,92,.075),transparent 32rem),
+        radial-gradient(ellipse at 82% 9%,rgba(24,186,188,.15),transparent 30rem),
+        radial-gradient(ellipse at 7% 43%,rgba(80,143,125,.16),transparent 34rem),
+        radial-gradient(ellipse at 93% 62%,rgba(48,132,121,.12),transparent 36rem),
+        radial-gradient(ellipse at 55% 84%,rgba(133,170,151,.075),transparent 32rem),
+        radial-gradient(ellipse at 52% 4%,rgba(237,185,92,.065),transparent 29rem),
         linear-gradient(155deg,#143331 0%,#102726 36%,#0b1c1c 100%);
       color:var(--text);
     }
@@ -217,10 +218,11 @@
     body:after{
       content:"";position:fixed;inset:-14%;z-index:7;pointer-events:none;opacity:.34;
       background:
-        radial-gradient(ellipse at 15% 30%,rgba(80,143,125,.28),transparent 32%),
-        radial-gradient(ellipse at 82% 22%,rgba(237,185,92,.22),transparent 29%),
-        radial-gradient(ellipse at 70% 78%,rgba(47,112,98,.2),transparent 34%),
-        linear-gradient(125deg,rgba(7,27,26,.1),transparent 48%,rgba(163,117,59,.07));
+        radial-gradient(ellipse at 15% 28%,rgba(24,186,188,.26),transparent 32%),
+        radial-gradient(ellipse at 82% 22%,rgba(237,185,92,.12),transparent 29%),
+        radial-gradient(ellipse at 70% 78%,rgba(47,112,98,.24),transparent 34%),
+        radial-gradient(ellipse at 39% 63%,rgba(133,170,151,.16),transparent 31%),
+        linear-gradient(125deg,rgba(7,27,26,.08),transparent 48%,rgba(163,117,59,.035));
       background-size:145% 145%;mix-blend-mode:soft-light;
       animation:ambientGrade 22s ease-in-out infinite alternate;
     }
@@ -247,7 +249,7 @@
     @keyframes gentleLevitate{0%,100%{translate:0 0}50%{translate:0 -7px}}
     .feature-card:before{
       content:"";position:absolute;inset:-3px;z-index:-1;border-radius:inherit;
-      background:linear-gradient(132deg,rgba(255,224,160,.24),rgba(80,143,125,.2) 48%,rgba(237,185,92,.18));
+      background:linear-gradient(132deg,rgba(24,186,188,.22),rgba(80,143,125,.25) 48%,rgba(255,224,160,.12));
       filter:blur(23px);opacity:.46;transform:translate3d(0,10px,-1px);
       transition:opacity .5s ease,transform .5s ease;
     }
