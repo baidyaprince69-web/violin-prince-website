@@ -428,6 +428,11 @@
       .feature-card:before,.feature-card:hover:before{filter:none;transition:none}
       .video-poster>img{transition:none}
     }
+    @media(max-width:1100px){
+      .art-stamp{right:5px}
+      .js .reveal[data-motion="left"],.js .reveal[data-motion="right"]{transform:translate3d(0,18px,0) scale(.985)}
+      .js .reveal[data-motion="left"].leaving,.js .reveal[data-motion="right"].leaving{transform:translate3d(0,-18px,0) scale(.985)}
+    }
   </style>
   <script>document.documentElement.classList.add('js');</script>
 </head>
@@ -605,7 +610,7 @@
   <aside class="floating-player" aria-label="Persistent Say You Won't Let Go player controls">
     <div class="player-inner">
       <div class="player-track"><img class="player-art" src="https://i.ytimg.com/vi/3NHpKon_Uq8/hqdefault.jpg" alt="" width="96" height="72" loading="lazy" decoding="async"><div class="track-copy"><span class="kicker">NOW PLAYING · VIOLIN PRINCE</span><strong>Say You Won't Let Go</strong><small id="playerStatus" role="status" aria-live="polite">Connecting to YouTube…</small></div></div>
-      <button class="play-toggle" id="playToggle" type="button" aria-label="Play Say You Won't Let Go violin cover" title="Play cover" disabled><span id="playIcon" aria-hidden="true">▶</span></button>
+      <button class="play-toggle" id="playToggle" type="button" aria-label="Play Say You Won't Let Go violin cover" title="Play cover" aria-pressed="false"><span id="playIcon" aria-hidden="true">▶</span></button>
       <div class="seek-wrap"><div class="seek-times"><span id="currentTime">0:00</span><span id="duration">--:--</span></div><input class="seek" id="seekBar" type="range" min="0" max="1000" step="1" value="0" aria-label="Seek through Say You Won't Let Go violin cover" disabled></div>
       <span class="player-message" id="playerMessage">Ready when you are</span>
       <a class="jump-video" href="#performance">Go to video ↑</a>
@@ -614,7 +619,7 @@
   <script>
     (function(){
       'use strict';
-      var videoId='3NHpKon_Uq8', player=null, ready=false, state=-1, seeking=false, progressTimer=null, apiStarted=false, apiLoading=false, apiFailed=false, pendingPlay=false;
+      var videoId='3NHpKon_Uq8', player=null, ready=false, state=-1, seeking=false, progressTimer=null, apiStarted=false, apiLoading=false, apiFailed=false, pendingPlay=false, apiTimer=null, playerTimer=null;
       var playToggle=document.getElementById('playToggle'), playIcon=document.getElementById('playIcon');
       var status=document.getElementById('playerStatus'), message=document.getElementById('playerMessage');
       var seekBar=document.getElementById('seekBar'), currentTimeEl=document.getElementById('currentTime'), durationEl=document.getElementById('duration');
@@ -648,6 +653,8 @@
       }
       function onReady(event){
         player=event.target;ready=true;apiLoading=false;playToggle.disabled=false;
+        if(apiTimer!==null){window.clearTimeout(apiTimer);apiTimer=null;}
+        if(playerTimer!==null){window.clearTimeout(playerTimer);playerTimer=null;}
         if(poster)poster.hidden=true;
         try{player.getIframe().setAttribute('title',"Say You Won't Let Go — violin cover by Prince Baidya, Violin Prince");player.setVolume(55);var d=player.getDuration();if(d>0)durationEl.textContent=time(d);}
         catch(e){}
@@ -660,8 +667,11 @@
       }
       function playerFallback(messageText){
         ready=false;apiFailed=true;apiLoading=false;pendingPlay=false;
+        if(apiTimer!==null){window.clearTimeout(apiTimer);apiTimer=null;}
+        if(playerTimer!==null){window.clearTimeout(playerTimer);playerTimer=null;}
         if(poster)poster.hidden=false;
-        if(playerHost&&playerHost.tagName==='DIV')playerHost.hidden=true;
+        var currentHost=document.getElementById('songPlayer');
+        if(currentHost)currentHost.hidden=true;
         playToggle.disabled=false;playIcon.textContent='↗';
         playToggle.setAttribute('aria-label','Open this cover on YouTube');playToggle.title='Open on YouTube';
         if(poster)poster.setAttribute('aria-label','Open this cover on YouTube');
@@ -684,6 +694,7 @@
               onError:function(e){playerFallback('Embedded playback unavailable · open on YouTube');if(message)message.textContent='YouTube error '+String(e.data||'');}
             }
           });
+          playerTimer=window.setTimeout(function(){if(!ready)playerFallback('The video player took too long to respond · open on YouTube');},16000);
         }catch(e){
           apiStarted=false;
           playerFallback('The player could not initialize in this browser · open on YouTube');
@@ -698,8 +709,10 @@
         var old=window.onYouTubeIframeAPIReady;
         window.onYouTubeIframeAPIReady=function(){
           if(typeof old==='function')old();
+          if(apiTimer!==null){window.clearTimeout(apiTimer);apiTimer=null;}
           apiLoading=false;initPlayer();
         };
+        apiTimer=window.setTimeout(function(){if(apiLoading&&!apiStarted)playerFallback('YouTube is taking too long to load · open on YouTube');},16000);
         var existing=document.querySelector('script[data-vp-youtube-api]');
         if(!existing){
           var s=document.createElement('script');s.src='https://www.youtube.com/iframe_api';s.async=true;s.dataset.vpYoutubeApi='true';
