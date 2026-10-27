@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#100807">
+  <meta name="theme-color" content="#102726">
   <meta name="description" content="Say You Won't Let Go reimagined on violin by Prince Baidya, Violin Prince. Watch the performance, explore the song's intimate musical mood, and discover more violin covers.">
   <meta name="robots" content="index,follow,max-image-preview:large">
   <link rel="canonical" href="https://baidyaprince69-web.github.io/violin-prince-website/say-you-wont-let-go/">
@@ -366,6 +366,68 @@
     @media(max-width:850px){.listening-lab{grid-template-columns:1fr}.mood-grid{grid-template-columns:1fr}.mood-choice{min-height:0}.mood-choice .mood-no{margin-bottom:14px}.social-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.recommendation-panel{grid-template-columns:1fr}.recommendation-actions{flex-direction:row;flex-wrap:wrap}.faq-list{grid-template-columns:1fr}}
     @media(max-width:560px){.social-grid{grid-template-columns:1fr}.social-card{min-height:120px;flex-direction:row;align-items:center}.social-card .social-top{flex:1}.social-open{white-space:nowrap}.share-panel{align-items:flex-start;flex-direction:column;padding:20px}.guide-tabs{gap:7px}.guide-tab{padding:9px 12px;font-size:.72rem}}
     @media(prefers-reduced-motion:reduce){.social-card,.mood-choice,.guide-tab,.share-button{transition:none!important}}
+
+    /* Reliability and performance fixes: clip animated reveals, fit tiny screens, reduce expensive effects on modest hardware. */
+    html{overflow-x:clip}
+    body{overflow-x:clip}
+    .video-frame{isolation:isolate}
+    .video-poster{position:absolute;inset:0;width:100%;height:100%;padding:0;border:0;border-radius:14px;background:#081615;color:var(--text);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;text-align:left}
+    .video-poster[hidden]{display:none}
+    .video-poster>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:saturate(.84) contrast(1.04) brightness(.76);transition:transform .6s ease,filter .45s ease}
+    .video-poster:hover>img{transform:scale(1.035);filter:saturate(.96) contrast(1.05) brightness(.88)}
+    .poster-shade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(5,19,18,.25),rgba(5,19,18,.05) 45%,rgba(5,19,18,.28)),linear-gradient(0deg,rgba(5,17,16,.78),transparent 70%);pointer-events:none}
+    .poster-center{position:absolute;inset:auto 18px 18px;display:flex;align-items:center;gap:14px;z-index:1}
+    .poster-play{width:52px;height:52px;flex:0 0 52px;border:1px solid rgba(255,224,160,.72);border-radius:50%;display:grid;place-items:center;color:#102726;background:linear-gradient(135deg,#fff0c9,#edc56e 62%,#85aa97);box-shadow:0 6px 26px rgba(0,0,0,.3);padding-left:2px}
+    .poster-copy strong{display:block;color:#fff8e9;font-size:.9rem;text-shadow:0 2px 15px rgba(0,0,0,.5)}
+    .poster-copy small{display:block;color:#d1dfd2;font-size:.7rem;margin-top:3px}
+    .song-player-host{position:absolute;inset:0;width:100%;height:100%;background:#081615}
+    .song-player-host[hidden]{display:none}
+    #songPlayer,#songPlayer iframe{width:100%;height:100%;border:0}
+    .js .reveal{will-change:auto;filter:blur(8px) saturate(.9) contrast(.985)}
+    .js .reveal.leaving{filter:blur(8px) saturate(.9) contrast(.985)}
+    .social-card .social-top{min-width:0}
+    @media(max-width:1100px){.art-stamp{right:0}}
+    @media(min-width:761px) and (max-width:880px){
+      .nav{min-height:72px;position:relative}
+      .menu-toggle{display:grid;place-items:center;margin-left:auto}
+      .navlinks{position:absolute;top:71px;left:0;right:0;display:none;align-items:stretch;flex-direction:column;gap:0;padding:10px 18px 16px;background:rgba(10,31,30,.985);border-bottom:1px solid rgba(237,185,92,.22);box-shadow:0 18px 30px rgba(0,0,0,.24)}
+      .navlinks.open{display:flex}
+      .navlinks a{padding:13px 8px;font-size:.9rem}
+      .nav-cta{display:none}
+    }
+    @media(max-width:560px){
+      .social-card{gap:10px;padding:16px}
+      .social-card .social-top{flex:1;min-width:0}
+      .social-card .social-top>span:last-child{min-width:0}
+      .social-open{white-space:normal;max-width:104px;text-align:right;font-size:.67rem;line-height:1.25;flex:0 0 auto}
+      .poster-center{inset:auto 12px 12px;gap:10px}
+      .poster-play{width:44px;height:44px;flex-basis:44px}
+      .poster-copy strong{font-size:.8rem}
+      .poster-copy small{font-size:.66rem}
+    }
+    /* Avoid pinning dozens of compositor layers. Old CPUs, low RAM and data-saver connections get simpler effects. */
+    html.low-effects body:after{animation:none!important;opacity:.18}
+    html.low-effects body:before{opacity:.018}
+    html.low-effects .feature-card{animation:rise .65s .12s both!important;transition:transform .25s ease,box-shadow .25s ease}
+    html.low-effects .feature-card:before{filter:blur(12px);opacity:.22;transition:none}
+    html.low-effects .js .reveal{filter:blur(3px) saturate(.96);transition-duration:.32s}
+    html.low-effects .js .reveal.leaving{filter:blur(3px) saturate(.96)}
+    html.low-effects .detail-card,html.low-effects .related-card,html.low-effects .pullquote,html.low-effects .floating-player,html.low-effects .guide-panel,html.low-effects .btn-outline{backdrop-filter:none;-webkit-backdrop-filter:none}
+    html.low-effects .detail-card,html.low-effects .related-card{box-shadow:0 8px 22px rgba(0,0,0,.12)}
+    html.low-effects .related-image img,html.low-effects .video-poster>img{transition:none}
+    @media(max-width:900px),(pointer:coarse){
+      body:after{animation:none;opacity:.2}
+      .js .reveal{filter:blur(5px) saturate(.94)}
+      .js .reveal.leaving{filter:blur(5px) saturate(.94)}
+      .detail-card,.related-card,.pullquote,.floating-player,.guide-panel{backdrop-filter:none;-webkit-backdrop-filter:none}
+      .feature-card:before{filter:blur(15px);opacity:.3}
+    }
+    @media(prefers-reduced-motion:reduce){
+      body:after{animation:none!important}
+      .feature-card{animation:none!important;translate:none!important}
+      .feature-card:before,.feature-card:hover:before{filter:none;transition:none}
+      .video-poster>img{transition:none}
+    }
   </style>
   <script>document.documentElement.classList.add('js');</script>
 </head>
@@ -395,8 +457,13 @@
       </div>
       <div class="feature-card" id="performance">
         <div class="feature-top"><span>FEATURED PERFORMANCE</span><span class="live-label">VIOLIN PRINCE</span></div>
-        <div class="video-frame">
-          <iframe id="songPlayer" src="https://www.youtube-nocookie.com/embed/3NHpKon_Uq8?enablejsapi=1&amp;playsinline=1&amp;rel=0&amp;loop=1&amp;playlist=3NHpKon_Uq8" title="Say You Won't Let Go — violin cover by Prince Baidya, Violin Prince" loading="eager" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+        <div class="video-frame" id="videoFrame">
+          <button class="video-poster" id="loadSongPlayer" type="button" aria-label="Load and play Say You Won't Let Go violin cover">
+            <img src="https://i.ytimg.com/vi/3NHpKon_Uq8/hqdefault.jpg" alt="Say You Won't Let Go violin cover thumbnail" width="480" height="360" fetchpriority="high" decoding="async">
+            <span class="poster-shade" aria-hidden="true"></span>
+            <span class="poster-center"><span class="poster-play" aria-hidden="true">▶</span><span class="poster-copy"><strong>Play the violin cover</strong><small>Tap to load the performance</small></span></span>
+          </button>
+          <div id="songPlayer" class="song-player-host" hidden aria-label="YouTube player for Say You Won't Let Go, violin cover by Prince Baidya"></div>
         </div>
         <div class="video-caption"><div><strong>Say You Won't Let Go</strong><small>Violin cover · Prince Baidya</small></div><a href="https://www.youtube.com/watch?v=3NHpKon_Uq8" target="_blank" rel="noopener noreferrer">Open on YouTube ↗</a></div>
         <span class="art-stamp" aria-hidden="true">a melody<br>to keep</span>
@@ -547,11 +614,20 @@
   <script>
     (function(){
       'use strict';
-      var videoId='3NHpKon_Uq8', player=null, ready=false, state=-1, seeking=false, progressTimer=null, apiStarted=false;
+      var videoId='3NHpKon_Uq8', player=null, ready=false, state=-1, seeking=false, progressTimer=null, apiStarted=false, apiLoading=false, apiFailed=false, pendingPlay=false;
       var playToggle=document.getElementById('playToggle'), playIcon=document.getElementById('playIcon');
       var status=document.getElementById('playerStatus'), message=document.getElementById('playerMessage');
       var seekBar=document.getElementById('seekBar'), currentTimeEl=document.getElementById('currentTime'), durationEl=document.getElementById('duration');
       var menuToggle=document.getElementById('menuToggle'), siteNav=document.getElementById('siteNav');
+      var poster=document.getElementById('loadSongPlayer'), playerHost=document.getElementById('songPlayer');
+      try{
+        var navInfo=window.navigator||{};
+        var lowCpu=typeof navInfo.hardwareConcurrency==='number'&&navInfo.hardwareConcurrency<=4;
+        var lowRam=typeof navInfo.deviceMemory==='number'&&navInfo.deviceMemory<=4;
+        var saveData=!!(navInfo.connection&&navInfo.connection.saveData);
+        var reducedMotion=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+        if(lowCpu||lowRam||saveData||reducedMotion)document.documentElement.classList.add('low-effects');
+      }catch(ignored){}
       function time(s){if(!Number.isFinite(s)||s<0)return '0:00';var n=Math.floor(s);return Math.floor(n/60)+':'+String(n%60).padStart(2,'0');}
       function say(text){if(status)status.textContent=text;if(message)message.textContent=text;}
       function updateProgress(){
@@ -571,29 +647,79 @@
         else if(next===S.CUED||next===S.UNSTARTED){playIcon.textContent='▶';playToggle.setAttribute('aria-label',"Play Say You Won't Let Go violin cover");playToggle.title='Play cover';playToggle.setAttribute('aria-pressed','false');playToggle.disabled=false;say('Ready when you are');stopProgress();updateProgress();}
       }
       function onReady(event){
-        player=event.target;ready=true;playToggle.disabled=false;
+        player=event.target;ready=true;apiLoading=false;playToggle.disabled=false;
+        if(poster)poster.hidden=true;
         try{player.getIframe().setAttribute('title',"Say You Won't Let Go — violin cover by Prince Baidya, Violin Prince");player.setVolume(55);var d=player.getDuration();if(d>0)durationEl.textContent=time(d);}
         catch(e){}
         say('Ready when you are');updateProgress();
+        if(pendingPlay){
+          pendingPlay=false;
+          try{player.playVideo();say('Starting cover…');}
+          catch(e){say('Tap Play inside the video to begin.');}
+        }
+      }
+      function playerFallback(messageText){
+        ready=false;apiFailed=true;apiLoading=false;pendingPlay=false;
+        if(poster)poster.hidden=false;
+        if(playerHost&&playerHost.tagName==='DIV')playerHost.hidden=true;
+        playToggle.disabled=false;playIcon.textContent='↗';
+        playToggle.setAttribute('aria-label','Open this cover on YouTube');playToggle.title='Open on YouTube';
+        if(poster)poster.setAttribute('aria-label','Open this cover on YouTube');
+        say(messageText||'Embedded playback unavailable · open on YouTube');
+      }
+      function openYouTube(){
+        window.open('https://www.youtube.com/watch?v='+videoId,'_blank','noopener,noreferrer');
       }
       function initPlayer(){
         if(apiStarted||!window.YT||!window.YT.Player)return;
-        apiStarted=true;
-        try{player=new window.YT.Player('songPlayer',{events:{onReady:onReady,onStateChange:function(e){setState(e.data);},onError:function(e){ready=false;playToggle.disabled=false;playIcon.textContent='↗';playToggle.setAttribute('aria-label','Open this cover on YouTube');playToggle.title='Open on YouTube';say('Embedded playback unavailable · open on YouTube');message.textContent='YouTube error '+String(e.data||'');}}});}
-        catch(e){apiStarted=false;playToggle.disabled=false;playIcon.textContent='↗';playToggle.setAttribute('aria-label','Open this cover on YouTube');say('Use the video above or open on YouTube');}
+        apiStarted=true;apiLoading=false;
+        if(playerHost)playerHost.hidden=false;
+        try{
+          player=new window.YT.Player('songPlayer',{
+            videoId:videoId,
+            playerVars:{playsinline:1,rel:0,enablejsapi:1},
+            events:{
+              onReady:onReady,
+              onStateChange:function(e){setState(e.data);},
+              onError:function(e){playerFallback('Embedded playback unavailable · open on YouTube');if(message)message.textContent='YouTube error '+String(e.data||'');}
+            }
+          });
+        }catch(e){
+          apiStarted=false;
+          playerFallback('The player could not initialize in this browser · open on YouTube');
+        }
       }
       function loadAPI(){
+        if(ready&&player){return;}
+        if(apiFailed){openYouTube();return;}
+        if(apiLoading)return;
         if(window.YT&&window.YT.Player){initPlayer();return;}
+        apiLoading=true;say('Loading the video player…');
         var old=window.onYouTubeIframeAPIReady;
-        window.onYouTubeIframeAPIReady=function(){if(typeof old==='function')old();initPlayer();};
-        if(!document.querySelector('script[data-vp-youtube-api]')){
+        window.onYouTubeIframeAPIReady=function(){
+          if(typeof old==='function')old();
+          apiLoading=false;initPlayer();
+        };
+        var existing=document.querySelector('script[data-vp-youtube-api]');
+        if(!existing){
           var s=document.createElement('script');s.src='https://www.youtube.com/iframe_api';s.async=true;s.dataset.vpYoutubeApi='true';
-          s.onerror=function(){playToggle.disabled=false;playIcon.textContent='↗';playToggle.setAttribute('aria-label','Open this cover on YouTube');say('Control API unavailable · use the video or YouTube link');};
+          s.onerror=function(){playerFallback('YouTube controls could not load · open on YouTube');};
           document.head.appendChild(s);
         }
       }
+      if(poster)poster.addEventListener('click',function(){
+        if(apiFailed){openYouTube();return;}
+        pendingPlay=true;
+        if(playerHost&&playerHost.tagName==='DIV')playerHost.hidden=false;
+        say('Connecting to YouTube…');loadAPI();
+      });
       playToggle.addEventListener('click',function(){
-        if(!ready||!player){if(playIcon.textContent==='↗'){window.open('https://www.youtube.com/watch?v='+videoId,'_blank','noopener,noreferrer');return;}say('Connecting to YouTube…');loadAPI();return;}
+        if(!ready||!player){
+          if(apiFailed||playIcon.textContent==='↗'){openYouTube();return;}
+          pendingPlay=true;
+          if(playerHost&&playerHost.tagName==='DIV')playerHost.hidden=false;
+          say('Connecting to YouTube…');loadAPI();return;
+        }
         try{if(state===window.YT.PlayerState.ENDED){player.seekTo(0,true);player.playVideo();}else if(state===window.YT.PlayerState.PLAYING||state===window.YT.PlayerState.BUFFERING){player.pauseVideo();}else{player.playVideo();say('Starting cover…');}}
         catch(e){say('Controls unavailable · use the video above');}
       });
@@ -642,14 +768,24 @@
       var shareStatus=document.getElementById('shareStatus');
       var shareUrl='https://baidyaprince69-web.github.io/violin-prince-website/say-you-wont-let-go/';
       async function copyCoverUrl(){
+        if(navigator.clipboard&&window.isSecureContext){
+          try{
+            await navigator.clipboard.writeText(shareUrl);
+            if(shareStatus)shareStatus.textContent='Page link copied. Share it wherever you like.';
+            return;
+          }catch(clipboardError){/* Permission may be denied; try the legacy fallback below. */}
+        }
+        var temp=null;
         try{
-          if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(shareUrl);}
-          else{
-            var temp=document.createElement('textarea');temp.value=shareUrl;temp.setAttribute('readonly','');temp.style.position='fixed';temp.style.opacity='0';document.body.appendChild(temp);temp.select();
-            var copied=document.execCommand('copy');document.body.removeChild(temp);if(!copied)throw new Error('copy-unavailable');
-          }
+          temp=document.createElement('textarea');temp.value=shareUrl;temp.setAttribute('readonly','');
+          temp.style.position='fixed';temp.style.left='-9999px';temp.style.top='0';temp.style.opacity='0';
+          document.body.appendChild(temp);temp.focus();temp.select();
+          var copied=document.execCommand('copy');
+          if(!copied)throw new Error('copy-unavailable');
           if(shareStatus)shareStatus.textContent='Page link copied. Share it wherever you like.';
-        }catch(error){if(shareStatus)shareStatus.textContent='Copy is unavailable in this browser. Use the page address from your address bar.';}
+        }catch(error){
+          if(shareStatus)shareStatus.textContent='Copy is unavailable in this browser. Use the page address from your address bar.';
+        }finally{if(temp&&temp.parentNode)temp.parentNode.removeChild(temp);}
       }
       var copyBtn=document.getElementById('copyCoverBtn');
       if(copyBtn)copyBtn.addEventListener('click',copyCoverUrl);
@@ -661,7 +797,7 @@
         }else{copyCoverUrl();}
       });
       document.getElementById('year').textContent=String(new Date().getFullYear());
-      loadAPI();
+      say('Ready when you are');
     })();
   </script>
 </body>
