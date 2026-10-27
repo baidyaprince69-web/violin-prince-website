@@ -417,8 +417,7 @@
     .poster-play{width:52px;height:52px;flex:0 0 52px;border:1px solid rgba(255,224,160,.72);border-radius:50%;display:grid;place-items:center;color:#102726;background:linear-gradient(135deg,#fff0c9,#edc56e 62%,#85aa97);box-shadow:0 6px 26px rgba(0,0,0,.3);padding-left:2px}
     .poster-copy strong{display:block;color:#fff8e9;font-size:.9rem;text-shadow:0 2px 15px rgba(0,0,0,.5)}
     .poster-copy small{display:block;color:#d1dfd2;font-size:.7rem;margin-top:3px}
-    .song-player-host{position:absolute;inset:0;width:100%;height:100%;background:#081615}
-    .song-player-host{display:none}.song-player-host.player-active{display:block}
+    .song-player-host{position:absolute;inset:0;width:100%;height:100%;display:block;background:#081615;border:0}
     #songPlayer,#songPlayer iframe{width:100%;height:100%;border:0}
     .js .reveal{will-change:auto;filter:blur(8px) saturate(.9) contrast(.985)}
     .js .reveal.leaving{filter:blur(8px) saturate(.9) contrast(.985)}
@@ -500,12 +499,7 @@
       <div class="feature-card" id="performance">
         <div class="feature-top"><span>FEATURED PERFORMANCE</span><span class="live-label">VIOLIN PRINCE</span></div>
         <div class="video-frame" id="videoFrame">
-          <button class="video-poster" id="loadSongPlayer" type="button" aria-label="Load and play Say You Won't Let Go violin cover">
-            <img src="https://i.ytimg.com/vi/3NHpKon_Uq8/hqdefault.jpg" alt="Say You Won't Let Go violin cover thumbnail" width="480" height="360" fetchpriority="high" decoding="async">
-            <span class="poster-shade" aria-hidden="true"></span>
-            <span class="poster-center"><span class="poster-play" aria-hidden="true">▶</span><span class="poster-copy"><strong>Play the violin cover</strong><small>Tap to load the performance</small></span></span>
-          </button>
-          <div id="songPlayer" class="song-player-host" aria-label="YouTube player for Say You Won't Let Go, violin cover by Prince Baidya"></div>
+          <iframe id="songPlayer" class="song-player-host" src="https://www.youtube-nocookie.com/embed/3NHpKon_Uq8?enablejsapi=1&amp;playsinline=1&amp;rel=0" title="Say You Won't Let Go — violin cover by Prince Baidya, Violin Prince" loading="eager" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
         </div>
         <div class="video-caption"><div><strong>Say You Won't Let Go</strong><small>Violin cover · Prince Baidya</small></div><a href="https://www.youtube.com/watch?v=3NHpKon_Uq8" target="_blank" rel="noopener noreferrer">Open on YouTube ↗</a></div>
         <span class="art-stamp" aria-hidden="true">a melody<br>to keep</span>
@@ -661,7 +655,7 @@
       var status=document.getElementById('playerStatus'), message=document.getElementById('playerMessage');
       var seekBar=document.getElementById('seekBar'), currentTimeEl=document.getElementById('currentTime'), durationEl=document.getElementById('duration');
       var menuToggle=document.getElementById('menuToggle'), siteNav=document.getElementById('siteNav');
-      var poster=document.getElementById('loadSongPlayer'), playerHost=document.getElementById('songPlayer');
+      var poster=null, playerHost=document.getElementById('songPlayer');
       try{
         var navInfo=window.navigator||{};
         var lowCpu=typeof navInfo.hardwareConcurrency==='number'&&navInfo.hardwareConcurrency<=4;
@@ -758,12 +752,6 @@
           document.head.appendChild(s);
         }
       }
-      if(poster)poster.addEventListener('click',function(){
-        if(apiFailed){openYouTube();return;}
-        pendingPlay=true;
-        if(playerHost&&playerHost.tagName==='DIV')playerHost.hidden=false;
-        say('Connecting to YouTube…');loadAPI();
-      });
       playToggle.addEventListener('click',function(){
         if(!ready||!player){
           if(apiFailed||playIcon.textContent==='↗'){openYouTube();return;}
