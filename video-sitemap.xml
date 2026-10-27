@@ -44,4 +44,16 @@
       <video:family_friendly>yes</video:family_friendly>
     </video:video>
   </url>
+  <url>
+    <loc>https://baidyaprince69-web.github.io/violin-prince-website/dandelions/</loc>
+    <video:video>
+      <video:thumbnail_loc>https://i.ytimg.com/vi/lTySNtT0rzs/hqdefault.jpg</video:thumbnail_loc>
+      <video:title>Dandelions (Violin Cover) - The most emotional version you'll hear today</video:title>
+      <video:description>Dandelions by Ruth B. reimagined as an instrumental violin cover by Prince Baidya, Violin Prince.</video:description>
+      <video:player_loc allow_embed="yes">https://www.youtube-nocookie.com/embed/lTySNtT0rzs</video:player_loc>
+      <video:duration>211</video:duration>
+      <video:publication_date>2024-09-29T00:00:00+00:00</video:publication_date>
+      <video:family_friendly>yes</video:family_friendly>
+    </video:video>
+  </url>
 </urlset>
