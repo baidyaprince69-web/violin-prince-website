@@ -3339,11 +3339,19 @@ body.motion-ready .site-footer.scroll-reveal.exit-down:not(.is-visible) {
   background: transparent !important;
   z-index: -1 !important;
 }
-.youtube-music-dock.is-minimized > .yt-player-shell #violinYouTubePlayer,
+.youtube-music-dock.is-minimized > .yt-player-shell #violinYouTubePlayer {
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  width: 200px !important;
+  height: 200px !important;
+  min-width: 200px !important;
+  min-height: 200px !important;
+}
 .youtube-music-dock.is-minimized > .yt-player-shell #violinYouTubePlayer iframe {
-  width: 1px !important;
-  height: 1px !important;
-  min-width: 1px !important;
-  min-height: 1px !important;
+  width: 200px !important;
+  height: 200px !important;
+  min-width: 200px !important;
+  min-height: 200px !important;
 }
 
