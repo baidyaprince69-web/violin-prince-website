@@ -56,4 +56,16 @@
       <video:family_friendly>yes</video:family_friendly>
     </video:video>
   </url>
+  <url>
+    <loc>https://baidyaprince69-web.github.io/violin-prince-website/hark-the-herald-angels-sing/</loc>
+    <video:video>
+      <video:thumbnail_loc>https://i.ytimg.com/vi/bissQ67-Az8/maxresdefault.jpg</video:thumbnail_loc>
+      <video:title>Have You Heard This Violin Version of Hark The Herald Angels Sing? 🎄</video:title>
+      <video:description>Prince Baidya, Violin Prince, performs Hark the Herald Angels Sing as a Christmas violin cover. Listen to the familiar carol through an instrumental performance.</video:description>
+      <video:player_loc allow_embed="yes">https://www.youtube-nocookie.com/embed/bissQ67-Az8</video:player_loc>
+      <video:duration>184</video:duration>
+      <video:publication_date>2025-12-26T00:00:00+00:00</video:publication_date>
+      <video:family_friendly>yes</video:family_friendly>
+    </video:video>
+  </url>
 </urlset>
