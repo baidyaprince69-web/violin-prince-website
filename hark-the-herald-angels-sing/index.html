@@ -1216,6 +1216,131 @@
         will-change: auto !important;
       }
     }
+
+    /* PERFORMANCE AND CROSS-DEVICE POLISH */
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    body { overflow-x: hidden; overflow-x: clip; }
+    img, svg, video, iframe, canvas { max-width: 100%; }
+    iframe { border: 0; }
+    .wrap { min-width: 0; }
+    .hero > *, .section > .wrap, .social-links-grid, .social-link, .related-card { min-width: 0; }
+    .lead, .section-heading > p, .social-intro, .social-link-copy small, .footer-note { overflow-wrap: anywhere; }
+
+    /* Keep the premium blur while reducing the amount of costly paint per frame. */
+    html.motion-ready .scroll-reveal {
+      filter: blur(6px) saturate(.94);
+      transition:
+        opacity 680ms cubic-bezier(.2,.7,.2,1),
+        filter 700ms cubic-bezier(.2,.7,.2,1),
+        transform 700ms cubic-bezier(.16,1,.3,1);
+      will-change: auto;
+    }
+    html.motion-ready .motion-section {
+      opacity: .86;
+      filter: blur(3.5px) saturate(.94);
+      transform: translate3d(0, 12px, 0);
+      transition:
+        opacity 720ms cubic-bezier(.2,.7,.2,1),
+        filter 740ms cubic-bezier(.2,.7,.2,1),
+        transform 740ms cubic-bezier(.16,1,.3,1);
+      will-change: auto;
+    }
+    html.motion-ready .motion-section.is-in-view {
+      opacity: 1;
+      filter: blur(0) saturate(1);
+      transform: translate3d(0,0,0);
+    }
+    html.motion-ready .scroll-reveal.is-visible {
+      filter: blur(0) saturate(1);
+      will-change: auto;
+    }
+    html.motion-ready .social-link.motion-section {
+      opacity: .76;
+      filter: blur(3px);
+      transform: translate3d(0, 8px, 0);
+      transition:
+        opacity 580ms cubic-bezier(.2,.7,.2,1),
+        filter 620ms cubic-bezier(.2,.7,.2,1),
+        transform 620ms cubic-bezier(.16,1,.3,1),
+        border-color 260ms ease,
+        box-shadow 320ms ease,
+        background 320ms ease;
+    }
+    html.motion-ready .social-link.motion-section.is-in-view {
+      opacity: 1;
+      filter: blur(0);
+      transform: translate3d(0,0,0);
+    }
+
+    /* Keep pointer glow on its own composited transform instead of relaying root style changes. */
+    #vp-pointer-light {
+      left: 0;
+      top: 0;
+      width: min(820px, 90vw);
+      height: min(680px, 86vh);
+      transform: translate3d(var(--vp-local-x, 50vw), var(--vp-local-y, 45vh), 0) translate(-50%, -50%);
+      filter: blur(9px);
+      will-change: transform;
+    }
+    #vp-holiday-bloom { will-change: auto; }
+    #vp-snowfall { image-rendering: auto; }
+
+    /* Lighten persistent effects on low-powered PCs and battery-conscious phones. */
+    html.low-power .seal-medallion { animation: none !important; }
+    html.low-power #vp-holiday-bloom { animation: none !important; opacity: .76; }
+    html.low-power.motion-ready .scroll-reveal {
+      filter: blur(3px);
+      transition-duration: 440ms;
+    }
+    html.low-power.motion-ready .motion-section {
+      filter: blur(1.8px);
+      transition-duration: 460ms;
+    }
+    html.low-power.motion-ready .social-link.motion-section {
+      filter: blur(1.5px);
+      transition-duration: 420ms;
+    }
+    @media (max-width: 760px) {
+      .wrap { width: min(var(--max), calc(100% - 32px)); }
+      .hero { gap: 30px; padding-top: 56px; padding-bottom: 58px; }
+      .nav { gap: 12px; }
+      .navlinks { flex-wrap: wrap; justify-content: flex-end; gap: 10px 14px; }
+      .navlinks a { font-size: .71rem; }
+      .social-links-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      html.motion-ready .motion-section { filter: blur(2.2px); transition-duration: 520ms; }
+      html.motion-ready .scroll-reveal { filter: blur(4px); transition-duration: 520ms; }
+      #vp-pointer-light { display: none; }
+      #vp-holiday-bloom { filter: blur(14px); animation: none; opacity: .7; }
+    }
+    @media (max-width: 520px) {
+      .wrap { width: calc(100% - 28px); }
+      .nav { min-height: 70px; align-items: flex-start; padding-block: 14px; flex-direction: column; }
+      .navlinks { justify-content: flex-start; width: 100%; gap: 9px 13px; }
+      .navlinks a { font-size: .68rem; }
+      .hero { padding-top: 42px; gap: 27px; }
+      .player-shell { min-width: 0; }
+      .social-links-grid { grid-template-columns: minmax(0,1fr); }
+      .cabinet-plate { padding: 17px; }
+      .seal-grid { gap: 11px; }
+      .seal-object { min-height: 184px; }
+      .related-grid { grid-template-columns: minmax(0,1fr); }
+      .footer-inner { align-items: flex-start; gap: 18px; flex-direction: column; }
+      .footer-links { flex-wrap: wrap; gap: 10px 16px; }
+    }
+    @supports not (overflow: clip) {
+      body { overflow-x: hidden; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto !important; }
+      html.motion-ready .scroll-reveal,
+      html.motion-ready .motion-section,
+      html.motion-ready .social-link.motion-section {
+        filter: none !important;
+        transform: none !important;
+        transition: none !important;
+        will-change: auto !important;
+      }
+    }
 </style>
 </head>
 <body>
@@ -1231,55 +1356,64 @@
       var pointerFine = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
       if (pointerLight && pointerFine) {
+        var pointerFrame = 0;
+        var pointerX = Math.round(window.innerWidth / 2);
+        var pointerY = Math.round(window.innerHeight / 2);
+
+        function flushPointerPosition() {
+          pointerFrame = 0;
+          pointerLight.style.setProperty('--vp-local-x', pointerX + 'px');
+          pointerLight.style.setProperty('--vp-local-y', pointerY + 'px');
+        }
         function setPointerLight(event) {
-          if (event.pointerType === 'touch') return;
-          root.style.setProperty('--vp-pointer-x', event.clientX + 'px');
-          root.style.setProperty('--vp-pointer-y', event.clientY + 'px');
+          if (event.pointerType && event.pointerType !== 'mouse' && event.pointerType !== 'pen') return;
+          pointerX = event.clientX;
+          pointerY = event.clientY;
           pointerLight.classList.remove('is-away');
+          if (!pointerFrame) pointerFrame = window.requestAnimationFrame(flushPointerPosition);
         }
         window.addEventListener('pointermove', setPointerLight, { passive: true });
-        document.addEventListener('mouseleave', function () { pointerLight.classList.add('is-away'); });
-        document.addEventListener('mouseenter', function () { pointerLight.classList.remove('is-away'); });
+        document.addEventListener('mouseleave', function () {
+          pointerLight.classList.add('is-away');
+        });
+        document.addEventListener('mouseenter', function () {
+          pointerLight.classList.remove('is-away');
+        });
       }
 
       var canvas = document.getElementById('vp-snowfall');
       if (!canvas || !canvas.getContext) return;
       var context = canvas.getContext('2d', { alpha: true });
       if (!context) return;
+
       var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      var width = 0, height = 0, scale = 1, flakes = [], frameId = 0, lastTime = 0;
+      var smallScreen = window.matchMedia && window.matchMedia('(max-width: 640px)').matches;
+      var connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      var cores = navigator.hardwareConcurrency || 8;
+      var lowPower = smallScreen || cores <= 4 || !!(connection && connection.saveData);
+      if (lowPower) root.classList.add('low-power');
+
+      var width = 0, height = 0, scale = 1, flakes = [], frameId = 0, lastDrawAt = 0;
+      var frameInterval = lowPower ? 1000 / 24 : 1000 / 30;
 
       function newFlake(randomY) {
         return {
           x: Math.random() * width,
           y: randomY ? Math.random() * height : -4,
-          radius: 0.42 + Math.random() * 1.05,
-          fall: 0.20 + Math.random() * 0.55,
-          drift: (Math.random() - 0.5) * 0.24,
-          sway: 0.10 + Math.random() * 0.34,
+          radius: lowPower ? 0.35 + Math.random() * 0.75 : 0.42 + Math.random() * 1.0,
+          fall: 0.22 + Math.random() * 0.55,
+          drift: (Math.random() - 0.5) * 0.22,
+          sway: 0.10 + Math.random() * 0.30,
           phase: Math.random() * Math.PI * 2,
-          alpha: 0.16 + Math.random() * 0.39
+          alpha: 0.14 + Math.random() * 0.34
         };
       }
-      function resizeCanvas() {
-        width = window.innerWidth;
-        height = window.innerHeight;
-        scale = Math.min(window.devicePixelRatio || 1, 1.5);
-        canvas.width = Math.round(width * scale);
-        canvas.height = Math.round(height * scale);
-        context.setTransform(scale, 0, 0, scale, 0, 0);
-        var count = Math.min(105, Math.max(26, Math.round((width * height) / 14500)));
-        flakes = [];
-        for (var i = 0; i < count; i++) flakes.push(newFlake(true));
-        draw(0, true);
-      }
-      function draw(timestamp, still) {
+
+      function drawFrame(delta, timestamp) {
         context.clearRect(0, 0, width, height);
-        var delta = lastTime ? Math.min(2, (timestamp - lastTime) / 16.67) : 1;
-        lastTime = timestamp || 0;
         for (var i = 0; i < flakes.length; i++) {
           var flake = flakes[i];
-          if (!still && !reducedMotion) {
+          if (delta > 0 && !reducedMotion) {
             flake.y += flake.fall * delta;
             flake.x += (flake.drift + Math.sin(timestamp * 0.00045 + flake.phase) * flake.sway * 0.12) * delta;
             if (flake.y > height + 5) { flake.y = -4; flake.x = Math.random() * width; }
@@ -1293,19 +1427,52 @@
           context.fill();
         }
         context.globalAlpha = 1;
-        if (!still && !reducedMotion) frameId = window.requestAnimationFrame(function (t) { draw(t, false); });
       }
+
+      function animate(timestamp) {
+        frameId = 0;
+        if (document.hidden || reducedMotion) return;
+        if (!lastDrawAt || timestamp - lastDrawAt >= frameInterval) {
+          var delta = lastDrawAt ? Math.min(2, (timestamp - lastDrawAt) / frameInterval) : 1;
+          drawFrame(delta, timestamp);
+          lastDrawAt = timestamp;
+        }
+        frameId = window.requestAnimationFrame(animate);
+      }
+
+      function resizeCanvas() {
+        width = Math.max(1, window.innerWidth);
+        height = Math.max(1, window.innerHeight);
+        scale = Math.min(window.devicePixelRatio || 1, lowPower ? 1 : 1.25);
+        canvas.width = Math.round(width * scale);
+        canvas.height = Math.round(height * scale);
+        context.setTransform(scale, 0, 0, scale, 0, 0);
+
+        var area = width * height;
+        var count = lowPower
+          ? Math.min(22, Math.max(12, Math.round(area / 32000)))
+          : Math.min(52, Math.max(22, Math.round(area / 28000)));
+        flakes = [];
+        for (var i = 0; i < count; i++) flakes.push(newFlake(true));
+        lastDrawAt = 0;
+        drawFrame(0, 0);
+      }
+
       function startSnow() {
-        if (!reducedMotion && !frameId) frameId = window.requestAnimationFrame(function (t) { draw(t, false); });
+        if (!reducedMotion && !document.hidden && !frameId) {
+          frameId = window.requestAnimationFrame(animate);
+        }
       }
       function stopSnow() {
         if (frameId) window.cancelAnimationFrame(frameId);
         frameId = 0;
+        lastDrawAt = 0;
       }
+
       window.addEventListener('resize', resizeCanvas, { passive: true });
       document.addEventListener('visibilitychange', function () {
         if (document.hidden) stopSnow();
-        else startSnow();
+        else { resizeCanvas(); startSnow(); }
       });
       resizeCanvas();
       startSnow();
