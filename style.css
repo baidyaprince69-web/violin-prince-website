@@ -2762,3 +2762,58 @@ body.motion-ready .site-footer.scroll-reveal.exit-down:not(.is-visible) {
   .music-section .card-copy p { font-size: .69rem; line-height: 1.45; }
 }
 
+/* Latest / Most Popular controls for the violin gallery. */
+.music-sort-row {
+  display: flex;
+  align-items: center;
+  gap: .85rem;
+  flex-wrap: wrap;
+  margin: 1.8rem 0 .75rem;
+}
+.music-sort-label {
+  color: #718174;
+  font-size: .61rem;
+  font-weight: 700;
+  letter-spacing: .16em;
+}
+.music-sort-controls {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem;
+}
+.sort-chip {
+  appearance: none;
+  border: 1px solid #d6d4c9;
+  border-radius: 99px;
+  background: transparent;
+  color: #596258;
+  padding: .58rem 1rem;
+  font: inherit;
+  font-size: .75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color .2s ease, color .2s ease, border-color .2s ease, transform .2s ease;
+}
+.sort-chip:hover {
+  border-color: var(--forest);
+  transform: translateY(-1px);
+}
+.sort-chip.active,
+.sort-chip[aria-pressed="true"] {
+  background: var(--forest);
+  color: var(--ivory);
+  border-color: var(--forest);
+}
+.sort-chip:focus-visible {
+  outline: 2px solid #8e6d35;
+  outline-offset: 3px;
+}
+@media (max-width: 720px) {
+  .music-sort-row { margin: 1.4rem 0 .7rem; gap: .55rem .75rem; }
+  .sort-chip { font-size: .7rem; padding: .52rem .85rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sort-chip { transition: none; }
+}
+
