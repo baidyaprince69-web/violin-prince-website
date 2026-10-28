@@ -70,16 +70,27 @@
       revealFrame = 0;
       const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
       const edgeZone = Math.min(160, Math.max(96, viewportHeight * 0.14));
-      document.querySelectorAll('.music-card, .scroll-reveal, .vp-reveal').forEach(element => {
-        const hasMainReveal = element.dataset.revealSeen === 'true';
-        const hasPremiumReveal = element.dataset.vpRevealSeen === 'true';
-        if (!hasMainReveal && !hasPremiumReveal) return;
 
-        const rect = element.getBoundingClientRect();
-        let state = 'visible';
-        if (rect.bottom <= edgeZone) state = 'up';
-        else if (rect.top >= viewportHeight - edgeZone) state = 'down';
+      // Read all geometry first, then change classes in a second pass to avoid
+      // read/write layout thrashing while the visitor scrolls.
+      const states = [...document.querySelectorAll('.music-card, .scroll-reveal, .vp-reveal')]
+        .map(element => ({
+          element,
+          rect: element.getBoundingClientRect(),
+          hasMainReveal: element.dataset.revealSeen === 'true',
+          hasPremiumReveal: element.dataset.vpRevealSeen === 'true'
+        }))
+        .filter(item => item.hasMainReveal || item.hasPremiumReveal)
+        .map(item => ({
+          ...item,
+          state: item.rect.bottom <= edgeZone
+            ? 'up'
+            : item.rect.top >= viewportHeight - edgeZone
+              ? 'down'
+              : 'visible'
+        }));
 
+      states.forEach(({ element, state, hasMainReveal, hasPremiumReveal }) => {
         if (hasMainReveal) classForState(element, state, 'main');
         if (hasPremiumReveal) classForState(element, state, 'vp');
       });
