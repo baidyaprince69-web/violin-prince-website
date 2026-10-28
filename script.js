@@ -19,10 +19,10 @@
   const filters = [...document.querySelectorAll('.filter-chip')];
   const cards = [...document.querySelectorAll('.music-card')];
 
-  // Bidirectional scroll reveals: animate both entrance and exit, and replay on every re-entry.
+  // Bidirectional scroll reveals with an edge-aware exit while each element is still visible.
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (!reduceMotion && 'IntersectionObserver' in window) {
-    const revealTargets = [
+    const revealTargets = [...new Set([
       ...cards,
       ...document.querySelectorAll(
         '.hero-content, .hero-art, .intro-strip, .about-section, .artist-portrait, .about-copy, ' +
@@ -31,22 +31,11 @@
         '.artist-portrait img, .artist-portrait figcaption, .section-heading, .section-intro, .filter-row, ' +
         '.mood-card, .request-copy, .request-form, .connect-section, .site-footer'
       )
-    ];
-    let lastScrollY = window.scrollY;
-    let scrollDirection = 'down';
-    window.addEventListener('scroll', () => {
-      const currentScrollY = window.scrollY;
-      if (currentScrollY !== lastScrollY) {
-        scrollDirection = currentScrollY > lastScrollY ? 'down' : 'up';
-        lastScrollY = currentScrollY;
-      }
-    }, { passive: true });
+    ])];
 
     revealTargets.forEach((element, index) => {
       if (!element.classList.contains('music-card')) element.classList.add('scroll-reveal');
       if (element.classList.contains('mood-card')) element.style.transitionDelay = (index % 4) * 70 + 'ms';
-      // Cinematic, editorial motion: hero copy arrives in a gentle stagger, the violin artwork glides in,
-      // and the artist portrait/copy reveal separately as the visitor reaches that section.
       if (element.matches('.hero-content .eyebrow')) element.style.transitionDelay = '80ms';
       if (element.matches('.hero-content h1')) element.style.transitionDelay = '180ms';
       if (element.matches('.hero-copy')) element.style.transitionDelay = '300ms';
@@ -63,32 +52,56 @@
     });
     document.body.classList.add('motion-ready');
 
-    // Inset observer bounds so the reverse transition starts while items are still visible.
+    const classForState = (element, state, prefix) => {
+      const visible = prefix === 'vp' ? 'vp-visible' : 'is-visible';
+      const up = prefix === 'vp' ? 'vp-exit-up' : 'exit-up';
+      const down = prefix === 'vp' ? 'vp-exit-down' : 'exit-down';
+      const next = state === 'visible' ? visible : state === 'up' ? up : down;
+      if (element.classList.contains(next)) return;
+      element.classList.remove(visible, up, down);
+      element.classList.add(next);
+    };
+
+    // While scrolling, change state before an element fully leaves the screen.
+    // This is the key distinction from the old observer-only implementation:
+    // IntersectionObserver reports exit after an element has already crossed its boundary.
+    let revealFrame = 0;
+    const updateDirectionalRevealStates = () => {
+      revealFrame = 0;
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+      const edgeZone = Math.min(160, Math.max(96, viewportHeight * 0.14));
+      document.querySelectorAll('.music-card, .scroll-reveal, .vp-reveal').forEach(element => {
+        const hasMainReveal = element.dataset.revealSeen === 'true';
+        const hasPremiumReveal = element.dataset.vpRevealSeen === 'true';
+        if (!hasMainReveal && !hasPremiumReveal) return;
+
+        const rect = element.getBoundingClientRect();
+        let state = 'visible';
+        if (rect.bottom <= edgeZone) state = 'up';
+        else if (rect.top >= viewportHeight - edgeZone) state = 'down';
+
+        if (hasMainReveal) classForState(element, state, 'main');
+        if (hasPremiumReveal) classForState(element, state, 'vp');
+      });
+    };
+    const scheduleDirectionalRevealUpdate = () => {
+      if (revealFrame) return;
+      revealFrame = window.requestAnimationFrame(updateDirectionalRevealStates);
+    };
+
+    window.addEventListener('scroll', scheduleDirectionalRevealUpdate, { passive: true });
+    window.addEventListener('resize', scheduleDirectionalRevealUpdate, { passive: true });
+
     const revealObserver = new IntersectionObserver(entries => {
       entries.forEach(entry => {
         const element = entry.target;
         if (entry.isIntersecting) {
           element.dataset.revealSeen = 'true';
-          element.classList.remove('exit-up', 'exit-down');
-          element.classList.add('is-visible');
-        } else if (element.dataset.revealSeen === 'true') {
-          const rect = entry.boundingClientRect;
-          const bounds = entry.rootBounds;
-          const rootTop = bounds ? bounds.top : 72;
-          const rootBottom = bounds ? bounds.bottom : Math.max(rootTop, window.innerHeight - 72);
-          let exitDirection;
-
-          // Classify the edge the element actually crossed; use live scroll direction
-          // only if a browser reports an ambiguous bounding rectangle.
-          if (rect.bottom <= rootTop + 1) exitDirection = 'up';
-          else if (rect.top >= rootBottom - 1) exitDirection = 'down';
-          else exitDirection = scrollDirection === 'down' ? 'up' : 'down';
-
-          element.classList.remove('is-visible', 'exit-up', 'exit-down');
-          element.classList.add(exitDirection === 'up' ? 'exit-up' : 'exit-down');
+          classForState(element, 'visible', 'main');
         }
       });
-    }, { threshold: 0, rootMargin: '-72px 0px -72px 0px' });
+      scheduleDirectionalRevealUpdate();
+    }, { threshold: 0, rootMargin: '0px' });
 
     revealTargets.forEach(element => revealObserver.observe(element));
   }
