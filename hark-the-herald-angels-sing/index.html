@@ -991,6 +991,231 @@
       background-size: cover, 100% auto;
       background-position: center, 50% 40%;
     }
+
+    /* PREMIUM FOCUS TRANSITIONS — soft-focus entry and exit for the whole section flow */
+    html.motion-ready .scroll-reveal {
+      filter: blur(15px) saturate(.82);
+      transition:
+        opacity 850ms cubic-bezier(.2,.7,.2,1),
+        filter 900ms cubic-bezier(.2,.7,.2,1),
+        transform 900ms cubic-bezier(.16,1,.3,1);
+      will-change: opacity, filter, transform;
+    }
+    html.motion-ready .scroll-reveal.is-visible {
+      filter: blur(0) saturate(1);
+    }
+    html.motion-ready .motion-section {
+      opacity: .58;
+      filter: blur(11px) saturate(.82);
+      transform: translate3d(0, 22px, 0) scale(.992);
+      transition:
+        opacity 980ms cubic-bezier(.2,.7,.2,1),
+        filter 1050ms cubic-bezier(.2,.7,.2,1),
+        transform 1050ms cubic-bezier(.16,1,.3,1);
+      will-change: opacity, filter, transform;
+    }
+    html.motion-ready .motion-section.is-in-view {
+      opacity: 1;
+      filter: blur(0) saturate(1);
+      transform: translate3d(0,0,0) scale(1);
+    }
+    html.motion-ready .social-link.motion-section {
+      opacity: .46;
+      filter: blur(9px) saturate(.78);
+      transform: translate3d(0, 17px, 0) scale(.985);
+      transition:
+        opacity 760ms cubic-bezier(.2,.7,.2,1),
+        filter 820ms cubic-bezier(.2,.7,.2,1),
+        transform 820ms cubic-bezier(.16,1,.3,1),
+        border-color 260ms ease,
+        box-shadow 320ms ease,
+        background 320ms ease;
+    }
+    html.motion-ready .social-link.motion-section.is-in-view {
+      opacity: 1;
+      filter: blur(0) saturate(1);
+      transform: translate3d(0,0,0) scale(1);
+    }
+
+    /* LINK ATLAS — one elegant, reusable place for artist and discovery links */
+    .social-hub {
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
+      padding: clamp(78px, 9vw, 126px) 0;
+      border-top: 1px solid rgba(217,178,103,.19);
+      border-bottom: 1px solid rgba(217,178,103,.16);
+      background:
+        radial-gradient(ellipse at 12% 8%, rgba(131,24,56,.25), transparent 39rem),
+        radial-gradient(ellipse at 91% 64%, rgba(207,151,67,.07), transparent 31rem),
+        linear-gradient(158deg, rgba(20,6,13,.96), rgba(41,10,25,.96) 51%, rgba(15,4,10,.98));
+    }
+    .social-hub::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: 0;
+      pointer-events: none;
+      opacity: .14;
+      background-image: url("https://cdn.websitepublisher.ai/custom/wid31272/images/christmas-burgundy-velvet-texture.jpg");
+      background-size: cover;
+      background-position: center 43%;
+      mix-blend-mode: soft-light;
+    }
+    .social-hub .section-heading { margin-bottom: 30px; }
+    .social-hub .section-heading h2 { max-width: 780px; }
+    .social-hub .section-heading h2 em { color: #f0cb7b; }
+    .social-hub .social-intro {
+      max-width: 760px;
+      margin: -5px 0 32px;
+      color: #d8c3b7;
+      font-size: .82rem;
+      line-height: 1.9;
+    }
+    .social-group-title {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      margin: 34px 0 15px;
+      color: #f0d7ad;
+      font-size: .64rem;
+      font-weight: 700;
+      letter-spacing: .19em;
+      text-transform: uppercase;
+    }
+    .social-group-title::after {
+      content: "";
+      height: 1px;
+      flex: 1;
+      background: linear-gradient(90deg, rgba(218,177,103,.34), transparent);
+    }
+    .social-links-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .social-link {
+      position: relative;
+      display: flex;
+      min-width: 0;
+      min-height: 88px;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 17px;
+      color: #fff0dc;
+      text-decoration: none;
+      border: 1px solid rgba(221,177,101,.25);
+      background:
+        linear-gradient(135deg, rgba(91,18,46,.79), rgba(29,7,18,.95)),
+        url("https://cdn.websitepublisher.ai/custom/wid31272/images/christmas-burgundy-velvet-texture.jpg");
+      background-size: cover, 160% auto;
+      background-position: center, 40% 48%;
+      box-shadow: inset 0 1px rgba(255,239,207,.07), 0 12px 27px rgba(0,0,0,.15);
+      transition: border-color 260ms ease, box-shadow 320ms ease, background 320ms ease;
+    }
+    .social-link::before {
+      content: "";
+      position: absolute;
+      inset: 1px;
+      pointer-events: none;
+      border: 1px solid rgba(255,231,178,.035);
+    }
+    .social-link:hover,
+    .social-link:focus-visible {
+      border-color: rgba(255,222,148,.69);
+      box-shadow: inset 0 1px rgba(255,239,207,.12), 0 20px 42px rgba(0,0,0,.29), 0 0 26px rgba(236,184,90,.065);
+      background:
+        linear-gradient(135deg, rgba(128,29,62,.86), rgba(47,10,28,.97)),
+        url("https://cdn.websitepublisher.ai/custom/wid31272/images/christmas-burgundy-velvet-texture.jpg");
+      background-size: cover, 160% auto;
+      background-position: center, 48% 44%;
+    }
+    .social-mark {
+      position: relative;
+      display: grid;
+      flex: 0 0 43px;
+      width: 43px;
+      height: 43px;
+      place-items: center;
+      color: #3a1722;
+      font-size: .72rem;
+      font-weight: 800;
+      letter-spacing: -.03em;
+      border: 1px solid rgba(255,239,190,.78);
+      background: linear-gradient(145deg, #fff0c7, #e8c36f 56%, #a97635);
+      box-shadow: inset 0 1px rgba(255,255,255,.72), inset 0 -2px rgba(85,45,15,.22), 0 5px 13px rgba(0,0,0,.24);
+    }
+    .social-link-copy {
+      display: grid;
+      min-width: 0;
+      gap: 5px;
+      flex: 1;
+    }
+    .social-link-copy strong {
+      color: #fff1df;
+      font-size: .83rem;
+      line-height: 1.25;
+      font-weight: 700;
+    }
+    .social-link-copy small {
+      color: #d8bfae;
+      font-size: .64rem;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+    .social-arrow {
+      flex: 0 0 auto;
+      align-self: flex-start;
+      color: #f0cb7b;
+      font-size: .86rem;
+      line-height: 1;
+      transition: transform 260ms cubic-bezier(.16,1,.3,1);
+    }
+    .social-link:hover .social-arrow { transform: translate(2px,-2px); }
+    .social-link.official { border-color: rgba(233,194,119,.39); }
+    .social-link.official .social-link-copy small { color: #f0d8a5; }
+    .social-hub .link-disclaimer {
+      margin: 18px 0 0;
+      color: #af9298;
+      font-size: .66rem;
+      line-height: 1.8;
+    }
+    .social-hub .link-disclaimer strong { color: #e6c99a; font-weight: 600; }
+    .social-hub .hub-backup {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 27px;
+      color: #f0cb7b;
+      font-size: .75rem;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(240,203,123,.38);
+      padding-bottom: 5px;
+      transition: color 220ms ease, border-color 220ms ease;
+    }
+    .social-hub .hub-backup:hover { color: #fff3d3; border-color: #fff3d3; }
+    .footer-links a[href="#everywhere"] { color: #f0cb7b; }
+    .footer-links a[href="#everywhere"]:hover { color: #fff3d3; }
+    @media (max-width: 900px) {
+      .social-links-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 540px) {
+      .social-hub { padding: 68px 0; }
+      .social-links-grid { grid-template-columns: 1fr; gap: 10px; }
+      .social-link { min-height: 77px; padding: 13px 14px; }
+      .social-mark { width: 40px; height: 40px; flex-basis: 40px; }
+      .social-link-copy strong { font-size: .81rem; }
+      .social-link-copy small { font-size: .63rem; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html.motion-ready .scroll-reveal,
+      html.motion-ready .motion-section {
+        filter: none !important;
+        transform: none !important;
+        transition: none !important;
+        will-change: auto !important;
+      }
+    }
 </style>
 </head>
 <body>
@@ -1097,6 +1322,7 @@
         <a href="#cabinet">The reveal</a>
         <a href="#artist">The artist</a>
         <a href="#more-covers">More covers</a>
+                <a href="#everywhere">Everywhere</a>
         <a class="nav-cta" href="../#request">Request a song ↗</a>
       </nav>
     </div>
@@ -1234,13 +1460,104 @@
       </div>
     </section>
 
-    <section class="closing" aria-labelledby="closing-title">
+    
+    <section class="section social-hub" id="everywhere" aria-labelledby="everywhere-title">
+      <div class="wrap">
+        <div class="section-topline scroll-reveal" style="--i:0">Follow · listen · discover</div>
+        <div class="section-heading scroll-reveal" style="--i:1">
+          <div><h2 id="everywhere-title">Find Violin Prince <em>everywhere.</em></h2></div>
+          <p>Follow the performances, discover the music, and find the artist on your favourite platforms.</p>
+        </div>
+
+        <div class="social-group-title scroll-reveal" style="--i:2">Official artist links</div>
+        <div class="social-links-grid" aria-label="Official Violin Prince links">
+          <a class="social-link official" href="https://www.youtube.com/@violinprince" target="_blank" rel="noopener noreferrer" aria-label="Open the official Violin Prince YouTube channel">
+            <span class="social-mark" aria-hidden="true">YT</span>
+            <span class="social-link-copy"><strong>YouTube</strong><small>Official channel · @violinprince</small></span>
+            <span class="social-arrow" aria-hidden="true">↗</span>
+          </a>
+          <a class="social-link official" href="https://www.instagram.com/princ_estrings/" target="_blank" rel="noopener noreferrer" aria-label="Open the Violin Prince Instagram profile">
+            <span class="social-mark" aria-hidden="true">IG</span>
+            <span class="social-link-copy"><strong>Instagram</strong><small>@princ_estrings · artist profile</small></span>
+            <span class="social-arrow" aria-hidden="true">↗</span>
+          </a>
+          <a class="social-link official" href="https://baidyaprince69-web.github.io/violin-prince-website/" aria-label="Open the Violin Prince official website">
+            <span class="social-mark" aria-hidden="true">VP</span>
+            <span class="social-link-copy"><strong>Official website</strong><small>All covers · song requests · updates</small></span>
+            <span class="social-arrow" aria-hidden="true">↗</span>
+          </a>
+        </div>
+
+        <div class="social-group-title scroll-reveal" style="--i:3">Explore on music platforms</div>
+        <div class="social-links-grid" aria-label="Search for Prince Baidya on music platforms">
+          <a class="social-link" href="https://open.spotify.com/search/Prince%20Baidya" target="_blank" rel="noopener noreferrer" aria-label="Search for Prince Baidya on Spotify">
+            <span class="social-mark" aria-hidden="true">SP</span>
+            <span class="social-link-copy"><strong>Spotify</strong><small>Search Prince Baidya</small></span>
+            <span class="social-arrow" aria-hidden="true">↗</span>
+          </a>
+          <a class="social-link" href="https://music.apple.com/us/search?term=Prince%20Baidya" target="_blank" rel="noopener noreferrer" aria-label="Search for Prince Baidya on Apple Music">
+            <span class="social-mark" aria-hidden="true">AM</span>
+            <span class="social-link-copy"><strong>Apple Music</strong><small>Search Prince Baidya</small></span>
+            <span class="social-arrow" aria-hidden="true">↗</span>
+          </a>
+          <a class="social-link" href="https://music.youtube.com/search?q=Prince%20Baidya" target="_blank" rel="noopener noreferrer" aria-label="Search for Prince Baidya on YouTube Music">
+            <span class="social-mark" aria-hidden="true">YM</span>
+            <span class="social-link-copy"><strong>YouTube Music</strong><small>Search artist and recordings</small></span>
+            <span class="social-arrow" aria-hidden="true">↗</span>
+          </a>
+          <a class="social-link" href="https://soundcloud.com/search?q=Prince%20Baidya" target="_blank" rel="noopener noreferrer" aria-label="Search for Prince Baidya on SoundCloud">
+            <span class="social-mark" aria-hidden="true">SC</span>
+            <span class="social-link-copy"><strong>SoundCloud</strong><small>Search artist and tracks</small></span>
+            <span class="social-arrow" aria-hidden="true">↗</span>
+          </a>
+          <a class="social-link" href="https://music.amazon.in/search/Prince%20Baidya" target="_blank" rel="noopener noreferrer" aria-label="Search for Prince Baidya on Amazon Music">
+            <span class="social-mark" aria-hidden="true">AZ</span>
+            <span class="social-link-copy"><strong>Amazon Music</strong><small>Search artist and tracks</small></span>
+            <span class="social-arrow" aria-hidden="true">↗</span>
+          </a>
+          <a class="social-link" href="https://www.deezer.com/search/Prince%20Baidya" target="_blank" rel="noopener noreferrer" aria-label="Search for Prince Baidya on Deezer">
+            <span class="social-mark" aria-hidden="true">DZ</span>
+            <span class="social-link-copy"><strong>Deezer</strong><small>Search artist and tracks</small></span>
+            <span class="social-arrow" aria-hidden="true">↗</span>
+          </a>
+          <a class="social-link" href="https://bandcamp.com/search?q=Prince%20Baidya" target="_blank" rel="noopener noreferrer" aria-label="Search for Prince Baidya on Bandcamp">
+            <span class="social-mark" aria-hidden="true">BC</span>
+            <span class="social-link-copy"><strong>Bandcamp</strong><small>Search artist and releases</small></span>
+            <span class="social-arrow" aria-hidden="true">↗</span>
+          </a>
+        </div>
+
+        <div class="social-group-title scroll-reveal" style="--i:4">Find the artist on social platforms</div>
+        <div class="social-links-grid" aria-label="Search for Prince Baidya on social platforms">
+          <a class="social-link" href="https://www.facebook.com/search/top?q=Prince%20Baidya%20Violin%20Prince" target="_blank" rel="noopener noreferrer" aria-label="Search for Prince Baidya on Facebook">
+            <span class="social-mark" aria-hidden="true">FB</span>
+            <span class="social-link-copy"><strong>Facebook</strong><small>Search for the artist</small></span>
+            <span class="social-arrow" aria-hidden="true">↗</span>
+          </a>
+          <a class="social-link" href="https://www.tiktok.com/search?q=Prince%20Baidya" target="_blank" rel="noopener noreferrer" aria-label="Search for Prince Baidya on TikTok">
+            <span class="social-mark" aria-hidden="true">TT</span>
+            <span class="social-link-copy"><strong>TikTok</strong><small>Search name and violin clips</small></span>
+            <span class="social-arrow" aria-hidden="true">↗</span>
+          </a>
+          <a class="social-link" href="https://x.com/search?q=Prince%20Baidya%20violin&src=typed_query" target="_blank" rel="noopener noreferrer" aria-label="Search for Prince Baidya on X">
+            <span class="social-mark" aria-hidden="true">X</span>
+            <span class="social-link-copy"><strong>X</strong><small>Search for the artist</small></span>
+            <span class="social-arrow" aria-hidden="true">↗</span>
+          </a>
+        </div>
+        <p class="link-disclaimer"><strong>One important distinction:</strong> YouTube, Instagram and this website link directly to your known profiles. The other buttons open platform searches for your name—not unverified accounts.</p>
+        <a class="hub-backup" href="https://www.youtube.com/@violinprince" target="_blank" rel="noopener noreferrer">Start with the official YouTube channel <span aria-hidden="true">↗</span></a>
+      </div>
+    </section>
+
+<section class="closing" aria-labelledby="closing-title">
       <div class="wrap">
         <div class="section-topline scroll-reveal" style="--i:0">A final note</div>
         <h2 id="closing-title" class="scroll-reveal" style="--i:1">Carry the music<br><em>into the night.</em></h2>
         <p class="scroll-reveal" style="--i:2">Thank you for spending a little time here. If the performance meant something to you, share it with someone who might need a quieter moment.</p>
         <div class="actions scroll-reveal" style="--i:3">
           <a class="btn btn-primary" href="https://youtu.be/bissQ67-Az8" target="_blank" rel="noopener noreferrer">Watch on YouTube ↗</a>
+                    <a class="btn btn-lacquer" href="#everywhere">Find me everywhere ↗</a>
           <button class="btn" id="sharePage" type="button">Share this page <span aria-hidden="true">↗</span></button>
           <a class="btn btn-lacquer" href="https://baidyaprince69-web.github.io/violin-prince-website/">Back to Violin Prince</a>
         </div>
@@ -1256,6 +1573,7 @@
         <a href="https://baidyaprince69-web.github.io/violin-prince-website/">Main website</a>
         <a href="https://www.youtube.com/@violinprince" target="_blank" rel="noopener noreferrer">YouTube channel ↗</a>
         <a href="https://www.instagram.com/princ_estrings/" target="_blank" rel="noopener noreferrer">Instagram ↗</a>
+                <a href="#everywhere">All platforms ↗</a>
         <a href="../#request">Song requests ↗</a>
       </nav>
     </div>
@@ -1288,10 +1606,17 @@
 
       if (!reduceMotion && 'IntersectionObserver' in window) {
         root.classList.add('motion-ready');
-        var targets = document.querySelectorAll('.scroll-reveal');
+        var sectionTargets = document.querySelectorAll('main > section, .related-card, .social-link');
+        sectionTargets.forEach(function (target) { target.classList.add('motion-section'); });
+        var targets = document.querySelectorAll('.scroll-reveal, .motion-section');
         var observer = new IntersectionObserver(function (entries) {
           entries.forEach(function (entry) {
-            entry.target.classList.toggle('is-visible', entry.isIntersecting);
+            if (entry.target.classList.contains('motion-section')) {
+              entry.target.classList.toggle('is-in-view', entry.isIntersecting);
+            }
+            if (entry.target.classList.contains('scroll-reveal')) {
+              entry.target.classList.toggle('is-visible', entry.isIntersecting);
+            }
           });
         }, {threshold:0.08, rootMargin:'0px 0px -5% 0px'});
         targets.forEach(function (target) { observer.observe(target); });
