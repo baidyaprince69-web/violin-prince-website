@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800" fill="none" role="img" aria-labelledby="title desc">
+<title id="title">Dandelion seeds in blue-hour and amber light</title>
+<desc id="desc">A fine-line illustration of a dandelion seed head with sky-blue light, subdued meadow undertones and champagne-amber highlights.</desc>
+<defs>
+  <linearGradient id="gold" x1="180" y1="140" x2="660" y2="660" gradientUnits="userSpaceOnUse">
+    <stop stop-color="#EAF6FB"/>
+    <stop offset=".46" stop-color="#84C4E1"/>
+    <stop offset="1" stop-color="#F2C776"/>
+  </linearGradient>
+  <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+    <feGaussianBlur stdDeviation="1.3"/>
+  </filter>
+</defs>
+<g stroke="url(#gold)" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M326 410 C340 482 332 568 292 704" stroke-width="3.6" opacity=".76"/>
+  <path d="M334 505 C387 492 420 513 449 548" stroke-width="2" opacity=".55"/>
+  <path d="M315 584 C265 561 231 579 206 607" stroke-width="1.7" opacity=".5"/>
+  <path d="M326 412 C313 374 303 335 305 296" stroke-width="2" opacity=".82"/>
+  <circle cx="305" cy="292" r="5.5" fill="#F2C776" fill-opacity=".8" stroke="none"/>
+  <circle cx="305" cy="292" r="18" stroke-width="1.2" opacity=".32"/>
+  <circle cx="305" cy="292" r="41" stroke-width="1" opacity=".22"/>
+  <circle cx="305" cy="292" r="64" stroke-width="1" opacity=".13"/>
+  <g stroke-width="1.8" opacity=".8">
+    <path d="M305 292 L305 184 M305 292 L359 198 M305 292 L397 228 M305 292 L411 278 M305 292 L385 338 M305 292 L353 377 M305 292 L300 401 M305 292 L249 384 M305 292 L211 349 M305 292 L194 292 M305 292 L217 232 M305 292 L244 197 M305 292 L278 184"/>
+  </g>
+  <g stroke-width="1.5" opacity=".7">
+    <path d="M305 184 l-13 -17 M305 184 l13 -17 M305 184 l0 -18"/>
+    <path d="M359 198 l-6 -21 M359 198 l16 -12 M359 198 l10 -18"/>
+    <path d="M397 228 l-3 -20 M397 228 l18 -8 M397 228 l13 -16"/>
+    <path d="M411 278 l-10 -16 M411 278 l20 -2 M411 278 l16 -12"/>
+    <path d="M385 338 l-17 -11 M385 338 l17 10 M385 338 l5 -19"/>
+    <path d="M353 377 l-19 -7 M353 377 l7 18 M353 377 l15 -13"/>
+    <path d="M300 401 l-14 -15 M300 401 l14 -14 M300 401 l0 20"/>
+    <path d="M249 384 l-3 -20 M249 384 l-18 7 M249 384 l16 -9"/>
+    <path d="M211 349 l10 -18 M211 349 l-20 0 M211 349 l-14 -14"/>
+    <path d="M194 292 l16 -10 M194 292 l-15 12 M194 292 l-3 -17"/>
+    <path d="M217 232 l19 4 M217 232 l-4 -19 M217 232 l-14 12"/>
+    <path d="M244 197 l19 10 M244 197 l4 -20 M244 197 l-10 -17"/>
+    <path d="M278 184 l12 16 M278 184 l-7 -17 M278 184 l1 -18"/>
+  </g>
+  <g stroke-width="1.6" opacity=".9">
+    <path d="M476 133 C507 108 543 104 579 119"/>
+    <path d="M579 119 l-15 -13 M579 119 l-19 7 M579 119 l9 -17"/>
+    <path d="M500 211 C529 190 558 190 586 201"/>
+    <path d="M586 201 l-14 -11 M586 201 l-18 6 M586 201 l9 -16"/>
+    <path d="M440 346 C465 327 494 326 517 336"/>
+    <path d="M517 336 l-13 -10 M517 336 l-18 5 M517 336 l8 -15"/>
+    <path d="M480 434 C502 417 523 419 541 431"/>
+    <path d="M541 431 l-12 -10 M541 431 l-16 4 M541 431 l8 -13"/>
+  </g>
+  <g stroke-width="1.3" opacity=".72">
+    <path d="M478 131 L481 111 M478 131 L463 117 M478 131 L495 118 M478 131 L500 135 M478 131 L484 152"/>
+    <path d="M502 211 L505 193 M502 211 L489 198 M502 211 L516 199 M502 211 L522 214 M502 211 L507 229"/>
+    <path d="M442 346 L445 330 M442 346 L430 335 M442 346 L456 333 M442 346 L461 349 M442 346 L447 362"/>
+    <path d="M482 434 L485 419 M482 434 L470 423 M482 434 L495 421 M482 434 L500 436 M482 434 L487 450"/>
+  </g>
+</g>
+<g fill="url(#gold)" opacity=".86">
+  <circle cx="478" cy="131" r="3.3"/>
+  <circle cx="502" cy="211" r="2.7"/>
+  <circle cx="442" cy="346" r="2.5"/>
+  <circle cx="482" cy="434" r="2.2"/>
+  <circle cx="427" cy="165" r="1.8"/>
+  <circle cx="566" cy="286" r="2.1"/>
+  <circle cx="384" cy="474" r="1.8"/>
+  <circle cx="207" cy="444" r="1.8"/>
+  <circle cx="161" cy="259" r="1.6"/>
+  <circle cx="355" cy="117" r="1.8"/>
+</g>
+<g stroke="#84C4E1" stroke-linecap="round" opacity=".18" filter="url(#glow)">
+  <path d="M305 292 L305 184 M305 292 L359 198 M305 292 L397 228 M305 292 L411 278 M305 292 L385 338 M305 292 L353 377 M305 292 L249 384 M305 292 L211 349 M305 292 L194 292"/>
+</g>
+</svg>
