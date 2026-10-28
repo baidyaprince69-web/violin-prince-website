@@ -3355,3 +3355,36 @@ body.motion-ready .site-footer.scroll-reveal.exit-down:not(.is-visible) {
   min-height: 200px !important;
 }
 
+
+
+/* Six-mood discovery layout: balanced rows while retaining the existing card design. */
+.mood-grid.mood-grid-six {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.mood-still::before {
+  background:
+    radial-gradient(ellipse at 82% 7%, rgba(111, 218, 198, .25), transparent 57%),
+    radial-gradient(ellipse at 9% 95%, rgba(82, 141, 180, .16), transparent 54%),
+    linear-gradient(154deg, rgba(10, 30, 44, .04), rgba(5, 9, 20, .91));
+}
+.mood-heart::before {
+  background:
+    radial-gradient(ellipse at 82% 6%, rgba(224, 132, 157, .26), transparent 56%),
+    radial-gradient(ellipse at 4% 96%, rgba(201, 157, 98, .15), transparent 54%),
+    linear-gradient(154deg, rgba(24, 25, 45, .03), rgba(5, 9, 20, .91));
+}
+/* Keep the same glass highlights and inner rim; tune only the color reflected by each new mood. */
+.mood-still::after {
+  background:
+    linear-gradient(118deg, rgba(255, 255, 255, .085), transparent 20% 65%, rgba(111, 218, 198, .05));
+}
+.mood-heart::after {
+  background:
+    linear-gradient(118deg, rgba(255, 255, 255, .09), transparent 20% 65%, rgba(224, 132, 157, .055));
+}
+@media (max-width: 1100px) {
+  .mood-grid.mood-grid-six { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 390px) {
+  .mood-grid.mood-grid-six { grid-template-columns: 1fr; }
+}
