@@ -18,6 +18,52 @@
 
   const filters = [...document.querySelectorAll('.filter-chip')];
   const cards = [...document.querySelectorAll('.music-card')];
+  const musicGrid = document.getElementById('musicGrid');
+  const sortButtons = [...document.querySelectorAll('.sort-chip')];
+  let currentSort = 'latest';
+  const originalCardOrder = new Map(cards.map((card, index) => [card, index]));
+
+  // Sort cards in place so their descriptions, thumbnails and category filters stay connected.
+  const sortMusicCards = () => {
+    if (!musicGrid) return;
+    const sortedCards = [...cards].sort((a, b) => {
+      const aRank = Number(a.dataset.latestRank) || Number.MAX_SAFE_INTEGER;
+      const bRank = Number(b.dataset.latestRank) || Number.MAX_SAFE_INTEGER;
+
+      if (currentSort === 'popular') {
+        const aHasViews = a.dataset.viewCount !== undefined && a.dataset.viewCount !== '';
+        const bHasViews = b.dataset.viewCount !== undefined && b.dataset.viewCount !== '';
+        // Never treat a missing public view count as zero: place unverified entries after ranked entries.
+        if (aHasViews !== bHasViews) return aHasViews ? -1 : 1;
+        if (aHasViews && bHasViews) {
+          const viewDifference = Number(b.dataset.viewCount) - Number(a.dataset.viewCount);
+          if (viewDifference !== 0) return viewDifference;
+        }
+      }
+
+      return (aRank - bRank) || (originalCardOrder.get(a) - originalCardOrder.get(b));
+    });
+
+    const fragment = document.createDocumentFragment();
+    sortedCards.forEach(card => fragment.appendChild(card));
+    musicGrid.appendChild(fragment);
+  };
+
+  sortButtons.forEach(button => button.addEventListener('click', () => {
+    currentSort = button.dataset.sort === 'popular' ? 'popular' : 'latest';
+    sortButtons.forEach(option => {
+      const active = option === button;
+      option.classList.toggle('active', active);
+      option.setAttribute('aria-pressed', String(active));
+    });
+    sortMusicCards();
+    if (typeof window.__vpUpdateDirectionalRevealStates === 'function') {
+      window.__vpUpdateDirectionalRevealStates();
+    }
+  }));
+
+  // Latest is the default each time the gallery loads.
+  sortMusicCards();
 
   // Bidirectional scroll reveals with an edge-aware exit while each element is still visible.
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
