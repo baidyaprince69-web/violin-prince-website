@@ -2451,3 +2451,107 @@ body.motion-ready .music-card.is-visible:hover { transform: translate3d(0, -4px,
     opacity: .08 !important;
   }
 }
+
+
+/* === Premium depth reveals: soft defocus in, crisp focus at rest, soft defocus out === */
+body.motion-ready .music-card,
+body.motion-ready .scroll-reveal,
+.vp-motion-ready .vp-reveal {
+  transition-property: opacity, transform, filter, box-shadow, border-color !important;
+  transition-duration: 820ms, 900ms, 900ms, 260ms, 260ms !important;
+  transition-timing-function:
+    cubic-bezier(.19, 1, .22, 1),
+    cubic-bezier(.16, .78, .24, 1),
+    cubic-bezier(.19, 1, .22, 1),
+    ease,
+    ease !important;
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+  will-change: opacity, transform, filter;
+}
+
+/* Do not stack blur on large parent containers; their children reveal independently. */
+body.motion-ready .scroll-reveal:not(.about-section):not(.connect-section):not(.site-footer):not(.hero-content):not(.about-copy):not(.intro-strip):not(.artist-portrait):not(.is-visible),
+body.motion-ready .music-card:not(.is-visible),
+.vp-motion-ready .vp-reveal:not(.vp-visible) {
+  filter: blur(12px) saturate(.84) brightness(.97);
+}
+
+/* The catalogue floats forward as it comes into focus. */
+body.motion-ready .music-card:nth-child(odd):not(.is-visible) {
+  transform: perspective(1250px) translate3d(-28px, 22px, -24px) rotateY(2.2deg) rotateX(1.2deg) scale(.986);
+}
+body.motion-ready .music-card:nth-child(even):not(.is-visible) {
+  transform: perspective(1250px) translate3d(28px, 22px, -24px) rotateY(-2.2deg) rotateX(1.2deg) scale(.986);
+}
+
+/* Text and imagery arrive as if a camera lens is pulling focus. */
+body.motion-ready .scroll-reveal:not(.is-visible):not(.about-section):not(.connect-section):not(.site-footer):not(.hero-content):not(.about-copy):not(.intro-strip):not(.artist-portrait) {
+  transform: perspective(1100px) translate3d(0, 22px, -22px) rotateX(1.6deg) scale(.992);
+}
+body.motion-ready .music-card.is-visible,
+body.motion-ready .scroll-reveal.is-visible,
+.vp-motion-ready .vp-reveal.vp-visible {
+  filter: blur(0) saturate(1) brightness(1);
+  backface-visibility: hidden;
+}
+
+/* Blur-out begins at the same time as the existing direction-aware exit motion. */
+body.motion-ready .music-card.exit-up:not(.is-visible),
+body.motion-ready .scroll-reveal.exit-up:not(.is-visible),
+.vp-motion-ready .vp-reveal.vp-exit-up:not(.vp-visible) {
+  opacity: 0;
+  filter: blur(10px) saturate(.86);
+  transform: perspective(1150px) translate3d(0, -30px, -20px) rotateX(-1.8deg) scale(.988);
+}
+body.motion-ready .music-card.exit-down:not(.is-visible),
+body.motion-ready .scroll-reveal.exit-down:not(.is-visible),
+.vp-motion-ready .vp-reveal.vp-exit-down:not(.vp-visible) {
+  opacity: 0;
+  filter: blur(10px) saturate(.86);
+  transform: perspective(1150px) translate3d(0, 30px, -20px) rotateX(1.8deg) scale(.988);
+}
+
+/* The ambient intro strip and recommendation cards get a small lens-focus cue too. */
+@keyframes intro-word-arrive {
+  from { opacity: 0; filter: blur(7px); transform: translate3d(0, 12px, -10px); }
+  to { opacity: 1; filter: blur(0); transform: translate3d(0, 0, 0); }
+}
+@keyframes vp-result-enter {
+  from { opacity: 0; filter: blur(8px); transform: perspective(900px) translate3d(0, 14px, -12px) scale(.985); }
+  to { opacity: 1; filter: blur(0); transform: perspective(900px) translate3d(0, 0, 0) scale(1); }
+}
+
+@media (max-width: 720px) {
+  body.motion-ready .music-card:nth-child(odd):not(.is-visible) {
+    transform: perspective(850px) translate3d(-12px, 16px, -10px) rotateY(1deg) scale(.99);
+  }
+  body.motion-ready .music-card:nth-child(even):not(.is-visible) {
+    transform: perspective(850px) translate3d(12px, 16px, -10px) rotateY(-1deg) scale(.99);
+  }
+  body.motion-ready .scroll-reveal:not(.is-visible):not(.about-section):not(.connect-section):not(.site-footer):not(.hero-content):not(.about-copy):not(.intro-strip):not(.artist-portrait) {
+    transform: perspective(850px) translate3d(0, 15px, -10px) scale(.994);
+  }
+  body.motion-ready .music-card:not(.is-visible),
+  body.motion-ready .scroll-reveal:not(.is-visible),
+  .vp-motion-ready .vp-reveal:not(.vp-visible) {
+    filter: blur(8px) saturate(.88);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.motion-ready .music-card,
+  body.motion-ready .scroll-reveal,
+  .vp-motion-ready .vp-reveal,
+  body.motion-ready .music-card.exit-up,
+  body.motion-ready .music-card.exit-down,
+  body.motion-ready .scroll-reveal.exit-up,
+  body.motion-ready .scroll-reveal.exit-down,
+  .vp-motion-ready .vp-reveal.vp-exit-up,
+  .vp-motion-ready .vp-reveal.vp-exit-down {
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+    transition: none !important;
+    will-change: auto !important;
+  }
+}
