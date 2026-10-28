@@ -192,6 +192,17 @@
   );
   if (!prefersReducedMotion && 'IntersectionObserver' in window) {
     document.documentElement.classList.add('vp-motion-ready');
+
+    let lastRevealScrollY = window.scrollY;
+    let revealScrollDirection = 'down';
+    window.addEventListener('scroll', () => {
+      const currentY = window.scrollY;
+      if (currentY !== lastRevealScrollY) {
+        revealScrollDirection = currentY > lastRevealScrollY ? 'down' : 'up';
+        lastRevealScrollY = currentY;
+      }
+    }, { passive: true });
+
     const revealObserver = new IntersectionObserver(entries => {
       entries.forEach(entry => {
         const target = entry.target;
@@ -200,9 +211,20 @@
           target.classList.remove('vp-exit-up', 'vp-exit-down');
           target.classList.add('vp-visible');
         } else if (target.dataset.vpRevealSeen === 'true') {
-          target.classList.remove('vp-visible');
-          target.classList.toggle('vp-exit-up', entry.boundingClientRect.top < 0);
-          target.classList.toggle('vp-exit-down', entry.boundingClientRect.top >= 0);
+          const rect = entry.boundingClientRect;
+          const bounds = entry.rootBounds;
+          const rootTop = bounds ? bounds.top : 32;
+          const rootBottom = bounds ? bounds.bottom : Math.max(rootTop, window.innerHeight - 32);
+          let exitDirection;
+
+          // Decide which viewport edge the element crossed, rather than guessing
+          // from its top coordinate alone (which fails for short or tall sections).
+          if (rect.bottom <= rootTop + 1) exitDirection = 'up';
+          else if (rect.top >= rootBottom - 1) exitDirection = 'down';
+          else exitDirection = revealScrollDirection === 'down' ? 'up' : 'down';
+
+          target.classList.remove('vp-visible', 'vp-exit-up', 'vp-exit-down');
+          target.classList.add(exitDirection === 'up' ? 'vp-exit-up' : 'vp-exit-down');
         }
       });
     }, { threshold: 0.08, rootMargin: '-32px 0px -32px 0px' });
