@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#081c18">
+  <meta name="theme-color" content="#080d1b">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="robots" content="index,follow,max-image-preview:large">
   <title>Hark the Herald Angels Sing Violin Cover | Prince Baidya — Violin Prince</title>
@@ -789,6 +789,64 @@
       .pointer-glow { display: none !important; }
       .btn::before { display: none; }
     }
+  
+    /* CANDLELIT CHRISTMAS EVE — seasonal palette, symbols and motion */
+    :root{color-scheme:dark;--color-bg:#080d1b;--color-bg-elevated:#101729;--color-surface:#171f34;--color-surface-raised:#222c43;--color-primary:#86253b;--color-secondary:#c54755;--color-accent:#f2c66d;--color-accent-bright:#fff0c8;--color-ice:#c5d9f4;--color-text:#fff8ef;--color-text-muted:#d2d8e7;--color-border:rgba(242,198,109,.24);--color-glow:rgba(242,198,109,.2);--color-shadow:rgba(0,3,12,.6);--motion-fast:180ms;--motion-standard:320ms;--motion-emphasis:650ms;--ease-out:cubic-bezier(.16,1,.3,1);--ease-smooth:cubic-bezier(.22,1,.36,1)}
+    html{background:var(--color-bg)}
+    body{color:var(--color-text);background:radial-gradient(ellipse at 78% 4%,rgba(194,49,65,.17),transparent 31rem),radial-gradient(ellipse at 8% 22%,rgba(103,132,190,.18),transparent 34rem),radial-gradient(ellipse at 75% 67%,rgba(242,198,109,.075),transparent 34rem),linear-gradient(145deg,#080d1b 0%,#11182a 43%,#171629 73%,#080d19 100%)}
+    body::before{z-index:0;opacity:.19;background-image:radial-gradient(circle,rgba(255,247,226,.6) .7px,transparent 1.4px),radial-gradient(circle,rgba(197,217,244,.45) .8px,transparent 1.6px);background-size:43px 43px,71px 71px;background-position:0 0,19px 27px;animation:christmasSkyDrift 68s linear infinite;mask-image:linear-gradient(to bottom,black,transparent 82%)}
+    body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background:linear-gradient(117deg,transparent 0 39%,rgba(255,235,188,.045) 49%,transparent 57% 100%);background-size:190% 100%;opacity:.18;animation:christmasCandleSweep 25s ease-in-out infinite alternate}
+    .topbar,main,.footer{position:relative;z-index:1}
+    .topbar{background:linear-gradient(90deg,rgba(7,12,27,.95),rgba(20,22,42,.89),rgba(7,12,27,.95));border-bottom:1px solid rgba(242,198,109,.2);box-shadow:0 9px 35px rgba(0,0,0,.2);backdrop-filter:blur(17px);-webkit-backdrop-filter:blur(17px)}
+    .topbar::after{content:"";position:absolute;left:0;right:0;bottom:-3px;height:6px;pointer-events:none;background:radial-gradient(circle at 5% 50%,#ffd986 0 2px,transparent 3px),radial-gradient(circle at 15% 50%,#e45061 0 2px,transparent 3px),radial-gradient(circle at 25% 50%,#fff0c8 0 2px,transparent 3px),radial-gradient(circle at 35% 50%,#ffd986 0 2px,transparent 3px),radial-gradient(circle at 45% 50%,#e45061 0 2px,transparent 3px),radial-gradient(circle at 55% 50%,#fff0c8 0 2px,transparent 3px),radial-gradient(circle at 65% 50%,#ffd986 0 2px,transparent 3px),radial-gradient(circle at 75% 50%,#e45061 0 2px,transparent 3px),radial-gradient(circle at 85% 50%,#fff0c8 0 2px,transparent 3px),radial-gradient(circle at 95% 50%,#ffd986 0 2px,transparent 3px);animation:christmasLights 4.5s ease-in-out infinite alternate}
+    .brand-mark{color:#32151e;background:linear-gradient(145deg,#fff0c8 0%,#f2c66d 63%,#cf5865 100%);border-color:rgba(255,240,200,.72);box-shadow:0 0 0 4px rgba(242,198,109,.045),0 0 28px rgba(242,198,109,.18),inset 0 1px rgba(255,255,255,.9);animation:christmasBrandGlow 6s ease-in-out infinite}
+    .brand-text strong{letter-spacing:.2em;text-shadow:0 0 20px rgba(242,198,109,.14)}.brand-text small{color:#d2d8e7}
+    .navlinks a{color:#e4e8f2;transition:color var(--motion-fast) ease,transform var(--motion-fast) var(--ease-out)}.navlinks a:hover{color:#fff0c8;transform:translateY(-1px)}
+    .navlinks .nav-cta{border-color:rgba(242,198,109,.38);color:#fff0c8;background:linear-gradient(120deg,rgba(134,37,59,.35),rgba(242,198,109,.07))}.navlinks .nav-cta:hover{border-color:rgba(255,240,200,.8);box-shadow:0 0 20px rgba(242,198,109,.12)}
+    .hero{position:relative;isolation:isolate;background:radial-gradient(ellipse at 82% 36%,rgba(158,40,61,.16),transparent 38rem),linear-gradient(180deg,rgba(9,14,30,.28),rgba(9,14,30,.02))}
+    .hero::before{content:"";position:absolute;z-index:-1;top:7%;right:3%;width:min(54vw,700px);height:78%;background:radial-gradient(ellipse at 60% 35%,rgba(242,198,109,.105),rgba(126,35,57,.05) 44%,transparent 68%);pointer-events:none;animation:christmasHeroGlow 14s ease-in-out infinite alternate}
+    .hero::after{content:"";position:absolute;z-index:-1;right:6%;top:14%;width:130px;height:130px;border:1px solid rgba(242,198,109,.07);border-radius:50%;box-shadow:0 0 0 18px rgba(242,198,109,.018),0 0 0 38px rgba(197,217,244,.014);pointer-events:none}
+    .holiday-kicker{display:inline-flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:18px;padding:8px 13px;border:1px solid rgba(242,198,109,.3);border-radius:999px;color:#ffe1a2;background:linear-gradient(110deg,rgba(134,37,59,.28),rgba(242,198,109,.075));box-shadow:0 5px 20px rgba(0,0,0,.12),inset 0 1px rgba(255,255,255,.055);font-size:.64rem;font-weight:800;letter-spacing:.15em}
+    .holiday-kicker span:first-child,.holiday-kicker span:last-child{color:#fff0c8;text-shadow:0 0 13px rgba(242,198,109,.45)}.holiday-kicker i{width:1px;height:12px;background:rgba(242,198,109,.42)}
+    .eyebrow{color:#f2cb78;letter-spacing:.2em;text-shadow:0 0 18px rgba(242,198,109,.15)}.eyebrow::before{background:linear-gradient(90deg,#e55262,#f2c66d);box-shadow:0 0 12px rgba(242,198,109,.3)}
+    h1{color:#fff8ef;text-shadow:0 10px 38px rgba(0,0,0,.25)}h1 em,h2 em{color:#fff0c8;background:linear-gradient(112deg,#fff8e3 0%,#f2c66d 36%,#fff0c8 62%,#e9a2a7 90%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 3px 16px rgba(242,198,109,.1));animation:christmasTitleGlow 13s ease-in-out infinite}
+    .hero .lead,.section-heading>p,.story-copy p{color:#dce1ec}.artist-line{color:#eceef4}.artist-line .dot{background:#f2c66d;box-shadow:0 0 11px rgba(242,198,109,.42)}.hero-note{color:#d2d8e7}.hero-note span{color:#f2c66d;text-shadow:0 0 16px rgba(242,198,109,.6)}
+    .video-shell{position:relative;isolation:isolate;border:1px solid rgba(242,198,109,.38);border-radius:25px;background:linear-gradient(145deg,rgba(30,34,55,.98),rgba(8,13,27,.99));box-shadow:0 28px 78px rgba(0,3,12,.52),0 0 36px rgba(242,198,109,.065),inset 0 1px rgba(255,255,255,.1);transition:transform var(--motion-emphasis) var(--ease-out),box-shadow var(--motion-emphasis) var(--ease-out),border-color var(--motion-standard) ease;animation:christmasFrameIn 900ms 100ms var(--ease-out) both}
+    .video-shell::before{content:"";position:absolute;z-index:2;top:0;left:8%;right:8%;height:1px;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(255,240,200,.76),rgba(229,82,98,.48),transparent)}.video-shell::after{content:"";position:absolute;z-index:3;inset:8px;border:1px solid rgba(255,249,239,.075);border-radius:16px;pointer-events:none}
+    .video-shell:hover,.video-shell:focus-within{transform:translateY(-3px);border-color:rgba(255,240,200,.7);box-shadow:0 35px 95px rgba(0,3,12,.58),0 0 43px rgba(242,198,109,.12),inset 0 1px rgba(255,255,255,.13)}
+    .video-frame{background:#02040c}.video-label{position:relative;z-index:4}.video-label strong{color:#fff8ef}.video-label small{color:#d2d8e7}
+    .video-label a{color:#fff0c8;padding:6px 9px;border:1px solid rgba(242,198,109,.27);border-radius:999px;background:rgba(134,37,59,.18);text-decoration:none;transition:background var(--motion-standard) ease,box-shadow var(--motion-standard) ease,border-color var(--motion-standard) ease}.video-label a:hover{background:rgba(134,37,59,.34);border-color:rgba(242,198,109,.6);box-shadow:0 0 18px rgba(242,198,109,.08)}
+    .holiday-scene{position:relative;z-index:1;overflow:hidden;padding:clamp(34px,5vw,58px) 0 38px;background:radial-gradient(ellipse at 50% 5%,rgba(135,36,58,.2),transparent 62%),linear-gradient(180deg,rgba(7,12,26,.02),rgba(8,12,25,.8));border-top:1px solid rgba(242,198,109,.12);border-bottom:1px solid rgba(242,198,109,.12)}
+    .holiday-scene::before{content:"";position:absolute;left:7%;right:7%;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(242,198,109,.48),rgba(229,82,98,.3),transparent);pointer-events:none}
+    .holiday-scene-wrap{position:relative}.holiday-scene-heading{max-width:650px;margin:0 auto 27px;text-align:center}.holiday-scene-label{display:inline-flex;gap:9px;align-items:center;margin-bottom:12px;color:#f2c66d;font-size:.64rem;font-weight:800;letter-spacing:.2em}.holiday-scene-heading h2{font-size:clamp(2rem,4vw,3.25rem);margin:0 0 11px}.holiday-scene-heading p{margin:0;color:#d2d8e7;font-size:.94rem}
+    .holiday-art{position:relative;overflow:hidden;border:1px solid rgba(242,198,109,.32);border-radius:19px;background:#11172d;box-shadow:0 20px 55px rgba(0,0,0,.32),0 0 28px rgba(242,198,109,.045)}.holiday-art::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;box-shadow:inset 0 1px rgba(255,255,255,.14),inset 0 0 0 7px rgba(255,249,239,.025)}.christmas-illustration{display:block;width:100%;height:auto}
+    .holiday-art-caption{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:13px;padding:12px 18px;color:#f8e7c4;border-top:1px solid rgba(242,198,109,.18);background:linear-gradient(90deg,rgba(134,37,59,.3),rgba(16,23,41,.97),rgba(134,37,59,.3));font:italic 1rem Georgia,serif;text-align:center}
+    .holiday-symbols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:16px}.holiday-symbol{display:flex;align-items:center;justify-content:center;gap:10px;min-width:0;padding:12px 10px;border:1px solid rgba(197,217,244,.14);border-radius:12px;background:linear-gradient(145deg,rgba(28,34,56,.66),rgba(12,17,32,.78));color:#e1e5ef;font-size:.78rem;box-shadow:inset 0 1px rgba(255,255,255,.035);transition:transform var(--motion-standard) var(--ease-out),border-color var(--motion-standard) ease,background var(--motion-standard) ease}
+    .holiday-symbol:hover{transform:translateY(-3px);border-color:rgba(242,198,109,.35);background:linear-gradient(145deg,rgba(134,37,59,.25),rgba(17,24,43,.85))}.holiday-symbol>span:first-child{color:#f2c66d;text-shadow:0 0 11px rgba(242,198,109,.24)}
+    .facts{gap:14px;padding-top:28px;padding-bottom:36px}.fact,.listen-card,.related-card{border-color:rgba(197,217,244,.14);background:linear-gradient(145deg,rgba(24,31,53,.86),rgba(8,13,27,.94));box-shadow:0 16px 44px rgba(0,0,0,.27),inset 0 1px rgba(255,255,255,.04)}
+    .fact small,.related-copy small{color:#f2c66d}.fact strong,.listen-card h3,.related-copy h3{color:#fff8ef}.listen-card p,.related-copy p{color:#d2d8e7}
+    .artist-note{border-color:rgba(242,198,109,.23);background:radial-gradient(ellipse at 96% 4%,rgba(242,198,109,.12),transparent 55%),linear-gradient(138deg,rgba(35,31,52,.9),rgba(12,17,31,.96));box-shadow:0 24px 58px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.06)}.artist-note .note-symbol{color:#f2c66d;text-shadow:0 0 22px rgba(242,198,109,.3);animation:christmasBrandGlow 7s ease-in-out infinite}.artist-note blockquote{color:#fff8ef}.artist-note small{color:#d2d8e7}
+    .listening{background:radial-gradient(ellipse at 50% 30%,rgba(134,37,59,.14),transparent 62%),linear-gradient(180deg,rgba(7,12,26,.08),rgba(5,9,19,.58))}
+    .listen-card{position:relative;isolation:isolate;overflow:hidden;transition:transform var(--motion-standard) var(--ease-out),border-color var(--motion-standard) ease,box-shadow var(--motion-standard) ease}.listen-card::before{content:"";position:absolute;z-index:-1;top:-66px;right:-67px;width:155px;height:155px;border-radius:50%;background:radial-gradient(circle,rgba(242,198,109,.12),rgba(197,217,244,.035) 46%,transparent 72%);opacity:.6}
+    .listen-card::after,.related-card::before{content:"";position:absolute;left:16px;right:16px;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(242,198,109,.43),rgba(229,82,98,.35),transparent)}.listen-card:hover,.related-card:hover{transform:translateY(-5px);border-color:rgba(242,198,109,.32);box-shadow:0 25px 62px rgba(0,0,0,.33),0 0 21px rgba(242,198,109,.04)}
+    .section-cta{border-color:rgba(242,198,109,.22);background:linear-gradient(110deg,rgba(134,37,59,.25),rgba(15,22,40,.9),rgba(72,35,48,.38));box-shadow:0 20px 50px rgba(0,0,0,.25)}.section-cta p{color:#e0e4ef}
+    .btn{position:relative;overflow:hidden;isolation:isolate;transition:transform var(--motion-standard) var(--ease-out),box-shadow var(--motion-standard) ease,border-color var(--motion-standard) ease,background var(--motion-standard) ease}.btn::before{content:"";position:absolute;z-index:-1;top:-50%;left:-72%;width:36%;height:200%;transform:skewX(-22deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.34),transparent);transition:left 650ms var(--ease-out)}.btn:hover::before{left:135%}.btn:active{transform:translateY(1px) scale(.99)}
+    .btn-primary{color:#32141b;border-color:rgba(255,240,200,.75);background:linear-gradient(118deg,#fff1c9 0%,#f2c66d 58%,#e8a4a6 100%);box-shadow:0 8px 27px rgba(242,198,109,.18),inset 0 1px rgba(255,255,255,.9)}.btn-primary:hover{box-shadow:0 12px 34px rgba(242,198,109,.24),0 0 19px rgba(242,198,109,.1),inset 0 1px white}
+    .btn-secondary{color:#fff8ef;border-color:rgba(197,217,244,.25);background:linear-gradient(135deg,rgba(255,255,255,.045),rgba(134,37,59,.1))}.btn-secondary:hover{border-color:rgba(242,198,109,.52);background:rgba(134,37,59,.2)}.btn:focus-visible,a:focus-visible,button:focus-visible{outline:3px solid #fff0c8;outline-offset:4px}
+    .related-card{position:relative;isolation:isolate;transition:transform var(--motion-standard) var(--ease-out),border-color var(--motion-standard) ease,box-shadow var(--motion-standard) ease}.related-card a.image-link{background:#080d1b}.related-card img{transition:transform 520ms var(--ease-out),filter var(--motion-standard) ease}.related-card:hover img{transform:scale(1.025);filter:saturate(1.06)}.text-link{color:#fff0c8}.text-link::after{background:linear-gradient(90deg,#f2c66d,#e55262)}
+    .closing{background:radial-gradient(ellipse at 50% 0,rgba(242,198,109,.11),transparent 58%),radial-gradient(ellipse at 16% 68%,rgba(134,37,59,.16),transparent 47%),linear-gradient(180deg,rgba(8,13,27,.2),rgba(4,7,17,.82))}.closing::before{border-color:rgba(242,198,109,.16);box-shadow:0 0 0 20px rgba(242,198,109,.02),0 0 0 45px rgba(197,217,244,.014);animation:christmasClosingOrbit 48s linear infinite}.closing::after{content:none}.closing>.wrap>p:not(.eyebrow){color:#dce1ec}.share-status{color:#fff0c8}
+    .footer{background:linear-gradient(90deg,rgba(5,8,18,.97),rgba(19,20,37,.95),rgba(5,8,18,.97));border-top-color:rgba(242,198,109,.16)}.footer-brand{color:#f2c66d}.footer-note,.footer-links a{color:#d2d8e7}.footer-links a:hover{color:#fff0c8}
+    .scroll-progress{position:fixed;z-index:60;top:0;left:0;width:100%;height:3px;pointer-events:none;background:rgba(255,255,255,.015)}.scroll-progress span{display:block;width:100%;height:100%;transform:scaleX(0);transform-origin:left;background:linear-gradient(90deg,#c54755,#f2c66d,#fff0c8);box-shadow:0 0 10px rgba(242,198,109,.42)}
+    .snowfall{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}.snowflake{position:absolute;top:-8vh;left:var(--snow-x,50%);color:#f3f6ff;opacity:0;font-size:var(--snow-size,11px);line-height:1;text-shadow:0 0 8px rgba(197,217,244,.38);animation:christmasSnowfall var(--snow-time,24s) linear var(--snow-delay,0s) infinite}
+    .motion-ready .reveal-on-scroll{opacity:0;transform:translateY(15px);transition:opacity var(--motion-emphasis) ease,transform var(--motion-emphasis) var(--ease-out)}.motion-ready .reveal-on-scroll.is-visible{opacity:1;transform:translateY(0)}.motion-ready .listen-card:nth-child(2),.motion-ready .related-card:nth-child(2){transition-delay:70ms}.motion-ready .listen-card:nth-child(3),.motion-ready .related-card:nth-child(3){transition-delay:140ms}.motion-ready .hero-copy{animation:christmasHeroIn 720ms var(--ease-out) both}.motion-ready .holiday-kicker{animation:christmasBadgeIn 550ms 120ms var(--ease-out) both}
+    @keyframes christmasSkyDrift{to{background-position:94px 150px,-55px 118px}}@keyframes christmasCandleSweep{0%{background-position:100% 0;opacity:.1}50%{opacity:.22}100%{background-position:0 0;opacity:.14}}@keyframes christmasHeroGlow{from{opacity:.55}to{opacity:1}}
+    @keyframes christmasBrandGlow{0%,100%{box-shadow:0 0 0 4px rgba(242,198,109,.045),0 0 22px rgba(242,198,109,.13),inset 0 1px rgba(255,255,255,.9)}50%{box-shadow:0 0 0 5px rgba(242,198,109,.06),0 0 31px rgba(242,198,109,.21),inset 0 1px rgba(255,255,255,.9)}}@keyframes christmasLights{0%,100%{opacity:.68;filter:brightness(.9)}50%{opacity:1;filter:brightness(1.25)}}@keyframes christmasTitleGlow{0%,100%{background-position:0% center}50%{background-position:100% center}}
+    @keyframes christmasSnowfall{0%{transform:translate3d(0,-4vh,0) rotate(0);opacity:0}14%{opacity:.6}78%{opacity:.48}100%{transform:translate3d(var(--snow-drift,28px),110vh,0) rotate(140deg);opacity:0}}@keyframes christmasHeroIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}@keyframes christmasBadgeIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}@keyframes christmasFrameIn{from{opacity:0;transform:translateY(18px) scale(.992)}to{opacity:1;transform:translateY(0) scale(1)}}@keyframes christmasClosingOrbit{to{transform:rotate(360deg)}}
+    @media(max-width:900px){.hero::after{right:-2%;top:17%;width:100px;height:100px}.holiday-scene{padding-top:35px}.holiday-art{border-radius:14px}}
+    @media(max-width:650px){.hero{padding-top:42px}.holiday-kicker{gap:7px;padding:7px 10px;font-size:.57rem;letter-spacing:.12em}.holiday-scene-heading p{max-width:330px;margin-inline:auto}.holiday-symbols{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.holiday-symbol{padding:10px 7px;font-size:.72rem}.holiday-art-caption{gap:8px;font-size:.88rem}.video-shell:hover,.fact:hover,.listen-card:hover,.related-card:hover,.artist-note:hover,.holiday-symbol:hover{transform:none}}
+    @media(max-width:390px){.holiday-kicker{font-size:.52rem}.hero::after{width:56px;height:56px}.holiday-symbol{font-size:.68rem;gap:7px}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto!important}body::before,body::after,.brand-mark,h1 em,h2 em,.artist-note .note-symbol,.closing::before,.topbar::after,.snowflake{animation:none!important}.motion-ready .reveal-on-scroll,.motion-ready .hero-copy,.motion-ready .holiday-kicker,.motion-ready .video-shell{opacity:1!important;transform:none!important;transition:none!important}.holiday-symbol:hover,.video-shell:hover,.fact:hover,.listen-card:hover,.related-card:hover,.artist-note:hover{transform:none!important}.btn::before{display:none}}
+
   </style>
 </head>
 <body>
@@ -810,15 +868,15 @@
     <section class="hero" aria-labelledby="page-title">
       <div class="wrap hero-grid">
         <div class="hero-copy">
-          <p class="eyebrow">A Christmas carol, reimagined</p>
+          <div class="holiday-kicker"><span aria-hidden="true">✦</span><span>CHRISTMAS SPECIAL</span><i aria-hidden="true"></i><span>WINTER 2025</span><span aria-hidden="true">✦</span></div><p class="eyebrow">A Christmas carol, reimagined</p>
           <h1 id="page-title">Hark! The Herald <em>Angels Sing.</em></h1>
-          <p class="lead">A familiar Christmas melody, carried by the expressive voice of the violin — a small moment of warmth, wonder, and winter light.</p>
+          <p class="lead">A timeless Christmas carol, wrapped in candlelight, snowfall, and the unmistakable warmth of the season — reimagined on violin.</p>
           <div class="artist-line"><strong>Prince Baidya</strong><span class="dot" aria-hidden="true"></span><span>Violin Prince</span><span class="dot" aria-hidden="true"></span><span>Christmas violin cover</span></div>
           <div class="button-row">
             <a class="btn btn-primary" href="#performance">Watch the performance <span aria-hidden="true">↓</span></a>
             <a class="btn btn-secondary" href="https://baidyaprince69-web.github.io/violin-prince-website/">Explore all covers <span aria-hidden="true">↗</span></a>
           </div>
-          <p class="hero-note"><span aria-hidden="true">✧</span> Take a quiet moment. Let the melody do the talking.</p>
+          <p class="hero-note"><span aria-hidden="true">✧</span> Let it snow outside. Let the melody glow inside.</p>
         </div>
         <div class="video-shell" id="performance">
           <div class="video-frame">
@@ -837,6 +895,71 @@
         </div>
       </div>
     </section>
+
+
+    <section class="holiday-scene" aria-labelledby="holiday-scene-title">
+      <div class="wrap holiday-scene-wrap">
+        <div class="holiday-scene-heading">
+          <span class="holiday-scene-label"><span aria-hidden="true">✦</span> CHRISTMAS EVE <span aria-hidden="true">✦</span></span>
+          <h2 id="holiday-scene-title">A little <em>Christmas magic.</em></h2>
+          <p>Santa is on his way, the presents are waiting, and a familiar carol fills the winter night.</p>
+        </div>
+        <div class="holiday-art">
+          <svg class="christmas-illustration" viewBox="0 0 1200 300" role="img" aria-labelledby="santa-title santa-desc" xmlns="http://www.w3.org/2000/svg">
+            <title id="santa-title">Santa's Christmas Eve journey</title>
+            <desc id="santa-desc">Santa in a red sleigh pulled by reindeer crosses a snowy midnight sky above a village, a decorated fir tree, and wrapped presents.</desc>
+            <defs>
+              <linearGradient id="xmas-sky" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0b1430"/><stop offset=".55" stop-color="#20213c"/><stop offset="1" stop-color="#70253e"/></linearGradient>
+              <linearGradient id="xmas-snow" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#f8f6f2"/><stop offset="1" stop-color="#b5cbe8"/></linearGradient>
+              <linearGradient id="xmas-red" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#e64f61"/><stop offset="1" stop-color="#8c1e3a"/></linearGradient>
+              <radialGradient id="xmas-moon-glow"><stop stop-color="#ffdf9a" stop-opacity=".42"/><stop offset="1" stop-color="#ffdf9a" stop-opacity="0"/></radialGradient>
+            </defs>
+            <rect width="1200" height="300" rx="17" fill="url(#xmas-sky)"/>
+            <circle cx="172" cy="64" r="72" fill="url(#xmas-moon-glow)"/><circle cx="172" cy="64" r="28" fill="#fff0c9"/><circle cx="184" cy="55" r="25" fill="#dbe4f2"/>
+            <g fill="#fff4d8"><circle cx="61" cy="35" r="1.8"/><circle cx="109" cy="113" r="1.4"/><circle cx="248" cy="29" r="1.5"/><circle cx="310" cy="81" r="1.7"/><circle cx="363" cy="42" r="1.3"/><circle cx="451" cy="98" r="1.7"/><circle cx="552" cy="29" r="1.5"/><circle cx="683" cy="38" r="1.5"/><circle cx="757" cy="86" r="1.6"/><circle cx="836" cy="36" r="1.6"/><circle cx="927" cy="75" r="1.5"/><circle cx="1034" cy="32" r="1.5"/><circle cx="1137" cy="55" r="1.7"/><circle cx="1171" cy="108" r="1.3"/></g>
+            <g stroke="#fff0c7" stroke-width="1.5" stroke-linecap="round" opacity=".9"><path d="M293 26v12m-6-6h12M400 104v12m-6-6h12M857 49v12m-6-6h12M1078 101v9m-4.5-4.5h9"/></g>
+            <!-- Santa's reindeer -->
+            <g fill="#14192d" stroke="#14192d" stroke-linejoin="round" stroke-linecap="round">
+              <g transform="translate(420 78)"><path d="M0 19Q15 3 35 12L46 18 36 25 17 24 8 31 4 49H0L2 29-3 22Z"/><path d="M34 12 37 1 45-6 49-15 52-12 49-2 55 3 52 7 46 1 42 14"/><path d="M45 18 58 14 64 19 59 24 47 24Z"/><path d="M14 24 12 38 16 50H12L7 38 9 23M29 24 32 39 36 49H32L26 39 25 24"/></g>
+              <g transform="translate(493 56) scale(.88)"><path d="M0 19Q15 3 35 12L46 18 36 25 17 24 8 31 4 49H0L2 29-3 22Z"/><path d="M34 12 37 1 45-6 49-15 52-12 49-2 55 3 52 7 46 1 42 14"/><path d="M45 18 58 14 64 19 59 24 47 24Z"/><path d="M14 24 12 38 16 50H12L7 38 9 23M29 24 32 39 36 49H32L26 39 25 24"/></g>
+              <g transform="translate(563 75) scale(.76)"><path d="M0 19Q15 3 35 12L46 18 36 25 17 24 8 31 4 49H0L2 29-3 22Z"/><path d="M34 12 37 1 45-6 49-15 52-12 49-2 55 3 52 7 46 1 42 14"/><path d="M45 18 58 14 64 19 59 24 47 24Z"/><path d="M14 24 12 38 16 50H12L7 38 9 23"/></g>
+            </g>
+            <path d="M467 108Q517 126 567 104T629 103" fill="none" stroke="#eac36e" stroke-width="1.8" stroke-dasharray="4 6"/>
+            <!-- Santa, his sack and his red sleigh -->
+            <g transform="translate(641 49)">
+              <path d="M7 66Q29 76 49 61L64 44 83 44Q98 48 96 61L84 71 29 76Z" fill="url(#xmas-red)" stroke="#f4c96e" stroke-width="2"/>
+              <path d="M4 70Q30 84 75 76T104 65M12 79Q40 91 88 79" fill="none" stroke="#f3cc7b" stroke-width="3.3" stroke-linecap="round"/>
+              <path d="M34 42Q30 23 45 16L60 25 65 46 54 57 38 54Z" fill="#bd2947"/><circle cx="49" cy="20" r="12" fill="#f2c8a3"/>
+              <path d="M38 18Q32 8 44 0L56 1Q65 6 60 13L54 10 48 15Z" fill="#c62e4b"/><path d="M39 2Q45-2 52 3L59 9 51 7 44 8Z" fill="#fff7e7"/><circle cx="60" cy="9" r="4.5" fill="#fff7e7"/>
+              <path d="M40 22Q40 32 49 34Q58 33 60 22Q54 28 48 27Z" fill="#fff7e7"/><path d="M42 27 48 33 54 27" fill="#e5ebf7"/>
+              <path d="M38 45Q18 42 17 30L11 27 8 36Q17 54 37 57Z" fill="#a4213c"/><path d="M42 44 50 45 54 54 43 58 37 52Z" fill="#fff0c6"/>
+              <path d="M58 30Q79 25 80 41L74 51 62 48Z" fill="#8d263d"/><path d="M67 30Q73 17 87 22L95 31 89 41 77 38Z" fill="#d6a65f"/>
+              <circle cx="46" cy="20" r="1.3" fill="#282139"/><circle cx="53" cy="20" r="1.3" fill="#282139"/>
+            </g>
+            <!-- A distant snowy village -->
+            <path d="M0 219V183H64V151H109V181H155V165H207V192H257V173H305V207H354V184H404V214H466V192H526V217H582V191H632V216H691V186H745V212H807V176H852V215H905V186H954V211H1014V187H1058V213H1117V182H1168V216H1200V300H0Z" fill="#10182e"/>
+            <g fill="#edc16e" opacity=".9"><rect x="79" y="161" width="7" height="12" rx="1"/><rect x="96" y="161" width="7" height="12" rx="1"/><rect x="169" y="178" width="8" height="12" rx="1"/><rect x="189" y="178" width="8" height="12" rx="1"/><rect x="275" y="185" width="7" height="11" rx="1"/><rect x="868" y="190" width="8" height="12" rx="1"/><rect x="891" y="190" width="8" height="12" rx="1"/></g>
+            <!-- Church with candlelit windows -->
+            <g transform="translate(992 84)"><path d="M-10 78 36 33 82 78V148H-10Z" fill="#171e35" stroke="#60708c" stroke-width="1.4"/><path d="M-20 79 36 21 93 79" fill="none" stroke="#e2e9f5" stroke-width="7" stroke-linejoin="round"/><path d="M27 28V-9H46V28" fill="#1a2238" stroke="#5b6680" stroke-width="1.4"/><path d="M21-9 36-24 52-9" fill="#a62e45" stroke="#e9c66d" stroke-width="1.5"/><path d="M36-39V-24" stroke="#fff1c6" stroke-width="3" stroke-linecap="round"/><path d="M8 148V99Q36 80 64 99V148" fill="#10172d" stroke="#8794ad" stroke-width="1.4"/><path d="M7 89H19V103H7ZM54 89H66V103H54Z" fill="#ffd88a"/></g>
+            <!-- Decorated fir tree -->
+            <g transform="translate(43 132)" stroke="#c8d8ef" stroke-linejoin="round" stroke-width="1.8"><path d="M38 0 4 47H20L-2 76H19L-12 113H88L57 76H77L55 47H72Z" fill="#273550"/><path d="M38 0 4 47 18 43 1 73 22 69 -5 105" fill="none" stroke="#f7f6f2" stroke-width="3" opacity=".94"/><path d="M29 113V130H47V113" fill="#6e4b4d"/><circle cx="24" cy="57" r="4.3" fill="#d64556" stroke="#f7d993"/><circle cx="51" cy="81" r="4.3" fill="#f2c66d" stroke="#fff1c6"/><circle cx="34" cy="99" r="4.3" fill="#d64556" stroke="#f7d993"/><path d="M38-5 42 3 50 4 44 10 45 18 38 14 31 18 32 10 26 4 34 3Z" fill="#ffda83" stroke="#fff1c6"/></g>
+            <!-- Wrapped gifts -->
+            <g transform="translate(1045 217)"><rect x="0" y="23" width="64" height="50" rx="3" fill="#9c243d" stroke="#f0c56e" stroke-width="1.5"/><rect x="26" y="23" width="11" height="50" fill="#f4d17f"/><rect x="-3" y="15" width="70" height="13" rx="3" fill="#c84050" stroke="#f4d17f" stroke-width="1.5"/><path d="M31 15C8-2 10-9 21-8 31-7 32 8 32 15M32 15C35-1 51-10 56-1 60 8 44 15 32 15" fill="none" stroke="#ffdf92" stroke-width="4" stroke-linecap="round"/></g>
+            <g transform="translate(1113 239) scale(.72)"><rect x="0" y="23" width="64" height="50" rx="3" fill="#263451" stroke="#f0c56e" stroke-width="1.5"/><rect x="26" y="23" width="11" height="50" fill="#d74a56"/><rect x="-3" y="15" width="70" height="13" rx="3" fill="#334561" stroke="#f4d17f" stroke-width="1.5"/><path d="M31 15C8-2 10-9 21-8 31-7 32 8 32 15M32 15C35-1 51-10 56-1 60 8 44 15 32 15" fill="none" stroke="#ffdf92" stroke-width="4" stroke-linecap="round"/></g>
+            <path d="M0 264Q174 240 322 266T625 264T928 258T1200 264V300H0Z" fill="url(#xmas-snow)" opacity=".9"/><path d="M0 274Q200 249 390 278T777 274T1200 270" fill="none" stroke="#fff9ef" stroke-width="3" opacity=".86"/>
+          </svg>
+          <div class="holiday-art-caption"><span aria-hidden="true">❄</span><span>Santa's on his way. The carol is already here.</span><span aria-hidden="true">❄</span></div>
+        </div>
+        <div class="holiday-symbols" aria-label="Christmas details">
+          <div class="holiday-symbol"><span aria-hidden="true">✦</span><span>Starry skies</span></div>
+          <div class="holiday-symbol"><span aria-hidden="true">♬</span><span>Christmas carols</span></div>
+          <div class="holiday-symbol"><span aria-hidden="true">🎁</span><span>Gifts &amp; giving</span></div>
+          <div class="holiday-symbol"><span aria-hidden="true">❄</span><span>Winter wonder</span></div>
+        </div>
+      </div>
+    </section>
+
+
 
     <section class="wrap facts" aria-label="Performance details">
       <div class="fact"><small>The melody</small><strong>A beloved carol</strong></div>
@@ -971,144 +1094,21 @@
 
   <script>
     (function () {
-      var root = document.documentElement;
-      var body = document.body;
-      var motionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
-      var reduced = !!(motionQuery && motionQuery.matches);
-      var thumbnailUrl = 'https://i.ytimg.com/vi/bissQ67-Az8/maxresdefault.jpg';
-
-      // Thumbnail-aware accent sampling. This only influences decorative light and borders;
-      // readable text and control colors stay on the tested evergreen/ivory/gold palette.
-      function sampleThumbnailAccent() {
-        var image = new Image();
-        image.crossOrigin = 'anonymous';
-        image.decoding = 'async';
-        image.onload = function () {
-          try {
-            var canvas = document.createElement('canvas');
-            canvas.width = 40;
-            canvas.height = 23;
-            var context = canvas.getContext('2d', { willReadFrequently: true });
-            if (!context) return;
-            context.drawImage(image, 0, 0, canvas.width, canvas.height);
-            var pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-            var bins = new Array(24).fill(0);
-            for (var i = 0; i < pixels.length; i += 4) {
-              var r = pixels[i] / 255;
-              var g = pixels[i + 1] / 255;
-              var b = pixels[i + 2] / 255;
-              var max = Math.max(r, g, b);
-              var min = Math.min(r, g, b);
-              var delta = max - min;
-              var lightness = (max + min) / 2;
-              if (delta < 0.08 || lightness < 0.12 || lightness > 0.82) continue;
-              var saturation = delta / (1 - Math.abs(2 * lightness - 1));
-              var hue;
-              if (max === r) hue = 60 * (((g - b) / delta) % 6);
-              else if (max === g) hue = 60 * ((b - r) / delta + 2);
-              else hue = 60 * ((r - g) / delta + 4);
-              if (hue < 0) hue += 360;
-              var bin = Math.floor(hue / 15) % 24;
-              // Weight areas of coherent mid-tone color; ignore crushed shadows and near-white glare.
-              bins[bin] += 0.25 + saturation * (1 - Math.abs(lightness - 0.48));
-            }
-            var winner = 0;
-            for (var j = 1; j < bins.length; j++) if (bins[j] > bins[winner]) winner = j;
-            if (bins[winner] < 1.5) return;
-            var hueDegrees = (winner * 15 + 7.5) % 360;
-            root.style.setProperty('--vp-thumbnail-hue', hueDegrees + 'deg');
-            root.dataset.thumbnailPalette = 'sampled';
-          } catch (error) {
-            // Cross-origin canvas access may be blocked; keep the deliberate evergreen/gold fallback.
-            root.dataset.thumbnailPalette = 'seasonal-fallback';
-          }
-        };
-        image.onerror = function () { root.dataset.thumbnailPalette = 'seasonal-fallback'; };
-        image.src = thumbnailUrl;
+      var root=document.documentElement,body=document.body;
+      var mq=window.matchMedia?window.matchMedia('(prefers-reduced-motion: reduce)'):null;
+      var reduced=!!(mq&&mq.matches);
+      if(!reduced){
+        var snow=document.createElement('div');snow.className='snowfall';snow.setAttribute('aria-hidden','true');
+        var data=[[4,12,25,-5,17],[12,8,29,-17,10],[22,15,31,-9,15],[31,7,24,-22,9],[40,13,32,-12,12],[51,5,28,-18,16],[62,14,34,-8,10],[71,7,27,-24,14],[82,12,30,-13,11],[93,6,33,-20,15],[17,3,36,-28,8],[76,3,38,-31,9]];
+        data.forEach(function(f,i){var n=document.createElement('span');n.className='snowflake';n.textContent=i%3===0?'❄':'·';n.style.setProperty('--snow-x',f[0]+'%');n.style.setProperty('--snow-size',f[1]+'px');n.style.setProperty('--snow-time',f[2]+'s');n.style.setProperty('--snow-delay',f[3]+'s');n.style.setProperty('--snow-drift',(i%2?-1:1)*f[4]+'px');snow.appendChild(n);});
+        body.insertBefore(snow,body.firstChild);document.addEventListener('visibilitychange',function(){snow.style.display=document.hidden?'none':'';},{passive:true});
       }
-      sampleThumbnailAccent();
-
-      var progress = document.createElement('div');
-      progress.className = 'scroll-progress';
-      progress.setAttribute('aria-hidden', 'true');
-      progress.innerHTML = '<span></span>';
-      body.appendChild(progress);
-      var progressBar = progress.firstElementChild;
-
-      var ambience = document.createElement('div');
-      ambience.className = 'ambient-scene';
-      ambience.setAttribute('aria-hidden', 'true');
-      ambience.innerHTML =
-        '<span class="ambient-orb ambient-orb--candle"></span>' +
-        '<span class="ambient-orb ambient-orb--thumbnail"></span>' +
-        '<span class="ambient-thread"></span>';
-      var particlePositions = [
-        [10, 77, 28, -8], [24, 53, 32, -17], [41, 88, 30, -12],
-        [64, 64, 35, -5], [82, 84, 29, -21], [91, 46, 33, -14]
-      ];
-      particlePositions.forEach(function (item) {
-        var particle = document.createElement('span');
-        particle.className = 'ambient-particle';
-        particle.style.left = item[0] + '%';
-        particle.style.top = item[1] + '%';
-        particle.style.setProperty('--particle-duration', item[2] + 's');
-        particle.style.setProperty('--particle-delay', item[3] + 's');
-        ambience.appendChild(particle);
-      });
-      body.insertBefore(ambience, body.firstChild);
-
-      var glow = document.createElement('div');
-      glow.className = 'pointer-glow';
-      glow.setAttribute('aria-hidden', 'true');
-      body.insertBefore(glow, body.firstChild);
-
-      function updateProgress() {
-        if (!progressBar) return;
-        var doc = document.documentElement;
-        var maxScroll = doc.scrollHeight - window.innerHeight;
-        var amount = maxScroll > 0 ? Math.max(0, Math.min(1, window.scrollY / maxScroll)) : 0;
-        progressBar.style.transform = 'scaleX(' + amount + ')';
-      }
-      window.addEventListener('scroll', updateProgress, { passive: true });
-      window.addEventListener('resize', updateProgress, { passive: true });
-      updateProgress();
-
-      if (!reduced && 'IntersectionObserver' in window) {
-        root.classList.add('motion-ready');
-        var targets = body.querySelectorAll('.section-heading, .story-copy p, .artist-note, .listen-card, .related-card, .fact, .section-cta, .closing .eyebrow, .closing h2, .closing > .wrap > p');
-        var observer = new IntersectionObserver(function (entries) {
-          entries.forEach(function (entry) {
-            if (entry.isIntersecting) {
-              entry.target.classList.add('reveal-on-scroll', 'is-visible');
-              observer.unobserve(entry.target);
-            }
-          });
-        }, { threshold: 0.12, rootMargin: '0px 0px -32px 0px' });
-        targets.forEach(function (target) {
-          target.classList.add('reveal-on-scroll');
-          observer.observe(target);
-        });
-      }
-
-      function setPageVisibility() {
-        root.classList.toggle('page-hidden', document.hidden);
-      }
-      document.addEventListener('visibilitychange', setPageVisibility, { passive: true });
-      setPageVisibility();
-
-      if (!reduced && window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
-        glow.classList.add('is-active');
-        var rafPending = false;
-        window.addEventListener('pointermove', function (event) {
-          if (rafPending) return;
-          rafPending = true;
-          window.requestAnimationFrame(function () {
-            glow.style.setProperty('--vp-pointer-x', event.clientX + 'px');
-            glow.style.setProperty('--vp-pointer-y', event.clientY + 'px');
-            rafPending = false;
-          });
-        }, { passive: true });
-      }
+      var prog=document.createElement('div');prog.className='scroll-progress';prog.setAttribute('aria-hidden','true');prog.innerHTML='<span></span>';body.appendChild(prog);
+      var bar=prog.firstElementChild,pending=false;
+      function update(){var max=document.documentElement.scrollHeight-window.innerHeight;bar.style.transform='scaleX('+(max>0?Math.max(0,Math.min(1,window.scrollY/max)):0)+')';pending=false;}
+      window.addEventListener('scroll',function(){if(!pending){pending=true;window.requestAnimationFrame(update);}},{passive:true});window.addEventListener('resize',update,{passive:true});update();
+      if(!reduced&&'IntersectionObserver'in window){root.classList.add('motion-ready');var targets=body.querySelectorAll('.section-heading,.story-copy p,.artist-note,.listen-card,.related-card,.fact,.section-cta,.holiday-scene-heading,.holiday-art,.holiday-symbol,.closing .eyebrow,.closing h2,.closing > .wrap > p');var observer=new IntersectionObserver(function(entries){entries.forEach(function(e){if(e.isIntersecting){e.target.classList.add('reveal-on-scroll','is-visible');observer.unobserve(e.target);}});},{threshold:.12,rootMargin:'0px 0px -28px 0px'});targets.forEach(function(t){t.classList.add('reveal-on-scroll');observer.observe(t);});}
+      if(!reduced&&window.matchMedia&&window.matchMedia('(hover: hover) and (pointer: fine)').matches){var glow=document.createElement('div');glow.className='pointer-glow';glow.setAttribute('aria-hidden','true');body.insertBefore(glow,body.firstChild);glow.classList.add('is-active');var locked=false;window.addEventListener('pointermove',function(e){if(locked)return;locked=true;window.requestAnimationFrame(function(){glow.style.setProperty('--vp-pointer-x',e.clientX+'px');glow.style.setProperty('--vp-pointer-y',e.clientY+'px');locked=false;});},{passive:true});}
     }());
   </script>
 
