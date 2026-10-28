@@ -2576,3 +2576,59 @@ body.motion-ready .scroll-reveal:not(.is-visible):not(.about-section):not(.conne
     transform: none !important;
   }
 }
+
+
+/* === Definitive bidirectional outro: elements leave at the opposite viewport edge === */
+body.motion-ready .music-card.exit-up:not(.is-visible),
+body.motion-ready .scroll-reveal.exit-up:not(.is-visible),
+.vp-motion-ready .vp-reveal.vp-exit-up:not(.vp-visible) {
+  opacity: 0 !important;
+  filter: blur(14px) saturate(.82) brightness(.96) !important;
+  transform: perspective(1150px) translate3d(0, -38px, -28px) rotateX(-2deg) scale(.986) !important;
+}
+body.motion-ready .music-card.exit-down:not(.is-visible),
+body.motion-ready .scroll-reveal.exit-down:not(.is-visible),
+.vp-motion-ready .vp-reveal.vp-exit-down:not(.vp-visible) {
+  opacity: 0 !important;
+  filter: blur(14px) saturate(.82) brightness(.96) !important;
+  transform: perspective(1150px) translate3d(0, 38px, -28px) rotateX(2deg) scale(.986) !important;
+}
+/* Keep the reverse movement for the hero and major sections too, not only cards. */
+body.motion-ready .hero-content.scroll-reveal.exit-up:not(.is-visible),
+body.motion-ready .about-section.scroll-reveal.exit-up:not(.is-visible),
+body.motion-ready .connect-section.scroll-reveal.exit-up:not(.is-visible),
+body.motion-ready .site-footer.scroll-reveal.exit-up:not(.is-visible),
+body.motion-ready .hero-content.scroll-reveal.exit-down:not(.is-visible),
+body.motion-ready .about-section.scroll-reveal.exit-down:not(.is-visible),
+body.motion-ready .connect-section.scroll-reveal.exit-down:not(.is-visible),
+body.motion-ready .site-footer.scroll-reveal.exit-down:not(.is-visible) {
+  opacity: 0 !important;
+  filter: blur(14px) saturate(.82) !important;
+}
+@media (max-width: 720px) {
+  body.motion-ready .music-card.exit-up:not(.is-visible),
+  body.motion-ready .scroll-reveal.exit-up:not(.is-visible),
+  .vp-motion-ready .vp-reveal.vp-exit-up:not(.vp-visible) {
+    filter: blur(9px) saturate(.88) !important;
+    transform: perspective(850px) translate3d(0, -22px, -12px) scale(.99) !important;
+  }
+  body.motion-ready .music-card.exit-down:not(.is-visible),
+  body.motion-ready .scroll-reveal.exit-down:not(.is-visible),
+  .vp-motion-ready .vp-reveal.vp-exit-down:not(.vp-visible) {
+    filter: blur(9px) saturate(.88) !important;
+    transform: perspective(850px) translate3d(0, 22px, -12px) scale(.99) !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.motion-ready .music-card.exit-up:not(.is-visible),
+  body.motion-ready .music-card.exit-down:not(.is-visible),
+  body.motion-ready .scroll-reveal.exit-up:not(.is-visible),
+  body.motion-ready .scroll-reveal.exit-down:not(.is-visible),
+  .vp-motion-ready .vp-reveal.vp-exit-up:not(.vp-visible),
+  .vp-motion-ready .vp-reveal.vp-exit-down:not(.vp-visible) {
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
