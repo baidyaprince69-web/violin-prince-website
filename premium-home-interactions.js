@@ -54,6 +54,29 @@
         { title: 'Jai Ho', category: 'MAIN CHARACTER · 02', video: 'https://www.youtube.com/watch?v=1iX1sEudW9M', thumbnail: 'https://i.ytimg.com/vi/1iX1sEudW9M/hqdefault.jpg', desc: 'Then turn the energy up with Jai Ho.' }
       ],
       filters: [{ label: 'Explore all covers', value: 'all' }]
+    },
+    'peaceful-focused': {
+      title: 'Peaceful & Focused',
+      intro: 'For a softer space to breathe, settle in and let the melody hold your attention.',
+      songs: [
+        { title: 'Majhe Majhe Tobo', category: 'RABINDRA SANGEET · CONTEMPLATIVE', video: 'https://www.youtube.com/watch?v=vAinuVKLKGE', thumbnail: 'https://i.ytimg.com/vi/vAinuVKLKGE/hqdefault.jpg', desc: 'A reflective Tagore melody carried by warm, expressive strings.' },
+        { title: 'Dandelions', category: 'ENGLISH · SOFT & DREAMY', video: 'https://www.youtube.com/watch?v=lTySNtT0rzs', page: 'dandelions/', thumbnail: 'https://i.ytimg.com/vi/lTySNtT0rzs/hqdefault.jpg', desc: 'A soft, familiar melody reimagined on violin.' },
+        { title: "Say You Won't Let Go", category: 'ENGLISH · INTIMATE', video: 'https://www.youtube.com/watch?v=3NHpKon_Uq8', page: 'say-you-wont-let-go/', thumbnail: 'https://i.ytimg.com/vi/3NHpKon_Uq8/hqdefault.jpg', desc: 'A gentle, heartfelt violin interpretation.' }
+      ],
+      filters: [
+        { label: 'Browse Rabindra Sangeet', value: 'rabindra' },
+        { label: 'Browse English covers', value: 'english' }
+      ]
+    },
+    'romantic-emotional': {
+      title: 'Romantic & Emotional',
+      intro: 'For heartfelt melodies, tender moments and songs that say what words cannot.',
+      songs: [
+        { title: 'Tere Paas Main', category: 'BOLLYWOOD · HEARTFELT', video: 'https://www.youtube.com/watch?v=FOV-lwpwcd0', thumbnail: 'https://i.ytimg.com/vi/FOV-lwpwcd0/hqdefault.jpg', desc: 'An intimate violin cover for a melody that feels close to the heart.' },
+        { title: 'Husn', category: 'BOLLYWOOD · TENDER & REFLECTIVE', video: 'https://www.youtube.com/watch?v=cTSvx1iI3CM', thumbnail: 'https://i.ytimg.com/vi/cTSvx1iI3CM/hqdefault.jpg', desc: 'A wistful, expressive melody brought into a violin-led arrangement.' },
+        { title: 'Farq Hai', category: 'BOLLYWOOD · MELANCHOLIC', video: 'https://www.youtube.com/watch?v=wPrumUSG3Cg', thumbnail: 'https://i.ytimg.com/vi/wPrumUSG3Cg/hqdefault.jpg', desc: 'A reflective cover for the quieter side of emotion.' }
+      ],
+      filters: [{ label: 'Browse Bollywood covers', value: 'bollywood' }]
     }
   };
 
