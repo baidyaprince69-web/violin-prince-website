@@ -3388,3 +3388,81 @@ body.motion-ready .site-footer.scroll-reveal.exit-down:not(.is-visible) {
 @media (max-width: 390px) {
   .mood-grid.mood-grid-six { grid-template-columns: 1fr; }
 }
+
+
+/* Mobile listening-room layout — square artwork, playback strip, then song details.
+   Scoped strictly to phone-width viewports; desktop and wide-tablet styling is unchanged. */
+@media (max-width: 720px) {
+  .music-section .music-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .music-section .music-card {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100%;
+    min-width: 0;
+    gap: 0;
+    border-radius: 18px;
+    overflow: hidden;
+  }
+
+  .music-section .video-thumb {
+    display: block;
+    order: 0;
+    flex: 0 0 auto;
+    width: calc(100% - 16px) !important;
+    height: auto !important;
+    aspect-ratio: 1 / 1 !important;
+    margin: 8px !important;
+    border-radius: 11px;
+  }
+
+  .music-section .video-thumb img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    border-radius: 8px;
+  }
+
+  .music-section .card-copy {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch;
+    min-width: 0;
+    padding: .15rem 1rem 1.05rem !important;
+    gap: 0;
+  }
+
+  /* Put playback immediately below the artwork, before the song description. */
+  .music-section .song-mini-player {
+    order: 0;
+    width: 100%;
+    margin: .15rem 0 .9rem !important;
+  }
+  .music-section .card-category {
+    order: 1;
+    margin: 0 0 .25rem;
+  }
+  .music-section .card-copy h3 {
+    order: 2;
+    font-size: clamp(1.25rem, 5vw, 1.65rem);
+    line-height: 1.2;
+    margin: 0 0 .65rem !important;
+  }
+  .music-section .card-copy p {
+    order: 3;
+    min-height: 0;
+    margin: 0 0 .8rem !important;
+    font-size: .86rem;
+    line-height: 1.58;
+  }
+  .music-section .card-link {
+    order: 4;
+    align-self: flex-start;
+  }
+}
