@@ -431,6 +431,8 @@
           const states = window.YT.PlayerState;
           if (event.data === states.PLAYING) {
             resumeCoverWhenVisible = false;
+            coverWantsPlayback = true;
+            coverPauseReason = null;
             setCoverUI(true, 'Playing · ' + coverTrackTitle);
           } else if (event.data === states.PAUSED) {
             const pausedForVisibility = coverPauseReason === 'visibility';
