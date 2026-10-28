@@ -2817,3 +2817,141 @@ body.motion-ready .site-footer.scroll-reveal.exit-down:not(.is-visible) {
   .sort-chip { transition: none; }
 }
 
+/* Per-thumbnail color theory: elevated image stages tuned to each cover's observed palette. */
+.music-section .music-card {
+  position: relative;
+  isolation: isolate;
+  overflow: visible;
+  border-color: rgba(var(--cover-accent-rgb), .34);
+  background:
+    linear-gradient(112deg,
+      rgba(var(--cover-accent-rgb), .085) 0%,
+      rgba(var(--cover-secondary-rgb), .045) 34%,
+      rgba(255,253,248,.98) 76%);
+  box-shadow:
+    0 8px 24px rgba(21, 32, 45, .075),
+    inset 0 1px 0 rgba(255,255,255,.92),
+    0 0 0 1px rgba(var(--cover-accent-rgb), .045);
+}
+.music-section .music-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 0% 50%, rgba(var(--cover-accent-rgb), .14), transparent 45%),
+    radial-gradient(ellipse at 100% 0%, rgba(var(--cover-secondary-rgb), .10), transparent 50%);
+  opacity: .92;
+}
+.music-section .music-card > * {
+  position: relative;
+  z-index: 1;
+}
+.music-section .video-thumb {
+  position: relative;
+  z-index: 2;
+  width: calc(100% - 18px);
+  margin: 9px;
+  padding: 2px;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  align-self: center;
+  border: 1px solid rgba(255,255,255,.78);
+  border-radius: 11px;
+  background:
+    linear-gradient(132deg,
+      rgba(var(--cover-accent-rgb), .98) 0%,
+      rgba(var(--cover-secondary-rgb), .88) 56%,
+      rgba(var(--cover-accent-rgb), .78) 100%);
+  box-shadow:
+    0 7px 18px rgba(18, 28, 40, .15),
+    0 0 0 1px rgba(var(--cover-accent-rgb), .20),
+    0 0 15px rgba(var(--cover-accent-rgb), .21),
+    0 0 22px rgba(var(--cover-secondary-rgb), .11),
+    inset 0 1px 0 rgba(255,255,255,.45);
+  transition: box-shadow 420ms ease, transform 420ms cubic-bezier(.2,.75,.2,1), filter 420ms ease;
+}
+.music-section .video-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 7px;
+}
+.music-section .video-thumb::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 1px solid rgba(255,255,255,.38);
+  border-radius: 7px;
+  box-shadow: inset 0 0 14px rgba(0,0,0,.06);
+  pointer-events: none;
+  z-index: 2;
+}
+.music-section .card-copy {
+  background: linear-gradient(112deg,
+    rgba(var(--cover-accent-rgb), .035),
+    rgba(255,253,248,0) 48%);
+}
+.music-section .card-copy::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 20%;
+  bottom: 20%;
+  width: 2px;
+  border-radius: 99px;
+  background: linear-gradient(180deg,
+    transparent,
+    rgba(var(--cover-accent-rgb), .72) 35%,
+    rgba(var(--cover-secondary-rgb), .72) 70%,
+    transparent);
+  opacity: .62;
+  pointer-events: none;
+}
+.music-section .music-card:hover {
+  border-color: rgba(var(--cover-accent-rgb), .56);
+  box-shadow:
+    0 13px 32px rgba(21, 32, 45, .10),
+    inset 0 1px 0 rgba(255,255,255,.96),
+    0 0 0 1px rgba(var(--cover-accent-rgb), .09),
+    0 0 22px rgba(var(--cover-accent-rgb), .10);
+}
+.music-section .music-card:hover .video-thumb {
+  transform: translateY(-2px);
+  border-color: rgba(255,255,255,.95);
+  box-shadow:
+    0 10px 24px rgba(18, 28, 40, .18),
+    0 0 0 1px rgba(var(--cover-accent-rgb), .32),
+    0 0 21px rgba(var(--cover-accent-rgb), .31),
+    0 0 30px rgba(var(--cover-secondary-rgb), .16),
+    inset 0 1px 0 rgba(255,255,255,.52);
+}
+.music-section .music-card:hover .card-copy::before {
+  opacity: .95;
+}
+@media (max-width: 720px) {
+  .music-section .video-thumb {
+    width: calc(100% - 12px);
+    margin: 6px;
+    border-radius: 9px;
+    box-shadow:
+      0 5px 12px rgba(18, 28, 40, .13),
+      0 0 0 1px rgba(var(--cover-accent-rgb), .18),
+      0 0 10px rgba(var(--cover-accent-rgb), .16),
+      0 0 14px rgba(var(--cover-secondary-rgb), .08);
+  }
+  .music-section .video-thumb img { border-radius: 5px; }
+  .music-section .video-thumb::after { inset: 2px; border-radius: 5px; }
+  .music-section .card-copy::before { opacity: .48; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .music-section .video-thumb,
+  .music-section .music-card,
+  .music-section .music-card::before {
+    transition: none !important;
+  }
+}
+
