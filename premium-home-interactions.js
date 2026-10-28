@@ -183,4 +183,52 @@
   if (recommendationPanel && recommendationPanel.hidden) {
     recommendationPanel.setAttribute('aria-label', 'Mood-based song recommendations');
   }
+
+  // Add a light reveal to the new featured area and major lower sections.
+  const revealTargets = document.querySelectorAll(
+    '.featured-art, .featured-copy, .mood-section .section-heading, ' +
+    '.mood-section > .section-intro, .about-section, .request-section .request-copy, ' +
+    '.request-section .request-form, .connect-section, .support-card'
+  );
+  if (!prefersReducedMotion && 'IntersectionObserver' in window) {
+    document.documentElement.classList.add('vp-motion-ready');
+    const revealObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('vp-visible');
+        revealObserver.unobserve(entry.target);
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -28px 0px' });
+    revealTargets.forEach(target => {
+      target.classList.add('vp-reveal');
+      revealObserver.observe(target);
+    });
+  }
+
+  // Pointer-positioned card light is desktop-only and changes CSS variables, not layout.
+  const finePointer = window.matchMedia &&
+    window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  if (finePointer) {
+    document.querySelectorAll('.music-card, .featured-art').forEach(surface => {
+      surface.addEventListener('pointermove', event => {
+        if (event.pointerType && event.pointerType !== 'mouse') return;
+        const rect = surface.getBoundingClientRect();
+        surface.style.setProperty('--pointer-x', ((event.clientX - rect.left) / rect.width * 100) + '%');
+        surface.style.setProperty('--pointer-y', ((event.clientY - rect.top) / rect.height * 100) + '%');
+      }, { passive: true });
+      surface.addEventListener('pointerleave', () => {
+        surface.style.removeProperty('--pointer-x');
+        surface.style.removeProperty('--pointer-y');
+      }, { passive: true });
+    });
+  }
+
+  if (window.matchMedia && typeof window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener === 'function') {
+    window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => {
+      if (!event.matches) return;
+      document.documentElement.classList.remove('vp-motion-ready');
+      document.querySelectorAll('.vp-reveal').forEach(element => element.classList.add('vp-visible'));
+    });
+  }
+
 })();
