@@ -2555,3 +2555,24 @@ body.motion-ready .scroll-reveal.exit-down:not(.is-visible),
     will-change: auto !important;
   }
 }
+
+
+/* Preserve the original direction-aware transform even when blur is active. */
+body.motion-ready .scroll-reveal:not(.is-visible):not(.about-section):not(.connect-section):not(.site-footer):not(.hero-content):not(.about-copy):not(.intro-strip):not(.artist-portrait).exit-up,
+body.motion-ready .scroll-reveal:not(.is-visible):not(.about-section):not(.connect-section):not(.site-footer):not(.hero-content):not(.about-copy):not(.intro-strip):not(.artist-portrait).exit-down {
+  opacity: 0;
+  filter: blur(10px) saturate(.86);
+}
+body.motion-ready .scroll-reveal:not(.is-visible):not(.about-section):not(.connect-section):not(.site-footer):not(.hero-content):not(.about-copy):not(.intro-strip):not(.artist-portrait).exit-up {
+  transform: perspective(1150px) translate3d(0, -30px, -20px) rotateX(-1.8deg) scale(.988);
+}
+body.motion-ready .scroll-reveal:not(.is-visible):not(.about-section):not(.connect-section):not(.site-footer):not(.hero-content):not(.about-copy):not(.intro-strip):not(.artist-portrait).exit-down {
+  transform: perspective(1150px) translate3d(0, 30px, -20px) rotateX(1.8deg) scale(.988);
+}
+@media (prefers-reduced-motion: reduce) {
+  body.motion-ready .scroll-reveal.exit-up,
+  body.motion-ready .scroll-reveal.exit-down {
+    filter: none !important;
+    transform: none !important;
+  }
+}
