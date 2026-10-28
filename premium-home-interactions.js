@@ -194,11 +194,18 @@
     document.documentElement.classList.add('vp-motion-ready');
     const revealObserver = new IntersectionObserver(entries => {
       entries.forEach(entry => {
-        if (!entry.isIntersecting) return;
-        entry.target.classList.add('vp-visible');
-        revealObserver.unobserve(entry.target);
+        const target = entry.target;
+        if (entry.isIntersecting) {
+          target.dataset.vpRevealSeen = 'true';
+          target.classList.remove('vp-exit-up', 'vp-exit-down');
+          target.classList.add('vp-visible');
+        } else if (target.dataset.vpRevealSeen === 'true') {
+          target.classList.remove('vp-visible');
+          target.classList.toggle('vp-exit-up', entry.boundingClientRect.top < 0);
+          target.classList.toggle('vp-exit-down', entry.boundingClientRect.top >= 0);
+        }
       });
-    }, { threshold: 0.12, rootMargin: '0px 0px -28px 0px' });
+    }, { threshold: 0.08, rootMargin: '-32px 0px -32px 0px' });
     revealTargets.forEach(target => {
       target.classList.add('vp-reveal');
       revealObserver.observe(target);
