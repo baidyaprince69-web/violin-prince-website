@@ -2632,3 +2632,44 @@ body.motion-ready .site-footer.scroll-reveal.exit-down:not(.is-visible) {
     transition: none !important;
   }
 }
+
+/* Longer, earlier directional outros: let content clear the fixed header/player overlays.
+   Incoming reveal timing is intentionally unchanged. */
+@media (prefers-reduced-motion: no-preference) {
+  body.motion-ready .music-card.exit-up:not(.is-visible),
+  body.motion-ready .music-card.exit-down:not(.is-visible),
+  body.motion-ready .scroll-reveal.exit-up:not(.is-visible),
+  body.motion-ready .scroll-reveal.exit-down:not(.is-visible),
+  .vp-motion-ready .vp-reveal.vp-exit-up:not(.vp-visible),
+  .vp-motion-ready .vp-reveal.vp-exit-down:not(.vp-visible) {
+    transition-duration: 1450ms, 1650ms, 1550ms, 260ms, 260ms !important;
+    transition-timing-function: cubic-bezier(.16,.78,.24,1) !important;
+  }
+
+  body.motion-ready .music-card.exit-up:not(.is-visible),
+  body.motion-ready .scroll-reveal.exit-up:not(.is-visible),
+  .vp-motion-ready .vp-reveal.vp-exit-up:not(.vp-visible) {
+    transform: perspective(1150px) translate3d(0, -64px, -40px) rotateX(-2.6deg) scale(.978) !important;
+  }
+
+  body.motion-ready .music-card.exit-down:not(.is-visible),
+  body.motion-ready .scroll-reveal.exit-down:not(.is-visible),
+  .vp-motion-ready .vp-reveal.vp-exit-down:not(.vp-visible) {
+    transform: perspective(1150px) translate3d(0, 64px, -40px) rotateX(2.6deg) scale(.978) !important;
+  }
+
+  @media (max-width: 720px) {
+    body.motion-ready .music-card.exit-up:not(.is-visible),
+    body.motion-ready .scroll-reveal.exit-up:not(.is-visible),
+    .vp-motion-ready .vp-reveal.vp-exit-up:not(.vp-visible) {
+      transform: perspective(850px) translate3d(0, -38px, -20px) rotateX(-1.5deg) scale(.988) !important;
+    }
+
+    body.motion-ready .music-card.exit-down:not(.is-visible),
+    body.motion-ready .scroll-reveal.exit-down:not(.is-visible),
+    .vp-motion-ready .vp-reveal.vp-exit-down:not(.vp-visible) {
+      transform: perspective(850px) translate3d(0, 38px, -20px) rotateX(1.5deg) scale(.988) !important;
+    }
+  }
+}
+
