@@ -1396,7 +1396,109 @@
         transition: none !important;
       }
     }
-</style>
+
+    /* Hark carol floating music bar + expandable player */
+    .hark-player-dock {
+      position: fixed;
+      right: 16px;
+      bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+      z-index: 1000;
+      width: min(360px, calc(100vw - 24px));
+      color: var(--ivory);
+      font-family: "Manrope", sans-serif;
+      filter: drop-shadow(0 16px 38px rgba(0,0,0,.36));
+    }
+    .hark-mini-bar {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      min-height: 70px;
+      padding: 10px 12px;
+      border: 1px solid rgba(200,198,191,.35);
+      border-radius: 10px;
+      background: linear-gradient(135deg, rgba(28,25,28,.98), rgba(13,13,16,.98));
+      box-shadow: inset 0 1px rgba(255,255,255,.07), 0 8px 26px rgba(0,0,0,.28);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+    }
+    .hark-player-dock:not(.is-minimized) .hark-mini-bar { display: none; }
+    .hark-mini-play, .hark-mini-expand, .hark-player-minimize {
+      display: inline-flex;
+      flex: 0 0 auto;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(228,225,217,.34);
+      border-radius: 50%;
+      color: var(--ivory);
+      background: linear-gradient(145deg, #3a252b, #171418);
+      cursor: pointer;
+      transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+    }
+    .hark-mini-play { width: 42px; height: 42px; font-size: .92rem; }
+    .hark-mini-expand { width: 34px; height: 34px; font-size: .95rem; }
+    .hark-player-minimize { width: 32px; height: 32px; font-size: 1.15rem; }
+    .hark-mini-play:hover, .hark-mini-expand:hover, .hark-player-minimize:hover {
+      transform: translateY(-1px);
+      border-color: rgba(228,225,217,.7);
+      background: linear-gradient(145deg, #59303a, #21191e);
+    }
+    .hark-mini-copy { display: flex; flex: 1 1 auto; min-width: 0; flex-direction: column; gap: 2px; }
+    .hark-mini-copy small { color: #b2a7a7; font-size: .55rem; letter-spacing: .14em; font-weight: 700; }
+    .hark-mini-copy strong { overflow: hidden; color: var(--ivory); font: 500 .83rem/1.3 "Bodoni Moda", Georgia, serif; text-overflow: ellipsis; white-space: nowrap; }
+    .hark-mini-copy span { color: #b9b4b0; font-size: .6rem; }
+    .hark-player-panel {
+      display: none;
+      overflow: hidden;
+      border: 1px solid rgba(200,198,191,.32);
+      border-radius: 12px;
+      background:
+        radial-gradient(ellipse at 88% 0%, rgba(99,50,58,.24), transparent 48%),
+        linear-gradient(145deg, rgba(28,27,30,.99), rgba(10,10,13,.99));
+      box-shadow: inset 0 1px rgba(255,255,255,.07), 0 18px 48px rgba(0,0,0,.42);
+      -webkit-backdrop-filter: blur(18px);
+      backdrop-filter: blur(18px);
+    }
+    .hark-player-dock:not(.is-minimized) .hark-player-panel { display: block; }
+    .hark-player-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 13px 13px 12px; }
+    .hark-player-heading-copy { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+    .hark-player-heading-copy small { color: #c3aa9b; font-size: .55rem; font-weight: 700; letter-spacing: .15em; }
+    .hark-player-heading-copy strong { color: var(--ivory); font: 500 .98rem/1.25 "Bodoni Moda", Georgia, serif; }
+    .hark-player-heading-copy span { color: #b9b4b0; font-size: .61rem; }
+    .hark-player-heading-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 9px; }
+    .hark-player-open { color: #d1b8a7; font-size: .63rem; font-weight: 700; text-decoration: none; white-space: nowrap; }
+    .hark-player-open:hover { color: #f4dfd2; }
+    .hark-player-video { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: #08080a; border-block: 1px solid rgba(200,198,191,.13); }
+    #harkPlayerMount, #harkPlayerMount iframe { display: block; width: 100% !important; height: 100% !important; border: 0; }
+    .hark-load-cover { position: absolute; inset: 0; display: grid; width: 100%; height: 100%; place-items: center; overflow: hidden; padding: 0; border: 0; color: #fff; background: #110f12; cursor: pointer; }
+    .hark-load-cover[hidden], #harkPlayerMount[hidden] { display: none !important; }
+    .hark-load-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .78; transition: transform 300ms ease, opacity 300ms ease; }
+    .hark-load-cover:hover img { transform: scale(1.025); opacity: .9; }
+    .hark-load-overlay { position: relative; display: flex; flex-direction: column; align-items: center; gap: 9px; text-shadow: 0 2px 14px #000; font-size: .67rem; font-weight: 700; }
+    .hark-load-play { display: grid; width: 43px; height: 43px; place-items: center; padding-left: 3px; border: 1px solid rgba(255,255,255,.7); border-radius: 50%; background: rgba(12,10,12,.65); font-size: 1rem; }
+    .hark-player-controls { display: flex; align-items: center; gap: 10px; padding: 11px 13px 4px; }
+    .hark-player-toggle { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 7px; min-height: 35px; padding: 0 12px; border: 1px solid #d8c7ba; border-radius: 4px; color: #171417; background: linear-gradient(135deg, #eee6dd, #c2b4a9); font-size: .67rem; font-weight: 700; cursor: pointer; }
+    .hark-player-toggle:hover { background: #faf1e7; }
+    .hark-player-status { margin: 0; min-width: 0; color: #c2b9b5; font-size: .61rem; line-height: 1.4; }
+    .hark-player-volume { display: flex; align-items: center; gap: 9px; padding: 9px 14px 4px; color: #d1b8a7; font-size: .7rem; }
+    .hark-player-volume span { color: #c2b9b5; font-size: .62rem; }
+    .hark-player-volume input { flex: 1 1 auto; min-width: 25px; height: 3px; accent-color: #d1b8a7; cursor: pointer; }
+    .hark-player-note { margin: 5px 14px 12px; color: #8f8787; font-size: .55rem; }
+    .hark-mini-play:focus-visible, .hark-mini-expand:focus-visible, .hark-player-minimize:focus-visible, .hark-player-toggle:focus-visible, .hark-load-cover:focus-visible, .hark-player-volume input:focus-visible { outline: 2px solid #d6c0b0; outline-offset: 3px; }
+    @media (max-width: 520px) {
+      .hark-player-dock { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); width: min(360px, calc(100vw - 24px)); }
+      .hark-mini-bar { min-height: 64px; padding: 9px 10px; gap: 9px; }
+      .hark-mini-copy strong { font-size: .77rem; }
+      .hark-player-heading { padding: 11px; }
+      .hark-player-controls { align-items: flex-start; padding-inline: 11px; }
+      .hark-player-status { padding-top: 2px; }
+      .hark-player-volume { padding-inline: 12px; }
+      .hark-player-note { margin-inline: 12px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .hark-mini-play, .hark-mini-expand, .hark-player-minimize, .hark-load-cover img { transition: none; }
+    }
+
+  </style>
 </head>
 <body>
   <div id="vp-holiday-bloom" aria-hidden="true"></div>
@@ -1801,6 +1903,46 @@
     </div>
   </footer>
 
+
+  <!-- Floating Hark! The Herald Angels Sing music bar and expandable player -->
+  <aside class="hark-player-dock is-minimized" id="harkPlayerDock" aria-label="Hark the Herald Angels Sing floating music player">
+    <div class="hark-mini-bar" id="harkMiniBar">
+      <button class="hark-mini-play" id="harkMiniPlay" type="button" aria-label="Play Hark the Herald Angels Sing">▶</button>
+      <div class="hark-mini-copy">
+        <small>NOW PLAYING</small>
+        <strong>Hark! The Herald Angels Sing</strong>
+        <span>Violin cover · Violin Prince</span>
+      </div>
+      <button class="hark-mini-expand" id="harkMiniExpand" type="button" aria-label="Expand floating music player" aria-expanded="false">↗</button>
+    </div>
+    <section class="hark-player-panel" id="harkPlayerPanel" aria-label="Music player controls">
+      <div class="hark-player-heading">
+        <div class="hark-player-heading-copy">
+          <small>THE CHRISTMAS LISTENING ROOM</small>
+          <strong>Hark! The Herald Angels Sing</strong>
+          <span>Performed on violin by Prince Baidya</span>
+        </div>
+        <div class="hark-player-heading-actions">
+          <a class="hark-player-open" href="https://www.youtube.com/watch?v=bissQ67-Az8" target="_blank" rel="noopener noreferrer">YouTube ↗</a>
+          <button class="hark-player-minimize" id="harkPlayerMinimize" type="button" aria-label="Minimize music player" title="Minimize">−</button>
+        </div>
+      </div>
+      <div class="hark-player-video">
+        <button class="hark-load-cover" id="harkLoadPlayer" type="button" aria-label="Load and play Hark the Herald Angels Sing">
+          <img src="https://i.ytimg.com/vi/bissQ67-Az8/hqdefault.jpg" alt="" loading="lazy" decoding="async">
+          <span class="hark-load-overlay"><span class="hark-load-play" aria-hidden="true">▶</span><span>Tap to load the violin cover</span></span>
+        </button>
+        <div id="harkPlayerMount" aria-label="YouTube player for Hark the Herald Angels Sing violin cover by Violin Prince" hidden></div>
+      </div>
+      <div class="hark-player-controls">
+        <button class="hark-player-toggle" id="harkPlayerToggle" type="button" aria-pressed="false"><span id="harkPlayerToggleIcon" aria-hidden="true">▶</span><span id="harkPlayerToggleLabel">Play cover</span></button>
+        <p class="hark-player-status" id="harkPlayerStatus" role="status" aria-live="polite">Tap Play to listen while you explore.</p>
+      </div>
+      <label class="hark-player-volume" for="harkPlayerVolume"><span aria-hidden="true">♪</span><span>Volume</span><input id="harkPlayerVolume" type="range" min="0" max="100" value="42" aria-label="Violin cover volume"><span aria-hidden="true">♫</span></label>
+      <p class="hark-player-note">Use the small music bar to reopen the player at any time.</p>
+    </section>
+  </aside>
+
   <script>
     (function () {
       var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1981,5 +2123,187 @@
       }, {passive:true});
     }());
   </script>
+
+  <script>
+    /* Isolated, on-demand YouTube player for this song page. */
+    (function () {
+      var dock = document.getElementById('harkPlayerDock');
+      if (!dock) return;
+      var VIDEO_ID = 'bissQ67-Az8';
+      var loadButton = document.getElementById('harkLoadPlayer');
+      var mount = document.getElementById('harkPlayerMount');
+      var playButton = document.getElementById('harkPlayerToggle');
+      var playIcon = document.getElementById('harkPlayerToggleIcon');
+      var playLabel = document.getElementById('harkPlayerToggleLabel');
+      var status = document.getElementById('harkPlayerStatus');
+      var volume = document.getElementById('harkPlayerVolume');
+      var miniPlay = document.getElementById('harkMiniPlay');
+      var miniExpand = document.getElementById('harkMiniExpand');
+      var minimize = document.getElementById('harkPlayerMinimize');
+      var player = null;
+      var ready = false;
+      var playing = false;
+      var wantsPlayback = false;
+      var apiRequested = false;
+
+      function setStatus(message) {
+        if (status && message) status.textContent = message;
+      }
+      function setPlaying(isPlaying, message) {
+        playing = isPlaying;
+        if (playButton) playButton.setAttribute('aria-pressed', String(isPlaying));
+        if (playIcon) playIcon.textContent = isPlaying ? 'Ⅱ' : '▶';
+        if (playLabel) playLabel.textContent = isPlaying ? 'Pause cover' : 'Play cover';
+        if (miniPlay) {
+          miniPlay.textContent = isPlaying ? 'Ⅱ' : '▶';
+          miniPlay.setAttribute('aria-label', isPlaying ? 'Pause Hark the Herald Angels Sing' : 'Play Hark the Herald Angels Sing');
+        }
+        if (message) setStatus(message);
+      }
+      function expandDock() {
+        dock.classList.remove('is-minimized');
+        if (miniExpand) miniExpand.setAttribute('aria-expanded', 'true');
+      }
+      function minimizeDock() {
+        wantsPlayback = false;
+        if (player && ready) {
+          try { player.pauseVideo(); } catch (error) {}
+        }
+        setPlaying(false, 'Paused · press Play to continue');
+        dock.classList.add('is-minimized');
+        if (miniExpand) miniExpand.setAttribute('aria-expanded', 'false');
+      }
+      function createPlayer() {
+        if (!window.YT || !window.YT.Player || player) return;
+        if (loadButton) loadButton.hidden = true;
+        if (mount) mount.hidden = false;
+        player = new window.YT.Player('harkPlayerMount', {
+          width: '356',
+          height: '200',
+          videoId: VIDEO_ID,
+          playerVars: {
+            autoplay: 0,
+            controls: 1,
+            playsinline: 1,
+            rel: 0,
+            enablejsapi: 1,
+            origin: window.location.origin
+          },
+          events: {
+            onReady: function (event) {
+              ready = true;
+              try {
+                event.target.getIframe().setAttribute('title', 'Hark the Herald Angels Sing — Violin cover by Prince Baidya');
+                event.target.setVolume(Number(volume ? volume.value : 42));
+              } catch (error) {}
+              if (wantsPlayback) {
+                try {
+                  event.target.playVideo();
+                  setStatus('Starting your violin cover…');
+                } catch (error) {
+                  wantsPlayback = false;
+                  setPlaying(false, 'Player ready · press Play to listen');
+                }
+              } else {
+                setPlaying(false, 'Ready · press Play to listen');
+              }
+            },
+            onStateChange: function (event) {
+              var states = window.YT.PlayerState;
+              if (event.data === states.PLAYING) {
+                setPlaying(true, 'Playing · Hark the Herald Angels Sing');
+              } else if (event.data === states.PAUSED) {
+                wantsPlayback = false;
+                setPlaying(false, 'Paused · press Play to continue');
+              } else if (event.data === states.ENDED) {
+                wantsPlayback = false;
+                setPlaying(false, 'Finished · press Play to listen again');
+              } else if (event.data === states.CUED && !playing) {
+                setStatus('Ready · press Play to listen');
+              }
+            },
+            onAutoplayBlocked: function () {
+              wantsPlayback = false;
+              setPlaying(false, 'Browser blocked playback · press Play again');
+            },
+            onError: function () {
+              wantsPlayback = false;
+              setPlaying(false, 'Could not load the cover · open it on YouTube');
+              if (loadButton) loadButton.disabled = false;
+            }
+          }
+        });
+      }
+      function loadPlayerAPI() {
+        if (window.YT && window.YT.Player) {
+          createPlayer();
+          return;
+        }
+        if (apiRequested) return;
+        apiRequested = true;
+        var oldReadyCallback = window.onYouTubeIframeAPIReady;
+        window.onYouTubeIframeAPIReady = function () {
+          if (typeof oldReadyCallback === 'function') oldReadyCallback();
+          createPlayer();
+        };
+        var apiScript = document.createElement('script');
+        apiScript.src = 'https://www.youtube.com/iframe_api';
+        apiScript.async = true;
+        apiScript.dataset.harkPlayerApi = 'true';
+        apiScript.onerror = function () {
+          apiRequested = false;
+          wantsPlayback = false;
+          setPlaying(false, 'YouTube could not load · check your connection');
+        };
+        document.head.appendChild(apiScript);
+        setStatus('Loading the YouTube player…');
+      }
+      function requestPlayback() {
+        expandDock();
+        wantsPlayback = true;
+        if (ready && player) {
+          try {
+            player.playVideo();
+            setStatus('Starting your violin cover…');
+          } catch (error) {
+            wantsPlayback = false;
+            setPlaying(false, 'Press Play to start your cover');
+          }
+          return;
+        }
+        if (loadButton) {
+          loadButton.disabled = true;
+          var caption = loadButton.querySelector('.hark-load-overlay span:last-child');
+          if (caption) caption.textContent = 'Loading the player…';
+        }
+        setStatus('Loading the YouTube player…');
+        loadPlayerAPI();
+      }
+      function togglePlayback() {
+        if (playing || wantsPlayback) {
+          wantsPlayback = false;
+          if (player && ready) {
+            try { player.pauseVideo(); } catch (error) {}
+          }
+          setPlaying(false, 'Paused · press Play to continue');
+        } else {
+          requestPlayback();
+        }
+      }
+
+      if (loadButton) loadButton.addEventListener('click', requestPlayback);
+      if (playButton) playButton.addEventListener('click', togglePlayback);
+      if (miniPlay) miniPlay.addEventListener('click', togglePlayback);
+      if (miniExpand) miniExpand.addEventListener('click', expandDock);
+      if (minimize) minimize.addEventListener('click', minimizeDock);
+      if (volume) volume.addEventListener('input', function () {
+        var value = Math.max(0, Math.min(100, Number(volume.value) || 0));
+        if (ready && player) {
+          try { player.setVolume(value); } catch (error) {}
+        }
+      });
+    }());
+  </script>
+
 </body>
 </html>
