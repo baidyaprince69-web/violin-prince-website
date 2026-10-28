@@ -303,7 +303,10 @@
       if (state) state.textContent = playing ? 'NOW PLAYING' : (active && coverWantsPlayback ? 'LOADING' : active ? 'SELECTED' : 'READY');
       if (seek) {
         seek.disabled = !(active && coverReady);
-        if (!active) seek.value = '0';
+        if (!active) {
+          seek.value = '0';
+          seek.style.setProperty('--song-progress', '0%');
+        }
       }
       if (!active) {
         const current = bar.querySelector('[data-song-current]');
@@ -516,6 +519,7 @@
         const duration = coverPlayer.getDuration();
         if (duration > 0) {
           const current = bar.querySelector('[data-song-current]');
+          seek.style.setProperty('--song-progress', (Number(seek.value) / 10) + '%');
           if (current) current.textContent = formatTime(duration * Number(seek.value) / 1000);
         }
       });
@@ -547,7 +551,11 @@
           const seek=activeMiniBar.querySelector('[data-song-seek]');
           const currentText=activeMiniBar.querySelector('[data-song-current]');
           const durationText=activeMiniBar.querySelector('[data-song-duration]');
-          if(seek&&document.activeElement!==seek)seek.value=String(Math.round(current/duration*1000));
+          const percentage = Math.max(0, Math.min(100, current / duration * 100));
+          if(seek) {
+            if(document.activeElement!==seek)seek.value=String(Math.round(percentage*10));
+            seek.style.setProperty('--song-progress', percentage + '%');
+          }
           if(currentText)currentText.textContent=formatTime(current);
           if(durationText)durationText.textContent=formatTime(duration);
         }
