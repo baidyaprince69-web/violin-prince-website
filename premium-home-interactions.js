@@ -205,29 +205,15 @@
 
     const revealObserver = new IntersectionObserver(entries => {
       entries.forEach(entry => {
-        const target = entry.target;
         if (entry.isIntersecting) {
-          target.dataset.vpRevealSeen = 'true';
-          target.classList.remove('vp-exit-up', 'vp-exit-down');
-          target.classList.add('vp-visible');
-        } else if (target.dataset.vpRevealSeen === 'true') {
-          const rect = entry.boundingClientRect;
-          const bounds = entry.rootBounds;
-          const rootTop = bounds ? bounds.top : 32;
-          const rootBottom = bounds ? bounds.bottom : Math.max(rootTop, window.innerHeight - 32);
-          let exitDirection;
-
-          // Decide which viewport edge the element crossed, rather than guessing
-          // from its top coordinate alone (which fails for short or tall sections).
-          if (rect.bottom <= rootTop + 1) exitDirection = 'up';
-          else if (rect.top >= rootBottom - 1) exitDirection = 'down';
-          else exitDirection = revealScrollDirection === 'down' ? 'up' : 'down';
-
-          target.classList.remove('vp-visible', 'vp-exit-up', 'vp-exit-down');
-          target.classList.add(exitDirection === 'up' ? 'vp-exit-up' : 'vp-exit-down');
+          entry.target.dataset.vpRevealSeen = 'true';
         }
       });
-    }, { threshold: 0.08, rootMargin: '-32px 0px -32px 0px' });
+      // Main page script owns the shared edge-aware state for both reveal systems.
+      if (typeof window.__vpUpdateDirectionalRevealStates === 'function') {
+        window.__vpUpdateDirectionalRevealStates();
+      }
+    }, { threshold: 0, rootMargin: '0px' });
     revealTargets.forEach(target => {
       target.classList.add('vp-reveal');
       revealObserver.observe(target);
