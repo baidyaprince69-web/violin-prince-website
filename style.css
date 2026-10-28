@@ -2185,3 +2185,39 @@ body.motion-ready .music-card.is-visible:hover { transform: translate3d(0, -4px,
     transition: none !important;
   }
 }
+
+
+/* === Generated cinematic violin hero artwork === */
+.hero-art {
+  height: 390px !important;
+  min-height: 0 !important;
+  overflow: hidden;
+  border-radius: 22px;
+  background: radial-gradient(ellipse at 65% 40%, rgba(28,146,174,.18), transparent 64%), #050914;
+  isolation: isolate;
+}
+.hero-art > :not(.hero-artwork) { display: none !important; }
+.hero-art::before,
+.hero-art::after { content: none !important; display: none !important; }
+.hero-art .hero-artwork {
+  display: block !important;
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  object-fit: cover;
+  object-position: 60% center;
+  border-radius: inherit;
+  transform: none !important;
+  opacity: 1 !important;
+  filter: saturate(1.02) contrast(1.02);
+  box-shadow: 0 28px 65px rgba(0,0,0,.28);
+}
+@media (max-width: 720px) {
+  .hero-art { height: 300px !important; margin-top: 1rem; }
+  .hero-art .hero-artwork { object-position: 60% center; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-art .hero-artwork { animation: none !important; transition: none !important; }
+}
