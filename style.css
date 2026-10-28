@@ -3466,3 +3466,35 @@ body.motion-ready .site-footer.scroll-reveal.exit-down:not(.is-visible) {
     align-self: flex-start;
   }
 }
+
+
+/* MIDNIGHT RESONANCE — subtle acoustic texture layer.
+   The WebP is intentionally not tiled; no repeat seams are introduced.
+   Desktop: low-contrast viewport-fixed material beneath the existing song cards.
+   Mobile: a cropped, softly fading surface that returns to the original blue base. */
+.music-section {
+  background-color: var(--vp-bg-section);
+  background-image:
+    linear-gradient(rgba(5, 13, 24, .22), rgba(5, 13, 24, .22)),
+    url("assets/visual/textures/midnight-resonance.webp");
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  background-size: auto, cover;
+  background-attachment: scroll, fixed;
+}
+@media (max-width: 720px) {
+  .music-section {
+    background-image:
+      linear-gradient(
+        to bottom,
+        rgba(5, 13, 24, .14) 0%,
+        rgba(5, 13, 24, .24) 55%,
+        var(--vp-bg-section) 100%
+      ),
+      url("assets/visual/textures/midnight-resonance.webp");
+    background-position: top center, top center;
+    background-repeat: no-repeat, no-repeat;
+    background-size: 100% 920px, 920px 920px;
+    background-attachment: scroll, scroll;
+  }
+}
