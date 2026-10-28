@@ -3498,3 +3498,86 @@ body.motion-ready .site-footer.scroll-reveal.exit-down:not(.is-visible) {
     background-attachment: scroll, scroll;
   }
 }
+
+
+/* MIDNIGHT RESONANCE — layered atmosphere refinement.
+   Additive surface treatment only: diffused illumination, fine grain, contour relief
+   and a faint glass-sheen veil behind the existing gallery content. */
+.music-section {
+  position: relative;
+  isolation: isolate;
+}
+.music-section::before,
+.music-section::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.music-section::before {
+  background:
+    radial-gradient(ellipse at 12% 9%, rgba(54, 185, 220, .20) 0%, rgba(54, 185, 220, .075) 23%, transparent 48%),
+    radial-gradient(ellipse at 83% 24%, rgba(74, 117, 220, .15) 0%, rgba(74, 117, 220, .055) 22%, transparent 48%),
+    radial-gradient(ellipse at 70% 67%, rgba(190, 132, 79, .095) 0%, rgba(190, 132, 79, .035) 19%, transparent 43%),
+    radial-gradient(ellipse at 22% 83%, rgba(67, 187, 184, .11) 0%, rgba(67, 187, 184, .035) 24%, transparent 48%);
+  opacity: .86;
+  mix-blend-mode: screen;
+}
+.music-section::after {
+  background-image:
+    url("assets/visual/textures/grain.svg"),
+    url("assets/visual/patterns/sound-contour.svg"),
+    linear-gradient(118deg, rgba(220, 248, 255, .055) 0%, transparent 17% 66%, rgba(101, 232, 244, .025) 100%),
+    linear-gradient(180deg, rgba(255, 255, 255, .018), transparent 24%, rgba(1, 5, 13, .08));
+  background-size:
+    180px 180px,
+    min(1120px, 92vw) auto,
+    cover,
+    cover;
+  background-position:
+    0 0,
+    92% 54%,
+    center,
+    center;
+  background-repeat:
+    repeat,
+    no-repeat,
+    no-repeat,
+    no-repeat;
+  opacity: .24;
+  mix-blend-mode: screen;
+}
+.music-section > * {
+  position: relative;
+  z-index: 1;
+}
+@media (max-width: 720px) {
+  .music-section::before {
+    background:
+      radial-gradient(ellipse at 18% 6%, rgba(54, 185, 220, .18) 0%, rgba(54, 185, 220, .065) 25%, transparent 54%),
+      radial-gradient(ellipse at 88% 31%, rgba(74, 117, 220, .12) 0%, rgba(74, 117, 220, .04) 22%, transparent 50%),
+      radial-gradient(ellipse at 68% 56%, rgba(190, 132, 79, .065) 0%, transparent 36%);
+    opacity: .78;
+  }
+  .music-section::after {
+    background-size:
+      160px 160px,
+      min(760px, 120vw) auto,
+      cover,
+      cover;
+    background-position:
+      0 0,
+      85% 42%,
+      center,
+      center;
+    opacity: .19;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .music-section::before,
+  .music-section::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
