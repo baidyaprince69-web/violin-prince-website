@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#06180f">
+  <meta name="theme-color" content="#12070d">
   <meta name="robots" content="index,follow,max-image-preview:large">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Hark the Herald Angels Sing — Christmas Eve Violin Cover | Violin Prince</title>
@@ -737,6 +737,212 @@
     }
     @media (prefers-reduced-motion: reduce) {
       #vp-holiday-bloom, .seal-medallion { animation: none !important; }
+    }
+
+    /* PALETTE RE-DIRECTION: MIDNIGHT BURGUNDY, MULBERRY, CHAMPAGNE AND IVORY
+       A warmer jewel-tone alternative to the previous green treatment.
+       Velvet photography remains the real surface; gradients only control readability. */
+    :root {
+      --ink: #12070d;
+      --ink-raised: #200a14;
+      --ink-soft: #32101f;
+      --ivory: #fff1df;
+      --ivory-muted: #dcc4c0;
+      --platinum: #d6b16f;
+      --platinum-bright: #ffe4a0;
+      --platinum-dim: rgba(224, 180, 96, .25);
+      --lacquer: #64162f;
+      --lacquer-light: #8c2948;
+      --foil: #d9b267;
+
+      /* Keep legacy variable names mapped to the new wine palette, not green. */
+      --forest-deep: #10050b;
+      --forest: #240b17;
+      --forest-rich: #451226;
+      --wine-deep: #190610;
+      --wine: #581329;
+      --cranberry: #a92d4b;
+      --gold-leaf: #efcb7b;
+      --candle: #fff0d2;
+    }
+    html { background: #10050b; }
+    body {
+      color: #fff1df;
+      background:
+        radial-gradient(ellipse at 13% 5%, rgba(124, 20, 51, .31), transparent 37rem),
+        radial-gradient(ellipse at 86% 19%, rgba(115, 34, 58, .27), transparent 39rem),
+        radial-gradient(ellipse at 48% 79%, rgba(153, 84, 44, .09), transparent 36rem),
+        linear-gradient(148deg, #12070d 0%, #250b17 38%, #190812 72%, #0c0409 100%);
+    }
+    body::after {
+      background-image:
+        linear-gradient(90deg, #12070d 0%, rgba(18,7,13,.91) 13%, rgba(30,8,18,.66) 44%, rgba(20,5,12,.18) 100%),
+        linear-gradient(180deg, rgba(18,7,13,.10) 0%, rgba(18,7,13,.22) 54%, #12070d 100%),
+        url("https://cdn.websitepublisher.ai/custom/wid31272/images/christmas-burgundy-velvet-texture.jpg");
+      background-size: cover, cover, cover;
+      background-position: center, center, 54% 36%;
+      opacity: .93;
+    }
+    .topbar {
+      border-bottom-color: rgba(217,178,103,.28);
+      background: linear-gradient(90deg, rgba(16,5,11,.98), rgba(55,12,30,.94), rgba(16,5,11,.97));
+      box-shadow: 0 12px 38px rgba(0,0,0,.34);
+    }
+    .topbar::after { background: linear-gradient(90deg, transparent, rgba(255,225,153,.78), rgba(169,45,75,.62), transparent); }
+    .hero::before {
+      background: radial-gradient(ellipse, rgba(160,46,76,.14), rgba(123,27,55,.04) 46%, transparent 70%);
+    }
+    .brand-mark {
+      color: #35101e;
+      border-color: rgba(255,227,160,.82);
+      background: radial-gradient(circle at 30% 22%, #fff0bd 0, #f0cf78 44%, #a9742f 78%, #442316 100%);
+      box-shadow: inset 0 1px rgba(255,255,255,.72), inset 0 -2px rgba(67,29,9,.42), 0 4px 16px rgba(0,0,0,.35), 0 0 23px rgba(215,173,89,.17);
+    }
+    .edition {
+      border-color: rgba(224,180,96,.31);
+      background: linear-gradient(115deg, rgba(90,17,43,.84), rgba(35,8,21,.91));
+      box-shadow: inset 0 1px rgba(255,236,197,.06), 0 10px 30px rgba(0,0,0,.14);
+    }
+    .kicker { color: #dfc39a; }
+    .kicker::before { background: linear-gradient(90deg, #d9b267, #a63c57); }
+    h2 em {
+      color: #f0ca7b;
+      text-shadow: 0 0 26px rgba(224,180,96,.10);
+    }
+    .btn-primary {
+      color: #29101b;
+      background: linear-gradient(132deg, #fff2cf 0%, #f0cf78 53%, #cb9445 100%);
+      border-color: #ffe6a7;
+      box-shadow: inset 0 1px rgba(255,255,255,.84), 0 14px 38px rgba(0,0,0,.35), 0 0 28px rgba(240,207,120,.16);
+    }
+    .btn-primary:hover {
+      background: linear-gradient(132deg, #fff8e4 0%, #ffe2a0 53%, #d6a24e 100%);
+      border-color: #fff5d4;
+    }
+    .player-shell {
+      border-color: rgba(221,177,101,.57);
+      background:
+        linear-gradient(145deg, rgba(89,20,47,.97), rgba(31,8,20,.99) 42%, rgba(11,4,9,.99));
+      box-shadow: inset 0 1px rgba(255,255,255,.13), inset 0 -2px rgba(0,0,0,.82), 0 34px 90px rgba(0,0,0,.56), 0 0 35px rgba(159,40,75,.13);
+    }
+    .player-shell::before { border-color: rgba(240,207,120,.20); }
+    .player-engraving { color: #ddc49f; }
+    .player-engraving span:last-child { color: #f0cf78; }
+    .video-frame { box-shadow: inset 0 0 0 1px rgba(240,207,120,.14); }
+
+    .cabinet-section {
+      background: linear-gradient(180deg, rgba(255,255,255,.012), rgba(53,10,27,.13) 74%, rgba(13,4,9,.22));
+    }
+    .cabinet-plate {
+      border-color: rgba(226,192,112,.45);
+      background-color: #240b17;
+      background-image:
+        linear-gradient(132deg, rgba(25,5,14,.45) 0%, rgba(55,10,29,.35) 48%, rgba(11,4,9,.64) 100%),
+        url("https://cdn.websitepublisher.ai/custom/wid31272/images/christmas-burgundy-velvet-texture.jpg");
+      background-size: cover, 128% auto;
+      background-position: center, 50% 44%;
+      background-repeat: no-repeat;
+      box-shadow: inset 0 1px rgba(255,241,197,.16), inset 0 -14px 42px rgba(0,0,0,.48), 0 28px 74px rgba(0,0,0,.38), 0 0 54px rgba(193,143,53,.07);
+    }
+    .cabinet-plate::before { opacity: 0 !important; background: none !important; }
+    .cabinet-plate::after { border-color: rgba(237,204,125,.17); }
+    .cabinet-bar { border-bottom-color: rgba(232,192,101,.25); }
+    .progress-track { background: rgba(255,233,182,.13); }
+    .progress-fill { background: linear-gradient(90deg, #8a243e, #e5b65b, #fff0bb); box-shadow: 0 0 18px rgba(245,203,101,.44); }
+    .seal-object {
+      border-color: rgba(231,199,126,.45);
+      background-color: #321020;
+      background-image:
+        linear-gradient(145deg, rgba(65,10,31,.28) 0%, rgba(27,5,17,.45) 56%, rgba(9,3,8,.70) 100%),
+        url("https://cdn.websitepublisher.ai/custom/wid31272/images/christmas-burgundy-velvet-texture.jpg");
+      background-size: cover, 190% auto;
+      background-position: center, 18% 48%;
+      background-repeat: no-repeat;
+      box-shadow: inset 0 1px rgba(255,241,198,.15), inset 0 -4px 20px rgba(0,0,0,.45), 0 19px 40px rgba(0,0,0,.30), 0 0 28px rgba(201,158,70,.065);
+    }
+    .seal-object::before { background: none !important; opacity: 0 !important; }
+    .seal-object::after { border-color: rgba(242,207,130,.19); }
+    .seal-card[data-seal-card="star"] .seal-object { background-position: center, 12% 45%; }
+    .seal-card[data-seal-card="carol"] .seal-object {
+      background-color: #260914;
+      background-image:
+        linear-gradient(145deg, rgba(41,5,17,.24) 0%, rgba(21,4,11,.48) 58%, rgba(8,3,7,.70) 100%),
+        url("https://cdn.websitepublisher.ai/custom/wid31272/images/christmas-burgundy-gold-ornaments.jpg");
+      background-size: cover, cover;
+      background-position: center, 50% 50%;
+    }
+    .seal-card[data-seal-card="morning"] .seal-object {
+      background-color: #30101c;
+      background-image:
+        linear-gradient(145deg, rgba(70,8,27,.30) 0%, rgba(29,5,14,.48) 52%, rgba(8,3,7,.70) 100%),
+        url("https://cdn.websitepublisher.ai/custom/wid31272/images/christmas-burgundy-velvet-texture.jpg");
+      background-size: cover, 205% auto;
+      background-position: center, 88% 50%;
+    }
+    .seal-medallion {
+      border-color: rgba(255,228,157,.91);
+      background:
+        radial-gradient(ellipse at 28% 20%, rgba(255,249,218,.98) 0%, rgba(255,226,148,.96) 13%, transparent 34%),
+        linear-gradient(132deg, #fff0ae 0%, #e5bd60 17%, #8e5a22 38%, #f5d47c 53%, #a36a26 72%, #f8e2a1 84%, #633d17 100%);
+      box-shadow: inset 0 1px 1px rgba(255,255,229,.83), inset 0 -4px 8px rgba(66,36,10,.50), 0 10px 24px rgba(0,0,0,.42), 0 0 28px rgba(255,204,89,.20);
+    }
+    .seal-medallion svg { stroke: #56320f; filter: drop-shadow(0 1px 1px rgba(255,246,199,.34)); }
+    .seal-trigger:hover .seal-object, .seal-trigger:focus-visible .seal-object {
+      border-color: rgba(255,224,142,.82);
+      box-shadow: inset 0 1px rgba(255,241,198,.20), inset 0 -4px 20px rgba(0,0,0,.42), 0 24px 48px rgba(0,0,0,.38), 0 0 34px rgba(255,203,91,.15);
+    }
+    .seal-reveal {
+      background-color: #260b17;
+      background-image:
+        linear-gradient(135deg, rgba(25,5,14,.43), rgba(45,8,24,.52) 55%, rgba(10,3,8,.64)),
+        url("https://cdn.websitepublisher.ai/custom/wid31272/images/christmas-burgundy-velvet-texture.jpg");
+      background-size: cover, 150% auto;
+      background-position: center, 60% 45%;
+      border-color: rgba(227,190,100,.36);
+      box-shadow: inset 0 1px rgba(255,239,188,.09), 0 14px 28px rgba(0,0,0,.22);
+    }
+    .cabinet-complete {
+      background: linear-gradient(125deg, rgba(86,15,42,.94), rgba(35,7,20,.94));
+      border-color: rgba(238,203,121,.50);
+      box-shadow: 0 0 36px rgba(245,197,89,.10);
+    }
+    .reset-game { border-color: rgba(248,220,151,.44); }
+
+    .artist-note {
+      border-color: rgba(215,173,89,.34);
+      background:
+        radial-gradient(ellipse at 96% 3%, rgba(176,50,76,.20), transparent 56%),
+        linear-gradient(140deg, rgba(75,15,39,.95), rgba(28,7,19,.98) 65%, rgba(51,13,24,.93));
+      box-shadow: inset 0 1px rgba(255,244,208,.09), inset 0 -2px rgba(0,0,0,.65), 0 25px 58px rgba(0,0,0,.32);
+    }
+    .artist-note::before { border-color: rgba(240,207,120,.20); box-shadow: 0 0 0 17px rgba(240,207,120,.025), 0 0 0 41px rgba(176,50,76,.018); }
+    .related-section { background: linear-gradient(180deg, rgba(17,5,12,.97), rgba(49,10,28,.92) 58%, rgba(13,4,9,.99)); }
+    .related-card {
+      border-color: rgba(215,173,89,.30);
+      background: linear-gradient(145deg, #531329, #2b0c1b 61%, #15060e);
+      box-shadow: inset 0 1px rgba(255,244,208,.075), inset 0 -2px rgba(0,0,0,.72), 0 18px 45px rgba(0,0,0,.34);
+    }
+    .related-image { background: #190710; }
+    .closing {
+      border-top-color: rgba(215,173,89,.23);
+      background:
+        radial-gradient(ellipse at 50% 0%, rgba(240,207,120,.14), transparent 55%),
+        radial-gradient(ellipse at 13% 75%, rgba(116,23,43,.24), transparent 38rem),
+        linear-gradient(180deg, #260b17, #10050b 87%);
+    }
+    .footer {
+      border-top-color: rgba(215,173,89,.24);
+      background: linear-gradient(90deg, #0b0409, #260b17 44%, #10050b);
+    }
+    .edition, .cabinet-plate, .seal-object, .seal-reveal, .player-shell, .artist-note, .related-card, .closing, .footer {
+      color-scheme: dark;
+    }
+    @media (max-width: 900px) {
+      body::after { width: 100%; height: 790px; opacity: .68; background-position: center, center, 54% 28%; }
+    }
+    @media (max-width: 650px) {
+      body::after { width: 100%; height: 660px; opacity: .45; background-position: center, center, 54% 20%; }
+      .edition { background: linear-gradient(115deg, rgba(90,17,43,.84), rgba(26,6,16,.92)); }
     }
 </style>
 </head>
