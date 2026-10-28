@@ -380,8 +380,8 @@
 
   function safePlayCover() {
     if (!coverReady || !coverPlayer || !coverWantsPlayback) return;
-    if (coverDock && coverDock.classList.contains('is-minimized')) return;
-    if (!coverVisible) {
+    // Minimizing the dock hides its UI only; it must never block audio playback.
+    if (!coverVisible && !(coverDock && coverDock.classList.contains('is-minimized'))) {
       if (coverStatus) coverStatus.textContent = 'Player ready · press Play when it is in view';
       return;
     }
@@ -441,12 +441,12 @@
               ? 'Paused while this tab is away'
               : 'Paused · ' + coverTrackTitle);
             coverPauseReason = null;
-          } else if (event.data === states.ENDED && coverWantsPlayback && coverVisible) {
-            // Loop parameter is enabled too; this is a fallback if the player reports ENDED.
-            try {
-              event.target.seekTo(0, true);
-              event.target.playVideo();
-            } catch (error) {}
+          } else if (event.data === states.ENDED) {
+            // Let each selected cover finish naturally. Do not restart it when the dock is minimized.
+            coverWantsPlayback = false;
+            resumeCoverWhenVisible = false;
+            coverPauseReason = null;
+            setCoverUI(false, 'Finished · ' + coverTrackTitle);
           } else if (event.data === states.CUED) {
             if (!coverPlaying && coverStatus) coverStatus.textContent = 'Ready · press Play to listen';
           }
@@ -486,8 +486,8 @@
   if(coverToggle)coverToggle.addEventListener('click',()=>coverPlaying?pauseCoverPlayback():requestCoverPlayback());
   if(barToggle)barToggle.addEventListener('click',()=>coverPlaying?pauseCoverPlayback():requestCoverPlayback());
   if(coverLoadButton)coverLoadButton.addEventListener('click',requestCoverPlayback);
-  if(minimizeButton)minimizeButton.addEventListener('click',()=>{if(coverPlaying||coverWantsPlayback)pauseCoverPlayback();if(coverDock)coverDock.classList.add('is-minimized');if(minimizedToggle)minimizedToggle.setAttribute('aria-expanded','false');});
-  if(minimizedToggle)minimizedToggle.addEventListener('click',()=>{if(coverDock)coverDock.classList.remove('is-minimized');minimizedToggle.setAttribute('aria-expanded','true');});
+  if(minimizeButton)minimizeButton.addEventListener('click',()=>{if(coverDock)coverDock.classList.add('is-minimized');if(minimizedToggle)minimizedToggle.setAttribute('aria-expanded','false');if(coverWantsPlayback)syncMiniPlayers();});
+  if(minimizedToggle)minimizedToggle.addEventListener('click',()=>{if(coverDock)coverDock.classList.remove('is-minimized');if(minimizedToggle)minimizedToggle.setAttribute('aria-expanded','true');if(coverPlayer&&coverReady){coverVisible=true;if(coverWantsPlayback&&!coverPlaying)safePlayCover();}});
 
   miniPlayers.forEach(bar => {
     const playButton = bar.querySelector('[data-song-play]');
@@ -575,6 +575,12 @@
   if ('IntersectionObserver' in window) {
     playerVisibilityObserver = new IntersectionObserver(entries => {
       entries.forEach(entry => {
+        // A minimized dock is intentionally hidden. Treat it as allowed to play;
+        // collapsing the UI must not trigger the off-screen pause behavior.
+        if (coverDock && coverDock.classList.contains('is-minimized')) {
+          coverVisible = true;
+          return;
+        }
         coverVisible = entry.isIntersecting && entry.intersectionRatio > 0.5;
         if (coverVisible && coverWantsPlayback && coverReady && !coverPlaying) {
           safePlayCover();
