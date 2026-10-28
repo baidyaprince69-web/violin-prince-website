@@ -2673,3 +2673,92 @@ body.motion-ready .site-footer.scroll-reveal.exit-down:not(.is-visible) {
   }
 }
 
+/* Search-friendly two-column song rows: preserve each thumbnail's existing 16:9 frame. */
+.music-section .music-grid {
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 1rem;
+}
+.music-section .music-card {
+  display: grid;
+  grid-template-columns: minmax(0, 25%) minmax(0, 1fr);
+  align-items: stretch;
+  height: auto;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 12px;
+}
+.music-section .video-thumb {
+  width: 100%;
+  min-width: 0;
+  aspect-ratio: 16 / 9;
+  height: auto;
+  align-self: center;
+}
+.music-section .video-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.music-section .card-copy {
+  min-width: 0;
+  padding: clamp(1.1rem, 2.4vw, 2rem) clamp(1.25rem, 3vw, 2.4rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+}
+.music-section .card-copy h3 {
+  font-size: clamp(1.18rem, 1.7vw, 1.55rem);
+  margin: .45rem 0 .6rem;
+}
+.music-section .card-copy p {
+  min-height: 0;
+  max-width: 76ch;
+  font-size: clamp(.82rem, 1vw, .96rem);
+  line-height: 1.7;
+  color: #626a62;
+  margin: 0 0 1rem;
+}
+.music-section .card-link {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  margin-top: .1rem;
+}
+@media (max-width: 1100px) {
+  .music-section .music-card {
+    grid-template-columns: minmax(0, 42%) minmax(0, 1fr);
+  }
+  .music-section .card-copy {
+    padding: 1.1rem 1.35rem;
+  }
+}
+@media (max-width: 720px) {
+  .music-section .music-grid { gap: .8rem; }
+  .music-section .music-card {
+    grid-template-columns: minmax(0, 40%) minmax(0, 1fr);
+    border-radius: 10px;
+  }
+  .music-section .card-copy {
+    padding: .9rem 1rem;
+  }
+  .music-section .card-copy h3 {
+    font-size: clamp(.98rem, 3.6vw, 1.18rem);
+    margin: .35rem 0 .45rem;
+  }
+  .music-section .card-copy p {
+    font-size: clamp(.7rem, 2.5vw, .82rem);
+    line-height: 1.5;
+    margin: 0 0 .65rem;
+  }
+  .music-section .card-category { font-size: .52rem; }
+  .music-section .card-link { font-size: .68rem; }
+}
+@media (max-width: 390px) {
+  .music-section .music-card {
+    grid-template-columns: minmax(0, 39%) minmax(0, 1fr);
+  }
+  .music-section .card-copy { padding: .7rem .75rem; }
+  .music-section .card-copy p { font-size: .69rem; line-height: 1.45; }
+}
+
