@@ -66,10 +66,15 @@
     // This is the key distinction from the old observer-only implementation:
     // IntersectionObserver reports exit after an element has already crossed its boundary.
     let revealFrame = 0;
+    let lastScrollY = window.scrollY || 0;
+    let scrollDirection = 0;
     const updateDirectionalRevealStates = () => {
       revealFrame = 0;
       const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+      // Keep the original trigger zone for entrances. Outgoing elements start earlier,
+      // so the fade/blur is visible before fixed bars obscure them.
       const edgeZone = Math.min(160, Math.max(96, viewportHeight * 0.14));
+      const exitEdgeZone = Math.min(280, Math.max(220, viewportHeight * 0.24));
 
       // Read all geometry first, then change classes in a second pass to avoid
       // read/write layout thrashing while the visitor scrolls.
@@ -81,14 +86,32 @@
           hasPremiumReveal: element.dataset.vpRevealSeen === 'true'
         }))
         .filter(item => item.hasMainReveal || item.hasPremiumReveal)
-        .map(item => ({
-          ...item,
-          state: item.rect.bottom <= edgeZone
-            ? 'up'
-            : item.rect.top >= viewportHeight - edgeZone
+        .map(item => {
+          let state;
+          if (scrollDirection > 0) {
+            // Scrolling down: extend only the top-edge outro; keep bottom entrances unchanged.
+            state = item.rect.bottom <= exitEdgeZone
+              ? 'up'
+              : item.rect.top >= viewportHeight - edgeZone
+                ? 'down'
+                : 'visible';
+          } else if (scrollDirection < 0) {
+            // Scrolling up: extend only the bottom-edge outro; keep top entrances unchanged.
+            state = item.rect.top >= viewportHeight - exitEdgeZone
               ? 'down'
-              : 'visible'
-        }));
+              : item.rect.bottom <= edgeZone
+                ? 'up'
+                : 'visible';
+          } else {
+            // Initial layout retains the established reveal thresholds.
+            state = item.rect.bottom <= edgeZone
+              ? 'up'
+              : item.rect.top >= viewportHeight - edgeZone
+                ? 'down'
+                : 'visible';
+          }
+          return { ...item, state };
+        });
 
       states.forEach(({ element, state, hasMainReveal, hasPremiumReveal }) => {
         if (hasMainReveal) classForState(element, state, 'main');
@@ -96,6 +119,10 @@
       });
     };
     const scheduleDirectionalRevealUpdate = () => {
+      const nextScrollY = window.scrollY || 0;
+      if (nextScrollY > lastScrollY) scrollDirection = 1;
+      else if (nextScrollY < lastScrollY) scrollDirection = -1;
+      lastScrollY = nextScrollY;
       if (revealFrame) return;
       revealFrame = window.requestAnimationFrame(updateDirectionalRevealStates);
     };
