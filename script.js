@@ -33,6 +33,15 @@
       )
     ];
     let lastScrollY = window.scrollY;
+    let scrollDirection = 'down';
+    window.addEventListener('scroll', () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY !== lastScrollY) {
+        scrollDirection = currentScrollY > lastScrollY ? 'down' : 'up';
+        lastScrollY = currentScrollY;
+      }
+    }, { passive: true });
+
     revealTargets.forEach((element, index) => {
       if (!element.classList.contains('music-card')) element.classList.add('scroll-reveal');
       if (element.classList.contains('mood-card')) element.style.transitionDelay = (index % 4) * 70 + 'ms';
@@ -56,10 +65,6 @@
 
     // Inset observer bounds so the reverse transition starts while items are still visible.
     const revealObserver = new IntersectionObserver(entries => {
-      const currentScrollY = window.scrollY;
-      const scrollDirection = currentScrollY >= lastScrollY ? 'down' : 'up';
-      lastScrollY = currentScrollY;
-
       entries.forEach(entry => {
         const element = entry.target;
         if (entry.isIntersecting) {
@@ -67,9 +72,20 @@
           element.classList.remove('exit-up', 'exit-down');
           element.classList.add('is-visible');
         } else if (element.dataset.revealSeen === 'true') {
-          element.classList.remove('is-visible');
-          element.classList.toggle('exit-up', scrollDirection === 'down');
-          element.classList.toggle('exit-down', scrollDirection === 'up');
+          const rect = entry.boundingClientRect;
+          const bounds = entry.rootBounds;
+          const rootTop = bounds ? bounds.top : 72;
+          const rootBottom = bounds ? bounds.bottom : Math.max(rootTop, window.innerHeight - 72);
+          let exitDirection;
+
+          // Classify the edge the element actually crossed; use live scroll direction
+          // only if a browser reports an ambiguous bounding rectangle.
+          if (rect.bottom <= rootTop + 1) exitDirection = 'up';
+          else if (rect.top >= rootBottom - 1) exitDirection = 'down';
+          else exitDirection = scrollDirection === 'down' ? 'up' : 'down';
+
+          element.classList.remove('is-visible', 'exit-up', 'exit-down');
+          element.classList.add(exitDirection === 'up' ? 'exit-up' : 'exit-down');
         }
       });
     }, { threshold: 0, rootMargin: '-72px 0px -72px 0px' });
