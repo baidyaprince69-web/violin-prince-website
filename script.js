@@ -88,6 +88,9 @@
       if (revealFrame) return;
       revealFrame = window.requestAnimationFrame(updateDirectionalRevealStates);
     };
+    // The premium-effects script calls the same state updater so overlapping sections
+    // cannot receive conflicting incoming/outgoing states from separate observers.
+    window.__vpUpdateDirectionalRevealStates = scheduleDirectionalRevealUpdate;
 
     window.addEventListener('scroll', scheduleDirectionalRevealUpdate, { passive: true });
     window.addEventListener('resize', scheduleDirectionalRevealUpdate, { passive: true });
@@ -97,7 +100,6 @@
         const element = entry.target;
         if (entry.isIntersecting) {
           element.dataset.revealSeen = 'true';
-          classForState(element, 'visible', 'main');
         }
       });
       scheduleDirectionalRevealUpdate();
