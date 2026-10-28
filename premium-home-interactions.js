@@ -231,4 +231,27 @@
     });
   }
 
+
+  // Low-amplitude 3D tilt for mouse/trackpad only. Touch and reduced-motion users
+  // get the same layered composition without a pointer-following effect.
+  const depthTargets = document.querySelectorAll('.hero-art, .featured-art, .music-card, .mood-card');
+  if (finePointer && !prefersReducedMotion) {
+    depthTargets.forEach(surface => {
+      surface.addEventListener('pointermove', event => {
+        if (event.pointerType && event.pointerType !== 'mouse') return;
+        const rect = surface.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        const nx = ((event.clientX - rect.left) / rect.width) - 0.5;
+        const ny = ((event.clientY - rect.top) / rect.height) - 0.5;
+        const limit = surface.matches('.hero-art') ? 5 : 3.5;
+        surface.style.setProperty('--vp-tilt-x', (nx * limit * 2).toFixed(2) + 'deg');
+        surface.style.setProperty('--vp-tilt-y', (-ny * limit * 1.6).toFixed(2) + 'deg');
+      }, { passive: true });
+      surface.addEventListener('pointerleave', () => {
+        surface.style.removeProperty('--vp-tilt-x');
+        surface.style.removeProperty('--vp-tilt-y');
+      }, { passive: true });
+    });
+  }
+
 })();

@@ -1837,3 +1837,349 @@ body.motion-ready .music-card.is-visible:hover { transform: translate3d(0, -4px,
     transition: none !important;
   }
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   VIOLIN PRINCE — DIMENSIONAL MATERIAL PASS
+   Uses layered light, real CSS perspective, edge reflections and pointer tilt.
+   Keeps the existing catalogue, forms, player and page structure intact.
+   ═══════════════════════════════════════════════════════════════════════ */
+.hero {
+  perspective: 1800px;
+  isolation: isolate;
+}
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: .12;
+  background-image:
+    url("assets/visual/textures/grain.svg"),
+    radial-gradient(ellipse at 78% 44%, rgba(101, 232, 244, .13), transparent 37%),
+    repeating-linear-gradient(118deg, transparent 0 21px, rgba(196, 243, 255, .025) 22px, transparent 23px 52px);
+  background-size: 180px 180px, auto, auto;
+  background-repeat: repeat, no-repeat, repeat;
+  mix-blend-mode: screen;
+}
+.hero-art {
+  --vp-tilt-x: 0deg;
+  --vp-tilt-y: 0deg;
+  perspective: 1400px;
+  transform-style: preserve-3d;
+  isolation: isolate;
+}
+.hero-art::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 12% 10% 9%;
+  border-radius: 50%;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 24%, rgba(101, 232, 244, .18), transparent 42%),
+    radial-gradient(ellipse at 52% 68%, rgba(74, 141, 255, .14), transparent 57%);
+  filter: blur(20px);
+  transform: translate3d(0, 18px, -85px) rotateX(66deg) scale(1.12);
+}
+.hero-art::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  width: min(82%, 425px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  pointer-events: none;
+  border: 1px solid rgba(101, 232, 244, .15);
+  background:
+    radial-gradient(circle at 34% 26%, rgba(255, 255, 255, .07), transparent 35%),
+    radial-gradient(circle at 50% 54%, rgba(101, 232, 244, .055), transparent 65%);
+  box-shadow:
+    inset 0 0 65px rgba(101, 232, 244, .035),
+    0 35px 65px rgba(0, 0, 0, .2);
+  transform: translate3d(0, 9px, -48px) rotateX(72deg) scale(1.05);
+}
+.hero-art .art-ring {
+  z-index: 1;
+  border-color: rgba(133, 235, 255, .34);
+  box-shadow:
+    0 0 0 1px rgba(101, 232, 244, .04),
+    0 0 0 24px rgba(101, 232, 244, .027),
+    0 0 0 50px rgba(141, 131, 255, .025),
+    0 0 44px rgba(101, 232, 244, .045),
+    inset 0 0 40px rgba(101, 232, 244, .035);
+  transform:
+    translate3d(0, 0, -28px)
+    rotateX(calc(18deg + var(--vp-tilt-y, 0deg)))
+    rotateY(calc(-13deg + var(--vp-tilt-x, 0deg)));
+  transform-style: preserve-3d;
+}
+.hero-art .orb-one {
+  z-index: 1;
+  background: radial-gradient(ellipse, rgba(101, 232, 244, .25), rgba(74, 141, 255, .07) 38%, transparent 72%);
+  filter: blur(5px);
+  transform: translate3d(-16px, 5px, -35px) rotate(24deg) rotateY(20deg);
+}
+.hero-art .orb-two {
+  z-index: 2;
+  background: radial-gradient(circle, rgba(141, 131, 255, .34), rgba(101, 232, 244, .09) 42%, transparent 72%);
+  filter: blur(24px);
+  transform: translate3d(18px, -14px, 62px);
+}
+.hero-art .music-motif {
+  z-index: 3;
+  color: #b8f7ff;
+  transform: translateZ(42px);
+  transform-style: preserve-3d;
+}
+.hero-art .music-motif .floating-note {
+  color: rgba(178, 246, 255, .88);
+  text-shadow:
+    0 1px 0 rgba(4, 12, 25, .85),
+    0 0 12px rgba(101, 232, 244, .45),
+    0 0 32px rgba(74, 141, 255, .2);
+  filter: drop-shadow(0 7px 9px rgba(0, 0, 0, .32));
+}
+.hero-art .sargam-orbit {
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, .56));
+}
+.hero-art .violin-illustration {
+  z-index: 2;
+  transform:
+    translate3d(-4px, -2px, 104px)
+    rotateX(calc(8deg + var(--vp-tilt-y, 0deg)))
+    rotateY(calc(-18deg + var(--vp-tilt-x, 0deg)))
+    rotateZ(26deg);
+  transform-style: preserve-3d;
+  filter:
+    drop-shadow(18px 28px 20px rgba(0, 0, 0, .43))
+    drop-shadow(0 0 22px rgba(101, 232, 244, .1));
+  will-change: transform;
+}
+.hero-art .violin-body {
+  isolation: isolate;
+  border: 1px solid rgba(156, 244, 255, .72);
+  background:
+    radial-gradient(ellipse at 32% 19%, rgba(198, 250, 255, .22), transparent 24%),
+    linear-gradient(104deg, #06121d 0%, #12354a 20%, #28677a 37%, #164255 50%, #0b2235 70%, #030811 100%);
+  box-shadow:
+    inset 7px 2px 13px rgba(175, 243, 255, .14),
+    inset -13px -7px 19px rgba(0, 0, 0, .54),
+    inset 0 0 0 3px rgba(101, 232, 244, .05),
+    0 12px 24px rgba(0, 0, 0, .28);
+  transform: translateZ(12px);
+}
+.hero-art .violin-body::before {
+  content: "";
+  position: absolute;
+  inset: 3px 5px 6px;
+  border-radius: inherit;
+  clip-path: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(112deg, transparent 7%, rgba(236, 253, 255, .22) 19%, rgba(101, 232, 244, .06) 24%, transparent 38% 72%, rgba(0, 0, 0, .25) 88%);
+  mix-blend-mode: screen;
+}
+.hero-art .violin-body::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  clip-path: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 37% 43%, rgba(1, 7, 15, .95) 0 3px, transparent 4px),
+    radial-gradient(ellipse at 63% 43%, rgba(1, 7, 15, .95) 0 3px, transparent 4px),
+    linear-gradient(90deg, transparent 47%, rgba(201, 250, 255, .64) 49%, rgba(4, 14, 25, .65) 53%, transparent 56%);
+  filter: drop-shadow(0 0 1px rgba(101, 232, 244, .25));
+}
+.hero-art .violin-neck {
+  border-color: rgba(101, 232, 244, .48);
+  background: linear-gradient(90deg, #030914 0%, #0d293b 19%, #2a6678 43%, #0b2739 65%, #020710 100%);
+  box-shadow:
+    inset 5px 0 7px rgba(101, 232, 244, .13),
+    inset -5px 0 7px rgba(0, 0, 0, .58),
+    7px 11px 14px rgba(0, 0, 0, .26);
+  transform: translateZ(18px);
+}
+.hero-art .violin-string {
+  background: linear-gradient(90deg, #658998, #e4fdff 45%, #9debf4 70%, #415c70);
+  box-shadow:
+    -5px 0 rgba(101, 232, 244, .38),
+    5px 0 rgba(221, 251, 255, .26),
+    0 0 8px rgba(101, 232, 244, .24);
+  transform: translateZ(34px) translateX(2px);
+}
+.hero-art .violin-bow {
+  background: linear-gradient(90deg, #06101b, #4b92a7 22%, #c1f5ff 48%, #33778c 70%, #050b15);
+  box-shadow:
+    3px 8px 13px rgba(0, 0, 0, .4),
+    0 0 12px rgba(101, 232, 244, .12);
+  transform: translate3d(36px, 1px, 55px) rotate(14deg);
+}
+.hero-art .geometric-bloom {
+  z-index: 0;
+  opacity: .68;
+  filter:
+    drop-shadow(0 10px 22px rgba(0, 0, 0, .32))
+    drop-shadow(0 0 20px rgba(101, 232, 244, .1));
+  transform: translate3d(0, 0, -15px) rotateY(-12deg) scale(1.035);
+}
+.hero-art .art-caption {
+  z-index: 4;
+  padding: .65rem .85rem;
+  border: 1px solid rgba(101, 232, 244, .15);
+  border-radius: 999px;
+  background: linear-gradient(140deg, rgba(10, 28, 44, .64), rgba(3, 9, 19, .42));
+  box-shadow: 0 12px 24px rgba(0, 0, 0, .2), inset 0 1px 0 rgba(255, 255, 255, .05);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.hero-content {
+  transform: translateZ(24px);
+}
+.hero-content .button {
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, .22),
+    0 0 0 1px rgba(101, 232, 244, .11),
+    inset 0 1px 0 rgba(255, 255, 255, .16);
+}
+.hero-content .button:hover { transform: translate3d(0, -3px, 2px); }
+.featured-art {
+  transform-style: preserve-3d;
+  border-color: rgba(101, 232, 244, .32);
+  background:
+    linear-gradient(145deg, rgba(160, 249, 255, .13), rgba(101, 232, 244, .035) 25%, rgba(7, 20, 35, .9) 68%),
+    url("assets/visual/textures/grain.svg");
+  box-shadow:
+    0 32px 78px rgba(0, 0, 0, .38),
+    0 9px 22px rgba(0, 0, 0, .16),
+    inset 0 1px 0 rgba(230, 252, 255, .12),
+    inset 0 -1px 0 rgba(101, 232, 244, .12);
+  transition: transform 220ms ease, box-shadow 280ms ease, border-color 220ms ease;
+}
+.featured-art::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(118deg, rgba(240, 253, 255, .16), transparent 15% 65%, rgba(101, 232, 244, .05)),
+    radial-gradient(ellipse at var(--pointer-x, 50%) var(--pointer-y, 0%), rgba(101, 232, 244, .18), transparent 55%);
+  opacity: .7;
+  mix-blend-mode: screen;
+}
+.featured-art a, .featured-art img { transform-style: preserve-3d; }
+.featured-art a { box-shadow: inset 0 0 0 1px rgba(223, 251, 255, .08); }
+.featured-art img { filter: saturate(1.08) contrast(1.025); }
+.featured-art:hover {
+  border-color: rgba(101, 232, 244, .62);
+  box-shadow:
+    0 40px 94px rgba(0, 0, 0, .46),
+    0 0 36px rgba(101, 232, 244, .1),
+    inset 0 1px 0 rgba(230, 252, 255, .17);
+  transform:
+    perspective(1400px)
+    rotateX(var(--vp-tilt-y, 0deg))
+    rotateY(var(--vp-tilt-x, 0deg))
+    translate3d(0, -5px, 0);
+}
+.music-card {
+  transform-style: preserve-3d;
+  transform-origin: center center;
+  backface-visibility: hidden;
+  border-color: rgba(136, 206, 235, .19);
+  background:
+    radial-gradient(ellipse at 5% 0%, rgba(101, 232, 244, .055), transparent 40%),
+    linear-gradient(150deg, rgba(16, 40, 58, .98), rgba(4, 13, 25, .99));
+  box-shadow:
+    0 16px 34px rgba(0, 0, 0, .24),
+    inset 0 1px 0 rgba(255, 255, 255, .055),
+    inset 0 -1px 0 rgba(101, 232, 244, .08);
+}
+.music-card .video-thumb { transform: translateZ(12px); }
+.music-card .video-thumb img { filter: saturate(1.06) contrast(1.03); }
+.music-card .card-copy { transform: translateZ(7px); }
+.music-card:hover {
+  transform:
+    translate3d(0, -7px, 0)
+    rotateX(var(--vp-tilt-y, 0deg))
+    rotateY(var(--vp-tilt-x, 0deg));
+  border-color: rgba(101, 232, 244, .42);
+  box-shadow:
+    0 29px 58px rgba(0, 0, 0, .34),
+    0 0 0 1px rgba(101, 232, 244, .035),
+    0 0 30px rgba(74, 141, 255, .055),
+    inset 0 1px 0 rgba(255, 255, 255, .07);
+}
+.mood-card {
+  transform-style: preserve-3d;
+  transform-origin: center center;
+  border-radius: 18px;
+  border: 1px solid rgba(101, 232, 244, .2);
+  box-shadow:
+    0 22px 40px rgba(0, 0, 0, .25),
+    inset 0 1px 0 rgba(255, 255, 255, .075);
+  transition: transform 220ms ease, box-shadow 260ms ease, border-color 220ms ease;
+}
+.mood-card::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  z-index: 1;
+  border: 1px solid rgba(225, 251, 255, .075);
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(118deg, rgba(255, 255, 255, .09), transparent 20% 65%, rgba(101, 232, 244, .035));
+}
+.mood-card > * { z-index: 2; }
+.mood-card:hover {
+  transform:
+    translate3d(0, -7px, 0)
+    rotateX(var(--vp-tilt-y, 0deg))
+    rotateY(var(--vp-tilt-x, 0deg));
+  border-color: rgba(101, 232, 244, .5);
+  box-shadow:
+    0 30px 58px rgba(0, 0, 0, .34),
+    0 0 32px rgba(101, 232, 244, .075),
+    inset 0 1px 0 rgba(255, 255, 255, .12);
+}
+.support-card, .request-form {
+  box-shadow:
+    0 28px 68px rgba(0, 0, 0, .34),
+    inset 0 1px 0 rgba(255, 255, 255, .065),
+    inset 0 -1px 0 rgba(101, 232, 244, .07);
+}
+.about-monogram {
+  transform: perspective(900px) rotateY(-8deg) rotateX(4deg);
+  box-shadow:
+    12px 22px 42px rgba(0, 0, 0, .28),
+    inset 0 2px 3px rgba(255, 255, 255, .12);
+}
+@media (hover: hover) and (pointer: fine) {
+  .hero-art, .featured-art, .music-card, .mood-card { --vp-tilt-x: 0deg; --vp-tilt-y: 0deg; }
+}
+@media (max-width: 720px) {
+  .hero-art { perspective: 1050px; }
+  .hero-art .art-ring { transform: translate3d(0, 0, -20px) rotateX(16deg) rotateY(-8deg); }
+  .hero-art .violin-illustration {
+    transform: translate3d(-1px, 0, 54px) rotateX(5deg) rotateY(-10deg) rotateZ(26deg) scale(.78);
+  }
+  .hero-art .violin-bow { transform: translate3d(24px, 1px, 35px) rotate(14deg); }
+  .hero-art .art-caption { left: 1%; right: 1%; }
+  .hero-content { transform: none; }
+  .music-card, .mood-card { border-radius: 16px; }
+  .about-monogram { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero::after { display: none; }
+  .hero-art .violin-illustration { will-change: auto; }
+  .hero-art .music-motif .floating-note { animation: none !important; }
+  .featured-art, .music-card, .mood-card, .about-monogram {
+    transition: none !important;
+  }
+}
