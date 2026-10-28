@@ -300,7 +300,12 @@
         button.setAttribute('aria-label', (playing ? 'Pause ' : 'Play ') + title + ' violin cover');
       }
       if (icon) icon.textContent = playing ? 'Ⅱ' : '▶';
-      if (state) state.textContent = playing ? 'NOW PLAYING' : (active && coverWantsPlayback ? 'LOADING' : active ? 'SELECTED' : 'READY');
+      if (state) {
+        state.textContent = playing ? 'NOW PLAYING'
+          : active && coverPauseReason === 'visibility' ? 'PAUSED'
+          : active && coverWantsPlayback ? 'LOADING'
+          : active ? 'SELECTED' : 'READY';
+      }
       if (seek) {
         seek.disabled = !(active && coverReady);
         if (!active) {
@@ -400,8 +405,8 @@
       playerVars: {
         autoplay: 0,
         controls: 1,
-        loop: 1,
-        playlist: coverVideoId,
+        // The end handler below loops the currently selected cover, not the first gallery song.
+        loop: 0,
         playsinline: 1,
         rel: 0,
         enablejsapi: 1,
@@ -428,10 +433,11 @@
             resumeCoverWhenVisible = false;
             setCoverUI(true, 'Playing · ' + coverTrackTitle);
           } else if (event.data === states.PAUSED) {
-            setCoverUI(false, coverPauseReason === 'visibility'
+            const pausedForVisibility = coverPauseReason === 'visibility';
+            if (!pausedForVisibility) coverWantsPlayback = false;
+            setCoverUI(false, pausedForVisibility
               ? 'Paused while this tab is away'
-              : 'Paused · press Play to continue');
-            if (coverPauseReason !== 'visibility') coverWantsPlayback = false;
+              : 'Paused · ' + coverTrackTitle);
             coverPauseReason = null;
           } else if (event.data === states.ENDED && coverWantsPlayback && coverVisible) {
             // Loop parameter is enabled too; this is a fallback if the player reports ENDED.
