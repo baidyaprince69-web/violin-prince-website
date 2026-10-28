@@ -3484,18 +3484,15 @@ body.motion-ready .site-footer.scroll-reveal.exit-down:not(.is-visible) {
 }
 @media (max-width: 720px) {
   .music-section {
+    /* Keep the material attached to the viewport as visitors scroll through the full gallery.
+       This avoids the former 920px background cutoff on tall mobile layouts. */
     background-image:
-      linear-gradient(
-        to bottom,
-        rgba(5, 13, 24, .14) 0%,
-        rgba(5, 13, 24, .24) 55%,
-        var(--vp-bg-section) 100%
-      ),
+      linear-gradient(rgba(5, 13, 24, .22), rgba(5, 13, 24, .22)),
       url("assets/visual/textures/midnight-resonance.webp");
-    background-position: top center, top center;
+    background-position: center, center;
     background-repeat: no-repeat, no-repeat;
-    background-size: 100% 920px, 920px 920px;
-    background-attachment: scroll, scroll;
+    background-size: auto, cover;
+    background-attachment: scroll, fixed;
   }
 }
 
