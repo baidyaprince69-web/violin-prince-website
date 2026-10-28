@@ -2363,3 +2363,91 @@ body.motion-ready .music-card.is-visible:hover { transform: translate3d(0, -4px,
 @media (prefers-reduced-motion: reduce) {
   .hero-art .hero-artwork { animation: none !important; transition: none !important; }
 }
+
+
+/* === Definitive hero treatment: full-bleed artwork softly illuminating the page === */
+.hero.hero-ambient-violin {
+  background-color: #050914 !important;
+  background-image:
+    linear-gradient(90deg,
+      rgba(5, 9, 20, 1) 0%,
+      rgba(5, 9, 20, .98) 18%,
+      rgba(5, 9, 20, .90) 31%,
+      rgba(5, 9, 20, .68) 45%,
+      rgba(5, 9, 20, .28) 65%,
+      rgba(5, 9, 20, .26) 82%,
+      rgba(5, 9, 20, .55) 100%),
+    linear-gradient(0deg,
+      rgba(5, 9, 20, .72) 0%,
+      rgba(5, 9, 20, .10) 27%,
+      rgba(5, 9, 20, .06) 67%,
+      rgba(5, 9, 20, .50) 100%),
+    radial-gradient(ellipse at 76% 46%,
+      rgba(25, 177, 213, .17) 0%,
+      rgba(37, 105, 215, .11) 33%,
+      transparent 62%),
+    var(--vp-ambient-violin-image) !important;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat !important;
+  background-size: cover, cover, cover, cover !important;
+  background-position: center, center, center, 62% center !important;
+  isolation: isolate;
+}
+.hero.hero-ambient-violin .hero-art {
+  display: none !important;
+}
+.hero.hero-ambient-violin .hero-content {
+  grid-column: 1;
+  position: relative;
+  z-index: 3 !important;
+}
+.hero.hero-ambient-violin .hero-glow {
+  z-index: 2 !important;
+  background:
+    radial-gradient(ellipse at 78% 48%,
+      rgba(101, 232, 244, .15),
+      rgba(74, 141, 255, .065) 35%,
+      transparent 72%) !important;
+  pointer-events: none;
+}
+.hero.hero-ambient-violin::before {
+  opacity: .13 !important;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0,0,0,.15) 30%, #000 73%, transparent 100%) !important;
+  mask-image: linear-gradient(90deg, transparent 0%, rgba(0,0,0,.15) 30%, #000 73%, transparent 100%) !important;
+}
+.hero.hero-ambient-violin::after {
+  opacity: .12 !important;
+}
+@media (max-width: 900px) {
+  .hero.hero-ambient-violin {
+    background-image:
+      linear-gradient(90deg,
+        rgba(5, 9, 20, .98) 0%,
+        rgba(5, 9, 20, .92) 29%,
+        rgba(5, 9, 20, .72) 49%,
+        rgba(5, 9, 20, .34) 76%,
+        rgba(5, 9, 20, .48) 100%),
+      linear-gradient(0deg, rgba(5,9,20,.64), transparent 42%, rgba(5,9,20,.40)),
+      radial-gradient(ellipse at 76% 45%, rgba(25,177,213,.14), transparent 60%),
+      var(--vp-ambient-violin-image) !important;
+    background-position: center, center, center, 66% center !important;
+  }
+}
+@media (max-width: 720px) {
+  .hero.hero-ambient-violin {
+    background-image:
+      linear-gradient(180deg,
+        rgba(5, 9, 20, .84) 0%,
+        rgba(5, 9, 20, .77) 25%,
+        rgba(5, 9, 20, .54) 51%,
+        rgba(5, 9, 20, .42) 74%,
+        rgba(5, 9, 20, .82) 100%),
+      linear-gradient(90deg, rgba(5,9,20,.60) 0%, rgba(5,9,20,.08) 75%, rgba(5,9,20,.34) 100%),
+      radial-gradient(ellipse at 73% 40%, rgba(25,177,213,.13), transparent 62%),
+      var(--vp-ambient-violin-image) !important;
+    background-size: cover, cover, cover, auto 92% !important;
+    background-position: center, center, center, 74% 43% !important;
+  }
+  .hero.hero-ambient-violin::before {
+    opacity: .08 !important;
+  }
+}
