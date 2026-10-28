@@ -3319,3 +3319,31 @@ body.motion-ready .site-footer.scroll-reveal.exit-down:not(.is-visible) {
   .music-section .song-mini-waveform span { transition: none !important; animation: none !important; }
 }
 
+/* Keep the YouTube iframe alive but visually tucked away when the soundtrack dock is minimized. */
+.youtube-music-dock.is-minimized > .yt-player-shell {
+  display: block !important;
+  position: fixed !important;
+  left: -20px !important;
+  top: 0 !important;
+  width: 1px !important;
+  height: 1px !important;
+  min-width: 1px !important;
+  min-height: 1px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  clip-path: inset(50%) !important;
+  border: 0 !important;
+  background: transparent !important;
+  z-index: -1 !important;
+}
+.youtube-music-dock.is-minimized > .yt-player-shell #violinYouTubePlayer,
+.youtube-music-dock.is-minimized > .yt-player-shell #violinYouTubePlayer iframe {
+  width: 1px !important;
+  height: 1px !important;
+  min-width: 1px !important;
+  min-height: 1px !important;
+}
+
