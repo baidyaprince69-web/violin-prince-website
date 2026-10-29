@@ -1,6 +1,25 @@
 <!doctype html>
 <html lang="en">
 <head>
+<script>
+(function () {
+  try {
+    var nav = window.navigator || {};
+    var connection = nav.connection || nav.mozConnection || nav.webkitConnection;
+    var query = function (value) {
+      return !!(window.matchMedia && window.matchMedia(value).matches);
+    };
+    var compactViewport = query('(max-width: 760px)') || query('(pointer: coarse)');
+    var limitedCpu = typeof nav.hardwareConcurrency === 'number' && nav.hardwareConcurrency <= 4;
+    var limitedMemory = typeof nav.deviceMemory === 'number' && nav.deviceMemory <= 4;
+    var dataSaver = !!(connection && connection.saveData);
+    var reducedMotion = query('(prefers-reduced-motion: reduce)');
+    if (compactViewport || limitedCpu || limitedMemory || dataSaver || reducedMotion) {
+      document.documentElement.classList.add('vp-performance-mode');
+    }
+  } catch (error) {}
+})();
+</script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#12070d">
@@ -1500,6 +1519,7 @@
 
   </style>
   <link rel="stylesheet" href="../official-social.css?v=20261029">
+  <link rel="stylesheet" href="../site-performance.css?v=20261029-perf1">
 </head>
 <body>
   <div id="vp-holiday-bloom" aria-hidden="true"></div>
