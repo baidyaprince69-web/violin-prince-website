@@ -124,7 +124,9 @@
 
       // Read all geometry first, then change classes in a second pass to avoid
       // read/write layout thrashing while the visitor scrolls.
-      const states = [...document.querySelectorAll('.music-card, .scroll-reveal, .vp-reveal')]
+      /* Only measure reveal targets near the viewport. Checking every card on every
+         scroll frame forced repeated layout reads across the whole long page. */
+      const states = [...activeRevealTargets]
         .map(element => ({
           element,
           rect: element.getBoundingClientRect(),
@@ -179,17 +181,38 @@
     window.addEventListener('scroll', scheduleDirectionalRevealUpdate, { passive: true });
     window.addEventListener('resize', scheduleDirectionalRevealUpdate, { passive: true });
 
+    const activeRevealTargets = new Set();
+    const registeredRevealTargets = new Set();
+
     const revealObserver = new IntersectionObserver(entries => {
       entries.forEach(entry => {
         const element = entry.target;
         if (entry.isIntersecting) {
-          element.dataset.revealSeen = 'true';
+          activeRevealTargets.add(element);
+          if (element.classList.contains('music-card') || element.classList.contains('scroll-reveal')) {
+            element.dataset.revealSeen = 'true';
+          }
+          if (element.classList.contains('vp-reveal')) {
+            element.dataset.vpRevealSeen = 'true';
+          }
+        } else {
+          activeRevealTargets.delete(element);
         }
       });
       scheduleDirectionalRevealUpdate();
-    }, { threshold: 0, rootMargin: '0px' });
+    }, { threshold: 0, rootMargin: '360px 0px 360px 0px' });
 
-    revealTargets.forEach(element => revealObserver.observe(element));
+    const registerDirectionalRevealTargets = elements => {
+      elements.forEach(element => {
+        if (!element || registeredRevealTargets.has(element)) return;
+        registeredRevealTargets.add(element);
+        revealObserver.observe(element);
+      });
+    };
+
+    /* The premium interaction layer can register its additional reveal targets here. */
+    window.__vpRegisterDirectionalRevealTargets = registerDirectionalRevealTargets;
+    registerDirectionalRevealTargets(revealTargets);
   }
 
   const emptyState = document.getElementById('emptyState');
