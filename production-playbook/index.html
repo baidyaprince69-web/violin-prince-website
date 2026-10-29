@@ -1,6 +1,25 @@
 <!doctype html>
 <html lang="en">
 <head>
+<script>
+(function () {
+  try {
+    var nav = window.navigator || {};
+    var connection = nav.connection || nav.mozConnection || nav.webkitConnection;
+    var query = function (value) {
+      return !!(window.matchMedia && window.matchMedia(value).matches);
+    };
+    var compactViewport = query('(max-width: 760px)') || query('(pointer: coarse)');
+    var limitedCpu = typeof nav.hardwareConcurrency === 'number' && nav.hardwareConcurrency <= 4;
+    var limitedMemory = typeof nav.deviceMemory === 'number' && nav.deviceMemory <= 4;
+    var dataSaver = !!(connection && connection.saveData);
+    var reducedMotion = query('(prefers-reduced-motion: reduce)');
+    if (compactViewport || limitedCpu || limitedMemory || dataSaver || reducedMotion) {
+      document.documentElement.classList.add('vp-performance-mode');
+    }
+  } catch (error) {}
+})();
+</script>
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-LF917TZ8RN"></script>
   <script>
@@ -81,6 +100,7 @@
     @media(max-width:720px){.guide-hero h1{font-size:clamp(2.7rem,11vw,4rem)}.guide-content{padding-left:7vw;padding-right:7vw}.guide-hero:after{right:-6vw;top:34%}.guide-header .site-nav{z-index:25}.guide-footer{grid-template-columns:1fr auto}.guide-footer p{grid-column:1/-1;grid-row:auto}}
   </style>
   <link rel="stylesheet" href="../official-social.css?v=20261029">
+  <link rel="stylesheet" href="../site-performance.css?v=20261029-perf1">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
