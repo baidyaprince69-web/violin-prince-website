@@ -329,6 +329,45 @@
     });
   }
 
+  function playNextCover() {
+    if (!coverPlayer || !coverReady) return false;
+
+    // Read the live DOM order so the queue follows the gallery's current sorting.
+    const queue = [...document.querySelectorAll('[data-song-mini]')]
+      .filter(bar => bar.dataset.videoId && bar.dataset.songTitle);
+    if (!queue.length) return false;
+
+    let currentIndex = queue.findIndex(bar => bar === activeMiniBar);
+    if (currentIndex < 0) {
+      currentIndex = queue.findIndex(bar => bar.dataset.videoId === coverVideoId);
+    }
+
+    // Do not wrap automatically after the last track.
+    const nextBar = currentIndex >= 0 ? queue[currentIndex + 1] : queue[0];
+    if (!nextBar) return false;
+
+    activeMiniBar = nextBar;
+    updateDockTrackInfo(nextBar);
+    coverWantsPlayback = true;
+    resumeCoverWhenVisible = false;
+    coverPauseReason = null;
+    restoreDockForPlayback();
+    syncMiniPlayers();
+    setCoverUI(false, 'Up next · ' + coverTrackTitle);
+
+    try {
+      // The active YouTube player moves to the next video and begins playback.
+      coverPlayer.loadVideoById({ videoId: coverVideoId, startSeconds: 0 });
+      if (coverStatus) coverStatus.textContent = 'Starting next cover · ' + coverTrackTitle;
+      if (barStatus) barStatus.textContent = 'Up next · ' + coverTrackTitle;
+      return true;
+    } catch (error) {
+      coverWantsPlayback = false;
+      setCoverUI(false, 'Could not start the next cover · press Play');
+      return true;
+    }
+  }
+
   function updateDockTrackInfo(bar) {
     if (bar) {
       coverVideoId = bar.dataset.videoId || coverVideoId;
@@ -449,11 +488,13 @@
               : 'Paused · ' + coverTrackTitle);
             coverPauseReason = null;
           } else if (event.data === states.ENDED) {
-            // Let each selected cover finish naturally. Do not restart it when the dock is minimized.
-            coverWantsPlayback = false;
+            // Advance the same YouTube player to the next gallery cover automatically.
             resumeCoverWhenVisible = false;
             coverPauseReason = null;
-            setCoverUI(false, 'Finished · ' + coverTrackTitle);
+            if (!playNextCover()) {
+              coverWantsPlayback = false;
+              setCoverUI(false, 'Playlist finished · ' + coverTrackTitle);
+            }
           } else if (event.data === states.CUED) {
             if (!coverPlaying && coverStatus) coverStatus.textContent = 'Ready · press Play to listen';
           }
