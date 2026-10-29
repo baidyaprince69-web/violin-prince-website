@@ -75,7 +75,9 @@
         '.hero-content .eyebrow, .hero-content h1, .hero-copy, .hero-actions, .hero-note, ' +
         '.about-copy > .eyebrow, .about-copy h2, .about-copy p, .about-copy .text-link, ' +
         '.artist-portrait img, .artist-portrait figcaption, .section-heading, .section-intro, .filter-row, ' +
-        '.mood-card, .request-copy, .request-form, .connect-section, .site-footer'
+        '.mood-card, .request-copy, .request-form, .connect-section, ' +
+        '.connect-section > .eyebrow, #vpSocialTitle, .connect-section > p:not(.eyebrow), ' +
+        '.connect-actions, .vp-social-intro, .vp-social-grid, .site-footer'
       )
     ])];
 
@@ -95,6 +97,12 @@
       if (element.matches('.about-copy p:nth-of-type(2)')) element.style.transitionDelay = '280ms';
       if (element.matches('.about-copy p:nth-of-type(3)')) element.style.transitionDelay = '380ms';
       if (element.matches('.about-copy .text-link')) element.style.transitionDelay = '480ms';
+      if (element.matches('.connect-section > .eyebrow')) element.style.transitionDelay = '80ms';
+      if (element.matches('#vpSocialTitle')) element.style.transitionDelay = '170ms';
+      if (element.matches('.connect-section > p:not(.eyebrow)')) element.style.transitionDelay = '260ms';
+      if (element.matches('.connect-actions')) element.style.transitionDelay = '350ms';
+      if (element.matches('.vp-social-intro')) element.style.transitionDelay = '440ms';
+      if (element.matches('.vp-social-grid')) element.style.transitionDelay = '530ms';
     });
     document.body.classList.add('motion-ready');
 
