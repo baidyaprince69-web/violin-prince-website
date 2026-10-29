@@ -28,4 +28,13 @@
     <loc>https://baidyaprince69-web.github.io/violin-prince-website/majhe-majhe-tobo/</loc>
     <video:video><video:thumbnail_loc>https://i.ytimg.com/vi/vAinuVKLKGE/maxresdefault.jpg</video:thumbnail_loc><video:title>Majhe Majhe Tobo (মাঝে মাঝে তব) | Violin Solo | Violin Prince</video:title><video:description>Majhe Majhe Tobo (মাঝে মাঝে তব), a violin solo performed by Prince Baidya, Violin Prince. Explore the Bengali musical context and watch the performance.</video:description><video:player_loc allow_embed="yes">https://www.youtube-nocookie.com/embed/vAinuVKLKGE</video:player_loc><video:family_friendly>yes</video:family_friendly></video:video>
   </url>
+  <url>
+    <loc>https://baidyaprince69-web.github.io/violin-prince-website/violin-cover-nkei8odtfru/</loc>
+    <video:video>
+      <video:thumbnail_loc>https://i.ytimg.com/vi/nKei8ODtFRU/hqdefault.jpg</video:thumbnail_loc>
+      <video:title>Violin Cover by Prince Baidya | Violin Prince</video:title>
+      <video:description>Watch a violin-cover performance by Prince Baidya, known as Violin Prince, and explore a listening guide and more music from the artist.</video:description>
+      <video:player_loc allow_embed="yes">https://www.youtube-nocookie.com/embed/nKei8ODtFRU</video:player_loc>
+    </video:video>
+  </url>
 </urlset>
