@@ -1,6 +1,25 @@
 <!doctype html>
 <html lang="en">
 <head>
+<script>
+(function () {
+  try {
+    var nav = window.navigator || {};
+    var connection = nav.connection || nav.mozConnection || nav.webkitConnection;
+    var query = function (value) {
+      return !!(window.matchMedia && window.matchMedia(value).matches);
+    };
+    var compactViewport = query('(max-width: 760px)') || query('(pointer: coarse)');
+    var limitedCpu = typeof nav.hardwareConcurrency === 'number' && nav.hardwareConcurrency <= 4;
+    var limitedMemory = typeof nav.deviceMemory === 'number' && nav.deviceMemory <= 4;
+    var dataSaver = !!(connection && connection.saveData);
+    var reducedMotion = query('(prefers-reduced-motion: reduce)');
+    if (compactViewport || limitedCpu || limitedMemory || dataSaver || reducedMotion) {
+      document.documentElement.classList.add('vp-performance-mode');
+    }
+  } catch (error) {}
+})();
+</script>
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-LF917TZ8RN"></script>
   <script>
@@ -52,6 +71,7 @@
   </script>
   <script src="hero-artwork-data.js?v=hero-background-fade-20261028-b" defer></script>
   <link rel="stylesheet" href="official-social.css?v=20261029">
+  <link rel="stylesheet" href="site-performance.css?v=20261029-perf1">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -915,8 +935,8 @@
     <label class="music-bar-volume" for="ytVolumeBar"><span aria-hidden="true">♪</span><input id="ytVolumeBar" type="range" min="0" max="100" value="42" aria-label="Music bar volume"></label>
     <a class="music-bar-youtube" href="https://www.youtube.com/watch?v=3NHpKon_Uq8" target="_blank" rel="noopener noreferrer">Watch ↗</a>
   </aside>
-  <script src="script.js?v=minimize-keep-playing-20261029-v2"></script>
-  <script src="premium-home-interactions.js?v=mood-journey-20261029-v1"></script>
+  <script src="script.js?v=scroll-performance-20261029-v1"></script>
+  <script src="premium-home-interactions.js?v=scroll-performance-20261029-v1"></script>
   <script src="official-social.js?v=20261029-layoutfix1"></script>
 </body>
 </html>
