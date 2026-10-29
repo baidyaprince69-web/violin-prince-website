@@ -1,25 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script>
-(function () {
-  try {
-    var nav = window.navigator || {};
-    var connection = nav.connection || nav.mozConnection || nav.webkitConnection;
-    var query = function (value) {
-      return !!(window.matchMedia && window.matchMedia(value).matches);
-    };
-    var compactViewport = query('(max-width: 760px)') || query('(pointer: coarse)');
-    var limitedCpu = typeof nav.hardwareConcurrency === 'number' && nav.hardwareConcurrency <= 4;
-    var limitedMemory = typeof nav.deviceMemory === 'number' && nav.deviceMemory <= 4;
-    var dataSaver = !!(connection && connection.saveData);
-    var reducedMotion = query('(prefers-reduced-motion: reduce)');
-    if (compactViewport || limitedCpu || limitedMemory || dataSaver || reducedMotion) {
-      document.documentElement.classList.add('vp-performance-mode');
-    }
-  } catch (error) {}
-})();
-</script>
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-LF917TZ8RN"></script>
   <script>
@@ -796,7 +777,6 @@
     #watch { scroll-margin-top: 24px; }
   </style>
   <link rel="stylesheet" href="../official-social.css?v=20261029">
-  <link rel="stylesheet" href="../site-performance.css?v=20261029-perf2">
 </head>
 <body>
   <div class="ambient-stage" aria-hidden="true">
