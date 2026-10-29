@@ -1,10 +1,10 @@
 /*
  * Violin Prince — adaptive rendering for lower-powered devices.
- * Preserve all artwork, texture, gradients, layout and content; simplify only
- * high-cost scroll-reveal filters, over-promoted layers and fixed-bar backdrops.
+ * Preserve all artwork, texture, gradients, layout and content. Keep the signature
+ * blur reveals while reducing scroll work, layer promotion and fixed-bar backdrop cost.
  */
 
-/* Scroll reveals stay animated, but avoid repeatedly rasterizing large blurred layers. */
+/* Keep the original blur states; include filter in a shorter, explicit transition. */
 html.vp-performance-mode body.motion-ready .music-card,
 html.vp-performance-mode body.motion-ready .scroll-reveal,
 html.vp-performance-mode .vp-motion-ready .vp-reveal,
@@ -13,15 +13,13 @@ html.vp-performance-mode.motion-ready .motion-section,
 html.vp-performance-mode.motion-ready .social-link.motion-section,
 html.vp-performance-mode.js .scroll-reveal,
 html.vp-performance-mode .reveal {
-  filter: none !important;
-  -webkit-filter: none !important;
   will-change: auto !important;
-  transition-property: opacity, transform, box-shadow, border-color !important;
+  transition-property: opacity, transform, filter, -webkit-filter, box-shadow, border-color !important;
   transition-duration: 300ms !important;
   transition-timing-function: ease-out !important;
 }
 
-/* Replace the homepage's heavy defocus/3D scroll entrance with a smaller lift. */
+/* Preserve the signature defocus while using a smaller lift and flatter transform. */
 html.vp-performance-mode body.motion-ready .music-card:nth-child(odd):not(.is-visible),
 html.vp-performance-mode body.motion-ready .music-card:nth-child(even):not(.is-visible) {
   transform: translate3d(0, 14px, 0) scale(.993) !important;
@@ -35,13 +33,11 @@ html.vp-performance-mode .vp-motion-ready .vp-reveal:not(.vp-visible) {
 html.vp-performance-mode body.motion-ready .music-card.exit-up:not(.is-visible),
 html.vp-performance-mode body.motion-ready .scroll-reveal.exit-up:not(.is-visible),
 html.vp-performance-mode .vp-motion-ready .vp-reveal.vp-exit-up:not(.vp-visible) {
-  filter: none !important;
   transform: translate3d(0, -12px, 0) !important;
 }
 html.vp-performance-mode body.motion-ready .music-card.exit-down:not(.is-visible),
 html.vp-performance-mode body.motion-ready .scroll-reveal.exit-down:not(.is-visible),
 html.vp-performance-mode .vp-motion-ready .vp-reveal.vp-exit-down:not(.vp-visible) {
-  filter: none !important;
   transform: translate3d(0, 12px, 0) !important;
 }
 
