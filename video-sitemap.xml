@@ -1,71 +1,31 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset
-  xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-  xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
   <url>
     <loc>https://baidyaprince69-web.github.io/violin-prince-website/hai-apna-dil-to-awara/</loc>
-    <video:video>
-      <video:thumbnail_loc>https://i.ytimg.com/vi/StnvyGduJ0s/maxresdefault.jpg</video:thumbnail_loc>
-      <video:title>Can the Violin Capture This Classic? Hai Apna Dil To Awara</video:title>
-      <video:description>Prince Baidya, Violin Prince, performs a violin cover of Hai Apna Dil To Awara, the classic Hindi song from Solva Saal. Explore the performance and the story behind the song.</video:description>
-      <video:player_loc allow_embed="yes">https://www.youtube.com/embed/StnvyGduJ0s</video:player_loc>
-      <video:duration>273</video:duration>
-      <video:publication_date>2026-06-27T00:00:00+00:00</video:publication_date>
-      <video:family_friendly>yes</video:family_friendly>
-    </video:video>
+    <video:video><video:thumbnail_loc>https://i.ytimg.com/vi/StnvyGduJ0s/maxresdefault.jpg</video:thumbnail_loc><video:title>Can the Violin Capture This Classic? Hai Apna Dil To Awara</video:title><video:description>Prince Baidya, Violin Prince, performs a violin cover of Hai Apna Dil To Awara, the classic Hindi song from Solva Saal. Explore the performance and the story behind the song.</video:description><video:player_loc allow_embed="yes">https://www.youtube.com/embed/StnvyGduJ0s</video:player_loc><video:duration>273</video:duration><video:publication_date>2026-06-27T00:00:00+00:00</video:publication_date><video:family_friendly>yes</video:family_friendly></video:video>
   </url>
   <url>
     <loc>https://baidyaprince69-web.github.io/violin-prince-website/kal-ho-na-ho/</loc>
-    <video:video>
-      <video:thumbnail_loc>https://img.youtube.com/vi/FlA76nbkReM/hqdefault.jpg</video:thumbnail_loc>
-      <video:title>Kal Ho Naa Ho — Violin Cover by Prince Baidya | Violin Prince</video:title>
-      <video:description>Listen to Kal Ho Naa Ho reimagined on violin by Prince Baidya, Violin Prince. Watch the full performance and discover more violin covers.</video:description>
-      <video:player_loc allow_embed="yes">https://www.youtube-nocookie.com/embed/FlA76nbkReM</video:player_loc>
-      <video:family_friendly>yes</video:family_friendly>
-    </video:video>
+    <video:video><video:thumbnail_loc>https://img.youtube.com/vi/FlA76nbkReM/hqdefault.jpg</video:thumbnail_loc><video:title>Kal Ho Naa Ho — Violin Cover by Prince Baidya | Violin Prince</video:title><video:description>Listen to Kal Ho Naa Ho reimagined on violin by Prince Baidya, Violin Prince. Watch the full performance and discover more violin covers.</video:description><video:player_loc allow_embed="yes">https://www.youtube-nocookie.com/embed/FlA76nbkReM</video:player_loc><video:family_friendly>yes</video:family_friendly></video:video>
   </url>
   <url>
     <loc>https://baidyaprince69-web.github.io/violin-prince-website/tere-paas-main/</loc>
-    <video:video>
-      <video:thumbnail_loc>https://img.youtube.com/vi/FOV-lwpwcd0/hqdefault.jpg</video:thumbnail_loc>
-      <video:title>Tere Paas Main Violin Cover | A.R. Rahman | Prince Baidya | Violin Prince</video:title>
-      <video:description>Listen to Tere Paas Main from Main Vaapas Aaunga reimagined as a violin cover by Prince Baidya, Violin Prince.</video:description>
-      <video:player_loc allow_embed="yes">https://www.youtube-nocookie.com/embed/FOV-lwpwcd0</video:player_loc>
-      <video:family_friendly>yes</video:family_friendly>
-    </video:video>
+    <video:video><video:thumbnail_loc>https://img.youtube.com/vi/FOV-lwpwcd0/hqdefault.jpg</video:thumbnail_loc><video:title>Tere Paas Main Violin Cover | A.R. Rahman | Prince Baidya | Violin Prince</video:title><video:description>Listen to Tere Paas Main from Main Vaapas Aaunga reimagined as a violin cover by Prince Baidya, Violin Prince.</video:description><video:player_loc allow_embed="yes">https://www.youtube-nocookie.com/embed/FOV-lwpwcd0</video:player_loc><video:family_friendly>yes</video:family_friendly></video:video>
   </url>
   <url>
     <loc>https://baidyaprince69-web.github.io/violin-prince-website/say-you-wont-let-go/</loc>
-    <video:video>
-      <video:thumbnail_loc>https://i.ytimg.com/vi/3NHpKon_Uq8/hqdefault.jpg</video:thumbnail_loc>
-      <video:title>Say You Won't Let Go — Violin Cover by Prince Baidya | Violin Prince</video:title>
-      <video:description>Prince Baidya, Violin Prince, performs an instrumental violin interpretation of Say You Won't Let Go, the song originally performed by James Arthur.</video:description>
-      <video:player_loc allow_embed="yes">https://www.youtube-nocookie.com/embed/3NHpKon_Uq8</video:player_loc>
-      <video:family_friendly>yes</video:family_friendly>
-    </video:video>
+    <video:video><video:thumbnail_loc>https://i.ytimg.com/vi/3NHpKon_Uq8/hqdefault.jpg</video:thumbnail_loc><video:title>Say You Won't Let Go — Violin Cover by Prince Baidya | Violin Prince</video:title><video:description>Prince Baidya, Violin Prince, performs an instrumental violin interpretation of Say You Won't Let Go, the song originally performed by James Arthur.</video:description><video:player_loc allow_embed="yes">https://www.youtube-nocookie.com/embed/3NHpKon_Uq8</video:player_loc><video:family_friendly>yes</video:family_friendly></video:video>
   </url>
   <url>
     <loc>https://baidyaprince69-web.github.io/violin-prince-website/dandelions/</loc>
-    <video:video>
-      <video:thumbnail_loc>https://i.ytimg.com/vi/lTySNtT0rzs/hqdefault.jpg</video:thumbnail_loc>
-      <video:title>Dandelions (Violin Cover) - The most emotional version you'll hear today</video:title>
-      <video:description>Dandelions by Ruth B. reimagined as an instrumental violin cover by Prince Baidya, Violin Prince.</video:description>
-      <video:player_loc allow_embed="yes">https://www.youtube-nocookie.com/embed/lTySNtT0rzs</video:player_loc>
-      <video:duration>211</video:duration>
-      <video:publication_date>2024-09-29T00:00:00+00:00</video:publication_date>
-      <video:family_friendly>yes</video:family_friendly>
-    </video:video>
+    <video:video><video:thumbnail_loc>https://i.ytimg.com/vi/lTySNtT0rzs/hqdefault.jpg</video:thumbnail_loc><video:title>Dandelions (Violin Cover) - The most emotional version you'll hear today</video:title><video:description>Dandelions by Ruth B. reimagined as an instrumental violin cover by Prince Baidya, Violin Prince.</video:description><video:player_loc allow_embed="yes">https://www.youtube-nocookie.com/embed/lTySNtT0rzs</video:player_loc><video:duration>211</video:duration><video:publication_date>2024-09-29T00:00:00+00:00</video:publication_date><video:family_friendly>yes</video:family_friendly></video:video>
   </url>
   <url>
     <loc>https://baidyaprince69-web.github.io/violin-prince-website/hark-the-herald-angels-sing/</loc>
-    <video:video>
-      <video:thumbnail_loc>https://i.ytimg.com/vi/bissQ67-Az8/maxresdefault.jpg</video:thumbnail_loc>
-      <video:title>Have You Heard This Violin Version of Hark The Herald Angels Sing? 🎄</video:title>
-      <video:description>Prince Baidya, Violin Prince, performs Hark the Herald Angels Sing as a Christmas violin cover. Listen to the familiar carol through an instrumental performance.</video:description>
-      <video:player_loc allow_embed="yes">https://www.youtube-nocookie.com/embed/bissQ67-Az8</video:player_loc>
-      <video:duration>184</video:duration>
-      <video:publication_date>2025-12-26T00:00:00+00:00</video:publication_date>
-      <video:family_friendly>yes</video:family_friendly>
-    </video:video>
+    <video:video><video:thumbnail_loc>https://i.ytimg.com/vi/bissQ67-Az8/maxresdefault.jpg</video:thumbnail_loc><video:title>Have You Heard This Violin Version of Hark The Herald Angels Sing? 🎄</video:title><video:description>Prince Baidya, Violin Prince, performs Hark the Herald Angels Sing as a Christmas violin cover. Listen to the familiar carol through an instrumental performance.</video:description><video:player_loc allow_embed="yes">https://www.youtube-nocookie.com/embed/bissQ67-Az8</video:player_loc><video:duration>184</video:duration><video:publication_date>2025-12-26T00:00:00+00:00</video:publication_date><video:family_friendly>yes</video:family_friendly></video:video>
+  </url>
+  <url>
+    <loc>https://baidyaprince69-web.github.io/violin-prince-website/majhe-majhe-tobo/</loc>
+    <video:video><video:thumbnail_loc>https://i.ytimg.com/vi/vAinuVKLKGE/maxresdefault.jpg</video:thumbnail_loc><video:title>Majhe Majhe Tobo (মাঝে মাঝে তব) | Violin Solo | Violin Prince</video:title><video:description>Majhe Majhe Tobo (মাঝে মাঝে তব), a violin solo performed by Prince Baidya, Violin Prince. Explore the Bengali musical context and watch the performance.</video:description><video:player_loc allow_embed="yes">https://www.youtube-nocookie.com/embed/vAinuVKLKGE</video:player_loc><video:family_friendly>yes</video:family_friendly></video:video>
   </url>
 </urlset>
