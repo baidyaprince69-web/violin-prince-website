@@ -173,7 +173,30 @@
     .art-number { position: absolute; z-index: 3; top: 29px; right: 30px; color: rgba(248,232,190,.8); font: 500 1.15rem "Playfair Display", serif; letter-spacing: .08em; writing-mode: vertical-rl; }
     .scroll-cue { display: flex; align-items: center; gap: 12px; margin-top: 54px; color: #AABFB4; font-size: .66rem; letter-spacing: .18em; text-transform: uppercase; }
     .scroll-cue::before { content: ""; width: 40px; height: 1px; background: linear-gradient(90deg, var(--gold), transparent); }
-    .section { padding: clamp(76px, 9vw, 126px) 0; border-top: 1px solid rgba(242, 198, 109,.1); }
+    .section { padding: clamp(38px, 4.5vw, 62px) 0; border-top: 1px solid rgba(242, 198, 109,.10); }
+    /* Whole-section glass surfaces: a broad frosted pane behind each section's content. */
+    .section > .wrap, .closing > .wrap {
+      position: relative; isolation: isolate; overflow: hidden;
+      padding: clamp(25px, 3.5vw, 43px);
+      border: 1px solid rgba(248,232,190,.24); border-radius: 28px;
+      background:
+        radial-gradient(ellipse at 0% 0%, rgba(46,163,160,.14), transparent 44%),
+        radial-gradient(ellipse at 100% 100%, rgba(233,141,58,.085), transparent 42%),
+        linear-gradient(135deg, rgba(24,75,78,.43) 0%, rgba(10,31,34,.53) 50%, rgba(45,35,27,.32) 100%);
+      -webkit-backdrop-filter: blur(12px) saturate(138%);
+      backdrop-filter: blur(12px) saturate(138%);
+      box-shadow: 0 22px 58px rgba(0,0,0,.19), 0 0 28px rgba(46,163,160,.065),
+        inset 0 1px 0 rgba(255,255,255,.14), inset 0 -1px 0 rgba(242,198,109,.07);
+    }
+    .section > .wrap::before, .closing > .wrap::before {
+      content: ""; position: absolute; z-index: 0; inset: 0; pointer-events: none;
+      background: linear-gradient(118deg, rgba(255,255,255,.055), transparent 24%, transparent 72%, rgba(255,255,255,.025));
+    }
+    .section > .wrap::after, .closing > .wrap::after {
+      content: ""; position: absolute; z-index: 0; top: 1px; left: 7%; right: 7%; height: 1px; pointer-events: none;
+      background: linear-gradient(90deg, transparent, rgba(248,232,190,.46), rgba(46,163,160,.32), transparent);
+    }
+    .section > .wrap > *, .closing > .wrap > * { position: relative; z-index: 1; }
     .section-head { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(250px, .7fr); align-items: end; gap: 45px; margin-bottom: 46px; }
     .section-head h2, .closing h2 { margin: 17px 0 0; font: 500 clamp(2.4rem, 4.5vw, 4.2rem)/1.06 "Playfair Display", Georgia, serif; letter-spacing: -.04em; }
     .section-head h2 em, .closing h2 em { color: var(--gold); font-weight: 500; }
@@ -252,7 +275,7 @@
     .faq-list details[open] summary::after { content: "−"; }
     .faq-list details p { max-width: 820px; margin: -1px 0 23px; color: var(--muted); font-size: .87rem; line-height: 1.9; }
     .faq-list a { color: var(--gold); text-underline-offset: 4px; }
-    .closing { padding: 85px 0 113px; border-top: 1px solid var(--line); background: radial-gradient(ellipse at 50% 100%, rgba(221,116,41,.24), transparent 58%), radial-gradient(ellipse at 8% 0%, rgba(46,163,160,.10), transparent 55%); text-align: center; }
+    .closing { padding: clamp(34px, 4.5vw, 58px) 0; border-top: 1px solid var(--line); background: radial-gradient(ellipse at 50% 100%, rgba(221,116,41,.24), transparent 58%), radial-gradient(ellipse at 8% 0%, rgba(46,163,160,.10), transparent 55%); text-align: center; }
     .closing .eyebrow { justify-content: center; }
     .closing h2 { max-width: 800px; margin: 20px auto 18px; }
     .closing > .wrap > p { max-width: 620px; margin: 0 auto; color: var(--muted); line-height: 1.9; }
@@ -313,7 +336,7 @@
     }
     @media (max-width: 760px) {
       html { scroll-padding-top: 80px; }
-      .wrap { width: min(var(--max), calc(100% - 32px)); }
+      .wrap { width: min(var(--max), calc(100% - 24px)); }
       .nav { min-height: 72px; }
       .nav-toggle { display: flex; }
       .nav-links { position: absolute; top: calc(100% - 1px); left: 16px; right: 16px; display: none; align-items: stretch; flex-direction: column; gap: 0; padding: 10px; border: 1px solid rgba(248,232,190,.28); border-radius: 14px; background: linear-gradient(145deg, rgba(17,54,56,.88), rgba(5,14,15,.84)); -webkit-backdrop-filter: blur(20px) saturate(150%); backdrop-filter: blur(20px) saturate(150%); box-shadow: 0 18px 45px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.11); }
@@ -327,7 +350,7 @@
       .art-frame { aspect-ratio: 16 / 9; border-radius: 18px; }
       .art-label { left: 12px; top: -13px; }
       .scroll-cue { margin-top: 35px; }
-      .section { padding: 75px 0; }
+      .section { padding: 25px 0; }
       .intro-grid, .guide, .artist-panel, .context-grid { grid-template-columns: 1fr; }
       .pull-quote { min-height: 250px; }
       .guide-heading { position: static; }
