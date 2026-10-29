@@ -30,6 +30,97 @@
 
   if (typeof navigator.share !== 'function') nativeButton.hidden = true;
 
+  /*
+   * Keep only the Share control clear of each page's existing fixed music UI.
+   * Player positions differ between the homepage and individual cover pages, so
+   * measure their real rendered rectangles instead of guessing a single offset.
+   */
+  var playerSelector = '.music-bar, .floating-player, .floating-music-bar, .hark-player-dock, .youtube-music-dock, #floating-music-bar, #floatingPlayer, #harkPlayerDock';
+  var playerMutationObserver = null;
+  var playerResizeObserver = null;
+
+  function positionShareButton() {
+    if (!fab.isConnected) return;
+
+    /* Temporarily use the responsive CSS baseline to measure collision from. */
+    fab.style.removeProperty('bottom');
+    var computedBase = parseFloat(window.getComputedStyle(fab).bottom);
+    var baseBottom = Number.isFinite(computedBase)
+      ? computedBase
+      : (window.matchMedia('(max-width: 680px)').matches ? 88 : 98);
+    var fabRect = fab.getBoundingClientRect();
+    var mobile = window.matchMedia('(max-width: 680px)').matches;
+    var clearance = 12;
+    var finalBottom = baseBottom;
+
+    document.querySelectorAll(playerSelector).forEach(function (player) {
+      if (player === fab || player === menu || !player.isConnected) return;
+      var style = window.getComputedStyle(player);
+      if (style.position !== 'fixed' || style.display === 'none' ||
+          style.visibility === 'hidden' || player.hidden) return;
+
+      var rect = player.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+
+      /* Keep the minimized music-note button on its own row on phone screens. */
+      var isMinimizedMusicNote = mobile &&
+        player.matches('.youtube-music-dock.is-minimized');
+
+      var nearHorizontally =
+        fabRect.left < rect.right + clearance &&
+        fabRect.right > rect.left - clearance;
+      var nearVertically =
+        fabRect.bottom >= rect.top - clearance &&
+        fabRect.top <= rect.bottom + clearance;
+
+      if (isMinimizedMusicNote || (nearHorizontally && nearVertically)) {
+        finalBottom = Math.max(
+          finalBottom,
+          window.innerHeight - rect.top + clearance
+        );
+      }
+    });
+
+    finalBottom = Math.ceil(finalBottom);
+    fab.style.bottom = finalBottom + 'px';
+
+    /* Keep the open menu attached to the Share control and inside the viewport. */
+    var fabHeight = fab.getBoundingClientRect().height;
+    var menuBottom = Math.ceil(finalBottom + fabHeight + 10);
+    menu.style.bottom = menuBottom + 'px';
+    menu.style.maxHeight = Math.max(
+      120,
+      Math.min(430, window.innerHeight - menuBottom - 12)
+    ) + 'px';
+  }
+
+  function observeMusicPlayers() {
+    var players = document.querySelectorAll(playerSelector);
+    players.forEach(function (player) {
+      if (playerMutationObserver) {
+        try {
+          playerMutationObserver.observe(player, {
+            attributes: true,
+            attributeFilter: ['class', 'style', 'hidden']
+          });
+        } catch (error) {}
+      }
+      if (playerResizeObserver) {
+        try { playerResizeObserver.observe(player); } catch (error) {}
+      }
+    });
+  }
+
+  if (typeof MutationObserver === 'function') {
+    playerMutationObserver = new MutationObserver(function () {
+      positionShareButton();
+      observeMusicPlayers();
+    });
+  }
+  if (typeof ResizeObserver === 'function') {
+    playerResizeObserver = new ResizeObserver(positionShareButton);
+  }
+
   function getShareData() {
     var canonical = document.querySelector('link[rel="canonical"]');
     var ogTitle = document.querySelector('meta[property="og:title"]');
@@ -130,4 +221,9 @@
       fab.focus();
     }
   });
+
+  observeMusicPlayers();
+  positionShareButton();
+  window.addEventListener('resize', positionShareButton, { passive: true });
+  window.addEventListener('orientationchange', positionShareButton, { passive: true });
 })();
