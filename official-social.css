@@ -21,7 +21,7 @@
 .vp-share-fab:hover, .vp-share-fab[aria-expanded="true"] { transform: translateY(-2px); border-color: rgba(140,225,236,.9); box-shadow: 0 16px 36px rgba(0,0,0,.34), 0 0 22px rgba(85,211,231,.1); }
 .vp-share-fab svg { width: 17px; height: 17px; display: block; color: #a3edf1; }
 .vp-share-menu[hidden] { display: none !important; }
-.vp-share-menu { position: fixed; z-index: 9001; left: max(18px, env(safe-area-inset-left)); bottom: calc(153px + env(safe-area-inset-bottom)); width: min(326px, calc(100vw - 28px)); padding: 15px; border: 1px solid rgba(140,225,236,.3); border-radius: 19px; color: #edf7ff; background: radial-gradient(ellipse at 100% 0, rgba(71,190,211,.12), transparent 58%), linear-gradient(145deg, rgba(10,27,43,.985), rgba(4,12,24,.99)); box-shadow: 0 24px 70px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+.vp-share-menu { max-height: min(430px, calc(100dvh - 185px)); overflow-y: auto; position: fixed; z-index: 9001; left: max(18px, env(safe-area-inset-left)); bottom: calc(153px + env(safe-area-inset-bottom)); width: min(326px, calc(100vw - 28px)); padding: 15px; border: 1px solid rgba(140,225,236,.3); border-radius: 19px; color: #edf7ff; background: radial-gradient(ellipse at 100% 0, rgba(71,190,211,.12), transparent 58%), linear-gradient(145deg, rgba(10,27,43,.985), rgba(4,12,24,.99)); box-shadow: 0 24px 70px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
 .vp-share-menu-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 2px 2px 12px; border-bottom: 1px solid rgba(140,225,236,.13); }
 .vp-share-menu-head strong { display: block; font-size: .91rem; line-height: 1.35; color: #f4f8ff; }
 .vp-share-menu-head small { display: block; margin-top: 3px; color: #a2b7ca; font-size: .69rem; }
@@ -46,3 +46,4 @@
 @media (prefers-reduced-motion: reduce) {
   .vp-social-card, .vp-inline-share, .vp-share-fab, .vp-share-menu-actions button, .vp-share-menu-actions a { transition: none !important; }
 }
+.vp-share-menu-actions [hidden] { display: none !important; }
