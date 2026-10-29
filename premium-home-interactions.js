@@ -211,7 +211,9 @@
   const revealTargets = document.querySelectorAll(
     '.featured-art, .featured-copy, .mood-section .section-heading, ' +
     '.mood-section > .section-intro, .about-section, .request-section .request-copy, ' +
-    '.request-section .request-form, .connect-section, .support-card'
+    '.request-section .request-form, .connect-section, .connect-section > .eyebrow, ' +
+    '#vpSocialTitle, .connect-section > p:not(.eyebrow), .connect-actions, ' +
+    '.vp-social-intro, .vp-social-grid, .support-card'
   );
   if (!prefersReducedMotion && 'IntersectionObserver' in window) {
     document.documentElement.classList.add('vp-motion-ready');
