@@ -216,22 +216,37 @@
   if (!prefersReducedMotion && 'IntersectionObserver' in window) {
     document.documentElement.classList.add('vp-motion-ready');
 
-    /* Share the homepage's viewport-aware observer instead of running a second
-       reveal observer and scroll-direction listener for the same sections. */
-    revealTargets.forEach(target => target.classList.add('vp-reveal'));
-    if (typeof window.__vpRegisterDirectionalRevealTargets === 'function') {
-      window.__vpRegisterDirectionalRevealTargets(revealTargets);
-    }
-    if (typeof window.__vpUpdateDirectionalRevealStates === 'function') {
-      window.__vpUpdateDirectionalRevealStates();
-    }
+    let lastRevealScrollY = window.scrollY;
+    let revealScrollDirection = 'down';
+    window.addEventListener('scroll', () => {
+      const currentY = window.scrollY;
+      if (currentY !== lastRevealScrollY) {
+        revealScrollDirection = currentY > lastRevealScrollY ? 'down' : 'up';
+        lastRevealScrollY = currentY;
+      }
+    }, { passive: true });
+
+    const revealObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.dataset.vpRevealSeen = 'true';
+        }
+      });
+      // Main page script owns the shared edge-aware state for both reveal systems.
+      if (typeof window.__vpUpdateDirectionalRevealStates === 'function') {
+        window.__vpUpdateDirectionalRevealStates();
+      }
+    }, { threshold: 0, rootMargin: '0px' });
+    revealTargets.forEach(target => {
+      target.classList.add('vp-reveal');
+      revealObserver.observe(target);
+    });
   }
 
   // Pointer-positioned card light is desktop-only and changes CSS variables, not layout.
   const finePointer = window.matchMedia &&
     window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-  const performanceMode = document.documentElement.classList.contains('vp-performance-mode');
-  if (finePointer && !performanceMode) {
+  if (finePointer) {
     document.querySelectorAll('.music-card, .featured-art').forEach(surface => {
       surface.addEventListener('pointermove', event => {
         if (event.pointerType && event.pointerType !== 'mouse') return;
@@ -258,7 +273,7 @@
   // Low-amplitude 3D tilt for mouse/trackpad only. Touch and reduced-motion users
   // get the same layered composition without a pointer-following effect.
   const depthTargets = document.querySelectorAll('.hero-art, .featured-art, .music-card, .mood-card');
-  if (finePointer && !prefersReducedMotion && !performanceMode) {
+  if (finePointer && !prefersReducedMotion) {
     depthTargets.forEach(surface => {
       surface.addEventListener('pointermove', event => {
         if (event.pointerType && event.pointerType !== 'mouse') return;
