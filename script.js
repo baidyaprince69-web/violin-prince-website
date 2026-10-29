@@ -124,9 +124,7 @@
 
       // Read all geometry first, then change classes in a second pass to avoid
       // read/write layout thrashing while the visitor scrolls.
-      /* Only measure reveal targets near the viewport. Checking every card on every
-         scroll frame forced repeated layout reads across the whole long page. */
-      const states = [...activeRevealTargets]
+      const states = [...document.querySelectorAll('.music-card, .scroll-reveal, .vp-reveal') ]
         .map(element => ({
           element,
           rect: element.getBoundingClientRect(),
@@ -181,38 +179,16 @@
     window.addEventListener('scroll', scheduleDirectionalRevealUpdate, { passive: true });
     window.addEventListener('resize', scheduleDirectionalRevealUpdate, { passive: true });
 
-    const activeRevealTargets = new Set();
-    const registeredRevealTargets = new Set();
-
     const revealObserver = new IntersectionObserver(entries => {
       entries.forEach(entry => {
-        const element = entry.target;
         if (entry.isIntersecting) {
-          activeRevealTargets.add(element);
-          if (element.classList.contains('music-card') || element.classList.contains('scroll-reveal')) {
-            element.dataset.revealSeen = 'true';
-          }
-          if (element.classList.contains('vp-reveal')) {
-            element.dataset.vpRevealSeen = 'true';
-          }
-        } else {
-          activeRevealTargets.delete(element);
+          entry.target.dataset.revealSeen = 'true';
         }
       });
       scheduleDirectionalRevealUpdate();
-    }, { threshold: 0, rootMargin: '360px 0px 360px 0px' });
+    }, { threshold: 0, rootMargin: '0px' });
 
-    const registerDirectionalRevealTargets = elements => {
-      elements.forEach(element => {
-        if (!element || registeredRevealTargets.has(element)) return;
-        registeredRevealTargets.add(element);
-        revealObserver.observe(element);
-      });
-    };
-
-    /* The premium interaction layer can register its additional reveal targets here. */
-    window.__vpRegisterDirectionalRevealTargets = registerDirectionalRevealTargets;
-    registerDirectionalRevealTargets(revealTargets);
+    revealTargets.forEach(element => revealObserver.observe(element));
   }
 
   const emptyState = document.getElementById('emptyState');
