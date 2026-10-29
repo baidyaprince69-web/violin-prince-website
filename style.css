@@ -3578,24 +3578,3 @@ body.motion-ready .site-footer.scroll-reveal.exit-down:not(.is-visible) {
     transition: none !important;
   }
 }
-
-
-/* Main gallery repair: keep Majhe Majhe Tobo's own player visible directly
-   beneath its thumbnail, before the song details, matching the requested card order. */
-.music-section .music-card[data-cover-palette="tagore-cyan-sunshine"] > .majhe-majhe-mini-player {
-  display: grid !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  position: relative;
-  z-index: 2;
-  flex: 0 0 auto;
-  width: calc(100% - 2rem);
-  margin: .55rem 1rem .2rem !important;
-}
-@media (max-width: 720px) {
-  .music-section .music-card[data-cover-palette="tagore-cyan-sunshine"] > .majhe-majhe-mini-player {
-    width: calc(100% - 16px);
-    margin: .15rem 8px .9rem !important;
-    order: 0;
-  }
-}
