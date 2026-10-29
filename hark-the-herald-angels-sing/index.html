@@ -1533,7 +1533,7 @@
       var pointerLight = document.getElementById('vp-pointer-light');
       var pointerFine = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
-      if (pointerLight && pointerFine) {
+      if (pointerLight && pointerFine && !root.classList.contains('vp-performance-mode')) {
         var pointerFrame = 0;
         var pointerX = Math.round(window.innerWidth / 2);
         var pointerY = Math.round(window.innerHeight / 2);
@@ -1568,7 +1568,7 @@
       var smallScreen = window.matchMedia && window.matchMedia('(max-width: 640px)').matches;
       var connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
       var cores = navigator.hardwareConcurrency || 8;
-      var lowPower = smallScreen || cores <= 4 || !!(connection && connection.saveData);
+      var lowPower = root.classList.contains('vp-performance-mode') || smallScreen || cores <= 4 || !!(connection && connection.saveData);
       if (lowPower) root.classList.add('low-power');
 
       var width = 0, height = 0, scale = 1, flakes = [], frameId = 0, lastDrawAt = 0;
