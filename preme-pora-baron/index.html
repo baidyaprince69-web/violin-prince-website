@@ -176,7 +176,7 @@
     .footer-links{display:flex;flex-wrap:wrap;gap:17px}
     .footer-links a{font-size:.75rem;color:#aebfb9;text-decoration:none}
     .footer-links a:hover{color:#fff}
-    .floating-music-bar{position:fixed;z-index:60;left:50%;bottom:14px;transform:translate(-50%,16px);width:min(890px,calc(100% - 30px));display:grid;grid-template-columns:60px minmax(135px,1.1fr) minmax(150px,1.15fr) auto 46px 34px;gap:13px;align-items:center;padding:10px 13px;border-radius:19px;border:1px solid rgba(235,153,101,.35);background:rgba(5,25,30,.94);box-shadow:0 18px 65px rgba(0,0,0,.48),0 0 36px rgba(35,114,119,.13);backdrop-filter:blur(18px);opacity:0;pointer-events:none;transition:opacity .35s,transform .35s}
+    .floating-music-bar{position:fixed;z-index:60;left:50%;bottom:14px;transform:translate(-50%,16px);width:min(890px,calc(100% - 30px));display:grid;grid-template-columns:60px minmax(135px,1.1fr) minmax(150px,1.15fr) 82px auto 46px 34px;gap:13px;align-items:center;padding:10px 13px;border-radius:19px;border:1px solid rgba(235,153,101,.35);background:rgba(5,25,30,.94);box-shadow:0 18px 65px rgba(0,0,0,.48),0 0 36px rgba(35,114,119,.13);backdrop-filter:blur(18px);opacity:0;pointer-events:none;transition:opacity .35s,transform .35s}
     .floating-music-bar.is-visible{opacity:1;transform:translate(-50%,0);pointer-events:auto}
     .floating-art{width:60px;height:45px;object-fit:cover;border-radius:9px}
     .floating-copy{min-width:0}
@@ -184,7 +184,7 @@
     .status-dot{width:6px;height:6px;border-radius:50%;background:#829b94}
     .is-playing .status-dot{background:#e98b4f;box-shadow:0 0 10px rgba(233,139,79,.8)}
     .floating-copy strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff;font-size:.8rem}
-    .floating-copy small{display:block;color:#9eb3ac;font-size:.65rem}
+    .floating-copy small{display:block;color:#9eb3ac;font-size:.65rem}\n    .mini-wave{height:12px;display:flex;align-items:center;gap:3px;margin-top:5px}\n    .wave-bar{display:block;width:3px;height:10px;border-radius:5px;background:linear-gradient(180deg,#f3b17f,var(--orange));opacity:.48;transform:scaleY(.28);transform-origin:center;animation:none}\n    .is-playing .wave-bar{animation:wave-pulse .62s ease-in-out infinite alternate;opacity:1}\n    .is-playing .wave-bar:nth-child(2n){animation-delay:.14s}.is-playing .wave-bar:nth-child(3n){animation-delay:.28s}.is-playing .wave-bar:nth-child(4n){animation-delay:.08s}\n    @keyframes wave-pulse{to{transform:scaleY(1)}}
     .timeline{min-width:0}
     .progress-range{width:100%;height:5px;appearance:none;border-radius:99px;background:linear-gradient(90deg,var(--orange) var(--bar-progress,0%),rgba(222,238,229,.17) var(--bar-progress,0%));cursor:pointer;display:block}
     .progress-range::-webkit-slider-thumb{appearance:none;width:11px;height:11px;border-radius:50%;background:#ffe0bf;box-shadow:0 0 0 3px rgba(233,120,50,.18)}
@@ -197,10 +197,10 @@
     .mini-button{width:31px;height:31px;border:1px solid rgba(216,237,225,.18);border-radius:50%;background:rgba(255,255,255,.04);color:#d9e5dd;cursor:pointer}
     .jump-button{border:1px solid rgba(216,237,225,.17);border-radius:999px;padding:7px 10px;color:#d6e1d9;background:rgba(255,255,255,.04);font-size:.68rem;cursor:pointer}
     .volume-control{width:82px;accent-color:var(--orange);height:4px}
-    .floating-music-bar.is-minimized{width:auto;grid-template-columns:42px minmax(0,1fr) 35px;padding:8px 10px}
+    .floating-music-bar.is-minimized{width:auto;grid-template-columns:42px minmax(0,1fr) 35px 31px;padding:8px 10px}
     .floating-music-bar.is-minimized .floating-art{width:42px;height:36px}
     .floating-music-bar.is-minimized .timeline,.floating-music-bar.is-minimized .jump-button,.floating-music-bar.is-minimized .volume-control{display:none}
-    .floating-music-bar.is-minimized .floating-copy small{display:none}
+    .floating-music-bar.is-minimized .floating-copy small,.floating-music-bar.is-minimized .mini-wave{display:none}
     .floating-music-bar.is-minimized .player-button{width:35px;height:35px}
     .scroll-reveal{opacity:0;transform:translateY(16px);transition:opacity .65s ease,transform .65s ease}
     .scroll-reveal.is-visible{opacity:1;transform:translateY(0)}
@@ -265,10 +265,10 @@
       .floating-art{width:42px;height:36px}
       .floating-copy strong{font-size:.72rem}
       .floating-status{font-size:.52rem}
-      .floating-copy small,.timeline,.jump-button,.volume-control{display:none}
+      .floating-copy small,.mini-wave,.timeline,.jump-button,.volume-control{display:none}
       .player-button{width:36px;height:36px}
       .mini-button{width:27px;height:27px}
-      .floating-music-bar.is-minimized{width:calc(100% - 14px);grid-template-columns:42px minmax(0,1fr) 34px}
+      .floating-music-bar.is-minimized{width:calc(100% - 14px);grid-template-columns:42px minmax(0,1fr) 36px 27px}
     }
     @media(prefers-reduced-motion:reduce){
       *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
@@ -486,7 +486,7 @@
 
   <div class="floating-music-bar is-visible" id="floating-music-bar" role="region" aria-label="Preme Pora Baron floating music player">
     <img class="floating-art" src="https://i.ytimg.com/vi/UK7JYzoKKd4/hqdefault.jpg" alt="" width="60" height="45" loading="eager" decoding="async" aria-hidden="true">
-    <div class="floating-copy"><span class="floating-status"><i class="status-dot" aria-hidden="true"></i><span id="player-status">READY WHEN YOU ARE</span></span><strong>Preme Pora Baron</strong><small>Prince Baidya · Violin Prince</small></div>
+    <div class="floating-copy"><span class="floating-status"><i class="status-dot" aria-hidden="true"></i><span id="player-status">READY WHEN YOU ARE</span></span><strong>Preme Pora Baron</strong><small>Prince Baidya · Violin Prince</small><span class="mini-wave" aria-hidden="true"><i class="wave-bar"></i><i class="wave-bar"></i><i class="wave-bar"></i><i class="wave-bar"></i><i class="wave-bar"></i><i class="wave-bar"></i><i class="wave-bar"></i><i class="wave-bar"></i><i class="wave-bar"></i><i class="wave-bar"></i></span></div>
     <div class="timeline"><input id="floating-progress" class="progress-range" type="range" min="0" max="1000" step="1" value="0" aria-label="Seek through Preme Pora Baron violin cover" disabled><div class="time-row"><span id="current-time">0:00</span><span id="duration">--:--</span></div></div>
     <input id="volume-control" class="volume-control" type="range" min="0" max="100" step="1" value="70" aria-label="Video volume">
     <button class="jump-button" id="jump-to-video" type="button">Video ↗</button>
