@@ -1318,6 +1318,38 @@
     }
   </style>
 
+
+  <style id="preme-pora-baron-featured-performance-poster">
+    #video-frame{position:relative}
+    #video-frame .featured-video-poster{
+      position:absolute;inset:0;z-index:4;width:100%;height:100%;
+      display:block;object-fit:cover;object-position:center;
+      transition:opacity .28s ease,visibility .28s ease;
+    }
+    #video-frame .featured-video-launch{
+      position:absolute;z-index:5;left:50%;top:50%;
+      width:clamp(62px,8vw,84px);aspect-ratio:1;
+      display:grid;place-items:center;
+      border:2px solid rgba(255,255,255,.86);border-radius:50%;
+      transform:translate(-50%,-50%);
+      background:rgba(12,32,36,.76);color:#fff;
+      font:700 1.9rem/1 Arial,sans-serif;
+      box-shadow:0 12px 36px rgba(0,0,0,.34);
+      -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+      cursor:pointer;transition:background .2s ease,opacity .28s ease,visibility .28s ease;
+    }
+    #video-frame .featured-video-launch:hover{background:rgba(12,94,104,.94)}
+    #video-frame .featured-video-launch:focus-visible{
+      outline:3px solid #E9A266;outline-offset:5px;
+    }
+    #video-frame.is-playing .featured-video-poster,
+    #video-frame.is-playing .featured-video-launch{
+      opacity:0;visibility:hidden;pointer-events:none;
+    }
+    @media(prefers-reduced-motion:reduce){
+      #video-frame .featured-video-poster,#video-frame .featured-video-launch{transition:none}
+    }
+  </style>
 </head>
 <body>
   <div class="ambient" aria-hidden="true">
@@ -1449,6 +1481,8 @@
         <div class="video-shell scroll-reveal">
           <div class="video-top"><span><i class="live-dot" aria-hidden="true"></i>Featured violin cover</span><span>VIOLIN PRINCE · PRINCE BAIDYA</span></div>
           <div class="video-frame" id="video-frame">
+            <img class="featured-video-poster" id="featured-video-poster" src="images/featured-performance-poster.avif" alt="Preme Pora Baron violin cover artwork: Prince Baidya performing in a boat on a lake" width="640" height="360" loading="lazy" decoding="async">
+            <button class="featured-video-launch" id="featured-video-launch" type="button" aria-label="Play the Preme Pora Baron violin cover"><span aria-hidden="true">▶</span></button>
             <iframe id="ppb-video" src="https://www.youtube-nocookie.com/embed/UK7JYzoKKd4?rel=0&amp;enablejsapi=1&amp;playsinline=1&amp;origin=https%3A%2F%2Fbaidyaprince69-web.github.io" title="Lagnajita's Preme Pora Baron from Sweater — Violin Interpretation by Prince Baidya" loading="lazy" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
           </div>
           <div class="video-caption"><div><strong>Preme Pora Baron — Violin Interpretation</strong><span>Prince Baidya · Violin Prince</span></div><a href="https://youtu.be/UK7JYzoKKd4" target="_blank" rel="noopener noreferrer">Open the YouTube upload ↗</a></div>
@@ -1641,6 +1675,9 @@
   (function(){
     'use strict';
     var frame=document.getElementById('ppb-video'),bar=document.getElementById('floating-music-bar');
+    var videoStage=document.getElementById('video-frame');
+    var posterLaunch=document.getElementById('featured-video-launch');
+    var launchWhenReady=false;
     var playBtn=document.getElementById('play-toggle'),playIcon=document.getElementById('play-icon');
     var progress=document.getElementById('floating-progress'),status=document.getElementById('player-status');
     var currentLabel=document.getElementById('current-time'),durationLabel=document.getElementById('duration');
@@ -1663,10 +1700,10 @@
     function stateChange(e){
       if(!window.YT||!window.YT.PlayerState)return;
       var s=window.YT.PlayerState;
-      if(e.data===s.PLAYING){bar.classList.add('is-playing');icon('pause');playBtn.setAttribute('aria-label','Pause Preme Pora Baron violin cover');setStatus('NOW PLAYING');startTimer();}
+      if(e.data===s.PLAYING){if(videoStage)videoStage.classList.add('is-playing');bar.classList.add('is-playing');icon('pause');playBtn.setAttribute('aria-label','Pause Preme Pora Baron violin cover');setStatus('NOW PLAYING');startTimer();}
       else if(e.data===s.BUFFERING){stopTimer();icon('pause');setStatus('BUFFERING');}
       else if(e.data===s.PAUSED){stopTimer();bar.classList.remove('is-playing');icon('play');playBtn.setAttribute('aria-label','Play Preme Pora Baron violin cover');setStatus('PAUSED');}
-      else if(e.data===s.ENDED){stopTimer();bar.classList.remove('is-playing');icon('replay');playBtn.setAttribute('aria-label','Replay Preme Pora Baron violin cover');setStatus('PLAY AGAIN');progress.value='0';progress.style.setProperty('--bar-progress','0%');currentLabel.textContent='0:00';}
+      else if(e.data===s.ENDED){stopTimer();if(videoStage)videoStage.classList.remove('is-playing');bar.classList.remove('is-playing');icon('replay');playBtn.setAttribute('aria-label','Replay Preme Pora Baron violin cover');setStatus('PLAY AGAIN');progress.value='0';progress.style.setProperty('--bar-progress','0%');currentLabel.textContent='0:00';}
       else if(e.data===s.CUED||e.data===s.UNSTARTED){stopTimer();bar.classList.remove('is-playing');icon('play');setStatus('READY WHEN YOU ARE');}
       update();
     }
@@ -1675,6 +1712,7 @@
       if(volume&&player.setVolume)player.setVolume(Number(volume.value));
       setStatus('READY WHEN YOU ARE');
       update();
+      if(launchWhenReady){launchWhenReady=false;player.playVideo();setStatus('STARTING COVER');}
     }
     window.onYouTubeIframeAPIReady=function(){
       if(player)return;
@@ -1687,6 +1725,17 @@
       var s=player.getPlayerState();
       if(s===YT.PlayerState.PLAYING||s===YT.PlayerState.BUFFERING)player.pauseVideo();
       else{if(s===YT.PlayerState.ENDED)player.seekTo(0,true);player.playVideo();setStatus('STARTING COVER');}
+    });
+    if(posterLaunch)posterLaunch.addEventListener('click',function(){
+      if(ready&&player&&window.YT){
+        var s=player.getPlayerState();
+        if(s===YT.PlayerState.ENDED)player.seekTo(0,true);
+        player.playVideo();
+        setStatus('STARTING COVER');
+      }else{
+        launchWhenReady=true;
+        setStatus('STARTING COVER');
+      }
     });
     progress.addEventListener('input',function(){seeking=true;var v=Math.max(0,Math.min(1000,Number(progress.value)||0));progress.style.setProperty('--bar-progress',(v/10)+'%');});
     progress.addEventListener('change',function(){if(ready&&player){var d=player.getDuration();if(d>0)player.seekTo(d*(Number(progress.value)/1000),true);}seeking=false;update();});
