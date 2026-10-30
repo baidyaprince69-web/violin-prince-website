@@ -13,6 +13,8 @@
   <link rel="preconnect" href="https://i.ytimg.com">
   <link rel="preconnect" href="https://www.youtube-nocookie.com">
   <link rel="preconnect" href="https://www.youtube.com">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <meta property="og:type" content="video.other">
   <meta property="og:site_name" content="Violin Prince">
   <meta property="og:url" content="https://baidyaprince69-web.github.io/violin-prince-website/preme-pora-baron/">
@@ -25,23 +27,8 @@
   <meta name="twitter:title" content="Preme Pora Baron — Violin Interpretation by Prince Baidya">
   <meta name="twitter:description" content="Preme Pora Baron from Sweater, interpreted on violin by Prince Baidya of Violin Prince.">
   <meta name="twitter:image" content="https://i.ytimg.com/vi/UK7JYzoKKd4/maxresdefault.jpg">
-  <script>
-  (function(){
-    var root=document.documentElement;
-    root.classList.add('js');
-    var nav=window.navigator||{};
-    var connection=nav.connection||nav.mozConnection||nav.webkitConnection||{};
-    var cores=Number(nav.hardwareConcurrency)||0;
-    var memory=Number(nav.deviceMemory)||0;
-    var slowNetwork=connection.saveData||/2g/.test(connection.effectiveType||'');
-    var lightweight=(cores>0&&cores<=4)||(memory>0&&memory<=4)||slowNetwork;
-    if(lightweight){root.classList.add('vp-lite');return;}
-    var fonts=document.createElement('link');
-    fonts.rel='stylesheet';
-    fonts.href='https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Manrope:wght@400;500;600;700;800&family=Noto+Serif+Bengali:wght@400;500;600&display=swap';
-    document.head.appendChild(fonts);
-  })();
-  </script>
+  <script>document.documentElement.classList.add('js');</script>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Manrope:wght@400;500;600;700;800&family=Noto+Serif+Bengali:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../official-social.css?v=20261030-brandicons1">
   <style>
     :root {
@@ -1070,131 +1057,6 @@
     }
   </style>
 
-  <style id="preme-pora-baron-performance-and-responsive-tuning">
-    /* Keep the cinematic palette and depth, but avoid expensive full-screen paint effects. */
-    html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
-    body{min-width:320px}
-    img{height:auto}
-    body::before{display:none!important}
-    .ambient-ribbons{filter:none!important;animation:none!important;opacity:.12}
-    .ambient-bloom{filter:none!important;animation:none!important;will-change:auto!important;opacity:.28}
-    .ambient-glint{animation:none!important;box-shadow:none!important;opacity:.22}
-    .hero::after{filter:none!important;animation:none!important;opacity:.62}
-    .hero-orbit,.ambient::before,.ambient::after{animation:none!important}
-    section.section::before{
-      animation:none!important;filter:none!important;opacity:.34;
-      transition:none!important;background-size:auto!important;transform:none!important;
-    }
-    section.section.section-in-view::before,
-    section.section.section-out-up::before,
-    section.section.section-out-down::before{opacity:.34;filter:none;transform:none}
-    .topbar,.hero-art,.floating-music-bar,.related-index,.related-corner-mark,
-    .pull-card,.story-card,.music-panel,.interpret-card,.listen-box,.related-card,
-    .upcoming,.social-card,.video-shell{
-      -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
-    }
-    .hero-art::after,.video-shell::before{animation:none!important}
-    .hero-art,.video-shell{box-shadow:0 16px 38px rgba(0,0,0,.25),inset 0 1px 0 rgba(217,217,211,.12)}
-    .floating-music-bar{box-shadow:0 12px 32px rgba(0,0,0,.30),inset 0 1px 0 rgba(217,217,211,.08)}
-    .related-index,.related-corner-mark{box-shadow:0 3px 8px rgba(0,0,0,.16)}
-    html.js .scroll-reveal{
-      opacity:0;transform:translate3d(0,10px,0);filter:none!important;
-      will-change:auto!important;transition:opacity .36s ease,transform .36s ease!important;
-    }
-    html.js .scroll-reveal.is-entering-from-top,
-    html.js .scroll-reveal.is-entering-from-bottom,
-    html.js .scroll-reveal.is-leaving-up,
-    html.js .scroll-reveal.is-leaving-down{transform:translate3d(0,10px,0)}
-    html.js .scroll-reveal.is-visible{opacity:1;transform:none;filter:none!important}
-    .floating-music-bar{bottom:max(8px,env(safe-area-inset-bottom))}
-    .progress-range{min-height:18px;touch-action:pan-y}
-    @media(max-width:980px){
-      .section{padding:82px 0}
-      .split,.music-layout{gap:36px}
-      .story-grid{gap:12px}
-      .floating-music-bar{box-shadow:0 10px 28px rgba(0,0,0,.28)}
-    }
-    @media(max-width:760px){
-      .wrap{width:calc(100% - 32px)}
-      .hero{min-height:0;padding:54px 0 62px;gap:30px}
-      .hero-orbit,.ambient-ribbons,.ambient-glint,.ambient-bloom{display:none!important}
-      .hero::after{display:none}
-      .section{padding:64px 0}
-      .section-heading{margin-bottom:30px}
-      .split,.music-layout{gap:26px}
-      .story-grid{grid-template-columns:1fr}
-      .fact-strip{margin-top:28px}
-      .emotion-stage{padding:28px 20px}
-      .video-section{padding-top:62px}
-      .video-shell{padding:8px}
-      .upcoming{padding:24px}
-      .footer{padding-bottom:125px}
-      .topbar{background:rgba(31,47,48,.97)}
-    }
-    @media(max-width:520px){
-      body{padding-bottom:116px}
-      .wrap{width:calc(100% - 28px)}
-      .hero{padding-top:42px;padding-bottom:48px;gap:26px}
-      h1{font-size:clamp(3rem,13.8vw,4.7rem)}
-      h2{font-size:clamp(2.2rem,10vw,3.2rem)}
-      .section{padding:54px 0}
-      .section-heading{margin-bottom:25px}
-      .pull-card{padding:23px}
-      .music-panel,.interpret-card{padding:22px}
-      .fact{padding:14px}
-      .video-shell{padding:6px}
-      .listen-box{padding:14px}
-      .related-gallery{gap:12px}
-      .related-copy{padding:13px 15px 14px}
-      .upcoming{padding:20px}
-      .floating-music-bar{
-        width:calc(100% - 14px);grid-template-columns:42px minmax(0,1fr) 36px 28px;
-        grid-template-rows:auto auto;gap:6px 8px;padding:8px 9px;border-radius:15px;
-      }
-      .floating-art{width:42px;height:36px}
-      .floating-copy strong{font-size:.72rem}
-      .floating-status{font-size:.52rem}
-      .floating-copy small,.mini-wave,.jump-button,.volume-control{display:none}
-      .floating-music-bar .timeline{display:block;grid-column:1/-1;grid-row:2;padding:0 3px 1px}
-      .player-button{width:36px;height:36px}
-      .mini-button{width:28px;height:28px}
-      .floating-music-bar.is-minimized{width:calc(100% - 14px);grid-template-columns:42px minmax(0,1fr) 36px 28px;grid-template-rows:auto}
-      .progress-range{height:7px;min-height:22px}
-    }
-    @media(max-width:360px){
-      .brand{font-size:.72rem;letter-spacing:.10em}
-      .menu-toggle{padding:8px 10px}
-      .artistline{font-size:.78rem;flex-wrap:wrap}
-      .emotion-topline{align-items:flex-start;flex-direction:column;gap:8px}
-    }
-    @media(hover:none){
-      .btn:hover,.story-card:hover,.interpret-card:hover,.social-card:hover,.related-card:hover{transform:none}
-      .related-card:hover .related-thumb img{transform:none;filter:none}
-      .related-card:hover .related-corner-mark,.related-card:hover .related-link b{transform:none}
-    }
-    .vp-lite{
-      --sans:Arial,"Segoe UI",sans-serif;
-      --display:"Arial Narrow",Impact,Arial,sans-serif;
-      --bengali:"Noto Serif Bengali",serif;
-    }
-    .vp-lite body::before{display:none!important}
-    .vp-lite .ambient-ribbons,.vp-lite .ambient-glint,.vp-lite .ambient-bloom,.vp-lite .hero-orbit{display:none!important}
-    .vp-lite .ambient,.vp-lite body>.ambient{contain:paint}
-    .vp-lite .hero::after{display:none!important}
-    .vp-lite section.section::before{opacity:.22!important}
-    .vp-lite .scroll-reveal,.vp-lite html.js .scroll-reveal,.vp-lite html.js .scroll-reveal.is-visible{
-      opacity:1!important;transform:none!important;filter:none!important;transition:none!important;will-change:auto!important
-    }
-    .vp-lite .wave-bar{animation:none!important;transform:scaleY(.55);opacity:.7}
-    .vp-lite .hero-art,.vp-lite .video-shell,.vp-lite .related-card,.vp-lite .floating-music-bar{
-      box-shadow:0 8px 22px rgba(0,0,0,.24),inset 0 1px 0 rgba(217,217,211,.10)
-    }
-    @media(prefers-reduced-motion:reduce){
-      *,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}
-      html.js .scroll-reveal{opacity:1!important;transform:none!important;filter:none!important}
-    }
-  </style>
-
 </head>
 <body>
   <div class="ambient" aria-hidden="true">
@@ -1454,21 +1316,53 @@
   <script>
   (function(){
     'use strict';
-    var items=document.querySelectorAll('.scroll-reveal');
-    var root=document.documentElement;
+    var revealItems=document.querySelectorAll('.scroll-reveal, section.section');
     var reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if(root.classList.contains('vp-lite')||reduced||!('IntersectionObserver' in window)){
-      items.forEach(function(item){item.classList.add('is-visible');});
+    if(reduced||!('IntersectionObserver' in window)){
+      revealItems.forEach(function(item){
+        if(item.matches('section.section'))item.classList.add('section-in-view');
+        else item.classList.add('is-visible');
+      });
       return;
     }
+    var lastY=window.scrollY||window.pageYOffset||0;
+    var direction=1;
+    window.addEventListener('scroll',function(){
+      var y=window.scrollY||window.pageYOffset||0;
+      if(Math.abs(y-lastY)>2)direction=y>lastY?1:-1;
+      lastY=y;
+    },{passive:true});
     var observer=new IntersectionObserver(function(entries){
       entries.forEach(function(entry){
-        if(!entry.isIntersecting)return;
-        entry.target.classList.add('is-visible');
-        observer.unobserve(entry.target);
+        var item=entry.target;
+        var isSection=item.matches('section.section');
+        if(entry.isIntersecting){
+          if(isSection){
+            item.classList.remove('section-out-up','section-out-down');
+            item.classList.add('section-in-view');
+            return;
+          }
+          item.__vpRevealToken=(item.__vpRevealToken||0)+1;
+          var token=item.__vpRevealToken;
+          item.classList.remove('is-visible','is-leaving-up','is-leaving-down','is-entering-from-top','is-entering-from-bottom');
+          item.classList.add(direction<0?'is-entering-from-top':'is-entering-from-bottom');
+          requestAnimationFrame(function(){
+            if(item.__vpRevealToken!==token||!item.isConnected)return;
+            item.classList.add('is-visible');
+            item.classList.remove('is-entering-from-top','is-entering-from-bottom');
+          });
+        }else if(item.classList.contains('section-in-view')){
+          item.classList.remove('section-in-view');
+          item.classList.add(direction>0?'section-out-up':'section-out-down');
+        }else if(item.dataset.vpEntered==='true'){
+          item.__vpRevealToken=(item.__vpRevealToken||0)+1;
+          item.classList.remove('is-visible','is-entering-from-top','is-entering-from-bottom','is-leaving-up','is-leaving-down');
+          item.classList.add(direction>0?'is-leaving-up':'is-leaving-down');
+        }
+        if(entry.isIntersecting)item.dataset.vpEntered='true';
       });
-    },{threshold:0.06,rootMargin:'0px 0px -36px 0px'});
-    items.forEach(function(item){observer.observe(item);});
+    },{threshold:.035,rootMargin:'-10% 0px -10% 0px'});
+    revealItems.forEach(function(item){observer.observe(item);});
   })();
   </script>
   <script>
@@ -1490,176 +1384,138 @@
     var progress=document.getElementById('floating-progress'),status=document.getElementById('player-status');
     var currentLabel=document.getElementById('current-time'),durationLabel=document.getElementById('duration');
     var volume=document.getElementById('volume-control'),mini=document.getElementById('minimize-player');
-    var player=null,ready=false,timer=null,seeking=false,apiLoading=false,playRequested=false;
+    var player=null,ready=false,timer=null,seeking=false;
     if(!frame||!bar||!playBtn||!progress)return;
-    function fmt(sec){
-      if(!isFinite(sec)||sec<0)return'0:00';
-      var n=Math.floor(sec);
-      return Math.floor(n/60)+':'+String(n%60).padStart(2,'0');
-    }
-    function setStatus(value){if(status)status.textContent=value;}
+    function fmt(sec){if(!isFinite(sec)||sec<0)return'0:00';var n=Math.floor(sec);return Math.floor(n/60)+':'+String(n%60).padStart(2,'0');}
+    function setStatus(s){if(status)status.textContent=s;}
     function icon(mode){
-      var path=mode==='pause'
-        ?'<rect x="5" y="5" width="10" height="10" rx="1.2" fill="currentColor"/>'
-        :mode==='replay'
-          ?'<path d="M16.2 7.1A6.4 6.4 0 1 0 16.4 12h-2.1a4.3 4.3 0 1 1-1.1-3l-2.1 2.1H17V5.2l-.8 1.9Z" fill="currentColor"/>'
-          :'<path d="M6 3.8v12.4c0 .6.7 1 1.2.7l9-6.2a.9.9 0 0 0 0-1.4l-9-6.2c-.5-.3-1.2.1-1.2.7Z" fill="currentColor"/>';
+      var path=mode==='pause'?'<rect x="5" y="5" width="10" height="10" rx="1.2" fill="currentColor"/>':mode==='replay'?'<path d="M16.2 7.1A6.4 6.4 0 1 0 16.4 12h-2.1a4.3 4.3 0 1 1-1.1-3l-2.1 2.1H17V5.2l-.8 1.9Z" fill="currentColor"/>':'<path d="M6 3.8v12.4c0 .6.7 1 1.2.7l9-6.2a.9.9 0 0 0 0-1.4l-9-6.2c-.5-.3-1.2.1-1.2.7Z" fill="currentColor"/>';
       playIcon.innerHTML='<svg viewBox="0 0 20 20" aria-hidden="true">'+path+'</svg>';
     }
     function update(){
       if(!ready||!player)return;
-      try{
-        var duration=player.getDuration(),time=player.getCurrentTime();
-        if(duration>0){
-          if(!seeking){
-            var value=Math.max(0,Math.min(1000,Math.round(time/duration*1000)));
-            progress.value=String(value);
-            progress.style.setProperty('--bar-progress',(value/10)+'%');
-          }
-          currentLabel.textContent=fmt(time);
-          durationLabel.textContent=fmt(duration);
-        }
-      }catch(error){}
+      var d=player.getDuration(),t=player.getCurrentTime();
+      if(d>0){if(!seeking){var v=Math.max(0,Math.min(1000,Math.round(t/d*1000)));progress.value=String(v);progress.style.setProperty('--bar-progress',(v/10)+'%');}currentLabel.textContent=fmt(t);durationLabel.textContent=fmt(d);}
     }
-    function startTimer(){if(timer===null)timer=window.setInterval(update,1000);}
-    function stopTimer(){if(timer!==null){window.clearInterval(timer);timer=null;}}
-    function stateChange(event){
+    function stateChange(e){
       if(!window.YT||!window.YT.PlayerState)return;
-      var state=window.YT.PlayerState;
-      if(event.data===state.PLAYING){
-        bar.classList.add('is-playing');
-        icon('pause');
-        playBtn.setAttribute('aria-label','Pause Preme Pora Baron violin cover');
-        setStatus('NOW PLAYING');
-        startTimer();
-      }else{
-        stopTimer();
-        if(event.data===state.BUFFERING){
-          icon('pause');setStatus('BUFFERING');
-        }else if(event.data===state.PAUSED){
-          bar.classList.remove('is-playing');
-          icon('play');
-          playBtn.setAttribute('aria-label','Play Preme Pora Baron violin cover');
-          setStatus('PAUSED');
-        }else if(event.data===state.ENDED){
-          bar.classList.remove('is-playing');
-          icon('replay');
-          playBtn.setAttribute('aria-label','Replay Preme Pora Baron violin cover');
-          setStatus('PLAY AGAIN');
-          progress.value='0';
-          progress.style.setProperty('--bar-progress','0%');
-          currentLabel.textContent='0:00';
-        }else if(event.data===state.CUED||event.data===state.UNSTARTED){
-          bar.classList.remove('is-playing');
-          icon('play');setStatus('READY WHEN YOU ARE');
-        }
-      }
+      var s=window.YT.PlayerState;
+      if(e.data===s.PLAYING){bar.classList.add('is-playing');icon('pause');playBtn.setAttribute('aria-label','Pause Preme Pora Baron violin cover');setStatus('NOW PLAYING');}
+      else if(e.data===s.BUFFERING){icon('pause');setStatus('BUFFERING');}
+      else if(e.data===s.PAUSED){bar.classList.remove('is-playing');icon('play');playBtn.setAttribute('aria-label','Play Preme Pora Baron violin cover');setStatus('PAUSED');}
+      else if(e.data===s.ENDED){bar.classList.remove('is-playing');icon('replay');playBtn.setAttribute('aria-label','Replay Preme Pora Baron violin cover');setStatus('PLAY AGAIN');progress.value='0';progress.style.setProperty('--bar-progress','0%');currentLabel.textContent='0:00';}
+      else if(e.data===s.CUED||e.data===s.UNSTARTED){bar.classList.remove('is-playing');icon('play');setStatus('READY WHEN YOU ARE');}
       update();
     }
-    function readyHandler(event){
-      player=event.target;
-      ready=true;
-      playBtn.disabled=false;
-      progress.disabled=false;
+    function readyHandler(e){
+      player=e.target;ready=true;playBtn.disabled=false;progress.disabled=false;
       if(volume&&player.setVolume)player.setVolume(Number(volume.value));
       setStatus('READY WHEN YOU ARE');
       update();
-      if(playRequested){
-        playRequested=false;
-        player.playVideo();
-        setStatus('STARTING COVER');
-      }
+      if(timer===null)timer=window.setInterval(update,700);
     }
-    function attachPlayer(){
-      apiLoading=false;
-      if(player||!window.YT||!window.YT.Player)return;
+    window.onYouTubeIframeAPIReady=function(){
+      if(player)return;
       try{
-        player=new window.YT.Player(frame,{
-          events:{
-            onReady:readyHandler,
-            onStateChange:stateChange,
-            onError:function(){
-              ready=false;playBtn.disabled=false;progress.disabled=true;
-              playRequested=false;setStatus('OPEN VIDEO ON YOUTUBE');
-            }
-          }
-        });
-      }catch(error){setStatus('OPEN VIDEO ON YOUTUBE');}
-    }
-    function ensureApi(){
-      if(window.YT&&window.YT.Player){attachPlayer();return;}
-      if(apiLoading)return;
-      apiLoading=true;
-      var script=document.createElement('script');
-      script.src='https://www.youtube.com/iframe_api';
-      script.async=true;
-      script.onerror=function(){apiLoading=false;setStatus('OPEN VIDEO ON YOUTUBE');};
-      document.head.appendChild(script);
-    }
-    window.onYouTubeIframeAPIReady=attachPlayer;
-    playBtn.disabled=false;
+        player=new YT.Player(frame,{events:{onReady:readyHandler,onStateChange:stateChange,onError:function(){ready=false;playBtn.disabled=true;progress.disabled=true;setStatus('OPEN VIDEO ON YOUTUBE');}}});
+      }catch(err){setStatus('OPEN VIDEO ON YOUTUBE');}
+    };
     playBtn.addEventListener('click',function(){
-      if(!ready||!player){
-        playRequested=true;
-        setStatus('LOADING PLAYER');
-        ensureApi();
-        return;
-      }
-      var state=player.getPlayerState();
-      if(state===window.YT.PlayerState.PLAYING||state===window.YT.PlayerState.BUFFERING){
-        player.pauseVideo();
-      }else{
-        if(state===window.YT.PlayerState.ENDED)player.seekTo(0,true);
-        player.playVideo();
-        setStatus('STARTING COVER');
-      }
+      if(!ready||!player||!window.YT)return;
+      var s=player.getPlayerState();
+      if(s===YT.PlayerState.PLAYING||s===YT.PlayerState.BUFFERING)player.pauseVideo();
+      else{if(s===YT.PlayerState.ENDED)player.seekTo(0,true);player.playVideo();setStatus('STARTING COVER');}
     });
-    progress.addEventListener('input',function(){
-      seeking=true;
-      var value=Math.max(0,Math.min(1000,Number(progress.value)||0));
-      progress.style.setProperty('--bar-progress',(value/10)+'%');
-    });
-    progress.addEventListener('change',function(){
-      if(ready&&player){
-        var duration=player.getDuration();
-        if(duration>0)player.seekTo(duration*(Number(progress.value)/1000),true);
-      }
-      seeking=false;
-      update();
-    });
-    if(volume)volume.addEventListener('input',function(){
-      if(ready&&player&&player.setVolume)player.setVolume(Number(volume.value));
-    });
-    var jump=document.getElementById('jump-to-video');
-    if(jump)jump.addEventListener('click',function(){
-      var lowPower=document.documentElement.classList.contains('vp-lite');
-      document.getElementById('video-frame').scrollIntoView({
-        behavior:lowPower||(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)?'auto':'smooth',
-        block:'center'
-      });
-    });
-    if(mini)mini.addEventListener('click',function(){
-      var minimized=bar.classList.toggle('is-minimized');
-      mini.textContent=minimized?'+':'−';
-      mini.setAttribute('aria-expanded',String(!minimized));
-      mini.setAttribute('aria-label',minimized?'Expand music player':'Minimize music player');
-    });
+    progress.addEventListener('input',function(){seeking=true;var v=Math.max(0,Math.min(1000,Number(progress.value)||0));progress.style.setProperty('--bar-progress',(v/10)+'%');});
+    progress.addEventListener('change',function(){if(ready&&player){var d=player.getDuration();if(d>0)player.seekTo(d*(Number(progress.value)/1000),true);}seeking=false;update();});
+    if(volume)volume.addEventListener('input',function(){if(ready&&player&&player.setVolume)player.setVolume(Number(volume.value));});
+    document.getElementById('jump-to-video').addEventListener('click',function(){document.getElementById('video-frame').scrollIntoView({behavior:(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)?'auto':'smooth',block:'center'});});
+    mini.addEventListener('click',function(){var minimized=bar.classList.toggle('is-minimized');mini.textContent=minimized?'+':'−';mini.setAttribute('aria-expanded',String(!minimized));mini.setAttribute('aria-label',minimized?'Expand music player':'Minimize music player');});
     bar.classList.add('is-visible');
-    var performanceSection=document.getElementById('performance');
-    if(performanceSection&&'IntersectionObserver' in window){
-      var playerObserver=new IntersectionObserver(function(entries){
-        if(entries.some(function(entry){return entry.isIntersecting;})){
-          ensureApi();playerObserver.disconnect();
-        }
-      },{rootMargin:'480px 0px'});
-      playerObserver.observe(performanceSection);
-    }
+    var tag=document.createElement('script');tag.src='https://www.youtube.com/iframe_api';tag.async=true;
+    tag.onerror=function(){setStatus('OPEN VIDEO ON YOUTUBE');};document.head.appendChild(tag);
   })();
   </script>
   <script src="../official-social.js?v=20261029-layoutfix1"></script>
   <script src="../social-brand-icons.js?v=20261030-brandicons1"></script>
 
-  
+  <script id="preme-pora-baron-thumbnail-colour-sampling">
+  (function(){
+    'use strict';
+    var section=document.getElementById('more-covers');
+    if(!section)return;
+    var started=false;
+    function sampleThumbnail(card){
+      var image=card.querySelector('.related-thumb img');
+      if(!image)return;
+      var probe=new Image();
+      probe.crossOrigin='anonymous';
+      probe.decoding='async';
+      probe.onload=function(){
+        try{
+          var canvas=document.createElement('canvas');
+          canvas.width=28;canvas.height=16;
+          var context=canvas.getContext('2d',{willReadFrequently:true});
+          if(!context)return;
+          context.drawImage(probe,0,0,28,16);
+          var pixels=context.getImageData(0,0,28,16).data;
+          var bins=[];
+          for(var b=0;b<24;b++)bins.push({weight:0,r:0,g:0,b:0});
+          var fallback={weight:0,r:0,g:0,b:0};
+          for(var i=0;i<pixels.length;i+=4){
+            var r=pixels[i],g=pixels[i+1],bl=pixels[i+2];
+            var max=Math.max(r,g,bl),min=Math.min(r,g,bl),delta=max-min;
+            var sat=max===0?0:delta/max;
+            var lum=(r+g+bl)/3;
+            if(lum<24||lum>246)continue;
+            var hue=0;
+            if(delta!==0){
+              if(max===r)hue=60*(((g-bl)/delta)%6);
+              else if(max===g)hue=60*((bl-r)/delta+2);
+              else hue=60*((r-g)/delta+4);
+            }
+            if(hue<0)hue+=360;
+            var weight=Math.max(.08,sat)*(.45+.55*(1-Math.abs(lum-132)/132));
+            fallback.weight+=weight;fallback.r+=r*weight;fallback.g+=g*weight;fallback.b+=bl*weight;
+            if(sat>.13){
+              var bin=bins[Math.min(23,Math.floor(hue/15))];
+              bin.weight+=weight;bin.r+=r*weight;bin.g+=g*weight;bin.b+=bl*weight;
+            }
+          }
+          var winner=bins.reduce(function(best,item){return item.weight>best.weight?item:best;},bins[0]);
+          var chosen=winner.weight>fallback.weight*.10?winner:fallback;
+          if(!chosen.weight)return;
+          var rr=Math.round(chosen.r/chosen.weight),gg=Math.round(chosen.g/chosen.weight),bb=Math.round(chosen.b/chosen.weight);
+          var light=(rr*.2126+gg*.7152+bb*.0722);
+          if(light<92){rr=Math.round(rr*.72+217*.28);gg=Math.round(gg*.72+217*.28);bb=Math.round(bb*.72+217*.28);}
+          if(light>218){rr=Math.round(rr*.78+31*.22);gg=Math.round(gg*.78+47*.22);bb=Math.round(bb*.78+48*.22);}
+          card.style.setProperty('--cover-rgb',rr+' '+gg+' '+bb);
+          var inkR=Math.round(rr*.56+31*.44),inkG=Math.round(gg*.56+47*.44),inkB=Math.round(bb*.56+48*.44);
+          card.style.setProperty('--cover-ink','rgb('+inkR+' '+inkG+' '+inkB+')');
+          card.style.setProperty('--cover-accent','rgb('+inkR+' '+inkG+' '+inkB+')');
+        }catch(error){
+          /* Cross-origin image restrictions simply leave the curated fallback colour in place. */
+        }
+      };
+      probe.onerror=function(){};
+      probe.src=image.currentSrc||image.src;
+    }
+    function start(){
+      if(started)return;started=true;
+      section.querySelectorAll('[data-cover-card]').forEach(sampleThumbnail);
+    }
+    if('IntersectionObserver' in window){
+      var observer=new IntersectionObserver(function(entries){
+        if(entries.some(function(entry){return entry.isIntersecting;})){
+          start();observer.disconnect();
+        }
+      },{rootMargin:'240px 0px'});
+      observer.observe(section);
+    }else{
+      start();
+    }
+  })();
+  </script>
 
 </body>
 </html>
