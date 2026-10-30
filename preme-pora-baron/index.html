@@ -11,6 +11,7 @@
   <meta name="robots" content="index,follow,max-image-preview:large">
   <link rel="canonical" href="https://baidyaprince69-web.github.io/violin-prince-website/preme-pora-baron/">
   <link rel="preconnect" href="https://i.ytimg.com">
+  <link rel="preload" as="image" href="https://i.ytimg.com/vi/UK7JYzoKKd4/maxresdefault.jpg" fetchpriority="high">
   <link rel="preconnect" href="https://www.youtube-nocookie.com">
   <link rel="preconnect" href="https://www.youtube.com">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1057,6 +1058,71 @@
     }
   </style>
 
+  <style id="preme-pora-baron-device-performance">
+    /* Layout containment prevents small card/layout changes from invalidating the whole page. */
+    html{-webkit-text-size-adjust:100%;text-size-adjust:100%;scroll-padding-top:90px}
+    body{min-width:320px}
+    .wrap,.hero-copy,.prose,.section-heading,.music-panel,.interpret-card,.listen-copy,
+    .footer-brand,.related-card,.related-copy{min-width:0}
+    .ambient{contain:layout paint}
+    section.section{contain:layout style}
+    .related-card,.story-card,.interpret-card,.social-card,.music-panel,.pull-card,
+    .listen-box,.upcoming,.video-shell{contain:layout style}
+    .ambient-ribbons,.ambient-glint,.hero::after,.ambient::before,.ambient::after{
+      backface-visibility:hidden;
+      -webkit-backface-visibility:hidden;
+    }
+    .ambient-ribbons,.ambient-glint{will-change:transform,opacity}
+    .hero::after{will-change:transform,opacity}
+    img{height:auto}
+    .hero-art img,.listen-box img,.floating-art,.related-thumb img{
+      image-rendering:auto;
+    }
+    .video-frame iframe{contain:layout paint}
+    .floating-music-bar{padding-bottom:max(10px,env(safe-area-inset-bottom))}
+    @media(max-width:1100px){
+      .hero{column-gap:clamp(24px,3vw,34px)}
+      .music-layout,.split{column-gap:clamp(28px,4vw,42px)}
+    }
+    @media(min-width:761px) and (max-width:980px){
+      .wrap{width:calc(100% - 40px)}
+      .hero{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+      .hero-art{max-width:100%}
+      .music-layout{grid-template-columns:minmax(0,1fr) minmax(0,.92fr)}
+      .split{grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr)}
+      .listen-box{grid-template-columns:96px minmax(0,1fr) auto;gap:16px}
+      .listen-box img{width:96px}
+    }
+    @media(max-width:760px){
+      .wrap{width:calc(100% - 32px)}
+      .hero,.music-layout,.split{min-width:0}
+      .hero-art{width:100%}
+      .listen-box{grid-template-columns:78px minmax(0,1fr);align-items:center}
+      .listen-copy{overflow-wrap:anywhere}
+      .nav-links{max-height:calc(100vh - 84px);overflow-y:auto;overscroll-behavior:contain}
+      .floating-music-bar{left:50%;max-width:calc(100vw - 14px)}
+    }
+    @media(max-width:520px){
+      .wrap{width:calc(100% - 28px)}
+      .lead,.prose p,.section-heading p{overflow-wrap:anywhere}
+      .related-card,.related-copy{min-width:0}
+      .related-copy strong{overflow-wrap:anywhere}
+      .footer-links{row-gap:10px}
+    }
+    @media(max-width:360px){
+      .wrap{width:calc(100% - 24px)}
+      .brand{letter-spacing:.10em}
+      .nav{gap:10px}
+      .menu-toggle{white-space:nowrap}
+      .floating-music-bar{gap:5px 6px}
+    }
+    @media(orientation:landscape) and (max-height:520px) and (max-width:900px){
+      .hero{min-height:0;padding-top:34px;padding-bottom:38px}
+      .hero-art{max-width:520px}
+      .section{padding-top:48px;padding-bottom:48px}
+    }
+  </style>
+
 </head>
 <body>
   <div class="ambient" aria-hidden="true">
@@ -1107,7 +1173,7 @@
         </div>
       </div>
       <figure class="hero-art scroll-reveal delay-1">
-        <img src="https://i.ytimg.com/vi/UK7JYzoKKd4/maxresdefault.jpg" alt="Prince Baidya playing violin in a boat on a lake, with a younger passenger beside him; the cover artwork for Preme Pora Baron" width="1280" height="720" fetchpriority="high">
+        <img src="https://i.ytimg.com/vi/UK7JYzoKKd4/maxresdefault.jpg" alt="Prince Baidya playing violin in a boat on a lake, with a younger passenger beside him; the cover artwork for Preme Pora Baron" width="1280" height="720" fetchpriority="high" decoding="async">
         <figcaption class="art-caption"><b>PREME PORA BARON</b><span>VIOLIN · PRINCE BAIDYA</span></figcaption>
       </figure>
     </section>
@@ -1397,14 +1463,16 @@
       var d=player.getDuration(),t=player.getCurrentTime();
       if(d>0){if(!seeking){var v=Math.max(0,Math.min(1000,Math.round(t/d*1000)));progress.value=String(v);progress.style.setProperty('--bar-progress',(v/10)+'%');}currentLabel.textContent=fmt(t);durationLabel.textContent=fmt(d);}
     }
+    function startTimer(){if(timer===null)timer=window.setInterval(update,700);}
+    function stopTimer(){if(timer!==null){window.clearInterval(timer);timer=null;}}
     function stateChange(e){
       if(!window.YT||!window.YT.PlayerState)return;
       var s=window.YT.PlayerState;
-      if(e.data===s.PLAYING){bar.classList.add('is-playing');icon('pause');playBtn.setAttribute('aria-label','Pause Preme Pora Baron violin cover');setStatus('NOW PLAYING');}
-      else if(e.data===s.BUFFERING){icon('pause');setStatus('BUFFERING');}
-      else if(e.data===s.PAUSED){bar.classList.remove('is-playing');icon('play');playBtn.setAttribute('aria-label','Play Preme Pora Baron violin cover');setStatus('PAUSED');}
-      else if(e.data===s.ENDED){bar.classList.remove('is-playing');icon('replay');playBtn.setAttribute('aria-label','Replay Preme Pora Baron violin cover');setStatus('PLAY AGAIN');progress.value='0';progress.style.setProperty('--bar-progress','0%');currentLabel.textContent='0:00';}
-      else if(e.data===s.CUED||e.data===s.UNSTARTED){bar.classList.remove('is-playing');icon('play');setStatus('READY WHEN YOU ARE');}
+      if(e.data===s.PLAYING){bar.classList.add('is-playing');icon('pause');playBtn.setAttribute('aria-label','Pause Preme Pora Baron violin cover');setStatus('NOW PLAYING');startTimer();}
+      else if(e.data===s.BUFFERING){stopTimer();icon('pause');setStatus('BUFFERING');}
+      else if(e.data===s.PAUSED){stopTimer();bar.classList.remove('is-playing');icon('play');playBtn.setAttribute('aria-label','Play Preme Pora Baron violin cover');setStatus('PAUSED');}
+      else if(e.data===s.ENDED){stopTimer();bar.classList.remove('is-playing');icon('replay');playBtn.setAttribute('aria-label','Replay Preme Pora Baron violin cover');setStatus('PLAY AGAIN');progress.value='0';progress.style.setProperty('--bar-progress','0%');currentLabel.textContent='0:00';}
+      else if(e.data===s.CUED||e.data===s.UNSTARTED){stopTimer();bar.classList.remove('is-playing');icon('play');setStatus('READY WHEN YOU ARE');}
       update();
     }
     function readyHandler(e){
@@ -1412,12 +1480,11 @@
       if(volume&&player.setVolume)player.setVolume(Number(volume.value));
       setStatus('READY WHEN YOU ARE');
       update();
-      if(timer===null)timer=window.setInterval(update,700);
     }
     window.onYouTubeIframeAPIReady=function(){
       if(player)return;
       try{
-        player=new YT.Player(frame,{events:{onReady:readyHandler,onStateChange:stateChange,onError:function(){ready=false;playBtn.disabled=true;progress.disabled=true;setStatus('OPEN VIDEO ON YOUTUBE');}}});
+        player=new YT.Player(frame,{events:{onReady:readyHandler,onStateChange:stateChange,onError:function(){stopTimer();ready=false;playBtn.disabled=true;progress.disabled=true;setStatus('OPEN VIDEO ON YOUTUBE');}}});
       }catch(err){setStatus('OPEN VIDEO ON YOUTUBE');}
     };
     playBtn.addEventListener('click',function(){
