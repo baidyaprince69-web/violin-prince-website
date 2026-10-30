@@ -579,7 +579,7 @@
     progress.addEventListener('input',function(){seeking=true;var v=Math.max(0,Math.min(1000,Number(progress.value)||0));progress.style.setProperty('--bar-progress',(v/10)+'%');});
     progress.addEventListener('change',function(){if(ready&&player){var d=player.getDuration();if(d>0)player.seekTo(d*(Number(progress.value)/1000),true);}seeking=false;update();});
     if(volume)volume.addEventListener('input',function(){if(ready&&player&&player.setVolume)player.setVolume(Number(volume.value));});
-    document.getElementById('jump-to-video').addEventListener('click',function(){document.getElementById('video-frame').scrollIntoView({behavior:reduced?'auto':'smooth',block:'center'});});
+    document.getElementById('jump-to-video').addEventListener('click',function(){document.getElementById('video-frame').scrollIntoView({behavior:(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)?'auto':'smooth',block:'center'});});
     mini.addEventListener('click',function(){var minimized=bar.classList.toggle('is-minimized');mini.textContent=minimized?'+':'−';mini.setAttribute('aria-expanded',String(!minimized));mini.setAttribute('aria-label',minimized?'Expand music player':'Minimize music player');});
     bar.classList.add('is-visible');
     var tag=document.createElement('script');tag.src='https://www.youtube.com/iframe_api';tag.async=true;
