@@ -158,6 +158,20 @@
       .floating-play-button { grid-area: play; width: 42px; height: 42px; min-height: 42px; }
       footer { padding-bottom: calc(36px + 110px + env(safe-area-inset-bottom)); }
     }
+
+    /* Visible seek track, matching the working Kal Ho Naa Ho player. */
+    .floating-progress-range { height: 28px; background: transparent; }
+    .floating-progress-range::-webkit-slider-runnable-track {
+      height: 5px; border: 0; border-radius: 999px;
+      background: linear-gradient(to right, #ffd064 0%, #ff793e var(--bar-progress), rgba(255,244,231,.16) var(--bar-progress), rgba(255,244,231,.16) 100%);
+    }
+    .floating-progress-range::-moz-range-track {
+      height: 5px; border: 0; border-radius: 999px;
+      background: linear-gradient(to right, #ffd064 0%, #ff793e var(--bar-progress), rgba(255,244,231,.16) var(--bar-progress), rgba(255,244,231,.16) 100%);
+    }
+    .floating-progress-range::-webkit-slider-thumb { margin-top: -3px; }
+    .floating-progress-range::-moz-range-thumb { width: 11px; height: 11px; box-sizing: border-box; }
+
 </style>
   <link rel="stylesheet" href="../official-social.css?v=20261030-brandicons1">
 </head>
