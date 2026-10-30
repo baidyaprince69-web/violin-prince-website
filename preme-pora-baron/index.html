@@ -949,6 +949,114 @@
     }
   </style>
 
+
+  <style id="preme-pora-baron-light-3d-cover-surfaces">
+    /* Light, individual cover finishes: the deep teal section remains the backdrop, not the card surface. */
+    #more-covers .related-card:nth-child(1){--cover-paper:#F2E5D8;--cover-ink:#75472F}
+    #more-covers .related-card:nth-child(2){--cover-paper:#F2E5E9;--cover-ink:#754858}
+    #more-covers .related-card:nth-child(3){--cover-paper:#F4EEDC;--cover-ink:#75591F}
+    #more-covers .related-card:nth-child(4){--cover-paper:#E7EFF4;--cover-ink:#365A70}
+    #more-covers .related-card:nth-child(5){--cover-paper:#F0EFD9;--cover-ink:#69601F}
+    #more-covers .related-card:nth-child(6){--cover-paper:#F4EEDB;--cover-ink:#6A521F}
+    #more-covers .related-card:nth-child(7){--cover-paper:#E5EFEB;--cover-ink:#315F58}
+    #more-covers .related-card:nth-child(8){--cover-paper:#F3E5E1;--cover-ink:#82483F}
+
+    #more-covers .related-card{
+      background:
+        radial-gradient(ellipse 76% 66% at 2% 0%,rgb(var(--cover-rgb) / .18),transparent 76%),
+        radial-gradient(ellipse 50% 52% at 100% 100%,rgba(255,255,255,.52),transparent 80%),
+        linear-gradient(145deg,#FFFEFA 0%,var(--cover-paper,#F2EEE5) 58%,rgba(217,217,211,.88) 100%);
+      border:1px solid rgb(var(--cover-rgb) / .48);
+      box-shadow:
+        0 2px 0 rgba(255,255,255,.76),
+        0 5px 0 rgb(var(--cover-rgb) / .16),
+        0 17px 36px rgba(5,22,25,.27),
+        0 0 0 1px rgba(31,47,48,.08),
+        inset 0 1px 0 rgba(255,255,255,.92),
+        inset 0 -2px 0 rgba(31,47,48,.07);
+      transform:perspective(1100px) translateZ(0);
+      transition:transform .32s cubic-bezier(.2,.72,.22,1),box-shadow .32s ease,border-color .32s ease;
+      -webkit-backdrop-filter:none;
+      backdrop-filter:none;
+    }
+    #more-covers .related-thumb,
+    #more-covers .related-copy{position:relative;z-index:1}
+    #more-covers .related-copy{
+      background:
+        radial-gradient(ellipse 85% 72% at 100% 0%,rgb(var(--cover-rgb) / .13),transparent 78%),
+        linear-gradient(140deg,rgba(255,255,255,.92),rgba(255,255,255,.54) 42%,rgba(var(--cover-rgb) / .09)),
+        linear-gradient(145deg,#FFFEFA,var(--cover-paper,#F2EEE5));
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.82);
+    }
+    #more-covers .related-copy strong{color:#1F2F30;text-shadow:0 1px 0 rgba(255,255,255,.78)}
+    #more-covers .related-copy small{color:rgba(31,47,48,.76)}
+    #more-covers .related-kicker,
+    #more-covers .related-link{color:var(--cover-ink,var(--cover-accent))}
+    #more-covers .related-link{border-top:1px solid rgb(var(--cover-rgb) / .32)}
+    #more-covers .related-link b{
+      color:var(--cover-ink,var(--cover-accent));
+      border-color:rgb(var(--cover-rgb) / .48);
+      background:rgba(255,255,255,.48);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.82),0 2px 5px rgba(31,47,48,.08);
+    }
+    #more-covers .related-card::after{
+      content:"";
+      position:absolute;
+      z-index:2;
+      inset:0;
+      border-radius:inherit;
+      pointer-events:none;
+      opacity:.68;
+      background:
+        linear-gradient(137deg,rgba(255,255,255,.42),transparent 25%,transparent 74%,rgb(var(--cover-rgb) / .12)),
+        linear-gradient(180deg,rgba(255,255,255,.12),transparent 30%);
+    }
+    #more-covers .related-card::before{
+      z-index:6;
+      opacity:.82;
+      background:linear-gradient(132deg,
+        rgba(255,255,255,.92) 0%,
+        rgb(var(--cover-rgb) / .82) 25%,
+        rgba(255,255,255,.62) 48%,
+        rgb(var(--cover-rgb) / .78) 74%,
+        rgba(233,162,102,.72) 100%);
+    }
+    #more-covers .related-card:hover{
+      transform:perspective(1100px) translateY(-8px) rotateX(1.1deg);
+      border-color:rgb(var(--cover-rgb) / .88);
+      box-shadow:
+        0 3px 0 rgba(255,255,255,.84),
+        0 8px 0 rgb(var(--cover-rgb) / .20),
+        0 27px 48px rgba(5,22,25,.34),
+        0 0 28px rgb(var(--cover-rgb) / .20),
+        inset 0 1px 0 rgba(255,255,255,.96);
+    }
+    #more-covers .related-card:hover .related-thumb img{
+      transform:scale(1.035);
+      filter:saturate(1.06) contrast(1.035);
+    }
+    #more-covers .related-card:hover .related-copy{box-shadow:inset 0 1px 0 rgba(255,255,255,.96)}
+    #more-covers .related-card:hover .related-link b{
+      color:var(--cover-ink,var(--cover-accent));
+      background:rgba(255,255,255,.78);
+      box-shadow:0 3px 9px rgba(31,47,48,.10);
+    }
+    #more-covers .related-card:focus-visible{outline:2px solid var(--cover-ink,var(--cover-accent));outline-offset:5px}
+    #more-covers .related-index{
+      border-color:rgba(255,255,255,.55);
+      background:rgba(31,47,48,.72);
+      box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.22);
+    }
+    @media(max-width:520px){
+      #more-covers .related-card{box-shadow:0 2px 0 rgba(255,255,255,.76),0 4px 0 rgb(var(--cover-rgb) / .14),0 12px 25px rgba(5,22,25,.22),inset 0 1px 0 rgba(255,255,255,.92)}
+      #more-covers .related-card:hover{transform:translateY(-3px)}
+    }
+    @media(prefers-reduced-motion:reduce){
+      #more-covers .related-card{transition:none!important}
+      #more-covers .related-card:hover{transform:none}
+    }
+  </style>
+
 </head>
 <body>
   <div class="ambient" aria-hidden="true">
@@ -1382,7 +1490,9 @@
           if(light<92){rr=Math.round(rr*.72+217*.28);gg=Math.round(gg*.72+217*.28);bb=Math.round(bb*.72+217*.28);}
           if(light>218){rr=Math.round(rr*.78+31*.22);gg=Math.round(gg*.78+47*.22);bb=Math.round(bb*.78+48*.22);}
           card.style.setProperty('--cover-rgb',rr+' '+gg+' '+bb);
-          card.style.setProperty('--cover-accent','rgb('+rr+' '+gg+' '+bb+')');
+          var inkR=Math.round(rr*.56+31*.44),inkG=Math.round(gg*.56+47*.44),inkB=Math.round(bb*.56+48*.44);
+          card.style.setProperty('--cover-ink','rgb('+inkR+' '+inkG+' '+inkB+')');
+          card.style.setProperty('--cover-accent','rgb('+inkR+' '+inkG+' '+inkB+')');
         }catch(error){
           /* Cross-origin image restrictions simply leave the curated fallback colour in place. */
         }
