@@ -455,6 +455,8 @@
     section.section.section-out-up::before{opacity:.08;transform:translate3d(0,-13px,0) scale(.99)}
     section.section.section-out-down::before{opacity:.08;transform:translate3d(0,13px,0) scale(.99)}
 
+    /* Keep content visible when scripting is unavailable; animate only when JS is active. */
+    .scroll-reveal{opacity:1;transform:none;filter:none}
     /* Bidirectional reveal: items enter from the direction of travel and exit the other way. */
     html.js .scroll-reveal{
       opacity:0;transform:translate3d(0,27px,0) scale(.985);filter:blur(5px);
