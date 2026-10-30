@@ -39,4 +39,14 @@
       <video:publication_date>2023-05-06T07:45:03+00:00</video:publication_date>
     </video:video>
   </url>
+  <url>
+    <loc>https://baidyaprince69-web.github.io/violin-prince-website/preme-pora-baron/</loc>
+    <video:video>
+      <video:thumbnail_loc>https://i.ytimg.com/vi/UK7JYzoKKd4/maxresdefault.jpg</video:thumbnail_loc>
+      <video:title>Preme Pora Baron | Bengali Violin Interpretation by Prince Baidya | Violin Prince</video:title>
+      <video:description>Prince Baidya, Violin Prince, performs a violin interpretation of Preme Pora Baron from the 2019 Bengali film Sweater. Discover the original song credits and listen to the violin cover.</video:description>
+      <video:player_loc allow_embed="yes">https://www.youtube-nocookie.com/embed/UK7JYzoKKd4</video:player_loc>
+      <video:family_friendly>yes</video:family_friendly>
+    </video:video>
+  </url>
 </urlset>
