@@ -29,7 +29,7 @@
   <meta name="twitter:description" content="Preme Pora Baron from Sweater, interpreted on violin by Prince Baidya of Violin Prince.">
   <meta name="twitter:image" content="https://i.ytimg.com/vi/UK7JYzoKKd4/maxresdefault.jpg">
   <script>document.documentElement.classList.add('js');</script>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Manrope:wght@400;500;600;700;800&family=Noto+Serif+Bengali:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=DM+Sans:wght@400;500;600;700;800&family=Noto+Serif+Bengali:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../official-social.css?v=20261030-brandicons1">
   <style>
     :root {
@@ -38,7 +38,7 @@
       --orange:#EA672C; --orange-soft:#E9A266; --wood:#B1673F;
       --terracotta:#9B4525; --chestnut:#5C3424; --ivory:#D9D9D3; --white:#FFFFFF;
       --line:rgba(217,217,211,.14);
-      --sans:"Manrope",Arial,sans-serif; --display:"Barlow Condensed",Arial,sans-serif;
+      --sans:"DM Sans",Arial,sans-serif; --display:"Cormorant Garamond",Georgia,serif;
       --bengali:"Noto Serif Bengali",serif; --page:1180px;
     }
     *{box-sizing:border-box}
@@ -69,11 +69,12 @@
     .eyebrow{display:flex;align-items:center;gap:10px;color:var(--orange-soft);font-size:.7rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase}
     .eyebrow:before{content:"";height:1px;width:25px;background:currentColor;opacity:.8}
     h1,h2,h3,p{margin-top:0}
-    h1,h2,h3{font-family:var(--display);font-weight:600;line-height:1.02}
-    h1{font-size:clamp(3.7rem,8vw,7.6rem);letter-spacing:-.015em;text-transform:uppercase;margin:22px 0 18px;max-width:750px}
-    h1 em{font-weight:500;color:#E9A266}
-    h2{font-size:clamp(2.5rem,4.7vw,4.4rem);letter-spacing:-.01em;margin:16px 0 18px}
-    h2 em{color:var(--orange-soft);font-weight:500}
+    h1,h2{font-family:var(--display);font-weight:500;line-height:.98;letter-spacing:-.04em}
+    h1{font-size:clamp(3.5rem,6.2vw,6.6rem);margin:22px 0 18px;max-width:750px}
+    h1 em{font-style:italic;font-weight:500;color:#E9A266}
+    h2{font-size:clamp(2.75rem,4.5vw,4.4rem);margin:16px 0 18px}
+    h2 em{font-style:italic;color:var(--orange-soft);font-weight:500}
+    h3{font-family:var(--display);font-size:1.55rem;font-weight:600;line-height:1.05}
     h3{font-size:1.55rem;margin-bottom:10px}
     .lead{font-size:clamp(1rem,1.35vw,1.18rem);line-height:1.85;color:#D9D9D3;max-width:620px}
     .muted{color:var(--muted)}
@@ -104,19 +105,19 @@
     .split{display:grid;grid-template-columns:.78fr 1.22fr;gap:64px;align-items:center}
     .pull-card{padding:33px;border:1px solid rgba(231,143,87,.27);border-radius:22px;background:linear-gradient(145deg,rgba(234,103,44,.12),rgba(22,74,82,.2));box-shadow:inset 0 1px rgba(255,255,255,.05)}
     .pull-card .quote-mark{font:4.8rem/.7 var(--display);color:var(--orange-soft)}
-    .pull-card p{font:italic 1.5rem/1.5 var(--display);color:#FFFFFF;margin:22px 0}
+    .pull-card p{font:italic 1.65rem/1.32 var(--display);color:#FFFFFF;margin:22px 0}
     .pull-card small{color:#A5B0AC;font-size:.7rem;letter-spacing:.13em;text-transform:uppercase}
     .prose p{color:#A5B0AC}
     .prose p:last-child{margin-bottom:0}
     .story-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-top:34px}
     .story-card{padding:25px;border:1px solid var(--line);border-radius:17px;background:linear-gradient(155deg,rgba(22,74,82,.55),rgba(31,47,48,.76));min-height:180px}
     .story-card .number{font:italic 1.5rem var(--display);color:var(--orange-soft)}
-    .story-card h3{font:700 .93rem var(--sans);color:#FFFFFF;letter-spacing:.03em;margin:16px 0 8px}
+    .story-card h3{font:600 1.22rem/1.08 var(--display);color:#FFFFFF;letter-spacing:0;margin:16px 0 8px}
     .story-card p{color:#aebfba;font-size:.85rem;line-height:1.7;margin:0}
     .fact-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:rgba(211,226,218,.12);border:1px solid rgba(211,226,218,.12);border-radius:18px;overflow:hidden;margin-top:42px}
     .fact{padding:22px;background:rgba(31,47,48,.92)}
     .fact small{display:block;color:#A5B0AC;text-transform:uppercase;letter-spacing:.14em;font-size:.62rem;margin-bottom:7px}
-    .fact strong{display:block;color:#fff;font:500 1.05rem var(--display)}
+    .fact strong{display:block;color:#fff;font:500 1.12rem/1.12 var(--display)}
     .fact .bn{font-family:var(--bengali)}
     .music-layout{display:grid;grid-template-columns:1.05fr .95fr;gap:60px;align-items:center}
     .music-panel{border:1px solid rgba(94,170,169,.23);border-radius:23px;padding:28px;background:linear-gradient(150deg,rgba(12,94,104,.75),rgba(7,28,33,.92));box-shadow:0 28px 65px rgba(0,0,0,.23)}
@@ -154,7 +155,7 @@
     .interpret-card p{color:#A5B0AC;margin-bottom:0}
     .listen-box{display:grid;grid-template-columns:120px 1fr auto;align-items:center;gap:22px;padding:24px;border:1px solid rgba(234,103,44,.3);border-radius:21px;background:linear-gradient(110deg,rgba(234,103,44,.12),rgba(17,74,81,.38));max-width:860px}
     .listen-box img{width:120px;aspect-ratio:16/9;object-fit:cover;border-radius:12px}
-    .listen-copy strong{display:block;font:500 1.35rem var(--display);color:#fff}
+    .listen-copy strong{display:block;font:500 1.42rem/1.08 var(--display);color:#fff}
     .listen-copy span{display:block;color:#aebfb9;font-size:.77rem;margin-top:5px}
     .listen-action{display:flex;gap:8px;align-items:center}
     .related-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
