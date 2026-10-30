@@ -281,8 +281,34 @@
     .closing > .wrap > p { max-width: 620px; margin: 0 auto; color: var(--muted); line-height: 1.9; }
     .closing .actions { justify-content: center; }
     .social-links { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-top: 27px; }
-    .social-links a { color: var(--muted); font-size: .76rem; text-decoration: none; padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px; transition: border-color .2s, color .2s; }
-    .social-links a:hover { color: var(--ink); border-color: var(--line-bright); }
+    .social-links a { color: var(--muted); font-size: .76rem; text-decoration: none; padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px; transition: border-color .2s, color .2s, background .2s, box-shadow .2s, transform .2s; }
+    .social-links a:hover { color: var(--ink); border-color: var(--line-bright); transform: translateY(-2px); }
+    /* Brand accents are confined to the links; the page's teal-and-gold palette is unchanged. */
+    .social-links a[data-platform], .footer-links a[data-platform] { font-weight: 700; }
+    .social-links a[data-platform="youtube"] { color: #FF6B6B; border-color: rgba(255,107,107,.42); background: rgba(255,0,0,.085); }
+    .social-links a[data-platform="youtube"]:hover { color: #FFF0F0; background: rgba(255,0,0,.17); box-shadow: 0 0 18px rgba(255,0,0,.15); }
+    .social-links a[data-platform="instagram"] { color: #F4A0C7; border-color: rgba(221,90,150,.48); background: linear-gradient(115deg, rgba(131,58,180,.18), rgba(225,48,108,.14), rgba(252,176,69,.13)); }
+    .social-links a[data-platform="instagram"]:hover { color: #FFEAF5; box-shadow: 0 0 20px rgba(225,48,108,.17); }
+    .social-links a[data-platform="facebook"] { color: #7EB5FF; border-color: rgba(66,133,244,.48); background: rgba(24,119,242,.12); }
+    .social-links a[data-platform="facebook"]:hover { color: #EAF3FF; background: rgba(24,119,242,.20); box-shadow: 0 0 18px rgba(24,119,242,.16); }
+    .social-links a[data-platform="soundcloud"] { color: #FF9A55; border-color: rgba(255,119,0,.48); background: rgba(255,119,0,.11); }
+    .social-links a[data-platform="soundcloud"]:hover { color: #FFF0E4; background: rgba(255,119,0,.19); box-shadow: 0 0 18px rgba(255,119,0,.15); }
+    .social-links a[data-platform="bandlab"] { color: #FFA38A; border-color: rgba(255,111,83,.45); background: rgba(255,111,83,.105); }
+    .social-links a[data-platform="bandlab"]:hover { color: #FFF0EB; background: rgba(255,111,83,.18); box-shadow: 0 0 18px rgba(255,111,83,.15); }
+    .social-links a[data-platform="quora"] { color: #FF8585; border-color: rgba(185,43,39,.48); background: rgba(185,43,39,.12); }
+    .social-links a[data-platform="quora"]:hover { color: #FFF0F0; background: rgba(185,43,39,.20); box-shadow: 0 0 18px rgba(185,43,39,.15); }
+    .social-links a[data-platform="discord"] { color: #A9B4FF; border-color: rgba(88,101,242,.50); background: rgba(88,101,242,.13); }
+    .social-links a[data-platform="discord"]:hover { color: #F0F1FF; background: rgba(88,101,242,.22); box-shadow: 0 0 18px rgba(88,101,242,.17); }
+    .social-links a[data-platform="email"] { color: #F2C66D; border-color: rgba(242,198,109,.48); background: rgba(242,198,109,.10); }
+    .social-links a[data-platform="email"]:hover { color: #FFF4D6; background: rgba(242,198,109,.18); box-shadow: 0 0 18px rgba(242,198,109,.14); }
+    .footer-links a[data-platform="youtube"] { color: #FF7777; }
+    .footer-links a[data-platform="instagram"] { color: #F4A0C7; }
+    .footer-links a[data-platform="facebook"] { color: #7EB5FF; }
+    .footer-links a[data-platform="soundcloud"] { color: #FF9A55; }
+    .footer-links a[data-platform="bandlab"] { color: #FFA38A; }
+    .footer-links a[data-platform="quora"] { color: #FF8585; }
+    .footer-links a[data-platform="discord"] { color: #A9B4FF; }
+    .footer-links a[data-platform="email"] { color: #F2C66D; }
     .site-footer { padding: 27px 0 105px; border-top: 1px solid rgba(242, 198, 109,.1); }
     .footer-row { display: flex; align-items: center; justify-content: space-between; gap: 22px; }
     .footer-brand { color: var(--ink); font: 800 .77rem "Manrope", sans-serif; letter-spacing: .16em; }
@@ -698,14 +724,14 @@
         </div>
         <p id="share-status" role="status" aria-live="polite" style="min-height:1.4em;margin-top:12px;color:var(--gold);font-size:.75rem;"></p>
         <div class="social-links reveal delay-3" aria-label="Official Violin Prince social and music profiles">
-          <a href="https://www.youtube.com/@violinprince" target="_blank" rel="noopener noreferrer" aria-label="Visit the official Violin Prince YouTube channel">YouTube ↗</a>
-          <a href="https://www.instagram.com/princ_estrings/" target="_blank" rel="noopener noreferrer" aria-label="Follow Violin Prince on Instagram">Instagram ↗</a>
-          <a href="https://www.facebook.com/profile.php?id=100086948485717" target="_blank" rel="noopener noreferrer" aria-label="Visit Prince Baidya on Facebook">Facebook ↗</a>
-          <a href="https://soundcloud.com/prince-baidya" target="_blank" rel="noopener noreferrer" aria-label="Listen to Violin Prince on SoundCloud">SoundCloud ↗</a>
-          <a href="https://www.bandlab.com/prince_bbb" target="_blank" rel="noopener noreferrer" aria-label="Connect with Violin Prince on BandLab">BandLab ↗</a>
-          <a href="https://www.quora.com/profile/P-B-Violin-Music" target="_blank" rel="noopener noreferrer" aria-label="Read Prince Baidya on Quora">Quora ↗</a>
-          <a href="https://discord.gg/G7FDts766" target="_blank" rel="noopener noreferrer" aria-label="Join the Violin Prince Discord community">Discord ↗</a>
-          <a href="mailto:baidyaprince69@gmail.com?subject=Song%20request%20for%20Violin%20Prince" aria-label="Email Violin Prince">Email / Song requests ↗</a>
+          <a data-platform="youtube" href="https://www.youtube.com/@violinprince" target="_blank" rel="noopener noreferrer" aria-label="Visit the official Violin Prince YouTube channel">YouTube ↗</a>
+          <a data-platform="instagram" href="https://www.instagram.com/princ_estrings/" target="_blank" rel="noopener noreferrer" aria-label="Follow Violin Prince on Instagram">Instagram ↗</a>
+          <a data-platform="facebook" href="https://www.facebook.com/profile.php?id=100086948485717" target="_blank" rel="noopener noreferrer" aria-label="Visit Prince Baidya on Facebook">Facebook ↗</a>
+          <a data-platform="soundcloud" href="https://soundcloud.com/prince-baidya" target="_blank" rel="noopener noreferrer" aria-label="Listen to Violin Prince on SoundCloud">SoundCloud ↗</a>
+          <a data-platform="bandlab" href="https://www.bandlab.com/prince_bbb" target="_blank" rel="noopener noreferrer" aria-label="Connect with Violin Prince on BandLab">BandLab ↗</a>
+          <a data-platform="quora" href="https://www.quora.com/profile/P-B-Violin-Music" target="_blank" rel="noopener noreferrer" aria-label="Read Prince Baidya on Quora">Quora ↗</a>
+          <a data-platform="discord" href="https://discord.gg/G7FDts766" target="_blank" rel="noopener noreferrer" aria-label="Join the Violin Prince Discord community">Discord ↗</a>
+          <a data-platform="email" href="mailto:baidyaprince69@gmail.com?subject=Song%20request%20for%20Violin%20Prince" aria-label="Email Violin Prince">Email / Song requests ↗</a>
         </div>
       </div>
     </section>
@@ -719,14 +745,14 @@
           <a href="../">Home</a>
           <a href="../majhe-majhe-tobo/">Bengali music</a>
           <a href="../kal-ho-na-ho/">Bollywood covers</a>
-          <a href="https://www.youtube.com/@violinprince" target="_blank" rel="noopener noreferrer">YouTube ↗</a>
-          <a href="https://www.instagram.com/princ_estrings/" target="_blank" rel="noopener noreferrer">Instagram ↗</a>
-          <a href="https://www.facebook.com/profile.php?id=100086948485717" target="_blank" rel="noopener noreferrer">Facebook ↗</a>
-          <a href="https://soundcloud.com/prince-baidya" target="_blank" rel="noopener noreferrer">SoundCloud ↗</a>
-          <a href="https://www.bandlab.com/prince_bbb" target="_blank" rel="noopener noreferrer">BandLab ↗</a>
-          <a href="https://www.quora.com/profile/P-B-Violin-Music" target="_blank" rel="noopener noreferrer">Quora ↗</a>
-          <a href="https://discord.gg/G7FDts766" target="_blank" rel="noopener noreferrer">Discord ↗</a>
-          <a href="mailto:baidyaprince69@gmail.com?subject=Song%20request%20for%20Violin%20Prince">Email ↗</a>
+          <a data-platform="youtube" href="https://www.youtube.com/@violinprince" target="_blank" rel="noopener noreferrer">YouTube ↗</a>
+          <a data-platform="instagram" href="https://www.instagram.com/princ_estrings/" target="_blank" rel="noopener noreferrer">Instagram ↗</a>
+          <a data-platform="facebook" href="https://www.facebook.com/profile.php?id=100086948485717" target="_blank" rel="noopener noreferrer">Facebook ↗</a>
+          <a data-platform="soundcloud" href="https://soundcloud.com/prince-baidya" target="_blank" rel="noopener noreferrer">SoundCloud ↗</a>
+          <a data-platform="bandlab" href="https://www.bandlab.com/prince_bbb" target="_blank" rel="noopener noreferrer">BandLab ↗</a>
+          <a data-platform="quora" href="https://www.quora.com/profile/P-B-Violin-Music" target="_blank" rel="noopener noreferrer">Quora ↗</a>
+          <a data-platform="discord" href="https://discord.gg/G7FDts766" target="_blank" rel="noopener noreferrer">Discord ↗</a>
+          <a data-platform="email" href="mailto:baidyaprince69@gmail.com?subject=Song%20request%20for%20Violin%20Prince">Email ↗</a>
         </nav>
       </div>
       <p class="copyright-note">This page presents a cover performance. The original musical work, recording, and associated rights remain with their respective creators and rights holders.</p>
