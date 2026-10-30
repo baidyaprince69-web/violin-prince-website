@@ -19,7 +19,7 @@
   <meta property="og:site_name" content="Violin Prince">
   <meta property="og:url" content="https://baidyaprince69-web.github.io/violin-prince-website/preme-pora-baron/">
   <meta property="og:title" content="Preme Pora Baron — Violin Interpretation by Prince Baidya">
-  <meta property="og:description" content="A song from Sweater, remembered in a new voice: the violin interpretation by Prince Baidya.">
+  <meta property="og:description" content="Preme Pora Baron from Sweater, performed on violin by Prince Baidya.">
   <meta property="og:image" content="https://i.ytimg.com/vi/UK7JYzoKKd4/maxresdefault.jpg">
   <meta property="og:image:alt" content="Prince Baidya performing Preme Pora Baron on violin in a boat on a lake, with a younger passenger beside him">
   <meta property="og:video" content="https://www.youtube-nocookie.com/embed/UK7JYzoKKd4">
@@ -27,6 +27,7 @@
   <meta name="twitter:title" content="Preme Pora Baron — Violin Interpretation by Prince Baidya">
   <meta name="twitter:description" content="Preme Pora Baron from Sweater, interpreted on violin by Prince Baidya of Violin Prince.">
   <meta name="twitter:image" content="https://i.ytimg.com/vi/UK7JYzoKKd4/maxresdefault.jpg">
+  <script>document.documentElement.classList.add('js');</script>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Manrope:wght@400;500;600;700;800&family=Noto+Serif+Bengali:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../official-social.css?v=20261030-brandicons1">
   <style>
@@ -374,9 +375,146 @@
       .btn::before{display:none}
     }
   </style>
+
+  <style id="preme-pora-baron-inverse-sections-and-bidirectional-motion">
+    /* More visible film-grain over the gradient, matching the KHNH texture technique. */
+    body::before{opacity:.075;mix-blend-mode:screen;z-index:70;background-size:180px 180px}
+    .ambient{z-index:0;background:
+      radial-gradient(ellipse 68% 54% at 5% 5%,rgba(12,94,104,.34),transparent 75%),
+      radial-gradient(ellipse 54% 48% at 96% 12%,rgba(110,137,136,.23),transparent 74%),
+      radial-gradient(ellipse 52% 49% at 89% 92%,rgba(234,103,44,.12),transparent 76%),
+      linear-gradient(155deg,#1F2F30 0%,#164A52 48%,#1F2F30 100%)}
+    .ambient-ribbons{position:absolute;inset:0;width:100%;height:100%;opacity:.21;filter:drop-shadow(0 0 5px rgba(110,137,136,.12));animation:vp-ribbon-drift 34s ease-in-out infinite alternate}
+    @keyframes vp-ribbon-drift{from{transform:translate3d(-.5%,0,0) scale(1)}to{transform:translate3d(.7%,.8%,0) scale(1.012)}}
+    .ambient-glint{position:absolute;width:3px;height:3px;border-radius:50%;background:#E9A266;opacity:.35;box-shadow:0 0 12px 3px rgba(233,162,102,.20);animation:vp-glint-breathe 12s ease-in-out infinite}
+    .ambient-glint-one{left:12%;top:24%;animation-delay:-2s}
+    .ambient-glint-two{right:13%;top:40%;width:2px;height:2px;animation-delay:-7s}
+    .ambient-glint-three{left:19%;bottom:21%;width:2px;height:2px;animation-delay:-5s}
+    .ambient-glint-four{right:9%;bottom:18%;animation-delay:-9s}
+    @keyframes vp-glint-breathe{0%,100%{opacity:.20;transform:translateY(0) scale(.8)}50%{opacity:.68;transform:translateY(-7px) scale(1.15)}}
+    body>.topbar,body>main,body>.floating-music-bar,body>.footer{position:relative;z-index:1}
+    .topbar{z-index:30}
+    .floating-music-bar{z-index:60}
+    .footer{z-index:1}
+
+    /* Inverse treatment one: warm ivory/amber surface with teal and sage light. */
+    #song-story.section-alt{
+      color:#1F2F30;background-color:#D9D9D3;
+      background-image:
+        radial-gradient(ellipse 58% 68% at 3% 13%,rgba(12,94,104,.34) 0%,rgba(12,94,104,.16) 36%,transparent 76%),
+        radial-gradient(ellipse 48% 56% at 98% 82%,rgba(110,137,136,.30) 0%,rgba(110,137,136,.12) 42%,transparent 76%),
+        radial-gradient(ellipse 48% 38% at 70% 0%,rgba(233,162,102,.38) 0%,rgba(233,162,102,.12) 54%,transparent 78%),
+        linear-gradient(132deg,#D9D9D3 0%,rgba(233,162,102,.28) 50%,#D9D9D3 100%);
+      border-top:1px solid rgba(12,94,104,.30);border-bottom:1px solid rgba(12,94,104,.24)
+    }
+    #song-story::before{
+      background:radial-gradient(ellipse 48% 62% at 7% 24%,rgba(12,94,104,.30),transparent 75%),radial-gradient(ellipse 44% 55% at 94% 75%,rgba(110,137,136,.25),transparent 76%);
+      opacity:.88;filter:blur(18px)
+    }
+    #song-story .eyebrow{color:#0C5E68}
+    #song-story .eyebrow::before{background:#0C5E68;box-shadow:0 0 10px rgba(12,94,104,.34)}
+    #song-story .prose h2,#song-story .prose h3{color:#1F2F30}
+    #song-story .prose h2 em{color:#0C5E68;text-shadow:0 0 20px rgba(12,94,104,.18)}
+    #song-story .prose p{color:rgba(31,47,48,.88)}
+    #song-story .pull-card{background:linear-gradient(145deg,rgba(12,94,104,.96),rgba(22,74,82,.92));border-color:rgba(12,94,104,.42);box-shadow:0 22px 52px rgba(31,47,48,.20),0 0 30px rgba(12,94,104,.18),inset 0 1px 0 rgba(217,217,211,.20)}
+    #song-story .pull-card p{color:#FFFFFF}
+    #song-story .pull-card small{color:#D9D9D3}
+    #song-story .pull-card .quote-mark{color:#E9A266;text-shadow:0 0 22px rgba(233,162,102,.28)}
+    #song-story .story-card{background:linear-gradient(145deg,rgba(255,255,255,.54),rgba(217,217,211,.72));border-color:rgba(12,94,104,.20);box-shadow:0 15px 38px rgba(31,47,48,.10),inset 0 1px 0 rgba(255,255,255,.70)}
+    #song-story .story-card .number{color:#0C5E68}
+    #song-story .story-card h3{color:#1F2F30}
+    #song-story .story-card p{color:rgba(31,47,48,.82)}
+    #song-story .fact-strip{background:rgba(12,94,104,.16);border-color:rgba(12,94,104,.25)}
+    #song-story .fact{background:rgba(217,217,211,.88)}
+    #song-story .fact small{color:#0C5E68}
+    #song-story .fact strong{color:#1F2F30}
+
+    /* Inverse treatment two: a smaller warm surface for the listen invitation. */
+    #listen.section{
+      color:#1F2F30;background-color:#D9D9D3;
+      background-image:
+        radial-gradient(ellipse 52% 74% at 5% 18%,rgba(12,94,104,.30) 0%,rgba(12,94,104,.12) 42%,transparent 76%),
+        radial-gradient(ellipse 46% 56% at 96% 82%,rgba(110,137,136,.24) 0%,transparent 76%),
+        radial-gradient(ellipse 46% 40% at 70% 0%,rgba(233,162,102,.34) 0%,transparent 78%),
+        linear-gradient(126deg,#D9D9D3 0%,rgba(233,162,102,.24) 52%,#D9D9D3 100%);
+      border-block:1px solid rgba(12,94,104,.22)
+    }
+    #listen::before{opacity:.9;background:radial-gradient(ellipse 52% 64% at 7% 22%,rgba(12,94,104,.27),transparent 76%),radial-gradient(ellipse 46% 54% at 96% 76%,rgba(110,137,136,.24),transparent 77%)}
+    #listen .eyebrow{color:#0C5E68}
+    #listen .eyebrow::before{background:#0C5E68;box-shadow:0 0 10px rgba(12,94,104,.30)}
+    #listen h2{color:#1F2F30}
+    #listen h2 em{color:#0C5E68;text-shadow:0 0 18px rgba(12,94,104,.16)}
+    #listen .section-heading p{color:rgba(31,47,48,.82)}
+    #listen .listen-box{background:linear-gradient(115deg,rgba(12,94,104,.94),rgba(22,74,82,.92) 58%,rgba(31,47,48,.96));border-color:rgba(12,94,104,.34);box-shadow:0 22px 52px rgba(31,47,48,.20),0 0 28px rgba(12,94,104,.15),inset 0 1px 0 rgba(217,217,211,.18)}
+    #listen .listen-copy strong{color:#FFFFFF}
+    #listen .listen-copy span{color:#D9D9D3}
+
+    /* Every section's light swells in as it enters and falls away as it leaves. */
+    section.section::before{opacity:.16;transition:opacity .9s ease,filter .9s ease,transform 1s ease}
+    section.section.section-in-view::before{opacity:.78;filter:blur(20px) saturate(1.08);transform:scale(1.015)}
+    section.section.section-out-up::before{opacity:.08;transform:translate3d(0,-13px,0) scale(.99)}
+    section.section.section-out-down::before{opacity:.08;transform:translate3d(0,13px,0) scale(.99)}
+
+    /* Bidirectional reveal: items enter from the direction of travel and exit the other way. */
+    html.js .scroll-reveal{
+      opacity:0;transform:translate3d(0,27px,0) scale(.985);filter:blur(5px);
+      transition:opacity .60s cubic-bezier(.22,.7,.2,1),transform .72s cubic-bezier(.22,.7,.2,1),filter .66s ease,
+        color .7s ease,border-color .7s ease,box-shadow .7s ease;
+      will-change:opacity,transform,filter
+    }
+    html.js .scroll-reveal.is-entering-from-top:not(.is-visible){transform:translate3d(0,-27px,0) scale(.985)}
+    html.js .scroll-reveal.is-entering-from-bottom:not(.is-visible){transform:translate3d(0,27px,0) scale(.985)}
+    html.js .scroll-reveal.is-visible{opacity:1;transform:translate3d(0,0,0) scale(1);filter:blur(0)}
+    html.js .scroll-reveal.is-leaving-up{opacity:0;transform:translate3d(0,-22px,0) scale(.985);filter:blur(6px)}
+    html.js .scroll-reveal.is-leaving-down{opacity:0;transform:translate3d(0,22px,0) scale(.985);filter:blur(6px)}
+    html.js h1.scroll-reveal.is-visible,html.js h2.scroll-reveal.is-visible,html.js h3.scroll-reveal.is-visible{
+      text-shadow:0 0 22px rgba(12,94,104,.16),0 0 34px rgba(233,162,102,.09)
+    }
+    .story-card,.interpret-card,.social-card,.related-card,.music-panel,.pull-card,.video-shell{
+      transition:transform .34s cubic-bezier(.2,.72,.22,1),border-color .34s ease,box-shadow .34s ease,background .5s ease
+    }
+    .story-card:hover,.interpret-card:hover,.social-card:hover,.related-card:hover{transform:translateY(-5px);border-color:rgba(233,162,102,.52);box-shadow:0 22px 48px rgba(0,0,0,.22),0 0 25px rgba(234,103,44,.09),inset 0 1px 0 rgba(217,217,211,.12)}
+    @media(max-width:760px){
+      body>.ambient{position:fixed}
+      .ambient-ribbons{opacity:.13}
+      .ambient-glint-three,.ambient-glint-four{display:none}
+      #song-story.section-alt{background-image:
+        radial-gradient(ellipse 92% 38% at 0% 5%,rgba(12,94,104,.26),transparent 82%),
+        radial-gradient(ellipse 92% 42% at 100% 94%,rgba(110,137,136,.24),transparent 82%),
+        radial-gradient(ellipse 100% 68% at 50% 42%,rgba(233,162,102,.26),transparent 100%),
+        linear-gradient(150deg,#D9D9D3 0%,rgba(233,162,102,.22) 54%,#D9D9D3 100%)}
+      #listen.section{background-image:
+        radial-gradient(ellipse 90% 42% at 0% 5%,rgba(12,94,104,.25),transparent 82%),
+        radial-gradient(ellipse 90% 42% at 100% 94%,rgba(110,137,136,.22),transparent 82%),
+        linear-gradient(150deg,#D9D9D3 0%,rgba(233,162,102,.22) 54%,#D9D9D3 100%)}
+    }
+    @media(prefers-reduced-motion:reduce){
+      .ambient-ribbons,.ambient-glint,.ambient-bloom,.ambient::before,.ambient::after,.hero::after{animation:none!important;will-change:auto}
+      section.section::before{transition:none!important;opacity:.4}
+      html.js .scroll-reveal,html.js .scroll-reveal.is-visible,html.js .scroll-reveal.is-leaving-up,html.js .scroll-reveal.is-leaving-down{opacity:1!important;transform:none!important;filter:none!important;transition:none!important}
+    }
+  </style>
 </head>
 <body>
-  <div class="ambient" aria-hidden="true"><span class="ambient-bloom ambient-bloom-one"></span><span class="ambient-bloom ambient-bloom-two"></span><span class="ambient-bloom ambient-bloom-three"></span></div>
+  <div class="ambient" aria-hidden="true">
+    <svg class="ambient-ribbons" viewBox="0 0 1600 1000" preserveAspectRatio="none" focusable="false">
+      <defs><linearGradient id="ppb-string-light" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#0C5E68" stop-opacity="0"/>
+        <stop offset="25%" stop-color="#6E8988" stop-opacity=".48"/>
+        <stop offset="52%" stop-color="#E9A266" stop-opacity=".34"/>
+        <stop offset="76%" stop-color="#EA672C" stop-opacity=".28"/>
+        <stop offset="100%" stop-color="#0C5E68" stop-opacity="0"/>
+      </linearGradient></defs>
+      <g fill="none" stroke="url(#ppb-string-light)" stroke-width="1.2">
+        <path d="M-120 165 C 130 35, 330 340, 570 238 S 920 90, 1130 225 S 1450 355, 1730 160"/>
+        <path d="M-120 185 C 130 55, 330 360, 570 258 S 920 110, 1130 245 S 1450 375, 1730 180" opacity=".58"/>
+        <path d="M-120 205 C 130 75, 330 380, 570 278 S 920 130, 1130 265 S 1450 395, 1730 200" opacity=".34"/>
+        <path d="M-100 700 C 170 570, 340 845, 590 750 S 950 595, 1190 710 S 1460 865, 1720 695" opacity=".56"/>
+      </g>
+    </svg>
+    <span class="ambient-bloom ambient-bloom-one"></span><span class="ambient-bloom ambient-bloom-two"></span><span class="ambient-bloom ambient-bloom-three"></span>
+    <span class="ambient-glint ambient-glint-one"></span><span class="ambient-glint ambient-glint-two"></span><span class="ambient-glint ambient-glint-three"></span><span class="ambient-glint ambient-glint-four"></span>
+  </div>
   <header class="topbar">
     <div class="wrap nav">
       <a class="brand" href="../" aria-label="Violin Prince home">
@@ -395,10 +533,10 @@
     <section class="wrap hero">
       <div class="hero-orbit" aria-hidden="true"></div>
       <div class="hero-copy">
-        <div class="eyebrow scroll-reveal">A Bengali film song, heard anew</div>
+        <div class="eyebrow scroll-reveal">A song from the film Sweater</div>
         <h1 class="scroll-reveal delay-1">Preme Pora <em>Baron</em></h1>
         <p class="hero-title-bn scroll-reveal delay-1" lang="bn">প্রেমে পড়া বারণ</p>
-        <p class="lead scroll-reveal delay-2">Some songs hold a feeling that is difficult to put into words. From the Bengali film Sweater, Preme Pora Baron returns here as a violin cover by Prince Baidya.</p>
+        <p class="lead scroll-reveal delay-2">Preme Pora Baron is from the 2019 Bengali film Sweater. Here, Prince Baidya performs the song on violin.</p>
         <p class="artistline scroll-reveal delay-2"><span class="artist-dot" aria-hidden="true"></span> Violin interpretation by <strong>Prince Baidya</strong> · Violin Prince</p>
         <div class="actions scroll-reveal delay-2">
           <a class="btn btn-primary" href="#performance"><span aria-hidden="true">▶</span> Play the cover</a>
@@ -415,21 +553,21 @@
       <div class="wrap split">
         <div class="pull-card scroll-reveal">
           <div class="quote-mark" aria-hidden="true">“</div>
-          <p>Some feelings arrive quietly. The heart knows them before it knows what to say.</p>
-          <small>A thought at the heart of the song</small>
+          <p>A song from a story about love, expectations and finding your own voice.</p>
+          <small>The song in its film context</small>
         </div>
         <div class="prose scroll-reveal">
           <div class="eyebrow">The story behind the song</div>
-          <h2>A song caught between feeling and <em>restraint.</em></h2>
-          <p>From the 2019 Bengali film <em>Sweater</em>, “Preme Pora Baron” is sung by Lagnajita Chakraborty and written and composed by Ranajoy Bhattacharjee. Even its title holds a contradiction: the heart may fall in love, while the world seems to say it should not.</p>
-          <p>The song belongs to Tuku’s story. As she learns to knit and begins to find confidence in herself, the film follows a young woman discovering more of who she can be. The song sits within that journey, where affection, expectation and self-discovery meet.</p>
-          <p>That is where the song finds its particular tenderness. There is warmth in the feeling, but also a hesitation around expressing it. The result is a romantic melody with a wistful edge — intimate, gentle and unmistakably part of its film’s world.</p>
+          <h2>The song behind <em>the feeling.</em></h2>
+          <p>“Preme Pora Baron” is from <em>Sweater</em>, the 2019 Bengali film. Lagnajita Chakraborty sings it; Ranajoy Bhattacharjee wrote and composed the song. The title itself sets up a contrast between falling in love and being told not to.</p>
+          <p>In the film, the song is part of Tuku’s story. Learning to knit becomes one step in a much bigger change: she gradually gains confidence and starts to see herself differently.</p>
+          <p>That contrast gives the song its character. It is romantic, but not without hesitation; the melody carries both affection and the pressure of expectation.</p>
         </div>
       </div>
       <div class="wrap story-grid">
-        <article class="story-card scroll-reveal"><span class="number">01</span><h3>A story about finding yourself</h3><p>Directed by Shieladitya Moulik, <em>Sweater</em> follows Tuku’s gradual journey towards confidence. The film is based on Joeeta Sengupta’s short story <em>Wool Kaata</em>.</p></article>
-        <article class="story-card scroll-reveal delay-1"><span class="number">02</span><h3>A voice at the centre</h3><p>Lagnajita Chakraborty sings the original, with the music and lyrics by Ranajoy Bhattacharjee.</p></article>
-        <article class="story-card scroll-reveal delay-2"><span class="number">03</span><h3>A title with a contradiction</h3><p>Its title places affection beside a prohibition. That small tension gives the song its distinctive emotional colour.</p></article>
+        <article class="story-card scroll-reveal"><span class="number">01</span><h3>Tuku’s story</h3><p>Directed by Shieladitya Moulik, <em>Sweater</em> follows Tuku as she gradually gains confidence. The film is based on Joeeta Sengupta’s short story <em>Wool Kaata</em>.</p></article>
+        <article class="story-card scroll-reveal delay-1"><span class="number">02</span><h3>The original song</h3><p>Lagnajita Chakraborty sings the song. Ranajoy Bhattacharjee wrote and composed it.</p></article>
+        <article class="story-card scroll-reveal delay-2"><span class="number">03</span><h3>A title with two sides</h3><p>The title pairs falling in love with the idea of a restriction. That contrast sits at the centre of the song.</p></article>
       </div>
       <div class="wrap fact-strip scroll-reveal" aria-label="Original song credits">
         <div class="fact"><small>Original film</small><strong>Sweater · 2019</strong></div>
@@ -443,14 +581,14 @@
       <div class="wrap music-layout">
         <div class="prose scroll-reveal">
           <div class="eyebrow">The musical identity</div>
-          <h2>A melody made to <em>carry a feeling.</em></h2>
-          <p>“Preme Pora Baron” is a contemporary Bengali romantic film song, led by Lagnajita Chakraborty’s voice. Its melody sits at the centre of the arrangement, giving the song its gentle, memorable character.</p>
-          <p>There is already a connection to strings in the original recording: Rohan Roy is credited on violin, and Raja Chowdhury on guitar. Ranajoy Bhattacharjee is credited for the composition, lyrics, arrangement, programming and music production. In this interpretation, the melody comes forward once more — this time with the violin carrying the lead.</p>
-          <p>Listen for the way the tune moves: how it rises, settles and returns. Beyond the words, the melody gives the song its shape — and leaves room for each listener to find a feeling of their own.</p>
+          <h2>The melody and the <em>original recording.</em></h2>
+          <p>The original recording is led by Lagnajita Chakraborty’s vocal. The song was composed and written by Ranajoy Bhattacharjee for <em>Sweater</em>.</p>
+          <p>The original recording also features strings: Rohan Roy is credited on violin and Raja Chowdhury on guitar. Ranajoy Bhattacharjee is credited for the composition, lyrics, arrangement, programming and music production. This cover brings the song to the violin.</p>
+          <p>In a violin cover, the melody takes the lead. Listen for the main tune, the returning phrases and the way the song moves without its original vocal.</p>
         </div>
         <aside class="music-panel scroll-reveal delay-1">
           <div class="eyebrow">Published recording credits</div>
-          <h3>The original recording credits</h3>
+          <h3>Original credits</h3>
           <p><strong style="color:#fff">Lagnajita Chakraborty</strong><br>Lead vocal</p>
           <p><strong style="color:#fff">Ranajoy Bhattacharjee</strong><br>Composition, lyrics and music production</p>
           <p><strong style="color:#fff">Raja Chowdhury</strong><br>Guitar</p>
@@ -465,13 +603,13 @@
         <div class="emotion-stage scroll-reveal">
           <div class="emotion-topline"><span>The emotional journey</span><span>Feeling · Restraint · Release</span></div>
           <div class="emotion-title">
-            <h2>The sweetness, and the <em>hesitation.</em></h2>
-            <p>There is tenderness in this song, but it is not entirely carefree. Its title brings a note of restraint into the romance, leaving the melody warm on the surface and wistful underneath.</p>
+            <h2>Romance, with a note of <em>hesitation.</em></h2>
+            <p>The title gives the song two sides: the excitement of falling in love and the feeling that it may not be allowed. That is the contrast behind its romantic, slightly wistful mood.</p>
           </div>
           <div class="emotion-steps">
-            <div class="emotion-step"><b>01</b><span>A quiet beginning</span><p>A feeling begins to take shape, gently and privately, before anyone knows what to call it.</p></div>
-            <div class="emotion-step"><b>02</b><span>A gentle restriction</span><p>The word “baron” places a boundary around that feeling. The heart leans closer; the world asks it to pause.</p></div>
-            <div class="emotion-step"><b>03</b><span>What stays with us</span><p>Both feelings remain together — the sweetness of affection and the quiet pause that surrounds it.</p></div>
+            <div class="emotion-step"><b>01</b><span>The feeling</span><p>The song starts from the idea of falling in love.</p></div>
+            <div class="emotion-step"><b>02</b><span>The restriction</span><p>The title adds a limit to that feeling: love is there, but expressing it is not simple.</p></div>
+            <div class="emotion-step"><b>03</b><span>The contrast</span><p>The song holds both ideas at once: affection and hesitation.</p></div>
           </div>
         </div>
       </div>
@@ -481,8 +619,8 @@
       <div class="wrap">
         <div class="section-heading scroll-reveal">
           <div class="eyebrow">The featured performance</div>
-          <h2>Preme Pora Baron, <em>in a new voice.</em></h2>
-          <p>Some songs are remembered by the voices that first brought them to life. Others stay with us because of the melody itself. Here, Prince Baidya brings the song from <em>Sweater</em> into an instrumental violin performance.</p>
+          <h2>Preme Pora Baron, <em>on violin.</em></h2>
+          <p>Watch Prince Baidya’s violin cover of “Preme Pora Baron” from <em>Sweater</em>. The video is embedded below, so you can play the performance without leaving the page.</p>
         </div>
         <div class="video-shell scroll-reveal">
           <div class="video-top"><span><i class="live-dot" aria-hidden="true"></i>Featured violin cover</span><span>VIOLIN PRINCE · PRINCE BAIDYA</span></div>
@@ -491,7 +629,7 @@
           </div>
           <div class="video-caption"><div><strong>Preme Pora Baron — Violin Interpretation</strong><span>Prince Baidya · Violin Prince</span></div><a href="https://youtu.be/UK7JYzoKKd4" target="_blank" rel="noopener noreferrer">Open the YouTube upload ↗</a></div>
         </div>
-        <p class="art-note">Playback starts only when you choose it. The floating player below controls this same YouTube video, so there is never a second hidden audio stream.</p>
+        <p class="art-note">The floating player controls this same video. Play, pause or seek through the performance as you browse.</p>
       </div>
     </section>
 
@@ -499,19 +637,19 @@
       <div class="wrap">
         <div class="section-heading scroll-reveal">
           <div class="eyebrow">Prince Baidya’s violin interpretation</div>
-          <h2>A familiar melody, <em>carried by strings.</em></h2>
-          <p>Without the words in the foreground, the melody has room to speak differently. The violin becomes the voice, carrying the tune and leaving space for the listener to make the feeling their own.</p>
+          <h2>The song, <em>without the words.</em></h2>
+          <p>The original recording is led by a singer. In this version, the violin takes the lead and plays the melody as an instrumental cover.</p>
         </div>
         <div class="interpret-grid">
-          <article class="interpret-card scroll-reveal"><div class="eyebrow">The listener’s focus</div><h3>Let the melody lead</h3><p>Follow the tune as it rises and settles. Notice the pauses, the returning phrases and the shape of the melody as it moves from one thought to the next.</p></article>
-          <article class="interpret-card scroll-reveal delay-1"><div class="eyebrow">The artist’s interpretation</div><h3>Listen in your own way</h3><p>A familiar song can feel different each time we return to it. Listen to Prince Baidya’s interpretation and notice the moments that stay with you.</p></article>
+          <article class="interpret-card scroll-reveal"><div class="eyebrow">The listener’s focus</div><h3>Follow the tune</h3><p>Listen for the main tune and the phrases that return throughout the song.</p></article>
+          <article class="interpret-card scroll-reveal delay-1"><div class="eyebrow">The artist’s interpretation</div><h3>Hear it for yourself</h3><p>Play the cover and decide which part of the melody stands out to you.</p></article>
         </div>
       </div>
     </section>
 
     <section class="section" id="listen">
       <div class="wrap">
-        <div class="section-heading scroll-reveal"><div class="eyebrow">Listen and experience</div><h2>Stay with the <em>melody.</em></h2><p>Return to the performance whenever you like. The floating player stays with you as you explore the song and its story.</p></div>
+        <div class="section-heading scroll-reveal"><div class="eyebrow">Listen and experience</div><h2>Listen to the <em>cover.</em></h2><p>The player stays at the bottom of the page, so you can listen while exploring the other sections.</p></div>
         <div class="listen-box scroll-reveal">
           <img src="https://i.ytimg.com/vi/UK7JYzoKKd4/hqdefault.jpg" alt="" width="120" height="68" loading="lazy" decoding="async">
           <div class="listen-copy"><strong>Preme Pora Baron</strong><span>Violin interpretation · Prince Baidya · Violin Prince</span></div>
@@ -522,7 +660,7 @@
 
     <section class="section section-alt" id="more-covers">
       <div class="wrap">
-        <div class="section-heading scroll-reveal"><div class="eyebrow">Explore more Violin Prince covers</div><h2>More songs. <em>More ways to listen.</em></h2><p>Every song has its own world. Explore more violin covers from the Violin Prince collection, from Bengali favourites to melodies from films and beyond.</p></div>
+        <div class="section-heading scroll-reveal"><div class="eyebrow">Explore more Violin Prince covers</div><h2>More from <em>Violin Prince.</em></h2><p>Explore more violin covers by Prince Baidya, including Bengali songs, Hindi film melodies and English-language favourites.</p></div>
         <div class="related-grid">
           <a class="related-card scroll-reveal" href="../kal-ho-na-ho/"><img src="https://img.youtube.com/vi/FlA76nbkReM/hqdefault.jpg" alt="Kal Ho Naa Ho violin cover thumbnail" width="480" height="270" loading="lazy"><span class="related-copy"><strong>Kal Ho Naa Ho</strong><small>Hindi film melody</small></span></a>
           <a class="related-card scroll-reveal delay-1" href="../tere-paas-main/"><img src="https://img.youtube.com/vi/FOV-lwpwcd0/hqdefault.jpg" alt="Tere Paas Main violin cover thumbnail" width="480" height="270" loading="lazy"><span class="related-copy"><strong>Tere Paas Main</strong><small>Contemporary film song</small></span></a>
@@ -538,14 +676,14 @@
 
     <section class="section" id="next-chapter">
       <div class="wrap upcoming scroll-reveal">
-        <div><div class="eyebrow">The next chapter</div><h2>The next page begins with <em>another song.</em></h2><p>A new cover will find its place here when it is ready. Until then, there are more songs in the collection to discover.</p></div>
+        <div><div class="eyebrow">The next chapter</div><h2>What’s <em>next?</em></h2><p>New cover pages are added as more performances are released. Browse the collection while you wait for the next one.</p></div>
         <div class="coming-mark" aria-hidden="true">VP</div>
       </div>
     </section>
 
     <section class="section section-alt" id="connect">
       <div class="wrap">
-        <div class="section-heading scroll-reveal"><div class="eyebrow">Stay connected</div><h2>Keep in touch. <em>Follow the music.</em></h2><p>New performances, music releases and updates are shared across these official profiles.</p></div>
+        <div class="section-heading scroll-reveal"><div class="eyebrow">Stay connected</div><h2>Follow <em>Violin Prince.</em></h2><p>Find the official Violin Prince profiles and follow along for new covers and updates.</p></div>
         <div class="social-grid">
           <a class="social-card scroll-reveal" data-platform="youtube" href="https://www.youtube.com/@violinprince" target="_blank" rel="noopener noreferrer" aria-label="Visit Violin Prince on YouTube"><span class="social-mark">YT</span><span class="social-copy"><strong>YouTube</strong><small>Full violin performances</small></span></a>
           <a class="social-card scroll-reveal delay-1" data-platform="instagram" href="https://www.instagram.com/princ_estrings/" target="_blank" rel="noopener noreferrer" aria-label="Follow Violin Prince on Instagram"><span class="social-mark">IG</span><span class="social-copy"><strong>Instagram</strong><small>Updates and musical moments</small></span></a>
@@ -560,8 +698,8 @@
 
     <section class="section" id="sources" style="padding-top:55px;padding-bottom:65px">
       <div class="wrap">
-        <div class="eyebrow">Credits & further reading</div>
-        <p class="muted" style="font-size:.76rem;max-width:820px">Original song and film credits are linked below for listeners who would like to explore the recording and its background further.</p>
+        <div class="eyebrow">Original song credits</div>
+        <p class="muted" style="font-size:.76rem;max-width:820px">These links provide further information about the original song and film.</p>
         <div class="footer-links">
           <a href="https://www.youtube.com/watch?v=-nzfkY6370k" target="_blank" rel="noopener noreferrer">Official song release · PSS Entertainments ↗</a>
           <a href="https://music.apple.com/us/song/1791096219" target="_blank" rel="noopener noreferrer">Apple Music · Song credits ↗</a>
@@ -591,15 +729,53 @@
   <script>
   (function(){
     'use strict';
-    var revealItems=document.querySelectorAll('.scroll-reveal');
+    var revealItems=document.querySelectorAll('.scroll-reveal, section.section');
     var reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if(reduced||!('IntersectionObserver' in window)){revealItems.forEach(function(item){item.classList.add('is-visible');});}
-    else{
-      var observer=new IntersectionObserver(function(entries){
-        entries.forEach(function(entry){if(entry.isIntersecting){entry.target.classList.add('is-visible');observer.unobserve(entry.target);}});
-      },{threshold:.08,rootMargin:'0px 0px -30px 0px'});
-      revealItems.forEach(function(item){observer.observe(item);});
+    if(reduced||!('IntersectionObserver' in window)){
+      revealItems.forEach(function(item){
+        if(item.matches('section.section'))item.classList.add('section-in-view');
+        else item.classList.add('is-visible');
+      });
+      return;
     }
+    var lastY=window.scrollY||window.pageYOffset||0;
+    var direction=1;
+    window.addEventListener('scroll',function(){
+      var y=window.scrollY||window.pageYOffset||0;
+      if(Math.abs(y-lastY)>2)direction=y>lastY?1:-1;
+      lastY=y;
+    },{passive:true});
+    var observer=new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        var item=entry.target;
+        var isSection=item.matches('section.section');
+        if(entry.isIntersecting){
+          if(isSection){
+            item.classList.remove('section-out-up','section-out-down');
+            item.classList.add('section-in-view');
+            return;
+          }
+          item.__vpRevealToken=(item.__vpRevealToken||0)+1;
+          var token=item.__vpRevealToken;
+          item.classList.remove('is-visible','is-leaving-up','is-leaving-down','is-entering-from-top','is-entering-from-bottom');
+          item.classList.add(direction<0?'is-entering-from-top':'is-entering-from-bottom');
+          requestAnimationFrame(function(){
+            if(item.__vpRevealToken!==token||!item.isConnected)return;
+            item.classList.add('is-visible');
+            item.classList.remove('is-entering-from-top','is-entering-from-bottom');
+          });
+        }else if(item.classList.contains('section-in-view')){
+          item.classList.remove('section-in-view');
+          item.classList.add(direction>0?'section-out-up':'section-out-down');
+        }else if(item.dataset.vpEntered==='true'){
+          item.__vpRevealToken=(item.__vpRevealToken||0)+1;
+          item.classList.remove('is-visible','is-entering-from-top','is-entering-from-bottom','is-leaving-up','is-leaving-down');
+          item.classList.add(direction>0?'is-leaving-up':'is-leaving-down');
+        }
+        if(entry.isIntersecting)item.dataset.vpEntered='true';
+      });
+    },{threshold:.035,rootMargin:'-10% 0px -10% 0px'});
+    revealItems.forEach(function(item){observer.observe(item);});
   })();
   </script>
   <script>
