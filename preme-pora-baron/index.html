@@ -699,6 +699,256 @@
       .nav-links a:not(.nav-cta)::after{transition:none}
     }
   </style>
+
+  <style id="preme-pora-baron-curated-cover-gallery">
+    /* Curated cover gallery: editorial feature tile, varied rhythm and thumbnail-led colour. */
+    #more-covers .section-heading{max-width:760px;margin-bottom:38px}
+    #more-covers .related-gallery{
+      display:grid;
+      grid-template-columns:repeat(6,minmax(0,1fr));
+      gap:clamp(13px,1.55vw,19px);
+      align-items:stretch;
+    }
+    #more-covers .related-card{
+      --cover-rgb:110 137 136;
+      --cover-accent:#AFC4BC;
+      grid-column:span 2;
+      display:flex;
+      flex-direction:column;
+      min-width:0;
+      min-height:100%;
+      position:relative;
+      isolation:isolate;
+      overflow:hidden;
+      border:1px solid rgb(var(--cover-rgb) / .34);
+      border-radius:20px;
+      background:
+        radial-gradient(ellipse 85% 60% at 0% 0%,rgb(var(--cover-rgb) / .20),transparent 72%),
+        linear-gradient(148deg,rgba(22,74,82,.76),rgba(31,47,48,.97) 74%);
+      box-shadow:0 14px 34px rgba(0,0,0,.21),0 0 23px rgb(var(--cover-rgb) / .075),inset 0 1px 0 rgba(217,217,211,.10);
+      text-decoration:none;
+      transform:translateZ(0);
+      transition:transform .34s cubic-bezier(.2,.72,.22,1),border-color .34s ease,box-shadow .34s ease,background .4s ease;
+    }
+    #more-covers .related-card--feature{
+      grid-column:span 4;
+      display:grid;
+      grid-template-columns:minmax(0,1.34fr) minmax(220px,.66fr);
+      min-height:270px;
+    }
+    #more-covers .related-thumb{
+      display:block;
+      min-width:0;
+      position:relative;
+      overflow:hidden;
+      aspect-ratio:16/9;
+      background:linear-gradient(135deg,rgb(var(--cover-rgb) / .32),rgba(31,47,48,.86));
+    }
+    #more-covers .related-thumb img{
+      display:block;
+      width:100%;
+      height:100%;
+      max-width:none;
+      aspect-ratio:16/9;
+      object-fit:cover;
+      object-position:center;
+      filter:saturate(.98) contrast(1.035);
+      transition:transform .65s cubic-bezier(.2,.72,.22,1),filter .5s ease;
+    }
+    #more-covers .related-thumb::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      background:linear-gradient(180deg,rgba(31,47,48,.28),transparent 26%,transparent 58%,rgba(31,47,48,.38));
+    }
+    #more-covers .related-index{
+      position:absolute;
+      z-index:2;
+      top:13px;
+      left:13px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:7px 10px;
+      border:1px solid rgba(217,217,211,.22);
+      border-radius:999px;
+      color:#FFFFFF;
+      background:rgba(31,47,48,.66);
+      -webkit-backdrop-filter:blur(9px);
+      backdrop-filter:blur(9px);
+      font:700 .63rem/1 var(--sans);
+      letter-spacing:.13em;
+      font-variant-numeric:tabular-nums;
+    }
+    #more-covers .related-index i{font-style:normal;color:#D9D9D3;font-size:.52rem;letter-spacing:.12em}
+    #more-covers .related-corner-mark{
+      position:absolute;
+      z-index:2;
+      right:13px;
+      top:13px;
+      width:30px;
+      height:30px;
+      display:grid;
+      place-items:center;
+      border:1px solid rgb(var(--cover-rgb) / .72);
+      border-radius:50%;
+      color:#FFFFFF;
+      background:rgba(31,47,48,.58);
+      -webkit-backdrop-filter:blur(8px);
+      backdrop-filter:blur(8px);
+      font-size:.9rem;
+      transition:transform .3s ease,background .3s ease;
+    }
+    #more-covers .related-copy{
+      min-width:0;
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      align-items:flex-start;
+      gap:7px;
+      padding:17px 18px 18px;
+      background:
+        radial-gradient(ellipse 90% 75% at 100% 0%,rgb(var(--cover-rgb) / .15),transparent 75%),
+        linear-gradient(145deg,rgba(22,74,82,.36),rgba(31,47,48,.94));
+    }
+    #more-covers .related-kicker{
+      display:block;
+      color:var(--cover-accent);
+      font-size:.56rem;
+      font-weight:800;
+      line-height:1.35;
+      letter-spacing:.16em;
+      text-transform:uppercase;
+    }
+    #more-covers .related-copy strong{
+      display:block;
+      max-width:100%;
+      color:#FFFFFF;
+      font:600 clamp(1.12rem,1.35vw,1.42rem)/1.08 var(--display);
+      letter-spacing:.01em;
+      text-wrap:balance;
+    }
+    #more-covers .related-copy small{
+      display:block;
+      color:rgba(217,217,211,.72);
+      font-size:.68rem;
+      line-height:1.55;
+      margin:0;
+    }
+    #more-covers .related-link{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      width:100%;
+      margin-top:auto;
+      padding-top:11px;
+      border-top:1px solid rgb(var(--cover-rgb) / .28);
+      color:var(--cover-accent);
+      font-size:.66rem;
+      font-weight:800;
+      letter-spacing:.04em;
+    }
+    #more-covers .related-link b{
+      width:25px;
+      height:25px;
+      flex:0 0 auto;
+      display:grid;
+      place-items:center;
+      border:1px solid rgb(var(--cover-rgb) / .48);
+      border-radius:50%;
+      font-size:.8rem;
+      font-weight:600;
+      transition:transform .3s ease,background .3s ease;
+    }
+    #more-covers .related-card--feature .related-thumb{
+      height:100%;
+      min-height:270px;
+      aspect-ratio:auto;
+    }
+    #more-covers .related-card--feature .related-thumb img{
+      position:absolute;
+      inset:0;
+      height:100%;
+      aspect-ratio:auto;
+    }
+    #more-covers .related-card--feature .related-thumb::after{
+      background:linear-gradient(90deg,transparent 60%,rgba(31,47,48,.35) 100%),linear-gradient(180deg,rgba(31,47,48,.22),transparent 28%,transparent 65%,rgba(31,47,48,.28));
+    }
+    #more-covers .related-card--feature .related-copy{
+      justify-content:center;
+      gap:11px;
+      padding:clamp(21px,2.3vw,34px);
+    }
+    #more-covers .related-card--feature .related-kicker{font-size:.62rem}
+    #more-covers .related-card--feature .related-copy strong{font-size:clamp(2rem,3vw,3.15rem);line-height:.98}
+    #more-covers .related-card--feature .related-copy small{font-size:.76rem;max-width:235px}
+    #more-covers .related-card--feature .related-link{margin-top:8px;font-size:.72rem}
+    #more-covers .related-card::before{
+      z-index:6;
+      opacity:.72;
+      background:linear-gradient(132deg,rgb(var(--cover-rgb) / .92),rgba(217,217,211,.36) 27%,rgb(var(--cover-rgb) / .66) 55%,rgba(233,162,102,.48) 100%);
+    }
+    #more-covers .related-card:hover{
+      transform:translateY(-7px);
+      border-color:rgb(var(--cover-rgb) / .86);
+      box-shadow:0 25px 56px rgba(0,0,0,.28),0 0 30px rgb(var(--cover-rgb) / .20),inset 0 1px 0 rgba(217,217,211,.15);
+    }
+    #more-covers .related-card:hover .related-thumb img{transform:scale(1.045);filter:saturate(1.08) contrast(1.05)}
+    #more-covers .related-card:hover .related-corner-mark{transform:translate(2px,-2px);background:rgb(var(--cover-rgb) / .34)}
+    #more-covers .related-card:hover .related-link b{transform:translate(2px,-2px);background:rgb(var(--cover-rgb) / .18)}
+    #more-covers .related-card:focus-visible{outline:2px solid var(--cover-accent);outline-offset:5px}
+    @media(max-width:980px){
+      #more-covers .related-gallery{grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
+      #more-covers .related-card{grid-column:span 1}
+      #more-covers .related-card--feature{grid-column:span 2;grid-template-columns:minmax(0,1.25fr) minmax(190px,.75fr)}
+      #more-covers .related-copy{padding:15px}
+      #more-covers .related-card--feature .related-copy{padding:22px}
+    }
+    @media(max-width:760px){
+      #more-covers .related-gallery{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+      #more-covers .related-card--feature{grid-column:1/-1;min-height:230px}
+      #more-covers .related-card:nth-child(8){
+        grid-column:1/-1;
+        display:grid;
+        grid-template-columns:minmax(0,1fr) minmax(0,.88fr);
+        min-height:154px;
+      }
+      #more-covers .related-card:nth-child(8) .related-thumb{height:100%;min-height:154px;aspect-ratio:auto}
+      #more-covers .related-card:nth-child(8) .related-thumb img{position:absolute;inset:0;height:100%;aspect-ratio:auto}
+      #more-covers .related-card:nth-child(8) .related-copy{justify-content:center}
+    }
+    @media(max-width:520px){
+      #more-covers .section-heading{margin-bottom:28px}
+      #more-covers .related-gallery{grid-template-columns:minmax(0,1fr);gap:13px}
+      #more-covers .related-card,#more-covers .related-card--feature,#more-covers .related-card:nth-child(8){
+        grid-column:1;
+        display:flex;
+        flex-direction:column;
+        min-height:unset;
+      }
+      #more-covers .related-thumb,#more-covers .related-card--feature .related-thumb,#more-covers .related-card:nth-child(8) .related-thumb{
+        height:auto;
+        min-height:unset;
+        aspect-ratio:16/9;
+      }
+      #more-covers .related-thumb img,#more-covers .related-card--feature .related-thumb img,#more-covers .related-card:nth-child(8) .related-thumb img{
+        position:relative;
+        inset:auto;
+        height:100%;
+        aspect-ratio:16/9;
+      }
+      #more-covers .related-card--feature .related-copy{padding:18px}
+      #more-covers .related-card--feature .related-copy strong{font-size:2rem}
+      #more-covers .related-copy{padding:14px 16px 15px}
+    }
+    @media(prefers-reduced-motion:reduce){
+      #more-covers .related-card,#more-covers .related-thumb img,#more-covers .related-corner-mark,#more-covers .related-link b{transition:none!important}
+      #more-covers .related-card:hover{transform:none}
+    }
+  </style>
+
 </head>
 <body>
   <div class="ambient" aria-hidden="true">
@@ -866,15 +1116,39 @@
     <section class="section section-alt" id="more-covers">
       <div class="wrap">
         <div class="section-heading scroll-reveal"><div class="eyebrow">Explore more Violin Prince covers</div><h2>More from <em>Violin Prince.</em></h2><p>Explore more violin covers by Prince Baidya, including Bengali songs, Hindi film melodies and English-language favourites.</p></div>
-        <div class="related-grid">
-          <a class="related-card scroll-reveal" href="../kal-ho-na-ho/"><img src="https://img.youtube.com/vi/FlA76nbkReM/hqdefault.jpg" alt="Kal Ho Naa Ho violin cover thumbnail" width="480" height="270" loading="lazy"><span class="related-copy"><strong>Kal Ho Naa Ho</strong><small>Hindi film melody</small></span></a>
-          <a class="related-card scroll-reveal delay-1" href="../tere-paas-main/"><img src="https://img.youtube.com/vi/FOV-lwpwcd0/hqdefault.jpg" alt="Tere Paas Main violin cover thumbnail" width="480" height="270" loading="lazy"><span class="related-copy"><strong>Tere Paas Main</strong><small>Contemporary film song</small></span></a>
-          <a class="related-card scroll-reveal delay-2" href="../hai-apna-dil-to-awara/"><img src="https://i.ytimg.com/vi/StnvyGduJ0s/maxresdefault.jpg" alt="Hai Apna Dil To Awara violin cover thumbnail" width="480" height="270" loading="lazy"><span class="related-copy"><strong>Hai Apna Dil To Awara</strong><small>Hindi classic</small></span></a>
-          <a class="related-card scroll-reveal" href="../say-you-wont-let-go/"><img src="https://i.ytimg.com/vi/3NHpKon_Uq8/hqdefault.jpg" alt="Say You Won't Let Go violin cover thumbnail" width="480" height="270" loading="lazy"><span class="related-copy"><strong>Say You Won’t Let Go</strong><small>English pop ballad</small></span></a>
-          <a class="related-card scroll-reveal delay-1" href="../dandelions/"><img src="../dandelions/images/dandelions-violin-prince-thumbnail.jpg" alt="Dandelions violin cover thumbnail" width="480" height="270" loading="lazy"><span class="related-copy"><strong>Dandelions</strong><small>Ruth B. · Violin cover</small></span></a>
-          <a class="related-card scroll-reveal delay-2" href="../hark-the-herald-angels-sing/"><img src="https://i.ytimg.com/vi/bissQ67-Az8/hqdefault.jpg" alt="Hark the Herald Angels Sing violin cover thumbnail" width="480" height="270" loading="lazy"><span class="related-copy"><strong>Hark the Herald Angels Sing</strong><small>Christmas carol</small></span></a>
-          <a class="related-card scroll-reveal" href="../majhe-majhe-tobo/"><img src="https://i.ytimg.com/vi/vAinuVKLKGE/hqdefault.jpg" alt="Majhe Majhe Tobo violin solo thumbnail" width="480" height="270" loading="lazy"><span class="related-copy"><strong>Majhe Majhe Tobo</strong><small>Rabindra Sangeet</small></span></a>
-          <a class="related-card scroll-reveal delay-1" href="../bojhena-shey-bojhena/"><img src="https://i.ytimg.com/vi/nKei8ODtFRU/hqdefault.jpg" alt="Bojhena Shey Bojhena violin cover thumbnail" width="480" height="270" loading="lazy"><span class="related-copy"><strong>Bojhena Shey Bojhena</strong><small>Bengali film melody</small></span></a>
+        <div class="related-grid related-gallery" aria-label="More Violin Prince covers">
+          <a class="related-card related-card--feature scroll-reveal" data-cover-card href="../kal-ho-na-ho/" style="--cover-rgb:190 126 85;--cover-accent:#D8A47D" aria-label="Explore Kal Ho Naa Ho violin cover">
+            <span class="related-thumb"><img src="https://img.youtube.com/vi/FlA76nbkReM/hqdefault.jpg" alt="Kal Ho Naa Ho violin cover thumbnail" width="480" height="270" loading="lazy" decoding="async"><span class="related-index">01 <i>FEATURED COVER</i></span><span class="related-corner-mark" aria-hidden="true">↗</span></span>
+            <span class="related-copy"><span class="related-kicker">HINDI FILM · CLASSIC</span><strong>Kal Ho Naa Ho</strong><small>A familiar film melody, reimagined for violin.</small><span class="related-link">Explore performance <b aria-hidden="true">↗</b></span></span>
+          </a>
+          <a class="related-card scroll-reveal delay-1" data-cover-card href="../tere-paas-main/" style="--cover-rgb:151 103 119;--cover-accent:#D1A0AE" aria-label="Explore Tere Paas Main violin cover">
+            <span class="related-thumb"><img src="https://img.youtube.com/vi/FOV-lwpwcd0/hqdefault.jpg" alt="Tere Paas Main violin cover thumbnail" width="480" height="270" loading="lazy" decoding="async"><span class="related-index">02</span><span class="related-corner-mark" aria-hidden="true">↗</span></span>
+            <span class="related-copy"><span class="related-kicker">HINDI · CONTEMPORARY</span><strong>Tere Paas Main</strong><small>Contemporary film song</small><span class="related-link">Explore performance <b aria-hidden="true">↗</b></span></span>
+          </a>
+          <a class="related-card scroll-reveal delay-2" data-cover-card href="../hai-apna-dil-to-awara/" style="--cover-rgb:177 139 73;--cover-accent:#E0BD78" aria-label="Explore Hai Apna Dil To Awara violin cover">
+            <span class="related-thumb"><img src="https://i.ytimg.com/vi/StnvyGduJ0s/maxresdefault.jpg" alt="Hai Apna Dil To Awara violin cover thumbnail" width="480" height="270" loading="lazy" decoding="async"><span class="related-index">03</span><span class="related-corner-mark" aria-hidden="true">↗</span></span>
+            <span class="related-copy"><span class="related-kicker">HINDI · EVERGREEN</span><strong>Hai Apna Dil To Awara</strong><small>A timeless Hindi classic</small><span class="related-link">Explore performance <b aria-hidden="true">↗</b></span></span>
+          </a>
+          <a class="related-card scroll-reveal" data-cover-card href="../say-you-wont-let-go/" style="--cover-rgb:103 130 151;--cover-accent:#A9C1D3" aria-label="Explore Say You Won't Let Go violin cover">
+            <span class="related-thumb"><img src="https://i.ytimg.com/vi/3NHpKon_Uq8/hqdefault.jpg" alt="Say You Won't Let Go violin cover thumbnail" width="480" height="270" loading="lazy" decoding="async"><span class="related-index">04</span><span class="related-corner-mark" aria-hidden="true">↗</span></span>
+            <span class="related-copy"><span class="related-kicker">ENGLISH · POP BALLAD</span><strong>Say You Won’t Let Go</strong><small>An intimate English-language ballad</small><span class="related-link">Explore performance <b aria-hidden="true">↗</b></span></span>
+          </a>
+          <a class="related-card scroll-reveal delay-1" data-cover-card href="../dandelions/" style="--cover-rgb:171 155 72;--cover-accent:#D9C77C" aria-label="Explore Dandelions violin cover">
+            <span class="related-thumb"><img src="../dandelions/images/dandelions-violin-prince-thumbnail.jpg" alt="Dandelions violin cover thumbnail" width="480" height="270" loading="lazy" decoding="async"><span class="related-index">05</span><span class="related-corner-mark" aria-hidden="true">↗</span></span>
+            <span class="related-copy"><span class="related-kicker">ENGLISH · CONTEMPORARY</span><strong>Dandelions</strong><small>Ruth B. · Violin cover</small><span class="related-link">Explore performance <b aria-hidden="true">↗</b></span></span>
+          </a>
+          <a class="related-card scroll-reveal delay-2" data-cover-card href="../hark-the-herald-angels-sing/" style="--cover-rgb:150 126 72;--cover-accent:#D4B66F" aria-label="Explore Hark the Herald Angels Sing violin cover">
+            <span class="related-thumb"><img src="https://i.ytimg.com/vi/bissQ67-Az8/hqdefault.jpg" alt="Hark the Herald Angels Sing violin cover thumbnail" width="480" height="270" loading="lazy" decoding="async"><span class="related-index">06</span><span class="related-corner-mark" aria-hidden="true">↗</span></span>
+            <span class="related-copy"><span class="related-kicker">CHRISTMAS · CAROL</span><strong>Hark the Herald Angels Sing</strong><small>A traditional Christmas carol</small><span class="related-link">Explore performance <b aria-hidden="true">↗</b></span></span>
+          </a>
+          <a class="related-card scroll-reveal" data-cover-card href="../majhe-majhe-tobo/" style="--cover-rgb:93 139 133;--cover-accent:#A9C9BE" aria-label="Explore Majhe Majhe Tobo violin cover">
+            <span class="related-thumb"><img src="https://i.ytimg.com/vi/vAinuVKLKGE/hqdefault.jpg" alt="Majhe Majhe Tobo violin solo thumbnail" width="480" height="270" loading="lazy" decoding="async"><span class="related-index">07</span><span class="related-corner-mark" aria-hidden="true">↗</span></span>
+            <span class="related-copy"><span class="related-kicker">RABINDRA SANGEET</span><strong>Majhe Majhe Tobo</strong><small>A Rabindra Sangeet interpretation</small><span class="related-link">Explore performance <b aria-hidden="true">↗</b></span></span>
+          </a>
+          <a class="related-card scroll-reveal delay-1" data-cover-card href="../bojhena-shey-bojhena/" style="--cover-rgb:166 83 80;--cover-accent:#D99A8B" aria-label="Explore Bojhena Shey Bojhena violin cover">
+            <span class="related-thumb"><img src="https://i.ytimg.com/vi/nKei8ODtFRU/hqdefault.jpg" alt="Bojhena Shey Bojhena violin cover thumbnail" width="480" height="270" loading="lazy" decoding="async"><span class="related-index">08</span><span class="related-corner-mark" aria-hidden="true">↗</span></span>
+            <span class="related-copy"><span class="related-kicker">BENGALI · FILM MELODY</span><strong>Bojhena Shey Bojhena</strong><small>A Bengali film melody</small><span class="related-link">Explore performance <b aria-hidden="true">↗</b></span></span>
+          </a>
         </div>
       </div>
     </section>
@@ -1056,5 +1330,82 @@
   </script>
   <script src="../official-social.js?v=20261029-layoutfix1"></script>
   <script src="../social-brand-icons.js?v=20261030-brandicons1"></script>
+
+  <script id="preme-pora-baron-thumbnail-colour-sampling">
+  (function(){
+    'use strict';
+    var section=document.getElementById('more-covers');
+    if(!section)return;
+    var started=false;
+    function sampleThumbnail(card){
+      var image=card.querySelector('.related-thumb img');
+      if(!image)return;
+      var probe=new Image();
+      probe.crossOrigin='anonymous';
+      probe.decoding='async';
+      probe.onload=function(){
+        try{
+          var canvas=document.createElement('canvas');
+          canvas.width=28;canvas.height=16;
+          var context=canvas.getContext('2d',{willReadFrequently:true});
+          if(!context)return;
+          context.drawImage(probe,0,0,28,16);
+          var pixels=context.getImageData(0,0,28,16).data;
+          var bins=[];
+          for(var b=0;b<24;b++)bins.push({weight:0,r:0,g:0,b:0});
+          var fallback={weight:0,r:0,g:0,b:0};
+          for(var i=0;i<pixels.length;i+=4){
+            var r=pixels[i],g=pixels[i+1],bl=pixels[i+2];
+            var max=Math.max(r,g,bl),min=Math.min(r,g,bl),delta=max-min;
+            var sat=max===0?0:delta/max;
+            var lum=(r+g+bl)/3;
+            if(lum<24||lum>246)continue;
+            var hue=0;
+            if(delta!==0){
+              if(max===r)hue=60*(((g-bl)/delta)%6);
+              else if(max===g)hue=60*((bl-r)/delta+2);
+              else hue=60*((r-g)/delta+4);
+            }
+            if(hue<0)hue+=360;
+            var weight=Math.max(.08,sat)*(.45+.55*(1-Math.abs(lum-132)/132));
+            fallback.weight+=weight;fallback.r+=r*weight;fallback.g+=g*weight;fallback.b+=bl*weight;
+            if(sat>.13){
+              var bin=bins[Math.min(23,Math.floor(hue/15))];
+              bin.weight+=weight;bin.r+=r*weight;bin.g+=g*weight;bin.b+=bl*weight;
+            }
+          }
+          var winner=bins.reduce(function(best,item){return item.weight>best.weight?item:best;},bins[0]);
+          var chosen=winner.weight>fallback.weight*.10?winner:fallback;
+          if(!chosen.weight)return;
+          var rr=Math.round(chosen.r/chosen.weight),gg=Math.round(chosen.g/chosen.weight),bb=Math.round(chosen.b/chosen.weight);
+          var light=(rr*.2126+gg*.7152+bb*.0722);
+          if(light<92){rr=Math.round(rr*.72+217*.28);gg=Math.round(gg*.72+217*.28);bb=Math.round(bb*.72+217*.28);}
+          if(light>218){rr=Math.round(rr*.78+31*.22);gg=Math.round(gg*.78+47*.22);bb=Math.round(bb*.78+48*.22);}
+          card.style.setProperty('--cover-rgb',rr+' '+gg+' '+bb);
+          card.style.setProperty('--cover-accent','rgb('+rr+' '+gg+' '+bb+')');
+        }catch(error){
+          /* Cross-origin image restrictions simply leave the curated fallback colour in place. */
+        }
+      };
+      probe.onerror=function(){};
+      probe.src=image.currentSrc||image.src;
+    }
+    function start(){
+      if(started)return;started=true;
+      section.querySelectorAll('[data-cover-card]').forEach(sampleThumbnail);
+    }
+    if('IntersectionObserver' in window){
+      var observer=new IntersectionObserver(function(entries){
+        if(entries.some(function(entry){return entry.isIntersecting;})){
+          start();observer.disconnect();
+        }
+      },{rootMargin:'240px 0px'});
+      observer.observe(section);
+    }else{
+      start();
+    }
+  })();
+  </script>
+
 </body>
 </html>
