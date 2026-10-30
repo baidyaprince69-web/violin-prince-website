@@ -1123,6 +1123,201 @@
     }
   </style>
 
+  <style id="preme-pora-baron-responsive-layout-refinement">
+    /* Layout-only refinements. Existing keyframes, animation durations and visual effects stay untouched. */
+    .wrap{width:min(var(--page),calc(100% - 48px))}
+    .hero,.split,.music-layout,.interpret-grid,.story-grid,.fact-strip,
+    .emotion-steps,.related-gallery,.social-grid{min-width:0}
+    .hero-copy,.prose,.section-heading,.music-panel,.pull-card,.interpret-card,
+    .emotion-title,.listen-copy,.upcoming>div,.footer-brand{min-width:0}
+    .lead,.prose p,.section-heading p,.related-copy strong,.upcoming p,
+    .footer-brand small,.footer-links a{overflow-wrap:anywhere}
+    .nav{min-width:0}
+    .brand{flex-shrink:0}
+    .nav-links{min-width:0}
+    .btn{max-width:100%}
+    .video-caption>*{min-width:0}
+    .video-caption a{overflow-wrap:anywhere}
+    .fact strong{overflow-wrap:anywhere}
+    .related-card{min-width:0}
+    .related-thumb{min-width:0}
+    .social-card{min-width:0}
+    .social-copy{min-width:0;overflow-wrap:anywhere}
+    .upcoming>div:first-child{flex:1 1 auto}
+    .upcoming .coming-mark{flex:0 0 auto}
+    .footer-links{min-width:0}
+
+    /* Large monitors: retain a readable line length instead of stretching content. */
+    @media(min-width:1440px){
+      .hero{column-gap:clamp(46px,5vw,70px)}
+      .section{padding-top:clamp(100px,7vw,118px);padding-bottom:clamp(100px,7vw,118px)}
+      .section-heading{margin-bottom:46px}
+      .video-shell{max-width:1000px}
+    }
+
+    /* Compact desktop and larger laptops. */
+    @media(min-width:981px) and (max-width:1180px){
+      .wrap{width:calc(100% - 56px)}
+      .nav{gap:18px}
+      .nav-links{gap:17px}
+      .nav-links a{font-size:.79rem}
+      .nav-links .nav-cta{padding:9px 12px}
+      .hero{min-height:590px;column-gap:32px}
+      .hero-art{max-width:100%}
+      .split,.music-layout{column-gap:38px}
+      .related-gallery{column-gap:15px}
+      .related-copy{padding-left:15px;padding-right:15px}
+      .floating-music-bar{gap:10px}
+    }
+
+    /* Tablet / small laptop: use balanced columns and prevent the navigation from crowding. */
+    @media(min-width:761px) and (max-width:980px){
+      .wrap{width:calc(100% - 44px)}
+      .hero{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:26px;padding:66px 0 72px;min-height:0}
+      .hero-art{max-width:100%;padding:8px}
+      .hero-orbit{width:270px;height:270px}
+      .section{padding:78px 0}
+      .split{grid-template-columns:minmax(0,.88fr) minmax(0,1.12fr);gap:30px}
+      .music-layout{grid-template-columns:minmax(0,1fr) minmax(0,.94fr);gap:30px}
+      .story-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .fact-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .emotion-steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .emotion-step:last-child{grid-column:1/-1}
+      .interpret-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+      .listen-box{grid-template-columns:90px minmax(0,1fr) auto;gap:14px;padding:18px}
+      .listen-box img{width:90px}
+      .upcoming{padding:28px 30px;gap:20px}
+      .social-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .related-gallery{gap:14px}
+      .related-copy{padding:14px}
+      .related-card--feature .related-copy{padding:22px}
+      .footer-row{gap:18px}
+    }
+
+    /* Narrower tablets and wide phones: switch navigation to the existing menu control. */
+    @media(min-width:761px) and (max-width:860px){
+      .nav{min-height:66px}
+      .menu-toggle{display:block;flex:0 0 auto}
+      .nav-links{
+        display:none;
+        position:absolute;
+        left:22px;right:22px;top:65px;
+        flex-direction:column;align-items:stretch;gap:0;
+        max-height:calc(100vh - 84px);overflow-y:auto;overscroll-behavior:contain;
+        padding:9px;border:1px solid rgba(217,217,211,.15);
+        border-radius:16px;background:rgba(31,47,48,.97);
+        box-shadow:0 20px 45px rgba(0,0,0,.4);
+      }
+      .nav-links.is-open{display:flex}
+      .nav-links a{padding:12px;border-radius:10px}
+      .nav-links .nav-cta{margin-top:5px;text-align:center}
+    }
+
+    /* Phone layout: one clear reading column, comfortable controls and no cramped text. */
+    @media(max-width:760px){
+      .wrap{width:calc(100% - 32px)}
+      .nav{gap:12px}
+      .brand{font-size:.76rem;letter-spacing:.12em}
+      .hero{grid-template-columns:minmax(0,1fr);gap:30px;padding:54px 0 62px}
+      .hero-copy{width:100%}
+      .hero-art{width:100%;max-width:650px;justify-self:center}
+      .section{padding:66px 0}
+      .section-heading{margin-bottom:30px}
+      .split,.music-layout{grid-template-columns:minmax(0,1fr);gap:27px}
+      .story-grid{grid-template-columns:minmax(0,1fr);gap:12px}
+      .fact-strip{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:28px}
+      .emotion-stage{padding:28px 21px}
+      .emotion-steps{grid-template-columns:minmax(0,1fr);gap:10px}
+      .emotion-step:last-child{grid-column:auto}
+      .interpret-grid{grid-template-columns:minmax(0,1fr);gap:13px}
+      .listen-box{grid-template-columns:78px minmax(0,1fr);gap:13px;padding:15px}
+      .listen-box img{width:78px}
+      .listen-action{grid-column:1/-1;flex-wrap:wrap}
+      .listen-action .btn{width:auto;flex:1 1 180px}
+      .upcoming{padding:24px;gap:16px}
+      .social-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+      .social-card{padding:13px;gap:10px}
+      .footer-row{align-items:flex-start;flex-direction:column;gap:20px}
+      .footer-links{gap:12px 16px}
+      .nav-links{max-height:calc(100dvh - 84px)}
+    }
+
+    /* Small phones: avoid two-up controls/cards becoming too narrow. */
+    @media(max-width:520px){
+      .wrap{width:calc(100% - 28px)}
+      .hero{padding-top:43px;padding-bottom:50px;gap:25px}
+      h1{font-size:clamp(3rem,13.8vw,4.7rem);overflow-wrap:normal}
+      h2{font-size:clamp(2.2rem,10vw,3.2rem)}
+      .lead{font-size:1rem;line-height:1.72}
+      .artistline{flex-wrap:wrap;row-gap:6px}
+      .actions{flex-direction:column;align-items:stretch}
+      .actions .btn{width:100%}
+      .section{padding:56px 0}
+      .section-heading{margin-bottom:25px}
+      .pull-card{padding:22px}
+      .story-card{padding:20px}
+      .music-panel,.interpret-card{padding:22px}
+      .fact-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .fact{padding:13px}
+      .fact strong{font-size:.9rem}
+      .emotion-stage{padding:24px 18px}
+      .emotion-topline{align-items:flex-start;flex-direction:column;gap:8px}
+      .video-section{padding-top:54px}
+      .video-shell{padding:6px}
+      .video-caption{align-items:flex-start;flex-direction:column;gap:8px}
+      .related-gallery{grid-template-columns:minmax(0,1fr);gap:12px}
+      .related-card,.related-card--feature,.related-card:nth-child(8){
+        grid-column:1;display:flex;flex-direction:column;min-height:unset;
+      }
+      .related-thumb,.related-card--feature .related-thumb,.related-card:nth-child(8) .related-thumb{
+        height:auto;min-height:unset;aspect-ratio:16/9;
+      }
+      .related-thumb img,.related-card--feature .related-thumb img,.related-card:nth-child(8) .related-thumb img{
+        position:relative;inset:auto;width:100%;height:100%;aspect-ratio:16/9;
+      }
+      .related-copy,.related-card--feature .related-copy{padding:14px 16px 15px}
+      .related-card--feature .related-copy strong{font-size:2rem}
+      .upcoming{padding:20px}
+      .upcoming .coming-mark{width:58px;height:58px;font-size:1.2rem}
+      .social-grid{grid-template-columns:minmax(0,1fr)}
+      .floating-music-bar{
+        width:calc(100% - 14px);
+        grid-template-columns:42px minmax(0,1fr) 36px 28px;
+        grid-template-rows:auto auto;gap:6px 8px;padding:8px 9px;
+      }
+      .floating-art{width:42px;height:36px}
+      .floating-copy{min-width:0}
+      .floating-copy strong{font-size:.72rem}
+      .floating-status{font-size:.52rem}
+      .floating-copy small,.mini-wave,.jump-button,.volume-control{display:none}
+      .floating-music-bar .timeline{display:block;grid-column:1/-1;grid-row:2;padding:0 3px 1px}
+      .player-button{width:36px;height:36px}
+      .mini-button{width:28px;height:28px}
+      .floating-music-bar.is-minimized{width:calc(100% - 14px);grid-template-columns:42px minmax(0,1fr) 36px 28px;grid-template-rows:auto}
+      .progress-range{min-height:20px}
+    }
+
+    @media(max-width:380px){
+      .wrap{width:calc(100% - 24px)}
+      .brand{font-size:.70rem;letter-spacing:.09em}
+      .menu-toggle{padding:8px 10px}
+      .nav{gap:8px}
+      .fact-strip{grid-template-columns:minmax(0,1fr)}
+      .social-card{min-height:68px}
+      .floating-music-bar{gap:5px 6px}
+      .upcoming{align-items:flex-start}
+    }
+
+    /* Landscape phones / small tablets: use the available width without a tall stacked hero. */
+    @media(orientation:landscape) and (max-height:520px) and (max-width:900px){
+      .hero{min-height:0;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px;padding:32px 0 38px}
+      .hero-art{max-width:100%;align-self:center}
+      .section{padding-top:48px;padding-bottom:48px}
+      .nav-links{max-height:calc(100dvh - 76px)}
+      .floating-music-bar{bottom:5px}
+    }
+  </style>
+
 </head>
 <body>
   <div class="ambient" aria-hidden="true">
