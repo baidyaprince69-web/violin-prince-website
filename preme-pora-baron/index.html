@@ -951,29 +951,29 @@
 
 
   <style id="preme-pora-baron-light-3d-cover-surfaces">
-    /* Light, individual cover finishes: the deep teal section remains the backdrop, not the card surface. */
-    #more-covers .related-card:nth-child(1){--cover-paper:#F2E5D8;--cover-ink:#75472F}
-    #more-covers .related-card:nth-child(2){--cover-paper:#F2E5E9;--cover-ink:#754858}
-    #more-covers .related-card:nth-child(3){--cover-paper:#F4EEDC;--cover-ink:#75591F}
-    #more-covers .related-card:nth-child(4){--cover-paper:#E7EFF4;--cover-ink:#365A70}
-    #more-covers .related-card:nth-child(5){--cover-paper:#F0EFD9;--cover-ink:#69601F}
-    #more-covers .related-card:nth-child(6){--cover-paper:#F4EEDB;--cover-ink:#6A521F}
-    #more-covers .related-card:nth-child(7){--cover-paper:#E5EFEB;--cover-ink:#315F58}
-    #more-covers .related-card:nth-child(8){--cover-paper:#F3E5E1;--cover-ink:#82483F}
+    /* Satin mid-tone finishes: distinct from teal, colourful without paper-white surfaces. */
+    #more-covers .related-card:nth-child(1){--cover-paper:#CDA483;--cover-shadow:#A8795F;--cover-ink:#482E21}
+    #more-covers .related-card:nth-child(2){--cover-paper:#C99AA4;--cover-shadow:#A87380;--cover-ink:#482C36}
+    #more-covers .related-card:nth-child(3){--cover-paper:#C8AE73;--cover-shadow:#A88B50;--cover-ink:#493919}
+    #more-covers .related-card:nth-child(4){--cover-paper:#9AAFC0;--cover-shadow:#71899C;--cover-ink:#293F50}
+    #more-covers .related-card:nth-child(5){--cover-paper:#B9AE79;--cover-shadow:#91834F;--cover-ink:#41401F}
+    #more-covers .related-card:nth-child(6){--cover-paper:#BDA579;--cover-shadow:#92794D;--cover-ink:#42341E}
+    #more-covers .related-card:nth-child(7){--cover-paper:#96B2A4;--cover-shadow:#6F9283;--cover-ink:#25493E}
+    #more-covers .related-card:nth-child(8){--cover-paper:#C99082;--cover-shadow:#A56860;--cover-ink:#4D2D2A}
 
     #more-covers .related-card{
       background:
-        radial-gradient(ellipse 76% 66% at 2% 0%,rgb(var(--cover-rgb) / .18),transparent 76%),
-        radial-gradient(ellipse 50% 52% at 100% 100%,rgba(255,255,255,.52),transparent 80%),
-        linear-gradient(145deg,#FFFEFA 0%,var(--cover-paper,#F2EEE5) 58%,rgba(217,217,211,.88) 100%);
-      border:1px solid rgb(var(--cover-rgb) / .48);
+        radial-gradient(ellipse 78% 65% at 0% 0%,rgb(var(--cover-rgb) / .25),transparent 76%),
+        radial-gradient(ellipse 55% 58% at 100% 100%,rgba(255,255,255,.13),transparent 82%),
+        linear-gradient(148deg,var(--cover-paper) 0%,var(--cover-paper) 48%,var(--cover-shadow) 100%);
+      border:1px solid rgb(var(--cover-rgb) / .58);
       box-shadow:
-        0 2px 0 rgba(255,255,255,.76),
-        0 5px 0 rgb(var(--cover-rgb) / .16),
-        0 17px 36px rgba(5,22,25,.27),
-        0 0 0 1px rgba(31,47,48,.08),
-        inset 0 1px 0 rgba(255,255,255,.92),
-        inset 0 -2px 0 rgba(31,47,48,.07);
+        0 2px 0 rgba(255,255,255,.30),
+        0 5px 0 color-mix(in srgb,var(--cover-shadow) 78%,#1F2F30 22%),
+        0 17px 36px rgba(5,22,25,.30),
+        0 0 0 1px rgba(31,47,48,.10),
+        inset 0 1px 0 rgba(255,255,255,.34),
+        inset 0 -2px 0 rgba(31,47,48,.13);
       transform:perspective(1100px) translateZ(0);
       transition:transform .32s cubic-bezier(.2,.72,.22,1),box-shadow .32s ease,border-color .32s ease;
       -webkit-backdrop-filter:none;
@@ -983,21 +983,21 @@
     #more-covers .related-copy{position:relative;z-index:1}
     #more-covers .related-copy{
       background:
-        radial-gradient(ellipse 85% 72% at 100% 0%,rgb(var(--cover-rgb) / .13),transparent 78%),
-        linear-gradient(140deg,rgba(255,255,255,.92),rgba(255,255,255,.54) 42%,rgba(var(--cover-rgb) / .09)),
-        linear-gradient(145deg,#FFFEFA,var(--cover-paper,#F2EEE5));
-      box-shadow:inset 0 1px 0 rgba(255,255,255,.82);
+        radial-gradient(ellipse 85% 72% at 100% 0%,rgba(255,255,255,.12),transparent 78%),
+        linear-gradient(140deg,rgba(255,255,255,.13),rgba(255,255,255,.035) 44%,rgba(31,47,48,.055)),
+        linear-gradient(145deg,var(--cover-paper),var(--cover-shadow));
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.24);
     }
-    #more-covers .related-copy strong{color:#1F2F30;text-shadow:0 1px 0 rgba(255,255,255,.78)}
-    #more-covers .related-copy small{color:rgba(31,47,48,.76)}
+    #more-covers .related-copy strong{color:#1F2F30;text-shadow:0 1px 0 rgba(255,255,255,.18)}
+    #more-covers .related-copy small{color:rgba(31,47,48,.82)}
     #more-covers .related-kicker,
     #more-covers .related-link{color:var(--cover-ink,var(--cover-accent))}
-    #more-covers .related-link{border-top:1px solid rgb(var(--cover-rgb) / .32)}
+    #more-covers .related-link{border-top:1px solid rgba(31,47,48,.17)}
     #more-covers .related-link b{
       color:var(--cover-ink,var(--cover-accent));
-      border-color:rgb(var(--cover-rgb) / .48);
-      background:rgba(255,255,255,.48);
-      box-shadow:inset 0 1px 0 rgba(255,255,255,.82),0 2px 5px rgba(31,47,48,.08);
+      border-color:rgba(31,47,48,.24);
+      background:rgba(255,255,255,.14);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.26),0 2px 5px rgba(31,47,48,.12);
     }
     #more-covers .related-card::after{
       content:"";
@@ -1006,49 +1006,49 @@
       inset:0;
       border-radius:inherit;
       pointer-events:none;
-      opacity:.68;
+      opacity:.52;
       background:
-        linear-gradient(137deg,rgba(255,255,255,.42),transparent 25%,transparent 74%,rgb(var(--cover-rgb) / .12)),
-        linear-gradient(180deg,rgba(255,255,255,.12),transparent 30%);
+        linear-gradient(137deg,rgba(255,255,255,.18),transparent 25%,transparent 74%,rgba(31,47,48,.10)),
+        linear-gradient(180deg,rgba(255,255,255,.075),transparent 30%);
     }
     #more-covers .related-card::before{
       z-index:6;
-      opacity:.82;
+      opacity:.76;
       background:linear-gradient(132deg,
-        rgba(255,255,255,.92) 0%,
-        rgb(var(--cover-rgb) / .82) 25%,
-        rgba(255,255,255,.62) 48%,
-        rgb(var(--cover-rgb) / .78) 74%,
-        rgba(233,162,102,.72) 100%);
+        rgba(255,255,255,.42) 0%,
+        rgb(var(--cover-rgb) / .86) 25%,
+        rgba(217,217,211,.34) 48%,
+        rgb(var(--cover-rgb) / .80) 74%,
+        rgba(233,162,102,.58) 100%);
     }
     #more-covers .related-card:hover{
       transform:perspective(1100px) translateY(-8px) rotateX(1.1deg);
-      border-color:rgb(var(--cover-rgb) / .88);
+      border-color:rgb(var(--cover-rgb) / .94);
       box-shadow:
-        0 3px 0 rgba(255,255,255,.84),
-        0 8px 0 rgb(var(--cover-rgb) / .20),
-        0 27px 48px rgba(5,22,25,.34),
-        0 0 28px rgb(var(--cover-rgb) / .20),
-        inset 0 1px 0 rgba(255,255,255,.96);
+        0 3px 0 rgba(255,255,255,.40),
+        0 8px 0 color-mix(in srgb,var(--cover-shadow) 74%,#1F2F30 26%),
+        0 27px 48px rgba(5,22,25,.38),
+        0 0 28px rgb(var(--cover-rgb) / .23),
+        inset 0 1px 0 rgba(255,255,255,.42);
     }
     #more-covers .related-card:hover .related-thumb img{
       transform:scale(1.035);
       filter:saturate(1.06) contrast(1.035);
     }
-    #more-covers .related-card:hover .related-copy{box-shadow:inset 0 1px 0 rgba(255,255,255,.96)}
+    #more-covers .related-card:hover .related-copy{box-shadow:inset 0 1px 0 rgba(255,255,255,.34)}
     #more-covers .related-card:hover .related-link b{
       color:var(--cover-ink,var(--cover-accent));
-      background:rgba(255,255,255,.78);
-      box-shadow:0 3px 9px rgba(31,47,48,.10);
+      background:rgba(255,255,255,.24);
+      box-shadow:0 3px 9px rgba(31,47,48,.15);
     }
-    #more-covers .related-card:focus-visible{outline:2px solid var(--cover-ink,var(--cover-accent));outline-offset:5px}
+    #more-covers .related-card:focus-visible{outline:2px solid var(--cover-paper);outline-offset:5px}
     #more-covers .related-index{
-      border-color:rgba(255,255,255,.55);
-      background:rgba(31,47,48,.72);
-      box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.22);
+      border-color:rgba(255,255,255,.34);
+      background:rgba(31,47,48,.76);
+      box-shadow:0 4px 12px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.15);
     }
     @media(max-width:520px){
-      #more-covers .related-card{box-shadow:0 2px 0 rgba(255,255,255,.76),0 4px 0 rgb(var(--cover-rgb) / .14),0 12px 25px rgba(5,22,25,.22),inset 0 1px 0 rgba(255,255,255,.92)}
+      #more-covers .related-card{box-shadow:0 2px 0 rgba(255,255,255,.30),0 4px 0 rgb(var(--cover-rgb) / .18),0 12px 25px rgba(5,22,25,.26),inset 0 1px 0 rgba(255,255,255,.34)}
       #more-covers .related-card:hover{transform:translateY(-3px)}
     }
     @media(prefers-reduced-motion:reduce){
