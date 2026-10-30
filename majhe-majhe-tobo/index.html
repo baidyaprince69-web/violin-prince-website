@@ -49,6 +49,7 @@
 .tagore-portrait{display:block;width:min(100%,220px);height:auto;margin:0 auto 24px;border-radius:18px 18px 64px 18px;border:1px solid #fff8df;box-shadow:0 12px 28px #174f4c18}
 
 </style>
+  <link rel="stylesheet" href="../official-social.css?v=20261030-brandicons1">
 </head>
 <body>
 <header class="topbar"><div class="wrap nav"><a class="brand" href="../"><span class="brand-mark">V</span><span>Violin Prince</span></a><nav class="nav-links" aria-label="Main navigation"><a href="#story">The song</a><a href="#performance">Performance</a><a href="#heritage">Heritage</a><a href="#more">More covers</a><a class="nav-cta" href="https://youtu.be/vAinuVKLKGE" target="_blank" rel="noopener">Watch on YouTube ↗</a></nav></div></header>
@@ -115,4 +116,5 @@
 <script>
 (function(){const items=document.querySelectorAll('.reveal');if('IntersectionObserver'in window){const observer=new IntersectionObserver(entries=>entries.forEach(entry=>{entry.target.classList.toggle('is-visible',entry.isIntersecting)}),{threshold:.12,rootMargin:'0px 0px -35px 0px'});items.forEach(item=>observer.observe(item))}else items.forEach(item=>item.classList.add('is-visible'));const copy=async()=>{try{await navigator.clipboard.writeText(location.href);[document.getElementById('share-page'),document.getElementById('share-mini')].forEach(b=>{if(b){const old=b.textContent;b.textContent='Copied ✓';setTimeout(()=>b.textContent=old,1800)}})}catch(e){window.prompt('Copy this page link:',location.href)}};const share=async()=>{const data={title:document.title,text:'Majhe Majhe Tobo — Violin Solo by Violin Prince',url:location.href};if(navigator.share){try{await navigator.share(data)}catch(e){if(e.name!=='AbortError')copy()}}else copy()};document.getElementById('share-page')?.addEventListener('click',share);document.getElementById('share-mini')?.addEventListener('click',share)})();
 </script>
+  <script src="../social-brand-icons.js?v=20261030-brandicons1"></script>
 </body></html>
