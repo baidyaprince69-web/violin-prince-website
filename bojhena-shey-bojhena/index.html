@@ -291,32 +291,28 @@
     .footer-links a { color: var(--muted); text-decoration: none; font-size: .73rem; }
     .footer-links a:hover { color: var(--gold); }
     .copyright-note { margin-top: 21px; color: #92A99A; font-size: .68rem; line-height: 1.7; }
-    .floating-player { position: fixed; z-index: 50; left: max(18px, env(safe-area-inset-left)); bottom: max(18px, env(safe-area-inset-bottom)); width: min(700px, calc(100vw - 36px)); display: grid; grid-template-columns: 60px minmax(150px, 1fr) 50px 36px; align-items: center; gap: 14px; padding: 14px 17px; border: 1px solid rgba(248,232,190,.40); border-radius: 18px; background: linear-gradient(115deg, rgba(28,82,84,.78) 0%, rgba(8,27,30,.76) 53%, rgba(72,46,28,.74) 100%); -webkit-backdrop-filter: blur(26px) saturate(170%); backdrop-filter: blur(26px) saturate(170%); box-shadow: 0 20px 62px rgba(0,0,0,.38), 0 0 0 1px rgba(46,163,160,.12), 0 0 35px rgba(46,163,160,.22), 0 0 28px rgba(233,141,58,.14), inset 0 1px 0 rgba(255,255,255,.22), inset 0 -1px 0 rgba(242,198,109,.10); transition: width .28s var(--ease), padding .28s ease, border-radius .28s ease; }
+    .floating-player { position: fixed; z-index: 50; left: 0; right: 0; bottom: 0; width: auto; padding: 12px max(22px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left)); border: 0; border-top: 1px solid rgba(248,232,190,.40); border-radius: 0; display: block; background: linear-gradient(115deg, rgba(28,82,84,.78) 0%, rgba(8,27,30,.76) 53%, rgba(72,46,28,.74) 100%); -webkit-backdrop-filter: blur(26px) saturate(170%); backdrop-filter: blur(26px) saturate(170%); box-shadow: 0 -20px 62px rgba(0,0,0,.38), 0 0 35px rgba(46,163,160,.22), 0 0 28px rgba(233,141,58,.14), inset 0 1px 0 rgba(255,255,255,.22); transition: padding .28s ease; }
     .floating-player::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: linear-gradient(115deg, rgba(46,163,160,.30) 0%, rgba(255,255,255,.035) 38%, rgba(233,141,58,.22) 100%); pointer-events: none; }
-    .floating-art { width: 60px; height: 54px; object-fit: cover; border-radius: 10px; border: 1px solid rgba(242,198,109,.42); box-shadow: 0 0 18px rgba(46,163,160,.14); background: #0C3538; }
-    .floating-copy { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-    .floating-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font: 700 .8rem "Manrope", sans-serif; }
-    .floating-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #B8C9BE; font-size: .66rem; }
-    .floating-status { display: flex; align-items: center; gap: 6px; color: var(--gold); font: 800 .52rem "Manrope", sans-serif; letter-spacing: .12em; }
+    .player-inner { width: min(1230px, 100%); margin: 0 auto; display: grid; grid-template-columns: minmax(190px,1.1fr) auto minmax(180px,.95fr) auto; gap: 18px; align-items: center; }
+    .floating-track { min-width: 0; display: flex; align-items: center; gap: 12px; }
+    .floating-art { width: 52px; height: 40px; flex: 0 0 52px; object-fit: cover; border-radius: 6px; border: 1px solid rgba(242,198,109,.42); box-shadow: 0 0 18px rgba(46,163,160,.14); background: #0C3538; }
+    .floating-copy { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .floating-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font: 700 .8rem/1.2 "Manrope", sans-serif; }
+    .floating-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #B8C9BE; font-size: .66rem; margin-top: 2px; }
+    .floating-status { display: flex; align-items: center; gap: 6px; color: var(--gold); font: 800 .56rem/1.2 "Manrope", sans-serif; letter-spacing: .12em; margin-bottom: 2px; white-space: nowrap; }
     .floating-status::before { content: ""; width: 5px; height: 5px; flex: 0 0 5px; border-radius: 50%; background: #2EA3A0; }
     .floating-player.is-playing .floating-status::before { background: var(--gold); box-shadow: 0 0 9px rgba(242, 198, 109,.8); }
-    .floating-controls { display: flex; align-items: center; gap: 7px; }
-    .floating-play { width: 46px; height: 46px; flex: 0 0 46px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.72); border-radius: 50%; color: #091A1C; background: linear-gradient(135deg, #FFE39A, #F2C66D 52%, #E98D3A); cursor: pointer; box-shadow: 0 0 22px rgba(242,198,109,.28), 0 4px 14px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.65); }
+    .floating-controls { display: flex; align-items: center; justify-content: center; }
+    .floating-play { width: 43px; height: 43px; flex: 0 0 43px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.72); border-radius: 50%; color: #091A1C; background: linear-gradient(135deg, #FFE39A, #F2C66D 52%, #E98D3A); cursor: pointer; box-shadow: 0 0 22px rgba(242,198,109,.28), 0 4px 14px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.65); }
     .floating-play:disabled { opacity: .48; cursor: progress; }
     .floating-play svg { width: 18px; height: 18px; fill: currentColor; }
-    .floating-mini-button { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid rgba(248,232,190,.28); border-radius: 50%; color: var(--ink); background: rgba(255,255,255,.055); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); box-shadow: inset 0 1px 0 rgba(255,255,255,.13); cursor: pointer; }
-    .floating-mini-button:hover { color: var(--ink); border-color: var(--line-bright); }
-    .floating-extra { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 11px; padding-top: 9px; border-top: 1px solid rgba(242, 198, 109,.11); }
-    .floating-progress { width: 100%; height: 20px; margin: 0; accent-color: var(--gold); cursor: pointer; }
+    .floating-extra { display: contents; }
+    .floating-extra > div { grid-column: 3; min-width: 0; }
+    .floating-progress { display: block; width: 100%; height: 5px; margin: 0; accent-color: var(--gold); cursor: pointer; }
     .floating-progress:disabled { opacity: .4; cursor: default; }
-    .floating-times { display: flex; justify-content: space-between; gap: 13px; margin-top: -2px; color: #AABFB4; font-size: .61rem; font-variant-numeric: tabular-nums; }
-    .jump-video { color: var(--gold); font: 800 .64rem "Manrope", sans-serif; white-space: nowrap; text-decoration: none; }
-    .floating-player.is-minimized { width: 232px; grid-template-columns: 42px minmax(0,1fr) 35px; gap: 9px; padding: 9px; border-radius: 999px; }
-    .floating-player.is-minimized .floating-art { width: 42px; height: 38px; border-radius: 50%; }
-    .floating-player.is-minimized .floating-copy small, .floating-player.is-minimized .floating-status, .floating-player.is-minimized .floating-extra, .floating-player.is-minimized .floating-mini-button { display: none; }
-    .floating-player.is-minimized .floating-play { width: 34px; height: 34px; flex-basis: 34px; }
-    .floating-player.is-minimized .floating-play svg { width: 15px; height: 15px; }
-    .floating-player.is-minimized .floating-copy strong { font-size: .7rem; }
+    .floating-times { display: flex; justify-content: space-between; gap: 13px; margin: 0 0 3px; color: #AABFB4; font-size: .61rem; font-variant-numeric: tabular-nums; }
+    .jump-video { grid-column: 4; color: var(--gold); font: 800 .7rem "Manrope", sans-serif; white-space: nowrap; text-decoration: none; }
+    .jump-video:hover { text-decoration: underline; text-underline-offset: 4px; }
     .js .reveal { opacity: 0; transform: translateY(20px); filter: blur(9px); transition: opacity .75s var(--ease), transform .75s var(--ease), filter .75s var(--ease); }
     .js .reveal.is-visible { opacity: 1; transform: translateY(0); filter: blur(0); }
     .delay-1 { transition-delay: .1s !important; }
@@ -324,6 +320,9 @@
     .delay-3 { transition-delay: .3s !important; }
     @keyframes drift { from { transform: translate3d(-1.5%,0,0); } to { transform: translate3d(1.5%,1%,0); } }
     .string-art { transform-origin: center; animation: drift 18s ease-in-out infinite alternate; }
+    @media (min-width: 761px) and (max-width: 980px) {
+      .player-inner { grid-template-columns: minmax(150px,1fr) auto minmax(130px,.9fr) auto; gap: 13px; }
+    }
     @media (min-width: 1500px) { .hero { min-height: 720px; } }
     @media (max-width: 980px) {
       .hero { min-height: auto; grid-template-columns: minmax(0,1fr) minmax(300px,.85fr); gap: 38px; padding-top: 65px; }
@@ -364,13 +363,18 @@
       .player-caption { align-items: flex-start; flex-direction: column; }
       .footer-row { align-items: flex-start; flex-direction: column; }
       .footer-links { gap: 12px 18px; }
-      .floating-player { left: 5px; bottom: max(8px, env(safe-area-inset-bottom)); width: calc(100vw - 10px); grid-template-columns: 44px minmax(0,1fr) 43px 30px; gap: 9px; padding: 10px 11px; border-radius: 15px; }
-      .floating-art { width: 44px; height: 43px; }
-      .floating-play { width: 40px; height: 40px; flex-basis: 40px; }
+      body { padding-bottom: 145px; }
+      .floating-player { padding: 10px max(12px, env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+      .player-inner { grid-template-columns: minmax(0,1fr) auto; gap: 8px 12px; }
+      .floating-track { grid-column: 1; grid-row: 1; gap: 9px; }
+      .floating-art { width: 49px; height: 38px; flex-basis: 49px; }
       .floating-copy strong { font-size: .72rem; }
       .floating-copy small { font-size: .6rem; }
-      .floating-status { font-size: .47rem; }
-      .floating-player.is-minimized { width: min(240px, calc(100vw - 20px)); }
+      .floating-status { font-size: .5rem; }
+      .floating-controls { grid-column: 2; grid-row: 1; }
+      .floating-play { width: 41px; height: 41px; flex-basis: 41px; }
+      .floating-extra > div { grid-column: 1 / -1; grid-row: 2; }
+      .jump-video { display: none; }
       .site-footer { padding-bottom: 105px; }
     }
     @media (max-width: 390px) {
@@ -378,9 +382,10 @@
       .brand-mark { width: 34px; height: 34px; }
       .hero-copy h1 { font-size: 3rem; }
       .actions .btn { width: 100%; }
-      .floating-player { grid-template-columns: 38px minmax(0,1fr) 40px 28px; gap: 7px; padding-inline: 8px; }
-      .floating-art { width: 38px; height: 38px; }
-      .floating-play { width: 37px; height: 37px; flex-basis: 37px; }
+      .player-inner { gap: 7px 10px; }
+      .floating-track { gap: 8px; }
+      .floating-art { width: 44px; height: 34px; flex-basis: 44px; }
+      .floating-play { width: 39px; height: 39px; flex-basis: 39px; }
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
@@ -717,25 +722,28 @@
     </div>
   </footer>
 
-  <aside class="floating-player" id="floating-player" role="region" aria-label="Quick controls for the featured YouTube performance">
-    <img class="floating-art" src="https://i.ytimg.com/vi/nKei8ODtFRU/maxresdefault.jpg" alt="" width="56" height="50" loading="lazy" decoding="async" aria-hidden="true">
-    <div class="floating-copy">
-      <strong>Bojhena Shey Bojhena · violin</strong>
-      <small>Violin Prince · YouTube performance</small>
-      <span class="floating-status" id="floating-status" aria-live="polite">OPEN VIDEO TO LISTEN</span>
-    </div>
-    <div class="floating-controls">
-      <button class="floating-play" id="floating-play" type="button" aria-label="Play the featured violin cover">
-        <svg id="floating-play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10-6.5z"/></svg>
-      </button>
-    </div>
-    <button class="floating-mini-button" id="floating-minimize" type="button" aria-expanded="true" aria-label="Minimize music bar">−</button>
-    <div class="floating-extra">
-      <div>
-        <input class="floating-progress" id="floating-progress" type="range" min="0" max="1000" step="1" value="0" aria-label="Seek through the featured cover" disabled>
-        <div class="floating-times"><span id="floating-current-time">0:00</span><span id="floating-duration">--:--</span></div>
+  <aside class="floating-player" id="floating-player" role="region" aria-label="Persistent Bojhena Shey Bojhena player controls">
+    <div class="player-inner">
+      <div class="floating-track">
+        <img class="floating-art" src="https://i.ytimg.com/vi/nKei8ODtFRU/maxresdefault.jpg" alt="" width="52" height="40" loading="lazy" decoding="async" aria-hidden="true">
+        <div class="floating-copy">
+          <span class="floating-status" id="floating-status" aria-live="polite">OPEN VIDEO TO LISTEN</span>
+          <strong>Bojhena Shey Bojhena · violin</strong>
+          <small>Violin Prince · YouTube performance</small>
+        </div>
       </div>
-      <a class="jump-video" href="#performance" id="jump-video">VIDEO ↗</a>
+      <div class="floating-controls">
+        <button class="floating-play" id="floating-play" type="button" aria-label="Play the featured violin cover">
+          <svg id="floating-play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10-6.5z"/></svg>
+        </button>
+      </div>
+      <div class="floating-extra">
+        <div>
+          <div class="floating-times"><span id="floating-current-time">0:00</span><span id="floating-duration">--:--</span></div>
+          <input class="floating-progress" id="floating-progress" type="range" min="0" max="1000" step="1" value="0" aria-label="Seek through the featured cover" disabled>
+        </div>
+        <a class="jump-video" href="#performance" id="jump-video">Go to video ↑</a>
+      </div>
     </div>
   </aside>
 
@@ -840,7 +848,6 @@
       var bar = document.getElementById('floating-player');
       var playButton = document.getElementById('floating-play');
       var playIcon = document.getElementById('floating-play-icon');
-      var minimizeButton = document.getElementById('floating-minimize');
       var statusLabel = document.getElementById('floating-status');
       var progress = document.getElementById('floating-progress');
       var currentTimeLabel = document.getElementById('floating-current-time');
@@ -961,13 +968,6 @@
           if (duration > 0) player.seekTo(duration * (Number(progress.value) / 1000), true);
           updateProgress();
         } catch (error) {}
-      });
-      minimizeButton.addEventListener('click', function () {
-        var minimized = !bar.classList.contains('is-minimized');
-        bar.classList.toggle('is-minimized', minimized);
-        minimizeButton.setAttribute('aria-expanded', minimized ? 'false' : 'true');
-        minimizeButton.setAttribute('aria-label', minimized ? 'Expand music bar' : 'Minimize music bar');
-        minimizeButton.textContent = minimized ? '+' : '−';
       });
       document.getElementById('jump-video').addEventListener('click', function (event) {
         event.preventDefault();
