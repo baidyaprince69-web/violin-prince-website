@@ -93,3 +93,15 @@
 @media (prefers-reduced-motion: reduce) {
   .vp-site-switcher > .vp-site-destination { transition: none; }
 }
+
+/* Keep the official emblem visually identical in both site headers and footers. */
+.site-header .brand img,
+.footer-brand img,
+.site-footer .brand img {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  object-fit: contain;
+  filter: drop-shadow(0 0 10px rgba(231, 189, 114, .19));
+}
