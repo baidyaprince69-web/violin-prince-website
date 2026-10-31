@@ -25,6 +25,7 @@
   var widgetReady = false;
   var trackReady = false;
   var isPlaying = false;
+  var modeSelected = false;
   var durationMs = 0;
   var activeTrack = null;
 
@@ -117,6 +118,7 @@
         var match = findTrack(sounds);
         if (!match) {
           trackReady = false;
+          modeSelected = false;
           playButton.disabled = true;
           setIcon('play');
           setStatus('TRACK NOT FOUND ON SOUNDCLOUD · USE YOUTUBE VIDEO');
@@ -177,6 +179,7 @@
     widget.bind(events.ERROR, function () {
       trackReady = false;
       isPlaying = false;
+      modeSelected = false;
       playButton.disabled = true;
       bar.classList.remove('is-playing');
       setIcon('play');
@@ -190,6 +193,7 @@
 
     room.hidden = false;
     room.classList.add('is-open');
+    modeSelected = true;
     setStatus('CONNECTING TO SOUNDCLOUD…');
     playButton.disabled = true;
     initPromise = ensureApi().then(function () {
@@ -208,14 +212,18 @@
       ];
       iframe.src = 'https://w.soundcloud.com/player/?' + params.join('&');
     }).catch(function () {
+      initPromise = null;
+      widget = null;
+      apiPromise = null;
       playButton.disabled = false;
-      setStatus('SOUNDCLOUD COULD NOT LOAD · USE THE PROFILE LINK');
+      setStatus('SOUNDCLOUD COULD NOT LOAD · TRY AGAIN OR OPEN THE PROFILE');
     });
 
     return initPromise;
   }
 
   function toggle() {
+    modeSelected = true;
     if (!widget) {
       initialize();
       return;
@@ -229,6 +237,7 @@
   }
 
   function pauseIfPlaying() {
+    modeSelected = false;
     if (widget && isPlaying) widget.pause();
   }
 
@@ -239,7 +248,7 @@
   window.ViolinPrinceSoundCloud = {
     toggle: toggle,
     isPlaying: function () { return isPlaying; },
-    isActive: function () { return isPlaying; },
+    isActive: function () { return modeSelected; },
     pauseIfPlaying: pauseIfPlaying,
     seekTo: function (milliseconds) {
       if (widget && trackReady) widget.seekTo(Math.max(0, Number(milliseconds) || 0));
