@@ -526,7 +526,17 @@
       apiScript.src = 'https://www.youtube.com/iframe_api';
       apiScript.async = true;
       apiScript.dataset.violinPrinceYoutubeApi = 'true';
-      apiScript.onerror = () => { if(coverLoadButton){coverLoadButton.disabled=false;const copy=coverLoadButton.querySelector('.yt-load-copy');if(copy)copy.textContent='Could not load · try again';}setCoverUI(false,'YouTube could not load · check your connection');};
+      apiScript.onerror = () => {
+        // Remove the failed script so a later visitor click can retry the API request.
+        if (apiScript && apiScript.parentNode) apiScript.parentNode.removeChild(apiScript);
+        if (coverLoadButton) {
+          coverLoadButton.disabled = false;
+          const copy = coverLoadButton.querySelector('.yt-load-copy');
+          if (copy) copy.textContent = 'Could not load · try again';
+        }
+        coverWantsPlayback = false;
+        setCoverUI(false, 'YouTube could not load · check your connection');
+      };
       document.head.appendChild(apiScript);
     }
   }
