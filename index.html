@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="google-site-verification" content="nfRI27jrt7eVQlcP4EXnjuj0-EKXiBt4lK39-cYJubM">
   <meta name="robots" content="index,follow,max-image-preview:large">
-  <script src="script.js?v=vp-homepage-migration-20261031"></script>
+  <script src="script.js?v=vp-homepage-no-floating-player-20261031"></script>
   <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-LF917TZ8RN');</script>
 <meta name="description" content="Meet Prince Baidya, the violinist behind Violin Prince. Explore expressive Bengali, Hindi, Rabindra Sangeet and English violin covers, releases and song requests.">
   <meta property="og:type" content="website">
@@ -270,37 +270,7 @@
       .vp-reveal,.vp-reveal.is-visible{opacity:1;filter:none;translate:none;transition:none}
     }
 
-    .youtube-music-dock{position:fixed;z-index:80;right:20px;bottom:20px;width:min(340px,calc(100vw - 32px));padding:13px;border:1px solid rgba(255,208,100,.3);border-radius:18px;background:rgba(22,10,7,.96);color:var(--ivory);box-shadow:0 20px 56px rgba(0,0,0,.38);backdrop-filter:blur(16px);font:11px/1.5 var(--sans)}
-    .yt-dock-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}
-    .yt-dock-eyebrow{display:block;color:var(--gold);font-size:8px;font-weight:700;letter-spacing:.18em}
-    .yt-track-copy strong{display:block;margin-top:4px;font:600 21px/1.05 var(--serif);color:var(--ivory)}
-    .yt-track-copy small{display:block;margin-top:5px;color:var(--muted);font-size:9px}
-    .yt-dock-actions{display:flex;align-items:center;gap:8px}
-    .yt-open-link{color:var(--gold);font-size:9px;font-weight:700;text-decoration:none;white-space:nowrap}
-    .yt-minimize,.yt-minimized-toggle{display:grid;place-items:center;border:1px solid rgba(255,208,100,.32);color:var(--gold);background:#24130f;cursor:pointer}
-    .yt-minimize{width:28px;height:28px;border-radius:50%;font-size:16px}
-    .yt-player-shell{position:relative;overflow:hidden;aspect-ratio:16/9;border:1px solid rgba(255,208,100,.18);border-radius:12px;background:#080504}
-    .yt-load-cover{position:relative;display:flex;align-items:center;justify-content:center;width:100%;height:100%;min-height:170px;padding:0;border:0;overflow:hidden;color:var(--ivory);background:#080504;cursor:pointer}
-    .yt-load-cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.7}
-    .yt-load-play{position:relative;z-index:1;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;color:#190b07;background:var(--gold);font-size:16px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
-    .yt-load-copy{position:absolute;z-index:1;bottom:12px;color:#fff4e7;font-size:8px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;text-shadow:0 2px 8px #000}
-    .yt-player-shell #violinYouTubePlayer[hidden]{display:none!important}
-    .yt-player-shell #violinYouTubePlayer:not([hidden]){display:block;width:100%;height:100%;min-height:170px}
-    .yt-player-shell iframe{width:100%;height:100%;min-height:170px;border:0}
-    .yt-player-controls{display:flex;align-items:center;gap:10px;margin-top:10px}
-    .yt-play-toggle{min-height:34px;padding:0 12px;border:1px solid rgba(255,208,100,.36);border-radius:99px;color:#1b0c07;background:linear-gradient(115deg,var(--gold),#ffb65d);font-size:9px;font-weight:700;cursor:pointer}
-    .yt-player-status{margin:0;color:var(--muted);font-size:8px;line-height:1.4}
-    .yt-volume-row{display:flex;align-items:center;gap:9px;margin-top:9px;color:var(--gold);font-size:11px}
-    .yt-volume-label{color:var(--muted);font-size:8px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
-    .yt-volume-row input{flex:1;min-width:50px;accent-color:var(--gold)}
-    .yt-dock-note{margin:8px 0 0;color:var(--faint);font-size:8px;text-align:center}
-    .yt-minimized-toggle{display:none;width:48px;height:48px;border-radius:50%;font-size:21px;box-shadow:0 12px 36px rgba(0,0,0,.32)}
-    .youtube-music-dock.is-minimized{width:58px;height:58px;padding:5px;border-radius:50%;overflow:visible;display:grid;place-items:center;right:16px;bottom:16px}
-    .youtube-music-dock.is-minimized>*:not(.yt-minimized-toggle){display:none!important}
-    .youtube-music-dock.is-minimized .yt-minimized-toggle{display:grid}
-    .youtube-music-dock button:focus-visible,.youtube-music-dock a:focus-visible,.youtube-music-dock input:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
-    @media(max-width:760px){.youtube-music-dock{right:12px;bottom:12px;width:min(310px,calc(100vw - 24px));max-height:70svh;overflow:auto}.youtube-music-dock.is-minimized{right:12px;bottom:12px}}
-    @media(prefers-reduced-motion:reduce){.youtube-music-dock *{transition:none!important}}
+
 
   </style>
 <script type="application/ld+json">
@@ -316,35 +286,6 @@
   </script>
 </head>
 <body>
-  <aside class="youtube-music-dock" id="youtubeMusicDock" aria-label="Violin Prince music player">
-    <div class="yt-dock-heading">
-      <div class="yt-track-copy">
-        <span class="yt-dock-eyebrow">YOUR SOUNDTRACK</span>
-        <strong>Say You Won't Let Go</strong>
-        <small>Violin cover · Violin Prince</small>
-      </div>
-      <div class="yt-dock-actions"><a class="yt-open-link" href="https://www.youtube.com/watch?v=3NHpKon_Uq8" target="_blank" rel="noopener noreferrer">YouTube ↗</a><button class="yt-minimize" id="ytMinimize" type="button" aria-label="Minimize video player">−</button></div>
-    </div>
-    <div class="yt-player-shell">
-      <button class="yt-load-cover" id="ytLoadCover" type="button" aria-label="Load and play Say You Won’t Let Go violin cover"><img src="https://i.ytimg.com/vi/3NHpKon_Uq8/hqdefault.jpg" alt="" loading="lazy" decoding="async"><span class="yt-load-play" aria-hidden="true">▶</span><span class="yt-load-copy">Tap to load the cover</span></button>
-      <div id="violinYouTubePlayer" aria-label="YouTube video player for Say You Won't Let Go, violin cover by Violin Prince" hidden></div>
-    </div>
-    <div class="yt-player-controls">
-      <button class="yt-play-toggle" id="ytPlayPause" type="button" aria-pressed="false">
-        <span id="ytButtonIcon" aria-hidden="true">▶</span>
-        <span id="ytButtonLabel">Play my cover</span>
-      </button>
-      <p class="yt-player-status" id="ytPlayerStatus" role="status" aria-live="polite">Loading your violin cover…</p>
-    </div>
-    <label class="yt-volume-row" for="ytVolume">
-      <span aria-hidden="true">♪</span>
-      <span class="yt-volume-label">Volume</span>
-      <input id="ytVolume" type="range" min="0" max="100" value="42" aria-label="Violin cover volume">
-      <span aria-hidden="true">♫</span>
-    </label>
-    <p class="yt-dock-note">The melody continues while you explore.</p>
-    <button class="yt-minimized-toggle" id="ytMinimizedToggle" type="button" aria-label="Expand video player">♫</button>
-  </aside>
   <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header">
   <div class="header-inner">
