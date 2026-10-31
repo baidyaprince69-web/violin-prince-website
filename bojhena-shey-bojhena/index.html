@@ -926,6 +926,7 @@
       var player = null;
       var playerReady = false;
       var progressTimer = null;
+      var seeking = false;
 
       function setStatus(text) { statusLabel.textContent = text; }
       function setIcon(playing) {
@@ -941,7 +942,7 @@
         return minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
       }
       function updateProgress() {
-        if (!playerReady || !player || !window.YT) return;
+        if (!playerReady || !player || !window.YT || seeking) return;
         try {
           var duration = Number(player.getDuration()) || 0;
           var current = Number(player.getCurrentTime()) || 0;
@@ -1028,16 +1029,28 @@
         }
       });
       progress.addEventListener('input', function () {
+        seeking = true;
         var value = Math.max(0, Math.min(1000, Number(progress.value) || 0));
         progress.style.setProperty('--progress', (value / 10) + '%');
+        if (playerReady && player && currentTimeLabel) {
+          var duration = Number(player.getDuration()) || 0;
+          if (duration > 0) currentTimeLabel.textContent = formatTime(duration * value / 1000);
+        }
       });
       progress.addEventListener('change', function () {
-        if (!playerReady || !player) return;
         try {
-          var duration = Number(player.getDuration()) || 0;
-          if (duration > 0) player.seekTo(duration * (Number(progress.value) / 1000), true);
-          updateProgress();
-        } catch (error) {}
+          if (playerReady && player) {
+            var duration = Number(player.getDuration()) || 0;
+            if (duration > 0) player.seekTo(duration * (Number(progress.value) / 1000), true);
+          }
+        } finally {
+          seeking = false;
+          // The regular progress timer refreshes after YouTube applies the seek.
+        }
+      });
+      progress.addEventListener('pointercancel', function () {
+        seeking = false;
+        updateProgress();
       });
       document.getElementById('jump-video').addEventListener('click', function (event) {
         event.preventDefault();
