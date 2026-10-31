@@ -1,0 +1,95 @@
+/* Violin Prince connected sites — the same switcher on both official websites. */
+.vp-site-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: 0 0 auto;
+  width: max-content;
+  max-width: 100%;
+  padding: 3px;
+  border: 1px solid rgba(231, 189, 114, .34);
+  border-radius: 999px;
+  background: rgba(3, 13, 24, .58);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.045), 0 5px 16px rgba(0,0,0,.12);
+  white-space: nowrap;
+}
+.vp-site-switcher > a,
+.vp-site-switcher > span {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 11px;
+  border-radius: 999px;
+  color: #d7e0e8;
+  font-family: "DM Sans", Arial, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-decoration: none;
+  letter-spacing: .025em;
+}
+.vp-site-switcher > .vp-site-current {
+  color: #1b1a17;
+  background: linear-gradient(120deg, #f5d99d, #e7bd72);
+  box-shadow: 0 2px 8px rgba(231,189,114,.18);
+}
+.vp-site-switcher > .vp-site-destination {
+  color: #e8edf2;
+  transition: color .18s ease, background .18s ease;
+}
+.vp-site-switcher > .vp-site-destination:hover {
+  color: #fff2d8;
+  background: rgba(231,189,114,.12);
+}
+.vp-site-switcher > a:focus-visible {
+  outline: 2px solid #f5d99d;
+  outline-offset: 2px;
+}
+.artist-profile-actions,
+.collection-profile-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 22px;
+  margin-top: 22px;
+}
+.artist-profile-actions .button { margin: 0; }
+.artist-collection-link {
+  display: inline-flex;
+  align-items: center;
+  color: #e7bd72;
+  font-family: "DM Sans", Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.5;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(231,189,114,.38);
+  padding-bottom: 3px;
+}
+.artist-collection-link:hover { color: #f5d99d; border-color: #f5d99d; }
+.collection-profile-actions { gap: 10px 20px; }
+.collection-profile-actions .text-link {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+}
+@media (max-width: 980px) {
+  .vp-site-switcher > a,
+  .vp-site-switcher > span { padding-left: 9px; padding-right: 9px; font-size: 9px; }
+}
+@media (max-width: 760px) {
+  .nav .vp-site-switcher,
+  .site-nav .vp-site-switcher {
+    align-self: flex-start;
+    margin: 7px 0 2px;
+  }
+  .vp-site-switcher > a,
+  .vp-site-switcher > span { min-height: 34px; padding: 8px 12px; font-size: 10px; }
+  .artist-profile-actions,
+  .collection-profile-actions { align-items: flex-start; flex-direction: column; gap: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vp-site-switcher > .vp-site-destination { transition: none; }
+}
