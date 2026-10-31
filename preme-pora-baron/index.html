@@ -1879,7 +1879,11 @@
       if(window.YT&&window.YT.Player){initPlayer();return;}
       if(apiRequested)return;apiRequested=true;
       var tag=document.createElement('script');tag.src='https://www.youtube.com/iframe_api';tag.async=true;
-      tag.onerror=function(){setStatus('VIDEO UNAVAILABLE — OPEN ON YOUTUBE');};
+      tag.onerror=function(){
+        apiRequested=false;
+        if(tag&&tag.parentNode)tag.parentNode.removeChild(tag);
+        setStatus('VIDEO UNAVAILABLE — TAP THE VIDEO TO RETRY OR OPEN ON YOUTUBE');
+      };
       document.head.appendChild(tag);
     }
     playBtn.addEventListener('click',function(){
