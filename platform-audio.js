@@ -91,17 +91,32 @@
       }
 
       if (existing) {
-        script.addEventListener('load', ready, { once: true });
-        script.addEventListener('error', function () { reject(new Error('SoundCloud Widget API failed to load.')); }, { once: true });
-        if (window.SC && window.SC.Widget) ready();
+        if (existing.dataset.vpLoaded === 'true') {
+          ready();
+          return;
+        }
+        script.addEventListener('load', function () {
+          script.dataset.vpLoaded = 'true';
+          ready();
+        }, { once: true });
+        script.addEventListener('error', function () {
+          if (script.parentNode) script.parentNode.removeChild(script);
+          reject(new Error('SoundCloud Widget API failed to load.'));
+        }, { once: true });
         return;
       }
 
       script.src = 'https://w.soundcloud.com/player/api.js';
       script.async = true;
       script.dataset.vpSoundcloudApi = 'true';
-      script.onload = ready;
-      script.onerror = function () { reject(new Error('SoundCloud Widget API failed to load.')); };
+      script.onload = function () {
+        script.dataset.vpLoaded = 'true';
+        ready();
+      };
+      script.onerror = function () {
+        if (script.parentNode) script.parentNode.removeChild(script);
+        reject(new Error('SoundCloud Widget API failed to load.'));
+      };
       document.head.appendChild(script);
     });
 
@@ -149,6 +164,7 @@
     });
 
     widget.bind(events.PLAY, function () {
+      modeSelected = true;
       isPlaying = true;
       bar.classList.add('is-playing');
       setIcon('pause');
@@ -161,7 +177,7 @@
       isPlaying = false;
       bar.classList.remove('is-playing');
       setIcon('play');
-      setStatus('SOUNDCLOUD · PAUSED');
+      if (modeSelected) setStatus('SOUNDCLOUD · PAUSED');
     });
 
     widget.bind(events.FINISH, function () {
@@ -207,6 +223,7 @@
         'hide_related=false',
         'show_comments=false',
         'show_user=true',
+        'show_playcount=true',
         'show_reposts=false',
         'visual=false'
       ];
