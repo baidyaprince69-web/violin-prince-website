@@ -1228,15 +1228,8 @@
       }
     };
 
-    /* SoundCloud is controlled by the floating Play button through its official Widget API.
-       YouTube views must begin with the native Play control inside the visible YouTube player. */
-    playButton.addEventListener('click', function () {
-      if (window.ViolinPrinceSoundCloud && typeof window.ViolinPrinceSoundCloud.toggle === 'function') {
-        window.ViolinPrinceSoundCloud.toggle();
-      } else {
-        setStatus('SOUNDCLOUD PLAYER IS LOADING · TRY AGAIN');
-      }
-    });
+    /* The shared platform-audio.js module owns the floating Play click.
+       YouTube playback must be started with the native control inside the visible player. */
 
     progress.addEventListener('input', function () {
       seeking = true;
