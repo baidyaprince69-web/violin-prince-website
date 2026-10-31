@@ -1,53 +1,62 @@
 # Violin Prince — Artist Website
 
-A lightweight, responsive portfolio for **Violin Prince (Prince Baidya)**, built with plain HTML, CSS and JavaScript. No framework, build tools or server are required.
+A responsive static portfolio for **Violin Prince (Prince Baidya)**, built with plain HTML, CSS and JavaScript. No framework or build tool is required.
 
-## What's included
+## Homepage
 
-- Cinematic forest-green, champagne-gold and ivory design
-- Responsive mobile navigation
-- Curated video gallery linking to verified videos from the Violin Prince YouTube channel
-- Category filters for Bengali, Bollywood, Rabindra Sangeet and English covers
-- Mood-based song request shortcuts
-- Song-request form that prepares an email addressed to baidyaprince69@gmail.com in the visitor's email app
-- SEO title, description, Open Graph metadata and Person structured data
-- `robots.txt` and an initial `sitemap.xml`
-- Accessibility basics including keyboard-friendly controls, labels and reduced-motion support
+The homepage uses a warm, cinematic palette of near-black brown, ember, copper, gold and ivory, with Cormorant Garamond and DM Sans typography.
+
+- Full-bleed cinematic hero using the artist's own performance photograph.
+- Featured violin covers linking to their dedicated pages and YouTube performances.
+- “Find all my music” section linking to YouTube, SoundCloud and BandLab, paired with the artist's recording-studio photograph.
+- Audience snapshot with YouTube channel figures and the artist-reported 12-month SoundCloud play total, explicitly distinguished from unique listeners.
+- Five music-collection links that open the dedicated Covers Library with its category filters.
+- Song-request form connected to the configured Formspree endpoint.
+- Lightweight hero and scroll-reveal animations, with reduced-motion support.
+- Floating YouTube IFrame player with play/pause, volume and minimize controls.
+- Google Analytics 4, Google Search Console verification, canonical URL, Open Graph metadata and Person structured data.
+
+The Covers Library, production guide and existing individual cover pages remain separate pages in the repository.
+
+## Homepage photography
+
+The homepage images are stored in the repository:
+
+- `assets/violin-prince-cinematic-hero.jpg` — cinematic performance photograph.
+- `assets/violin-prince-studio-photo.jpg` — recording-studio photograph featuring the Maono AU-PM461TR microphone.
 
 ## Publish with GitHub Pages
 
 1. Open this repository on GitHub.
 2. Go to **Settings → Pages**.
 3. Under **Build and deployment**, choose **Deploy from a branch**.
-4. Select branch `main` and folder `/(root)`, then click **Save**.
-5. Wait for GitHub Pages to publish the site. The expected project URL is:
+4. Select branch `main` and folder `/(root)`.
+5. The expected project URL is:
    `https://baidyaprince69-web.github.io/violin-prince-website/`
-6. Open that URL and test the navigation, video links and song request form on desktop and mobile.
+6. After deployment, test navigation, the floating player, cover links and song-request form on desktop and mobile.
 
-The canonical URL, Open Graph URL, structured-data URL, robots sitemap line and sitemap URL currently use that expected GitHub Pages address. If you later use a custom domain, update all of those URLs to the final HTTPS domain.
+The canonical URL, Open Graph URL, structured-data URL, robots sitemap line and sitemap URL use that GitHub Pages address. If a custom domain is added later, update all of those URLs.
 
-## Song-request form: important note
+## Song-request form
 
-This is a static website, so it does not store requests in a database or silently send email. On submit, it opens the visitor's default email app with a prepared message addressed to **baidyaprince69@gmail.com**. The visitor must review the message and press Send. The visitor needs a configured email app for this flow to work smoothly; if it does not open, they can email you directly.
-
-The email address is included in public client-side code and should be treated as public. If you later want one-click form delivery without relying on a visitor's email app, use a form provider or server-side endpoint and configure it securely. Do not place private API keys in client-side JavaScript.
+The homepage form submits to the configured Formspree endpoint from the browser. The endpoint identifier is visible in the public client-side HTML. After a deployment or form-provider change, submit a controlled test request and confirm that it reaches the intended inbox before relying on the form. Do not place private API keys or credentials in client-side files.
 
 ## Search engine setup
 
 After the website is published:
 
 1. Add the exact published URL as a property in [Google Search Console](https://search.google.com/search-console/about).
-2. Verify ownership using a method offered by Search Console.
+2. Verify ownership using the verification method already configured in the homepage.
 3. Submit the sitemap: `https://baidyaprince69-web.github.io/violin-prince-website/sitemap.xml`.
 4. Add the site in [Bing Webmaster Tools](https://www.bing.com/webmasters/about) and submit the same sitemap.
-5. Check that the live homepage loads over HTTPS and that the sitemap is accessible.
+5. Confirm that the live homepage and sitemap load over HTTPS.
 
-These steps help search engines discover the site, but indexing and ranking are not guaranteed and can take time.
+These steps help search engines discover the site, but indexing and ranking are not guaranteed.
 
 ## Local preview
 
-Double-click `index.html` to preview it in a browser. For a more realistic local preview, run a simple static server from this directory, or use a lightweight editor with a live-preview extension.
+Double-click `index.html` to preview the static site. For a more realistic local preview, run a simple static server from this directory.
 
 ## Video and copyright note
 
-The gallery embeds no copyrighted audio files; each thumbnail links to the corresponding YouTube video. Cover-song rights and availability are controlled by the relevant rights holders and platforms. If any video is removed or its URL changes, update its link and thumbnail in `index.html`.
+The site uses YouTube thumbnails and the official YouTube IFrame Player API; it does not store or redistribute copyrighted song audio files. Cover-song rights and availability are controlled by the relevant rights holders and platforms. If a video is removed or its URL changes, update the relevant page and thumbnail reference.
