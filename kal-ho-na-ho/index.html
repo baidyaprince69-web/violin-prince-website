@@ -1069,6 +1069,7 @@
     var player = null;
     var playerReady = false;
     var progressTimer = null;
+    var seeking = false;
 
     function formatTime(seconds) {
       if (!isFinite(seconds) || seconds < 0) return '0:00';
@@ -1093,7 +1094,7 @@
     }
 
     function updateProgress() {
-      if (!playerReady || !player) return;
+      if (!playerReady || !player || seeking) return;
       var duration = player.getDuration ? player.getDuration() : 0;
       var current = player.getCurrentTime ? player.getCurrentTime() : 0;
       if (duration > 0) {
@@ -1184,13 +1185,27 @@
     });
 
     progress.addEventListener('input', function () {
+      seeking = true;
       var value = Math.max(0, Math.min(1000, Number(progress.value) || 0));
       progress.style.setProperty('--bar-progress', (value / 10) + '%');
+      if (playerReady && player && currentTimeLabel) {
+        var duration = player.getDuration();
+        if (duration > 0) currentTimeLabel.textContent = formatTime(duration * value / 1000);
+      }
     });
     progress.addEventListener('change', function () {
-      if (!playerReady || !player) return;
-      var duration = player.getDuration();
-      if (duration > 0) player.seekTo(duration * (Number(progress.value) / 1000), true);
+      try {
+        if (playerReady && player) {
+          var duration = player.getDuration();
+          if (duration > 0) player.seekTo(duration * (Number(progress.value) / 1000), true);
+        }
+      } finally {
+        seeking = false;
+        // The regular progress timer refreshes after YouTube applies the seek.
+      }
+    });
+    progress.addEventListener('pointercancel', function () {
+      seeking = false;
       updateProgress();
     });
     if (jumpButton) jumpButton.addEventListener('click', function () {
