@@ -36,12 +36,28 @@ body { background: #edf1f5; color: #172b42; }
 .nav-cta:hover { background: var(--gold); color: #071629; transform: translateY(-1px); }
 
 /* Purpose-built midnight stage, instead of the unrelated stock-leaf backdrop. */
-#home.hero {
+/* Keep the hero artwork data image as the final background layer.
+   The image is supplied by hero-artwork-data.js through --vp-ambient-violin-image. */
+#home.hero.hero-ambient-violin {
   background-color: #061428 !important;
   background-image:
-    radial-gradient(ellipse at 78% 18%, rgba(50, 168, 197, .19), transparent 35%),
-    radial-gradient(ellipse at 12% 92%, rgba(210, 164, 91, .12), transparent 38%),
-    linear-gradient(118deg, #061326 0%, #0b2038 54%, #071629 100%) !important;
+    linear-gradient(90deg,
+      rgba(5, 9, 20, 1) 0%,
+      rgba(5, 9, 20, .96) 18%,
+      rgba(5, 9, 20, .86) 34%,
+      rgba(5, 9, 20, .58) 50%,
+      rgba(5, 9, 20, .20) 72%,
+      rgba(5, 9, 20, .38) 100%),
+    linear-gradient(0deg,
+      rgba(5, 9, 20, .62) 0%,
+      rgba(5, 9, 20, .06) 30%,
+      rgba(5, 9, 20, .10) 72%,
+      rgba(5, 9, 20, .40) 100%),
+    radial-gradient(ellipse at 76% 46%, rgba(25, 177, 213, .13), transparent 62%),
+    var(--vp-ambient-violin-image, none) !important;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat !important;
+  background-size: cover, cover, cover, cover !important;
+  background-position: center, center, center, 62% center !important;
   border-bottom: 1px solid rgba(223, 186, 115, .22);
 }
 #home .hero-content { position: relative; z-index: 2; }
