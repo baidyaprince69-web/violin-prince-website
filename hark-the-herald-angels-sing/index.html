@@ -2174,66 +2174,86 @@
         dock.classList.add('is-minimized');
         if (miniExpand) miniExpand.setAttribute('aria-expanded', 'false');
       }
+      function restoreLoadButton(message) {
+        wantsPlayback = false;
+        ready = false;
+        if (player && typeof player.destroy === 'function') {
+          try { player.destroy(); } catch (error) {}
+        }
+        player = null;
+        if (mount) mount.hidden = true;
+        if (loadButton) {
+          loadButton.hidden = false;
+          loadButton.disabled = false;
+          var caption = loadButton.querySelector('.hark-load-overlay span:last-child');
+          if (caption) caption.textContent = 'Tap to try loading the player again';
+        }
+        setPlaying(false, message);
+      }
+
       function createPlayer() {
         if (!window.YT || !window.YT.Player || player) return;
         if (loadButton) loadButton.hidden = true;
         if (mount) mount.hidden = false;
-        player = new window.YT.Player('harkPlayerMount', {
-          width: '356',
-          height: '200',
-          videoId: VIDEO_ID,
-          playerVars: {
-            autoplay: 0,
-            controls: 1,
-            playsinline: 1,
-            rel: 0,
-            enablejsapi: 1,
-            origin: window.location.origin
-          },
-          events: {
-            onReady: function (event) {
-              ready = true;
-              try {
-                event.target.getIframe().setAttribute('title', 'Hark the Herald Angels Sing — Violin cover by Prince Baidya');
-                event.target.setVolume(Number(volume ? volume.value : 42));
-              } catch (error) {}
-              if (wantsPlayback) {
+
+        try {
+          player = new window.YT.Player('harkPlayerMount', {
+            width: '356',
+            height: '200',
+            videoId: VIDEO_ID,
+            playerVars: {
+              autoplay: 0,
+              controls: 1,
+              playsinline: 1,
+              rel: 0,
+              enablejsapi: 1,
+              origin: window.location.origin
+            },
+            events: {
+              onReady: function (event) {
+                ready = true;
                 try {
-                  event.target.playVideo();
-                  setStatus('Starting your violin cover…');
-                } catch (error) {
-                  wantsPlayback = false;
-                  setPlaying(false, 'Player ready · press Play to listen');
+                  event.target.getIframe().setAttribute('title', 'Hark the Herald Angels Sing — Violin cover by Prince Baidya');
+                  event.target.setVolume(Number(volume ? volume.value : 42));
+                } catch (error) {}
+                if (wantsPlayback) {
+                  try {
+                    event.target.playVideo();
+                    setStatus('Starting your violin cover…');
+                  } catch (error) {
+                    wantsPlayback = false;
+                    setPlaying(false, 'Player ready · press Play to listen');
+                  }
+                } else {
+                  setPlaying(false, 'Ready · press Play to listen');
                 }
-              } else {
-                setPlaying(false, 'Ready · press Play to listen');
-              }
-            },
-            onStateChange: function (event) {
-              var states = window.YT.PlayerState;
-              if (event.data === states.PLAYING) {
-                setPlaying(true, 'Playing · Hark the Herald Angels Sing');
-              } else if (event.data === states.PAUSED) {
+              },
+              onStateChange: function (event) {
+                var states = window.YT.PlayerState;
+                if (event.data === states.PLAYING) {
+                  setPlaying(true, 'Playing · Hark the Herald Angels Sing');
+                } else if (event.data === states.PAUSED) {
+                  wantsPlayback = false;
+                  setPlaying(false, 'Paused · press Play to continue');
+                } else if (event.data === states.ENDED) {
+                  wantsPlayback = false;
+                  setPlaying(false, 'Finished · press Play to listen again');
+                } else if (event.data === states.CUED && !playing) {
+                  setStatus('Ready · press Play to listen');
+                }
+              },
+              onAutoplayBlocked: function () {
                 wantsPlayback = false;
-                setPlaying(false, 'Paused · press Play to continue');
-              } else if (event.data === states.ENDED) {
-                wantsPlayback = false;
-                setPlaying(false, 'Finished · press Play to listen again');
-              } else if (event.data === states.CUED && !playing) {
-                setStatus('Ready · press Play to listen');
+                setPlaying(false, 'Browser blocked playback · press Play again');
+              },
+              onError: function () {
+                restoreLoadButton('Embedded playback failed · retry here or open YouTube');
               }
-            },
-            onAutoplayBlocked: function () {
-              wantsPlayback = false;
-              setPlaying(false, 'Browser blocked playback · press Play again');
-            },
-            onError: function () {
-              wantsPlayback = false;
-              setPlaying(false, 'Could not load the cover · open it on YouTube');
-              if (loadButton) loadButton.disabled = false;
             }
-          }
-        });
+          });
+        } catch (error) {
+          restoreLoadButton('Player could not start · tap to retry or open YouTube');
+        }
       }
       function loadPlayerAPI() {
         if (window.YT && window.YT.Player) {
@@ -2253,8 +2273,8 @@
         apiScript.dataset.harkPlayerApi = 'true';
         apiScript.onerror = function () {
           apiRequested = false;
-          wantsPlayback = false;
-          setPlaying(false, 'YouTube could not load · check your connection');
+          restoreLoadButton('YouTube could not load · check your connection, then retry');
+          if (apiScript && apiScript.parentNode) apiScript.parentNode.removeChild(apiScript);
         };
         document.head.appendChild(apiScript);
         setStatus('Loading the YouTube player…');
