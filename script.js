@@ -259,6 +259,426 @@
   });
 
   
+  // Play Prince's YouTube cover using the official YouTube IFrame Player API.
+  // The player stays visible (200px minimum viewport), and native controls remain available.
+  let coverVideoId = '3NHpKon_Uq8';
+  let coverTrackTitle = "Say You Won't Let Go";
+  const coverDock = document.getElementById('youtubeMusicDock');
+  const miniPlayers = [...document.querySelectorAll('[data-song-mini]')];
+  const coverToggle = document.getElementById('ytPlayPause');
+  const coverButtonIcon = document.getElementById('ytButtonIcon');
+  const coverButtonLabel = document.getElementById('ytButtonLabel');
+  const coverStatus = document.getElementById('ytPlayerStatus');
+  const coverVolume = document.getElementById('ytVolume');
+  const barToggle = document.getElementById('ytBarPlayPause');
+  const barToggleIcon = document.getElementById('ytBarIcon');
+  const barStatus = document.getElementById('ytBarStatus');
+  const barProgress = document.getElementById('ytProgress');
+  const barCurrentTime = document.getElementById('ytCurrentTime');
+  const barDuration = document.getElementById('ytDuration');
+  const barVolume = document.getElementById('ytVolumeBar');
+  const coverLoadButton = document.getElementById('ytLoadCover');
+  const minimizeButton = document.getElementById('ytMinimize');
+  const minimizedToggle = document.getElementById('ytMinimizedToggle');
+
+  let coverPlayer = null;
+  let activeMiniBar = miniPlayers.find(bar => bar.dataset.videoId === coverVideoId) || null;
+  let coverReady = false;
+  let coverPlaying = false;
+  let coverWantsPlayback = false;
+  let coverVisible = false;
+  let coverPauseReason = null;
+  let resumeCoverWhenVisible = false;
+  let playerVisibilityObserver = null;
+
+  function syncMiniPlayers() {
+    miniPlayers.forEach(bar => {
+      const active = bar === activeMiniBar;
+      const playing = active && coverPlaying;
+      const button = bar.querySelector('[data-song-play]');
+      const icon = bar.querySelector('[data-song-play-icon]');
+      const state = bar.querySelector('[data-song-state]');
+      const seek = bar.querySelector('[data-song-seek]');
+      const title = bar.dataset.songTitle || 'this violin cover';
+      bar.classList.toggle('is-active', active);
+      bar.classList.toggle('is-playing', playing);
+      if (button) {
+        button.setAttribute('aria-pressed', String(playing));
+        button.setAttribute('aria-label', (playing ? 'Pause ' : 'Play ') + title + ' violin cover');
+      }
+      if (icon) icon.textContent = playing ? 'Ⅱ' : '▶';
+      if (state) {
+        state.textContent = playing ? 'NOW PLAYING'
+          : active && coverPauseReason === 'visibility' ? 'PAUSED'
+          : active && coverWantsPlayback ? 'LOADING'
+          : active ? 'SELECTED' : 'READY';
+      }
+      if (seek) {
+        seek.disabled = !(active && coverReady);
+        if (!active) {
+          seek.value = '0';
+          seek.style.setProperty('--song-progress', '0%');
+        }
+      }
+      if (!active) {
+        const current = bar.querySelector('[data-song-current]');
+        const duration = bar.querySelector('[data-song-duration]');
+        if (current) current.textContent = '0:00';
+        if (duration) duration.textContent = '--:--';
+      }
+    });
+  }
+
+  function playNextCover() {
+    if (!coverPlayer || !coverReady) return false;
+
+    // Read the live DOM order so the queue follows the gallery's current sorting.
+    const queue = [...document.querySelectorAll('[data-song-mini]')]
+      .filter(bar => bar.dataset.videoId && bar.dataset.songTitle);
+    if (!queue.length) return false;
+
+    let currentIndex = queue.findIndex(bar => bar === activeMiniBar);
+    if (currentIndex < 0) {
+      currentIndex = queue.findIndex(bar => bar.dataset.videoId === coverVideoId);
+    }
+
+    // Do not wrap automatically after the last track.
+    const nextBar = currentIndex >= 0 ? queue[currentIndex + 1] : queue[0];
+    if (!nextBar) return false;
+
+    activeMiniBar = nextBar;
+    updateDockTrackInfo(nextBar);
+    coverWantsPlayback = true;
+    resumeCoverWhenVisible = false;
+    coverPauseReason = null;
+    restoreDockForPlayback();
+    syncMiniPlayers();
+    setCoverUI(false, 'Up next · ' + coverTrackTitle);
+
+    try {
+      // The active YouTube player moves to the next video and begins playback.
+      coverPlayer.loadVideoById({ videoId: coverVideoId, startSeconds: 0 });
+      if (coverStatus) coverStatus.textContent = 'Starting next cover · ' + coverTrackTitle;
+      if (barStatus) barStatus.textContent = 'Up next · ' + coverTrackTitle;
+      return true;
+    } catch (error) {
+      coverWantsPlayback = false;
+      setCoverUI(false, 'Could not start the next cover · press Play');
+      return true;
+    }
+  }
+
+  function updateDockTrackInfo(bar) {
+    if (bar) {
+      coverVideoId = bar.dataset.videoId || coverVideoId;
+      coverTrackTitle = bar.dataset.songTitle || coverTrackTitle;
+    }
+    const dockTitle = coverDock && coverDock.querySelector('.yt-track-copy strong');
+    const dockSubtitle = coverDock && coverDock.querySelector('.yt-track-copy small');
+    const dockLink = coverDock && coverDock.querySelector('.yt-open-link');
+    const dockCategory = bar && bar.closest('.music-card')?.querySelector('.card-category')?.textContent.trim();
+    if (dockTitle) dockTitle.textContent = coverTrackTitle;
+    if (dockSubtitle) dockSubtitle.textContent = (dockCategory ? dockCategory + ' · ' : 'Violin cover · ') + 'Violin Prince';
+    if (dockLink) dockLink.href = 'https://www.youtube.com/watch?v=' + coverVideoId;
+    if (coverLoadButton) {
+      const image = coverLoadButton.querySelector('img');
+      if (image) image.src = 'https://i.ytimg.com/vi/' + coverVideoId + '/hqdefault.jpg';
+      coverLoadButton.setAttribute('aria-label', 'Load and play ' + coverTrackTitle + ' violin cover');
+      const copy = coverLoadButton.querySelector('.yt-load-copy');
+      if (copy) copy.textContent = 'Tap to load the cover';
+    }
+    if (coverPlayer && coverReady) {
+      try { coverPlayer.getIframe().setAttribute('title', coverTrackTitle + ' — Violin Prince violin cover'); } catch (error) {}
+    }
+  }
+
+  function setCoverUI(playing, message) {
+    coverPlaying=playing;
+    if(coverDock) coverDock.classList.toggle('is-playing',playing);
+    if(coverToggle) {
+      coverToggle.setAttribute('aria-pressed',String(playing));
+      coverToggle.setAttribute('aria-label',(playing?'Pause ':'Play ') + coverTrackTitle);
+    }
+    if(coverButtonIcon) coverButtonIcon.textContent=playing?'Ⅱ':'▶';
+    if(coverButtonLabel) coverButtonLabel.textContent=playing?'Pause cover':'Play cover';
+    if(barToggle){
+      barToggle.setAttribute('aria-pressed',String(playing));
+      barToggle.setAttribute('aria-label',(playing?'Pause ':'Play ') + coverTrackTitle);
+    }
+    if(barToggleIcon) barToggleIcon.textContent=playing?'Ⅱ':'▶';
+    if(barStatus&&message) barStatus.textContent=message;
+    if(coverStatus&&message) coverStatus.textContent=message;
+    syncMiniPlayers();
+  }
+  function formatTime(seconds){if(!Number.isFinite(seconds)||seconds<0)return '--:--';return Math.floor(seconds/60)+':'+Math.floor(seconds%60).toString().padStart(2,'0');}
+  function restoreDockForPlayback(){if(coverDock&&coverDock.classList.contains('is-minimized'))coverDock.classList.remove('is-minimized');if(minimizedToggle)minimizedToggle.setAttribute('aria-expanded','true');coverVisible=true;}
+  function requestCoverPlayback(){
+    restoreDockForPlayback();coverWantsPlayback=true;
+    if(!coverReady||!coverPlayer){
+      if(coverStatus)coverStatus.textContent='Loading the YouTube player…';
+      if(barStatus)barStatus.textContent='Loading the violin cover…';
+      if(coverLoadButton){coverLoadButton.disabled=true;const copy=coverLoadButton.querySelector('.yt-load-copy');if(copy)copy.textContent='Loading your cover…';}
+      loadCoverPlayerAPI();return;
+    }
+    safePlayCover();
+  }
+  function pauseCoverPlayback(){coverWantsPlayback=false;if(coverPlayer&&coverReady)coverPlayer.pauseVideo();setCoverUI(false,'Paused · ' + coverTrackTitle);}
+
+  function safePlayCover() {
+    if (!coverReady || !coverPlayer || !coverWantsPlayback) return;
+    // Minimizing the dock hides its UI only; it must never block audio playback.
+    if (!coverVisible && !(coverDock && coverDock.classList.contains('is-minimized'))) {
+      if (coverStatus) coverStatus.textContent = 'Player ready · press Play when it is in view';
+      return;
+    }
+    try {
+      coverPlayer.playVideo();
+      if (coverStatus) coverStatus.textContent = 'Starting your violin cover…';
+    } catch (error) {
+      setCoverUI(false, 'Press Play to start your cover.');
+    }
+  }
+
+  function createCoverPlayer() {
+    if (!window.YT || !window.YT.Player || coverPlayer) return;
+    if (coverLoadButton) coverLoadButton.hidden = true;
+    const mount = document.getElementById('violinYouTubePlayer');
+    if (mount) mount.hidden = false;
+    coverPlayer = new window.YT.Player('violinYouTubePlayer', {
+      width: '360',
+      height: '203',
+      videoId: coverVideoId,
+      playerVars: {
+        autoplay: 0,
+        controls: 1,
+        // The end handler below loops the currently selected cover, not the first gallery song.
+        loop: 0,
+        playsinline: 1,
+        rel: 0,
+        enablejsapi: 1,
+        origin: window.location.origin
+      },
+      events: {
+        onReady: event => {
+          coverReady = true;
+          try {
+            event.target.getIframe().setAttribute('title', coverTrackTitle + ' — Violin Prince violin cover');
+            const initialVolume = Number(barVolume ? barVolume.value : (coverVolume ? coverVolume.value : 42));
+          event.target.setVolume(initialVolume);
+          if (coverVolume) coverVolume.value = String(initialVolume);
+          if (barVolume) barVolume.value = String(initialVolume);
+          if (barProgress) barProgress.disabled = false;
+          } catch (error) {}
+          if (coverStatus) coverStatus.textContent = 'Ready · press Play to listen';
+          syncMiniPlayers();
+          safePlayCover();
+        },
+        onStateChange: event => {
+          const states = window.YT.PlayerState;
+          if (event.data === states.PLAYING) {
+            resumeCoverWhenVisible = false;
+            coverWantsPlayback = true;
+            coverPauseReason = null;
+            setCoverUI(true, 'Playing · ' + coverTrackTitle);
+          } else if (event.data === states.PAUSED) {
+            const pausedForVisibility = coverPauseReason === 'visibility';
+            if (!pausedForVisibility) coverWantsPlayback = false;
+            setCoverUI(false, pausedForVisibility
+              ? 'Paused while this tab is away'
+              : 'Paused · ' + coverTrackTitle);
+            coverPauseReason = null;
+          } else if (event.data === states.ENDED) {
+            // Advance the same YouTube player to the next gallery cover automatically.
+            resumeCoverWhenVisible = false;
+            coverPauseReason = null;
+            if (!playNextCover()) {
+              coverWantsPlayback = false;
+              setCoverUI(false, 'Playlist finished · ' + coverTrackTitle);
+            }
+          } else if (event.data === states.CUED) {
+            if (!coverPlaying && coverStatus) coverStatus.textContent = 'Ready · press Play to listen';
+          }
+        },
+        onAutoplayBlocked: () => {
+          coverWantsPlayback = false;
+          setCoverUI(false, 'Autoplay blocked · press Play to listen');
+        },
+        onError: () => {
+          coverWantsPlayback = false;
+          setCoverUI(false, 'Could not load the cover · use Open on YouTube');
+        }
+      }
+    });
+  }
+
+  function loadCoverPlayerAPI() {
+    if (window.YT && window.YT.Player) {
+      createCoverPlayer();
+      return;
+    }
+    const previousReadyCallback = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      if (typeof previousReadyCallback === 'function') previousReadyCallback();
+      createCoverPlayer();
+    };
+    if (!document.querySelector('script[data-violin-prince-youtube-api]')) {
+      const apiScript = document.createElement('script');
+      apiScript.src = 'https://www.youtube.com/iframe_api';
+      apiScript.async = true;
+      apiScript.dataset.violinPrinceYoutubeApi = 'true';
+      apiScript.onerror = () => {
+        // Remove the failed script so a later visitor click can retry the API request.
+        if (apiScript && apiScript.parentNode) apiScript.parentNode.removeChild(apiScript);
+        if (coverLoadButton) {
+          coverLoadButton.disabled = false;
+          const copy = coverLoadButton.querySelector('.yt-load-copy');
+          if (copy) copy.textContent = 'Could not load · try again';
+        }
+        coverWantsPlayback = false;
+        setCoverUI(false, 'YouTube could not load · check your connection');
+      };
+      document.head.appendChild(apiScript);
+    }
+  }
+
+  if(coverToggle)coverToggle.addEventListener('click',()=>coverPlaying?pauseCoverPlayback():requestCoverPlayback());
+  if(barToggle)barToggle.addEventListener('click',()=>coverPlaying?pauseCoverPlayback():requestCoverPlayback());
+  if(coverLoadButton)coverLoadButton.addEventListener('click',requestCoverPlayback);
+  if(minimizeButton)minimizeButton.addEventListener('click',()=>{if(coverDock)coverDock.classList.add('is-minimized');if(minimizedToggle)minimizedToggle.setAttribute('aria-expanded','false');if(coverWantsPlayback)syncMiniPlayers();});
+  if(minimizedToggle)minimizedToggle.addEventListener('click',()=>{if(coverDock)coverDock.classList.remove('is-minimized');if(minimizedToggle)minimizedToggle.setAttribute('aria-expanded','true');if(coverPlayer&&coverReady){coverVisible=true;if(coverWantsPlayback&&!coverPlaying)safePlayCover();}});
+
+  miniPlayers.forEach(bar => {
+    const playButton = bar.querySelector('[data-song-play]');
+    const seek = bar.querySelector('[data-song-seek]');
+    if (playButton) {
+      playButton.addEventListener('click', () => {
+        if (bar === activeMiniBar) {
+          if (coverPlaying || coverWantsPlayback) pauseCoverPlayback();
+          else requestCoverPlayback();
+          return;
+        }
+        activeMiniBar = bar;
+        updateDockTrackInfo(bar);
+        restoreDockForPlayback();
+        coverWantsPlayback = true;
+        coverPauseReason = null;
+        syncMiniPlayers();
+
+        if (coverReady && coverPlayer) {
+          if (coverStatus) coverStatus.textContent = 'Loading · ' + coverTrackTitle;
+          if (barStatus) barStatus.textContent = 'Loading · ' + coverTrackTitle;
+          setCoverUI(false, 'Loading · ' + coverTrackTitle);
+          try {
+            coverPlayer.loadVideoById({ videoId: coverVideoId, startSeconds: 0 });
+          } catch (error) {
+            requestCoverPlayback();
+          }
+        } else {
+          requestCoverPlayback();
+        }
+      });
+    }
+
+    if (seek) {
+      seek.addEventListener('input', () => {
+        if (bar !== activeMiniBar || !coverReady || !coverPlayer) return;
+        const duration = coverPlayer.getDuration();
+        if (duration > 0) {
+          const current = bar.querySelector('[data-song-current]');
+          seek.style.setProperty('--song-progress', (Number(seek.value) / 10) + '%');
+          if (current) current.textContent = formatTime(duration * Number(seek.value) / 1000);
+        }
+      });
+      seek.addEventListener('change', () => {
+        if (bar !== activeMiniBar || !coverReady || !coverPlayer) return;
+        const duration = coverPlayer.getDuration();
+        if (duration > 0) coverPlayer.seekTo(duration * Number(seek.value) / 1000, true);
+      });
+    }
+  });
+  syncMiniPlayers();
+
+  function setCoverVolume(value){const volume=Math.max(0,Math.min(100,Number(value)||0));if(coverVolume)coverVolume.value=String(volume);if(barVolume)barVolume.value=String(volume);if(coverReady&&coverPlayer)coverPlayer.setVolume(volume);}
+  if(coverVolume)coverVolume.addEventListener('input',()=>setCoverVolume(coverVolume.value));
+  if(barVolume)barVolume.addEventListener('input',()=>setCoverVolume(barVolume.value));
+  if(barProgress){
+    barProgress.addEventListener('input',()=>{if(!coverReady||!coverPlayer)return;const duration=coverPlayer.getDuration();if(duration>0&&barCurrentTime)barCurrentTime.textContent=formatTime(duration*Number(barProgress.value)/1000);});
+    barProgress.addEventListener('change',()=>{if(!coverReady||!coverPlayer)return;const duration=coverPlayer.getDuration();if(duration>0)coverPlayer.seekTo(duration*Number(barProgress.value)/1000,true);});
+  }
+  const barProgressTimer=window.setInterval(()=>{
+    if(!coverReady||!coverPlayer)return;
+    try {
+      const duration=coverPlayer.getDuration(), current=coverPlayer.getCurrentTime();
+      if(duration>0) {
+        if(barProgress&&document.activeElement!==barProgress)barProgress.value=String(Math.round(current/duration*1000));
+        if(barCurrentTime)barCurrentTime.textContent=formatTime(current);
+        if(barDuration)barDuration.textContent=formatTime(duration);
+        if(activeMiniBar) {
+          const seek=activeMiniBar.querySelector('[data-song-seek]');
+          const currentText=activeMiniBar.querySelector('[data-song-current]');
+          const durationText=activeMiniBar.querySelector('[data-song-duration]');
+          const percentage = Math.max(0, Math.min(100, current / duration * 100));
+          if(seek) {
+            if(document.activeElement!==seek)seek.value=String(Math.round(percentage*10));
+            seek.style.setProperty('--song-progress', percentage + '%');
+          }
+          if(currentText)currentText.textContent=formatTime(current);
+          if(durationText)durationText.textContent=formatTime(duration);
+        }
+      }
+    } catch(error) {}
+  },1000);
+
+  // Only attempt automatic playback while more than half of the visible player is on screen.
+  if ('IntersectionObserver' in window) {
+    playerVisibilityObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        // A minimized dock is intentionally hidden. Treat it as allowed to play;
+        // collapsing the UI must not trigger the off-screen pause behavior.
+        if (coverDock && coverDock.classList.contains('is-minimized')) {
+          coverVisible = true;
+          return;
+        }
+        coverVisible = entry.isIntersecting && entry.intersectionRatio > 0.5;
+        if (coverVisible && coverWantsPlayback && coverReady && !coverPlaying) {
+          safePlayCover();
+        } else if (!coverVisible && coverPlaying) {
+          resumeCoverWhenVisible = true;
+          coverPauseReason = 'visibility';
+          if (coverPlayer) coverPlayer.pauseVideo();
+        } else if (coverVisible && resumeCoverWhenVisible && coverWantsPlayback) {
+          safePlayCover();
+        }
+      });
+    }, { threshold: [0, 0.5, 0.75, 1] });
+    // Observe the stable wrapper; the YouTube API replaces the inner mount node with an iframe.
+    const playerVisibilityTarget = document.querySelector('.yt-player-shell');
+    if (playerVisibilityTarget) playerVisibilityObserver.observe(playerVisibilityTarget);
+  } else {
+    coverVisible = true;
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && coverPlaying && coverPlayer) {
+      resumeCoverWhenVisible = true;
+      coverPauseReason = 'visibility';
+      coverPlayer.pauseVideo();
+    } else if (!document.hidden && resumeCoverWhenVisible && coverWantsPlayback) {
+      safePlayCover();
+    }
+  });
+
+  window.addEventListener('pagehide', () => {
+    coverWantsPlayback = false;
+    if (playerVisibilityObserver) playerVisibilityObserver.disconnect();
+    window.clearInterval(barProgressTimer);
+    if (coverPlayer && coverReady) {
+      try { coverPlayer.stopVideo(); } catch (error) {}
+    }
+  });
+
+  // Keep the page light: load the YouTube API only after the visitor presses Play.
+
   // Support finale: floral fireworks on support; a short, playful dodge with a real opt-out.
   const supportYes = document.getElementById('supportYes');
   const supportNo = document.getElementById('supportNo');
