@@ -117,12 +117,12 @@
 
   var bar = document.getElementById("floating-music-bar");
   var frame = document.getElementById("dandelions-video");
-  var playButton = document.getElementById("floating-play-button");
-  var playIcon = document.getElementById("floating-play-icon");
-  var status = document.getElementById("floating-player-status");
-  var progress = document.getElementById("floating-progress");
-  var currentLabel = document.getElementById("floating-current-time");
-  var durationLabel = document.getElementById("floating-duration");
+  var playButton = document.getElementById("floating-youtube-button");
+  var playIcon = document.getElementById("floating-youtube-icon");
+  var status = document.getElementById("youtube-floating-player-status");
+  var progress = document.getElementById("youtube-floating-progress");
+  var currentLabel = document.getElementById("youtube-floating-current-time");
+  var durationLabel = document.getElementById("youtube-floating-duration");
   var jumpButton = document.getElementById("floating-video-jump");
   var directLink = document.getElementById("fallback-youtube-link");
   var poster = document.getElementById("dandelions-poster");
@@ -132,6 +132,20 @@
   var scrubbing = false;
   var timer = null;
   var duration = 211;
+
+  /* Expose a small bridge so SoundCloud can pause the YouTube player
+     when the listener switches platforms from the floating controls. */
+  window.ViolinPrinceYouTube = {
+    pauseIfPlaying:function(){
+      if(!playerReady || !player || !window.YT || !window.YT.PlayerState) return;
+      try{
+        var currentState = player.getPlayerState();
+        if(currentState === YT.PlayerState.PLAYING || currentState === YT.PlayerState.BUFFERING){
+          player.pauseVideo();
+        }
+      }catch(e){}
+    }
+  };
 
   function formatTime(seconds){
     if(!isFinite(seconds) || seconds < 0) seconds = 0;
@@ -178,6 +192,8 @@
     if(!window.YT || !window.YT.PlayerState) return;
     var s = window.YT.PlayerState;
     if(event.data === s.PLAYING){
+      var soundcloud = window.ViolinPrinceSoundCloud;
+      if(soundcloud && typeof soundcloud.pauseIfPlaying === "function") soundcloud.pauseIfPlaying();
       hidePoster();
       icon("pause");
       playButton.setAttribute("aria-label","Pause Dandelions violin cover");
