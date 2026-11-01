@@ -229,7 +229,10 @@
 
   function pauseIfPlaying() {
     modeSelected = false;
-    if (widget && isPlaying) widget.pause();
+    if (widget && isPlaying) {
+      widget.pause();
+      setStatus('SOUNDCLOUD · PAUSED');
+    }
   }
 
   playButton.disabled = true;
