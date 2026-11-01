@@ -51,8 +51,12 @@ jobs:
             --data "$payload")"
           echo "IndexNow HTTP status: $status"
           if [ -s response.txt ]; then cat response.txt; fi
-          if [ "$status" != "200" ]; then
+          if [ "$status" != "200" ] && [ "$status" != "202" ]; then
             echo "IndexNow did not accept the URL batch."
             exit 1
           fi
-          echo "IndexNow accepted the 13 canonical Violin Prince URLs."
+          if [ "$status" = "202" ]; then
+            echo "IndexNow received all 13 URLs; key validation is pending."
+          else
+            echo "IndexNow accepted all 13 URLs with a verified key."
+          fi
