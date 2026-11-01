@@ -180,7 +180,6 @@
 
     room.hidden = false;
     room.classList.add('is-open');
-    modeSelected = true;
     setStatus('CONNECTING TO SOUNDCLOUD…');
     playButton.disabled = true;
     initPromise = ensureApi().then(function () {
@@ -230,7 +229,7 @@
     if (widget && isPlaying) widget.pause();
   }
 
-  playButton.disabled = false;
+  playButton.disabled = true;
   setIcon('play');
   playButton.addEventListener('click', toggle);
 
@@ -246,4 +245,8 @@
   };
 
   window.addEventListener('pagehide', pauseIfPlaying);
+
+  /* Preload the visible, non-autoplaying widget so one deliberate bar click
+     can call widget.play() directly, rather than spending the click only on loading. */
+  initialize();
 })();
