@@ -838,23 +838,17 @@
       color: #ffe5b6;
     }
     .floating-play-button {
-      width: auto;
-      min-width: 158px;
-      height: 42px;
-      min-height: 42px;
-      flex: 0 0 auto;
+      width: 44px;
+      min-width: 44px;
+      height: 44px;
+      min-height: 44px;
+      flex: 0 0 44px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      padding: 0 13px;
-      border-radius: 999px;
+      padding: 0;
+      border-radius: 50%;
       white-space: nowrap;
-    }
-    .floating-platform-label {
-      display: inline-block;
-      font: 700 .68rem "DM Sans", sans-serif;
-      letter-spacing: .01em;
     }
     @media (min-width: 721px) and (max-width: 980px) {
       .floating-music-bar {
@@ -864,8 +858,7 @@
       }
       .floating-music-art { width: 48px; height: 44px; }
       .floating-video-jump { min-width: 122px; padding-inline: 9px; font-size: .64rem; }
-      .floating-play-button { min-width: 142px; padding-inline: 9px; }
-      .floating-platform-label { font-size: .62rem; }
+      .floating-play-button { width: 44px; min-width: 44px; flex-basis: 44px; padding: 0; }
     }
     @media (max-width: 720px) {
       .floating-music-bar {
@@ -883,11 +876,12 @@
       .floating-timeline { grid-area: timeline; }
       .floating-play-button {
         grid-area: soundcloud;
-        width: 100%;
-        min-width: 0;
+        justify-self: center;
+        width: 44px;
+        min-width: 44px;
         height: 42px;
         min-height: 42px;
-        padding: 0 8px;
+        padding: 0;
       }
       .floating-video-jump {
         grid-area: youtube;
@@ -914,7 +908,7 @@
         height: 40px;
         padding-inline: 5px;
       }
-      .floating-platform-label, .floating-video-jump { font-size: .60rem; }
+      .floating-video-jump { font-size: .60rem; }
     }
   </style>
 
@@ -1152,7 +1146,7 @@
       <div class="floating-time-row"><span id="floating-current-time">0:00</span><span id="floating-duration">--:--</span></div>
     </div>
     <button class="floating-video-jump" id="floating-video-jump" type="button" aria-label="Watch Kal Ho Naa Ho on YouTube">Watch on YouTube <span aria-hidden="true">↗</span></button>
-    <button class="floating-play-button" id="floating-play-button" type="button" aria-label="Listen to Kal Ho Naa Ho on SoundCloud"><span id="floating-play-icon" class="floating-play-icon" aria-hidden="true"><svg viewBox="0 0 20 20" focusable="false"><path d="M6 3.8v12.4c0 .6.7 1 1.2.7l9-6.2a.9.9 0 0 0 0-1.4l-9-6.2c-.5-.3-1.2.1-1.2.7Z" fill="currentColor"></path></svg></span><span class="floating-platform-label">Listen on SoundCloud</span></button>
+    <button class="floating-play-button" id="floating-play-button" type="button" aria-label="Play Kal Ho Naa Ho on SoundCloud" title="Play or pause Kal Ho Naa Ho on SoundCloud"><span id="floating-play-icon" class="floating-play-icon" aria-hidden="true"><svg viewBox="0 0 20 20" focusable="false"><path d="M6 3.8v12.4c0 .6.7 1 1.2.7l9-6.2a.9.9 0 0 0 0-1.4l-9-6.2c-.5-.3-1.2.1-1.2.7Z" fill="currentColor"></path></svg></span></button>
   </div>
 
   <section class="section next-cover-section" id="next-cover" aria-labelledby="next-cover-title">
