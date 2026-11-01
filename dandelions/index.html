@@ -146,6 +146,18 @@
             <a id="fallback-youtube-link" href="https://youtu.be/lTySNtT0rzs" target="_blank" rel="noopener noreferrer">Open video ↗</a>
           </div>
         </div>
+        <div class="vp-soundcloud-room" id="soundcloud-listening-room"
+             data-track-url="https://soundcloud.com/prince-baidya/dandelions"
+             data-track-title="Dandelions" hidden>
+          <div class="vp-soundcloud-room__heading">
+            <div><span class="vp-soundcloud-room__eyebrow">ALTERNATE AUDIO</span><strong>Dandelions</strong></div>
+            <a href="https://soundcloud.com/prince-baidya/dandelions" target="_blank" rel="noopener noreferrer">Open track ↗</a>
+          </div>
+          <iframe id="vp-soundcloud-widget" title="SoundCloud player for Dandelions by Violin Prince"
+                  width="100%" height="166" loading="lazy" scrolling="no" frameborder="0"
+                  allow="autoplay" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+          <p class="vp-soundcloud-room__note" id="floating-player-status" role="status" aria-live="polite">SoundCloud player loads without autoplay.</p>
+        </div>
         <div class="art-stamp" aria-hidden="true">a melody<br>to keep</div>
       </div>
     </section>
@@ -370,22 +382,25 @@
   <div class="floating-music-bar" id="floating-music-bar" role="region" aria-label="Dandelions floating music controls">
     <img class="floating-music-art" src="images/dandelions-violin-prince-thumbnail.jpg" alt="" width="50" height="50" loading="lazy" decoding="async" aria-hidden="true">
     <div class="floating-track-copy">
-      <span class="floating-player-status"><span class="floating-status-dot" aria-hidden="true"></span><span id="floating-player-status" role="status" aria-live="polite">READY WHEN YOU ARE</span></span>
+      <span class="floating-player-status"><span class="floating-status-dot" aria-hidden="true"></span><span id="youtube-floating-player-status" role="status" aria-live="polite">READY WHEN YOU ARE</span></span>
       <strong>Dandelions</strong>
       <small>Prince Baidya · Violin Prince</small>
     </div>
     <div class="floating-timeline">
-      <input id="floating-progress" class="floating-progress-range" type="range" min="0" max="1000" step="1" value="0" aria-label="Seek through Dandelions violin cover" disabled>
-      <div class="floating-time-row"><span id="floating-current-time">0:00</span><span id="floating-duration">3:31</span></div>
+      <input id="youtube-floating-progress" class="floating-progress-range" type="range" min="0" max="1000" step="1" value="0" aria-label="Seek through Dandelions violin cover" disabled>
+      <div class="floating-time-row"><span id="youtube-floating-current-time">0:00</span><span id="youtube-floating-duration">3:31</span></div>
     </div>
     <button class="floating-video-jump" id="floating-video-jump" type="button" aria-label="Jump to the Dandelions video">VIDEO ↗</button>
-    <button class="floating-play-button" id="floating-play-button" type="button" aria-label="Play Dandelions violin cover" disabled>
+    <button class="floating-play-button" id="floating-youtube-button" type="button" aria-label="Play Dandelions violin cover" disabled>
+      <span id="floating-youtube-icon" aria-hidden="true"><svg viewBox="0 0 20 20" focusable="false"><path d="M6 3.8v12.4c0 .6.7 1 1.2.7l9-6.2a.9.9 0 0 0 0-1.4l-9-6.2c-.5-.3-1.2.1-1.2.7Z" fill="currentColor"></path></svg></span>
+    </button>
+    <button class="floating-soundcloud-button" id="floating-play-button" type="button" aria-label="Play Dandelions on SoundCloud" title="Play or pause Dandelions on SoundCloud" disabled>
       <span id="floating-play-icon" aria-hidden="true"><svg viewBox="0 0 20 20" focusable="false"><path d="M6 3.8v12.4c0 .6.7 1 1.2.7l9-6.2a.9.9 0 0 0 0-1.4l-9-6.2c-.5-.3-1.2.1-1.2.7Z" fill="currentColor"></path></svg></span>
     </button>
-    
   </div>
 
   <script src="script.js?v=autoplay-next-20261029-v1" defer></script>
+  <script src="../platform-audio.js" defer></script>
   <!-- Optimizer - Footer Javascripts -->
   <script src="../official-social.js?v=20261029-layoutfix1"></script>
   <script src="../social-brand-icons.js?v=20261030-brandicons1"></script>
