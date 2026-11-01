@@ -1,0 +1,36 @@
+name: Recover stuck GitHub Pages deployment
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/recover-stuck-pages-deployment.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+
+concurrency:
+  group: recover-stuck-github-pages-deployment
+  cancel-in-progress: false
+
+jobs:
+  cancel-stale-deployment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cancel the stale Pages deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STALE_PAGES_DEPLOYMENT: fdac1cacef2c42c455c63f2b7b26aee44181ee16
+        run: |
+          set -euo pipefail
+          status="$(gh api "repos/${GITHUB_REPOSITORY}/pages/deployments/${STALE_PAGES_DEPLOYMENT}" --jq '.status')"
+          echo "Previous Pages deployment status: ${status}"
+          if [[ "${status}" == "in_progress" || "${status}" == "queued" ]]; then
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/pages/deployments/${STALE_PAGES_DEPLOYMENT}/cancel"
+            echo "Cancellation request completed."
+          else
+            echo "The previous Pages deployment is not active; no cancellation was needed."
+          fi
