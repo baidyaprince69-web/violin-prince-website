@@ -1,0 +1,58 @@
+name: Notify Bing and IndexNow about Violin Prince pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/indexnow-submit.yml"
+      - "sitemap.xml"
+      - "video-sitemap.xml"
+      - "**/index.html"
+
+permissions:
+  contents: read
+
+jobs:
+  submit-urls:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Submit canonical site URLs to IndexNow
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload="$(cat <<'JSON'
+          {
+            "host": "baidyaprince69-web.github.io",
+            "key": "a0076705282dc1399f01a01f440f9ff6",
+            "keyLocation": "https://baidyaprince69-web.github.io/a0076705282dc1399f01a01f440f9ff6.txt",
+            "urlList": [
+              "https://baidyaprince69-web.github.io/",
+              "https://baidyaprince69-web.github.io/violin-prince-website/",
+              "https://baidyaprince69-web.github.io/violin-prince-website/production-playbook/",
+              "https://baidyaprince69-web.github.io/violin-prince-website/kal-ho-na-ho/",
+              "https://baidyaprince69-web.github.io/violin-prince-website/tere-paas-main/",
+              "https://baidyaprince69-web.github.io/violin-prince-website/hai-apna-dil-to-awara/",
+              "https://baidyaprince69-web.github.io/violin-prince-website/say-you-wont-let-go/",
+              "https://baidyaprince69-web.github.io/violin-prince-website/dandelions/",
+              "https://baidyaprince69-web.github.io/violin-prince-website/hark-the-herald-angels-sing/",
+              "https://baidyaprince69-web.github.io/violin-prince-website/majhe-majhe-tobo/",
+              "https://baidyaprince69-web.github.io/violin-prince-website/bojhena-shey-bojhena/",
+              "https://baidyaprince69-web.github.io/violin-prince-website/preme-pora-baron/",
+              "https://baidyaprince69-web.github.io/violin-prince-website/covers/"
+            ]
+          }
+          JSON
+          )"
+          status="$(curl --silent --show-error --output response.txt --write-out '%{http_code}' \
+            --request POST 'https://api.indexnow.org/IndexNow' \
+            --header 'Content-Type: application/json; charset=utf-8' \
+            --data "$payload")"
+          echo "IndexNow HTTP status: $status"
+          if [ -s response.txt ]; then cat response.txt; fi
+          if [ "$status" != "200" ]; then
+            echo "IndexNow did not accept the URL batch."
+            exit 1
+          fi
+          echo "IndexNow accepted the 13 canonical Violin Prince URLs."
