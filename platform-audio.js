@@ -183,9 +183,6 @@
     setStatus('CONNECTING TO SOUNDCLOUD…');
     playButton.disabled = true;
     initPromise = ensureApi().then(function () {
-      widget = window.SC.Widget(iframe);
-      bindWidgetEvents();
-
       if (!trackUrl) throw new Error('No SoundCloud track URL was provided.');
       var params = [
         'url=' + encodeURIComponent(trackUrl),
@@ -198,7 +195,13 @@
         'show_reposts=false',
         'visual=false'
       ];
+
+      /* The iframe must already point at the SoundCloud player before the
+         Widget API attaches to it. This follows SoundCloud's documented
+         embed order and avoids initializing SC.Widget against a blank frame. */
       iframe.src = 'https://w.soundcloud.com/player/?' + params.join('&');
+      widget = window.SC.Widget(iframe);
+      bindWidgetEvents();
     }).catch(function () {
       initPromise = null;
       widget = null;
