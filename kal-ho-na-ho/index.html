@@ -780,6 +780,144 @@
     #watch { scroll-margin-top: 24px; }
   </style>
   <link rel="stylesheet" href="../official-social.css?v=20261030-brandicons1">
+
+  <style id="vp-soundcloud-pilot-styles">
+    .vp-soundcloud-room[hidden] { display: none !important; }
+    .vp-soundcloud-room.is-open {
+      width: min(920px, calc(100% - 30px));
+      margin: 22px auto 0;
+      padding: 18px;
+      border: 1px solid rgba(255, 196, 117, .30);
+      border-radius: 18px;
+      background: linear-gradient(140deg, rgba(37, 17, 11, .96), rgba(15, 8, 6, .98));
+      box-shadow: 0 16px 42px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,235,196,.06);
+    }
+    .vp-soundcloud-room__heading {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; margin-bottom: 12px;
+    }
+    .vp-soundcloud-room__heading > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .vp-soundcloud-room__eyebrow {
+      color: #ffd064; font: 800 .58rem "DM Sans", sans-serif;
+      letter-spacing: .14em; text-transform: uppercase;
+    }
+    .vp-soundcloud-room__heading strong {
+      color: #fff4e7; font: 600 1.25rem "Cormorant Garamond", serif;
+    }
+    .vp-soundcloud-room__heading a {
+      color: #ffd064; font: 600 .72rem "DM Sans", sans-serif;
+      text-decoration: none; white-space: nowrap;
+    }
+    .vp-soundcloud-room__heading a:hover { text-decoration: underline; }
+    #vp-soundcloud-widget {
+      display: block; width: 100%; height: 166px; border: 0;
+      border-radius: 10px; background: #21130e;
+    }
+    .vp-soundcloud-room__note {
+      margin: 10px 0 0; color: #cdb8aa;
+      font: 500 .72rem/1.5 "DM Sans", sans-serif;
+    }
+    @media (max-width: 600px) {
+      .vp-soundcloud-room.is-open { width: calc(100% - 28px); padding: 13px; border-radius: 15px; }
+      .vp-soundcloud-room__heading strong { font-size: 1.12rem; }
+      .vp-soundcloud-room__heading a { font-size: .66rem; }
+      #vp-soundcloud-widget { height: 166px; }
+    }
+
+    /* Two equally clear, independent platform choices on every viewport. */
+    .floating-music-bar {
+      grid-template-columns: 58px minmax(135px, 190px) minmax(110px, 1fr) auto minmax(158px, auto);
+      gap: 11px;
+    }
+    .floating-video-jump {
+      min-width: 132px;
+      min-height: 42px;
+      padding-inline: 13px;
+      border-color: rgba(255, 208, 100, .38);
+      background: rgba(255, 208, 100, .075);
+      color: #ffe5b6;
+    }
+    .floating-play-button {
+      width: auto;
+      min-width: 158px;
+      height: 42px;
+      min-height: 42px;
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 13px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+    .floating-platform-label {
+      display: inline-block;
+      font: 700 .68rem "DM Sans", sans-serif;
+      letter-spacing: .01em;
+    }
+    @media (min-width: 721px) and (max-width: 980px) {
+      .floating-music-bar {
+        grid-template-columns: 48px minmax(110px, 145px) minmax(85px, 1fr) auto auto;
+        gap: 8px;
+        padding: 10px;
+      }
+      .floating-music-art { width: 48px; height: 44px; }
+      .floating-video-jump { min-width: 122px; padding-inline: 9px; font-size: .64rem; }
+      .floating-play-button { min-width: 142px; padding-inline: 9px; }
+      .floating-platform-label { font-size: .62rem; }
+    }
+    @media (max-width: 720px) {
+      .floating-music-bar {
+        width: calc(100% - 18px);
+        grid-template-columns: 46px repeat(3, minmax(0, 1fr));
+        grid-template-areas:
+          "cover copy copy copy"
+          "timeline timeline timeline timeline"
+          "soundcloud soundcloud youtube youtube";
+        gap: 8px 9px;
+        padding: 10px 12px;
+      }
+      .floating-music-art { grid-area: cover; width: 46px; height: 44px; }
+      .floating-track-copy { grid-area: copy; }
+      .floating-timeline { grid-area: timeline; }
+      .floating-play-button {
+        grid-area: soundcloud;
+        width: 100%;
+        min-width: 0;
+        height: 42px;
+        min-height: 42px;
+        padding: 0 8px;
+      }
+      .floating-video-jump {
+        grid-area: youtube;
+        display: inline-flex;
+        width: 100%;
+        min-width: 0;
+        min-height: 42px;
+        padding: 0 8px;
+        font-size: .67rem;
+      }
+      .floating-platform-label { font-size: .66rem; }
+      footer { padding-bottom: calc(36px + 142px + env(safe-area-inset-bottom, 0px)); }
+    }
+    @media (max-width: 390px) {
+      .floating-music-bar {
+        width: calc(100% - 12px);
+        grid-template-columns: 42px repeat(3, minmax(0, 1fr));
+        gap: 7px;
+        padding: 9px 10px;
+      }
+      .floating-music-art { width: 42px; height: 42px; }
+      .floating-play-button, .floating-video-jump {
+        min-height: 40px;
+        height: 40px;
+        padding-inline: 5px;
+      }
+      .floating-platform-label, .floating-video-jump { font-size: .60rem; }
+    }
+  </style>
+
 </head>
 <body>
   <div class="ambient-stage" aria-hidden="true">
@@ -870,6 +1008,23 @@
           </div>
           <span class="share-cover-status" id="share-cover-status" role="status" aria-live="polite"></span>
         </div>
+      </div>
+
+      <div class="vp-soundcloud-room" id="soundcloud-listening-room"
+           data-track-url="https://on.soundcloud.com/KirIDUelyDmNxIqNVX"
+           data-track-title="Kal Ho Naa Ho"
+           hidden>
+        <div class="vp-soundcloud-room__heading">
+          <div>
+            <span class="vp-soundcloud-room__eyebrow">ALTERNATE LISTENING</span>
+            <strong>Listen on SoundCloud</strong>
+          </div>
+          <a href="https://on.soundcloud.com/KirIDUelyDmNxIqNVX" target="_blank" rel="noopener noreferrer">Open this track ↗</a>
+        </div>
+        <iframe id="vp-soundcloud-widget" title="SoundCloud player for Kal Ho Naa Ho by Violin Prince"
+                width="100%" height="166" loading="lazy" scrolling="no" frameborder="0"
+                allow="autoplay" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+        <p class="vp-soundcloud-room__note" id="vp-soundcloud-note">The official SoundCloud player loads only when you choose SoundCloud. Playback never starts automatically.</p>
       </div>
     </section>
 
@@ -988,7 +1143,7 @@
   <div class="floating-music-bar is-visible" id="floating-music-bar" role="region" aria-label="Kal Ho Naa Ho floating music player">
     <img class="floating-music-art" src="https://img.youtube.com/vi/FlA76nbkReM/hqdefault.jpg" alt="" width="58" height="48" loading="eager" decoding="async" aria-hidden="true">
     <div class="floating-track-copy">
-      <span class="floating-player-status"><span class="floating-status-dot" aria-hidden="true"></span><span id="floating-player-status">READY WHEN YOU ARE</span></span>
+      <span class="floating-player-status"><span class="floating-status-dot" aria-hidden="true"></span><span id="floating-player-status">SOUNDCLOUD · READY WHEN YOU ARE</span></span>
       <strong>Kal Ho Naa Ho</strong>
       <small>Prince Baidya · Violin Prince</small>
     </div>
@@ -996,8 +1151,8 @@
       <input id="floating-progress" class="floating-progress-range" type="range" min="0" max="1000" step="1" value="0" aria-label="Seek through Kal Ho Naa Ho violin cover" disabled>
       <div class="floating-time-row"><span id="floating-current-time">0:00</span><span id="floating-duration">--:--</span></div>
     </div>
-    <button class="floating-video-jump" id="floating-video-jump" type="button" aria-label="Jump to the Kal Ho Naa Ho video player">Video <span aria-hidden="true">↗</span></button>
-    <button class="floating-play-button" id="floating-play-button" type="button" aria-label="Play Kal Ho Naa Ho violin cover" disabled><span id="floating-play-icon" class="floating-play-icon" aria-hidden="true"><svg viewBox="0 0 20 20" focusable="false"><path d="M6 3.8v12.4c0 .6.7 1 1.2.7l9-6.2a.9.9 0 0 0 0-1.4l-9-6.2c-.5-.3-1.2.1-1.2.7Z" fill="currentColor"></path></svg></span></button>
+    <button class="floating-video-jump" id="floating-video-jump" type="button" aria-label="Watch Kal Ho Naa Ho on YouTube">Watch on YouTube <span aria-hidden="true">↗</span></button>
+    <button class="floating-play-button" id="floating-play-button" type="button" aria-label="Listen to Kal Ho Naa Ho on SoundCloud"><span id="floating-play-icon" class="floating-play-icon" aria-hidden="true"><svg viewBox="0 0 20 20" focusable="false"><path d="M6 3.8v12.4c0 .6.7 1 1.2.7l9-6.2a.9.9 0 0 0 0-1.4l-9-6.2c-.5-.3-1.2.1-1.2.7Z" fill="currentColor"></path></svg></span><span class="floating-platform-label">Listen on SoundCloud</span></button>
   </div>
 
   <section class="section next-cover-section" id="next-cover" aria-labelledby="next-cover-title">
@@ -1096,6 +1251,7 @@
 
     function updateProgress() {
       if (!playerReady || !player || seeking) return;
+      if (window.ViolinPrinceSoundCloud && window.ViolinPrinceSoundCloud.isActive()) return;
       var duration = player.getDuration ? player.getDuration() : 0;
       var current = player.getCurrentTime ? player.getCurrentTime() : 0;
       if (duration > 0) {
@@ -1111,33 +1267,26 @@
       if (!window.YT || !window.YT.PlayerState) return;
       var state = event.data;
       var states = window.YT.PlayerState;
+      var soundcloud = window.ViolinPrinceSoundCloud;
       if (state === states.PLAYING) {
-        bar.classList.add('is-playing');
-        setControlIcon('pause');
-        playButton.setAttribute('aria-label', 'Pause Kal Ho Naa Ho violin cover');
-        setStatus('NOW PLAYING');
-      } else if (state === states.BUFFERING) {
-        setControlIcon('pause');
-        playButton.setAttribute('aria-label', 'Pause Kal Ho Naa Ho violin cover');
-        setStatus('BUFFERING');
-      } else if (state === states.PAUSED) {
-        bar.classList.remove('is-playing');
+        if (soundcloud && typeof soundcloud.pauseIfPlaying === 'function') soundcloud.pauseIfPlaying();
+        setStatus('YOUTUBE PLAYING · USE VIDEO CONTROLS');
         setControlIcon('play');
-        playButton.setAttribute('aria-label', 'Play Kal Ho Naa Ho violin cover');
-        setStatus('PAUSED');
+      } else if (state === states.BUFFERING) {
+        if (!soundcloud || !soundcloud.isActive()) setStatus('YOUTUBE BUFFERING');
+      } else if (state === states.PAUSED) {
+        if (!soundcloud || !soundcloud.isActive()) setStatus('YOUTUBE PAUSED · USE VIDEO CONTROLS');
+        setControlIcon('play');
       } else if (state === states.ENDED) {
-        bar.classList.remove('is-playing');
-        setControlIcon('replay');
-        playButton.setAttribute('aria-label', 'Replay Kal Ho Naa Ho violin cover');
-        setStatus('PLAY AGAIN');
+        if (!soundcloud || !soundcloud.isActive()) setStatus('YOUTUBE VIDEO FINISHED');
+        setControlIcon('play');
         progress.value = '0';
         progress.style.setProperty('--bar-progress', '0%');
         currentTimeLabel.textContent = '0:00';
-      } else if (state === states.CUED || state === states.UNSTARTED) {
-        bar.classList.remove('is-playing');
+      } else if ((state === states.CUED || state === states.UNSTARTED) &&
+                 (!soundcloud || !soundcloud.isActive())) {
+        setStatus('SOUNDCLOUD · READY WHEN YOU ARE');
         setControlIcon('play');
-        playButton.setAttribute('aria-label', 'Play Kal Ho Naa Ho violin cover');
-        setStatus('READY WHEN YOU ARE');
       }
       updateProgress();
     }
@@ -1145,7 +1294,6 @@
     function onPlayerReady(event) {
       player = event.target;
       playerReady = true;
-      playButton.disabled = false;
       progress.disabled = false;
       setStatus('READY WHEN YOU ARE');
       updateProgress();
@@ -1161,7 +1309,6 @@
             onStateChange: onPlayerStateChange,
             onError: function () {
               playerReady = false;
-              playButton.disabled = true;
               progress.disabled = true;
               bar.classList.remove('is-playing');
               setStatus('OPEN VIDEO TO LISTEN');
@@ -1173,22 +1320,18 @@
       }
     };
 
-    playButton.addEventListener('click', function () {
-      if (!playerReady || !player || !window.YT) return;
-      var state = player.getPlayerState();
-      if (state === window.YT.PlayerState.PLAYING || state === window.YT.PlayerState.BUFFERING) {
-        player.pauseVideo();
-      } else {
-        if (state === window.YT.PlayerState.ENDED) player.seekTo(0, true);
-        player.playVideo();
-        setStatus('STARTING COVER');
-      }
-    });
+    /* The shared platform-audio.js module owns the floating Play click.
+       YouTube playback must be started with the native control inside the visible player. */
 
     progress.addEventListener('input', function () {
       seeking = true;
       var value = Math.max(0, Math.min(1000, Number(progress.value) || 0));
       progress.style.setProperty('--bar-progress', (value / 10) + '%');
+      if (window.ViolinPrinceSoundCloud && window.ViolinPrinceSoundCloud.isActive()) {
+        var soundcloudDuration = window.ViolinPrinceSoundCloud.getDurationMs();
+        if (soundcloudDuration > 0 && currentTimeLabel) currentTimeLabel.textContent = formatTime(soundcloudDuration * value / 1000);
+        return;
+      }
       if (playerReady && player && currentTimeLabel) {
         var duration = player.getDuration();
         if (duration > 0) currentTimeLabel.textContent = formatTime(duration * value / 1000);
@@ -1196,7 +1339,10 @@
     });
     progress.addEventListener('change', function () {
       try {
-        if (playerReady && player) {
+        if (window.ViolinPrinceSoundCloud && window.ViolinPrinceSoundCloud.isActive()) {
+          var soundcloudDuration = window.ViolinPrinceSoundCloud.getDurationMs();
+          if (soundcloudDuration > 0) window.ViolinPrinceSoundCloud.seekTo(soundcloudDuration * Number(progress.value) / 1000);
+        } else if (playerReady && player) {
           var duration = player.getDuration();
           if (duration > 0) player.seekTo(duration * (Number(progress.value) / 1000), true);
         }
@@ -1215,6 +1361,18 @@
       if (target) target.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
     });
 
+
+    window.ViolinPrinceYouTube = {
+      pauseIfPlaying: function () {
+        try {
+          if (playerReady && player && window.YT &&
+              player.getPlayerState() === window.YT.PlayerState.PLAYING) {
+            player.pauseVideo();
+          }
+        } catch (error) {}
+      }
+    };
+
     /* The bar controls the page's existing YouTube iframe; no duplicate audio player. */
     bar.classList.add('is-visible');
     var tag = document.createElement('script');
@@ -1224,6 +1382,7 @@
     document.head.appendChild(tag);
   })();
   </script>
+  <script src="../platform-audio.js" defer></script>
   <!-- Optimizer - Footer Javascripts -->
   <script>
   (function () {
