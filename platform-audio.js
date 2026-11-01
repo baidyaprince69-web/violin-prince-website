@@ -16,9 +16,8 @@
 
   if (!room || !iframe || !playButton || !bar) return;
 
-  var profileUrl = room.getAttribute('data-profile-url') || 'https://soundcloud.com/prince-baidya';
+  var trackUrl = room.getAttribute('data-track-url') || '';
   var trackTitle = room.getAttribute('data-track-title') || '';
-  var aliases = (room.getAttribute('data-track-aliases') || '').split('|').filter(Boolean);
   var apiPromise = null;
   var widget = null;
   var initPromise = null;
@@ -58,23 +57,6 @@
     if (currentTimeLabel) currentTimeLabel.textContent = formatTime(position);
     if (durationLabel) durationLabel.textContent = formatTime(durationMs);
     progress.disabled = false;
-  }
-
-  function normalize(value) {
-    return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
-  }
-
-  function findTrack(sounds) {
-    var candidates = [trackTitle].concat(aliases).map(normalize).filter(Boolean);
-    for (var i = 0; i < (sounds || []).length; i++) {
-      var sound = sounds[i];
-      var title = normalize(sound && sound.title);
-      if (!title || !sound.permalink_url) continue;
-      for (var j = 0; j < candidates.length; j++) {
-        if (title.indexOf(candidates[j]) !== -1 || candidates[j].indexOf(title) !== -1) return sound;
-      }
-    }
-    return null;
   }
 
   function ensureApi() {
@@ -128,38 +110,27 @@
 
     widget.bind(events.READY, function () {
       widgetReady = true;
-      setStatus('FINDING THIS SONG ON SOUNDCLOUD…');
-      widget.getSounds(function (sounds) {
-        var match = findTrack(sounds);
-        if (!match) {
+      setStatus('VERIFYING THE SHARED SOUNDCLOUD TRACK…');
+      widget.getCurrentSound(function (sound) {
+        if (!sound || !sound.title) {
           trackReady = false;
           modeSelected = false;
           playButton.disabled = true;
           setIcon('play');
-          setStatus('TRACK NOT FOUND ON SOUNDCLOUD · USE YOUTUBE VIDEO');
+          setStatus('SOUNDCLOUD LINK COULD NOT BE RESOLVED · USE YOUTUBE');
           return;
         }
 
-        activeTrack = match;
-        setStatus('LOADING SOUNDCLOUD TRACK…');
-        widget.load(match.permalink_url, {
-          auto_play: false,
-          visual: false,
-          show_artwork: true,
-          show_comments: false,
-          show_user: true,
-          callback: function () {
-            trackReady = true;
-            durationMs = Number(activeTrack.duration) || 0;
-            widget.getDuration(function (duration) {
-              if (Number(duration) > 0) durationMs = Number(duration);
-              updateProgress(0);
-            });
-            playButton.disabled = false;
-            setIcon('play');
-            setStatus('SOUNDCLOUD READY · PRESS PLAY');
-          }
+        activeTrack = sound;
+        trackReady = true;
+        durationMs = Number(sound.duration) || 0;
+        widget.getDuration(function (duration) {
+          if (Number(duration) > 0) durationMs = Number(duration);
+          updateProgress(0);
         });
+        playButton.disabled = false;
+        setIcon('play');
+        setStatus('SOUNDCLOUD READY · ' + sound.title);
       });
     });
 
@@ -216,8 +187,9 @@
       widget = window.SC.Widget(iframe);
       bindWidgetEvents();
 
+      if (!trackUrl) throw new Error('No SoundCloud track URL was provided.');
       var params = [
-        'url=' + encodeURIComponent(profileUrl),
+        'url=' + encodeURIComponent(trackUrl),
         'color=%23e7a84f',
         'auto_play=false',
         'hide_related=false',
