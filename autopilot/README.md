@@ -7,9 +7,10 @@ A cloud-first, free-tier-first content production workflow. The artist website r
 - Runs from GitHub-hosted cloud runners; your computer does not render or host anything.
 - Cloudflare Cron starts one GitHub-hosted production attempt per day at 05:30 UTC (11:00 Asia/Kolkata).
 - Researches current public topics through GDELT and Google News RSS.
-- Uses Cloudflare Workers AI to choose a timely, family-friendly topic and write the hook, story outline, titles, descriptions, hashtags and three scene captions.
+- Uses Cloudflare Workers AI to select a timely, family-friendly topic and write a sourced narration script, hook, title, description, hashtags and three scene captions.
 - Generates three original still images with FLUX.1 Schnell.
-- Uses FFmpeg to create a 24-second vertical motion-graphic short.
+- Generates a natural synthetic storyteller/fact-presenter voiceover with Kokoro-82M on the cloud runner (CPU-only; Apache-2.0 model weights).
+- Uses FFmpeg to create a 24-second vertical short, mix narration over a quiet instrumental bed, and burn timed subtitles into the video.
 - Uses an uploaded, rights-cleared recording when one exists. If no recording is uploaded, it creates a new original synthetic string-style soundtrack in Python. The synthetic track is not a real recording of Prince playing violin.
 - Saves the MP4 and metadata to a private R2 bucket and reports status to D1.
 - Can publish through the official YouTube and Meta APIs when eligible account-owner credentials are configured. Publishing is disabled by default.
@@ -18,7 +19,8 @@ A cloud-first, free-tier-first content production workflow. The artist website r
 
 - The no-upload audio fallback is an original synthetic string-style instrumental, not a human violin performance.
 - Visuals are original generated still images animated with FFmpeg; this is not full text-to-video generation.
-- The AI writes hooks, scene text and captions. Spoken narration/TTS is not included in this first release.
+- Spoken narration uses a standard synthetic voice; it does not clone Prince or imitate a real person. The first configured voice is American English.
+- Voiceover length is constrained to 35–45 words for the 24-second format.
 - It deliberately rejects tragedy, graphic violence, crime sensationalism and unsupported claims.
 - No third-party songs, lyrics or downloaded creator videos are used as source material.
 
@@ -30,7 +32,8 @@ A cloud-first, free-tier-first content production workflow. The artist website r
 - Cloudflare R2 Standard: private source media and renders.
 - Cloudflare Workers AI: shared daily free allowance. At quota/rate-limit errors, the job stops; there is no paid fallback.
 - GDELT and Google News RSS: public research feeds.
-- Python standard library, Pillow and FFmpeg: original audio synthesis, image cards and video assembly.
+- Kokoro-82M + SoundFile + eSpeak NG: free cloud CPU narration.
+- Python standard library, Pillow and FFmpeg: original synthetic soundtrack, image cards, subtitles and video assembly.
 
 Free tiers have quotas and can change. The system is capped at one attempt per day, three generated images per short, no automatic paid fallback and 30-day render cleanup. Keep R2 use under the included allowance.
 
