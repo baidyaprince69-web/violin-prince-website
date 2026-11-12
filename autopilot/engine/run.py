@@ -47,7 +47,7 @@ def report(status, message, topic="", title="", key="", url="", metadata=None):
 
 def claim_run():
     r = http.post(API + "/internal/claim", headers={**auth(), "Content-Type": "application/json"},
-                  json={"run_id": RUN_ID}, timeout=30)
+                  json={"run_id": RUN_ID, "mode": os.environ.get("RUN_MODE", "scheduled")}, timeout=30)
     if r.status_code == 409:
         reason = r.json().get("reason", "run_not_claimed")
         raise PipelineError("Production run was not claimed: " + str(reason))
