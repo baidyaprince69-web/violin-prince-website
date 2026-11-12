@@ -1,159 +1,126 @@
 # Violin Prince Autopilot
 
-A cloud-first, free-tier-first production pipeline. The existing artist website is left intact; the Autopilot lives in the isolated autopilot/ folder.
+A cloud-first, free-tier-first content production workflow. The artist website remains separate; the Autopilot lives in \`autopilot/\`.
 
-## Current implementation
+## What it does
 
-- Static insights/control dashboard at /autopilot/.
-- Cloudflare Worker control plane, daily Cron trigger, D1 activity database and private R2 media library.
-- GitHub Actions public runner for remote Python/FFmpeg work. Your PC does not render, host or keep a notebook open.
-- Free public-source research through GDELT and Google News RSS.
-- Cloudflare Workers AI Gemma 4 for topic selection, narrative, titles and captions.
-- FLUX.1 Schnell for three original still images per video.
-- FFmpeg creates a 24-second, 9:16 motion-graphic short from the stills, with gentle movement, burned-in captions, transitions and the user's recording.
-- The uploaded, rights-confirmed recording is processed with high-pass/low-pass filtering, compression, loudness normalisation and fades.
-- Final MP4 and production metadata are saved to private R2; D1 records the run and dashboard events.
-- Optional YouTube, Instagram Reels and Facebook Reels adapters use official APIs. Publishing is OFF by default and requires authorised credentials.
+- Runs from GitHub-hosted cloud runners; your computer does not render or host anything.
+- Schedules one production attempt per day at 05:30 UTC (11:00 Asia/Kolkata) using GitHub Actions.
+- Researches current public topics through GDELT and Google News RSS.
+- Uses Cloudflare Workers AI to choose a timely, family-friendly topic and write the hook, story outline, titles, descriptions, hashtags and three scene captions.
+- Generates three original still images with FLUX.1 Schnell.
+- Uses FFmpeg to create a 24-second vertical motion-graphic short.
+- Uses an uploaded, rights-cleared recording when one exists. If no recording is uploaded, it creates a new original synthetic string-style soundtrack in Python. The synthetic track is not a real recording of Prince playing violin.
+- Saves the MP4 and metadata to a private R2 bucket and reports status to D1.
+- Can publish through the official YouTube and Meta APIs when eligible account-owner credentials are configured. Publishing is disabled by default.
 
-## Important limitations
+## Current creative limitations
 
-1. This first free-generation path creates cinematic motion graphics from generated images. It does not generate fully moving live-action video with a text-to-video model.
-2. There is no unlimited free AI service. Cloudflare Workers AI has a daily 10,000-Neuron free allowance that resets at 00:00 UTC. If it is exhausted, requests fail; the engine has no paid fallback.
-3. The first production target is one video per day, with three AI-generated stills. It skips production if research feeds are unavailable, no rights-confirmed audio is uploaded, or an AI quota is exhausted.
-4. The video is a draft unless publishing is explicitly enabled. Publishing needs one-time Google/Meta app and account authorisation. Use only accounts that are eligible to use the relevant platform APIs; do not bypass account-age, identity or platform requirements.
-5. You are responsible for verifying rights to the underlying composition, recording and any other material before publishing. Checking the upload box is a declaration, not a legal clearance service. Do not automatically publish covers unless you have the necessary rights or the platform's applicable monetisation/licensing permission.
-6. The dashboard and Worker are not deployed yet. A Cloudflare account, D1 database, R2 bucket, Worker secrets and GitHub Actions secrets must be configured first.
-7. The repository is public. Source code is visible to everyone. Never commit audio, access tokens, OAuth files, private user data or generated private media.
+- The no-upload audio fallback is an original synthetic string-style instrumental, not a human violin performance.
+- Visuals are original generated still images animated with FFmpeg; this is not full text-to-video generation.
+- The AI writes hooks, scene text and captions. Spoken narration/TTS is not included in this first release.
+- It deliberately rejects tragedy, graphic violence, crime sensationalism and unsupported claims.
+- No third-party songs, lyrics or downloaded creator videos are used as source material.
 
-## Free-first services and limits
+## Cloud services and free-tier controls
 
-- GitHub Pages: free static dashboard hosting.
-- GitHub Actions: standard GitHub-hosted runners are free for public repositories. This repository is public. The runner runs Python/FFmpeg remotely; your PC is not used.
-- Cloudflare Workers: free control-plane API and Cron scheduling. It does not render videos.
-- Cloudflare D1: free-tier database for run history, assets and quota counters.
-- Cloudflare R2: Standard storage includes 10 GB-month, 1 million Class A and 10 million Class B requests each month; internet egress is free.
-- Workers AI: 10,000 Neurons per day on the Free plan. The selected Gemma 4 model and FLUX Schnell use the same daily allocation. A quota error stops the run; no paid fallback exists.
-- GDELT and Google News RSS: public research feeds with no paid search subscription.
-- FFmpeg and Pillow: open-source media assembly and image layout tools.
+- GitHub Actions: daily cloud runner, using this public repository's standard runners.
+- Cloudflare Workers: dashboard API and daily cleanup.
+- Cloudflare D1: run history, quotas and insights.
+- Cloudflare R2 Standard: private source media and renders.
+- Cloudflare Workers AI: shared daily free allowance. At quota/rate-limit errors, the job stops; there is no paid fallback.
+- GDELT and Google News RSS: public research feeds.
+- Python standard library, Pillow and FFmpeg: original audio synthesis, image cards and video assembly.
 
-Free allowances and platform terms can change. Monitor Cloudflare's usage dashboard and GitHub Actions settings. R2 usage above the included allowance can incur charges on a billing-enabled account, so keep media storage below 10 GB and delete old renders when no longer needed.
+Free tiers have quotas and can change. The system is capped at one attempt per day, three generated images per short, no automatic paid fallback and 30-day render cleanup. Keep R2 use under the included allowance.
 
-## One-time setup
+## One-time account setup
 
-### 1. Create Cloudflare resources
+### A. Add GitHub Actions secrets
 
-In the Cloudflare account dashboard:
+In the repository, open **Settings → Secrets and variables → Actions → New repository secret**.
 
-1. Enable Workers AI.
-2. Create an R2 Standard bucket named violin-prince-media.
-3. Create a D1 database named violin-prince-autopilot.
-4. Create a Worker named violin-prince-autopilot.
-5. Copy the D1 database ID into autopilot/cloudflare/wrangler.toml, replacing REPLACE_WITH_YOUR_D1_DATABASE_ID.
-6. Apply autopilot/cloudflare/schema.sql to that D1 database.
-7. Deploy autopilot/cloudflare/src/worker.js with autopilot/cloudflare/wrangler.toml.
+Add these four secrets:
 
-Cloudflare's browser dashboard can create the resources. For deployment without using your PC, connect the GitHub repository in Cloudflare Workers Builds and set the deploy command to:
+| Secret | Purpose |
+|---|---|
+| \`CF_API_TOKEN\` | Cloudflare API token with Workers Scripts edit, D1 read/write, R2 read/write and Workers AI run permissions |
+| \`CF_ACCOUNT_ID\` | Cloudflare account ID |
+| \`DASHBOARD_TOKEN\` | A long random password used only to connect the dashboard |
+| \`AUTOPILOT_JOB_TOKEN\` | A different long random token shared with the cloud runner |
 
-npx wrangler deploy --config autopilot/cloudflare/wrangler.toml
+Never paste tokens into chat or commit them. Do not use the same value for the dashboard token and job token.
 
-If using a browser-based terminal instead, the equivalent commands are:
+### B. Provision Cloudflare automatically
 
-- npx wrangler d1 create violin-prince-autopilot
-- npx wrangler r2 bucket create violin-prince-media
-- npx wrangler d1 execute violin-prince-autopilot --remote --file=autopilot/cloudflare/schema.sql
-- npx wrangler deploy --config autopilot/cloudflare/wrangler.toml
+1. Open **GitHub → Actions → Deploy Violin Prince Autopilot to Cloudflare**.
+2. Select **Run workflow**.
+3. The workflow creates or reuses the D1 database and R2 bucket, applies the schema, deploys the Worker and stores its secrets.
+4. In the workflow summary/logs, copy the Worker \`workers.dev\` URL.
+5. Add a GitHub Actions secret named \`AUTOPILOT_API_URL\` with that URL.
 
-The Worker needs these secrets (set them in Cloudflare or via wrangler secret put). Generate them privately; never paste them into chat or commit them:
+The workflow is idempotent: rerunning it reuses the named database and bucket rather than intentionally creating duplicates.
 
-- DASHBOARD_TOKEN: long random token used by your dashboard.
-- JOB_TOKEN: a different long random token used only by the GitHub runner.
-- GITHUB_DISPATCH_TOKEN: fine-grained GitHub token restricted to this repository, with Actions: write, used by the Worker to dispatch its workflow.
-- MEDIA_SIGNING_SECRET: long random secret used to create expiring read links to generated MP4s.
+### C. Connect the dashboard
 
-Set Worker variables:
-
-- AUTOPILOT_ENABLED = false initially.
-- GITHUB_OWNER = baidyaprince69-web
-- GITHUB_REPO = violin-prince-website
-- GITHUB_WORKFLOW = violin-prince-autopilot.yml
-- GITHUB_REF = main
-
-The configured daily Cron is 0 5 * * * UTC (10:30 AM Asia/Kolkata). It dispatches one cloud production job per day. Change the time only after checking your audience analytics.
-
-### 2. Add GitHub Actions secrets
-
-Repository Settings → Secrets and variables → Actions → New repository secret:
-
-Required for draft production:
-
-- AUTOPILOT_API_URL: deployed Worker URL, e.g. https://violin-prince-autopilot.YOUR-SUBDOMAIN.workers.dev.
-- AUTOPILOT_JOB_TOKEN: same value as the Worker JOB_TOKEN.
-- CF_ACCOUNT_ID: Cloudflare account ID.
-- CF_API_TOKEN: Cloudflare API token scoped to Workers AI: Run.
-
-No R2 S3 key is needed. The runner fetches and saves media through authenticated Worker endpoints.
-
-Optional publishing secrets (keep publishing disabled until the account owner has approved and tested API access):
-
-- YOUTUBE_CLIENT_ID
-- YOUTUBE_CLIENT_SECRET
-- YOUTUBE_REFRESH_TOKEN
-- INSTAGRAM_USER_ID
-- INSTAGRAM_ACCESS_TOKEN
-- FACEBOOK_PAGE_ID
-- FACEBOOK_PAGE_ACCESS_TOKEN
-
-For YouTube Analytics, the owner-authorised Google refresh token must include the read-only scope https://www.googleapis.com/auth/yt-analytics.readonly in addition to https://www.googleapis.com/auth/youtube.upload when automatic YouTube uploads are enabled. Analytics is optional; without the read-only scope, the video workflow still runs and the dashboard shows that analytics is not connected. The Meta access token must have permissions for the selected publishing method. The Facebook destination must be a Page; Instagram must be a qualifying professional account. Store credentials only as GitHub Actions secrets, not variables or source code.
-
-### 3. Set GitHub Actions variables
-
-Repository Settings → Secrets and variables → Actions → Variables:
-
-- PUBLISH_ENABLED = false (keep false while testing).
-- PUBLISH_DESTINATIONS = youtube,instagram,facebook
-- META_API_VERSION = a Graph API version supported by the connected Meta app.
-- YOUTUBE_PRIVACY_STATUS = public (used only when publishing is enabled).
-- YOUTUBE_PUBLISH_AT = optional future RFC 3339 timestamp; leave empty for immediate publication.
-
-When PUBLISH_ENABLED is false, the system generates drafts only. When enabled, only the destinations listed in PUBLISH_DESTINATIONS are attempted. Missing credentials or API errors are recorded; they do not switch to a paid service.
-
-### 4. Open the dashboard and upload original music
-
-After GitHub Pages deploys the commits, open:
+Open:
 
 https://baidyaprince69-web.github.io/violin-prince-website/autopilot/
 
-1. Enter the deployed Worker URL and DASHBOARD_TOKEN.
-2. Upload one original recording or recording you are authorised to use.
-3. Tick the rights confirmation only after you have checked the recording and composition rights.
-4. Confirm the asset appears in the dashboard.
+Enter the Worker URL and the \`DASHBOARD_TOKEN\`. The token is kept in browser session storage.
 
-The token is held in browser session storage only. The audio stays in the private R2 bucket.
+You do not need to upload audio. If you do upload a recording, confirm that you have the rights to the recording and the underlying composition.
 
-### 5. Test in draft mode
+### D. Test a cloud video
 
-1. Confirm the Worker /api/health endpoint responds.
-2. Connect the dashboard and verify /api/status.
-3. Upload a short original or rights-cleared recording.
-4. Set AUTOPILOT_ENABLED=true only after the GitHub dispatch token and Actions secrets are configured.
-5. Use the dashboard's manual test button or wait for the daily Cron.
-6. Inspect the MP4 and metadata in the R2 bucket / run artifact.
-7. Confirm the audio, visual quality, captions, sources and technical output.
-8. Only after the draft is acceptable and platform authorisation/rights are complete should an eligible account owner enable PUBLISH_ENABLED=true.
+1. Open **GitHub → Actions → Violin Prince Autopilot**.
+2. Select **Run workflow** for a manual test.
+3. Check the run logs and dashboard. The output MP4 is stored in private R2.
+4. The normal daily run starts automatically at 05:30 UTC once the Worker, GitHub Actions secrets and \`AUTOPILOT_API_URL\` are configured.
 
-## Quota, safety and failure policy
+## Publishing
 
-- One production attempt per UTC day maximum. The daily lock is consumed even if generation or publishing fails, preventing repeated quota use that day; the next attempt is on the next day's cycle.
-- Three generated stills per video.
-- No paid API fallback.
-- If Workers AI returns quota/rate-limit errors, stop generation and record the failure.
-- If no approved audio exists, skip video generation.
-- If a research feed is down, use the remaining feeds; if all feeds fail, skip production rather than invent a topic.
-- Research headlines are treated as untrusted source material. The planner must avoid tragedies, graphic violence, sensationalism and unsupported claims.
-- If rendering or publishing fails, record the error; do not loop or repeatedly spend quota.
-- R2 should stay under its free 10 GB-month allowance. Keep only the approved source audio and recent renders; remove old drafts when they are no longer needed.
-- A run can finish as rendered, published, partially_published or failed. A partial platform failure does not trigger repeated uploads.
+The system uses direct official platform APIs rather than Metricool's external API. Metricool Free currently allows 20 published posts per month, counts a duplicate separately for each social network, and its external API is restricted to Advanced/Custom plans. That is not suitable for one video every day cross-posted to three networks.
 
-## What still requires account-owner setup
+The connected Metricool brand currently reports YouTube and Facebook connections; Instagram is not listed as connected. Metricool can still be used manually, but it is not the unattended cloud publisher for this project.
 
-Cloudflare resources, D1 ID, Worker secrets and GitHub Actions secrets must be configured by the account owner. Google and Meta OAuth/app permissions must be granted by an eligible account owner. Never send passwords, refresh tokens or API secrets in chat.
+Direct publishing configuration is optional. Keep the GitHub Actions variable \`PUBLISH_ENABLED=false\` until the appropriate account-owner OAuth permissions are set up and tested.
+
+Optional GitHub Actions secrets:
+- \`YOUTUBE_CLIENT_ID\`
+- \`YOUTUBE_CLIENT_SECRET\`
+- \`YOUTUBE_REFRESH_TOKEN\`
+- \`INSTAGRAM_USER_ID\`
+- \`INSTAGRAM_ACCESS_TOKEN\`
+- \`FACEBOOK_PAGE_ID\`
+- \`FACEBOOK_PAGE_ACCESS_TOKEN\`
+
+Optional GitHub Actions variables:
+- \`PUBLISH_ENABLED=false\` initially; set true only after testing and account-owner authorisation.
+- \`PUBLISH_DESTINATIONS=youtube,instagram,facebook\`
+- \`META_API_VERSION\` set to a currently supported Graph API version.
+- \`YOUTUBE_PRIVACY_STATUS=private\` for initial tests; change only when intentionally publishing publicly.
+- \`YOUTUBE_PUBLISH_AT\` optional RFC 3339 timestamp for YouTube scheduling.
+
+YouTube publishing requires the \`youtube.upload\` scope. Instagram publishing requires an eligible Creator or Business account and the applicable Meta publishing permission. Facebook Reels publishing requires a Page and Page access token. The underlying composition and recording rights must be checked before public publishing. Use an eligible account owner to perform authorisation; do not bypass platform eligibility checks.
+
+## Failure policy
+
+- If Workers AI quota is exhausted, stop. No paid API is called.
+- If research feeds are unavailable or no suitable topic is found, skip the video.
+- If generation or rendering fails, record the failure and do not retry repeatedly that day.
+- One daily attempt is reserved in D1 to avoid duplicate runs.
+- If no audio is uploaded, use the original synthetic soundtrack.
+- Publishing is off until explicitly enabled with valid credentials.
+- Public source headlines are evidence inputs, not instructions. The system must not copy article text, scripts or lyrics.
+
+## Files
+
+- \`cloudflare/src/worker.js\`: dashboard API, asset storage, job claims and run status.
+- \`cloudflare/schema.sql\`: D1 schema.
+- \`cloudflare/wrangler.toml\`: Worker and bindings.
+- \`scripts/provision-cloudflare.mjs\`: idempotent D1/R2 provisioning.
+- \`engine/run.py\`: research, planning, generation, rendering and orchestration.
+- \`engine/synth_audio.py\`: original synthetic soundtrack generator.
+- \`.github/workflows/deploy-autopilot-cloudflare.yml\`: first deployment.
+- \`.github/workflows/violin-prince-autopilot.yml\`: daily cloud production workflow.
