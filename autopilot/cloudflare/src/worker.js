@@ -296,6 +296,13 @@ async function handleApi(request, env) {
     return json({ ok: true, run_id: runId });
   }
 
+  if (path === "/internal/recent-topics" && request.method === "GET") {
+    const rows = await env.DB.prepare(
+      "SELECT topic FROM runs WHERE status IN ('rendered','published','partially_published') AND topic IS NOT NULL AND topic<>'' ORDER BY updated_at DESC LIMIT 25"
+    ).all();
+    return json({ topics: (rows.results || []).map((item) => item.topic).filter(Boolean) });
+  }
+
   if (path === "/internal/assets" && request.method === "GET") {
     const rows = await env.DB.prepare(
       "SELECT id,filename,kind,content_type,size_bytes,object_key FROM assets WHERE active=1 AND rights_confirmed=1 AND kind='audio' ORDER BY created_at DESC LIMIT 50"
