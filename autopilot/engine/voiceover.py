@@ -42,7 +42,8 @@ def write_srt(cues: list[dict], output_path: str | Path) -> Path:
         start = float(cue["start"])
         end = float(cue["end"])
         # Keep subtitle lines short enough to read quickly on a phone screen.
-        phrase = textwrap.fill(str(cue["text"]).strip(), width=36)
+        # Shorter subtitle rows reduce line count and make captions easier to scan on phones.
+        phrase = textwrap.fill(str(cue["text"]).strip(), width=24)
         if not phrase or end <= start:
             continue
         lines.extend([
