@@ -43,6 +43,9 @@ jobs:
           print("D1 schema parses successfully.")
           PY
 
+      - name: Check Cloudflare provisioning script syntax
+        run: node --check autopilot/scripts/provision-cloudflare.mjs
+
       - name: Check Cloudflare Worker JavaScript syntax
         run: node --check --input-type=module < autopilot/cloudflare/src/worker.js
 
