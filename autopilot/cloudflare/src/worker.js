@@ -84,8 +84,8 @@ async function cleanupOldRenders(env) {
 }
 
 async function dispatchWorkflow(env, mode = "scheduled") {
-  if (env.AUTOPILOT_ENABLED !== "true") {
-    await event(env, "Autopilot is disabled. No workflow was dispatched.", "warning");
+  if (env.AUTOPILOT_ENABLED !== "true" && mode !== "manual") {
+    await event(env, "Daily autopilot is disabled. Scheduled workflow was not dispatched.", "warning");
     return { ok: false, reason: "disabled" };
   }
   if (!env.GITHUB_DISPATCH_TOKEN || !env.GITHUB_OWNER || !env.GITHUB_REPO || !env.GITHUB_WORKFLOW) {
@@ -245,10 +245,11 @@ async function handleApi(request, env) {
   }
 
   if (path === "/internal/claim" && request.method === "POST") {
-    if (env.AUTOPILOT_ENABLED !== "true") {
+    const body = await request.json();
+    const mode = String(body.mode || "scheduled").slice(0, 30);
+    if (env.AUTOPILOT_ENABLED !== "true" && mode !== "manual") {
       return json({ ok: false, reason: "autopilot_disabled" }, 409);
     }
-    const body = await request.json();
     const runId = String(body.run_id || "").slice(0, 80);
     if (!runId) return json({ error: "run_id_required" }, 400);
     const day = new Date().toISOString().slice(0, 10);
@@ -267,7 +268,6 @@ async function handleApi(request, env) {
 
     let run = await env.DB.prepare("SELECT id,status FROM runs WHERE id=?").bind(runId).first();
     if (!run) {
-      const mode = String(body.mode || "scheduled").slice(0, 30);
       await env.DB.prepare(
         "INSERT OR IGNORE INTO runs (id,status,mode,created_at,updated_at) VALUES (?,?,?,?,?)"
       ).bind(runId, "queued", mode, isoNow(), isoNow()).run();
