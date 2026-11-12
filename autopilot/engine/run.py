@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Free-first cloud producer. Never switches to a paid service."""
-import argparse, base64, json, os, re, shutil, subprocess, sys, textwrap, time, uuid
+import argparse, base64, json, os, re, shutil, subprocess, sys, textwrap, time, uuid, wave
 from io import BytesIO
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from html.parser import HTMLParser
@@ -96,6 +96,34 @@ def claim_run():
         raise PipelineError("Production run was not authorised by the daily quota controller.")
 
 
+def _validate_creator_violin_recording(path):
+    """Accept a real PCM WAV take; never mistake an instrument bank for audio."""
+    path = Path(path)
+    if path.stat().st_size > 25 * 1024 * 1024:
+        raise PipelineError("The violin recording is larger than 25 MB. Export a 24–30 second PCM WAV.")
+    try:
+        with wave.open(str(path), "rb") as source:
+            channels = source.getnchannels()
+            sample_rate = source.getframerate()
+            sample_width = source.getsampwidth()
+            duration = source.getnframes() / max(1, sample_rate)
+    except (wave.Error, EOFError, OSError) as exc:
+        raise PipelineError(
+            "The custom violin asset must be an uncompressed PCM WAV recording. "
+            "An SF2/SFZ instrument library is not an audio recording."
+        ) from exc
+    if channels not in (1, 2):
+        raise PipelineError("The violin recording must be mono or stereo.")
+    if sample_rate < 22050 or sample_width not in (2, 3, 4):
+        raise PipelineError("Export the violin recording as 16-, 24- or 32-bit PCM at 22.05 kHz or higher.")
+    if duration < 24.0:
+        raise PipelineError(
+            f"The violin recording is {duration:.1f} seconds. It must be at least 24 seconds "
+            "to avoid abrupt automatic looping."
+        )
+    return {"duration_seconds": round(duration, 2), "channels": channels, "sample_rate": sample_rate}
+
+
 def get_audio():
     if API:
         r = http.get(API + "/internal/assets", headers=auth(), timeout=30)
@@ -110,17 +138,32 @@ def get_audio():
                 raise PipelineError("Selected audio file is empty or invalid.")
             return {**asset, "audio_source": "uploaded_recording"}, media.content
 
-    # Standalone mode creates a fresh original soundtrack because no R2 asset
-    # library is configured. This is not a real recording of the creator.
-    # No upload is required: create a fresh, original synthetic string-style
-    # soundtrack on the GitHub cloud runner. This is not a real violin take.
-    from synth_audio import create_original_soundtrack
-    audio_path = WORK / "original-synthetic-string-soundtrack.wav"
+    configured_path = os.environ.get("VIOLIN_RECORDING_PATH", "").strip()
+    recording_path = (
+        Path(configured_path) if configured_path
+        else Path(__file__).resolve().parent / "assets" / "violin-performance.wav"
+    )
+    if recording_path.is_file():
+        recording_info = _validate_creator_violin_recording(recording_path)
+        log("Using the creator's real violin recording as the music bed.")
+        return {
+            "filename": recording_path.name,
+            "audio_source": "creator_recorded_violin",
+            "kind": "uploaded_recording",
+            **recording_info,
+        }, recording_path.read_bytes()
+    if configured_path:
+        log("VIOLIN_RECORDING_PATH was not found; using the quiet ambient fallback.")
+
+    # Safe, deliberately non-violin fallback. It avoids pretending that basic
+    # oscillators are a realistic violin. A creator recording takes priority.
+    from synth_audio import create_ambient_fallback
+    audio_path = WORK / "ambient-background-fallback.wav"
     day_seed = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    create_original_soundtrack(audio_path, seed_text=day_seed + ":" + RUN_ID)
+    create_ambient_fallback(audio_path, seed_text=day_seed + ":" + RUN_ID)
     return {
         "filename": audio_path.name,
-        "audio_source": "generated_synthetic_string",
+        "audio_source": "generated_ambient_fallback",
         "kind": "generated_audio"
     }, audio_path.read_bytes()
 
@@ -907,7 +950,20 @@ def scene_durations_from_narration(narration_info, total_seconds=24.0):
     return (first, second, third)
 
 
-def render(plan, audio_bytes, narration_path, narration_info, image_paths=None):
+def camera_motion_filter(frame_count):
+    """Create one slow, centered push-in with cubic ease-in/ease-out motion."""
+    count = max(1, int(frame_count))
+    progress = f"min(1,on/{max(1, count - 1)})"
+    eased = f"({progress}*{progress}*(3-2*{progress}))"
+    return (
+        f"zoompan=z='1.01+0.05*{eased}':"
+        "x='(iw-iw/zoom)*0.5':y='(ih-ih/zoom)*0.5':"
+        f"d={count}:s={W}x{H}:fps={FPS}"
+    )
+
+
+def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
+           audio_source="generated_ambient_fallback"):
     OUT.mkdir(parents=True, exist_ok=True)
     audio_path = WORK / "approved-audio"
     audio_path.write_bytes(audio_bytes)
@@ -928,33 +984,40 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None):
         card = make_card(image, scene["caption"], i, plan.get("title", ""))
         clip = OUT / f"scene-{i + 1}.mp4"
         frame_count = max(1, int(round(scene_seconds * FPS)))
-        if i == 0:
-            camera = f"zoompan=z='min(zoom+0.00055,1.09)':x='(iw-iw/zoom)*0.50':y='(ih-ih/zoom)*0.43':d={frame_count}:s={W}x{H}:fps={FPS}"
-        elif i == 1:
-            camera = f"zoompan=z='min(zoom+0.00045,1.07)':x='(iw-iw/zoom)*(on/{max(1, frame_count - 1)})':y='(ih-ih/zoom)*0.52':d={frame_count}:s={W}x{H}:fps={FPS}"
-        else:
-            camera = f"zoompan=z='if(eq(on,0),1.08,max(1.0,zoom-0.00040))':x='(iw-iw/zoom)*0.48':y='(ih-ih/zoom)*0.50':d={frame_count}:s={W}x{H}:fps={FPS}"
-        fade_seconds = min(0.35, scene_seconds / 4.0)
-        fade_out_start = max(0.0, scene_seconds - fade_seconds)
-        vf = (camera + f",fade=t=in:st=0:d={fade_seconds:.3f},"
-              f"fade=t=out:st={fade_out_start:.3f}:d={fade_seconds:.3f},format=yuv420p")
+        # Keep the same gentle camera direction in every shot. The cubic easing
+        # removes the stop/start feel and avoids the previous alternating pan.
+        camera = camera_motion_filter(frame_count)
+        vf = camera + ",format=yuv420p"
         command(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
                  "-loop", "1", "-framerate", str(FPS), "-i", str(card),
                  "-t", f"{scene_seconds:.3f}", "-vf", vf, "-an", "-c:v", "libx264",
                  "-preset", "veryfast", "-crf", "25", "-pix_fmt", "yuv420p", str(clip)])
         clips.append(clip)
 
-    concat = WORK / "concat.txt"
-    concat.write_text("".join(f"file '{p.resolve()}'\n" for p in clips), encoding="utf-8")
     silent = OUT / "silent.mp4"
+    transition_seconds = 0.35
+    first_offset = max(0.0, scene_durations[0] - transition_seconds)
+    second_offset = max(0.0, scene_durations[0] + scene_durations[1] - 2 * transition_seconds)
+    transition_filter = (
+        f"[0:v][1:v]xfade=transition=fade:duration={transition_seconds:.3f}:"
+        f"offset={first_offset:.3f}[v1];"
+        f"[v1][2:v]xfade=transition=fade:duration={transition_seconds:.3f}:"
+        f"offset={second_offset:.3f}[v2];"
+        f"[v2]tpad=stop_mode=clone:stop_duration={2 * transition_seconds:.3f},"
+        "format=yuv420p[vout]"
+    )
     command(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
-             "-f", "concat", "-safe", "0", "-i", str(concat), "-c", "copy", str(silent)])
+             "-i", str(clips[0]), "-i", str(clips[1]), "-i", str(clips[2]),
+             "-filter_complex", transition_filter, "-map", "[vout]", "-an",
+             "-t", "24", "-c:v", "libx264", "-preset", "veryfast",
+             "-crf", "25", "-pix_fmt", "yuv420p", str(silent)])
     final = OUT / "violin-prince-short.mp4"
     subtitle_path = OUT / "narration.srt"
     from voiceover import write_srt
     write_srt(narration_info.get("subtitle_cues", []), subtitle_path)
+    bed_volume = "0.12" if audio_source == "generated_ambient_fallback" else "0.20"
     audio_filter = (
-        "[1:a]volume=0.20[bed];"
+        f"[1:a]volume={bed_volume}[bed];"
         "[2:a]highpass=f=75,acompressor=threshold=-20dB:ratio=3:attack=12:release=180[voice];"
         "[bed][voice]amix=inputs=2:duration=longest:dropout_transition=1,"
         "loudnorm=I=-16:TP=-1.5:LRA=11,"
@@ -983,7 +1046,10 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None):
         "narration_duration_seconds": round(narration_end, 2),
         "voice_coverage_percent": round(min(100.0, narration_end / 24.0 * 100.0), 1),
         "music_only_ending_seconds": round(max(0.0, 24.0 - narration_end), 2),
-        "creative_quality_version": 2,
+        "camera_motion": "smooth centered ease-in-out push-in",
+        "scene_transition": "0.35-second crossfade",
+        "audio_source": audio_source,
+        "creative_quality_version": 3,
     })
     (OUT / "quality_report.json").write_text(
         json.dumps(quality, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -1162,7 +1228,7 @@ def prepare_stage():
     """Create research, story, narration and soundtrack once; no images or MP4 yet."""
     claim_run()
     asset, audio = get_audio()
-    report("running", "Preparing research, story, narration and original soundtrack.")
+    report("running", "Preparing research, story, narration and background music bed.")
     items = load_reusable_research()
     if items is None:
         items = research()
@@ -1239,7 +1305,11 @@ def render_stage():
     if len(audio) < 4096:
         raise PipelineError("Prepared soundtrack is missing or unexpectedly small.")
     log("Rendering from saved research, script, narration, soundtrack and scene images. No AI calls.")
-    path, video_quality = render(plan, audio, paths["narration"], narration_info, image_paths=image_paths)
+    audio_source = str(metadata.get("asset", {}).get("audio_source", "generated_ambient_fallback"))
+    path, video_quality = render(
+        plan, audio, paths["narration"], narration_info,
+        image_paths=image_paths, audio_source=audio_source
+    )
     stored = upload(path)
     from publisher import publish_all
     publish_result = publish_all(path, stored.get("media_url", ""), plan)
@@ -1257,7 +1327,7 @@ def render_stage():
         "captions": [scene["caption"] for scene in plan["scenes"]],
         "sources": plan.get("sources", []),
         "audio_asset": metadata.get("asset", {}).get("filename", paths["audio"].name),
-        "audio_source": metadata.get("asset", {}).get("audio_source", "generated_synthetic_string"),
+        "audio_source": audio_source,
         "duration_seconds": 24, "format": "9:16",
         "publishing_status": final_status, "publish_results": publish_result,
         "output_key": stored.get("object_key"), "prepared_run_id": metadata.get("prepared_run_id"),
