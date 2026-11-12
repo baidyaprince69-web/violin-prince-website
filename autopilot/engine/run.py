@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Free-first cloud producer. Never switches to a paid service."""
-import base64, json, os, re, subprocess, sys, textwrap, time, uuid
+import argparse, base64, json, os, re, shutil, subprocess, sys, textwrap, time, uuid
 from io import BytesIO
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from html.parser import HTMLParser
@@ -13,8 +13,8 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 
 API = os.environ.get("AUTOPILOT_API_URL", "").rstrip("/")
 JOB_TOKEN = os.environ.get("AUTOPILOT_JOB_TOKEN", "")
-CF_ACCOUNT = os.environ["CF_ACCOUNT_ID"]
-CF_TOKEN = os.environ["CF_AI_TOKEN"]
+CF_ACCOUNT = os.environ.get("CF_ACCOUNT_ID", "")
+CF_TOKEN = os.environ.get("CF_AI_TOKEN", "")
 RUN_ID = os.environ.get("RUN_ID", str(uuid.uuid4()))
 TEXT_MODEL = "@cf/google/gemma-4-26b-a4b-it"
 IMAGE_MODEL = "@cf/black-forest-labs/flux-1-schnell"
@@ -582,7 +582,7 @@ def validate_final_video(path):
         "file_size_bytes": path.stat().st_size,
     }
 
-def render(plan, audio_bytes, narration_path, narration_info):
+def render(plan, audio_bytes, narration_path, narration_info, image_paths=None):
     OUT.mkdir(parents=True, exist_ok=True)
     audio_path = WORK / "approved-audio"
     audio_path.write_bytes(audio_bytes)
@@ -593,7 +593,12 @@ def render(plan, audio_bytes, narration_path, narration_info):
             ", portrait 9:16 composition, centred focal subject, vertical framing, "
             "cinematic natural lighting, no text, no logos, no watermark"
         )
-        image = make_image(visual_prompt, i)
+        if image_paths is not None:
+            image = Path(image_paths[i])
+            if not image.is_file():
+                raise PipelineError(f"Prepared scene image {i + 1} is missing.")
+        else:
+            image = make_image(visual_prompt, i)
         card = make_card(image, scene["caption"], i, plan.get("title", ""))
         clip = OUT / f"scene-{i + 1}.mp4"
         if i == 0:
@@ -661,10 +666,230 @@ def upload(path):
     return data
 
 
-def main():
+
+PACKAGE = WORK / "package"
+
+
+def _package_paths():
+    PACKAGE.mkdir(parents=True, exist_ok=True)
+    return {
+        "plan": PACKAGE / "creative_plan.json",
+        "metadata": PACKAGE / "stage.json",
+        "audio": PACKAGE / "soundtrack.wav",
+        "narration": PACKAGE / "narration.wav",
+        "research": PACKAGE / "research.json",
+    }
+
+
+def _read_package(require_images=False):
+    paths = _package_paths()
+    for key in ("plan", "metadata", "audio", "narration"):
+        if not paths[key].is_file():
+            raise PipelineError(f"Prepared package is missing {paths[key].name}. Download the correct earlier stage artifact.")
+    try:
+        plan = json.loads(paths["plan"].read_text(encoding="utf-8"))
+        metadata = json.loads(paths["metadata"].read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise PipelineError("Prepared package contains invalid JSON metadata.") from exc
+    narration_info = metadata.get("narration_info")
+    if not isinstance(plan.get("scenes"), list) or len(plan["scenes"]) != 3:
+        raise PipelineError("Prepared package must contain exactly three planned scenes.")
+    if not isinstance(narration_info, dict) or not narration_info.get("subtitle_cues"):
+        raise PipelineError("Prepared package is missing narration subtitle timings.")
+    image_paths = [PACKAGE / f"scene-{index + 1}.jpg" for index in range(3)]
+    if require_images:
+        for path in image_paths:
+            if not path.is_file():
+                raise PipelineError(f"Prepared visual package is missing {path.name}. Run the Visuals stage first.")
+            try:
+                with Image.open(path) as image:
+                    image.verify()
+            except Exception as exc:
+                raise PipelineError(f"Prepared visual asset {path.name} is not a valid image.") from exc
+    return plan, metadata, narration_info, paths, image_paths
+
+
+def _scene_visual_prompt(scene, feedback=""):
+    prompt = str(scene.get("image_prompt", "")).strip()
+    if not prompt:
+        raise PipelineError("A planned scene has no image prompt.")
+    prompt += (
+        ", portrait 9:16 composition, centred focal subject, vertical framing, "
+        "cinematic natural lighting, no text, no logos, no watermark"
+    )
+    clean_feedback = re.sub(r"\s+", " ", str(feedback or "")).strip()[:600]
+    if clean_feedback:
+        prompt += ", additional visual direction: " + clean_feedback
+    return prompt
+
+
+def make_storyboard_preview(plan, image_paths, target):
+    """Build a single review sheet so visual approval happens before video rendering."""
+    target = Path(target)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    canvas = Image.new("RGB", (1280, 900), (12, 16, 24))
+    draw = ImageDraw.Draw(canvas)
+    draw.text((44, 30), "VIOLIN PRINCE  /  STORYBOARD REVIEW",
+              font=font(25), fill=(236, 204, 146))
+    title = textwrap.shorten(str(plan.get("title", "Untitled story")), width=58, placeholder="…")
+    draw.text((44, 76), title, font=font(36), fill=(255, 250, 242))
+    tile_width, tile_height = 360, 640
+    lefts = (44, 460, 876)
+    for index, (scene, image_path, left) in enumerate(zip(plan["scenes"], image_paths, lefts)):
+        with Image.open(image_path) as source:
+            tile = ImageOps.fit(
+                source.convert("RGB"), (tile_width, tile_height),
+                method=Image.Resampling.LANCZOS, centering=(0.5, 0.45)
+            )
+        canvas.paste(tile, (left, 150))
+        draw.rectangle((left, 150, left + tile_width - 1, 150 + tile_height - 1),
+                       outline=(210, 185, 142), width=2)
+        caption = textwrap.shorten(str(scene.get("caption", "")), width=38, placeholder="…")
+        draw.text((left, 810), f"SCENE {index + 1}  ·  {caption}",
+                  font=font(18), fill=(245, 238, 226))
+    draw.text((44, 862), "Approve the visual direction before creating the final MP4.",
+              font=font(16), fill=(185, 194, 207))
+    canvas.save(target, "PNG", optimize=True)
+    return target
+
+
+def _write_review_text(plan, target):
+    lines = [
+        "VIOLIN PRINCE — PRE-PRODUCTION REVIEW",
+        "",
+        "TITLE: " + str(plan.get("title", "")),
+        "TOPIC: " + str(plan.get("topic", "")),
+        "HOOK: " + str(plan.get("hook", "")),
+        "",
+        "NARRATION:",
+        str(plan.get("narration_script", "")),
+        "",
+        "SCENE PLAN:",
+    ]
+    for index, scene in enumerate(plan.get("scenes", []), start=1):
+        lines.extend([
+            f"{index}. {scene.get('caption', '')}",
+            "   Visual direction: " + str(scene.get("image_prompt", "")),
+        ])
+    lines.extend(["", "SOURCES:", *[str(value) for value in plan.get("sources", [])]])
+    Path(target).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def prepare_stage():
+    """Create research, story, narration and soundtrack once; no images or MP4 yet."""
+    claim_run()
+    asset, audio = get_audio()
+    report("running", "Preparing research, story, narration and original soundtrack.")
+    items = research()
+    log("Research sources collected: " + str(len(items)))
+    plan = make_plan(items, recent_topics())
+    topic, title = str(plan.get("topic", "")), str(plan.get("title", "Violin Prince Short"))
+    from voiceover import synthesize_voiceover
+    narration_path, narration_info = synthesize_voiceover(
+        plan["narration_script"], OUT / "narration.wav"
+    )
+    paths = _package_paths()
+    paths["audio"].write_bytes(audio)
+    shutil.copy2(narration_path, paths["narration"])
+    paths["plan"].write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
+    paths["research"].write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+    paths["metadata"].write_text(json.dumps({
+        "schema_version": 1,
+        "prepared_run_id": RUN_ID,
+        "asset": asset,
+        "narration_info": narration_info,
+        "topic": topic,
+        "title": title,
+        "prepared_at": datetime.now(timezone.utc).isoformat(),
+        "stage": "prepared",
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    _write_review_text(plan, PACKAGE / "review.txt")
+    log("Prepared package saved. Review review.txt before generating scene images.")
+    report("prepared", "Story, narration and soundtrack are ready for review.", topic, title,
+           metadata={"stage": "prepared"})
+    return 0
+
+
+def visuals_stage(feedback=""):
+    """Generate only the three scene images from a previously prepared package."""
+    if not CF_ACCOUNT or not CF_TOKEN:
+        raise PipelineError("CF_ACCOUNT_ID and CF_AI_TOKEN are required for the Visuals stage.")
+    plan, metadata, _narration_info, paths, image_paths = _read_package(require_images=False)
+    for index, scene in enumerate(plan["scenes"]):
+        prompt = _scene_visual_prompt(scene, feedback)
+        generated = make_image(prompt, index)
+        shutil.copy2(generated, image_paths[index])
+        log(f"Prepared scene image {index + 1}/3.")
+    storyboard = make_storyboard_preview(plan, image_paths, PACKAGE / "storyboard-preview.png")
+    metadata["stage"] = "visuals_ready"
+    metadata["visual_feedback"] = re.sub(r"\s+", " ", str(feedback or "")).strip()[:600]
+    metadata["visuals_run_id"] = RUN_ID
+    paths["metadata"].write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+    log("Storyboard preview created: " + str(storyboard))
+    return 0
+
+
+def render_stage():
+    """Assemble an approved visual package without calling any AI service."""
+    plan, metadata, narration_info, paths, image_paths = _read_package(require_images=True)
+    topic = str(plan.get("topic", ""))
+    title = str(plan.get("title", "Violin Prince Short"))
+    audio = paths["audio"].read_bytes()
+    if len(audio) < 4096:
+        raise PipelineError("Prepared soundtrack is missing or unexpectedly small.")
+    log("Rendering from saved research, script, narration, soundtrack and scene images. No AI calls.")
+    path, video_quality = render(plan, audio, paths["narration"], narration_info, image_paths=image_paths)
+    stored = upload(path)
+    from publisher import publish_all
+    publish_result = publish_all(path, stored.get("media_url", ""), plan)
+    has_publication = bool(publish_result.get("results"))
+    final_status = "published" if has_publication and publish_result.get("all_succeeded") else (
+        "partially_published" if has_publication else "rendered"
+    )
+    output_metadata = {
+        "run_id": RUN_ID, "topic": topic, "title": title,
+        "hook": plan.get("hook", ""), "description": plan.get("description", ""),
+        "hashtags": plan.get("hashtags", []),
+        "narration_script": plan.get("narration_script", ""),
+        "narrative_style": plan.get("narrative_style", "documentary"),
+        "narration": narration_info, "video_quality": video_quality,
+        "captions": [scene["caption"] for scene in plan["scenes"]],
+        "sources": plan.get("sources", []),
+        "audio_asset": metadata.get("asset", {}).get("filename", paths["audio"].name),
+        "audio_source": metadata.get("asset", {}).get("audio_source", "generated_synthetic_string"),
+        "duration_seconds": 24, "format": "9:16",
+        "publishing_status": final_status, "publish_results": publish_result,
+        "output_key": stored.get("object_key"), "prepared_run_id": metadata.get("prepared_run_id"),
+        "visuals_run_id": metadata.get("visuals_run_id"),
+    }
+    (OUT / "metadata.json").write_text(
+        json.dumps(output_metadata, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    report(final_status, "Production complete. " + json.dumps(publish_result, ensure_ascii=False)[:650],
+           topic, title, stored.get("object_key", ""), stored.get("media_url", ""), output_metadata)
+    if API:
+        from analytics import collect_and_send
+        analytics_result = collect_and_send(API, JOB_TOKEN)
+    else:
+        analytics_result = {"connected": False, "reason": "dashboard_api_not_configured"}
+    (OUT / "analytics.json").write_text(
+        json.dumps(analytics_result, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    return 0
+
+
+def main(stage="full", visual_feedback=""):
     WORK.mkdir(exist_ok=True)
     OUT.mkdir(exist_ok=True)
     try:
+        if stage == "prepare":
+            return prepare_stage()
+        if stage == "visuals":
+            return visuals_stage(visual_feedback)
+        if stage == "render":
+            return render_stage()
+        if stage != "full":
+            raise PipelineError("Unknown pipeline stage: " + str(stage))
         claim_run()
         asset, audio = get_audio()
         report("running",
@@ -725,4 +950,16 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    parser = argparse.ArgumentParser(description="Violin Prince staged short-video pipeline")
+    parser.add_argument(
+        "--stage", choices=("full", "prepare", "visuals", "render"), default="full",
+        help="prepare story/audio, generate visuals from a saved package, or render without AI calls"
+    )
+    args = parser.parse_args()
+    try:
+        exit_code = main(stage=args.stage, visual_feedback=os.environ.get("VISUAL_FEEDBACK", ""))
+    except Exception as exc:
+        log("Stopped safely: " + str(exc))
+        report("failed", str(exc))
+        exit_code = 1
+    sys.exit(exit_code)
