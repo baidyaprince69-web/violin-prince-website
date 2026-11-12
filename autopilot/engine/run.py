@@ -279,6 +279,12 @@ def main():
         report("producing", "Generating 3 original visual scenes and assembling the video.", topic, title)
         path = render(plan, audio)
         stored = upload(path)
+        from publisher import publish_all
+        publish_result = publish_all(path, stored.get("media_url", ""), plan)
+        has_publication = bool(publish_result.get("results"))
+        final_status = "published" if has_publication and publish_result.get("all_succeeded") else (
+            "partially_published" if has_publication else "rendered"
+        )
         (OUT / "metadata.json").write_text(json.dumps({
             "run_id": RUN_ID, "topic": topic, "title": title,
             "hook": plan.get("hook", ""), "description": plan.get("description", ""),
@@ -286,9 +292,11 @@ def main():
             "captions": [x["caption"] for x in plan["scenes"]],
             "sources": plan.get("sources", []), "audio_asset": asset["filename"],
             "duration_seconds": 24, "format": "9:16",
-            "publishing_status": "draft_only", "output_key": stored.get("object_key")
+            "publishing_status": final_status, "publish_results": publish_result,
+            "output_key": stored.get("object_key")
         }, ensure_ascii=False, indent=2), encoding="utf-8")
-        report("rendered", "Draft stored in private R2. Publishing is disabled until platform authorisation and rights checks are complete.",
+        report(final_status,
+               "Production complete. " + json.dumps(publish_result, ensure_ascii=False)[:650],
                topic, title, stored.get("object_key", ""), stored.get("media_url", ""))
         return 0
     except Exception as exc:
