@@ -37,6 +37,17 @@ Open **GitHub → Actions → Violin Prince Autopilot → Run workflow** on bran
 - The run will preserve the prepared-package and visual-package artifacts as separate checkpoints, then create the MP4.
 - Download storyboard-preview.png from visual-package to review the generated visual direction, and download the cloud-video-preview artifact for the final MP4.
 
+### Recover a failed Prepare run without repeating research
+
+When a Prepare run fails after collecting sources, the diagnostic artifact may still contain research.json.
+
+- Keep stage set to **full**.
+- Enter the numeric Run ID of that failed Prepare run in source_run_id.
+- Leave visual_feedback empty or provide an overall image direction.
+- Start the workflow once.
+
+The workflow downloads the earlier diagnostic artifact and reuses its saved research.json. It does not call GDELT or Google News again. The planner then applies one automatic narration correction if the generated script misses the word-count, sentence-count or subtitle limits. The prepared-package and visual-package checkpoints are still saved before later stages continue.
+
 ### Repair only the stage that needs it
 
 - **Story/script problem:** choose Prepare; this repeats research, planning, voice and soundtrack.
