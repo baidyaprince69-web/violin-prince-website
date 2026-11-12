@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Free-first cloud producer. Never switches to a paid service."""
 import base64, json, os, re, subprocess, sys, textwrap, time, uuid
+from io import BytesIO
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from html.parser import HTMLParser
 import xml.etree.ElementTree as ET
@@ -394,8 +395,10 @@ def make_image(prompt, index):
         raise PipelineError("FLUX returned no image.")
     try:
         data = base64.b64decode(result["image"], validate=True)
+        with Image.open(BytesIO(data)) as decoded:
+            decoded.verify()
     except Exception as exc:
-        raise PipelineError("FLUX image data was invalid.") from exc
+        raise PipelineError("FLUX returned invalid or undecodable image data.") from exc
     IMAGES.mkdir(parents=True, exist_ok=True)
     path = IMAGES / f"scene-{index + 1}.jpg"
     path.write_bytes(data)
