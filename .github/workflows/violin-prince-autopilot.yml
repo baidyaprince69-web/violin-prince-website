@@ -1,10 +1,12 @@
 name: Violin Prince Autopilot
 
 on:
-  schedule:
-    - cron: "30 5 * * *"
   workflow_dispatch:
     inputs:
+      run_id:
+        description: Optional run identifier supplied by Cloudflare Cron
+        required: false
+        type: string
       mode:
         description: scheduled or manual test
         required: false
@@ -24,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      RUN_ID: ${{ github.run_id }}
+      RUN_ID: ${{ inputs.run_id || github.run_id }}
       RUN_MODE: ${{ inputs.mode || 'scheduled' }}
       AUTOPILOT_API_URL: ${{ secrets.AUTOPILOT_API_URL }}
       AUTOPILOT_JOB_TOKEN: ${{ secrets.AUTOPILOT_JOB_TOKEN }}
