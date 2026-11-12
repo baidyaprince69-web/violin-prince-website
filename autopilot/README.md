@@ -79,18 +79,18 @@ You do not need to upload audio. If you do upload a recording, confirm that you 
 ### D. Test a cloud video
 
 1. Keep `AUTOPILOT_ENABLED=false` in the Worker while testing. This keeps the daily scheduler off.
-2. Open the dashboard and use **Run one test production**, or run the manual GitHub Actions workflow.
+2. Open the dashboard and use **Start one draft test**, or run the manual GitHub Actions workflow.
 3. A manual draft run is allowed while the daily scheduler is disabled. Publishing remains off by default.
 4. Check the job logs, dashboard and private R2 output. Confirm that the MP4 includes spoken narration, the synthetic instrumental bed, sentence-timed subtitles and three generated visual scenes.
 5. Only after this draft passes should the account owner set `AUTOPILOT_ENABLED=true` in the Cloudflare Worker. The daily Cron then starts at 05:30 UTC (11:00 Asia/Kolkata).
 
 ## Publishing
 
-The system uses direct official platform APIs rather than Metricool's external API. Metricool Free currently allows 20 published posts per month, counts a duplicate separately for each social network, and its external API is restricted to Advanced/Custom plans. That is not suitable for one video every day cross-posted to three networks.
+The current Autopilot repository uses direct official YouTube and Meta publishing adapters in `engine/publisher.py`; it does **not** contain a Metricool publishing adapter.
 
-The connected Metricool brand currently reports YouTube and Facebook connections; Instagram is not listed as connected. Metricool can still be used manually, but it is not the unattended cloud publisher for this project.
+The connected Metricool brand currently lists YouTube, Facebook, Threads and Pinterest. Instagram is not connected. Metricool MCP can be used from ChatGPT on the Free plan, but that connector is not an HTTP API credential that a Cloudflare Worker or GitHub Actions runner can use. Metricool Free is limited to 20 scheduled posts per month, while Metricool's external HTTP API is available only on Advanced and Custom plans. Therefore Metricool is not the free unattended publisher for this cloud workflow.
 
-Direct publishing configuration is optional. Keep the GitHub Actions variable `PUBLISH_ENABLED=false` until the appropriate account-owner OAuth permissions are set up and tested.
+The direct YouTube and Meta publishing adapters remain optional. Keep the GitHub Actions variable `PUBLISH_ENABLED=false` until eligible account-owner OAuth permissions are configured and each destination is tested. Instagram publishing additionally requires an eligible Creator or Business account to be connected and authorised.
 
 Optional GitHub Actions secrets:
 - `YOUTUBE_CLIENT_ID`
