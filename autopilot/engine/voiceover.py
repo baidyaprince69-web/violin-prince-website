@@ -41,7 +41,8 @@ def write_srt(cues: list[dict], output_path: str | Path) -> Path:
     for index, cue in enumerate(cues, start=1):
         start = float(cue["start"])
         end = float(cue["end"])
-        phrase = textwrap.fill(str(cue["text"]).strip(), width=44)
+        # Keep subtitle lines short enough to read quickly on a phone screen.
+        phrase = textwrap.fill(str(cue["text"]).strip(), width=36)
         if not phrase or end <= start:
             continue
         lines.extend([
@@ -88,7 +89,7 @@ def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict
         for _graphemes, _phonemes, audio in pipeline(
             sentence,
             voice=VOICE,
-            speed=1.04,
+            speed=1.0,
         ):
             samples = np.asarray(audio, dtype=np.float32).reshape(-1)
             if samples.size:
