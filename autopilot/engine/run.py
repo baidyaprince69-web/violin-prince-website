@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Free-first cloud producer. Never switches to a paid service."""
 import base64, json, os, re, subprocess, sys, textwrap, time, uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from html.parser import HTMLParser
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 import requests
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 
@@ -23,6 +25,37 @@ http.headers["User-Agent"] = "ViolinPrinceAutopilot/0.1"
 
 class PipelineError(RuntimeError):
     pass
+
+
+class ParagraphExtractor(HTMLParser):
+    """Extract readable paragraph text from public article pages."""
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self._in_paragraph = False
+        self._blocked = 0
+        self._current = []
+        self.paragraphs = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ("script", "style", "noscript", "nav", "footer", "header"):
+            self._blocked += 1
+        elif tag == "p" and self._blocked == 0:
+            self._in_paragraph = True
+            self._current = []
+
+    def handle_endtag(self, tag):
+        if tag == "p" and self._in_paragraph:
+            text_value = re.sub(r"\\s+", " ", " ".join(self._current)).strip()
+            if len(text_value) > 50:
+                self.paragraphs.append(text_value)
+            self._current = []
+            self._in_paragraph = False
+        elif tag in ("script", "style", "noscript", "nav", "footer", "header"):
+            self._blocked = max(0, self._blocked - 1)
+
+    def handle_data(self, data):
+        if self._in_paragraph and self._blocked == 0:
+            self._current.append(data)
 
 
 def log(message):
@@ -82,6 +115,52 @@ def get_audio():
     }, audio_path.read_bytes()
 
 
+def enrich_source_evidence(items):
+    """Fetch short public-page excerpts for better fact-checking context."""
+    def fetch_one(item):
+        url = str(item.get("url", ""))
+        if not url.startswith(("http://", "https://")):
+            return item
+        try:
+            response = requests.get(
+                url,
+                headers={"User-Agent": "Mozilla/5.0 (compatible; ViolinPrinceAutopilot/0.1)"},
+                timeout=(5, 9),
+                allow_redirects=True,
+            )
+            content_type = response.headers.get("Content-Type", "").lower()
+            if response.status_code != 200 or "html" not in content_type:
+                return item
+            parser = ParagraphExtractor()
+            parser.feed(response.text[:1_200_000])
+            excerpt = " ".join(parser.paragraphs[:12])[:1500]
+            final_url = response.url
+            if final_url.startswith(("http://", "https://")):
+                item["url"] = final_url
+            if excerpt:
+                item["evidence_text"] = excerpt
+                item["publisher_domain"] = urlparse(item["url"]).netloc.lower()
+        except Exception as exc:
+            log("Article evidence unavailable: " + str(exc)[:120])
+        return item
+
+    candidates = items[:12]
+    if not candidates:
+        return items
+    completed = {}
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        futures = {pool.submit(fetch_one, dict(item)): item.get("url") for item in candidates}
+        for future in as_completed(futures):
+            try:
+                result = future.result()
+                completed[futures[future]] = result
+            except Exception:
+                pass
+    enriched = [completed.get(item.get("url"), item) for item in candidates]
+    enriched_urls = {item.get("url") for item in candidates}
+    return enriched + [item for item in items if item.get("url") not in enriched_urls]
+
+
 def research():
     items = []
     try:
@@ -132,6 +211,7 @@ def research():
     result = list(unique.values())[:75]
     if not result:
         raise PipelineError("All free research feeds were unavailable; no video created.")
+    result = enrich_source_evidence(result)
     WORK.mkdir(exist_ok=True)
     (WORK / "research.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     return result
@@ -167,7 +247,7 @@ def make_plan(items, recent=None):
         "short visual story accompanied by an original string-style instrumental soundtrack and spoken narration. Prioritise music, art, culture, discovery, science and positive "
         "global interests. Reject tragedies, graphic events, violence, disasters and crimes. Do not invent "
         "facts, dates, statistics or quotations. Use only factual claims supported by the supplied research; "
-        "prefer a topic corroborated by multiple independent headlines. Do not use song lyrics, copied scripts, "
+        "prefer a topic supported by multiple independent publisher sources. Use supplied article excerpts as evidence. Do not use song lyrics, copied scripts, "
         "named copyrighted characters, logos or identifiable living people in images. Return JSON only with "
         "topic,title,hook,description,hashtags,narration_script,narrative_style,scenes,sources. The narration_script "
         "must be 30 to 42 spoken words, written for a natural narrator: a strong opening hook, clear explanation, "
@@ -177,7 +257,7 @@ def make_plan(items, recent=None):
         "Exactly 3 scenes. Each scene needs a caption of 9 words maximum and an original symbolic cinematic "
         "image_prompt in English. If no suitable topic, return skip and reason."
     )
-    compact = [{k: x.get(k, "") for k in ("title", "summary", "url", "date", "source")} for x in items[:35]]
+    compact = [{k: x.get(k, "") for k in ("title", "summary", "evidence_text", "publisher_domain", "url", "date", "source")} for x in items[:35]]
     result = ai(TEXT_MODEL, {"messages": [
         {"role": "system", "content": system},
         {"role": "user", "content":
@@ -208,6 +288,15 @@ def make_plan(items, recent=None):
         plan["narrative_style"] = "documentary"
     allowed = {x["url"] for x in items}
     plan["sources"] = [u for u in plan.get("sources", []) if u in allowed][:5]
+    source_domains = {
+        urlparse(u).netloc.lower().removeprefix("www.")
+        for u in plan["sources"]
+        if urlparse(u).netloc
+    }
+    if plan["narrative_style"] == "documentary" and len(source_domains) < 2:
+        raise PipelineError("Documentary narration needs at least two independent publisher sources.")
+    if plan["narrative_style"] == "cinematic_story" and not plan["sources"]:
+        raise PipelineError("Storytelling topic has no traceable research source.")
     for scene in scenes:
         if not scene.get("caption") or not scene.get("image_prompt"):
             raise PipelineError("A scene is missing its caption or visual prompt.")
