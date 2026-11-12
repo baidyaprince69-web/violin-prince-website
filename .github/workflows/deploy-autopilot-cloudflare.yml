@@ -73,7 +73,7 @@ jobs:
 
       - name: Save Worker URL as GitHub Actions secret
         env:
-          GH_TOKEN: \${{ secrets.GITHUB_DISPATCH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_DISPATCH_TOKEN }}
         shell: bash
         run: |
           if [ -z "$WORKER_URL" ]; then
