@@ -891,61 +891,15 @@ def main(stage="full", visual_feedback=""):
             return visuals_stage(visual_feedback)
         if stage == "render":
             return render_stage()
-        if stage != "full":
-            raise PipelineError("Unknown pipeline stage: " + str(stage))
-        claim_run()
-        asset, audio = get_audio()
-        report("running",
-               ("Using uploaded recording: " + asset["filename"] if asset.get("audio_source") == "uploaded_recording"
-                else "Generated an original synthetic string-style soundtrack.") + " Started global research.")
-        items = research()
-        log("Research sources collected: " + str(len(items)))
-        prior_topics = recent_topics()
-        plan = make_plan(items, prior_topics)
-        topic, title = str(plan.get("topic", "")), str(plan.get("title", "Violin Prince Short"))
-        from voiceover import synthesize_voiceover
-        narration_path, narration_info = synthesize_voiceover(
-            plan["narration_script"], OUT / "narration.wav"
-        )
-        report("producing", "Generated spoken narration; creating 3 visual scenes and mixing the soundtrack.", topic, title)
-        path, video_quality = render(plan, audio, narration_path, narration_info)
-        stored = upload(path)
-        from publisher import publish_all
-        publish_result = publish_all(path, stored.get("media_url", ""), plan)
-        has_publication = bool(publish_result.get("results"))
-        final_status = "published" if has_publication and publish_result.get("all_succeeded") else (
-            "partially_published" if has_publication else "rendered"
-        )
-        metadata = {
-            "run_id": RUN_ID, "topic": topic, "title": title,
-            "hook": plan.get("hook", ""), "description": plan.get("description", ""),
-            "hashtags": plan.get("hashtags", []),
-            "narration_script": plan.get("narration_script", ""),
-            "narrative_style": plan.get("narrative_style", "documentary"),
-            "narration": narration_info,
-            "video_quality": video_quality,
-            "captions": [x["caption"] for x in plan["scenes"]],
-            "sources": plan.get("sources", []), "audio_asset": asset["filename"],
-            "audio_source": asset.get("audio_source", "uploaded_recording"),
-            "duration_seconds": 24, "format": "9:16",
-            "publishing_status": final_status, "publish_results": publish_result,
-            "output_key": stored.get("object_key")
-        }
-        (OUT / "metadata.json").write_text(
-            json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
-        report(final_status,
-               "Production complete. " + json.dumps(publish_result, ensure_ascii=False)[:650],
-               topic, title, stored.get("object_key", ""), stored.get("media_url", ""), metadata)
-        from analytics import collect_and_send
-        if API:
-            analytics_result = collect_and_send(API, JOB_TOKEN)
-        else:
-            analytics_result = {"connected": False, "reason": "dashboard_api_not_configured"}
-        (OUT / "analytics.json").write_text(
-            json.dumps(analytics_result, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
-        return 0
+        if stage == "full":
+            # One-click mode: keep each successful intermediate package before
+            # continuing, so later failures never force the earlier stages to repeat.
+            if prepare_stage() != 0:
+                return 1
+            if visuals_stage(visual_feedback) != 0:
+                return 1
+            return render_stage()
+        raise PipelineError("Unknown pipeline stage: " + str(stage))
     except Exception as exc:
         log("Stopped safely: " + str(exc))
         report("failed", str(exc))
