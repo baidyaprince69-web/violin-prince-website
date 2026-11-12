@@ -5,12 +5,12 @@ A cloud-first, free-tier-first content production workflow. The artist website r
 ## What it does
 
 - Runs from GitHub-hosted cloud runners; your computer does not render or host anything.
-- Cloudflare Cron starts one GitHub-hosted production attempt per day at 05:30 UTC (11:00 Asia/Kolkata).
-- Researches current public topics through GDELT and Google News RSS.
+- Cloudflare Cron is configured for one GitHub-hosted production attempt per day at 05:30 UTC (11:00 Asia/Kolkata). The scheduler starts **disabled**; it is enabled only after a successful manual draft test.
+- Researches public topics through GDELT and Google News RSS editions for the US, UK and India. It fetches short public article excerpts when available and requires two independent publisher domains for documentary/fact-telling scripts.
 - Uses Cloudflare Workers AI to select a timely, family-friendly topic and write a sourced narration script, hook, title, description, hashtags and three scene captions.
 - Generates three original still images with FLUX.1 Schnell.
 - Generates a natural synthetic storyteller/fact-presenter voiceover with Kokoro-82M on the cloud runner (CPU-only; Apache-2.0 model weights).
-- Uses FFmpeg to create a 24-second vertical short, mix narration over a quiet instrumental bed, and burn timed subtitles into the video.
+- Uses FFmpeg to create a 24-second vertical short with full-bleed cinematic scene cards, narration mixed over a quiet instrumental bed, and sentence-timed subtitles based on the actual speech chunks.
 - Uses an uploaded, rights-cleared recording when one exists. If no recording is uploaded, it creates a new original synthetic string-style soundtrack in Python. The synthetic track is not a real recording of Prince playing violin.
 - Saves the MP4 and metadata to a private R2 bucket and reports status to D1.
 - Can publish through the official YouTube and Meta APIs when eligible account-owner credentials are configured. Publishing is disabled by default.
@@ -20,8 +20,8 @@ A cloud-first, free-tier-first content production workflow. The artist website r
 - The no-upload audio fallback is an original synthetic string-style instrumental, not a human violin performance.
 - Visuals are original generated still images animated with FFmpeg; this is not full text-to-video generation.
 - Spoken narration uses a standard synthetic voice; it does not clone Prince or imitate a real person. The first configured voice is American English.
-- Voiceover length is constrained to 35–45 words for the 24-second format.
-- It deliberately rejects tragedy, graphic violence, crime sensationalism and unsupported claims.
+- Voiceover is constrained to 30–48 words for the 24-second format. The renderer uses ffprobe to reject output without both audio and video, the required 720×1280 format, or an approximately 24-second duration.
+- It deliberately rejects tragedies, graphic violence, crime sensationalism and unsupported claims. It skips documentary topics when it cannot identify two independent source domains.
 - No third-party songs, lyrics or downloaded creator videos are used as source material.
 
 ## Cloud services and free-tier controls
@@ -78,10 +78,11 @@ You do not need to upload audio. If you do upload a recording, confirm that you 
 
 ### D. Test a cloud video
 
-1. Open **GitHub → Actions → Violin Prince Autopilot**.
-2. Select **Run workflow** for a manual test.
-3. Check the run logs and dashboard. The output MP4 is stored in private R2.
-4. The Cloudflare Worker Cron dispatches the daily GitHub runner at 05:30 UTC once the Worker, GitHub token, Actions secrets and `AUTOPILOT_API_URL` are configured. This avoids depending on GitHub's public-repository schedule.
+1. Keep `AUTOPILOT_ENABLED=false` in the Worker while testing. This keeps the daily scheduler off.
+2. Open the dashboard and use **Run one test production**, or run the manual GitHub Actions workflow.
+3. A manual draft run is allowed while the daily scheduler is disabled. Publishing remains off by default.
+4. Check the job logs, dashboard and private R2 output. Confirm that the MP4 includes spoken narration, the synthetic instrumental bed, sentence-timed subtitles and three generated visual scenes.
+5. Only after this draft passes should the account owner set `AUTOPILOT_ENABLED=true` in the Cloudflare Worker. The daily Cron then starts at 05:30 UTC (11:00 Asia/Kolkata).
 
 ## Publishing
 
