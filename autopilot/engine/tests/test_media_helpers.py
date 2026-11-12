@@ -19,7 +19,7 @@ class SyntheticSoundtrackTests(unittest.TestCase):
             create_original_soundtrack(target, seed_text="unit-test")
             with wave.open(str(target), "rb") as audio:
                 self.assertEqual(audio.getnchannels(), 2)
-                self.assertEqual(audio.getframerate(), 22050)
+                self.assertEqual(audio.getframerate(), 24000)
                 self.assertEqual(audio.getnframes(), 22050 * 24)
                 self.assertEqual(audio.getsampwidth(), 2)
                 frames = audio.readframes(4000)
