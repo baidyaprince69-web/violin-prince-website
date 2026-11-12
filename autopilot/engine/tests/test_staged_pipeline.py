@@ -87,6 +87,8 @@ class StagedPipelineTests(unittest.TestCase):
         self.assertIn("A lighthouse at dawn", prompt)
         self.assertIn("richer illustrated look", prompt)
         self.assertIn("no watermark", prompt)
+        self.assertIn("premium cinematic storybook illustration", prompt)
+        self.assertIn("layered foreground", prompt)
 
 
 if __name__ == "__main__":
