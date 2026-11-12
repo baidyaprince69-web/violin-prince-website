@@ -33,12 +33,13 @@ def auth():
     return {"Authorization": "Bearer " + JOB_TOKEN}
 
 
-def report(status, message, topic="", title="", key="", url=""):
+def report(status, message, topic="", title="", key="", url="", metadata=None):
     try:
         r = http.post(API + "/internal/report", headers={**auth(), "Content-Type": "application/json"},
                       json={"run_id": RUN_ID, "status": status, "message": str(message)[:900],
                             "topic": topic[:300], "title": title[:300],
-                            "output_key": key[:500], "output_url": url[:2000]}, timeout=30)
+                            "output_key": key[:500], "output_url": url[:2000],
+                            "metadata": metadata}, timeout=30)
         r.raise_for_status()
     except Exception as exc:
         log("Status report failed: " + str(exc))
@@ -297,7 +298,7 @@ def main():
         final_status = "published" if has_publication and publish_result.get("all_succeeded") else (
             "partially_published" if has_publication else "rendered"
         )
-        (OUT / "metadata.json").write_text(json.dumps({
+        metadata = {
             "run_id": RUN_ID, "topic": topic, "title": title,
             "hook": plan.get("hook", ""), "description": plan.get("description", ""),
             "hashtags": plan.get("hashtags", []),
@@ -306,10 +307,13 @@ def main():
             "duration_seconds": 24, "format": "9:16",
             "publishing_status": final_status, "publish_results": publish_result,
             "output_key": stored.get("object_key")
-        }, ensure_ascii=False, indent=2), encoding="utf-8")
+        }
+        (OUT / "metadata.json").write_text(
+            json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
         report(final_status,
                "Production complete. " + json.dumps(publish_result, ensure_ascii=False)[:650],
-               topic, title, stored.get("object_key", ""), stored.get("media_url", ""))
+               topic, title, stored.get("object_key", ""), stored.get("media_url", ""), metadata)
         return 0
     except Exception as exc:
         log("Stopped safely: " + str(exc))
