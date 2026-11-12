@@ -20,5 +20,5 @@ binding = "MEDIA"
 bucket_name = "violin-prince-media"
 
 [triggers]
-# 05:00 UTC = 10:30 Asia/Kolkata. Change after checking audience analytics.
+# 05:30 UTC = 11:00 Asia/Kolkata. Change after checking audience analytics.
 crons = ["30 5 * * *"]
