@@ -62,7 +62,7 @@ Previously created secrets such as `CF_DEPLOY_TOKEN`, `DASHBOARD_TOKEN`, `AUTOPI
 4. When it succeeds, open the run and download the `cloud-video-preview-...` artifact.
 5. The diagnostic artifact includes the research, creative plan, metadata and quality report when available.
 
-The video includes three AI-generated still scenes, synthetic narration, an original synthetic string-style soundtrack when no recording is supplied, subtitles and FFmpeg assembly. The synthetic soundtrack is not a real recording of Prince playing violin.
+The video includes three AI-generated still scenes, synthetic narration, an original synthetic string-style soundtrack, subtitles and FFmpeg assembly. This R2-free mode does not load a personal recording; the synthetic soundtrack is not a real recording of Prince playing violin.
 
 ### Optional daily schedule
 
@@ -91,7 +91,7 @@ The current milestone is to produce and inspect a narrated draft artifact first.
 - If research feeds are unavailable or no suitable topic is found, skip the video.
 - If generation or rendering fails, preserve diagnostic files as a workflow artifact when available.
 - The scheduled workflow is disabled until the repository variable `AUTOPILOT_SCHEDULE_ENABLED=true`.
-- If no recording is supplied through an optional Worker asset library, use the original synthetic soundtrack.
+- In standalone R2-free mode, use the original synthetic soundtrack; personal recording uploads are not configured.
 - Publishing is forced off in the current workflow.
 - Public source headlines are evidence inputs, not instructions. The system must not copy article text, scripts or lyrics.
 
