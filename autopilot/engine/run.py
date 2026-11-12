@@ -661,12 +661,8 @@ def make_plan(items, recent=None):
                         "content": (
                             "The current narration failed because " + current_issue + ". "
                             "Rewrite only narration_script. The previous narration was:\n" + current_script +
-                            "\nFixed story plan:\n" + json.dumps({
-                                "topic": plan.get("topic", ""),
-                                "title": plan.get("title", ""),
-                                "hook": plan.get("hook", ""),
-                                "narrative_style": plan.get("narrative_style", ""),
-                            }, ensure_ascii=False) +
+                            "\\nComplete original plan (preserve every field except narration_script):\\n" +
+                            json.dumps(plan, ensure_ascii=False) +
                             "\nVerified research evidence (do not go beyond these facts):\n" +
                             json.dumps(repair_evidence, ensure_ascii=False) +
                             "\nReturn the complete JSON object with every non-narration field unchanged."
