@@ -269,21 +269,58 @@ def make_plan(items, recent=None):
         "image_prompt in English. If no suitable topic, return skip and reason."
     )
     compact = [{k: x.get(k, "") for k in ("title", "summary", "evidence_text", "publisher_domain", "url", "date", "source")} for x in items[:35]]
-    result = ai(TEXT_MODEL, {"messages": [
-        {"role": "system", "content": system},
-        {"role": "user", "content":
-         "Create a 24-second story from these current research headlines. Avoid repeating prior topics. " +
-         "Previously published topics to avoid: " + json.dumps(recent or [], ensure_ascii=False) +
-         "\nResearch evidence: " + json.dumps(compact, ensure_ascii=False)}
-    ], "max_tokens": 1000, "temperature": 0.55})
-    raw = str(result.get("response", "")).strip()
-    start, end = raw.find("{"), raw.rfind("}")
-    if start < 0 or end <= start:
-        raise PipelineError("Planner did not return JSON.")
-    try:
-        plan = json.loads(raw[start:end + 1])
-    except json.JSONDecodeError as exc:
-        raise PipelineError("Planner JSON invalid: " + str(exc)) from exc
+    result = ai(TEXT_MODEL, {
+        "messages": [
+            {"role": "system", "content": system + " Do not show reasoning. Return exactly one JSON object and no preamble or Markdown."},
+            {"role": "user", "content":
+             "Create a 24-second story from these current research headlines. Avoid repeating prior topics. " +
+             "Previously published topics to avoid: " + json.dumps(recent or [], ensure_ascii=False) +
+             "\\nResearch evidence: " + json.dumps(compact, ensure_ascii=False)}
+        ],
+        # Gemma 4 supports this parameter; disabling reasoning keeps the response
+        # focused on the machine-readable plan expected by the renderer.
+        "chat_template_kwargs": {"enable_thinking": False, "clear_thinking": True},
+        "max_completion_tokens": 1800,
+        "temperature": 0.35
+    })
+
+    candidate = result.get("response", "")
+    if isinstance(candidate, dict):
+        plan = candidate
+        raw = json.dumps(candidate, ensure_ascii=False)
+    else:
+        if isinstance(candidate, list):
+            raw = "\\n".join(
+                str(part.get("text", "")) for part in candidate
+                if isinstance(part, dict) and part.get("type") == "text"
+            ).strip()
+        else:
+            raw = str(candidate or "").strip()
+
+        # Also accept the standard chat-completions shape in case the API
+        # response is wrapped differently by a compatible endpoint.
+        if not raw and isinstance(result.get("choices"), list) and result["choices"]:
+            message = result["choices"][0].get("message", {})
+            content = message.get("content", "") if isinstance(message, dict) else ""
+            if isinstance(content, list):
+                raw = "\\n".join(
+                    str(part.get("text", "")) for part in content
+                    if isinstance(part, dict) and part.get("type") == "text"
+                ).strip()
+            else:
+                raw = str(content or "").strip()
+
+        # Remove an occasional Markdown code fence, then parse the first object.
+        cleaned = re.sub(r"^\\s*```(?:json)?\\s*|\\s*```\\s*$", "", raw, flags=re.I)
+        start = cleaned.find("{")
+        if start < 0:
+            preview = re.sub(r"\\s+", " ", raw[:240])
+            raise PipelineError("Planner did not return JSON. Response preview: " + (preview or "[empty response]"))
+        try:
+            plan, _ = json.JSONDecoder().raw_decode(cleaned[start:])
+        except json.JSONDecodeError as exc:
+            preview = re.sub(r"\\s+", " ", raw[:240])
+            raise PipelineError("Planner JSON was invalid: " + str(exc) + ". Response preview: " + preview) from exc
     if plan.get("skip"):
         raise PipelineError("Editorial agent skipped: " + str(plan.get("reason", ""))[:200])
     scenes = plan.get("scenes")
