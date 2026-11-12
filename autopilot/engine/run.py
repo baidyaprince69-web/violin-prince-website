@@ -45,7 +45,7 @@ class ParagraphExtractor(HTMLParser):
 
     def handle_endtag(self, tag):
         if tag == "p" and self._in_paragraph:
-            text_value = re.sub(r"\\s+", " ", " ".join(self._current)).strip()
+            text_value = re.sub(r"\s+", " ", " ".join(self._current)).strip()
             if len(text_value) > 50:
                 self.paragraphs.append(text_value)
             self._current = []
