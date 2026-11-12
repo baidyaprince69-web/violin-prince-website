@@ -1,4 +1,5 @@
 """Model-level Kokoro TTS smoke test; no paid speech API or Cloudflare secrets."""
+import importlib.util
 import tempfile
 import sys
 import unittest
@@ -9,8 +10,14 @@ sys.path.insert(0, str(ENGINE))
 
 from voiceover import synthesize_voiceover, write_srt
 
+HAS_KOKORO_STACK = all(
+    importlib.util.find_spec(name) is not None
+    for name in ("kokoro", "numpy", "soundfile")
+)
+
 
 class KokoroModelSmokeTest(unittest.TestCase):
+    @unittest.skipUnless(HAS_KOKORO_STACK, "Kokoro stack is installed only in the dedicated cloud voiceover workflow.")
     def test_kokoro_produces_nonempty_voiceover_and_sentence_cues(self):
         script = (
             "Tonight, the city turns toward the river, where thousands of tiny lights "
