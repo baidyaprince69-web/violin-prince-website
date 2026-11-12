@@ -36,8 +36,8 @@ main{max-width:1080px;margin:auto;padding:28px 18px 60px}.top{display:flex;justi
 
   <div class="cols section">
     <section class="card">
-      <div class="row"><h2>Private music library</h2><span class="badge">R2 storage</span></div>
-      <p class="muted" style="font-size:12px">Upload one of your original violin recordings or audio you are authorised to use. The cloud runner uses this recording as the soundtrack.</p>
+      <div class="row"><h2>Optional audio library</h2><span class="badge">R2 storage</span></div>
+      <p class="muted" style="font-size:12px">Optional: upload a rights-cleared recording. If none is uploaded, the cloud runner creates an original synthetic string-style soundtrack. That synthetic track is not a recording of your violin.</p>
       <input class="file" id="audio" type="file" accept=".wav,.mp3,.flac,.m4a,.aac,.ogg,audio/*">
       <label class="checks"><input id="rights" type="checkbox"><span>I confirm I own this recording or have permission to use it, and I have checked any underlying composition rights needed for publication.</span></label>
       <button id="upload" class="secondary" disabled>Upload to private library</button>
@@ -45,8 +45,8 @@ main{max-width:1080px;margin:auto;padding:28px 18px 60px}.top{display:flex;justi
     </section>
     <section class="card">
       <div class="row"><h2>Production control</h2><span class="badge">One video per day</span></div>
-      <p class="muted" style="font-size:12px">A manual test starts one cloud workflow. Daily automatic runs remain disabled until the Cloudflare account and GitHub secrets are configured.</p>
-      <button id="run" disabled>Run one test production</button>
+      <p class="muted" style="font-size:12px">The cloud workflow is scheduled daily. A one-off test can be started from the repository's GitHub Actions page.</p>
+      <a class="filebtn" id="runWorkflow" href="https://github.com/baidyaprince69-web/violin-prince-website/actions/workflows/violin-prince-autopilot.yml" target="_blank" rel="noopener noreferrer">Open manual test workflow ↗</a>
       <div class="bar"><span id="progress"></span></div>
       <div id="runStatus" class="muted" style="font-size:12px;margin-top:10px">Connect the Cloudflare Worker to view status.</div>
     </section>
@@ -105,7 +105,6 @@ main{max-width:1080px;margin:auto;padding:28px 18px 60px}.top{display:flex;justi
   function connected(value) {
     $("connection").textContent = value ? "Connected" : "Not connected";
     $("connection").className = "pill " + (value ? "ok" : "");
-    $("run").disabled = !value || state.busy;
     $("upload").disabled = !value || !$("audio").files.length || !$("rights").checked;
   }
   async function refresh() {
@@ -266,17 +265,6 @@ main{max-width:1080px;margin:auto;padding:28px 18px 60px}.top{display:flex;justi
       await refresh();
     } catch (error) { setText("uploadStatus", error.message); }
     finally { connected(Boolean(state.api && state.token)); }
-  });
-  $("run").addEventListener("click", async () => {
-    if (state.busy) return;
-    state.busy = true; connected(true); $("run").disabled = true;
-    setText("runStatus", "Requesting one cloud production run...");
-    try {
-      const result = await request("/api/trigger", { method: "POST" });
-      setText("runStatus", result.ok ? "Queued cloud run " + result.run_id : "Not queued: " + result.reason);
-      await refresh();
-    } catch (error) { setText("runStatus", error.message); }
-    finally { state.busy = false; connected(Boolean(state.api && state.token)); }
   });
   load();
   connected(Boolean(state.api && state.token));
