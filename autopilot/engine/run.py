@@ -714,8 +714,11 @@ def _scene_visual_prompt(scene, feedback=""):
     if not prompt:
         raise PipelineError("A planned scene has no image prompt.")
     prompt += (
-        ", portrait 9:16 composition, centred focal subject, vertical framing, "
-        "cinematic natural lighting, no text, no logos, no watermark"
+        ", premium cinematic storybook illustration, refined hand-painted digital artwork, "
+        "rich but controlled colour palette, atmospheric cinematic lighting, layered foreground, "
+        "midground and background for clear parallax depth, strong readable silhouette, "
+        "crisp focal details, elegant composition, cohesive visual art direction across all scenes, "
+        "portrait 9:16 composition, centred focal subject, no text, no logos, no watermark"
     )
     clean_feedback = re.sub(r"\s+", " ", str(feedback or "")).strip()[:600]
     if clean_feedback:
