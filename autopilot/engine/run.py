@@ -340,14 +340,19 @@ def validate_final_video(path):
         "file_size_bytes": path.stat().st_size,
     }
 
-def render(plan, audio_bytes, narration_path):
+def render(plan, audio_bytes, narration_path, narration_info):
     OUT.mkdir(parents=True, exist_ok=True)
     audio_path = WORK / "approved-audio"
     audio_path.write_bytes(audio_bytes)
     clips = []
     for i, scene in enumerate(plan["scenes"]):
-        image = make_image(scene["image_prompt"], i)
-        card = make_card(image, scene["caption"], i)
+        visual_prompt = (
+            str(scene["image_prompt"]) +
+            ", portrait 9:16 composition, centred focal subject, vertical framing, "
+            "cinematic natural lighting, no text, no logos, no watermark"
+        )
+        image = make_image(visual_prompt, i)
+        card = make_card(image, scene["caption"], i, plan.get("title", ""))
         clip = OUT / f"scene-{i + 1}.mp4"
         vf = ("zoompan=z='min(zoom+0.00055,1.10)':d=200:"
               f"s={W}x{H}:fps={FPS},fade=t=in:st=0:d=0.35,"
@@ -365,7 +370,8 @@ def render(plan, audio_bytes, narration_path):
              "-f", "concat", "-safe", "0", "-i", str(concat), "-c", "copy", str(silent)])
     final = OUT / "violin-prince-short.mp4"
     subtitle_path = OUT / "narration.srt"
-    write_subtitles(plan["narration_script"], narration_path, subtitle_path)
+    from voiceover import write_srt
+    write_srt(narration_info.get("subtitle_cues", []), subtitle_path)
     audio_filter = (
         "[1:a]volume=0.20[bed];"
         "[2:a]highpass=f=75,acompressor=threshold=-20dB:ratio=3:attack=12:release=180[voice];"
@@ -386,9 +392,11 @@ def render(plan, audio_bytes, narration_path):
              "-t", "24", "-vf", video_filter, "-c:v", "libx264",
              "-preset", "veryfast", "-crf", "24", "-pix_fmt", "yuv420p",
              "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(final)])
-    if not final.exists() or final.stat().st_size < 100000:
-        raise PipelineError("Final MP4 is missing or too small.")
-    return final
+    quality = validate_final_video(final)
+    (OUT / "quality_report.json").write_text(
+        json.dumps(quality, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    return final, quality
 
 
 def upload(path):
@@ -414,14 +422,15 @@ def main():
                 else "Generated an original synthetic string-style soundtrack.") + " Started global research.")
         items = research()
         log("Research sources collected: " + str(len(items)))
-        plan = make_plan(items)
+        prior_topics = recent_topics()
+        plan = make_plan(items, prior_topics)
         topic, title = str(plan.get("topic", "")), str(plan.get("title", "Violin Prince Short"))
         from voiceover import synthesize_voiceover
         narration_path, narration_info = synthesize_voiceover(
             plan["narration_script"], OUT / "narration.wav"
         )
         report("producing", "Generated spoken narration; creating 3 visual scenes and mixing the soundtrack.", topic, title)
-        path = render(plan, audio, narration_path)
+        path, video_quality = render(plan, audio, narration_path, narration_info)
         stored = upload(path)
         from publisher import publish_all
         publish_result = publish_all(path, stored.get("media_url", ""), plan)
@@ -436,6 +445,7 @@ def main():
             "narration_script": plan.get("narration_script", ""),
             "narrative_style": plan.get("narrative_style", "documentary"),
             "narration": narration_info,
+            "video_quality": video_quality,
             "captions": [x["caption"] for x in plan["scenes"]],
             "sources": plan.get("sources", []), "audio_asset": asset["filename"],
             "audio_source": asset.get("audio_source", "uploaded_recording"),
