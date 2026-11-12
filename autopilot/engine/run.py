@@ -237,31 +237,64 @@ def font(size):
     return ImageFont.load_default()
 
 
-def make_card(source, caption, index):
+def make_card(source, caption, index, title=""):
+    """Create a full-bleed vertical cinematic frame with restrained branding."""
     image = Image.open(source).convert("RGB")
-    bg = ImageOps.fit(image, (W, H), method=Image.Resampling.LANCZOS)
-    bg = ImageEnhance.Brightness(bg.filter(ImageFilter.GaussianBlur(24))).enhance(0.44)
-    canvas = bg.convert("RGBA")
-    fg = ImageOps.contain(image, (W - 36, 780), method=Image.Resampling.LANCZOS)
-    y = 185 + max(0, (780 - fg.height) // 2)
-    canvas.alpha_composite(fg.convert("RGBA"), ((W - fg.width) // 2, y))
+    # Use a portrait crop with a centred safe area instead of a small square inset.
+    image = ImageOps.fit(image, (W, H), method=Image.Resampling.LANCZOS, centering=(0.5, 0.46))
+    image = ImageEnhance.Color(image).enhance(0.92)
+    image = ImageEnhance.Contrast(image).enhance(1.04)
+    canvas = image.convert("RGBA")
+
+    # Soft top and bottom gradients keep type legible without heavy boxes.
+    gradient = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(gradient)
+    for y in range(H):
+        if y < 330:
+            alpha = int(150 * (1.0 - y / 330.0))
+        elif y > 850:
+            alpha = int(190 * ((y - 850) / (H - 850)))
+        else:
+            alpha = 0
+        if alpha:
+            gd.line((0, y, W, y), fill=(5, 8, 14, alpha))
+    canvas = Image.alpha_composite(canvas, gradient)
     draw = ImageDraw.Draw(canvas)
-    draw.text((28, 48), "VIOLIN PRINCE / ORIGINAL VISUAL STORY",
-              font=font(17), fill=(239, 216, 170, 255))
-    ty = 1030
-    for line in textwrap.wrap(caption.strip(), width=22)[:3]:
-        f = font(40)
-        box = draw.textbbox((0, 0), line, font=f, stroke_width=1)
-        x = (W - (box[2] - box[0])) // 2
-        draw.text((x, ty), line, font=f, fill=(255, 250, 241, 255),
+
+    gold = (235, 202, 139, 255)
+    white = (255, 250, 241, 255)
+    draw.text((34, 36), "VIOLIN PRINCE", font=font(20), fill=gold,
+              stroke_width=1, stroke_fill=(0, 0, 0, 120))
+    draw.line((34, 72, W - 34, 72), fill=(235, 202, 139, 150), width=1)
+
+    if index == 0 and title:
+        title_lines = textwrap.wrap(str(title).strip(), width=27)[:2]
+        title_y = 105
+        title_font = font(31)
+        for line in title_lines:
+            draw.text((34, title_y), line, font=title_font, fill=white,
+                      stroke_width=2, stroke_fill=(0, 0, 0, 170))
+            title_y += 43
+
+    caption_lines = textwrap.wrap(str(caption).strip(), width=24)[:3]
+    caption_font = font(43)
+    caption_y = 955 - max(0, len(caption_lines) - 1) * 25
+    for line in caption_lines:
+        box = draw.textbbox((0, 0), line, font=caption_font, stroke_width=1)
+        x = max(30, (W - (box[2] - box[0])) // 2)
+        draw.text((x, caption_y), line, font=caption_font, fill=white,
                   stroke_width=2, stroke_fill=(0, 0, 0, 210))
-        ty += 54
-    draw.text((28, 1220), f"SCENE {index + 1:02d} / ORIGINAL SOUNDTRACK",
-              font=font(15), fill=(225, 225, 225, 240))
+        caption_y += 56
+
+    draw.line((34, 1190, W - 34, 1190), fill=(235, 202, 139, 135), width=1)
+    draw.text((34, 1207), "ORIGINAL STORY • ORIGINAL SOUNDTRACK",
+              font=font(13), fill=(242, 230, 208, 240))
+    draw.text((W - 110, 1207), f"{index + 1:02d}/03",
+              font=font(13), fill=(242, 230, 208, 240))
+
     p = OUT / f"card-{index + 1}.png"
     canvas.convert("RGB").save(p, "PNG", optimize=True)
     return p
-
 
 def command(args):
     p = subprocess.run(args, capture_output=True, text=True)
