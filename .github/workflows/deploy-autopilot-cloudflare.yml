@@ -17,7 +17,7 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
       DASHBOARD_TOKEN: ${{ secrets.DASHBOARD_TOKEN }}
       AUTOPILOT_JOB_TOKEN: ${{ secrets.AUTOPILOT_JOB_TOKEN }}
-      GITHUB_DISPATCH_TOKEN: ${{ secrets.GITHUB_DISPATCH_TOKEN }}
+      GITHUB_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
     steps:
       - name: Check required secrets
         shell: bash
@@ -73,7 +73,7 @@ jobs:
 
       - name: Save Worker URL as GitHub Actions secret
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_DISPATCH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
         shell: bash
         run: |
           if [ -z "$WORKER_URL" ]; then
