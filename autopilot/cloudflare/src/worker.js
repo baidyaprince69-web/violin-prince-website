@@ -61,6 +61,28 @@ async function signedMediaUrl(request, env, key, lifetimeSeconds = 86400) {
   return url.origin + "/media/" + encodeURIComponent(key) + "?e=" + expires + "&s=" + signature;
 }
 
+async function cleanupOldRenders(env) {
+  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  let cursor;
+  let removed = 0;
+  try {
+    do {
+      const page = await env.MEDIA.list({ prefix: "renders/", limit: 1000, cursor });
+      const expired = (page.objects || [])
+        .filter((object) => object.uploaded && object.uploaded.getTime() < cutoff)
+        .map((object) => object.key);
+      if (expired.length) {
+        await env.MEDIA.delete(expired);
+        removed += expired.length;
+      }
+      cursor = page.truncated ? page.cursor : undefined;
+    } while (cursor);
+    if (removed) await event(env, "Storage cleanup removed " + removed + " render(s) older than 30 days.");
+  } catch (error) {
+    await event(env, "Storage cleanup failed: " + (error && error.message ? error.message : error), "warning");
+  }
+}
+
 async function dispatchWorkflow(env, mode = "scheduled") {
   if (env.AUTOPILOT_ENABLED !== "true") {
     await event(env, "Autopilot is disabled. No workflow was dispatched.", "warning");
@@ -336,6 +358,9 @@ export default {
   },
 
   async scheduled(controller, env, ctx) {
-    ctx.waitUntil(dispatchWorkflow(env, "scheduled"));
+    ctx.waitUntil(Promise.all([
+      dispatchWorkflow(env, "scheduled"),
+      cleanupOldRenders(env)
+    ]));
   }
 };
