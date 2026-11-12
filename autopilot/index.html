@@ -63,6 +63,18 @@ main{max-width:1080px;margin:auto;padding:28px 18px 60px}.top{display:flex;justi
     </section>
   </div>
 
+  <section class="card section">
+    <div class="row"><h2>YouTube channel insights</h2><span class="badge" id="ytInsightStatus">Not connected</span></div>
+    <p class="muted" id="ytInsightPeriod" style="font-size:12px">Previous seven complete days · Requires read-only YouTube Analytics authorisation.</p>
+    <div class="grid" style="margin-top:12px">
+      <div class="card stat"><small>Views</small><strong id="ytViews">—</strong></div>
+      <div class="card stat"><small>Watch minutes</small><strong id="ytWatch">—</strong></div>
+      <div class="card stat"><small>Average view duration</small><strong id="ytAverage">—</strong></div>
+      <div class="card stat"><small>Subscribers gained</small><strong id="ytSubs">—</strong></div>
+    </div>
+    <p class="muted" id="ytInsightExtra" style="font-size:12px;margin-bottom:0">Channel metrics will appear after the owner-authorised YouTube Analytics connection is configured.</p>
+  </section>
+
   <p class="foot">Violin Prince Autopilot · Free-tier-first · No paid fallback · Publishing stays disabled until official account permissions, rights checks and platform adapters are configured. This dashboard displays actual connected service data; it does not simulate activity.</p>
 </main>
 <script>
@@ -98,8 +110,8 @@ main{max-width:1080px;margin:auto;padding:28px 18px 60px}.top{display:flex;justi
   }
   async function refresh() {
     try {
-      const [status, events] = await Promise.all([
-        request("/api/status"), request("/api/events")
+      const [status, events, insightData] = await Promise.all([
+        request("/api/status"), request("/api/events"), request("/api/insights")
       ]);
       connected(true);
       setText("enabled", status.enabled ? "Enabled" : "Disabled");
@@ -193,6 +205,27 @@ main{max-width:1080px;margin:auto;padding:28px 18px 60px}.top{display:flex;justi
         $("events").append(row);
       }
       if (!events.events || !events.events.length) $("events").textContent = "No activity recorded yet.";
+      const yt = insightData.insight;
+      if (yt && yt.totals) {
+        const t = yt.totals;
+        setText("ytInsightStatus", "Connected");
+        setText("ytInsightPeriod", "Previous seven complete days · " +
+          (yt.period ? yt.period.start + " to " + yt.period.end : ""));
+        setText("ytViews", Number(t.views || 0).toLocaleString());
+        setText("ytWatch", Number(t.watch_minutes || 0).toLocaleString());
+        const seconds = Math.round(Number(t.average_view_duration_seconds || 0));
+        setText("ytAverage", Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0"));
+        setText("ytSubs", Number(t.subscribers_gained || 0).toLocaleString());
+        setText("ytInsightExtra", "Likes: " + Number(t.likes || 0).toLocaleString() +
+          " · Comments: " + Number(t.comments || 0).toLocaleString() +
+          " · Shares: " + Number(t.shares || 0).toLocaleString() +
+          (insightData.captured_at ? " · Updated: " + new Date(insightData.captured_at).toLocaleString() : ""));
+      } else {
+        setText("ytInsightStatus", "Not connected");
+        setText("ytInsightPeriod", "Previous seven complete days · Read-only Analytics access has not been configured yet.");
+        setText("ytViews", "—"); setText("ytWatch", "—"); setText("ytAverage", "—"); setText("ytSubs", "—");
+        setText("ytInsightExtra", "Production can run without Analytics credentials. Connect an eligible channel owner's read-only Analytics authorisation to display these metrics.");
+      }
     } catch (error) {
       connected(false);
       setText("enabled", "—"); setText("today", "—"); setText("assets", "—"); setText("latest", "—");
