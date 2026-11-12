@@ -2,3 +2,4 @@ requests>=2.32,<3
 Pillow>=10.4,<12
 kokoro>=0.9.4,<1
 soundfile>=0.12,<1
+numpy>=1.26,<3
