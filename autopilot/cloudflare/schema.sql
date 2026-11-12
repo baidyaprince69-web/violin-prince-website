@@ -61,3 +61,9 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS daily_dispatches (
+  day_utc TEXT PRIMARY KEY,
+  run_id TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL
+);
