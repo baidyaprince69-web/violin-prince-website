@@ -55,7 +55,7 @@ if (!bucket) {
   bucket = await cloudflare(
     "/accounts/" + accountId + "/r2/buckets",
     "POST",
-    { name: bucketName, locationHint: "apac", storageClass: "Standard" }
+    { name: bucketName }
   );
 }
 
