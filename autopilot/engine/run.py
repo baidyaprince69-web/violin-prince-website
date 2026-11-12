@@ -11,7 +11,7 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 API = os.environ["AUTOPILOT_API_URL"].rstrip("/")
 JOB_TOKEN = os.environ["AUTOPILOT_JOB_TOKEN"]
 CF_ACCOUNT = os.environ["CF_ACCOUNT_ID"]
-CF_TOKEN = os.environ["CF_API_TOKEN"]
+CF_TOKEN = os.environ["CF_AI_TOKEN"]
 RUN_ID = os.environ.get("RUN_ID", str(uuid.uuid4()))
 TEXT_MODEL = "@cf/google/gemma-4-26b-a4b-it"
 IMAGE_MODEL = "@cf/black-forest-labs/flux-1-schnell"
