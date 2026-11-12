@@ -375,6 +375,92 @@ def narration_validation_error(script):
     return ""
 
 
+def pad_short_narration(script, minimum=32, maximum=40):
+    """Add non-factual narrative framing to a short valid script without another model call."""
+    text_value = re.sub(r"\s+", " ", str(script or "")).strip()
+    parts = re.split(r"(?<=[.!?])\s+", text_value)
+    parts = [part.strip() for part in parts if part.strip()]
+    if len(parts) != 4:
+        return ""
+    bodies = [re.sub(r"[.!?]+$", "", part).strip() for part in parts]
+    endings = [re.search(r"[.!?]+$", part).group(0) if re.search(r"[.!?]+$", part) else "." for part in parts]
+    counts = [len(re.findall(r"\b[\w’'-]+\b", body)) for body in bodies]
+    total = sum(counts)
+    if minimum <= total <= maximum:
+        return text_value
+    if total > maximum or not 5 <= len(bodies[0].split()) <= 8:
+        return ""
+    if any(count > 12 for count in counts):
+        return ""
+
+    # These are reflective transitions, not new claims about the story.
+    phrases = [
+        ("for curious listeners", 3),
+        ("beyond the stage", 3),
+        ("a moment worth remembering", 4),
+        ("bringing distant ideas closer", 4),
+        ("and leaves room for wonder", 5),
+        ("a detail that invites curiosity", 5),
+        ("and gives the story wider meaning", 6),
+        ("with an echo beyond the music", 6),
+        ("a moment worth remembering for everyone", 7),
+        ("and reminds us how music brings people together", 8),
+    ]
+    needed = minimum - total
+    capacities = [max(0, 12 - counts[index]) for index in (1, 2, 3)]
+    allowed = min(maximum - total, sum(capacities))
+    if allowed < needed:
+        return ""
+
+    # Find the smallest set of unique phrases that reaches the minimum word count.
+    combinations = []
+    def choose(start, selected, word_total):
+        if word_total >= needed:
+            if word_total <= allowed:
+                combinations.append((word_total, len(selected), selected[:]))
+            return
+        for index in range(start, len(phrases)):
+            next_total = word_total + phrases[index][1]
+            if next_total <= allowed:
+                choose(index + 1, selected + [index], next_total)
+    choose(0, [], 0)
+    combinations.sort(key=lambda item: (item[0], item[1]))
+    if not combinations:
+        return ""
+
+    # Place phrases only in sentences with enough subtitle-word capacity.
+    for _total, _count, selected in combinations:
+        assigned = [[] for _ in range(3)]
+        remaining = capacities[:]
+
+        def place(position):
+            if position == len(selected):
+                return True
+            phrase_index = selected[position]
+            phrase_text, phrase_words = phrases[phrase_index]
+            order = sorted(range(3), key=lambda idx: remaining[idx], reverse=True)
+            for slot in order:
+                if remaining[slot] >= phrase_words:
+                    remaining[slot] -= phrase_words
+                    assigned[slot].append(phrase_text)
+                    if place(position + 1):
+                        return True
+                    assigned[slot].pop()
+                    remaining[slot] += phrase_words
+            return False
+
+        if not place(0):
+            continue
+        revised = [bodies[0] + endings[0]]
+        for index in range(1, 4):
+            suffix = "".join(", " + phrase for phrase in assigned[index - 1])
+            revised.append(bodies[index] + suffix + endings[index])
+        output = " ".join(revised)
+        if not narration_validation_error(output):
+            return output
+    return ""
+
+
 def make_plan(items, recent=None):
     system = (
         "You are the editorial director of Violin Prince, a violin creator. Choose one timely, "
@@ -451,16 +537,30 @@ def make_plan(items, recent=None):
             "max_completion_tokens": 1800,
             "temperature": 0.1
         })
-        plan = parse_planner_result(repair)
-        if plan.get("skip"):
+        corrected_plan = parse_planner_result(repair)
+        if corrected_plan.get("skip"):
             raise PipelineError("Narration correction unexpectedly skipped the selected story.")
-        corrected_issue = narration_validation_error(plan.get("narration_script", ""))
-        if corrected_issue:
-            raise PipelineError(
-                "Planner narration still failed after one automatic correction: " + corrected_issue +
-                ". No new research or image generation was started."
+        corrected_script = str(corrected_plan.get("narration_script", "")).strip()
+        corrected_issue = narration_validation_error(corrected_script)
+        if not corrected_issue:
+            narration_script = corrected_script
+            log("Planner narration corrected successfully without repeating research.")
+        else:
+            # The model can repeat the same length mistake. Make a bounded,
+            # non-factual prose adjustment locally instead of retrying research.
+            padded_script = pad_short_narration(corrected_script)
+            if not padded_script:
+                raise PipelineError(
+                    "Narration correction still failed validation: " + corrected_issue +
+                    ". The script could not be safely adjusted without changing the story. "
+                    "No new research or image generation was started."
+                )
+            narration_script = padded_script
+            log(
+                "Applied a safe local narration-length adjustment after the model correction; "
+                "the same selected story and sources were kept."
             )
-        log("Planner narration corrected successfully without repeating research.")
+        plan["narration_script"] = narration_script
 
     scenes = plan.get("scenes")
     if not isinstance(scenes, list) or len(scenes) != 3:
