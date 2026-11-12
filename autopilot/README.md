@@ -15,47 +15,33 @@ A staged, cloud-first short-video production pipeline. It runs on GitHub-hosted 
 
 ## Why production is now staged
 
-A single all-in-one job wasted AI calls and time when a later step failed or when the visuals needed improvement. Production is now split so that each part can be reviewed and reused:
+The default **Full** option runs Prepare → Visuals → Render in one launch. Each successful package is uploaded immediately before the next stage begins. If a later stage fails, its earlier package remains available and does not need to be rebuilt.
 
-1. **Prepare** — fetch research, choose a sourced story, write the script, create narration and the original soundtrack. It uploads a prepared-package artifact. No images or MP4 are generated in this stage.
-2. **Visuals** — download a prior prepared-package, create only the three scene images, and build storyboard-preview.png. It uploads a visual-package artifact. It does not repeat research, story planning, narration or soundtrack creation.
-3. **Render** — download a prior visual-package and assemble the MP4 from the saved files. It makes no Cloudflare Workers AI calls. It can be repeated for rendering fixes without regenerating the story, narration, music or scene images.
+1. **Prepare** — fetch research, choose a sourced story, write the script, create narration and the original soundtrack. It uploads a prepared-package artifact.
+2. **Visuals** — create only the three scene images and build storyboard-preview.png. It uploads a visual-package artifact.
+3. **Render** — assemble the MP4 from the saved files. It makes no Cloudflare Workers AI calls.
 
-If the storyboard is not right, run **Visuals** again using the same Prepare run ID. Add clear overall visual direction in visual_feedback (for example, a more painterly illustration style, warmer lighting, clearer focal subject, or more depth). This regenerates only the three images. Once the storyboard is approved, run **Render** using the Visuals run ID.
+The individual Prepare, Visuals and Render options are available for repairs or revisions. If the visuals are not right, run **Visuals** again using the same Prepare run ID. Add overall visual direction in visual_feedback (for example, a more painterly illustration style, warmer lighting, clearer focal subject, or more depth). This regenerates only the images. If final video assembly fails, run **Render** again using the same Visuals run ID. It does not regenerate story, narration, soundtrack or scene images.
 
-If the story itself needs changing, only then make a new **Prepare** run. That is the only stage that repeats research and planning.
+If the story itself needs changing, make a new **Prepare** run. This is the only stage that repeats research and planning.
 
-## Running the stages
+## Running the workflow
 
 Open **GitHub → Actions → Violin Prince Autopilot → Run workflow** on branch main.
 
-### Stage 1 — Prepare
+### Normal first attempt — one launch
 
-- Keep stage set to prepare.
+- Keep stage set to **full** (the default).
 - Leave source_run_id and visual_feedback empty.
-- Start the workflow.
-- Open the finished run and note the numeric Run ID in the page URL.
-- Download the prepared-package artifact to review review.txt and listen to narration.wav before image generation.
+- Start the workflow once.
+- The run will preserve the prepared-package and visual-package artifacts as separate checkpoints, then create the MP4.
+- Download storyboard-preview.png from visual-package to review the generated visual direction, and download the cloud-video-preview artifact for the final MP4.
 
-### Stage 2 — Visuals
+### Repair only the stage that needs it
 
-- Start the workflow again.
-- Set stage to visuals.
-- Enter the Run ID from the successful Prepare run in source_run_id.
-- Leave visual_feedback empty for the first attempt.
-- Start the workflow and inspect storyboard-preview.png in the visual-package artifact.
-
-To improve only the visuals, start another Visuals stage with the same Prepare run ID and enter the requested overall change in visual_feedback. No research, planning, voiceover or soundtrack is repeated.
-
-### Stage 3 — Render
-
-- Start the workflow.
-- Set stage to render.
-- Enter the Run ID from the approved Visuals run in source_run_id.
-- Start the workflow.
-- Download the cloud-video-preview artifact.
-
-If final rendering fails, repeat only Render with the same Visuals run ID. This reuses the same approved images and audio files and does not call the AI models.
+- **Story/script problem:** choose Prepare; this repeats research, planning, voice and soundtrack.
+- **Image/style problem:** choose Visuals, enter the Run ID from the original Full or Prepare run in source_run_id, and describe the desired overall direction in visual_feedback. Research, script, narration and soundtrack are reused.
+- **MP4/rendering problem:** choose Render and enter the Run ID from the original Full or Visuals run in source_run_id. It reuses the saved images, narration and soundtrack and makes no AI calls.
 
 Artifacts are retained for 14 days. Keep the relevant successful run IDs until you have downloaded the final MP4.
 
