@@ -54,13 +54,14 @@ jobs:
           npx --yes wrangler@4 deploy --config=autopilot/cloudflare/wrangler.generated.toml 2>&1 | tee /tmp/worker-deploy.log
           echo "## Cloudflare Worker deployment" >> "$GITHUB_STEP_SUMMARY"
           WORKER_URL="$(grep -Eo 'https://[^[:space:]]+workers\.dev' /tmp/worker-deploy.log | tail -1)"
-          if [ -n "$WORKER_URL" ]; then
-            echo "$WORKER_URL" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "Find the workers.dev URL in the Deploy Worker logs." >> "$GITHUB_STEP_SUMMARY"
+          if [ -z "$WORKER_URL" ]; then
+            echo "::error::Wrangler did not report a workers.dev URL."
+            exit 1
           fi
+          echo "WORKER_URL=$WORKER_URL" >> "$GITHUB_ENV"
+          echo "$WORKER_URL" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Copy the Worker URL into the AUTOPILOT_API_URL GitHub Actions secret." >> "$GITHUB_STEP_SUMMARY"
+          echo "The deploy workflow will save this URL as the AUTOPILOT_API_URL GitHub Actions secret." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Configure Worker secrets
         shell: bash
@@ -70,13 +71,24 @@ jobs:
           printf '%s' "$GITHUB_DISPATCH_TOKEN" | npx --yes wrangler@4 secret put GITHUB_DISPATCH_TOKEN --config=autopilot/cloudflare/wrangler.generated.toml
           openssl rand -hex 32 | npx --yes wrangler@4 secret put MEDIA_SIGNING_SECRET --config=autopilot/cloudflare/wrangler.generated.toml
 
+      - name: Save Worker URL as GitHub Actions secret
+        env:
+          GH_TOKEN: \${{ secrets.GITHUB_DISPATCH_TOKEN }}
+        shell: bash
+        run: |
+          if [ -z "$WORKER_URL" ]; then
+            echo "::error::WORKER_URL was not captured from Wrangler output."
+            exit 1
+          fi
+          printf '%s' "$WORKER_URL" | gh secret set AUTOPILOT_API_URL --repo "$GITHUB_REPOSITORY"
+          echo "AUTOPILOT_API_URL was saved in repository Actions secrets." >> "$GITHUB_STEP_SUMMARY"
+
       - name: Verify Worker health
         shell: bash
         run: |
-          URL="$(grep -Eo 'https://[^[:space:]]+workers\.dev' /tmp/worker-deploy.log | tail -1)"
-          if [ -z "$URL" ]; then
-            echo "::warning::Could not parse the workers.dev URL from Wrangler output. Check the deploy logs."
-            exit 0
+          if [ -z "$WORKER_URL" ]; then
+            echo "::error::WORKER_URL is missing."
+            exit 1
           fi
-          curl --fail --silent --show-error "$URL/api/health"
+          curl --fail --silent --show-error "$WORKER_URL/api/health"
           echo ""
