@@ -661,7 +661,7 @@ def make_plan(items, recent=None):
                         "content": (
                             "The current narration failed because " + current_issue + ". "
                             "Rewrite only narration_script. The previous narration was:\n" + current_script +
-                            "\\nComplete original plan (preserve every field except narration_script):\\n" +
+                            "\nComplete original plan (preserve every field except narration_script):\n" +
                             json.dumps(plan, ensure_ascii=False) +
                             "\nVerified research evidence (do not go beyond these facts):\n" +
                             json.dumps(repair_evidence, ensure_ascii=False) +
