@@ -198,6 +198,7 @@ jobs:
             work/output/
             work/research.json
             work/creative_plan.json
+            work/creative_plan_debug.json
             work/analytics.json
           if-no-files-found: ignore
           retention-days: 14
