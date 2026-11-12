@@ -381,8 +381,15 @@ def make_plan(items, recent=None):
     return plan
 
 
+def image_request_payload(prompt):
+    """Build only the fields accepted by Cloudflare's FLUX.1-schnell REST schema."""
+    return {"prompt": str(prompt)[:1800], "steps": 4}
+
+
 def make_image(prompt, index):
-    result = ai(IMAGE_MODEL, {"prompt": prompt[:1800], "steps": 4, "seed": int(time.time()) + index}, 240)
+    # FLUX.1-schnell's REST schema accepts prompt and steps only.
+    # Do not send seed: Cloudflare's current endpoint rejects it as an extra property.
+    result = ai(IMAGE_MODEL, image_request_payload(prompt), 240)
     if not result.get("image"):
         raise PipelineError("FLUX returned no image.")
     try:
