@@ -259,17 +259,18 @@ def make_plan(items, recent=None):
         "short visual story accompanied by an original string-style instrumental soundtrack and spoken narration. Prioritise music, art, culture, discovery, science and positive "
         "global interests. Reject tragedies, graphic events, violence, disasters and crimes. Do not invent "
         "facts, dates, statistics or quotations. Use only factual claims supported by the supplied research; "
-        "prefer a topic supported by multiple independent publisher sources. Use supplied article excerpts as evidence. Do not use song lyrics, copied scripts, "
+        "For documentary topics, cite at least two exact article URLs from different publisher_domain values in the evidence. "
+        "Use supplied article excerpts as evidence. Avoid Google News URLs when original publisher URLs are available. Do not use song lyrics, copied scripts, "
         "named copyrighted characters, logos or identifiable living people in images. Return JSON only with "
         "topic,title,hook,description,hashtags,narration_script,narrative_style,scenes,sources. The narration_script "
-        "must be 30 to 42 spoken words, written for a natural narrator: a strong opening hook, clear explanation, "
-        "one memorable detail and a satisfying ending. Use a cinematic storytelling style for human-interest "
+        "must be 32 to 40 spoken words across exactly four short sentences. The first spoken sentence must be a 5-to-8-word curiosity hook that the video actually resolves. "
+        "Then build context, reveal one memorable detail, and finish with a satisfying payoff. No greeting, generic introduction, or misleading clickbait. Use a cinematic storytelling style for human-interest "
         "topics and a clear documentary/fact-telling style for factual discoveries. Keep sentences short and "
-        "pronunciation-friendly. Every concrete factual statement must be supported by the supplied headlines. "
+        "pronunciation-friendly. Keep every sentence to 12 words maximum for readable subtitles. Every concrete factual statement must be supported by the supplied research. "
         "Exactly 3 scenes. Each scene needs a caption of 9 words maximum and an original symbolic cinematic "
-        "image_prompt in English. If no suitable topic, return skip and reason."
+        "image_prompt in English. The three scenes must form hook, development, and reveal/payoff, with a consistent main subject. If no suitable topic, return skip and reason."
     )
-    compact = [{k: x.get(k, "") for k in ("title", "summary", "evidence_text", "publisher_domain", "url", "date", "source")} for x in items[:35]]
+    compact = [{k: x.get(k, "") for k in ("title", "summary", "evidence_text", "publisher_domain", "url", "date", "source")} for x in items[:40] if x.get("publisher_domain") and x.get("publisher_domain") != "news.google.com"]
     result = ai(TEXT_MODEL, {
         "messages": [
             {"role": "system", "content": system + " Do not show reasoning. Return exactly one JSON object and no preamble or Markdown."},
