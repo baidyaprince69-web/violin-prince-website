@@ -90,7 +90,7 @@ class PlannerNarrationRetryTests(unittest.TestCase):
             finally:
                 pipeline.WORK = original_work
 
-    def test_make_plan_stops_cleanly_if_automatic_correction_is_still_invalid(self):
+    def test_make_plan_pads_short_second_response_without_another_ai_call(self):
         original_plan = make_test_plan(SHORT_SCRIPT)
         still_invalid = make_test_plan(SHORT_SCRIPT)
         item = {
@@ -109,11 +109,21 @@ class PlannerNarrationRetryTests(unittest.TestCase):
                     pipeline, "ai",
                     side_effect=[{"response": original_plan}, {"response": still_invalid}]
                 ) as mock_ai:
-                    with self.assertRaisesRegex(pipeline.PipelineError, "after one automatic correction"):
-                        pipeline.make_plan([item], recent=[])
+                    result = pipeline.make_plan([item], recent=[])
                 self.assertEqual(mock_ai.call_count, 2)
+                self.assertEqual(pipeline.narration_validation_error(result["narration_script"]), "")
+                self.assertEqual(len(pipeline.re.findall(r"\\b[\\w’'-]+\\b", result["narration_script"])), 32)
+                self.assertEqual(result["sources"], [item["url"]])
+                self.assertEqual(result["scenes"], original_plan["scenes"])
             finally:
                 pipeline.WORK = original_work
+
+    def test_pad_short_narration_adds_only_reflective_words(self):
+        padded = pipeline.pad_short_narration(SHORT_SCRIPT)
+        self.assertTrue(padded)
+        self.assertEqual(pipeline.narration_validation_error(padded), "")
+        self.assertIn("A scientist sent it into orbit", padded)
+        self.assertEqual(len(padded.split(". ")), 4)
 
 
 if __name__ == "__main__":
