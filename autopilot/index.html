@@ -108,13 +108,76 @@ main{max-width:1080px;margin:auto;padding:28px 18px 60px}.top{display:flex;justi
       const latest = status.latest_run;
       setText("latest", latest ? latest.status : "No runs");
       if (latest) {
-        $("latestDetails").innerHTML = "";
+        const panel = $("latestDetails");
+        panel.innerHTML = "";
+        let meta = {};
+        try { meta = JSON.parse(latest.metadata_json || "{}"); } catch (_) {}
         const title = document.createElement("strong");
         title.textContent = latest.title || latest.topic || "Untitled run";
-        const detail = document.createElement("p");
-        detail.className = "muted";
-        detail.textContent = [latest.status, latest.message, latest.output_url ? "Draft media link available for 24 hours." : ""].filter(Boolean).join(" · ");
-        $("latestDetails").append(title, detail);
+        const status = document.createElement("p");
+        status.className = "muted";
+        status.textContent = [latest.status, latest.message].filter(Boolean).join(" · ");
+        panel.append(title, status);
+
+        if (meta.hook) {
+          const hook = document.createElement("p");
+          hook.textContent = meta.hook;
+          panel.append(hook);
+        }
+        if (meta.description) {
+          const description = document.createElement("p");
+          description.className = "muted";
+          description.textContent = meta.description;
+          panel.append(description);
+        }
+        if (Array.isArray(meta.captions) && meta.captions.length) {
+          const heading = document.createElement("strong");
+          heading.textContent = "Scene captions";
+          heading.style.display = "block";
+          heading.style.marginTop = "10px";
+          const captions = document.createElement("p");
+          captions.className = "muted";
+          captions.textContent = meta.captions.join("  •  ");
+          panel.append(heading, captions);
+        }
+        if (Array.isArray(meta.hashtags) && meta.hashtags.length) {
+          const tags = document.createElement("p");
+          tags.className = "muted";
+          tags.textContent = meta.hashtags.join(" ");
+          panel.append(tags);
+        }
+        if (latest.output_url) {
+          const preview = document.createElement("a");
+          preview.href = latest.output_url;
+          preview.target = "_blank";
+          preview.rel = "noopener noreferrer";
+          preview.className = "filebtn";
+          preview.style.display = "inline-block";
+          preview.style.marginTop = "8px";
+          preview.textContent = "Open finished video preview (link expires in 24 hours)";
+          panel.append(preview);
+        }
+        if (Array.isArray(meta.sources) && meta.sources.length) {
+          const sourceTitle = document.createElement("strong");
+          sourceTitle.textContent = "Research references";
+          sourceTitle.style.display = "block";
+          sourceTitle.style.marginTop = "12px";
+          panel.append(sourceTitle);
+          for (const source of meta.sources.slice(0, 5)) {
+            try {
+              const url = new URL(source);
+              if (!["https:", "http:"].includes(url.protocol)) continue;
+              const link = document.createElement("a");
+              link.href = url.href;
+              link.target = "_blank";
+              link.rel = "noopener noreferrer";
+              link.textContent = url.hostname;
+              link.style.display = "block";
+              link.style.fontSize = "12px";
+              panel.append(link);
+            } catch (_) {}
+          }
+        }
       } else {
         $("latestDetails").textContent = "No run data yet.";
       }
