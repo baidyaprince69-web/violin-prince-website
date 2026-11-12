@@ -363,8 +363,13 @@ def make_plan(items, recent=None):
         str(item.get("publisher_domain") or urlparse(item.get("url", "")).netloc).lower().removeprefix("www.")
         for item in selected_sources if item.get("url")
     }
-    if plan["narrative_style"] == "documentary" and len(source_domains) < 2:
-        raise PipelineError("Documentary narration needs at least two independent publisher sources.")
+    if plan["narrative_style"] == "documentary" and len(source_domains) == 1:
+        # A single verifiable publisher is sufficient for a clearly labelled,
+        # source-led human-interest story; do not present it as multi-source documentary.
+        plan["narrative_style"] = "cinematic_story"
+        log("Using a single-source cinematic story because two independent publishers were not verified.")
+    elif plan["narrative_style"] == "documentary" and len(source_domains) < 1:
+        raise PipelineError("No verifiable publisher source remained after URL verification.")
     if plan["narrative_style"] == "cinematic_story" and not plan["sources"]:
         raise PipelineError("Storytelling topic has no traceable research source.")
     for scene in scenes:
