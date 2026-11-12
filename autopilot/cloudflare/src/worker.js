@@ -196,6 +196,17 @@ async function handleApi(request, env) {
     return json({ events: rows.results || [] });
   }
 
+  if (path === "/api/insights" && request.method === "GET") {
+    const row = await env.DB.prepare(
+      "SELECT payload_json,captured_at FROM channel_insights WHERE platform='youtube' ORDER BY captured_at DESC LIMIT 1"
+    ).first();
+    let insight = null;
+    if (row && row.payload_json) {
+      try { insight = JSON.parse(row.payload_json); } catch { insight = null; }
+    }
+    return json({ insight: insight, captured_at: row ? row.captured_at : null });
+  }
+
   if (path === "/api/assets" && request.method === "GET") {
     const rows = await env.DB.prepare(
       "SELECT id,filename,kind,size_bytes,rights_confirmed,active,created_at FROM assets ORDER BY created_at DESC LIMIT 100"
@@ -318,6 +329,20 @@ async function handleApi(request, env) {
         .bind(runId,day,isoNow()).run();
     }
     await event(env, message || ("Run status: " + status), status === "failed" ? "error" : "info", runId);
+    return json({ ok: true });
+  }
+
+  if (path === "/internal/insights" && request.method === "POST") {
+    const body = await request.json();
+    const platform = String(body.platform || "").slice(0, 30);
+    if (platform !== "youtube") return json({ error: "unsupported_platform" }, 400);
+    const payload = body.payload && typeof body.payload === "object" ? body.payload : null;
+    if (!payload) return json({ error: "payload_required" }, 400);
+    const payloadJson = JSON.stringify(payload);
+    if (payloadJson.length > 20000) return json({ error: "payload_too_large" }, 413);
+    await env.DB.prepare(
+      "INSERT INTO channel_insights (id,platform,payload_json,captured_at) VALUES (?,?,?,?)"
+    ).bind(crypto.randomUUID(), platform, payloadJson, isoNow()).run();
     return json({ ok: true });
   }
 
