@@ -251,7 +251,7 @@ async function handleApi(request, env) {
       "INSERT INTO runs (id,status,mode,topic,title,output_key,output_url,message,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?) " +
       "ON CONFLICT(id) DO UPDATE SET status=excluded.status,topic=excluded.topic,title=excluded.title,output_key=excluded.output_key,output_url=excluded.output_url,message=excluded.message,updated_at=excluded.updated_at"
     ).bind(runId,status,"scheduled",topic,title,outputKey,outputUrl,message,isoNow(),isoNow()).run();
-    if (status === "rendered" || status === "published") {
+    if (status === "rendered" || status === "published" || status === "partially_published") {
       const day = new Date().toISOString().slice(0,10);
       await env.DB.prepare("INSERT OR IGNORE INTO video_runs (run_id,day_utc,created_at) VALUES (?,?,?)")
         .bind(runId,day,isoNow()).run();
