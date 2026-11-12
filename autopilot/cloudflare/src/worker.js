@@ -200,6 +200,31 @@ async function handleApi(request, env) {
     return json(result, result.ok ? 202 : 409);
   }
 
+  if (path === "/internal/claim" && request.method === "POST") {
+    const body = await request.json();
+    const runId = String(body.run_id || "").slice(0, 80);
+    if (!runId) return json({ error: "run_id_required" }, 400);
+    const run = await env.DB.prepare("SELECT id,status FROM runs WHERE id=?").bind(runId).first();
+    if (!run || run.status !== "queued") {
+      return json({ ok: false, reason: "run_not_queued" }, 409);
+    }
+    const day = new Date().toISOString().slice(0, 10);
+    const videos = await env.DB.prepare("SELECT COUNT(*) AS n FROM video_runs WHERE day_utc=?").bind(day).first();
+    if ((videos && videos.n ? videos.n : 0) >= 1) {
+      return json({ ok: false, reason: "daily_video_limit" }, 409);
+    }
+    const active = await env.DB.prepare(
+      "SELECT id FROM runs WHERE status='running' AND id<>? AND created_at>=? LIMIT 1"
+    ).bind(runId, new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()).first();
+    if (active) return json({ ok: false, reason: "another_run_is_active" }, 409);
+    await env.DB.prepare("UPDATE runs SET status=?,updated_at=? WHERE id=? AND status='queued'")
+      .bind("running", isoNow(), runId).run();
+    const claimed = await env.DB.prepare("SELECT status FROM runs WHERE id=?").bind(runId).first();
+    if (!claimed || claimed.status !== "running") return json({ ok: false, reason: "claim_race" }, 409);
+    await event(env, "Cloud production run claimed by a runner.", "success", runId);
+    return json({ ok: true, run_id: runId });
+  }
+
   if (path === "/internal/assets" && request.method === "GET") {
     const rows = await env.DB.prepare(
       "SELECT id,filename,kind,content_type,size_bytes,object_key FROM assets WHERE active=1 AND rights_confirmed=1 AND kind='audio' ORDER BY created_at DESC LIMIT 50"
