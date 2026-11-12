@@ -103,7 +103,7 @@ Optional publishing secrets (keep publishing disabled until the account owner ha
 - FACEBOOK_PAGE_ID
 - FACEBOOK_PAGE_ACCESS_TOKEN
 
-The Meta access token must have permissions for the selected publishing method. The Facebook destination must be a Page; Instagram must be a qualifying professional account. Store credentials only as GitHub Actions secrets, not variables or source code.
+For YouTube Analytics, the owner-authorised Google refresh token must include the read-only scope https://www.googleapis.com/auth/yt-analytics.readonly in addition to https://www.googleapis.com/auth/youtube.upload when automatic YouTube uploads are enabled. Analytics is optional; without the read-only scope, the video workflow still runs and the dashboard shows that analytics is not connected. The Meta access token must have permissions for the selected publishing method. The Facebook destination must be a Page; Instagram must be a qualifying professional account. Store credentials only as GitHub Actions secrets, not variables or source code.
 
 ### 3. Set GitHub Actions variables
 
