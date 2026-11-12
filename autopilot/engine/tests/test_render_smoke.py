@@ -104,7 +104,7 @@ class FFmpegRenderSmokeTests(unittest.TestCase):
             self.assertTrue(subtitle_file.exists())
             subtitle_text = subtitle_file.read_text(encoding="utf-8")
             self.assertIn("00:00:00,200 --> 00:00:02,400", subtitle_text)
-            self.assertIn("A test voice explains a short story.", subtitle_text)
+            self.assertIn("A test voice explains a short story.", subtitle_text.replace("\n", " "))
 
             audio_check = subprocess.run(
                 ["ffmpeg", "-hide_banner", "-i", str(final_path),
