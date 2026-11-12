@@ -47,12 +47,12 @@ Add these six secrets:
 
 | Secret | Purpose |
 |---|---|
-| `CF_DEPLOY_TOKEN` | Cloudflare account token with Workers product Admin (to create the Worker), D1 Read + Edit, Workers R2 Storage Read + Edit, and any account read permission Wrangler requests |
-| `CF_AI_TOKEN` | Separate Cloudflare token with Workers AI Read or Write only; used by daily jobs to run Gemma and FLUX |
+| `CF_DEPLOY_TOKEN` | Cloudflare account token scoped to Workers Scripts: Edit, D1: Edit, R2 Storage: Edit and any Account Settings: Read permission Wrangler requests |
+| `CF_AI_TOKEN` | Separate Cloudflare token with Workers AI: Read/Run permission; used by daily jobs to run Gemma and FLUX |
 | `CF_ACCOUNT_ID` | Cloudflare account ID |
 | `DASHBOARD_TOKEN` | A long random password used only to connect the dashboard |
 | `AUTOPILOT_JOB_TOKEN` | A different long random token shared with the cloud runner |
-| `GITHUB_DISPATCH_TOKEN` | Fine-grained GitHub token restricted to this repository, with Actions: Read and Write only; stored as a Cloudflare Worker secret |
+| `GITHUB_DISPATCH_TOKEN` | Fine-grained token restricted to this repository with Actions: Read/Write and Secrets: Read/Write. It dispatches the production workflow and lets deployment save the Worker URL as an Actions secret. |
 
 Never paste tokens into chat or commit them. Do not use the same value for the dashboard token and job token.
 
@@ -61,8 +61,8 @@ Never paste tokens into chat or commit them. Do not use the same value for the d
 1. Open **GitHub → Actions → Deploy Violin Prince Autopilot to Cloudflare**.
 2. Select **Run workflow**.
 3. The workflow creates or reuses the D1 database and R2 bucket, applies the schema, deploys the Worker and stores its secrets.
-4. In the workflow summary/logs, copy the Worker `workers.dev` URL.
-5. Add a GitHub Actions secret named `AUTOPILOT_API_URL` with that URL.
+4. The workflow saves the deployed Worker URL as the `AUTOPILOT_API_URL` GitHub Actions secret, then checks `/api/health`.
+5. Confirm the deployment job finishes successfully. The daily scheduler remains disabled.
 
 The workflow is idempotent: rerunning it reuses the named database and bucket rather than intentionally creating duplicates.
 
