@@ -68,3 +68,13 @@ CREATE TABLE IF NOT EXISTS daily_dispatches (
   run_id TEXT NOT NULL UNIQUE,
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS channel_insights (
+  id TEXT PRIMARY KEY,
+  platform TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  captured_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_channel_insights_platform_time
+  ON channel_insights(platform, captured_at DESC);
