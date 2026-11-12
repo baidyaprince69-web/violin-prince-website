@@ -85,15 +85,24 @@ jobs:
       - name: Run research, creative planning and cloud video assembly
         run: python autopilot/engine/run.py
 
+      - name: Upload finished cloud video for viewing
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloud-video-preview-${{ inputs.run_id || github.run_id }}
+          path: work/output/violin-prince-short.mp4
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Preserve diagnostic metadata on failure
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: violin-prince-run-${{ inputs.run_id }}
+          name: violin-prince-run-${{ inputs.run_id || github.run_id }}
           path: |
             work/output/
             work/research.json
             work/creative_plan.json
             work/analytics.json
           if-no-files-found: ignore
-          retention-days: 3
+          retention-days: 14
