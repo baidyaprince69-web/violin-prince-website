@@ -164,7 +164,7 @@ main{max-width:1080px;margin:auto;padding:28px 18px 60px}.top{display:flex;justi
     try {
       const result = await request("/api/assets?kind=audio", {
         method: "POST", headers: { "Content-Type": file.type || "application/octet-stream",
-          "X-Filename": file.name, "X-Rights-Confirmed": "true" }, body: file
+          "X-Filename": file.name, "X-Rights-Confirmed": "true", "X-File-Size": String(file.size) }, body: file
       });
       setText("uploadStatus", "Uploaded: " + result.filename);
       await refresh();
