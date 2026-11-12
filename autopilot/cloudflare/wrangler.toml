@@ -1,0 +1,24 @@
+name = "violin-prince-autopilot"
+main = "src/worker.js"
+compatibility_date = "2026-11-12"
+workers_dev = true
+
+[vars]
+AUTOPILOT_ENABLED = "false"
+GITHUB_OWNER = "baidyaprince69-web"
+GITHUB_REPO = "violin-prince-website"
+GITHUB_WORKFLOW = "violin-prince-autopilot.yml"
+GITHUB_REF = "main"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "violin-prince-autopilot"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "violin-prince-media"
+
+[triggers]
+# 05:00 UTC = 10:30 Asia/Kolkata. Change after checking audience analytics.
+crons = ["0 5 * * *"]
