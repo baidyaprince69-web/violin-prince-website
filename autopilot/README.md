@@ -41,6 +41,10 @@ The preferred Violin Prince music bed is a real performance, not an oscillator i
 
 An `.sf2` or `.sfz` file is a sampled instrument bank, not a finished music track. Playing one requires a sampler and a MIDI arrangement, so that is intentionally not part of this simple, reliable first audio path.
 
+- **Public-repository warning:** this GitHub repository is public. Any WAV committed under this path becomes publicly downloadable. Only add a take you are comfortable making public; do not upload private practice recordings.
+- Instrument-bank files such as `.sf2` or `.sfz` are not accepted by this recording input yet. They need a sampler and MIDI composition path; do not upload those files to this location.
+
+
 ## Running the workflow
 
 Open **GitHub → Actions → Violin Prince Autopilot → Run workflow** on branch main.
