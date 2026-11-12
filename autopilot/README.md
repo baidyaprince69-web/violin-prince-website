@@ -1,6 +1,6 @@
 # Violin Prince Autopilot
 
-A cloud-first, free-tier-first content production workflow. The artist website remains separate; the Autopilot lives in \`autopilot/\`.
+A cloud-first, free-tier-first content production workflow. The artist website remains separate; the Autopilot lives in `autopilot/`.
 
 ## What it does
 
@@ -46,9 +46,9 @@ Add these five secrets:
 |---|---|
 | `CF_DEPLOY_TOKEN` | Cloudflare account token with Workers product Admin (to create the Worker), D1 Read + Edit, Workers R2 Storage Read + Edit, and any account read permission Wrangler requests |
 | `CF_AI_TOKEN` | Separate Cloudflare token with Workers AI Read or Write only; used by daily jobs to run Gemma and FLUX |
-| \`CF_ACCOUNT_ID\` | Cloudflare account ID |
-| \`DASHBOARD_TOKEN\` | A long random password used only to connect the dashboard |
-| \`AUTOPILOT_JOB_TOKEN\` | A different long random token shared with the cloud runner |
+| `CF_ACCOUNT_ID` | Cloudflare account ID |
+| `DASHBOARD_TOKEN` | A long random password used only to connect the dashboard |
+| `AUTOPILOT_JOB_TOKEN` | A different long random token shared with the cloud runner |
 
 Never paste tokens into chat or commit them. Do not use the same value for the dashboard token and job token.
 
@@ -57,8 +57,8 @@ Never paste tokens into chat or commit them. Do not use the same value for the d
 1. Open **GitHub → Actions → Deploy Violin Prince Autopilot to Cloudflare**.
 2. Select **Run workflow**.
 3. The workflow creates or reuses the D1 database and R2 bucket, applies the schema, deploys the Worker and stores its secrets.
-4. In the workflow summary/logs, copy the Worker \`workers.dev\` URL.
-5. Add a GitHub Actions secret named \`AUTOPILOT_API_URL\` with that URL.
+4. In the workflow summary/logs, copy the Worker `workers.dev` URL.
+5. Add a GitHub Actions secret named `AUTOPILOT_API_URL` with that URL.
 
 The workflow is idempotent: rerunning it reuses the named database and bucket rather than intentionally creating duplicates.
 
@@ -68,7 +68,7 @@ Open:
 
 https://baidyaprince69-web.github.io/violin-prince-website/autopilot/
 
-Enter the Worker URL and the \`DASHBOARD_TOKEN\`. The token is kept in browser session storage.
+Enter the Worker URL and the `DASHBOARD_TOKEN`. The token is kept in browser session storage.
 
 You do not need to upload audio. If you do upload a recording, confirm that you have the rights to the recording and the underlying composition.
 
@@ -77,7 +77,7 @@ You do not need to upload audio. If you do upload a recording, confirm that you 
 1. Open **GitHub → Actions → Violin Prince Autopilot**.
 2. Select **Run workflow** for a manual test.
 3. Check the run logs and dashboard. The output MP4 is stored in private R2.
-4. The normal daily run starts automatically at 05:30 UTC once the Worker, GitHub Actions secrets and \`AUTOPILOT_API_URL\` are configured.
+4. The normal daily run starts automatically at 05:30 UTC once the Worker, GitHub Actions secrets and `AUTOPILOT_API_URL` are configured.
 
 ## Publishing
 
@@ -85,25 +85,25 @@ The system uses direct official platform APIs rather than Metricool's external A
 
 The connected Metricool brand currently reports YouTube and Facebook connections; Instagram is not listed as connected. Metricool can still be used manually, but it is not the unattended cloud publisher for this project.
 
-Direct publishing configuration is optional. Keep the GitHub Actions variable \`PUBLISH_ENABLED=false\` until the appropriate account-owner OAuth permissions are set up and tested.
+Direct publishing configuration is optional. Keep the GitHub Actions variable `PUBLISH_ENABLED=false` until the appropriate account-owner OAuth permissions are set up and tested.
 
 Optional GitHub Actions secrets:
-- \`YOUTUBE_CLIENT_ID\`
-- \`YOUTUBE_CLIENT_SECRET\`
-- \`YOUTUBE_REFRESH_TOKEN\`
-- \`INSTAGRAM_USER_ID\`
-- \`INSTAGRAM_ACCESS_TOKEN\`
-- \`FACEBOOK_PAGE_ID\`
-- \`FACEBOOK_PAGE_ACCESS_TOKEN\`
+- `YOUTUBE_CLIENT_ID`
+- `YOUTUBE_CLIENT_SECRET`
+- `YOUTUBE_REFRESH_TOKEN`
+- `INSTAGRAM_USER_ID`
+- `INSTAGRAM_ACCESS_TOKEN`
+- `FACEBOOK_PAGE_ID`
+- `FACEBOOK_PAGE_ACCESS_TOKEN`
 
 Optional GitHub Actions variables:
-- \`PUBLISH_ENABLED=false\` initially; set true only after testing and account-owner authorisation.
-- \`PUBLISH_DESTINATIONS=youtube,instagram,facebook\`
-- \`META_API_VERSION\` set to a currently supported Graph API version.
-- \`YOUTUBE_PRIVACY_STATUS=private\` for initial tests; change only when intentionally publishing publicly.
-- \`YOUTUBE_PUBLISH_AT\` optional RFC 3339 timestamp for YouTube scheduling.
+- `PUBLISH_ENABLED=false` initially; set true only after testing and account-owner authorisation.
+- `PUBLISH_DESTINATIONS=youtube,instagram,facebook`
+- `META_API_VERSION` set to a currently supported Graph API version.
+- `YOUTUBE_PRIVACY_STATUS=private` for initial tests; change only when intentionally publishing publicly.
+- `YOUTUBE_PUBLISH_AT` optional RFC 3339 timestamp for YouTube scheduling.
 
-YouTube publishing requires the \`youtube.upload\` scope. Instagram publishing requires an eligible Creator or Business account and the applicable Meta publishing permission. Facebook Reels publishing requires a Page and Page access token. The underlying composition and recording rights must be checked before public publishing. Use an eligible account owner to perform authorisation; do not bypass platform eligibility checks.
+YouTube publishing requires the `youtube.upload` scope. Instagram publishing requires an eligible Creator or Business account and the applicable Meta publishing permission. Facebook Reels publishing requires a Page and Page access token. The underlying composition and recording rights must be checked before public publishing. Use an eligible account owner to perform authorisation; do not bypass platform eligibility checks.
 
 ## Failure policy
 
@@ -117,11 +117,11 @@ YouTube publishing requires the \`youtube.upload\` scope. Instagram publishing r
 
 ## Files
 
-- \`cloudflare/src/worker.js\`: dashboard API, asset storage, job claims and run status.
-- \`cloudflare/schema.sql\`: D1 schema.
-- \`cloudflare/wrangler.toml\`: Worker and bindings.
-- \`scripts/provision-cloudflare.mjs\`: idempotent D1/R2 provisioning.
-- \`engine/run.py\`: research, planning, generation, rendering and orchestration.
-- \`engine/synth_audio.py\`: original synthetic soundtrack generator.
-- \`.github/workflows/deploy-autopilot-cloudflare.yml\`: first deployment.
-- \`.github/workflows/violin-prince-autopilot.yml\`: daily cloud production workflow.
+- `cloudflare/src/worker.js`: dashboard API, asset storage, job claims and run status.
+- `cloudflare/schema.sql`: D1 schema.
+- `cloudflare/wrangler.toml`: Worker and bindings.
+- `scripts/provision-cloudflare.mjs`: idempotent D1/R2 provisioning.
+- `engine/run.py`: research, planning, generation, rendering and orchestration.
+- `engine/synth_audio.py`: original synthetic soundtrack generator.
+- `.github/workflows/deploy-autopilot-cloudflare.yml`: first deployment.
+- `.github/workflows/violin-prince-autopilot.yml`: daily cloud production workflow.
