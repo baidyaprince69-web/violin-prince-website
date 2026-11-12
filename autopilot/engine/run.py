@@ -7,7 +7,7 @@ from html.parser import HTMLParser
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import quote, urlparse
+from urllib.parse import quote, unquote, urlparse
 import requests
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 
@@ -204,27 +204,136 @@ def google_news_item_record(item, region, label):
 
 
 def planner_research_items(items):
-    """Prepare titled, traceable publisher leads for the editorial model."""
+    """Prepare publisher leads with stable IDs the model can cite without rewriting URLs."""
     fields = (
         "title", "summary", "evidence_text", "publisher_name",
         "publisher_home", "publisher_domain", "url", "date", "source"
     )
     selected = []
-    for item in items[:40]:
+    for index, item in enumerate(items[:40], start=1):
         if not item.get("title") or not item.get("url"):
             continue
         domain = str(item.get("publisher_domain") or "").lower().removeprefix("www.")
         if not domain or domain == "news.google.com":
             continue
-        selected.append({key: item.get(key, "") for key in fields})
+        record = {key: item.get(key, "") for key in fields}
+        record["source_id"] = f"S{index:04d}"
+        selected.append(record)
     # A few feeds may expose headlines and links without publisher metadata.
     # Keep those only as a last-resort topic lead; the prompt restricts factual claims.
     if not selected:
-        selected = [
-            {key: item.get(key, "") for key in fields}
-            for item in items[:40] if item.get("title") and item.get("url")
-        ]
+        for index, item in enumerate(items[:40], start=1):
+            if not item.get("title") or not item.get("url"):
+                continue
+            record = {key: item.get(key, "") for key in fields}
+            record["source_id"] = f"S{index:04d}"
+            selected.append(record)
     return selected
+
+
+SOURCE_MATCH_STOPWORDS = {
+    "about", "after", "again", "also", "and", "are", "around", "been", "before",
+    "being", "but", "can", "could", "from", "have", "into", "its", "just", "more",
+    "most", "new", "now", "one", "our", "out", "over", "she", "some", "than",
+    "that", "the", "their", "them", "there", "these", "they", "this", "through",
+    "today", "very", "was", "were", "what", "when", "where", "which", "with",
+    "would", "you", "your", "music", "song", "songs", "story", "global", "world",
+}
+
+
+def source_key(value):
+    """Normalize URLs so tracking queries, fragments, and www do not break matching."""
+    parsed = urlparse(str(value or "").strip())
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return ""
+    host = (parsed.hostname or "").lower().removeprefix("www.")
+    path = unquote(parsed.path or "").rstrip("/")
+    return host + path
+
+
+def source_tokens(value):
+    words = re.findall(r"[a-z0-9]{3,}", str(value or "").casefold())
+    return {word for word in words if word not in SOURCE_MATCH_STOPWORDS}
+
+
+def source_relevance_score(plan, item):
+    """Estimate whether a publisher headline supports the selected story topic."""
+    core = source_tokens(" ".join(str(plan.get(key, "")) for key in ("topic", "title", "hook")))
+    if not core:
+        core = source_tokens(plan.get("narration_script", ""))
+    article = source_tokens(" ".join(str(item.get(key, "")) for key in (
+        "title", "summary", "evidence_text", "publisher_name"
+    )))
+    if not core or not article:
+        return 0.0
+    return len(core.intersection(article)) / len(core)
+
+
+def resolve_plan_sources(plan, research_items):
+    """Resolve source IDs, URLs, titles, or publisher names to collected research records."""
+    candidates = [
+        item for item in research_items
+        if item.get("title") and item.get("url")
+        and str(item.get("publisher_domain") or urlparse(item.get("url", "")).netloc)
+            .lower().removeprefix("www.") not in ("", "news.google.com")
+    ]
+    by_id = {str(item.get("source_id", "")).strip().upper(): item for item in candidates}
+    by_url = {source_key(item.get("url", "")): item for item in candidates if source_key(item.get("url", ""))}
+
+    references = plan.get("sources", [])
+    if isinstance(references, (str, dict)):
+        references = [references]
+    if not isinstance(references, list):
+        references = []
+
+    selected = []
+    for reference in references[:8]:
+        if isinstance(reference, dict):
+            value = str(
+                reference.get("source_id") or reference.get("id") or
+                reference.get("url") or reference.get("title") or ""
+            ).strip()
+        else:
+            value = str(reference or "").strip()
+        if not value:
+            continue
+
+        matched = by_id.get(value.upper())
+        if not matched:
+            matched = by_url.get(source_key(value))
+
+        if not matched:
+            normalized = " ".join(re.findall(r"[a-z0-9]+", value.casefold()))
+            for item in candidates:
+                title = " ".join(re.findall(r"[a-z0-9]+", str(item.get("title", "")).casefold()))
+                publisher = " ".join(re.findall(r"[a-z0-9]+", str(item.get("publisher_name", "")).casefold()))
+                domain = str(item.get("publisher_domain", "")).lower().removeprefix("www.")
+                if normalized and normalized in (title, publisher, domain):
+                    matched = item
+                    break
+
+        if matched and matched.get("url") not in [item.get("url") for item in selected]:
+            selected.append(matched)
+
+    if selected:
+        return selected[:5]
+
+    # Some model responses rewrite a Google News redirect as a publisher URL,
+    # or omit citations despite selecting a source-led topic. Recover the closest
+    # matching supplied headline, never a URL invented by the model.
+    ranked = sorted(
+        ((source_relevance_score(plan, item), item) for item in candidates),
+        key=lambda pair: pair[0],
+        reverse=True,
+    )
+    if ranked and ranked[0][0] >= 0.16:
+        score, item = ranked[0]
+        log(
+            "Planner source references did not resolve; selected the closest supplied "
+            f"headline by topic overlap ({score:.0%}): {item.get('publisher_name') or item.get('publisher_domain')}."
+        )
+        return [item]
+    return []
 
 
 def research():
@@ -468,11 +577,14 @@ def make_plan(items, recent=None):
         "short visual story accompanied by an original string-style instrumental soundtrack and spoken narration. Prioritise music, art, culture, discovery, science and positive "
         "global interests. Reject tragedies, graphic events, violence, disasters and crimes. Do not invent "
         "facts, dates, statistics or quotations. Use only factual claims supported by the supplied research; "
-        "For documentary topics, cite at least two exact article URLs from different publisher_domain values in the evidence. "
+        "For documentary topics, cite at least two source_id values from different publisher_domain values. "
+        "Each research item includes a source_id. The sources field MUST contain one to three exact source_id values "
+        "copied from the supplied research; never invent IDs or rewrite URLs. A single-source cinematic story may cite one ID. "
         "Use supplied article excerpts as evidence. Use publisher_domain and publisher_name as publisher identity, not news.google.com. "
         "A Google News headline is only a topic lead, not an article excerpt: when no evidence_text is supplied, "
         "limit factual narration to what the headline explicitly establishes and do not invent additional details. "
-        "Avoid Google News URLs when original publisher URLs are available. Do not use song lyrics, copied scripts, "
+        "The pipeline will resolve source IDs to the saved article URLs. Do not output publisher homepages as article URLs. "
+        "Do not use song lyrics, copied scripts, "
         "named copyrighted characters, logos or identifiable living people in images. Return JSON only with "
         "topic,title,hook,description,hashtags,narration_script,narrative_style,scenes,sources. The narration_script "
         "must be 32 to 40 spoken words across exactly four short sentences. The first spoken sentence must be a 5-to-8-word curiosity hook that the video actually resolves. "
@@ -581,23 +693,18 @@ def make_plan(items, recent=None):
     plan["narrative_style"] = str(plan.get("narrative_style", "documentary")).lower()
     if plan["narrative_style"] not in ("documentary", "cinematic_story"):
         plan["narrative_style"] = "documentary"
-    def source_key(value):
-        parsed = urlparse(str(value or "").strip())
-        if parsed.scheme not in ("http", "https") or not parsed.netloc:
-            return ""
-        return parsed.netloc.lower().removeprefix("www.") + parsed.path.rstrip("/")
 
-    source_lookup = {source_key(item.get("url", "")): item for item in items if source_key(item.get("url", ""))}
-    selected_sources = []
-    for value in plan.get("sources", []):
-        matched = source_lookup.get(source_key(value))
-        if not matched and isinstance(value, str):
-            matched = next((item for item in items if item.get("title", "").strip().casefold() == value.strip().casefold()), None)
-        if matched and matched.get("url") not in [item.get("url") for item in selected_sources]:
-            selected_sources.append(matched)
+    # Preserve the planner's original references in the artifact if source matching
+    # needs diagnosis; this is safe metadata and contains no credentials.
+    (WORK / "creative_plan_debug.json").write_text(
+        json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    compact = planner_research_items(items)
+    selected_sources = resolve_plan_sources(plan, compact)
     plan["sources"] = [item["url"] for item in selected_sources[:5]]
     source_domains = {
-        str(item.get("publisher_domain") or urlparse(item.get("url", "")).netloc).lower().removeprefix("www.")
+        str(item.get("publisher_domain") or urlparse(item.get("url", "")).netloc)
+            .lower().removeprefix("www.")
         for item in selected_sources if item.get("url")
     }
     if plan["narrative_style"] == "documentary" and len(source_domains) == 1:
@@ -606,9 +713,21 @@ def make_plan(items, recent=None):
         plan["narrative_style"] = "cinematic_story"
         log("Using a single-source cinematic story because two independent publishers were not verified.")
     elif plan["narrative_style"] == "documentary" and len(source_domains) < 1:
-        raise PipelineError("No verifiable publisher source remained after URL verification.")
+        refs = plan.get("sources") or []
+        if isinstance(refs, str):
+            refs = [refs]
+        ref_preview = ", ".join(str(value)[:90] for value in refs[:3]) or "(none returned)"
+        headline_preview = "; ".join(str(item.get("title", ""))[:70] for item in compact[:4])
+        raise PipelineError(
+            "No supplied publisher source could be matched to the selected story. "
+            f"Planner references: {ref_preview}. Available headline examples: {headline_preview}."
+        )
     if plan["narrative_style"] == "cinematic_story" and not plan["sources"]:
-        raise PipelineError("Storytelling topic has no traceable research source.")
+        refs = plan.get("sources") or []
+        raise PipelineError(
+            "Storytelling topic has no traceable research source after ID, URL, title, "
+            f"publisher, and topic matching. Planner references: {str(refs)[:240]}."
+        )
     for scene in scenes:
         if not scene.get("caption") and scene.get("visual_caption"):
             scene["caption"] = scene["visual_caption"]
