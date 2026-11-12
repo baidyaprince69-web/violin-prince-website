@@ -302,34 +302,43 @@ def command(args):
         raise PipelineError("FFmpeg failed: " + p.stderr[-1200:])
 
 
-def write_subtitles(script, narration_path, subtitle_path):
-    """Make simple timed word-group subtitles from the exact narrated script."""
-    import soundfile as sf
+def validate_final_video(path):
+    """Fail closed unless the final file contains valid vertical video and audio."""
+    if not path.exists() or path.stat().st_size < 150000:
+        raise PipelineError("Final MP4 is missing or unexpectedly small.")
+    probe = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries",
+         "format=duration:stream=codec_type,width,height,sample_rate,channels",
+         "-of", "json", str(path)],
+        capture_output=True, text=True
+    )
+    if probe.returncode:
+        raise PipelineError("ffprobe could not inspect the final MP4: " + probe.stderr[-800:])
+    try:
+        data = json.loads(probe.stdout)
+        duration = float(data.get("format", {}).get("duration", 0))
+        streams = data.get("streams", [])
+    except (TypeError, ValueError) as exc:
+        raise PipelineError("ffprobe returned invalid MP4 metadata.") from exc
 
-    info = sf.info(str(narration_path))
-    duration = min(24.0, info.duration)
-    words = str(script).split()
-    if not words or duration <= 0:
-        raise PipelineError("Cannot create subtitles without valid narration audio.")
-    groups = [words[i:i + 6] for i in range(0, len(words), 6)]
+    video = next((item for item in streams if item.get("codec_type") == "video"), None)
+    audio = next((item for item in streams if item.get("codec_type") == "audio"), None)
+    if not video or not audio:
+        raise PipelineError("Final MP4 must contain both video and mixed narration/music audio.")
+    if int(video.get("width", 0)) != W or int(video.get("height", 0)) != H:
+        raise PipelineError("Final MP4 is not the required 720x1280 vertical format.")
+    if not 23.5 <= duration <= 24.5:
+        raise PipelineError(f"Final MP4 duration is outside the 24-second target: {duration:.2f}s.")
+    if int(audio.get("sample_rate", 0)) < 22050:
+        raise PipelineError("Final audio sample rate is unexpectedly low.")
 
-    def stamp(seconds):
-        ms = max(0, int(seconds * 1000))
-        hours, rem = divmod(ms, 3_600_000)
-        minutes, rem = divmod(rem, 60_000)
-        seconds_part, millis = divmod(rem, 1000)
-        return f"{hours:02}:{minutes:02}:{seconds_part:02},{millis:03}"
-
-    lines = []
-    word_cursor = 0
-    total_words = len(words)
-    for index, group in enumerate(groups, start=1):
-        start = duration * word_cursor / total_words
-        word_cursor += len(group)
-        end = duration * word_cursor / total_words
-        lines.extend([str(index), f"{stamp(start)} --> {stamp(end)}", " ".join(group), ""])
-    subtitle_path.write_text("\n".join(lines), encoding="utf-8")
-
+    return {
+        "duration_seconds": round(duration, 2),
+        "width": int(video["width"]),
+        "height": int(video["height"]),
+        "audio_sample_rate": int(audio["sample_rate"]),
+        "file_size_bytes": path.stat().st_size,
+    }
 
 def render(plan, audio_bytes, narration_path):
     OUT.mkdir(parents=True, exist_ok=True)
