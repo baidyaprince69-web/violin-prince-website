@@ -39,12 +39,9 @@ jobs:
       - name: Provision D1 and R2
         run: node autopilot/scripts/provision-cloudflare.mjs
 
-      - name: Install Wrangler
-        run: npm install --no-save wrangler@4
-
       - name: Apply D1 schema
         run: >
-          npx wrangler d1 execute violin-prince-autopilot
+          npx --yes wrangler@4 d1 execute violin-prince-autopilot
           --remote
           --file=autopilot/cloudflare/schema.sql
           --config=autopilot/cloudflare/wrangler.generated.toml
@@ -53,7 +50,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          npx wrangler deploy --config=autopilot/cloudflare/wrangler.generated.toml 2>&1 | tee /tmp/worker-deploy.log
+          npx --yes wrangler@4 deploy --config=autopilot/cloudflare/wrangler.generated.toml 2>&1 | tee /tmp/worker-deploy.log
           echo "## Cloudflare Worker deployment" >> "$GITHUB_STEP_SUMMARY"
           WORKER_URL="$(grep -Eo 'https://[^[:space:]]+workers\.dev' /tmp/worker-deploy.log | tail -1)"
           if [ -n "$WORKER_URL" ]; then
@@ -67,9 +64,9 @@ jobs:
       - name: Configure Worker secrets
         shell: bash
         run: |
-          printf '%s' "$DASHBOARD_TOKEN" | npx wrangler secret put DASHBOARD_TOKEN --config=autopilot/cloudflare/wrangler.generated.toml
-          printf '%s' "$AUTOPILOT_JOB_TOKEN" | npx wrangler secret put JOB_TOKEN --config=autopilot/cloudflare/wrangler.generated.toml
-          openssl rand -hex 32 | npx wrangler secret put MEDIA_SIGNING_SECRET --config=autopilot/cloudflare/wrangler.generated.toml
+          printf '%s' "$DASHBOARD_TOKEN" | npx --yes wrangler@4 secret put DASHBOARD_TOKEN --config=autopilot/cloudflare/wrangler.generated.toml
+          printf '%s' "$AUTOPILOT_JOB_TOKEN" | npx --yes wrangler@4 secret put JOB_TOKEN --config=autopilot/cloudflare/wrangler.generated.toml
+          openssl rand -hex 32 | npx --yes wrangler@4 secret put MEDIA_SIGNING_SECRET --config=autopilot/cloudflare/wrangler.generated.toml
 
       - name: Verify Worker health
         shell: bash
