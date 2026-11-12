@@ -283,10 +283,13 @@ async function handleApi(request, env) {
     const message = String(body.message || "").slice(0, 1000);
     const outputKey = String(body.output_key || "").slice(0, 500);
     const outputUrl = String(body.output_url || "").slice(0, 2000);
+    const metadataRaw = body.metadata && typeof body.metadata === "object"
+      ? JSON.stringify(body.metadata) : null;
+    const metadataJson = metadataRaw ? metadataRaw.slice(0, 12000) : null;
     await env.DB.prepare(
-      "INSERT INTO runs (id,status,mode,topic,title,output_key,output_url,message,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?) " +
-      "ON CONFLICT(id) DO UPDATE SET status=excluded.status,topic=excluded.topic,title=excluded.title,output_key=excluded.output_key,output_url=excluded.output_url,message=excluded.message,updated_at=excluded.updated_at"
-    ).bind(runId,status,"scheduled",topic,title,outputKey,outputUrl,message,isoNow(),isoNow()).run();
+      "INSERT INTO runs (id,status,mode,topic,title,output_key,output_url,metadata_json,message,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?) " +
+      "ON CONFLICT(id) DO UPDATE SET status=excluded.status,topic=excluded.topic,title=excluded.title,output_key=excluded.output_key,output_url=excluded.output_url,metadata_json=COALESCE(excluded.metadata_json,runs.metadata_json),message=excluded.message,updated_at=excluded.updated_at"
+    ).bind(runId,status,"scheduled",topic,title,outputKey,outputUrl,metadataJson,message,isoNow(),isoNow()).run();
     if (status === "rendered" || status === "published" || status === "partially_published") {
       const day = new Date().toISOString().slice(0,10);
       await env.DB.prepare("INSERT OR IGNORE INTO video_runs (run_id,day_utc,created_at) VALUES (?,?,?)")
