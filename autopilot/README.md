@@ -18,9 +18,9 @@ A cloud-first, free-tier-first content production workflow. The artist website r
 ## Current creative limitations
 
 - The no-upload audio fallback is an original synthetic string-style instrumental, not a human violin performance.
-- Visuals are original generated still images animated with FFmpeg; this is not full text-to-video generation.
+- Visuals are three original generated still images animated with gentle, varied camera movements in FFmpeg; this is not full text-to-video generation.
 - Spoken narration uses a standard synthetic voice; it does not clone Prince or imitate a real person. The first configured voice is American English.
-- Voiceover is constrained to 30–48 words for the 24-second format. The renderer uses ffprobe to reject output without both audio and video, the required 720×1280 format, or an approximately 24-second duration.
+- Voiceover is constrained to 32–40 words in four short sentences for the 24-second format. The opening sentence is a 5–8-word curiosity hook; later sentences build context, reveal a detail and deliver a payoff. Subtitles are wrapped for phone readability and timed to actual speech chunks. The renderer uses ffprobe to reject output without both audio and video, the required 720×1280 format, or an approximately 24-second duration.
 - It deliberately rejects tragedies, graphic violence, crime sensationalism and unsupported claims. It skips documentary topics when it cannot identify two independent source domains.
 - No third-party songs, lyrics or downloaded creator videos are used as source material.
 
