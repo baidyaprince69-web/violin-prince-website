@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS runs (
   title TEXT,
   output_key TEXT,
   output_url TEXT,
+  metadata_json TEXT,
   message TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
