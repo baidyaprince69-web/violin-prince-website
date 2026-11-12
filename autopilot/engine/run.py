@@ -150,12 +150,18 @@ def make_plan(items):
     system = (
         "You are the editorial director of Violin Prince, a violin creator. Choose one timely, "
         "well-supported, family-friendly subject from these headlines and transform it into an original "
-        "short visual story accompanied by an original string-style instrumental soundtrack. Prioritise music, art, culture, discovery, science and positive "
+        "short visual story accompanied by an original string-style instrumental soundtrack and spoken narration. Prioritise music, art, culture, discovery, science and positive "
         "global interests. Reject tragedies, graphic events, violence, disasters and crimes. Do not invent "
-        "facts, dates, statistics or quotations. Do not use song lyrics, copied scripts, named copyrighted "
-        "characters, logos or identifiable living people in images. Return JSON only with topic,title,hook,"
-        "description,hashtags,scenes,sources. Exactly 3 scenes. Each scene needs a caption of 9 words maximum "
-        "and an original symbolic cinematic image_prompt in English. If no suitable topic, return skip and reason."
+        "facts, dates, statistics or quotations. Use only factual claims supported by the supplied research; "
+        "prefer a topic corroborated by multiple independent headlines. Do not use song lyrics, copied scripts, "
+        "named copyrighted characters, logos or identifiable living people in images. Return JSON only with "
+        "topic,title,hook,description,hashtags,narration_script,narrative_style,scenes,sources. The narration_script "
+        "must be 35 to 45 spoken words, written for a natural narrator: a strong opening hook, clear explanation, "
+        "one memorable detail and a satisfying ending. Use a cinematic storytelling style for human-interest "
+        "topics and a clear documentary/fact-telling style for factual discoveries. Keep sentences short and "
+        "pronunciation-friendly. Every concrete factual statement must be supported by the supplied headlines. "
+        "Exactly 3 scenes. Each scene needs a caption of 9 words maximum and an original symbolic cinematic "
+        "image_prompt in English. If no suitable topic, return skip and reason."
     )
     compact = [{k: x.get(k, "") for k in ("title", "summary", "url", "date", "source")} for x in items[:35]]
     result = ai(TEXT_MODEL, {"messages": [
@@ -176,6 +182,14 @@ def make_plan(items):
     scenes = plan.get("scenes")
     if not isinstance(scenes, list) or len(scenes) != 3:
         raise PipelineError("Planner must provide exactly three scenes.")
+    narration_script = str(plan.get("narration_script", "")).strip()
+    spoken_words = re.findall(r"\\b[\\w’'-]+\\b", narration_script)
+    if not 35 <= len(spoken_words) <= 45:
+        raise PipelineError("Planner narration must contain 35–45 spoken words.")
+    plan["narration_script"] = narration_script
+    plan["narrative_style"] = str(plan.get("narrative_style", "documentary")).lower()
+    if plan["narrative_style"] not in ("documentary", "cinematic_story"):
+        plan["narrative_style"] = "documentary"
     allowed = {x["url"] for x in items}
     plan["sources"] = [u for u in plan.get("sources", []) if u in allowed][:5]
     for scene in scenes:
@@ -239,7 +253,36 @@ def command(args):
         raise PipelineError("FFmpeg failed: " + p.stderr[-1200:])
 
 
-def render(plan, audio_bytes):
+def write_subtitles(script, narration_path, subtitle_path):
+    """Make simple timed word-group subtitles from the exact narrated script."""
+    import soundfile as sf
+
+    info = sf.info(str(narration_path))
+    duration = min(24.0, info.duration)
+    words = str(script).split()
+    if not words or duration <= 0:
+        raise PipelineError("Cannot create subtitles without valid narration audio.")
+    groups = [words[i:i + 6] for i in range(0, len(words), 6)]
+
+    def stamp(seconds):
+        ms = max(0, int(seconds * 1000))
+        hours, rem = divmod(ms, 3_600_000)
+        minutes, rem = divmod(rem, 60_000)
+        seconds_part, millis = divmod(rem, 1000)
+        return f"{hours:02}:{minutes:02}:{seconds_part:02},{millis:03}"
+
+    lines = []
+    word_cursor = 0
+    total_words = len(words)
+    for index, group in enumerate(groups, start=1):
+        start = duration * word_cursor / total_words
+        word_cursor += len(group)
+        end = duration * word_cursor / total_words
+        lines.extend([str(index), f"{stamp(start)} --> {stamp(end)}", " ".join(group), ""])
+    subtitle_path.write_text("\\n".join(lines), encoding="utf-8")
+
+
+def render(plan, audio_bytes, narration_path):
     OUT.mkdir(parents=True, exist_ok=True)
     audio_path = WORK / "approved-audio"
     audio_path.write_bytes(audio_bytes)
@@ -263,14 +306,27 @@ def render(plan, audio_bytes):
     command(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
              "-f", "concat", "-safe", "0", "-i", str(concat), "-c", "copy", str(silent)])
     final = OUT / "violin-prince-short.mp4"
-    af = ("highpass=f=35,lowpass=f=17000,"
-          "acompressor=threshold=-18dB:ratio=2:attack=20:release=250,"
-          "loudnorm=I=-16:TP=-1.5:LRA=11,"
-          "afade=t=in:st=0:d=0.8,afade=t=out:st=22:d=2")
+    subtitle_path = OUT / "narration.srt"
+    write_subtitles(plan["narration_script"], narration_path, subtitle_path)
+    audio_filter = (
+        "[1:a]volume=0.20[bed];"
+        "[2:a]highpass=f=75,acompressor=threshold=-20dB:ratio=3:attack=12:release=180[voice];"
+        "[bed][voice]amix=inputs=2:duration=longest:dropout_transition=1,"
+        "loudnorm=I=-16:TP=-1.5:LRA=11,"
+        "afade=t=in:st=0:d=0.5,afade=t=out:st=22:d=2[aout]"
+    )
+    video_filter = (
+        "subtitles=work/output/narration.srt:"
+        "force_style='FontName=DejaVu Sans,FontSize=18,PrimaryColour=&H00FFFFFF,"
+        "OutlineColour=&H90000000,BorderStyle=3,Outline=2,Shadow=0,Alignment=2,MarginV=100',"
+        "format=yuv420p"
+    )
     command(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
              "-i", str(silent), "-stream_loop", "-1", "-i", str(audio_path),
-             "-map", "0:v:0", "-map", "1:a:0", "-t", "24",
-             "-vf", "format=yuv420p", "-af", af, "-c:v", "copy",
+             "-i", str(narration_path),
+             "-map", "0:v:0", "-filter_complex", audio_filter, "-map", "[aout]",
+             "-t", "24", "-vf", video_filter, "-c:v", "libx264",
+             "-preset", "veryfast", "-crf", "24", "-pix_fmt", "yuv420p",
              "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(final)])
     if not final.exists() or final.stat().st_size < 100000:
         raise PipelineError("Final MP4 is missing or too small.")
@@ -302,8 +358,12 @@ def main():
         log("Research sources collected: " + str(len(items)))
         plan = make_plan(items)
         topic, title = str(plan.get("topic", "")), str(plan.get("title", "Violin Prince Short"))
-        report("producing", "Generating 3 original visual scenes and assembling the video.", topic, title)
-        path = render(plan, audio)
+        from voiceover import synthesize_voiceover
+        narration_path, narration_info = synthesize_voiceover(
+            plan["narration_script"], OUT / "narration.wav"
+        )
+        report("producing", "Generated spoken narration; creating 3 visual scenes and mixing the soundtrack.", topic, title)
+        path = render(plan, audio, narration_path)
         stored = upload(path)
         from publisher import publish_all
         publish_result = publish_all(path, stored.get("media_url", ""), plan)
@@ -315,6 +375,9 @@ def main():
             "run_id": RUN_ID, "topic": topic, "title": title,
             "hook": plan.get("hook", ""), "description": plan.get("description", ""),
             "hashtags": plan.get("hashtags", []),
+            "narration_script": plan.get("narration_script", ""),
+            "narrative_style": plan.get("narrative_style", "documentary"),
+            "narration": narration_info,
             "captions": [x["caption"] for x in plan["scenes"]],
             "sources": plan.get("sources", []), "audio_asset": asset["filename"],
             "audio_source": asset.get("audio_source", "uploaded_recording"),
