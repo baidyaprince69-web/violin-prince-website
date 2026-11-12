@@ -40,7 +40,7 @@ Free tiers have quotas and can change. The system is capped at one attempt per d
 
 In the repository, open **Settings → Secrets and variables → Actions → New repository secret**.
 
-Add these four secrets:
+Add these five secrets:
 
 | Secret | Purpose |
 |---|---|
