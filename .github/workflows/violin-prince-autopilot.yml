@@ -108,6 +108,13 @@ jobs:
           path: ~/.cache/huggingface
           key: kokoro-82m-v1-cache
 
+      - name: Cache CC0 violin sample zones
+        if: env.PIPELINE_STAGE == 'prepare' || env.PIPELINE_STAGE == 'full'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/violin-prince/cc0-solo-violin-v1
+          key: violin-prince-cc0-solo-violin-v1
+
       - name: Restore production package, including any completed scene images
         if: env.PIPELINE_STAGE == 'visuals' || env.PIPELINE_STAGE == 'render'
         uses: actions/download-artifact@v4
