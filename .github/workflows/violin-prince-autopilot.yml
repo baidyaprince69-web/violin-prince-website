@@ -108,22 +108,14 @@ jobs:
           path: ~/.cache/huggingface
           key: kokoro-82m-v1-cache
 
-      - name: Download prepared story package
-        if: env.PIPELINE_STAGE == 'visuals'
+      - name: Restore production package, including any completed scene images
+        if: env.PIPELINE_STAGE == 'visuals' || env.PIPELINE_STAGE == 'render'
         uses: actions/download-artifact@v4
         with:
-          name: prepared-package
-          path: work/package
-          run-id: ${{ inputs.source_run_id }}
-          github-token: ${{ github.token }}
-          repository: ${{ github.repository }}
-
-      - name: Download approved visual package
-        if: env.PIPELINE_STAGE == 'render'
-        uses: actions/download-artifact@v4
-        with:
-          name: visual-package
-          path: work/package
+          # The diagnostic artifact retains the complete work/package directory.
+          # This lets a later Visuals run resume images from a partial prior attempt.
+          name: violin-prince-run-${{ inputs.source_run_id }}
+          path: work
           run-id: ${{ inputs.source_run_id }}
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
