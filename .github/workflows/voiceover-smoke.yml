@@ -1,0 +1,52 @@
+name: Autopilot voiceover smoke test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "autopilot/engine/voiceover.py"
+      - "autopilot/engine/requirements.txt"
+      - "autopilot/engine/tests/test_kokoro_smoke.py"
+      - ".github/workflows/voiceover-smoke.yml"
+  pull_request:
+    paths:
+      - "autopilot/engine/voiceover.py"
+      - "autopilot/engine/requirements.txt"
+      - "autopilot/engine/tests/test_kokoro_smoke.py"
+      - ".github/workflows/voiceover-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-kokoro-cpu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: autopilot/engine/requirements.txt
+
+      - name: Cache Kokoro model files
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: kokoro-82m-cpu-v1
+
+      - name: Install CPU speech dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y espeak-ng
+          python -m pip install --upgrade pip
+          pip install --index-url https://download.pytorch.org/whl/cpu torch
+          pip install -r autopilot/engine/requirements.txt
+
+      - name: Generate and validate real Kokoro speech
+        run: python -m unittest discover -s autopilot/engine/tests -p "test_kokoro_smoke.py" -v
