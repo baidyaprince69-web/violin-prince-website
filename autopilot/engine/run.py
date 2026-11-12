@@ -44,6 +44,17 @@ def report(status, message, topic="", title="", key="", url=""):
         log("Status report failed: " + str(exc))
 
 
+def claim_run():
+    r = http.post(API + "/internal/claim", headers={**auth(), "Content-Type": "application/json"},
+                  json={"run_id": RUN_ID}, timeout=30)
+    if r.status_code == 409:
+        reason = r.json().get("reason", "run_not_claimed")
+        raise PipelineError("Production run was not claimed: " + str(reason))
+    r.raise_for_status()
+    if not r.json().get("ok"):
+        raise PipelineError("Production run was not authorised by the daily quota controller.")
+
+
 def get_audio():
     r = http.get(API + "/internal/assets", headers=auth(), timeout=30)
     r.raise_for_status()
@@ -270,6 +281,7 @@ def main():
     WORK.mkdir(exist_ok=True)
     OUT.mkdir(exist_ok=True)
     try:
+        claim_run()
         report("running", "Started global research.")
         items = research()
         log("Research sources collected: " + str(len(items)))
