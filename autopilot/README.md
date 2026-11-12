@@ -48,7 +48,8 @@ Add these six secrets:
 | `CF_AI_TOKEN` | Separate Cloudflare token with Workers AI Read or Write only; used by daily jobs to run Gemma and FLUX |
 | `CF_ACCOUNT_ID` | Cloudflare account ID |
 | `DASHBOARD_TOKEN` | A long random password used only to connect the dashboard |
-| `AUTOPILOT_JOB_TOKEN` | A different long random token shared with the cloud runner |\n| `GITHUB_DISPATCH_TOKEN` | Fine-grained GitHub token restricted to this repository, with Actions: Read and Write only; stored as a Cloudflare Worker secret |
+| `AUTOPILOT_JOB_TOKEN` | A different long random token shared with the cloud runner |
+| `GITHUB_DISPATCH_TOKEN` | Fine-grained GitHub token restricted to this repository, with Actions: Read and Write only; stored as a Cloudflare Worker secret |
 
 Never paste tokens into chat or commit them. Do not use the same value for the dashboard token and job token.
 
