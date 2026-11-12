@@ -336,12 +336,24 @@ def make_plan(items, recent=None):
     plan["narrative_style"] = str(plan.get("narrative_style", "documentary")).lower()
     if plan["narrative_style"] not in ("documentary", "cinematic_story"):
         plan["narrative_style"] = "documentary"
-    allowed = {x["url"] for x in items}
-    plan["sources"] = [u for u in plan.get("sources", []) if u in allowed][:5]
+    def source_key(value):
+        parsed = urlparse(str(value or "").strip())
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            return ""
+        return parsed.netloc.lower().removeprefix("www.") + parsed.path.rstrip("/")
+
+    source_lookup = {source_key(item.get("url", "")): item for item in items if source_key(item.get("url", ""))}
+    selected_sources = []
+    for value in plan.get("sources", []):
+        matched = source_lookup.get(source_key(value))
+        if not matched and isinstance(value, str):
+            matched = next((item for item in items if item.get("title", "").strip().casefold() == value.strip().casefold()), None)
+        if matched and matched.get("url") not in [item.get("url") for item in selected_sources]:
+            selected_sources.append(matched)
+    plan["sources"] = [item["url"] for item in selected_sources[:5]]
     source_domains = {
-        urlparse(u).netloc.lower().removeprefix("www.")
-        for u in plan["sources"]
-        if urlparse(u).netloc
+        str(item.get("publisher_domain") or urlparse(item.get("url", "")).netloc).lower().removeprefix("www.")
+        for item in selected_sources if item.get("url")
     }
     if plan["narrative_style"] == "documentary" and len(source_domains) < 2:
         raise PipelineError("Documentary narration needs at least two independent publisher sources.")
