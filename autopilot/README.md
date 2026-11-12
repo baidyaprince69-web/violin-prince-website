@@ -52,7 +52,7 @@ Add these six secrets:
 | `CF_ACCOUNT_ID` | Cloudflare account ID |
 | `DASHBOARD_TOKEN` | A long random password used only to connect the dashboard |
 | `AUTOPILOT_JOB_TOKEN` | A different long random token shared with the cloud runner |
-| `GITHUB_DISPATCH_TOKEN` | Fine-grained token restricted to this repository with Actions: Read/Write and Secrets: Read/Write. It dispatches the production workflow and lets deployment save the Worker URL as an Actions secret. |
+| `GH_DISPATCH_TOKEN` | Fine-grained token restricted to this repository with Actions: Read/Write and Secrets: Read/Write. It dispatches the production workflow and lets deployment save the Worker URL as an Actions secret. |
 
 Never paste tokens into chat or commit them. Do not use the same value for the dashboard token and job token.
 
