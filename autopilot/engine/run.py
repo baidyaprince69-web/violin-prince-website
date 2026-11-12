@@ -146,14 +146,15 @@ def enrich_source_evidence(items):
             final_url = response.url
             if final_url.startswith(("http://", "https://")):
                 item["url"] = final_url
+                item["publisher_domain"] = urlparse(final_url).netloc.lower().removeprefix("www.")
             if excerpt:
                 item["evidence_text"] = excerpt
-                item["publisher_domain"] = urlparse(item["url"]).netloc.lower()
         except Exception as exc:
             log("Article evidence unavailable: " + str(exc)[:120])
         return item
 
-    candidates = items[:12]
+    # Resolve Google News redirect links to their original publisher pages.
+    candidates = items[:40]
     if not candidates:
         return items
     completed = {}
