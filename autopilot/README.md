@@ -44,7 +44,7 @@ Add these four secrets:
 
 | Secret | Purpose |
 |---|---|
-| \`CF_API_TOKEN\` | Cloudflare API token with Workers Scripts edit, D1 read/write, R2 read/write and Workers AI run permissions |
+| \`CF_API_TOKEN\` | Cloudflare API token scoped to this account with Workers Admin (needed to create the Worker), D1 Read + Edit, Workers R2 Storage Read + Edit, Workers AI Read or Write, and Account Settings Read where requested by Wrangler |
 | \`CF_ACCOUNT_ID\` | Cloudflare account ID |
 | \`DASHBOARD_TOKEN\` | A long random password used only to connect the dashboard |
 | \`AUTOPILOT_JOB_TOKEN\` | A different long random token shared with the cloud runner |
