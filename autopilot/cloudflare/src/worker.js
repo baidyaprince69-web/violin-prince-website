@@ -83,80 +83,6 @@ async function cleanupOldRenders(env) {
   }
 }
 
-async function dispatchWorkflow(env, mode = "scheduled") {
-  if (env.AUTOPILOT_ENABLED !== "true") {
-    await event(env, "Autopilot is disabled. No workflow was dispatched.", "warning");
-    return { ok: false, reason: "disabled" };
-  }
-  if (!env.GITHUB_DISPATCH_TOKEN || !env.GITHUB_OWNER || !env.GITHUB_REPO || !env.GITHUB_WORKFLOW) {
-    await event(env, "GitHub dispatch is not configured.", "error");
-    return { ok: false, reason: "not_configured" };
-  }
-
-  const day = new Date().toISOString().slice(0, 10);
-  const count = await env.DB.prepare(
-    "SELECT COUNT(*) AS n FROM video_runs WHERE day_utc = ?"
-  ).bind(day).first();
-  if ((count && count.n ? count.n : 0) >= 1) {
-    await event(env, "Daily video limit already reached; skipping this cycle.", "warning");
-    return { ok: false, reason: "daily_limit" };
-  }
-
-  const active = await env.DB.prepare(
-    "SELECT id FROM runs WHERE status IN ('queued','running') AND created_at >= ? LIMIT 1"
-  ).bind(new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()).first();
-  if (active) {
-    await event(env, "A recent run is still active; duplicate dispatch blocked.", "warning", active.id);
-    return { ok: false, reason: "already_running" };
-  }
-
-  const runId = crypto.randomUUID();
-  // D1's primary key makes this a race-safe one-attempt-per-UTC-day lock.
-  await env.DB.prepare(
-    "INSERT OR IGNORE INTO daily_dispatches (day_utc,run_id,created_at) VALUES (?,?,?)"
-  ).bind(day, runId, isoNow()).run();
-  const dailyLock = await env.DB.prepare(
-    "SELECT run_id FROM daily_dispatches WHERE day_utc=?"
-  ).bind(day).first();
-  if (!dailyLock || dailyLock.run_id !== runId) {
-    await event(env, "Daily production attempt already reserved; skipping this cycle.", "warning");
-    return { ok: false, reason: "daily_attempt_limit" };
-  }
-  // Insert the run before dispatch so a fast GitHub runner cannot be overwritten by a later queued insert.
-  await env.DB.prepare(
-    "INSERT INTO runs (id,status,mode,created_at,updated_at) VALUES (?,?,?,?,?)"
-  ).bind(runId, "queued", mode, isoNow(), isoNow()).run();
-  const response = await fetch(
-    "https://api.github.com/repos/" + env.GITHUB_OWNER + "/" + env.GITHUB_REPO +
-      "/actions/workflows/" + env.GITHUB_WORKFLOW + "/dispatches",
-    {
-      method: "POST",
-      headers: {
-        "Authorization": "Bearer " + env.GITHUB_DISPATCH_TOKEN,
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-        "Content-Type": "application/json",
-        "User-Agent": "violin-prince-autopilot"
-      },
-      body: JSON.stringify({
-        ref: env.GITHUB_REF || "main",
-        inputs: { run_id: runId, mode: mode }
-      })
-    }
-  );
-
-  if (!response.ok) {
-    const detail = (await response.text()).slice(0, 600);
-    await env.DB.prepare("UPDATE runs SET status=?,message=?,updated_at=? WHERE id=?")
-      .bind("failed", "GitHub dispatch failed: " + response.status, isoNow(), runId).run();
-    await event(env, "GitHub dispatch failed: " + response.status + " " + detail, "error", runId);
-    return { ok: false, reason: "github_dispatch_failed" };
-  }
-
-  await event(env, "Cloud workflow dispatched.", "success", runId);
-  return { ok: true, run_id: runId };
-}
-
 async function handleApi(request, env) {
   const url = new URL(request.url);
   const path = url.pathname;
@@ -240,20 +166,49 @@ async function handleApi(request, env) {
   }
 
   if (path === "/api/trigger" && request.method === "POST") {
-    const result = await dispatchWorkflow(env, "manual");
-    return json(result, result.ok ? 202 : 409);
+    return json({
+      ok: false,
+      reason: "manual_workflow_only",
+      message: "Use GitHub Actions to run a one-off test. The daily production workflow is scheduled automatically."
+    }, 409);
   }
 
   if (path === "/internal/claim" && request.method === "POST") {
+    if (env.AUTOPILOT_ENABLED !== "true") {
+      return json({ ok: false, reason: "autopilot_disabled" }, 409);
+    }
     const body = await request.json();
     const runId = String(body.run_id || "").slice(0, 80);
     if (!runId) return json({ error: "run_id_required" }, 400);
-    const run = await env.DB.prepare("SELECT id,status FROM runs WHERE id=?").bind(runId).first();
+    const day = new Date().toISOString().slice(0, 10);
+
+    // The daily lock is created by the first scheduled/manual runner itself;
+    // no long-lived GitHub personal-access token is needed by the Worker.
+    await env.DB.prepare(
+      "INSERT OR IGNORE INTO daily_dispatches (day_utc,run_id,created_at) VALUES (?,?,?)"
+    ).bind(day, runId, isoNow()).run();
+    const lock = await env.DB.prepare(
+      "SELECT run_id FROM daily_dispatches WHERE day_utc=?"
+    ).bind(day).first();
+    if (!lock || lock.run_id !== runId) {
+      return json({ ok: false, reason: "daily_attempt_limit" }, 409);
+    }
+
+    let run = await env.DB.prepare("SELECT id,status FROM runs WHERE id=?").bind(runId).first();
+    if (!run) {
+      const mode = String(body.mode || "scheduled").slice(0, 30);
+      await env.DB.prepare(
+        "INSERT OR IGNORE INTO runs (id,status,mode,created_at,updated_at) VALUES (?,?,?,?,?)"
+      ).bind(runId, "queued", mode, isoNow(), isoNow()).run();
+      run = await env.DB.prepare("SELECT id,status FROM runs WHERE id=?").bind(runId).first();
+    }
     if (!run || run.status !== "queued") {
       return json({ ok: false, reason: "run_not_queued" }, 409);
     }
-    const day = new Date().toISOString().slice(0, 10);
-    const videos = await env.DB.prepare("SELECT COUNT(*) AS n FROM video_runs WHERE day_utc=?").bind(day).first();
+
+    const videos = await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM video_runs WHERE day_utc=?"
+    ).bind(day).first();
     if ((videos && videos.n ? videos.n : 0) >= 1) {
       return json({ ok: false, reason: "daily_video_limit" }, 409);
     }
@@ -261,11 +216,12 @@ async function handleApi(request, env) {
       "SELECT id FROM runs WHERE status='running' AND id<>? AND created_at>=? LIMIT 1"
     ).bind(runId, new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()).first();
     if (active) return json({ ok: false, reason: "another_run_is_active" }, 409);
+
     await env.DB.prepare("UPDATE runs SET status=?,updated_at=? WHERE id=? AND status='queued'")
       .bind("running", isoNow(), runId).run();
     const claimed = await env.DB.prepare("SELECT status FROM runs WHERE id=?").bind(runId).first();
     if (!claimed || claimed.status !== "running") return json({ ok: false, reason: "claim_race" }, 409);
-    await event(env, "Cloud production run claimed by a runner.", "success", runId);
+    await event(env, "Cloud production run claimed by a GitHub-hosted runner.", "success", runId);
     return json({ ok: true, run_id: runId });
   }
 
@@ -383,9 +339,6 @@ export default {
   },
 
   async scheduled(controller, env, ctx) {
-    ctx.waitUntil(Promise.all([
-      dispatchWorkflow(env, "scheduled"),
-      cleanupOldRenders(env)
-    ]));
+    ctx.waitUntil(cleanupOldRenders(env));
   }
 };
