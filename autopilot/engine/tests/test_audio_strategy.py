@@ -12,6 +12,7 @@ ENGINE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ENGINE))
 
 import run as pipeline
+import violin_sampler
 
 
 class AudioStrategyTests(unittest.TestCase):
@@ -53,9 +54,10 @@ class AudioStrategyTests(unittest.TestCase):
             original_work = pipeline.WORK
             pipeline.WORK = Path(folder) / "work"
             try:
-                with patch.object(pipeline, "API", ""), patch.dict(
-                    os.environ, {"VIOLIN_RECORDING_PATH": str(missing)}
-                ):
+                with patch.object(pipeline, "API", ""), patch.object(
+                    violin_sampler, "create_sampled_violin_bed",
+                    side_effect=RuntimeError("offline test: sample pack unavailable")
+                ), patch.dict(os.environ, {"VIOLIN_RECORDING_PATH": str(missing)}):
                     metadata, audio = pipeline.get_audio()
                 self.assertEqual(metadata["audio_source"], "generated_ambient_fallback")
                 self.assertGreater(len(audio), 100000)
