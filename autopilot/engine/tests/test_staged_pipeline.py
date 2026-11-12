@@ -58,6 +58,34 @@ class StagedPipelineTests(unittest.TestCase):
             finally:
                 pipeline.PACKAGE = original
 
+    def test_previous_run_research_is_loaded_without_new_feed_requests(self):
+        with tempfile.TemporaryDirectory() as folder:
+            original = pipeline.WORK
+            try:
+                pipeline.WORK = Path(folder) / "work"
+                reuse = pipeline.WORK / "reuse"
+                reuse.mkdir(parents=True)
+                research = [
+                    {"title": f"Headline {index}", "url": f"https://publisher.example/{index}",
+                     "publisher_domain": "publisher.example"}
+                    for index in range(70)
+                ]
+                (reuse / "research.json").write_text(json.dumps(research), encoding="utf-8")
+                loaded = pipeline.load_reusable_research()
+                self.assertEqual(len(loaded), 70)
+                self.assertTrue((pipeline.WORK / "research.json").is_file())
+            finally:
+                pipeline.WORK = original
+
+    def test_research_reuse_returns_none_when_no_previous_artifact_is_given(self):
+        with tempfile.TemporaryDirectory() as folder:
+            original = pipeline.WORK
+            try:
+                pipeline.WORK = Path(folder) / "work"
+                self.assertIsNone(pipeline.load_reusable_research())
+            finally:
+                pipeline.WORK = original
+
     def test_visual_package_requires_three_valid_images(self):
         with tempfile.TemporaryDirectory() as folder:
             self._write_package(folder, include_images=False)
