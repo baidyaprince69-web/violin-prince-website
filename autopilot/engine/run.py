@@ -471,8 +471,8 @@ def narration_validation_error(script):
     """Return a precise narration constraint failure, or an empty string."""
     text_value = str(script or "").strip()
     words = re.findall(r"\b[\w’'-]+\b", text_value)
-    if not 32 <= len(words) <= 40:
-        return f"it has {len(words)} spoken words; the required range is 32–40"
+    if not 40 <= len(words) <= 44:
+        return f"it has {len(words)} spoken words; the required range is 40–44"
     sentences = [part.strip() for part in re.split(r"[.!?]+", text_value) if part.strip()]
     if len(sentences) != 4:
         return f"it has {len(sentences)} sentences; exactly 4 are required"
@@ -484,7 +484,7 @@ def narration_validation_error(script):
     return ""
 
 
-def pad_short_narration(script, minimum=32, maximum=40):
+def pad_short_narration(script, minimum=40, maximum=44):
     """Add non-factual narrative framing to a short valid script without another model call."""
     text_value = re.sub(r"\s+", " ", str(script or "")).strip()
     parts = re.split(r"(?<=[.!?])\s+", text_value)
@@ -573,26 +573,34 @@ def pad_short_narration(script, minimum=32, maximum=40):
 def make_plan(items, recent=None):
     system = (
         "You are the editorial director of Violin Prince, a violin creator. Choose one timely, "
-        "well-supported, family-friendly subject from these headlines and transform it into an original "
-        "short visual story accompanied by an original string-style instrumental soundtrack and spoken narration. Prioritise music, art, culture, discovery, science and positive "
-        "global interests. Reject tragedies, graphic events, violence, disasters and crimes. Do not invent "
-        "facts, dates, statistics or quotations. Use only factual claims supported by the supplied research; "
-        "For documentary topics, cite at least two source_id values from different publisher_domain values. "
-        "Each research item includes a source_id. The sources field MUST contain one to three exact source_id values "
-        "copied from the supplied research; never invent IDs or rewrite URLs. A single-source cinematic story may cite one ID. "
-        "Use supplied article excerpts as evidence. Use publisher_domain and publisher_name as publisher identity, not news.google.com. "
-        "A Google News headline is only a topic lead, not an article excerpt: when no evidence_text is supplied, "
-        "limit factual narration to what the headline explicitly establishes and do not invent additional details. "
-        "The pipeline will resolve source IDs to the saved article URLs. Do not output publisher homepages as article URLs. "
-        "Do not use song lyrics, copied scripts, "
-        "named copyrighted characters, logos or identifiable living people in images. Return JSON only with "
-        "topic,title,hook,description,hashtags,narration_script,narrative_style,scenes,sources. The narration_script "
-        "must be 32 to 40 spoken words across exactly four short sentences. The first spoken sentence must be a 5-to-8-word curiosity hook that the video actually resolves. "
-        "Then build context, reveal one memorable detail, and finish with a satisfying payoff. No greeting, generic introduction, or misleading clickbait. Use a cinematic storytelling style for human-interest "
-        "topics and a clear documentary/fact-telling style for factual discoveries. Keep sentences short and "
-        "pronunciation-friendly. Keep every sentence to 12 words maximum for readable subtitles. Every concrete factual statement must be supported by the supplied research. "
-        "Exactly 3 scenes. Each scene needs a caption of 9 words maximum and an original symbolic cinematic "
-        "image_prompt in English. The three scenes must form hook, development, and reveal/payoff, with a consistent main subject. If no suitable topic, return skip and reason."
+        "well-supported, family-friendly subject from these headlines and turn it into an original "
+        "short visual story with spoken narration and an original string-style instrumental soundtrack. "
+        "Choose for a music-loving audience: prioritise violin and instruments, classical and contemporary music, "
+        "film music, artists, performances, festivals and music culture. Art, culture, science or discovery may be "
+        "chosen when the story has a clear, compelling connection to music or a strong visual idea. Reject unrelated "
+        "retail promotions and generic technology announcements, as well as tragedies, graphic events, violence, "
+        "disasters and crimes. Pick the strongest specific story, not merely the loudest headline. "
+        "Do not invent facts, dates, statistics, motives, quotations or outcomes. Use only factual claims supported "
+        "by supplied research. For documentary topics, cite at least two source_id values from different publisher_domain "
+        "values when available. Every research item has a source_id. The sources field MUST contain one to three exact "
+        "source_id values copied from the supplied research; never invent IDs or rewrite URLs. A single-source "
+        "cinematic story may cite one ID. Use article excerpts as evidence. A Google News headline is only a topic lead, "
+        "not an article excerpt: without evidence_text, limit factual narration to what the headline explicitly states. "
+        "The pipeline resolves source IDs to original article URLs. Do not output publisher homepages as article URLs. "
+        "Do not use song lyrics, copied scripts, named copyrighted characters, logos or identifiable living people in images. "
+        "Return JSON only with topic,title,hook,description,hashtags,narration_script,narrative_style,scenes,sources. "
+        "The narration_script must have 40 to 44 spoken words, aiming for about 42, across exactly four natural sentences. "
+        "The first sentence is a 5-to-8-word curiosity hook that the video actually resolves. Each sentence must have "
+        "12 words or fewer and sound natural when spoken aloud. Build context, reveal one memorable sourced detail, "
+        "and finish with a satisfying payoff. No greeting, filler padding, generic introduction or misleading clickbait. "
+        "Use a cinematic storytelling style for human-interest topics and a clear documentary style for factual discoveries. "
+        "Exactly 3 scenes. Each scene needs a concise caption of 9 words maximum and an original, specific image_prompt "
+        "in English. Scene 1 must visualise the hook, scene 2 must show the exact object/action/detail that makes this "
+        "story distinctive, and scene 3 must visually resolve the story. Use three clearly different compositions, "
+        "not three unrelated stock images. Avoid generic musician portraits unless the story specifically concerns a person. "
+        "Do not illustrate a metaphor as a factual event: for example, if only one instrument component travelled to orbit, "
+        "show that component in space rather than an entire violin floating there. Keep the main subject and visual motif "
+        "consistent across the three scenes. If no suitable story exists, return skip and reason."
     )
     compact = planner_research_items(items)
     if not compact:
@@ -601,7 +609,8 @@ def make_plan(items, recent=None):
         "messages": [
             {"role": "system", "content": system + " Do not show reasoning. Return exactly one JSON object and no preamble or Markdown."},
             {"role": "user", "content":
-             "Create a 24-second story from these current research headlines. Avoid repeating prior topics. " +
+             "Create a 24-second story for Violin Prince's music-loving audience from these current research headlines. "
+             "Choose relevance and a strong visual story over generic trendiness. Avoid repeating prior topics. " +
              "Previously published topics to avoid: " + json.dumps(recent or [], ensure_ascii=False) +
              "\nResearch evidence: " + json.dumps(compact, ensure_ascii=False)}
         ],
@@ -630,8 +639,8 @@ def make_plan(items, recent=None):
                     "content": (
                         "You are a precise JSON editor. Return exactly one complete valid JSON object and no Markdown. "
                         "Preserve topic, title, hook, description, hashtags, narrative_style, scenes, image prompts, captions and sources. "
-                        "Change only narration_script. It must contain 32–40 spoken words total, exactly four sentences, "
-                        "a 5–8-word first-sentence curiosity hook, and no sentence longer than 12 words. "
+                        "Change only narration_script. It must contain 40–44 spoken words total, aiming for 42, "
+                        "exactly four sentences, a 5–8-word first-sentence curiosity hook, and no sentence longer than 12 words. "
                         "Keep every factual statement supported by the same supplied research. Do not add facts."
                     )
                 },
@@ -811,15 +820,15 @@ def make_card(source, caption, index, title=""):
                       stroke_width=2, stroke_fill=(0, 0, 0, 170))
             title_y += 43
 
-    caption_lines = textwrap.wrap(str(caption).strip(), width=24)[:3]
-    caption_font = font(43)
-    caption_y = 955 - max(0, len(caption_lines) - 1) * 25
+    caption_lines = textwrap.wrap(str(caption).strip(), width=27)[:2]
+    caption_font = font(34)
+    caption_y = 1010 - max(0, len(caption_lines) - 1) * 22
     for line in caption_lines:
         box = draw.textbbox((0, 0), line, font=caption_font, stroke_width=1)
         x = max(30, (W - (box[2] - box[0])) // 2)
         draw.text((x, caption_y), line, font=caption_font, fill=white,
                   stroke_width=2, stroke_fill=(0, 0, 0, 210))
-        caption_y += 56
+        caption_y += 46
 
     draw.line((34, 1190, W - 34, 1190), fill=(235, 202, 139, 135), width=1)
     draw.text((34, 1207), "ORIGINAL STORY • ORIGINAL SOUNDTRACK",
@@ -875,12 +884,36 @@ def validate_final_video(path):
         "file_size_bytes": path.stat().st_size,
     }
 
+def scene_durations_from_narration(narration_info, total_seconds=24.0):
+    """Allocate scene lengths around spoken beats, leaving a short music-only ending."""
+    cues = narration_info.get("subtitle_cues", []) if isinstance(narration_info, dict) else []
+    cues = sorted(
+        [cue for cue in cues if isinstance(cue, dict) and "start" in cue and "end" in cue],
+        key=lambda cue: float(cue.get("start", 0)),
+    )
+    if not cues:
+        return (8.0, 8.0, round(float(total_seconds) - 16.0, 2))
+
+    first_end = max(0.0, float(cues[0].get("end", 0)))
+    last_start = max(0.0, float(cues[-1].get("start", 0)))
+    first_boundary = min(max(first_end + 1.4, 4.8), 7.5)
+    second_boundary = min(
+        max(last_start - 0.3, first_boundary + 5.5),
+        float(total_seconds) - 5.0,
+    )
+    first = round(first_boundary, 2)
+    second = round(second_boundary - first_boundary, 2)
+    third = round(float(total_seconds) - first - second, 2)
+    return (first, second, third)
+
+
 def render(plan, audio_bytes, narration_path, narration_info, image_paths=None):
     OUT.mkdir(parents=True, exist_ok=True)
     audio_path = WORK / "approved-audio"
     audio_path.write_bytes(audio_bytes)
     clips = []
-    for i, scene in enumerate(plan["scenes"]):
+    scene_durations = scene_durations_from_narration(narration_info)
+    for i, (scene, scene_seconds) in enumerate(zip(plan["scenes"], scene_durations)):
         visual_prompt = (
             str(scene["image_prompt"]) +
             ", portrait 9:16 composition, centred focal subject, vertical framing, "
@@ -894,17 +927,20 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None):
             image = make_image(visual_prompt, i)
         card = make_card(image, scene["caption"], i, plan.get("title", ""))
         clip = OUT / f"scene-{i + 1}.mp4"
+        frame_count = max(1, int(round(scene_seconds * FPS)))
         if i == 0:
-            camera = f"zoompan=z='min(zoom+0.00055,1.09)':x='(iw-iw/zoom)*0.50':y='(ih-ih/zoom)*0.43':d=200:s={W}x{H}:fps={FPS}"
+            camera = f"zoompan=z='min(zoom+0.00055,1.09)':x='(iw-iw/zoom)*0.50':y='(ih-ih/zoom)*0.43':d={frame_count}:s={W}x{H}:fps={FPS}"
         elif i == 1:
-            camera = f"zoompan=z='min(zoom+0.00045,1.07)':x='(iw-iw/zoom)*(on/199)':y='(ih-ih/zoom)*0.52':d=200:s={W}x{H}:fps={FPS}"
+            camera = f"zoompan=z='min(zoom+0.00045,1.07)':x='(iw-iw/zoom)*(on/{max(1, frame_count - 1)})':y='(ih-ih/zoom)*0.52':d={frame_count}:s={W}x{H}:fps={FPS}"
         else:
-            camera = f"zoompan=z='if(eq(on,0),1.08,max(1.0,zoom-0.00040))':x='(iw-iw/zoom)*0.48':y='(ih-ih/zoom)*0.50':d=200:s={W}x{H}:fps={FPS}"
-        vf = (camera + ",fade=t=in:st=0:d=0.35,"
-              f"fade=t=out:st={SECONDS - 0.35}:d=0.35,format=yuv420p")
+            camera = f"zoompan=z='if(eq(on,0),1.08,max(1.0,zoom-0.00040))':x='(iw-iw/zoom)*0.48':y='(ih-ih/zoom)*0.50':d={frame_count}:s={W}x{H}:fps={FPS}"
+        fade_seconds = min(0.35, scene_seconds / 4.0)
+        fade_out_start = max(0.0, scene_seconds - fade_seconds)
+        vf = (camera + f",fade=t=in:st=0:d={fade_seconds:.3f},"
+              f"fade=t=out:st={fade_out_start:.3f}:d={fade_seconds:.3f},format=yuv420p")
         command(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
                  "-loop", "1", "-framerate", str(FPS), "-i", str(card),
-                 "-t", str(SECONDS), "-vf", vf, "-an", "-c:v", "libx264",
+                 "-t", f"{scene_seconds:.3f}", "-vf", vf, "-an", "-c:v", "libx264",
                  "-preset", "veryfast", "-crf", "25", "-pix_fmt", "yuv420p", str(clip)])
         clips.append(clip)
 
@@ -938,6 +974,17 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None):
              "-preset", "veryfast", "-crf", "24", "-pix_fmt", "yuv420p",
              "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(final)])
     quality = validate_final_video(final)
+    narration_end = max(
+        [float(cue.get("end", 0)) for cue in narration_info.get("subtitle_cues", [])]
+        or [float(narration_info.get("duration_seconds", 0))]
+    )
+    quality.update({
+        "scene_durations_seconds": list(scene_durations),
+        "narration_duration_seconds": round(narration_end, 2),
+        "voice_coverage_percent": round(min(100.0, narration_end / 24.0 * 100.0), 1),
+        "music_only_ending_seconds": round(max(0.0, 24.0 - narration_end), 2),
+        "creative_quality_version": 2,
+    })
     (OUT / "quality_report.json").write_text(
         json.dumps(quality, ensure_ascii=False, indent=2), encoding="utf-8"
     )
@@ -1002,21 +1049,36 @@ def _read_package(require_images=False):
     return plan, metadata, narration_info, paths, image_paths
 
 
-def _scene_visual_prompt(scene, feedback=""):
+def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
+    """Lock every image to one visual identity while giving each scene a distinct role."""
     prompt = str(scene.get("image_prompt", "")).strip()
     if not prompt:
         raise PipelineError("A planned scene has no image prompt.")
+    shot_roles = (
+        "SHOT 1 — HOOK: an immediately readable establishing composition with one intriguing "
+        "focal subject and a strong silhouette; make the viewer curious.",
+        "SHOT 2 — DISTINCTIVE DETAIL: a closer, more intimate composition showing the exact "
+        "object, action or detail that makes this story different; avoid a generic posed portrait.",
+        "SHOT 3 — PAYOFF: a wider emotional resolution that visually connects back to the opening "
+        "image and makes the story feel complete.",
+    )
+    subject = str((plan or {}).get("topic") or (plan or {}).get("title") or "the story")[:140]
     prompt += (
-        ", premium cinematic storybook illustration, refined hand-painted digital artwork, "
-        "rich but controlled colour palette, atmospheric cinematic lighting, layered foreground, "
-        "midground and background for clear parallax depth, strong readable silhouette, "
-        "crisp focal details, elegant composition, cohesive visual art direction across all scenes, "
-        "portrait 9:16 composition, centred focal subject, no text, no logos, no watermark"
+        f". Story subject: {subject}. {shot_roles[max(0, min(2, int(index)))]} "
+        "Keep the same visual world, recurring subject design and lighting logic across all three images. "
+        "Violin Prince visual identity: premium hand-painted cinematic editorial illustration, "
+        "clearly illustrated concept art rather than photography, refined painterly texture, "
+        "deep midnight navy, muted teal, antique gold and warm ivory highlights. "
+        "Layered foreground, midground and background with clear depth for gentle camera movement; "
+        "intentional negative space for subtitles, elegant cinematic lighting, precise focal detail. "
+        "No generic stock photography, no unrelated people, no text, no lettering, no logos, no watermark. "
+        "Respect real-world scale and the supplied story; symbolic imagery must not imply an unsupported fact. "
+        "Portrait 9:16 composition."
     )
     clean_feedback = re.sub(r"\s+", " ", str(feedback or "")).strip()[:600]
     if clean_feedback:
         prompt += ", additional visual direction: " + clean_feedback
-    return prompt
+    return prompt[:1800]
 
 
 def make_storyboard_preview(plan, image_paths, target):
@@ -1040,9 +1102,9 @@ def make_storyboard_preview(plan, image_paths, target):
         canvas.paste(tile, (left, 150))
         draw.rectangle((left, 150, left + tile_width - 1, 150 + tile_height - 1),
                        outline=(210, 185, 142), width=2)
-        caption = textwrap.shorten(str(scene.get("caption", "")), width=38, placeholder="…")
-        draw.text((left, 810), f"SCENE {index + 1}  ·  {caption}",
-                  font=font(18), fill=(245, 238, 226))
+        caption = "\n".join(textwrap.wrap(str(scene.get("caption", "")), width=28)[:2])
+        draw.multiline_text((left, 808), f"SCENE {index + 1}  ·  {caption}",
+                            font=font(16), fill=(245, 238, 226), spacing=3)
     draw.text((44, 862), "Approve the visual direction before creating the final MP4.",
               font=font(16), fill=(185, 194, 207))
     canvas.save(target, "PNG", optimize=True)
@@ -1139,8 +1201,24 @@ def visuals_stage(feedback=""):
         raise PipelineError("CF_ACCOUNT_ID and CF_AI_TOKEN are required for the Visuals stage.")
     plan, metadata, _narration_info, paths, image_paths = _read_package(require_images=False)
     for index, scene in enumerate(plan["scenes"]):
-        prompt = _scene_visual_prompt(scene, feedback)
-        generated = make_image(prompt, index)
+        # Reuse any valid image already present when recovering a partially completed
+        # visual stage; do not spend another model call on work already completed.
+        if image_paths[index].is_file():
+            try:
+                with Image.open(image_paths[index]) as existing:
+                    existing.verify()
+                log(f"Reusing valid scene image {index + 1}/3 from an earlier attempt.")
+                continue
+            except Exception:
+                image_paths[index].unlink(missing_ok=True)
+
+        prompt = _scene_visual_prompt(scene, feedback, index=index, plan=plan)
+        try:
+            generated = make_image(prompt, index)
+        except (requests.Timeout, requests.ConnectionError):
+            log(f"Temporary connection issue for scene {index + 1}; retrying once.")
+            time.sleep(2)
+            generated = make_image(prompt, index)
         shutil.copy2(generated, image_paths[index])
         log(f"Prepared scene image {index + 1}/3.")
     storyboard = make_storyboard_preview(plan, image_paths, PACKAGE / "storyboard-preview.png")
