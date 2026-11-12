@@ -10,8 +10,8 @@ from urllib.parse import quote, urlparse
 import requests
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 
-API = os.environ["AUTOPILOT_API_URL"].rstrip("/")
-JOB_TOKEN = os.environ["AUTOPILOT_JOB_TOKEN"]
+API = os.environ.get("AUTOPILOT_API_URL", "").rstrip("/")
+JOB_TOKEN = os.environ.get("AUTOPILOT_JOB_TOKEN", "")
 CF_ACCOUNT = os.environ["CF_ACCOUNT_ID"]
 CF_TOKEN = os.environ["CF_AI_TOKEN"]
 RUN_ID = os.environ.get("RUN_ID", str(uuid.uuid4()))
@@ -67,6 +67,9 @@ def auth():
 
 
 def report(status, message, topic="", title="", key="", url="", metadata=None):
+    if not API:
+        log("Status: " + str(status) + " — " + str(message)[:400])
+        return
     try:
         r = http.post(API + "/internal/report", headers={**auth(), "Content-Type": "application/json"},
                       json={"run_id": RUN_ID, "status": status, "message": str(message)[:900],
@@ -79,6 +82,9 @@ def report(status, message, topic="", title="", key="", url="", metadata=None):
 
 
 def claim_run():
+    if not API:
+        log("Standalone GitHub Actions mode: no Worker claim is required.")
+        return
     r = http.post(API + "/internal/claim", headers={**auth(), "Content-Type": "application/json"},
                   json={"run_id": RUN_ID, "mode": os.environ.get("RUN_MODE", "scheduled")}, timeout=30)
     if r.status_code == 409:
@@ -90,18 +96,21 @@ def claim_run():
 
 
 def get_audio():
-    r = http.get(API + "/internal/assets", headers=auth(), timeout=30)
-    r.raise_for_status()
-    assets = r.json().get("assets", [])
-    if assets:
-        asset = assets[0]
-        media = http.get(API + "/internal/assets/" + quote(asset["id"], safe=""),
-                         headers=auth(), timeout=120)
-        media.raise_for_status()
-        if len(media.content) < 4096:
-            raise PipelineError("Selected audio file is empty or invalid.")
-        return {**asset, "audio_source": "uploaded_recording"}, media.content
+    if API:
+        r = http.get(API + "/internal/assets", headers=auth(), timeout=30)
+        r.raise_for_status()
+        assets = r.json().get("assets", [])
+        if assets:
+            asset = assets[0]
+            media = http.get(API + "/internal/assets/" + quote(asset["id"], safe=""),
+                             headers=auth(), timeout=120)
+            media.raise_for_status()
+            if len(media.content) < 4096:
+                raise PipelineError("Selected audio file is empty or invalid.")
+            return {**asset, "audio_source": "uploaded_recording"}, media.content
 
+    # Standalone mode creates a fresh original soundtrack because no R2 asset
+    # library is configured. This is not a real recording of the creator.
     # No upload is required: create a fresh, original synthetic string-style
     # soundtrack on the GitHub cloud runner. This is not a real violin take.
     from synth_audio import create_original_soundtrack
@@ -231,7 +240,9 @@ def ai(model, payload, timeout=180):
 
 
 def recent_topics():
-    """Read recent successful topics from D1 so the planner can avoid repetition."""
+    """Read recent successful topics from D1 when the optional Worker is configured."""
+    if not API:
+        return []
     r = http.get(API + "/internal/recent-topics", headers=auth(), timeout=30)
     if r.status_code == 404:
         return []
@@ -489,6 +500,9 @@ def render(plan, audio_bytes, narration_path, narration_info):
 
 
 def upload(path):
+    if not API:
+        # GitHub Actions uploads this MP4 as a workflow artifact after this script exits.
+        return {"ok": True, "object_key": "", "media_url": ""}
     with path.open("rb") as f:
         r = http.post(API + "/internal/render", headers={
             **auth(), "Content-Type": "video/mp4", "X-Filename": path.name
@@ -549,7 +563,10 @@ def main():
                "Production complete. " + json.dumps(publish_result, ensure_ascii=False)[:650],
                topic, title, stored.get("object_key", ""), stored.get("media_url", ""), metadata)
         from analytics import collect_and_send
-        analytics_result = collect_and_send(API, JOB_TOKEN)
+        if API:
+            analytics_result = collect_and_send(API, JOB_TOKEN)
+        else:
+            analytics_result = {"connected": False, "reason": "dashboard_api_not_configured"}
         (OUT / "analytics.json").write_text(
             json.dumps(analytics_result, ensure_ascii=False, indent=2), encoding="utf-8"
         )
