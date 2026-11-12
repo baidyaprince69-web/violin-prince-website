@@ -105,27 +105,31 @@ def research():
         ("world culture OR art OR popular culture", "Culture"),
         ("music artist OR music festival OR music charts", "Music trends"),
     ]
-    for query, label in qs:
-        try:
-            req = requests.Request("GET", "https://news.google.com/rss/search",
-                                   params={"q": query, "hl": "en", "gl": "US", "ceid": "US:en"}).prepare()
-            r = http.get(req.url, timeout=20)
-            r.raise_for_status()
-            root = ET.fromstring(r.content)
-            for it in root.findall(".//item")[:10]:
-                title, link = (it.findtext("title") or "").strip(), (it.findtext("link") or "").strip()
-                if title and link:
-                    desc = re.sub(r"<[^>]+>", " ", it.findtext("description") or "")
-                    items.append({"title": title[:220], "summary": re.sub(r"\s+", " ", desc)[:300],
-                                  "url": link, "date": (it.findtext("pubDate") or "")[:90],
-                                  "source": "Google News - " + label})
-        except Exception as exc:
-            log(label + " RSS unavailable: " + str(exc)[:140])
+    for region in ("US", "GB", "IN"):
+        for query, label in qs:
+            try:
+                req = requests.Request(
+                    "GET",
+                    "https://news.google.com/rss/search",
+                    params={"q": query, "hl": "en", "gl": region, "ceid": region + ":en"}
+                ).prepare()
+                r = http.get(req.url, timeout=20)
+                r.raise_for_status()
+                root = ET.fromstring(r.content)
+                for it in root.findall(".//item")[:8]:
+                    title, link = (it.findtext("title") or "").strip(), (it.findtext("link") or "").strip()
+                    if title and link:
+                        desc = re.sub(r"<[^>]+>", " ", it.findtext("description") or "")
+                        items.append({"title": title[:220], "summary": re.sub(r"\s+", " ", desc)[:500],
+                                      "url": link, "date": (it.findtext("pubDate") or "")[:90],
+                                      "source": "Google News " + region + " - " + label})
+            except Exception as exc:
+                log(region + " " + label + " RSS unavailable: " + str(exc)[:140])
 
     unique = {}
     for item in items:
         unique.setdefault(item["url"].split("?")[0].rstrip("/"), item)
-    result = list(unique.values())[:45]
+    result = list(unique.values())[:75]
     if not result:
         raise PipelineError("All free research feeds were unavailable; no video created.")
     WORK.mkdir(exist_ok=True)
@@ -146,7 +150,17 @@ def ai(model, payload, timeout=180):
     return body["result"]
 
 
-def make_plan(items):
+def recent_topics():
+    """Read recent successful topics from D1 so the planner can avoid repetition."""
+    r = http.get(API + "/internal/recent-topics", headers=auth(), timeout=30)
+    if r.status_code == 404:
+        return []
+    r.raise_for_status()
+    topics = r.json().get("topics", [])
+    return [str(item)[:180] for item in topics if str(item).strip()][:25]
+
+
+def make_plan(items, recent=None):
     system = (
         "You are the editorial director of Violin Prince, a violin creator. Choose one timely, "
         "well-supported, family-friendly subject from these headlines and transform it into an original "
@@ -156,7 +170,7 @@ def make_plan(items):
         "prefer a topic corroborated by multiple independent headlines. Do not use song lyrics, copied scripts, "
         "named copyrighted characters, logos or identifiable living people in images. Return JSON only with "
         "topic,title,hook,description,hashtags,narration_script,narrative_style,scenes,sources. The narration_script "
-        "must be 35 to 45 spoken words, written for a natural narrator: a strong opening hook, clear explanation, "
+        "must be 30 to 42 spoken words, written for a natural narrator: a strong opening hook, clear explanation, "
         "one memorable detail and a satisfying ending. Use a cinematic storytelling style for human-interest "
         "topics and a clear documentary/fact-telling style for factual discoveries. Keep sentences short and "
         "pronunciation-friendly. Every concrete factual statement must be supported by the supplied headlines. "
@@ -166,8 +180,10 @@ def make_plan(items):
     compact = [{k: x.get(k, "") for k in ("title", "summary", "url", "date", "source")} for x in items[:35]]
     result = ai(TEXT_MODEL, {"messages": [
         {"role": "system", "content": system},
-        {"role": "user", "content": "Create a 24-second story from these current research headlines:\n" +
-         json.dumps(compact, ensure_ascii=False)}
+        {"role": "user", "content":
+         "Create a 24-second story from these current research headlines. Avoid repeating prior topics. " +
+         "Previously published topics to avoid: " + json.dumps(recent or [], ensure_ascii=False) +
+         "\nResearch evidence: " + json.dumps(compact, ensure_ascii=False)}
     ], "max_tokens": 1000, "temperature": 0.55})
     raw = str(result.get("response", "")).strip()
     start, end = raw.find("{"), raw.rfind("}")
@@ -184,8 +200,8 @@ def make_plan(items):
         raise PipelineError("Planner must provide exactly three scenes.")
     narration_script = str(plan.get("narration_script", "")).strip()
     spoken_words = re.findall(r"\b[\w’'-]+\b", narration_script)
-    if not 35 <= len(spoken_words) <= 45:
-        raise PipelineError("Planner narration must contain 35–45 spoken words.")
+    if not 30 <= len(spoken_words) <= 48:
+        raise PipelineError("Planner narration must contain 30–48 spoken words.")
     plan["narration_script"] = narration_script
     plan["narrative_style"] = str(plan.get("narrative_style", "documentary")).lower()
     if plan["narrative_style"] not in ("documentary", "cinematic_story"):
