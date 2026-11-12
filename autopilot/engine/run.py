@@ -60,15 +60,26 @@ def get_audio():
     r = http.get(API + "/internal/assets", headers=auth(), timeout=30)
     r.raise_for_status()
     assets = r.json().get("assets", [])
-    if not assets:
-        raise PipelineError("No approved recording found. Upload audio you own or are licensed to use.")
-    asset = assets[0]
-    r = http.get(API + "/internal/assets/" + quote(asset["id"], safe=""),
-                 headers=auth(), timeout=120)
-    r.raise_for_status()
-    if len(r.content) < 4096:
-        raise PipelineError("Selected audio file is empty or invalid.")
-    return asset, r.content
+    if assets:
+        asset = assets[0]
+        media = http.get(API + "/internal/assets/" + quote(asset["id"], safe=""),
+                         headers=auth(), timeout=120)
+        media.raise_for_status()
+        if len(media.content) < 4096:
+            raise PipelineError("Selected audio file is empty or invalid.")
+        return {**asset, "audio_source": "uploaded_recording"}, media.content
+
+    # No upload is required: create a fresh, original synthetic string-style
+    # soundtrack on the GitHub cloud runner. This is not a real violin take.
+    from synth_audio import create_original_soundtrack
+    audio_path = WORK / "original-synthetic-string-soundtrack.wav"
+    day_seed = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    create_original_soundtrack(audio_path, seed_text=day_seed + ":" + RUN_ID)
+    return {
+        "filename": audio_path.name,
+        "audio_source": "generated_synthetic_string",
+        "kind": "generated_audio"
+    }, audio_path.read_bytes()
 
 
 def research():
@@ -139,7 +150,7 @@ def make_plan(items):
     system = (
         "You are the editorial director of Violin Prince, a violin creator. Choose one timely, "
         "well-supported, family-friendly subject from these headlines and transform it into an original "
-        "violin-led short visual story. Prioritise music, art, culture, discovery, science and positive "
+        "short visual story accompanied by an original string-style instrumental soundtrack. Prioritise music, art, culture, discovery, science and positive "
         "global interests. Reject tragedies, graphic events, violence, disasters and crimes. Do not invent "
         "facts, dates, statistics or quotations. Do not use song lyrics, copied scripts, named copyrighted "
         "characters, logos or identifiable living people in images. Return JSON only with topic,title,hook,"
@@ -215,7 +226,7 @@ def make_card(source, caption, index):
         draw.text((x, ty), line, font=f, fill=(255, 250, 241, 255),
                   stroke_width=2, stroke_fill=(0, 0, 0, 210))
         ty += 54
-    draw.text((28, 1220), f"SCENE {index + 1:02d} / ORIGINAL VIOLIN AUDIO",
+    draw.text((28, 1220), f"SCENE {index + 1:02d} / ORIGINAL SOUNDTRACK",
               font=font(15), fill=(225, 225, 225, 240))
     p = OUT / f"card-{index + 1}.png"
     canvas.convert("RGB").save(p, "PNG", optimize=True)
@@ -284,7 +295,9 @@ def main():
     try:
         claim_run()
         asset, audio = get_audio()
-        report("running", "Approved audio found. Started global research.")
+        report("running",
+               ("Using uploaded recording: " + asset["filename"] if asset.get("audio_source") == "uploaded_recording"
+                else "Generated an original synthetic string-style soundtrack.") + " Started global research.")
         items = research()
         log("Research sources collected: " + str(len(items)))
         plan = make_plan(items)
@@ -304,6 +317,7 @@ def main():
             "hashtags": plan.get("hashtags", []),
             "captions": [x["caption"] for x in plan["scenes"]],
             "sources": plan.get("sources", []), "audio_asset": asset["filename"],
+            "audio_source": asset.get("audio_source", "uploaded_recording"),
             "duration_seconds": 24, "format": "9:16",
             "publishing_status": final_status, "publish_results": publish_result,
             "output_key": stored.get("object_key")
