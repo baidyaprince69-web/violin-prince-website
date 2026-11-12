@@ -215,8 +215,8 @@ def render_from_sample_arrays(
     fade_out = int(1.1 * SAMPLE_RATE)
     x_in = np.linspace(0.0, 1.0, fade_in, dtype=np.float32)
     x_out = np.linspace(0.0, 1.0, fade_out, dtype=np.float32)
-    mix[:fade_in] *= x_in * x_in * (3.0 - 2.0 * x_in)
-    mix[-fade_out:] *= 1.0 - (x_out * x_out * (3.0 - 2.0 * x_out))
+    mix[:fade_in] *= (x_in * x_in * (3.0 - 2.0 * x_in))[:, None]
+    mix[-fade_out:] *= (1.0 - (x_out * x_out * (3.0 - 2.0 * x_out)))[:, None]
 
     peak = float(np.max(np.abs(mix))) if mix.size else 0.0
     if peak < 0.0005:
