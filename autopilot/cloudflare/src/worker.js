@@ -89,6 +89,17 @@ async function dispatchWorkflow(env, mode = "scheduled") {
   }
 
   const runId = crypto.randomUUID();
+  // D1's primary key makes this a race-safe one-attempt-per-UTC-day lock.
+  await env.DB.prepare(
+    "INSERT OR IGNORE INTO daily_dispatches (day_utc,run_id,created_at) VALUES (?,?,?)"
+  ).bind(day, runId, isoNow()).run();
+  const dailyLock = await env.DB.prepare(
+    "SELECT run_id FROM daily_dispatches WHERE day_utc=?"
+  ).bind(day).first();
+  if (!dailyLock || dailyLock.run_id !== runId) {
+    await event(env, "Daily production attempt already reserved; skipping this cycle.", "warning");
+    return { ok: false, reason: "daily_attempt_limit" };
+  }
   // Insert the run before dispatch so a fast GitHub runner cannot be overwritten by a later queued insert.
   await env.DB.prepare(
     "INSERT INTO runs (id,status,mode,created_at,updated_at) VALUES (?,?,?,?,?)"
