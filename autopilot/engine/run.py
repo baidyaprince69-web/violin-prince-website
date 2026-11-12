@@ -515,8 +515,13 @@ def render(plan, audio_bytes, narration_path, narration_info):
         image = make_image(visual_prompt, i)
         card = make_card(image, scene["caption"], i, plan.get("title", ""))
         clip = OUT / f"scene-{i + 1}.mp4"
-        vf = ("zoompan=z='min(zoom+0.00055,1.10)':d=200:"
-              f"s={W}x{H}:fps={FPS},fade=t=in:st=0:d=0.35,"
+        if i == 0:
+            camera = f"zoompan=z='min(zoom+0.00055,1.09)':x='(iw-iw/zoom)*0.50':y='(ih-ih/zoom)*0.43':d=200:s={W}x{H}:fps={FPS}"
+        elif i == 1:
+            camera = f"zoompan=z='min(zoom+0.00045,1.07)':x='(iw-iw/zoom)*(on/199)':y='(ih-ih/zoom)*0.52':d=200:s={W}x{H}:fps={FPS}"
+        else:
+            camera = f"zoompan=z='if(eq(on,0),1.08,max(1.0,zoom-0.00040))':x='(iw-iw/zoom)*0.48':y='(ih-ih/zoom)*0.50':d=200:s={W}x{H}:fps={FPS}"
+        vf = (camera + ",fade=t=in:st=0:d=0.35,"
               f"fade=t=out:st={SECONDS - 0.35}:d=0.35,format=yuv420p")
         command(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
                  "-loop", "1", "-framerate", str(FPS), "-i", str(card),
