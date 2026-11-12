@@ -1,5 +1,5 @@
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://baidyaprince69-web.github.io",
   "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
   "Access-Control-Allow-Headers": "Authorization,Content-Type,X-Filename,X-Rights-Confirmed",
   "Access-Control-Max-Age": "86400"
@@ -89,6 +89,10 @@ async function dispatchWorkflow(env, mode = "scheduled") {
   }
 
   const runId = crypto.randomUUID();
+  // Insert the run before dispatch so a fast GitHub runner cannot be overwritten by a later queued insert.
+  await env.DB.prepare(
+    "INSERT INTO runs (id,status,mode,created_at,updated_at) VALUES (?,?,?,?,?)"
+  ).bind(runId, "queued", mode, isoNow(), isoNow()).run();
   const response = await fetch(
     "https://api.github.com/repos/" + env.GITHUB_OWNER + "/" + env.GITHUB_REPO +
       "/actions/workflows/" + env.GITHUB_WORKFLOW + "/dispatches",
@@ -110,13 +114,12 @@ async function dispatchWorkflow(env, mode = "scheduled") {
 
   if (!response.ok) {
     const detail = (await response.text()).slice(0, 600);
-    await event(env, "GitHub dispatch failed: " + response.status + " " + detail, "error");
+    await env.DB.prepare("UPDATE runs SET status=?,message=?,updated_at=? WHERE id=?")
+      .bind("failed", "GitHub dispatch failed: " + response.status, isoNow(), runId).run();
+    await event(env, "GitHub dispatch failed: " + response.status + " " + detail, "error", runId);
     return { ok: false, reason: "github_dispatch_failed" };
   }
 
-  await env.DB.prepare(
-    "INSERT INTO runs (id,status,mode,created_at,updated_at) VALUES (?,?,?,?,?)"
-  ).bind(runId, "queued", mode, isoNow(), isoNow()).run();
   await event(env, "Cloud workflow dispatched.", "success", runId);
   return { ok: true, run_id: runId };
 }
