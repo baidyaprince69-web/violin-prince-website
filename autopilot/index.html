@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#090b12">
+<title>Violin Prince Autopilot</title>
+<style>
+:root{color-scheme:dark;--bg:#090b12;--panel:#111624;--line:#273247;--muted:#98a5bd;--ink:#eef3ff;--gold:#d8b36d;--green:#67d6a3;--red:#ff8585}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 12% 0%,#1d2638 0,transparent 34%),var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,Segoe UI,sans-serif}
+main{max-width:1080px;margin:auto;padding:28px 18px 60px}.top{display:flex;justify-content:space-between;gap:14px;align-items:center;margin-bottom:25px}.brand{display:flex;gap:13px;align-items:center}.mark{width:46px;height:46px;border-radius:14px;background:linear-gradient(145deg,#e4c17b,#7c572a);display:grid;place-items:center;color:#17120a;font-size:23px;font-weight:800}.eyebrow{color:var(--gold);font-size:11px;letter-spacing:.16em;text-transform:uppercase}.brand h1{font:600 25px Georgia,serif;margin:1px 0}.muted{color:var(--muted)}.pill{border:1px solid var(--line);border-radius:999px;padding:6px 11px;color:var(--muted);font-size:12px}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.card{background:linear-gradient(145deg,rgba(20,28,43,.96),rgba(13,18,29,.96));border:1px solid var(--line);border-radius:17px;padding:17px;min-width:0}.stat small{display:block;color:var(--muted);font-size:12px}.stat strong{font-size:27px;display:block;margin-top:4px;overflow-wrap:anywhere}.section{margin-top:17px}.section h2{font-size:15px;margin:0 0 12px}.row{display:flex;align-items:center;justify-content:space-between;gap:10px}.badge{font-size:11px;border-radius:999px;padding:4px 8px;background:#202b3e;color:#c7d4e9}.ok{color:var(--green)}.warn{color:#ffd18a}.err{color:var(--red)}button,.filebtn{cursor:pointer;border:1px solid #8b7145;background:linear-gradient(135deg,#e5c57f,#bc9250);color:#15110a;font-weight:700;border-radius:10px;padding:10px 14px;font-size:13px}button.secondary{background:#151e2f;color:var(--ink);border-color:var(--line)}button:disabled{opacity:.45;cursor:not-allowed}input[type=text],input[type=password]{width:100%;background:#0a101b;border:1px solid var(--line);border-radius:9px;padding:11px;color:var(--ink);outline:none}input:focus{border-color:var(--gold)}label{display:block;color:var(--muted);font-size:12px;margin:11px 0 6px}.cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}.events{max-height:290px;overflow:auto}.event{padding:9px 0;border-bottom:1px solid #222d40;font-size:13px}.event:last-child{border:0}.event time{display:block;color:var(--muted);font-size:11px}.empty{padding:20px 0;color:var(--muted);font-size:13px}.checks{display:flex;gap:9px;align-items:flex-start;margin:12px 0;color:var(--muted);font-size:12px}.checks input{margin-top:3px}.foot{margin-top:22px;color:#77849b;font-size:11px}.bar{height:7px;background:#222d40;border-radius:10px;overflow:hidden;margin-top:9px}.bar span{display:block;width:0;height:100%;background:linear-gradient(90deg,#61c99e,#e0bd76)}.file{display:block;width:100%;color:var(--muted);font-size:12px;padding:10px;border:1px dashed var(--line);border-radius:10px}
+@media(max-width:760px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.cols{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}.brand h1{font-size:22px}}
+</style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <div class="brand"><div class="mark">VP</div><div><div class="eyebrow">Autonomous music intelligence</div><h1>Violin Prince Autopilot</h1><div class="muted" style="font-size:12px">Cloud production console · Your computer does not render videos</div></div></div>
+    <span class="pill" id="connection">Not connected</span>
+  </header>
+
+  <section class="grid">
+    <div class="card stat"><small>Autopilot</small><strong id="enabled">—</strong><span class="muted" style="font-size:11px">Cloud scheduler state</span></div>
+    <div class="card stat"><small>Videos today (UTC)</small><strong id="today">—</strong><span class="muted" style="font-size:11px">Default limit: 1</span></div>
+    <div class="card stat"><small>Approved recordings</small><strong id="assets">—</strong><span class="muted" style="font-size:11px">Private R2 library</span></div>
+    <div class="card stat"><small>Latest production</small><strong id="latest" style="font-size:18px">—</strong><span class="muted" style="font-size:11px">Most recent run</span></div>
+  </section>
+
+  <section class="section card">
+    <div class="row"><h2>Cloud connection</h2><span class="badge">Credentials stay in this browser session</span></div>
+    <label for="api">Cloudflare Worker URL</label><input id="api" type="text" placeholder="https://your-worker.workers.dev">
+    <label for="token">Dashboard access token</label><input id="token" type="password" placeholder="Paste the DASHBOARD_TOKEN">
+    <div class="row" style="margin-top:13px;justify-content:flex-start"><button id="connect">Connect dashboard</button><button class="secondary" id="disconnect">Disconnect</button><button class="secondary" id="refresh">Refresh insights</button></div>
+    <p class="muted" style="font-size:11px;margin-bottom:0">Do not share this token. It is stored only in session storage and cleared when this browser tab session ends. The source code does not contain credentials.</p>
+  </section>
+
+  <div class="cols section">
+    <section class="card">
+      <div class="row"><h2>Private music library</h2><span class="badge">R2 storage</span></div>
+      <p class="muted" style="font-size:12px">Upload one of your original violin recordings or audio you are authorised to use. The cloud runner uses this recording as the soundtrack.</p>
+      <input class="file" id="audio" type="file" accept=".wav,.mp3,.flac,.m4a,.aac,.ogg,audio/*">
+      <label class="checks"><input id="rights" type="checkbox"><span>I confirm I own this recording or have permission to use it, and I have checked any underlying composition rights needed for publication.</span></label>
+      <button id="upload" class="secondary" disabled>Upload to private library</button>
+      <div id="uploadStatus" class="muted" style="font-size:12px;margin-top:10px">No upload started.</div>
+    </section>
+    <section class="card">
+      <div class="row"><h2>Production control</h2><span class="badge">One video per day</span></div>
+      <p class="muted" style="font-size:12px">A manual test starts one cloud workflow. Daily automatic runs remain disabled until the Cloudflare account and GitHub secrets are configured.</p>
+      <button id="run" disabled>Run one test production</button>
+      <div class="bar"><span id="progress"></span></div>
+      <div id="runStatus" class="muted" style="font-size:12px;margin-top:10px">Connect the Cloudflare Worker to view status.</div>
+    </section>
+  </div>
+
+  <div class="cols section">
+    <section class="card">
+      <h2>Latest research and production</h2>
+      <div id="latestDetails" class="empty">No run data yet.</div>
+    </section>
+    <section class="card">
+      <h2>Activity log</h2>
+      <div class="events" id="events"><div class="empty">Connect to load recent events.</div></div>
+    </section>
+  </div>
+
+  <p class="foot">Violin Prince Autopilot · Free-tier-first · No paid fallback · Publishing stays disabled until official account permissions, rights checks and platform adapters are configured. This dashboard displays actual connected service data; it does not simulate activity.</p>
+</main>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const state = { api: "", token: "", busy: false };
+  const auth = () => ({ Authorization: "Bearer " + state.token });
+  const setText = (id, value) => { $(id).textContent = value; };
+  const save = () => {
+    sessionStorage.setItem("vp_api", state.api);
+    sessionStorage.setItem("vp_token", state.token);
+  };
+  const load = () => {
+    state.api = sessionStorage.getItem("vp_api") || "";
+    state.token = sessionStorage.getItem("vp_token") || "";
+    $("api").value = state.api;
+    $("token").value = state.token;
+  };
+  async function request(path, options = {}) {
+    if (!state.api || !state.token) throw new Error("Connect the Worker first.");
+    const r = await fetch(state.api.replace(/\/+$/, "") + path, {
+      ...options, headers: { ...auth(), ...(options.headers || {}) }
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || "Request failed: " + r.status);
+    return data;
+  }
+  function connected(value) {
+    $("connection").textContent = value ? "Connected" : "Not connected";
+    $("connection").className = "pill " + (value ? "ok" : "");
+    $("run").disabled = !value || state.busy;
+    $("upload").disabled = !value || !$("audio").files.length || !$("rights").checked;
+  }
+  async function refresh() {
+    try {
+      const [status, events] = await Promise.all([
+        request("/api/status"), request("/api/events")
+      ]);
+      connected(true);
+      setText("enabled", status.enabled ? "Enabled" : "Disabled");
+      setText("today", status.videos_today_utc + " / " + status.daily_video_limit);
+      setText("assets", status.approved_assets);
+      const latest = status.latest_run;
+      setText("latest", latest ? latest.status : "No runs");
+      if (latest) {
+        $("latestDetails").innerHTML = "";
+        const title = document.createElement("strong");
+        title.textContent = latest.title || latest.topic || "Untitled run";
+        const detail = document.createElement("p");
+        detail.className = "muted";
+        detail.textContent = [latest.status, latest.message, latest.output_url ? "Draft media link available for 24 hours." : ""].filter(Boolean).join(" · ");
+        $("latestDetails").append(title, detail);
+      } else {
+        $("latestDetails").textContent = "No run data yet.";
+      }
+      $("events").innerHTML = "";
+      for (const item of events.events || []) {
+        const row = document.createElement("div");
+        row.className = "event";
+        const msg = document.createElement("div");
+        msg.textContent = item.message;
+        const time = document.createElement("time");
+        time.textContent = new Date(item.created_at).toLocaleString();
+        row.append(msg, time);
+        $("events").append(row);
+      }
+      if (!events.events || !events.events.length) $("events").textContent = "No activity recorded yet.";
+    } catch (error) {
+      connected(false);
+      setText("enabled", "—"); setText("today", "—"); setText("assets", "—"); setText("latest", "—");
+      setText("runStatus", error.message);
+    }
+  }
+  $("connect").addEventListener("click", async () => {
+    state.api = $("api").value.trim().replace(/\/+$/, "");
+    state.token = $("token").value.trim();
+    save();
+    try {
+      const health = await fetch(state.api + "/api/health").then(r => r.json());
+      if (!health.ok) throw new Error("Worker health check failed.");
+      await refresh();
+      setText("runStatus", "Connected to the cloud control plane.");
+    } catch (error) {
+      connected(false); setText("runStatus", error.message);
+    }
+  });
+  $("disconnect").addEventListener("click", () => {
+    sessionStorage.removeItem("vp_api"); sessionStorage.removeItem("vp_token");
+    state.api = ""; state.token = ""; $("token").value = ""; connected(false);
+    setText("runStatus", "Disconnected.");
+  });
+  $("refresh").addEventListener("click", refresh);
+  $("audio").addEventListener("change", () => connected(Boolean(state.api && state.token)));
+  $("rights").addEventListener("change", () => connected(Boolean(state.api && state.token)));
+  $("upload").addEventListener("click", async () => {
+    const file = $("audio").files[0];
+    if (!file || !$("rights").checked) return;
+    $("upload").disabled = true; setText("uploadStatus", "Uploading to private R2 storage...");
+    try {
+      const result = await request("/api/assets?kind=audio", {
+        method: "POST", headers: { "Content-Type": file.type || "application/octet-stream",
+          "X-Filename": file.name, "X-Rights-Confirmed": "true" }, body: file
+      });
+      setText("uploadStatus", "Uploaded: " + result.filename);
+      await refresh();
+    } catch (error) { setText("uploadStatus", error.message); }
+    finally { connected(Boolean(state.api && state.token)); }
+  });
+  $("run").addEventListener("click", async () => {
+    if (state.busy) return;
+    state.busy = true; connected(true); $("run").disabled = true;
+    setText("runStatus", "Requesting one cloud production run...");
+    try {
+      const result = await request("/api/trigger", { method: "POST" });
+      setText("runStatus", result.ok ? "Queued cloud run " + result.run_id : "Not queued: " + result.reason);
+      await refresh();
+    } catch (error) { setText("runStatus", error.message); }
+    finally { state.busy = false; connected(Boolean(state.api && state.token)); }
+  });
+  load();
+  connected(Boolean(state.api && state.token));
+  if (state.api && state.token) refresh();
+})();
+</script>
+</body>
+</html>
