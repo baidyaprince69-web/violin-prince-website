@@ -17,12 +17,13 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
       DASHBOARD_TOKEN: ${{ secrets.DASHBOARD_TOKEN }}
       AUTOPILOT_JOB_TOKEN: ${{ secrets.AUTOPILOT_JOB_TOKEN }}
+      GITHUB_DISPATCH_TOKEN: ${{ secrets.GITHUB_DISPATCH_TOKEN }}
     steps:
       - name: Check required secrets
         shell: bash
         run: |
           missing=0
-          for name in CF_DEPLOY_TOKEN CF_ACCOUNT_ID DASHBOARD_TOKEN AUTOPILOT_JOB_TOKEN; do
+          for name in CF_DEPLOY_TOKEN CF_ACCOUNT_ID DASHBOARD_TOKEN AUTOPILOT_JOB_TOKEN GITHUB_DISPATCH_TOKEN; do
             if [ -z "${!name}" ]; then
               echo "::error::Missing GitHub Actions secret: $name"
               missing=1
@@ -66,6 +67,7 @@ jobs:
         run: |
           printf '%s' "$DASHBOARD_TOKEN" | npx --yes wrangler@4 secret put DASHBOARD_TOKEN --config=autopilot/cloudflare/wrangler.generated.toml
           printf '%s' "$AUTOPILOT_JOB_TOKEN" | npx --yes wrangler@4 secret put JOB_TOKEN --config=autopilot/cloudflare/wrangler.generated.toml
+          printf '%s' "$GITHUB_DISPATCH_TOKEN" | npx --yes wrangler@4 secret put GITHUB_DISPATCH_TOKEN --config=autopilot/cloudflare/wrangler.generated.toml
           openssl rand -hex 32 | npx --yes wrangler@4 secret put MEDIA_SIGNING_SECRET --config=autopilot/cloudflare/wrangler.generated.toml
 
       - name: Verify Worker health
