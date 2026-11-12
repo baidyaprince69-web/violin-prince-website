@@ -5,12 +5,12 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "../..");
 const accountId = process.env.CF_ACCOUNT_ID || process.env.CLOUDFLARE_ACCOUNT_ID;
-const token = process.env.CF_API_TOKEN || process.env.CLOUDFLARE_API_TOKEN;
+const token = process.env.CF_DEPLOY_TOKEN || process.env.CLOUDFLARE_API_TOKEN;
 const databaseName = "violin-prince-autopilot";
 const bucketName = "violin-prince-media";
 
 if (!accountId || !token) {
-  throw new Error("Set CF_ACCOUNT_ID and CF_API_TOKEN in the GitHub Actions environment.");
+  throw new Error("Set CF_ACCOUNT_ID and CF_DEPLOY_TOKEN in the GitHub Actions environment.");
 }
 
 async function cloudflare(path, method = "GET", body) {
