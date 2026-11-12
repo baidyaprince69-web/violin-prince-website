@@ -188,7 +188,7 @@ def google_news_item_record(item, region, label):
     if publisher_name and raw_title.casefold().endswith((" - " + publisher_name).casefold()):
         raw_title = raw_title[:-(len(publisher_name) + 3)].strip()
     description = re.sub(r"<[^>]+>", " ", item.findtext("description") or "")
-    description = re.sub(r"\\s+", " ", description).strip()
+    description = " ".join(description.split())
     return {
         "title": raw_title[:220],
         # Google News descriptions are often headline clusters, not article text.
