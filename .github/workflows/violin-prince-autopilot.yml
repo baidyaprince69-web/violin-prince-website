@@ -67,11 +67,19 @@ jobs:
           cache: pip
           cache-dependency-path: autopilot/engine/requirements.txt
 
+      - name: Cache Kokoro model weights
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: kokoro-82m-v1-cache
+
       - name: Install rendering tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg fonts-dejavu-core
+          sudo apt-get install -y ffmpeg fonts-dejavu-core espeak-ng
           python -m pip install --upgrade pip
+          # CPU-only PyTorch keeps inference on the hosted runner without GPU billing.
+          pip install --index-url https://download.pytorch.org/whl/cpu torch
           pip install -r autopilot/engine/requirements.txt
 
       - name: Run research, creative planning and cloud video assembly
