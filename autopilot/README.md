@@ -143,7 +143,7 @@ The token is held in browser session storage only. The audio stays in the privat
 
 ## Quota, safety and failure policy
 
-- One generated video per UTC day maximum.
+- One production attempt per UTC day maximum. The daily lock is consumed even if generation or publishing fails, preventing repeated quota use that day; the next attempt is on the next day's cycle.
 - Three generated stills per video.
 - No paid API fallback.
 - If Workers AI returns quota/rate-limit errors, stop generation and record the failure.
