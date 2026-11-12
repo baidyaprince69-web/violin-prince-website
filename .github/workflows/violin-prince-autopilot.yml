@@ -1,0 +1,79 @@
+name: Violin Prince Autopilot
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Run identifier from the Cloudflare control plane
+        required: true
+        type: string
+      mode:
+        description: scheduled or manual
+        required: false
+        default: scheduled
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: violin-prince-autopilot-production
+  cancel-in-progress: false
+
+jobs:
+  produce:
+    # This repository is public. Standard GitHub-hosted runners are free for public repositories.
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      RUN_ID: ${{ inputs.run_id }}
+      RUN_MODE: ${{ inputs.mode }}
+      AUTOPILOT_API_URL: ${{ secrets.AUTOPILOT_API_URL }}
+      AUTOPILOT_JOB_TOKEN: ${{ secrets.AUTOPILOT_JOB_TOKEN }}
+      CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      PUBLISH_ENABLED: "false"
+    steps:
+      - name: Check required cloud secrets
+        shell: bash
+        run: |
+          missing=0
+          for name in AUTOPILOT_API_URL AUTOPILOT_JOB_TOKEN CF_ACCOUNT_ID CF_API_TOKEN; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing required repository secret: $name"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then exit 1; fi
+
+      - name: Check out the project
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: autopilot/engine/requirements.txt
+
+      - name: Install rendering tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
+          python -m pip install --upgrade pip
+          pip install -r autopilot/engine/requirements.txt
+
+      - name: Run research, creative planning and cloud video assembly
+        run: python autopilot/engine/run.py
+
+      - name: Preserve diagnostic metadata on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: violin-prince-run-${{ inputs.run_id }}
+          path: |
+            work/output/
+            work/research.json
+            work/creative_plan.json
+          if-no-files-found: ignore
+          retention-days: 3
