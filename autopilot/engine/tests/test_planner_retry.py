@@ -112,7 +112,7 @@ class PlannerNarrationRetryTests(unittest.TestCase):
                     result = pipeline.make_plan([item], recent=[])
                 self.assertEqual(mock_ai.call_count, 2)
                 self.assertEqual(pipeline.narration_validation_error(result["narration_script"]), "")
-                self.assertEqual(len(pipeline.re.findall(r"\\b[\\w’'-]+\\b", result["narration_script"])), 32)
+                self.assertEqual(len(pipeline.re.findall(r"\b[\w’'-]+\b", result["narration_script"])), 32)
                 self.assertEqual(result["sources"], [item["url"]])
                 self.assertEqual(result["scenes"], original_plan["scenes"])
             finally:
