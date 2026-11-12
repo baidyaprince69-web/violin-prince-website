@@ -851,13 +851,40 @@ def _write_review_text(plan, target):
     Path(target).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def load_reusable_research():
+    """Load a preserved research.json from a previous failed Prepare artifact, if supplied."""
+    saved = WORK / "reuse" / "research.json"
+    if not saved.is_file():
+        return None
+    try:
+        items = json.loads(saved.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise PipelineError("The supplied previous-run research file is unreadable.") from exc
+    if not isinstance(items, list) or not items:
+        raise PipelineError("The supplied previous-run research file contains no headlines.")
+    items = [
+        item for item in items
+        if isinstance(item, dict) and item.get("title") and item.get("url")
+    ]
+    if not items:
+        raise PipelineError("The supplied previous-run research file has no usable titled article links.")
+    WORK.mkdir(exist_ok=True)
+    (WORK / "research.json").write_text(
+        json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    log(f"Reusing {len(items)} preserved research sources from an earlier run; research feeds will not be called again.")
+    return items
+
+
 def prepare_stage():
     """Create research, story, narration and soundtrack once; no images or MP4 yet."""
     claim_run()
     asset, audio = get_audio()
     report("running", "Preparing research, story, narration and original soundtrack.")
-    items = research()
-    log("Research sources collected: " + str(len(items)))
+    items = load_reusable_research()
+    if items is None:
+        items = research()
+        log("Research sources collected: " + str(len(items)))
     plan = make_plan(items, recent_topics())
     topic, title = str(plan.get("topic", "")), str(plan.get("title", "Violin Prince Short"))
     from voiceover import synthesize_voiceover
