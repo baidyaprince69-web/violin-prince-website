@@ -44,9 +44,12 @@ main{max-width:1080px;margin:auto;padding:28px 18px 60px}.top{display:flex;justi
       <div id="uploadStatus" class="muted" style="font-size:12px;margin-top:10px">No upload started.</div>
     </section>
     <section class="card">
-      <div class="row"><h2>Production control</h2><span class="badge">One video per day</span></div>
-      <p class="muted" style="font-size:12px">The cloud workflow is scheduled daily. A one-off test can be started from the repository's GitHub Actions page.</p>
-      <a class="filebtn" id="runWorkflow" href="https://github.com/baidyaprince69-web/violin-prince-website/actions/workflows/violin-prince-autopilot.yml" target="_blank" rel="noopener noreferrer">Open manual test workflow ↗</a>
+      <div class="row"><h2>Production control</h2><span class="badge">One attempt per UTC day</span></div>
+      <p class="muted" style="font-size:12px">Start one cloud draft test from this dashboard. Manual tests never publish to social platforms. The daily scheduler remains separately controlled in Cloudflare.</p>
+      <div class="row" style="justify-content:flex-start;flex-wrap:wrap">
+        <button id="triggerTest" disabled>Start one draft test</button>
+        <a class="filebtn" id="runWorkflow" href="https://github.com/baidyaprince69-web/violin-prince-website/actions/workflows/violin-prince-autopilot.yml" target="_blank" rel="noopener noreferrer">Open GitHub Actions ↗</a>
+      </div>
       <div class="bar"><span id="progress"></span></div>
       <div id="runStatus" class="muted" style="font-size:12px;margin-top:10px">Connect the Cloudflare Worker to view status.</div>
     </section>
@@ -106,6 +109,7 @@ main{max-width:1080px;margin:auto;padding:28px 18px 60px}.top{display:flex;justi
     $("connection").textContent = value ? "Connected" : "Not connected";
     $("connection").className = "pill " + (value ? "ok" : "");
     $("upload").disabled = !value || !$("audio").files.length || !$("rights").checked;
+    $("triggerTest").disabled = !value;
   }
   async function refresh() {
     try {
@@ -252,6 +256,26 @@ main{max-width:1080px;margin:auto;padding:28px 18px 60px}.top{display:flex;justi
   $("refresh").addEventListener("click", refresh);
   $("audio").addEventListener("change", () => connected(Boolean(state.api && state.token)));
   $("rights").addEventListener("change", () => connected(Boolean(state.api && state.token)));
+  $("triggerTest").addEventListener("click", async () => {
+    $("triggerTest").disabled = true;
+    setText("runStatus", "Requesting one draft-only cloud production run...");
+    try {
+      const result = await request("/api/trigger", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}"
+      });
+      setText("runStatus", result.run_id
+        ? "Draft run queued: " + result.run_id
+        : "Draft run response: " + (result.reason || "request accepted"));
+      await refresh();
+    } catch (error) {
+      setText("runStatus", error.message);
+    } finally {
+      $("triggerTest").disabled = !state.api || !state.token;
+    }
+  });
+
   $("upload").addEventListener("click", async () => {
     const file = $("audio").files[0];
     if (!file || !$("rights").checked) return;
