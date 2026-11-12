@@ -27,8 +27,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Compile Python engine
-        run: python -m py_compile autopilot/engine/run.py
+      - name: Compile all Python engine modules
+        run: python -m py_compile autopilot/engine/*.py
 
       - name: Validate D1 SQL schema
         run: |
@@ -42,6 +42,19 @@ jobs:
 
       - name: Check Cloudflare Worker JavaScript syntax
         run: node --check --input-type=module < autopilot/cloudflare/src/worker.js
+
+      - name: Check dashboard JavaScript syntax
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+          html = Path("autopilot/index.html").read_text()
+          match = re.search(r"<script>(.*?)</script>", html, re.S)
+          if not match:
+              raise SystemExit("Dashboard inline script was not found.")
+          Path("/tmp/dashboard.js").write_text(match.group(1))
+          PY
+          node --check /tmp/dashboard.js
 
       - name: Check production workflow file exists
         run: test -s .github/workflows/violin-prince-autopilot.yml
