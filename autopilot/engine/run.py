@@ -311,6 +311,70 @@ def recent_topics():
     return [str(item)[:180] for item in topics if str(item).strip()][:25]
 
 
+def parse_planner_result(result):
+    """Parse the Workers AI response into one complete creative-plan object."""
+    candidate = result.get("response", "")
+    if isinstance(candidate, dict):
+        plan = candidate
+        raw = json.dumps(candidate, ensure_ascii=False)
+    else:
+        if isinstance(candidate, list):
+            raw = "\n".join(
+                str(part.get("text", "")) for part in candidate
+                if isinstance(part, dict) and part.get("type") == "text"
+            ).strip()
+        else:
+            raw = str(candidate or "").strip()
+
+        if not raw and isinstance(result.get("choices"), list) and result["choices"]:
+            message = result["choices"][0].get("message", {})
+            content = message.get("content", "") if isinstance(message, dict) else ""
+            if isinstance(content, list):
+                raw = "\n".join(
+                    str(part.get("text", "")) for part in content
+                    if isinstance(part, dict) and part.get("type") == "text"
+                ).strip()
+            else:
+                raw = str(content or "").strip()
+
+        cleaned = raw.strip()
+        fence = chr(96) * 3
+        if cleaned.startswith(fence):
+            cleaned = cleaned.split("\n", 1)[-1]
+            if cleaned.rstrip().endswith(fence):
+                cleaned = cleaned.rstrip()[:-3].strip()
+        start = cleaned.find("{")
+        if start < 0:
+            preview = re.sub(r"\s+", " ", raw[:240])
+            raise PipelineError("Planner did not return JSON. Response preview: " + (preview or "[empty response]"))
+        try:
+            plan, _ = json.JSONDecoder().raw_decode(cleaned[start:])
+        except json.JSONDecodeError as exc:
+            preview = re.sub(r"\s+", " ", raw[:240])
+            raise PipelineError("Planner JSON was invalid: " + str(exc) + ". Response preview: " + preview) from exc
+
+    if not isinstance(plan, dict):
+        raise PipelineError("Planner response JSON must be an object.")
+    return plan
+
+
+def narration_validation_error(script):
+    """Return a precise narration constraint failure, or an empty string."""
+    text_value = str(script or "").strip()
+    words = re.findall(r"\b[\w’'-]+\b", text_value)
+    if not 32 <= len(words) <= 40:
+        return f"it has {len(words)} spoken words; the required range is 32–40"
+    sentences = [part.strip() for part in re.split(r"[.!?]+", text_value) if part.strip()]
+    if len(sentences) != 4:
+        return f"it has {len(sentences)} sentences; exactly 4 are required"
+    hook_words = sentences[0].split()
+    if not 5 <= len(hook_words) <= 8:
+        return f"the opening hook has {len(hook_words)} words; 5–8 are required"
+    if any(len(sentence.split()) > 12 for sentence in sentences):
+        return "one or more sentences exceed the 12-word subtitle limit"
+    return ""
+
+
 def make_plan(items, recent=None):
     system = (
         "You are the editorial director of Violin Prince, a violin creator. Choose one timely, "
@@ -350,45 +414,54 @@ def make_plan(items, recent=None):
         "temperature": 0.35
     })
 
-    candidate = result.get("response", "")
-    if isinstance(candidate, dict):
-        plan = candidate
-        raw = json.dumps(candidate, ensure_ascii=False)
-    else:
-        if isinstance(candidate, list):
-            raw = "\n".join(
-                str(part.get("text", "")) for part in candidate
-                if isinstance(part, dict) and part.get("type") == "text"
-            ).strip()
-        else:
-            raw = str(candidate or "").strip()
-
-        # Also accept the standard chat-completions shape in case the API
-        # response is wrapped differently by a compatible endpoint.
-        if not raw and isinstance(result.get("choices"), list) and result["choices"]:
-            message = result["choices"][0].get("message", {})
-            content = message.get("content", "") if isinstance(message, dict) else ""
-            if isinstance(content, list):
-                raw = "\n".join(
-                    str(part.get("text", "")) for part in content
-                    if isinstance(part, dict) and part.get("type") == "text"
-                ).strip()
-            else:
-                raw = str(content or "").strip()
-
-        # Remove an occasional Markdown code fence, then parse the first object.
-        cleaned = re.sub(r"^\s*```(?:json)?\s*|\s*```\s*$", "", raw, flags=re.I)
-        start = cleaned.find("{")
-        if start < 0:
-            preview = re.sub(r"\s+", " ", raw[:240])
-            raise PipelineError("Planner did not return JSON. Response preview: " + (preview or "[empty response]"))
-        try:
-            plan, _ = json.JSONDecoder().raw_decode(cleaned[start:])
-        except json.JSONDecodeError as exc:
-            preview = re.sub(r"\s+", " ", raw[:240])
-            raise PipelineError("Planner JSON was invalid: " + str(exc) + ". Response preview: " + preview) from exc
+    plan = parse_planner_result(result)
     if plan.get("skip"):
         raise PipelineError("Editorial agent skipped: " + str(plan.get("reason", ""))[:200])
+
+    # Models sometimes miss a strict word-count constraint even when the story is good.
+    # Correct the narration once in-place using the same selected topic and evidence,
+    # rather than failing Prepare and forcing another research run.
+    narration_script = str(plan.get("narration_script", "")).strip()
+    narration_issue = narration_validation_error(narration_script)
+    if narration_issue:
+        log("Planner narration needs one automatic correction: " + narration_issue + ". Reusing the same story and sources.")
+        repair = ai(TEXT_MODEL, {
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a precise JSON editor. Return exactly one complete valid JSON object and no Markdown. "
+                        "Preserve topic, title, hook, description, hashtags, narrative_style, scenes, image prompts, captions and sources. "
+                        "Change only narration_script. It must contain 32–40 spoken words total, exactly four sentences, "
+                        "a 5–8-word first-sentence curiosity hook, and no sentence longer than 12 words. "
+                        "Keep every factual statement supported by the same supplied research. Do not add facts."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        "The existing narration failed validation because " + narration_issue + ". "
+                        "Rewrite only narration_script to satisfy every rule. Keep the meaning and story payoff. "
+                        "Return the complete corrected JSON object:\n" +
+                        json.dumps(plan, ensure_ascii=False)
+                    )
+                }
+            ],
+            "chat_template_kwargs": {"enable_thinking": False, "clear_thinking": True},
+            "max_completion_tokens": 1800,
+            "temperature": 0.1
+        })
+        plan = parse_planner_result(repair)
+        if plan.get("skip"):
+            raise PipelineError("Narration correction unexpectedly skipped the selected story.")
+        corrected_issue = narration_validation_error(plan.get("narration_script", ""))
+        if corrected_issue:
+            raise PipelineError(
+                "Planner narration still failed after one automatic correction: " + corrected_issue +
+                ". No new research or image generation was started."
+            )
+        log("Planner narration corrected successfully without repeating research.")
+
     scenes = plan.get("scenes")
     if not isinstance(scenes, list) or len(scenes) != 3:
         raise PipelineError("Planner must provide exactly three scenes.")
