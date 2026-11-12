@@ -73,7 +73,7 @@ def youtube_upload(video_path: Path, plan: dict):
             "defaultLanguage": "en",
         },
         "status": {
-            "privacyStatus": os.environ.get("YOUTUBE_PRIVACY_STATUS", "public"),
+            "privacyStatus": os.environ.get("YOUTUBE_PRIVACY_STATUS", "private"),
             "selfDeclaredMadeForKids": False,
             "containsSyntheticMedia": True,
         },
