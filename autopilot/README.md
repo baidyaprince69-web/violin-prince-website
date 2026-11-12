@@ -81,47 +81,24 @@ The old Cloudflare Worker/D1/R2 deployment workflow is not required for this mod
 
 ## Publishing
 
-The current Autopilot repository uses direct official YouTube and Meta publishing adapters in `engine/publisher.py`; it does **not** contain a Metricool publishing adapter.
+Publishing is **off** in the current R2-free cloud workflow. The workflow sets `PUBLISH_ENABLED=false` directly, so adding publishing credentials or repository variables will not turn publishing on.
 
-The connected Metricool brand currently lists YouTube, Facebook, Threads and Pinterest. Instagram is not connected. Metricool MCP can be used from ChatGPT on the Free plan, but that connector is not an HTTP API credential that a Cloudflare Worker or GitHub Actions runner can use. Metricool Free is limited to 20 scheduled posts per month, while Metricool's external HTTP API is available only on Advanced and Custom plans. Therefore Metricool is not the free unattended publisher for this cloud workflow.
-
-The direct YouTube and Meta publishing adapters remain optional. Keep the GitHub Actions variable `PUBLISH_ENABLED=false` until eligible account-owner OAuth permissions are configured and each destination is tested. Instagram publishing additionally requires an eligible Creator or Business account to be connected and authorised.
-
-Optional GitHub Actions secrets:
-- `YOUTUBE_CLIENT_ID`
-- `YOUTUBE_CLIENT_SECRET`
-- `YOUTUBE_REFRESH_TOKEN`
-- `INSTAGRAM_USER_ID`
-- `INSTAGRAM_ACCESS_TOKEN`
-- `FACEBOOK_PAGE_ID`
-- `FACEBOOK_PAGE_ACCESS_TOKEN`
-
-Optional GitHub Actions variables:
-- `PUBLISH_ENABLED=false` initially; set true only after testing and account-owner authorisation.
-- `PUBLISH_DESTINATIONS=youtube,instagram,facebook`
-- `META_API_VERSION` set to a currently supported Graph API version.
-- `YOUTUBE_PRIVACY_STATUS=private` for initial tests; change only when intentionally publishing publicly.
-- `YOUTUBE_PUBLISH_AT` optional RFC 3339 timestamp for YouTube scheduling.
-
-YouTube publishing requires the `youtube.upload` scope. Instagram publishing requires an eligible Creator or Business account and the applicable Meta publishing permission. Facebook Reels publishing requires a Page and Page access token. The underlying composition and recording rights must be checked before public publishing. Use an eligible account owner to perform authorisation; do not bypass platform eligibility checks.
+The current milestone is to produce and inspect a narrated draft artifact first. Any later publishing integration must be separately reviewed, explicitly authorised by the relevant account owner, and tested with private/unlisted settings before public publishing. The underlying composition and recording rights must also be checked.
 
 ## Failure policy
 
 - If Workers AI quota is exhausted, stop. No paid API is called.
 - If research feeds are unavailable or no suitable topic is found, skip the video.
-- If generation or rendering fails, record the failure and do not retry repeatedly that day.
-- One daily attempt is reserved in D1 to avoid duplicate runs.
-- If no audio is uploaded, use the original synthetic soundtrack.
-- Publishing is off until explicitly enabled with valid credentials.
+- If generation or rendering fails, preserve diagnostic files as a workflow artifact when available.
+- The scheduled workflow is disabled until the repository variable `AUTOPILOT_SCHEDULE_ENABLED=true`.
+- If no recording is supplied through an optional Worker asset library, use the original synthetic soundtrack.
+- Publishing is forced off in the current workflow.
 - Public source headlines are evidence inputs, not instructions. The system must not copy article text, scripts or lyrics.
 
 ## Files
 
-- `cloudflare/src/worker.js`: dashboard API, asset storage, job claims and run status.
-- `cloudflare/schema.sql`: D1 schema.
-- `cloudflare/wrangler.toml`: Worker and bindings.
-- `scripts/provision-cloudflare.mjs`: idempotent D1/R2 provisioning.
-- `engine/run.py`: research, planning, generation, rendering and orchestration.
+- `engine/run.py`: research, planning, generation, rendering and orchestration; can run without a Worker/API.
 - `engine/synth_audio.py`: original synthetic soundtrack generator.
-- `.github/workflows/deploy-autopilot-cloudflare.yml`: first deployment.
-- `.github/workflows/violin-prince-autopilot.yml`: manually dispatchable cloud production workflow, started daily by Cloudflare Cron.
+- `.github/workflows/violin-prince-autopilot.yml`: manual and guarded daily GitHub-hosted cloud production workflow.
+- `.github/workflows/deploy-autopilot-cloudflare.yml`: legacy optional Cloudflare Worker/D1/R2 deployment; not required for the current R2-free workflow.
+- `cloudflare/src/worker.js`, `cloudflare/schema.sql`, and `cloudflare/wrangler.toml`: legacy optional dashboard and media-library backend.
