@@ -275,7 +275,7 @@ def make_plan(items, recent=None):
             {"role": "user", "content":
              "Create a 24-second story from these current research headlines. Avoid repeating prior topics. " +
              "Previously published topics to avoid: " + json.dumps(recent or [], ensure_ascii=False) +
-             "\\nResearch evidence: " + json.dumps(compact, ensure_ascii=False)}
+             "\nResearch evidence: " + json.dumps(compact, ensure_ascii=False)}
         ],
         # Gemma 4 supports this parameter; disabling reasoning keeps the response
         # focused on the machine-readable plan expected by the renderer.
@@ -290,7 +290,7 @@ def make_plan(items, recent=None):
         raw = json.dumps(candidate, ensure_ascii=False)
     else:
         if isinstance(candidate, list):
-            raw = "\\n".join(
+            raw = "\n".join(
                 str(part.get("text", "")) for part in candidate
                 if isinstance(part, dict) and part.get("type") == "text"
             ).strip()
@@ -303,7 +303,7 @@ def make_plan(items, recent=None):
             message = result["choices"][0].get("message", {})
             content = message.get("content", "") if isinstance(message, dict) else ""
             if isinstance(content, list):
-                raw = "\\n".join(
+                raw = "\n".join(
                     str(part.get("text", "")) for part in content
                     if isinstance(part, dict) and part.get("type") == "text"
                 ).strip()
@@ -311,15 +311,15 @@ def make_plan(items, recent=None):
                 raw = str(content or "").strip()
 
         # Remove an occasional Markdown code fence, then parse the first object.
-        cleaned = re.sub(r"^\\s*```(?:json)?\\s*|\\s*```\\s*$", "", raw, flags=re.I)
+        cleaned = re.sub(r"^\s*```(?:json)?\s*|\s*```\s*$", "", raw, flags=re.I)
         start = cleaned.find("{")
         if start < 0:
-            preview = re.sub(r"\\s+", " ", raw[:240])
+            preview = re.sub(r"\s+", " ", raw[:240])
             raise PipelineError("Planner did not return JSON. Response preview: " + (preview or "[empty response]"))
         try:
             plan, _ = json.JSONDecoder().raw_decode(cleaned[start:])
         except json.JSONDecodeError as exc:
-            preview = re.sub(r"\\s+", " ", raw[:240])
+            preview = re.sub(r"\s+", " ", raw[:240])
             raise PipelineError("Planner JSON was invalid: " + str(exc) + ". Response preview: " + preview) from exc
     if plan.get("skip"):
         raise PipelineError("Editorial agent skipped: " + str(plan.get("reason", ""))[:200])
