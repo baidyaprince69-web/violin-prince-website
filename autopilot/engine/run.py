@@ -146,8 +146,14 @@ def enrich_source_evidence(items):
             excerpt = " ".join(parser.paragraphs[:12])[:1500]
             final_url = response.url
             if final_url.startswith(("http://", "https://")):
-                item["url"] = final_url
-                item["publisher_domain"] = urlparse(final_url).netloc.lower().removeprefix("www.")
+                final_host = urlparse(final_url).netloc.lower().removeprefix("www.")
+                # Google News can return its own HTML page with HTTP 200 instead
+                # of redirecting to the publisher. Preserve the RSS <source> domain.
+                is_google_host = (final_host == "google.com" or final_host.endswith(".google.com"))
+                if final_host and not is_google_host:
+                    item["url"] = final_url
+                    item["publisher_domain"] = final_host
+                    item["publisher_url"] = final_url
             if excerpt:
                 item["evidence_text"] = excerpt
         except Exception as exc:
@@ -172,6 +178,55 @@ def enrich_source_evidence(items):
     return enriched + [item for item in items if item.get("url") not in enriched_urls]
 
 
+def google_news_item_record(item, region, label):
+    """Keep the publisher identity exposed by Google News RSS <source> metadata."""
+    source_node = item.find("source")
+    publisher_name = (source_node.text or "").strip() if source_node is not None else ""
+    publisher_home = (source_node.get("url") or "").strip() if source_node is not None else ""
+    publisher_domain = urlparse(publisher_home).netloc.lower().removeprefix("www.")
+    raw_title = (item.findtext("title") or "").strip()
+    if publisher_name and raw_title.casefold().endswith((" - " + publisher_name).casefold()):
+        raw_title = raw_title[:-(len(publisher_name) + 3)].strip()
+    description = re.sub(r"<[^>]+>", " ", item.findtext("description") or "")
+    description = re.sub(r"\\s+", " ", description).strip()
+    return {
+        "title": raw_title[:220],
+        # Google News descriptions are often headline clusters, not article text.
+        "summary": description[:500],
+        "url": (item.findtext("link") or "").strip(),
+        "date": (item.findtext("pubDate") or "")[:90],
+        "source": publisher_name or ("Google News " + region + " - " + label),
+        "publisher_name": publisher_name,
+        "publisher_home": publisher_home,
+        "publisher_domain": publisher_domain,
+        "source_feed": "Google News " + region + " - " + label,
+    }
+
+
+def planner_research_items(items):
+    """Prepare titled, traceable publisher leads for the editorial model."""
+    fields = (
+        "title", "summary", "evidence_text", "publisher_name",
+        "publisher_home", "publisher_domain", "url", "date", "source"
+    )
+    selected = []
+    for item in items[:40]:
+        if not item.get("title") or not item.get("url"):
+            continue
+        domain = str(item.get("publisher_domain") or "").lower().removeprefix("www.")
+        if not domain or domain == "news.google.com":
+            continue
+        selected.append({key: item.get(key, "") for key in fields})
+    # A few feeds may expose headlines and links without publisher metadata.
+    # Keep those only as a last-resort topic lead; the prompt restricts factual claims.
+    if not selected:
+        selected = [
+            {key: item.get(key, "") for key in fields}
+            for item in items[:40] if item.get("title") and item.get("url")
+        ]
+    return selected
+
+
 def research():
     items = []
     try:
@@ -182,9 +237,15 @@ def research():
         r.raise_for_status()
         for a in r.json().get("articles", []):
             if a.get("title") and a.get("url"):
-                items.append({"title": str(a["title"])[:220], "summary": "",
-                              "url": str(a["url"]), "date": str(a.get("seendate", "")),
-                              "source": str(a.get("domain", "GDELT"))})
+                article_url = str(a["url"])
+                article_domain = str(a.get("domain") or urlparse(article_url).netloc).lower().removeprefix("www.")
+                items.append({
+                    "title": str(a["title"])[:220], "summary": "",
+                    "url": article_url, "date": str(a.get("seendate", "")),
+                    "source": article_domain or "GDELT",
+                    "publisher_name": article_domain,
+                    "publisher_domain": article_domain,
+                })
     except Exception as exc:
         log("GDELT unavailable: " + str(exc)[:160])
 
@@ -209,10 +270,7 @@ def research():
                 for it in root.findall(".//item")[:8]:
                     title, link = (it.findtext("title") or "").strip(), (it.findtext("link") or "").strip()
                     if title and link:
-                        desc = re.sub(r"<[^>]+>", " ", it.findtext("description") or "")
-                        items.append({"title": title[:220], "summary": re.sub(r"\s+", " ", desc)[:500],
-                                      "url": link, "date": (it.findtext("pubDate") or "")[:90],
-                                      "source": "Google News " + region + " - " + label})
+                        items.append(google_news_item_record(it, region, label))
             except Exception as exc:
                 log(region + " " + label + " RSS unavailable: " + str(exc)[:140])
 
@@ -261,7 +319,10 @@ def make_plan(items, recent=None):
         "global interests. Reject tragedies, graphic events, violence, disasters and crimes. Do not invent "
         "facts, dates, statistics or quotations. Use only factual claims supported by the supplied research; "
         "For documentary topics, cite at least two exact article URLs from different publisher_domain values in the evidence. "
-        "Use supplied article excerpts as evidence. Avoid Google News URLs when original publisher URLs are available. Do not use song lyrics, copied scripts, "
+        "Use supplied article excerpts as evidence. Use publisher_domain and publisher_name as publisher identity, not news.google.com. "
+        "A Google News headline is only a topic lead, not an article excerpt: when no evidence_text is supplied, "
+        "limit factual narration to what the headline explicitly establishes and do not invent additional details. "
+        "Avoid Google News URLs when original publisher URLs are available. Do not use song lyrics, copied scripts, "
         "named copyrighted characters, logos or identifiable living people in images. Return JSON only with "
         "topic,title,hook,description,hashtags,narration_script,narrative_style,scenes,sources. The narration_script "
         "must be 32 to 40 spoken words across exactly four short sentences. The first spoken sentence must be a 5-to-8-word curiosity hook that the video actually resolves. "
@@ -271,7 +332,9 @@ def make_plan(items, recent=None):
         "Exactly 3 scenes. Each scene needs a caption of 9 words maximum and an original symbolic cinematic "
         "image_prompt in English. The three scenes must form hook, development, and reveal/payoff, with a consistent main subject. If no suitable topic, return skip and reason."
     )
-    compact = [{k: x.get(k, "") for k in ("title", "summary", "evidence_text", "publisher_domain", "url", "date", "source")} for x in items[:40] if x.get("publisher_domain") and x.get("publisher_domain") != "news.google.com"]
+    compact = planner_research_items(items)
+    if not compact:
+        raise PipelineError("Research feeds returned no planner-ready headlines with traceable links.")
     result = ai(TEXT_MODEL, {
         "messages": [
             {"role": "system", "content": system + " Do not show reasoning. Return exactly one JSON object and no preamble or Markdown."},
