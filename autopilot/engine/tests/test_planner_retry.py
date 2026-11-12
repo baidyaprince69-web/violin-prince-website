@@ -123,7 +123,7 @@ class PlannerNarrationRetryTests(unittest.TestCase):
         self.assertTrue(padded)
         self.assertEqual(pipeline.narration_validation_error(padded), "")
         self.assertIn("A scientist sent it into orbit", padded)
-        self.assertEqual(len(padded.split(". ")), 4)
+        self.assertEqual(len(pipeline.re.split(r"(?<=[.!?])\\s+", padded)), 4)
 
 
 if __name__ == "__main__":
