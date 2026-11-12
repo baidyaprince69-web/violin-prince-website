@@ -83,6 +83,80 @@ async function cleanupOldRenders(env) {
   }
 }
 
+async function dispatchWorkflow(env, mode = "scheduled") {
+  if (env.AUTOPILOT_ENABLED !== "true") {
+    await event(env, "Autopilot is disabled. No workflow was dispatched.", "warning");
+    return { ok: false, reason: "disabled" };
+  }
+  if (!env.GITHUB_DISPATCH_TOKEN || !env.GITHUB_OWNER || !env.GITHUB_REPO || !env.GITHUB_WORKFLOW) {
+    await event(env, "GitHub Actions dispatch is not configured.", "error");
+    return { ok: false, reason: "not_configured" };
+  }
+
+  const day = new Date().toISOString().slice(0, 10);
+  const count = await env.DB.prepare(
+    "SELECT COUNT(*) AS n FROM video_runs WHERE day_utc = ?"
+  ).bind(day).first();
+  if ((count && count.n ? count.n : 0) >= 1) {
+    await event(env, "Daily video limit already reached; skipping this cycle.", "warning");
+    return { ok: false, reason: "daily_limit" };
+  }
+
+  const active = await env.DB.prepare(
+    "SELECT id FROM runs WHERE status IN ('queued','running') AND created_at >= ? LIMIT 1"
+  ).bind(new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()).first();
+  if (active) {
+    await event(env, "A recent run is still active; duplicate dispatch blocked.", "warning", active.id);
+    return { ok: false, reason: "already_running" };
+  }
+
+  const runId = crypto.randomUUID();
+  await env.DB.prepare(
+    "INSERT OR IGNORE INTO daily_dispatches (day_utc,run_id,created_at) VALUES (?,?,?)"
+  ).bind(day, runId, isoNow()).run();
+  const dailyLock = await env.DB.prepare(
+    "SELECT run_id FROM daily_dispatches WHERE day_utc=?"
+  ).bind(day).first();
+  if (!dailyLock || dailyLock.run_id !== runId) {
+    await event(env, "Daily production attempt already reserved; skipping this cycle.", "warning");
+    return { ok: false, reason: "daily_attempt_limit" };
+  }
+
+  await env.DB.prepare(
+    "INSERT INTO runs (id,status,mode,created_at,updated_at) VALUES (?,?,?,?,?)"
+  ).bind(runId, "queued", mode, isoNow(), isoNow()).run();
+
+  const response = await fetch(
+    "https://api.github.com/repos/" + env.GITHUB_OWNER + "/" + env.GITHUB_REPO +
+      "/actions/workflows/" + env.GITHUB_WORKFLOW + "/dispatches",
+    {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + env.GITHUB_DISPATCH_TOKEN,
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "Content-Type": "application/json",
+        "User-Agent": "violin-prince-autopilot"
+      },
+      body: JSON.stringify({
+        ref: env.GITHUB_REF || "main",
+        inputs: { run_id: runId, mode: mode }
+      })
+    }
+  );
+
+  if (!response.ok) {
+    const detail = (await response.text()).slice(0, 600);
+    await env.DB.prepare("UPDATE runs SET status=?,message=?,updated_at=? WHERE id=?")
+      .bind("failed", "GitHub dispatch failed: " + response.status, isoNow(), runId).run();
+    await event(env, "GitHub dispatch failed: " + response.status + " " + detail, "error", runId);
+    return { ok: false, reason: "github_dispatch_failed" };
+  }
+
+  await event(env, "GitHub-hosted cloud workflow dispatched.", "success", runId);
+  return { ok: true, run_id: runId };
+}
+
 async function handleApi(request, env) {
   const url = new URL(request.url);
   const path = url.pathname;
@@ -166,11 +240,8 @@ async function handleApi(request, env) {
   }
 
   if (path === "/api/trigger" && request.method === "POST") {
-    return json({
-      ok: false,
-      reason: "manual_workflow_only",
-      message: "Use GitHub Actions to run a one-off test. The daily production workflow is scheduled automatically."
-    }, 409);
+    const result = await dispatchWorkflow(env, "manual");
+    return json(result, result.ok ? 202 : 409);
   }
 
   if (path === "/internal/claim" && request.method === "POST") {
@@ -339,6 +410,9 @@ export default {
   },
 
   async scheduled(controller, env, ctx) {
-    ctx.waitUntil(cleanupOldRenders(env));
+    ctx.waitUntil(Promise.all([
+      dispatchWorkflow(env, "scheduled"),
+      cleanupOldRenders(env)
+    ]));
   }
 };
