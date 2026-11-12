@@ -20,11 +20,17 @@ VALID_SCRIPT = (
     "It returned with a story no concert hall could contain. "
     "Now its music connects that distant journey with listeners here."
 )
-SHORT_SCRIPT = (
-    "Can a violin part travel through space? "
-    "A scientist sent it into orbit. "
+FIRST_DRAFT_SCRIPT = (
+    "Can this music really travel through space? "
+    "A violin part travelled into orbit. "
     "It returned with a remarkable story. "
-    "Now its music connects that journey with listeners."
+    "Now that journey connects distant listeners."
+)
+SHORT_SCRIPT = (
+    "Can this music travel through space? "
+    "A violin part travelled into orbit. "
+    "It returned with a remarkable story. "
+    "Now that journey connects distant listeners."
 )
 
 
@@ -54,7 +60,7 @@ class PlannerNarrationRetryTests(unittest.TestCase):
 
     def test_narration_validator_reports_actual_short_word_count(self):
         issue = pipeline.narration_validation_error(SHORT_SCRIPT)
-        self.assertIn("27 spoken words", issue)
+        self.assertIn("24 spoken words", issue)
         self.assertIn("32–40", issue)
 
     def test_make_plan_repairs_short_narration_without_repeating_research(self):
@@ -86,12 +92,12 @@ class PlannerNarrationRetryTests(unittest.TestCase):
                 self.assertTrue((Path(folder) / "creative_plan.json").is_file())
                 repair_messages = mock_ai.call_args_list[1].args[1]["messages"]
                 self.assertIn("Change only narration_script", repair_messages[0]["content"])
-                self.assertIn("27 spoken words", repair_messages[1]["content"])
+                self.assertIn("24 spoken words", repair_messages[1]["content"])
             finally:
                 pipeline.WORK = original_work
 
     def test_make_plan_pads_short_second_response_without_another_ai_call(self):
-        original_plan = make_test_plan(SHORT_SCRIPT)
+        original_plan = make_test_plan(FIRST_DRAFT_SCRIPT)
         still_invalid = make_test_plan(SHORT_SCRIPT)
         item = {
             "title": "A violin component travelled to orbit",
@@ -122,7 +128,7 @@ class PlannerNarrationRetryTests(unittest.TestCase):
         padded = pipeline.pad_short_narration(SHORT_SCRIPT)
         self.assertTrue(padded)
         self.assertEqual(pipeline.narration_validation_error(padded), "")
-        self.assertIn("A scientist sent it into orbit", padded)
+        self.assertIn("A violin part travelled into orbit", padded)
         self.assertEqual(len(pipeline.re.split(r"(?<=[.!?])\s+", padded)), 4)
 
 
