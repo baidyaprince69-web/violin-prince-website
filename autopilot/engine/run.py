@@ -694,6 +694,7 @@ def make_plan(items, recent=None):
     if plan["narrative_style"] not in ("documentary", "cinematic_story"):
         plan["narrative_style"] = "documentary"
 
+    planner_source_references = plan.get("sources") or []
     # Preserve the planner's original references in the artifact if source matching
     # needs diagnosis; this is safe metadata and contains no credentials.
     (WORK / "creative_plan_debug.json").write_text(
@@ -713,7 +714,7 @@ def make_plan(items, recent=None):
         plan["narrative_style"] = "cinematic_story"
         log("Using a single-source cinematic story because two independent publishers were not verified.")
     elif plan["narrative_style"] == "documentary" and len(source_domains) < 1:
-        refs = plan.get("sources") or []
+        refs = planner_source_references
         if isinstance(refs, str):
             refs = [refs]
         ref_preview = ", ".join(str(value)[:90] for value in refs[:3]) or "(none returned)"
