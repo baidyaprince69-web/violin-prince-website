@@ -42,8 +42,8 @@ class NarrationHelperTests(unittest.TestCase):
             text = target.read_text(encoding="utf-8")
             self.assertIn("00:00:00,250 --> 00:00:01,850", text)
             self.assertIn("00:00:02,100 --> 00:00:03,900", text)
-            self.assertIn("The first sentence is spoken.", text)
-            self.assertIn("The second sentence follows.", text)
+            self.assertIn("The first sentence is spoken.", text.replace("\n", " "))
+            self.assertIn("The second sentence follows.", text.replace("\n", " "))
 
     def test_empty_subtitle_cues_are_rejected(self):
         with tempfile.TemporaryDirectory() as folder:
