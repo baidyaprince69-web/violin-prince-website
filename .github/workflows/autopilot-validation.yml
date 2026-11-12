@@ -79,6 +79,9 @@ jobs:
           PY
           node --check /tmp/dashboard.js
 
+      - name: Validate GitHub Actions workflow YAML
+        run: ruby -e 'require "yaml"; ARGV.each { |file| YAML.parse_file(file); puts "#{file}: YAML syntax OK" }' .github/workflows/violin-prince-autopilot.yml .github/workflows/deploy-autopilot-cloudflare.yml .github/workflows/autopilot-validation.yml
+
       - name: Check key workflow files exist
         run: |
           test -f .github/workflows/violin-prince-autopilot.yml
