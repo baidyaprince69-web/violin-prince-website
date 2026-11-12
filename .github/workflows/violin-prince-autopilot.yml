@@ -4,16 +4,6 @@ on:
   schedule:
     - cron: "30 5 * * *" # 11:00 Asia/Kolkata; disabled until repository variable is enabled
   workflow_dispatch:
-    inputs:
-      run_id:
-        description: Optional run identifier supplied by Cloudflare Cron
-        required: false
-        type: string
-      mode:
-        description: scheduled or manual test
-        required: false
-        default: manual
-        type: string
 
 permissions:
   contents: read
@@ -30,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      RUN_ID: ${{ inputs.run_id || github.run_id }}
+      RUN_ID: ${{ github.run_id }}
       RUN_MODE: ${{ github.event_name == 'schedule' && 'scheduled' || 'manual' }}
       CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
       CF_AI_TOKEN: ${{ secrets.CF_AI_TOKEN }}
@@ -80,7 +70,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: cloud-video-preview-${{ inputs.run_id || github.run_id }}
+          name: cloud-video-preview-${{ github.run_id }}
           path: work/output/violin-prince-short.mp4
           if-no-files-found: error
           retention-days: 14
@@ -89,7 +79,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: violin-prince-run-${{ inputs.run_id || github.run_id }}
+          name: violin-prince-run-${{ github.run_id }}
           path: |
             work/output/
             work/research.json
