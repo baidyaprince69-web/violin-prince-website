@@ -37,52 +37,47 @@ A cloud-first, free-tier-first content production workflow. The artist website r
 
 Free tiers have quotas and can change. The system is capped at one attempt per day, three generated images per short, no automatic paid fallback and 30-day render cleanup. Keep R2 use under the included allowance.
 
-## One-time account setup
+## One-time setup: R2-free GitHub cloud mode
 
-### A. Add GitHub Actions secrets
+The first working version does **not** require a Cloudflare Worker, D1 database, R2 bucket, or R2 subscription. Video production runs on GitHub-hosted runners while your computer is off. The MP4 is stored as a temporary GitHub Actions artifact.
 
-In the repository, open **Settings → Secrets and variables → Actions → New repository secret**.
+### Required GitHub Actions secrets
 
-Add these six secrets:
+Open **Settings → Secrets and variables → Actions** and keep these two secrets:
 
 | Secret | Purpose |
 |---|---|
-| `CF_DEPLOY_TOKEN` | Cloudflare account token scoped to Workers Scripts: Edit, D1: Edit, R2 Storage: Edit and any Account Settings: Read permission Wrangler requests |
-| `CF_AI_TOKEN` | Separate Cloudflare token with Workers AI: Read/Run permission; used by daily jobs to run Gemma and FLUX |
-| `CF_ACCOUNT_ID` | Cloudflare account ID |
-| `DASHBOARD_TOKEN` | A long random password used only to connect the dashboard |
-| `AUTOPILOT_JOB_TOKEN` | A different long random token shared with the cloud runner |
-| `GH_DISPATCH_TOKEN` | Fine-grained token restricted to this repository with Actions: Read/Write and Secrets: Read/Write. It dispatches the production workflow and lets deployment save the Worker URL as an Actions secret. |
+| `CF_ACCOUNT_ID` | Cloudflare account ID used by Workers AI |
+| `CF_AI_TOKEN` | Cloudflare Workers AI token with Workers AI Read and Workers AI Edit permission |
 
-Never paste tokens into chat or commit them. Do not use the same value for the dashboard token and job token.
+The workflow uses Workers AI for script planning and three original FLUX still images. The free allowance can be limited; when AI returns a quota or permission error, the run stops. It has no paid fallback.
 
-### B. Provision Cloudflare automatically
+Previously created secrets such as `CF_DEPLOY_TOKEN`, `DASHBOARD_TOKEN`, `AUTOPILOT_JOB_TOKEN` and `GH_DISPATCH_TOKEN` are not used in this mode. They can remain saved for now; do not paste their values into chat or repository files.
 
-1. Open **GitHub → Actions → Deploy Violin Prince Autopilot to Cloudflare**.
-2. Select **Run workflow**.
-3. The workflow creates or reuses the D1 database and R2 bucket, applies the schema, deploys the Worker and stores its secrets.
-4. The workflow saves the deployed Worker URL as the `AUTOPILOT_API_URL` GitHub Actions secret, then checks `/api/health`.
-5. Confirm the deployment job finishes successfully. The daily scheduler remains disabled.
+### First manual draft
 
-The workflow is idempotent: rerunning it reuses the named database and bucket rather than intentionally creating duplicates.
+1. Open **GitHub → Actions → Violin Prince Autopilot**.
+2. Select **Run workflow** on the `main` branch.
+3. Keep publishing disabled. The workflow forces `PUBLISH_ENABLED=false`.
+4. When it succeeds, open the run and download the `cloud-video-preview-...` artifact.
+5. The diagnostic artifact includes the research, creative plan, metadata and quality report when available.
 
-### C. Connect the dashboard
+The video includes three AI-generated still scenes, synthetic narration, an original synthetic string-style soundtrack when no recording is supplied, subtitles and FFmpeg assembly. The synthetic soundtrack is not a real recording of Prince playing violin.
 
-Open:
+### Optional daily schedule
 
-https://baidyaprince69-web.github.io/violin-prince-website/autopilot/
+The workflow contains a daily schedule at 05:30 UTC (11:00 AM Asia/Kolkata), but it is guarded and remains **disabled** until the first manual draft succeeds.
 
-Enter the Worker URL and the `DASHBOARD_TOKEN`. The token is kept in browser session storage.
+After the manual draft has passed, open **Settings → Secrets and variables → Actions → Variables**, create a repository variable named `AUTOPILOT_SCHEDULE_ENABLED`, and set its value to `true`. Set it only when daily generation is intended. You can set it to `false` to pause scheduled runs. GitHub-hosted standard runners are free for public repositories, but artifact storage is limited on GitHub Free; artifacts from this workflow are retained for 14 days.
 
-You do not need to upload audio. If you do upload a recording, confirm that you have the rights to the recording and the underlying composition.
+### What this mode does not include
 
-### D. Test a cloud video
+- No permanent cloud media library or uploaded-audio asset manager.
+- No Cloudflare dashboard or run-history database.
+- No automatic social publishing. Publishing is disabled.
+- No permanent video hosting; download each artifact you want to keep.
 
-1. Keep `AUTOPILOT_ENABLED=false` in the Worker while testing. This keeps the daily scheduler off.
-2. Open the dashboard and use **Start one draft test**, or run the manual GitHub Actions workflow.
-3. A manual draft run is allowed while the daily scheduler is disabled. Publishing remains off by default.
-4. Check the job logs, dashboard and private R2 output. Confirm that the MP4 includes spoken narration, the synthetic instrumental bed, sentence-timed subtitles and three generated visual scenes.
-5. Only after this draft passes should the account owner set `AUTOPILOT_ENABLED=true` in the Cloudflare Worker. The daily Cron then starts at 05:30 UTC (11:00 Asia/Kolkata).
+The old Cloudflare Worker/D1/R2 deployment workflow is not required for this mode. Do not run **Deploy Violin Prince Autopilot to Cloudflare** unless an account owner has reviewed and approved the separate R2 usage-based billing terms.
 
 ## Publishing
 
