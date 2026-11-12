@@ -144,7 +144,7 @@ class PlannerNarrationRetryTests(unittest.TestCase):
                 final_user = mock_ai.call_args_list[2].args[1]["messages"][1]["content"]
                 self.assertIn("exactly these spoken-word counts", final_system)
                 self.assertIn("8 words in sentence 1, 9 words in sentence 2", final_system)
-                self.assertIn("no filler", final_system.lower())
+                self.assertIn("do not use filler", final_system.lower())
                 self.assertIn("34 spoken words", final_user)
                 self.assertIn("Verified research evidence", final_user)
             finally:
