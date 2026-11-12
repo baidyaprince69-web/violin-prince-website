@@ -183,7 +183,7 @@ def make_plan(items):
     if not isinstance(scenes, list) or len(scenes) != 3:
         raise PipelineError("Planner must provide exactly three scenes.")
     narration_script = str(plan.get("narration_script", "")).strip()
-    spoken_words = re.findall(r"\\b[\\w’'-]+\\b", narration_script)
+    spoken_words = re.findall(r"\b[\w’'-]+\b", narration_script)
     if not 35 <= len(spoken_words) <= 45:
         raise PipelineError("Planner narration must contain 35–45 spoken words.")
     plan["narration_script"] = narration_script
