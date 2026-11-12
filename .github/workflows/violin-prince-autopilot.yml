@@ -29,7 +29,7 @@ jobs:
       AUTOPILOT_API_URL: ${{ secrets.AUTOPILOT_API_URL }}
       AUTOPILOT_JOB_TOKEN: ${{ secrets.AUTOPILOT_JOB_TOKEN }}
       CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
-      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      CF_AI_TOKEN: ${{ secrets.CF_AI_TOKEN }}
       PUBLISH_ENABLED: ${{ vars.PUBLISH_ENABLED || 'false' }}
       PUBLISH_DESTINATIONS: ${{ vars.PUBLISH_DESTINATIONS || 'youtube,instagram,facebook' }}
       YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
@@ -47,7 +47,7 @@ jobs:
         shell: bash
         run: |
           missing=0
-          for name in AUTOPILOT_API_URL AUTOPILOT_JOB_TOKEN CF_ACCOUNT_ID CF_API_TOKEN; do
+          for name in AUTOPILOT_API_URL AUTOPILOT_JOB_TOKEN CF_ACCOUNT_ID CF_AI_TOKEN; do
             if [ -z "${!name}" ]; then
               echo "::error::Missing required repository secret: $name"
               missing=1
