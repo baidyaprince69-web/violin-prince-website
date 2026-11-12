@@ -314,6 +314,11 @@ def main():
         report(final_status,
                "Production complete. " + json.dumps(publish_result, ensure_ascii=False)[:650],
                topic, title, stored.get("object_key", ""), stored.get("media_url", ""), metadata)
+        from analytics import collect_and_send
+        analytics_result = collect_and_send(API, JOB_TOKEN)
+        (OUT / "analytics.json").write_text(
+            json.dumps(analytics_result, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
         return 0
     except Exception as exc:
         log("Stopped safely: " + str(exc))
