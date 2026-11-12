@@ -46,7 +46,13 @@ class FFmpegRenderSmokeTests(unittest.TestCase):
             return target
 
         try:
-            pipeline.make_image = fake_make_image
+            # Simulate a package whose images were generated and reviewed in an earlier run.
+            prepared_images = [fake_make_image("approved scene", index) for index in range(3)]
+
+            def unexpected_ai_image_call(_prompt, _index):
+                raise AssertionError("Render stage must reuse approved images and never call image generation.")
+
+            pipeline.make_image = unexpected_ai_image_call
 
             background = pipeline.WORK / "background.wav"
             create_original_soundtrack(background, seed_text="render-smoke-test")
@@ -83,7 +89,8 @@ class FFmpegRenderSmokeTests(unittest.TestCase):
             }
 
             final_path, quality = pipeline.render(
-                plan, background.read_bytes(), narration, narration_info
+                plan, background.read_bytes(), narration, narration_info,
+                image_paths=prepared_images
             )
 
             self.assertTrue(final_path.exists())
