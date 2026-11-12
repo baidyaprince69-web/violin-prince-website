@@ -153,13 +153,32 @@ def get_audio():
             **recording_info,
         }, recording_path.read_bytes()
     if configured_path:
-        log("VIOLIN_RECORDING_PATH was not found; using the quiet ambient fallback.")
+        log("VIOLIN_RECORDING_PATH was not found; trying the CC0 sampled violin instrument.")
 
-    # Safe, deliberately non-violin fallback. It avoids pretending that basic
-    # oscillators are a realistic violin. A creator recording takes priority.
+    # Use a small, checksum-verified CC0 multisample pack to render a new violin
+    # phrase. Network or sample-render failures fall back quietly instead of
+    # failing Prepare or introducing a paid service.
+    day_seed = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    try:
+        from violin_sampler import create_sampled_violin_bed
+        audio_path = WORK / "sampled-violin-background.wav"
+        audio_path, sample_info = create_sampled_violin_bed(
+            audio_path, seed_text=day_seed + ":" + RUN_ID
+        )
+        log(
+            "Rendered a 24-second solo-violin bed from the CC0 sample pack "
+            f"({sample_info.get('zones_used', 0)} sample zones)."
+        )
+        return {
+            **sample_info,
+            "filename": audio_path.name,
+            "kind": "generated_sampled_instrument",
+        }, audio_path.read_bytes()
+    except Exception as exc:
+        log("CC0 sampled violin unavailable; using the quiet ambient fallback: " + str(exc)[:220])
+
     from synth_audio import create_ambient_fallback
     audio_path = WORK / "ambient-background-fallback.wav"
-    day_seed = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     create_ambient_fallback(audio_path, seed_text=day_seed + ":" + RUN_ID)
     return {
         "filename": audio_path.name,
@@ -1015,7 +1034,12 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
     subtitle_path = OUT / "narration.srt"
     from voiceover import write_srt
     write_srt(narration_info.get("subtitle_cues", []), subtitle_path)
-    bed_volume = "0.12" if audio_source == "generated_ambient_fallback" else "0.20"
+    if audio_source == "generated_ambient_fallback":
+        bed_volume = "0.12"
+    elif audio_source == "sampled_violin_cc0":
+        bed_volume = "0.16"
+    else:
+        bed_volume = "0.20"
     audio_filter = (
         f"[1:a]volume={bed_volume}[bed];"
         "[2:a]highpass=f=75,acompressor=threshold=-20dB:ratio=3:attack=12:release=180[voice];"
@@ -1328,6 +1352,9 @@ def render_stage():
         "sources": plan.get("sources", []),
         "audio_asset": metadata.get("asset", {}).get("filename", paths["audio"].name),
         "audio_source": audio_source,
+        "audio_license": metadata.get("asset", {}).get("license", ""),
+        "audio_source_library": metadata.get("asset", {}).get("source_library", ""),
+        "audio_attribution": metadata.get("asset", {}).get("attribution", ""),
         "duration_seconds": 24, "format": "9:16",
         "publishing_status": final_status, "publish_results": publish_result,
         "output_key": stored.get("object_key"), "prepared_run_id": metadata.get("prepared_run_id"),
