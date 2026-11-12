@@ -1,7 +1,7 @@
 const corsHeaders = {
   "Access-Control-Allow-Origin": "https://baidyaprince69-web.github.io",
   "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-  "Access-Control-Allow-Headers": "Authorization,Content-Type,X-Filename,X-Rights-Confirmed",
+  "Access-Control-Allow-Headers": "Authorization,Content-Type,X-Filename,X-Rights-Confirmed,X-File-Size",
   "Access-Control-Max-Age": "86400"
 };
 
@@ -185,7 +185,7 @@ async function handleApi(request, env) {
     if (request.headers.get("X-Rights-Confirmed") !== "true") {
       return json({ error: "Confirm that you own or are licensed to use this media." }, 400);
     }
-    const size = Number(request.headers.get("Content-Length") || 0);
+    const size = Number(request.headers.get("X-File-Size") || request.headers.get("Content-Length") || 0);
     if (size > 90 * 1024 * 1024) return json({ error: "File exceeds the 90 MB upload limit." }, 413);
     const filename = safeName(request.headers.get("X-Filename"));
     const kind = url.searchParams.get("kind") || "audio";
