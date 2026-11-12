@@ -5,7 +5,7 @@ A cloud-first, free-tier-first content production workflow. The artist website r
 ## What it does
 
 - Runs from GitHub-hosted cloud runners; your computer does not render or host anything.
-- Cloudflare Cron is configured for one GitHub-hosted production attempt per day at 05:00 UTC (10:30 Asia/Kolkata). The scheduler starts **disabled**; it is enabled only after a successful manual draft test.
+- Cloudflare Cron is configured for one GitHub-hosted production attempt per day at 05:30 UTC (11:00 Asia/Kolkata). The scheduler starts **disabled**; it is enabled only after a successful manual draft test.
 - Researches public topics through GDELT and Google News RSS editions for the US, UK and India. It fetches short public article excerpts when available and requires two independent publisher domains for documentary/fact-telling scripts.
 - Uses Cloudflare Workers AI to select a timely, family-friendly topic and write a sourced narration script, hook, title, description, hashtags and three scene captions.
 - Generates three original still images with FLUX.1 Schnell.
@@ -82,7 +82,7 @@ You do not need to upload audio. If you do upload a recording, confirm that you 
 2. Open the dashboard and use **Run one test production**, or run the manual GitHub Actions workflow.
 3. A manual draft run is allowed while the daily scheduler is disabled. Publishing remains off by default.
 4. Check the job logs, dashboard and private R2 output. Confirm that the MP4 includes spoken narration, the synthetic instrumental bed, sentence-timed subtitles and three generated visual scenes.
-5. Only after this draft passes should the account owner set `AUTOPILOT_ENABLED=true` in the Cloudflare Worker. The daily Cron then starts at 05:00 UTC (10:30 Asia/Kolkata).
+5. Only after this draft passes should the account owner set `AUTOPILOT_ENABLED=true` in the Cloudflare Worker. The daily Cron then starts at 05:30 UTC (11:00 Asia/Kolkata).
 
 ## Publishing
 
