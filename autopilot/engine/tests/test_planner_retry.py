@@ -16,9 +16,9 @@ import run as pipeline
 
 VALID_SCRIPT = (
     "Can one small violin part travel through space? "
-    "A scientist sent a piece of it into orbit. "
-    "It returned with a story no concert hall could contain. "
-    "Now its music connects that distant journey with listeners here."
+    "A determined scientist sent one tiny piece into orbit. "
+    "It became part of a story no concert hall could ever contain. "
+    "Now its music connects that distant journey with listeners across the world."
 )
 FIRST_DRAFT_SCRIPT = (
     "Can this music really travel through space? "
@@ -54,14 +54,14 @@ def make_test_plan(script):
 
 
 class PlannerNarrationRetryTests(unittest.TestCase):
-    def test_narration_validator_accepts_32_to_40_word_four_beat_script(self):
+    def test_narration_validator_accepts_40_to_44_word_four_beat_script(self):
         self.assertEqual(pipeline.narration_validation_error(VALID_SCRIPT), "")
-        self.assertEqual(len(pipeline.re.findall(r"\b[\w’'-]+\b", VALID_SCRIPT)), 37)
+        self.assertEqual(len(pipeline.re.findall(r"\b[\w’'-]+\b", VALID_SCRIPT)), 41)
 
     def test_narration_validator_reports_actual_short_word_count(self):
         issue = pipeline.narration_validation_error(SHORT_SCRIPT)
         self.assertIn("24 spoken words", issue)
-        self.assertIn("32–40", issue)
+        self.assertIn("40–44", issue)
 
     def test_make_plan_repairs_short_narration_without_repeating_research(self):
         original_plan = make_test_plan(SHORT_SCRIPT)
@@ -118,7 +118,7 @@ class PlannerNarrationRetryTests(unittest.TestCase):
                     result = pipeline.make_plan([item], recent=[])
                 self.assertEqual(mock_ai.call_count, 2)
                 self.assertEqual(pipeline.narration_validation_error(result["narration_script"]), "")
-                self.assertEqual(len(pipeline.re.findall(r"\b[\w’'-]+\b", result["narration_script"])), 32)
+                self.assertEqual(len(pipeline.re.findall(r"\b[\w’'-]+\b", result["narration_script"])), 40)
                 self.assertEqual(result["sources"], [item["url"]])
                 self.assertEqual(result["scenes"], original_plan["scenes"])
             finally:
