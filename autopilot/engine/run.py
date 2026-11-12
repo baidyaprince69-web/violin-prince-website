@@ -279,7 +279,7 @@ def write_subtitles(script, narration_path, subtitle_path):
         word_cursor += len(group)
         end = duration * word_cursor / total_words
         lines.extend([str(index), f"{stamp(start)} --> {stamp(end)}", " ".join(group), ""])
-    subtitle_path.write_text("\\n".join(lines), encoding="utf-8")
+    subtitle_path.write_text("\n".join(lines), encoding="utf-8")
 
 
 def render(plan, audio_bytes, narration_path):
