@@ -384,7 +384,10 @@ def make_plan(items, recent=None):
 
 def image_request_payload(prompt):
     """Build only the fields accepted by Cloudflare's FLUX.1-schnell REST schema."""
-    return {"prompt": str(prompt)[:1800], "steps": 4}
+    value = str(prompt or "").strip()
+    if not value:
+        raise PipelineError("Image prompt is empty.")
+    return {"prompt": value[:1800], "steps": 4}
 
 
 def make_image(prompt, index):
