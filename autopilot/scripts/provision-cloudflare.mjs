@@ -3,7 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(here, "../../..");
+const repoRoot = resolve(here, "../..");
 const accountId = process.env.CF_ACCOUNT_ID || process.env.CLOUDFLARE_ACCOUNT_ID;
 const token = process.env.CF_API_TOKEN || process.env.CLOUDFLARE_API_TOKEN;
 const databaseName = "violin-prince-autopilot";
