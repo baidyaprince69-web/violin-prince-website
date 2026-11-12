@@ -330,8 +330,16 @@ def make_plan(items, recent=None):
         raise PipelineError("Planner must provide exactly three scenes.")
     narration_script = str(plan.get("narration_script", "")).strip()
     spoken_words = re.findall(r"\b[\w’'-]+\b", narration_script)
-    if not 30 <= len(spoken_words) <= 48:
-        raise PipelineError("Planner narration must contain 30–48 spoken words.")
+    if not 32 <= len(spoken_words) <= 40:
+        raise PipelineError("Planner narration must contain 32–40 spoken words for the 24-second format.")
+    spoken_sentences = [part.strip() for part in re.split("[.!?]+", narration_script) if part.strip()]
+    if len(spoken_sentences) != 4:
+        raise PipelineError("Planner narration must contain exactly four short story beats.")
+    hook_words = spoken_sentences[0].split()
+    if not 5 <= len(hook_words) <= 8:
+        raise PipelineError("Opening hook must contain 5–8 words.")
+    if any(len(sentence.split()) > 12 for sentence in spoken_sentences):
+        raise PipelineError("Each narration sentence must contain no more than 12 words.")
     plan["narration_script"] = narration_script
     plan["narrative_style"] = str(plan.get("narrative_style", "documentary")).lower()
     if plan["narrative_style"] not in ("documentary", "cinematic_story"):
@@ -360,6 +368,8 @@ def make_plan(items, recent=None):
     if plan["narrative_style"] == "cinematic_story" and not plan["sources"]:
         raise PipelineError("Storytelling topic has no traceable research source.")
     for scene in scenes:
+        if not scene.get("caption") and scene.get("visual_caption"):
+            scene["caption"] = scene["visual_caption"]
         if not scene.get("caption") or not scene.get("image_prompt"):
             raise PipelineError("A scene is missing its caption or visual prompt.")
     (WORK / "creative_plan.json").write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
