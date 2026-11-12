@@ -5,7 +5,7 @@ A cloud-first, free-tier-first content production workflow. The artist website r
 ## What it does
 
 - Runs from GitHub-hosted cloud runners; your computer does not render or host anything.
-- Schedules one production attempt per day at 05:30 UTC (11:00 Asia/Kolkata) using GitHub Actions.
+- Cloudflare Cron starts one GitHub-hosted production attempt per day at 05:30 UTC (11:00 Asia/Kolkata).
 - Researches current public topics through GDELT and Google News RSS.
 - Uses Cloudflare Workers AI to choose a timely, family-friendly topic and write the hook, story outline, titles, descriptions, hashtags and three scene captions.
 - Generates three original still images with FLUX.1 Schnell.
@@ -40,7 +40,7 @@ Free tiers have quotas and can change. The system is capped at one attempt per d
 
 In the repository, open **Settings → Secrets and variables → Actions → New repository secret**.
 
-Add these five secrets:
+Add these six secrets:
 
 | Secret | Purpose |
 |---|---|
@@ -48,7 +48,7 @@ Add these five secrets:
 | `CF_AI_TOKEN` | Separate Cloudflare token with Workers AI Read or Write only; used by daily jobs to run Gemma and FLUX |
 | `CF_ACCOUNT_ID` | Cloudflare account ID |
 | `DASHBOARD_TOKEN` | A long random password used only to connect the dashboard |
-| `AUTOPILOT_JOB_TOKEN` | A different long random token shared with the cloud runner |
+| `AUTOPILOT_JOB_TOKEN` | A different long random token shared with the cloud runner |\n| `GITHUB_DISPATCH_TOKEN` | Fine-grained GitHub token restricted to this repository, with Actions: Read and Write only; stored as a Cloudflare Worker secret |
 
 Never paste tokens into chat or commit them. Do not use the same value for the dashboard token and job token.
 
@@ -77,7 +77,7 @@ You do not need to upload audio. If you do upload a recording, confirm that you 
 1. Open **GitHub → Actions → Violin Prince Autopilot**.
 2. Select **Run workflow** for a manual test.
 3. Check the run logs and dashboard. The output MP4 is stored in private R2.
-4. The normal daily run starts automatically at 05:30 UTC once the Worker, GitHub Actions secrets and `AUTOPILOT_API_URL` are configured.
+4. The Cloudflare Worker Cron dispatches the daily GitHub runner at 05:30 UTC once the Worker, GitHub token, Actions secrets and `AUTOPILOT_API_URL` are configured. This avoids depending on GitHub's public-repository schedule.
 
 ## Publishing
 
@@ -124,4 +124,4 @@ YouTube publishing requires the `youtube.upload` scope. Instagram publishing req
 - `engine/run.py`: research, planning, generation, rendering and orchestration.
 - `engine/synth_audio.py`: original synthetic soundtrack generator.
 - `.github/workflows/deploy-autopilot-cloudflare.yml`: first deployment.
-- `.github/workflows/violin-prince-autopilot.yml`: daily cloud production workflow.
+- `.github/workflows/violin-prince-autopilot.yml`: manually dispatchable cloud production workflow, started daily by Cloudflare Cron.
