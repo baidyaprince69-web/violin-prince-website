@@ -230,10 +230,6 @@ def render(plan, audio_bytes):
               f"fade=t=out:st={SECONDS - 0.35}:d=0.35,format=yuv420p")
         command(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
                  "-loop", "1", "-framerate", str(FPS), "-i", str(card),
-                 "-t", str(SECONDS), "-vf", vf, "-an,"])
-        # Re-run with explicit encoders; kept separate for clear failure reporting.
-        command(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
-                 "-loop", "1", "-framerate", str(FPS), "-i", str(card),
                  "-t", str(SECONDS), "-vf", vf, "-an", "-c:v", "libx264",
                  "-preset", "veryfast", "-crf", "25", "-pix_fmt", "yuv420p", str(clip)])
         clips.append(clip)
