@@ -184,6 +184,8 @@ def run_quality_gate(
     expected_height: int = 1280,
     expected_duration: float = 24.0,
     duration_tolerance: float = 0.5,
+    expected_fps: float | None = None,
+    frame_rate_tolerance: float = 0.5,
     audio_required: bool = True,
     narration_cues: Any = None,
     word_count: int | None = None,
@@ -295,7 +297,17 @@ def run_quality_gate(
     )
     record("video_codec", video.get("codec_name") == "h264", video.get("codec_name"), "h264", "video")
     record("video_pixel_format", video.get("pix_fmt") in ("yuv420p", "yuvj420p"), video.get("pix_fmt"), "yuv420p-compatible", "video")
-    record("frame_rate", 20.0 <= fps <= 30.0, round(fps, 3), "20–30 fps", "video")
+    fps_passed = (
+        20.0 <= fps <= 30.0
+        if expected_fps is None
+        else abs(fps - float(expected_fps)) <= frame_rate_tolerance
+    )
+    fps_expected = (
+        "20–30 fps"
+        if expected_fps is None
+        else f"{float(expected_fps):.2f} fps ± {frame_rate_tolerance:.2f}"
+    )
+    record("frame_rate", fps_passed, round(fps, 3), fps_expected, "video")
 
     audio_duration = None
     if audio_required:

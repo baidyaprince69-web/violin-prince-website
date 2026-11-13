@@ -1442,6 +1442,8 @@ def validate_final_video(path, narration_info=None, text_audit_path=None, report
             expected_width=W,
             expected_height=H,
             expected_duration=24.0,
+            expected_fps=float(FPS),
+            frame_rate_tolerance=0.5,
             narration_cues=cues if cues else None,
             word_count=info.get("word_count"),
             require_word_timing=(

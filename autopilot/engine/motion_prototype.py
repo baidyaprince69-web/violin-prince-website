@@ -559,6 +559,8 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
             silent_path,
             report_path=output_dir / "silent-quality-control-report.json",
             audio_required=False,
+            expected_fps=float(fps),
+            frame_rate_tolerance=0.5,
             narration_cues=word_cues,
             word_count=int(narration_info.get("word_count", 0)),
             require_word_timing=True,
