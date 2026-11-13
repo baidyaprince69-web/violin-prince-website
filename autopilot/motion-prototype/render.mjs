@@ -84,6 +84,127 @@ window.__DATA__ = ${safeJson};
     return lines.slice(0, 2);
   };
 
+  // Draw graphic text one glyph at a time. The full Canvas fillText() calls
+  // were intermittently dropping lowercase "s" in multi-character headline
+  // and detail runs, even though an isolated-glyph probe passed. Pair-width
+  // advances preserve browser kerning while ensuring each glyph is painted.
+  function drawGlyphRun(context, text, x, y, maxWidth=Infinity) {
+    const value = String(text ?? "");
+    const characters = Array.from(value);
+    if (!characters.length) return [];
+
+    const naturalWidth = context.measureText(value).width;
+    const scale = Number.isFinite(maxWidth) && naturalWidth > maxWidth && naturalWidth > 0
+      ? maxWidth / naturalWidth
+      : 1;
+    const placements = [];
+    const previousAlign = context.textAlign;
+
+    context.save();
+    context.textAlign = "left";
+    context.translate(x, y);
+    context.scale(scale, 1);
+
+    let cursor = 0;
+    for (let index = 0; index < characters.length; index++) {
+      const character = characters[index];
+      const metrics = context.measureText(character);
+      if (index > 0) {
+        const pairWidth = context.measureText(characters[index - 1] + character).width;
+        cursor += pairWidth - metrics.width;
+      }
+
+      context.fillText(character, cursor, 0);
+      placements.push({
+        character,
+        x: x + cursor * scale,
+        width: metrics.width * scale,
+        ascent: metrics.actualBoundingBoxAscent || 0,
+        descent: metrics.actualBoundingBoxDescent || 0,
+        actualLeft: metrics.actualBoundingBoxLeft || 0,
+        actualRight: metrics.actualBoundingBoxRight || metrics.width
+      });
+      if (index === 0) cursor += metrics.width;
+    }
+
+    context.restore();
+    context.textAlign = previousAlign;
+    return placements;
+  }
+
+  // Exercise the exact font declarations and representative full phrases used
+  // by drawGraphic(), then inspect each expected lowercase-s glyph's pixels.
+  function validateGraphicTextRuns() {
+    const cases = [
+      {
+        label: "serif headline",
+        font: "700 39px 'DejaVu Serif', serif",
+        text: "Every phrase begins with controlled motion"
+      },
+      {
+        label: "sans detail",
+        font: "500 17px 'DejaVu Sans', sans-serif",
+        text: "Bow speed and pressure shape the sound"
+      },
+      {
+        label: "second serif headline",
+        font: "700 39px 'DejaVu Serif', serif",
+        text: "The bow catches each string"
+      },
+      {
+        label: "second sans detail",
+        font: "500 17px 'DejaVu Sans', sans-serif",
+        text: "Tiny changes in speed and pressure shape tone"
+      }
+    ];
+
+    const results = cases.map(test => {
+      const probe = document.createElement("canvas");
+      probe.width = 1500;
+      probe.height = 150;
+      const probeContext = probe.getContext("2d", { willReadFrequently: true });
+      probeContext.clearRect(0, 0, probe.width, probe.height);
+      probeContext.font = test.font;
+      probeContext.fillStyle = "#fff";
+      probeContext.textBaseline = "alphabetic";
+
+      const placements = drawGlyphRun(probeContext, test.text, 12, 100, 1460);
+      const glyphs = placements.filter(item => item.character === "s");
+      const pixels = probeContext.getImageData(0, 0, probe.width, probe.height).data;
+      const visibleCounts = glyphs.map(glyph => {
+        const left = Math.max(0, Math.floor(glyph.x - glyph.actualLeft - 2));
+        const right = Math.min(probe.width, Math.ceil(glyph.x + glyph.actualRight + 2));
+        const top = Math.max(0, Math.floor(100 - glyph.ascent - 3));
+        const bottom = Math.min(probe.height, Math.ceil(100 + glyph.descent + 3));
+        let count = 0;
+        for (let row = top; row < bottom; row++) {
+          for (let column = left; column < right; column++) {
+            const alpha = pixels[(row * probe.width + column) * 4 + 3];
+            if (alpha > 0) count++;
+          }
+        }
+        return count;
+      });
+
+      return {
+        label: test.label,
+        font: test.font,
+        expected_s: glyphs.length,
+        visible_s_pixels: visibleCounts
+      };
+    });
+
+    return {
+      ok: results.every(result =>
+        result.expected_s > 0 &&
+        result.visible_s_pixels.length === result.expected_s &&
+        result.visible_s_pixels.every(count => count > 0)
+      ),
+      cases: results
+    };
+  }
+  window.__GRAPHIC_TEXT_QA__ = validateGraphicTextRuns;
+
   // Fail early if the cloud runner cannot rasterize lowercase "s" in either
   // pinned family; this catches the exact glyph-loss regression seen in V3.
   function validateCanvasFonts() {
@@ -337,14 +458,14 @@ window.__DATA__ = ${safeJson};
     ctx.globalAlpha = opacity * labelProgress;
     ctx.fillStyle = accent;
     ctx.font = "800 14px 'DejaVu Sans', sans-serif";
-    ctx.fillText(String(index + 1).padStart(2, "0") + "   /   " + label.slice(0, 38), 42, top + 22);
+    drawGlyphRun(ctx, String(index + 1).padStart(2, "0") + "   /   " + label.slice(0, 38), 42, top + 22);
 
     ctx.globalAlpha = opacity * headlineProgress;
     ctx.fillStyle = IVORY;
     ctx.font = "700 39px 'DejaVu Serif', serif";
     const headlineLines = wrap(headline, W - 92, "700 39px 'DejaVu Serif', serif");
     headlineLines.forEach((line, row) => {
-      ctx.fillText(line, 42 + (1 - headlineProgress) * 16, top + 82 + row * 48);
+      drawGlyphRun(ctx, line, 42 + (1 - headlineProgress) * 16, top + 82 + row * 48, W - 92);
     });
 
     ctx.globalAlpha = opacity * detailProgress;
@@ -352,7 +473,7 @@ window.__DATA__ = ${safeJson};
     ctx.font = "500 17px 'DejaVu Sans', sans-serif";
     const detailLines = wrap(detail, W - 92, "500 17px 'DejaVu Sans', sans-serif");
     const detailY = top + 104 + headlineLines.length * 43;
-    detailLines.forEach((line, row) => ctx.fillText(line, 44, detailY + row * 24));
+    detailLines.forEach((line, row) => drawGlyphRun(ctx, line, 44, detailY + row * 24, W - 92));
 
     const graphY = Math.min(top + 240 + Math.max(0, headlineLines.length - 1) * 13, top + 282);
     const graphLeft = 44;
@@ -692,6 +813,10 @@ try {
   if (!typographyQa || !typographyQa.ok) {
     throw new Error("Canvas typography QA failed: " + JSON.stringify(typographyQa));
   }
+  const graphicTextQa = await page.evaluate(() => window.__GRAPHIC_TEXT_QA__());
+  if (!graphicTextQa || !graphicTextQa.ok) {
+    throw new Error("Graphic phrase glyph QA failed: " + JSON.stringify(graphicTextQa));
+  }
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
 
   const ffmpeg = spawn("ffmpeg", [
@@ -726,7 +851,7 @@ try {
   }
   const stat=await fs.stat(outputPath);
   if (stat.size < 100000) throw new Error("HTML renderer output is unexpectedly small.");
-  console.log(JSON.stringify({frames,fps,duration_seconds:duration,output:outputPath,bytes:stat.size,renderer:"HTML Canvas + Playwright + FFmpeg",typography_qa:typographyQa}));
+  console.log(JSON.stringify({frames,fps,duration_seconds:duration,output:outputPath,bytes:stat.size,renderer:"HTML Canvas + Playwright + FFmpeg",typography_qa:typographyQa,graphic_text_qa:graphicTextQa}));
 } finally {
   await browser.close();
 }

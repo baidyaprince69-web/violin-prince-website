@@ -191,6 +191,13 @@ class CreativeQualityTests(unittest.TestCase):
         self.assertIn("'DejaVu Serif', serif", source)
         self.assertIn("window.__TYPOGRAPHY_QA__", source)
         self.assertIn("lowercase_s_pixels", source)
+        self.assertIn("function drawGlyphRun", source)
+        self.assertIn("window.__GRAPHIC_TEXT_QA__", source)
+        self.assertIn("validateGraphicTextRuns", source)
+        self.assertIn("Every phrase begins with controlled motion", source)
+        self.assertIn("Bow speed and pressure shape the sound", source)
+        self.assertIn("drawGlyphRun(ctx, line, 42 + (1 - headlineProgress)", source)
+        self.assertIn("drawGlyphRun(ctx, line, 44, detailY", source)
         self.assertIn("await document.fonts.ready", source)
 
     def test_non_violin_performance_does_not_inherit_violin_macro_anatomy(self):
