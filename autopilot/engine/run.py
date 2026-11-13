@@ -1065,14 +1065,14 @@ def make_image(prompt, index):
     return path
 
 def _vision_query(image_data, question, timeout=120):
-    """Use Moondream's documented non-streaming answer contract for deterministic QA."""
+    """Use Moondream's non-streaming answer contract and retain its normal reasoning mode."""
     return ai(
         VISION_MODEL,
         {
             "task": "query",
             "image": image_data,
             "question": question,
-            "reasoning": False,
+            "reasoning": True,
             "stream": False,
             "temperature": 0,
             "max_tokens": 512,
@@ -1081,19 +1081,39 @@ def _vision_query(image_data, question, timeout=120):
     )
 
 
-def _parse_vision_assessment(result, label="visual reviewer"):
-    """Parse Moondream's documented answer field, tolerating harmless Markdown wrappers."""
-    raw = ""
-    if isinstance(result, dict):
-        # Workers AI documents Moondream query output as result.answer.
-        for key in ("answer", "response", "text"):
-            value = result.get(key)
-            if isinstance(value, str) and value.strip():
-                raw = value.strip()
-                break
-    elif isinstance(result, str):
-        raw = result.strip()
+def _vision_text(value):
+    """Extract answer text from string, chunk-list, or nested provider response shapes."""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, list):
+        parts = [_vision_text(item) for item in value]
+        return "".join(part for part in parts if part)
+    if isinstance(value, dict):
+        for key in ("answer", "response", "text", "content", "output_text", "chunk", "value"):
+            if key in value:
+                text_value = _vision_text(value[key])
+                if text_value:
+                    return text_value
+    return ""
 
+
+def _vision_result_diagnostic(result):
+    """Describe the non-sensitive shape of a model result when it contains no answer text."""
+    if isinstance(result, dict):
+        details = []
+        for key, value in result.items():
+            if key in ("answer", "response", "text", "content", "output_text", "caption", "finish_reason"):
+                preview = _vision_text(value)
+                details.append(f"{key}={type(value).__name__}" + (f": {preview[:180]!r}" if preview else " (empty)"))
+            elif isinstance(value, (dict, list)):
+                details.append(f"{key}={type(value).__name__}")
+        return "Workers AI result fields: " + ", ".join(details[:12]) if details else "Workers AI result was an empty object."
+    return f"Workers AI result type: {type(result).__name__}."
+
+
+def _parse_vision_assessment(result, label="visual reviewer"):
+    """Parse Moondream's answer, tolerating nested and Markdown-wrapped responses."""
+    raw = _vision_text(result)
     assessment = None
     decoder = json.JSONDecoder()
     for match in re.finditer(r"\{", raw):
@@ -1120,7 +1140,7 @@ def _parse_vision_assessment(result, label="visual reviewer"):
         score = int(round(score_value))
         summary = str(assessment.get("summary", ""))[:500]
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
-        diagnostic = raw[:420] if raw else str(exc)
+        diagnostic = raw[:420] if raw else _vision_result_diagnostic(result)
         return {
             "model": VISION_MODEL,
             "score": 0,
@@ -2143,7 +2163,12 @@ def visuals_stage(feedback=""):
             prompt = _scene_visual_prompt(
                 scene, feedback_for_attempt, index=index, plan=plan
             )
-            generated = make_image(prompt, index)
+            seed_candidate = IMAGES / f"scene-{index + 1}.jpg"
+            if attempt == 1 and seed_candidate.is_file() and is_valid_portrait_scene_image(seed_candidate):
+                generated = seed_candidate
+                log(f"Re-reviewing preserved unapproved candidate for scene {index + 1}; no new image generation for this candidate.")
+            else:
+                generated = make_image(prompt, index)
             if not is_valid_portrait_scene_image(generated):
                 raise PipelineError(
                     f"Scene {index + 1} generator produced an invalid portrait image; "
