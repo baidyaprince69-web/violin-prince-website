@@ -18,6 +18,11 @@ on:
         required: true
         default: "43345195703"
         type: string
+      fresh_visual_test:
+        description: "Regenerate fresh AI artwork and the deterministic violin macro"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -34,7 +39,7 @@ jobs:
     env:
       PUBLISH_ENABLED: "false"
       RUN_ID: ${{ github.run_id }}
-      FRESH_VISUAL_TEST: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[fresh-visual-test]') }}
+      FRESH_VISUAL_TEST: ${{ (github.event_name == 'push' && contains(github.event.head_commit.message, '[fresh-visual-test]')) || (github.event_name == 'workflow_dispatch' && inputs.fresh_visual_test) }}
       SOURCE_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.source_run_id || '43345195703' }}
     steps:
       - name: Validate source run ID
@@ -142,12 +147,35 @@ jobs:
 
       - name: Verify restored prepared package
         run: |
-          test -s work/package/creative_plan.json
-          test -s work/package/stage.json
-          test -s work/package/soundtrack.wav
-          test -s work/package/scene-1.jpg
-          test -s work/package/scene-2.jpg
-          test -s work/package/scene-3.jpg
+          set -euo pipefail
+          for file in creative_plan.json stage.json soundtrack.wav narration.wav scene-1.jpg scene-2.jpg scene-3.jpg; do
+            test -s "work/package/$file" || {
+              echo "::error::Prepared package is missing or empty: $file"
+              exit 1
+            }
+          done
+          python - <<'PY'
+          import json, wave
+          from pathlib import Path
+          package = Path("work/package")
+          plan = json.loads((package / "creative_plan.json").read_text(encoding="utf-8"))
+          stage = json.loads((package / "stage.json").read_text(encoding="utf-8"))
+          if not isinstance(plan, dict) or not isinstance(plan.get("scenes"), list) or len(plan["scenes"]) != 3:
+              raise SystemExit("Prepared creative plan must contain exactly three scenes.")
+          if any(not isinstance(scene, dict) or not str(scene.get("caption", "")).strip() for scene in plan["scenes"]):
+              raise SystemExit("Prepared creative plan contains an invalid or captionless scene.")
+          narration = stage.get("narration_info")
+          if not isinstance(narration, dict) or not isinstance(narration.get("subtitle_cues"), list) or not narration["subtitle_cues"]:
+              raise SystemExit("Prepared stage metadata is missing narration subtitle timings.")
+          for name in ("soundtrack.wav", "narration.wav"):
+              try:
+                  with wave.open(str(package / name), "rb") as audio:
+                      if audio.getnchannels() not in (1, 2) or audio.getnframes() <= 0 or audio.getframerate() <= 0:
+                          raise SystemExit(f"{name} is not a valid non-empty PCM WAV.")
+              except (wave.Error, EOFError, OSError) as exc:
+                  raise SystemExit(f"{name} is not a readable PCM WAV: {exc}") from exc
+          print("Prepared story, native narration timings, soundtrack and narration assets passed preflight.")
+          PY
 
       - name: Prepare a dedicated violin-performance visual test story
         if: env.FRESH_VISUAL_TEST == 'true'
@@ -212,7 +240,7 @@ jobs:
           test -s work/package/scene-3.jpg
           test -s work/package/storyboard-preview.png
 
-      - name: Verify fresh macro prompts and record visual proof
+      - name: Verify fresh portrait assets and record visual proof
         if: env.FRESH_VISUAL_TEST == 'true'
         run: |
           python - <<'PY'
@@ -228,38 +256,34 @@ jobs:
           output.mkdir(parents=True, exist_ok=True)
           plan = json.loads((package / "creative_plan.json").read_text(encoding="utf-8"))
           metadata = json.loads((package / "stage.json").read_text(encoding="utf-8"))
-          prompts = [
-              engine._scene_visual_prompt(scene, index=index, plan=plan)
-              for index, scene in enumerate(plan["scenes"])
-          ]
-          macro_prompt = prompts[1]
-          for required in (
-              "EXTREME CLOSE-UP MACRO",
-              "85mm macro lens",
-              "very shallow depth of field",
-              "SINGLE FROZEN MACRO KEYFRAME",
-              "string-height three-quarter side angle",
-              "four separate, taut, parallel strings",
-              "crosses the strings from frame-left to frame-right at approximately 90 degrees",
-              "horsehair ribbon—not the bow stick",
-              "one sharply focused contact point",
-              "between the bridge and fingerboard",
-              "no hands are required",
-          ):
-              if required not in macro_prompt:
-                  raise SystemExit(f"Fresh macro prompt is missing required detail: {required}")
-          submitted_payload = engine.image_request_payload(macro_prompt)
-          if submitted_payload["prompt"] != macro_prompt:
-              raise SystemExit("The image API payload would alter or truncate the verified macro prompt.")
-          prompt_char_count = len(macro_prompt)
-          if prompt_char_count > engine.MAX_IMAGE_PROMPT_CHARS:
-              raise SystemExit(f"Macro prompt exceeds the FLUX limit: {prompt_char_count}")
+          # Validate the unused macro brief as an offline contract only. The
+          # precision illustration is procedural and is deliberately not sent to FLUX.
+          macro_brief = engine._scene_visual_prompt(plan["scenes"][1], index=1, plan=plan)
+          prompt_char_count = len(macro_brief)
+          if not macro_brief or prompt_char_count > engine.MAX_IMAGE_PROMPT_CHARS:
+              raise SystemExit(f"Macro fallback brief is empty or over the prompt limit: {prompt_char_count}")
 
           run_id = os.environ["RUN_ID"]
           if metadata.get("stage") != "visuals_ready":
               raise SystemExit("Fresh visual stage did not complete successfully.")
           if str(metadata.get("visuals_run_id")) != str(run_id):
               raise SystemExit("Visual package run ID does not match this fresh-test run.")
+          expected_modes = [
+              "cloudflare_flux_portrait_extended",
+              "deterministic_violin_contact_illustration",
+              "cloudflare_flux_portrait_extended",
+          ]
+          if metadata.get("visual_modes") != expected_modes:
+              raise SystemExit(f"Unexpected fresh visual render modes: {metadata.get('visual_modes')}")
+          if metadata.get("portrait_dimensions") != [engine.W, engine.H]:
+              raise SystemExit(f"Portrait dimension metadata is invalid: {metadata.get('portrait_dimensions')}")
+          visual_assets = metadata.get("visual_assets", [])
+          if len(visual_assets) != 3 or visual_assets[1].get("string_count") != 4:
+              raise SystemExit("Precision macro metadata did not confirm four distinct strings.")
+          if visual_assets[1].get("highlighted_contact_points") != 1:
+              raise SystemExit("Precision macro metadata must confirm exactly one highlighted contact point.")
+          if visual_assets[1].get("contact_alignment_error_px", 999) > 5:
+              raise SystemExit("Precision macro contact marker is not aligned with its selected string.")
           images = []
           for index in range(1, 4):
               path = package / f"scene-{index}.jpg"
@@ -268,8 +292,10 @@ jobs:
               with Image.open(path) as image:
                   width, height = image.size
                   image.verify()
-              if width >= height or not 0.50 <= width / height <= 0.65:
-                  raise SystemExit(f"Scene image {index} is not a portrait 9:16-style frame: {width}x{height}")
+              if (width, height) != (engine.W, engine.H):
+                  raise SystemExit(
+                      f"Scene image {index} is not the required {engine.W}x{engine.H} portrait frame: {width}x{height}"
+                  )
               images.append({
                   "file": path.name,
                   "width": width,
@@ -287,16 +313,14 @@ jobs:
               "title": plan.get("title"),
               "image_model": engine.IMAGE_MODEL,
               "fresh_ai_image_generation": True,
-              "fresh_visual_assets_generated": True,
-              "scene_render_modes": [
-                  "FLUX.1-schnell still + non-destructive 9:16 portrait extension",
-                  "deterministic precision macro illustration (not an AI-generated frame)",
-                  "FLUX.1-schnell still + non-destructive 9:16 portrait extension"
-              ],
-              "prompt_validation": "passed",
+              "fresh_ai_images_generated": 2,
+              "fresh_visual_assets_generated": 3,
+              "scene_render_modes": metadata.get("visual_modes", []),
+              "portrait_dimensions": metadata.get("portrait_dimensions"),
+              "prompt_validation": "fallback_brief_validated_offline_only",
               "macro_prompt_sent_to_model": False,
-              "macro_prompt_contract": "valid_and_within_limit; procedural macro renderer selected by design",
-              "macro_prompt_char_count": prompt_char_count,
+              "macro_prompt_contract": "procedural_violin_contact_illustration_selected_by_design",
+              "macro_brief_char_count": prompt_char_count,
               "prompt_character_limit": engine.MAX_IMAGE_PROMPT_CHARS,
               "visual_content_review": "pending_human_review",
               "visual_review_checklist": [
@@ -307,7 +331,7 @@ jobs:
                   "The palette remains warm walnut, charcoal, oxblood, copper and antique gold.",
               ],
               "scene_images": images,
-              "scene_2_macro_prompt": macro_prompt,
+              "scene_2_macro_brief": macro_brief,
               "publishing_enabled": False,
               "production_renderer_changed": False,
           }
@@ -318,7 +342,7 @@ jobs:
               "status": manifest["status"],
               "run_id": run_id,
               "generated_scene_images": len(images),
-              "macro_prompt_checks": "passed",
+              "macro_prompt_checks": "fallback_brief_validated_offline_only",
               "scene_2_render_mode": "deterministic_precision_macro_illustration",
               "visual_content_review": "pending_human_review",
               "publishing_enabled": False,

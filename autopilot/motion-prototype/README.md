@@ -24,9 +24,11 @@ The fresh-visual manifest checks prompt structure, image presence, dimensions an
 ## Safety and separation
 
 - The existing Python/Pillow/FFmpeg renderer remains the production path.
-- The fresh-art checkpoint calls Cloudflare Workers AI (FLUX.1-schnell) for three still scene images; it does not call a text-to-video model or publish.
+- The fresh-art checkpoint calls Cloudflare Workers AI (FLUX.1-schnell) for two still scene images, extends each into a 9:16 frame without cropping away the complete source image, and draws the violin bow-contact macro deterministically; it does not call a text-to-video model or publish.
 - The isolated rendering step reads saved still images and does not make AI calls.
-- Image prompts are capped at 1,800 characters and are rejected if over the limit; critical macro geometry is placed before stylistic detail.
+- AI image prompts are capped at 1,800 characters and are rejected if over the limit; temporary network/5xx failures get one bounded retry, while quota/permission failures stop without a paid fallback.
+- Visual recovery reuses only valid 720×1280 portrait images. Legacy square images are regenerated, and violin bow-contact macro scenes are rebuilt rather than reusing an older inaccurate AI macro.
+- The deterministic bow-contact illustration calculates its highlight from the actual bow-hair and string paths and records a geometry check in the visual package.
 - It reads an existing prepared package and regenerates narration from the approved script to obtain native word timing.
 - It creates both a V2 FFmpeg baseline and V3 HTML preview for the primary story, plus a second-story consistency render.
 - The prototype is not promoted to production until visual inspection and regression tests pass.

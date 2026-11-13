@@ -7,11 +7,13 @@ on:
       - ".github/workflows/violin-prince-autopilot.yml"
       - ".github/workflows/deploy-autopilot-cloudflare.yml"
       - ".github/workflows/autopilot-checks.yml"
+      - ".github/workflows/v3-motion-prototype.yml"
   pull_request:
     paths:
       - "autopilot/**"
       - ".github/workflows/violin-prince-autopilot.yml"
       - ".github/workflows/autopilot-checks.yml"
+      - ".github/workflows/v3-motion-prototype.yml"
 
 permissions:
   contents: read
@@ -79,6 +81,7 @@ jobs:
               ".github/workflows/autopilot-checks.yml",
               ".github/workflows/violin-prince-autopilot.yml",
               ".github/workflows/deploy-autopilot-cloudflare.yml",
+              ".github/workflows/v3-motion-prototype.yml",
           ]
           for name in files:
               parsed = yaml.safe_load(Path(name).read_text(encoding="utf-8"))
