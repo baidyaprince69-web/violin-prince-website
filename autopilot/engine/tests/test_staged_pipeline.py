@@ -110,6 +110,25 @@ class StagedPipelineTests(unittest.TestCase):
             finally:
                 pipeline.WORK = original
 
+    def test_visual_package_rejected_when_storyboard_continuity_did_not_pass(self):
+        with tempfile.TemporaryDirectory() as folder:
+            self._write_package(folder, include_images=True)
+            metadata_path = Path(folder) / "stage.json"
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            metadata["storyboard_review"]["passed"] = False
+            metadata["storyboard_review"]["score"] = 54
+            metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+            original = pipeline.PACKAGE
+            try:
+                pipeline.PACKAGE = Path(folder)
+                with self.assertRaisesRegex(
+                    pipeline.PipelineError, "storyboard has not passed AI continuity review"
+                ):
+                    pipeline._read_package(require_images=True)
+            finally:
+                pipeline.PACKAGE = original
+
     def test_visual_package_requires_three_valid_images(self):
         with tempfile.TemporaryDirectory() as folder:
             self._write_package(folder, include_images=False)
