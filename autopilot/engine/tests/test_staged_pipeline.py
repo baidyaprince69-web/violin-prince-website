@@ -258,6 +258,21 @@ class StagedPipelineTests(unittest.TestCase):
         self.assertTrue(wrapped["passed"])
         self.assertEqual(wrapped["score"], 88)
 
+    def test_vision_assessment_rejects_passed_response_with_any_listed_issues(self):
+        review = pipeline._parse_vision_assessment({
+            "result": {
+                "answer": (
+                    '{"score": 97, "passed": true, '
+                    '"issues": ["performer identity differs between scenes"], '
+                    '"summary": "The images look polished but the lead performer changed."}'
+                )
+            },
+            "usage": {"tokens": 42},
+        })
+        self.assertFalse(review["passed"])
+        self.assertEqual(review["score"], 97)
+        self.assertIn("performer identity differs", review["issues"][0])
+
     def test_empty_vision_response_reports_provider_field_shape(self):
         diagnostic = pipeline._parse_vision_assessment(
             {"answer": None, "reasoning": {"trace": "omitted"}, "metrics": {"tokens": 0}}
