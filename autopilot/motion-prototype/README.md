@@ -24,7 +24,9 @@ The fresh-visual manifest checks prompt structure, image presence, dimensions an
 ## Safety and separation
 
 - The existing Python/Pillow/FFmpeg renderer remains the production path.
-- This prototype does not call Cloudflare AI, upload to public video services, or publish.
+- The fresh-art checkpoint calls Cloudflare Workers AI (FLUX.1-schnell) for three still scene images; it does not call a text-to-video model or publish.
+- The isolated rendering step reads saved still images and does not make AI calls.
+- Image prompts are capped at 1,800 characters and are rejected if over the limit; critical macro geometry is placed before stylistic detail.
 - It reads an existing prepared package and regenerates narration from the approved script to obtain native word timing.
 - It creates both a V2 FFmpeg baseline and V3 HTML preview for the primary story, plus a second-story consistency render.
 - The prototype is not promoted to production until visual inspection and regression tests pass.

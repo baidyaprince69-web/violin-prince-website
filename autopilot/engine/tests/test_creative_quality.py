@@ -94,7 +94,7 @@ class CreativeQualityTests(unittest.TestCase):
             self.assertIn("Avoid blue, teal, cyan or cold-blue backgrounds", prompt)
             self.assertIn("clearly illustrated concept art rather than photography", prompt)
             self.assertIn("Portrait 9:16 composition", prompt)
-            self.assertLessEqual(len(prompt), 3200)
+            self.assertLessEqual(len(prompt), pipeline.MAX_IMAGE_PROMPT_CHARS)
         self.assertEqual(len(set(prompts)), 3)
 
     def test_performance_detail_prompt_is_an_extreme_macro_with_physical_constraints(self):
@@ -121,12 +121,36 @@ class CreativeQualityTests(unittest.TestCase):
             "horsehair ribbon—not the bow stick",
             "one sharply focused contact point",
             "between the bridge and fingerboard",
-            "right hand near the frog",
+            "no hands are required",
             "no duplicate bows",
         ):
             self.assertIn(expected, prompt)
         self.assertIn("warm directional key light around 3200K", prompt)
         self.assertLessEqual(len(prompt), 3200)
+
+    def test_macro_prompt_is_complete_and_sent_without_truncation(self):
+        plan = {
+            "topic": "A violinist demonstrates bow-string contact",
+            "visual_motif": "amber-varnished violin, dark tailpiece, four strings",
+        }
+        scene = {
+            "image_prompt": "Single frozen side-three-quarter macro keyframe of bow-hair contact",
+            "caption": "The bow hair contacts one string",
+            "graphic_label": "BOW CONTACT",
+        }
+        prompt = pipeline._scene_visual_prompt(scene, index=1, plan=plan)
+        payload = pipeline.image_request_payload(prompt)
+        self.assertEqual(payload["prompt"], prompt)
+        self.assertLessEqual(len(prompt), pipeline.MAX_IMAGE_PROMPT_CHARS)
+        for phrase in (
+            "SINGLE FROZEN MACRO KEYFRAME",
+            "85mm macro lens",
+            "four separate, taut, parallel strings",
+            "horsehair ribbon—not the bow stick",
+            "one sharply focused contact point",
+            "between the bridge and fingerboard",
+        ):
+            self.assertIn(phrase, payload["prompt"])
 
     def test_canvas_renderer_pins_fonts_and_checks_lowercase_s_rasterization(self):
         renderer = ENGINE.parent / "motion-prototype" / "render.mjs"

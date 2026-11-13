@@ -25,10 +25,15 @@ class FluxRequestContractTests(unittest.TestCase):
         self.assertEqual(payload["prompt"], "a cinematic portrait illustration")
         self.assertEqual(payload["steps"], 4)
 
-    def test_long_prompt_is_bounded_to_model_limit(self):
-        payload = pipeline.image_request_payload("x" * 3000)
-        self.assertEqual(len(payload["prompt"]), 1800)
-        self.assertLessEqual(len(payload["prompt"]), 2048)
+    def test_overlong_prompt_is_rejected_instead_of_silently_truncated(self):
+        with self.assertRaisesRegex(pipeline.PipelineError, "safe model limit"):
+            pipeline.image_request_payload("x" * 1801)
+
+    def test_prompt_at_model_limit_is_sent_without_modification(self):
+        prompt = "x" * pipeline.MAX_IMAGE_PROMPT_CHARS
+        payload = pipeline.image_request_payload(prompt)
+        self.assertEqual(payload["prompt"], prompt)
+        self.assertEqual(len(payload["prompt"]), pipeline.MAX_IMAGE_PROMPT_CHARS)
 
     def test_empty_prompt_is_rejected_before_api_call(self):
         with self.assertRaises(pipeline.PipelineError):

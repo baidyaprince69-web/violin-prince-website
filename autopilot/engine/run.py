@@ -18,6 +18,7 @@ CF_TOKEN = os.environ.get("CF_AI_TOKEN", "")
 RUN_ID = os.environ.get("RUN_ID", str(uuid.uuid4()))
 TEXT_MODEL = "@cf/google/gemma-4-26b-a4b-it"
 IMAGE_MODEL = "@cf/black-forest-labs/flux-1-schnell"
+MAX_IMAGE_PROMPT_CHARS = 1800
 WORK, OUT, IMAGES = Path("work"), Path("work/output"), Path("work/images")
 W, H, FPS, SECONDS = 720, 1280, 25, 8
 http = requests.Session()
@@ -966,11 +967,16 @@ def make_plan(items, recent=None):
 
 
 def image_request_payload(prompt):
-    """Build only the fields accepted by Cloudflare's FLUX.1-schnell REST schema."""
+    """Build the FLUX.1-schnell request without silently clipping important instructions."""
     value = str(prompt or "").strip()
     if not value:
         raise PipelineError("Image prompt is empty.")
-    return {"prompt": value[:1800], "steps": 4}
+    if len(value) > MAX_IMAGE_PROMPT_CHARS:
+        raise PipelineError(
+            f"Image prompt is {len(value)} characters; the safe model limit is "
+            f"{MAX_IMAGE_PROMPT_CHARS}. Shorten the prompt instead of truncating it."
+        )
+    return {"prompt": value, "steps": 4}
 
 
 def make_image(prompt, index):
@@ -1415,124 +1421,92 @@ def _read_package(require_images=False):
 
 
 def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
-    """Build a structured, motion-aware keyframe prompt with a stable subject anchor."""
-    prompt = str(scene.get("image_prompt", "")).strip()
-    if not prompt:
+    """Build a compact, complete image prompt; never let the model API clip key constraints."""
+    raw_prompt = re.sub(r"\\s+", " ", str(scene.get("image_prompt", ""))).strip()
+    if not raw_prompt:
         raise PipelineError("A planned scene has no image prompt.")
 
     story = plan or {}
     subject = str(story.get("topic") or story.get("title") or "the story")[:140]
-    anchor = str(
+    anchor_raw = str(
         story.get("visual_motif")
         or story.get("visual_anchor")
         or scene.get("visual_anchor")
         or subject
-    ).strip()[:170]
+    ).strip()
     context = " ".join([
-        subject,
-        anchor,
-        str(scene.get("caption", "")),
-        str(scene.get("graphic_label", "")),
-        str(scene.get("graphic_detail", "")),
-        prompt,
+        subject, anchor_raw, str(scene.get("caption", "")),
+        str(scene.get("graphic_label", "")), str(scene.get("graphic_detail", "")),
+        raw_prompt,
     ]).lower()
     performance_related = bool(re.search(
-        r"\b(violinist|virtuoso|musician|performer|performance|playing|bowing|concert|"
-        r"rapid|difficult|speed|fingerboard|bow hand|left hand|right hand|technique)\b",
+        r"\\b(violinist|virtuoso|musician|performer|performance|playing|bowing|concert|"
+        r"rapid|difficult|speed|fingerboard|bow hand|left hand|right hand|technique)\\b",
         context,
     ))
-
-    shot_roles = (
-        "SHOT 1 — TWO-SECOND HOOK: one instantly readable hero composition, a strong silhouette, "
-        "the performer and violin recognizable at thumbnail size; suggest action, not a posed portrait.",
-        "SHOT 2 — EXTREME CLOSE-UP DETAIL: isolate the single physical action or mechanism that makes "
-        "this story distinctive; prioritize tactile micro-detail and a precise focal plane.",
-        "SHOT 3 — EMOTIONAL PAYOFF: widen back out to connect the detail to the full subject and resolve "
-        "the opening visual question with a confident, coherent final composition.",
-    )
-    camera_profiles = (
-        "Camera/framing: medium close-up, eye-level three-quarter view, 50mm-equivalent lens, "
-        "slow forward push-in; keep the instrument and playing posture legible.",
-        "Camera/framing: EXTREME CLOSE-UP MACRO, 85mm macro lens, very shallow depth of field; "
-        "pin-sharp focus on the contact point or tactile detail, with foreground and background falling "
-        "softly out of focus. Compose for a restrained lateral tracking move that follows the action.",
-        "Camera/framing: wider 50mm-equivalent portrait composition, slightly lower than eye level, "
-        "slow pull-back reveal; preserve clear depth layers and a stable horizon.",
-    )
     scene_index = max(0, min(2, int(index)))
+    compact_prompt = textwrap.shorten(raw_prompt, width=190 if performance_related and scene_index == 1 else 250, placeholder="…")
+    anchor = textwrap.shorten(re.sub(r"\\s+", " ", anchor_raw), width=125, placeholder="…")
 
-    # Keep the external creator references as technique references only: the original
-    # Violin Prince visual identity remains warm, illustrated and distinct.
-    prompt_parts = [
-        "SUBJECT & ACTION: " + prompt + ". " + shot_roles[scene_index],
-        "RECURRING ASSET ANCHOR: " + anchor + ". Keep the same recognizable primary subject, "
-        "instrument design, wood tone, proportions and visual details across all three scenes; "
-        "change framing and camera distance, not the identity of the subject.",
-        "STYLE & MATERIAL: premium hand-painted cinematic editorial illustration, clearly illustrated "
-        "concept art rather than photography, with restrained dimensional 3D shading on real materials. "
-        "Show tactile wood grain, instrument varnish, fine metal, bow hair and rosin texture accurately; "
-        "avoid toy-like plasticine gloss, flat vector art, anime or generic stock imagery.",
-        "LIGHTING & CAMERA: " + camera_profiles[scene_index] + " Use a warm directional key light around "
-        "3200K, a soft neutral fill around 4300K and a restrained amber rim around 2800K. Keep highlights "
-        "controlled, preserve natural material color and use shallow depth of field only where specified.",
-        "BACKGROUND & ATMOSPHERE: charcoal black, walnut brown, muted oxblood/burgundy shadows, antique "
-        "gold, burnished copper and warm ivory highlights. Avoid blue, teal, cyan or cold-blue backgrounds. "
-        "Layered foreground, midground and background for parallax; leave a clean upper information area "
-        "and a lower caption-safe zone. Background motion should remain subtle and never compete with the hero action.",
-        "COMPOSITION RULES: clear focal hierarchy, readable silhouette, realistic scale and perspective, "
-        "no text, no lettering, no logos, no watermark, no duplicated subject or instrument. Portrait 9:16 composition.",
-    ]
-
-    if performance_related:
-        if scene_index == 0:
+    if performance_related and scene_index == 1:
+        # Put the physical contact geometry before stylistic detail. FLUX receives
+        # this entire prompt; the bow/strings requirements are never beyond a cut-off.
+        prompt_parts = [
+            "SUBJECT & ACTION: " + compact_prompt + ".",
+            "SHOT 2 — EXTREME CLOSE-UP DETAIL: 85mm macro lens, string-height three-quarter side angle, very shallow depth of field; one centered contact point is pin-sharp.",
+            "SINGLE FROZEN MACRO KEYFRAME: one instant, no sequence or multiple exposure.",
+            "GEOMETRY: one upright maple bridge supports four separate, taut, parallel strings; the ebony fingerboard is distinct beyond it. A single dark wooden bow crosses frame-left to frame-right at approximately 90 degrees. Show the wooden stick and thin pale horsehair ribbon as connected parts of the same bow. The horsehair ribbon—not the bow stick—visibly rests on and slightly depresses exactly one string at one sharply focused contact point between the bridge and fingerboard. Center this point; no hands are required.",
+            "RECURRING ASSET ANCHOR: " + anchor + "; keep believable violin proportions.",
+            "STYLE & MATERIAL: premium hand-painted cinematic editorial illustration with restrained 3D shading; accurate maple, ebony, steel strings and bow hair; avoid plastic, anime or stock imagery.",
+            "LIGHTING & CAMERA: warm directional key light around 3200K, soft neutral fill around 4300K and amber rim around 2800K; narrow macro focus plane.",
+            "BACKGROUND & ATMOSPHERE: charcoal, walnut, oxblood, copper, antique gold and warm ivory. Avoid blue, teal, cyan or cold-blue backgrounds.",
+            "COMPOSITION RULES: realistic portrait 9:16 perspective, one clear focal point, no text or watermark. No extra rods, duplicate bows, detached hair, screws or pins mistaken for the bow, parallel bow angle, extra strings or broken bridge.",
+        ]
+    else:
+        shot_roles = (
+            "SHOT 1 — TWO-SECOND HOOK: instantly readable performer, violin and active playing posture.",
+            "SHOT 2 — EXTREME CLOSE-UP DETAIL: isolate one tactile physical interaction and its precise focal point.",
+            "SHOT 3 — EMOTIONAL PAYOFF: widen back out to connect the detail with the full performance.",
+        )
+        camera_profiles = (
+            "50mm medium close-up, eye-level three-quarter view, slow push-in.",
+            "85mm macro lens, close three-quarter view, very shallow depth of field and one exact focal plane.",
+            "50mm wider portrait view, slightly low angle, slow pull-back reveal.",
+        )
+        prompt_parts = [
+            "SUBJECT & ACTION: " + compact_prompt + ". " + shot_roles[scene_index],
+            "RECURRING ASSET ANCHOR: " + anchor + "; keep recognizable subject design and believable proportions.",
+            "STYLE & MATERIAL: premium hand-painted cinematic editorial illustration with restrained 3D shading and tactile natural materials; avoid plastic, anime or stock imagery.",
+            "LIGHTING & CAMERA: " + camera_profiles[scene_index] + " Warm 3200K key, neutral 4300K fill and amber 2800K rim.",
+            "BACKGROUND & ATMOSPHERE: charcoal, walnut, oxblood, copper, antique gold and warm ivory. Avoid blue, teal, cyan or cold-blue backgrounds.",
+            "COMPOSITION RULES: clear focal hierarchy, realistic perspective, portrait 9:16, no text, lettering, logo or watermark.",
+        ]
+        if performance_related and scene_index == 0:
             prompt_parts.append(
-                "PERFORMANCE ACCURACY: show an actively playing violinist. The violin rests naturally "
-                "under the jaw/shoulder; left hand supports the neck and fingers the fingerboard; right "
-                "hand controls the bow with a plausible grip. Keep both arms, the bow and the instrument "
-                "connected naturally and visible enough to read the action."
+                "PERFORMANCE ACCURACY: natural violin under jaw/shoulder; plausible left hand on fingerboard and right hand on bow."
+            )
+        elif performance_related and scene_index == 2:
+            prompt_parts.append(
+                "PERFORMANCE PAYOFF: performer, violin, both hands and bow in a natural, connected playing posture."
             )
         elif scene_index == 1:
             prompt_parts.append(
-                "SINGLE FROZEN MACRO KEYFRAME: one instant, not multiple exposures or a sequence. Use a "
-                "string-height three-quarter side angle looking along the violin strings from the bridge toward "
-                "the fingerboard. Show one upright maple bridge supporting four separate, taut, parallel strings; "
-                "the fingerboard must be a distinct part behind the bridge. A single violin bow crosses the strings "
-                "from frame-left to frame-right at approximately 90 degrees. Clearly separate the dark wooden bow "
-                "stick from its thin, taut, pale horsehair ribbon. The horsehair ribbon—not the bow stick—must "
-                "visibly rest on and slightly depress exactly one string at one sharply focused contact point in "
-                "the playing area between the bridge and fingerboard. Keep this contact point near frame center. "
-                "Show the bow stick and hair as two connected parts of the same bow. A small right hand near the "
-                "frog may appear only if it naturally fits at the frame edge; the hand may be omitted entirely. "
-                "Keep the strings, bridge, fingerboard, bow stick and horsehair visually distinct. "
-                "ANATOMY / OBJECT NEGATIVES: no extra strings, no duplicate bows, no detached pale rod, no "
-                "floating bow, no screw or metal pin mistaken for the bow, no bow aligned parallel to the strings, "
-                "no bridge mistaken for the bow, no impossible string layout, no warped fingerboard."
+                "MACRO FOCUS: one exact surface or material interaction, narrow focus plane and quiet background."
             )
-        else:
-            prompt_parts.append(
-                "PERFORMANCE PAYOFF: show the performer, violin, both hands and bow together in a natural "
-                "playing posture; believable wrist alignment, curved left-hand fingertips and a relaxed, "
-                "plausible right-hand bow grip."
-            )
-        prompt_parts.append(
-            "ANATOMY / INSTRUMENT NEGATIVES: no extra or fused fingers, no duplicated or floating bow, "
-            "no broken bridge, no impossible string layout, no warped fingerboard, no disconnected hands, "
-            "no impossible wrist angles."
-        )
 
-    # Non-performance close-ups still receive a concrete macro focal plane.
-    elif scene_index == 1:
-        prompt_parts.append(
-            "MACRO FOCUS: describe one exact surface, edge, moving part or material interaction as the "
-            "hero detail. Keep the focal plane narrow and the background quiet; do not create decorative "
-            "extra objects or unsupported diagrams."
-        )
-
-    clean_feedback = re.sub(r"\s+", " ", str(feedback or "")).strip()[:450]
+    base_prompt = " ".join(prompt_parts)
+    clean_feedback = textwrap.shorten(re.sub(r"\\s+", " ", str(feedback or "")).strip(), width=90, placeholder="…")
     if clean_feedback:
-        prompt_parts.append("ADDITIONAL DIRECTION: " + clean_feedback)
+        optional = " ADDITIONAL DIRECTION: " + clean_feedback
+        if len(base_prompt) + len(optional) <= MAX_IMAGE_PROMPT_CHARS:
+            base_prompt += optional
 
-    return " ".join(prompt_parts)[:3200]
+    if len(base_prompt) > MAX_IMAGE_PROMPT_CHARS:
+        raise PipelineError(
+            f"Scene {scene_index + 1} prompt is {len(base_prompt)} characters; "
+            f"the maximum is {MAX_IMAGE_PROMPT_CHARS}. Reduce optional wording."
+        )
+    return base_prompt
 
 def make_storyboard_preview(plan, image_paths, target):
     """Build a single review sheet so visual approval happens before video rendering."""

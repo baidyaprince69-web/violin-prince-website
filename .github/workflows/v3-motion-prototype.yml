@@ -244,10 +244,17 @@ jobs:
               "horsehair ribbon—not the bow stick",
               "one sharply focused contact point",
               "between the bridge and fingerboard",
-              "right hand near the frog",
+              "no hands are required",
           ):
               if required not in macro_prompt:
                   raise SystemExit(f"Fresh macro prompt is missing required detail: {required}")
+          submitted_payload = engine.image_request_payload(macro_prompt)
+          if submitted_payload["prompt"] != macro_prompt:
+              raise SystemExit("The image API payload would alter or truncate the verified macro prompt.")
+          prompt_char_count = len(macro_prompt)
+          if prompt_char_count > engine.MAX_IMAGE_PROMPT_CHARS:
+              raise SystemExit(f"Macro prompt exceeds the FLUX limit: {prompt_char_count}")
+
           run_id = os.environ["RUN_ID"]
           if metadata.get("stage") != "visuals_ready":
               raise SystemExit("Fresh visual stage did not complete successfully.")
@@ -281,6 +288,9 @@ jobs:
               "image_model": engine.IMAGE_MODEL,
               "fresh_image_generation": True,
               "prompt_validation": "passed",
+              "prompt_sent_without_truncation": True,
+              "submitted_prompt_char_count": prompt_char_count,
+              "prompt_character_limit": engine.MAX_IMAGE_PROMPT_CHARS,
               "visual_content_review": "pending_human_review",
               "visual_review_checklist": [
                   "The pale horsehair ribbon itself visibly contacts one string; the bow stick is a separate connected part.",
@@ -321,5 +331,11 @@ jobs:
           name: v3-motion-prototype-${{ github.run_id }}
           path: |
             work/output/motion-prototype/
+            work/package/scene-1.jpg
+            work/package/scene-2.jpg
+            work/package/scene-3.jpg
+            work/package/storyboard-preview.png
+            work/package/creative_plan.json
+            work/package/stage.json
           if-no-files-found: ignore
           retention-days: 14
