@@ -1,0 +1,67 @@
+name: Phase 4 YouTube engine offline validation
+
+on:
+  push:
+    branches:
+      - phase4-youtube-native
+      - v3-motion-prototype
+    paths:
+      - "autopilot/engine/youtube_native/**"
+      - "autopilot/engine/tests/test_phase3_release.py"
+      - "autopilot/engine/tests/test_checkpoint_artifacts.py"
+      - ".github/workflows/phase4-youtube-private-beta.yml"
+      - "autopilot/engine/tests/test_youtube_native.py"
+      - "autopilot/engine/requirements.txt"
+      - ".github/workflows/phase4-youtube-validation.yml"
+  pull_request:
+    branches:
+      - v3-motion-prototype
+    paths:
+      - "autopilot/engine/youtube_native/**"
+      - "autopilot/engine/tests/test_phase3_release.py"
+      - "autopilot/engine/tests/test_checkpoint_artifacts.py"
+      - ".github/workflows/phase4-youtube-private-beta.yml"
+      - "autopilot/engine/tests/test_youtube_native.py"
+      - "autopilot/engine/requirements.txt"
+      - ".github/workflows/phase4-youtube-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-validation:
+    name: YouTube metadata, OAuth, recovery and status tests (offline)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      PUBLISH_ENABLED: "false"
+      YOUTUBE_UPLOAD_APPROVED: "false"
+      YOUTUBE_PUBLICATION_APPROVED: "false"
+      YOUTUBE_PRIVACY_STATUS: "private"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install only the engine test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install "requests>=2.32,<3" "cryptography>=43,<48"
+
+      - name: Compile the native YouTube engine
+        run: python -m py_compile autopilot/engine/youtube_native/*.py autopilot/engine/tests/test_youtube_native.py autopilot/engine/tests/test_phase3_release.py autopilot/engine/tests/test_checkpoint_artifacts.py
+
+      - name: Run offline tests; no credentials or provider calls
+        run: python -m unittest autopilot.engine.tests.test_youtube_native autopilot.engine.tests.test_phase3_release autopilot.engine.tests.test_checkpoint_artifacts -v
+
+      - name: Assert publishing gates remain disabled
+        run: |
+          test "$PUBLISH_ENABLED" = "false"
+          test "$YOUTUBE_UPLOAD_APPROVED" = "false"
+          test "$YOUTUBE_PUBLICATION_APPROVED" = "false"
+          echo "No YouTube OAuth secrets were injected. No real upload or publication was attempted."
