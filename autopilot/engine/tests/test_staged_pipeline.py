@@ -195,5 +195,62 @@ class StagedPipelineTests(unittest.TestCase):
                 pipeline.WORK, pipeline.OUT = original_work, original_out
 
 
+    def test_scene_review_uses_non_streaming_answer_contract_and_parses_wrapped_json(self):
+        answer = (
+            'Assessment follows:\n```json\n'
+            '{"score": 94, "passed": true, "issues": [], "summary": "Clear, coherent scene."}'
+            '\n```'
+        )
+        with tempfile.TemporaryDirectory() as folder:
+            image_path = Path(folder) / "scene.jpg"
+            Image.new("RGB", (720, 1280), (40, 50, 60)).save(image_path, "JPEG")
+            with unittest.mock.patch.object(
+                pipeline, "ai",
+                return_value={"answer": answer, "response": "This field should not be preferred."}
+            ) as mocked:
+                review = pipeline.review_scene_image(
+                    image_path,
+                    {"title": "Test violin story", "topic": "Violin performance", "visual_motif": "amber violin"},
+                    {"image_prompt": "A violinist playing an amber violin", "caption": "The opening phrase"},
+                    0,
+                )
+
+        self.assertTrue(review["passed"])
+        self.assertEqual(review["score"], 94)
+        payload = mocked.call_args.args[1]
+        self.assertFalse(payload["stream"])
+        self.assertFalse(payload["reasoning"])
+        self.assertEqual(payload["temperature"], 0)
+        self.assertEqual(payload["max_tokens"], 512)
+
+    def test_storyboard_review_uses_non_streaming_answer_contract(self):
+        answer = (
+            '{"score": 91, "passed": true, "issues": [], '
+            '"summary": "All three shots share a coherent visual identity."}'
+        )
+        with tempfile.TemporaryDirectory() as folder:
+            contact_sheet = Path(folder) / "storyboard.png"
+            Image.new("RGB", (900, 500), (20, 30, 40)).save(contact_sheet, "PNG")
+            with unittest.mock.patch.object(pipeline, "ai", return_value={"answer": answer}) as mocked:
+                review = pipeline.review_storyboard_consistency(
+                    contact_sheet,
+                    {"title": "Test violin story", "topic": "Violin performance", "visual_motif": "amber violin"},
+                )
+
+        self.assertTrue(review["passed"])
+        self.assertEqual(review["score"], 91)
+        self.assertFalse(mocked.call_args.args[1]["stream"])
+        self.assertFalse(mocked.call_args.args[1]["reasoning"])
+
+    def test_malformed_vision_answer_fails_closed_with_diagnostic(self):
+        review = pipeline._parse_vision_assessment(
+            {"answer": "The image looks good, but I cannot format the requested data."}
+        )
+        self.assertFalse(review["passed"])
+        self.assertEqual(review["score"], 0)
+        self.assertIn("not valid structured JSON", review["issues"][0])
+        self.assertIn("image looks good", review["summary"])
+
+
 if __name__ == "__main__":
     unittest.main()
