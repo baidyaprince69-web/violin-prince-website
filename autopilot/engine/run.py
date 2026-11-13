@@ -779,8 +779,9 @@ def make_plan(items, recent=None):
                                 "\nNext beat for continuity: " + next_sentence +
                                 "\nVerified research evidence: " +
                                 json.dumps(repair_evidence, ensure_ascii=False) +
-                                "\\nCorrection instruction: " + correction_instruction +
-                                ("\\nPrevious validation result: " + current_error if attempt > 1 else "") +
+                                "\nCorrection instruction: " + correction_instruction +
+                                ("\nPrevious validation result: " + current_error if attempt > 1 else "") +
+                                "\nReturn JSON only: {\"sentence\":\"one complete sentence\"}."
                             ),
                         },
                     ],
