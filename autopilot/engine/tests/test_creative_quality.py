@@ -81,8 +81,8 @@ class CreativeQualityTests(unittest.TestCase):
             for i in range(3)
         ]
         self.assertIn("SHOT 1 — TWO-SECOND HOOK", prompts[0])
-        self.assertIn("SHOT 2 — DISTINCTIVE DETAIL", prompts[1])
-        self.assertIn("SHOT 3 — PAYOFF", prompts[2])
+        self.assertIn("SHOT 2 — EXTREME CLOSE-UP DETAIL", prompts[1])
+        self.assertIn("SHOT 3 — EMOTIONAL PAYOFF", prompts[2])
         for prompt in prompts:
             self.assertIn("SUBJECT & ACTION", prompt)
             self.assertIn("RECURRING ASSET ANCHOR", prompt)
