@@ -1916,8 +1916,8 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         prompt_parts = [
             "SUBJECT & ACTION: " + compact_prompt + ".",
             "SHOT 2 MACRO CLOSE-UP: Single still macro frame; 85mm lens, string-height three-quarter view, moderate depth of field; bridge, four strings, fingerboard, both bow parts and contact point simultaneously sharp.",
-            "VIOLIN GEOMETRY: one complete upright maple bridge, both feet on amber top plate; exactly four separate, parallel, countable strings; distinct ebony fingerboard behind bridge. Keep all four strings visible on both sides.",
-            "BOW GEOMETRY: exactly one bow crosses the strings at 90 degrees. Show straight dark stick and pale horsehair as two separate, continuous, parallel parts with a visible gap; joined only at frog and tip. No extra rods or duplicate bows.",
+            "VIOLIN GEOMETRY: one complete upright maple bridge, both feet on amber top plate; exactly four separate strings, parallel and individually countable; distinct ebony fingerboard behind bridge. Keep all four strings visible on both sides.",
+            "BOW GEOMETRY: exactly one bow crosses the strings at 90 degrees. Show a straight dark stick and pale horsehair: one slim dark wooden stick and one narrow pale horsehair ribbon, as two separate continuous parallel parts with a visible gap; joined only at frog and tip. No extra rods or duplicate bows.",
             "CONTACT POINT: Hair alone crosses at about 90° and touches one string between bridge and fingerboard at one clear point. The stick never touches strings; the other three remain separate.",
             "FRAMING & FOCUS: portrait 9:16; complete bridge, four separate strings, fingerboard, both bow parts and contact point fully inside frame and simultaneously sharp; do not crop or merge parts. No blur or warped parts.",
             "RECURRING ASSET ANCHOR: " + anchor + "; maintain believable violin proportions.",
