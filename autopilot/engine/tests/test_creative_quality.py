@@ -219,6 +219,9 @@ class CreativeQualityTests(unittest.TestCase):
         self.assertIn("function drawSceneTransition", source)
         self.assertIn("Fine copper rails", source)
         self.assertIn("if (sceneIndex !== 1 || !scene.macro_contact) return;", source)
+        self.assertIn("D.scenes[sceneIndex]?.macro_contact", source)
+        self.assertIn("Let the instrument anatomy occupy the frame", source)
+        self.assertIn("start: 0.005, end: 0.055", source)
         self.assertNotIn('if (TECHNICAL_TERMS.test(clean)) return "outline";', source)
         self.assertIn("Keep one expressive treatment across the full phrase", source)
 

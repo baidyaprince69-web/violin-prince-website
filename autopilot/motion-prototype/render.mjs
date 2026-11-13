@@ -409,7 +409,10 @@ window.__DATA__ = ${safeJson};
       { start: 0.105, end: 0.18, drift: 1, distance: 15, vertical: -20 },
       { start: 0.105, end: 0.045, drift: -1, distance: 12, vertical: 8 }
     ];
-    const camera = cameraProfiles[sceneIndex] || cameraProfiles[0];
+    const isMacroDetail = Boolean(D.scenes[sceneIndex]?.macro_contact);
+    const camera = isMacroDetail
+      ? { start: 0.005, end: 0.055, drift: 1, distance: 6, vertical: -5 }
+      : (cameraProfiles[sceneIndex] || cameraProfiles[0]);
     const zoom = camera.start + (camera.end - camera.start) * eased;
     const scale = Math.max(W / image.width, H / image.height) * (1 + zoom);
     const drift = camera.drift * (camera.distance * eased + 5 * Math.sin(progress * Math.PI));
@@ -499,11 +502,11 @@ window.__DATA__ = ${safeJson};
     const sourceHeight = Number(macro.source_height || H);
     const progress = clamp(Number(localProgress || 0));
     const eased = easeInOut(progress);
-    const zoom = 0.105 + (0.18 - 0.105) * eased;
+    const zoom = 0.005 + (0.055 - 0.005) * eased;
     const scale = Math.max(W / sourceWidth, H / sourceHeight) * (1 + zoom);
-    const drift = 15 * eased + 5 * Math.sin(progress * Math.PI);
+    const drift = 6 * eased + 2 * Math.sin(progress * Math.PI);
     const dx = (W - sourceWidth * scale) / 2 + drift;
-    const dy = (H - sourceHeight * scale) / 2 - 20 * eased;
+    const dy = (H - sourceHeight * scale) / 2 - 5 * eased;
     const x = Number(macro.x) * scale + dx;
     const y = Number(macro.y) * scale + dy;
     const energy = musicEnergyAt(time);
@@ -596,6 +599,42 @@ window.__DATA__ = ${safeJson};
     const chartProgress = easeOut((local - 0.82) / Math.max(1.45, sceneDuration * 0.30));
 
     ctx.save();
+    if (scene.macro_contact) {
+      // Let the instrument anatomy occupy the frame: compact editorial heading,
+      // no large progress chart over the fingerboard or bridge.
+      const macroFade = ctx.createLinearGradient(0, top - 26, 0, top + 220);
+      macroFade.addColorStop(0, "rgba(12,8,7,.72)");
+      macroFade.addColorStop(0.72, "rgba(12,8,7,.22)");
+      macroFade.addColorStop(1, "rgba(12,8,7,0)");
+      ctx.fillStyle = macroFade;
+      ctx.globalAlpha = opacity;
+      ctx.fillRect(0, top - 28, W, 250);
+
+      ctx.globalAlpha = opacity * labelProgress;
+      ctx.fillStyle = accent;
+      ctx.font = "800 13px 'DejaVu Sans', sans-serif";
+      drawGlyphRun(ctx, String(index + 1).padStart(2, "0") + "   /   " + label.slice(0, 38), 42, top + 18);
+
+      ctx.globalAlpha = opacity * headlineProgress;
+      ctx.fillStyle = IVORY;
+      ctx.font = "700 30px 'DejaVu Serif', serif";
+      const macroHeadlineLines = wrap(headline, W - 92, "700 30px 'DejaVu Serif', serif");
+      macroHeadlineLines.forEach((line, row) => {
+        drawGlyphRun(ctx, line, 42 + (1 - headlineProgress) * 10, top + 67 + row * 38, W - 92);
+      });
+
+      ctx.globalAlpha = opacity * detailProgress;
+      ctx.fillStyle = MUTED;
+      ctx.font = "500 15px 'DejaVu Sans', sans-serif";
+      const macroDetailLines = wrap(detail, W - 92, "500 15px 'DejaVu Sans', sans-serif");
+      const macroDetailY = top + 77 + macroHeadlineLines.length * 35;
+      macroDetailLines.forEach((line, row) => {
+        drawGlyphRun(ctx, line, 44, macroDetailY + row * 20, W - 92);
+      });
+      ctx.restore();
+      return;
+    }
+
     const fade = ctx.createLinearGradient(0, top - 32, 0, top + 290);
     fade.addColorStop(0, "rgba(12,8,7,.78)");
     fade.addColorStop(0.72, "rgba(12,8,7,.32)");
