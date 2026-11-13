@@ -574,7 +574,7 @@ def narration_sentence_error(sentence, target_words):
         return f"it has {count} words; exactly {target_words} are required"
     if len(value.split()) > 12:
         return "the sentence exceeds the 12-word subtitle limit"
-    if not re.search(r"[.!?][\"')\\]]?$", value):
+    if not value.endswith((".", "!", "?")):
         return "the sentence is not grammatically closed with punctuation"
     return ""
 
