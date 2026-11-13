@@ -379,6 +379,7 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
             item.get("visual_review", {}) for item in metadata.get("visual_assets", [])
             if isinstance(item, dict)
         ],
+        "storyboard_review": metadata.get("storyboard_review", {}),
         "word_timing_method": narration_info["word_timing_method"],
         "word_timing_count": len(word_cues),
         "caption_animation_presets": [
