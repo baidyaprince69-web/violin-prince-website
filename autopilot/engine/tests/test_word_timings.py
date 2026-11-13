@@ -38,6 +38,31 @@ class WordTimingTests(unittest.TestCase):
         cues = word_cues_from_tokens(tokens, chunk_duration=1.0)
         self.assertEqual(cues, [{"start": 0.3, "end": 0.5, "text": "valid"}])
 
+    def test_trailing_punctuation_is_attached_to_its_word(self):
+        tokens = [
+            SimpleNamespace(text="Hello", start_ts=0.10, end_ts=0.38),
+            SimpleNamespace(text=",", start_ts=0.38, end_ts=0.40),
+            SimpleNamespace(text="world", start_ts=0.45, end_ts=0.80),
+            SimpleNamespace(text="!", start_ts=0.80, end_ts=0.92),
+        ]
+        cues = word_cues_from_tokens(tokens)
+        self.assertEqual(cues, [
+            {"start": 0.1, "end": 0.4, "text": "Hello,"},
+            {"start": 0.45, "end": 0.92, "text": "world!"},
+        ])
+
+    def test_quotes_and_apostrophe_suffixes_do_not_become_separate_cues(self):
+        tokens = [
+            SimpleNamespace(text="“", start_ts=0.05, end_ts=0.08),
+            SimpleNamespace(text="Prince", start_ts=0.10, end_ts=0.40),
+            SimpleNamespace(text="’s", start_ts=0.40, end_ts=0.48),
+            SimpleNamespace(text="”", start_ts=0.48, end_ts=0.52),
+        ]
+        cues = word_cues_from_tokens(tokens)
+        self.assertEqual(cues, [
+            {"start": 0.1, "end": 0.52, "text": "“Prince’s”"},
+        ])
+
     def test_empty_token_list_returns_no_cues(self):
         self.assertEqual(word_cues_from_tokens([], offset_seconds=3.0), [])
 
