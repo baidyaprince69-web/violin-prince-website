@@ -1790,6 +1790,7 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         str(story.get("topic", "")),
         str(story.get("title", "")),
         str(story.get("visual_motif", "")),
+        str(story.get("character_identity", "")),
     )).casefold()
     scene_identity = " ".join((
         raw_prompt,
@@ -1826,7 +1827,7 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
             "SUBJECT & ACTION: " + compact_prompt + ".",
             "SHOT 2 MACRO CLOSE-UP: 85mm lens, string-height three-quarter view, moderate depth of field; keep the complete bridge, all four strings, fingerboard, both bow parts and contact area simultaneously sharp and fully visible.",
             "Single still macro frame; no multiple exposure.",
-            "INSTRUMENT ACCURACY: one complete upright maple bridge with both feet visible; exactly four separate strings, parallel and individually countable from tailpiece across the bridge; a distinct ebony fingerboard clearly visible behind them. Exactly one bow: straight dark stick and pale horsehair are two separate, continuous components, with a visible gap between them, joined only at frog and tip. Keep the slim dark wooden stick and narrow pale horsehair ribbon both clearly visible; neither part may hide the other. Hair alone crosses at about 90° and visibly touches one string between bridge and fingerboard at one clear point. Keep the full bridge, all four strings, fingerboard, dark stick, pale hair and contact point inside the sharp focal plane; do not crop or merge parts, blur, fuse, bend or duplicate any required component.",
+            "INSTRUMENT ACCURACY: one complete upright maple bridge with both feet visible; exactly four separate strings, arranged parallel and individually countable from tailpiece across the bridge; a distinct ebony fingerboard clearly visible behind them. Exactly one bow: a straight dark stick and pale horsehair are two separate, continuous components, with a visible gap between them, joined only at frog and tip. Keep the slim dark wooden stick and narrow pale horsehair ribbon both clearly visible; neither part may hide the other. Hair alone crosses at about 90° and visibly touches one string between bridge and fingerboard at one clear point. Keep the full bridge, all four strings, fingerboard, dark stick, pale hair and contact point inside the sharp focal plane; do not crop or merge parts, blur, fuse, bend or duplicate any required component.",
             "RECURRING ASSET ANCHOR: " + anchor + "; plausible violin proportions.",
             "STYLE & MATERIAL: photorealistic violin performance photograph; true wood grain, varnish, steel strings, maple and ebony. No illustration, render, anime or plastic.",
             "LIGHT: warm 3200K key, neutral fill, amber rim; enough depth of field to keep every required violin and bow component legible, no blur across the bridge or bow.",
@@ -1874,6 +1875,17 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
             prompt_parts.append(
                 "MACRO FOCUS: one exact surface or material interaction, narrow focus plane and quiet background."
             )
+
+    performer_lock = textwrap.shorten(
+        re.sub(r"\s+", " ", str(story.get("character_identity", ""))).strip(),
+        width=220,
+        placeholder="…",
+    )
+    if violin_performance and scene_index in (0, 2) and performer_lock:
+        prompt_parts.append(
+            "PERFORMER IDENTITY LOCK: " + performer_lock
+            + " Scene 1 and Scene 3 must show the SAME identifiable person, hairstyle, face and outfit; do not substitute another performer."
+        )
 
     base_prompt = " ".join(prompt_parts)
     clean_feedback = textwrap.shorten(re.sub(r"\s+", " ", str(feedback or "")).strip(), width=90, placeholder="…")
