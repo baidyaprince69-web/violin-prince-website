@@ -60,7 +60,8 @@ class StagedPipelineTests(unittest.TestCase):
                     },
                 })
             metadata["stage"] = "visuals_ready"
-            metadata["visual_review_status"] = "all_scenes_passed_ai_review_human_review_still_required"
+            metadata["visual_review_status"] = "all_scenes_and_storyboard_passed_ai_review_human_review_still_required"
+            metadata["storyboard_review"] = {"model": pipeline.VISION_MODEL, "score": 92, "passed": True, "issues": [], "summary": "Consistent test storyboard."}
             metadata["visual_assets"] = assets
             metadata["visual_modes"] = ["cloudflare_flux_portrait_extended"] * 3
             metadata["visual_review_model"] = pipeline.VISION_MODEL
