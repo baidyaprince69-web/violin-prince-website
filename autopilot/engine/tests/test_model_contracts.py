@@ -69,9 +69,9 @@ class FluxRequestContractTests(unittest.TestCase):
         temporary = Mock(status_code=503, ok=False, text="temporary outage")
         success = Mock(status_code=200, ok=True)
         success.json.return_value = {"success": True, "result": {"response": "ok"}}
-        with patch.object(pipeline.http, "post", side_effect=[temporary, success]) as post, \\
-             patch.object(pipeline.time, "sleep"):
-            result = pipeline.ai("test-model", {"prompt": "test"}, timeout=3)
+        with patch.object(pipeline.http, "post", side_effect=[temporary, success]) as post:
+            with patch.object(pipeline.time, "sleep"):
+                result = pipeline.ai("test-model", {"prompt": "test"}, timeout=3)
         self.assertEqual(result, {"response": "ok"})
         self.assertEqual(post.call_count, 2)
 
@@ -80,10 +80,10 @@ class FluxRequestContractTests(unittest.TestCase):
         for status in (402, 403, 429):
             with self.subTest(status=status):
                 refusal = Mock(status_code=status, ok=False, text="refused")
-                with patch.object(pipeline.http, "post", return_value=refusal) as post, \\
-                     patch.object(pipeline.time, "sleep"):
-                    with self.assertRaisesRegex(pipeline.PipelineError, f"HTTP {status}"):
-                        pipeline.ai("test-model", {"prompt": "test"}, timeout=3)
+                with patch.object(pipeline.http, "post", return_value=refusal) as post:
+                    with patch.object(pipeline.time, "sleep"):
+                        with self.assertRaisesRegex(pipeline.PipelineError, f"HTTP {status}"):
+                            pipeline.ai("test-model", {"prompt": "test"}, timeout=3)
                 self.assertEqual(post.call_count, 1)
 
     def test_ai_retries_one_transient_connection_failure(self):
@@ -91,9 +91,12 @@ class FluxRequestContractTests(unittest.TestCase):
         from unittest.mock import Mock
         success = Mock(status_code=200, ok=True)
         success.json.return_value = {"success": True, "result": {"response": "ok"}}
-        with patch.object(pipeline.http, "post", side_effect=[requests.ConnectionError("offline"), success]) as post, \\
-             patch.object(pipeline.time, "sleep"):
-            result = pipeline.ai("test-model", {"prompt": "test"}, timeout=3)
+        with patch.object(
+            pipeline.http, "post",
+            side_effect=[requests.ConnectionError("offline"), success],
+        ) as post:
+            with patch.object(pipeline.time, "sleep"):
+                result = pipeline.ai("test-model", {"prompt": "test"}, timeout=3)
         self.assertEqual(result, {"response": "ok"})
         self.assertEqual(post.call_count, 2)
 
