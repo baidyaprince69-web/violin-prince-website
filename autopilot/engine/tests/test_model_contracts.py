@@ -115,7 +115,7 @@ class FluxRequestContractTests(unittest.TestCase):
             image = Path(folder) / "scene.jpg"
             Image.new("RGB", (720, 1280), (90, 45, 30)).save(image)
             assessment = {
-                "response": '{"score":91,"passed":true,"issues":[],"summary":"Clear, coherent scene."}'
+                "response": '{"score":91,"passed":true,"issues":[],"checks":{"subject":"YES","action":"YES","instrument":"YES","composition":"YES","photorealism":"YES"},"summary":"Clear, coherent scene."}'
             }
             with patch.object(pipeline, "ai", return_value=assessment) as mocked:
                 result = pipeline.review_scene_image(
@@ -153,7 +153,7 @@ class FluxRequestContractTests(unittest.TestCase):
             storyboard = Path(folder) / "storyboard.png"
             Image.new("RGB", (1280, 900), (22, 18, 14)).save(storyboard)
             response = {
-                "response": '{"score":93,"passed":true,"issues":[],"summary":"All three panels share the same instrument identity and palette."}'
+                "response": '{"score":93,"passed":true,"issues":[],"checks":{"same_performer":"YES","same_violin":"YES","macro_anatomy":"YES","consistent_palette":"YES"},"summary":"All three panels share the same instrument identity and palette."}'
             }
             with patch.object(pipeline, "ai", return_value=response) as mocked:
                 result = pipeline.review_storyboard_consistency(
