@@ -176,6 +176,43 @@ class PlannerNarrationRetryTests(unittest.TestCase):
             finally:
                 pipeline.WORK = original_work
 
+    def test_missing_terminal_punctuation_is_normalized_without_an_extra_ai_call(self):
+        initial_script = (
+            "Can a violinist master the most difficult pieces? "
+            "Hiu Sing Fan recently tackled the intense Paganiniana. "
+            "This work demands incredible speed and flawless technical precision. "
+            "Such mastery brings the legendary spirit of Paganini alive."
+        )
+        repaired_sentences = [
+            "Hiu Sing Fan plays the difficult Milstein Paganiniana piece",
+            "The work demands incredible speed, control, and flawless technical precision from violinists.",
+            "Its demanding passages bring the legendary spirit of Paganini alive for audiences.",
+        ]
+        original_plan = make_test_plan(initial_script)
+        responses = [
+            {"response": original_plan},
+            sentence_result(repaired_sentences[0]),  # Correct 9 words; model omitted final punctuation.
+            sentence_result(repaired_sentences[1]),
+            sentence_result(repaired_sentences[2]),
+        ]
+
+        with tempfile.TemporaryDirectory() as folder:
+            original_work = pipeline.WORK
+            try:
+                pipeline.WORK = Path(folder)
+                with patch.object(pipeline, "ai", side_effect=responses) as mock_ai:
+                    result = pipeline.make_plan([self.item], recent=[])
+
+                self.assertEqual(mock_ai.call_count, 4)
+                final_sentences = pipeline.narration_sentences(result["narration_script"])
+                self.assertEqual(final_sentences[1], repaired_sentences[0] + ".")
+                self.assertEqual(pipeline.narration_word_count(result["narration_script"]), 41)
+                debug = json.loads((Path(folder) / "creative_plan_debug.json").read_text(encoding="utf-8"))
+                self.assertTrue(debug["repair_attempts"][0]["punctuation_added"])
+                self.assertEqual(debug["repair_attempts"][0]["attempt"], 1)
+            finally:
+                pipeline.WORK = original_work
+
     def test_one_word_short_retry_uses_add_one_word_instruction(self):
         production_script = (
             "Can a single violinist master such complexity? "
