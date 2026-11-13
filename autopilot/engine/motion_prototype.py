@@ -65,6 +65,57 @@ def _record_checkpoint(manifest_path: Path, manifest: dict, stage: str, status: 
     _write_json_atomic(manifest_path, manifest)
 
 
+def _validate_approved_visual_package(plan: dict, metadata: dict, image_paths: list[Path]) -> None:
+    """Reject missing, altered or unreviewed scene art before any video rendering."""
+    from PIL import Image
+
+    required_status = "all_scenes_and_storyboard_passed_ai_review_human_review_still_required"
+    if metadata.get("stage") != "visuals_ready" or metadata.get("visual_review_status") != required_status:
+        raise RuntimeError("Visual package has not passed the required scene and storyboard AI reviews.")
+    assets = metadata.get("visual_assets")
+    if not isinstance(assets, list) or len(assets) != 3:
+        raise RuntimeError("Visual package must contain three scene-by-scene review records.")
+    storyboard = metadata.get("storyboard_review")
+    if (
+        not isinstance(storyboard, dict)
+        or storyboard.get("passed") is not True
+        or int(storyboard.get("score", 0)) < pipeline.MIN_IMAGE_QA_SCORE
+    ):
+        raise RuntimeError("Storyboard continuity review did not meet the minimum passing score.")
+
+    expected_plan_hash = _fingerprint(plan)
+    for index, (record, image_path) in enumerate(zip(assets, image_paths), start=1):
+        if not isinstance(record, dict):
+            raise RuntimeError(f"Scene {index} has no visual-review record.")
+        review = record.get("visual_review")
+        if (
+            not isinstance(review, dict)
+            or review.get("passed") is not True
+            or int(review.get("score", 0)) < pipeline.MIN_IMAGE_QA_SCORE
+        ):
+            raise RuntimeError(f"Scene {index} did not pass AI visual review.")
+        if record.get("mode") != "cloudflare_flux_portrait_extended":
+            raise RuntimeError(f"Scene {index} uses an unapproved visual-generation mode.")
+        expected_hash = str(record.get("sha256") or "")
+        if not expected_hash or _sha256_file(image_path) != expected_hash:
+            raise RuntimeError(f"Scene {index} changed after visual approval; regenerate that scene only.")
+        recorded_plan_hash = str(record.get("plan_sha256") or "")
+        if recorded_plan_hash and recorded_plan_hash != expected_plan_hash:
+            raise RuntimeError(f"Scene {index} was approved against a different creative plan.")
+        try:
+            with Image.open(image_path) as image:
+                image.verify()
+            with Image.open(image_path) as image:
+                if image.size != (720, 1280):
+                    raise RuntimeError(
+                        f"Scene {index} is {image.size[0]}x{image.size[1]}, not 720x1280."
+                    )
+        except RuntimeError:
+            raise
+        except Exception as exc:
+            raise RuntimeError(f"Scene {index} is not a valid readable image: {exc}") from exc
+
+
 def _mix_audio(video_only: Path, soundtrack: Path, narration: Path,
                target: Path, audio_source: str) -> None:
     if audio_source == "generated_ambient_fallback":
@@ -324,6 +375,7 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
     for image in image_paths:
         if not image.is_file():
             raise RuntimeError(f"Prepared scene image is missing: {image.name}")
+    _validate_approved_visual_package(plan, metadata, image_paths)
 
     script = str(plan.get("narration_script") or "").strip()
     if not script:

@@ -402,11 +402,6 @@ jobs:
           name: v3-motion-prototype-${{ github.run_id }}
           path: |
             work/output/motion-prototype/
-            work/package/scene-1.jpg
-            work/package/scene-2.jpg
-            work/package/scene-3.jpg
-            work/package/storyboard-preview.png
-            work/package/creative_plan.json
-            work/package/stage.json
+            work/package/
           if-no-files-found: ignore
           retention-days: 14
