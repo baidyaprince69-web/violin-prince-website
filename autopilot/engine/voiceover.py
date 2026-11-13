@@ -70,8 +70,8 @@ def word_cues_from_tokens(tokens, offset_seconds: float = 0.0,
     offset = max(0.0, float(offset_seconds))
     limit = None if chunk_duration is None else max(0.0, float(chunk_duration))
     pending_prefix = ""
-    opening_marks = set("([{\\\"“‘«")
-    punctuation_only = re.compile(r"^[^\\w\\s]+$", re.UNICODE)
+    opening_marks = set("([{“‘«") | {'"'}
+    punctuation_only = re.compile(r"^[^\w\s]+$", re.UNICODE)
     apostrophe_suffix = re.compile(r"^['’][A-Za-z]+$")
     for token in tokens or []:
         text = str(getattr(token, "text", "") or "").strip()
