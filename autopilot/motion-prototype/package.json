@@ -1,0 +1,9 @@
+{
+  "name": "violin-prince-v3-motion-prototype",
+  "private": true,
+  "type": "module",
+  "description": "Isolated HTML Canvas renderer experiment for Violin Prince Autopilot",
+  "dependencies": {
+    "playwright": "1.56.1"
+  }
+}
