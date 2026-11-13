@@ -1322,7 +1322,7 @@ def review_storyboard_consistency(path, plan):
         ". Topic: " + str(plan.get("topic", ""))[:180] +
         ". Recurring visual identity: " + str(plan.get("visual_motif", ""))[:180] +
         ". Panel 1 is the hook, panel 2 is the macro/detail, panel 3 is the payoff, with distinct compositions for the three story beats. "
-        "same_performer=YES only if Scene 1 and Scene 3 show the same identifiable adult performer, "
+        "Scene 1 and Scene 3 must show the SAME identifiable performer. same_performer=YES only if they depict the same adult performer, "
         "matching face, hairstyle and clothing. same_violin=YES only if all scenes visibly use the same "
         "amber-varnished violin design and recognizable body/tailpiece/fingerboard details. "
         "macro_anatomy=YES only if Scene 2 clearly shows the complete bridge, exactly four countable "
@@ -1915,7 +1915,7 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         prompt_parts = [
             "SUBJECT & ACTION: " + compact_prompt + ".",
             "SHOT 2 MACRO CLOSE-UP: string-height side three-quarter photograph, moderate depth of field; the bridge, all four strings, fingerboard, both bow parts and contact point must be simultaneously sharp.",
-            "VIOLIN GEOMETRY: one complete upright maple bridge with both feet resting on the amber top plate. Exactly four separate strings run lengthwise in parallel and are individually countable. A distinct ebony fingerboard extends away from the bridge. Keep all four strings visible on both sides of the bridge.",
+            "VIOLIN GEOMETRY: one complete upright maple bridge with both feet resting on the amber top plate. exactly four separate strings run lengthwise in parallel and are individually countable. A distinct ebony fingerboard extends away from the bridge. Keep all four strings visible on both sides of the bridge.",
             "BOW GEOMETRY: exactly one bow crosses the strings horizontally at 90 degrees. Show the slim dark wooden stick and narrow pale horsehair ribbon as two separate, continuous parallel parts with a visible gap between them; they join only at frog and tip. Neither part hides the other. No extra rods or duplicate bows.",
             "CONTACT POINT: the pale horsehair alone touches exactly one string at one clear point between bridge and fingerboard. The dark stick must not touch the strings. Keep the other three strings visibly separate.",
             "FRAMING & FOCUS: portrait 9:16, bridge across the lower-middle frame and fingerboard extending behind it; keep the complete bridge, exactly four strings, fingerboard, slim dark wooden stick, narrow pale horsehair ribbon and contact point inside frame, simultaneously sharp. No cropping, blur, merging or warped parts.",
