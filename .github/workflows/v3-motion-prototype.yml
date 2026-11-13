@@ -276,6 +276,18 @@ jobs:
               ]
           })
           plan_path.write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
+          stage_path = Path("work/package/stage.json")
+          metadata = json.loads(stage_path.read_text(encoding="utf-8"))
+          metadata["visual_assets"] = []
+          metadata.pop("storyboard_review", None)
+          metadata.pop("visual_review_status", None)
+          metadata.pop("visuals_run_id", None)
+          metadata.pop("visual_checkpoint", None)
+          metadata["stage"] = "prepared"
+          metadata["title"] = plan["title"]
+          metadata["topic"] = plan["topic"]
+          metadata["visual_motif"] = plan["visual_motif"]
+          stage_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
           PY
           rm -f work/package/scene-1.jpg work/package/scene-2.jpg work/package/scene-3.jpg
           rm -f work/package/storyboard-preview.png
