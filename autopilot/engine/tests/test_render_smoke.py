@@ -59,11 +59,11 @@ class FFmpegRenderSmokeTests(unittest.TestCase):
 
             narration = pipeline.OUT / "narration-test.wav"
             sample_rate = 24000
-            sample_count = sample_rate * 6
+            sample_count = sample_rate * 18
             samples = array.array("h")
             for i in range(sample_count):
                 t = i / sample_rate
-                envelope = min(1.0, t / 0.25, (6.0 - t) / 0.35)
+                envelope = min(1.0, t / 0.25, (18.0 - t) / 0.35)
                 value = 0.16 * envelope * math.sin(2.0 * math.pi * 220.0 * t)
                 samples.append(int(max(-1.0, min(1.0, value)) * 32767))
             with wave.open(str(narration), "wb") as output:
@@ -83,8 +83,8 @@ class FFmpegRenderSmokeTests(unittest.TestCase):
             }
             narration_info = {
                 "subtitle_cues": [
-                    {"start": 0.20, "end": 2.40, "text": "A test voice explains a short story."},
-                    {"start": 2.55, "end": 5.20, "text": "A useful detail brings the story to a clear ending."},
+                    {"start": 0.20, "end": 8.40, "text": "A test voice explains a short story."},
+                    {"start": 8.55, "end": 17.20, "text": "A useful detail brings the story to a clear ending."},
                 ]
             }
 
@@ -103,7 +103,7 @@ class FFmpegRenderSmokeTests(unittest.TestCase):
             subtitle_file = pipeline.OUT / "narration.srt"
             self.assertTrue(subtitle_file.exists())
             subtitle_text = subtitle_file.read_text(encoding="utf-8")
-            self.assertIn("00:00:00,200 --> 00:00:02,400", subtitle_text)
+            self.assertIn("00:00:00,200 --> 00:00:08,400", subtitle_text)
             self.assertIn("A test voice explains a short story.", subtitle_text.replace("\n", " "))
 
             audio_check = subprocess.run(
