@@ -1089,7 +1089,7 @@ def _vision_text(value):
         parts = [_vision_text(item) for item in value]
         return "".join(part for part in parts if part)
     if isinstance(value, dict):
-        for key in ("answer", "response", "text", "content", "output_text", "chunk", "value"):
+        for key in ("answer", "response", "text", "content", "output_text", "chunk", "value", "result", "data", "output", "message", "choices", "delta"):
             if key in value:
                 text_value = _vision_text(value[key])
                 if text_value:
