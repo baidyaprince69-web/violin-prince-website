@@ -69,13 +69,15 @@ class AudioStrategyTests(unittest.TestCase):
             finally:
                 pipeline.WORK = original_work
 
-    def test_camera_motion_is_a_smooth_centered_push_in_without_horizontal_panning(self):
-        expression = pipeline.camera_motion_filter(600)
-        self.assertIn("zoompan=z='1.01+0.05*", expression)
+    def test_camera_motion_uses_eased_scene_specific_drift(self):
+        expression = pipeline.camera_motion_filter(600, 0)
+        alternate = pipeline.camera_motion_filter(600, 1)
+        self.assertIn("zoompan=z='1.005+0.055*", expression)
         self.assertIn("3-2*", expression)
-        self.assertIn("x='(iw-iw/zoom)*0.5'", expression)
+        self.assertIn("x='(iw-iw/zoom)*(0.40+0.20*", expression)
         self.assertIn("y='(ih-ih/zoom)*0.5'", expression)
-        self.assertNotIn("on/", expression.split(":x=", 1)[1])
+        self.assertIn("on/", expression)
+        self.assertNotEqual(expression, alternate)
 
 
 if __name__ == "__main__":
