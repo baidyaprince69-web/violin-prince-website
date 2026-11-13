@@ -184,31 +184,47 @@ class CreativeQualityTests(unittest.TestCase):
         ):
             self.assertIn(phrase, payload["prompt"])
 
-    def test_canvas_renderer_pins_fonts_and_checks_lowercase_s_rasterization(self):
+    def test_canvas_renderer_paints_full_phrases_and_checks_lowercase_s_slots(self):
         renderer = ENGINE.parent / "motion-prototype" / "render.mjs"
         source = renderer.read_text(encoding="utf-8")
+
         self.assertIn("'DejaVu Sans', sans-serif", source)
         self.assertIn("'DejaVu Serif', serif", source)
         self.assertIn("window.__TYPOGRAPHY_QA__", source)
         self.assertIn("lowercase_s_pixels", source)
         self.assertIn("function drawGlyphRun", source)
+        self.assertIn("const naturalWidth = context.measureText(value).width", source)
+        self.assertIn("context.fillText(value, 0, 0)", source)
+        self.assertIn("context.strokeText(value, 0, 0)", source)
         self.assertIn("Intl.Segmenter", source)
-        self.assertNotIn("pairWidth - previousWidth - metrics.width", source)
-        self.assertIn("characters.reduce(", source)
-        self.assertIn('drawGlyphRun(glyphContext, "s", 12, 100, 146)', source)
-        self.assertIn("expectedX += probeContext.measureText(placements[index].character).width", source)
-        self.assertIn("maximum_spacing_error_px", source)
+
+        # The actual phrase is painted once; glyph-slot checks inspect pixels
+        # from that same complete phrase rather than isolated blank-canvas s's.
+        self.assertIn("function validateGraphicTextRuns()", source)
+        self.assertIn("phrase_slot_s_pixels", source)
+        self.assertIn("minimum_s_pixels", source)
+        self.assertIn("referenceInk * 0.55", source)
+        self.assertNotIn('drawGlyphRun(glyphContext, "s", 12, 100, 146)', source)
+        self.assertNotIn("context.fillText(character, cursor, 0)", source)
+        self.assertNotIn("context.strokeText(character, cursor, 0)", source)
         self.assertIn("window.__GRAPHIC_TEXT_QA__", source)
         self.assertIn("validateGraphicTextRuns", source)
         self.assertIn("Every phrase begins with controlled motion", source)
         self.assertIn("Bow speed and pressure shape the sound", source)
+
         self.assertIn("drawGlyphRun(ctx, line, 42 + (1 - headlineProgress)", source)
         self.assertIn("drawGlyphRun(ctx, line, 44, detailY", source)
         self.assertIn("drawGlyphRun(ctx, context, W/2, 954, maxWidth)", source)
-        self.assertIn("drawGlyphRun(ctx, visibleText, 0, 0, maxWidth, \"stroke\")", source)
+        self.assertIn('drawGlyphRun(ctx, visibleText, 0, 0, maxWidth, "stroke")', source)
         self.assertIn("drawGlyphRun(ctx, visibleText, 0, 0, maxWidth)", source)
-        self.assertIn("drawGlyphRun(ctx, String(card.label || \"\").slice(0, 22)", source)
-        self.assertIn("drawGlyphRun(ctx, labels[node], nx, graphY + 23, spacing - 20)", source)
+        self.assertIn('drawGlyphRun(ctx, String(card.label || "").slice(0, 22)', source)
+
+        # Three-node infographic labels use readable type and edge-aware alignment.
+        self.assertIn('ctx.font = "700 16px \\'DejaVu Sans\\', sans-serif"', source)
+        self.assertIn('ctx.textAlign = node === 0 ? "left" : node === 2 ? "right" : "center"', source)
+        self.assertIn("const labelX = node === 0 ? nx + 10 : node === 2 ? nx - 10 : nx", source)
+        self.assertIn("drawGlyphRun(ctx, labels[node], labelX, graphY + 26, spacing - 28)", source)
+
         self.assertIn("maximum_alignment_error_px", source)
         self.assertNotIn("ctx.fillText(context,", source)
         self.assertNotIn("ctx.fillText(visibleText,", source)
