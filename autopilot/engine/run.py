@@ -1798,11 +1798,17 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         [float(cue.get("end", 0)) for cue in narration_info.get("subtitle_cues", [])]
         or [float(narration_info.get("duration_seconds", 0))]
     )
+    if narration_end < 17.0:
+        raise PipelineError(
+            f"Narration covers only {narration_end:.1f}s of the 24-second video. "
+            "The script or voice pacing must be improved before the video is accepted."
+        )
     quality.update({
         "scene_durations_seconds": list(scene_durations),
         "narration_duration_seconds": round(narration_end, 2),
         "voice_coverage_percent": round(min(100.0, narration_end / 24.0 * 100.0), 1),
         "music_only_ending_seconds": round(max(0.0, 24.0 - narration_end), 2),
+        "minimum_narration_coverage_seconds": 17.0,
         "camera_motion": "scene-specific eased push-in and gentle drift",
         "motion_graphics": 3,
         "subtitle_style": "animated sentence-level kinetic typography",
@@ -1872,6 +1878,25 @@ def _read_package(require_images=False):
                     image.verify()
             except Exception as exc:
                 raise PipelineError(f"Prepared visual asset {path.name} is not a valid image.") from exc
+    if require_images:
+        assets = metadata.get("visual_assets", [])
+        required_status = "all_scenes_passed_ai_review_human_review_still_required"
+        if metadata.get("stage") != "visuals_ready" or metadata.get("visual_review_status") != required_status:
+            raise PipelineError(
+                "Visual package has not passed AI image review. Run the Visuals stage again before rendering."
+            )
+        if not isinstance(assets, list) or len(assets) != 3:
+            raise PipelineError("Visual package is missing the three scene-by-scene review records.")
+        for index, (asset, image_path) in enumerate(zip(assets, image_paths)):
+            if not isinstance(asset, dict):
+                raise PipelineError(f"Visual review record {index + 1} is invalid.")
+            review = asset.get("visual_review", {})
+            if not isinstance(review, dict) or review.get("passed") is not True:
+                raise PipelineError(f"Scene {index + 1} has not passed AI visual review.")
+            expected_hash = str(asset.get("sha256") or "")
+            actual_hash = hashlib.sha256(image_path.read_bytes()).hexdigest()
+            if not expected_hash or actual_hash != expected_hash:
+                raise PipelineError(f"Scene {index + 1} changed after visual approval; run Visuals again.")
     return plan, metadata, narration_info, paths, image_paths
 
 
