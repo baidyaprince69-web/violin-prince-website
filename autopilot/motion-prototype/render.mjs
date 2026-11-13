@@ -88,7 +88,7 @@ window.__DATA__ = ${safeJson};
   // were intermittently dropping lowercase "s" in multi-character headline
   // and detail runs, even though an isolated-glyph probe passed. Pair-width
   // advances preserve browser kerning while ensuring each glyph is painted.
-  function drawGlyphRun(context, text, x, y, maxWidth=Infinity) {
+  function drawGlyphRun(context, text, x, y, maxWidth=Infinity, paintMode="fill") {
     const value = String(text ?? "");
     const characters = typeof Intl !== "undefined" && Intl.Segmenter
       ? Array.from(
@@ -126,7 +126,8 @@ window.__DATA__ = ${safeJson};
         cursor += pairWidth - previousWidth - metrics.width;
       }
 
-      context.fillText(character, cursor, 0);
+      if (paintMode === "stroke") context.strokeText(character, cursor, 0);
+      else context.fillText(character, cursor, 0);
       placements.push({
         character,
         x: anchorX + cursor * scale,
@@ -166,6 +167,11 @@ window.__DATA__ = ${safeJson};
         label: "second sans detail",
         font: "500 17px 'DejaVu Sans', sans-serif",
         text: "Tiny changes in speed and pressure shape tone"
+      },
+      {
+        label: "caption and comparison detail",
+        font: "600 21px 'DejaVu Sans', sans-serif",
+        text: "The bow catches each string between bridge and fingerboard"
       }
     ];
 
@@ -223,14 +229,34 @@ window.__DATA__ = ${safeJson};
       };
     });
 
+    const alignmentProbe = document.createElement("canvas");
+    alignmentProbe.width = 900;
+    alignmentProbe.height = 140;
+    const alignmentContext = alignmentProbe.getContext("2d");
+    alignmentContext.font = "600 21px 'DejaVu Sans', sans-serif";
+    const alignmentPhrase = "Centered and right-aligned text stays in place";
+    const alignmentErrors = ["left", "center", "right"].map(alignment => {
+      alignmentContext.clearRect(0, 0, alignmentProbe.width, alignmentProbe.height);
+      alignmentContext.textAlign = alignment;
+      const measured = alignmentContext.measureText(alignmentPhrase).width;
+      const anchor = 450;
+      const placements = drawGlyphRun(alignmentContext, alignmentPhrase, anchor, 90, 800);
+      const expectedStart = alignment === "center"
+        ? anchor - measured / 2
+        : alignment === "right" ? anchor - measured : anchor;
+      return Math.abs(placements[0].x - expectedStart);
+    });
+    const maximumAlignmentError = Math.max(...alignmentErrors);
+
     return {
       ok: results.every(result =>
         result.expected_s > 0 &&
         result.visible_s_pixels.length === result.expected_s &&
         result.visible_s_pixels.every(count => count > 0) &&
         result.maximum_spacing_error_px <= 1.25
-      ),
-      cases: results
+      ) && maximumAlignmentError <= 1.25,
+      cases: results,
+      maximum_alignment_error_px: Number(maximumAlignmentError.toFixed(3))
     };
   }
   window.__GRAPHIC_TEXT_QA__ = validateGraphicTextRuns;
@@ -535,11 +561,11 @@ window.__DATA__ = ${safeJson};
         ctx.fill();
         ctx.fillStyle = IVORY;
         ctx.font = "700 19px 'DejaVu Sans', sans-serif";
-        ctx.fillText(String(card.label || "").slice(0, 22), x + 14, topY + 31);
+        drawGlyphRun(ctx, String(card.label || "").slice(0, 22), x + 14, topY + 31, colW - 28);
         ctx.fillStyle = MUTED;
         ctx.font = "14px 'DejaVu Sans', sans-serif";
         wrap(card.detail || "", colW - 28, "14px 'DejaVu Sans', sans-serif")
-          .forEach((line, row) => ctx.fillText(line, x + 14, topY + 56 + row * 18));
+          .forEach((line, row) => drawGlyphRun(ctx, line, x + 14, topY + 56 + row * 18, colW - 28));
       }
     } else if (index === 0) {
       // Staggered editorial spectrum. Heights are illustrative, not invented data.
@@ -581,7 +607,7 @@ window.__DATA__ = ${safeJson};
         ctx.fillStyle = IVORY;
         ctx.font = "700 11px 'DejaVu Sans', sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText(labels[node], nx, graphY + 23);
+        drawGlyphRun(ctx, labels[node], nx, graphY + 23, spacing - 20);
       }
       ctx.textAlign = "left";
       const movingX = graphLeft + chartProgress * (graphRight - graphLeft);
@@ -720,7 +746,7 @@ window.__DATA__ = ${safeJson};
       ctx.fillStyle="rgba(255,243,226,.68)";
       ctx.shadowColor="rgba(0,0,0,.42)";
       ctx.shadowBlur=8;
-      ctx.fillText(context,W/2,954,maxWidth);
+      drawGlyphRun(ctx, context, W/2, 954, maxWidth);
       ctx.shadowBlur=0;
     }
 
@@ -762,9 +788,11 @@ window.__DATA__ = ${safeJson};
       const count=Math.max(1,Math.ceil(textValue.length*easeOut((time-Number(active.start)) / Math.max(.12,duration*.68))));
       visibleText=textValue.slice(0,count);
     }
-    if(style==="outline" || style==="impact") ctx.strokeText(visibleText,0,0,maxWidth);
+    if(style==="outline" || style==="impact") {
+      drawGlyphRun(ctx, visibleText, 0, 0, maxWidth, "stroke");
+    }
     ctx.fillStyle=style==="impact" ? IVORY : accent;
-    ctx.fillText(visibleText,0,0,maxWidth);
+    drawGlyphRun(ctx, visibleText, 0, 0, maxWidth);
 
     ctx.shadowBlur=0;
     if(style==="underline" || style==="editorial" || style==="impact"){

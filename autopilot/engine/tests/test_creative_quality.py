@@ -201,6 +201,15 @@ class CreativeQualityTests(unittest.TestCase):
         self.assertIn("Bow speed and pressure shape the sound", source)
         self.assertIn("drawGlyphRun(ctx, line, 42 + (1 - headlineProgress)", source)
         self.assertIn("drawGlyphRun(ctx, line, 44, detailY", source)
+        self.assertIn("drawGlyphRun(ctx, context, W/2, 954, maxWidth)", source)
+        self.assertIn("drawGlyphRun(ctx, visibleText, 0, 0, maxWidth, \"stroke\")", source)
+        self.assertIn("drawGlyphRun(ctx, visibleText, 0, 0, maxWidth)", source)
+        self.assertIn("drawGlyphRun(ctx, String(card.label || \"\").slice(0, 22)", source)
+        self.assertIn("drawGlyphRun(ctx, labels[node], nx, graphY + 23, spacing - 20)", source)
+        self.assertIn("maximum_alignment_error_px", source)
+        self.assertNotIn("ctx.fillText(context,", source)
+        self.assertNotIn("ctx.fillText(visibleText,", source)
+        self.assertNotIn("ctx.strokeText(visibleText,", source)
         self.assertIn("await document.fonts.ready", source)
 
     def test_non_violin_performance_does_not_inherit_violin_macro_anatomy(self):
