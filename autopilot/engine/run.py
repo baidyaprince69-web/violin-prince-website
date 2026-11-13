@@ -1437,7 +1437,7 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         prompt,
     ]).lower()
     performance_related = bool(re.search(
-        r"\b(violin|violinist|virtuoso|musician|performer|performance|playing|bowing|concert|"
+        r"\b(violinist|virtuoso|musician|performer|performance|playing|bowing|concert|"
         r"rapid|difficult|speed|fingerboard|bow hand|left hand|right hand|technique)\b",
         context,
     ))
