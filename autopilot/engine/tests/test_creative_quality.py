@@ -127,7 +127,7 @@ class CreativeQualityTests(unittest.TestCase):
         }
         prompt = pipeline._scene_visual_prompt(scene, index=1, plan=plan)
         for expected in (
-            "CONTROLLED MACRO CLOSE-UP",
+            "SHOT 2 MACRO CLOSE-UP",
             "85mm macro lens",
             "RECURRING ASSET ANCHOR",
             "SINGLE FROZEN MACRO KEYFRAME",
@@ -159,7 +159,7 @@ class CreativeQualityTests(unittest.TestCase):
         payload = pipeline.image_request_payload(prompt)
         self.assertEqual(payload["prompt"], prompt)
         self.assertIn("SUBJECT & ACTION: Violin bow hair contacting one string", prompt)
-        self.assertIn("photorealistic premium instrument-performance photography", prompt)
+        self.assertIn("photorealistic violin performance photograph", prompt)
         self.assertLessEqual(len(prompt), pipeline.MAX_IMAGE_PROMPT_CHARS)
         for phrase in (
             "SINGLE FROZEN MACRO KEYFRAME",
