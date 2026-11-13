@@ -1088,7 +1088,7 @@ def _vision_text(value):
         return value.strip()
     if isinstance(value, list):
         parts = [_vision_text(item) for item in value]
-        return "\n".join(part for part in parts if part).strip()
+        return "".join(part for part in parts if part).strip()
     if isinstance(value, dict):
         preferred = (
             "answer", "response", "text", "content", "output_text", "caption",
@@ -1308,7 +1308,7 @@ def review_storyboard_consistency(path, plan):
         ". Topic: " + str(plan.get("topic", ""))[:180] +
         ". Recurring visual identity: " + str(plan.get("visual_motif", ""))[:180] +
         ". Panel 1 is the hook, panel 2 is the macro/detail, panel 3 is the payoff. Check that Scene 1 "
-        "and Scene 3 show the SAME recognizable performer: matching face, hairstyle and clothing. Check "
+        "and Scene 3 show the SAME identifiable performer as one recognizable person: matching face, hairstyle and clothing. Check "
         "that all panels use the same violin design and warm visual style, and that the macro shows plausible "
         "bridge, strings, fingerboard and bow anatomy. If any identity or visual detail differs or is unclear, "
         "the result is FAIL. Answer with exactly one leading verdict: PASS or FAIL. Use PASS only if all "
