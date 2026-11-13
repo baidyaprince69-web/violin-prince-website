@@ -283,18 +283,6 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
         if not image.is_file():
             raise RuntimeError(f"Prepared scene image is missing: {image.name}")
 
-    # Replace the second shot in a violin bow-performance story with the
-    # deterministic precision macro. No AI image service is called here.
-    macro_metrics = None
-    if pipeline.use_precision_macro(plan, plan["scenes"][1], 1):
-        macro_path = output_dir / "violin-macro-contact-scene.jpg"
-        macro_metrics = pipeline.make_macro_contact_illustration(macro_path)
-        if not macro_metrics.get("hair_contacts_selected_string"):
-            raise RuntimeError("The generated macro scene failed its physical contact check.")
-        if macro_metrics.get("string_count") != 4 or macro_metrics.get("bridge_notch_count") != 4:
-            raise RuntimeError("The macro scene must contain four distinct strings and bridge notches.")
-        image_paths[1] = macro_path
-
     script = str(plan.get("narration_script") or "").strip()
     if not script:
         raise RuntimeError("The prepared story has no narration script.")
@@ -331,11 +319,6 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
             "graphic_label": str(scene.get("graphic_label") or ""),
             "graphic_detail": str(scene.get("graphic_detail") or ""),
             "comparison": scene.get("comparison"),
-            "macro_contact": ({
-                "x": macro_metrics["contact_x"], "y": macro_metrics["contact_y"],
-                "string_number": macro_metrics["active_contact_string_number"],
-                "source_width": macro_metrics["width"], "source_height": macro_metrics["height"],
-            } if index == 1 and macro_metrics else None),
             "image_b64": base64.b64encode(image_path.read_bytes()).decode("ascii"),
         })
         start += float(scene_duration)
@@ -390,8 +373,12 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
     prototype_quality = pipeline.validate_final_video(final_path)
     prototype_quality.update({
         "renderer": "HTML Canvas + Playwright + FFmpeg",
-        "macro_scene_integrated": bool(macro_metrics),
-        "macro_contact_geometry": macro_metrics,
+        "visual_review_status": metadata.get("visual_review_status", "not_reviewed"),
+        "visual_review_model": metadata.get("visual_review_model", ""),
+        "visual_asset_reviews": [
+            item.get("visual_review", {}) for item in metadata.get("visual_assets", [])
+            if isinstance(item, dict)
+        ],
         "word_timing_method": narration_info["word_timing_method"],
         "word_timing_count": len(word_cues),
         "caption_animation_presets": [
@@ -413,7 +400,11 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
         "status": "prototype_rendered",
         "production_renderer_changed": False,
         "publishing_enabled": False,
-        "macro_contact": macro_metrics,
+        "visual_review_status": metadata.get("visual_review_status", "not_reviewed"),
+        "visual_asset_reviews": [
+            item.get("visual_review", {}) for item in metadata.get("visual_assets", [])
+            if isinstance(item, dict)
+        ],
         "narration": {
             "engine": narration_info.get("engine"),
             "voice": narration_info.get("voice"),
@@ -472,7 +463,7 @@ def main() -> int:
         "notes": [
             "Only the primary prepared story is rendered in this review cycle.",
             "The second story consistency render is intentionally disabled to reduce review time.",
-            "A deterministic violin macro scene replaces scene 2 when the story is a violin bow-performance story.",
+            "The original AI-generated scene images are preserved; no procedural violin macro replacement is applied.",
             "The HTML prototype remains an evaluation path; production V2 is unchanged.",
             "Word captions use native Kokoro duration cues from this exact narration take.",
         ],
