@@ -237,9 +237,9 @@ class StagedPipelineTests(unittest.TestCase):
         self.assertEqual(review["score"], 94)
         payload = mocked.call_args.args[1]
         self.assertFalse(payload["stream"])
-        self.assertTrue(payload["reasoning"])
+        self.assertFalse(payload["reasoning"])
         self.assertEqual(payload["temperature"], 0)
-        self.assertEqual(payload["max_tokens"], 512)
+        self.assertEqual(payload["max_tokens"], 192)
 
     def test_storyboard_review_requires_same_performer_and_issue_free_result(self):
         answer = (
@@ -261,7 +261,7 @@ class StagedPipelineTests(unittest.TestCase):
         question = mocked.call_args.args[1]["question"]
         self.assertTrue(review["passed"])
         self.assertIn("SAME identifiable performer", question)
-        self.assertIn("issues array MUST be empty", question)
+        self.assertIn("Answer with exactly one leading verdict: PASS or FAIL", question)
 
     def test_storyboard_review_uses_non_streaming_answer_contract(self):
         answer = (
@@ -280,7 +280,42 @@ class StagedPipelineTests(unittest.TestCase):
         self.assertTrue(review["passed"])
         self.assertEqual(review["score"], 91)
         self.assertFalse(mocked.call_args.args[1]["stream"])
-        self.assertTrue(mocked.call_args.args[1]["reasoning"])
+        self.assertFalse(mocked.call_args.args[1]["reasoning"])
+
+    def test_binary_vision_verdict_accepts_only_clear_pass_or_fail(self):
+        explicit_pass = pipeline._parse_vision_assessment({"result": {"answer": "PASS"}})
+        self.assertTrue(explicit_pass["passed"])
+        self.assertEqual(explicit_pass["score"], pipeline.MIN_IMAGE_QA_SCORE)
+        self.assertEqual(explicit_pass["assessment_mode"], "binary_text_verdict")
+
+        explicit_fail = pipeline._parse_vision_assessment(
+            {"result": {"answer": "FAIL: the bow hair is not visible."}}
+        )
+        self.assertFalse(explicit_fail["passed"])
+        self.assertIn("bow hair", explicit_fail["issues"][0])
+
+        positive_prose = pipeline._parse_vision_assessment(
+            {"result": {"answer": "Excellent, matching the prompt. No visible defects."}}
+        )
+        self.assertTrue(positive_prose["passed"])
+        self.assertEqual(positive_prose["assessment_mode"], "clear_positive_text_assessment")
+
+        ambiguous = pipeline._parse_vision_assessment(
+            {"result": {"answer": "The photograph is visually interesting and warm."}}
+        )
+        self.assertFalse(ambiguous["passed"])
+
+    def test_vision_text_finds_answer_inside_unexpected_wrapper(self):
+        response = {
+            "provider_payload": {
+                "model_output": {
+                    "answer": "PASS",
+                    "finish_reason": "stop",
+                }
+            },
+            "usage": {"tokens": 18},
+        }
+        self.assertEqual(pipeline._vision_text(response), "PASS")
 
     def test_storyboard_repair_selects_macro_or_final_performer_scene(self):
         self.assertEqual(
@@ -362,7 +397,7 @@ class StagedPipelineTests(unittest.TestCase):
         )
         self.assertFalse(review["passed"])
         self.assertEqual(review["score"], 0)
-        self.assertIn("not valid structured JSON", review["issues"][0])
+        self.assertIn("no unambiguous pass verdict", review["issues"][0])
         self.assertIn("image looks good", review["summary"])
 
 
