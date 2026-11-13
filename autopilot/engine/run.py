@@ -792,6 +792,11 @@ def make_plan(items, recent=None):
 
                 repaired = parse_planner_result(ai(TEXT_MODEL, payload))
                 candidate = re.sub(r"\s+", " ", str(repaired.get("sentence", "") or "")).strip()
+                # Missing terminal punctuation is a formatting defect, not a reason
+                # to regenerate an otherwise correctly counted spoken sentence.
+                punctuation_added = bool(candidate and not candidate.endswith((".", "!", "?")))
+                if punctuation_added:
+                    candidate = candidate.rstrip(" ,;:") + "."
                 issue = narration_sentence_error(candidate, target_words)
                 repair_attempts.append(
                     {
@@ -800,6 +805,7 @@ def make_plan(items, recent=None):
                         "attempt": attempt,
                         "requested_words": target_words,
                         "returned_words": narration_word_count(candidate),
+                        "punctuation_added": punctuation_added,
                         "validation_error": issue,
                         "sentence": candidate,
                     }
