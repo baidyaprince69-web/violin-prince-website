@@ -1161,6 +1161,61 @@ def review_scene_image(path, plan, scene, index):
     }
 
 
+def review_storyboard_consistency(path, plan):
+    """Inspect all three scene images together for one coherent visual identity."""
+    try:
+        image_bytes = Path(path).read_bytes()
+    except OSError as exc:
+        raise PipelineError(f"Storyboard visual QA could not read the contact sheet: {exc}") from exc
+    image_data = "data:image/png;base64," + base64.b64encode(image_bytes).decode("ascii")
+    question = (
+        "You are the continuity supervisor for a three-scene short video. Inspect the image panels "
+        "from left to right; ignore contact-sheet headings and captions. Story: "
+        + str(plan.get("title", ""))[:120] + ". Topic: " + str(plan.get("topic", ""))[:180] +
+        ". Recurring visual identity: " + str(plan.get("visual_motif", ""))[:180] +
+        ". Panel 1 is the hook, panel 2 is the specific macro/detail, panel 3 is the payoff. "
+        "The shots should have distinct compositions but clearly belong to the same story. Check that "
+        "the subject, instrument identity, materials, colours, lighting direction and recognizable design "
+        "details remain consistent across panels. For a violin performance, check that the same violin "
+        "design and varnish appears in the hook, macro and payoff; the bridge, fingerboard, strings and bow "
+        "in the macro must plausibly belong to that same instrument. Reject unrelated stock-like scenes, "
+        "identity drift, contradictory instruments, radically different visual styles, or a macro image "
+        "that does not match the wider instrument. Do not demand identical framing; the three panels must "
+        "show different story beats. Return exactly one JSON object: "
+        '{"score":0,"passed":false,"issues":["specific continuity defect"],"summary":"brief assessment"}. '
+        "Score 0–100. Pass only at 80 or above when the three scenes visibly form one coherent sequence. "
+        "Do not infer hidden details; uncertainty is a reason to fail."
+    )
+    result = ai(VISION_MODEL, {"task": "query", "image": image_data, "question": question}, 120)
+    raw = result.get("response") or result.get("text") or result.get("answer") or ""
+    if not isinstance(raw, str):
+        raw = ""
+    try:
+        start = raw.find("{")
+        end = raw.rfind("}")
+        if start < 0 or end <= start:
+            raise ValueError("The reviewer returned no JSON object.")
+        assessment = json.loads(raw[start:end + 1])
+        score = int(assessment["score"])
+        model_passed = assessment["passed"]
+        issues = assessment.get("issues", [])
+        summary = str(assessment.get("summary", ""))[:500]
+        if not isinstance(model_passed, bool) or not isinstance(issues, list):
+            raise ValueError("The reviewer returned invalid field types.")
+        if not 0 <= score <= 100:
+            raise ValueError("The reviewer score is outside 0–100.")
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        return {
+            "model": VISION_MODEL, "score": 0, "passed": False,
+            "issues": ["storyboard continuity response was unclear or not structured JSON"],
+            "summary": raw[:300] or str(exc),
+        }
+    return {
+        "model": VISION_MODEL, "score": score,
+        "passed": bool(model_passed and score >= MIN_IMAGE_QA_SCORE),
+        "issues": [str(value)[:240] for value in issues[:8]],
+        "summary": summary,
+    }
 def use_precision_macro(plan, scene, index):
     """Use deterministic geometry only when the story itself is specifically about violin bowing."""
     if index != 1 or not isinstance(plan, dict) or not isinstance(scene, dict):
@@ -1880,7 +1935,7 @@ def _read_package(require_images=False):
                 raise PipelineError(f"Prepared visual asset {path.name} is not a valid image.") from exc
     if require_images:
         assets = metadata.get("visual_assets", [])
-        required_status = "all_scenes_passed_ai_review_human_review_still_required"
+        required_status = "all_scenes_and_storyboard_passed_ai_review_human_review_still_required"
         if metadata.get("stage") != "visuals_ready" or metadata.get("visual_review_status") != required_status:
             raise PipelineError(
                 "Visual package has not passed AI image review. Run the Visuals stage again before rendering."
@@ -2221,6 +2276,14 @@ def visuals_stage(feedback=""):
             f"(score {review['score']}/100, attempt {review['attempt']})."
         )
     storyboard = make_storyboard_preview(plan, image_paths, PACKAGE / "storyboard-preview.png")
+    storyboard_review = review_storyboard_consistency(storyboard, plan)
+    if not storyboard_review["passed"]:
+        details = "; ".join(str(issue)[:140] for issue in storyboard_review.get("issues", [])[:5])
+        raise PipelineError(
+            "The three scenes did not pass storyboard continuity review. "
+            + (details or storyboard_review.get("summary", "Visual identity was not consistent."))
+        )
+    metadata["storyboard_review"] = storyboard_review
     metadata["stage"] = "visuals_ready"
     metadata["visual_feedback"] = re.sub(r"\s+", " ", str(feedback or "")).strip()[:600]
     metadata["visuals_run_id"] = RUN_ID
@@ -2228,7 +2291,7 @@ def visuals_stage(feedback=""):
     metadata["visual_modes"] = [item["mode"] for item in visual_assets]
     metadata["portrait_dimensions"] = [W, H]
     metadata["visual_review_model"] = VISION_MODEL
-    metadata["visual_review_status"] = "all_scenes_passed_ai_review_human_review_still_required"
+    metadata["visual_review_status"] = "all_scenes_and_storyboard_passed_ai_review_human_review_still_required"
     paths["metadata"].write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
     log("Storyboard preview created: " + str(storyboard))
     return 0
