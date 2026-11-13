@@ -101,6 +101,14 @@ class QualityControlTests(unittest.TestCase):
         self.assertIn("word_timing_method", stage)
         self.assertIn("validate_cues(", stage)
 
+    def test_renderer_distinguishes_legacy_visual_packages_from_ai_reviewed_packages(self):
+        source = (ENGINE / "motion_prototype.py").read_text(encoding="utf-8")
+        helper = source.split("def _validate_approved_visual_package(", 1)[1].split("def _mix_audio(", 1)[0]
+        self.assertIn("legacy_visuals_ready_no_machine_review_records", helper)
+        self.assertIn("ai_reviewed_hash_verified", helper)
+        self.assertIn("visual_review_status", helper)
+        self.assertIn("recorded_plan_hash", helper)
+
     def test_retry_planner_targets_only_the_failed_stage(self):
         self.assertEqual(retry_stage_for_failures([{"passed": False, "category": "audio"}]), "audio_mix")
         self.assertEqual(retry_stage_for_failures([{"passed": False, "category": "text"}]), "video_render")

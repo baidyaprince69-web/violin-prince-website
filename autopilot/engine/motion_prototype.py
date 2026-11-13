@@ -411,14 +411,21 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
             return False, [], "narration metadata is missing"
         if info.get("word_timing_method") != "kokoro_predicted_phoneme_durations":
             return False, [], "native Kokoro word timing is unavailable"
-        cues = sorted(
-            info.get("word_cues", []),
-            key=lambda cue: (float(cue.get("start", 0)), float(cue.get("end", 0))),
-        )
+        raw_cues = info.get("word_cues")
+        if not isinstance(raw_cues, list) or not raw_cues or any(not isinstance(cue, dict) for cue in raw_cues):
+            return False, [], "native word cue list is missing or malformed"
+        try:
+            cues = sorted(
+                raw_cues,
+                key=lambda cue: (float(cue.get("start", 0)), float(cue.get("end", 0))),
+            )
+            spoken_words = int(info.get("word_count", 0))
+        except (TypeError, ValueError, OverflowError) as exc:
+            return False, [], f"narration timing metadata is malformed: {exc}"
         timing = validate_cues(
             cues,
             24.0,
-            word_count=int(info.get("word_count", 0)),
+            word_count=spoken_words,
             require_word_timing=True,
         )
         if not timing["valid"]:
