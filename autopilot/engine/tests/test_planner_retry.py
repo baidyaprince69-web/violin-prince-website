@@ -172,7 +172,6 @@ class PlannerNarrationRetryTests(unittest.TestCase):
                 debug = json.loads(debug_path.read_text(encoding="utf-8"))
                 self.assertEqual(debug["status"], "failed")
                 self.assertEqual(len(debug["repair_attempts"]), 3)
-                self.assertIn("after three focused attempts", str(pipeline.PipelineError)) if False else None
                 self.assertEqual(debug["initial_script"], SCRIPT_33_WORDS)
                 self.assertEqual(debug["initial_plan"]["scenes"], original_plan["scenes"])
             finally:
@@ -213,10 +212,11 @@ class PlannerNarrationRetryTests(unittest.TestCase):
                 self.assertIn("last two revisions", third_prompt)
                 self.assertIn("existing words verbatim and in the same order", third_prompt)
                 debug = json.loads((Path(folder) / "creative_plan_debug.json").read_text(encoding="utf-8"))
-                self.assertEqual(
-                    [item["attempt"] for item in debug["repair_attempts"]],
-                    [1, 2, 3],
-                )
+                sentence_two_attempts = [
+                    item["attempt"] for item in debug["repair_attempts"]
+                    if item["sentence_number"] == 2
+                ]
+                self.assertEqual(sentence_two_attempts, [1, 2, 3])
             finally:
                 pipeline.WORK = original_work
 
