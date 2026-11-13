@@ -233,16 +233,6 @@ jobs:
             echo "The artifact includes fresh-visual-test-manifest.json so the skipped stage is visible."
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # Re-review the exact failed Scene 1 image; generate only if it is not reusable.
-      - name: Restore the prior unapproved Scene 1 candidate for targeted re-review
-        if: env.FRESH_VISUAL_TEST == 'true'
-        uses: actions/download-artifact@v4
-        with:
-          name: v3-motion-prototype-43452864847
-          run-id: 43452864847
-          github-token: ${{ github.token }}
-          path: work/failed-visual-seed
-
       - name: Prepare a dedicated violin-performance visual test story
         if: env.FRESH_VISUAL_TEST == 'true'
         run: |
@@ -254,8 +244,9 @@ jobs:
           plan = json.loads(plan_path.read_text(encoding="utf-8"))
           plan.update({
               "title": "How a Violinist Shapes a Phrase",
-              "topic": "How a violinist uses controlled bow changes, string contact and resonance to shape an expressive musical phrase",
-              "visual_motif": "one consistent amber-varnished violin, dark tailpiece, four strings, active bowing performance",
+              "topic": "How one violinist shapes an expressive phrase through bow control, string contact and resonance",
+              "visual_motif": "the SAME adult male violinist in every wide shot: short swept dark-brown hair, clean-shaven face, white dress shirt and charcoal waistcoat; one identical amber-varnished violin with dark tailpiece, four strings and ebony fingerboard; warm charcoal, walnut and antique-gold concert room",
+              "character_identity": "One adult male violinist with short swept dark-brown hair, clean-shaven face, white dress shirt and charcoal waistcoat. Scenes 1 and 3 must depict this same recognizable person, same hairstyle and same outfit; no glasses, no wardrobe or gender changes.",
               "narration_script": (
                   "A violinist shapes a phrase through controlled bow changes. "
                   "The bow hair meets the strings between the bridge and fingerboard, "
@@ -265,19 +256,19 @@ jobs:
               ),
               "scenes": [
                   {
-                      "image_prompt": "The same expressive violinist beginning a flowing musical phrase on an amber-varnished violin, upper body and instrument readable in an active playing posture, bow in motion, intimate warm concert room",
+                      "image_prompt": "Cinematic medium close-up of one adult male violinist with short swept dark-brown hair, a clean-shaven face, a crisp white dress shirt and charcoal waistcoat. This exact performer identity, hairstyle and outfit must be matched in Scene 3. He begins a flowing phrase on one amber-varnished violin with dark tailpiece, natural active playing posture, bow visible, intimate warm walnut concert room.",
                       "caption": "Every phrase begins with controlled motion",
                       "graphic_label": "THE PERFORMANCE",
                       "graphic_detail": "Bow speed and pressure shape the sound"
                   },
                   {
-                      "image_prompt": "Single frozen side-three-quarter macro keyframe at string height: one upright maple bridge supports four separate parallel strings, and the ebony fingerboard is clearly visible behind it. One dark wooden violin bow crosses the strings from left to right at about 90 degrees. Show its thin pale horsehair ribbon visibly touching exactly one string at one clear point between bridge and fingerboard; the bow stick and horsehair must be distinct and connected parts of the same bow. Center the contact point. No hand is needed.",
+                      "image_prompt": "Photorealistic single frozen macro photograph at string height of the SAME amber-varnished violin from the wide shots. Show the complete upright maple bridge with both feet, exactly four separately countable parallel strings, and the ebony fingerboard clearly behind them. Exactly one bow crosses the strings: show BOTH the slim dark wooden stick and the narrow pale horsehair ribbon as two distinct continuous parallel parts with a visible gap between them, joined only at frog and tip. The horsehair alone visibly contacts exactly one string at one clear point between bridge and fingerboard. Keep all four strings, full bridge, fingerboard, dark stick, pale hair and contact point sharp and fully inside frame. Moderate depth of field; no excessive blur, no cropped components, no second bow, no hands.",
                       "caption": "The bow catches each string",
                       "graphic_label": "BOW–STRING CONTACT",
                       "graphic_detail": "Tiny changes in speed and pressure shape tone"
                   },
                   {
-                      "image_prompt": "A wider cinematic view of the same violinist completing the phrase on the same amber-varnished violin, active playing posture and smooth finishing bow stroke, warm concert room with restrained copper and antique-gold atmosphere",
+                      "image_prompt": "Cinematic wider payoff shot of the SAME adult male violinist from Scene 1: match the exact short swept dark-brown hairstyle, clean-shaven face, white dress shirt and charcoal waistcoat. Do not introduce another performer. He completes the phrase on the same amber-varnished violin with identical dark tailpiece and ebony fingerboard, natural playing posture and smooth finishing bow stroke in the same warm walnut concert room with antique-gold lighting.",
                       "caption": "The wooden body carries the vibration",
                       "graphic_label": "MOTION BECOMES SOUND",
                       "graphic_detail": "The bridge passes vibration into the body"
@@ -288,31 +279,7 @@ jobs:
           PY
           rm -f work/package/scene-1.jpg work/package/scene-2.jpg work/package/scene-3.jpg
           rm -f work/package/storyboard-preview.png
-
-      - name: Reuse the prior Scene 1 candidate only when the exact story plan matches
-        if: env.FRESH_VISUAL_TEST == 'true'
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          import hashlib, shutil
-          from pathlib import Path
-
-          prior = Path("work/failed-visual-seed")
-          prior_plan = prior / "package/creative_plan.json"
-          current_plan = Path("work/package/creative_plan.json")
-          candidate = prior / "images/scene-1.jpg"
-          target = Path("work/images/scene-1.jpg")
-
-          def digest(path):
-              return hashlib.sha256(path.read_bytes()).hexdigest()
-
-          if prior_plan.is_file() and candidate.is_file() and digest(prior_plan) == digest(current_plan):
-              target.parent.mkdir(parents=True, exist_ok=True)
-              shutil.copy2(candidate, target)
-              print("Preserved Scene 1 candidate restored for one targeted review; image generation will be skipped for this candidate.")
-          else:
-              print("Prior Scene 1 candidate was not reused because its exact story plan or image file did not match.")
-          PY
+          rm -f work/images/scene-1.jpg work/images/scene-2.jpg work/images/scene-3.jpg
 
       - name: Generate fresh AI scene artwork with visual review
         if: env.FRESH_VISUAL_TEST == 'true'
@@ -358,8 +325,14 @@ jobs:
               raise SystemExit("Not all three scenes passed the AI visual-review gate.")
 
           storyboard_review = metadata.get("storyboard_review", {})
-          if storyboard_review.get("passed") is not True or int(storyboard_review.get("score", 0)) < engine.MIN_IMAGE_QA_SCORE:
-              raise SystemExit("The three-scene storyboard did not pass the AI continuity review.")
+          if (
+              storyboard_review.get("passed") is not True
+              or storyboard_review.get("issues")
+              or int(storyboard_review.get("score", 0)) < engine.MIN_IMAGE_QA_SCORE
+          ):
+              raise SystemExit("The three-scene storyboard did not pass strict AI continuity review.")
+          if metadata.get("title") != plan.get("title") or metadata.get("topic") != plan.get("topic"):
+              raise SystemExit("Visual package title/topic metadata does not match the reviewed story plan.")
 
           expected_modes = ["cloudflare_flux_portrait_extended"] * 3
           if metadata.get("visual_modes") != expected_modes:
@@ -373,8 +346,14 @@ jobs:
           images = []
           for index, asset in enumerate(visual_assets, start=1):
               review = asset.get("visual_review", {})
-              if review.get("passed") is not True or int(review.get("score", 0)) < engine.MIN_IMAGE_QA_SCORE:
-                  raise SystemExit(f"Scene {index} has no passing visual-review record.")
+              if (
+                  review.get("passed") is not True
+                  or review.get("issues")
+                  or int(review.get("score", 0)) < engine.MIN_IMAGE_QA_SCORE
+              ):
+                  raise SystemExit(f"Scene {index} has no clean passing visual-review record.")
+              if str(asset.get("generated_run_id")) != str(run_id):
+                  raise SystemExit(f"Scene {index} was not freshly generated in this exact test run.")
               image_path = package / f"scene-{index}.jpg"
               if not image_path.is_file() or image_path.stat().st_size < 10000:
                   raise SystemExit(f"Fresh scene image {index} is missing or unexpectedly small.")
@@ -399,6 +378,8 @@ jobs:
           if not macro_brief or len(macro_brief) > engine.MAX_IMAGE_PROMPT_CHARS:
               raise SystemExit("The photorealistic violin macro prompt is invalid or over the model limit.")
           shutil.copy2(package / "storyboard-preview.png", output / "fresh-storyboard-preview.png")
+          if sum(1 for item in visual_assets if str(item.get("generated_run_id")) == str(run_id)) != 3:
+              raise SystemExit("All three scene images must be newly generated in this exact test run.")
           manifest = {
               "status": "ai_visual_review_passed_human_signoff_required",
               "run_id": run_id,
@@ -408,8 +389,8 @@ jobs:
               "image_model": engine.IMAGE_MODEL,
               "vision_model": engine.VISION_MODEL,
               "fresh_ai_image_generation": True,
-              "fresh_ai_images_generated": 3,
-              "fresh_visual_assets_generated": 3,
+              "fresh_ai_images_generated": sum(1 for item in visual_assets if str(item.get("generated_run_id")) == str(run_id)),
+              "fresh_visual_assets_generated": sum(1 for item in visual_assets if str(item.get("generated_run_id")) == str(run_id)),
               "scene_render_modes": metadata.get("visual_modes", []),
               "portrait_dimensions": metadata.get("portrait_dimensions"),
               "prompt_validation": "all_three_prompts_checked",
