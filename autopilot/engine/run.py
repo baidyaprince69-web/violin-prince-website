@@ -1914,13 +1914,13 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         # this entire prompt; the bow/strings requirements are never beyond a cut-off.
         prompt_parts = [
             "SUBJECT & ACTION: " + compact_prompt + ".",
-            "SHOT 2 MACRO CLOSE-UP: string-height side three-quarter photograph, moderate depth of field; the bridge, all four strings, fingerboard, both bow parts and contact point must be simultaneously sharp.",
+            "SHOT 2 MACRO CLOSE-UP: 85mm lens, string-height side three-quarter photograph, moderate depth of field; the bridge, all four strings, fingerboard, both bow parts and contact point must be simultaneously sharp.",
             "VIOLIN GEOMETRY: one complete upright maple bridge with both feet resting on the amber top plate. exactly four separate strings run lengthwise in parallel and are individually countable. A distinct ebony fingerboard extends away from the bridge. Keep all four strings visible on both sides of the bridge.",
             "BOW GEOMETRY: exactly one bow crosses the strings horizontally at 90 degrees. Show the slim dark wooden stick and narrow pale horsehair ribbon as two separate, continuous parallel parts with a visible gap between them; they join only at frog and tip. Neither part hides the other. No extra rods or duplicate bows.",
             "CONTACT POINT: the pale horsehair alone touches exactly one string at one clear point between bridge and fingerboard. The dark stick must not touch the strings. Keep the other three strings visibly separate.",
             "FRAMING & FOCUS: portrait 9:16, bridge across the lower-middle frame and fingerboard extending behind it; keep the complete bridge, exactly four strings, fingerboard, slim dark wooden stick, narrow pale horsehair ribbon and contact point inside frame, simultaneously sharp. No cropping, blur, merging or warped parts.",
             "RECURRING ASSET ANCHOR: " + anchor + "; maintain believable violin proportions.",
-            "STYLE & LIGHT: photorealistic macro editorial photograph, real maple, ebony, steel strings and amber varnish; warm 3200K key, neutral fill, soft amber rim. No illustration or 3D render.",
+            "STYLE & LIGHT: photorealistic violin performance photograph, macro editorial detail, real maple, ebony, steel strings and amber varnish; warm 3200K key, neutral fill, soft amber rim. No illustration or 3D render.",
             "BACKGROUND: quiet charcoal and walnut tones, no text, logos or watermarks.",
         ]
     else:
