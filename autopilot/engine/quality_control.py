@@ -137,6 +137,30 @@ def _fraction(value: str | None) -> float:
     return float(raw)
 
 
+def resolve_frame_rate(
+    average_rate: str | None,
+    nominal_rate: str | None,
+    frame_count: int | str | None = None,
+    duration_seconds: float | None = None,
+) -> float:
+    """Prefer a valid measured rate, then FFprobe's nominal rate, then frame-count ratio."""
+    for candidate in (average_rate, nominal_rate):
+        try:
+            rate = _fraction(candidate)
+        except (TypeError, ValueError, ZeroDivisionError, OverflowError):
+            continue
+        if math.isfinite(rate) and rate > 0:
+            return rate
+    try:
+        count = int(frame_count or 0)
+        duration = float(duration_seconds or 0)
+        if count > 0 and math.isfinite(duration) and duration > 0:
+            return count / duration
+    except (TypeError, ValueError, OverflowError):
+        pass
+    return 0.0
+
+
 def _run(command: list[str], timeout: int = 240) -> subprocess.CompletedProcess:
     return subprocess.run(command, capture_output=True, text=False, timeout=timeout)
 
@@ -210,7 +234,7 @@ def run_quality_gate(
     try:
         probe = _run([
             "ffprobe", "-v", "error", "-show_entries",
-            "format=duration,size:stream=codec_type,codec_name,width,height,sample_rate,channels,duration,avg_frame_rate,r_frame_rate,pix_fmt",
+            "format=duration,size:stream=codec_type,codec_name,width,height,sample_rate,channels,duration,avg_frame_rate,r_frame_rate,nb_frames,pix_fmt",
             "-of", "json", str(path),
         ])
     except (OSError, subprocess.SubprocessError) as exc:
@@ -236,10 +260,12 @@ def run_quality_gate(
     width = int(video.get("width", 0) or 0)
     height = int(video.get("height", 0) or 0)
     video_duration = float(video.get("duration") or format_duration or 0)
-    try:
-        fps = _fraction(video.get("avg_frame_rate") or video.get("r_frame_rate") or "0/1")
-    except (ValueError, ZeroDivisionError):
-        fps = 0.0
+    fps = resolve_frame_rate(
+        video.get("avg_frame_rate"),
+        video.get("r_frame_rate"),
+        video.get("nb_frames"),
+        video_duration,
+    )
     metrics.update({
         "duration_seconds": round(format_duration, 3),
         "video_duration_seconds": round(video_duration, 3),

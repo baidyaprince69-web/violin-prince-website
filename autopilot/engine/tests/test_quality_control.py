@@ -8,6 +8,7 @@ sys.path.insert(0, str(ENGINE))
 
 from quality_control import (
     retry_stage_for_failures,
+    resolve_frame_rate,
     validate_cues,
     validate_text_audit_payload,
 )
@@ -83,6 +84,11 @@ class QualityControlTests(unittest.TestCase):
         result = validate_text_audit_payload(payload)
         self.assertFalse(result["valid"])
         self.assertTrue(result["errors"])
+
+    def test_frame_rate_uses_nominal_rate_when_average_is_zero_or_invalid(self):
+        self.assertAlmostEqual(resolve_frame_rate("0/0", "25/1", 600, 24.0), 25.0)
+        self.assertAlmostEqual(resolve_frame_rate("N/A", "30/1", None, 24.0), 30.0)
+        self.assertAlmostEqual(resolve_frame_rate("0/0", "N/A", 600, 24.0), 25.0)
 
     def test_retry_planner_targets_only_the_failed_stage(self):
         self.assertEqual(retry_stage_for_failures([{"passed": False, "category": "audio"}]), "audio_mix")
