@@ -30,6 +30,7 @@ The fresh-visual manifest checks prompt structure, image presence, dimensions an
 - Visual recovery reuses only valid 720×1280 portrait images. Legacy square images are regenerated, and violin bow-contact macro scenes are rebuilt rather than reusing an older inaccurate AI macro.
 - The deterministic bow-contact illustration calculates its highlight from the actual bow-hair and string paths and records a geometry check in the visual package.
 - It reads an existing prepared package and regenerates narration from the approved script to obtain native word timing.
+- The V3 workflow automatically selects the newest successful V2 run with both required, unexpired visual and diagnostic artifacts; an explicit source-run override is optional.
 - It creates both a V2 FFmpeg baseline and V3 HTML preview for the primary story, plus a second-story consistency render.
 - The prototype is not promoted to production until visual inspection and regression tests pass.
 

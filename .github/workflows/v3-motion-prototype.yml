@@ -14,9 +14,9 @@ on:
   workflow_dispatch:
     inputs:
       source_run_id:
-        description: "Successful V2 run whose prepared package should be used"
-        required: true
-        default: "43345195703"
+        description: "Optional successful V2 run ID; leave blank to select the latest valid package"
+        required: false
+        default: ""
         type: string
       fresh_visual_test:
         description: "Regenerate fresh AI artwork and the deterministic violin macro"
@@ -40,15 +40,14 @@ jobs:
       PUBLISH_ENABLED: "false"
       RUN_ID: ${{ github.run_id }}
       FRESH_VISUAL_TEST: ${{ (github.event_name == 'push' && contains(github.event.head_commit.message, '[fresh-visual-test]')) || (github.event_name == 'workflow_dispatch' && inputs.fresh_visual_test) }}
-      SOURCE_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.source_run_id || '43345195703' }}
+      SOURCE_RUN_ID: ""
     steps:
-      - name: Validate source run ID
-        shell: bash
-        run: |
-          if [[ ! "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]]; then
-            echo "::error::source_run_id must contain only digits."
-            exit 1
-          fi
+      - name: Resolve latest successful V2 visual package
+        id: resolve_source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_SOURCE_RUN_ID: ${{ inputs.source_run_id || '' }}
+        run: python autopilot/scripts/resolve_v2_source.py
 
       - name: Check out V3 prototype branch
         uses: actions/checkout@v4
@@ -139,9 +138,9 @@ jobs:
       - name: Download successful V2 prepared package
         uses: actions/download-artifact@v4
         with:
-          name: violin-prince-run-${{ env.SOURCE_RUN_ID }}
+          name: violin-prince-run-${{ steps.resolve_source.outputs.source_run_id }}
           path: work
-          run-id: ${{ env.SOURCE_RUN_ID }}
+          run-id: ${{ steps.resolve_source.outputs.source_run_id }}
           repository: baidyaprince69-web/violin-prince-website
           github-token: ${{ github.token }}
 
