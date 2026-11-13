@@ -1236,7 +1236,7 @@ def _parse_vision_assessment(result, label="visual reviewer", required_checks=No
         "model": VISION_MODEL,
         "score": 0,
         "passed": False,
-        "issues": [f"{label} response lacked a validated review format"],
+        "issues": [f"{label} response lacked structured JSON or a required checklist"],
         "summary": diagnostic,
         "assessment_mode": "unresolved_text_response",
     }
