@@ -17,21 +17,22 @@ It is not the production renderer.
 
 ## Visual scope
 
-The three main scene illustrations remain still source images. The HTML renderer adds continuous camera movement (push-in, tracking-style drift and pull-back), transitions, animated vector layers, dynamic typography, infographic components and a music-reactive bow/string overlay; FFmpeg encodes those frames into an MP4. This is a real rendered video file, but it is **not** text-to-video or image-to-video generation: the violinist, hands and bow are not independently animated as moving footage. A genuine AI-video provider adapter is a separate future phase and is not enabled in this free-first prototype.
+The three scene images are generated as still artwork by Cloudflare Workers AI (FLUX.1-schnell). Each generated image is inspected by a separate vision model (Moondream 3.1) against the actual scene brief. A rejected scene receives one targeted regeneration; if it still fails, the visual stage stops before video rendering. The violin macro is now an AI-generated photographic brief, not a Python/Pillow drawing. AI review is a quality gate, not a guarantee: the storyboard and final encoded video still require human visual approval.
 
-The fresh-visual manifest checks prompt structure, image presence, dimensions and hashes. It deliberately marks the image content as requiring human visual review; passing prompt assertions is not proof that the image model obeyed the requested bow/string geometry.
+The HTML renderer adds camera movement, transitions, animated vector layers, phrase-aware word captions, kinetic typography, infographic components and music-reactive visual details. FFmpeg encodes these into an MP4. This is a video rendered from still images, not text-to-video or image-to-video footage: the violinist, hands and bow are not independently animated as moving footage.
 
 ## Safety and separation
 
-- The existing Python/Pillow/FFmpeg renderer remains the production path.
-- The fresh-art checkpoint calls Cloudflare Workers AI (FLUX.1-schnell) for two still scene images, extends each into a 9:16 frame without cropping away the complete source image, and draws the violin bow-contact macro deterministically; it does not call a text-to-video model or publish.
+- The existing Python/Pillow/FFmpeg renderer remains the production path; the HTML renderer is still isolated for evaluation.
+- The fresh-art checkpoint calls FLUX.1-schnell for all three scene images and Moondream 3.1 for visual inspection; it does not call a text-to-video model or publish.
 - The isolated rendering step reads saved still images and does not make AI calls.
-- AI image prompts are capped at 1,800 characters and are rejected if over the limit; temporary network/5xx failures get one bounded retry, while quota/permission failures stop without a paid fallback.
-- Visual recovery reuses only valid 720×1280 portrait images. Legacy square images are regenerated, and violin bow-contact macro scenes are rebuilt rather than reusing an older inaccurate AI macro.
-- The deterministic bow-contact illustration calculates its highlight from the actual bow-hair and string paths and records a geometry check in the visual package.
+- AI image prompts are capped at 1,800 characters; transient network/5xx failures receive one bounded retry, while quota and permission failures stop without a paid fallback.
+- A rejected scene receives one targeted regeneration using the vision model's feedback. If it still fails, the pipeline rejects the package instead of rendering defective artwork.
+- Image reuse requires 720×1280 dimensions, a passing review record and a matching SHA-256 digest. Old images without review evidence are regenerated.
+- The violin macro is a photorealistic image-generation brief requiring a complete bridge, four strings, a distinct fingerboard and one correctly constructed bow.
 - It reads an existing prepared package and regenerates narration from the approved script to obtain native word timing.
 - The V3 workflow automatically selects the newest successful V2 run with both required, unexpired visual and diagnostic artifacts; an explicit source-run override is optional.
-- It creates both a V2 FFmpeg baseline and V3 HTML preview for the primary story, plus a second-story consistency render.
+- It creates both a V2 FFmpeg baseline and V3 HTML preview for one primary story.
 - The prototype is not promoted to production until visual inspection and regression tests pass.
 
 ## Local/cloud command
@@ -52,16 +53,16 @@ The dedicated GitHub Actions workflow performs these setup steps in the cloud. T
 
 - ffmpeg-baseline.mp4 — current V2 FFmpeg renderer, using the same regenerated narration and prepared images.
 - html-motion-prototype.mp4 — isolated V3 Canvas renderer for the original prepared story.
-- second-story/html-motion-prototype.mp4 — second-story consistency preview.
-- two-story-test-report.json — combined two-story result and production-separation flags.
+- single-story-test-report.json — one-story prototype result and production-separation flags.
 - v3-comparison-report.json — dimensions, duration, word timing and renderer metadata for each story.
-- qa-frames/ — sampled still frames from each HTML preview.
+- final-encoded-qa-frames/ — sampled still frames decoded from the final MP4.
+- fresh-visual-test-manifest.json — scene generation models, image-review records and human sign-off status.
 
 
 ## Prompt design
 
 - Image prompts use a five-part structure: subject/action, recurring asset anchor, style/material, lighting/camera, and background/atmosphere.
-- The opening image is composed as a readable two-second hook; the second scene is deliberately framed as an extreme close-up macro; the final scene resolves by widening back out.
+- The opening image is composed as a readable two-second hook; the second scene is deliberately framed as a controlled photorealistic macro; the final scene resolves by widening back out.
 - Performance prompts specify the violin/bow/fingerboard relationship, the focal contact point, and a single dominant action. The prompt avoids forcing both hands into one anatomically impossible macro frame.
 - Camera intent is explicit (push-in, lateral follow, pull-back) and matches the Canvas renderer's scene-specific camera arcs.
 - Reference techniques are adapted into the original Violin Prince charcoal/walnut/oxblood/gold palette; the pipeline does not imitate another creator's branded look.
