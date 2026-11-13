@@ -1579,7 +1579,8 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
     audio_filter = (
         f"[1:a]volume={bed_volume}[bed];"
         "[2:a]highpass=f=75,acompressor=threshold=-20dB:ratio=3:attack=12:release=180,"
-        "volume=1.15,asplit=2[voice_sc][voice_mix];"
+        "volume=1.15,asplit=2[voice_sc_raw][voice_mix];"
+        "[voice_sc_raw]apad=whole_dur=24[voice_sc];"
         "[bed][voice_sc]sidechaincompress=threshold=0.035:ratio=10:attack=18:release=620:knee=4:makeup=1[duckedbed];"
         "[duckedbed][voice_mix]amix=inputs=2:duration=longest:dropout_transition=1,"
         "loudnorm=I=-16:TP=-1.5:LRA=11,"
