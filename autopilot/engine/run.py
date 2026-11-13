@@ -1445,8 +1445,8 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         context,
     ))
     scene_index = max(0, min(2, int(index)))
-    compact_prompt = textwrap.shorten(raw_prompt, width=190 if performance_related and scene_index == 1 else 250, placeholder="…")
-    anchor = textwrap.shorten(re.sub(r"\s+", " ", anchor_raw), width=125, placeholder="…")
+    compact_prompt = textwrap.shorten(raw_prompt, width=105 if performance_related and scene_index == 1 else 250, placeholder="…")
+    anchor = textwrap.shorten(re.sub(r"\s+", " ", anchor_raw), width=88 if performance_related and scene_index == 1 else 125, placeholder="…")
 
     if performance_related and scene_index == 1:
         # Put the physical contact geometry before stylistic detail. FLUX receives
@@ -1478,7 +1478,7 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
             "RECURRING ASSET ANCHOR: " + anchor + "; keep recognizable subject design and believable proportions.",
             "STYLE & MATERIAL: premium hand-painted cinematic editorial illustration, clearly illustrated concept art rather than photography, with restrained 3D shading and tactile natural materials; avoid plastic, anime or stock imagery.",
             "LIGHTING & CAMERA: " + camera_profiles[scene_index] + " Warm 3200K key, neutral 4300K fill and amber 2800K rim.",
-            "BACKGROUND & ATMOSPHERE: charcoal, walnut, oxblood, copper, antique gold and warm ivory. Avoid blue, teal, cyan or cold-blue backgrounds.",
+            "BACKGROUND & ATMOSPHERE: charcoal, walnut, oxblood, copper, antique gold and warm ivory. Avoid blue, teal, cyan or cold-blue backgrounds. Layered foreground, midground and background.",
             "COMPOSITION RULES: clear focal hierarchy, realistic perspective, Portrait 9:16 composition, no text, no lettering, no logo, no watermark.",
         ]
         if performance_related and scene_index == 0:
