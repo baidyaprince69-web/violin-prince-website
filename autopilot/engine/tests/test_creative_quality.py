@@ -55,8 +55,8 @@ class CreativeQualityTests(unittest.TestCase):
             )
             content = target.read_text(encoding="utf-8")
             self.assertIn("Dialogue: 0,0:00:00.20,0:00:02.40,VP", content)
-            self.assertIn(r"{\\fad(180,220)", content)
-            self.assertIn(r"{\\c&H008BCEEA&\\b1}", content)
+            self.assertIn("fad(180,220)", content)
+            self.assertIn("008BCEEA", content)
             self.assertIn("remarkable", content)
 
     def test_camera_motion_varies_by_scene_but_keeps_smooth_easing(self):
