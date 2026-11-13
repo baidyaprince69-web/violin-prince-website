@@ -176,6 +176,28 @@ jobs:
           print("Prepared story, native narration timings, soundtrack and narration assets passed preflight.")
           PY
 
+      - name: Record renderer-only mode when fresh visual proof is not requested
+        if: env.FRESH_VISUAL_TEST != 'true'
+        run: |
+          mkdir -p work/output/motion-prototype
+          cat > work/output/motion-prototype/fresh-visual-test-manifest.json <<'JSON'
+          {
+            "status": "fresh_visual_test_skipped",
+            "fresh_ai_image_generation": false,
+            "fresh_visual_assets_generated": 0,
+            "visual_content_review": "not_performed",
+            "reason": "This run was not triggered with the [fresh-visual-test] commit marker or fresh_visual_test=true workflow input.",
+            "publishing_enabled": false,
+            "production_renderer_changed": false
+          }
+          JSON
+          {
+            echo "## V3 run mode"
+            echo "**Renderer-only run.** Fresh AI artwork, portrait-asset verification and visual sign-off were intentionally skipped."
+            echo "This run can validate the renderer, but it cannot be treated as fresh visual proof."
+            echo "The artifact includes fresh-visual-test-manifest.json so the skipped stage is visible."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Prepare a dedicated violin-performance visual test story
         if: env.FRESH_VISUAL_TEST == 'true'
         run: |
