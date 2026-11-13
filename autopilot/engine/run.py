@@ -1250,7 +1250,7 @@ def review_storyboard_consistency(path, plan):
         "All three panels must also show the same amber-varnished violin design and warm visual identity. "
         "Return exactly one JSON object: "
         '{"score":0,"passed":false,"issues":[],"summary":"brief assessment"}. '
-        "Score 0–100. For a passing storyboard set passed=true and issues=[] exactly. For a failing "
+        "Score 0–100. The issues array MUST be empty for a pass. For a passing storyboard set passed=true and issues=[] exactly. For a failing "
         "storyboard set passed=false and list ONLY specific visible continuity defects in issues; never copy "
         "the story brief or checklist into issues. Any performer identity drift, instrument design mismatch, "
         "lighting/material/color inconsistency or unclear macro anatomy is a rejection. "
