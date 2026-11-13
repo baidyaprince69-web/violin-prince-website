@@ -16,8 +16,12 @@ class QualityGateError(RuntimeError):
 
     def __init__(self, report: dict[str, Any]):
         failed = [item["name"] for item in report.get("checks", []) if not item.get("passed")]
+        details = [
+            f"{item['name']} (observed={item.get('observed')!r})"
+            for item in report.get("checks", []) if not item.get("passed")
+        ]
         message = "Production quality gate rejected output: " + (
-            ", ".join(failed) if failed else "unknown validation failure"
+            "; ".join(details) if details else "unknown validation failure"
         )
         super().__init__(message)
         self.report = report
@@ -233,8 +237,8 @@ def run_quality_gate(
 
     try:
         probe = _run([
-            "ffprobe", "-v", "error", "-show_entries",
-            "format=duration,size:stream=codec_type,codec_name,width,height,sample_rate,channels,duration,avg_frame_rate,r_frame_rate,nb_frames,pix_fmt",
+            "ffprobe", "-v", "error", "-count_frames", "-show_entries",
+            "format=duration,size:stream=codec_type,codec_name,width,height,sample_rate,channels,duration,avg_frame_rate,r_frame_rate,nb_frames,nb_read_frames,pix_fmt",
             "-of", "json", str(path),
         ])
     except (OSError, subprocess.SubprocessError) as exc:
@@ -263,7 +267,7 @@ def run_quality_gate(
     fps = resolve_frame_rate(
         video.get("avg_frame_rate"),
         video.get("r_frame_rate"),
-        video.get("nb_frames"),
+        video.get("nb_read_frames") or video.get("nb_frames"),
         video_duration,
     )
     metrics.update({
