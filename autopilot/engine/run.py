@@ -1824,12 +1824,12 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         # this entire prompt; the bow/strings requirements are never beyond a cut-off.
         prompt_parts = [
             "SUBJECT & ACTION: " + compact_prompt + ".",
-            "SHOT 2 MACRO CLOSE-UP: 85mm lens, string-height three-quarter view, shallow depth of field; keep full bridge and contact area visible.",
+            "SHOT 2 MACRO CLOSE-UP: 85mm lens, string-height three-quarter view, moderate depth of field; keep the complete bridge, all four strings, fingerboard, both bow parts and contact area simultaneously sharp and fully visible.",
             "Single still macro frame; no multiple exposure.",
             "INSTRUMENT ACCURACY: one complete upright maple bridge with both feet visible; exactly four separate parallel strings, individually countable from tailpiece across the bridge; a distinct ebony fingerboard clearly visible behind the strings. Exactly one bow with TWO separately readable, continuous components: a slim dark wooden stick and a narrow pale horsehair ribbon running parallel with a visible air gap; both remain connected only at the frog and tip. Neither part may hide the other. The pale hair alone crosses at about 90 degrees and visibly touches exactly one string at a single contact point between the bridge and fingerboard. Keep the full bridge, all four strings, fingerboard, dark stick, pale hair and contact point inside the sharp focal plane; do not crop, blur, fuse or merge any required part.",
             "RECURRING ASSET ANCHOR: " + anchor + "; plausible violin proportions.",
             "STYLE & MATERIAL: photorealistic violin performance photograph; true wood grain, varnish, steel strings, maple and ebony. No illustration, render, anime or plastic.",
-            "LIGHT: warm 3200K key, neutral fill, amber rim; narrow macro focus.",
+            "LIGHT: warm 3200K key, neutral fill, amber rim; enough depth of field to keep every required violin and bow component legible, no blur across the bridge or bow.",
             "BACKGROUND: charcoal, walnut, oxblood, copper, gold and ivory; no cold blue.",
             "COMPOSITION: portrait 9:16; no text, logos, extra rods, duplicate bows or extra strings.",
         ]
