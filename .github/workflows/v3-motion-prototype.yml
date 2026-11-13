@@ -344,6 +344,7 @@ jobs:
           print("Restored Scene 1 from the immediately preceding fresh run for a new review call. The image is not pre-approved.")
           PY
 
+      # Final Phase 2 proof: all three scenes must be newly generated and reviewed in this run.
       - name: Generate fresh AI scene artwork with visual review
         if: env.FRESH_VISUAL_TEST == 'true'
         env:
