@@ -86,7 +86,7 @@ class PlannerNarrationRetryTests(unittest.TestCase):
     def test_make_plan_repairs_each_sentence_independently_without_research_repeat(self):
         original_plan = make_test_plan(SCRIPT_33_WORDS)
         valid_sentences = pipeline.narration_sentences(VALID_SCRIPT)
-        ai_results = [sentence_result(sentence) for sentence in valid_sentences]
+        ai_results = [{"response": original_plan}] + [sentence_result(sentence) for sentence in valid_sentences]
         original_scenes = original_plan["scenes"]
 
         with tempfile.TemporaryDirectory() as folder:
@@ -96,13 +96,13 @@ class PlannerNarrationRetryTests(unittest.TestCase):
                 with patch.object(pipeline, "ai", side_effect=ai_results) as mock_ai:
                     result = pipeline.make_plan([self.item], recent=[])
 
-                self.assertEqual(mock_ai.call_count, 4)
+                self.assertEqual(mock_ai.call_count, 5)
                 self.assertEqual(result["narration_script"], VALID_SCRIPT)
                 self.assertEqual(pipeline.narration_sentence_budget_error(result["narration_script"]), "")
                 self.assertEqual(result["sources"], [self.item["url"]])
                 self.assertEqual(result["scenes"], original_scenes)
 
-                for index, call in enumerate(mock_ai.call_args_list):
+                for index, call in enumerate(mock_ai.call_args_list[1:]):
                     payload = call.args[1]
                     system_message = payload["messages"][0]["content"]
                     user_message = payload["messages"][1]["content"]
@@ -121,6 +121,7 @@ class PlannerNarrationRetryTests(unittest.TestCase):
         valid_sentences = pipeline.narration_sentences(VALID_SCRIPT)
         seven_word_hook = "Can music move across the universe today?"
         ai_results = [
+            {"response": make_test_plan(SCRIPT_33_WORDS)},
             sentence_result(seven_word_hook),
             sentence_result(valid_sentences[0]),
             *[sentence_result(sentence) for sentence in valid_sentences[1:]],
@@ -133,9 +134,9 @@ class PlannerNarrationRetryTests(unittest.TestCase):
                 with patch.object(pipeline, "ai", side_effect=ai_results) as mock_ai:
                     result = pipeline.make_plan([self.item], recent=[])
 
-                self.assertEqual(mock_ai.call_count, 5)
+                self.assertEqual(mock_ai.call_count, 6)
                 self.assertEqual(result["narration_script"], VALID_SCRIPT)
-                retry_payload = mock_ai.call_args_list[1].args[1]
+                retry_payload = mock_ai.call_args_list[2].args[1]
                 self.assertIn("previous attempt 1", retry_payload["messages"][1]["content"])
                 self.assertIn("7 words", retry_payload["messages"][1]["content"])
             finally:
@@ -152,7 +153,11 @@ class PlannerNarrationRetryTests(unittest.TestCase):
                 with patch.object(
                     pipeline,
                     "ai",
-                    side_effect=[sentence_result(invalid_hook), sentence_result(invalid_hook)],
+                    side_effect=[
+                        {"response": make_test_plan(SCRIPT_33_WORDS)},
+                        sentence_result(invalid_hook),
+                        sentence_result(invalid_hook),
+                    ],
                 ) as mock_ai:
                     with self.assertRaisesRegex(
                         pipeline.PipelineError,
@@ -160,7 +165,7 @@ class PlannerNarrationRetryTests(unittest.TestCase):
                     ):
                         pipeline.make_plan([self.item], recent=[])
 
-                self.assertEqual(mock_ai.call_count, 2)
+                self.assertEqual(mock_ai.call_count, 3)
                 debug_path = Path(folder) / "creative_plan_debug.json"
                 self.assertTrue(debug_path.is_file())
                 debug = json.loads(debug_path.read_text(encoding="utf-8"))
@@ -176,9 +181,11 @@ class PlannerNarrationRetryTests(unittest.TestCase):
             original_work = pipeline.WORK
             try:
                 pipeline.WORK = Path(folder)
-                with patch.object(pipeline, "ai") as mock_ai:
+                with patch.object(
+                    pipeline, "ai", return_value={"response": make_test_plan(VALID_SCRIPT)}
+                ) as mock_ai:
                     result = pipeline.make_plan([self.item], recent=[])
-                mock_ai.assert_not_called()
+                self.assertEqual(mock_ai.call_count, 1)
                 self.assertEqual(result["narration_script"], VALID_SCRIPT)
             finally:
                 pipeline.WORK = original_work
