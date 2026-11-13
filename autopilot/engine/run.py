@@ -1066,54 +1066,80 @@ def make_image(prompt, index):
     return path
 
 def _vision_query(image_data, question, timeout=120):
-    """Use Moondream's non-streaming answer contract and retain its normal reasoning mode."""
+    """Use a short deterministic, non-streaming Moondream answer without reasoning traces."""
     return ai(
         VISION_MODEL,
         {
             "task": "query",
             "image": image_data,
             "question": question,
-            "reasoning": True,
+            "reasoning": False,
             "stream": False,
             "temperature": 0,
-            "max_tokens": 512,
+            "max_tokens": 192,
         },
         timeout,
     )
 
 
 def _vision_text(value):
-    """Extract answer text from string, chunk-list, or nested provider response shapes."""
+    """Extract the model's final answer from Workers AI wrapper and Moondream response shapes."""
     if isinstance(value, str):
         return value.strip()
     if isinstance(value, list):
         parts = [_vision_text(item) for item in value]
-        return "".join(part for part in parts if part)
+        return "\n".join(part for part in parts if part).strip()
     if isinstance(value, dict):
-        for key in ("answer", "response", "text", "content", "output_text", "chunk", "value", "result", "data", "output", "message", "choices", "delta"):
+        preferred = (
+            "answer", "response", "text", "content", "output_text", "caption",
+            "chunk", "value", "result", "data", "output", "message", "choices", "delta",
+        )
+        for key in preferred:
             if key in value:
                 text_value = _vision_text(value[key])
                 if text_value:
                     return text_value
+        ignored = {"usage", "metrics", "reasoning", "reasoning_details", "request_id",
+                   "finish_reason", "model", "token_ids", "timings"}
+        for key, child in value.items():
+            if str(key).casefold() in ignored:
+                continue
+            text_value = _vision_text(child)
+            if text_value:
+                return text_value
     return ""
 
 
 def _vision_result_diagnostic(result):
-    """Describe the non-sensitive shape of a model result when it contains no answer text."""
-    if isinstance(result, dict):
-        details = []
-        for key, value in result.items():
-            if key in ("answer", "response", "text", "content", "output_text", "caption", "finish_reason"):
-                preview = _vision_text(value)
-                details.append(f"{key}={type(value).__name__}" + (f": {preview[:180]!r}" if preview else " (empty)"))
-            else:
-                details.append(f"{key}={type(value).__name__}")
-        return "Workers AI result fields: " + ", ".join(details[:12]) if details else "Workers AI result was an empty object."
-    return f"Workers AI result type: {type(result).__name__}."
+    """Describe nested response field names/types when a provider wrapper has no answer text."""
+    def describe(value, path="result", depth=0):
+        if depth > 3:
+            return []
+        if isinstance(value, dict):
+            rows = []
+            for key, child in list(value.items())[:16]:
+                child_path = f"{path}.{key}"
+                rows.append(f"{child_path}={type(child).__name__}")
+                if isinstance(child, (dict, list)):
+                    rows.extend(describe(child, child_path, depth + 1))
+                elif isinstance(child, str) and str(key).casefold() in {
+                    "answer", "response", "text", "content", "output_text", "caption"
+                } and child.strip():
+                    rows.append(f"{child_path}_preview={child.strip()[:160]!r}")
+            return rows
+        if isinstance(value, list):
+            rows = []
+            for index, child in enumerate(value[:4]):
+                rows.extend(describe(child, f"{path}[{index}]", depth + 1))
+            return rows
+        return [f"{path}={type(value).__name__}"]
+
+    details = describe(result)
+    return "Workers AI response shape: " + "; ".join(details[:30]) if details else "Workers AI returned an empty response."
 
 
 def _parse_vision_assessment(result, label="visual reviewer"):
-    """Parse Moondream's answer, tolerating nested and Markdown-wrapped responses."""
+    """Accept a validated JSON assessment or a clear binary PASS/FAIL text verdict."""
     raw = _vision_text(result)
     assessment = None
     decoder = json.JSONDecoder()
@@ -1126,38 +1152,87 @@ def _parse_vision_assessment(result, label="visual reviewer"):
             assessment = candidate
             break
 
-    try:
-        if assessment is None:
-            raise ValueError("no valid JSON object was returned")
-        score_value = assessment["score"]
-        model_passed = assessment["passed"]
-        issues = assessment["issues"]
-        if isinstance(score_value, bool) or not isinstance(score_value, (int, float)):
-            raise ValueError("score must be numeric")
-        if not isinstance(model_passed, bool) or not isinstance(issues, list):
-            raise ValueError("passed must be boolean and issues must be a list")
-        if not 0 <= score_value <= 100:
-            raise ValueError("score must be between 0 and 100")
-        score = int(round(score_value))
-        issues = [str(value).strip()[:240] for value in issues if str(value).strip()]
-        summary = str(assessment.get("summary", ""))[:500]
-    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
-        diagnostic = raw[:420] if raw else _vision_result_diagnostic(result)
+    if assessment is not None:
+        try:
+            score_value = assessment["score"]
+            model_passed = assessment["passed"]
+            issues = assessment["issues"]
+            if isinstance(score_value, bool) or not isinstance(score_value, (int, float)):
+                raise ValueError("score must be numeric")
+            if not isinstance(model_passed, bool) or not isinstance(issues, list):
+                raise ValueError("passed must be boolean and issues must be a list")
+            if not 0 <= score_value <= 100:
+                raise ValueError("score must be between 0 and 100")
+            score = int(round(score_value))
+            issues = [str(value).strip()[:240] for value in issues if str(value).strip()]
+            summary = str(assessment.get("summary", ""))[:500]
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            assessment = None
+        else:
+            return {
+                "model": VISION_MODEL,
+                "score": score,
+                "passed": bool(model_passed and score >= MIN_IMAGE_QA_SCORE and not issues),
+                "issues": issues[:8],
+                "summary": summary,
+                "assessment_mode": "structured_json",
+            }
+
+    compact = re.sub(r"\s+", " ", raw).strip()
+    token_match = re.match(r"^(PASS|FAIL)\b\s*[:.\-]?\s*(.*)$", compact, flags=re.IGNORECASE)
+    if token_match:
+        verdict = token_match.group(1).upper()
+        reason = token_match.group(2).strip()[:300]
+        if verdict == "PASS":
+            return {
+                "model": VISION_MODEL,
+                "score": MIN_IMAGE_QA_SCORE,
+                "passed": True,
+                "issues": [],
+                "summary": reason or "Vision reviewer returned an explicit PASS.",
+                "assessment_mode": "binary_text_verdict",
+            }
         return {
             "model": VISION_MODEL,
             "score": 0,
             "passed": False,
-            "issues": [f"{label} response was not valid structured JSON"],
-            "summary": diagnostic,
+            "issues": [reason or f"{label} returned an explicit FAIL."],
+            "summary": compact[:500],
+            "assessment_mode": "binary_text_verdict",
         }
 
+    positive = re.search(
+        r"\b(?:no visible defects|no visible issues|no defects|no issues|"
+        r"matches the prompt|matching the prompt|fully satisfies|"
+        r"all requirements (?:are|were) (?:met|satisfied|visible))\b",
+        compact,
+        flags=re.IGNORECASE,
+    )
+    negative = re.search(
+        r"\b(?:missing|unclear|not visible|not clear|not present|does not|doesn't|"
+        r"fails to|different|mismatch|distorted|malformed|unreadable|uncertain|"
+        r"cropped|blurred|fused|broken|bent|duplicate|wrong)\b",
+        compact,
+        flags=re.IGNORECASE,
+    )
+    if positive and not negative:
+        return {
+            "model": VISION_MODEL,
+            "score": MIN_IMAGE_QA_SCORE,
+            "passed": True,
+            "issues": [],
+            "summary": compact[:500],
+            "assessment_mode": "clear_positive_text_assessment",
+        }
+
+    diagnostic = compact[:420] if compact else _vision_result_diagnostic(result)
     return {
         "model": VISION_MODEL,
-        "score": score,
-        # A model cannot pass while simultaneously reporting defects. Keep the gate fail-closed.
-        "passed": bool(model_passed and score >= MIN_IMAGE_QA_SCORE and not issues),
-        "issues": issues[:8],
-        "summary": summary,
+        "score": 0,
+        "passed": False,
+        "issues": [f"{label} response had no unambiguous pass verdict"],
+        "summary": diagnostic,
+        "assessment_mode": "unresolved_text_response",
     }
 
 
@@ -1205,20 +1280,15 @@ def review_scene_image(path, plan, scene, index):
         )
 
     question = (
-        "You are a strict visual quality inspector for a short-form video. Inspect the actual pixels, not "
-        "the written prompt. Scene title: " + str(plan.get("title", ""))[:120] +
+        "You are a strict visual quality inspector. Inspect the actual pixels, not the prompt. "
+        "Scene title: " + str(plan.get("title", ""))[:120] +
         ". Scene brief: " + str(scene.get("image_prompt", ""))[:420] +
         ". Recurring visual identity: " + str(plan.get("visual_motif", ""))[:160] +
         ". Required checks: " + checklist +
-        ' Return exactly one JSON object and no Markdown: '
-        '{"score":0,"passed":false,"issues":[],"summary":"brief visual assessment"}. '
-        "Score from 0 to 100. For a passing image set passed=true and issues=[] exactly. "
-        "For a failing image set passed=false and put ONLY specific visible defects in issues. "
-        "Never copy, quote or paraphrase the scene prompt or checklist into issues. If any required object is missing, "
-        "unclear, cropped, fused or out of focus, list that visible defect. "
-        "For the violin macro, explicitly count all four strings and confirm the complete bridge, fingerboard, "
-        "one separate dark bow stick, one pale horsehair ribbon and the single hair-to-string contact point. "
-        "Do not assume a detail exists when hidden or unclear. When uncertain, fail and describe the uncertainty."
+        " Answer with exactly one leading verdict: PASS or FAIL. Use PASS only if every required detail "
+        "is clearly visible and correct. If anything is missing, unclear, cropped, fused, malformed or out "
+        "of focus, answer FAIL followed by one brief defect. Do not echo the requirements or list successful "
+        "checks. Do not produce JSON, Markdown or a long explanation. When uncertain, answer FAIL."
     )
 
     result = _vision_query(image_data, question, timeout=120)
@@ -1233,28 +1303,17 @@ def review_storyboard_consistency(path, plan):
         raise PipelineError(f"Storyboard visual QA could not read the contact sheet: {exc}") from exc
     image_data = "data:image/png;base64," + base64.b64encode(image_bytes).decode("ascii")
     question = (
-        "You are the continuity supervisor for a three-scene short video. Inspect the image panels "
-        "from left to right; ignore contact-sheet headings and captions. Story: "
-        + str(plan.get("title", ""))[:120] + ". Topic: " + str(plan.get("topic", ""))[:180] +
+        "You are the continuity supervisor for a three-scene short video. Inspect the actual image panels "
+        "from left to right, not the captions. Story: " + str(plan.get("title", ""))[:120] +
+        ". Topic: " + str(plan.get("topic", ""))[:180] +
         ". Recurring visual identity: " + str(plan.get("visual_motif", ""))[:180] +
-        ". Panel 1 is the hook, panel 2 is the specific macro/detail, panel 3 is the payoff. "
-        "The shots should have distinct compositions but clearly belong to the same story. Check that "
-        "the subject, instrument identity, materials, colours, lighting direction and recognizable design "
-        "details remain consistent across panels. For a violin performance, check that the same violin "
-        "design and varnish appears in the hook, macro and payoff; the bridge, fingerboard, strings and bow "
-        "in the macro must plausibly belong to that same instrument. Reject unrelated stock-like scenes, "
-        "identity drift, contradictory instruments, radically different visual styles, or a macro image "
-        "that does not match the wider instrument. Do not demand identical framing; the three panels must "
-        "show different story beats. Scene 1 and Scene 3 must depict the SAME identifiable performer, "
-        "not merely two different violinists: match face, hairstyle, clothing and overall appearance. "
-        "All three panels must also show the same amber-varnished violin design and warm visual identity. "
-        "Return exactly one JSON object: "
-        '{"score":0,"passed":false,"issues":[],"summary":"brief assessment"}. '
-        "Score 0–100. The issues array MUST be empty for a pass. For a passing storyboard set passed=true and issues=[] exactly. For a failing "
-        "storyboard set passed=false and list ONLY specific visible continuity defects in issues; never copy "
-        "the story brief or checklist into issues. Any performer identity drift, instrument design mismatch, "
-        "lighting/material/color inconsistency or unclear macro anatomy is a rejection. "
-        "Do not infer hidden details; uncertainty is a reason to fail."
+        ". Panel 1 is the hook, panel 2 is the macro/detail, panel 3 is the payoff. Check that Scene 1 "
+        "and Scene 3 show the SAME recognizable performer: matching face, hairstyle and clothing. Check "
+        "that all panels use the same violin design and warm visual style, and that the macro shows plausible "
+        "bridge, strings, fingerboard and bow anatomy. If any identity or visual detail differs or is unclear, "
+        "the result is FAIL. Answer with exactly one leading verdict: PASS or FAIL. Use PASS only if all "
+        "continuity requirements are clearly satisfied; otherwise answer FAIL followed by one brief defect. "
+        "Do not echo the checklist, produce JSON or write a long explanation. When uncertain, answer FAIL."
     )
     result = _vision_query(image_data, question, timeout=120)
     return _parse_vision_assessment(result, "storyboard continuity reviewer")
