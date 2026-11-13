@@ -60,15 +60,19 @@ def write_srt(cues: list[dict], output_path: str | Path) -> Path:
 
 def word_cues_from_tokens(tokens, offset_seconds: float = 0.0,
                          chunk_duration: float | None = None) -> list[dict]:
-    """Convert Kokoro's model-predicted English token times into safe word cues.
+    """Convert Kokoro token times into word cues with punctuation attached.
 
     Kokoro exposes start_ts/end_ts on English MToken objects after joining its
-    predicted phoneme durations. These are generated with the same inference
-    pass as the audio, so no second ASR/forced-alignment model is required.
+    predicted phoneme durations. Punctuation-only tokens are folded into the
+    neighbouring word so punctuation never animates as a standalone caption.
     """
     cues: list[dict] = []
     offset = max(0.0, float(offset_seconds))
     limit = None if chunk_duration is None else max(0.0, float(chunk_duration))
+    pending_prefix = ""
+    opening_marks = set("([{\\\"“‘«")
+    punctuation_only = re.compile(r"^[^\\w\\s]+$", re.UNICODE)
+    apostrophe_suffix = re.compile(r"^['’][A-Za-z]+$")
     for token in tokens or []:
         text = str(getattr(token, "text", "") or "").strip()
         if not text:
@@ -83,13 +87,32 @@ def word_cues_from_tokens(tokens, offset_seconds: float = 0.0,
         if limit is not None:
             start = min(start, limit)
             end = min(end, limit)
+        if end - start < 0.001:
+            continue
+        absolute_start = round(offset + start, 3)
+        absolute_end = round(offset + end, 3)
+
+        if punctuation_only.fullmatch(text):
+            if not cues or text[0] in opening_marks:
+                pending_prefix += text
+            else:
+                cues[-1]["text"] += text
+                cues[-1]["end"] = max(cues[-1]["end"], absolute_end)
+            continue
+
+        if cues and apostrophe_suffix.fullmatch(text):
+            cues[-1]["text"] += text
+            cues[-1]["end"] = max(cues[-1]["end"], absolute_end)
+            continue
+
         if end - start < 0.015:
             continue
         cues.append({
-            "start": round(offset + start, 3),
-            "end": round(offset + end, 3),
-            "text": text,
+            "start": absolute_start,
+            "end": absolute_end,
+            "text": pending_prefix + text,
         })
+        pending_prefix = ""
     return cues
 
 
