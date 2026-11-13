@@ -1279,7 +1279,12 @@ def should_reuse_scene_image(path, plan, scene, index, metadata=None):
     review = record.get("visual_review", {})
     if record.get("mode") != "cloudflare_flux_portrait_extended":
         return False
-    if not isinstance(review, dict) or review.get("passed") is not True:
+    if (
+        not isinstance(review, dict)
+        or review.get("passed") is not True
+        or review.get("issues")
+        or int(review.get("score", 0)) < MIN_IMAGE_QA_SCORE
+    ):
         return False
     expected_plan_hash = hashlib.sha256(
         json.dumps(plan, ensure_ascii=False, sort_keys=True).encode("utf-8")
@@ -1828,7 +1833,7 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
             "SUBJECT & ACTION: " + compact_prompt + ".",
             "SHOT 2 MACRO CLOSE-UP: 85mm lens, string-height three-quarter view, moderate depth of field; keep the complete bridge, all four strings, fingerboard, both bow parts and contact area simultaneously sharp and fully visible.",
             "Single still macro frame; no multiple exposure.",
-            "INSTRUMENT ACCURACY: one complete upright maple bridge with both feet visible; exactly four separate strings, arranged parallel and individually countable from tailpiece across the bridge; a distinct ebony fingerboard clearly visible behind them. Exactly one bow: a straight dark stick and pale horsehair are two separate, continuous components, with a visible gap between them, joined only at frog and tip. Keep the slim dark wooden stick and narrow pale horsehair ribbon both clearly visible; neither part may hide the other. Hair alone crosses at about 90° and visibly touches one string between bridge and fingerboard at one clear point. Keep the full bridge, all four strings, fingerboard, dark stick, pale hair and contact point inside the sharp focal plane; do not crop or merge parts, blur, fuse, bend or duplicate any required component.",
+            "INSTRUMENT ACCURACY: one complete upright maple bridge with both feet visible; exactly four separate strings, parallel and individually countable; a distinct ebony fingerboard clearly visible behind them. Exactly one bow: a straight dark stick and pale horsehair are two separate, continuous components, with a visible gap between them, joined only at frog and tip. Keep the slim dark wooden stick and narrow pale horsehair ribbon both clearly visible; neither part may hide the other. Hair alone crosses at about 90° and visibly touches one string between bridge and fingerboard at one clear point. Keep the full bridge, all four strings, fingerboard, dark stick, pale hair and contact point inside the sharp focal plane; do not crop or merge parts, blur, fuse, bend or duplicate any required component.",
             "RECURRING ASSET ANCHOR: " + anchor + "; plausible violin proportions.",
             "STYLE & MATERIAL: photorealistic violin performance photograph; true wood grain, varnish, steel strings, maple and ebony. No illustration, render, anime or plastic.",
             "LIGHT: warm 3200K key, neutral fill, amber rim; enough depth of field to keep every required violin and bow component legible, no blur across the bridge or bow.",
