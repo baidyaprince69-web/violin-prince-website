@@ -1446,6 +1446,8 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
     ))
     scene_index = max(0, min(2, int(index)))
     compact_prompt = textwrap.shorten(raw_prompt, width=105 if performance_related and scene_index == 1 else 250, placeholder="…")
+    if performance_related and scene_index == 1:
+        compact_prompt = "Violin bow hair contacting one string"
     anchor = textwrap.shorten(re.sub(r"\s+", " ", anchor_raw), width=88 if performance_related and scene_index == 1 else 125, placeholder="…")
 
     if performance_related and scene_index == 1:

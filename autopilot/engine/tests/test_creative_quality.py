@@ -141,6 +141,7 @@ class CreativeQualityTests(unittest.TestCase):
         prompt = pipeline._scene_visual_prompt(scene, index=1, plan=plan)
         payload = pipeline.image_request_payload(prompt)
         self.assertEqual(payload["prompt"], prompt)
+        self.assertIn("SUBJECT & ACTION: Violin bow hair contacting one string", prompt)
         self.assertLessEqual(len(prompt), pipeline.MAX_IMAGE_PROMPT_CHARS)
         for phrase in (
             "SINGLE FROZEN MACRO KEYFRAME",
