@@ -239,3 +239,5 @@ jobs:
           print("- Publishing: DISABLED; provider requests: 0")
           print("- Ledger snapshot retention: 90 days, refreshed on each run")
           PY
+
+# Explicit second-run test: restore the prior ledger and reuse its three destination release IDs.
