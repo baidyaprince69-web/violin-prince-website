@@ -137,7 +137,7 @@ class PlannerNarrationRetryTests(unittest.TestCase):
                 self.assertEqual(mock_ai.call_count, 6)
                 self.assertEqual(result["narration_script"], VALID_SCRIPT)
                 retry_payload = mock_ai.call_args_list[2].args[1]
-                self.assertIn("previous attempt 1", retry_payload["messages"][1]["content"])
+                self.assertIn("add exactly ONE useful", retry_payload["messages"][1]["content"])
                 self.assertIn("7 words", retry_payload["messages"][1]["content"])
             finally:
                 pipeline.WORK = original_work
