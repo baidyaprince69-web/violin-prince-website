@@ -126,8 +126,8 @@ def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict
     if not narration:
         raise ValueError("Narration script is empty.")
     word_count = len(re.findall(r"\b[\w’'-]+\b", narration))
-    if not 48 <= word_count <= 52:
-        raise ValueError("Narration must contain 48–52 spoken words for the 24-second story format.")
+    if not 30 <= word_count <= 48:
+        raise ValueError("Narration must contain 30–48 spoken words.")
 
     sentences = split_sentences(narration)
     if not sentences:
@@ -151,7 +151,7 @@ def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict
         for generated in pipeline(
             sentence,
             voice=VOICE,
-            speed=0.96,
+            speed=0.90,
         ):
             # KPipeline.Result keeps the English MToken objects and their
             # start_ts/end_ts while remaining tuple-compatible with older code.
@@ -229,7 +229,7 @@ def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict
         "voice_type": "synthetic_not_voice_cloned",
         "duration_seconds": round(float(info.duration), 2),
         "word_count": word_count,
-        "speaking_speed": 0.96,
+        "speaking_speed": 0.90,
         "sample_rate": int(info.samplerate),
         "subtitle_cues": subtitle_cues,
         "word_cues": word_cues,
