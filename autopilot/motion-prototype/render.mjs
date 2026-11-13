@@ -148,13 +148,17 @@ window.__DATA__ = ${safeJson};
     if (scene.comparison && scene.comparison.left_label && scene.comparison.right_label) {
       const top = y+70, gap=14, colW=(w-78-gap)/2;
       const leftX=x+48, rightX=leftX+colW+gap;
-      for (const [cx, item] of [[leftX,scene.comparison.left],[rightX,scene.comparison.right]]) {
+      const items = [
+        { label: scene.comparison.left_label, detail: scene.comparison.left_detail },
+        { label: scene.comparison.right_label, detail: scene.comparison.right_detail }
+      ];
+      for (const [cx, item] of [[leftX,items[0]],[rightX,items[1]]]) {
         ctx.fillStyle = "rgba(255,255,255,.055)";
         roundRect(cx,top,colW,130,12); ctx.fill();
         ctx.fillStyle = IVORY; ctx.font = "700 21px Arial, sans-serif";
-        ctx.fillText(String(item?.label || "DETAIL").slice(0,24),cx+14,top+34);
+        ctx.fillText(String(item.label || "DETAIL").slice(0,24),cx+14,top+34);
         ctx.fillStyle = MUTED; ctx.font = "16px Arial, sans-serif";
-        const lines=wrap(item?.detail || "",colW-28,"16px Arial, sans-serif");
+        const lines=wrap(item.detail || "",colW-28,"16px Arial, sans-serif");
         lines.forEach((line,j)=>ctx.fillText(line,cx+14,top+66+j*22));
       }
     } else {
