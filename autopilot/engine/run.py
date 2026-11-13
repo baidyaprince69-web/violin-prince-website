@@ -1415,10 +1415,11 @@ def _read_package(require_images=False):
 
 
 def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
-    """Lock every image to one visual identity while giving each scene a distinct role."""
+    """Keep image identity warm and add performance-specific anatomy constraints when needed."""
     prompt = str(scene.get("image_prompt", "")).strip()
     if not prompt:
         raise PipelineError("A planned scene has no image prompt.")
+
     shot_roles = (
         "SHOT 1 — HOOK: an immediately readable establishing composition with one intriguing "
         "focal subject and a strong silhouette; make the viewer curious.",
@@ -1427,24 +1428,67 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         "SHOT 3 — PAYOFF: a wider emotional resolution that visually connects back to the opening "
         "image and makes the story feel complete.",
     )
-    subject = str((plan or {}).get("topic") or (plan or {}).get("title") or "the story")[:140]
+    story = plan or {}
+    subject = str(story.get("topic") or story.get("title") or "the story")[:140]
+    context = " ".join([
+        subject,
+        str(scene.get("caption", "")),
+        str(scene.get("graphic_label", "")),
+        str(scene.get("graphic_detail", "")),
+        prompt,
+    ]).lower()
+    performance_related = bool(re.search(
+        r"\b(violinist|virtuoso|musician|performer|performance|playing|bowing|concert|"
+        r"rapid|difficult|speed|fingerboard|bow hand|left hand|right hand|technique)\b",
+        context,
+    ))
+
     prompt += (
         f". Story subject: {subject}. {shot_roles[max(0, min(2, int(index)))]} "
-        "Keep the same visual world, recurring subject design and lighting logic across all three images. "
-        "Violin Prince visual identity: premium hand-painted cinematic editorial illustration, "
-        "clearly illustrated concept art rather than photography, refined painterly texture, "
-        "deep midnight navy, muted teal, antique gold and warm ivory highlights. "
-        "Layered foreground, midground and background with clear depth for gentle camera movement; "
-        "intentional negative space for subtitles, elegant cinematic lighting, precise focal detail. "
+        "Keep a coherent visual world, consistent subject identity and lighting logic across all three images. "
+        "Violin Prince art direction: premium hand-painted cinematic editorial illustration, "
+        "illustrated concept art rather than photography, refined painterly detail and tactile texture. "
+        "Use a warm palette of charcoal black, walnut brown, muted oxblood/burgundy shadows, antique gold, "
+        "burnished copper and warm ivory highlights. Avoid blue, teal, cyan or cold-blue backgrounds. "
+        "Layer foreground, midground and background with clear depth for camera movement; reserve uncluttered "
+        "negative space near the top and lower caption zone; use deliberate focal hierarchy and cinematic light. "
         "No generic stock photography, no unrelated people, no text, no lettering, no logos, no watermark. "
-        "Respect real-world scale and the supplied story; symbolic imagery must not imply an unsupported fact. "
+        "Respect real-world scale and the supplied story; symbolic imagery must not imply unsupported facts. "
         "Portrait 9:16 composition."
     )
+
+    if performance_related:
+        if index == 0:
+            prompt += (
+                " Show a real violinist actively performing, not posing: instrument held in a plausible "
+                "playing position, left hand on the neck/fingerboard and right hand controlling the bow. "
+                "Keep the full instrument and both arms readable; the violin must not float or merge into clothing."
+            )
+        elif index == 1:
+            prompt += (
+                " PERFORMANCE DETAIL: compose a close, readable view of the violin bridge, strings, "
+                "fingerboard and bow contact area. Show the right hand holding the bow at the frog with a "
+                "plausible curved grip and thumb placement; show the left-hand fingertips curved over the "
+                "fingerboard when they are in frame. The bow hair should contact the strings between bridge "
+                "and fingerboard, with the bow crossing the strings at a plausible near-perpendicular angle. "
+                "Keep the bow, bridge and fingers clearly separated; use a short restrained directional blur "
+                "on the bow only to suggest rapid alternating strokes, never on the hands."
+            )
+        else:
+            prompt += (
+                " Show the performer and violin together in a confident, emotionally resolved playing pose, "
+                "with the bow, hands and instrument all connected naturally and in one consistent perspective."
+            )
+        prompt += (
+            " Anatomical accuracy is essential: believable wrist alignment, natural finger joints, correct "
+            "hand-to-bow scale, no extra or fused fingers, no duplicated bow, no floating bow, no broken "
+            "instrument geometry and no impossible string layout."
+        )
+
     clean_feedback = re.sub(r"\s+", " ", str(feedback or "")).strip()[:600]
     if clean_feedback:
         prompt += ", additional visual direction: " + clean_feedback
-    return prompt[:1800]
-
+    return prompt[:2600]
 
 def make_storyboard_preview(plan, image_paths, target):
     """Build a single review sheet so visual approval happens before video rendering."""
