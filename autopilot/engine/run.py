@@ -1450,7 +1450,7 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         "illustrated concept art rather than photography, refined painterly detail and tactile texture. "
         "Use a warm palette of charcoal black, walnut brown, muted oxblood/burgundy shadows, antique gold, "
         "burnished copper and warm ivory highlights. Avoid blue, teal, cyan or cold-blue backgrounds. "
-        "Layer foreground, midground and background with clear depth for camera movement; reserve uncluttered "
+        "Layered foreground, midground and background with clear depth for camera movement; reserve uncluttered "
         "negative space near the top and lower caption zone; use deliberate focal hierarchy and cinematic light. "
         "No generic stock photography, no unrelated people, no text, no lettering, no logos, no watermark. "
         "Respect real-world scale and the supplied story; symbolic imagery must not imply unsupported facts. "
