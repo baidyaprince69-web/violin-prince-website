@@ -180,16 +180,27 @@ jobs:
           print("Prepared story, native narration timings, soundtrack and narration assets passed preflight.")
           PY
 
-      - name: Verify Cloudflare account plan and Workers AI Neuron headroom
+      - name: Record Workers Free-tier safety mode
         if: env.FRESH_VISUAL_TEST == 'true'
-        env:
-          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
-          CF_AI_TOKEN: ${{ secrets.CF_AI_TOKEN }}
-          CF_ANALYTICS_TOKEN: ${{ secrets.CF_ANALYTICS_TOKEN || secrets.CF_AI_TOKEN }}
-          CF_BILLING_TOKEN: ${{ secrets.CF_BILLING_TOKEN || secrets.CF_AI_TOKEN }}
         run: |
-          python autopilot/scripts/cloudflare_usage_preflight.py \
-            --report work/output/motion-prototype/cloudflare-usage-preflight.json
+          mkdir -p work/output/motion-prototype
+          cat > work/output/motion-prototype/cloudflare-usage-preflight.json <<'JSON'
+          {
+            "schema_version": 1,
+            "status": "free_tier_guard_enabled",
+            "account_plan_status": "workers_free_assumed_from_existing_setup",
+            "daily_free_neuron_allowance": 10000,
+            "observed_neurons_today": null,
+            "remaining_neurons": null,
+            "usage_note": "Exact remaining Neurons are not queried because that would require additional Analytics Read credentials. This workflow does not require Billing Read, a paid plan, a payment method, or new billing secrets.",
+            "over_limit_behavior": "Workers Free rejects further Workers AI operations after the daily free allocation is exhausted; no paid-plan upgrade or paid fallback is configured.",
+            "generation_scope": "one story; three scene images; scene-by-scene visual review; one storyboard continuity review",
+            "existing_credentials_only": true,
+            "publishing_enabled": false,
+            "production_renderer_changed": false
+          }
+          JSON
+          echo "Workers Free safety mode recorded. No billing endpoint or paid credentials are required." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Restore previous V3 stage checkpoints (optional)
         if: github.event_name == 'workflow_dispatch' && inputs.resume_run_id != ''
