@@ -176,6 +176,37 @@ class PlannerNarrationRetryTests(unittest.TestCase):
             finally:
                 pipeline.WORK = original_work
 
+    def test_one_word_short_retry_uses_add_one_word_instruction(self):
+        production_script = (
+            "Can a single violinist master such complexity? "
+            "Hiu Sing Fan performs Milstein's Paganiniana with incredible skill. "
+            "This demanding piece requires immense technical precision and passion. "
+            "Watch as the music transforms into a breathtaking display."
+        )
+        completed = pipeline.narration_sentences(VALID_SCRIPT)
+        responses = [
+            {"response": make_test_plan(production_script)},
+            sentence_result(completed[0]),
+            sentence_result("This difficult piece requires great technical precision and much deep passion."),
+            sentence_result("This difficult piece requires great technical precision and much deep artistic passion."),
+            sentence_result(completed[3]),
+        ]
+
+        with tempfile.TemporaryDirectory() as folder:
+            original_work = pipeline.WORK
+            try:
+                pipeline.WORK = Path(folder)
+                with patch.object(pipeline, "ai", side_effect=responses) as mock_ai:
+                    result = pipeline.make_plan([self.item], recent=[])
+
+                self.assertEqual(result["narration_script"], VALID_SCRIPT)
+                self.assertEqual(mock_ai.call_count, 5)
+                retry_prompt = mock_ai.call_args_list[3].args[1]["messages"][1]["content"]
+                self.assertIn("add exactly ONE useful", retry_prompt)
+                self.assertIn("11 words", retry_prompt)
+            finally:
+                pipeline.WORK = original_work
+
     def test_valid_initial_script_does_not_trigger_sentence_repair_calls(self):
         with tempfile.TemporaryDirectory() as folder:
             original_work = pipeline.WORK
