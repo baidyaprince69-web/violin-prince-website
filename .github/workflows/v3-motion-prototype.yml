@@ -1,0 +1,163 @@
+name: Violin Prince V3 motion prototype
+
+on:
+  push:
+    branches:
+      - v3-motion-prototype
+    paths:
+      - "autopilot/engine/voiceover.py"
+      - "autopilot/engine/motion_prototype.py"
+      - "autopilot/engine/tests/**"
+      - "autopilot/motion-prototype/**"
+      - ".github/workflows/v3-motion-prototype.yml"
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Successful V2 run whose prepared package should be used"
+        required: true
+        default: "43345195703"
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: violin-prince-v3-motion-prototype
+  cancel-in-progress: false
+
+jobs:
+  prototype:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      PUBLISH_ENABLED: "false"
+      SOURCE_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.source_run_id || '43345195703' }}
+    steps:
+      - name: Validate source run ID
+        shell: bash
+        run: |
+          if [[ ! "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]]; then
+            echo "::error::source_run_id must contain only digits."
+            exit 1
+          fi
+
+      - name: Check out V3 prototype branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: autopilot/engine/requirements.txt
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install FFmpeg and font fallback
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
+
+      - name: Cache Kokoro model files
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: kokoro-82m-v1-cache
+
+      - name: Install CPU narration dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --index-url https://download.pytorch.org/whl/cpu torch
+          pip install -r autopilot/engine/requirements.txt
+
+      - name: Install pinned Playwright and Chromium
+        run: |
+          npm --prefix autopilot/motion-prototype install --no-audit --no-fund --no-package-lock
+          autopilot/motion-prototype/node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Compile Python and JavaScript
+        run: |
+          python -m py_compile autopilot/engine/*.py
+          node --check autopilot/motion-prototype/render.mjs
+
+      - name: Run Python regression tests, including native word timing
+        run: python -m unittest discover -s autopilot/engine/tests -v
+
+      - name: Smoke-test HTML rendering with synthetic inputs
+        shell: bash
+        run: |
+          python - <<'PY'
+          import base64, json
+          from pathlib import Path
+          from PIL import Image
+
+          root = Path("work/v3-renderer-smoke")
+          root.mkdir(parents=True, exist_ok=True)
+          colours = [(32, 52, 78), (72, 48, 42), (34, 72, 62)]
+          scenes = []
+          for index, colour in enumerate(colours):
+              path = root / f"scene-{index + 1}.jpg"
+              Image.new("RGB", (360, 640), colour).save(path, "JPEG", quality=82)
+              scenes.append({
+                  "start": float(index),
+                  "duration": 1.0,
+                  "caption": ["The opening image", "A key detail", "The final reveal"][index],
+                  "graphic_label": ["OPENING", "DETAIL", "PAYOFF"][index],
+                  "graphic_detail": "A synthetic renderer smoke test.",
+                  "image_b64": base64.b64encode(path.read_bytes()).decode("ascii")
+              })
+          words = ["A", "small", "test", "checks", "word", "motion", "timing", "and", "graphics", "render", "cleanly", "today"]
+          cues = [
+              {"start": 0.08 + i * 0.22, "end": 0.26 + i * 0.22, "text": word}
+              for i, word in enumerate(words)
+          ]
+          payload = {
+              "title": "V3 Renderer Smoke Test",
+              "width": 720, "height": 1280, "fps": 12,
+              "duration_seconds": 3,
+              "scenes": scenes, "word_cues": cues
+          }
+          (root / "input.json").write_text(json.dumps(payload), encoding="utf-8")
+          PY
+          node autopilot/motion-prototype/render.mjs work/v3-renderer-smoke/input.json work/v3-renderer-smoke/smoke.mp4
+          duration=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 work/v3-renderer-smoke/smoke.mp4)
+          python -c "value=float('$duration'); assert 2.8 <= value <= 3.2, value; print('HTML renderer smoke video duration:', value)"
+
+      - name: Download successful V2 prepared package
+        uses: actions/download-artifact@v4
+        with:
+          name: violin-prince-run-${{ env.SOURCE_RUN_ID }}
+          path: work
+          run-id: ${{ env.SOURCE_RUN_ID }}
+          repository: baidyaprince69-web/violin-prince-website
+          github-token: ${{ github.token }}
+
+      - name: Verify restored prepared package
+        run: |
+          test -s work/package/creative_plan.json
+          test -s work/package/stage.json
+          test -s work/package/soundtrack.wav
+          test -s work/package/scene-1.jpg
+          test -s work/package/scene-2.jpg
+          test -s work/package/scene-3.jpg
+
+      - name: Render V2 baseline and isolated V3 HTML prototype
+        run: |
+          python autopilot/engine/motion_prototype.py \
+            --package work/package \
+            --output work/output/motion-prototype \
+            --fps 25
+
+      - name: Upload side-by-side review package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v3-motion-prototype-${{ github.run_id }}
+          path: |
+            work/output/motion-prototype/
+          if-no-files-found: ignore
+          retention-days: 14
