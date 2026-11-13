@@ -293,6 +293,7 @@ jobs:
           rm -f work/package/storyboard-preview.png
           rm -f work/images/scene-1.jpg work/images/scene-2.jpg work/images/scene-3.jpg
 
+      # A prior candidate is never trusted: the visual stage must review it again before reuse.
       - name: Download the fresh Scene 1 candidate for one targeted re-review
         if: env.FRESH_VISUAL_TEST == 'true' && github.event_name == 'push' && contains(github.event.head_commit.message, '[reuse-scene1-seed]')
         uses: actions/download-artifact@v4
