@@ -128,21 +128,21 @@ class CreativeQualityTests(unittest.TestCase):
         prompt = pipeline._scene_visual_prompt(scene, index=1, plan=plan)
         for expected in (
             "SHOT 2 MACRO CLOSE-UP",
-            "85mm macro lens",
+            "85mm lens",
             "RECURRING ASSET ANCHOR",
-            "SINGLE FROZEN MACRO KEYFRAME",
-            "string-height three-quarter side angle",
-            "four separate, evenly spaced strings",
-            "straight dark wooden stick and pale horsehair ribbon",
-            "visible narrow gap",
-            "attached only at the frog and tip",
-            "horsehair crosses the strings at approximately 90 degrees",
-            "one clear point between bridge and fingerboard",
-            "do not crop the bridge",
+            "Single still macro frame",
+            "string-height three-quarter view",
+            "four separate strings",
+            "straight dark stick and pale horsehair",
+            "visible gap",
+            "joined only at frog and tip",
+            "Hair alone crosses at about 90°",
+            "one string between bridge and fingerboard",
+            "do not crop or merge parts",
             "no duplicate bows",
         ):
             self.assertIn(expected, prompt)
-        self.assertIn("warm directional key light around 3200K", prompt)
+        self.assertIn("warm 3200K key", prompt)
         self.assertLessEqual(len(prompt), pipeline.MAX_IMAGE_PROMPT_CHARS)
 
     def test_macro_prompt_is_complete_and_sent_without_truncation(self):
@@ -162,12 +162,12 @@ class CreativeQualityTests(unittest.TestCase):
         self.assertIn("photorealistic violin performance photograph", prompt)
         self.assertLessEqual(len(prompt), pipeline.MAX_IMAGE_PROMPT_CHARS)
         for phrase in (
-            "SINGLE FROZEN MACRO KEYFRAME",
-            "85mm macro lens",
-            "four separate, evenly spaced strings",
-            "straight dark wooden stick and pale horsehair ribbon",
-            "visible narrow gap",
-            "one clear point between bridge and fingerboard",
+            "Single still macro frame",
+            "85mm lens",
+            "four separate strings",
+            "straight dark stick and pale horsehair",
+            "visible gap",
+            "one string between bridge and fingerboard",
         ):
             self.assertIn(phrase, payload["prompt"])
 
