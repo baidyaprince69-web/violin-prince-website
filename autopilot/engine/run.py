@@ -1114,6 +1114,7 @@ def write_kinetic_ass(cues, output_path):
         words = re.findall(r"[A-Za-z0-9’'-]+", phrase)
         candidates = [word for word in words if word.casefold() not in stopwords and len(word) >= 4]
         emphasis = max(candidates or words or [""], key=len)
+        phrase = phrase.replace("{", r"\{").replace("}", r"\}")
         if emphasis:
             phrase = re.sub(
                 rf"(?i)\b({re.escape(emphasis)})\b",
@@ -1121,7 +1122,6 @@ def write_kinetic_ass(cues, output_path):
                 phrase,
                 count=1,
             )
-        phrase = phrase.replace("{", r"\{").replace("}", r"\}")
         wrapped = r"\N".join(textwrap.wrap(phrase, width=27)[:2])
         animated = r"{\fad(180,220)\fscx96\fscy96\t(0,180,\fscx100\fscy100)}" + wrapped
         events.append(
