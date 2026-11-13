@@ -168,7 +168,7 @@ class SEOIntelligenceTests(unittest.TestCase):
         self.assertEqual(result["status"], "search_api_key_missing")
         self.assertEqual(result["queries_sampled"], 0)
         self.assertEqual(result["search_volume"], None)
-        self.assertEqual(len(result["query_plan"]), 6)
+        self.assertEqual(len(result["query_plan"]), 9)
         self.assertFalse(result["available"])
 
     def test_discover_samples_each_language_and_observed_video_statistics(self):

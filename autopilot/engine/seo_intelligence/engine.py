@@ -389,7 +389,9 @@ def _normalise_hashtags(value: Any) -> list[str]:
         if tag and ("#" + tag).casefold() not in seen:
             output.append("#" + tag)
             seen.add(("#" + tag).casefold())
-    return output[:3]
+    # Keep every proposed hashtag so the publisher can reject an over-limit
+    # plan explicitly; silently trimming would hide a metadata-review problem.
+    return output
 
 
 def optimize(
@@ -471,7 +473,7 @@ def optimize(
         "seo_title": title or keyword,
         "seo_description": description,
         "seo_tags": tags,
-        "seo_hashtags": hashtags[:3],
+        "seo_hashtags": hashtags,
         "seo_metadata_approved": metadata_approved,
         "seo_optimization": {
             "engine_version": ENGINE_VERSION,
