@@ -347,7 +347,7 @@ window.__DATA__ = ${safeJson};
 
     const normalizeWord = value => String(value || "")
       .toLowerCase().replace(/[’]/g, "'").replace(/[^\\p{L}\\p{N}']/gu, "");
-    const scriptWords = String(D.narration_text || "").trim().split(/\s+/).filter(Boolean)
+    const scriptWords = String(D.narration_text || "").trim().split(/\\s+/).filter(Boolean)
       .map(normalizeWord).filter(Boolean);
     const cueWords = (Array.isArray(D.word_cues) ? D.word_cues : [])
       .map(cue => normalizeWord(cue.text)).filter(Boolean);
