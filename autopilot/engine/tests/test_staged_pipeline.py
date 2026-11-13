@@ -219,7 +219,7 @@ class StagedPipelineTests(unittest.TestCase):
         self.assertEqual(review["score"], 94)
         payload = mocked.call_args.args[1]
         self.assertFalse(payload["stream"])
-        self.assertFalse(payload["reasoning"])
+        self.assertTrue(payload["reasoning"])
         self.assertEqual(payload["temperature"], 0)
         self.assertEqual(payload["max_tokens"], 512)
 
@@ -240,7 +240,26 @@ class StagedPipelineTests(unittest.TestCase):
         self.assertTrue(review["passed"])
         self.assertEqual(review["score"], 91)
         self.assertFalse(mocked.call_args.args[1]["stream"])
-        self.assertFalse(mocked.call_args.args[1]["reasoning"])
+        self.assertTrue(mocked.call_args.args[1]["reasoning"])
+
+    def test_nested_or_chunked_vision_answer_is_extracted(self):
+        assessment = '{"score": 88, "passed": true, "issues": [], "summary": "Readable composition."}'
+        self.assertEqual(
+            pipeline._vision_text({"answer": [{"text": assessment[:25]}, {"chunk": assessment[25:]}]}),
+            assessment,
+        )
+        parsed = pipeline._parse_vision_assessment({"answer": {"text": assessment}})
+        self.assertTrue(parsed["passed"])
+        self.assertEqual(parsed["score"], 88)
+
+    def test_empty_vision_response_reports_provider_field_shape(self):
+        diagnostic = pipeline._parse_vision_assessment(
+            {"answer": None, "reasoning": {"trace": "omitted"}, "metrics": {"tokens": 0}}
+        )
+        self.assertFalse(diagnostic["passed"])
+        self.assertIn("answer=NoneType", diagnostic["summary"])
+        self.assertIn("reasoning=dict", diagnostic["summary"])
+        self.assertIn("metrics=dict", diagnostic["summary"])
 
     def test_malformed_vision_answer_fails_closed_with_diagnostic(self):
         review = pipeline._parse_vision_assessment(
