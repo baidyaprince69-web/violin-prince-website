@@ -5,8 +5,16 @@ on:
     branches:
       - phase4-youtube-native
       - v3-motion-prototype
+      - seo-intelligence-engine
     paths:
       - "autopilot/engine/youtube_native/**"
+      - "autopilot/engine/seo_intelligence/**"
+      - "autopilot/engine/analytics.py"
+      - "autopilot/engine/run.py"
+      - "autopilot/engine/motion_prototype.py"
+      - "autopilot/engine/tests/test_seo_intelligence.py"
+      - "autopilot/engine/tests/test_analytics.py"
+      - ".github/workflows/phase5-seo-learning.yml"
       - "autopilot/engine/tests/test_phase3_release.py"
       - "autopilot/engine/tests/test_checkpoint_artifacts.py"
       - ".github/workflows/phase4-youtube-private-beta.yml"
@@ -54,10 +62,10 @@ jobs:
           pip install "requests>=2.32,<3" "cryptography>=43,<48"
 
       - name: Compile the native YouTube engine
-        run: python -m py_compile autopilot/engine/youtube_native/*.py autopilot/engine/tests/test_youtube_native.py autopilot/engine/tests/test_phase3_release.py autopilot/engine/tests/test_checkpoint_artifacts.py
+        run: python -m py_compile autopilot/engine/youtube_native/*.py autopilot/engine/seo_intelligence/*.py autopilot/engine/analytics.py autopilot/engine/tests/test_youtube_native.py autopilot/engine/tests/test_phase3_release.py autopilot/engine/tests/test_checkpoint_artifacts.py autopilot/engine/tests/test_seo_intelligence.py autopilot/engine/tests/test_analytics.py
 
       - name: Run offline tests; no credentials or provider calls
-        run: python -m unittest autopilot.engine.tests.test_youtube_native autopilot.engine.tests.test_phase3_release autopilot.engine.tests.test_checkpoint_artifacts -v
+        run: python -m unittest autopilot.engine.tests.test_youtube_native autopilot.engine.tests.test_phase3_release autopilot.engine.tests.test_checkpoint_artifacts autopilot.engine.tests.test_seo_intelligence autopilot.engine.tests.test_analytics -v
 
       - name: Assert publishing gates remain disabled
         run: |

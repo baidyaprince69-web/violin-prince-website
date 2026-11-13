@@ -20,6 +20,11 @@ from typing import Any
 import requests
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
+try:
+    from ..seo_intelligence import optimize as shared_seo_optimize
+except ImportError:  # Direct script/module loading from the engine directory.
+    from seo_intelligence import optimize as shared_seo_optimize
+
 
 API_ROOT = "https://www.googleapis.com/youtube/v3"
 UPLOAD_ROOT = "https://www.googleapis.com/upload/youtube/v3/videos"
@@ -132,6 +137,11 @@ def build_metadata(
     if not isinstance(plan, dict):
         raise MetadataError("Creative plan must be a JSON object.")
 
+    # Reuse the same SEO intelligence that guided Phase 1 discovery.
+    # The optimizer never approves metadata; the creator review gate remains required.
+    plan = shared_seo_optimize(
+        plan, discovery=plan.get("seo_discovery")
+    )
     title = str(plan.get("seo_title") or plan.get("title") or "").strip()
     topic = str(plan.get("topic") or "").strip()
     hook = str(plan.get("hook") or "").strip()
@@ -236,7 +246,11 @@ def build_metadata(
         "tag_characters_including_separators": tag_char_count,
         "hashtags": hashtags,
         "hashtag_count": len(hashtags),
-        "metadata_approved": plan.get("seo_metadata_approved") is True,
+        "metadata_approved": (
+            plan.get("seo_metadata_approved") is True
+            or plan.get("metadata_approved") is True
+        ),
+        "seo_optimization": plan.get("seo_optimization", {}),
         "made_for_kids_decision_present": isinstance(made_for_kids, bool),
         "synthetic_media_decision_present": isinstance(synthetic, bool),
         "privacy_status": privacy_status,
@@ -531,7 +545,9 @@ class YouTubeNativeClient:
             raise PublishingDisabled("PUBLISH_ENABLED is false; no YouTube API request was made.")
         if not _enabled(self.env, "YOUTUBE_UPLOAD_APPROVED"):
             raise PublishingDisabled("YOUTUBE_UPLOAD_APPROVED is false; owner approval is required before upload.")
-        if plan.get("seo_metadata_approved") is not True:
+        if not (
+            plan.get("seo_metadata_approved") is True or plan.get("metadata_approved") is True
+        ):
             raise MetadataError("The SEO title, description, tags and hashtags have not been approved.")
         if not isinstance(plan.get("made_for_kids"), bool):
             raise MetadataError("The made-for-kids setting must be explicitly reviewed as true or false.")
@@ -569,6 +585,7 @@ class YouTubeNativeClient:
                     "video_id": record["video_id"],
                     "url": "https://www.youtube.com/watch?v=" + record["video_id"],
                     "already_uploaded": True,
+                    "seo_context": record.get("seo_context", {}),
                     "processing": self.get_video_status(record["video_id"], access_token),
                 }
         else:
@@ -581,6 +598,14 @@ class YouTubeNativeClient:
                 "upload_url": None,
                 "next_offset": 0,
                 "video_id": None,
+                "seo_context": {
+                    "topic": str(plan.get("topic") or "")[:180],
+                    "title": str(plan.get("seo_title") or plan.get("title") or "")[:140],
+                    "language": str(plan.get("language") or plan.get("default_language") or "en")[:12],
+                    "primary_keyword": str(plan.get("primary_keyword") or "")[:120],
+                    "tags": _normalise_list(plan.get("seo_tags", plan.get("tags", [])))[:12],
+                    "hashtags": _normalise_hashtags(plan.get("seo_hashtags", plan.get("hashtags", [])))[:3],
+                },
                 "state": "prepared",
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }

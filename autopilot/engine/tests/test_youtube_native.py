@@ -90,7 +90,7 @@ class YouTubeMetadataTests(unittest.TestCase):
     def test_metadata_separates_hashtags_from_keyword_tags(self):
         result = build_metadata(GOOD_PLAN)
         body = result["body"]
-        self.assertEqual(body["snippet"]["tags"], ["violin bowing", "bow technique", "violin expression"])
+        self.assertEqual(body["snippet"]["tags"], ["violin bow control", "violin bowing", "bow technique", "violin expression", "Violin Prince"])
         self.assertIn("#Violin", body["snippet"]["description"])
         self.assertEqual(result["audit"]["hashtag_count"], 3)
         self.assertEqual(body["status"]["privacyStatus"], "private")
