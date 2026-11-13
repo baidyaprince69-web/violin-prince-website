@@ -84,10 +84,9 @@ window.__DATA__ = ${safeJson};
     return lines.slice(0, 2);
   };
 
-  // Draw graphic text one glyph at a time. The full Canvas fillText() calls
-  // were intermittently dropping lowercase "s" in multi-character headline
-  // and detail runs, even though an isolated-glyph probe passed. Pair-width
-  // advances preserve browser kerning while ensuring each glyph is painted.
+  // Draw graphic text one grapheme at a time. Use each glyph's own measured
+  // advance only: pair-width measurements were producing false spacing
+  // adjustments in Chromium and pushing lowercase "s" out of its visible slot.
   function drawGlyphRun(context, text, x, y, maxWidth=Infinity, paintMode="fill") {
     const value = String(text ?? "");
     const characters = typeof Intl !== "undefined" && Intl.Segmenter
@@ -98,7 +97,10 @@ window.__DATA__ = ${safeJson};
       : Array.from(value);
     if (!characters.length) return [];
 
-    const naturalWidth = context.measureText(value).width;
+    const naturalWidth = characters.reduce(
+      (total, character) => total + context.measureText(character).width,
+      0
+    );
     const scale = Number.isFinite(maxWidth) && naturalWidth > maxWidth && naturalWidth > 0
       ? maxWidth / naturalWidth
       : 1;
@@ -119,12 +121,6 @@ window.__DATA__ = ${safeJson};
     for (let index = 0; index < characters.length; index++) {
       const character = characters[index];
       const metrics = context.measureText(character);
-      if (index > 0) {
-        const previousWidth = context.measureText(characters[index - 1]).width;
-        const pairWidth = context.measureText(characters[index - 1] + character).width;
-        // cursor already includes the previous glyph's advance; add kerning only.
-        cursor += pairWidth - previousWidth - metrics.width;
-      }
 
       if (paintMode === "stroke") context.strokeText(character, cursor, 0);
       else context.fillText(character, cursor, 0);
@@ -187,35 +183,31 @@ window.__DATA__ = ${safeJson};
 
       const placements = drawGlyphRun(probeContext, test.text, 12, 100, 1460);
       const glyphs = placements.filter(item => item.character === "s");
-      const pixels = probeContext.getImageData(0, 0, probe.width, probe.height).data;
       let expectedX = 12;
       let maximumSpacingError = 0;
       for (let index = 0; index < placements.length; index++) {
-        const character = placements[index].character;
-        const currentWidth = probeContext.measureText(character).width;
-        if (index > 0) {
-          const previous = placements[index - 1].character;
-          const previousWidth = probeContext.measureText(previous).width;
-          const pairWidth = probeContext.measureText(previous + character).width;
-          expectedX += pairWidth - previousWidth - currentWidth;
-        }
         maximumSpacingError = Math.max(
           maximumSpacingError,
           Math.abs(placements[index].x - expectedX)
         );
-        expectedX += currentWidth;
+        expectedX += probeContext.measureText(placements[index].character).width;
       }
-      const visibleCounts = glyphs.map(glyph => {
-        const left = Math.max(0, Math.floor(glyph.x - glyph.actualLeft - 2));
-        const right = Math.min(probe.width, Math.ceil(glyph.x + glyph.actualRight + 2));
-        const top = Math.max(0, Math.floor(100 - glyph.ascent - 3));
-        const bottom = Math.min(probe.height, Math.ceil(100 + glyph.descent + 3));
+      // Test every lowercase-s glyph on an otherwise empty canvas. Counting
+      // pixels in the full phrase's bounding box is unsafe: a neighbouring
+      // glyph can make a missing "s" appear to pass.
+      const visibleCounts = glyphs.map(() => {
+        const glyphProbe = document.createElement("canvas");
+        glyphProbe.width = 180;
+        glyphProbe.height = 150;
+        const glyphContext = glyphProbe.getContext("2d", { willReadFrequently: true });
+        glyphContext.font = test.font;
+        glyphContext.fillStyle = "#fff";
+        glyphContext.textBaseline = "alphabetic";
+        drawGlyphRun(glyphContext, "s", 12, 100, 146);
+        const data = glyphContext.getImageData(0, 0, glyphProbe.width, glyphProbe.height).data;
         let count = 0;
-        for (let row = top; row < bottom; row++) {
-          for (let column = left; column < right; column++) {
-            const alpha = pixels[(row * probe.width + column) * 4 + 3];
-            if (alpha > 0) count++;
-          }
+        for (let offset = 3; offset < data.length; offset += 4) {
+          if (data[offset] > 0) count++;
         }
         return count;
       });
