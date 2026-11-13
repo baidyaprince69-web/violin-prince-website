@@ -53,18 +53,34 @@ class CreativeQualityTests(unittest.TestCase):
         # The centre remains the original image colour rather than a crop-only substitute.
         self.assertEqual(frame.getpixel((360, 640)), (160, 90, 45))
 
-    def test_precision_violin_macro_has_four_strings_and_one_contact_marker(self):
+    def test_precision_violin_macro_has_physically_ordered_geometry(self):
         with tempfile.TemporaryDirectory() as folder:
             target = Path(folder) / "macro-contact.jpg"
             result = pipeline.make_macro_contact_illustration(target)
             self.assertTrue(target.is_file())
-            self.assertEqual(result["width"], 720)
-            self.assertEqual(result["height"], 1280)
+            self.assertEqual((result["width"], result["height"]), (720, 1280))
             self.assertEqual(result["string_count"], 4)
+            self.assertEqual(result["bridge_notch_count"], 4)
+            self.assertEqual(result["bridge_foot_count"], 2)
             self.assertEqual(result["highlighted_contact_points"], 1)
+            self.assertEqual(result["active_contact_string_number"], 2)
+            self.assertTrue(result["contact_between_fingerboard_and_bridge"])
+            self.assertLess(
+                result["fingerboard_end_y"] + 18,
+                result["contact_y"],
+            )
+            self.assertLess(result["contact_y"], result["bridge_center_y"] - 28)
             self.assertTrue(result["bow_stick_and_horsehair_separate"])
+            self.assertGreaterEqual(result["bow_hair_stick_separation_px"], 60)
+            positions = result["string_positions_at_contact_y"]
+            self.assertEqual(len(positions), 4)
+            self.assertTrue(all(a < b for a, b in zip(positions, positions[1:])))
+            self.assertTrue(
+                all((b - a) >= 55 for a, b in zip(positions, positions[1:]))
+            )
             with Image.open(target) as illustration:
                 self.assertEqual(illustration.size, (720, 1280))
+                self.assertEqual(illustration.mode, "RGB")
 
     def test_precision_macro_is_selected_only_for_violin_bow_performance(self):
         plan = {"topic": "How a violinist shapes a phrase"}

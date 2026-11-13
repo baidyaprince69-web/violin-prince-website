@@ -93,6 +93,33 @@ jobs:
       - name: Run Python regression tests, including native word timing
         run: python -m unittest discover -s autopilot/engine/tests -v
 
+      - name: Render deterministic violin macro QA plate
+        run: |
+          mkdir -p work/output/macro-qa
+          python - <<'PY'
+          import json, sys
+          from pathlib import Path
+          sys.path.insert(0, str(Path("autopilot/engine").resolve()))
+          import run as engine
+
+          output = Path("work/output/macro-qa")
+          image = output / "violin-macro-contact-plate.jpg"
+          metrics = engine.make_macro_contact_illustration(image)
+          required = (
+              metrics["string_count"] == 4
+              and metrics["bridge_notch_count"] == 4
+              and metrics["bridge_foot_count"] == 2
+              and metrics["contact_between_fingerboard_and_bridge"]
+              and metrics["bow_stick_and_horsehair_separate"]
+          )
+          if not required:
+              raise SystemExit("The deterministic macro geometry contract failed.")
+          (output / "violin-macro-geometry-qa.json").write_text(
+              json.dumps(metrics, ensure_ascii=False, indent=2), encoding="utf-8"
+          )
+          print(json.dumps(metrics, ensure_ascii=False, indent=2))
+          PY
+
       - name: Smoke-test HTML rendering with synthetic inputs
         shell: bash
         run: |
@@ -383,6 +410,7 @@ jobs:
           name: v3-motion-prototype-${{ github.run_id }}
           path: |
             work/output/motion-prototype/
+            work/output/macro-qa/
             work/package/scene-1.jpg
             work/package/scene-2.jpg
             work/package/scene-3.jpg

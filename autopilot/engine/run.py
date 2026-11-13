@@ -1106,146 +1106,268 @@ def should_reuse_scene_image(path, plan, scene, index):
 
 
 def make_macro_contact_illustration(target):
-    """Draw an exact, labeled violin bow-contact macro instead of guessing with T2I."""
+    """Draw a perspective-aware violin bow-contact plate with measurable geometry."""
     width, height = W, H
     image = Image.new("RGB", (width, height), (17, 15, 15))
-    draw = ImageDraw.Draw(image)
 
-    # Warm charcoal-to-walnut background and a restrained amber glow.
+    # Warm charcoal-to-walnut ground with a restrained central amber glow.
+    pixels = image.load()
     for y in range(height):
         t = y / max(1, height - 1)
-        colour = (int(25 - 12 * t), int(19 - 9 * t), int(17 - 5 * t))
-        draw.line((0, y, width, y), fill=colour)
+        colour = (int(25 - 12 * t), int(20 - 10 * t), int(18 - 6 * t))
+        ImageDraw.Draw(image).line((0, y, width, y), fill=colour)
     glow = Image.new("RGBA", image.size, (0, 0, 0, 0))
     glow_draw = ImageDraw.Draw(glow)
-    glow_draw.ellipse((55, 260, 665, 1030), fill=(177, 76, 30, 58))
-    glow = glow.filter(ImageFilter.GaussianBlur(radius=105))
+    glow_draw.ellipse((18, 380, 702, 1170), fill=(174, 82, 37, 58))
+    glow = glow.filter(ImageFilter.GaussianBlur(radius=92))
     image = Image.alpha_composite(image.convert("RGBA"), glow)
     draw = ImageDraw.Draw(image)
 
     gold = (235, 195, 125, 255)
-    ivory = (246, 237, 218, 255)
-    muted = (187, 174, 157, 255)
+    ivory = (248, 239, 220, 255)
+    muted = (190, 177, 158, 255)
+    silver = (190, 198, 199, 255)
+    wood_light = (202, 143, 88, 255)
+    wood_mid = (132, 73, 42, 255)
+    dark = (18, 17, 18, 255)
 
-    draw.text((42, 52), "THE BOW–STRING CONTACT", font=font(25), fill=gold)
-    draw.text((44, 91), "PRECISION MACRO  /  SIDE-THREE-QUARTER VIEW", font=font(13), fill=muted)
-    draw.line((42, 126, width - 42, 126), fill=(191, 132, 78, 145), width=2)
+    # Header hierarchy: the subject is unmistakable before the viewer studies labels.
+    draw.text((42, 38), "VIOLIN PRINCE  /  SOUND SCIENCE", font=font(16), fill=gold)
+    draw.text((40, 70), "THE BOW–STRING CONTACT", font=font(30), fill=ivory)
+    draw.text((43, 112), "A precise view of the playing surface", font=font(16), fill=muted)
+    draw.line((42, 151, width - 42, 151), fill=(186, 130, 76, 150), width=2)
 
-    # Ebony fingerboard: a tapered perspective plane behind the strings.
-    board = [(177, 185), (543, 185), (638, 1000), (82, 1000)]
-    draw.polygon(board, fill=(27, 24, 25, 255), outline=(112, 76, 50, 255))
-    draw.line((178, 190, 83, 995), fill=(126, 86, 54, 210), width=7)
-    draw.line((542, 190, 637, 995), fill=(126, 86, 54, 210), width=7)
-    draw.line((192, 210, 112, 966), fill=(76, 65, 59, 180), width=2)
-    draw.line((528, 210, 608, 966), fill=(76, 65, 59, 180), width=2)
+    # The violin top plate is a cropped, varnished surface beneath the bridge.
+    body_box = (22, 690, 698, 1212)
+    draw.ellipse(body_box, fill=(89, 42, 28, 255), outline=(204, 139, 80, 235), width=8)
+    draw.ellipse((39, 708, 681, 1197), outline=(235, 183, 119, 105), width=3)
+    draw.arc((76, 730, 645, 1195), start=190, end=350, fill=(239, 180, 112, 70), width=3)
+    # Fine restrained grain follows the instrument's long axis.
+    for index in range(11):
+        x = 125 + index * 47
+        draw.arc((x - 82, 760, x + 108, 1160), start=205, end=335,
+                 fill=(224, 157, 94, 28 + (index % 3) * 8), width=2)
 
-    # Maple bridge sits below the strings at the near end of the fingerboard.
-    bridge = [
-        (88, 986), (135, 951), (220, 933), (350, 932),
-        (485, 950), (633, 986), (604, 1060), (520, 1081),
-        (205, 1081), (118, 1056)
+    # Ebony fingerboard: a distinct tapered plane ending before the bridge.
+    fingerboard_end_y = 680
+    fingerboard = [(218, 180), (502, 180), (582, fingerboard_end_y),
+                   (138, fingerboard_end_y)]
+    draw.polygon(fingerboard, fill=(24, 23, 25, 255), outline=(119, 83, 57, 255))
+    draw.line((227, 190, 148, 670), fill=(133, 94, 63, 220), width=5)
+    draw.line((493, 190, 572, 670), fill=(133, 94, 63, 220), width=5)
+    draw.line((239, 194, 166, 663), fill=(68, 62, 57, 210), width=2)
+    draw.line((481, 194, 554, 663), fill=(68, 62, 57, 210), width=2)
+    # Nut and the visible end of the fingerboard make the instrument geometry legible.
+    draw.rounded_rectangle((211, 178, 509, 204), radius=8,
+                           fill=(117, 102, 83, 255), outline=(226, 195, 151, 255), width=2)
+    draw.line((143, fingerboard_end_y, 577, fingerboard_end_y),
+              fill=(179, 130, 84, 255), width=5)
+
+    # The bridge is a separate maple part on the top plate, with a curved crown,
+    # four string notches and two feet. It is not a flat bar or part of the fingerboard.
+    bridge_top = [
+        (84, 858), (142, 833), (225, 817), (310, 810),
+        (410, 810), (495, 817), (578, 833), (636, 858),
     ]
-    draw.polygon(bridge, fill=(150, 91, 48, 255), outline=(224, 174, 112, 255))
-    draw.line((112, 986, 350, 963, 611, 986), fill=(247, 203, 142, 220), width=5)
-    draw.line((133, 1043, 350, 1057, 585, 1042), fill=(83, 45, 28, 230), width=4)
-    draw.ellipse((280, 978, 420, 1014), fill=(177, 117, 67, 190))
 
-    # Four distinct longitudinal strings, with a dark edge and metallic highlight.
-    top_positions = (278, 333, 388, 443)
-    bottom_positions = (190, 300, 410, 520)
-    string_paths = []
-    for top_x, bottom_x in zip(top_positions, bottom_positions):
-        points = [(top_x, 205), (int((top_x + bottom_x) / 2), 610), (bottom_x, 1005)]
-        string_paths.append(points)
-        draw.line(points, fill=(13, 13, 14, 255), width=8, joint="curve")
-        draw.line(points, fill=(157, 159, 157, 255), width=3, joint="curve")
-        draw.line([(x - 1, y) for x, y in points], fill=(246, 239, 221, 205), width=1, joint="curve")
-
-    # Bow stick and its pale horsehair are parallel, separate, and visibly connected.
-    stick_path = [(47, 602), (205, 590), (365, 580), (520, 585), (675, 603)]
-    hair_path = [(48, 675), (205, 665), (365, 655), (520, 660), (674, 678)]
-    draw.line(stick_path, fill=(18, 12, 10, 255), width=27, joint="curve")
-    draw.line(stick_path, fill=(91, 47, 27, 255), width=17, joint="curve")
-    draw.line([(x, y - 4) for x, y in stick_path], fill=(190, 126, 74, 210), width=2, joint="curve")
-    draw.line(hair_path, fill=(31, 24, 20, 255), width=16, joint="curve")
-    draw.line(hair_path, fill=(238, 228, 207, 255), width=8, joint="curve")
-    draw.line([(x, y - 2) for x, y in hair_path], fill=(255, 250, 235, 225), width=2, joint="curve")
-
-    # End fittings connect the hair ribbon to the wooden stick.
-    for x, y_stick, y_hair in ((54, 601, 675), (668, 602, 677)):
-        draw.rounded_rectangle((x - 10, y_stick - 7, x + 10, y_hair + 7),
-                               radius=5, fill=(69, 37, 24, 255), outline=(196, 139, 83, 255), width=2)
-
-    # Derive the contact marker from the second string's actual path and horsehair.
-    contact_string_index = 1
-    contact_string_y = 660
-
-    def x_at_y(points, target_y):
-        for (x1, y1), (x2, y2) in zip(points, points[1:]):
-            if min(y1, y2) <= target_y <= max(y1, y2) and y2 != y1:
-                ratio = (target_y - y1) / (y2 - y1)
-                return x1 + ratio * (x2 - x1)
-        raise PipelineError("Macro string path does not cross the selected contact height.")
-
-    def y_at_x(points, target_x):
+    def y_on_polyline_at_x(points, target_x):
         for (x1, y1), (x2, y2) in zip(points, points[1:]):
             if min(x1, x2) <= target_x <= max(x1, x2) and x2 != x1:
                 ratio = (target_x - x1) / (x2 - x1)
                 return y1 + ratio * (y2 - y1)
-        raise PipelineError("Macro horsehair path does not cross the selected string.")
+        raise PipelineError("A violin geometry point falls outside the bridge crown.")
 
-    contact_x = x_at_y(string_paths[contact_string_index], contact_string_y)
-    hair_contact_y = y_at_x(hair_path, contact_x)
-    contact_alignment_error = abs(hair_contact_y - contact_string_y)
-    if contact_alignment_error > 5:
-        raise PipelineError("Macro bow hair does not intersect the selected string closely enough.")
-    contact = (round(contact_x), round(hair_contact_y))
+    bridge_bottom = [
+        (614, 927), (550, 947), (470, 954), (360, 950),
+        (250, 954), (170, 947), (106, 927),
+    ]
+    bridge_shape = bridge_top + bridge_bottom
+    draw.polygon(bridge_shape, fill=(160, 94, 49, 255),
+                 outline=(239, 190, 127, 255))
+    draw.line(bridge_top, fill=(255, 213, 153, 230), width=5, joint="curve")
+    draw.line(bridge_bottom, fill=(85, 45, 28, 255), width=5, joint="curve")
+    # Two bridge feet sit on the soundboard; the centre remains open and carved.
+    for foot_x in (218, 502):
+        draw.polygon(
+            [(foot_x - 27, 916), (foot_x - 20, 880), (foot_x + 20, 880),
+             (foot_x + 28, 916), (foot_x + 20, 944), (foot_x - 20, 944)],
+            fill=(121, 66, 38, 255), outline=(230, 171, 108, 255),
+        )
+    draw.polygon(
+        [(326, 855), (345, 843), (360, 851), (375, 843), (394, 855),
+         (385, 881), (360, 899), (335, 881)],
+        fill=(70, 39, 27, 255), outline=(225, 167, 105, 255),
+    )
+    draw.ellipse((292, 914, 428, 938), outline=(231, 170, 106, 150), width=3)
+
+    # Four independent strings run longitudinally from the nut, across the
+    # fingerboard, over the bridge crown, and onward over the body.
+    bridge_xs = (220, 305, 430, 520)
+    top_xs = (278, 335, 390, 447)
+    bridge_points = [(x, y_on_polyline_at_x(bridge_top, x)) for x in bridge_xs]
+    lower_xs = (195, 300, 435, 545)
+    string_paths = []
+    for top_x, bridge_point, lower_x in zip(top_xs, bridge_points, lower_xs):
+        bx, by = bridge_point
+        mid_x = (top_x + bx) / 2
+        path = [
+            (top_x, 202),
+            (top_x + (bx - top_x) * 0.42, 430),
+            (top_x + (bx - top_x) * 0.82, fingerboard_end_y),
+            (bx, by),
+            (lower_x, 1070),
+        ]
+        string_paths.append(path)
+        draw.line(path, fill=(9, 10, 12, 255), width=8, joint="curve")
+        draw.line(path, fill=silver, width=3, joint="curve")
+        draw.line([(x - 1, y - 1) for x, y in path],
+                  fill=(255, 249, 231, 190), width=1, joint="curve")
+
+    # Four grooves are cut into the bridge crown at the measured string positions.
+    for x, y in bridge_points:
+        draw.arc((x - 8, y - 7, x + 8, y + 8), start=5, end=175,
+                 fill=(62, 36, 25, 255), width=4)
+
+    # One bow: dark curved wooden stick above a separate pale horsehair ribbon.
+    # End fittings visually connect both parts without merging their identities.
+    stick_path = [(62, 710), (210, 690), (360, 670), (510, 650), (658, 630)]
+    hair_path = [(62, 790), (210, 770), (360, 750), (510, 730), (658, 710)]
+    draw.line(stick_path, fill=(22, 13, 10, 255), width=28, joint="curve")
+    draw.line(stick_path, fill=(103, 54, 31, 255), width=18, joint="curve")
+    draw.line([(x, y - 5) for x, y in stick_path],
+              fill=(216, 151, 87, 220), width=2, joint="curve")
+    draw.line(hair_path, fill=(43, 32, 25, 255), width=17, joint="curve")
+    draw.line(hair_path, fill=ivory, width=9, joint="curve")
+    # Fine parallel filaments make the pale ribbon read as bow hair, not a second stick.
+    for offset, alpha in ((-2, 210), (2, 155)):
+        draw.line([(x, y + offset) for x, y in hair_path],
+                  fill=(255, 250, 235, alpha), width=1, joint="curve")
+
+    for x, y_stick, y_hair in ((63, 710, 790), (657, 630, 710)):
+        draw.rounded_rectangle((x - 12, y_stick - 7, x + 12, y_hair + 7),
+                               radius=6, fill=(83, 45, 28, 255),
+                               outline=(226, 172, 109, 255), width=2)
+
+    # Compute the active contact as a real segment intersection, not a decorative
+    # dot placed by eye. The selected contact must lie after the fingerboard end
+    # and before the bridge crown.
+    def segment_intersection(a, b, c, d):
+        x1, y1 = a
+        x2, y2 = b
+        x3, y3 = c
+        x4, y4 = d
+        denominator = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+        if abs(denominator) < 1e-9:
+            return None
+        determinant_a = x1 * y2 - y1 * x2
+        determinant_b = x3 * y4 - y3 * x4
+        px = (determinant_a * (x3 - x4) - (x1 - x2) * determinant_b) / denominator
+        py = (determinant_a * (y3 - y4) - (y1 - y2) * determinant_b) / denominator
+        within_first = (
+            min(x1, x2) - 1e-6 <= px <= max(x1, x2) + 1e-6
+            and min(y1, y2) - 1e-6 <= py <= max(y1, y2) + 1e-6
+        )
+        within_second = (
+            min(x3, x4) - 1e-6 <= px <= max(x3, x4) + 1e-6
+            and min(y3, y4) - 1e-6 <= py <= max(y3, y4) + 1e-6
+        )
+        return (px, py) if within_first and within_second else None
+
+    active_string_index = 1
+    contact = None
+    for string_a, string_b in zip(string_paths[active_string_index],
+                                  string_paths[active_string_index][1:]):
+        for hair_a, hair_b in zip(hair_path, hair_path[1:]):
+            contact = segment_intersection(string_a, string_b, hair_a, hair_b)
+            if contact:
+                break
+        if contact:
+            break
+    if contact is None:
+        raise PipelineError("The bow hair does not physically intersect the selected violin string.")
+
+    contact_x, contact_y = contact
+    bridge_y_at_contact = y_on_polyline_at_x(bridge_top, contact_x)
+    if not fingerboard_end_y + 18 < contact_y < bridge_y_at_contact - 28:
+        raise PipelineError("The bow contact must sit in the exposed string span between fingerboard and bridge.")
+
+    # Mark only the selected contact so the viewer knows where to look.
     contact_glow = Image.new("RGBA", image.size, (0, 0, 0, 0))
     contact_draw = ImageDraw.Draw(contact_glow)
-    contact_draw.ellipse((contact[0] - 48, contact[1] - 48, contact[0] + 48, contact[1] + 48),
-                         fill=(243, 178, 93, 100))
-    contact_glow = contact_glow.filter(ImageFilter.GaussianBlur(radius=20))
+    contact_draw.ellipse((contact_x - 42, contact_y - 42,
+                          contact_x + 42, contact_y + 42),
+                         fill=(243, 178, 93, 95))
+    contact_glow = contact_glow.filter(ImageFilter.GaussianBlur(radius=17))
     image = Image.alpha_composite(image, contact_glow)
     draw = ImageDraw.Draw(image)
-    draw.ellipse((contact[0] - 17, contact[1] - 17, contact[0] + 17, contact[1] + 17),
+    draw.ellipse((contact_x - 17, contact_y - 17, contact_x + 17, contact_y + 17),
                  outline=gold, width=3)
-    draw.ellipse((contact[0] - 5, contact[1] - 5, contact[0] + 5, contact[1] + 5),
+    draw.ellipse((contact_x - 5, contact_y - 5, contact_x + 5, contact_y + 5),
                  fill=ivory)
 
-    # Short technical callouts keep the instrument parts unambiguous.
-    draw.text((35, 315), "EBONY FINGERBOARD", font=font(13), fill=muted)
-    draw.line((176, 338, 223, 422), fill=gold, width=2)
-    draw.text((438, 315), "4 PARALLEL STRINGS", font=font(13), fill=muted)
-    draw.line((480, 340, 425, 455), fill=gold, width=2)
+    # Small, high-contrast callouts sit outside the important contact geometry.
+    draw.text((42, 270), "EBONY FINGERBOARD", font=font(15), fill=ivory)
+    draw.line((188, 294, 232, 420), fill=gold, width=2)
+    draw.text((468, 270), "FOUR STRINGS", font=font(15), fill=ivory)
+    draw.line((494, 294, 490, 438), fill=gold, width=2)
+    draw.text((475, 964), "MAPLE BRIDGE", font=font(15), fill=ivory)
+    draw.line((477, 950, 530, 870), fill=gold, width=2)
 
-    draw.text((42, 785), "PALE HORSEHAIR", font=font(14), fill=ivory)
-    draw.line((174, 780, 260, 670), fill=gold, width=2)
-    draw.text((430, 785), "WOODEN BOW STICK", font=font(14), fill=ivory)
-    draw.line((525, 770, 514, 601), fill=gold, width=2)
-
-    draw.text((258, 725), "ONE ACTIVE CONTACT", font=font(14), fill=gold)
-    draw.line((331, 710, contact[0], contact[1] + 18), fill=gold, width=2)
-
-    draw.text((282, 1100), "MAPLE BRIDGE", font=font(15), fill=ivory)
-    draw.line((360, 1087, 360, 1060), fill=gold, width=2)
-    draw.rounded_rectangle((42, 1162, 678, 1230), radius=15,
-                           fill=(24, 20, 19, 245), outline=(178, 126, 78, 170), width=2)
-    draw.text((65, 1186), "Bow hair rests on one string between bridge and fingerboard.",
-              font=font(14), fill=ivory)
+    # The legend distinguishes the two bow components by material and shape.
+    panel = Image.new("RGBA", (width, 176), (15, 13, 13, 228))
+    panel_draw = ImageDraw.Draw(panel)
+    panel_draw.line((42, 2, width - 42, 2), fill=(190, 132, 80, 165), width=2)
+    image.alpha_composite(panel, (0, 1080))
+    draw = ImageDraw.Draw(image)
+    draw.line((48, 1120, 112, 1120), fill=(103, 54, 31, 255), width=14)
+    draw.line((48, 1117, 112, 1117), fill=(216, 151, 87, 255), width=2)
+    draw.text((130, 1109), "WOODEN BOW STICK", font=font(14), fill=ivory)
+    draw.line((382, 1120, 446, 1120), fill=ivory, width=8)
+    draw.line((382, 1117, 446, 1117), fill=(255, 250, 235, 255), width=1)
+    draw.text((464, 1109), "PALE HORSEHAIR", font=font(14), fill=ivory)
+    draw.ellipse((50, 1150, 66, 1166), outline=gold, width=3)
+    draw.ellipse((56, 1156, 60, 1160), fill=ivory)
+    draw.text((82, 1148), "ACTIVE CONTACT ON STRING 2", font=font(14), fill=gold)
+    draw.text((82, 1181), "The hair touches the string between fingerboard and bridge.",
+              font=font(13), fill=muted)
 
     target = Path(target)
     target.parent.mkdir(parents=True, exist_ok=True)
-    image.convert("RGB").save(target, "JPEG", quality=95, optimize=True)
+    image.convert("RGB").save(target, "JPEG", quality=96, optimize=True)
+
+    string_positions_at_contact = []
+    for path in string_paths:
+        matched = None
+        for (x1, y1), (x2, y2) in zip(path, path[1:]):
+            if min(y1, y2) <= contact_y <= max(y1, y2) and y2 != y1:
+                ratio = (contact_y - y1) / (y2 - y1)
+                matched = x1 + ratio * (x2 - x1)
+                break
+        if matched is None:
+            raise PipelineError("A string does not span the measured bow-contact height.")
+        string_positions_at_contact.append(round(matched, 2))
+
+    stick_y_mid = sum(point[1] for point in stick_path) / len(stick_path)
+    hair_y_mid = sum(point[1] for point in hair_path) / len(hair_path)
     return {
         "width": width,
         "height": height,
-        "string_count": 4,
+        "string_count": len(string_paths),
+        "string_positions_at_contact_y": string_positions_at_contact,
+        "bridge_notch_count": len(bridge_points),
+        "bridge_foot_count": 2,
+        "fingerboard_end_y": fingerboard_end_y,
+        "bridge_center_y": 810,
+        "active_contact_string_number": active_string_index + 1,
         "highlighted_contact_points": 1,
+        "contact_x": round(contact_x, 2),
+        "contact_y": round(contact_y, 2),
+        "contact_between_fingerboard_and_bridge": True,
+        "contact_alignment_error_px": 0.0,
         "bow_stick_and_horsehair_separate": True,
-        "contact_string_number": contact_string_index + 1,
-        "contact_alignment_error_px": round(contact_alignment_error, 2),
+        "bow_hair_stick_separation_px": round(hair_y_mid - stick_y_mid, 2),
+        "macro_geometry": "perspective-fingerboard / carved-bridge / four-notched-strings / separate-bow-stick-and-horsehair",
     }
-
 
 def font(size):
     for p in ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
