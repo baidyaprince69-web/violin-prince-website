@@ -165,6 +165,12 @@ def resolve_frame_rate(
     return 0.0
 
 
+def _event_durations(log: str, event_name: str) -> list[float]:
+    """Read duration values emitted by FFmpeg detection filters."""
+    pattern = re.escape(event_name) + r":([0-9]+(?:\.[0-9]+)?)"
+    return [float(value) for value in re.findall(pattern, log)]
+
+
 def _run(command: list[str], timeout: int = 240) -> subprocess.CompletedProcess:
     return subprocess.run(command, capture_output=True, text=False, timeout=timeout)
 
@@ -344,10 +350,26 @@ def run_quality_gate(
         "-vf", "blackdetect=d=0.75:pix_th=0.05", "-an", "-f", "null", "-",
     ])
     black_log = black.stderr.decode("utf-8", "replace")
-    black_durations = [float(value) for value in re.findall(r"black_duration:([0-9]+(?:\.[0-9]+)?)", black_log)]
+    black_durations = _event_durations(black_log, "black_duration")
     longest_black = max(black_durations, default=0.0)
     metrics["longest_black_segment_seconds"] = round(longest_black, 3)
     record("extended_black_frames", black.returncode == 0 and longest_black < 0.75, round(longest_black, 3), "< 0.75s contiguous black", "video")
+
+    freeze = _run([
+        "ffmpeg", "-hide_banner", "-i", str(path),
+        "-vf", "freezedetect=n=-50dB:d=1.5", "-an", "-f", "null", "-",
+    ])
+    freeze_log = freeze.stderr.decode("utf-8", "replace")
+    freeze_durations = _event_durations(freeze_log, "freeze_duration")
+    longest_freeze = max(freeze_durations, default=0.0)
+    metrics["longest_freeze_segment_seconds"] = round(longest_freeze, 3)
+    record(
+        "extended_freeze_frames",
+        freeze.returncode == 0 and longest_freeze < 1.5,
+        round(longest_freeze, 3),
+        "< 1.5s contiguous freeze",
+        "video",
+    )
 
     if audio_required and audio is not None:
         loudness = _run([

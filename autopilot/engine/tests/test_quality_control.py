@@ -90,6 +90,12 @@ class QualityControlTests(unittest.TestCase):
         self.assertAlmostEqual(resolve_frame_rate("N/A", "30/1", None, 24.0), 30.0)
         self.assertAlmostEqual(resolve_frame_rate("0/0", "N/A", 600, 24.0), 25.0)
 
+    def test_ffmpeg_filter_duration_parser_reads_freeze_and_black_intervals(self):
+        from quality_control import _event_durations
+        log = "black_duration:0.83 black_duration:1.12 freeze_duration:2.40"
+        self.assertEqual(_event_durations(log, "black_duration"), [0.83, 1.12])
+        self.assertEqual(_event_durations(log, "freeze_duration"), [2.4])
+
     def test_frame_rate_can_be_derived_from_actual_decoded_frame_count(self):
         self.assertAlmostEqual(resolve_frame_rate("0/0", "0/0", "600", 24.0), 25.0)
 
