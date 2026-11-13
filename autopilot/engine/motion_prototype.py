@@ -16,7 +16,7 @@ ENGINE = Path(__file__).resolve().parent
 sys.path.insert(0, str(ENGINE))
 
 from voiceover import synthesize_voiceover
-from quality_control import QualityGateError, run_quality_gate
+from quality_control import QualityGateError, run_quality_gate, validate_cues
 import run as pipeline
 
 
@@ -405,6 +405,26 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
     narration_cache_path = output_dir / "narration-v3-cache.json"
     script_hash = hashlib.sha256(script.encode("utf-8")).hexdigest()
     narration_cache = _read_json(narration_cache_path)
+
+    def _valid_narration(info: object) -> tuple[bool, list[dict], str]:
+        if not isinstance(info, dict):
+            return False, [], "narration metadata is missing"
+        if info.get("word_timing_method") != "kokoro_predicted_phoneme_durations":
+            return False, [], "native Kokoro word timing is unavailable"
+        cues = sorted(
+            info.get("word_cues", []),
+            key=lambda cue: (float(cue.get("start", 0)), float(cue.get("end", 0))),
+        )
+        timing = validate_cues(
+            cues,
+            24.0,
+            word_count=int(info.get("word_count", 0)),
+            require_word_timing=True,
+        )
+        if not timing["valid"]:
+            return False, cues, "; ".join(timing["errors"][:4])
+        return True, cues, ""
+
     narration_info = None
     narration_reused = False
     if (
@@ -414,43 +434,48 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
         and narration_cache.get("audio_sha256") == _sha256_file(narration_path)
         and isinstance(narration_cache.get("narration_info"), dict)
     ):
-        narration_info = narration_cache["narration_info"]
-        narration_reused = True
-        print("Recovery: reusing narration WAV and word timings; Kokoro will not run again.", flush=True)
-    else:
+        cached_info = narration_cache["narration_info"]
+        cache_ok, _cached_cues, cache_reason = _valid_narration(cached_info)
+        if cache_ok:
+            narration_info = cached_info
+            narration_reused = True
+            print("Recovery: reusing narration WAV and validated native word timings; Kokoro will not run again.", flush=True)
+        else:
+            print(f"Recovery: cached narration failed its timing gate ({cache_reason}); retrying only narration.", flush=True)
+
+    if narration_info is None:
         last_error = None
         for narration_attempt in range(1, 3):
             try:
-                narration_path, narration_info = synthesize_voiceover(script, narration_path)
-                if not pipeline._valid_wav_checkpoint(narration_path):
+                candidate_path, candidate_info = synthesize_voiceover(script, narration_path)
+                if not pipeline._valid_wav_checkpoint(candidate_path):
                     raise RuntimeError("Kokoro returned an invalid or empty narration WAV.")
+                timing_ok, candidate_cues, timing_reason = _valid_narration(candidate_info)
+                if not timing_ok:
+                    raise RuntimeError("Narration timing gate rejected this take: " + timing_reason)
+                narration_path = candidate_path
+                narration_info = candidate_info
                 _write_json_atomic(narration_cache_path, {
                     "script_sha256": script_hash,
                     "audio_sha256": _sha256_file(narration_path),
                     "narration_info": narration_info,
                     "attempts": narration_attempt,
+                    "timing_gate": "passed",
                 })
                 break
             except Exception as exc:
                 last_error = exc
                 if narration_attempt >= 2:
-                    raise
+                    raise RuntimeError(
+                        f"Narration stage failed its bounded retry; no downstream render stages were started: {exc}"
+                    ) from exc
                 print(f"Recovery: narration stage failed once; retrying only narration: {exc}", flush=True)
         if narration_info is None:
             raise RuntimeError(f"Narration stage failed: {last_error}")
-    word_cues = sorted(
-        narration_info.get("word_cues", []),
-        key=lambda cue: (float(cue.get("start", 0)), float(cue.get("end", 0))),
-    )
-    minimum_words = max(10, int(narration_info.get("word_count", 0) * 0.60))
-    if len(word_cues) < minimum_words:
-        raise RuntimeError(
-            "Kokoro did not return enough native word timings for a reliable word-synced preview "
-            f"({len(word_cues)} timings; expected at least {minimum_words}). "
-            "The renderer will not invent timing estimates."
-        )
-    if narration_info.get("word_timing_method") != "kokoro_predicted_phoneme_durations":
-        raise RuntimeError("Word timing method was not the native Kokoro duration output.")
+
+    narration_valid, word_cues, narration_error = _valid_narration(narration_info)
+    if not narration_valid:
+        raise RuntimeError("Narration timing failed final pre-render validation: " + narration_error)
     _record_checkpoint(
         manifest_path, recovery, "narration", "reused" if narration_reused else "complete",
         file=narration_path.name,

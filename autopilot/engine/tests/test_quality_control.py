@@ -93,6 +93,14 @@ class QualityControlTests(unittest.TestCase):
     def test_frame_rate_can_be_derived_from_actual_decoded_frame_count(self):
         self.assertAlmostEqual(resolve_frame_rate("0/0", "0/0", "600", 24.0), 25.0)
 
+    def test_motion_prototype_retries_narration_when_timing_gate_fails(self):
+        source = (ENGINE / "motion_prototype.py").read_text(encoding="utf-8")
+        stage = source.split("# Stage 1 — narration.", 1)[1].split("# Stage 2 — baseline.", 1)[0]
+        self.assertIn("_valid_narration(candidate_info)", stage)
+        self.assertIn("retrying only narration", stage)
+        self.assertIn("word_timing_method", stage)
+        self.assertIn("validate_cues(", stage)
+
     def test_retry_planner_targets_only_the_failed_stage(self):
         self.assertEqual(retry_stage_for_failures([{"passed": False, "category": "audio"}]), "audio_mix")
         self.assertEqual(retry_stage_for_failures([{"passed": False, "category": "text"}]), "video_render")
