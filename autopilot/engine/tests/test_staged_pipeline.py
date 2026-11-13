@@ -252,6 +252,12 @@ class StagedPipelineTests(unittest.TestCase):
         self.assertTrue(parsed["passed"])
         self.assertEqual(parsed["score"], 88)
 
+        wrapped = pipeline._parse_vision_assessment(
+            {"result": {"answer": assessment}, "usage": {"tokens": 44}}
+        )
+        self.assertTrue(wrapped["passed"])
+        self.assertEqual(wrapped["score"], 88)
+
     def test_empty_vision_response_reports_provider_field_shape(self):
         diagnostic = pipeline._parse_vision_assessment(
             {"answer": None, "reasoning": {"trace": "omitted"}, "metrics": {"tokens": 0}}
