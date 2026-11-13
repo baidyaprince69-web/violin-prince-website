@@ -35,6 +35,19 @@ class KokoroModelSmokeTest(unittest.TestCase):
             self.assertEqual(info["sample_rate"], 24000)
             self.assertEqual(info["voice_type"], "synthetic_not_voice_cloned")
             self.assertGreaterEqual(len(info["subtitle_cues"]), 2)
+            self.assertGreaterEqual(len(info.get("word_cues", [])), 20)
+            self.assertEqual(
+                info.get("word_timing_method"),
+                "kokoro_predicted_phoneme_durations",
+            )
+            self.assertTrue(all(
+                float(cue["end"]) > float(cue["start"])
+                for cue in info["word_cues"]
+            ))
+            self.assertEqual(
+                info["word_cues"],
+                sorted(info["word_cues"], key=lambda cue: float(cue["start"])),
+            )
             srt = write_srt(info["subtitle_cues"], Path(folder) / "kokoro-smoke.srt")
             self.assertTrue(srt.exists())
             self.assertIn("Tonight, the city", srt.read_text(encoding="utf-8"))
