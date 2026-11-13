@@ -4,16 +4,19 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
 import json
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 ENGINE = Path(__file__).resolve().parent
 sys.path.insert(0, str(ENGINE))
 
 from voiceover import synthesize_voiceover
+from quality_control import QualityGateError, run_quality_gate
 import run as pipeline
 
 
@@ -22,6 +25,44 @@ def _run(command: list[str]) -> None:
     if result.returncode:
         tail = (result.stderr or result.stdout or "")[-4000:]
         raise RuntimeError(f"Command failed ({result.returncode}): {' '.join(command[:4])}\n{tail}")
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _fingerprint(value: object) -> str:
+    encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _read_json(path: Path) -> dict | None:
+    try:
+        value = json.loads(Path(path).read_text(encoding="utf-8"))
+        return value if isinstance(value, dict) else None
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _write_json_atomic(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    temporary.replace(path)
+
+
+def _record_checkpoint(manifest_path: Path, manifest: dict, stage: str, status: str, **details) -> None:
+    manifest.setdefault("stages", {})[stage] = {
+        "status": status,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        **details,
+    }
+    manifest["updated_at"] = datetime.now(timezone.utc).isoformat()
+    _write_json_atomic(manifest_path, manifest)
 
 
 def _mix_audio(video_only: Path, soundtrack: Path, narration: Path,
@@ -288,11 +329,63 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
     if not script:
         raise RuntimeError("The prepared story has no narration script.")
 
-    # Regenerate the same approved script once so Kokoro can return its native
-    # per-word timing objects together with this exact audio file.
-    narration_path, narration_info = synthesize_voiceover(
-        script, output_dir / "narration-v3.wav"
-    )
+    # The checkpoint fingerprint binds every expensive stage to these exact
+    # source files. A changed plan, soundtrack or scene image invalidates only
+    # the downstream stages that depend on it.
+    package_fingerprint = _fingerprint({
+        str(path.name): _sha256_file(path)
+        for path in (plan_path, metadata_path, soundtrack_path, *image_paths)
+    })
+    manifest_path = output_dir / "recovery-manifest.json"
+    recovery = _read_json(manifest_path)
+    if not isinstance(recovery, dict) or recovery.get("package_fingerprint") != package_fingerprint:
+        recovery = {
+            "schema_version": 1,
+            "package_fingerprint": package_fingerprint,
+            "publishing_enabled": False,
+            "stages": {},
+        }
+    _write_json_atomic(manifest_path, recovery)
+
+    # Stage 1 — narration. Reuse the exact audio and native word timings when
+    # the script hash and audio hash match; only retry Kokoro if this stage failed.
+    narration_path = output_dir / "narration-v3.wav"
+    narration_cache_path = output_dir / "narration-v3-cache.json"
+    script_hash = hashlib.sha256(script.encode("utf-8")).hexdigest()
+    narration_cache = _read_json(narration_cache_path)
+    narration_info = None
+    narration_reused = False
+    if (
+        narration_path.is_file()
+        and isinstance(narration_cache, dict)
+        and narration_cache.get("script_sha256") == script_hash
+        and narration_cache.get("audio_sha256") == _sha256_file(narration_path)
+        and isinstance(narration_cache.get("narration_info"), dict)
+    ):
+        narration_info = narration_cache["narration_info"]
+        narration_reused = True
+        print("Recovery: reusing narration WAV and word timings; Kokoro will not run again.", flush=True)
+    else:
+        last_error = None
+        for narration_attempt in range(1, 3):
+            try:
+                narration_path, narration_info = synthesize_voiceover(script, narration_path)
+                if not pipeline._valid_wav_checkpoint(narration_path):
+                    raise RuntimeError("Kokoro returned an invalid or empty narration WAV.")
+                _write_json_atomic(narration_cache_path, {
+                    "script_sha256": script_hash,
+                    "audio_sha256": _sha256_file(narration_path),
+                    "narration_info": narration_info,
+                    "attempts": narration_attempt,
+                })
+                break
+            except Exception as exc:
+                last_error = exc
+                if narration_attempt >= 2:
+                    raise
+                print(f"Recovery: narration stage failed once; retrying only narration: {exc}", flush=True)
+        if narration_info is None:
+            raise RuntimeError(f"Narration stage failed: {last_error}")
     word_cues = sorted(
         narration_info.get("word_cues", []),
         key=lambda cue: (float(cue.get("start", 0)), float(cue.get("end", 0))),
@@ -306,13 +399,17 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
         )
     if narration_info.get("word_timing_method") != "kokoro_predicted_phoneme_durations":
         raise RuntimeError("Word timing method was not the native Kokoro duration output.")
+    _record_checkpoint(
+        manifest_path, recovery, "narration", "reused" if narration_reused else "complete",
+        file=narration_path.name,
+        audio_sha256=_sha256_file(narration_path),
+        word_timing_count=len(word_cues),
+    )
 
     timeline = pipeline.scene_durations_from_narration(narration_info)
     scenes = []
     start = 0.0
-    for index, (scene, image_path, scene_duration) in enumerate(
-        zip(plan["scenes"], image_paths, timeline)
-    ):
+    for scene, image_path, scene_duration in zip(plan["scenes"], image_paths, timeline):
         scenes.append({
             "start": round(start, 3),
             "duration": round(float(scene_duration), 3),
@@ -339,39 +436,251 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
         "music_energy": _music_energy_samples(soundtrack_path),
     }, ensure_ascii=False), encoding="utf-8")
 
-    # Produce a V2 FFmpeg baseline using the same new narration/audio/images.
-    # This is for side-by-side evaluation only; it does not replace production.
-    baseline_video, baseline_quality = pipeline.render(
-        plan,
-        soundtrack_path.read_bytes(),
-        narration_path,
-        narration_info,
-        image_paths=image_paths,
-        audio_source=str(metadata.get("asset", {}).get("audio_source", "generated_ambient_fallback")),
-    )
+    # Stage 2 — baseline. A valid cached baseline is re-probed before reuse.
     baseline_path = output_dir / "ffmpeg-baseline.mp4"
-    shutil.copy2(baseline_video, baseline_path)
+    baseline_cache_path = output_dir / "ffmpeg-baseline-cache.json"
+    baseline_quality_report = output_dir / "baseline-quality-control-report.json"
+    baseline_fingerprint = _fingerprint({
+        "package": package_fingerprint,
+        "narration": _sha256_file(narration_path),
+        "fps": fps,
+    })
+    baseline_cache = _read_json(baseline_cache_path)
+    baseline_quality = None
+    baseline_reused = False
+    if (
+        baseline_path.is_file()
+        and isinstance(baseline_cache, dict)
+        and baseline_cache.get("input_fingerprint") == baseline_fingerprint
+        and baseline_cache.get("output_sha256") == _sha256_file(baseline_path)
+    ):
+        try:
+            baseline_quality = pipeline.validate_final_video(
+                baseline_path, narration_info, report_path=baseline_quality_report
+            )
+            baseline_reused = True
+        except pipeline.PipelineError:
+            baseline_quality = None
+    if baseline_quality is None:
+        baseline_video, _baseline_quality = pipeline.render(
+            plan,
+            soundtrack_path.read_bytes(),
+            narration_path,
+            narration_info,
+            image_paths=image_paths,
+            audio_source=str(metadata.get("asset", {}).get("audio_source", "generated_ambient_fallback")),
+        )
+        shutil.copy2(baseline_video, baseline_path)
+        baseline_quality = pipeline.validate_final_video(
+            baseline_path, narration_info, report_path=baseline_quality_report
+        )
+        _write_json_atomic(baseline_cache_path, {
+            "input_fingerprint": baseline_fingerprint,
+            "output_sha256": _sha256_file(baseline_path),
+        })
+    _record_checkpoint(
+        manifest_path, recovery, "ffmpeg_baseline", "reused" if baseline_reused else "complete",
+        file=baseline_path.name,
+        output_sha256=_sha256_file(baseline_path),
+        quality_gate="passed",
+    )
 
     silent_path = output_dir / "html-render-silent.mp4"
     final_path = output_dir / "html-motion-prototype.mp4"
+    text_audit_path = output_dir / "final-text-frame-audit.json"
+    silent_cache_path = output_dir / "html-render-cache.json"
     renderer_script = ENGINE.parent / "motion-prototype" / "render.mjs"
     if not renderer_script.is_file():
         raise RuntimeError("The isolated HTML renderer script is missing.")
     if not shutil.which("node"):
         raise RuntimeError("Node.js is required for the isolated HTML renderer.")
-    _run(["node", str(renderer_script), str(input_path), str(silent_path)])
 
-    _mix_audio(
-        silent_path,
-        soundtrack_path,
-        narration_path,
-        final_path,
-        str(metadata.get("asset", {}).get("audio_source", "generated_ambient_fallback")),
+    renderer_fingerprint = _fingerprint({
+        "renderer_input": _sha256_file(input_path),
+        "renderer_script": _sha256_file(renderer_script),
+    })
+    silent_cache = _read_json(silent_cache_path)
+    silent_reused = False
+
+    def validate_silent() -> dict:
+        return run_quality_gate(
+            silent_path,
+            report_path=output_dir / "silent-quality-control-report.json",
+            audio_required=False,
+            narration_cues=word_cues,
+            word_count=int(narration_info.get("word_count", 0)),
+            require_word_timing=True,
+            text_audit_path=text_audit_path,
+        )
+
+    if (
+        silent_path.is_file()
+        and isinstance(silent_cache, dict)
+        and silent_cache.get("input_fingerprint") == renderer_fingerprint
+        and silent_cache.get("output_sha256") == _sha256_file(silent_path)
+        and text_audit_path.is_file()
+    ):
+        try:
+            validate_silent()
+            silent_reused = True
+        except QualityGateError:
+            silent_reused = False
+
+    renderer_attempts = 0
+
+    def render_silent_stage() -> None:
+        nonlocal renderer_attempts, silent_cache
+        last_error = None
+        while renderer_attempts < 2:
+            renderer_attempts += 1
+            try:
+                _run(["node", str(renderer_script), str(input_path), str(silent_path)])
+                validate_silent()
+                silent_cache = {
+                    "input_fingerprint": renderer_fingerprint,
+                    "output_sha256": _sha256_file(silent_path),
+                    "attempts": renderer_attempts,
+                    "text_audit": text_audit_path.name,
+                }
+                _write_json_atomic(silent_cache_path, silent_cache)
+                _record_checkpoint(
+                    manifest_path, recovery, "html_render", "complete",
+                    file=silent_path.name,
+                    output_sha256=_sha256_file(silent_path),
+                    attempts=renderer_attempts,
+                    text_audit="passed",
+                )
+                return
+            except QualityGateError as exc:
+                last_error = exc
+                _record_checkpoint(
+                    manifest_path, recovery, "html_render", "rejected",
+                    failed_checks=exc.report.get("failed_checks", []),
+                    retry_stage=exc.retry_stage,
+                    attempts=renderer_attempts,
+                )
+                if exc.retry_stage != "video_render" or renderer_attempts >= 2:
+                    raise
+                print("Recovery: V3 video/text quality gate rejected the silent render; rerendering only the HTML video stage.", flush=True)
+            except Exception as exc:
+                last_error = exc
+                if renderer_attempts >= 2:
+                    raise
+                print(f"Recovery: HTML render stage failed; retrying only HTML rendering: {exc}", flush=True)
+        raise RuntimeError(f"HTML render stage failed after targeted retries: {last_error}")
+
+    if not silent_reused:
+        render_silent_stage()
+    else:
+        _record_checkpoint(
+            manifest_path, recovery, "html_render", "reused",
+            file=silent_path.name,
+            output_sha256=_sha256_file(silent_path),
+            text_audit="passed",
+        )
+        print("Recovery: reusing the verified silent V3 render and its encoded-frame text audit.", flush=True)
+
+    audio_source = str(metadata.get("asset", {}).get("audio_source", "generated_ambient_fallback"))
+    mix_fingerprint = _fingerprint({
+        "silent_video": _sha256_file(silent_path),
+        "soundtrack": _sha256_file(soundtrack_path),
+        "narration": _sha256_file(narration_path),
+        "audio_source": audio_source,
+    })
+    mix_cache_path = output_dir / "final-mix-cache.json"
+    mix_cache = _read_json(mix_cache_path)
+    prototype_quality = None
+    mix_reused = False
+    if (
+        final_path.is_file()
+        and isinstance(mix_cache, dict)
+        and mix_cache.get("input_fingerprint") == mix_fingerprint
+        and mix_cache.get("output_sha256") == _sha256_file(final_path)
+    ):
+        try:
+            prototype_quality = pipeline.validate_final_video(
+                final_path,
+                narration_info,
+                text_audit_path=text_audit_path,
+                report_path=output_dir / "quality-control-report.json",
+            )
+            mix_reused = True
+        except pipeline.PipelineError as exc:
+            if getattr(exc, "retry_stage", "none") == "video_render":
+                render_silent_stage()
+                mix_fingerprint = _fingerprint({
+                    "silent_video": _sha256_file(silent_path),
+                    "soundtrack": _sha256_file(soundtrack_path),
+                    "narration": _sha256_file(narration_path),
+                    "audio_source": audio_source,
+                })
+            elif getattr(exc, "retry_stage", "none") != "audio_mix":
+                raise
+            prototype_quality = None
+
+    mix_attempts = 0
+    while prototype_quality is None:
+        if mix_attempts >= 2:
+            raise RuntimeError("Final audio mix did not pass the quality gate after one targeted retry.")
+        mix_attempts += 1
+        _mix_audio(
+            silent_path,
+            soundtrack_path,
+            narration_path,
+            final_path,
+            audio_source,
+        )
+        try:
+            prototype_quality = pipeline.validate_final_video(
+                final_path,
+                narration_info,
+                text_audit_path=text_audit_path,
+                report_path=output_dir / "quality-control-report.json",
+            )
+        except pipeline.PipelineError as exc:
+            retry_stage = getattr(exc, "retry_stage", "none")
+            _record_checkpoint(
+                manifest_path, recovery, "quality_control", "rejected",
+                failed_checks=getattr(exc, "quality_report", {}).get("failed_checks", []),
+                retry_stage=retry_stage,
+                audio_mix_attempt=mix_attempts,
+            )
+            if retry_stage == "audio_mix" and mix_attempts < 2:
+                print("Recovery: audio-only QC failure; remixing the existing silent video without rerendering visuals or narration.", flush=True)
+                continue
+            if retry_stage == "video_render" and renderer_attempts < 2:
+                print("Recovery: video/text QC failure; rerendering only the HTML stage, then rebuilding its final audio mux.", flush=True)
+                render_silent_stage()
+                mix_fingerprint = _fingerprint({
+                    "silent_video": _sha256_file(silent_path),
+                    "soundtrack": _sha256_file(soundtrack_path),
+                    "narration": _sha256_file(narration_path),
+                    "audio_source": audio_source,
+                })
+                continue
+            raise
+        _write_json_atomic(mix_cache_path, {
+            "input_fingerprint": mix_fingerprint,
+            "output_sha256": _sha256_file(final_path),
+            "attempts": mix_attempts,
+        })
+
+    _record_checkpoint(
+        manifest_path, recovery, "audio_mix", "reused" if mix_reused else "complete",
+        file=final_path.name,
+        output_sha256=_sha256_file(final_path),
+        attempts=mix_attempts,
     )
+    _record_checkpoint(
+        manifest_path, recovery, "quality_control", "passed",
+        report="quality-control-report.json",
+        checks_passed=prototype_quality.get("quality_gate_checks_passed"),
+        checks_total=prototype_quality.get("quality_gate_checks_total"),
+    )
+
     final_review_frames = _extract_final_review_frames(
         final_path, output_dir / "final-encoded-qa-frames"
     )
-    prototype_quality = pipeline.validate_final_video(final_path)
     prototype_quality.update({
         "renderer": "HTML Canvas + Playwright + FFmpeg",
         "visual_review_status": metadata.get("visual_review_status", "not_reviewed"),
@@ -420,6 +729,7 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
             "height": baseline_quality.get("height"),
             "duration_seconds": baseline_quality.get("duration_seconds"),
             "file_size_bytes": baseline_quality.get("file_size_bytes"),
+            "quality_gate_status": baseline_quality.get("quality_gate_status"),
         },
         "html_motion_prototype": {
             "file": final_path.name,
@@ -427,18 +737,28 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
             "text_renderer": "SVG text overlay over the animated Canvas scene",
             "final_encoded_review_frames": final_review_frames,
         },
+        "recovery": {
+            "manifest": manifest_path.name,
+            "narration_reused": narration_reused,
+            "baseline_reused": baseline_reused,
+            "silent_render_reused": silent_reused,
+            "final_mix_reused": mix_reused,
+            "renderer_attempts": renderer_attempts,
+            "audio_mix_attempts": mix_attempts,
+            "stage_status": recovery.get("stages", {}),
+        },
         "notes": [
             "The existing V2 FFmpeg renderer remains the production renderer.",
             "Both videos use the same prepared story, three scene images, narration take and soundtrack.",
             "The HTML prototype is an evaluation path only; no publishing action is called.",
             "Comparison graphics appear only when the scene plan supplies both sides explicitly.",
-            "The HTML renderer now uses a warm charcoal, gold and copper palette with no large blue card.",
-            "Nine caption treatments are selected by phrase meaning and key-word emphasis, not a simple word-index cycle.",
+            "The HTML renderer uses a warm charcoal, gold and copper palette.",
+            "Nine caption treatments are selected by phrase meaning and key-word emphasis.",
             "Infographic text, connectors, nodes and chart details reveal in separate staged beats.",
-            "The bow-path highlight is localized to the performance-detail scene and remains a stylized overlay, not tracked hand animation.",
-            "Image prompts use warm walnut, charcoal, oxblood, copper and antique-gold art direction, with performance-specific bow and hand anatomy constraints.",
-            "Atmosphere, animated infographic details, scene light sweeps and bow/string motion are rendered continuously.",
-            "The bow/string visual motif responds to a sampled RMS envelope from the soundtrack.",
+            "The bow-path highlight remains a stylized overlay, not tracked hand animation.",
+            "The V3 media gate verifies encoded streams, durations, decode integrity, black-frame intervals, loudness, true peak and the final music tail.",
+            "The renderer text audit checks sampled final-frame text presence, bounds and word order.",
+            "Targeted recovery retries narration, HTML rendering or audio mixing without regenerating already accepted scene images.",
         ],
     }
     (output_dir / "v3-comparison-report.json").write_text(

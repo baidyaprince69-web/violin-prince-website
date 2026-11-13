@@ -22,6 +22,11 @@ on:
         required: false
         default: false
         type: boolean
+      resume_run_id:
+        description: "Optional prior V3 run ID; restore its checkpointed outputs and retry only unfinished stages"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -174,6 +179,15 @@ jobs:
                   raise SystemExit(f"{name} is not a readable PCM WAV: {exc}") from exc
           print("Prepared story, native narration timings, soundtrack and narration assets passed preflight.")
           PY
+
+      - name: Restore previous V3 stage checkpoints (optional)
+        if: github.event_name == 'workflow_dispatch' && inputs.resume_run_id != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: v3-motion-prototype-${{ inputs.resume_run_id }}
+          run-id: ${{ inputs.resume_run_id }}
+          github-token: ${{ github.token }}
+          path: work
 
       - name: Record renderer-only mode when fresh visual proof is not requested
         if: env.FRESH_VISUAL_TEST != 'true'

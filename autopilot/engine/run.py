@@ -1243,6 +1243,12 @@ def should_reuse_scene_image(path, plan, scene, index, metadata=None):
         return False
     if not isinstance(review, dict) or review.get("passed") is not True:
         return False
+    expected_plan_hash = hashlib.sha256(
+        json.dumps(plan, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    recorded_plan_hash = str(record.get("plan_sha256") or "")
+    if recorded_plan_hash and recorded_plan_hash != expected_plan_hash:
+        return False
     expected_hash = str(record.get("sha256") or "")
     if not expected_hash:
         return False
@@ -1423,43 +1429,45 @@ def command(args):
         raise PipelineError("FFmpeg failed: " + p.stderr[-1200:])
 
 
-def validate_final_video(path):
-    """Fail closed unless the final file contains valid vertical video and audio."""
-    if not path.exists() or path.stat().st_size < 150000:
-        raise PipelineError("Final MP4 is missing or unexpectedly small.")
-    probe = subprocess.run(
-        ["ffprobe", "-v", "error", "-show_entries",
-         "format=duration:stream=codec_type,width,height,sample_rate,channels",
-         "-of", "json", str(path)],
-        capture_output=True, text=True
-    )
-    if probe.returncode:
-        raise PipelineError("ffprobe could not inspect the final MP4: " + probe.stderr[-800:])
+def validate_final_video(path, narration_info=None, text_audit_path=None, report_path=None):
+    """Fail closed unless encoded media, timing, captions and audio all pass Phase 2 QC."""
+    from quality_control import QualityGateError, run_quality_gate
+
+    info = narration_info if isinstance(narration_info, dict) else {}
+    cues = info.get("word_cues") or info.get("subtitle_cues")
     try:
-        data = json.loads(probe.stdout)
-        duration = float(data.get("format", {}).get("duration", 0))
-        streams = data.get("streams", [])
-    except (TypeError, ValueError) as exc:
-        raise PipelineError("ffprobe returned invalid MP4 metadata.") from exc
+        result = run_quality_gate(
+            path,
+            report_path=report_path,
+            expected_width=W,
+            expected_height=H,
+            expected_duration=24.0,
+            narration_cues=cues if cues else None,
+            word_count=info.get("word_count"),
+            require_word_timing=(
+                info.get("word_timing_method") == "kokoro_predicted_phoneme_durations"
+                and bool(info.get("word_cues"))
+            ),
+            text_audit_path=text_audit_path,
+        )
+    except QualityGateError as exc:
+        error = PipelineError(str(exc))
+        error.retry_stage = exc.retry_stage
+        error.quality_report = exc.report
+        raise error from exc
 
-    video = next((item for item in streams if item.get("codec_type") == "video"), None)
-    audio = next((item for item in streams if item.get("codec_type") == "audio"), None)
-    if not video or not audio:
-        raise PipelineError("Final MP4 must contain both video and mixed narration/music audio.")
-    if int(video.get("width", 0)) != W or int(video.get("height", 0)) != H:
-        raise PipelineError("Final MP4 is not the required 720x1280 vertical format.")
-    if not 23.5 <= duration <= 24.5:
-        raise PipelineError(f"Final MP4 duration is outside the 24-second target: {duration:.2f}s.")
-    if int(audio.get("sample_rate", 0)) < 22050:
-        raise PipelineError("Final audio sample rate is unexpectedly low.")
+    metrics = dict(result.get("metrics", {}))
+    metrics.update({
+        "quality_gate_status": result.get("status"),
+        "quality_gate_report": (
+            Path(report_path).name if report_path
+            else Path(path).parent.joinpath("quality-control-report.json").name
+        ),
+        "quality_gate_checks_passed": sum(1 for item in result.get("checks", []) if item.get("passed")),
+        "quality_gate_checks_total": len(result.get("checks", [])),
+    })
+    return metrics
 
-    return {
-        "duration_seconds": round(duration, 2),
-        "width": int(video["width"]),
-        "height": int(video["height"]),
-        "audio_sample_rate": int(audio["sample_rate"]),
-        "file_size_bytes": path.stat().st_size,
-    }
 
 def scene_durations_from_narration(narration_info, total_seconds=24.0):
     """Allocate scene lengths around spoken beats, leaving a short music-only ending."""
@@ -1594,7 +1602,7 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
              "-t", "24", "-vf", video_filter, "-c:v", "libx264",
              "-preset", "veryfast", "-crf", "24", "-pix_fmt", "yuv420p",
              "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(final)])
-    quality = validate_final_video(final)
+    quality = validate_final_video(final, narration_info)
     narration_end = max(
         [float(cue.get("end", 0)) for cue in narration_info.get("subtitle_cues", [])]
         or [float(narration_info.get("duration_seconds", 0))]
@@ -1916,40 +1924,168 @@ def load_reusable_research():
     return items
 
 
+def _write_json_atomic(path, payload):
+    """Persist a recoverable stage checkpoint without leaving partial JSON behind."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    temporary.replace(path)
+
+
+def _read_json_checkpoint(path):
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _valid_wav_checkpoint(path):
+    try:
+        with wave.open(str(path), "rb") as source:
+            return (
+                source.getnchannels() in (1, 2)
+                and source.getframerate() >= 16000
+                and source.getnframes() > 0
+                and source.getnframes() / source.getframerate() > 0.1
+            )
+    except (OSError, wave.Error, EOFError):
+        return False
+
+
 def prepare_stage():
-    """Create research, story, narration and soundtrack once; no images or MP4 yet."""
+    """Prepare once and checkpoint audio, research, story and narration independently."""
     claim_run()
-    asset, audio = get_audio()
-    report("running", "Preparing research, story, narration and background music bed.")
-    items = load_reusable_research()
-    if items is None:
+    paths = _package_paths()
+    metadata = _read_json_checkpoint(paths["metadata"])
+    if not isinstance(metadata, dict):
+        metadata = {}
+
+    # A complete prepared package is a reusable checkpoint. A render retry must not
+    # call research, the story model, or Kokoro again.
+    if all(paths[key].is_file() for key in ("plan", "metadata", "audio", "narration")):
+        try:
+            plan, _saved_metadata, _narration_info, _saved_paths, _images = _read_package(require_images=False)
+            if paths["audio"].stat().st_size >= 4096 and _valid_wav_checkpoint(paths["narration"]):
+                topic = str(plan.get("topic", ""))
+                title = str(plan.get("title", "Violin Prince Short"))
+                log("Reusing the complete prepared-package checkpoint; preparation stages were not repeated.")
+                report("prepared", "Reused the saved story, narration and soundtrack checkpoint.", topic, title,
+                       metadata={"stage": "prepared", "reused_checkpoint": True})
+                return 0
+        except (PipelineError, OSError):
+            pass
+
+    report("running", "Preparing research, story, narration and background music bed with stage checkpoints.")
+
+    # Checkpoint 1: soundtrack. Preserve the selected source and exact bytes.
+    cached_asset = metadata.get("asset")
+    if paths["audio"].is_file() and paths["audio"].stat().st_size >= 4096 and isinstance(cached_asset, dict):
+        asset = cached_asset
+        audio = paths["audio"].read_bytes()
+        log("Reusing checkpointed soundtrack; audio selection was not repeated.")
+    else:
+        asset, audio = get_audio()
+        if len(audio) < 4096:
+            raise PipelineError("Selected soundtrack is empty or unexpectedly small.")
+        paths["audio"].write_bytes(audio)
+        metadata.update({
+            "schema_version": 2,
+            "prepared_run_id": metadata.get("prepared_run_id") or RUN_ID,
+            "asset": asset,
+            "stage": "audio_ready",
+        })
+        _write_json_atomic(paths["metadata"], metadata)
+        log("Soundtrack checkpoint saved.")
+
+    # Checkpoint 2: research. Prefer the package, then a restored prior-run file,
+    # and only then call external research feeds.
+    items = None
+    if paths["research"].is_file():
+        saved_items = _read_json_checkpoint(paths["research"])
+        if isinstance(saved_items, list):
+            items = [
+                item for item in saved_items
+                if isinstance(item, dict) and item.get("title") and item.get("url")
+            ]
+    if not items:
+        items = load_reusable_research()
+    if not items:
         items = research()
         log("Research sources collected: " + str(len(items)))
-    plan = make_plan(items, recent_topics())
-    topic, title = str(plan.get("topic", "")), str(plan.get("title", "Violin Prince Short"))
-    from voiceover import synthesize_voiceover
-    narration_path, narration_info = synthesize_voiceover(
-        plan["narration_script"], OUT / "narration.wav"
-    )
-    paths = _package_paths()
-    paths["audio"].write_bytes(audio)
-    shutil.copy2(narration_path, paths["narration"])
-    paths["plan"].write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
-    paths["research"].write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
-    paths["metadata"].write_text(json.dumps({
-        "schema_version": 1,
-        "prepared_run_id": RUN_ID,
+    _write_json_atomic(paths["research"], items)
+    metadata["stage"] = "research_ready"
+    _write_json_atomic(paths["metadata"], metadata)
+
+    # Checkpoint 3: creative plan. A later narration or render failure must not
+    # trigger another story-planning call.
+    plan = _read_json_checkpoint(paths["plan"])
+    if (
+        not isinstance(plan, dict)
+        or not isinstance(plan.get("scenes"), list)
+        or len(plan.get("scenes", [])) != 3
+        or not str(plan.get("narration_script") or "").strip()
+    ):
+        plan = make_plan(items, recent_topics())
+        _write_json_atomic(paths["plan"], plan)
+        log("Creative-plan checkpoint saved.")
+    else:
+        log("Reusing checkpointed creative plan; story planning was not repeated.")
+
+    topic = str(plan.get("topic", ""))
+    title = str(plan.get("title", "Violin Prince Short"))
+    narration_script_hash = hashlib.sha256(
+        str(plan["narration_script"]).encode("utf-8")
+    ).hexdigest()
+    metadata.update({
+        "schema_version": 2,
+        "prepared_run_id": metadata.get("prepared_run_id") or RUN_ID,
         "asset": asset,
-        "narration_info": narration_info,
         "topic": topic,
         "title": title,
-        "prepared_at": datetime.now(timezone.utc).isoformat(),
+        "stage": "story_ready",
+    })
+    _write_json_atomic(paths["metadata"], metadata)
+
+    # Checkpoint 4: exact narration WAV and its native timing metadata.
+    narration_info = metadata.get("narration_info")
+    if not (
+        isinstance(narration_info, dict)
+        and narration_info.get("subtitle_cues")
+        and metadata.get("narration_script_sha256") == narration_script_hash
+        and _valid_wav_checkpoint(paths["narration"])
+    ):
+        from voiceover import synthesize_voiceover
+        narration_path, narration_info = synthesize_voiceover(
+            plan["narration_script"], OUT / "narration.wav"
+        )
+        if not _valid_wav_checkpoint(narration_path):
+            raise PipelineError("Narration checkpoint is not a readable non-empty WAV file.")
+        shutil.copy2(narration_path, paths["narration"])
+        metadata["narration_info"] = narration_info
+        metadata["narration_script_sha256"] = narration_script_hash
+        metadata["stage"] = "narration_ready"
+        _write_json_atomic(paths["metadata"], metadata)
+        log("Narration WAV and its timing metadata checkpointed.")
+    else:
+        log("Reusing checkpointed narration and native timing cues; Kokoro was not called again.")
+
+    metadata.update({
+        "schema_version": 2,
+        "prepared_run_id": metadata.get("prepared_run_id") or RUN_ID,
+        "asset": asset,
+        "narration_info": narration_info,
+        "narration_script_sha256": narration_script_hash,
+        "topic": topic,
+        "title": title,
+        "prepared_at": metadata.get("prepared_at") or datetime.now(timezone.utc).isoformat(),
         "stage": "prepared",
-    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    })
+    _write_json_atomic(paths["metadata"], metadata)
     _write_review_text(plan, PACKAGE / "review.txt")
     log("Prepared package saved. Review review.txt before generating scene images.")
     report("prepared", "Story, narration and soundtrack are ready for review.", topic, title,
-           metadata={"stage": "prepared"})
+           metadata={"stage": "prepared", "checkpointed": True})
     return 0
 
 
@@ -1958,14 +2094,30 @@ def visuals_stage(feedback=""):
     if not CF_ACCOUNT or not CF_TOKEN:
         raise PipelineError("CF_ACCOUNT_ID and CF_AI_TOKEN are required for the Visuals stage.")
     plan, metadata, _narration_info, paths, image_paths = _read_package(require_images=False)
-    visual_assets = []
+    plan_hash = hashlib.sha256(
+        json.dumps(plan, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    saved_assets = metadata.get("visual_assets", [])
+    if not isinstance(saved_assets, list):
+        saved_assets = []
+    visual_assets = (saved_assets + [None] * 3)[:3]
+    metadata["visual_assets"] = visual_assets
+    metadata["stage"] = "visuals_in_progress"
+    metadata["visual_checkpoint"] = {
+        "completed_scene_indices": [
+            index + 1 for index, record in enumerate(visual_assets)
+            if isinstance(record, dict) and record.get("visual_review", {}).get("passed") is True
+        ],
+        "total_scenes": 3,
+    }
+    _write_json_atomic(paths["metadata"], metadata)
     for index, scene in enumerate(plan["scenes"]):
         if image_paths[index].is_file() and should_reuse_scene_image(
             image_paths[index], plan, scene, index, metadata
         ):
             record = dict(metadata["visual_assets"][index])
             log(f"Reusing vision-reviewed scene image {index + 1}/3.")
-            visual_assets.append(record)
+            visual_assets[index] = record
             continue
 
         if image_paths[index].exists():
@@ -2025,9 +2177,19 @@ def visuals_stage(feedback=""):
             "width": W,
             "height": H,
             "sha256": image_hash,
+            "plan_sha256": plan_hash,
             "visual_review": review,
         }
-        visual_assets.append(asset_record)
+        visual_assets[index] = asset_record
+        metadata["visual_assets"] = visual_assets
+        metadata["visual_checkpoint"] = {
+            "completed_scene_indices": [
+                scene_index + 1 for scene_index, record in enumerate(visual_assets)
+                if isinstance(record, dict) and record.get("visual_review", {}).get("passed") is True
+            ],
+            "total_scenes": 3,
+        }
+        _write_json_atomic(paths["metadata"], metadata)
         log(
             f"Scene {index + 1}/3 generated and vision-reviewed "
             f"(score {review['score']}/100, attempt {review['attempt']})."
