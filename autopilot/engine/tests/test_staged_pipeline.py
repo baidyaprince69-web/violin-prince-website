@@ -216,7 +216,9 @@ class StagedPipelineTests(unittest.TestCase):
     def test_scene_review_uses_non_streaming_answer_contract_and_parses_wrapped_json(self):
         answer = (
             'Assessment follows:\n```json\n'
-            '{"score": 94, "passed": true, "issues": [], "summary": "Clear, coherent scene."}'
+            '{"score": 94, "passed": true, "issues": [], "checks": '
+            '{"subject":"YES","action":"YES","instrument":"YES","composition":"YES","photorealism":"YES"}, '
+            '"summary": "Clear, coherent scene."}'
             '\n```'
         )
         with tempfile.TemporaryDirectory() as folder:
@@ -243,7 +245,8 @@ class StagedPipelineTests(unittest.TestCase):
 
     def test_storyboard_review_requires_same_performer_and_issue_free_result(self):
         answer = (
-            '{"score": 94, "passed": true, "issues": [], '
+            '{"score": 94, "passed": true, "issues": [], "checks": '
+            '{"same_performer":"YES","same_violin":"YES","macro_anatomy":"YES","consistent_palette":"YES"}, '
             '"summary": "Same performer and instrument across all panels."}'
         )
         with tempfile.TemporaryDirectory() as folder:
@@ -267,7 +270,8 @@ class StagedPipelineTests(unittest.TestCase):
 
     def test_storyboard_review_uses_non_streaming_answer_contract(self):
         answer = (
-            '{"score": 91, "passed": true, "issues": [], '
+            '{"score": 91, "passed": true, "issues": [], "checks": '
+            '{"same_performer":"YES","same_violin":"YES","macro_anatomy":"YES","consistent_palette":"YES"}, '
             '"summary": "All three shots share a coherent visual identity."}'
         )
         with tempfile.TemporaryDirectory() as folder:
