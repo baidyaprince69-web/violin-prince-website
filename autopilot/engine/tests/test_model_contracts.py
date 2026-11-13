@@ -110,5 +110,43 @@ class FluxRequestContractTests(unittest.TestCase):
                     pipeline.make_image("a cinematic illustration", 0)
 
 
+    def test_visual_reviewer_uses_moondream_and_inspects_actual_pixels(self):
+        with tempfile.TemporaryDirectory() as folder:
+            image = Path(folder) / "scene.jpg"
+            Image.new("RGB", (720, 1280), (90, 45, 30)).save(image)
+            assessment = {
+                "response": '{"score":91,"passed":true,"issues":[],"summary":"Clear, coherent scene."}'
+            }
+            with patch.object(pipeline, "ai", return_value=assessment) as mocked:
+                result = pipeline.review_scene_image(
+                    image,
+                    {"title": "Test story", "topic": "A lighthouse", "visual_motif": "amber light"},
+                    {"image_prompt": "A lighthouse at sunset"},
+                    0,
+                )
+            self.assertTrue(result["passed"])
+            self.assertEqual(result["score"], 91)
+            self.assertEqual(result["model"], pipeline.VISION_MODEL)
+            payload = mocked.call_args.args[1]
+            self.assertEqual(payload["task"], "query")
+            self.assertTrue(payload["image"].startswith("data:image/jpeg;base64,"))
+            self.assertIn("Inspect the actual pixels", payload["question"])
+
+    def test_visual_reviewer_fails_closed_on_low_score_or_unclear_output(self):
+        with tempfile.TemporaryDirectory() as folder:
+            image = Path(folder) / "scene.jpg"
+            Image.new("RGB", (720, 1280), (90, 45, 30)).save(image)
+            low = {
+                "response": '{"score":65,"passed":false,"issues":["subject is cropped"],"summary":"Poor composition."}'
+            }
+            with patch.object(pipeline, "ai", return_value=low):
+                result = pipeline.review_scene_image(image, {"title": "Test"}, {"image_prompt": "A lighthouse"}, 0)
+            self.assertFalse(result["passed"])
+            self.assertEqual(result["score"], 65)
+            with patch.object(pipeline, "ai", return_value={"response": "unclear image response"}):
+                invalid = pipeline.review_scene_image(image, {"title": "Test"}, {"image_prompt": "A lighthouse"}, 0)
+            self.assertFalse(invalid["passed"])
+            self.assertEqual(invalid["score"], 0)
+
 if __name__ == "__main__":
     unittest.main()
