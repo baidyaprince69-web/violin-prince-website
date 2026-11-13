@@ -1942,11 +1942,22 @@ def _read_package(require_images=False):
             )
         if not isinstance(assets, list) or len(assets) != 3:
             raise PipelineError("Visual package is missing the three scene-by-scene review records.")
+        storyboard_review = metadata.get("storyboard_review", {})
+        if (
+            not isinstance(storyboard_review, dict)
+            or storyboard_review.get("passed") is not True
+            or int(storyboard_review.get("score", 0)) < MIN_IMAGE_QA_SCORE
+        ):
+            raise PipelineError("The three-scene storyboard has not passed AI continuity review.")
         for index, (asset, image_path) in enumerate(zip(assets, image_paths)):
             if not isinstance(asset, dict):
                 raise PipelineError(f"Visual review record {index + 1} is invalid.")
             review = asset.get("visual_review", {})
-            if not isinstance(review, dict) or review.get("passed") is not True:
+            if (
+                not isinstance(review, dict)
+                or review.get("passed") is not True
+                or int(review.get("score", 0)) < MIN_IMAGE_QA_SCORE
+            ):
                 raise PipelineError(f"Scene {index + 1} has not passed AI visual review.")
             expected_hash = str(asset.get("sha256") or "")
             actual_hash = hashlib.sha256(image_path.read_bytes()).hexdigest()
@@ -2336,6 +2347,13 @@ def render_stage():
         "publishing_status": final_status, "publish_results": publish_result,
         "output_key": stored.get("object_key"), "prepared_run_id": metadata.get("prepared_run_id"),
         "visuals_run_id": metadata.get("visuals_run_id"),
+        "visual_review_status": metadata.get("visual_review_status", "not_reviewed"),
+        "visual_review_model": metadata.get("visual_review_model", ""),
+        "visual_asset_reviews": [
+            item.get("visual_review", {}) for item in metadata.get("visual_assets", [])
+            if isinstance(item, dict)
+        ],
+        "storyboard_review": metadata.get("storyboard_review", {}),
     }
     (OUT / "metadata.json").write_text(
         json.dumps(output_metadata, ensure_ascii=False, indent=2), encoding="utf-8"
