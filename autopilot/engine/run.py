@@ -21,6 +21,7 @@ IMAGE_MODEL = "@cf/black-forest-labs/flux-1-schnell"
 VISION_MODEL = os.environ.get("CF_VISION_MODEL", "@cf/moondream/moondream3.1-9B-A2B")
 MAX_IMAGE_PROMPT_CHARS = 1800
 MAX_IMAGE_QA_ATTEMPTS = 2
+MAX_STORYBOARD_REPAIR_ATTEMPTS = 1
 MIN_IMAGE_QA_SCORE = 80
 WORK, OUT, IMAGES = Path("work"), Path("work/output"), Path("work/images")
 W, H, FPS, SECONDS = 720, 1280, 25, 8
@@ -2143,6 +2144,17 @@ def prepare_stage():
     return 0
 
 
+def _storyboard_repair_scene_index(issues):
+    """Choose the smallest continuity repair: macro anatomy or the final wide-shot performer."""
+    combined = " ".join(str(item) for item in (issues or [])).casefold()
+    if any(term in combined for term in (
+        "bridge", "bow", "string", "fingerboard", "macro", "contact point",
+    )):
+        return 1
+    # Scene 1 remains the character reference; repair the final wide shot by default.
+    return 2
+
+
 def visuals_stage(feedback=""):
     """Generate only the three scene images from a previously prepared package."""
     if not CF_ACCOUNT or not CF_TOKEN:
@@ -2264,10 +2276,75 @@ def visuals_stage(feedback=""):
         )
     storyboard = make_storyboard_preview(plan, image_paths, PACKAGE / "storyboard-preview.png")
     storyboard_review = review_storyboard_consistency(storyboard, plan)
+    for repair_attempt in range(1, MAX_STORYBOARD_REPAIR_ATTEMPTS + 1):
+        if storyboard_review["passed"] and not storyboard_review.get("issues"):
+            break
+
+        issues = storyboard_review.get("issues", [])
+        details = "; ".join(str(issue)[:140] for issue in issues[:5])
+        repair_index = _storyboard_repair_scene_index(issues)
+        scene = plan["scenes"][repair_index]
+        if repair_index == 2:
+            repair_feedback = (
+                "CONTINUITY REPAIR: this must be the exact same adult male violinist as Scene 1: "
+                "same short swept dark-brown hair, clean-shaven face, white dress shirt, charcoal waistcoat, "
+                "same amber-varnished violin and warm walnut concert room. Do not introduce a different person."
+            )
+        else:
+            repair_feedback = (
+                "CONTINUITY REPAIR: match the exact amber-varnished violin shown in the wide shots. "
+                "Show the complete bridge, exactly four strings, ebony fingerboard, one separate dark bow stick, "
+                "one pale horsehair ribbon and one visible hair-to-string contact point. Keep every part sharp."
+            )
+        repair_feedback += " Fix only the storyboard review defects: " + (details or storyboard_review.get("summary", "visual continuity drift"))
+        log(
+            f"Storyboard continuity rejected; targeted repair {repair_attempt}/"
+            f"{MAX_STORYBOARD_REPAIR_ATTEMPTS} regenerates scene {repair_index + 1} only."
+        )
+        repair_prompt = _scene_visual_prompt(
+            scene, repair_feedback, index=repair_index, plan=plan
+        )
+        repaired_image = make_image(repair_prompt, repair_index)
+        if not is_valid_portrait_scene_image(repaired_image):
+            raise PipelineError(
+                f"Storyboard repair generated an invalid portrait image for scene {repair_index + 1}."
+            )
+        repair_review = review_scene_image(
+            repaired_image, plan, scene, repair_index
+        )
+        repair_review["attempt"] = 1
+        repair_review["continuity_repair_attempt"] = repair_attempt
+        if not repair_review.get("passed") or repair_review.get("issues"):
+            repair_details = "; ".join(
+                str(issue)[:140] for issue in repair_review.get("issues", [])[:5]
+            )
+            raise PipelineError(
+                f"Storyboard repair scene {repair_index + 1} did not pass its individual visual gate: "
+                + (repair_details or repair_review.get("summary", "visual approval withheld"))
+            )
+        shutil.copy2(repaired_image, image_paths[repair_index])
+        image_hash = hashlib.sha256(image_paths[repair_index].read_bytes()).hexdigest()
+        visual_assets[repair_index] = {
+            "file": image_paths[repair_index].name,
+            "mode": "cloudflare_flux_portrait_extended",
+            "width": W,
+            "height": H,
+            "sha256": image_hash,
+            "plan_sha256": plan_hash,
+            "generated_run_id": str(RUN_ID),
+            "visual_review": repair_review,
+        }
+        metadata["visual_assets"] = visual_assets
+        _write_json_atomic(paths["metadata"], metadata)
+        storyboard = make_storyboard_preview(
+            plan, image_paths, PACKAGE / "storyboard-preview.png"
+        )
+        storyboard_review = review_storyboard_consistency(storyboard, plan)
+
     if not storyboard_review["passed"] or storyboard_review.get("issues"):
         details = "; ".join(str(issue)[:140] for issue in storyboard_review.get("issues", [])[:5])
         raise PipelineError(
-            "The three scenes did not pass storyboard continuity review. "
+            "The three scenes did not pass storyboard continuity review after targeted repair. "
             + (details or storyboard_review.get("summary", "Visual identity was not consistent."))
         )
     metadata["storyboard_review"] = storyboard_review
