@@ -205,6 +205,10 @@ class CreativeQualityTests(unittest.TestCase):
         self.assertIn("window.__TEXT_FRAME_AUDIT__", source)
         self.assertIn("window.__FRAME_TEXT_EXPECTED__", source)
         self.assertIn("D.narration_text", source)
+        expected_unicode_pattern = "replace(/[^" + chr(92) * 2 + "p{L}" + chr(92) * 2 + "p{N}']/gu"
+        expected_whitespace_pattern = ".split(/" + chr(92) * 2 + "s+/)"
+        self.assertIn(expected_unicode_pattern, source)
+        self.assertIn(expected_whitespace_pattern, source)
         self.assertIn("scriptWords.length === cueWords.length", source)
         self.assertIn("textAudit.ok", source)
         self.assertIn('page.locator("#stage-wrap").screenshot', source)
