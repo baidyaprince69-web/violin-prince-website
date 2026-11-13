@@ -1138,8 +1138,8 @@ def _vision_result_diagnostic(result):
     return "Workers AI response shape: " + "; ".join(details[:30]) if details else "Workers AI returned an empty response."
 
 
-def _parse_vision_assessment(result, label="visual reviewer"):
-    """Accept a validated JSON assessment or a clear binary PASS/FAIL text verdict."""
+def _parse_vision_assessment(result, label="visual reviewer", required_checks=None):
+    """Accept structured JSON or a complete, explicit per-requirement YES/NO checklist."""
     raw = _vision_text(result)
     assessment = None
     decoder = json.JSONDecoder()
@@ -1179,50 +1179,39 @@ def _parse_vision_assessment(result, label="visual reviewer"):
             }
 
     compact = re.sub(r"\s+", " ", raw).strip()
-    token_match = re.match(r"^(PASS|FAIL)\b\s*[:.\-]?\s*(.*)$", compact, flags=re.IGNORECASE)
-    if token_match:
-        verdict = token_match.group(1).upper()
-        reason = token_match.group(2).strip()[:300]
-        if verdict == "PASS":
-            return {
-                "model": VISION_MODEL,
-                "score": MIN_IMAGE_QA_SCORE,
-                "passed": True,
-                "issues": [],
-                "summary": reason or "Vision reviewer returned an explicit PASS.",
-                "assessment_mode": "binary_text_verdict",
-            }
-        return {
-            "model": VISION_MODEL,
-            "score": 0,
-            "passed": False,
-            "issues": [reason or f"{label} returned an explicit FAIL."],
-            "summary": compact[:500],
-            "assessment_mode": "binary_text_verdict",
-        }
+    if required_checks:
+        results = {}
+        duplicate_checks = set()
+        for check in required_checks:
+            matches = re.findall(
+                rf"(?<![A-Za-z0-9_]){re.escape(check)}\s*[:=]\s*(YES|NO)\b",
+                compact,
+                flags=re.IGNORECASE,
+            )
+            if len(matches) == 1:
+                results[check] = matches[0].upper()
+            elif len(matches) > 1:
+                duplicate_checks.add(check)
 
-    positive = re.search(
-        r"\b(?:no visible defects|no visible issues|no defects|no issues|"
-        r"matches the prompt|matching the prompt|fully satisfies|"
-        r"all requirements (?:are|were) (?:met|satisfied|visible))\b",
-        compact,
-        flags=re.IGNORECASE,
-    )
-    negative = re.search(
-        r"\b(?:missing|unclear|not visible|not clear|not present|does not|doesn't|"
-        r"fails to|different|mismatch|distorted|malformed|unreadable|uncertain|"
-        r"cropped|blurred|fused|broken|bent|duplicate|wrong)\b",
-        compact,
-        flags=re.IGNORECASE,
-    )
-    if positive and not negative:
+        issues = []
+        for check in required_checks:
+            if check in duplicate_checks:
+                issues.append(f"{check}: duplicate or conflicting verdict")
+            elif check not in results:
+                issues.append(f"{check}: missing verdict")
+            elif results[check] != "YES":
+                issues.append(f"{check}: reviewer marked NO")
+
+        passed = not issues and len(results) == len(required_checks)
+        diagnostic = compact[:500] if compact else _vision_result_diagnostic(result)
         return {
             "model": VISION_MODEL,
-            "score": MIN_IMAGE_QA_SCORE,
-            "passed": True,
-            "issues": [],
-            "summary": compact[:500],
-            "assessment_mode": "clear_positive_text_assessment",
+            "score": MIN_IMAGE_QA_SCORE if passed else 0,
+            "passed": passed,
+            "issues": issues[:8] if issues else [],
+            "summary": diagnostic,
+            "assessment_mode": "per_requirement_checklist",
+            "checks": results,
         }
 
     diagnostic = compact[:420] if compact else _vision_result_diagnostic(result)
@@ -1230,7 +1219,7 @@ def _parse_vision_assessment(result, label="visual reviewer"):
         "model": VISION_MODEL,
         "score": 0,
         "passed": False,
-        "issues": [f"{label} response had no unambiguous pass verdict"],
+        "issues": [f"{label} response lacked structured JSON or a required checklist"],
         "summary": diagnostic,
         "assessment_mode": "unresolved_text_response",
     }
@@ -1258,41 +1247,48 @@ def review_scene_image(path, plan, scene, index):
     )
 
     if is_violin_macro:
+        required_checks = [
+            "bridge", "four_strings", "fingerboard", "bow_stick",
+            "horsehair", "hair_contact", "all_in_focus",
+        ]
         checklist = (
-            "Inspect this as a real violin macro photograph. Confirm one complete upright maple bridge "
-            "with both feet visible; four separate, evenly spaced strings; and a clearly distinct ebony "
-            "fingerboard. Confirm exactly one violin bow. Its straight dark wooden stick and pale horsehair "
-            "ribbon must run alongside one another with a visible gap and attach only at the frog and tip. "
-            "Reject a broken, bent, fused, doubled, conjoined or floating bow part. The horsehair, not the "
-            "stick, must cross and visibly touch a string at one clear point between bridge and fingerboard. "
-            "Keep the entire bridge and enough adjacent bow, strings and fingerboard visible to understand "
-            "the anatomy. Reject severe cropping, distorted perspective, extra strings, duplicate bridges, "
-            "impossible string paths, text, logos or watermarks."
+            "Inspect the actual pixels as a technical violin macro photograph. bridge=YES only if one "
+            "complete upright maple bridge is visible with both feet. four_strings=YES only if exactly "
+            "four separate, parallel, individually countable strings are visible. fingerboard=YES only "
+            "if the ebony fingerboard is clearly distinct behind the bridge. bow_stick=YES only if one "
+            "slim, straight, dark wooden bow stick is clearly visible. horsehair=YES only if one narrow "
+            "pale horsehair ribbon is separately visible, parallel to the stick, with a visible gap "
+            "between the two parts except at frog and tip. hair_contact=YES only if the hair ribbon—not "
+            "the stick—visibly touches exactly one string at one point between bridge and fingerboard. "
+            "all_in_focus=YES only if bridge, four strings, fingerboard, both bow parts and contact point "
+            "are all fully inside the frame and simultaneously sharp. Any hidden, merged, cropped, "
+            "duplicated, malformed or unclear component means NO."
         )
     else:
+        required_checks = ["subject", "action", "instrument", "composition", "photorealism"]
         checklist = (
-            "Check that the image clearly depicts the intended subject and action. The main subject must be "
-            "recognisable, the composition intentional, and important objects fully readable rather than "
-            "cropped, fused or duplicated. Materials and anatomy should look plausible. The image should "
-            "look like photorealistic cinematic editorial photography, not a diagram or illustration. "
-            "Reject unrelated subjects, malformed anatomy, distorted objects, visible text, logos, watermarks "
-            "or empty framing."
+            "Inspect the actual pixels. subject=YES only if the intended main subject is recognizable. "
+            "action=YES only if the depicted action matches the scene brief. instrument=YES only if the "
+            "correct instrument is visible with plausible anatomy and handling. composition=YES only if "
+            "the subject and essential objects are fully readable, not awkwardly cropped, fused or "
+            "duplicated. photorealism=YES only if materials and anatomy look like plausible cinematic "
+            "photography rather than a diagram or illustration."
         )
 
     question = (
-        "You are a strict visual quality inspector. Inspect the actual pixels, not the prompt. "
+        "You are a strict visual quality inspector. Inspect the actual image pixels, not the written prompt. "
         "Scene title: " + str(plan.get("title", ""))[:120] +
         ". Scene brief: " + str(scene.get("image_prompt", ""))[:420] +
         ". Recurring visual identity: " + str(plan.get("visual_motif", ""))[:160] +
-        ". Required checks: " + checklist +
-        " Answer with exactly one leading verdict: PASS or FAIL. Use PASS only if every required detail "
-        "is clearly visible and correct. If anything is missing, unclear, cropped, fused, malformed or out "
-        "of focus, answer FAIL followed by one brief defect. Do not echo the requirements or list successful "
-        "checks. Do not produce JSON, Markdown or a long explanation. When uncertain, answer FAIL."
+        ". " + checklist +
+        " Return exactly one line containing every required key exactly once as key=YES or key=NO, "
+        "separated by semicolons. Do not output a generic PASS, a paragraph, JSON or a Markdown list. "
+        "Do not omit a key. Never guess; use NO whenever the detail is hidden or uncertain. "
+        "Example format only: " + "; ".join(f"{key}=NO" for key in required_checks) + "."
     )
 
     result = _vision_query(image_data, question, timeout=120)
-    return _parse_vision_assessment(result, "visual reviewer")
+    return _parse_vision_assessment(result, "visual reviewer", required_checks=required_checks)
 
 
 def review_storyboard_consistency(path, plan):
@@ -1302,22 +1298,28 @@ def review_storyboard_consistency(path, plan):
     except OSError as exc:
         raise PipelineError(f"Storyboard visual QA could not read the contact sheet: {exc}") from exc
     image_data = "data:image/png;base64," + base64.b64encode(image_bytes).decode("ascii")
+    required_checks = ["same_performer", "same_violin", "macro_anatomy", "consistent_palette"]
     question = (
         "You are the continuity supervisor for a three-scene short video. Inspect the actual image panels "
         "from left to right, not the captions. Story: " + str(plan.get("title", ""))[:120] +
         ". Topic: " + str(plan.get("topic", ""))[:180] +
         ". Recurring visual identity: " + str(plan.get("visual_motif", ""))[:180] +
-        ". Panel 1 is the hook, panel 2 is the macro/detail, panel 3 is the payoff. Use distinct compositions "
-        "for the three story beats while preserving one coherent identity. Check that Scene 1 "
-        "and Scene 3 show the SAME identifiable performer as one recognizable person: matching face, hairstyle and clothing. Check "
-        "that all panels use the same violin design and warm visual style, and that the macro shows plausible "
-        "bridge, strings, fingerboard and bow anatomy. If any identity or visual detail differs or is unclear, "
-        "the result is FAIL. Answer with exactly one leading verdict: PASS or FAIL. Use PASS only if all "
-        "continuity requirements are clearly satisfied; otherwise answer FAIL followed by one brief defect. "
-        "Do not echo the checklist, produce JSON or write a long explanation. When uncertain, answer FAIL."
+        ". Panel 1 is the hook, panel 2 is the macro/detail, panel 3 is the payoff. "
+        "same_performer=YES only if Scene 1 and Scene 3 show the same identifiable adult performer, "
+        "matching face, hairstyle and clothing. same_violin=YES only if all scenes visibly use the same "
+        "amber-varnished violin design and recognizable body/tailpiece/fingerboard details. "
+        "macro_anatomy=YES only if Scene 2 clearly shows the complete bridge, exactly four countable "
+        "strings, distinct fingerboard, separate bow stick and horsehair ribbon, and visible hair-to-string "
+        "contact at one point. consistent_palette=YES only if the three scenes share a coherent warm "
+        "cinematic palette and realistic photographic style. Any missing, changed or uncertain requirement "
+        "must be NO. Return exactly one line containing every required key exactly once as key=YES or key=NO, "
+        "separated by semicolons. Never output a generic PASS, prose, JSON or Markdown. Do not omit any key. "
+        "Example format only: same_performer=NO; same_violin=NO; macro_anatomy=NO; consistent_palette=NO."
     )
     result = _vision_query(image_data, question, timeout=120)
-    return _parse_vision_assessment(result, "storyboard continuity reviewer")
+    return _parse_vision_assessment(result, "storyboard continuity reviewer", required_checks=required_checks)
+
+
 def is_valid_portrait_scene_image(path):
     """Return true only for a readable image already normalized to the V3 portrait canvas."""
     try:
