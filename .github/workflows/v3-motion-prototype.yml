@@ -180,6 +180,17 @@ jobs:
           print("Prepared story, native narration timings, soundtrack and narration assets passed preflight.")
           PY
 
+      - name: Verify Cloudflare account plan and Workers AI Neuron headroom
+        if: env.FRESH_VISUAL_TEST == 'true'
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CF_AI_TOKEN: ${{ secrets.CF_AI_TOKEN }}
+          CF_ANALYTICS_TOKEN: ${{ secrets.CF_ANALYTICS_TOKEN || secrets.CF_AI_TOKEN }}
+          CF_BILLING_TOKEN: ${{ secrets.CF_BILLING_TOKEN || secrets.CF_AI_TOKEN }}
+        run: |
+          python autopilot/scripts/cloudflare_usage_preflight.py \
+            --report work/output/motion-prototype/cloudflare-usage-preflight.json
+
       - name: Restore previous V3 stage checkpoints (optional)
         if: github.event_name == 'workflow_dispatch' && inputs.resume_run_id != ''
         uses: actions/download-artifact@v4
