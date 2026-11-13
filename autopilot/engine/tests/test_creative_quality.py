@@ -30,6 +30,43 @@ class CreativeQualityTests(unittest.TestCase):
         self.assertAlmostEqual(sum(durations), 24.0, places=2)
         self.assertNotEqual(durations, (8.0, 8.0, 8.0))
 
+
+    def test_motion_graphic_card_is_transparent_and_contains_scene_detail(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / "motion-graphic.png"
+            scene = {
+                "caption": "A remarkable detail emerges",
+                "graphic_label": "THE KEY DETAIL",
+                "graphic_detail": "The original source confirms this detail",
+            }
+            pipeline.make_motion_graphic_card(scene, 1, {"title": "Test"}, target)
+            with Image.open(target) as graphic:
+                self.assertEqual(graphic.size, (620, 245))
+                self.assertEqual(graphic.mode, "RGBA")
+                self.assertEqual(graphic.getpixel((0, 0))[3], 0)
+                self.assertGreater(graphic.getchannel("A").getbbox()[2], 500)
+
+    def test_kinetic_captions_keep_measured_sentence_times_and_animation(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / "narration.ass"
+            pipeline.write_kinetic_ass(
+                [{"start": 0.2, "end": 2.4, "text": "A remarkable detail emerges today."}],
+                target,
+            )
+            content = target.read_text(encoding="utf-8")
+            self.assertIn("Dialogue: 0,0:00:00.20,0:00:02.40,VP", content)
+            self.assertIn(r"{\\fad(180,220)", content)
+            self.assertIn(r"{\\c&H008BCEEA&\\b1}", content)
+            self.assertIn("remarkable", content)
+
+    def test_camera_motion_varies_by_scene_but_keeps_smooth_easing(self):
+        first = pipeline.camera_motion_filter(120, 0)
+        second = pipeline.camera_motion_filter(120, 1)
+        third = pipeline.camera_motion_filter(120, 2)
+        self.assertNotEqual(first, second)
+        self.assertNotEqual(second, third)
+        self.assertIn("3-2*", first)
+
     def test_scene_timing_has_safe_equal_duration_fallback(self):
         self.assertEqual(
             pipeline.scene_durations_from_narration({"subtitle_cues": []}),
