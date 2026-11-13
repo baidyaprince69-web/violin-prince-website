@@ -459,14 +459,39 @@ def research():
 
 
 def ai(model, payload, timeout=180):
+    """Call Workers AI with one bounded retry for transient transport/5xx failures only."""
     url = f"https://api.cloudflare.com/client/v4/accounts/{CF_ACCOUNT}/ai/run/{model}"
-    r = http.post(url, headers={"Authorization": "Bearer " + CF_TOKEN}, json=payload, timeout=timeout)
-    if r.status_code in (402, 403, 429):
-        raise PipelineError(f"Workers AI refused the request (HTTP {r.status_code}). Free quota may be exhausted or token permissions missing. No paid fallback.")
-    if not r.ok:
-        raise PipelineError(f"Workers AI HTTP {r.status_code}: {r.text[:400]}")
-    body = r.json()
-    if not body.get("success", True) or not isinstance(body.get("result"), dict):
+    headers = {"Authorization": "Bearer " + CF_TOKEN}
+    transient_statuses = {500, 502, 503, 504}
+    response = None
+    for attempt in range(2):
+        try:
+            response = http.post(url, headers=headers, json=payload, timeout=timeout)
+        except (requests.Timeout, requests.ConnectionError) as exc:
+            if attempt == 0:
+                log("Temporary Workers AI network issue; retrying once.")
+                time.sleep(1)
+                continue
+            raise PipelineError("Workers AI request failed after one retry: " + str(exc)[:240]) from exc
+        if response.status_code in (402, 403, 429):
+            raise PipelineError(
+                f"Workers AI refused the request (HTTP {response.status_code}). "
+                "Free quota may be exhausted or token permissions missing. No paid fallback."
+            )
+        if response.status_code in transient_statuses and attempt == 0:
+            log(f"Temporary Workers AI server error (HTTP {response.status_code}); retrying once.")
+            time.sleep(1)
+            continue
+        if not response.ok:
+            raise PipelineError(f"Workers AI HTTP {response.status_code}: {response.text[:400]}")
+        break
+    if response is None:
+        raise PipelineError("Workers AI request did not return a response.")
+    try:
+        body = response.json()
+    except ValueError as exc:
+        raise PipelineError("Workers AI returned invalid JSON.") from exc
+    if not isinstance(body, dict) or not body.get("success", True) or not isinstance(body.get("result"), dict):
         raise PipelineError("Workers AI returned an unsuccessful or unexpected response.")
     return body["result"]
 
@@ -1031,20 +1056,53 @@ def make_image(prompt, index):
     IMAGES.mkdir(parents=True, exist_ok=True)
     path = IMAGES / f"scene-{index + 1}.jpg"
     frame.save(path, "JPEG", quality=94, optimize=True)
+    if not is_valid_portrait_scene_image(path):
+        path.unlink(missing_ok=True)
+        raise PipelineError("Normalized AI image did not meet the required 9:16 portrait dimensions.")
     return path
 
 
 def use_precision_macro(plan, scene, index):
-    """Use deterministic geometry for violin bow-contact macro shots."""
-    if index != 1:
+    """Use deterministic geometry only when the story itself is specifically about violin bowing."""
+    if index != 1 or not isinstance(plan, dict) or not isinstance(scene, dict):
         return False
-    context = " ".join((
+    story_identity = " ".join((
         str(plan.get("topic", "")),
         str(plan.get("title", "")),
+        str(plan.get("visual_motif", "")),
+    )).casefold()
+    scene_identity = " ".join((
         str(scene.get("image_prompt", "")),
         str(scene.get("caption", "")),
+        str(scene.get("graphic_detail", "")),
     )).casefold()
-    return "violin" in context and "bow" in context
+    if not re.search(r"\bviolin(?:ist)?\b", story_identity):
+        return False
+    if re.search(
+        r"\b(cello|cellist|viola|violist|double bass|contrabass|guitarist|guitar|pianist|piano)\b",
+        story_identity,
+    ):
+        return False
+    return bool(re.search(r"\bbow\b", scene_identity))
+
+
+def is_valid_portrait_scene_image(path):
+    """Return true only for a readable image already normalized to the V3 portrait canvas."""
+    try:
+        with Image.open(path) as image:
+            image.verify()
+        with Image.open(path) as image:
+            image.load()
+            return image.size == (W, H)
+    except Exception:
+        return False
+
+
+def should_reuse_scene_image(path, plan, scene, index):
+    """Never reuse square/invalid art or an old AI macro that must be procedurally replaced."""
+    if use_precision_macro(plan, scene, index):
+        return False
+    return is_valid_portrait_scene_image(path)
 
 
 def make_macro_contact_illustration(target):
@@ -1118,8 +1176,30 @@ def make_macro_contact_illustration(target):
         draw.rounded_rectangle((x - 10, y_stick - 7, x + 10, y_hair + 7),
                                radius=5, fill=(69, 37, 24, 255), outline=(196, 139, 83, 255), width=2)
 
-    # One focal contact point is intentionally highlighted; no generated anatomy is involved.
-    contact = (319, 660)
+    # Derive the contact marker from the second string's actual path and horsehair.
+    contact_string_index = 1
+    contact_string_y = 660
+
+    def x_at_y(points, target_y):
+        for (x1, y1), (x2, y2) in zip(points, points[1:]):
+            if min(y1, y2) <= target_y <= max(y1, y2) and y2 != y1:
+                ratio = (target_y - y1) / (y2 - y1)
+                return x1 + ratio * (x2 - x1)
+        raise PipelineError("Macro string path does not cross the selected contact height.")
+
+    def y_at_x(points, target_x):
+        for (x1, y1), (x2, y2) in zip(points, points[1:]):
+            if min(x1, x2) <= target_x <= max(x1, x2) and x2 != x1:
+                ratio = (target_x - x1) / (x2 - x1)
+                return y1 + ratio * (y2 - y1)
+        raise PipelineError("Macro horsehair path does not cross the selected string.")
+
+    contact_x = x_at_y(string_paths[contact_string_index], contact_string_y)
+    hair_contact_y = y_at_x(hair_path, contact_x)
+    contact_alignment_error = abs(hair_contact_y - contact_string_y)
+    if contact_alignment_error > 5:
+        raise PipelineError("Macro bow hair does not intersect the selected string closely enough.")
+    contact = (round(contact_x), round(hair_contact_y))
     contact_glow = Image.new("RGBA", image.size, (0, 0, 0, 0))
     contact_draw = ImageDraw.Draw(contact_glow)
     contact_draw.ellipse((contact[0] - 48, contact[1] - 48, contact[0] + 48, contact[1] + 48),
@@ -1162,6 +1242,8 @@ def make_macro_contact_illustration(target):
         "string_count": 4,
         "highlighted_contact_points": 1,
         "bow_stick_and_horsehair_separate": True,
+        "contact_string_number": contact_string_index + 1,
+        "contact_alignment_error_px": round(contact_alignment_error, 2),
     }
 
 
@@ -1612,13 +1694,40 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         r"rapid|difficult|speed|fingerboard|bow hand|left hand|right hand|technique)\b",
         context,
     ))
+    story_identity = " ".join((
+        str(story.get("topic", "")),
+        str(story.get("title", "")),
+        str(story.get("visual_motif", "")),
+    )).casefold()
+    scene_identity = " ".join((
+        raw_prompt,
+        str(scene.get("caption", "")),
+        str(scene.get("graphic_detail", "")),
+    )).casefold()
+    has_violin_identity = bool(re.search(r"\bviolin(?:ist)?\b", story_identity))
+    competing_instrument = bool(re.search(
+        r"\b(cello|cellist|viola|violist|double bass|contrabass|guitarist|guitar|pianist|piano)\b",
+        story_identity,
+    ))
+    violin_performance = (
+        performance_related
+        and has_violin_identity
+        and not competing_instrument
+        and bool(re.search(r"\bbow\b", scene_identity))
+    )
     scene_index = max(0, min(2, int(index)))
-    compact_prompt = textwrap.shorten(raw_prompt, width=105 if performance_related and scene_index == 1 else 250, placeholder="…")
-    if performance_related and scene_index == 1:
+    compact_prompt = textwrap.shorten(
+        raw_prompt, width=105 if violin_performance and scene_index == 1 else 250, placeholder="…"
+    )
+    if violin_performance and scene_index == 1:
         compact_prompt = "Violin bow hair contacting one string"
-    anchor = textwrap.shorten(re.sub(r"\s+", " ", anchor_raw), width=88 if performance_related and scene_index == 1 else 125, placeholder="…")
+    anchor = textwrap.shorten(
+        re.sub(r"\s+", " ", anchor_raw),
+        width=88 if violin_performance and scene_index == 1 else 125,
+        placeholder="…",
+    )
 
-    if performance_related and scene_index == 1:
+    if violin_performance and scene_index == 1:
         # Put the physical contact geometry before stylistic detail. FLUX receives
         # this entire prompt; the bow/strings requirements are never beyond a cut-off.
         prompt_parts = [
@@ -1634,7 +1743,7 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         ]
     else:
         shot_roles = (
-            "SHOT 1 — TWO-SECOND HOOK: instantly readable performer, violin and active playing posture.",
+            "SHOT 1 — TWO-SECOND HOOK: instantly readable performer, instrument and active playing posture.",
             "SHOT 2 — EXTREME CLOSE-UP DETAIL: isolate one tactile physical interaction and its precise focal point.",
             "SHOT 3 — EMOTIONAL PAYOFF: widen back out to connect the detail with the full performance.",
         )
@@ -1652,13 +1761,23 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
             "COMPOSITION RULES: clear focal hierarchy, realistic perspective, Portrait 9:16 composition, no text, no lettering, no logo, no watermark.",
         ]
         if performance_related and scene_index == 0:
-            prompt_parts.append(
-                "PERFORMANCE ACCURACY: natural violin under jaw/shoulder; plausible left hand on fingerboard and right hand on bow."
-            )
+            if violin_performance:
+                prompt_parts.append(
+                    "PERFORMANCE ACCURACY: natural violin under jaw/shoulder; plausible left hand on fingerboard and right hand on bow."
+                )
+            else:
+                prompt_parts.append(
+                    "PERFORMANCE ACCURACY: believable instrument support, natural posture and anatomically plausible playing hands."
+                )
         elif performance_related and scene_index == 2:
-            prompt_parts.append(
-                "PERFORMANCE PAYOFF: performer, violin, both hands and bow in a natural, connected playing posture."
-            )
+            if violin_performance:
+                prompt_parts.append(
+                    "PERFORMANCE PAYOFF: performer, violin, both hands and bow in a natural, connected playing posture."
+                )
+            else:
+                prompt_parts.append(
+                    "PERFORMANCE PAYOFF: performer and instrument resolve in a natural, connected playing posture."
+                )
         elif scene_index == 1:
             prompt_parts.append(
                 "MACRO FOCUS: one exact surface or material interaction, narrow focus plane and quiet background."
@@ -1797,21 +1916,30 @@ def visuals_stage(feedback=""):
     if not CF_ACCOUNT or not CF_TOKEN:
         raise PipelineError("CF_ACCOUNT_ID and CF_AI_TOKEN are required for the Visuals stage.")
     plan, metadata, _narration_info, paths, image_paths = _read_package(require_images=False)
+    visual_assets = []
     for index, scene in enumerate(plan["scenes"]):
-        # Reuse any valid image already present when recovering a partially completed
-        # visual stage; do not spend another model call on work already completed.
-        if image_paths[index].is_file():
-            try:
-                with Image.open(image_paths[index]) as existing:
-                    existing.verify()
-                log(f"Reusing valid scene image {index + 1}/3 from an earlier attempt.")
-                continue
-            except Exception:
-                image_paths[index].unlink(missing_ok=True)
+        if image_paths[index].is_file() and should_reuse_scene_image(
+            image_paths[index], plan, scene, index
+        ):
+            log(f"Reusing validated 9:16 portrait scene image {index + 1}/3.")
+            visual_assets.append({
+                "file": image_paths[index].name,
+                "mode": "reused_valid_portrait",
+                "width": W,
+                "height": H,
+            })
+            continue
 
+        # Square legacy images and old AI violin macros are not reusable.
+        if image_paths[index].exists():
+            log(f"Replacing stale or incompatible scene image {index + 1}/3.")
+            image_paths[index].unlink(missing_ok=True)
+
+        macro_info = None
         if use_precision_macro(plan, scene, index):
             generated = IMAGES / f"scene-{index + 1}.jpg"
             macro_info = make_macro_contact_illustration(generated)
+            mode = "deterministic_violin_contact_illustration"
             log(
                 "Rendered deterministic violin-contact macro: "
                 f"{macro_info['string_count']} strings, "
@@ -1819,18 +1947,35 @@ def visuals_stage(feedback=""):
             )
         else:
             prompt = _scene_visual_prompt(scene, feedback, index=index, plan=plan)
-            try:
-                generated = make_image(prompt, index)
-            except (requests.Timeout, requests.ConnectionError):
-                log(f"Temporary connection issue for scene {index + 1}; retrying once.")
-                time.sleep(2)
-                generated = make_image(prompt, index)
+            generated = make_image(prompt, index)
+            mode = "cloudflare_flux_portrait_extended"
+
+        if not is_valid_portrait_scene_image(generated):
+            raise PipelineError(
+                f"Scene {index + 1} generator produced an invalid portrait image; "
+                "the visual package was not marked complete."
+            )
         shutil.copy2(generated, image_paths[index])
-        log(f"Prepared portrait scene image {index + 1}/3.")
+        if not is_valid_portrait_scene_image(image_paths[index]):
+            raise PipelineError(f"Scene {index + 1} failed portrait validation after copying into the package.")
+
+        asset_record = {
+            "file": image_paths[index].name,
+            "mode": mode,
+            "width": W,
+            "height": H,
+        }
+        if macro_info:
+            asset_record.update(macro_info)
+        visual_assets.append(asset_record)
+        log(f"Prepared validated portrait scene image {index + 1}/3.")
     storyboard = make_storyboard_preview(plan, image_paths, PACKAGE / "storyboard-preview.png")
     metadata["stage"] = "visuals_ready"
     metadata["visual_feedback"] = re.sub(r"\s+", " ", str(feedback or "")).strip()[:600]
     metadata["visuals_run_id"] = RUN_ID
+    metadata["visual_assets"] = visual_assets
+    metadata["visual_modes"] = [item["mode"] for item in visual_assets]
+    metadata["portrait_dimensions"] = [W, H]
     paths["metadata"].write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
     log("Storyboard preview created: " + str(storyboard))
     return 0

@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from PIL import Image
 import numpy as np
 import soundfile as sf
 
@@ -56,6 +57,8 @@ class MotionPrototypeInputTests(unittest.TestCase):
                 image_path = package / f"scene-{index}.jpg"
                 self.assertTrue(image_path.is_file())
                 self.assertGreater(image_path.stat().st_size, 10000)
+                with Image.open(image_path) as image:
+                    self.assertEqual(image.size, (720, 1280))
 
             words = plan["narration_script"].split()
             self.assertGreaterEqual(len(words), 30)

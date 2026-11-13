@@ -56,12 +56,46 @@ class FluxRequestContractTests(unittest.TestCase):
 
             self.assertTrue(output.exists())
             with Image.open(output) as generated:
-                self.assertEqual(generated.size, (32, 32))
+                self.assertEqual(generated.size, (pipeline.W, pipeline.H))
+                self.assertEqual(generated.format, "JPEG")
             self.assertEqual(len(calls), 1)
             model, payload, timeout = calls[0]
             self.assertEqual(model, pipeline.IMAGE_MODEL)
             self.assertEqual(set(payload), {"prompt", "steps"})
             self.assertEqual(timeout, 240)
+
+    def test_ai_retries_one_transient_server_error(self):
+        from unittest.mock import Mock
+        temporary = Mock(status_code=503, ok=False, text="temporary outage")
+        success = Mock(status_code=200, ok=True)
+        success.json.return_value = {"success": True, "result": {"response": "ok"}}
+        with patch.object(pipeline.http, "post", side_effect=[temporary, success]) as post, \\
+             patch.object(pipeline.time, "sleep"):
+            result = pipeline.ai("test-model", {"prompt": "test"}, timeout=3)
+        self.assertEqual(result, {"response": "ok"})
+        self.assertEqual(post.call_count, 2)
+
+    def test_ai_does_not_retry_quota_or_permission_failures(self):
+        from unittest.mock import Mock
+        for status in (402, 403, 429):
+            with self.subTest(status=status):
+                refusal = Mock(status_code=status, ok=False, text="refused")
+                with patch.object(pipeline.http, "post", return_value=refusal) as post, \\
+                     patch.object(pipeline.time, "sleep"):
+                    with self.assertRaisesRegex(pipeline.PipelineError, f"HTTP {status}"):
+                        pipeline.ai("test-model", {"prompt": "test"}, timeout=3)
+                self.assertEqual(post.call_count, 1)
+
+    def test_ai_retries_one_transient_connection_failure(self):
+        import requests
+        from unittest.mock import Mock
+        success = Mock(status_code=200, ok=True)
+        success.json.return_value = {"success": True, "result": {"response": "ok"}}
+        with patch.object(pipeline.http, "post", side_effect=[requests.ConnectionError("offline"), success]) as post, \\
+             patch.object(pipeline.time, "sleep"):
+            result = pipeline.ai("test-model", {"prompt": "test"}, timeout=3)
+        self.assertEqual(result, {"response": "ok"})
+        self.assertEqual(post.call_count, 2)
 
     def test_invalid_image_bytes_fail_with_clear_error(self):
         invalid = base64.b64encode(b"not-an-image").decode("ascii")

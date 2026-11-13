@@ -72,6 +72,10 @@ class CreativeQualityTests(unittest.TestCase):
         self.assertTrue(pipeline.use_precision_macro(plan, scene, 1))
         self.assertFalse(pipeline.use_precision_macro(plan, scene, 0))
         self.assertFalse(pipeline.use_precision_macro({"topic": "A cello story"}, scene, 1))
+        self.assertFalse(pipeline.use_precision_macro({"topic": "A violin and cello comparison"}, scene, 1))
+        self.assertFalse(
+            pipeline.use_precision_macro(plan, {"image_prompt": "A macro view of the bridge"}, 1)
+        )
 
     def test_kinetic_captions_keep_measured_sentence_times_and_animation(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -188,6 +192,33 @@ class CreativeQualityTests(unittest.TestCase):
         self.assertIn("window.__TYPOGRAPHY_QA__", source)
         self.assertIn("lowercase_s_pixels", source)
         self.assertIn("await document.fonts.ready", source)
+
+    def test_non_violin_performance_does_not_inherit_violin_macro_anatomy(self):
+        prompt = pipeline._scene_visual_prompt(
+            {
+                "image_prompt": "A cellist draws the bow across the cello strings",
+                "caption": "The bow changes direction",
+            },
+            index=1,
+            plan={"topic": "How a cellist shapes a musical phrase"},
+        )
+        self.assertIn("SHOT 2 — EXTREME CLOSE-UP DETAIL", prompt)
+        self.assertNotIn("Violin bow hair contacting one string", prompt)
+        self.assertNotIn("maple bridge supports four separate", prompt)
+
+    def test_square_legacy_image_is_not_reused_and_macro_is_always_regenerated(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            square = root / "square.jpg"
+            portrait = root / "portrait.jpg"
+            Image.new("RGB", (1024, 1024), (40, 50, 60)).save(square)
+            Image.new("RGB", (pipeline.W, pipeline.H), (40, 50, 60)).save(portrait)
+            violin_plan = {"topic": "How a violinist shapes a phrase"}
+            violin_scene = {"image_prompt": "Violin bow hair contacting one string"}
+            other_scene = {"image_prompt": "A lighthouse at dawn"}
+            self.assertFalse(pipeline.should_reuse_scene_image(square, violin_plan, other_scene, 0))
+            self.assertTrue(pipeline.should_reuse_scene_image(portrait, violin_plan, other_scene, 0))
+            self.assertFalse(pipeline.should_reuse_scene_image(portrait, violin_plan, violin_scene, 1))
 
     def test_non_performance_macro_uses_one_clear_focal_detail(self):
         prompt = pipeline._scene_visual_prompt(
