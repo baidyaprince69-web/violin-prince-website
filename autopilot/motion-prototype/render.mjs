@@ -84,27 +84,17 @@ window.__DATA__ = ${safeJson};
     return lines.slice(0, 2);
   };
 
-  // Draw graphic text one grapheme at a time. Use each glyph's own measured
-  // advance only: pair-width measurements were producing false spacing
-  // adjustments in Chromium and pushing lowercase "s" out of its visible slot.
+  // Draw each complete phrase in a single Canvas text operation.
+  // The previous per-grapheme painter caused lowercase glyphs to disappear in
+  // the encoded frames even though isolated-glyph checks passed.
   function drawGlyphRun(context, text, x, y, maxWidth=Infinity, paintMode="fill") {
     const value = String(text ?? "");
-    const characters = typeof Intl !== "undefined" && Intl.Segmenter
-      ? Array.from(
-          new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(value),
-          item => item.segment
-        )
-      : Array.from(value);
-    if (!characters.length) return [];
+    if (!value) return [];
 
-    const naturalWidth = characters.reduce(
-      (total, character) => total + context.measureText(character).width,
-      0
-    );
+    const naturalWidth = context.measureText(value).width;
     const scale = Number.isFinite(maxWidth) && naturalWidth > maxWidth && naturalWidth > 0
       ? maxWidth / naturalWidth
       : 1;
-    const placements = [];
     const previousAlign = context.textAlign;
     const anchorX = previousAlign === "center"
       ? x - naturalWidth * scale / 2
@@ -116,32 +106,35 @@ window.__DATA__ = ${safeJson};
     context.textAlign = "left";
     context.translate(anchorX, y);
     context.scale(scale, 1);
+    if (paintMode === "stroke") context.strokeText(value, 0, 0);
+    else context.fillText(value, 0, 0);
+    context.restore();
 
-    let cursor = 0;
-    for (let index = 0; index < characters.length; index++) {
-      const character = characters[index];
-      const metrics = context.measureText(character);
-
-      if (paintMode === "stroke") context.strokeText(character, cursor, 0);
-      else context.fillText(character, cursor, 0);
+    // Return measured character slots for QA only. The visible phrase above is
+    // always painted as one complete string, preserving browser text shaping.
+    const characters = typeof Intl !== "undefined" && Intl.Segmenter
+      ? Array.from(
+          new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(value),
+          item => item.segment
+        )
+      : Array.from(value);
+    const placements = [];
+    let prefix = "";
+    for (const character of characters) {
+      const left = context.measureText(prefix).width;
+      prefix += character;
+      const right = context.measureText(prefix).width;
       placements.push({
         character,
-        x: anchorX + cursor * scale,
-        width: metrics.width * scale,
-        ascent: metrics.actualBoundingBoxAscent || 0,
-        descent: metrics.actualBoundingBoxDescent || 0,
-        actualLeft: metrics.actualBoundingBoxLeft || 0,
-        actualRight: metrics.actualBoundingBoxRight || metrics.width
+        x: anchorX + left * scale,
+        width: Math.max(0, right - left) * scale
       });
-      cursor += metrics.width;
     }
-
-    context.restore();
     return placements;
   }
 
-  // Exercise the exact font declarations and representative full phrases used
-  // by drawGraphic(), then inspect each expected lowercase-s glyph's pixels.
+  // Inspect lowercase-s pixels in the actual rasterized full phrase, not on
+  // separate blank canvases. Each expected glyph must occupy its phrase slot.
   function validateGraphicTextRuns() {
     const cases = [
       {
@@ -176,48 +169,62 @@ window.__DATA__ = ${safeJson};
       probe.width = 1500;
       probe.height = 150;
       const probeContext = probe.getContext("2d", { willReadFrequently: true });
-      probeContext.clearRect(0, 0, probe.width, probe.height);
       probeContext.font = test.font;
       probeContext.fillStyle = "#fff";
       probeContext.textBaseline = "alphabetic";
+      probeContext.textAlign = "left";
 
       const placements = drawGlyphRun(probeContext, test.text, 12, 100, 1460);
       const glyphs = placements.filter(item => item.character === "s");
-      let expectedX = 12;
-      let maximumSpacingError = 0;
-      for (let index = 0; index < placements.length; index++) {
-        maximumSpacingError = Math.max(
-          maximumSpacingError,
-          Math.abs(placements[index].x - expectedX)
-        );
-        expectedX += probeContext.measureText(placements[index].character).width;
+      const pixels = probeContext.getImageData(0, 0, probe.width, probe.height).data;
+
+      // Calibrate a minimum expected ink area using the same font, then check
+      // that every lowercase s is actually present inside its full-phrase slot.
+      const reference = document.createElement("canvas");
+      reference.width = 180;
+      reference.height = 150;
+      const referenceContext = reference.getContext("2d", { willReadFrequently: true });
+      referenceContext.font = test.font;
+      referenceContext.fillStyle = "#fff";
+      referenceContext.textBaseline = "alphabetic";
+      referenceContext.fillText("s", 12, 100);
+      const referencePixels = referenceContext.getImageData(
+        0, 0, reference.width, reference.height
+      ).data;
+      let referenceInk = 0;
+      for (let offset = 3; offset < referencePixels.length; offset += 4) {
+        if (referencePixels[offset] > 0) referenceInk++;
       }
-      // Test every lowercase-s glyph on an otherwise empty canvas. Counting
-      // pixels in the full phrase's bounding box is unsafe: a neighbouring
-      // glyph can make a missing "s" appear to pass.
-      const visibleCounts = glyphs.map(() => {
-        const glyphProbe = document.createElement("canvas");
-        glyphProbe.width = 180;
-        glyphProbe.height = 150;
-        const glyphContext = glyphProbe.getContext("2d", { willReadFrequently: true });
-        glyphContext.font = test.font;
-        glyphContext.fillStyle = "#fff";
-        glyphContext.textBaseline = "alphabetic";
-        drawGlyphRun(glyphContext, "s", 12, 100, 146);
-        const data = glyphContext.getImageData(0, 0, glyphProbe.width, glyphProbe.height).data;
+
+      const visibleCounts = glyphs.map(glyph => {
+        const left = Math.max(0, Math.floor(glyph.x) - 2);
+        const right = Math.min(
+          probe.width,
+          Math.ceil(glyph.x + Math.max(1, glyph.width)) + 2
+        );
         let count = 0;
-        for (let offset = 3; offset < data.length; offset += 4) {
-          if (data[offset] > 0) count++;
+        for (let row = 0; row < probe.height; row++) {
+          for (let column = left; column < right; column++) {
+            if (pixels[(row * probe.width + column) * 4 + 3] > 0) count++;
+          }
         }
         return count;
       });
+      const minimumInk = Math.max(3, Math.floor(referenceInk * 0.55));
 
       return {
         label: test.label,
         font: test.font,
         expected_s: glyphs.length,
-        visible_s_pixels: visibleCounts,
-        maximum_spacing_error_px: Number(maximumSpacingError.toFixed(3))
+        phrase_slot_s_pixels: visibleCounts,
+        minimum_s_pixels: minimumInk,
+        phrase_total_ink_pixels: (() => {
+          let count = 0;
+          for (let offset = 3; offset < pixels.length; offset += 4) {
+            if (pixels[offset] > 0) count++;
+          }
+          return count;
+        })()
       };
     });
 
@@ -243,9 +250,9 @@ window.__DATA__ = ${safeJson};
     return {
       ok: results.every(result =>
         result.expected_s > 0 &&
-        result.visible_s_pixels.length === result.expected_s &&
-        result.visible_s_pixels.every(count => count > 0) &&
-        result.maximum_spacing_error_px <= 1.25
+        result.phrase_total_ink_pixels > 0 &&
+        result.phrase_slot_s_pixels.length === result.expected_s &&
+        result.phrase_slot_s_pixels.every(count => count >= result.minimum_s_pixels)
       ) && maximumAlignmentError <= 1.25,
       cases: results,
       maximum_alignment_error_px: Number(maximumAlignmentError.toFixed(3))
@@ -597,9 +604,10 @@ window.__DATA__ = ${safeJson};
         const labelProgressForNode = easeOut((local - (1.32 + node * 0.32)) / 0.38);
         ctx.globalAlpha = opacity * labelProgressForNode;
         ctx.fillStyle = IVORY;
-        ctx.font = "700 11px 'DejaVu Sans', sans-serif";
-        ctx.textAlign = "center";
-        drawGlyphRun(ctx, labels[node], nx, graphY + 23, spacing - 20);
+        ctx.font = "700 16px 'DejaVu Sans', sans-serif";
+        ctx.textAlign = node === 0 ? "left" : node === 2 ? "right" : "center";
+        const labelX = node === 0 ? nx + 10 : node === 2 ? nx - 10 : nx;
+        drawGlyphRun(ctx, labels[node], labelX, graphY + 26, spacing - 28);
       }
       ctx.textAlign = "left";
       const movingX = graphLeft + chartProgress * (graphRight - graphLeft);
