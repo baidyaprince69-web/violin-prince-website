@@ -243,7 +243,7 @@ jobs:
           rm -f work/package/scene-1.jpg work/package/scene-2.jpg work/package/scene-3.jpg
           rm -f work/package/storyboard-preview.png
 
-      - name: Generate fresh scene artwork using AI and precision macro rendering
+      - name: Generate fresh AI scene artwork with visual review
         if: env.FRESH_VISUAL_TEST == 'true'
         env:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
@@ -282,9 +282,13 @@ jobs:
               raise SystemExit("Fresh visual stage did not complete successfully.")
           if str(metadata.get("visuals_run_id")) != str(run_id):
               raise SystemExit("Visual package run ID does not match this fresh-test run.")
-          required_status = "all_scenes_passed_ai_review_human_review_still_required"
+          required_status = "all_scenes_and_storyboard_passed_ai_review_human_review_still_required"
           if metadata.get("visual_review_status") != required_status:
               raise SystemExit("Not all three scenes passed the AI visual-review gate.")
+
+          storyboard_review = metadata.get("storyboard_review", {})
+          if storyboard_review.get("passed") is not True or int(storyboard_review.get("score", 0)) < engine.MIN_IMAGE_QA_SCORE:
+              raise SystemExit("The three-scene storyboard did not pass the AI continuity review.")
 
           expected_modes = ["cloudflare_flux_portrait_extended"] * 3
           if metadata.get("visual_modes") != expected_modes:
@@ -343,6 +347,7 @@ jobs:
               "macro_brief_char_count": len(macro_brief),
               "prompt_character_limit": engine.MAX_IMAGE_PROMPT_CHARS,
               "visual_content_review": "ai_review_passed_human_signoff_required",
+              "storyboard_continuity_review": storyboard_review,
               "human_review_checklist": [
                   "The bridge, all four strings and the fingerboard are distinct and readable.",
                   "Exactly one bow appears; wooden stick and horsehair remain separate and connected at the ends.",
@@ -365,6 +370,7 @@ jobs:
               "visual_review_model": engine.VISION_MODEL,
               "scene_2_render_mode": "cloudflare_flux_portrait_extended",
               "visual_content_review": "ai_review_passed_human_signoff_required",
+              "storyboard_continuity_review": storyboard_review,
               "publishing_enabled": False,
           }, indent=2))
           PY
