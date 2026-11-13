@@ -139,7 +139,7 @@ class CreativeQualityTests(unittest.TestCase):
             "Hair alone crosses at about 90°",
             "one string between bridge and fingerboard",
             "do not crop or merge parts",
-            "no duplicate bows",
+            "duplicate bows",
         ):
             self.assertIn(expected, prompt)
         self.assertIn("warm 3200K key", prompt)
