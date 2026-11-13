@@ -186,8 +186,8 @@ def build_metadata(
 
     if privacy_status not in ALLOWED_PRIVACY:
         raise MetadataError("Privacy must be private, unlisted, or public.")
-    if privacy_status == "public" and not allow_public:
-        raise PublishingDisabled("Public visibility is blocked until a separate publication approval is enabled.")
+    if privacy_status != "private" and not allow_public:
+        raise PublishingDisabled("Non-private visibility is blocked until a separate publication approval is enabled.")
 
     category_id = str(plan.get("youtube_category_id") or "").strip()
     language = str(plan.get("language") or plan.get("default_language") or "en").strip() or "en"
@@ -759,8 +759,8 @@ class YouTubeNativeClient:
             raise PublishingDisabled("PUBLISH_ENABLED is false; visibility was not changed.")
         if privacy_status not in ALLOWED_PRIVACY:
             raise MetadataError("Privacy must be private, unlisted, or public.")
-        if privacy_status == "public" and not _enabled(self.env, "YOUTUBE_PUBLICATION_APPROVED"):
-            raise PublishingDisabled("Public publication requires a separate explicit approval.")
+        if privacy_status != "private" and not _enabled(self.env, "YOUTUBE_PUBLICATION_APPROVED"):
+            raise PublishingDisabled("Non-private publication requires a separate explicit approval.")
         if publish_at and privacy_status != "private":
             raise MetadataError("Scheduled publication must remain private until YouTube's scheduled time.")
 

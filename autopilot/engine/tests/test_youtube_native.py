@@ -113,6 +113,8 @@ class YouTubeMetadataTests(unittest.TestCase):
     def test_public_visibility_is_blocked_without_separate_approval(self):
         with self.assertRaises(PublishingDisabled):
             build_metadata(GOOD_PLAN, privacy_status="public", allow_public=False)
+        with self.assertRaises(PublishingDisabled):
+            build_metadata(GOOD_PLAN, privacy_status="unlisted", allow_public=False)
 
     def test_more_than_three_hashtags_is_rejected_for_review(self):
         plan = dict(GOOD_PLAN, hashtags=["#one", "#two", "#three", "#four"])
@@ -194,6 +196,13 @@ class YouTubeClientTests(unittest.TestCase):
             self.assertTrue(second["already_uploaded"])
             self.assertEqual(second["video_id"], "video-987")
             self.assertEqual(fake.put_count, 2)
+
+    def test_visibility_changes_are_blocked_without_global_publish_gate(self):
+        fake = FakeUploadSession()
+        client = YouTubeNativeClient(env={"PUBLISH_ENABLED": "false"}, session=fake)
+        with self.assertRaises(PublishingDisabled):
+            client.set_visibility("video-987", "unlisted")
+        self.assertEqual(fake.calls, [])
 
     def test_status_tracking_reads_processing_state(self):
         fake = FakeUploadSession()
