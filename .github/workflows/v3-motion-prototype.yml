@@ -508,3 +508,15 @@ jobs:
             work/images/
           if-no-files-found: ignore
           retention-days: 14
+
+  phase3-release-handoff:
+    name: Phase 3 approved-video artifact handoff
+    needs: prototype
+    if: needs.prototype.result == 'success'
+    uses: ./.github/workflows/phase3-github-handoff.yml
+    with:
+      phase2_run_id: ${{ github.run_id }}
+      phase2_artifact_name: v3-motion-prototype-${{ github.run_id }}
+    permissions:
+      contents: read
+      actions: read
