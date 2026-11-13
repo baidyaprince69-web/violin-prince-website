@@ -1276,7 +1276,7 @@ def review_scene_image(path, plan, scene, index):
         )
 
     question = (
-        "You are a strict visual quality inspector. Inspect the actual image pixels, not the written prompt. "
+        "You are a strict visual quality inspector. Inspect the actual pixels in the image itself, not the written prompt. "
         "Scene title: " + str(plan.get("title", ""))[:120] +
         ". Scene brief: " + str(scene.get("image_prompt", ""))[:420] +
         ". Recurring visual identity: " + str(plan.get("visual_motif", ""))[:160] +
@@ -1304,7 +1304,7 @@ def review_storyboard_consistency(path, plan):
         "from left to right, not the captions. Story: " + str(plan.get("title", ""))[:120] +
         ". Topic: " + str(plan.get("topic", ""))[:180] +
         ". Recurring visual identity: " + str(plan.get("visual_motif", ""))[:180] +
-        ". Panel 1 is the hook, panel 2 is the macro/detail, panel 3 is the payoff. "
+        ". Panel 1 is the hook, panel 2 is the macro/detail, panel 3 is the payoff, with distinct compositions for the three story beats. "
         "same_performer=YES only if Scene 1 and Scene 3 show the same identifiable adult performer, "
         "matching face, hairstyle and clothing. same_violin=YES only if all scenes visibly use the same "
         "amber-varnished violin design and recognizable body/tailpiece/fingerboard details. "
