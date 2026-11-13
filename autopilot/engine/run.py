@@ -1064,6 +1064,80 @@ def make_image(prompt, index):
         raise PipelineError("Normalized AI image did not meet the required 9:16 portrait dimensions.")
     return path
 
+def _vision_query(image_data, question, timeout=120):
+    """Use Moondream's documented non-streaming answer contract for deterministic QA."""
+    return ai(
+        VISION_MODEL,
+        {
+            "task": "query",
+            "image": image_data,
+            "question": question,
+            "reasoning": False,
+            "stream": False,
+            "temperature": 0,
+            "max_tokens": 512,
+        },
+        timeout,
+    )
+
+
+def _parse_vision_assessment(result, label="visual reviewer"):
+    """Parse Moondream's documented answer field, tolerating harmless Markdown wrappers."""
+    raw = ""
+    if isinstance(result, dict):
+        # Workers AI documents Moondream query output as result.answer.
+        for key in ("answer", "response", "text"):
+            value = result.get(key)
+            if isinstance(value, str) and value.strip():
+                raw = value.strip()
+                break
+    elif isinstance(result, str):
+        raw = result.strip()
+
+    assessment = None
+    decoder = json.JSONDecoder()
+    for match in re.finditer(r"\\{", raw):
+        try:
+            candidate, _ = decoder.raw_decode(raw[match.start():])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(candidate, dict):
+            assessment = candidate
+            break
+
+    try:
+        if assessment is None:
+            raise ValueError("no valid JSON object was returned")
+        score_value = assessment["score"]
+        model_passed = assessment["passed"]
+        issues = assessment.get("issues", [])
+        if isinstance(score_value, bool) or not isinstance(score_value, (int, float)):
+            raise ValueError("score must be numeric")
+        if not isinstance(model_passed, bool) or not isinstance(issues, list):
+            raise ValueError("passed must be boolean and issues must be a list")
+        if not 0 <= score_value <= 100:
+            raise ValueError("score must be between 0 and 100")
+        score = int(round(score_value))
+        summary = str(assessment.get("summary", ""))[:500]
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        diagnostic = raw[:420] if raw else str(exc)
+        return {
+            "model": VISION_MODEL,
+            "score": 0,
+            "passed": False,
+            "issues": [f"{label} response was not valid structured JSON"],
+            "summary": diagnostic,
+        }
+
+    return {
+        "model": VISION_MODEL,
+        "score": score,
+        "passed": bool(model_passed and score >= MIN_IMAGE_QA_SCORE),
+        "issues": [str(value)[:240] for value in issues[:8]],
+        "summary": summary,
+    }
+
+
 def review_scene_image(path, plan, scene, index):
     """Inspect generated pixels with a vision model; reject ambiguous or defective artwork."""
     try:
@@ -1120,45 +1194,8 @@ def review_scene_image(path, plan, scene, index):
         "and describe the uncertainty."
     )
 
-    result = ai(
-        VISION_MODEL,
-        {"task": "query", "image": image_data, "question": question},
-        120,
-    )
-    raw = result.get("response") or result.get("text") or result.get("answer") or ""
-    if not isinstance(raw, str) or not raw.strip():
-        raw = ""
-
-    try:
-        start = raw.find("{")
-        end = raw.rfind("}")
-        if start < 0 or end <= start:
-            raise ValueError("The reviewer returned no JSON object.")
-        assessment = json.loads(raw[start:end + 1])
-        score = int(assessment["score"])
-        model_passed = assessment["passed"]
-        issues = assessment.get("issues", [])
-        summary = str(assessment.get("summary", ""))[:500]
-        if not isinstance(model_passed, bool) or not isinstance(issues, list):
-            raise ValueError("The reviewer returned invalid field types.")
-        if not 0 <= score <= 100:
-            raise ValueError("The reviewer score is outside 0–100.")
-    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
-        return {
-            "model": VISION_MODEL,
-            "score": 0,
-            "passed": False,
-            "issues": ["visual reviewer response was unclear or not structured JSON"],
-            "summary": raw[:300] or str(exc),
-        }
-
-    return {
-        "model": VISION_MODEL,
-        "score": score,
-        "passed": bool(model_passed and score >= MIN_IMAGE_QA_SCORE),
-        "issues": [str(value)[:240] for value in issues[:8]],
-        "summary": summary,
-    }
+    result = _vision_query(image_data, question, timeout=120)
+    return _parse_vision_assessment(result, "visual reviewer")
 
 
 def review_storyboard_consistency(path, plan):
@@ -1186,36 +1223,8 @@ def review_storyboard_consistency(path, plan):
         "Score 0–100. Pass only at 80 or above when the three scenes visibly form one coherent sequence. "
         "Do not infer hidden details; uncertainty is a reason to fail."
     )
-    result = ai(VISION_MODEL, {"task": "query", "image": image_data, "question": question}, 120)
-    raw = result.get("response") or result.get("text") or result.get("answer") or ""
-    if not isinstance(raw, str):
-        raw = ""
-    try:
-        start = raw.find("{")
-        end = raw.rfind("}")
-        if start < 0 or end <= start:
-            raise ValueError("The reviewer returned no JSON object.")
-        assessment = json.loads(raw[start:end + 1])
-        score = int(assessment["score"])
-        model_passed = assessment["passed"]
-        issues = assessment.get("issues", [])
-        summary = str(assessment.get("summary", ""))[:500]
-        if not isinstance(model_passed, bool) or not isinstance(issues, list):
-            raise ValueError("The reviewer returned invalid field types.")
-        if not 0 <= score <= 100:
-            raise ValueError("The reviewer score is outside 0–100.")
-    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
-        return {
-            "model": VISION_MODEL, "score": 0, "passed": False,
-            "issues": ["storyboard continuity response was unclear or not structured JSON"],
-            "summary": raw[:300] or str(exc),
-        }
-    return {
-        "model": VISION_MODEL, "score": score,
-        "passed": bool(model_passed and score >= MIN_IMAGE_QA_SCORE),
-        "issues": [str(value)[:240] for value in issues[:8]],
-        "summary": summary,
-    }
+    result = _vision_query(image_data, question, timeout=120)
+    return _parse_vision_assessment(result, "storyboard continuity reviewer")
 def is_valid_portrait_scene_image(path):
     """Return true only for a readable image already normalized to the V3 portrait canvas."""
     try:
@@ -2156,6 +2165,9 @@ def visuals_stage(feedback=""):
                 f"Scene {index + 1}/3 visual review rejected attempt {attempt}: "
                 + "; ".join(str(issue)[:100] for issue in issues[:3])
             )
+            diagnostic = str((review or {}).get("summary", "")).strip()
+            if diagnostic:
+                log(f"Scene {index + 1}/3 reviewer diagnostic: {diagnostic[:220]}")
 
         if not review or not review["passed"]:
             details = "; ".join(
