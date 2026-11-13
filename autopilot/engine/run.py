@@ -546,6 +546,53 @@ def narration_validation_error(script):
     return ""
 
 
+NARRATION_SENTENCE_WORD_TARGETS = (8, 9, 12, 12)
+
+
+def narration_sentences(script):
+    """Split a short spoken script into sentence strings while retaining punctuation."""
+    value = str(script or "").strip()
+    if not value:
+        return []
+    return [part.strip() for part in re.split(r"(?<=[.!?])\s+", value) if part.strip()]
+
+
+def narration_word_count(value):
+    """Use the same token rule for each sentence and the complete narration."""
+    return len(re.findall(r"\b[\w’'-]+\b", str(value or "")))
+
+
+def narration_sentence_error(sentence, target_words):
+    """Validate one generated beat independently of the other narration sentences."""
+    value = re.sub(r"\s+", " ", str(sentence or "")).strip()
+    if not value:
+        return "the sentence is empty"
+    if len(narration_sentences(value)) != 1:
+        return "the response must contain exactly one sentence"
+    count = narration_word_count(value)
+    if count != target_words:
+        return f"it has {count} words; exactly {target_words} are required"
+    if len(value.split()) > 12:
+        return "the sentence exceeds the 12-word subtitle limit"
+    if not re.search(r"[.!?][\"')\\]]?$", value):
+        return "the sentence is not grammatically closed with punctuation"
+    return ""
+
+
+def narration_sentence_budget_error(script):
+    """Require four short beats with a deliberate 8/9/12/12 spoken-word rhythm."""
+    sentences = narration_sentences(script)
+    if len(sentences) != 4:
+        return f"it has {len(sentences)} sentences; exactly 4 are required"
+    counts = [narration_word_count(sentence) for sentence in sentences]
+    if tuple(counts) != NARRATION_SENTENCE_WORD_TARGETS:
+        return (
+            "sentence word counts are " + "/".join(str(value) for value in counts) +
+            "; the required rhythm is 8/9/12/12"
+        )
+    return ""
+
+
 def make_plan(items, recent=None):
     system = (
         "You are the editorial director of Violin Prince, a violin creator. Choose one timely, "
@@ -603,13 +650,17 @@ def make_plan(items, recent=None):
     if plan.get("skip"):
         raise PipelineError("Editorial agent skipped: " + str(plan.get("reason", ""))[:200])
 
-    # Keep all story facts and scene prompts fixed. If the model misses the narration
-    # constraints, make two bounded narration-only repairs using the same research.
-    # The second repair uses an explicit per-sentence word budget instead of padding.
+    # Repair only the sentence beats that miss their exact word budgets. This keeps
+    # the selected story, its sources, and all visual prompts untouched.
     narration_script = str(plan.get("narration_script", "")).strip()
     narration_issue = narration_validation_error(narration_script)
-    if narration_issue:
-        log("Planner narration needs correction: " + narration_issue + ". Reusing the same story, scenes and research.")
+    budget_issue = narration_sentence_budget_error(narration_script)
+    if narration_issue or budget_issue:
+        log(
+            "Planner narration needs sentence-level correction: " +
+            (narration_issue or budget_issue) +
+            ". Keeping the selected story, scenes and research unchanged."
+        )
 
         repair_sources = resolve_plan_sources(plan, compact)
         repair_evidence = [
@@ -630,80 +681,148 @@ def make_plan(items, recent=None):
                 for item in compact[:3]
             ]
 
-        def request_narration_repair(current_script, current_issue, strict_budget=False):
-            sentence_rule = (
-                "Use exactly four sentences with exactly these spoken-word counts: "
-                "8 words in sentence 1, 9 words in sentence 2, 12 words in sentence 3, "
-                "and 12 words in sentence 4 (41 words total). "
-                if strict_budget else
-                "Use exactly four sentences and 40–44 spoken words total, targeting 41. "
-                "Aim for 8, 9, 12 and 12 words per sentence respectively. "
-            )
-            payload = {
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are the final spoken-script editor for a high-quality short documentary. "
-                            "Return exactly one complete valid JSON object and no Markdown. "
-                            "Preserve topic, title, hook, description, hashtags, narrative_style, scenes, image prompts, "
-                            "captions and sources exactly. Change only narration_script. "
-                            + sentence_rule +
-                            "Sentence 1 must be a 5–8-word curiosity hook and must be resolved by the ending. "
-                            "No sentence may exceed 12 words. Each sentence must be grammatically complete, specific, "
-                            "natural when spoken aloud, and useful to the story. Do not use filler, generic reflections, "
-                            "repeated ideas, inflated wording, or unsupported facts. Add context only when it is supported "
-                            "by the supplied evidence. Preserve the actual story and its payoff."
-                        )
-                    },
-                    {
-                        "role": "user",
-                        "content": (
-                            "The current narration failed because " + current_issue + ". "
-                            "Rewrite only narration_script. The previous narration was:\n" + current_script +
-                            "\nComplete original plan (preserve every field except narration_script):\n" +
-                            json.dumps(plan, ensure_ascii=False) +
-                            "\nVerified research evidence (do not go beyond these facts):\n" +
-                            json.dumps(repair_evidence, ensure_ascii=False) +
-                            "\nReturn the complete JSON object with every non-narration field unchanged."
-                        )
-                    }
-                ],
-                "chat_template_kwargs": {"enable_thinking": False, "clear_thinking": True},
-                "max_completion_tokens": 1200,
-                "temperature": 0.0,
-            }
-            repaired = parse_planner_result(ai(TEXT_MODEL, payload))
-            if repaired.get("skip"):
-                raise PipelineError("Narration correction unexpectedly skipped the selected story.")
-            return str(repaired.get("narration_script", "")).strip(), repaired
-
-        corrected_script, corrected_plan = request_narration_repair(
-            narration_script, narration_issue, strict_budget=False
+        original_script = narration_script
+        original_sentences = narration_sentences(original_script)
+        # If the first draft has the wrong number of sentences, regenerate all
+        # four beats individually from the same plan instead of guessing how to split it.
+        sentences = original_sentences if len(original_sentences) == 4 else ["", "", "", ""]
+        sentence_roles = (
+            "opening curiosity hook",
+            "brief story context",
+            "distinctive sourced detail or central development",
+            "meaningful payoff that resolves the opening hook",
         )
-        corrected_issue = narration_validation_error(corrected_script)
+        repair_attempts = []
+        debug_path = WORK / "creative_plan_debug.json"
 
-        if corrected_issue:
-            log(
-                "First narration correction still failed (" + corrected_issue +
-                "); performing one final word-budgeted rewrite without restarting research."
+        def save_narration_debug(status, current_script=""):
+            WORK.mkdir(parents=True, exist_ok=True)
+            debug_path.write_text(
+                json.dumps(
+                    {
+                        "stage": "narration_repair",
+                        "status": status,
+                        "initial_script": original_script,
+                        "initial_plan": plan,
+                        "repair_attempts": repair_attempts,
+                        "current_script": current_script,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
             )
-            final_script, _final_plan = request_narration_repair(
-                corrected_script, corrected_issue, strict_budget=True
-            )
-            final_issue = narration_validation_error(final_script)
-            if final_issue:
-                raise PipelineError(
-                    "Narration failed the final word-budgeted correction: " + final_issue +
-                    ". No filler or unsupported facts were inserted. The story, research and visual stages were preserved."
+
+        save_narration_debug("in_progress", original_script)
+
+        for index, target_words in enumerate(NARRATION_SENTENCE_WORD_TARGETS):
+            current_sentence = sentences[index]
+            current_error = narration_sentence_error(current_sentence, target_words)
+            if not current_error:
+                continue
+
+            completed = False
+            for attempt in (1, 2):
+                previous_sentence = sentences[index - 1] if index > 0 else ""
+                next_sentence = sentences[index + 1] if index < 3 else ""
+                payload = {
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": (
+                                "You are a precise spoken-documentary script editor. Return exactly one JSON "
+                                "object with one field named sentence, and no Markdown or commentary. "
+                                "The sentence field must contain exactly " + str(target_words) +
+                                " spoken words, counted as ordinary space-separated words. Use simple words; "
+                                "avoid contractions and hyphenated compounds. Write exactly one complete, "
+                                "natural sentence, with no more than 12 words. Its role is: " +
+                                sentence_roles[index] + ". Preserve the story's meaning and emotional purpose. "
+                                "Use only claims supported by the supplied plan or research evidence. "
+                                "Do not add invented facts, dates, statistics, quotations, motives or outcomes. "
+                                "Do not pad, repeat ideas, add generic reflections, or use filler. "
+                                "Every word must contribute useful context, clarity, imagery or narrative payoff."
+                            ),
+                        },
+                        {
+                            "role": "user",
+                            "content": (
+                                "Rewrite only narration sentence " + str(index + 1) + " of 4. "
+                                "It must contain exactly " + str(target_words) + " spoken words. "
+                                "Current sentence: " + (current_sentence or "[no usable sentence in this position]") +
+                                "\nCurrent complete narration draft: " + original_script +
+                                "\nTopic: " + str(plan.get("topic", ""))[:300] +
+                                "\nTitle: " + str(plan.get("title", ""))[:220] +
+                                "\nOpening hook: " + str(plan.get("hook", ""))[:220] +
+                                "\nPrevious beat for continuity: " + previous_sentence +
+                                "\nNext beat for continuity: " + next_sentence +
+                                "\nVerified research evidence: " +
+                                json.dumps(repair_evidence, ensure_ascii=False) +
+                                ("\nYour previous attempt " + str(attempt - 1) + " " + current_error + ". "
+                                 "Correct the count without adding filler." if attempt > 1 else "") +
+                                "\nReturn JSON only: {\"sentence\":\"one complete sentence\"}."
+                            ),
+                        },
+                    ],
+                    "chat_template_kwargs": {"enable_thinking": False, "clear_thinking": True},
+                    "max_completion_tokens": 260,
+                    "temperature": 0.0,
+                }
+
+                repaired = parse_planner_result(ai(TEXT_MODEL, payload))
+                candidate = re.sub(r"\s+", " ", str(repaired.get("sentence", "") or "")).strip()
+                issue = narration_sentence_error(candidate, target_words)
+                repair_attempts.append(
+                    {
+                        "sentence_number": index + 1,
+                        "target_words": target_words,
+                        "attempt": attempt,
+                        "returned_words": narration_word_count(candidate),
+                        "validation_error": issue,
+                        "sentence": candidate,
+                    }
                 )
-            narration_script = final_script
-            log("Final narration correction passed all constraints; the original story and scene prompts were preserved.")
-        else:
-            narration_script = corrected_script
-            log("Narration correction passed all constraints; the original story and scene prompts were preserved.")
+                save_narration_debug("in_progress", " ".join(sentences))
+
+                if not issue:
+                    sentences[index] = candidate
+                    completed = True
+                    log(
+                        f"Narration beat {index + 1}/4 repaired and verified "
+                        f"({target_words} words; attempt {attempt}/2)."
+                    )
+                    save_narration_debug("in_progress", " ".join(sentences))
+                    break
+
+                current_sentence = candidate
+                current_error = issue
+                log(
+                    f"Narration beat {index + 1}/4 did not meet its {target_words}-word target "
+                    f"on attempt {attempt}: {issue}."
+                )
+
+            if not completed:
+                save_narration_debug("failed", " ".join(sentences))
+                raise PipelineError(
+                    f"Narration sentence {index + 1} could not be repaired to exactly "
+                    f"{target_words} natural, evidence-supported words after two focused attempts. "
+                    "The original story and visuals were preserved; no filler was inserted."
+                )
+
+        narration_script = " ".join(sentences)
+        final_issue = narration_validation_error(narration_script)
+        final_budget_issue = narration_sentence_budget_error(narration_script)
+        if final_issue or final_budget_issue:
+            save_narration_debug("failed", narration_script)
+            raise PipelineError(
+                "Sentence-level narration repair did not pass the complete script checks: " +
+                (final_issue or final_budget_issue) +
+                ". No filler or unsupported facts were inserted."
+            )
 
         plan["narration_script"] = narration_script
+        save_narration_debug("repaired", narration_script)
+        log("All four narration beats passed their exact 8/9/12/12-word budgets and full script validation.")
+
 
     scenes = plan.get("scenes")
     if not isinstance(scenes, list) or len(scenes) != 3:
@@ -712,9 +831,12 @@ def make_plan(items, recent=None):
     spoken_words = re.findall(r"\b[\w’'-]+\b", narration_script)
     if not 40 <= len(spoken_words) <= 44:
         raise PipelineError("Planner narration must contain 40–44 spoken words for the 24-second format.")
-    spoken_sentences = [part.strip() for part in re.split("[.!?]+", narration_script) if part.strip()]
+    spoken_sentences = narration_sentences(narration_script)
+    budget_issue = narration_sentence_budget_error(narration_script)
     if len(spoken_sentences) != 4:
         raise PipelineError("Planner narration must contain exactly four short story beats.")
+    if budget_issue:
+        raise PipelineError("Planner narration must follow the exact 8/9/12/12-word sentence budget: " + budget_issue)
     hook_words = spoken_sentences[0].split()
     if not 5 <= len(hook_words) <= 8:
         raise PipelineError("Opening hook must contain 5–8 words.")
