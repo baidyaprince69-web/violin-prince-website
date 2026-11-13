@@ -38,7 +38,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-dejavu-core
           python -m pip install --upgrade pip
-          pip install requests Pillow PyYAML numpy soundfile
+          pip install requests Pillow PyYAML numpy soundfile "cryptography>=43,<48"
 
       - name: Run offline audio and narration helper tests
         run: python -m unittest discover -s autopilot/engine/tests -v
@@ -82,6 +82,7 @@ jobs:
               ".github/workflows/violin-prince-autopilot.yml",
               ".github/workflows/deploy-autopilot-cloudflare.yml",
               ".github/workflows/v3-motion-prototype.yml",
+              ".github/workflows/phase4-youtube-validation.yml",
           ]
           for name in files:
               parsed = yaml.safe_load(Path(name).read_text(encoding="utf-8"))
