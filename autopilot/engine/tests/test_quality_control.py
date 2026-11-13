@@ -107,6 +107,12 @@ class QualityControlTests(unittest.TestCase):
         self.assertIn("word_timing_method", stage)
         self.assertIn("validate_cues(", stage)
 
+    def test_quality_gate_exposes_production_freeze_check_switch(self):
+        source = (ENGINE / "quality_control.py").read_text(encoding="utf-8")
+        signature = source.split("def run_quality_gate(", 1)[1].split(") -> dict", 1)[0]
+        self.assertIn("check_freeze: bool = True", signature)
+        self.assertIn("if check_freeze:", source)
+
     def test_production_quality_gate_keeps_freeze_detection_enabled(self):
         source = (ENGINE / "run.py").read_text(encoding="utf-8")
         self.assertIn("check_freeze=float(FPS) >= 20.0", source)

@@ -192,6 +192,7 @@ def run_quality_gate(
     duration_tolerance: float = 0.5,
     expected_fps: float | None = None,
     frame_rate_tolerance: float = 0.5,
+    check_freeze: bool = True,
     audio_required: bool = True,
     narration_cues: Any = None,
     word_count: int | None = None,
