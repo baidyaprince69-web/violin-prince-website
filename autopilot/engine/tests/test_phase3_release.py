@@ -115,6 +115,10 @@ class Phase3ReleaseTests(unittest.TestCase):
             root = Path(directory)
             report, _video = self._fixture(root)
             release = validate_phase3_release(report, root, "12345")
+            plan_path = Path(release["creative_plan_path"])
+            plan = json.loads(plan_path.read_text(encoding="utf-8"))
+            plan["hashtags"] = ["#one", "#two", "#three", "#four"]
+            plan_path.write_text(json.dumps(plan), encoding="utf-8")
             _plan, review = prepare_review(release)
             self.assertFalse(review["metadata_valid"])
             self.assertIn("three precise hashtags", review["metadata_error"])

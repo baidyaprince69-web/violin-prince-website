@@ -29,7 +29,9 @@ Each video plan must contain:
 The engine does not silently set the audience or synthetic-media declaration.
 
 ## OAuth permission choice
-The upload endpoint accepts `youtube.upload`. Owner-only processing-status checks need authorized access to the video. The later `videos.update` call used to change privacy requires the broader `youtube` or `youtube.force-ssl` scope; `youtube.upload` alone is not enough for that update operation. The full automated lifecycle therefore needs the owner to approve the broader `youtube` scope. If the owner chooses least privilege instead, upload/status can be authorized separately and publication can be handled manually in YouTube Studio.
+For the staged private-upload beta, request `youtube.upload` and `youtube.readonly`. The read-only scope is used to verify the signed-in channel and read the uploaded video's processing status; it is also the read-only scope accepted by the YouTube Analytics reports endpoint. Do not request privacy-change permission for the first private-only test.
+
+The later `videos.update` call used to change visibility requires the broader `youtube` or `youtube.force-ssl` scope; `youtube.upload` and `youtube.readonly` alone are not enough for that update operation. Add that broader permission only in a separately reviewed publication phase. Public or unlisted visibility remains disabled until a separate approval is recorded.
 
 Google OAuth must request offline access so a refresh token can be stored. A Google Cloud OAuth project left in Testing has refresh tokens that expire after seven days for YouTube scopes. Production verification/publishing status must be settled before relying on unattended long-term publishing. Never paste OAuth client secrets or refresh tokens into chat.
 
