@@ -1307,7 +1307,8 @@ def review_storyboard_consistency(path, plan):
         "from left to right, not the captions. Story: " + str(plan.get("title", ""))[:120] +
         ". Topic: " + str(plan.get("topic", ""))[:180] +
         ". Recurring visual identity: " + str(plan.get("visual_motif", ""))[:180] +
-        ". Panel 1 is the hook, panel 2 is the macro/detail, panel 3 is the payoff. Check that Scene 1 "
+        ". Panel 1 is the hook, panel 2 is the macro/detail, panel 3 is the payoff. Use distinct compositions "
+        "for the three story beats while preserving one coherent identity. Check that Scene 1 "
         "and Scene 3 show the SAME identifiable performer as one recognizable person: matching face, hairstyle and clothing. Check "
         "that all panels use the same violin design and warm visual style, and that the macro shows plausible "
         "bridge, strings, fingerboard and bow anatomy. If any identity or visual detail differs or is unclear, "
