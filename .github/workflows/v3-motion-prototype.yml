@@ -119,6 +119,7 @@ jobs:
               "title": "V3 Renderer Smoke Test",
               "width": 720, "height": 1280, "fps": 12,
               "duration_seconds": 3,
+              "visual_motif": "rapid violin performance with bow and strings",
               "scenes": scenes, "word_cues": cues
           }
           (root / "input.json").write_text(json.dumps(payload), encoding="utf-8")
