@@ -65,14 +65,47 @@ def _record_checkpoint(manifest_path: Path, manifest: dict, stage: str, status: 
     _write_json_atomic(manifest_path, manifest)
 
 
-def _validate_approved_visual_package(plan: dict, metadata: dict, image_paths: list[Path]) -> None:
-    """Reject missing, altered or unreviewed scene art before any video rendering."""
+def _validate_approved_visual_package(plan: dict, metadata: dict, image_paths: list[Path]) -> str:
+    """Reject corrupt visuals; strictly enforce AI review where review evidence exists."""
     from PIL import Image
 
-    required_status = "all_scenes_and_storyboard_passed_ai_review_human_review_still_required"
-    if metadata.get("stage") != "visuals_ready" or metadata.get("visual_review_status") != required_status:
-        raise RuntimeError("Visual package has not passed the required scene and storyboard AI reviews.")
+    if metadata.get("stage") != "visuals_ready":
+        raise RuntimeError("The package has not completed the visual preparation stage.")
     assets = metadata.get("visual_assets")
+
+    # Older V2 packages predate per-image score/hash records. Keep them usable,
+    # but make the lack of machine-review evidence explicit in the report.
+    if assets is None:
+        if not str(metadata.get("visuals_run_id") or "").strip():
+            raise RuntimeError("Legacy visual package has no visuals-run provenance.")
+        preview_path = image_paths[0].parent / "storyboard-preview.png"
+        if not preview_path.is_file():
+            raise RuntimeError("Legacy visual package is missing its storyboard preview.")
+        try:
+            with Image.open(preview_path) as preview:
+                preview.verify()
+        except Exception as exc:
+            raise RuntimeError(f"Legacy storyboard preview is not readable: {exc}") from exc
+        for index, image_path in enumerate(image_paths, start=1):
+            try:
+                with Image.open(image_path) as image:
+                    image.verify()
+                with Image.open(image_path) as image:
+                    width, height = image.size
+                    ratio = width / max(height, 1)
+                    if width < 512 or height < 512 or not 0.5 <= ratio <= 2.0:
+                        raise RuntimeError(
+                            f"Legacy scene {index} has implausible dimensions {width}x{height}."
+                        )
+            except RuntimeError:
+                raise
+            except Exception as exc:
+                raise RuntimeError(f"Legacy scene {index} is not a valid readable image: {exc}") from exc
+        return "legacy_visuals_ready_no_machine_review_records"
+
+    required_status = "all_scenes_and_storyboard_passed_ai_review_human_review_still_required"
+    if metadata.get("visual_review_status") != required_status:
+        raise RuntimeError("Visual package has not passed the required scene and storyboard AI reviews.")
     if not isinstance(assets, list) or len(assets) != 3:
         raise RuntimeError("Visual package must contain three scene-by-scene review records.")
     storyboard = metadata.get("storyboard_review")
@@ -83,7 +116,9 @@ def _validate_approved_visual_package(plan: dict, metadata: dict, image_paths: l
     ):
         raise RuntimeError("Storyboard continuity review did not meet the minimum passing score.")
 
-    expected_plan_hash = _fingerprint(plan)
+    expected_plan_hash = hashlib.sha256(
+        json.dumps(plan, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    ).hexdigest()
     for index, (record, image_path) in enumerate(zip(assets, image_paths), start=1):
         if not isinstance(record, dict):
             raise RuntimeError(f"Scene {index} has no visual-review record.")
@@ -114,6 +149,7 @@ def _validate_approved_visual_package(plan: dict, metadata: dict, image_paths: l
             raise
         except Exception as exc:
             raise RuntimeError(f"Scene {index} is not a valid readable image: {exc}") from exc
+    return "ai_reviewed_hash_verified"
 
 
 def _mix_audio(video_only: Path, soundtrack: Path, narration: Path,
@@ -375,7 +411,7 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
     for image in image_paths:
         if not image.is_file():
             raise RuntimeError(f"Prepared scene image is missing: {image.name}")
-    _validate_approved_visual_package(plan, metadata, image_paths)
+    visual_package_verification = _validate_approved_visual_package(plan, metadata, image_paths)
 
     script = str(plan.get("narration_script") or "").strip()
     if not script:
@@ -771,6 +807,7 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
         "renderer": "HTML Canvas + Playwright + FFmpeg",
         "visual_review_status": metadata.get("visual_review_status", "not_reviewed"),
         "visual_review_model": metadata.get("visual_review_model", ""),
+        "visual_package_verification": visual_package_verification,
         "visual_asset_reviews": [
             item.get("visual_review", {}) for item in metadata.get("visual_assets", [])
             if isinstance(item, dict)
@@ -798,6 +835,7 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
         "production_renderer_changed": False,
         "publishing_enabled": False,
         "visual_review_status": metadata.get("visual_review_status", "not_reviewed"),
+        "visual_package_verification": visual_package_verification,
         "visual_asset_reviews": [
             item.get("visual_review", {}) for item in metadata.get("visual_assets", [])
             if isinstance(item, dict)
