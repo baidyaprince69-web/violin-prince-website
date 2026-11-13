@@ -1114,18 +1114,22 @@ def write_kinetic_ass(cues, output_path):
         words = re.findall(r"[A-Za-z0-9’'-]+", phrase)
         candidates = [word for word in words if word.casefold() not in stopwords and len(word) >= 4]
         emphasis = max(candidates or words or [""], key=len)
-        phrase = phrase.replace("{", r"\{").replace("}", r"\}")
-        if emphasis:
-            phrase = re.sub(
-                rf"(?i)\b({re.escape(emphasis)})\b",
-                lambda match: (
-                    r"{\c&H008BCEEA&\b1}" + match.group(1) +
-                    r"{\c&H00F8F5EF&\b0}"
-                ),
-                phrase,
-                count=1,
-            )
-        wrapped = r"\N".join(textwrap.wrap(phrase, width=27)[:2])
+        caption_lines = textwrap.wrap(phrase, width=27)[:2]
+        formatted_lines = []
+        for line in caption_lines:
+            safe_line = line.replace("{", r"\{").replace("}", r"\}")
+            if emphasis:
+                safe_line = re.sub(
+                    rf"(?i)\b({re.escape(emphasis)})\b",
+                    lambda match: (
+                        r"{\c&H008BCEEA&\b1}" + match.group(1) +
+                        r"{\c&H00F8F5EF&\b0}"
+                    ),
+                    safe_line,
+                    count=1,
+                )
+            formatted_lines.append(safe_line)
+        wrapped = r"\N".join(formatted_lines)
         animated = r"{\fad(180,220)\fscx96\fscy96\t(0,180,\fscx100\fscy100)}" + wrapped
         events.append(
             f"Dialogue: 0,{_ass_timestamp(start)},{_ass_timestamp(end)},VP,,0,0,0,,{animated}"
@@ -1298,9 +1302,9 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
     audio_filter = (
         f"[1:a]volume={bed_volume}[bed];"
         "[2:a]highpass=f=75,acompressor=threshold=-20dB:ratio=3:attack=12:release=180,"
-        "volume=1.15[voice];"
-        "[bed][voice]sidechaincompress=threshold=0.035:ratio=10:attack=18:release=620:knee=4:makeup=1[duckedbed];"
-        "[duckedbed][voice]amix=inputs=2:duration=longest:dropout_transition=1,"
+        "volume=1.15,asplit=2[voice_sc][voice_mix];"
+        "[bed][voice_sc]sidechaincompress=threshold=0.035:ratio=10:attack=18:release=620:knee=4:makeup=1[duckedbed];"
+        "[duckedbed][voice_mix]amix=inputs=2:duration=longest:dropout_transition=1,"
         "loudnorm=I=-16:TP=-1.5:LRA=11,"
         "afade=t=in:st=0:d=0.5,afade=t=out:st=22:d=2[aout]"
     )
