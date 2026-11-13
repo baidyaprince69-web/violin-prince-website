@@ -190,6 +190,11 @@ class YouTubeClientTests(unittest.TestCase):
             self.assertEqual(saved["releases"]["release-1"]["state"], "uploaded")
             self.assertNotIn("secret-session-uri", state_path.read_text(encoding="utf-8"))
 
+            second = client.upload_video(video, GOOD_PLAN, release_id="release-1")
+            self.assertTrue(second["already_uploaded"])
+            self.assertEqual(second["video_id"], "video-987")
+            self.assertEqual(fake.put_count, 2)
+
     def test_status_tracking_reads_processing_state(self):
         fake = FakeUploadSession()
         client = YouTubeNativeClient(env={}, session=fake)
@@ -199,7 +204,15 @@ class YouTubeClientTests(unittest.TestCase):
 
     def test_processing_completion_is_confirmed(self):
         fake = FakeUploadSession()
-        client = YouTubeNativeClient(env={}, session=fake, sleep=lambda _: None)
+        client = YouTubeNativeClient(
+            env={
+                "YOUTUBE_CLIENT_ID": "client-id",
+                "YOUTUBE_CLIENT_SECRET": "client-secret",
+                "YOUTUBE_REFRESH_TOKEN": "refresh-token",
+            },
+            session=fake,
+            sleep=lambda _: None,
+        )
         result = client.wait_for_processing("video-987", timeout_seconds=1, interval_seconds=0)
         self.assertEqual(result["upload_status"], "processed")
 
@@ -235,7 +248,7 @@ class YouTubeResearchTests(unittest.TestCase):
             session=FakeResearchSession(),
         )
         self.assertIsNone(result["search_volume"])
-        self.assertIn("not exposed", result["search_volume_note"])
+        self.assertIn("not exposed", result["search_volume_note"].casefold())
         self.assertEqual(result["candidates"][0]["results_returned"], 1)
         self.assertEqual(result["candidates"][0]["top_results"][0]["view_count"], 5000)
 

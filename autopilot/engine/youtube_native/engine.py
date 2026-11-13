@@ -419,6 +419,7 @@ class YouTubeNativeClient:
         self.sleep = sleep
         if chunk_size < 256 * 1024 or chunk_size % (256 * 1024):
             raise ValueError("chunk_size must be a positive multiple of 256 KiB.")
+        self.chunk_size = chunk_size
 
     def _required(self, key: str) -> str:
         value = str(self.env.get(key, "")).strip()
