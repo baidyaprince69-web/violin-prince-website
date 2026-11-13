@@ -7,11 +7,11 @@ It is not the production renderer.
 
 - Native word-level caption timing from Kokoro's predicted phoneme durations.
 - Nine caption treatments: bounce, editorial serif, outline, underline, tilt, typewriter, glow, editorial and impact.
-- Multiple font families and distinct per-word entrances instead of one repeated subtitle animation.
+- Multiple font families and phrase-aware word emphasis: technical terms, action words and emotional phrases receive different treatments rather than cycling styles by word index.
 - A warm charcoal, antique-gold and copper art direction; the large blue information card has been removed.
-- A compact editorial story header with animated waveform, progress, connector and crescendo infographic layouts.
+- A compact editorial story header with staged infographic reveals: label, headline, detail, connectors, nodes and chart layers enter in sequence.
 - Continuous atmosphere layers, floating light particles, orbital rings, directional transition sweeps and stronger scene-specific camera movement.
-- A bow-and-string performance motif whose sweep and string vibration respond to the sampled RMS energy of the music bed.
+- A localized alternating bow-path highlight and subtle string vibration in the performance-detail scene, responding to sampled RMS energy from the music bed.
 - A second story, "How a Violin Turns Motion into Music", rendered through the same pipeline to check layout and timing consistency.
 - Deterministic frame capture followed by FFmpeg H.264 encoding.
 
