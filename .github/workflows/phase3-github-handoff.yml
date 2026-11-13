@@ -1,0 +1,241 @@
+name: Phase 3 GitHub artifact handoff
+
+on:
+  push:
+    branches: [phase3-github-handoff]
+    paths:
+      - "autopilot/engine/phase3_release/**"
+      - "autopilot/engine/tests/test_phase3_github_handoff.py.gz"
+      - ".github/workflows/phase3-github-handoff.yml"
+  workflow_dispatch:
+    inputs:
+      phase2_run_id:
+        description: Successful V3 workflow run ID
+        required: true
+        default: "43463908965"
+        type: string
+      phase2_artifact_name:
+        description: Exact V3 artifact name; leave blank to derive it
+        required: false
+        default: ""
+        type: string
+  workflow_call:
+    inputs:
+      phase2_run_id:
+        required: true
+        type: string
+      phase2_artifact_name:
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: phase3-release-ledger-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  handoff:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PUBLISH_ENABLED: "false"
+      PHASE3_LEDGER_ARTIFACT_NAME: phase3-release-ledger
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Restore readable Python source from compressed repository payload
+        run: |
+          python - <<'PY'
+          import gzip
+          from pathlib import Path
+          pairs = [
+              ("autopilot/engine/phase3_release/github_handoff.py.gz",
+               "autopilot/engine/phase3_release/github_handoff.py"),
+              ("autopilot/engine/phase3_release/find_latest_ledger.py.gz",
+               "autopilot/engine/phase3_release/find_latest_ledger.py"),
+              ("autopilot/engine/tests/test_phase3_github_handoff.py.gz",
+               "autopilot/engine/tests/test_phase3_github_handoff.py"),
+          ]
+          for source, target in pairs:
+              Path(target).write_bytes(gzip.decompress(Path(source).read_bytes()))
+          PY
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run Phase 3 handoff and persistence tests
+        env:
+          PYTHONPATH: autopilot/engine
+        run: python -m unittest discover -s autopilot/engine/tests -p 'test_phase3_github_handoff.py' -v
+
+      - name: Resolve the Phase 2 source artifact
+        id: source
+        env:
+          REQUESTED_RUN_ID: ${{ inputs.phase2_run_id }}
+          REQUESTED_ARTIFACT_NAME: ${{ inputs.phase2_artifact_name }}
+          EVENT_NAME: ${{ github.event_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_id="$REQUESTED_RUN_ID"
+          if [[ -z "$run_id" ]]; then
+            if [[ "$EVENT_NAME" == "push" ]]; then
+              run_id="43463908965"
+            else
+              echo "::error::phase2_run_id is required."
+              exit 1
+            fi
+          fi
+          [[ "$run_id" =~ ^[0-9]+$ ]] || { echo "::error::phase2_run_id must be numeric."; exit 1; }
+          artifact_name="$REQUESTED_ARTIFACT_NAME"
+          [[ -n "$artifact_name" ]] || artifact_name="v3-motion-prototype-$run_id"
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=$artifact_name" >> "$GITHUB_OUTPUT"
+
+      - name: Find the latest persisted release ledger
+        id: prior_ledger
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python autopilot/engine/phase3_release/find_latest_ledger.py
+
+      - name: Restore the previous release ledger
+        if: steps.prior_ledger.outputs.found == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: phase3-release-ledger
+          path: work/phase3-state
+          run-id: ${{ steps.prior_ledger.outputs.run_id }}
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+
+      - name: Create state folder for the first run
+        if: steps.prior_ledger.outputs.found != 'true'
+        run: mkdir -p work/phase3-state
+
+      - name: Record the number of restored releases
+        id: before
+        run: |
+          python - <<'PY'
+          import os, sqlite3
+          from pathlib import Path
+          db = Path("work/phase3-state/phase3-release-ledger.sqlite3")
+          count = 0
+          if db.is_file():
+              with sqlite3.connect(db) as connection:
+                  if connection.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+                      raise SystemExit("Restored Phase 3 ledger failed integrity check.")
+                  count = connection.execute("SELECT COUNT(*) FROM release_records").fetchone()[0]
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"release_count={count}\n")
+          print(f"Restored {count} release records.")
+          PY
+
+      - name: Download the exact Phase 2 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ steps.source.outputs.artifact_name }}
+          path: work/phase2-artifact
+          run-id: ${{ steps.source.outputs.run_id }}
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+
+      - name: Verify the MP4, recovery manifest and QC report; prepare releases
+        env:
+          PUBLISH_ENABLED: "false"
+        run: |
+          set -euo pipefail
+          python autopilot/engine/phase3_release/github_handoff.py \
+            --phase2-root work/phase2-artifact/output/motion-prototype \
+            --creative-plan work/phase2-artifact/package/creative_plan.json \
+            --database work/phase3-state/phase3-release-ledger.sqlite3 \
+            --output work/phase3-state/phase3-release-handoff.json \
+            --repository "$GITHUB_REPOSITORY" \
+            --handoff-run-id "$GITHUB_RUN_ID" \
+            --phase2-run-id "${{ steps.source.outputs.run_id }}" \
+            --artifact-name "${{ steps.source.outputs.artifact_name }}" \
+            --destinations youtube,facebook,instagram
+
+      - name: Verify ledger integrity and idempotent release IDs
+        id: verify_ledger
+        env:
+          RELEASE_COUNT_BEFORE: ${{ steps.before.outputs.release_count }}
+        run: |
+          python - <<'PY'
+          import json, os, sqlite3
+          from pathlib import Path
+          root = Path("work/phase3-state")
+          report = json.loads((root / "phase3-release-handoff.json").read_text(encoding="utf-8"))
+          with sqlite3.connect(root / "phase3-release-ledger.sqlite3") as connection:
+              integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
+              records = connection.execute("SELECT COUNT(*) FROM release_records").fetchone()[0]
+              handoffs = connection.execute("SELECT COUNT(*) FROM handoff_sources").fetchone()[0]
+          before = int(os.environ.get("RELEASE_COUNT_BEFORE", "0"))
+          reused = [row["existing_release_reused"] for row in report["releases"]]
+          if integrity != "ok":
+              raise SystemExit("Phase 3 release ledger integrity check failed.")
+          if len(reused) != 3 or (any(reused) and not all(reused)):
+              raise SystemExit(f"Destination release IDs are inconsistent: {reused}")
+          expected = before if all(reused) else before + 3
+          if records != expected:
+              raise SystemExit(f"Ledger row-count mismatch: before={before}, after={records}, expected={expected}")
+          if handoffs < 3:
+              raise SystemExit(f"Expected at least three source handoff records, got {handoffs}")
+          if report["publishing_enabled"] or report["provider_requests_made"] != 0:
+              raise SystemExit("Publishing was unexpectedly enabled during Phase 3.")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write("validated=true\n")
+          print(json.dumps({
+              "ledger_integrity": integrity,
+              "release_records_before": before,
+              "release_records_after": records,
+              "handoff_records": handoffs,
+              "release_ids_reused": reused,
+              "qc_checks": f'{report["phase2"]["qc_checks_passed"]}/{report["phase2"]["qc_checks_total"]}',
+              "provider_requests": report["provider_requests_made"]
+          }, indent=2))
+          PY
+
+      - name: Save the persistent release ledger
+        if: steps.verify_ledger.outputs.validated == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase3-release-ledger
+          path: work/phase3-state/phase3-release-ledger.sqlite3
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+          overwrite: true
+
+      - name: Save the Phase 3 handoff report
+        if: steps.verify_ledger.outputs.validated == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase3-release-handoff-${{ github.run_id }}
+          path: work/phase3-state/phase3-release-handoff.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish Phase 3 verification summary
+        if: steps.verify_ledger.outputs.validated == 'true'
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+          report = json.loads(Path("work/phase3-state/phase3-release-handoff.json").read_text())
+          print("## Phase 3 GitHub artifact handoff")
+          print("- Phase 2 run: " + report["source"]["phase2_run_id"])
+          print("- MP4 SHA-256: `" + report["phase2"]["video_sha256"] + "`")
+          print("- QC: " + str(report["phase2"]["qc_checks_passed"]) + "/" + str(report["phase2"]["qc_checks_total"]))
+          print("- Release records: " + str(report["ledger"]["release_count"]))
+          print("- SQLite integrity: " + report["ledger"]["sqlite_integrity_check"])
+          print("- Publishing: DISABLED; provider requests: 0")
+          print("- Ledger snapshot retention: 90 days, refreshed on each run")
+          PY
