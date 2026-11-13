@@ -49,3 +49,13 @@ The dedicated GitHub Actions workflow performs these setup steps in the cloud. T
 - two-story-test-report.json — combined two-story result and production-separation flags.
 - v3-comparison-report.json — dimensions, duration, word timing and renderer metadata for each story.
 - qa-frames/ — sampled still frames from each HTML preview.
+
+
+## Prompt design
+
+- Image prompts use a five-part structure: subject/action, recurring asset anchor, style/material, lighting/camera, and background/atmosphere.
+- The opening image is composed as a readable two-second hook; the second scene is deliberately framed as an extreme close-up macro; the final scene resolves by widening back out.
+- Performance prompts specify the violin/bow/fingerboard relationship, the focal contact point, and a single dominant action. The prompt avoids forcing both hands into one anatomically impossible macro frame.
+- Camera intent is explicit (push-in, lateral follow, pull-back) and matches the Canvas renderer's scene-specific camera arcs.
+- Reference techniques are adapted into the original Violin Prince charcoal/walnut/oxblood/gold palette; the pipeline does not imitate another creator's branded look.
+- External text-to-video/image-to-video providers are not called by this prototype. The current free-first path still generates still artwork and animates it locally in the cloud renderer; the prompt design is ready for a future optional provider adapter.

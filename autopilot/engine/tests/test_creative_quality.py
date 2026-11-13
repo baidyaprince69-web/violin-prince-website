@@ -84,13 +84,55 @@ class CreativeQualityTests(unittest.TestCase):
         self.assertIn("SHOT 2 — DISTINCTIVE DETAIL", prompts[1])
         self.assertIn("SHOT 3 — PAYOFF", prompts[2])
         for prompt in prompts:
-            self.assertIn("warm palette of charcoal black, walnut brown", prompt)
+            self.assertIn("SUBJECT & ACTION", prompt)
+            self.assertIn("RECURRING ASSET ANCHOR", prompt)
+            self.assertIn("STYLE & MATERIAL", prompt)
+            self.assertIn("LIGHTING & CAMERA", prompt)
+            self.assertIn("BACKGROUND & ATMOSPHERE", prompt)
+            self.assertIn("warm", prompt.lower())
             self.assertIn("antique gold", prompt)
             self.assertIn("Avoid blue, teal, cyan or cold-blue backgrounds", prompt)
             self.assertIn("clearly illustrated concept art rather than photography", prompt)
             self.assertIn("Portrait 9:16 composition", prompt)
-            self.assertLessEqual(len(prompt), 2600)
+            self.assertLessEqual(len(prompt), 3200)
         self.assertEqual(len(set(prompts)), 3)
+
+    def test_performance_detail_prompt_is_an_extreme_macro_with_physical_constraints(self):
+        plan = {
+            "topic": "A virtuoso violinist performs a rapid technical passage",
+            "visual_motif": "same violin, amber varnish, dark tailpiece and four strings",
+        }
+        scene = {
+            "image_prompt": "A violinist's bow moves rapidly across the strings",
+            "caption": "Rapid bow changes",
+            "graphic_label": "BOW CONTROL",
+            "graphic_detail": "The bow crosses the strings",
+        }
+        prompt = pipeline._scene_visual_prompt(scene, index=1, plan=plan)
+        for expected in (
+            "EXTREME CLOSE-UP MACRO",
+            "85mm macro lens",
+            "very shallow depth of field",
+            "RECURRING ASSET ANCHOR",
+            "bow hair contacting the strings",
+            "between the bridge and fingerboard",
+            "fast alternating strokes",
+            "right hand near the frog",
+            "no duplicated or floating bow",
+        ):
+            self.assertIn(expected, prompt)
+        self.assertIn("warm directional key light around 3200K", prompt)
+        self.assertLessEqual(len(prompt), 3200)
+
+    def test_non_performance_macro_uses_one_clear_focal_detail(self):
+        prompt = pipeline._scene_visual_prompt(
+            {"image_prompt": "A close view of rosin dust moving along a bow hair"},
+            index=1,
+            plan={"topic": "How violin rosin creates friction"},
+        )
+        self.assertIn("EXTREME CLOSE-UP DETAIL", prompt)
+        self.assertIn("one exact surface", prompt)
+        self.assertNotIn("ANATOMY / INSTRUMENT NEGATIVES", prompt)
 
     def test_storyboard_preview_wraps_captions_without_overlapping_columns(self):
         with tempfile.TemporaryDirectory() as folder:

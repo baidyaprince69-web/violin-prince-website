@@ -1415,80 +1415,116 @@ def _read_package(require_images=False):
 
 
 def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
-    """Keep image identity warm and add performance-specific anatomy constraints when needed."""
+    """Build a structured, motion-aware keyframe prompt with a stable subject anchor."""
     prompt = str(scene.get("image_prompt", "")).strip()
     if not prompt:
         raise PipelineError("A planned scene has no image prompt.")
 
-    shot_roles = (
-        "SHOT 1 — HOOK: an immediately readable establishing composition with one intriguing "
-        "focal subject and a strong silhouette; make the viewer curious.",
-        "SHOT 2 — DISTINCTIVE DETAIL: a closer, more intimate composition showing the exact "
-        "object, action or detail that makes this story different; avoid a generic posed portrait.",
-        "SHOT 3 — PAYOFF: a wider emotional resolution that visually connects back to the opening "
-        "image and makes the story feel complete.",
-    )
     story = plan or {}
     subject = str(story.get("topic") or story.get("title") or "the story")[:140]
+    anchor = str(
+        story.get("visual_motif")
+        or story.get("visual_anchor")
+        or scene.get("visual_anchor")
+        or subject
+    ).strip()[:170]
     context = " ".join([
         subject,
+        anchor,
         str(scene.get("caption", "")),
         str(scene.get("graphic_label", "")),
         str(scene.get("graphic_detail", "")),
         prompt,
     ]).lower()
     performance_related = bool(re.search(
-        r"\b(violinist|virtuoso|musician|performer|performance|playing|bowing|concert|"
+        r"\b(violin|violinist|virtuoso|musician|performer|performance|playing|bowing|concert|"
         r"rapid|difficult|speed|fingerboard|bow hand|left hand|right hand|technique)\b",
         context,
     ))
 
-    prompt += (
-        f". Story subject: {subject}. {shot_roles[max(0, min(2, int(index)))]} "
-        "Keep a coherent visual world, consistent subject identity and lighting logic across all three images. "
-        "Violin Prince art direction: premium hand-painted cinematic editorial illustration, "
-        "illustrated concept art rather than photography, refined painterly detail and tactile texture. "
-        "Use a warm palette of charcoal black, walnut brown, muted oxblood/burgundy shadows, antique gold, "
-        "burnished copper and warm ivory highlights. Avoid blue, teal, cyan or cold-blue backgrounds. "
-        "Layered foreground, midground and background with clear depth for camera movement; reserve uncluttered "
-        "negative space near the top and lower caption zone; use deliberate focal hierarchy and cinematic light. "
-        "No generic stock photography, no unrelated people, no text, no lettering, no logos, no watermark. "
-        "Respect real-world scale and the supplied story; symbolic imagery must not imply unsupported facts. "
-        "Portrait 9:16 composition."
+    shot_roles = (
+        "SHOT 1 — TWO-SECOND HOOK: one instantly readable hero composition, a strong silhouette, "
+        "the performer and violin recognizable at thumbnail size; suggest action, not a posed portrait.",
+        "SHOT 2 — EXTREME CLOSE-UP DETAIL: isolate the single physical action or mechanism that makes "
+        "this story distinctive; prioritize tactile micro-detail and a precise focal plane.",
+        "SHOT 3 — EMOTIONAL PAYOFF: widen back out to connect the detail to the full subject and resolve "
+        "the opening visual question with a confident, coherent final composition.",
     )
+    camera_profiles = (
+        "Camera/framing: medium close-up, eye-level three-quarter view, 50mm-equivalent lens, "
+        "slow forward push-in; keep the instrument and playing posture legible.",
+        "Camera/framing: EXTREME CLOSE-UP MACRO, 85mm macro lens, very shallow depth of field; "
+        "pin-sharp focus on the contact point or tactile detail, with foreground and background falling "
+        "softly out of focus. Compose for a restrained lateral tracking move that follows the action.",
+        "Camera/framing: wider 50mm-equivalent portrait composition, slightly lower than eye level, "
+        "slow pull-back reveal; preserve clear depth layers and a stable horizon.",
+    )
+    scene_index = max(0, min(2, int(index)))
+
+    # Keep the external creator references as technique references only: the original
+    # Violin Prince visual identity remains warm, illustrated and distinct.
+    prompt_parts = [
+        "SUBJECT & ACTION: " + prompt + ". " + shot_roles[scene_index],
+        "RECURRING ASSET ANCHOR: " + anchor + ". Keep the same recognizable primary subject, "
+        "instrument design, wood tone, proportions and visual details across all three scenes; "
+        "change framing and camera distance, not the identity of the subject.",
+        "STYLE & MATERIAL: premium hand-painted cinematic editorial illustration, clearly illustrated "
+        "concept art rather than photography, with restrained dimensional 3D shading on real materials. "
+        "Show tactile wood grain, instrument varnish, fine metal, bow hair and rosin texture accurately; "
+        "avoid toy-like plasticine gloss, flat vector art, anime or generic stock imagery.",
+        "LIGHTING & CAMERA: " + camera_profiles[scene_index] + " Use a warm directional key light around "
+        "3200K, a soft neutral fill around 4300K and a restrained amber rim around 2800K. Keep highlights "
+        "controlled, preserve natural material color and use shallow depth of field only where specified.",
+        "BACKGROUND & ATMOSPHERE: charcoal black, walnut brown, muted oxblood/burgundy shadows, antique "
+        "gold, burnished copper and warm ivory highlights. Avoid blue, teal, cyan or cold-blue backgrounds. "
+        "Layered foreground, midground and background for parallax; leave a clean upper information area "
+        "and a lower caption-safe zone. Background motion should remain subtle and never compete with the hero action.",
+        "COMPOSITION RULES: clear focal hierarchy, readable silhouette, realistic scale and perspective, "
+        "no text, no lettering, no logos, no watermark, no duplicated subject or instrument. Portrait 9:16 composition.",
+    ]
 
     if performance_related:
-        if index == 0:
-            prompt += (
-                " Show a real violinist actively performing, not posing: instrument held in a plausible "
-                "playing position, left hand on the neck/fingerboard and right hand controlling the bow. "
-                "Keep the full instrument and both arms readable; the violin must not float or merge into clothing."
+        if scene_index == 0:
+            prompt_parts.append(
+                "PERFORMANCE ACCURACY: show an actively playing violinist. The violin rests naturally "
+                "under the jaw/shoulder; left hand supports the neck and fingers the fingerboard; right "
+                "hand controls the bow with a plausible grip. Keep both arms, the bow and the instrument "
+                "connected naturally and visible enough to read the action."
             )
-        elif index == 1:
-            prompt += (
-                " PERFORMANCE DETAIL: compose a close, readable view of the violin bridge, strings, "
-                "fingerboard and bow contact area. Show the right hand holding the bow at the frog with a "
-                "plausible curved grip and thumb placement; show the left-hand fingertips curved over the "
-                "fingerboard when they are in frame. The bow hair should contact the strings between bridge "
-                "and fingerboard, with the bow crossing the strings at a plausible near-perpendicular angle. "
-                "Keep the bow, bridge and fingers clearly separated; use a short restrained directional blur "
-                "on the bow only to suggest rapid alternating strokes, never on the hands."
+        elif scene_index == 1:
+            prompt_parts.append(
+                "VIOLIN MACRO DETAIL: show the bow hair contacting the strings between the bridge and "
+                "fingerboard at a plausible near-perpendicular crossing angle. Prioritize the bow-to-string "
+                "contact point, bridge, string windings and fine varnished wood texture. Include the right "
+                "hand near the frog only if it fits naturally at the frame edge; do not force both hands "
+                "into one impossible macro composition. Suggest fast alternating strokes with one restrained "
+                "directional blur on the moving bow only; keep strings, bridge and fingers anatomically distinct."
             )
         else:
-            prompt += (
-                " Show the performer and violin together in a confident, emotionally resolved playing pose, "
-                "with the bow, hands and instrument all connected naturally and in one consistent perspective."
+            prompt_parts.append(
+                "PERFORMANCE PAYOFF: show the performer, violin, both hands and bow together in a natural "
+                "playing posture; believable wrist alignment, curved left-hand fingertips and a relaxed, "
+                "plausible right-hand bow grip."
             )
-        prompt += (
-            " Anatomical accuracy is essential: believable wrist alignment, natural finger joints, correct "
-            "hand-to-bow scale, no extra or fused fingers, no duplicated bow, no floating bow, no broken "
-            "instrument geometry and no impossible string layout."
+        prompt_parts.append(
+            "ANATOMY / INSTRUMENT NEGATIVES: no extra or fused fingers, no duplicated or floating bow, "
+            "no broken bridge, no impossible string layout, no warped fingerboard, no disconnected hands, "
+            "no impossible wrist angles."
         )
 
-    clean_feedback = re.sub(r"\s+", " ", str(feedback or "")).strip()[:600]
+    # Non-performance close-ups still receive a concrete macro focal plane.
+    elif scene_index == 1:
+        prompt_parts.append(
+            "MACRO FOCUS: describe one exact surface, edge, moving part or material interaction as the "
+            "hero detail. Keep the focal plane narrow and the background quiet; do not create decorative "
+            "extra objects or unsupported diagrams."
+        )
+
+    clean_feedback = re.sub(r"\s+", " ", str(feedback or "")).strip()[:450]
     if clean_feedback:
-        prompt += ", additional visual direction: " + clean_feedback
-    return prompt[:2600]
+        prompt_parts.append("ADDITIONAL DIRECTION: " + clean_feedback)
+
+    return " ".join(prompt_parts)[:3200]
 
 def make_storyboard_preview(plan, image_paths, target):
     """Build a single review sheet so visual approval happens before video rendering."""
