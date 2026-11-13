@@ -1118,7 +1118,10 @@ def write_kinetic_ass(cues, output_path):
         if emphasis:
             phrase = re.sub(
                 rf"(?i)\b({re.escape(emphasis)})\b",
-                r"{\c&H008BCEEA&\b1}\1{\c&H00F8F5EF&\b0}",
+                lambda match: (
+                    r"{\c&H008BCEEA&\b1}" + match.group(1) +
+                    r"{\c&H00F8F5EF&\b0}"
+                ),
                 phrase,
                 count=1,
             )
