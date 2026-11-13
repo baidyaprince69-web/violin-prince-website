@@ -103,7 +103,7 @@ window.__DATA__ = ${safeJson};
     node.setAttribute("y", String(y));
     node.setAttribute(
       "transform",
-      `matrix(${matrix.a} ${matrix.b} ${matrix.c} ${matrix.d} ${matrix.e} ${matrix.f})`
+      "matrix(" + [matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f].join(" ") + ")"
     );
     const anchor = context.textAlign === "center"
       ? "middle"
@@ -140,7 +140,8 @@ window.__DATA__ = ${safeJson};
     }
     if (Number(context.shadowBlur) > 0) {
       const blur = Math.max(0, Number(context.shadowBlur) || 0);
-      node.style.filter = `drop-shadow(0px 0px ${blur}px ${String(context.shadowColor || "rgba(0,0,0,.5)")})`;
+      node.style.filter = "drop-shadow(0px 0px " + blur + "px " +
+        String(context.shadowColor || "rgba(0,0,0,.5)") + ")";
     }
     textLayer.appendChild(node);
     window.__FRAME_TEXT_EXPECTED__.push(value);
