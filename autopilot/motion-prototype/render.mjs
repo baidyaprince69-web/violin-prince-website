@@ -57,7 +57,7 @@ window.__DATA__ = ${safeJson};
     image.src = "data:image/jpeg;base64," + scene.image_b64;
     return image;
   });
-  const ready = Promise.all(images.map(image => image.decode()));
+  const ready = Promise.all(images.map(image => image.decode())).then(async () => { await document.fonts.ready; });
   const clamp = (value, low=0, high=1) => Math.max(low, Math.min(high, value));
   const easeOut = value => 1 - Math.pow(1 - clamp(value), 3);
   const easeInOut = value => {
@@ -83,6 +83,31 @@ window.__DATA__ = ${safeJson};
     if (line) lines.push(line);
     return lines.slice(0, 2);
   };
+
+  // Fail early if the cloud runner cannot rasterize lowercase "s" in either
+  // pinned family; this catches the exact glyph-loss regression seen in V3.
+  function validateCanvasFonts() {
+    const checks = ["DejaVu Sans", "DejaVu Serif"].map(family => {
+      const probe = document.createElement("canvas");
+      probe.width = 120;
+      probe.height = 100;
+      const probeCtx = probe.getContext("2d", { willReadFrequently: true });
+      probeCtx.clearRect(0, 0, probe.width, probe.height);
+      probeCtx.font = "700 80px '" + family + "'";
+      probeCtx.fillStyle = "#fff";
+      probeCtx.textBaseline = "alphabetic";
+      probeCtx.fillText("s", 8, 82);
+      const width = probeCtx.measureText("s").width;
+      const pixels = probeCtx.getImageData(0, 0, probe.width, probe.height).data;
+      let visiblePixels = 0;
+      for (let i = 3; i < pixels.length; i += 4) {
+        if (pixels[i] > 0) visiblePixels++;
+      }
+      return { family, measuredWidth: width, lowercase_s_pixels: visiblePixels };
+    });
+    return { ok: checks.every(item => item.measuredWidth > 10 && item.lowercase_s_pixels > 0), checks };
+  }
+  window.__TYPOGRAPHY_QA__ = validateCanvasFonts;
 
   function drawBase(sceneIndex, progress, alpha=1) {
     const image = images[sceneIndex];
@@ -253,11 +278,11 @@ window.__DATA__ = ${safeJson};
   function drawBrand(sceneIndex, time) {
     ctx.save();
     ctx.fillStyle = GOLD;
-    ctx.font = "800 18px Arial, sans-serif";
+    ctx.font = "800 18px 'DejaVu Sans', sans-serif";
     ctx.fillText("VIOLIN PRINCE", 34, 48);
     ctx.textAlign = "right";
     ctx.fillStyle = "rgba(255,243,226,.78)";
-    ctx.font = "600 12px Arial, sans-serif";
+    ctx.font = "600 12px 'DejaVu Sans', sans-serif";
     ctx.fillText("MOTION STORY  /  " + String(sceneIndex+1).padStart(2,"0") + " OF 03", W-34, 47);
     ctx.textAlign = "left";
     ctx.strokeStyle = "rgba(237,193,138,.48)";
@@ -273,7 +298,7 @@ window.__DATA__ = ${safeJson};
     ctx.fill();
     ctx.globalAlpha = 1;
     ctx.fillStyle = "rgba(255,243,226,.74)";
-    ctx.font = "500 12px Arial, sans-serif";
+    ctx.font = "500 12px 'DejaVu Sans', sans-serif";
     ctx.fillText("ORIGINAL STORY  •  ORIGINAL SOUNDTRACK",34,1212);
     ctx.textAlign = "right";
     ctx.fillText("VIOLIN PRINCE",W-34,1212);
@@ -311,21 +336,21 @@ window.__DATA__ = ${safeJson};
     // Story label, title and explanatory detail enter in separate beats.
     ctx.globalAlpha = opacity * labelProgress;
     ctx.fillStyle = accent;
-    ctx.font = "800 14px Arial, sans-serif";
+    ctx.font = "800 14px 'DejaVu Sans', sans-serif";
     ctx.fillText(String(index + 1).padStart(2, "0") + "   /   " + label.slice(0, 38), 42, top + 22);
 
     ctx.globalAlpha = opacity * headlineProgress;
     ctx.fillStyle = IVORY;
-    ctx.font = "700 39px Georgia, serif";
-    const headlineLines = wrap(headline, W - 92, "700 39px Georgia, serif");
+    ctx.font = "700 39px 'DejaVu Serif', serif";
+    const headlineLines = wrap(headline, W - 92, "700 39px 'DejaVu Serif', serif");
     headlineLines.forEach((line, row) => {
       ctx.fillText(line, 42 + (1 - headlineProgress) * 16, top + 82 + row * 48);
     });
 
     ctx.globalAlpha = opacity * detailProgress;
     ctx.fillStyle = MUTED;
-    ctx.font = "500 17px Arial, sans-serif";
-    const detailLines = wrap(detail, W - 92, "500 17px Arial, sans-serif");
+    ctx.font = "500 17px 'DejaVu Sans', sans-serif";
+    const detailLines = wrap(detail, W - 92, "500 17px 'DejaVu Sans', sans-serif");
     const detailY = top + 104 + headlineLines.length * 43;
     detailLines.forEach((line, row) => ctx.fillText(line, 44, detailY + row * 24));
 
@@ -358,11 +383,11 @@ window.__DATA__ = ${safeJson};
         roundRect(x, topY, colW, 90, 12);
         ctx.fill();
         ctx.fillStyle = IVORY;
-        ctx.font = "700 19px Arial, sans-serif";
+        ctx.font = "700 19px 'DejaVu Sans', sans-serif";
         ctx.fillText(String(card.label || "").slice(0, 22), x + 14, topY + 31);
         ctx.fillStyle = MUTED;
-        ctx.font = "14px Arial, sans-serif";
-        wrap(card.detail || "", colW - 28, "14px Arial, sans-serif")
+        ctx.font = "14px 'DejaVu Sans', sans-serif";
+        wrap(card.detail || "", colW - 28, "14px 'DejaVu Sans', sans-serif")
           .forEach((line, row) => ctx.fillText(line, x + 14, topY + 56 + row * 18));
       }
     } else if (index === 0) {
@@ -403,7 +428,7 @@ window.__DATA__ = ${safeJson};
         const labelProgressForNode = easeOut((local - (1.32 + node * 0.32)) / 0.38);
         ctx.globalAlpha = opacity * labelProgressForNode;
         ctx.fillStyle = IVORY;
-        ctx.font = "700 11px Arial, sans-serif";
+        ctx.font = "700 11px 'DejaVu Sans', sans-serif";
         ctx.textAlign = "center";
         ctx.fillText(labels[node], nx, graphY + 23);
       }
@@ -540,7 +565,7 @@ window.__DATA__ = ${safeJson};
 
     if (recent.length) {
       const context=recent.map(cue=>String(cue.text||"")).join("  ");
-      ctx.font="600 21px Arial, sans-serif";
+      ctx.font="600 21px 'DejaVu Sans', sans-serif";
       ctx.fillStyle="rgba(255,243,226,.68)";
       ctx.shadowColor="rgba(0,0,0,.42)";
       ctx.shadowBlur=8;
@@ -572,7 +597,7 @@ window.__DATA__ = ${safeJson};
     ctx.translate(x,y);
     ctx.rotate(rotation);
     ctx.scale(sx,sy);
-    const family=(style==="serif" || style==="editorial") ? "Georgia, serif" : "Arial, sans-serif";
+    const family=(style==="serif" || style==="editorial") ? "'DejaVu Serif', serif" : "'DejaVu Sans', sans-serif";
     const weight=style==="serif" ? "italic 700 " : "900 ";
     ctx.font=weight+fontSize+"px "+family;
     ctx.lineJoin="round";
@@ -662,7 +687,11 @@ const browser = await chromium.launch({ headless: true, args: ["--no-sandbox", "
 try {
   const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });
   await page.setContent(html, { waitUntil: "load" });
-  await page.evaluate(async () => await window.__READY__);
+  await page.evaluate(async () => { await window.__READY__; await document.fonts.ready; });
+  const typographyQa = await page.evaluate(() => window.__TYPOGRAPHY_QA__());
+  if (!typographyQa || !typographyQa.ok) {
+    throw new Error("Canvas typography QA failed: " + JSON.stringify(typographyQa));
+  }
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
 
   const ffmpeg = spawn("ffmpeg", [
@@ -697,7 +726,7 @@ try {
   }
   const stat=await fs.stat(outputPath);
   if (stat.size < 100000) throw new Error("HTML renderer output is unexpectedly small.");
-  console.log(JSON.stringify({frames,fps,duration_seconds:duration,output:outputPath,bytes:stat.size,renderer:"HTML Canvas + Playwright + FFmpeg"}));
+  console.log(JSON.stringify({frames,fps,duration_seconds:duration,output:outputPath,bytes:stat.size,renderer:"HTML Canvas + Playwright + FFmpeg",typography_qa:typographyQa}));
 } finally {
   await browser.close();
 }

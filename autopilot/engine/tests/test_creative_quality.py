@@ -114,15 +114,28 @@ class CreativeQualityTests(unittest.TestCase):
             "85mm macro lens",
             "very shallow depth of field",
             "RECURRING ASSET ANCHOR",
-            "bow hair contacting the strings",
+            "SINGLE FROZEN MACRO KEYFRAME",
+            "string-height three-quarter side angle",
+            "four separate, taut, parallel strings",
+            "crosses the strings from frame-left to frame-right at approximately 90 degrees",
+            "horsehair ribbon—not the bow stick",
+            "one sharply focused contact point",
             "between the bridge and fingerboard",
-            "fast alternating strokes",
             "right hand near the frog",
-            "no duplicated or floating bow",
+            "no duplicate bows",
         ):
             self.assertIn(expected, prompt)
         self.assertIn("warm directional key light around 3200K", prompt)
         self.assertLessEqual(len(prompt), 3200)
+
+    def test_canvas_renderer_pins_fonts_and_checks_lowercase_s_rasterization(self):
+        renderer = ENGINE.parent / "motion-prototype" / "render.mjs"
+        source = renderer.read_text(encoding="utf-8")
+        self.assertIn("'DejaVu Sans', sans-serif", source)
+        self.assertIn("'DejaVu Serif', serif", source)
+        self.assertIn("window.__TYPOGRAPHY_QA__", source)
+        self.assertIn("lowercase_s_pixels", source)
+        self.assertIn("await document.fonts.ready", source)
 
     def test_non_performance_macro_uses_one_clear_focal_detail(self):
         prompt = pipeline._scene_visual_prompt(

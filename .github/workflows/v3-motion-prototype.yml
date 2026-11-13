@@ -177,7 +177,7 @@ jobs:
                       "graphic_detail": "Bow speed and pressure shape the sound"
                   },
                   {
-                      "image_prompt": "An extreme close view of the same violin's bow hair meeting its four strings between the bridge and fingerboard; the exact contact point is the hero detail, the right hand may appear naturally near the frog without forcing the whole arm into frame",
+                      "image_prompt": "Single frozen side-three-quarter macro keyframe at string height: one upright maple bridge supports four separate parallel strings, and the ebony fingerboard is clearly visible behind it. One dark wooden violin bow crosses the strings from left to right at about 90 degrees. Show its thin pale horsehair ribbon visibly touching exactly one string at one clear point between bridge and fingerboard; the bow stick and horsehair must be distinct and connected parts of the same bow. Center the contact point. No hand is needed.",
                       "caption": "The bow catches each string",
                       "graphic_label": "BOW–STRING CONTACT",
                       "graphic_detail": "Tiny changes in speed and pressure shape tone"
@@ -218,6 +218,7 @@ jobs:
           python - <<'PY'
           import hashlib, json, os, shutil, sys
           from pathlib import Path
+          from PIL import Image
 
           sys.path.insert(0, str(Path("autopilot/engine").resolve()))
           import run as engine
@@ -236,7 +237,12 @@ jobs:
               "EXTREME CLOSE-UP MACRO",
               "85mm macro lens",
               "very shallow depth of field",
-              "bow hair contacting the strings",
+              "SINGLE FROZEN MACRO KEYFRAME",
+              "string-height three-quarter side angle",
+              "four separate, taut, parallel strings",
+              "crosses the strings from frame-left to frame-right at approximately 90 degrees",
+              "horsehair ribbon—not the bow stick",
+              "one sharply focused contact point",
               "between the bridge and fingerboard",
               "right hand near the frog",
           ):
@@ -252,21 +258,37 @@ jobs:
               path = package / f"scene-{index}.jpg"
               if not path.is_file() or path.stat().st_size < 10000:
                   raise SystemExit(f"Fresh scene image {index} is missing or unexpectedly small.")
+              with Image.open(path) as image:
+                  width, height = image.size
+                  image.verify()
+              if width >= height or not 0.50 <= width / height <= 0.65:
+                  raise SystemExit(f"Scene image {index} is not a portrait 9:16-style frame: {width}x{height}")
               images.append({
                   "file": path.name,
+                  "width": width,
+                  "height": height,
                   "size_bytes": path.stat().st_size,
                   "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
               })
           storyboard = package / "storyboard-preview.png"
           shutil.copy2(storyboard, output / "fresh-storyboard-preview.png")
           manifest = {
-              "status": "fresh_images_generated_and_verified",
+              "status": "fresh_images_generated_prompt_verified_visual_review_required",
               "run_id": run_id,
               "source_prepared_run_id": os.environ["SOURCE_RUN_ID"],
               "branch": os.environ.get("GITHUB_REF_NAME", "v3-motion-prototype"),
               "title": plan.get("title"),
               "image_model": engine.IMAGE_MODEL,
               "fresh_image_generation": True,
+              "prompt_validation": "passed",
+              "visual_content_review": "pending_human_review",
+              "visual_review_checklist": [
+                  "The pale horsehair ribbon itself visibly contacts one string; the bow stick is a separate connected part.",
+                  "The bridge and fingerboard are distinct, and four separate strings run in parallel.",
+                  "The contact point is clear, physically plausible and between bridge and fingerboard.",
+                  "Only one bow is visible; no detached rod, screw or floating object is mistaken for the bow.",
+                  "The palette remains warm walnut, charcoal, oxblood, copper and antique gold.",
+              ],
               "scene_images": images,
               "scene_2_macro_prompt": macro_prompt,
               "publishing_enabled": False,
@@ -280,6 +302,7 @@ jobs:
               "run_id": run_id,
               "generated_scene_images": len(images),
               "macro_prompt_checks": "passed",
+              "visual_content_review": "pending_human_review",
               "publishing_enabled": False,
           }, indent=2))
           PY

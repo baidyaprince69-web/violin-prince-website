@@ -17,7 +17,9 @@ It is not the production renderer.
 
 ## Visual scope
 
-The three main scene illustrations remain still source images. The HTML renderer adds continuous camera motion, animated vector layers, dynamic typography, infographic components and a music-reactive bow/string motif over them. This is a stronger motion-graphics test, not full AI-generated character animation or a claim of anatomically exact hand performance.
+The three main scene illustrations remain still source images. The HTML renderer adds continuous camera movement (push-in, tracking-style drift and pull-back), transitions, animated vector layers, dynamic typography, infographic components and a music-reactive bow/string overlay; FFmpeg encodes those frames into an MP4. This is a real rendered video file, but it is **not** text-to-video or image-to-video generation: the violinist, hands and bow are not independently animated as moving footage. A genuine AI-video provider adapter is a separate future phase and is not enabled in this free-first prototype.
+
+The fresh-visual manifest checks prompt structure, image presence, dimensions and hashes. It deliberately marks the image content as requiring human visual review; passing prompt assertions is not proof that the image model obeyed the requested bow/string geometry.
 
 ## Safety and separation
 

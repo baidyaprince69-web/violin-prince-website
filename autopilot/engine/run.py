@@ -1493,12 +1493,20 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
             )
         elif scene_index == 1:
             prompt_parts.append(
-                "VIOLIN MACRO DETAIL: show the bow hair contacting the strings between the bridge and "
-                "fingerboard at a plausible near-perpendicular crossing angle. Prioritize the bow-to-string "
-                "contact point, bridge, string windings and fine varnished wood texture. Include the right "
-                "hand near the frog only if it fits naturally at the frame edge; do not force both hands "
-                "into one impossible macro composition. Suggest fast alternating strokes with one restrained "
-                "directional blur on the moving bow only; keep strings, bridge and fingers anatomically distinct."
+                "SINGLE FROZEN MACRO KEYFRAME: one instant, not multiple exposures or a sequence. Use a "
+                "string-height three-quarter side angle looking along the violin strings from the bridge toward "
+                "the fingerboard. Show one upright maple bridge supporting four separate, taut, parallel strings; "
+                "the fingerboard must be a distinct part behind the bridge. A single violin bow crosses the strings "
+                "from frame-left to frame-right at approximately 90 degrees. Clearly separate the dark wooden bow "
+                "stick from its thin, taut, pale horsehair ribbon. The horsehair ribbon—not the bow stick—must "
+                "visibly rest on and slightly depress exactly one string at one sharply focused contact point in "
+                "the playing area between the bridge and fingerboard. Keep this contact point near frame center. "
+                "Show the bow stick and hair as two connected parts of the same bow. A small right hand near the "
+                "frog may appear only if it naturally fits at the frame edge; the hand may be omitted entirely. "
+                "Keep the strings, bridge, fingerboard, bow stick and horsehair visually distinct. "
+                "ANATOMY / OBJECT NEGATIVES: no extra strings, no duplicate bows, no detached pale rod, no "
+                "floating bow, no screw or metal pin mistaken for the bow, no bow aligned parallel to the strings, "
+                "no bridge mistaken for the bow, no impossible string layout, no warped fingerboard."
             )
         else:
             prompt_parts.append(
