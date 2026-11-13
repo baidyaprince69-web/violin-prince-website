@@ -1824,11 +1824,11 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         # this entire prompt; the bow/strings requirements are never beyond a cut-off.
         prompt_parts = [
             "SUBJECT & ACTION: " + compact_prompt + ".",
-            "SHOT 2 — EXTREME CLOSE-UP DETAIL: EXTREME CLOSE-UP MACRO, 85mm macro lens, string-height three-quarter side angle, very shallow depth of field; one centered contact point is pin-sharp.",
+            "SHOT 2 — CONTROLLED MACRO CLOSE-UP: 85mm macro lens, string-height three-quarter side angle, natural perspective and shallow depth of field; keep the complete bridge and the bow/string interaction in frame.",
             "SINGLE FROZEN MACRO KEYFRAME: one instant, no sequence or multiple exposure.",
-            "GEOMETRY: one upright maple bridge supports four separate, taut, parallel strings; the ebony fingerboard is distinct behind it. One dark wooden bow crosses the strings from frame-left to frame-right at approximately 90 degrees. Its thin pale horsehair ribbon and wooden stick are connected but visibly separate. The horsehair ribbon—not the bow stick—rests on and slightly depresses exactly one string at one sharply focused contact point between the bridge and fingerboard. Center this point; no hands are required.",
+            "INSTRUMENT ACCURACY: show one complete upright maple bridge with both feet visible and four separate, evenly spaced strings running over it toward a clearly distinct ebony fingerboard. Show exactly one violin bow. Its straight dark wooden stick and pale horsehair ribbon run alongside each other with a visible narrow gap, attached only at the frog and tip; neither part is broken, fused, doubled or floating. The horsehair crosses the strings at approximately 90 degrees and visibly touches one string at a single clear point between bridge and fingerboard. Keep the full bridge, the contact area and enough bow length visible; do not crop the bridge or merge the objects.",
             "RECURRING ASSET ANCHOR: " + anchor + "; believable violin proportions.",
-            "STYLE & MATERIAL: premium hand-painted cinematic editorial illustration; clearly illustrated concept art rather than photography. Restrained 3D shading; accurate maple, ebony, steel strings and bow hair. No plastic, anime or stock imagery.",
+            "STYLE & MATERIAL: photorealistic premium instrument-performance photography, true-to-life violin construction, visible wood grain, natural varnish, realistic steel strings, maple and ebony. No illustration, 3D render, anime or plastic surfaces.",
             "LIGHTING & CAMERA: warm directional key light around 3200K, neutral 4300K fill, amber 2800K rim; narrow macro focus plane.",
             "BACKGROUND & ATMOSPHERE: charcoal, walnut, oxblood, copper, antique gold, warm ivory. Avoid blue, teal, cyan or cold-blue. Layered foreground, midground and background.",
             "COMPOSITION RULES: realistic Portrait 9:16 composition, centered contact, no text, lettering, logo or watermark. No extra rods; no duplicate bows or detached hair; no screws/pins mistaken for a bow; no parallel bow, extra strings or broken bridge.",
@@ -1847,7 +1847,7 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         prompt_parts = [
             "SUBJECT & ACTION: " + compact_prompt + ". " + shot_roles[scene_index],
             "RECURRING ASSET ANCHOR: " + anchor + "; keep recognizable subject design and believable proportions.",
-            "STYLE & MATERIAL: premium hand-painted cinematic editorial illustration, clearly illustrated concept art rather than photography, with restrained 3D shading and tactile natural materials; avoid plastic, anime or stock imagery.",
+            "STYLE & MATERIAL: photorealistic cinematic editorial photography, believable anatomy and authentic material texture; no illustration, no 3D render, no anime, no plastic or stock-photo look.",
             "LIGHTING & CAMERA: " + camera_profiles[scene_index] + " Warm 3200K key, neutral 4300K fill and amber 2800K rim.",
             "BACKGROUND & ATMOSPHERE: charcoal, walnut, oxblood, copper, antique gold and warm ivory. Avoid blue, teal, cyan or cold-blue backgrounds. Layered foreground, midground and background.",
             "COMPOSITION RULES: clear focal hierarchy, realistic perspective, Portrait 9:16 composition, no text, no lettering, no logo, no watermark.",
