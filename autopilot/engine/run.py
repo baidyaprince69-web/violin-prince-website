@@ -726,11 +726,27 @@ def make_plan(items, recent=None):
                 continue
 
             completed = False
-            for attempt in (1, 2):
+            for attempt in (1, 2, 3):
                 previous_sentence = sentences[index - 1] if index > 0 else ""
                 next_sentence = sentences[index + 1] if index < 3 else ""
                 previous_count = narration_word_count(current_sentence)
-                if attempt == 2 and previous_count == target_words - 1:
+                if attempt == 3 and previous_count == target_words - 1:
+                    correction_instruction = (
+                        f"The last two revisions still had {previous_count} words, exactly one too few. "
+                        f"Preserve the current sentence's existing words verbatim and in the same order. "
+                        f"Insert exactly ONE additional useful, fact-safe word to make {target_words}; "
+                        "do not replace, delete, shorten, or reorder any existing word. "
+                        "Choose a word supported by the supplied plan, source evidence, or existing narration. "
+                        "Count every space-separated part of a person's name as its own word. "
+                        "Do not use filler, dates, or unsupported claims."
+                    )
+                elif attempt == 3 and previous_count == target_words + 1:
+                    correction_instruction = (
+                        f"The last revisions still have {previous_count} words, exactly one too many. "
+                        "Preserve every other word and remove exactly one non-essential word. "
+                        "Do not rewrite or shorten the sentence in any other way."
+                    )
+                elif attempt == 2 and previous_count == target_words - 1:
                     correction_instruction = (
                         f"The previous version had {previous_count} words, exactly one too few. "
                         f"Keep its meaning and sentence structure, then add exactly ONE useful, "
@@ -742,7 +758,7 @@ def make_plan(items, recent=None):
                         f"The previous version had {previous_count} words, exactly one too many. "
                         "Remove only one non-essential word while preserving meaning and natural phrasing."
                     )
-                elif attempt == 2:
+                elif attempt > 1:
                     correction_instruction = (
                         f"The previous version failed because {current_error}. Make a visibly different, "
                         "carefully counted revision and verify its word count before returning it."
@@ -759,7 +775,7 @@ def make_plan(items, recent=None):
                                 "You are a precise spoken-documentary script editor. Return exactly one JSON "
                                 "object with one field named sentence, and no Markdown or commentary. "
                                 "The sentence field must contain exactly " + str(target_words) +
-                                " spoken words, counted as ordinary space-separated words. Count each word by position before answering. Use simple words; "
+                                " spoken words, counted as ordinary space-separated words. Count each word by position before answering; count each space-separated part of a multi-part name separately. Use simple words; "
                                 "avoid contractions and hyphenated compounds. Write exactly one complete, "
                                 "natural sentence, with no more than 12 words. Its role is: " +
                                 sentence_roles[index] + ". Preserve the story's meaning and emotional purpose. "
@@ -837,7 +853,7 @@ def make_plan(items, recent=None):
                 save_narration_debug("failed", " ".join(sentences))
                 raise PipelineError(
                     f"Narration sentence {index + 1} could not be repaired to exactly "
-                    f"{target_words} natural, evidence-supported words after two focused attempts. "
+                    f"{target_words} natural, evidence-supported words after three focused attempts. "
                     "The original story and visuals were preserved; no filler was inserted."
                 )
 
