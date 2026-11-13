@@ -15,7 +15,7 @@ Every generated scene image should identify:
 
 1. **Subject and action:** one concrete subject performing one readable action.
 2. **Recurring asset anchor:** a short, repeatable description of the same instrument/subject that keeps identity, proportions and material cues consistent across scenes.
-3. **Style and material:** illustrated editorial art with restrained dimensional shading; specify wood grain, varnish, metal, bow hair and rosin textures when relevant.
+3. **Style and material:** photorealistic cinematic editorial photography with plausible anatomy and authentic materials; specify wood grain, varnish, metal, bow hair and rosin textures when relevant.
 4. **Lighting and camera:** lens/framing, focal plane, depth of field, key/fill/rim light and intended camera move.
 5. **Background and atmosphere:** the warm Violin Prince palette, depth layers, negative space and restrained ambient movement.
 
@@ -24,16 +24,14 @@ Every generated scene image should identify:
 | Scene | Editorial purpose | Framing and motion |
 |---|---|---|
 | 1 | Two-second hook | Thumbnail-readable medium close-up; slow push-in; show the subject and action clearly |
-| 2 | Distinctive physical detail | Extreme close-up macro; 85mm macro language; shallow depth of field; focus the physical interaction; lateral camera follow |
+| 2 | Distinctive physical detail | Controlled macro close-up; 85mm macro language; shallow depth of field; keep the complete bridge and bow/string interaction readable |
 | 3 | Emotional payoff | Wider composition; slow pull-back reveal; connect the detail to the complete subject |
 
 ## Violin performance macro rules
 
-For a performance story, scene 2 should focus on a single physically valid action: bow hair crossing the strings between bridge and fingerboard. Describe the bridge, string windings, bow hair, varnished wood, and the exact focal plane.
+For a violin performance story, scene 2 must be a real AI-generated macro photograph brief, not a procedural illustration. Keep the complete maple bridge and both feet visible, show four separate strings and a distinct ebony fingerboard, and show exactly one bow. Its straight wooden stick and pale horsehair ribbon must be separate but joined at the frog and tip. Reject broken, fused, doubled, conjoined or floating bow parts. The horsehair—not the stick—must visibly contact one string between bridge and fingerboard. Do not crop the bridge or turn the instrument parts into an abstract knot.
 
-Do not force the right-hand bow grip and left-hand fingerboard fingering into the same extreme macro if the camera position cannot plausibly show both. Keep the hand that matters to the action in frame and preserve correct bow/string geometry. Allow motion blur on the moving bow only; keep hands, bridge and fingerboard structurally readable.
-
-The prompt must not promise exact anatomy from image generation. A generated image still requires visual inspection.
+A vision model inspects each generated image against the scene brief. It may request one targeted regeneration; if the result still fails, the stage rejects it. AI inspection is not a substitute for a person checking the storyboard and final encoded video.
 
 ## Camera-motion prompt template
 
