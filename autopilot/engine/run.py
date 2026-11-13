@@ -1252,6 +1252,592 @@ def should_reuse_scene_image(path, plan, scene, index, metadata=None):
         return False
 
 
+def font(size):
+    for p in ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+              "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf"):
+        if Path(p).exists():
+            return ImageFont.truetype(p, size)
+    return ImageFont.load_default()
+
+
+def make_card(source, caption, index, title=""):
+    """Create a full-bleed vertical cinematic frame with restrained branding."""
+    image = Image.open(source).convert("RGB")
+    # Use a portrait crop with a centred safe area instead of a small square inset.
+    image = ImageOps.fit(image, (W, H), method=Image.Resampling.LANCZOS, centering=(0.5, 0.46))
+    image = ImageEnhance.Color(image).enhance(0.92)
+    image = ImageEnhance.Contrast(image).enhance(1.04)
+    canvas = image.convert("RGBA")
+
+    # Soft top and bottom gradients keep type legible without heavy boxes.
+    gradient = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(gradient)
+    for y in range(H):
+        if y < 330:
+            alpha = int(150 * (1.0 - y / 330.0))
+        elif y > 850:
+            alpha = int(190 * ((y - 850) / (H - 850)))
+        else:
+            alpha = 0
+        if alpha:
+            gd.line((0, y, W, y), fill=(5, 8, 14, alpha))
+    canvas = Image.alpha_composite(canvas, gradient)
+    draw = ImageDraw.Draw(canvas)
+
+    gold = (235, 202, 139, 255)
+    white = (255, 250, 241, 255)
+    draw.text((34, 36), "VIOLIN PRINCE", font=font(20), fill=gold,
+              stroke_width=1, stroke_fill=(0, 0, 0, 120))
+    draw.line((34, 72, W - 34, 72), fill=(235, 202, 139, 150), width=1)
+
+    if index == 0 and title:
+        title_lines = textwrap.wrap(str(title).strip(), width=27)[:2]
+        title_y = 105
+        title_font = font(31)
+        for line in title_lines:
+            draw.text((34, title_y), line, font=title_font, fill=white,
+                      stroke_width=2, stroke_fill=(0, 0, 0, 170))
+            title_y += 43
+
+    draw.line((34, 1190, W - 34, 1190), fill=(235, 202, 139, 135), width=1)
+    draw.text((34, 1207), "ORIGINAL STORY • ORIGINAL SOUNDTRACK",
+              font=font(13), fill=(242, 230, 208, 240))
+    draw.text((W - 110, 1207), f"{index + 1:02d}/03",
+              font=font(13), fill=(242, 230, 208, 240))
+
+    p = OUT / f"card-{index + 1}.png"
+    canvas.convert("RGB").save(p, "PNG", optimize=True)
+    return p
+
+def make_motion_graphic_card(scene, index, plan, target):
+    """Create a transparent, source-grounded infographic panel for one story beat."""
+    width, height = 620, 245
+    image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    gold = (235, 202, 139, 255)
+    ivory = (255, 250, 241, 255)
+    muted = (191, 202, 214, 255)
+    draw.rounded_rectangle(
+        (4, 4, width - 4, height - 4), radius=24,
+        fill=(7, 13, 24, 222), outline=(235, 202, 139, 220), width=2
+    )
+    draw.rounded_rectangle((24, 26, 32, height - 26), radius=4, fill=gold)
+    label = re.sub(r"\s+", " ", str(scene.get("graphic_label") or ("STORY BEAT " + str(index + 1)))).strip().upper()
+    label = textwrap.shorten(label, width=30, placeholder="…")
+    draw.text((54, 25), f"{index + 1:02d}  /  03     {label}", font=font(16), fill=gold)
+
+    headline = textwrap.wrap(str(scene.get("caption") or plan.get("title", "")).strip(), width=28)[:2]
+    y = 66
+    for line in headline:
+        draw.text((54, y), line, font=font(30), fill=ivory)
+        y += 38
+
+    detail = textwrap.wrap(str(scene.get("graphic_detail") or "").strip(), width=47)[:2]
+    detail_y = 151 if len(headline) > 1 else 145
+    for line in detail:
+        draw.text((54, detail_y), line, font=font(17), fill=muted)
+        detail_y += 24
+
+    # A restrained three-step progress motif makes the sequence legible without
+    # adding unsupported data or pretending the story contains a measured chart.
+    line_y = height - 22
+    draw.line((width - 112, line_y, width - 26, line_y), fill=(235, 202, 139, 105), width=2)
+    for step in range(3):
+        x = width - 112 + step * 43
+        fill = gold if step <= index else (120, 133, 151, 180)
+        draw.ellipse((x - 5, line_y - 5, x + 5, line_y + 5), fill=fill)
+    target = Path(target)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    image.save(target, "PNG", optimize=True)
+    return target
+
+
+def _ass_timestamp(seconds):
+    centiseconds = max(0, int(round(float(seconds) * 100)))
+    hours, remainder = divmod(centiseconds, 360000)
+    minutes, remainder = divmod(remainder, 6000)
+    whole_seconds, fraction = divmod(remainder, 100)
+    return f"{hours}:{minutes:02}:{whole_seconds:02}.{fraction:02}"
+
+
+def write_kinetic_ass(cues, output_path):
+    """Write animated sentence-level captions aligned to Kokoro's measured cue times."""
+    target = Path(output_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    header = [
+        "[Script Info]",
+        "Title: Violin Prince Kinetic Captions",
+        "ScriptType: v4.00+",
+        f"PlayResX: {W}",
+        f"PlayResY: {H}",
+        "WrapStyle: 2",
+        "ScaledBorderAndShadow: yes",
+        "",
+        "[V4+ Styles]",
+        "Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding",
+        "Style: VP,DejaVu Sans,39,&H00F8F5EF,&H008BCEEA,&HCC07111F,&HCC07111F,-1,0,3,1.6,0,2,54,54,162,1",
+        "",
+        "[Events]",
+        "Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text",
+    ]
+    events = []
+    stopwords = {"the", "and", "for", "with", "from", "that", "this", "into", "was", "are", "its", "one", "when", "their"}
+    for cue in cues:
+        start = float(cue.get("start", 0))
+        end = float(cue.get("end", 0))
+        phrase = re.sub(r"\s+", " ", str(cue.get("text", "")).strip())
+        if not phrase or end <= start:
+            continue
+        words = re.findall(r"[A-Za-z0-9’'-]+", phrase)
+        candidates = [word for word in words if word.casefold() not in stopwords and len(word) >= 4]
+        emphasis = max(candidates or words or [""], key=len)
+        caption_lines = textwrap.wrap(phrase, width=27)[:2]
+        formatted_lines = []
+        for line in caption_lines:
+            safe_line = line.replace("{", r"\{").replace("}", r"\}")
+            if emphasis:
+                safe_line = re.sub(
+                    rf"(?i)\b({re.escape(emphasis)})\b",
+                    lambda match: (
+                        r"{\c&H008BCEEA&\b1}" + match.group(1) +
+                        r"{\c&H00F8F5EF&\b0}"
+                    ),
+                    safe_line,
+                    count=1,
+                )
+            formatted_lines.append(safe_line)
+        wrapped = r"\N".join(formatted_lines)
+        animated = r"{\fad(180,220)\fscx96\fscy96\t(0,180,\fscx100\fscy100)}" + wrapped
+        events.append(
+            f"Dialogue: 0,{_ass_timestamp(start)},{_ass_timestamp(end)},VP,,0,0,0,,{animated}"
+        )
+    if not events:
+        raise PipelineError("No valid narration cues were available for kinetic captions.")
+    target.write_text("\n".join(header + events) + "\n", encoding="utf-8")
+    return target
+
+
+def command(args):
+    p = subprocess.run(args, capture_output=True, text=True)
+    if p.returncode:
+        raise PipelineError("FFmpeg failed: " + p.stderr[-1200:])
+
+
+def validate_final_video(path):
+    """Fail closed unless the final file contains valid vertical video and audio."""
+    if not path.exists() or path.stat().st_size < 150000:
+        raise PipelineError("Final MP4 is missing or unexpectedly small.")
+    probe = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries",
+         "format=duration:stream=codec_type,width,height,sample_rate,channels",
+         "-of", "json", str(path)],
+        capture_output=True, text=True
+    )
+    if probe.returncode:
+        raise PipelineError("ffprobe could not inspect the final MP4: " + probe.stderr[-800:])
+    try:
+        data = json.loads(probe.stdout)
+        duration = float(data.get("format", {}).get("duration", 0))
+        streams = data.get("streams", [])
+    except (TypeError, ValueError) as exc:
+        raise PipelineError("ffprobe returned invalid MP4 metadata.") from exc
+
+    video = next((item for item in streams if item.get("codec_type") == "video"), None)
+    audio = next((item for item in streams if item.get("codec_type") == "audio"), None)
+    if not video or not audio:
+        raise PipelineError("Final MP4 must contain both video and mixed narration/music audio.")
+    if int(video.get("width", 0)) != W or int(video.get("height", 0)) != H:
+        raise PipelineError("Final MP4 is not the required 720x1280 vertical format.")
+    if not 23.5 <= duration <= 24.5:
+        raise PipelineError(f"Final MP4 duration is outside the 24-second target: {duration:.2f}s.")
+    if int(audio.get("sample_rate", 0)) < 22050:
+        raise PipelineError("Final audio sample rate is unexpectedly low.")
+
+    return {
+        "duration_seconds": round(duration, 2),
+        "width": int(video["width"]),
+        "height": int(video["height"]),
+        "audio_sample_rate": int(audio["sample_rate"]),
+        "file_size_bytes": path.stat().st_size,
+    }
+
+def scene_durations_from_narration(narration_info, total_seconds=24.0):
+    """Allocate scene lengths around spoken beats, leaving a short music-only ending."""
+    cues = narration_info.get("subtitle_cues", []) if isinstance(narration_info, dict) else []
+    cues = sorted(
+        [cue for cue in cues if isinstance(cue, dict) and "start" in cue and "end" in cue],
+        key=lambda cue: float(cue.get("start", 0)),
+    )
+    if not cues:
+        return (8.0, 8.0, round(float(total_seconds) - 16.0, 2))
+
+    first_end = max(0.0, float(cues[0].get("end", 0)))
+    last_start = max(0.0, float(cues[-1].get("start", 0)))
+    first_boundary = min(max(first_end + 1.4, 4.8), 7.5)
+    second_boundary = min(
+        max(last_start - 0.3, first_boundary + 5.5),
+        float(total_seconds) - 5.0,
+    )
+    first = round(first_boundary, 2)
+    second = round(second_boundary - first_boundary, 2)
+    third = round(float(total_seconds) - first - second, 2)
+    return (first, second, third)
+
+
+def camera_motion_filter(frame_count, scene_index=0):
+    """Use a gentle, eased push with a different continuous drift in each scene."""
+    count = max(1, int(frame_count))
+    progress = f"min(1,on/{max(1, count - 1)})"
+    eased = f"({progress}*{progress}*(3-2*{progress}))"
+    if int(scene_index) % 3 == 0:
+        x_position = f"(0.40+0.20*{eased})"
+        y_position = "0.5"
+    elif int(scene_index) % 3 == 1:
+        x_position = "0.5"
+        y_position = f"(0.42+0.16*{eased})"
+    else:
+        x_position = f"(0.60-0.20*{eased})"
+        y_position = "0.5"
+    return (
+        f"zoompan=z='1.005+0.055*{eased}':"
+        f"x='(iw-iw/zoom)*{x_position}':y='(ih-ih/zoom)*{y_position}':"
+        f"d={count}:s={W}x{H}:fps={FPS}"
+    )
+
+
+def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
+           audio_source="generated_ambient_fallback"):
+    OUT.mkdir(parents=True, exist_ok=True)
+    audio_path = WORK / "approved-audio"
+    audio_path.write_bytes(audio_bytes)
+    clips = []
+    scene_durations = scene_durations_from_narration(narration_info)
+    for i, (scene, scene_seconds) in enumerate(zip(plan["scenes"], scene_durations)):
+        visual_prompt = (
+            str(scene["image_prompt"]) +
+            ", portrait 9:16 composition, centred focal subject, vertical framing, "
+            "cinematic natural lighting, no text, no logos, no watermark"
+        )
+        if image_paths is not None:
+            image = Path(image_paths[i])
+            if not image.is_file():
+                raise PipelineError(f"Prepared scene image {i + 1} is missing.")
+        else:
+            image = make_image(visual_prompt, i)
+        card = make_card(image, scene["caption"], i, plan.get("title", ""))
+        graphic = make_motion_graphic_card(
+            scene, i, plan, OUT / f"motion-graphic-{i + 1}.png"
+        )
+        clip = OUT / f"scene-{i + 1}.mp4"
+        frame_count = max(1, int(round(scene_seconds * FPS)))
+        camera = camera_motion_filter(frame_count, i)
+        panel_fade_out = max(0.0, scene_seconds - 0.34)
+        scene_filter = (
+            f"[0:v]{camera},format=rgba[base];"
+            f"[1:v]format=rgba,fade=t=in:st=0:d=0.30:alpha=1,"
+            f"fade=t=out:st={panel_fade_out:.3f}:d=0.28:alpha=1[panel];"
+            "[base][panel]overlay=x='(W-w)/2':"
+            "y='H-h-340-18*(1-min(1,t/0.30))':format=auto,format=yuv420p[v]"
+        )
+        command(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                 "-loop", "1", "-framerate", str(FPS), "-i", str(card),
+                 "-loop", "1", "-framerate", str(FPS), "-i", str(graphic),
+                 "-t", f"{scene_seconds:.3f}", "-filter_complex", scene_filter,
+                 "-map", "[v]", "-an", "-c:v", "libx264", "-preset", "veryfast",
+                 "-crf", "25", "-pix_fmt", "yuv420p", str(clip)])
+        clips.append(clip)
+
+    silent = OUT / "silent.mp4"
+    transition_seconds = 0.35
+    first_offset = max(0.0, scene_durations[0] - transition_seconds)
+    second_offset = max(0.0, scene_durations[0] + scene_durations[1] - 2 * transition_seconds)
+    transition_filter = (
+        f"[0:v][1:v]xfade=transition=fade:duration={transition_seconds:.3f}:"
+        f"offset={first_offset:.3f}[v1];"
+        f"[v1][2:v]xfade=transition=fade:duration={transition_seconds:.3f}:"
+        f"offset={second_offset:.3f}[v2];"
+        f"[v2]tpad=stop_mode=clone:stop_duration={2 * transition_seconds:.3f},"
+        "format=yuv420p[vout]"
+    )
+    command(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+             "-i", str(clips[0]), "-i", str(clips[1]), "-i", str(clips[2]),
+             "-filter_complex", transition_filter, "-map", "[vout]", "-an",
+             "-t", "24", "-c:v", "libx264", "-preset", "veryfast",
+             "-crf", "25", "-pix_fmt", "yuv420p", str(silent)])
+    final = OUT / "violin-prince-short.mp4"
+    subtitle_path = OUT / "narration.srt"
+    from voiceover import write_srt
+    write_srt(narration_info.get("subtitle_cues", []), subtitle_path)
+    ass_path = OUT / "narration.ass"
+    write_kinetic_ass(narration_info.get("subtitle_cues", []), ass_path)
+    if audio_source == "generated_ambient_fallback":
+        bed_volume = "0.18"
+    elif audio_source == "sampled_violin_cc0":
+        bed_volume = "0.24"
+    else:
+        bed_volume = "0.26"
+    audio_filter = (
+        f"[1:a]volume={bed_volume}[bed];"
+        "[2:a]highpass=f=75,acompressor=threshold=-20dB:ratio=3:attack=12:release=180,"
+        "volume=1.15,asplit=2[voice_sc][voice_mix];"
+        "[bed][voice_sc]sidechaincompress=threshold=0.035:ratio=10:attack=18:release=620:knee=4:makeup=1[duckedbed];"
+        "[duckedbed][voice_mix]amix=inputs=2:duration=longest:dropout_transition=1,"
+        "loudnorm=I=-16:TP=-1.5:LRA=11,"
+        "afade=t=in:st=0:d=0.5,afade=t=out:st=22:d=2[aout]"
+    )
+    video_filter = "subtitles=work/output/narration.ass,format=yuv420p"
+    command(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+             "-i", str(silent), "-stream_loop", "-1", "-i", str(audio_path),
+             "-i", str(narration_path),
+             "-map", "0:v:0", "-filter_complex", audio_filter, "-map", "[aout]",
+             "-t", "24", "-vf", video_filter, "-c:v", "libx264",
+             "-preset", "veryfast", "-crf", "24", "-pix_fmt", "yuv420p",
+             "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(final)])
+    quality = validate_final_video(final)
+    narration_end = max(
+        [float(cue.get("end", 0)) for cue in narration_info.get("subtitle_cues", [])]
+        or [float(narration_info.get("duration_seconds", 0))]
+    )
+    if narration_end < 17.0:
+        raise PipelineError(
+            f"Narration covers only {narration_end:.1f}s of the 24-second video. "
+            "The script or voice pacing must be improved before the video is accepted."
+        )
+    quality.update({
+        "scene_durations_seconds": list(scene_durations),
+        "narration_duration_seconds": round(narration_end, 2),
+        "voice_coverage_percent": round(min(100.0, narration_end / 24.0 * 100.0), 1),
+        "music_only_ending_seconds": round(max(0.0, 24.0 - narration_end), 2),
+        "minimum_narration_coverage_seconds": 17.0,
+        "camera_motion": "scene-specific eased push-in and gentle drift",
+        "motion_graphics": 3,
+        "subtitle_style": "animated sentence-level kinetic typography",
+        "scene_transition": "0.35-second crossfade",
+        "audio_source": audio_source,
+        "audio_mix": "voice-priority sidechain ducking with music recovery in pauses",
+        "creative_quality_version": 4,
+    })
+    (OUT / "quality_report.json").write_text(
+        json.dumps(quality, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    return final, quality
+
+
+def upload(path):
+    if not API:
+        # GitHub Actions uploads this MP4 as a workflow artifact after this script exits.
+        return {"ok": True, "object_key": "", "media_url": ""}
+    with path.open("rb") as f:
+        r = http.post(API + "/internal/render", headers={
+            **auth(), "Content-Type": "video/mp4", "X-Filename": path.name
+        }, data=f, timeout=300)
+    r.raise_for_status()
+    data = r.json()
+    if not data.get("ok"):
+        raise PipelineError("Private cloud storage rejected the MP4.")
+    return data
+
+
+
+PACKAGE = WORK / "package"
+
+
+def _package_paths():
+    PACKAGE.mkdir(parents=True, exist_ok=True)
+    return {
+        "plan": PACKAGE / "creative_plan.json",
+        "metadata": PACKAGE / "stage.json",
+        "audio": PACKAGE / "soundtrack.wav",
+        "narration": PACKAGE / "narration.wav",
+        "research": PACKAGE / "research.json",
+    }
+
+
+def _read_package(require_images=False):
+    paths = _package_paths()
+    for key in ("plan", "metadata", "audio", "narration"):
+        if not paths[key].is_file():
+            raise PipelineError(f"Prepared package is missing {paths[key].name}. Download the correct earlier stage artifact.")
+    try:
+        plan = json.loads(paths["plan"].read_text(encoding="utf-8"))
+        metadata = json.loads(paths["metadata"].read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise PipelineError("Prepared package contains invalid JSON metadata.") from exc
+    narration_info = metadata.get("narration_info")
+    if not isinstance(plan.get("scenes"), list) or len(plan["scenes"]) != 3:
+        raise PipelineError("Prepared package must contain exactly three planned scenes.")
+    if not isinstance(narration_info, dict) or not narration_info.get("subtitle_cues"):
+        raise PipelineError("Prepared package is missing narration subtitle timings.")
+    image_paths = [PACKAGE / f"scene-{index + 1}.jpg" for index in range(3)]
+    if require_images:
+        for path in image_paths:
+            if not path.is_file():
+                raise PipelineError(f"Prepared visual package is missing {path.name}. Run the Visuals stage first.")
+            try:
+                with Image.open(path) as image:
+                    image.verify()
+            except Exception as exc:
+                raise PipelineError(f"Prepared visual asset {path.name} is not a valid image.") from exc
+    if require_images:
+        assets = metadata.get("visual_assets", [])
+        required_status = "all_scenes_and_storyboard_passed_ai_review_human_review_still_required"
+        if metadata.get("stage") != "visuals_ready" or metadata.get("visual_review_status") != required_status:
+            raise PipelineError(
+                "Visual package has not passed AI image review. Run the Visuals stage again before rendering."
+            )
+        if not isinstance(assets, list) or len(assets) != 3:
+            raise PipelineError("Visual package is missing the three scene-by-scene review records.")
+        storyboard_review = metadata.get("storyboard_review", {})
+        if (
+            not isinstance(storyboard_review, dict)
+            or storyboard_review.get("passed") is not True
+            or int(storyboard_review.get("score", 0)) < MIN_IMAGE_QA_SCORE
+        ):
+            raise PipelineError("The three-scene storyboard has not passed AI continuity review.")
+        for index, (asset, image_path) in enumerate(zip(assets, image_paths)):
+            if not isinstance(asset, dict):
+                raise PipelineError(f"Visual review record {index + 1} is invalid.")
+            review = asset.get("visual_review", {})
+            if (
+                not isinstance(review, dict)
+                or review.get("passed") is not True
+                or int(review.get("score", 0)) < MIN_IMAGE_QA_SCORE
+            ):
+                raise PipelineError(f"Scene {index + 1} has not passed AI visual review.")
+            expected_hash = str(asset.get("sha256") or "")
+            actual_hash = hashlib.sha256(image_path.read_bytes()).hexdigest()
+            if not expected_hash or actual_hash != expected_hash:
+                raise PipelineError(f"Scene {index + 1} changed after visual approval; run Visuals again.")
+    return plan, metadata, narration_info, paths, image_paths
+
+
+def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
+    """Build a compact, complete image prompt; never let the model API clip key constraints."""
+    raw_prompt = re.sub(r"\s+", " ", str(scene.get("image_prompt", ""))).strip()
+    if not raw_prompt:
+        raise PipelineError("A planned scene has no image prompt.")
+
+    story = plan or {}
+    subject = str(story.get("topic") or story.get("title") or "the story")[:140]
+    anchor_raw = str(
+        story.get("visual_motif")
+        or story.get("visual_anchor")
+        or scene.get("visual_anchor")
+        or subject
+    ).strip()
+    context = " ".join([
+        subject, anchor_raw, str(scene.get("caption", "")),
+        str(scene.get("graphic_label", "")), str(scene.get("graphic_detail", "")),
+        raw_prompt,
+    ]).lower()
+    performance_related = bool(re.search(
+        r"\b(violinist|virtuoso|musician|performer|performance|playing|bowing|concert|"
+        r"rapid|difficult|speed|fingerboard|bow hand|left hand|right hand|technique)\b",
+        context,
+    ))
+    story_identity = " ".join((
+        str(story.get("topic", "")),
+        str(story.get("title", "")),
+        str(story.get("visual_motif", "")),
+    )).casefold()
+    scene_identity = " ".join((
+        raw_prompt,
+        str(scene.get("caption", "")),
+        str(scene.get("graphic_detail", "")),
+    )).casefold()
+    has_violin_identity = bool(re.search(r"\bviolin(?:ist)?\b", story_identity))
+    competing_instrument = bool(re.search(
+        r"\b(cello|cellist|viola|violist|double bass|contrabass|guitarist|guitar|pianist|piano)\b",
+        story_identity,
+    ))
+    violin_performance = (
+        performance_related
+        and has_violin_identity
+        and not competing_instrument
+        and bool(re.search(r"\bbow\b", scene_identity))
+    )
+    scene_index = max(0, min(2, int(index)))
+    compact_prompt = textwrap.shorten(
+        raw_prompt, width=105 if violin_performance and scene_index == 1 else 250, placeholder="…"
+    )
+    if violin_performance and scene_index == 1:
+        compact_prompt = "Violin bow hair contacting one string"
+    anchor = textwrap.shorten(
+        re.sub(r"\s+", " ", anchor_raw),
+        width=88 if violin_performance and scene_index == 1 else 125,
+        placeholder="…",
+    )
+
+    if violin_performance and scene_index == 1:
+        # Put the physical contact geometry before stylistic detail. FLUX receives
+        # this entire prompt; the bow/strings requirements are never beyond a cut-off.
+        prompt_parts = [
+            "SUBJECT & ACTION: " + compact_prompt + ".",
+            "SHOT 2 MACRO CLOSE-UP: 85mm lens, string-height three-quarter view, shallow depth of field; keep full bridge and contact area visible.",
+            "Single still macro frame; no multiple exposure.",
+            "INSTRUMENT ACCURACY: one full maple bridge with both feet; four separate strings and distinct ebony fingerboard. Exactly one bow: straight dark stick and pale horsehair run parallel with a visible gap, joined only at frog and tip. Never broken, fused, doubled or floating. Hair alone crosses at about 90° and touches one string between bridge and fingerboard. Keep bridge and contact visible; do not crop or merge parts.",
+            "RECURRING ASSET ANCHOR: " + anchor + "; plausible violin proportions.",
+            "STYLE & MATERIAL: photorealistic violin performance photograph; true wood grain, varnish, steel strings, maple and ebony. No illustration, render, anime or plastic.",
+            "LIGHT: warm 3200K key, neutral fill, amber rim; narrow macro focus.",
+            "BACKGROUND: charcoal, walnut, oxblood, copper, gold and ivory; no cold blue.",
+            "COMPOSITION: portrait 9:16; no text, logos, extra rods, duplicate bows or extra strings.",
+        ]
+    else:
+        shot_roles = (
+            "SHOT 1 — TWO-SECOND HOOK: instantly readable performer, instrument and active playing posture.",
+            "SHOT 2 — EXTREME CLOSE-UP DETAIL: isolate one tactile physical interaction and its precise focal point.",
+            "SHOT 3 — EMOTIONAL PAYOFF: widen back out to connect the detail with the full performance.",
+        )
+        camera_profiles = (
+            "50mm medium close-up, eye-level three-quarter view, slow push-in.",
+            "85mm macro lens, close three-quarter view, very shallow depth of field and one exact focal plane.",
+            "50mm wider portrait view, slightly low angle, slow pull-back reveal.",
+        )
+        prompt_parts = [
+            "SUBJECT & ACTION: " + compact_prompt + ". " + shot_roles[scene_index],
+            "RECURRING ASSET ANCHOR: " + anchor + "; keep recognizable subject design and believable proportions.",
+            "STYLE & MATERIAL: photorealistic cinematic editorial photography, believable anatomy and authentic material texture; no illustration, no 3D render, no anime, no plastic or stock-photo look.",
+            "LIGHTING & CAMERA: " + camera_profiles[scene_index] + " Warm 3200K key, neutral 4300K fill and amber 2800K rim.",
+            "BACKGROUND & ATMOSPHERE: charcoal, walnut, oxblood, copper, antique gold and warm ivory. Avoid blue, teal, cyan or cold-blue backgrounds. Layered foreground, midground and background.",
+            "COMPOSITION RULES: clear focal hierarchy, realistic perspective, Portrait 9:16 composition, no text, no lettering, no logo, no watermark.",
+        ]
+        if performance_related and scene_index == 0:
+            if violin_performance:
+                prompt_parts.append(
+                    "PERFORMANCE ACCURACY: natural violin under jaw/shoulder; plausible left hand on fingerboard and right hand on bow."
+                )
+            else:
+                prompt_parts.append(
+                    "PERFORMANCE ACCURACY: believable instrument support, natural posture and anatomically plausible playing hands."
+                )
+        elif performance_related and scene_index == 2:
+            if violin_performance:
+                prompt_parts.append(
+                    "PERFORMANCE PAYOFF: performer, violin, both hands and bow in a natural, connected playing posture."
+                )
+            else:
+                prompt_parts.append(
+                    "PERFORMANCE PAYOFF: performer and instrument resolve in a natural, connected playing posture."
+                )
+        elif scene_index == 1:
+            prompt_parts.append(
+                "MACRO FOCUS: one exact surface or material interaction, narrow focus plane and quiet background."
+            )
+
+    base_prompt = " ".join(prompt_parts)
+    clean_feedback = textwrap.shorten(re.sub(r"\s+", " ", str(feedback or "")).strip(), width=90, placeholder="…")
+    if clean_feedback:
+        optional = " ADDITIONAL DIRECTION: " + clean_feedback
+        if len(base_prompt) + len(optional) <= MAX_IMAGE_PROMPT_CHARS:
+            base_prompt += optional
+
+    if len(base_prompt) > MAX_IMAGE_PROMPT_CHARS:
+        raise PipelineError(
+            f"Scene {scene_index + 1} prompt is {len(base_prompt)} characters; "
+            f"the maximum is {MAX_IMAGE_PROMPT_CHARS}. Reduce optional wording."
+        )
+    return base_prompt
+
 def make_storyboard_preview(plan, image_paths, target):
     """Build a single review sheet so visual approval happens before video rendering."""
     target = Path(target)
