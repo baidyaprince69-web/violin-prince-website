@@ -848,11 +848,26 @@ def make_plan(items, recent=None):
         plan["narrative_style"] = "documentary"
 
     planner_source_references = plan.get("sources") or []
-    # Preserve the planner's original references in the artifact if source matching
-    # needs diagnosis; this is safe metadata and contains no credentials.
-    (WORK / "creative_plan_debug.json").write_text(
-        json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    # Preserve the planner's original references and any narration-repair history.
+    # A later successful validation must not overwrite the diagnostic trail.
+    debug_path = WORK / "creative_plan_debug.json"
+    existing_debug = {}
+    if debug_path.is_file():
+        try:
+            existing_debug = json.loads(debug_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            existing_debug = {}
+    if existing_debug.get("stage") == "narration_repair":
+        existing_debug["final_plan_before_source_resolution"] = plan
+        existing_debug["current_script"] = str(plan.get("narration_script", ""))
+        existing_debug["status"] = "repaired"
+        debug_path.write_text(
+            json.dumps(existing_debug, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    else:
+        debug_path.write_text(
+            json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
     compact = planner_research_items(items)
     selected_sources = resolve_plan_sources(plan, compact)
     plan["sources"] = [item["url"] for item in selected_sources[:5]]
