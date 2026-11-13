@@ -297,5 +297,16 @@ class CreativeQualityTests(unittest.TestCase):
                 self.assertEqual(preview.size, (1280, 900))
 
 
+    def test_music_bed_sidechain_is_padded_to_full_video_duration(self):
+        # The sidechain compressor stops when its sidechain input ends. Pad only
+        # that control signal so the instrumental bed continues after narration.
+        engine_source = (ENGINE / "run.py").read_text(encoding="utf-8")
+        prototype_source = (ENGINE / "motion_prototype.py").read_text(encoding="utf-8")
+        for source in (engine_source, prototype_source):
+            self.assertIn("asplit=2[voice_sc_raw][voice_mix]", source)
+            self.assertIn("[voice_sc_raw]apad=whole_dur=24[voice_sc]", source)
+            self.assertIn("[bed][voice_sc]sidechaincompress", source)
+
+
 if __name__ == "__main__":
     unittest.main()
