@@ -1920,7 +1920,7 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
             "CONTACT POINT: the pale horsehair alone touches exactly one string at one clear point between bridge and fingerboard. The dark stick must not touch the strings. Keep the other three strings visibly separate.",
             "FRAMING & FOCUS: portrait 9:16, bridge across the lower-middle frame and fingerboard extending behind it; keep the complete bridge, exactly four strings, fingerboard, slim dark wooden stick, narrow pale horsehair ribbon and contact point inside frame, simultaneously sharp. No cropping, blur, merging or warped parts.",
             "RECURRING ASSET ANCHOR: " + anchor + "; maintain believable violin proportions.",
-            "STYLE & LIGHT: photorealistic violin performance photograph, macro editorial detail, real maple, ebony, steel strings and amber varnish; warm 3200K key, neutral fill, soft amber rim. No illustration or 3D render.",
+            "STYLE & LIGHT: photorealistic violin performance photograph; real maple, ebony and amber varnish; warm amber light. No illustration or 3D render.",
             "BACKGROUND: quiet charcoal and walnut tones, no text, logos or watermarks.",
         ]
     else:
