@@ -39,17 +39,23 @@ const html = `<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 html,body{margin:0;padding:0;width:${width}px;height:${height}px;overflow:hidden;background:#100c0a}
-#stage{display:block;width:${width}px;height:${height}px}
+#stage-wrap{position:relative;width:${width}px;height:${height}px;overflow:hidden;background:#100c0a}
+#stage{position:absolute;inset:0;display:block;width:${width}px;height:${height}px}
+#text-layer{position:absolute;inset:0;display:block;width:${width}px;height:${height}px;overflow:hidden;pointer-events:none;z-index:2}
 </style>
 </head>
 <body>
+<div id="stage-wrap">
 <canvas id="stage" width="${width}" height="${height}"></canvas>
+<svg id="text-layer" xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" aria-hidden="true"></svg>
+</div>
 <script>
 window.__DATA__ = ${safeJson};
 (() => {
   const D = window.__DATA__;
   const canvas = document.getElementById("stage");
   const ctx = canvas.getContext("2d", { alpha: false });
+  const textLayer = document.getElementById("text-layer");
   const W = D.width, H = D.height;
   const GOLD = "#edc18a", IVORY = "#fff3e2", MUTED = "#cbb9a6", COPPER = "#c9795d", INK = "#100c0a";
   const images = D.scenes.map(scene => {
@@ -87,10 +93,73 @@ window.__DATA__ = ${safeJson};
   // Draw each complete phrase in a single Canvas text operation.
   // The previous per-grapheme painter caused lowercase glyphs to disappear in
   // the encoded frames even though isolated-glyph checks passed.
+  function drawSvgText(context, value, x, y, maxWidth=Infinity, paintMode="fill") {
+    const node = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    const matrix = context.getTransform();
+    const naturalWidth = context.measureText(value).width;
+    node.textContent = value;
+    node.setAttribute("xml:space", "preserve");
+    node.setAttribute("x", String(x));
+    node.setAttribute("y", String(y));
+    node.setAttribute(
+      "transform",
+      `matrix(${matrix.a} ${matrix.b} ${matrix.c} ${matrix.d} ${matrix.e} ${matrix.f})`
+    );
+    const anchor = context.textAlign === "center"
+      ? "middle"
+      : (context.textAlign === "right" || context.textAlign === "end")
+        ? "end"
+        : "start";
+    node.setAttribute("text-anchor", anchor);
+    const baseline = context.textBaseline === "middle"
+      ? "central"
+      : context.textBaseline === "top"
+        ? "hanging"
+        : context.textBaseline === "bottom"
+          ? "text-after-edge"
+          : "alphabetic";
+    node.setAttribute("dominant-baseline", baseline);
+    node.style.font = context.font;
+    node.style.fontKerning = "normal";
+    node.style.fontVariantLigatures = "normal";
+    node.style.fontSynthesis = "none";
+    node.setAttribute("opacity", String(context.globalAlpha));
+
+    if (paintMode === "stroke") {
+      node.setAttribute("fill", "none");
+      node.setAttribute("stroke", String(context.strokeStyle));
+      node.setAttribute("stroke-width", String(context.lineWidth));
+      node.setAttribute("stroke-linejoin", context.lineJoin || "round");
+    } else {
+      node.setAttribute("fill", String(context.fillStyle));
+    }
+
+    if (Number.isFinite(maxWidth) && naturalWidth > maxWidth && maxWidth > 0) {
+      node.setAttribute("textLength", String(maxWidth));
+      node.setAttribute("lengthAdjust", "spacingAndGlyphs");
+    }
+    if (Number(context.shadowBlur) > 0) {
+      const blur = Math.max(0, Number(context.shadowBlur) || 0);
+      node.style.filter = `drop-shadow(0px 0px ${blur}px ${String(context.shadowColor || "rgba(0,0,0,.5)")})`;
+    }
+    textLayer.appendChild(node);
+    window.__FRAME_TEXT_EXPECTED__.push(value);
+    return node;
+  }
+
   function drawGlyphRun(context, text, x, y, maxWidth=Infinity, paintMode="fill") {
     const value = String(text ?? "");
     if (!value) return [];
 
+    // Visible video text is emitted as a full SVG text node. This keeps text
+    // shaping separate from the scene canvas and avoids the missing-glyph
+    // defect observed in the actual V3 review frames.
+    if (context === ctx) {
+      drawSvgText(context, value, x, y, maxWidth, paintMode);
+      return [];
+    }
+
+    // Isolated probe canvases retain a Canvas implementation for diagnostics.
     const naturalWidth = context.measureText(value).width;
     const scale = Number.isFinite(maxWidth) && naturalWidth > maxWidth && naturalWidth > 0
       ? maxWidth / naturalWidth
@@ -110,8 +179,6 @@ window.__DATA__ = ${safeJson};
     else context.fillText(value, 0, 0);
     context.restore();
 
-    // Return measured character slots for QA only. The visible phrase above is
-    // always painted as one complete string, preserving browser text shaping.
     const characters = typeof Intl !== "undefined" && Intl.Segmenter
       ? Array.from(
           new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(value),
@@ -259,6 +326,54 @@ window.__DATA__ = ${safeJson};
     };
   }
   window.__GRAPHIC_TEXT_QA__ = validateGraphicTextRuns;
+
+  window.__TEXT_FRAME_AUDIT__ = function() {
+    const nodes = Array.from(textLayer.querySelectorAll("text"));
+    const expected = Array.isArray(window.__FRAME_TEXT_EXPECTED__)
+      ? window.__FRAME_TEXT_EXPECTED__
+      : [];
+    const missing = expected.filter(value => !nodes.some(node => node.textContent === value));
+    const invalid = nodes.filter(node => {
+      const box = node.getBBox();
+      return !String(node.textContent || "").trim() || !Number.isFinite(box.width) ||
+        box.width < 1 || box.height < 1;
+    });
+    const overflow = nodes.filter(node => {
+      const box = node.getBoundingClientRect();
+      return box.width < 1 || box.height < 1 || box.left < -1 || box.top < -1 ||
+        box.right > W + 1 || box.bottom > H + 1;
+    }).map(node => node.textContent);
+
+    const normalizeWord = value => String(value || "")
+      .toLowerCase().replace(/[’]/g, "'").replace(/[^\\p{L}\\p{N}']/gu, "");
+    const scriptWords = String(D.narration_text || "").trim().split(/\\s+/).filter(Boolean)
+      .map(normalizeWord).filter(Boolean);
+    const cueWords = (Array.isArray(D.word_cues) ? D.word_cues : [])
+      .map(cue => normalizeWord(cue.text)).filter(Boolean);
+    const cueOrderValid = (D.word_cues || []).every((cue, index, cues) => {
+      const start = Number(cue.start), end = Number(cue.end);
+      return Number.isFinite(start) && Number.isFinite(end) && start >= 0 && end > start &&
+        (index === 0 || start >= Number(cues[index - 1].start));
+    });
+    const narrationTiming = !D.narration_text || (
+      scriptWords.length === cueWords.length &&
+      scriptWords.every((word, index) => word === cueWords[index]) && cueOrderValid
+    );
+    return {
+      ok: expected.length > 0 && missing.length === 0 && invalid.length === 0 &&
+        overflow.length === 0 && narrationTiming,
+      scene_index: window.__CURRENT_SCENE_INDEX__,
+      expected_text_nodes: expected.length,
+      actual_text_nodes: nodes.length,
+      missing_text: missing,
+      invalid_text_nodes: invalid.map(node => node.textContent),
+      out_of_bounds_text: overflow,
+      lowercase_s_phrase_count: expected.filter(value => String(value).includes("s")).length,
+      narration_word_count: scriptWords.length,
+      timed_word_count: cueWords.length,
+      narration_word_order_valid: narrationTiming && cueOrderValid
+    };
+  };
 
   // Fail early if the cloud runner cannot rasterize lowercase "s" in either
   // pinned family; this catches the exact glyph-loss regression seen in V3.
@@ -836,6 +951,9 @@ window.__DATA__ = ${safeJson};
     const scene=scenes[index];
     const local=clamp((time-Number(scene.start))/Number(scene.duration));
     ctx.clearRect(0,0,W,H);
+    textLayer.replaceChildren();
+    window.__FRAME_TEXT_EXPECTED__ = [];
+    window.__CURRENT_SCENE_INDEX__ = index;
     const transition=.72;
     const transitionAt=Number(scene.start)+Number(scene.duration)-transition;
     if(index<scenes.length-1 && time>=transitionAt){
@@ -888,12 +1006,20 @@ try {
   const sampleSet = new Set(sampleTimes.map(value => Math.min(frames-1, Math.round(value*fps))));
   const sampleDir = path.join(path.dirname(outputPath), "qa-frames");
   await fs.mkdir(sampleDir, { recursive: true });
+  const textFrameAudits = [];
 
   try {
     for (let frame=0; frame<frames; frame++) {
       const time=frame/fps;
       await page.evaluate(async value => await window.renderAt(value), time);
-      const png=await page.locator("#stage").screenshot({ type:"png", animations:"disabled" });
+      if (sampleSet.has(frame)) {
+        const textAudit = await page.evaluate(() => window.__TEXT_FRAME_AUDIT__());
+        textFrameAudits.push({ time_seconds: Number(time.toFixed(2)), ...textAudit });
+        if (!textAudit.ok) {
+          throw new Error("Actual rendered-frame text audit failed: " + JSON.stringify(textAudit));
+        }
+      }
+      const png=await page.locator("#stage-wrap").screenshot({ type:"png", animations:"disabled" });
       if (sampleSet.has(frame)) {
         const stamp=String(time.toFixed(1)).replace(".","p");
         await fs.writeFile(path.join(sampleDir,`frame-${stamp}s.png`),png);
@@ -909,7 +1035,11 @@ try {
   }
   const stat=await fs.stat(outputPath);
   if (stat.size < 100000) throw new Error("HTML renderer output is unexpectedly small.");
-  console.log(JSON.stringify({frames,fps,duration_seconds:duration,output:outputPath,bytes:stat.size,renderer:"HTML Canvas + Playwright + FFmpeg",typography_qa:typographyQa,graphic_text_qa:graphicTextQa}));
+  await fs.writeFile(
+    path.join(path.dirname(outputPath), "final-text-frame-audit.json"),
+    JSON.stringify({ ok: textFrameAudits.length === sampleTimes.length && textFrameAudits.every(item => item.ok), frames: textFrameAudits }, null, 2)
+  );
+  console.log(JSON.stringify({frames,fps,duration_seconds:duration,output:outputPath,bytes:stat.size,renderer:"Canvas imagery + SVG text overlay + Playwright + FFmpeg",typography_qa:typographyQa,graphic_text_qa:graphicTextQa,final_text_frame_audits:textFrameAudits}));
 } finally {
   await browser.close();
 }

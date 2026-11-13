@@ -56,6 +56,25 @@ def _mix_audio(video_only: Path, soundtrack: Path, narration: Path,
 
 
 
+def _extract_final_review_frames(video_path: Path, output_dir: Path,
+                                 sample_times: tuple[float, ...] = (1.5, 2.5, 7.5, 13.5, 19.5)) -> list[dict]:
+    """Decode review frames from the final audio-muxed MP4, not only the pre-encode canvas."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+    frames = []
+    for value in sample_times:
+        stamp = str(value).replace(".", "p")
+        target = output_dir / f"final-frame-{stamp}s.png"
+        _run([
+            "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+            "-ss", str(value), "-i", str(video_path), "-frames:v", "1",
+            "-q:v", "2", str(target),
+        ])
+        if not target.is_file() or target.stat().st_size < 1000:
+            raise RuntimeError(f"Final encoded frame could not be verified at {value:.1f}s.")
+        frames.append({"time_seconds": value, "file": target.name, "size_bytes": target.stat().st_size})
+    return frames
+
+
 def _music_energy_samples(path: Path, step_ms: int = 50) -> list[float]:
     """Create a compact RMS envelope so Canvas motion follows the actual music bed."""
     import numpy as np
@@ -308,6 +327,7 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
     input_path.write_text(json.dumps({
         "title": str(plan.get("title") or "Violin Prince Short"),
         "topic": str(plan.get("topic") or ""),
+        "narration_text": script,
         "visual_motif": str(plan.get("visual_motif") or "bow-performance"),
         "width": 720,
         "height": 1280,
@@ -346,6 +366,9 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
         narration_path,
         final_path,
         str(metadata.get("asset", {}).get("audio_source", "generated_ambient_fallback")),
+    )
+    final_review_frames = _extract_final_review_frames(
+        final_path, output_dir / "final-encoded-qa-frames"
     )
     prototype_quality = pipeline.validate_final_video(final_path)
     prototype_quality.update({
@@ -388,6 +411,8 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
         "html_motion_prototype": {
             "file": final_path.name,
             "quality": prototype_quality,
+            "text_renderer": "SVG text overlay over the animated Canvas scene",
+            "final_encoded_review_frames": final_review_frames,
         },
         "notes": [
             "The existing V2 FFmpeg renderer remains the production renderer.",
