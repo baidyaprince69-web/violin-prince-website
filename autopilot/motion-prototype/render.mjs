@@ -94,7 +94,7 @@ window.__DATA__ = ${safeJson};
     const dy = (H-drawH)/2 + (sceneIndex === 1 ? -18 : 12) * eased;
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.filter = "saturate(0.88) sepia(0.18) contrast(1.07)";
+    ctx.filter = "saturate(0.84) sepia(0.30) contrast(1.07)";
     ctx.drawImage(image, dx, dy, drawW, drawH);
     ctx.filter = "none";
     const shade = ctx.createLinearGradient(0,0,0,H);
@@ -104,7 +104,7 @@ window.__DATA__ = ${safeJson};
     shade.addColorStop(1,"rgba(9,6,5,.78)");
     ctx.fillStyle = shade;
     ctx.fillRect(0,0,W,H);
-    ctx.fillStyle = "rgba(92,35,18,.10)";
+    ctx.fillStyle = "rgba(105,42,20,.16)";
     ctx.fillRect(0,0,W,H);
     ctx.restore();
   }
@@ -535,7 +535,7 @@ window.__DATA__ = ${safeJson};
     drawCaptions(time);
     if(time>D.duration_seconds-.40){
       const fade=clamp((time-(D.duration_seconds-.40))/.40);
-      ctx.fillStyle="rgba(4,8,15,"+fade+")";ctx.fillRect(0,0,W,H);
+      ctx.fillStyle="rgba(12,7,6,"+fade+")";ctx.fillRect(0,0,W,H);
     }
   };
 })();
