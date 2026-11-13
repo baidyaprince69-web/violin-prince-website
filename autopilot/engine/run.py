@@ -1453,14 +1453,14 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         # this entire prompt; the bow/strings requirements are never beyond a cut-off.
         prompt_parts = [
             "SUBJECT & ACTION: " + compact_prompt + ".",
-            "SHOT 2 — EXTREME CLOSE-UP DETAIL: 85mm macro lens, string-height three-quarter side angle, very shallow depth of field; one centered contact point is pin-sharp.",
+            "SHOT 2 — EXTREME CLOSE-UP DETAIL: EXTREME CLOSE-UP MACRO, 85mm macro lens, string-height three-quarter side angle, very shallow depth of field; one centered contact point is pin-sharp.",
             "SINGLE FROZEN MACRO KEYFRAME: one instant, no sequence or multiple exposure.",
             "GEOMETRY: one upright maple bridge supports four separate, taut, parallel strings; the ebony fingerboard is distinct beyond it. A single dark wooden bow crosses frame-left to frame-right at approximately 90 degrees. Show the wooden stick and thin pale horsehair ribbon as connected parts of the same bow. The horsehair ribbon—not the bow stick—visibly rests on and slightly depresses exactly one string at one sharply focused contact point between the bridge and fingerboard. Center this point; no hands are required.",
             "RECURRING ASSET ANCHOR: " + anchor + "; keep believable violin proportions.",
-            "STYLE & MATERIAL: premium hand-painted cinematic editorial illustration with restrained 3D shading; accurate maple, ebony, steel strings and bow hair; avoid plastic, anime or stock imagery.",
+            "STYLE & MATERIAL: premium hand-painted cinematic editorial illustration, clearly illustrated concept art rather than photography, with restrained 3D shading; accurate maple, ebony, steel strings and bow hair; avoid plastic, anime or stock imagery.",
             "LIGHTING & CAMERA: warm directional key light around 3200K, soft neutral fill around 4300K and amber rim around 2800K; narrow macro focus plane.",
-            "BACKGROUND & ATMOSPHERE: charcoal, walnut, oxblood, copper, antique gold and warm ivory. Avoid blue, teal, cyan or cold-blue backgrounds.",
-            "COMPOSITION RULES: realistic portrait 9:16 perspective, one clear focal point, no text or watermark. No extra rods, duplicate bows, detached hair, screws or pins mistaken for the bow, parallel bow angle, extra strings or broken bridge.",
+            "BACKGROUND & ATMOSPHERE: charcoal, walnut, oxblood, copper, antique gold and warm ivory. Avoid blue, teal, cyan or cold-blue backgrounds. Layered foreground, midground and background.",
+            "COMPOSITION RULES: realistic Portrait 9:16 composition, one clear focal point, no text, no lettering, no logo, no watermark. Layered foreground, midground and background, kept soft behind the contact point. No extra rods, duplicate bows, detached hair, screws or pins mistaken for the bow, parallel bow angle, extra strings or broken bridge.",
         ]
     else:
         shot_roles = (
@@ -1476,10 +1476,10 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         prompt_parts = [
             "SUBJECT & ACTION: " + compact_prompt + ". " + shot_roles[scene_index],
             "RECURRING ASSET ANCHOR: " + anchor + "; keep recognizable subject design and believable proportions.",
-            "STYLE & MATERIAL: premium hand-painted cinematic editorial illustration with restrained 3D shading and tactile natural materials; avoid plastic, anime or stock imagery.",
+            "STYLE & MATERIAL: premium hand-painted cinematic editorial illustration, clearly illustrated concept art rather than photography, with restrained 3D shading and tactile natural materials; avoid plastic, anime or stock imagery.",
             "LIGHTING & CAMERA: " + camera_profiles[scene_index] + " Warm 3200K key, neutral 4300K fill and amber 2800K rim.",
             "BACKGROUND & ATMOSPHERE: charcoal, walnut, oxblood, copper, antique gold and warm ivory. Avoid blue, teal, cyan or cold-blue backgrounds.",
-            "COMPOSITION RULES: clear focal hierarchy, realistic perspective, portrait 9:16, no text, lettering, logo or watermark.",
+            "COMPOSITION RULES: clear focal hierarchy, realistic perspective, Portrait 9:16 composition, no text, no lettering, no logo, no watermark.",
         ]
         if performance_related and scene_index == 0:
             prompt_parts.append(
