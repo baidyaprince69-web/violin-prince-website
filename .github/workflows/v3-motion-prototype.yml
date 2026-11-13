@@ -293,6 +293,56 @@ jobs:
           rm -f work/package/storyboard-preview.png
           rm -f work/images/scene-1.jpg work/images/scene-2.jpg work/images/scene-3.jpg
 
+      - name: Download the fresh Scene 1 candidate for one targeted re-review
+        if: env.FRESH_VISUAL_TEST == 'true' && github.event_name == 'push' && contains(github.event.head_commit.message, '[reuse-scene1-seed]')
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: v3-motion-prototype-43458141839
+          run-id: 43458141839
+          github-token: \${{ github.token }}
+          path: work/scene1-recheck
+
+      - name: Restore the candidate only when its story plan exactly matches
+        if: env.FRESH_VISUAL_TEST == 'true' && github.event_name == 'push' && contains(github.event.head_commit.message, '[reuse-scene1-seed]')
+        run: |
+          python - <<'PY'
+          import hashlib, json, shutil, sys
+          from pathlib import Path
+
+          sys.path.insert(0, str(Path("autopilot/engine").resolve()))
+          import run as engine
+
+          seed_root = Path("work/scene1-recheck")
+          prior_plan_path = seed_root / "package/creative_plan.json"
+          candidate = seed_root / "images/scene-1.jpg"
+          current_plan_path = Path("work/package/creative_plan.json")
+
+          if not prior_plan_path.is_file() or not candidate.is_file():
+              print("No reusable Scene 1 candidate was available; generation will start fresh.")
+              raise SystemExit(0)
+
+          prior_plan = json.loads(prior_plan_path.read_text(encoding="utf-8"))
+          current_plan = json.loads(current_plan_path.read_text(encoding="utf-8"))
+
+          def digest(plan):
+              return hashlib.sha256(
+                  json.dumps(plan, ensure_ascii=False, sort_keys=True).encode("utf-8")
+              ).hexdigest()
+
+          if digest(prior_plan) != digest(current_plan):
+              print("Scene 1 candidate belongs to a different story plan; generation will start fresh.")
+              raise SystemExit(0)
+          if not engine.is_valid_portrait_scene_image(candidate):
+              print("Scene 1 candidate is not a valid 720x1280 portrait image; generation will start fresh.")
+              raise SystemExit(0)
+
+          target = Path("work/images/scene-1.jpg")
+          target.parent.mkdir(parents=True, exist_ok=True)
+          shutil.copy2(candidate, target)
+          print("Restored Scene 1 from the immediately preceding fresh run for a new review call. The image is not pre-approved.")
+          PY
+
       - name: Generate fresh AI scene artwork with visual review
         if: env.FRESH_VISUAL_TEST == 'true'
         env:
