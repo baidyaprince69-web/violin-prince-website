@@ -1,0 +1,250 @@
+name: Phase 4 YouTube private-beta uploader
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase3_run_id:
+        description: Successful V3 run ID with a Phase 3 READY handoff
+        required: true
+        type: string
+      metadata_overrides_json:
+        description: Optional JSON overrides for seo_title, seo_description, seo_tags, seo_hashtags and primary_keyword
+        required: false
+        default: "{}"
+        type: string
+      made_for_kids:
+        description: Confirm the audience setting; leave unconfirmed until reviewed
+        required: true
+        default: unconfirmed
+        type: choice
+        options:
+          - unconfirmed
+          - "false"
+          - "true"
+      contains_synthetic_media:
+        description: Confirm the synthetic-media disclosure setting
+        required: true
+        default: unconfirmed
+        type: choice
+        options:
+          - unconfirmed
+          - "false"
+          - "true"
+      confirm_asset_rights:
+        description: Confirm that you own or are authorised to upload the exact video in this release
+        required: true
+        default: false
+        type: boolean
+      confirm_metadata_approved:
+        description: Confirm that the title, description, ordinary tags and hashtags were reviewed
+        required: true
+        default: false
+        type: boolean
+      confirm_private_upload:
+        description: Explicitly approve a private-only upload to the connected Violin Prince channel
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: youtube-private-beta-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  review-release:
+    name: Verify Phase 3 release and prepare metadata review
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install offline validation dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests "cryptography>=43,<48"
+
+      - name: Download the exact V3 source artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v3-motion-prototype-${{ inputs.phase3_run_id }}
+          path: work/v3-release
+          run-id: ${{ inputs.phase3_run_id }}
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+
+      - name: Download the matching Phase 3 release handoff
+        uses: actions/download-artifact@v4
+        with:
+          name: phase3-release-handoff-${{ inputs.phase3_run_id }}
+          path: work/phase3-handoff
+          run-id: ${{ inputs.phase3_run_id }}
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+
+      - name: Verify exact READY release, MP4 hash, recovery manifest and QC
+        env:
+          PHASE3_RUN_ID: ${{ inputs.phase3_run_id }}
+          METADATA_OVERRIDES_JSON: ${{ inputs.metadata_overrides_json }}
+          MADE_FOR_KIDS: ${{ inputs.made_for_kids }}
+          CONTAINS_SYNTHETIC_MEDIA: ${{ inputs.contains_synthetic_media }}
+        run: |
+          mkdir -p work
+          python -m autopilot.engine.youtube_native.phase3_release \
+            --report work/phase3-handoff/phase3-release-handoff.json \
+            --artifact-root work/v3-release \
+            --run-id "$PHASE3_RUN_ID" \
+            --metadata-overrides-json "$METADATA_OVERRIDES_JSON" \
+            --made-for-kids "$MADE_FOR_KIDS" \
+            --contains-synthetic-media "$CONTAINS_SYNTHETIC_MEDIA" \
+            --output work/youtube-release-review.json
+
+      - name: Publish review details
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+          result = json.loads(Path("work/youtube-release-review.json").read_text(encoding="utf-8"))
+          release = result["release"]
+          review = result["review"]
+          print("# YouTube private-beta review")
+          print("- Phase 3 release ID: `" + release["release_id"] + "`")
+          print("- Source V3 run: " + release["phase3_run_id"])
+          print("- MP4 SHA-256: `" + release["video_sha256"] + "`")
+          print("- QC: " + str(release["qc_checks_passed"]) + "/" + str(release["qc_checks_total"]))
+          print("- Privacy target: **PRIVATE**")
+          print("- Metadata validation: " + ("passed" if review.get("metadata_valid") else "needs edits"))
+          print("- Title: " + str(review.get("title_candidate", "")))
+          print("- Description: " + str(review.get("description_candidate", "")))
+          print("- Ordinary tags: " + ", ".join(review.get("ordinary_tags_candidate") or []))
+          print("- Hashtags: " + ", ".join(review.get("hashtags_candidate") or []))
+          print("- Metadata error: " + str(review.get("metadata_error") or "none"))
+          print("- Owner metadata approval: required; this review job does not upload.")
+          print("- Content-rights confirmation: required before the private beta.")
+          PY
+
+      - name: Save the metadata review package
+        uses: actions/upload-artifact@v4
+        with:
+          name: youtube-private-beta-review-${{ github.run_id }}
+          path: work/youtube-release-review.json
+          if-no-files-found: error
+          retention-days: 30
+
+  private-upload:
+    name: Explicit private-only upload beta
+    needs: review-release
+    if: inputs.confirm_private_upload == true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    environment: youtube-private-beta
+    env:
+      PUBLISH_ENABLED: ${{ vars.YOUTUBE_PRIVATE_BETA_ENABLED == 'true' && inputs.confirm_asset_rights == true && inputs.confirm_metadata_approved == true && inputs.made_for_kids != 'unconfirmed' && inputs.contains_synthetic_media != 'unconfirmed' && 'true' || 'false' }}
+      YOUTUBE_UPLOAD_APPROVED: ${{ vars.YOUTUBE_PRIVATE_BETA_ENABLED == 'true' && inputs.confirm_asset_rights == true && inputs.confirm_metadata_approved == true && inputs.made_for_kids != 'unconfirmed' && inputs.contains_synthetic_media != 'unconfirmed' && 'true' || 'false' }}
+      YOUTUBE_PUBLICATION_APPROVED: "false"
+      YOUTUBE_PRIVACY_STATUS: "private"
+      YOUTUBE_UPLOAD_STATE_PATH: work/youtube-upload-state.enc
+      YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+      YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+      YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+      YOUTUBE_EXPECTED_CHANNEL_ID: ${{ vars.YOUTUBE_EXPECTED_CHANNEL_ID }}
+      YOUTUBE_STATE_ENCRYPTION_KEY: ${{ secrets.YOUTUBE_STATE_ENCRYPTION_KEY }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Refuse unless all private-beta gates are explicit
+        run: |
+          test "$PUBLISH_ENABLED" = "true" || { echo "::error::Set YOUTUBE_PRIVATE_BETA_ENABLED=true, approve the content and metadata, and select both disclosure decisions."; exit 1; }
+          test "$YOUTUBE_PUBLICATION_APPROVED" = "false"
+          test -n "$YOUTUBE_CLIENT_ID"
+          test -n "$YOUTUBE_CLIENT_SECRET"
+          test -n "$YOUTUBE_REFRESH_TOKEN"
+          test -n "$YOUTUBE_EXPECTED_CHANNEL_ID"
+          test -n "$YOUTUBE_STATE_ENCRYPTION_KEY"
+
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install native uploader dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests "cryptography>=43,<48"
+
+      - name: Download the exact V3 source artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v3-motion-prototype-${{ inputs.phase3_run_id }}
+          path: work/v3-release
+          run-id: ${{ inputs.phase3_run_id }}
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+
+      - name: Download the matching Phase 3 release handoff
+        uses: actions/download-artifact@v4
+        with:
+          name: phase3-release-handoff-${{ inputs.phase3_run_id }}
+          path: work/phase3-handoff
+          run-id: ${{ inputs.phase3_run_id }}
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+
+      - name: Restore latest encrypted resumable-upload checkpoint
+        run: |
+          python -m autopilot.engine.youtube_native.checkpoint_artifacts \
+            --artifact-name youtube-native-upload-state \
+            --destination "$YOUTUBE_UPLOAD_STATE_PATH"
+
+      - name: Run the separately approved private-only upload and verify processing
+        env:
+          PHASE3_RUN_ID: ${{ inputs.phase3_run_id }}
+          METADATA_OVERRIDES_JSON: ${{ inputs.metadata_overrides_json }}
+          MADE_FOR_KIDS: ${{ inputs.made_for_kids }}
+          CONTAINS_SYNTHETIC_MEDIA: ${{ inputs.contains_synthetic_media }}
+          CONFIRM_PRIVATE_UPLOAD: ${{ inputs.confirm_private_upload }}
+          CONFIRM_ASSET_RIGHTS: ${{ inputs.confirm_asset_rights }}
+          CONFIRM_METADATA_APPROVED: ${{ inputs.confirm_metadata_approved }}
+        run: |
+          python -m autopilot.engine.youtube_native.phase3_release \
+            --report work/phase3-handoff/phase3-release-handoff.json \
+            --artifact-root work/v3-release \
+            --run-id "$PHASE3_RUN_ID" \
+            --metadata-overrides-json "$METADATA_OVERRIDES_JSON" \
+            --made-for-kids "$MADE_FOR_KIDS" \
+            --contains-synthetic-media "$CONTAINS_SYNTHETIC_MEDIA" \
+            --upload \
+            --confirm-private-upload \
+            --confirm-asset-rights \
+            --confirm-metadata-approved \
+            --output work/youtube-private-beta-result.json
+
+      - name: Preserve the encrypted upload checkpoint for the next run
+        if: always() && hashFiles('work/youtube-upload-state.enc') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: youtube-native-upload-state
+          path: work/youtube-upload-state.enc
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Save private upload result
+        if: always() && hashFiles('work/youtube-private-beta-result.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: youtube-private-beta-result-${{ github.run_id }}
+          path: work/youtube-private-beta-result.json
+          if-no-files-found: error
+          retention-days: 90
