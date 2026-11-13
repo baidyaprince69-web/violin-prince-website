@@ -148,5 +148,35 @@ class FluxRequestContractTests(unittest.TestCase):
             self.assertFalse(invalid["passed"])
             self.assertEqual(invalid["score"], 0)
 
+    def test_storyboard_reviewer_checks_consistency_across_three_scenes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            storyboard = Path(folder) / "storyboard.png"
+            Image.new("RGB", (1280, 900), (22, 18, 14)).save(storyboard)
+            response = {
+                "response": '{"score":93,"passed":true,"issues":[],"summary":"All three panels share the same instrument identity and palette."}'
+            }
+            with patch.object(pipeline, "ai", return_value=response) as mocked:
+                result = pipeline.review_storyboard_consistency(
+                    storyboard,
+                    {"title": "A violin story", "topic": "A violinist performs", "visual_motif": "same amber violin"},
+                )
+            self.assertTrue(result["passed"])
+            self.assertEqual(result["score"], 93)
+            self.assertEqual(result["model"], pipeline.VISION_MODEL)
+            payload = mocked.call_args.args[1]
+            self.assertEqual(payload["task"], "query")
+            self.assertTrue(payload["image"].startswith("data:image/png;base64,"))
+            self.assertIn("continuity supervisor", payload["question"])
+            self.assertIn("distinct compositions", payload["question"])
+
+    def test_storyboard_reviewer_rejects_unstructured_continuity_result(self):
+        with tempfile.TemporaryDirectory() as folder:
+            storyboard = Path(folder) / "storyboard.png"
+            Image.new("RGB", (1280, 900), (22, 18, 14)).save(storyboard)
+            with patch.object(pipeline, "ai", return_value={"response": "The images do not match."}):
+                result = pipeline.review_storyboard_consistency(storyboard, {"title": "A violin story"})
+            self.assertFalse(result["passed"])
+            self.assertEqual(result["score"], 0)
+
 if __name__ == "__main__":
     unittest.main()
