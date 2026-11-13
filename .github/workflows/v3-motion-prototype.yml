@@ -6,6 +6,7 @@ on:
       - v3-motion-prototype
     paths:
       - "autopilot/engine/voiceover.py"
+      - "autopilot/engine/run.py"
       - "autopilot/engine/motion_prototype.py"
       - "autopilot/engine/tests/**"
       - "autopilot/motion-prototype/**"
