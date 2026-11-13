@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Free-first cloud producer. Never switches to a paid service."""
-import argparse, base64, json, os, re, shutil, subprocess, sys, textwrap, time, uuid, wave
+import argparse, base64, hashlib, json, os, re, shutil, subprocess, sys, textwrap, time, uuid, wave
 from io import BytesIO
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from html.parser import HTMLParser
@@ -18,7 +18,10 @@ CF_TOKEN = os.environ.get("CF_AI_TOKEN", "")
 RUN_ID = os.environ.get("RUN_ID", str(uuid.uuid4()))
 TEXT_MODEL = "@cf/google/gemma-4-26b-a4b-it"
 IMAGE_MODEL = "@cf/black-forest-labs/flux-1-schnell"
+VISION_MODEL = os.environ.get("CF_VISION_MODEL", "@cf/moondream/moondream3.1-9B-A2B")
 MAX_IMAGE_PROMPT_CHARS = 1800
+MAX_IMAGE_QA_ATTEMPTS = 2
+MIN_IMAGE_QA_SCORE = 80
 WORK, OUT, IMAGES = Path("work"), Path("work/output"), Path("work/images")
 W, H, FPS, SECONDS = 720, 1280, 25, 8
 http = requests.Session()
@@ -559,20 +562,20 @@ def narration_validation_error(script):
     """Return a precise narration constraint failure, or an empty string."""
     text_value = str(script or "").strip()
     words = re.findall(r"\b[\w’'-]+\b", text_value)
-    if not 40 <= len(words) <= 44:
-        return f"it has {len(words)} spoken words; the required range is 40–44"
+    if not 48 <= len(words) <= 52:
+        return f"it has {len(words)} spoken words; the required range is 48–52"
     sentences = [part.strip() for part in re.split(r"[.!?]+", text_value) if part.strip()]
     if len(sentences) != 4:
         return f"it has {len(sentences)} sentences; exactly 4 are required"
     hook_words = sentences[0].split()
-    if not 5 <= len(hook_words) <= 8:
-        return f"the opening hook has {len(hook_words)} words; 5–8 are required"
-    if any(len(sentence.split()) > 12 for sentence in sentences):
-        return "one or more sentences exceed the 12-word subtitle limit"
+    if not 8 <= len(hook_words) <= 10:
+        return f"the opening hook has {len(hook_words)} words; 8–10 are required"
+    if any(len(sentence.split()) > 14 for sentence in sentences):
+        return "one or more sentences exceed the 14-word subtitle limit"
     return ""
 
 
-NARRATION_SENTENCE_WORD_TARGETS = (8, 9, 12, 12)
+NARRATION_SENTENCE_WORD_TARGETS = (10, 12, 14, 14)
 
 
 def narration_sentences(script):
@@ -598,15 +601,15 @@ def narration_sentence_error(sentence, target_words):
     count = narration_word_count(value)
     if count != target_words:
         return f"it has {count} words; exactly {target_words} are required"
-    if len(value.split()) > 12:
-        return "the sentence exceeds the 12-word subtitle limit"
+    if len(value.split()) > 14:
+        return "the sentence exceeds the 14-word subtitle limit"
     if not value.endswith((".", "!", "?")):
         return "the sentence is not grammatically closed with punctuation"
     return ""
 
 
 def narration_sentence_budget_error(script):
-    """Require four short beats with a deliberate 8/9/12/12 spoken-word rhythm."""
+    """Require four story beats with a deliberate 10/12/14/14 spoken-word rhythm."""
     sentences = narration_sentences(script)
     if len(sentences) != 4:
         return f"it has {len(sentences)} sentences; exactly 4 are required"
@@ -614,7 +617,7 @@ def narration_sentence_budget_error(script):
     if tuple(counts) != NARRATION_SENTENCE_WORD_TARGETS:
         return (
             "sentence word counts are " + "/".join(str(value) for value in counts) +
-            "; the required rhythm is 8/9/12/12"
+            "; the required rhythm is 10/12/14/14"
         )
     return ""
 
@@ -638,10 +641,10 @@ def make_plan(items, recent=None):
         "The pipeline resolves source IDs to original article URLs. Do not output publisher homepages as article URLs. "
         "Do not use song lyrics, copied scripts, named copyrighted characters, logos or identifiable living people in images. "
         "Return JSON only with topic,title,hook,description,hashtags,narration_script,narrative_style,scenes,sources. "
-        "The narration_script must have 40 to 44 spoken words across exactly four natural, complete sentences. "
-        "Aim for 41 words with this exact sentence budget: sentence 1 has 8 words, sentence 2 has 9 words, "
-        "sentence 3 has 12 words, and sentence 4 has 12 words. Sentence 1 is the curiosity hook and must be resolved. "
-        "Keep every sentence at 12 words or fewer and make the wording sound natural when spoken aloud, never padded. "
+        "The narration_script must have 48 to 52 spoken words across exactly four natural, complete sentences. Aim for 50 words. "
+        "Use this exact 50-word sentence budget: sentence 1 has 10 words, sentence 2 has 12 words, "
+        "sentence 3 has 14 words, and sentence 4 has 14 words. The opening hook must be resolved by the ending. "
+        "Keep every sentence at 14 words or fewer. Make the language natural, vivid and specific when spoken aloud; never pad. "
         "Build context, reveal one memorable sourced detail, "
         "and finish with a satisfying payoff. No greeting, filler padding, generic introduction or misleading clickbait. "
         "Use a cinematic storytelling style for human-interest topics and a clear documentary style for factual discoveries. "
@@ -803,7 +806,7 @@ def make_plan(items, recent=None):
                                 "The sentence field must contain exactly " + str(target_words) +
                                 " spoken words, counted as ordinary space-separated words. Count each word by position before answering; count each space-separated part of a multi-part name separately. Use simple words; "
                                 "avoid contractions and hyphenated compounds. Write exactly one complete, "
-                                "natural sentence, with no more than 12 words. Its role is: " +
+                                "natural sentence, with no more than 14 words. Its role is: " +
                                 sentence_roles[index] + ". Preserve the story's meaning and emotional purpose. "
                                 "Use only claims supported by the supplied plan or research evidence. "
                                 "Do not add invented facts, dates, statistics, quotations, motives or outcomes. "
@@ -896,7 +899,7 @@ def make_plan(items, recent=None):
 
         plan["narration_script"] = narration_script
         save_narration_debug("repaired", narration_script)
-        log("All four narration beats passed their exact 8/9/12/12-word budgets and full script validation.")
+        log("All four narration beats passed their exact 10/12/14/14-word budgets and full script validation.")
 
 
     scenes = plan.get("scenes")
@@ -904,19 +907,19 @@ def make_plan(items, recent=None):
         raise PipelineError("Planner must provide exactly three scenes.")
     narration_script = str(plan.get("narration_script", "")).strip()
     spoken_words = re.findall(r"\b[\w’'-]+\b", narration_script)
-    if not 40 <= len(spoken_words) <= 44:
-        raise PipelineError("Planner narration must contain 40–44 spoken words for the 24-second format.")
+    if not 48 <= len(spoken_words) <= 52:
+        raise PipelineError("Planner narration must contain 48–52 spoken words for the 24-second format.")
     spoken_sentences = narration_sentences(narration_script)
     budget_issue = narration_sentence_budget_error(narration_script)
     if len(spoken_sentences) != 4:
         raise PipelineError("Planner narration must contain exactly four short story beats.")
     if budget_issue:
-        raise PipelineError("Planner narration must follow the exact 8/9/12/12-word sentence budget: " + budget_issue)
+        raise PipelineError("Planner narration must follow the exact 10/12/14/14-word sentence budget: " + budget_issue)
     hook_words = spoken_sentences[0].split()
-    if not 5 <= len(hook_words) <= 8:
-        raise PipelineError("Opening hook must contain 5–8 words.")
-    if any(len(sentence.split()) > 12 for sentence in spoken_sentences):
-        raise PipelineError("Each narration sentence must contain no more than 12 words.")
+    if not 8 <= len(hook_words) <= 10:
+        raise PipelineError("Opening hook must contain 8–10 words.")
+    if any(len(sentence.split()) > 14 for sentence in spoken_sentences):
+        raise PipelineError("Each narration sentence must contain no more than 14 words.")
     plan["narration_script"] = narration_script
     plan["narrative_style"] = str(plan.get("narrative_style", "documentary")).lower()
     if plan["narrative_style"] not in ("documentary", "cinematic_story"):
