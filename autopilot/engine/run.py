@@ -1064,6 +1064,102 @@ def make_image(prompt, index):
         raise PipelineError("Normalized AI image did not meet the required 9:16 portrait dimensions.")
     return path
 
+def review_scene_image(path, plan, scene, index):
+    """Inspect generated pixels with a vision model; reject ambiguous or defective artwork."""
+    try:
+        image_bytes = Path(path).read_bytes()
+    except OSError as exc:
+        raise PipelineError(f"Visual QA could not read scene {index + 1}: {exc}") from exc
+    image_data = "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode("ascii")
+
+    story_identity = " ".join((
+        str(plan.get("topic", "")), str(plan.get("title", "")),
+        str(plan.get("visual_motif", "")),
+    )).casefold()
+    scene_identity = " ".join((
+        str(scene.get("image_prompt", "")), str(scene.get("caption", "")),
+    )).casefold()
+    is_violin_macro = (
+        index == 1
+        and bool(re.search(r"\bviolin(?:ist)?\b", story_identity))
+        and bool(re.search(r"\bbow\b", scene_identity))
+    )
+
+    if is_violin_macro:
+        checklist = (
+            "Inspect this as a real violin macro photograph. Confirm one complete upright maple bridge "
+            "with both feet visible; four separate, evenly spaced strings; and a clearly distinct ebony "
+            "fingerboard. Confirm exactly one violin bow. Its straight dark wooden stick and pale horsehair "
+            "ribbon must run alongside one another with a visible gap and attach only at the frog and tip. "
+            "Reject a broken, bent, fused, doubled, conjoined or floating bow part. The horsehair, not the "
+            "stick, must cross and visibly touch a string at one clear point between bridge and fingerboard. "
+            "Keep the entire bridge and enough adjacent bow, strings and fingerboard visible to understand "
+            "the anatomy. Reject severe cropping, distorted perspective, extra strings, duplicate bridges, "
+            "impossible string paths, text, logos or watermarks."
+        )
+    else:
+        checklist = (
+            "Check that the image clearly depicts the intended subject and action. The main subject must be "
+            "recognisable, the composition intentional, and important objects fully readable rather than "
+            "cropped, fused or duplicated. Materials and anatomy should look plausible. The image should "
+            "look like photorealistic cinematic editorial photography, not a diagram or illustration. "
+            "Reject unrelated subjects, malformed anatomy, distorted objects, visible text, logos, watermarks "
+            "or empty framing."
+        )
+
+    question = (
+        "You are a strict visual quality inspector for a short-form video. Inspect the actual pixels, not "
+        "the written prompt. Scene title: " + str(plan.get("title", ""))[:120] +
+        ". Scene brief: " + str(scene.get("image_prompt", ""))[:420] +
+        ". Recurring visual identity: " + str(plan.get("visual_motif", ""))[:160] +
+        ". Required checks: " + checklist +
+        ' Return exactly one JSON object and no Markdown: '
+        '{"score":0,"passed":false,"issues":["specific visible defect"],"summary":"brief visual assessment"}. '
+        "Score from 0 to 100. passed is true only when score is at least 80 and every critical requirement "
+        "is visibly satisfied. Do not assume a detail exists when hidden or unclear. When uncertain, fail "
+        "and describe the uncertainty."
+    )
+
+    result = ai(
+        VISION_MODEL,
+        {"task": "query", "image": image_data, "question": question},
+        120,
+    )
+    raw = result.get("response") or result.get("text") or result.get("answer") or ""
+    if not isinstance(raw, str) or not raw.strip():
+        raw = ""
+
+    try:
+        start = raw.find("{")
+        end = raw.rfind("}")
+        if start < 0 or end <= start:
+            raise ValueError("The reviewer returned no JSON object.")
+        assessment = json.loads(raw[start:end + 1])
+        score = int(assessment["score"])
+        model_passed = assessment["passed"]
+        issues = assessment.get("issues", [])
+        summary = str(assessment.get("summary", ""))[:500]
+        if not isinstance(model_passed, bool) or not isinstance(issues, list):
+            raise ValueError("The reviewer returned invalid field types.")
+        if not 0 <= score <= 100:
+            raise ValueError("The reviewer score is outside 0–100.")
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        return {
+            "model": VISION_MODEL,
+            "score": 0,
+            "passed": False,
+            "issues": ["visual reviewer response was unclear or not structured JSON"],
+            "summary": raw[:300] or str(exc),
+        }
+
+    return {
+        "model": VISION_MODEL,
+        "score": score,
+        "passed": bool(model_passed and score >= MIN_IMAGE_QA_SCORE),
+        "issues": [str(value)[:240] for value in issues[:8]],
+        "summary": summary,
+    }
+
 
 def use_precision_macro(plan, scene, index):
     """Use deterministic geometry only when the story itself is specifically about violin bowing."""
@@ -1101,11 +1197,28 @@ def is_valid_portrait_scene_image(path):
         return False
 
 
-def should_reuse_scene_image(path, plan, scene, index):
-    """Never reuse square/invalid art or an old AI macro that must be procedurally replaced."""
-    if use_precision_macro(plan, scene, index):
+def should_reuse_scene_image(path, plan, scene, index, metadata=None):
+    """Reuse only an image that passed vision review and still matches its recorded hash."""
+    if not is_valid_portrait_scene_image(path):
         return False
-    return is_valid_portrait_scene_image(path)
+    assets = (metadata or {}).get("visual_assets", [])
+    if not isinstance(assets, list) or index >= len(assets):
+        return False
+    record = assets[index]
+    if not isinstance(record, dict):
+        return False
+    review = record.get("visual_review", {})
+    if record.get("mode") != "cloudflare_flux_portrait_extended":
+        return False
+    if not isinstance(review, dict) or review.get("passed") is not True:
+        return False
+    expected_hash = str(record.get("sha256") or "")
+    if not expected_hash:
+        return False
+    try:
+        return hashlib.sha256(Path(path).read_bytes()).hexdigest() == expected_hash
+    except OSError:
+        return False
 
 
 def make_macro_contact_illustration(target):
@@ -2011,56 +2124,77 @@ def visuals_stage(feedback=""):
     visual_assets = []
     for index, scene in enumerate(plan["scenes"]):
         if image_paths[index].is_file() and should_reuse_scene_image(
-            image_paths[index], plan, scene, index
+            image_paths[index], plan, scene, index, metadata
         ):
-            log(f"Reusing validated 9:16 portrait scene image {index + 1}/3.")
-            visual_assets.append({
-                "file": image_paths[index].name,
-                "mode": "reused_valid_portrait",
-                "width": W,
-                "height": H,
-            })
+            record = dict(metadata["visual_assets"][index])
+            log(f"Reusing vision-reviewed scene image {index + 1}/3.")
+            visual_assets.append(record)
             continue
 
-        # Square legacy images and old AI violin macros are not reusable.
         if image_paths[index].exists():
-            log(f"Replacing stale or incompatible scene image {index + 1}/3.")
+            log(f"Replacing scene image {index + 1}/3 because it has no current visual-quality approval.")
             image_paths[index].unlink(missing_ok=True)
 
-        macro_info = None
-        if use_precision_macro(plan, scene, index):
-            generated = IMAGES / f"scene-{index + 1}.jpg"
-            macro_info = make_macro_contact_illustration(generated)
-            mode = "deterministic_violin_contact_illustration"
-            log(
-                "Rendered deterministic violin-contact macro: "
-                f"{macro_info['string_count']} strings, "
-                f"{macro_info['highlighted_contact_points']} highlighted contact point."
+        feedback_for_attempt = str(feedback or "")
+        review = None
+        generated = None
+        for attempt in range(1, MAX_IMAGE_QA_ATTEMPTS + 1):
+            prompt = _scene_visual_prompt(
+                scene, feedback_for_attempt, index=index, plan=plan
             )
-        else:
-            prompt = _scene_visual_prompt(scene, feedback, index=index, plan=plan)
             generated = make_image(prompt, index)
-            mode = "cloudflare_flux_portrait_extended"
-
-        if not is_valid_portrait_scene_image(generated):
-            raise PipelineError(
-                f"Scene {index + 1} generator produced an invalid portrait image; "
-                "the visual package was not marked complete."
+            if not is_valid_portrait_scene_image(generated):
+                raise PipelineError(
+                    f"Scene {index + 1} generator produced an invalid portrait image; "
+                    "the visual package was not marked complete."
+                )
+            review = review_scene_image(generated, plan, scene, index)
+            review["attempt"] = attempt
+            if review["passed"]:
+                break
+            issues = review.get("issues") or [
+                review.get("summary") or "composition did not meet the visual brief"
+            ]
+            feedback_for_attempt = (
+                "Correct these specific visual defects from the previous attempt: "
+                + "; ".join(str(issue)[:140] for issue in issues[:5])
+                + ". Preserve the requested subject, framing and recurring visual identity."
             )
+            log(
+                f"Scene {index + 1}/3 visual review rejected attempt {attempt}: "
+                + "; ".join(str(issue)[:100] for issue in issues[:3])
+            )
+
+        if not review or not review["passed"]:
+            details = "; ".join(
+                str(issue)[:140] for issue in (review or {}).get("issues", [])[:5]
+            )
+            raise PipelineError(
+                f"Scene {index + 1} failed AI visual review after {MAX_IMAGE_QA_ATTEMPTS} attempts. "
+                f"Rejected defects: {details or 'the reviewer did not approve the composition'}. "
+                "The pipeline stopped before rendering instead of accepting defective artwork."
+            )
+
         shutil.copy2(generated, image_paths[index])
         if not is_valid_portrait_scene_image(image_paths[index]):
-            raise PipelineError(f"Scene {index + 1} failed portrait validation after copying into the package.")
+            raise PipelineError(
+                f"Scene {index + 1} failed portrait validation after copying into the package."
+            )
 
+        image_hash = hashlib.sha256(image_paths[index].read_bytes()).hexdigest()
         asset_record = {
             "file": image_paths[index].name,
-            "mode": mode,
+            "mode": "cloudflare_flux_portrait_extended",
             "width": W,
             "height": H,
+            "sha256": image_hash,
+            "visual_review": review,
         }
-        if macro_info:
-            asset_record.update(macro_info)
         visual_assets.append(asset_record)
-        log(f"Prepared validated portrait scene image {index + 1}/3.")
+        log(
+            f"Scene {index + 1}/3 generated and vision-reviewed "
+            f"(score {review['score']}/100, attempt {review['attempt']})."
+        )
     storyboard = make_storyboard_preview(plan, image_paths, PACKAGE / "storyboard-preview.png")
     metadata["stage"] = "visuals_ready"
     metadata["visual_feedback"] = re.sub(r"\s+", " ", str(feedback or "")).strip()[:600]
@@ -2068,6 +2202,8 @@ def visuals_stage(feedback=""):
     metadata["visual_assets"] = visual_assets
     metadata["visual_modes"] = [item["mode"] for item in visual_assets]
     metadata["portrait_dimensions"] = [W, H]
+    metadata["visual_review_model"] = VISION_MODEL
+    metadata["visual_review_status"] = "all_scenes_passed_ai_review_human_review_still_required"
     paths["metadata"].write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
     log("Storyboard preview created: " + str(storyboard))
     return 0
