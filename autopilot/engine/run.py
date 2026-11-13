@@ -1105,7 +1105,7 @@ def _vision_result_diagnostic(result):
             if key in ("answer", "response", "text", "content", "output_text", "caption", "finish_reason"):
                 preview = _vision_text(value)
                 details.append(f"{key}={type(value).__name__}" + (f": {preview[:180]!r}" if preview else " (empty)"))
-            elif isinstance(value, (dict, list)):
+            else:
                 details.append(f"{key}={type(value).__name__}")
         return "Workers AI result fields: " + ", ".join(details[:12]) if details else "Workers AI result was an empty object."
     return f"Workers AI result type: {type(result).__name__}."
