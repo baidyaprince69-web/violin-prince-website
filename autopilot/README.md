@@ -106,3 +106,14 @@ Artifacts are retained for 14 days. Keep the relevant successful run IDs until y
 - engine/tests/ — offline regression, model-contract, storyboard and FFmpeg render tests.
 - .github/workflows/violin-prince-autopilot.yml — staged GitHub Actions workflow.
 - .github/workflows/autopilot-checks.yml — offline code and workflow validation.
+
+## Shared SEO Intelligence — Discover, Optimize, Learn
+
+The shared engine is documented in [SEO_INTELLIGENCE_ENGINE.md](../SEO_INTELLIGENCE_ENGINE.md).
+
+- **Discover (Prepare):** searches channel-relevant public YouTube results in English, Hindi and Bengali before the editorial planner selects a subject. It uses the Violin Prince channel profile and samples observed result performance. It does not claim unavailable search-volume numbers.
+- **Optimize (after Render):** prepares a video-specific primary keyword, title suggestions, description, tags and hashtags from the finished creative plan and saved Discover report. Metadata approval remains a separate owner decision.
+- **Learn (Phase 5):** a weekly report workflow (Monday 08:30 India time) and a manual trigger read a bounded 28-day per-video report. It uses available watch percentage, views and engagement to produce cautious SEO-only feedback. It is not continuous polling and does not change visual generation, narration, QC or publishing gates.
+
+The latest completed learning snapshot is stored in the existing Cloudflare D1 channel-insights record. The next Prepare step reads it through the authenticated Worker endpoint and uses it only to prioritise future SEO discovery. No Google Drive or Metricool dependency is introduced.
+

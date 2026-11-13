@@ -303,6 +303,25 @@ async function handleApi(request, env) {
     return json({ topics: (rows.results || []).map((item) => item.topic).filter(Boolean) });
   }
 
+  if (path === "/internal/seo-learning" && request.method === "GET") {
+    // Phase 1 consumes only the latest completed Phase 5 SEO snapshot.
+    // This is a read of stored data, not a live analytics or polling request.
+    const row = await env.DB.prepare(
+      "SELECT payload_json,captured_at FROM channel_insights WHERE platform='youtube' ORDER BY captured_at DESC LIMIT 1"
+    ).first();
+    let learning = null;
+    if (row && row.payload_json) {
+      try {
+        const payload = JSON.parse(row.payload_json);
+        learning = payload && typeof payload.seo_learning === "object"
+          ? payload.seo_learning : null;
+      } catch {
+        learning = null;
+      }
+    }
+    return json({ learning: learning, captured_at: row ? row.captured_at : null });
+  }
+
   if (path === "/internal/assets" && request.method === "GET") {
     const rows = await env.DB.prepare(
       "SELECT id,filename,kind,content_type,size_bytes,object_key FROM assets WHERE active=1 AND rights_confirmed=1 AND kind='audio' ORDER BY created_at DESC LIMIT 50"

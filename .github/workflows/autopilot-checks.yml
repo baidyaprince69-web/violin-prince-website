@@ -9,6 +9,7 @@ on:
       - ".github/workflows/autopilot-checks.yml"
       - ".github/workflows/phase4-youtube-validation.yml"
       - ".github/workflows/phase4-youtube-private-beta.yml"
+      - ".github/workflows/phase5-seo-learning.yml"
       - ".github/workflows/v3-motion-prototype.yml"
   pull_request:
     paths:
@@ -37,6 +38,8 @@ jobs:
 
       - name: Compile all Python engine modules
         run: python -m py_compile autopilot/engine/*.py
+      - name: Compile SEO intelligence modules
+        run: python -m py_compile autopilot/engine/seo_intelligence/*.py autopilot/engine/analytics.py autopilot/engine/tests/test_seo_intelligence.py autopilot/engine/tests/test_analytics.py
 
       - name: Install offline render-test tools
         run: |
@@ -89,6 +92,7 @@ jobs:
               ".github/workflows/v3-motion-prototype.yml",
               ".github/workflows/phase4-youtube-validation.yml",
               ".github/workflows/phase4-youtube-private-beta.yml",
+              ".github/workflows/phase5-seo-learning.yml",
           ]
           for name in files:
               parsed = yaml.safe_load(Path(name).read_text(encoding="utf-8"))
@@ -102,3 +106,4 @@ jobs:
           test -s .github/workflows/violin-prince-autopilot.yml
           test -s .github/workflows/deploy-autopilot-cloudflare.yml
           test -s .github/workflows/phase4-youtube-private-beta.yml
+          test -s .github/workflows/phase5-seo-learning.yml
