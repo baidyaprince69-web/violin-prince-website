@@ -1130,7 +1130,7 @@ def _parse_vision_assessment(result, label="visual reviewer"):
             raise ValueError("no valid JSON object was returned")
         score_value = assessment["score"]
         model_passed = assessment["passed"]
-        issues = assessment.get("issues", [])
+        issues = assessment["issues"]
         if isinstance(score_value, bool) or not isinstance(score_value, (int, float)):
             raise ValueError("score must be numeric")
         if not isinstance(model_passed, bool) or not isinstance(issues, list):
@@ -1138,6 +1138,7 @@ def _parse_vision_assessment(result, label="visual reviewer"):
         if not 0 <= score_value <= 100:
             raise ValueError("score must be between 0 and 100")
         score = int(round(score_value))
+        issues = [str(value).strip()[:240] for value in issues if str(value).strip()]
         summary = str(assessment.get("summary", ""))[:500]
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
         diagnostic = raw[:420] if raw else _vision_result_diagnostic(result)
@@ -1152,8 +1153,9 @@ def _parse_vision_assessment(result, label="visual reviewer"):
     return {
         "model": VISION_MODEL,
         "score": score,
-        "passed": bool(model_passed and score >= MIN_IMAGE_QA_SCORE),
-        "issues": [str(value)[:240] for value in issues[:8]],
+        # A model cannot pass while simultaneously reporting defects. Keep the gate fail-closed.
+        "passed": bool(model_passed and score >= MIN_IMAGE_QA_SCORE and not issues),
+        "issues": issues[:8],
         "summary": summary,
     }
 
@@ -1209,9 +1211,11 @@ def review_scene_image(path, plan, scene, index):
         ". Required checks: " + checklist +
         ' Return exactly one JSON object and no Markdown: '
         '{"score":0,"passed":false,"issues":["specific visible defect"],"summary":"brief visual assessment"}. '
-        "Score from 0 to 100. passed is true only when score is at least 80 and every critical requirement "
-        "is visibly satisfied. Do not assume a detail exists when hidden or unclear. When uncertain, fail "
-        "and describe the uncertainty."
+        "Score from 0 to 100. The issues array MUST be empty for a pass. If any required object is missing, "
+        "unclear, cropped, fused or out of focus, set passed=false and list each defect in issues. "
+        "For the violin macro, explicitly count all four strings and confirm the complete bridge, fingerboard, "
+        "one separate dark bow stick, one pale horsehair ribbon and the single hair-to-string contact point. "
+        "Do not assume a detail exists when hidden or unclear. When uncertain, fail and describe the uncertainty."
     )
 
     result = _vision_query(image_data, question, timeout=120)
@@ -1238,9 +1242,13 @@ def review_storyboard_consistency(path, plan):
         "in the macro must plausibly belong to that same instrument. Reject unrelated stock-like scenes, "
         "identity drift, contradictory instruments, radically different visual styles, or a macro image "
         "that does not match the wider instrument. Do not demand identical framing; the three panels must "
-        "show different story beats. Return exactly one JSON object: "
+        "show different story beats. Scene 1 and Scene 3 must depict the SAME identifiable performer, "
+        "not merely two different violinists: match face, hairstyle, clothing and overall appearance. "
+        "All three panels must also show the same amber-varnished violin design and warm visual identity. "
+        "Return exactly one JSON object: "
         '{"score":0,"passed":false,"issues":["specific continuity defect"],"summary":"brief assessment"}. '
-        "Score 0–100. Pass only at 80 or above when the three scenes visibly form one coherent sequence. "
+        "Score 0–100. The issues array MUST be empty for a pass. Any performer identity drift, instrument "
+        "design mismatch, lighting/material/color inconsistency or unclear macro anatomy is a rejection. "
         "Do not infer hidden details; uncertainty is a reason to fail."
     )
     result = _vision_query(image_data, question, timeout=120)
@@ -1732,6 +1740,7 @@ def _read_package(require_images=False):
         if (
             not isinstance(storyboard_review, dict)
             or storyboard_review.get("passed") is not True
+            or storyboard_review.get("issues")
             or int(storyboard_review.get("score", 0)) < MIN_IMAGE_QA_SCORE
         ):
             raise PipelineError("The three-scene storyboard has not passed AI continuity review.")
@@ -1742,6 +1751,7 @@ def _read_package(require_images=False):
             if (
                 not isinstance(review, dict)
                 or review.get("passed") is not True
+                or review.get("issues")
                 or int(review.get("score", 0)) < MIN_IMAGE_QA_SCORE
             ):
                 raise PipelineError(f"Scene {index + 1} has not passed AI visual review.")
@@ -1816,7 +1826,7 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
             "SUBJECT & ACTION: " + compact_prompt + ".",
             "SHOT 2 MACRO CLOSE-UP: 85mm lens, string-height three-quarter view, shallow depth of field; keep full bridge and contact area visible.",
             "Single still macro frame; no multiple exposure.",
-            "INSTRUMENT ACCURACY: one full maple bridge with both feet; four separate strings and distinct ebony fingerboard. Exactly one bow: straight dark stick and pale horsehair run parallel with a visible gap, joined only at frog and tip. Never broken, fused, doubled or floating. Hair alone crosses at about 90° and touches one string between bridge and fingerboard. Keep bridge and contact visible; do not crop or merge parts.",
+            "INSTRUMENT ACCURACY: one complete upright maple bridge with both feet visible; exactly four separate parallel strings, individually countable from tailpiece across the bridge; a distinct ebony fingerboard clearly visible behind the strings. Exactly one bow with TWO separately readable, continuous components: a slim dark wooden stick and a narrow pale horsehair ribbon running parallel with a visible air gap; both remain connected only at the frog and tip. Neither part may hide the other. The pale hair alone crosses at about 90 degrees and visibly touches exactly one string at a single contact point between the bridge and fingerboard. Keep the full bridge, all four strings, fingerboard, dark stick, pale hair and contact point inside the sharp focal plane; do not crop, blur, fuse or merge any required part.",
             "RECURRING ASSET ANCHOR: " + anchor + "; plausible violin proportions.",
             "STYLE & MATERIAL: photorealistic violin performance photograph; true wood grain, varnish, steel strings, maple and ebony. No illustration, render, anime or plastic.",
             "LIGHT: warm 3200K key, neutral fill, amber rim; narrow macro focus.",
@@ -2134,6 +2144,11 @@ def visuals_stage(feedback=""):
         saved_assets = []
     visual_assets = (saved_assets + [None] * 3)[:3]
     metadata["visual_assets"] = visual_assets
+    # Keep the checkpoint metadata aligned with the exact creative plan being visually reviewed.
+    metadata["title"] = str(plan.get("title") or metadata.get("title") or "")
+    metadata["topic"] = str(plan.get("topic") or metadata.get("topic") or "")
+    metadata["visual_motif"] = str(plan.get("visual_motif") or "")
+    metadata["visual_plan_sha256"] = plan_hash
     metadata["stage"] = "visuals_in_progress"
     metadata["visual_checkpoint"] = {
         "completed_scene_indices": [
@@ -2218,6 +2233,7 @@ def visuals_stage(feedback=""):
             "height": H,
             "sha256": image_hash,
             "plan_sha256": plan_hash,
+            "generated_run_id": str(RUN_ID),
             "visual_review": review,
         }
         visual_assets[index] = asset_record
@@ -2236,7 +2252,7 @@ def visuals_stage(feedback=""):
         )
     storyboard = make_storyboard_preview(plan, image_paths, PACKAGE / "storyboard-preview.png")
     storyboard_review = review_storyboard_consistency(storyboard, plan)
-    if not storyboard_review["passed"]:
+    if not storyboard_review["passed"] or storyboard_review.get("issues"):
         details = "; ".join(str(issue)[:140] for issue in storyboard_review.get("issues", [])[:5])
         raise PipelineError(
             "The three scenes did not pass storyboard continuity review. "
