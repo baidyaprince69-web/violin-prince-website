@@ -233,6 +233,15 @@ jobs:
             echo "The artifact includes fresh-visual-test-manifest.json so the skipped stage is visible."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Restore the prior unapproved Scene 1 candidate for targeted re-review
+        if: env.FRESH_VISUAL_TEST == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: v3-motion-prototype-43452864847
+          run-id: 43452864847
+          github-token: ${{ github.token }}
+          path: work/failed-visual-seed
+
       - name: Prepare a dedicated violin-performance visual test story
         if: env.FRESH_VISUAL_TEST == 'true'
         run: |
@@ -278,6 +287,31 @@ jobs:
           PY
           rm -f work/package/scene-1.jpg work/package/scene-2.jpg work/package/scene-3.jpg
           rm -f work/package/storyboard-preview.png
+
+      - name: Reuse the prior Scene 1 candidate only when the exact story plan matches
+        if: env.FRESH_VISUAL_TEST == 'true'
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, shutil
+          from pathlib import Path
+
+          prior = Path("work/failed-visual-seed")
+          prior_plan = prior / "package/creative_plan.json"
+          current_plan = Path("work/package/creative_plan.json")
+          candidate = prior / "images/scene-1.jpg"
+          target = Path("work/images/scene-1.jpg")
+
+          def digest(path):
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          if prior_plan.is_file() and candidate.is_file() and digest(prior_plan) == digest(current_plan):
+              target.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(candidate, target)
+              print("Preserved Scene 1 candidate restored for one targeted review; image generation will be skipped for this candidate.")
+          else:
+              print("Prior Scene 1 candidate was not reused because its exact story plan or image file did not match.")
+          PY
 
       - name: Generate fresh AI scene artwork with visual review
         if: env.FRESH_VISUAL_TEST == 'true'
