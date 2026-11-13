@@ -12,12 +12,12 @@ It is not the production renderer.
 - A compact editorial story header with staged infographic reveals: label, headline, detail, connectors, nodes and chart layers enter in sequence.
 - Continuous atmosphere layers, floating light particles, orbital rings, directional transition sweeps and stronger scene-specific camera movement.
 - A localized alternating bow-path highlight and subtle string vibration in the performance-detail scene, responding to sampled RMS energy from the music bed.
-- A second story, "How a Violin Turns Motion into Music", rendered through the same pipeline to check layout and timing consistency.
+- One primary story per review cycle, so the complete result can be inspected before expanding the pipeline.
 - Deterministic frame capture followed by FFmpeg H.264 encoding.
 
 ## Visual scope
 
-The three scene images are generated as still artwork by Cloudflare Workers AI (FLUX.1-schnell). Each generated image is inspected by a separate vision model (Moondream 3.1) against the actual scene brief. A rejected scene receives one targeted regeneration; if it still fails, the visual stage stops before video rendering. The violin macro is now an AI-generated photographic brief, not a Python/Pillow drawing. AI review is a quality gate, not a guarantee: the storyboard and final encoded video still require human visual approval.
+The three scene images are generated as still artwork by Cloudflare Workers AI (FLUX.1-schnell). Each generated image is inspected by a separate vision model (Moondream 3.1) against the actual scene brief. A rejected scene receives one targeted regeneration; if it still fails, the visual stage stops before video rendering. The three-panel contact sheet is then inspected as a whole for subject, instrument, material, palette and lighting continuity. The violin macro is an AI-generated photographic brief; the procedural Python/Pillow macro has been removed. AI review is a quality gate, not a guarantee: the storyboard and final encoded video still require human visual approval.
 
 The HTML renderer adds camera movement, transitions, animated vector layers, phrase-aware word captions, kinetic typography, infographic components and music-reactive visual details. FFmpeg encodes these into an MP4. This is a video rendered from still images, not text-to-video or image-to-video footage: the violinist, hands and bow are not independently animated as moving footage.
 
@@ -28,6 +28,7 @@ The HTML renderer adds camera movement, transitions, animated vector layers, phr
 - The isolated rendering step reads saved still images and does not make AI calls.
 - AI image prompts are capped at 1,800 characters; transient network/5xx failures receive one bounded retry, while quota and permission failures stop without a paid fallback.
 - A rejected scene receives one targeted regeneration using the vision model's feedback. If it still fails, the pipeline rejects the package instead of rendering defective artwork.
+- Before a visual package is marked ready, the full three-panel storyboard must also pass a separate AI continuity review; both per-scene and storyboard scores are preserved in video metadata.
 - Image reuse requires 720×1280 dimensions, a passing review record and a matching SHA-256 digest. Old images without review evidence are regenerated.
 - The violin macro is a photorealistic image-generation brief requiring a complete bridge, four strings, a distinct fingerboard and one correctly constructed bow.
 - It reads an existing prepared package and regenerates narration from the approved script to obtain native word timing.
