@@ -25,9 +25,35 @@ def artifact(name, expired=False):
 
 
 class SourceArtifactSelectionTests(unittest.TestCase):
+    def test_auto_selection_paginates_past_recent_runs_without_valid_packages(self):
+        first_page = [
+            run_record(run_id, conclusion="failure")
+            for run_id in range(500, 550)
+        ]
+        data = {
+            "actions/workflows/violin-prince-autopilot.yml/runs?status=completed&per_page=50&page=1": {
+                "workflow_runs": first_page
+            },
+            "actions/workflows/violin-prince-autopilot.yml/runs?status=completed&per_page=50&page=2": {
+                "workflow_runs": [run_record(499)]
+            },
+            "actions/runs/499/artifacts?per_page=100": {
+                "artifacts": [
+                    artifact("violin-prince-run-499"),
+                    artifact("visual-package"),
+                ]
+            },
+        }
+        self.assertEqual(
+            resolver.resolve_source_run_id(
+                "owner/repo", "token", api_get=lambda path: data[path]
+            ),
+            "499",
+        )
+
     def test_auto_selection_skips_prepare_only_run_and_uses_latest_visual_package(self):
         data = {
-            "actions/workflows/violin-prince-autopilot.yml/runs?status=completed&per_page=30": {
+            "actions/workflows/violin-prince-autopilot.yml/runs?status=completed&per_page=50&page=1": {
                 "workflow_runs": [run_record(300), run_record(299)]
             },
             "actions/runs/300/artifacts?per_page=100": {
@@ -47,7 +73,7 @@ class SourceArtifactSelectionTests(unittest.TestCase):
 
     def test_expired_artifacts_are_not_selected(self):
         data = {
-            "actions/workflows/violin-prince-autopilot.yml/runs?status=completed&per_page=30": {
+            "actions/workflows/violin-prince-autopilot.yml/runs?status=completed&per_page=50&page=1": {
                 "workflow_runs": [run_record(200)]
             },
             "actions/runs/200/artifacts?per_page=100": {

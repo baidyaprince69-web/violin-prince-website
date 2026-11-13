@@ -11,6 +11,8 @@ from urllib.request import Request, urlopen
 
 API_ROOT = "https://api.github.com/repos"
 V2_WORKFLOW_PATH = ".github/workflows/violin-prince-autopilot.yml"
+RUNS_PER_PAGE = 50
+MAX_AUTOMATIC_RUN_PAGES = 4
 
 
 def github_get_json(repository: str, token: str, resource: str) -> dict:
@@ -74,10 +76,21 @@ def resolve_source_run_id(
             raise RuntimeError("source_run_id must contain digits only.")
         candidates = [api_get(f"actions/runs/{requested}")]
     else:
-        listing = api_get(
-            "actions/workflows/violin-prince-autopilot.yml/runs?status=completed&per_page=30"
-        )
-        candidates = listing.get("workflow_runs", [])
+        candidates = []
+        # Search several pages of completed V2 runs. Looking at only the first
+        # page can falsely report that no source package exists when the newest
+        # runs failed or did not reach the Visuals stage.
+        for page in range(1, MAX_AUTOMATIC_RUN_PAGES + 1):
+            listing = api_get(
+                "actions/workflows/violin-prince-autopilot.yml/runs"
+                f"?status=completed&per_page={RUNS_PER_PAGE}&page={page}"
+            )
+            page_runs = listing.get("workflow_runs", [])
+            if not isinstance(page_runs, list):
+                raise RuntimeError("GitHub returned an invalid workflow-run list.")
+            candidates.extend(page_runs)
+            if len(page_runs) < RUNS_PER_PAGE:
+                break
 
     for run in candidates:
         if not isinstance(run, dict):

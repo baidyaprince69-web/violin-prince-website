@@ -5,10 +5,9 @@ on:
     branches:
       - v3-motion-prototype
     paths:
-      - "autopilot/engine/voiceover.py"
-      - "autopilot/engine/run.py"
-      - "autopilot/engine/motion_prototype.py"
-      - "autopilot/engine/tests/**"
+      - "autopilot/engine/**"
+      - "autopilot/scripts/**"
+      - "autopilot/engine/requirements.txt"
       - "autopilot/motion-prototype/**"
       - ".github/workflows/v3-motion-prototype.yml"
   workflow_dispatch:
