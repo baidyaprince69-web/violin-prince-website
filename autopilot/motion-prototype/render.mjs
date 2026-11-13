@@ -87,24 +87,31 @@ window.__DATA__ = ${safeJson};
   function drawBase(sceneIndex, progress, alpha=1) {
     const image = images[sceneIndex];
     const eased = easeInOut(progress);
-    const scale = Math.max(W / image.width, H / image.height) * (1 + 0.095 * eased);
-    const drift = (sceneIndex % 2 === 0 ? -1 : 1) * (14 * eased + 5 * Math.sin(progress * Math.PI));
+    const cameraProfiles = [
+      { start: 0.035, end: 0.12, drift: -1, distance: 22, vertical: 10 },
+      { start: 0.105, end: 0.18, drift: 1, distance: 15, vertical: -20 },
+      { start: 0.105, end: 0.045, drift: -1, distance: 12, vertical: 8 }
+    ];
+    const camera = cameraProfiles[sceneIndex] || cameraProfiles[0];
+    const zoom = camera.start + (camera.end - camera.start) * eased;
+    const scale = Math.max(W / image.width, H / image.height) * (1 + zoom);
+    const drift = camera.drift * (camera.distance * eased + 5 * Math.sin(progress * Math.PI));
     const drawW = image.width * scale, drawH = image.height * scale;
     const dx = (W-drawW) / 2 + drift;
-    const dy = (H-drawH)/2 + (sceneIndex === 1 ? -18 : 12) * eased;
+    const dy = (H-drawH)/2 + camera.vertical * eased;
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.filter = "saturate(0.84) sepia(0.30) contrast(1.07)";
+    ctx.filter = "saturate(0.88) sepia(0.25) contrast(1.08)";
     ctx.drawImage(image, dx, dy, drawW, drawH);
     ctx.filter = "none";
     const shade = ctx.createLinearGradient(0,0,0,H);
-    shade.addColorStop(0,"rgba(13,8,7,.52)");
-    shade.addColorStop(.35,"rgba(13,8,7,.03)");
-    shade.addColorStop(.72,"rgba(13,8,7,.05)");
-    shade.addColorStop(1,"rgba(9,6,5,.78)");
+    shade.addColorStop(0,"rgba(13,8,7,.50)");
+    shade.addColorStop(.34,"rgba(13,8,7,.015)");
+    shade.addColorStop(.72,"rgba(13,8,7,.04)");
+    shade.addColorStop(1,"rgba(9,6,5,.76)");
     ctx.fillStyle = shade;
     ctx.fillRect(0,0,W,H);
-    ctx.fillStyle = "rgba(105,42,20,.16)";
+    ctx.fillStyle = "rgba(105,42,20,.14)";
     ctx.fillRect(0,0,W,H);
     ctx.restore();
   }
@@ -165,62 +172,81 @@ window.__DATA__ = ${safeJson};
     ctx.restore();
   }
 
-  function drawBowMotion(time, scene) {
-    const subject = String(D.visual_motif || (D.title+" "+D.topic+" "+scene.caption+" "+scene.graphic_label)).toLowerCase();
-    if (!/(violin|bow|string|music|performance|musician)/.test(subject)) return;
+  function drawBowMotion(time, scene, sceneIndex) {
+    // The illustration itself carries the hands and instrument. This restrained overlay
+    // suggests alternating bow travel without pretending to animate anatomical joints.
+    if (sceneIndex !== 1) return;
+    const subject = String(
+      (D.visual_motif || "") + " " + (D.title || "") + " " + (D.topic || "") + " " +
+      (scene.caption || "") + " " + (scene.graphic_label || "")
+    ).toLowerCase();
+    if (!/(violin|bow|string|music|performance|musician|virtuoso)/.test(subject)) return;
+
     const energy = musicEnergyAt(time);
-    const strokeSpeed = 12.5 + energy * 8.5;
-    const phase = time * strokeSpeed;
-    const sweep = Math.sin(phase);
-    const centerY = H * .585 + sweep * (17 + 24 * energy);
-    const vibrato = 2.2 + energy * 4.2;
+    const strokesPerSecond = 2.4 + energy * 3.1;
+    const cycle = time * strokesPerSecond;
+    const fraction = cycle - Math.floor(cycle);
+    const travel = fraction < 0.5
+      ? easeInOut(fraction * 2)
+      : 1 - easeInOut((fraction - 0.5) * 2);
+    const centerX = W * 0.5 + (travel - 0.5) * 78;
+    const centerY = H * 0.555 + 4 * Math.sin(time * 0.7);
+    const vibrato = 1.0 + energy * 2.7;
 
     ctx.save();
     ctx.globalCompositeOperation = "screen";
     ctx.lineCap = "round";
-    ctx.globalAlpha = .14 + energy * .26;
-    for (let string=0; string<4; string++) {
-      const x = 230 + string * 67;
+
+    // Four fine string traces with vibration concentrated near their centre.
+    for (let string = 0; string < 4; string++) {
+      const baseX = W * 0.385 + string * 41;
       ctx.beginPath();
-      ctx.moveTo(x, H*.465);
-      for (let step=0; step<=18; step++) {
-        const y = H*.465 + step * (H*.205/18);
-        const offset = Math.sin(time*34 + step*.75 + string*.9) * vibrato;
-        if (step===0) ctx.moveTo(x+offset,y);
-        else ctx.lineTo(x+offset,y);
+      for (let step = 0; step <= 24; step++) {
+        const p = step / 24;
+        const y = H * 0.455 + p * H * 0.205;
+        const envelope = Math.sin(Math.PI * p);
+        const offset = Math.sin(time * 39 + step * 0.72 + string * 0.86) * vibrato * envelope;
+        const x = baseX + offset;
+        if (step === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
       }
-      ctx.strokeStyle = string===1 ? "rgba(255,226,177,.70)" : "rgba(226,190,143,.38)";
-      ctx.lineWidth = string===1 ? 2.3 : 1.25;
+      ctx.globalAlpha = 0.11 + energy * 0.15;
+      ctx.strokeStyle = string === 1
+        ? "rgba(255,226,177,.76)"
+        : "rgba(226,190,143,.43)";
+      ctx.lineWidth = string === 1 ? 2.0 : 1.15;
       ctx.stroke();
     }
 
-    ctx.globalAlpha = .18 + energy * .62;
-    ctx.shadowColor = "rgba(255,207,145,.86)";
-    ctx.shadowBlur = 12 + energy * 22;
-    ctx.strokeStyle = "rgba(255,231,194,.92)";
-    ctx.lineWidth = 2.2 + energy * 2.0;
+    // A compact bow-path highlight moves in alternating directions across the strings.
+    const left = centerX - 174;
+    const right = centerX + 174;
+    const slope = 8;
+    ctx.globalAlpha = 0.12 + energy * 0.17;
+    ctx.strokeStyle = "rgba(255,219,170,.68)";
+    ctx.lineWidth = 8;
     ctx.beginPath();
-    ctx.moveTo(72,centerY-15);
-    ctx.lineTo(W-72,centerY+18);
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-    ctx.strokeStyle = "rgba(194,106,70,.78)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(82,centerY-22);
-    ctx.lineTo(W-82,centerY+11);
+    ctx.moveTo(left, centerY - slope - 8);
+    ctx.lineTo(right, centerY + slope - 8);
     ctx.stroke();
 
-    const sparkX = 80 + ((time * (190 + energy*220)) % (W-160));
-    for (let spark=0; spark<5; spark++) {
-      const px = sparkX - spark*13;
-      const py = centerY + Math.sin(time*18+spark)*8;
-      ctx.globalAlpha = (.18 + energy*.42) * (1-spark*.14);
-      ctx.fillStyle = "#ffe4b7";
-      ctx.beginPath();
-      ctx.arc(px,py,1.4+energy*1.3,0,Math.PI*2);
-      ctx.fill();
-    }
+    ctx.globalAlpha = 0.22 + energy * 0.42;
+    ctx.shadowColor = "rgba(255,207,145,.82)";
+    ctx.shadowBlur = 9 + energy * 16;
+    ctx.strokeStyle = "rgba(255,237,208,.92)";
+    ctx.lineWidth = 2.0 + energy * 1.1;
+    ctx.beginPath();
+    ctx.moveTo(left, centerY - slope);
+    ctx.lineTo(right, centerY + slope);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // A moving glint marks the crossing point; it stays inside the instrument detail area.
+    ctx.globalAlpha = 0.20 + energy * 0.40;
+    ctx.fillStyle = "#ffe4b7";
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, 2.2 + energy * 2.1, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
   }
 
@@ -256,118 +282,180 @@ window.__DATA__ = ${safeJson};
 
   function drawGraphic(scene, index, time, start, sceneDuration, alpha=1) {
     const local = time - start;
-    const enter = easeOut(local / .58);
-    const leave = 1 - easeInOut((local - (sceneDuration-.62)) / .62);
+    const enter = easeOut(local / 0.58);
+    const leave = 1 - easeInOut((local - (sceneDuration - 0.62)) / 0.62);
     const opacity = clamp(Math.min(enter, leave)) * alpha;
     if (opacity <= 0) return;
 
-    const yShift = 30 * (1-enter);
+    const yShift = 24 * (1 - enter);
     const top = 118 + yShift;
-    const label = String(scene.graphic_label || ("STORY BEAT " + (index+1))).toUpperCase();
+    const label = String(scene.graphic_label || ("STORY BEAT " + (index + 1))).toUpperCase();
     const headline = String(scene.caption || D.title || "");
     const detail = String(scene.graphic_detail || "");
-    const accent = index===1 ? COPPER : GOLD;
+    const accent = index === 1 ? COPPER : GOLD;
+    const labelProgress = easeOut(local / 0.42);
+    const headlineProgress = easeOut((local - 0.20) / 0.58);
+    const detailProgress = easeOut((local - 0.62) / 0.62);
+    const edgeProgress = easeOut((local - 0.92) / 0.82);
+    const chartProgress = easeOut((local - 0.82) / Math.max(1.45, sceneDuration * 0.30));
 
     ctx.save();
-    ctx.globalAlpha = opacity;
-    const fade = ctx.createLinearGradient(0,top-32,0,top+290);
-    fade.addColorStop(0,"rgba(12,8,7,.78)");
-    fade.addColorStop(.72,"rgba(12,8,7,.32)");
-    fade.addColorStop(1,"rgba(12,8,7,0)");
+    const fade = ctx.createLinearGradient(0, top - 32, 0, top + 290);
+    fade.addColorStop(0, "rgba(12,8,7,.78)");
+    fade.addColorStop(0.72, "rgba(12,8,7,.32)");
+    fade.addColorStop(1, "rgba(12,8,7,0)");
     ctx.fillStyle = fade;
-    ctx.fillRect(0,top-34,W,330);
+    ctx.globalAlpha = opacity;
+    ctx.fillRect(0, top - 34, W, 330);
 
+    // Story label, title and explanatory detail enter in separate beats.
+    ctx.globalAlpha = opacity * labelProgress;
     ctx.fillStyle = accent;
     ctx.font = "800 14px Arial, sans-serif";
-    ctx.fillText(String(index+1).padStart(2,"0") + "   /   " + label.slice(0,38),42,top+22);
+    ctx.fillText(String(index + 1).padStart(2, "0") + "   /   " + label.slice(0, 38), 42, top + 22);
 
+    ctx.globalAlpha = opacity * headlineProgress;
     ctx.fillStyle = IVORY;
     ctx.font = "700 39px Georgia, serif";
-    const headlineLines = wrap(headline,W-92,"700 39px Georgia, serif");
-    headlineLines.forEach((line,row)=>ctx.fillText(line,42,top+82+row*48));
+    const headlineLines = wrap(headline, W - 92, "700 39px Georgia, serif");
+    headlineLines.forEach((line, row) => {
+      ctx.fillText(line, 42 + (1 - headlineProgress) * 16, top + 82 + row * 48);
+    });
 
+    ctx.globalAlpha = opacity * detailProgress;
     ctx.fillStyle = MUTED;
     ctx.font = "500 17px Arial, sans-serif";
-    const detailLines = wrap(detail,W-92,"500 17px Arial, sans-serif");
-    const detailY = top + 104 + headlineLines.length*43;
-    detailLines.forEach((line,row)=>ctx.fillText(line,44,detailY+row*24));
+    const detailLines = wrap(detail, W - 92, "500 17px Arial, sans-serif");
+    const detailY = top + 104 + headlineLines.length * 43;
+    detailLines.forEach((line, row) => ctx.fillText(line, 44, detailY + row * 24));
 
-    const graphY = Math.min(top+240+Math.max(0,headlineLines.length-1)*13, top+282);
+    const graphY = Math.min(top + 240 + Math.max(0, headlineLines.length - 1) * 13, top + 282);
     const graphLeft = 44;
-    const graphRight = W-44;
-    const progress = clamp(local / Math.max(1,sceneDuration));
+    const graphRight = W - 44;
+    const graphEnd = graphLeft + (graphRight - graphLeft) * edgeProgress;
+
+    // The connector itself draws on before its labels or animated data.
+    ctx.globalAlpha = opacity * edgeProgress;
     ctx.strokeStyle = "rgba(237,193,138,.44)";
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(graphLeft,graphY);
-    ctx.lineTo(graphRight,graphY);
+    ctx.moveTo(graphLeft, graphY);
+    ctx.lineTo(graphEnd, graphY);
     ctx.stroke();
 
     if (scene.comparison && scene.comparison.left_label && scene.comparison.right_label) {
-      const gap=22, colW=(W-110-gap)/2, topY=graphY-26;
-      const leftX=45, rightX=leftX+colW+gap;
-      for (const [x,item] of [
-        [leftX,{label:scene.comparison.left_label,detail:scene.comparison.left_detail}],
-        [rightX,{label:scene.comparison.right_label,detail:scene.comparison.right_detail}]
-      ]) {
-        ctx.fillStyle="rgba(255,243,226,.08)";
-        roundRect(x,topY,colW,90,12);ctx.fill();
-        ctx.fillStyle=IVORY;ctx.font="700 19px Arial, sans-serif";
-        ctx.fillText(String(item.label||"").slice(0,22),x+14,topY+31);
-        ctx.fillStyle=MUTED;ctx.font="14px Arial, sans-serif";
-        wrap(item.detail||"",colW-28,"14px Arial, sans-serif").forEach((line,row)=>ctx.fillText(line,x+14,topY+56+row*18));
+      const gap = 22, colW = (W - 110 - gap) / 2, topY = graphY - 26;
+      const cards = [
+        { x: 45, label: scene.comparison.left_label, detail: scene.comparison.left_detail, phase: 0.92 },
+        { x: 45 + colW + gap, label: scene.comparison.right_label, detail: scene.comparison.right_detail, phase: 1.34 }
+      ];
+      for (const card of cards) {
+        const reveal = easeOut((local - card.phase) / 0.52);
+        if (reveal <= 0) continue;
+        ctx.globalAlpha = opacity * reveal;
+        const x = card.x + (1 - reveal) * (card.x < W / 2 ? -22 : 22);
+        ctx.fillStyle = "rgba(255,243,226,.08)";
+        roundRect(x, topY, colW, 90, 12);
+        ctx.fill();
+        ctx.fillStyle = IVORY;
+        ctx.font = "700 19px Arial, sans-serif";
+        ctx.fillText(String(card.label || "").slice(0, 22), x + 14, topY + 31);
+        ctx.fillStyle = MUTED;
+        ctx.font = "14px Arial, sans-serif";
+        wrap(card.detail || "", colW - 28, "14px Arial, sans-serif")
+          .forEach((line, row) => ctx.fillText(line, x + 14, topY + 56 + row * 18));
       }
-    } else if (index===0) {
-      // Animated editorial spectrum: visual rhythm, not invented numerical data.
-      for (let bar=0;bar<24;bar++) {
-        const phase = time*3.6 + bar*.42;
-        const barH = 7 + (12+18*Math.abs(Math.sin(phase)))*(.45+.55*progress);
-        const x = 48 + bar*26;
-        ctx.fillStyle = bar%4===0 ? accent : "rgba(237,193,138,.48)";
-        roundRect(x,graphY-barH,13,barH,5);
+    } else if (index === 0) {
+      // Staggered editorial spectrum. Heights are illustrative, not invented data.
+      for (let bar = 0; bar < 24; bar++) {
+        const reveal = easeOut((local - 0.98 - bar * 0.045) / 0.48);
+        if (reveal <= 0) continue;
+        const phase = time * 3.6 + bar * 0.42;
+        const barH = (7 + (12 + 18 * Math.abs(Math.sin(phase))) * (0.45 + 0.55 * chartProgress)) * reveal;
+        const x = 48 + bar * 26;
+        ctx.globalAlpha = opacity * reveal;
+        ctx.fillStyle = bar % 4 === 0 ? accent : "rgba(237,193,138,.48)";
+        roundRect(x, graphY - barH, 13, barH, 5);
         ctx.fill();
       }
-      const pulseX = graphLeft + progress*(graphRight-graphLeft);
+      const pulseX = graphLeft + chartProgress * (graphRight - graphLeft);
+      ctx.globalAlpha = opacity * chartProgress;
       ctx.fillStyle = IVORY;
-      ctx.shadowColor = accent;ctx.shadowBlur = 14;
-      ctx.beginPath();ctx.arc(pulseX,graphY,4.5,0,Math.PI*2);ctx.fill();
-      ctx.shadowBlur = 0;
-    } else if (index===1) {
-      // Three-stage connector motif, animated as a travelling highlight.
-      const labels = ["DETAIL","CONTROL","EXPRESSION"];
-      const spacing = (graphRight-graphLeft)/2;
-      ctx.strokeStyle="rgba(237,193,138,.48)";
-      ctx.lineWidth=2;
-      ctx.beginPath();ctx.moveTo(graphLeft,graphY);ctx.lineTo(graphRight,graphY);ctx.stroke();
-      for(let node=0;node<3;node++){
-        const nx=graphLeft+spacing*node;
-        ctx.fillStyle=progress>=node/2 ? accent : "rgba(203,185,166,.58)";
-        ctx.beginPath();ctx.arc(nx,graphY,5.5,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle=IVORY;ctx.font="700 11px Arial, sans-serif";
-        ctx.textAlign="center";ctx.fillText(labels[node],nx,graphY+23);
-      }
-      ctx.textAlign="left";
-      const movingX=graphLeft+progress*(graphRight-graphLeft);
-      ctx.fillStyle=IVORY;ctx.shadowColor=accent;ctx.shadowBlur=16;
-      ctx.beginPath();ctx.arc(movingX,graphY,4,0,Math.PI*2);ctx.fill();
-      ctx.shadowBlur=0;
-    } else {
-      // Crescendo waveform with an animated travelling light.
+      ctx.shadowColor = accent;
+      ctx.shadowBlur = 14;
       ctx.beginPath();
-      for(let point=0;point<=72;point++){
-        const x=graphLeft+(graphRight-graphLeft)*point/72;
-        const envelope=.25+.75*Math.sin(Math.PI*point/72);
-        const y=graphY-17*Math.sin(point*.42-time*4.2)*envelope;
-        if(point===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+      ctx.arc(pulseX, graphY, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    } else if (index === 1) {
+      // Three-stage progression: connector first, then nodes, then labels.
+      const labels = ["DETAIL", "CONTROL", "EXPRESSION"];
+      const spacing = (graphRight - graphLeft) / 2;
+      for (let node = 0; node < 3; node++) {
+        const nodeProgress = easeOut((local - (1.05 + node * 0.32)) / 0.48);
+        if (nodeProgress <= 0) continue;
+        const nx = graphLeft + spacing * node;
+        ctx.globalAlpha = opacity * nodeProgress;
+        ctx.fillStyle = chartProgress >= node / 2 ? accent : "rgba(203,185,166,.58)";
+        ctx.beginPath();
+        ctx.arc(nx, graphY, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+        const labelProgressForNode = easeOut((local - (1.32 + node * 0.32)) / 0.38);
+        ctx.globalAlpha = opacity * labelProgressForNode;
+        ctx.fillStyle = IVORY;
+        ctx.font = "700 11px Arial, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(labels[node], nx, graphY + 23);
       }
-      ctx.strokeStyle=accent;ctx.lineWidth=2.2;ctx.stroke();
-      const movingX=graphLeft+progress*(graphRight-graphLeft);
-      ctx.fillStyle=IVORY;ctx.shadowColor=accent;ctx.shadowBlur=18;
-      ctx.beginPath();ctx.arc(movingX,graphY-16*Math.sin(progress*72*.42-time*4.2)*(.25+.75*Math.sin(Math.PI*progress)),5,0,Math.PI*2);ctx.fill();
-      ctx.shadowBlur=0;
-      for(let ring=0;ring<3;ring++){
-        ctx.beginPath();ctx.arc(graphRight-7,graphY,10+ring*9+8*Math.sin(time*2.2+ring),0,Math.PI*2);
-        ctx.strokeStyle="rgba(237,193,138,"+(0.30-ring*.07)+")";ctx.lineWidth=1.2;ctx.stroke();
+      ctx.textAlign = "left";
+      const movingX = graphLeft + chartProgress * (graphRight - graphLeft);
+      ctx.globalAlpha = opacity * chartProgress;
+      ctx.fillStyle = IVORY;
+      ctx.shadowColor = accent;
+      ctx.shadowBlur = 16;
+      ctx.beginPath();
+      ctx.arc(movingX, graphY, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    } else {
+      // Crescendo waveform is progressively drawn from left to right.
+      const visiblePoints = Math.max(0, Math.floor(chartProgress * 72));
+      if (visiblePoints > 0) {
+        ctx.beginPath();
+        for (let point = 0; point <= visiblePoints; point++) {
+          const x = graphLeft + (graphRight - graphLeft) * point / 72;
+          const envelope = 0.25 + 0.75 * Math.sin(Math.PI * point / 72);
+          const y = graphY - 17 * Math.sin(point * 0.42 - time * 4.2) * envelope;
+          if (point === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.globalAlpha = opacity * chartProgress;
+        ctx.strokeStyle = accent;
+        ctx.lineWidth = 2.2;
+        ctx.stroke();
+        const movingX = graphLeft + chartProgress * (graphRight - graphLeft);
+        ctx.fillStyle = IVORY;
+        ctx.shadowColor = accent;
+        ctx.shadowBlur = 18;
+        ctx.beginPath();
+        ctx.arc(
+          movingX,
+          graphY - 16 * Math.sin(chartProgress * 72 * 0.42 - time * 4.2) *
+            (0.25 + 0.75 * Math.sin(Math.PI * chartProgress)),
+          5, 0, Math.PI * 2
+        );
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+      for (let ring = 0; ring < 3; ring++) {
+        const ringProgress = easeOut((local - 1.65 - ring * 0.22) / 0.42);
+        if (ringProgress <= 0) continue;
+        ctx.globalAlpha = opacity * ringProgress * (0.30 - ring * 0.07);
+        ctx.beginPath();
+        ctx.arc(graphRight - 7, graphY, 10 + ring * 9 + 8 * Math.sin(time * 2.2 + ring), 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(237,193,138,1)";
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
       }
     }
     ctx.restore();
@@ -390,12 +478,39 @@ window.__DATA__ = ${safeJson};
   }
 
   const STOP = new Set(["a","an","and","are","as","at","be","by","for","from","in","into","is","it","of","on","or","that","the","this","to","was","were","with"]);
-  const CAPTION_STYLES = ["bounce","serif","outline","underline","tilt","typewriter","glow","editorial"];
+  const TECHNICAL_TERMS = /\b(violin|bow|bridge|fingerboard|strings?|rosin|friction|vibration|pitch|resonance|frequency|spiccato|sautille|ricochet|arpeggio|staccato|legato|technique|precision)\b/i;
+  const ACTION_TERMS = /\b(moves?|moving|switches?|shifts?|crosses?|sweeps?|jumps?|flies|plays?|strikes?|drives?|vibrates?|accelerates?)\b/i;
+  const EMOTIONAL_TERMS = /\b(beautiful|emotion|emotional|feeling|expressive|heart|soul|voice|story|moving|powerful)\b/i;
+  const EMPHASIS_TERMS = /\b(impossible|extraordinary|astonishing|unbelievable|virtuoso|mastery|lightning|rapid|blazing|extreme|flawless)\b/i;
 
-  function styleForWord(word,index) {
-    if (/[!?]$/.test(word)) return "impact";
-    if (/[,;:]$/.test(word)) return "editorial";
-    return CAPTION_STYLES[index % CAPTION_STYLES.length];
+  function captionPhraseBounds(words, index) {
+    let start = index;
+    let end = index;
+    while (start > 0 && index - start < 7 && !/[,;:.!?]$/.test(String(words[start - 1].text || ""))) start--;
+    while (end < words.length - 1 && end - index < 7 && !/[,;:.!?]$/.test(String(words[end].text || ""))) end++;
+    const phrase = words.slice(start, end + 1).map(item => String(item.text || "")).join(" ");
+    return { start, end, phrase, phraseKey: start };
+  }
+
+  function phraseCaptionStyle(phrase, phraseKey) {
+    if (EMPHASIS_TERMS.test(phrase) || /!$/.test(phrase.trim())) return "impact";
+    if (EMOTIONAL_TERMS.test(phrase)) return "serif";
+    if (TECHNICAL_TERMS.test(phrase)) return "typewriter";
+    if (ACTION_TERMS.test(phrase)) return "bounce";
+    const styles = ["editorial", "underline", "glow"];
+    const hash = [...phrase.toLowerCase()].reduce((value, char) => (value * 31 + char.charCodeAt(0)) >>> 0, 7);
+    return styles[(hash + phraseKey) % styles.length];
+  }
+
+  function styleForCue(words, index) {
+    const bounds = captionPhraseBounds(words, index);
+    const word = String(words[index].text || "");
+    const clean = word.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+    if (/[!]$/.test(word) || EMPHASIS_TERMS.test(clean)) return "impact";
+    if (TECHNICAL_TERMS.test(clean)) return "outline";
+    if (ACTION_TERMS.test(clean)) return "tilt";
+    if (STOP.has(clean)) return phraseCaptionStyle(bounds.phrase, bounds.phraseKey);
+    return phraseCaptionStyle(bounds.phrase, bounds.phraseKey);
   }
 
   function drawCaptions(time) {
@@ -412,7 +527,7 @@ window.__DATA__ = ${safeJson};
     const duration=Math.max(.08,Number(active.end)-Number(active.start));
     const progress=clamp((time-Number(active.start))/Math.min(.24,duration));
     const eased=easeOut(progress);
-    const style=styleForWord(String(active.text||""),found);
+    const style=styleForCue(words, found);
     const textValue=String(active.text||"");
     const maxWidth=W-72;
     const fontSize=Math.max(38,Math.min(72,Math.floor(650/Math.max(5,textValue.length))));
@@ -529,7 +644,7 @@ window.__DATA__ = ${safeJson};
       drawGraphic(scene,index,time,Number(scene.start),Number(scene.duration),1);
     }
     drawAtmosphere(time,index);
-    drawBowMotion(time,scene);
+    drawBowMotion(time, scene, index);
     if(index<scenes.length-1 && time>=transitionAt) drawSceneTransition(time,transitionAt,transition);
     drawBrand(index,time);
     drawCaptions(time);
@@ -557,7 +672,7 @@ try {
     "-pix_fmt", "yuv420p", "-movflags", "+faststart", outputPath
   ], { stdio: ["pipe", "inherit", "inherit"] });
 
-  const sampleTimes = [2.5, 7.5, 13.5, 19.5];
+  const sampleTimes = [1.5, 2.5, 7.5, 13.5, 19.5];
   const sampleSet = new Set(sampleTimes.map(value => Math.min(frames-1, Math.round(value*fps))));
   const sampleDir = path.join(path.dirname(outputPath), "qa-frames");
   await fs.mkdir(sampleDir, { recursive: true });
