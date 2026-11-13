@@ -126,7 +126,7 @@ class CreativeQualityTests(unittest.TestCase):
         ):
             self.assertIn(expected, prompt)
         self.assertIn("warm directional key light around 3200K", prompt)
-        self.assertLessEqual(len(prompt), 3200)
+        self.assertLessEqual(len(prompt), pipeline.MAX_IMAGE_PROMPT_CHARS)
 
     def test_macro_prompt_is_complete_and_sent_without_truncation(self):
         plan = {

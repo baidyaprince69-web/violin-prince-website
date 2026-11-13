@@ -1455,12 +1455,12 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
             "SUBJECT & ACTION: " + compact_prompt + ".",
             "SHOT 2 — EXTREME CLOSE-UP DETAIL: EXTREME CLOSE-UP MACRO, 85mm macro lens, string-height three-quarter side angle, very shallow depth of field; one centered contact point is pin-sharp.",
             "SINGLE FROZEN MACRO KEYFRAME: one instant, no sequence or multiple exposure.",
-            "GEOMETRY: one upright maple bridge supports four separate, taut, parallel strings; the ebony fingerboard is distinct beyond it. A single dark wooden bow crosses frame-left to frame-right at approximately 90 degrees. Show the wooden stick and thin pale horsehair ribbon as connected parts of the same bow. The horsehair ribbon—not the bow stick—visibly rests on and slightly depresses exactly one string at one sharply focused contact point between the bridge and fingerboard. Center this point; no hands are required.",
-            "RECURRING ASSET ANCHOR: " + anchor + "; keep believable violin proportions.",
-            "STYLE & MATERIAL: premium hand-painted cinematic editorial illustration, clearly illustrated concept art rather than photography, with restrained 3D shading; accurate maple, ebony, steel strings and bow hair; avoid plastic, anime or stock imagery.",
-            "LIGHTING & CAMERA: warm directional key light around 3200K, soft neutral fill around 4300K and amber rim around 2800K; narrow macro focus plane.",
-            "BACKGROUND & ATMOSPHERE: charcoal, walnut, oxblood, copper, antique gold and warm ivory. Avoid blue, teal, cyan or cold-blue backgrounds. Layered foreground, midground and background.",
-            "COMPOSITION RULES: realistic Portrait 9:16 composition, centered contact, no text, lettering, logo or watermark. No extra rods, duplicate or detached bows/hair, false screw/pin bows, parallel bow, extra strings or broken bridge.",
+            "GEOMETRY: one upright maple bridge supports four separate, taut, parallel strings; the ebony fingerboard is distinct behind it. One dark wooden bow crosses the strings from frame-left to frame-right at approximately 90 degrees. Its thin pale horsehair ribbon and wooden stick are connected but visibly separate. The horsehair ribbon—not the bow stick—rests on and slightly depresses exactly one string at one sharply focused contact point between the bridge and fingerboard. Center this point; no hands are required.",
+            "RECURRING ASSET ANCHOR: " + anchor + "; believable violin proportions.",
+            "STYLE & MATERIAL: premium hand-painted cinematic editorial illustration; clearly illustrated concept art rather than photography. Restrained 3D shading; accurate maple, ebony, steel strings and bow hair. No plastic, anime or stock imagery.",
+            "LIGHTING & CAMERA: warm directional key light around 3200K, neutral 4300K fill, amber 2800K rim; narrow macro focus plane.",
+            "BACKGROUND & ATMOSPHERE: charcoal, walnut, oxblood, copper, antique gold, warm ivory. Avoid blue, teal, cyan or cold-blue. Layered foreground, midground and background.",
+            "COMPOSITION RULES: realistic Portrait 9:16 composition, centered contact, no text, lettering, logo or watermark. No extra rods; no duplicate bows or detached hair; no screws/pins mistaken for a bow; no parallel bow, extra strings or broken bridge.",
         ]
     else:
         shot_roles = (
