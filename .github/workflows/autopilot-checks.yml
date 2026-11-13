@@ -16,6 +16,9 @@ on:
       - ".github/workflows/violin-prince-autopilot.yml"
       - ".github/workflows/autopilot-checks.yml"
       - ".github/workflows/v3-motion-prototype.yml"
+      - ".github/workflows/phase4-youtube-validation.yml"
+      - ".github/workflows/phase4-youtube-private-beta.yml"
+      - ".github/workflows/phase5-seo-learning.yml"
 
 permissions:
   contents: read

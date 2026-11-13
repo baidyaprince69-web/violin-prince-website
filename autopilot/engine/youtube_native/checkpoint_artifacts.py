@@ -34,6 +34,7 @@ def restore_latest_checkpoint(
     *,
     artifact_name: str = DEFAULT_ARTIFACT_NAME,
     current_run_id: str = "",
+    source_branch: str = "v3-motion-prototype",
     session: requests.Session | None = None,
 ) -> dict[str, Any]:
     repo = str(repository or "").strip()
@@ -65,6 +66,7 @@ def restore_latest_checkpoint(
         if item.get("name") == artifact_name
         and item.get("expired") is not True
         and str((item.get("workflow_run") or {}).get("id") or "") != str(current_run_id)
+        and str((item.get("workflow_run") or {}).get("head_branch") or "") == source_branch
         and item.get("archive_download_url")
     ]
     if not eligible:

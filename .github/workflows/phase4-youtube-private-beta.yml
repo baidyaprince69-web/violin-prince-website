@@ -143,7 +143,7 @@ jobs:
   private-upload:
     name: Explicit private-only upload beta
     needs: review-release
-    if: inputs.confirm_private_upload == true
+    if: github.ref == 'refs/heads/v3-motion-prototype' && inputs.confirm_private_upload == true
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     environment: youtube-private-beta

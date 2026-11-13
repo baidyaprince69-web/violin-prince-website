@@ -51,7 +51,7 @@ class CheckpointArtifactTests(unittest.TestCase):
                 "expired": False,
                 "created_at": "2026-11-12T00:00:00Z",
                 "archive_download_url": "https://github.test/artifacts/11",
-                "workflow_run": {"id": 100},
+                "workflow_run": {"id": 100, "head_branch": "v3-motion-prototype"},
             },
             {
                 "id": 12,
@@ -59,7 +59,15 @@ class CheckpointArtifactTests(unittest.TestCase):
                 "expired": False,
                 "created_at": "2026-11-13T00:00:00Z",
                 "archive_download_url": "https://github.test/artifacts/12",
-                "workflow_run": {"id": 101},
+                "workflow_run": {"id": 101, "head_branch": "v3-motion-prototype"},
+            },
+            {
+                "id": 14,
+                "name": "youtube-native-upload-state",
+                "expired": False,
+                "created_at": "2026-11-14T00:00:00Z",
+                "archive_download_url": "https://github.test/artifacts/14",
+                "workflow_run": {"id": 103, "head_branch": "seo-intelligence-engine"},
             },
             {
                 "id": 13,
@@ -67,7 +75,7 @@ class CheckpointArtifactTests(unittest.TestCase):
                 "expired": True,
                 "created_at": "2026-11-14T00:00:00Z",
                 "archive_download_url": "https://github.test/artifacts/13",
-                "workflow_run": {"id": 102},
+                "workflow_run": {"id": 102, "head_branch": "v3-motion-prototype"},
             },
         ]
         session = FakeSession(artifacts, make_zip())
@@ -100,7 +108,7 @@ class CheckpointArtifactTests(unittest.TestCase):
                 "expired": False,
                 "created_at": "2026-11-14T00:00:00Z",
                 "archive_download_url": "https://github.test/artifacts/1",
-                "workflow_run": {"id": 100},
+                "workflow_run": {"id": 100, "head_branch": "v3-motion-prototype"},
             }],
             make_zip("unrelated.txt", b"not-state"),
         )
