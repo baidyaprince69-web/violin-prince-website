@@ -220,7 +220,8 @@ class CreativeQualityTests(unittest.TestCase):
         self.assertIn('drawGlyphRun(ctx, String(card.label || "").slice(0, 22)', source)
 
         # Three-node infographic labels use readable type and edge-aware alignment.
-        self.assertIn('ctx.font = "700 16px \\'DejaVu Sans\\', sans-serif"', source)
+        expected_label_font = 'ctx.font = "700 16px ' + chr(39) + 'DejaVu Sans' + chr(39) + ', sans-serif"'
+        self.assertIn(expected_label_font, source)
         self.assertIn('ctx.textAlign = node === 0 ? "left" : node === 2 ? "right" : "center"', source)
         self.assertIn("const labelX = node === 0 ? nx + 10 : node === 2 ? nx - 10 : nx", source)
         self.assertIn("drawGlyphRun(ctx, labels[node], labelX, graphY + 26, spacing - 28)", source)
