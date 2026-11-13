@@ -129,6 +129,24 @@ class StagedPipelineTests(unittest.TestCase):
             finally:
                 pipeline.PACKAGE = original
 
+    def test_visual_package_rejects_scene_review_with_unresolved_issues(self):
+        with tempfile.TemporaryDirectory() as folder:
+            self._write_package(folder, include_images=True)
+            metadata_path = Path(folder) / "stage.json"
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            metadata["visual_assets"][1]["visual_review"]["issues"] = [
+                "one or more required bow components are unclear"
+            ]
+            metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+            original = pipeline.PACKAGE
+            try:
+                pipeline.PACKAGE = Path(folder)
+                with self.assertRaisesRegex(pipeline.PipelineError, "Scene 2 has not passed AI visual review"):
+                    pipeline._read_package(require_images=True)
+            finally:
+                pipeline.PACKAGE = original
+
     def test_visual_package_requires_three_valid_images(self):
         with tempfile.TemporaryDirectory() as folder:
             self._write_package(folder, include_images=False)
@@ -223,6 +241,28 @@ class StagedPipelineTests(unittest.TestCase):
         self.assertEqual(payload["temperature"], 0)
         self.assertEqual(payload["max_tokens"], 512)
 
+    def test_storyboard_review_requires_same_performer_and_issue_free_result(self):
+        answer = (
+            '{"score": 94, "passed": true, "issues": [], '
+            '"summary": "Same performer and instrument across all panels."}'
+        )
+        with tempfile.TemporaryDirectory() as folder:
+            contact_sheet = Path(folder) / "storyboard.png"
+            Image.new("RGB", (900, 500), (20, 30, 40)).save(contact_sheet, "PNG")
+            with unittest.mock.patch.object(pipeline, "ai", return_value={"answer": answer}) as mocked:
+                review = pipeline.review_storyboard_consistency(
+                    contact_sheet,
+                    {
+                        "title": "How a Violinist Shapes a Phrase",
+                        "topic": "Violin performance",
+                        "visual_motif": "same adult male performer, white shirt, charcoal waistcoat and amber violin",
+                    },
+                )
+        question = mocked.call_args.args[1]["question"]
+        self.assertTrue(review["passed"])
+        self.assertIn("SAME identifiable performer", question)
+        self.assertIn("issues array MUST be empty", question)
+
     def test_storyboard_review_uses_non_streaming_answer_contract(self):
         answer = (
             '{"score": 91, "passed": true, "issues": [], '
@@ -241,6 +281,26 @@ class StagedPipelineTests(unittest.TestCase):
         self.assertEqual(review["score"], 91)
         self.assertFalse(mocked.call_args.args[1]["stream"])
         self.assertTrue(mocked.call_args.args[1]["reasoning"])
+
+    def test_violin_macro_prompt_keeps_every_physical_detail_in_focus(self):
+        prompt = pipeline._scene_visual_prompt(
+            {
+                "image_prompt": "A violin macro showing the bow contacting one string",
+                "caption": "The bow catches each string",
+            },
+            index=1,
+            plan={
+                "title": "How a Violinist Shapes a Phrase",
+                "topic": "Violin performance",
+                "visual_motif": "the same amber-varnished violin and dark tailpiece",
+            },
+        )
+        self.assertIn("exactly four separate strings", prompt)
+        self.assertIn("complete upright maple bridge", prompt)
+        self.assertIn("slim dark wooden stick", prompt)
+        self.assertIn("narrow pale horsehair ribbon", prompt)
+        self.assertIn("moderate depth of field", prompt)
+        self.assertIn("simultaneously sharp", prompt)
 
     def test_nested_or_chunked_vision_answer_is_extracted(self):
         assessment = '{"score": 88, "passed": true, "issues": [], "summary": "Readable composition."}'
