@@ -80,7 +80,7 @@ class CreativeQualityTests(unittest.TestCase):
             pipeline._scene_visual_prompt(scene, index=i, plan=plan)
             for i in range(3)
         ]
-        self.assertIn("SHOT 1 — HOOK", prompts[0])
+        self.assertIn("SHOT 1 — TWO-SECOND HOOK", prompts[0])
         self.assertIn("SHOT 2 — DISTINCTIVE DETAIL", prompts[1])
         self.assertIn("SHOT 3 — PAYOFF", prompts[2])
         for prompt in prompts:
