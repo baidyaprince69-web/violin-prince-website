@@ -90,7 +90,12 @@ window.__DATA__ = ${safeJson};
   // advances preserve browser kerning while ensuring each glyph is painted.
   function drawGlyphRun(context, text, x, y, maxWidth=Infinity) {
     const value = String(text ?? "");
-    const characters = Array.from(value);
+    const characters = typeof Intl !== "undefined" && Intl.Segmenter
+      ? Array.from(
+          new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(value),
+          item => item.segment
+        )
+      : Array.from(value);
     if (!characters.length) return [];
 
     const naturalWidth = context.measureText(value).width;
@@ -99,10 +104,15 @@ window.__DATA__ = ${safeJson};
       : 1;
     const placements = [];
     const previousAlign = context.textAlign;
+    const anchorX = previousAlign === "center"
+      ? x - naturalWidth * scale / 2
+      : (previousAlign === "right" || previousAlign === "end")
+        ? x - naturalWidth * scale
+        : x;
 
     context.save();
     context.textAlign = "left";
-    context.translate(x, y);
+    context.translate(anchorX, y);
     context.scale(scale, 1);
 
     let cursor = 0;
@@ -110,25 +120,26 @@ window.__DATA__ = ${safeJson};
       const character = characters[index];
       const metrics = context.measureText(character);
       if (index > 0) {
+        const previousWidth = context.measureText(characters[index - 1]).width;
         const pairWidth = context.measureText(characters[index - 1] + character).width;
-        cursor += pairWidth - metrics.width;
+        // cursor already includes the previous glyph's advance; add kerning only.
+        cursor += pairWidth - previousWidth - metrics.width;
       }
 
       context.fillText(character, cursor, 0);
       placements.push({
         character,
-        x: x + cursor * scale,
+        x: anchorX + cursor * scale,
         width: metrics.width * scale,
         ascent: metrics.actualBoundingBoxAscent || 0,
         descent: metrics.actualBoundingBoxDescent || 0,
         actualLeft: metrics.actualBoundingBoxLeft || 0,
         actualRight: metrics.actualBoundingBoxRight || metrics.width
       });
-      if (index === 0) cursor += metrics.width;
+      cursor += metrics.width;
     }
 
     context.restore();
-    context.textAlign = previousAlign;
     return placements;
   }
 
@@ -171,6 +182,23 @@ window.__DATA__ = ${safeJson};
       const placements = drawGlyphRun(probeContext, test.text, 12, 100, 1460);
       const glyphs = placements.filter(item => item.character === "s");
       const pixels = probeContext.getImageData(0, 0, probe.width, probe.height).data;
+      let expectedX = 12;
+      let maximumSpacingError = 0;
+      for (let index = 0; index < placements.length; index++) {
+        const character = placements[index].character;
+        const currentWidth = probeContext.measureText(character).width;
+        if (index > 0) {
+          const previous = placements[index - 1].character;
+          const previousWidth = probeContext.measureText(previous).width;
+          const pairWidth = probeContext.measureText(previous + character).width;
+          expectedX += pairWidth - previousWidth - currentWidth;
+        }
+        maximumSpacingError = Math.max(
+          maximumSpacingError,
+          Math.abs(placements[index].x - expectedX)
+        );
+        expectedX += currentWidth;
+      }
       const visibleCounts = glyphs.map(glyph => {
         const left = Math.max(0, Math.floor(glyph.x - glyph.actualLeft - 2));
         const right = Math.min(probe.width, Math.ceil(glyph.x + glyph.actualRight + 2));
@@ -190,7 +218,8 @@ window.__DATA__ = ${safeJson};
         label: test.label,
         font: test.font,
         expected_s: glyphs.length,
-        visible_s_pixels: visibleCounts
+        visible_s_pixels: visibleCounts,
+        maximum_spacing_error_px: Number(maximumSpacingError.toFixed(3))
       };
     });
 
@@ -198,7 +227,8 @@ window.__DATA__ = ${safeJson};
       ok: results.every(result =>
         result.expected_s > 0 &&
         result.visible_s_pixels.length === result.expected_s &&
-        result.visible_s_pixels.every(count => count > 0)
+        result.visible_s_pixels.every(count => count > 0) &&
+        result.maximum_spacing_error_px <= 1.25
       ),
       cases: results
     };
