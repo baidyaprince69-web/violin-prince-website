@@ -184,6 +184,12 @@ class PlannerNarrationRetryTests(unittest.TestCase):
             "Watch as the music transforms into a breathtaking display."
         )
         completed = pipeline.narration_sentences(VALID_SCRIPT)
+        expected_script = " ".join([
+            completed[0],
+            pipeline.narration_sentences(production_script)[1],
+            "This difficult piece requires great technical precision and much deep artistic passion.",
+            completed[3],
+        ])
         responses = [
             {"response": make_test_plan(production_script)},
             sentence_result(completed[0]),
@@ -199,7 +205,8 @@ class PlannerNarrationRetryTests(unittest.TestCase):
                 with patch.object(pipeline, "ai", side_effect=responses) as mock_ai:
                     result = pipeline.make_plan([self.item], recent=[])
 
-                self.assertEqual(result["narration_script"], VALID_SCRIPT)
+                self.assertEqual(result["narration_script"], expected_script)
+                self.assertEqual(pipeline.narration_sentence_budget_error(result["narration_script"]), "")
                 self.assertEqual(mock_ai.call_count, 5)
                 retry_prompt = mock_ai.call_args_list[3].args[1]["messages"][1]["content"]
                 self.assertIn("add exactly ONE useful", retry_prompt)
