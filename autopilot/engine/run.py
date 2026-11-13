@@ -725,6 +725,28 @@ def make_plan(items, recent=None):
             for attempt in (1, 2):
                 previous_sentence = sentences[index - 1] if index > 0 else ""
                 next_sentence = sentences[index + 1] if index < 3 else ""
+                previous_count = narration_word_count(current_sentence)
+                if attempt == 2 and previous_count == target_words - 1:
+                    correction_instruction = (
+                        f"The previous version had {previous_count} words, exactly one too few. "
+                        f"Keep its meaning and sentence structure, then add exactly ONE useful, "
+                        f"fact-safe word to make {target_words}. Do not paraphrase it into a shorter "
+                        "sentence. The added word must improve specificity or natural phrasing, not act as filler."
+                    )
+                elif attempt == 2 and previous_count == target_words + 1:
+                    correction_instruction = (
+                        f"The previous version had {previous_count} words, exactly one too many. "
+                        "Remove only one non-essential word while preserving meaning and natural phrasing."
+                    )
+                elif attempt == 2:
+                    correction_instruction = (
+                        f"The previous version failed because {current_error}. Make a visibly different, "
+                        "carefully counted revision and verify its word count before returning it."
+                    )
+                else:
+                    correction_instruction = (
+                        f"Count the words before returning. The sentence must have exactly {target_words} words."
+                    )
                 payload = {
                     "messages": [
                         {
@@ -733,7 +755,7 @@ def make_plan(items, recent=None):
                                 "You are a precise spoken-documentary script editor. Return exactly one JSON "
                                 "object with one field named sentence, and no Markdown or commentary. "
                                 "The sentence field must contain exactly " + str(target_words) +
-                                " spoken words, counted as ordinary space-separated words. Use simple words; "
+                                " spoken words, counted as ordinary space-separated words. Count each word by position before answering. Use simple words; "
                                 "avoid contractions and hyphenated compounds. Write exactly one complete, "
                                 "natural sentence, with no more than 12 words. Its role is: " +
                                 sentence_roles[index] + ". Preserve the story's meaning and emotional purpose. "
@@ -757,9 +779,8 @@ def make_plan(items, recent=None):
                                 "\nNext beat for continuity: " + next_sentence +
                                 "\nVerified research evidence: " +
                                 json.dumps(repair_evidence, ensure_ascii=False) +
-                                ("\nYour previous attempt " + str(attempt - 1) + " " + current_error + ". "
-                                 "Correct the count without adding filler." if attempt > 1 else "") +
-                                "\nReturn JSON only: {\"sentence\":\"one complete sentence\"}."
+                                "\\nCorrection instruction: " + correction_instruction +
+                                ("\\nPrevious validation result: " + current_error if attempt > 1 else "") +
                             ),
                         },
                     ],
@@ -776,6 +797,7 @@ def make_plan(items, recent=None):
                         "sentence_number": index + 1,
                         "target_words": target_words,
                         "attempt": attempt,
+                        "requested_words": target_words,
                         "returned_words": narration_word_count(candidate),
                         "validation_error": issue,
                         "sentence": candidate,
