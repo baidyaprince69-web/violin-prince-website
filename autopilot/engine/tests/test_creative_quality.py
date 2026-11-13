@@ -72,6 +72,10 @@ class CreativeQualityTests(unittest.TestCase):
             self.assertLess(result["contact_y"], result["bridge_center_y"] - 28)
             self.assertTrue(result["bow_stick_and_horsehair_separate"])
             self.assertGreaterEqual(result["bow_hair_stick_separation_px"], 60)
+            self.assertTrue(result["hair_contacts_selected_string"])
+            self.assertEqual(result["bow_hair_contact_string_number"], 2)
+            self.assertEqual(len(result["string_spacing_at_contact_y_px"]), 3)
+            self.assertTrue(all(value >= 50 for value in result["string_spacing_at_contact_y_px"]))
             positions = result["string_positions_at_contact_y"]
             self.assertEqual(len(positions), 4)
             self.assertTrue(all(a < b for a, b in zip(positions, positions[1:])))
@@ -199,6 +203,24 @@ class CreativeQualityTests(unittest.TestCase):
             "between the bridge and fingerboard",
         ):
             self.assertIn(phrase, payload["prompt"])
+
+    def test_single_story_review_integrates_macro_and_keeps_scope_to_one_video(self):
+        source = (ENGINE / "motion_prototype.py").read_text(encoding="utf-8")
+        self.assertIn("pipeline.make_macro_contact_illustration(macro_path)", source)
+        self.assertIn('"macro_contact"', source)
+        self.assertIn('"single_story_prototype_rendered"', source)
+        self.assertIn("Only the primary prepared story is rendered", source)
+        self.assertNotIn("second_report = build_prototype", source)
+
+    def test_renderer_uses_phrase_consistent_captions_and_cinematic_scene_wipe(self):
+        renderer = ENGINE.parent / "motion-prototype" / "render.mjs"
+        source = renderer.read_text(encoding="utf-8")
+        self.assertIn("const transition=.92;", source)
+        self.assertIn("function drawSceneTransition", source)
+        self.assertIn("Fine copper rails", source)
+        self.assertIn("if (sceneIndex !== 1 || !scene.macro_contact) return;", source)
+        self.assertNotIn('if (TECHNICAL_TERMS.test(clean)) return "outline";', source)
+        self.assertIn("Keep one expressive treatment across the full phrase", source)
 
     def test_motion_renderer_uses_svg_text_and_audits_actual_story_frames(self):
         renderer = ENGINE.parent / "motion-prototype" / "render.mjs"

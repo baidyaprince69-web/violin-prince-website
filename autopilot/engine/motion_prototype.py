@@ -283,6 +283,18 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
         if not image.is_file():
             raise RuntimeError(f"Prepared scene image is missing: {image.name}")
 
+    # Replace the second shot in a violin bow-performance story with the
+    # deterministic precision macro. No AI image service is called here.
+    macro_metrics = None
+    if pipeline.use_precision_macro(plan, plan["scenes"][1], 1):
+        macro_path = output_dir / "violin-macro-contact-scene.jpg"
+        macro_metrics = pipeline.make_macro_contact_illustration(macro_path)
+        if not macro_metrics.get("hair_contacts_selected_string"):
+            raise RuntimeError("The generated macro scene failed its physical contact check.")
+        if macro_metrics.get("string_count") != 4 or macro_metrics.get("bridge_notch_count") != 4:
+            raise RuntimeError("The macro scene must contain four distinct strings and bridge notches.")
+        image_paths[1] = macro_path
+
     script = str(plan.get("narration_script") or "").strip()
     if not script:
         raise RuntimeError("The prepared story has no narration script.")
@@ -319,6 +331,11 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
             "graphic_label": str(scene.get("graphic_label") or ""),
             "graphic_detail": str(scene.get("graphic_detail") or ""),
             "comparison": scene.get("comparison"),
+            "macro_contact": ({
+                "x": macro_metrics["contact_x"], "y": macro_metrics["contact_y"],
+                "string_number": macro_metrics["active_contact_string_number"],
+                "source_width": macro_metrics["width"], "source_height": macro_metrics["height"],
+            } if index == 1 and macro_metrics else None),
             "image_b64": base64.b64encode(image_path.read_bytes()).decode("ascii"),
         })
         start += float(scene_duration)
@@ -373,6 +390,8 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
     prototype_quality = pipeline.validate_final_video(final_path)
     prototype_quality.update({
         "renderer": "HTML Canvas + Playwright + FFmpeg",
+        "macro_scene_integrated": bool(macro_metrics),
+        "macro_contact_geometry": macro_metrics,
         "word_timing_method": narration_info["word_timing_method"],
         "word_timing_count": len(word_cues),
         "caption_animation_presets": [
@@ -394,6 +413,7 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
         "status": "prototype_rendered",
         "production_renderer_changed": False,
         "publishing_enabled": False,
+        "macro_contact": macro_metrics,
         "narration": {
             "engine": narration_info.get("engine"),
             "voice": narration_info.get("voice"),
@@ -436,32 +456,28 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Render the isolated Violin Prince V3 HTML motion prototype.")
+    parser = argparse.ArgumentParser(description="Render one isolated Violin Prince V3 HTML motion prototype.")
     parser.add_argument("--package", type=Path, default=Path("work/package"))
     parser.add_argument("--output", type=Path, default=Path("work/output/motion-prototype"))
     parser.add_argument("--fps", type=int, default=25)
     args = parser.parse_args()
     if not 12 <= args.fps <= 30:
         raise ValueError("Prototype FPS must be between 12 and 30.")
-    primary_report = build_prototype(args.package, args.output, args.fps)
-    second_package = _build_second_story_package(args.package.resolve(), args.output.resolve())
-    second_output = args.output / "second-story"
-    second_report = build_prototype(second_package, second_output, args.fps)
+    story_report = build_prototype(args.package, args.output, args.fps)
     summary = {
-        "status": "two_story_prototypes_rendered",
+        "status": "single_story_prototype_rendered",
         "production_renderer_changed": False,
         "publishing_enabled": False,
-        "primary_story": primary_report,
-        "second_story_consistency_test": second_report,
-        "second_story_title": "How a Violin Turns Motion into Music",
-        "second_story_package": str(second_package),
+        "story": story_report,
         "notes": [
-            "Both stories use the same isolated V3 HTML renderer and native Kokoro word timing.",
-            "The second story uses its own narration script and original warm-toned illustration plates.",
-            "V2 remains the production renderer; this workflow only creates review artifacts.",
+            "Only the primary prepared story is rendered in this review cycle.",
+            "The second story consistency render is intentionally disabled to reduce review time.",
+            "A deterministic violin macro scene replaces scene 2 when the story is a violin bow-performance story.",
+            "The HTML prototype remains an evaluation path; production V2 is unchanged.",
+            "Word captions use native Kokoro duration cues from this exact narration take.",
         ],
     }
-    summary_path = args.output / "two-story-test-report.json"
+    summary_path = args.output / "single-story-test-report.json"
     summary_path.parent.mkdir(parents=True, exist_ok=True)
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(summary, ensure_ascii=False, indent=2))

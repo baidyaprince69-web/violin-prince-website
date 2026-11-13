@@ -489,81 +489,60 @@ window.__DATA__ = ${safeJson};
     ctx.restore();
   }
 
-  function drawBowMotion(time, scene, sceneIndex) {
-    // The illustration itself carries the hands and instrument. This restrained overlay
-    // suggests alternating bow travel without pretending to animate anatomical joints.
-    if (sceneIndex !== 1) return;
-    const subject = String(
-      (D.visual_motif || "") + " " + (D.title || "") + " " + (D.topic || "") + " " +
-      (scene.caption || "") + " " + (scene.graphic_label || "")
-    ).toLowerCase();
-    if (!/(violin|bow|string|music|performance|musician|virtuoso)/.test(subject)) return;
-
+  function drawBowMotion(time, scene, sceneIndex, localProgress) {
+    // The macro image already contains the bow stick, horsehair and strings.
+    // Animate only a restrained glint at the measured contact point; do not
+    // draw a second synthetic bow over the instrument.
+    if (sceneIndex !== 1 || !scene.macro_contact) return;
+    const macro = scene.macro_contact;
+    const sourceWidth = Number(macro.source_width || W);
+    const sourceHeight = Number(macro.source_height || H);
+    const progress = clamp(Number(localProgress || 0));
+    const eased = easeInOut(progress);
+    const zoom = 0.105 + (0.18 - 0.105) * eased;
+    const scale = Math.max(W / sourceWidth, H / sourceHeight) * (1 + zoom);
+    const drift = 15 * eased + 5 * Math.sin(progress * Math.PI);
+    const dx = (W - sourceWidth * scale) / 2 + drift;
+    const dy = (H - sourceHeight * scale) / 2 - 20 * eased;
+    const x = Number(macro.x) * scale + dx;
+    const y = Number(macro.y) * scale + dy;
     const energy = musicEnergyAt(time);
-    const strokesPerSecond = 2.4 + energy * 3.1;
-    const cycle = time * strokesPerSecond;
-    const fraction = cycle - Math.floor(cycle);
-    const travel = fraction < 0.5
-      ? easeInOut(fraction * 2)
-      : 1 - easeInOut((fraction - 0.5) * 2);
-    const centerX = W * 0.5 + (travel - 0.5) * 78;
-    const centerY = H * 0.555 + 4 * Math.sin(time * 0.7);
-    const vibrato = 1.0 + energy * 2.7;
+    const pulse = 0.62 + energy * 0.58;
 
     ctx.save();
     ctx.globalCompositeOperation = "screen";
     ctx.lineCap = "round";
+    ctx.globalAlpha = 0.15 + energy * 0.20;
+    ctx.strokeStyle = "rgba(255,218,165,.70)";
+    ctx.lineWidth = 1.25;
+    ctx.beginPath();
+    ctx.moveTo(x - 42 * scale, y + 6 * scale);
+    ctx.lineTo(x + 42 * scale, y - 6 * scale);
+    ctx.stroke();
 
-    // Four fine string traces with vibration concentrated near their centre.
-    for (let string = 0; string < 4; string++) {
-      const baseX = W * 0.385 + string * 41;
+    for (let ring = 0; ring < 3; ring++) {
+      const radius = (8 + ring * 7) * pulse;
+      ctx.globalAlpha = (0.20 + energy * 0.20) * (1 - ring * 0.23);
       ctx.beginPath();
-      for (let step = 0; step <= 24; step++) {
-        const p = step / 24;
-        const y = H * 0.455 + p * H * 0.205;
-        const envelope = Math.sin(Math.PI * p);
-        const offset = Math.sin(time * 39 + step * 0.72 + string * 0.86) * vibrato * envelope;
-        const x = baseX + offset;
-        if (step === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.globalAlpha = 0.11 + energy * 0.15;
-      ctx.strokeStyle = string === 1
-        ? "rgba(255,226,177,.76)"
-        : "rgba(226,190,143,.43)";
-      ctx.lineWidth = string === 1 ? 2.0 : 1.15;
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.strokeStyle = ring === 0 ? "rgba(255,237,205,.90)" : "rgba(237,193,138,.62)";
+      ctx.lineWidth = ring === 0 ? 1.6 : 1.0;
       ctx.stroke();
     }
 
-    // A compact bow-path highlight moves in alternating directions across the strings.
-    const left = centerX - 174;
-    const right = centerX + 174;
-    const slope = 8;
-    ctx.globalAlpha = 0.12 + energy * 0.17;
-    ctx.strokeStyle = "rgba(255,219,170,.68)";
-    ctx.lineWidth = 8;
+    ctx.globalAlpha = 0.10 + energy * 0.18;
+    ctx.strokeStyle = "rgba(255,231,191,.82)";
+    ctx.lineWidth = 1.1;
     ctx.beginPath();
-    ctx.moveTo(left, centerY - slope - 8);
-    ctx.lineTo(right, centerY + slope - 8);
+    for (let step = 0; step <= 12; step++) {
+      const p = step / 12;
+      const offset = Math.sin(time * 34 + p * 5.4) * (1.2 + energy * 1.5) * Math.sin(Math.PI * p);
+      const px = x + offset;
+      const py = y - 22 * scale + p * 44 * scale;
+      if (step === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
     ctx.stroke();
-
-    ctx.globalAlpha = 0.22 + energy * 0.42;
-    ctx.shadowColor = "rgba(255,207,145,.82)";
-    ctx.shadowBlur = 9 + energy * 16;
-    ctx.strokeStyle = "rgba(255,237,208,.92)";
-    ctx.lineWidth = 2.0 + energy * 1.1;
-    ctx.beginPath();
-    ctx.moveTo(left, centerY - slope);
-    ctx.lineTo(right, centerY + slope);
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-
-    // A moving glint marks the crossing point; it stays inside the instrument detail area.
-    ctx.globalAlpha = 0.20 + energy * 0.40;
-    ctx.fillStyle = "#ffe4b7";
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, 2.2 + energy * 2.1, 0, Math.PI * 2);
-    ctx.fill();
     ctx.restore();
   }
 
@@ -781,16 +760,40 @@ window.__DATA__ = ${safeJson};
 
   function drawSceneTransition(time, transitionAt, duration) {
     const progress = easeInOut((time-transitionAt)/duration);
-    const center = -W*.25 + progress*W*1.55;
+    const center = -W*.28 + progress*W*1.56;
     ctx.save();
     ctx.globalCompositeOperation = "screen";
-    const beam = ctx.createLinearGradient(center-105,0,center+105,H);
+
+    // Soft diagonal light curtain reveals the next composition without a hard cut.
+    const beam = ctx.createLinearGradient(center-118,0,center+118,H);
     beam.addColorStop(0,"rgba(244,192,128,0)");
-    beam.addColorStop(.42,"rgba(244,192,128,.02)");
-    beam.addColorStop(.50,"rgba(255,233,197,.25)");
-    beam.addColorStop(.58,"rgba(244,192,128,.025)");
+    beam.addColorStop(.34,"rgba(244,192,128,.018)");
+    beam.addColorStop(.50,"rgba(255,233,197,.23)");
+    beam.addColorStop(.66,"rgba(244,192,128,.022)");
     beam.addColorStop(1,"rgba(244,192,128,0)");
     ctx.fillStyle = beam;
+    ctx.fillRect(0,0,W,H);
+
+    // Fine copper rails give the moving edge a deliberate editorial finish.
+    ctx.globalAlpha = 0.14 + 0.10 * Math.sin(progress * Math.PI);
+    ctx.strokeStyle = "rgba(255,224,181,.82)";
+    ctx.lineWidth = 1.1;
+    ctx.beginPath();
+    ctx.moveTo(center-28,-20);
+    ctx.lineTo(center+78,H+20);
+    ctx.stroke();
+    ctx.globalAlpha *= 0.54;
+    ctx.strokeStyle = "rgba(201,121,93,.92)";
+    ctx.beginPath();
+    ctx.moveTo(center-38,-20);
+    ctx.lineTo(center+68,H+20);
+    ctx.stroke();
+
+    const halo = ctx.createRadialGradient(center,H*.5,2,center,H*.5,170);
+    halo.addColorStop(0,"rgba(255,221,176,.10)");
+    halo.addColorStop(1,"rgba(255,221,176,0)");
+    ctx.globalAlpha = 0.65;
+    ctx.fillStyle = halo;
     ctx.fillRect(0,0,W,H);
     ctx.restore();
   }
@@ -821,13 +824,10 @@ window.__DATA__ = ${safeJson};
   }
 
   function styleForCue(words, index) {
+    // Keep one expressive treatment across the full phrase. The active word
+    // still receives its own colour emphasis, but the animation style does not
+    // jump from tilt to outline in the middle of a sentence.
     const bounds = captionPhraseBounds(words, index);
-    const word = String(words[index].text || "");
-    const clean = word.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
-    if (/[!]$/.test(word) || EMPHASIS_TERMS.test(clean)) return "impact";
-    if (TECHNICAL_TERMS.test(clean)) return "outline";
-    if (ACTION_TERMS.test(clean)) return "tilt";
-    if (STOP.has(clean)) return phraseCaptionStyle(bounds.phrase, bounds.phraseKey);
     return phraseCaptionStyle(bounds.phrase, bounds.phraseKey);
   }
 
@@ -955,7 +955,7 @@ window.__DATA__ = ${safeJson};
     textLayer.replaceChildren();
     window.__FRAME_TEXT_EXPECTED__ = [];
     window.__CURRENT_SCENE_INDEX__ = index;
-    const transition=.72;
+    const transition=.92;
     const transitionAt=Number(scene.start)+Number(scene.duration)-transition;
     if(index<scenes.length-1 && time>=transitionAt){
       const p=easeInOut((time-transitionAt)/transition);
@@ -967,7 +967,7 @@ window.__DATA__ = ${safeJson};
       drawGraphic(scene,index,time,Number(scene.start),Number(scene.duration),1);
     }
     drawAtmosphere(time,index);
-    drawBowMotion(time, scene, index);
+    drawBowMotion(time, scene, index, local);
     if(index<scenes.length-1 && time>=transitionAt) drawSceneTransition(time,transitionAt,transition);
     drawBrand(index,time);
     drawCaptions(time);
