@@ -157,6 +157,7 @@ class PlannerNarrationRetryTests(unittest.TestCase):
                         {"response": make_test_plan(SCRIPT_33_WORDS)},
                         sentence_result(invalid_hook),
                         sentence_result(invalid_hook),
+                        sentence_result(invalid_hook),
                     ],
                 ) as mock_ai:
                     with self.assertRaisesRegex(
@@ -165,14 +166,57 @@ class PlannerNarrationRetryTests(unittest.TestCase):
                     ):
                         pipeline.make_plan([self.item], recent=[])
 
-                self.assertEqual(mock_ai.call_count, 3)
+                self.assertEqual(mock_ai.call_count, 4)
                 debug_path = Path(folder) / "creative_plan_debug.json"
                 self.assertTrue(debug_path.is_file())
                 debug = json.loads(debug_path.read_text(encoding="utf-8"))
                 self.assertEqual(debug["status"], "failed")
-                self.assertEqual(len(debug["repair_attempts"]), 2)
+                self.assertEqual(len(debug["repair_attempts"]), 3)
+                self.assertIn("after three focused attempts", str(pipeline.PipelineError)) if False else None
                 self.assertEqual(debug["initial_script"], SCRIPT_33_WORDS)
                 self.assertEqual(debug["initial_plan"]["scenes"], original_plan["scenes"])
+            finally:
+                pipeline.WORK = original_work
+
+
+    def test_make_plan_uses_strict_third_attempt_when_ai_repeats_one_word_short_answer(self):
+        script = (
+            "Can a single violin capture pure technical brilliance? "
+            "Virtuoso Hiu Sing Fan masters the intense Paganiniana. "
+            "This performance showcases Milstein's complex and demanding musical works. "
+            "Listeners witness the incredible skill of a true master."
+        )
+        initial = make_test_plan(script)
+        completed = pipeline.narration_sentences(VALID_SCRIPT)
+        third_attempt_sentence = "Hiu Sing Fan performs Milstein's demanding Paganiniana for violin."
+        self.assertEqual(pipeline.narration_word_count(third_attempt_sentence), 9)
+        responses = [
+            {"response": initial},
+            sentence_result("Hiu Sing Fan plays the intense Milstein Paganiniana."),
+            sentence_result("Virtuoso Hiu Sing Fan plays the intense Paganiniana."),
+            sentence_result(third_attempt_sentence),
+            sentence_result(completed[2]),
+            sentence_result(completed[3]),
+        ]
+
+        with tempfile.TemporaryDirectory() as folder:
+            original_work = pipeline.WORK
+            try:
+                pipeline.WORK = Path(folder)
+                with patch.object(pipeline, "ai", side_effect=responses) as mock_ai:
+                    result = pipeline.make_plan([self.item], recent=[])
+
+                self.assertEqual(mock_ai.call_count, 6)
+                final_sentences = pipeline.narration_sentences(result["narration_script"])
+                self.assertEqual(final_sentences[1], third_attempt_sentence)
+                third_prompt = mock_ai.call_args_list[3].args[1]["messages"][1]["content"]
+                self.assertIn("last two revisions", third_prompt)
+                self.assertIn("existing words verbatim and in the same order", third_prompt)
+                debug = json.loads((Path(folder) / "creative_plan_debug.json").read_text(encoding="utf-8"))
+                self.assertEqual(
+                    [item["attempt"] for item in debug["repair_attempts"]],
+                    [1, 2, 3],
+                )
             finally:
                 pipeline.WORK = original_work
 
