@@ -299,7 +299,7 @@ jobs:
         with:
           name: v3-motion-prototype-43457153680
           run-id: 43457153680
-          github-token: \${{ github.token }}
+          github-token: ${{ github.token }}
           path: work/approved-scene1
 
       - name: Reuse Scene 1 only after exact plan, review and image-hash verification
