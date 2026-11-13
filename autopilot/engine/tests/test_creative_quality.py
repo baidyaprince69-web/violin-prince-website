@@ -84,10 +84,12 @@ class CreativeQualityTests(unittest.TestCase):
         self.assertIn("SHOT 2 — DISTINCTIVE DETAIL", prompts[1])
         self.assertIn("SHOT 3 — PAYOFF", prompts[2])
         for prompt in prompts:
-            self.assertIn("deep midnight navy", prompt)
+            self.assertIn("warm palette of charcoal black, walnut brown", prompt)
+            self.assertIn("antique gold", prompt)
+            self.assertIn("Avoid blue, teal, cyan or cold-blue backgrounds", prompt)
             self.assertIn("clearly illustrated concept art rather than photography", prompt)
             self.assertIn("Portrait 9:16 composition", prompt)
-            self.assertLessEqual(len(prompt), 1800)
+            self.assertLessEqual(len(prompt), 2600)
         self.assertEqual(len(set(prompts)), 3)
 
     def test_storyboard_preview_wraps_captions_without_overlapping_columns(self):
