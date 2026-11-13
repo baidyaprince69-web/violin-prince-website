@@ -84,7 +84,8 @@ def _language_code(video: dict[str, Any]) -> str:
         return "bn"
     if any(0x0900 <= ord(char) <= 0x097F for char in title):
         return "hi"
-    return "en"
+    # Latin characters alone do not prove that a video is English.
+    return "unknown"
 
 
 def _youtube_search_terms(
@@ -94,7 +95,7 @@ def _youtube_search_terms(
     period_end: str,
     videos: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Collect the actual YouTube search phrases that generated views for channel videos."""
+    """Collect YouTube search terms with accurate distinct-video support counts."""
     ids_by_language: dict[str, list[str]] = {"en": [], "hi": [], "bn": []}
     for video in videos:
         video_id = str(video.get("video_id") or "").strip()
@@ -102,53 +103,77 @@ def _youtube_search_terms(
         if video_id and language in ids_by_language:
             ids_by_language[language].append(video_id)
 
-    output = []
+    grouped: dict[tuple[str, str], dict[str, Any]] = {}
     errors = []
+    queries_executed = 0
     auth_headers = {"Authorization": "Bearer " + access_token}
-    for language, video_ids in ids_by_language.items():
-        # Require several comparable videos before using a language bucket as SEO evidence.
-        if len(video_ids) < 3:
+    for language, raw_video_ids in ids_by_language.items():
+        distinct_ids = list(dict.fromkeys(raw_video_ids))
+        if len(distinct_ids) < 3:
             continue
-        try:
-            response = session.get(
-                ANALYTICS_URL,
-                headers=auth_headers,
-                params={
-                    "ids": "channel==MINE",
-                    "startDate": period_start,
-                    "endDate": period_end,
-                    "metrics": "views",
-                    "dimensions": "insightTrafficSourceDetail",
-                    "filters": "video==" + ",".join(video_ids[:50]) + ";insightTrafficSourceType==YT_SEARCH",
-                    "maxResults": 10,
-                    "sort": "-views",
-                },
-                timeout=45,
-            )
-            response.raise_for_status()
-            for row in _report_rows(response.json()):
-                term = str(row.get("insightTrafficSourceDetail") or "").strip()[:160]
-                views = _number(row, "views")
-                if term and views is not None and views > 0:
-                    output.append({
+        # Query three videos individually to prove each search phrase's support count.
+        for video_id in distinct_ids[:3]:
+            try:
+                response = session.get(
+                    ANALYTICS_URL,
+                    headers=auth_headers,
+                    params={
+                        "ids": "channel==MINE",
+                        "startDate": period_start,
+                        "endDate": period_end,
+                        "metrics": "views",
+                        "dimensions": "insightTrafficSourceDetail",
+                        "filters": "video==" + video_id + ";insightTrafficSourceType==YT_SEARCH",
+                        "maxResults": 25,
+                        "sort": "-views",
+                    },
+                    timeout=45,
+                )
+                queries_executed += 1
+                response.raise_for_status()
+                for row in _report_rows(response.json()):
+                    term = re.sub(r"\s+", " ", str(row.get("insightTrafficSourceDetail") or "")).strip()[:160]
+                    views = _number(row, "views")
+                    if not term or views is None or views <= 0:
+                        continue
+                    key = (language, term.casefold())
+                    item = grouped.setdefault(key, {
                         "language": language,
                         "search_term": term,
-                        "views": views,
-                        "video_sample_count": len(video_ids),
+                        "views": 0.0,
+                        "video_ids": set(),
                     })
-        except Exception as exc:
-            errors.append({"language": language, "error": str(exc)[:250]})
+                    item["views"] += views
+                    item["video_ids"].add(video_id)
+            except Exception as exc:
+                errors.append({
+                    "language": language,
+                    "video_id": video_id,
+                    "error": str(exc)[:250],
+                })
 
+    output = [
+        {
+            "language": item["language"],
+            "search_term": item["search_term"],
+            "views": item["views"],
+            "video_sample_count": len(item["video_ids"]),
+        }
+        for item in grouped.values()
+    ]
     output.sort(key=lambda item: item["views"], reverse=True)
     return output[:18], {
         "available": bool(output),
         "language_groups_queried": [
-            language for language, ids in ids_by_language.items() if len(ids) >= 3
+            language for language, ids in ids_by_language.items() if len(set(ids)) >= 3
         ],
-        "errors": errors[:3],
+        "queries_executed": queries_executed,
+        "errors": errors[:9],
         "note": (
-            "Actual YouTube Search terms reported for video groups with at least three videos. "
-            "The Analytics API returns top terms that generated views, not total search demand."
+            "Each eligible language samples three videos individually. A term's support count "
+            "is the number of separate video reports that returned the exact term. Only terms "
+            "reported for all three sampled videos can influence Discover. These are reported "
+            "traffic sources, not total search demand."
         ),
     }
 

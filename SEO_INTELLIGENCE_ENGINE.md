@@ -52,7 +52,7 @@ The video-render stage does not request YouTube Analytics reports. Phase 5 owns 
 - A weekly GitHub Actions schedule: Monday 03:00 UTC (08:30 India time).
 - A manual `workflow_dispatch` option for a deliberate report run.
 
-Each report run makes one bounded 28-day per-video Analytics request and one seven-day channel summary request. It reads available video metadata to associate a video's actual language and saved video tags with that report row. It also requests the top YouTube Search terms that generated views, grouped by video language, using YouTube's `insightTrafficSourceDetail` dimension filtered to `YT_SEARCH`. A language group is queried only when it contains at least three videos. No repeated polling loop is used.
+Each report run makes one bounded 28-day per-video Analytics request and one seven-day channel summary request. It reads available video metadata to associate a video's actual language and saved video tags with that report row. It also requests the top YouTube Search terms that generated views, grouped by declared or script-detected video language, using YouTube's `insightTrafficSourceDetail` dimension filtered to `YT_SEARCH`. For each eligible language it samples three videos individually (at most nine additional report requests in a weekly run). The report records how many of those separate video reports returned each exact phrase; a term only enters Discover learning when all three sampled videos report it. Unlabelled Latin-script titles remain `unknown` rather than being guessed as English. No repeated polling loop is used.
 
 The Learn step is rules-based (not another text-generation call). It:
 - Groups available per-video rows by English, Hindi and Bengali language.

@@ -3,7 +3,7 @@ import os
 import unittest
 from unittest.mock import patch
 
-from autopilot.engine.analytics import _number, _report_rows, _youtube_search_terms, collect_and_send
+from autopilot.engine.analytics import _language_code, _number, _report_rows, _youtube_search_terms, collect_and_send
 
 
 class FakeResponse:
@@ -23,12 +23,17 @@ class FakeSearchTermsSession:
 
     def get(self, url, headers, params, timeout):
         self.calls.append((url, dict(params)))
+        video_filter = params["filters"].split(";")[0]
+        video_id = video_filter.split("==", 1)[1]
+        rows = [["violin cover search phrase", 12]]
+        if video_id.endswith("-0"):
+            rows.append(["single-video-only phrase", 4])
         return FakeResponse({
             "columnHeaders": [
                 {"name": "insightTrafficSourceDetail"},
                 {"name": "views"},
             ],
-            "rows": [["violin cover search phrase", 12]],
+            "rows": rows,
         })
 
 
@@ -49,7 +54,7 @@ class AnalyticsParsingTests(unittest.TestCase):
         self.assertIsNone(_number({"views": None}, "views"))
         self.assertIsNone(_number({}, "thumbnail_impressions_ctr"))
 
-    def test_youtube_search_terms_are_collected_separately_by_video_language(self):
+    def test_youtube_search_terms_count_actual_distinct_video_support(self):
         session = FakeSearchTermsSession()
         videos = []
         for language in ("en", "hi", "bn"):
@@ -59,17 +64,31 @@ class AnalyticsParsingTests(unittest.TestCase):
                     "default_language": language,
                     "title": "Channel video " + str(index),
                 })
+        for index in range(3):
+            videos.append({
+                "video_id": "unknown-" + str(index),
+                "default_language": "",
+                "title": "Song cover " + str(index),
+            })
+
         terms, report = _youtube_search_terms(
             session, "fake-token", "2026-10-17", "2026-11-13", videos
         )
-        self.assertEqual(len(session.calls), 3)
-        self.assertEqual({item["language"] for item in terms}, {"en", "hi", "bn"})
-        self.assertTrue(all(item["video_sample_count"] == 3 for item in terms))
+        self.assertEqual(len(session.calls), 9)
+        common = [item for item in terms if item["search_term"] == "violin cover search phrase"]
+        self.assertEqual({item["language"] for item in common}, {"en", "hi", "bn"})
+        self.assertTrue(all(item["video_sample_count"] == 3 for item in common))
+        single = [item for item in terms if item["search_term"] == "single-video-only phrase"]
+        self.assertEqual({item["video_sample_count"] for item in single}, {1})
         self.assertTrue(report["available"])
+        self.assertEqual(report["queries_executed"], 9)
+        self.assertEqual(set(report["language_groups_queried"]), {"en", "hi", "bn"})
         for _url, params in session.calls:
             self.assertEqual(params["dimensions"], "insightTrafficSourceDetail")
             self.assertIn("insightTrafficSourceType==YT_SEARCH", params["filters"])
-            self.assertEqual(params["maxResults"], 10)
+            self.assertEqual(params["maxResults"], 25)
+            self.assertEqual(params["sort"], "-views")
+        self.assertEqual(_language_code({"default_language": "", "title": "Song cover"}), "unknown")
 
     def test_collector_skips_before_network_when_oauth_credentials_are_missing(self):
         with patch.dict(os.environ, {}, clear=True):

@@ -88,7 +88,6 @@ jobs:
               ".github/workflows/v3-motion-prototype.yml",
               ".github/workflows/phase4-youtube-validation.yml",
               ".github/workflows/phase5-seo-learning.yml",
-              ".github/workflows/phase5-seo-learning.yml",
           ]
           for name in files:
               parsed = yaml.safe_load(Path(name).read_text(encoding="utf-8"))

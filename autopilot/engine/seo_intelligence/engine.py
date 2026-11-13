@@ -503,7 +503,8 @@ def _detect_language(video: dict[str, Any]) -> str:
         return "bn"
     if any(0x0900 <= ord(char) <= 0x097F for char in title):
         return "hi"
-    return "en"
+    # Do not assume a Latin-script title is English without language evidence.
+    return "unknown"
 
 
 def learn(report: dict[str, Any], *, minimum_group_size: int = 3) -> dict[str, Any]:
