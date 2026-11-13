@@ -1096,7 +1096,7 @@ def _parse_vision_assessment(result, label="visual reviewer"):
 
     assessment = None
     decoder = json.JSONDecoder()
-    for match in re.finditer(r"\\{", raw):
+    for match in re.finditer(r"\{", raw):
         try:
             candidate, _ = decoder.raw_decode(raw[match.start():])
         except json.JSONDecodeError:
