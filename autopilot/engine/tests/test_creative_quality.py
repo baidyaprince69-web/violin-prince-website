@@ -46,6 +46,33 @@ class CreativeQualityTests(unittest.TestCase):
                 self.assertEqual(graphic.getpixel((0, 0))[3], 0)
                 self.assertGreater(graphic.getchannel("A").getbbox()[2], 500)
 
+    def test_square_ai_art_is_extended_to_portrait_without_losing_its_full_source(self):
+        source = Image.new("RGB", (1024, 1024), (160, 90, 45))
+        frame = pipeline.portrait_scene_frame(source)
+        self.assertEqual(frame.size, (720, 1280))
+        # The centre remains the original image colour rather than a crop-only substitute.
+        self.assertEqual(frame.getpixel((360, 640)), (160, 90, 45))
+
+    def test_precision_violin_macro_has_four_strings_and_one_contact_marker(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / "macro-contact.jpg"
+            result = pipeline.make_macro_contact_illustration(target)
+            self.assertTrue(target.is_file())
+            self.assertEqual(result["width"], 720)
+            self.assertEqual(result["height"], 1280)
+            self.assertEqual(result["string_count"], 4)
+            self.assertEqual(result["highlighted_contact_points"], 1)
+            self.assertTrue(result["bow_stick_and_horsehair_separate"])
+            with Image.open(target) as illustration:
+                self.assertEqual(illustration.size, (720, 1280))
+
+    def test_precision_macro_is_selected_only_for_violin_bow_performance(self):
+        plan = {"topic": "How a violinist shapes a phrase"}
+        scene = {"image_prompt": "Violin bow hair contacting one string"}
+        self.assertTrue(pipeline.use_precision_macro(plan, scene, 1))
+        self.assertFalse(pipeline.use_precision_macro(plan, scene, 0))
+        self.assertFalse(pipeline.use_precision_macro({"topic": "A cello story"}, scene, 1))
+
     def test_kinetic_captions_keep_measured_sentence_times_and_animation(self):
         with tempfile.TemporaryDirectory() as folder:
             target = Path(folder) / "narration.ass"

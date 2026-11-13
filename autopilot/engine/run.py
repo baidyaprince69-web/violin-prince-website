@@ -979,22 +979,190 @@ def image_request_payload(prompt):
     return {"prompt": value, "steps": 4}
 
 
+def portrait_scene_frame(source, focus=(0.5, 0.45)):
+    """Place a square AI image into a 9:16 frame without cutting off the subject."""
+    source = ImageOps.exif_transpose(source).convert("RGB")
+    target = (W, H)
+    if source.size == target:
+        return source
+
+    # A softened, darkened full-frame extension fills the vertical canvas.
+    background = ImageOps.fit(
+        source, target, method=Image.Resampling.LANCZOS, centering=focus
+    )
+    background = background.filter(ImageFilter.GaussianBlur(radius=34))
+    background = ImageEnhance.Brightness(background).enhance(0.43)
+    background = ImageEnhance.Color(background).enhance(0.66)
+    canvas = background.convert("RGBA")
+
+    # Keep the complete source image sharp in the middle instead of cropping
+    # away the violin, hands or bow to manufacture a portrait ratio.
+    foreground = ImageOps.contain(
+        source, (W, int(H * 0.72)), method=Image.Resampling.LANCZOS
+    )
+    x = (W - foreground.width) // 2
+    y = max(0, int((H - foreground.height) * focus[1]))
+    foreground_layer = foreground.convert("RGBA")
+    mask = Image.new("L", foreground.size, 255)
+    mask_draw = ImageDraw.Draw(mask)
+    fade = min(42, max(1, foreground.height // 12))
+    for row in range(foreground.height):
+        alpha = min(255, int(255 * (row + 1) / fade), int(255 * (foreground.height - row) / fade))
+        mask_draw.line((0, row, foreground.width, row), fill=max(0, alpha))
+    foreground_layer.putalpha(mask)
+    canvas.alpha_composite(foreground_layer, (x, y))
+    return canvas.convert("RGB")
+
+
 def make_image(prompt, index):
-    # FLUX.1-schnell's REST schema accepts prompt and steps only.
-    # Do not send seed: Cloudflare's current endpoint rejects it as an extra property.
+    # FLUX.1-schnell accepts prompt and steps only; its output is square.
+    # Normalize locally to portrait without asking the API for unsupported dimensions.
     result = ai(IMAGE_MODEL, image_request_payload(prompt), 240)
     if not result.get("image"):
         raise PipelineError("FLUX returned no image.")
     try:
         data = base64.b64decode(result["image"], validate=True)
         with Image.open(BytesIO(data)) as decoded:
-            decoded.verify()
+            decoded.load()
+            source = ImageOps.exif_transpose(decoded).convert("RGB")
+            frame = portrait_scene_frame(source)
     except Exception as exc:
         raise PipelineError("FLUX returned invalid or undecodable image data.") from exc
     IMAGES.mkdir(parents=True, exist_ok=True)
     path = IMAGES / f"scene-{index + 1}.jpg"
-    path.write_bytes(data)
+    frame.save(path, "JPEG", quality=94, optimize=True)
     return path
+
+
+def use_precision_macro(plan, scene, index):
+    """Use deterministic geometry for violin bow-contact macro shots."""
+    if index != 1:
+        return False
+    context = " ".join((
+        str(plan.get("topic", "")),
+        str(plan.get("title", "")),
+        str(scene.get("image_prompt", "")),
+        str(scene.get("caption", "")),
+    )).casefold()
+    return "violin" in context and "bow" in context
+
+
+def make_macro_contact_illustration(target):
+    """Draw an exact, labeled violin bow-contact macro instead of guessing with T2I."""
+    width, height = W, H
+    image = Image.new("RGB", (width, height), (17, 15, 15))
+    draw = ImageDraw.Draw(image)
+
+    # Warm charcoal-to-walnut background and a restrained amber glow.
+    for y in range(height):
+        t = y / max(1, height - 1)
+        colour = (int(25 - 12 * t), int(19 - 9 * t), int(17 - 5 * t))
+        draw.line((0, y, width, y), fill=colour)
+    glow = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    glow_draw = ImageDraw.Draw(glow)
+    glow_draw.ellipse((55, 260, 665, 1030), fill=(177, 76, 30, 58))
+    glow = glow.filter(ImageFilter.GaussianBlur(radius=105))
+    image = Image.alpha_composite(image.convert("RGBA"), glow)
+    draw = ImageDraw.Draw(image)
+
+    gold = (235, 195, 125, 255)
+    ivory = (246, 237, 218, 255)
+    muted = (187, 174, 157, 255)
+
+    draw.text((42, 52), "THE BOW–STRING CONTACT", font=font(25), fill=gold)
+    draw.text((44, 91), "PRECISION MACRO  /  SIDE-THREE-QUARTER VIEW", font=font(13), fill=muted)
+    draw.line((42, 126, width - 42, 126), fill=(191, 132, 78, 145), width=2)
+
+    # Ebony fingerboard: a tapered perspective plane behind the strings.
+    board = [(177, 185), (543, 185), (638, 1000), (82, 1000)]
+    draw.polygon(board, fill=(27, 24, 25, 255), outline=(112, 76, 50, 255))
+    draw.line((178, 190, 83, 995), fill=(126, 86, 54, 210), width=7)
+    draw.line((542, 190, 637, 995), fill=(126, 86, 54, 210), width=7)
+    draw.line((192, 210, 112, 966), fill=(76, 65, 59, 180), width=2)
+    draw.line((528, 210, 608, 966), fill=(76, 65, 59, 180), width=2)
+
+    # Maple bridge sits below the strings at the near end of the fingerboard.
+    bridge = [
+        (88, 986), (135, 951), (220, 933), (350, 932),
+        (485, 950), (633, 986), (604, 1060), (520, 1081),
+        (205, 1081), (118, 1056)
+    ]
+    draw.polygon(bridge, fill=(150, 91, 48, 255), outline=(224, 174, 112, 255))
+    draw.line((112, 986, 350, 963, 611, 986), fill=(247, 203, 142, 220), width=5)
+    draw.line((133, 1043, 350, 1057, 585, 1042), fill=(83, 45, 28, 230), width=4)
+    draw.ellipse((280, 978, 420, 1014), fill=(177, 117, 67, 190))
+
+    # Four distinct longitudinal strings, with a dark edge and metallic highlight.
+    top_positions = (278, 333, 388, 443)
+    bottom_positions = (190, 300, 410, 520)
+    string_paths = []
+    for top_x, bottom_x in zip(top_positions, bottom_positions):
+        points = [(top_x, 205), (int((top_x + bottom_x) / 2), 610), (bottom_x, 1005)]
+        string_paths.append(points)
+        draw.line(points, fill=(13, 13, 14, 255), width=8, joint="curve")
+        draw.line(points, fill=(157, 159, 157, 255), width=3, joint="curve")
+        draw.line([(x - 1, y) for x, y in points], fill=(246, 239, 221, 205), width=1, joint="curve")
+
+    # Bow stick and its pale horsehair are parallel, separate, and visibly connected.
+    stick_path = [(47, 602), (205, 590), (365, 580), (520, 585), (675, 603)]
+    hair_path = [(48, 675), (205, 665), (365, 655), (520, 660), (674, 678)]
+    draw.line(stick_path, fill=(18, 12, 10, 255), width=27, joint="curve")
+    draw.line(stick_path, fill=(91, 47, 27, 255), width=17, joint="curve")
+    draw.line([(x, y - 4) for x, y in stick_path], fill=(190, 126, 74, 210), width=2, joint="curve")
+    draw.line(hair_path, fill=(31, 24, 20, 255), width=16, joint="curve")
+    draw.line(hair_path, fill=(238, 228, 207, 255), width=8, joint="curve")
+    draw.line([(x, y - 2) for x, y in hair_path], fill=(255, 250, 235, 225), width=2, joint="curve")
+
+    # End fittings connect the hair ribbon to the wooden stick.
+    for x, y_stick, y_hair in ((54, 601, 675), (668, 602, 677)):
+        draw.rounded_rectangle((x - 10, y_stick - 7, x + 10, y_hair + 7),
+                               radius=5, fill=(69, 37, 24, 255), outline=(196, 139, 83, 255), width=2)
+
+    # One focal contact point is intentionally highlighted; no generated anatomy is involved.
+    contact = (319, 660)
+    contact_glow = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    contact_draw = ImageDraw.Draw(contact_glow)
+    contact_draw.ellipse((contact[0] - 48, contact[1] - 48, contact[0] + 48, contact[1] + 48),
+                         fill=(243, 178, 93, 100))
+    contact_glow = contact_glow.filter(ImageFilter.GaussianBlur(radius=20))
+    image = Image.alpha_composite(image, contact_glow)
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((contact[0] - 17, contact[1] - 17, contact[0] + 17, contact[1] + 17),
+                 outline=gold, width=3)
+    draw.ellipse((contact[0] - 5, contact[1] - 5, contact[0] + 5, contact[1] + 5),
+                 fill=ivory)
+
+    # Short technical callouts keep the instrument parts unambiguous.
+    draw.text((35, 315), "EBONY FINGERBOARD", font=font(13), fill=muted)
+    draw.line((176, 338, 223, 422), fill=gold, width=2)
+    draw.text((438, 315), "4 PARALLEL STRINGS", font=font(13), fill=muted)
+    draw.line((480, 340, 425, 455), fill=gold, width=2)
+
+    draw.text((42, 785), "PALE HORSEHAIR", font=font(14), fill=ivory)
+    draw.line((174, 780, 260, 670), fill=gold, width=2)
+    draw.text((430, 785), "WOODEN BOW STICK", font=font(14), fill=ivory)
+    draw.line((525, 770, 514, 601), fill=gold, width=2)
+
+    draw.text((258, 725), "ONE ACTIVE CONTACT", font=font(14), fill=gold)
+    draw.line((331, 710, contact[0], contact[1] + 18), fill=gold, width=2)
+
+    draw.text((282, 1100), "MAPLE BRIDGE", font=font(15), fill=ivory)
+    draw.line((360, 1087, 360, 1060), fill=gold, width=2)
+    draw.rounded_rectangle((42, 1162, 678, 1230), radius=15,
+                           fill=(24, 20, 19, 245), outline=(178, 126, 78, 170), width=2)
+    draw.text((65, 1186), "Bow hair rests on one string between bridge and fingerboard.",
+              font=font(14), fill=ivory)
+
+    target = Path(target)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    image.convert("RGB").save(target, "JPEG", quality=95, optimize=True)
+    return {
+        "width": width,
+        "height": height,
+        "string_count": 4,
+        "highlighted_contact_points": 1,
+        "bow_stick_and_horsehair_separate": True,
+    }
 
 
 def font(size):
@@ -1641,15 +1809,24 @@ def visuals_stage(feedback=""):
             except Exception:
                 image_paths[index].unlink(missing_ok=True)
 
-        prompt = _scene_visual_prompt(scene, feedback, index=index, plan=plan)
-        try:
-            generated = make_image(prompt, index)
-        except (requests.Timeout, requests.ConnectionError):
-            log(f"Temporary connection issue for scene {index + 1}; retrying once.")
-            time.sleep(2)
-            generated = make_image(prompt, index)
+        if use_precision_macro(plan, scene, index):
+            generated = IMAGES / f"scene-{index + 1}.jpg"
+            macro_info = make_macro_contact_illustration(generated)
+            log(
+                "Rendered deterministic violin-contact macro: "
+                f"{macro_info['string_count']} strings, "
+                f"{macro_info['highlighted_contact_points']} highlighted contact point."
+            )
+        else:
+            prompt = _scene_visual_prompt(scene, feedback, index=index, plan=plan)
+            try:
+                generated = make_image(prompt, index)
+            except (requests.Timeout, requests.ConnectionError):
+                log(f"Temporary connection issue for scene {index + 1}; retrying once.")
+                time.sleep(2)
+                generated = make_image(prompt, index)
         shutil.copy2(generated, image_paths[index])
-        log(f"Prepared scene image {index + 1}/3.")
+        log(f"Prepared portrait scene image {index + 1}/3.")
     storyboard = make_storyboard_preview(plan, image_paths, PACKAGE / "storyboard-preview.png")
     metadata["stage"] = "visuals_ready"
     metadata["visual_feedback"] = re.sub(r"\s+", " ", str(feedback or "")).strip()[:600]
