@@ -200,7 +200,7 @@ jobs:
             "production_renderer_changed": false
           }
           JSON
-          echo "Workers Free safety mode recorded. No billing endpoint or paid credentials are required." >> "$GITHUB_STEP_SUMMARY"
+          echo "Workers Free safety mode recorded. No subscription, payment method, Billing Read permission, or extra secrets are required." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Restore previous V3 stage checkpoints (optional)
         if: github.event_name == 'workflow_dispatch' && inputs.resume_run_id != ''
