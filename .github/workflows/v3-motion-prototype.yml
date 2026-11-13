@@ -425,5 +425,6 @@ jobs:
           path: |
             work/output/motion-prototype/
             work/package/
+            work/images/
           if-no-files-found: ignore
           retention-days: 14
