@@ -44,6 +44,9 @@ jobs:
       VISUAL_FEEDBACK: ${{ inputs.visual_feedback }}
       CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
       CF_AI_TOKEN: ${{ secrets.CF_AI_TOKEN }}
+      AUTOPILOT_API_URL: ${{ secrets.AUTOPILOT_API_URL }}
+      AUTOPILOT_JOB_TOKEN: ${{ secrets.AUTOPILOT_JOB_TOKEN }}
+      YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
       PUBLISH_ENABLED: "false"
     steps:
       - name: Validate stage inputs

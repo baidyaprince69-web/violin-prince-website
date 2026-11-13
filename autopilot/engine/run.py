@@ -11,6 +11,11 @@ from urllib.parse import quote, unquote, urlparse
 import requests
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 
+try:
+    from .seo_intelligence import build_topic_queries, discover as seo_discover, load_profile as seo_load_profile, optimize as seo_optimize
+except ImportError:  # Direct script execution from the engine directory.
+    from seo_intelligence import build_topic_queries, discover as seo_discover, load_profile as seo_load_profile, optimize as seo_optimize
+
 API = os.environ.get("AUTOPILOT_API_URL", "").rstrip("/")
 JOB_TOKEN = os.environ.get("AUTOPILOT_JOB_TOKEN", "")
 CF_ACCOUNT = os.environ.get("CF_ACCOUNT_ID", "")
@@ -512,6 +517,62 @@ def recent_topics():
     return [str(item)[:180] for item in topics if str(item).strip()][:25]
 
 
+def recent_seo_learning():
+    """Read the latest SEO-only learning snapshot; this does not poll YouTube."""
+    if not API:
+        return None
+    try:
+        response = http.get(API + "/internal/seo-learning", headers=auth(), timeout=20)
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        payload = response.json()
+        learning = payload.get("learning") if isinstance(payload, dict) else None
+        if not isinstance(learning, dict):
+            return None
+        return {**learning, "captured_at": payload.get("captured_at")}
+    except Exception as exc:
+        log("Previous SEO learning report unavailable; using the balanced language mix: " + str(exc)[:180])
+        return None
+
+
+def compact_seo_discovery(discovery):
+    """Give the planner a small demand summary, never an oversized/truncated API dump."""
+    discovery = discovery if isinstance(discovery, dict) else {}
+    return {
+        "status": discovery.get("status", "unavailable"),
+        "region_code": discovery.get("region_code", "IN"),
+        "queries_sampled": discovery.get("queries_sampled", 0),
+        "search_volume": None,
+        "search_volume_note": discovery.get("search_volume_note", ""),
+        "opportunities": [
+            {
+                "language": item.get("language"),
+                "language_name": item.get("language_name"),
+                "query": item.get("query"),
+                "results_returned": item.get("results_returned"),
+                "median_views_per_day_observed": item.get("median_views_per_day_observed"),
+                "recent_upload_share_30d": item.get("recent_upload_share_30d"),
+                "opportunity_score": item.get("opportunity_score"),
+                "top_result_titles": [
+                    result.get("title", "") for result in item.get("top_results", [])[:2]
+                ],
+            }
+            for item in discovery.get("recommended_opportunities", [])[:6]
+        ],
+        "learned_language_signals_used": discovery.get("learned_language_signals_used", []),
+        "learned_search_terms_used": [
+            {
+                "language": item.get("language"),
+                "search_term": item.get("search_term"),
+                "views": item.get("views"),
+                "video_sample_count": item.get("video_sample_count"),
+            }
+            for item in discovery.get("learned_search_terms_used", [])[:3]
+        ],
+    }
+
+
 def parse_planner_result(result):
     """Parse the Workers AI response into one complete creative-plan object."""
     candidate = result.get("response", "")
@@ -641,7 +702,8 @@ def make_plan(items, recent=None):
         "not an article excerpt: without evidence_text, limit factual narration to what the headline explicitly states. "
         "The pipeline resolves source IDs to original article URLs. Do not output publisher homepages as article URLs. "
         "Do not use song lyrics, copied scripts, named copyrighted characters, logos or identifiable living people in images. "
-        "Return JSON only with topic,title,hook,description,hashtags,narration_script,narrative_style,scenes,sources. "
+        "Return JSON only with topic,title,hook,description,hashtags,language,narration_script,narrative_style,scenes,sources. "
+        "Set language to the main language of the finished narration/title: en, hi or bn. "
         "The narration_script must have 40 to 44 spoken words across exactly four natural, complete sentences. Aim for 41 words. "
         "Aim for 41 words with this exact sentence budget: sentence 1 has 8 words, sentence 2 has 9 words, "
         "sentence 3 has 12 words, and sentence 4 has 12 words. Sentence 1 is the curiosity hook and must be resolved. "
@@ -2039,6 +2101,31 @@ def _write_review_text(plan, target):
             f"{index}. {scene.get('caption', '')}",
             "   Visual direction: " + str(scene.get("image_prompt", "")),
         ])
+    discovery = plan.get("seo_discovery") if isinstance(plan.get("seo_discovery"), dict) else {}
+    lines.extend(["", "SEO DISCOVERY (search-result samples, not search-volume data):"])
+    for opportunity in discovery.get("recommended_opportunities", [])[:6]:
+        lines.append(
+            "- " + str(opportunity.get("language_name") or opportunity.get("language") or "") + ": " +
+            str(opportunity.get("query") or "") + " — observed median views/day: " +
+            str(opportunity.get("median_views_per_day_observed", "not available"))
+        )
+    topic_validation = discovery.get("topic_validation") if isinstance(discovery.get("topic_validation"), dict) else {}
+    lines.append("TOPIC-SPECIFIC SEARCH CHECK:")
+    for opportunity in topic_validation.get("recommended_opportunities", [])[:3]:
+        lines.append(
+            "- " + str(opportunity.get("language") or "") + ": " +
+            str(opportunity.get("query") or "") + " — observed median views/day: " +
+            str(opportunity.get("median_views_per_day_observed", "not available"))
+        )
+    if discovery.get("learned_search_terms_used"):
+        lines.append("ACTUAL CHANNEL SEARCH TERMS USED:")
+        for item in discovery.get("learned_search_terms_used", [])[:3]:
+            lines.append(
+                "- " + str(item.get("language") or "") + ": " +
+                str(item.get("search_term") or "") + " — views attributed: " +
+                str(item.get("views", "not available")) + " across " +
+                str(item.get("video_sample_count", 0)) + " videos"
+            )
     lines.extend(["", "SOURCES:", *[str(value) for value in plan.get("sources", [])]])
     Path(target).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -2170,9 +2257,40 @@ def prepare_stage():
         or len(plan.get("scenes", [])) != 3
         or not str(plan.get("narration_script") or "").strip()
     ):
-        plan = make_plan(items, recent_topics())
+        # DISCOVER: sample channel-relevant YouTube demand in English, Hindi and Bengali
+        # before the creative planner chooses a story. Previous learning comes only from
+        # a completed Phase 5 analytics report; no continuous polling is performed.
+        learning = recent_seo_learning()
+        discovery = seo_discover(
+            profile=seo_load_profile(),
+            api_key=os.environ.get("YOUTUBE_API_KEY", ""),
+            learned_signals=learning,
+        )
+        log(
+            "SEO Discover prepared " + str(discovery.get("queries_sampled", 0)) +
+            " YouTube query samples across " + ", ".join(sorted({
+                item.get("language", "") for item in discovery.get("query_plan", [])
+            })) + " (search volume is not available from this API)."
+        )
+        plan = make_plan(items, recent_topics(), seo_context=compact_seo_discovery(discovery))
+        # A second bounded Discover pass validates the exact candidate topic in
+        # English, Hindi and Bengali before any visual-generation work begins.
+        topic_queries = build_topic_queries(plan.get("topic") or plan.get("title"))
+        topic_validation = seo_discover(
+            profile=seo_load_profile(),
+            api_key=os.environ.get("YOUTUBE_API_KEY", ""),
+            learned_signals=learning,
+            query_plan_override=topic_queries,
+        )
+        discovery["topic_validation"] = topic_validation
+        plan["seo_discovery"] = discovery
+        plan["seo_learning_snapshot"] = {
+            "captured_at": (learning or {}).get("captured_at"),
+            "sample_count": (learning or {}).get("sample_count", 0),
+            "language_signals": (learning or {}).get("language_signals", []),
+        }
         _write_json_atomic(paths["plan"], plan)
-        log("Creative-plan checkpoint saved.")
+        log("Creative-plan and SEO discovery checkpoints saved.")
     else:
         log("Reusing checkpointed creative plan; story planning was not repeated.")
 
@@ -2464,6 +2582,11 @@ def render_stage():
         plan, audio, paths["narration"], narration_info,
         image_paths=image_paths, audio_source=audio_source
     )
+    # OPTIMIZE: once the actual MP4 exists, prepare its metadata from the exact
+    # creative plan and earlier Discover report. This step never grants approval.
+    seo_metadata_plan = seo_optimize(
+        plan, discovery=plan.get("seo_discovery"), profile=seo_load_profile()
+    )
     stored = upload(path)
     from publisher import publish_all
     publish_result = publish_all(path, stored.get("media_url", ""), plan)
@@ -2475,6 +2598,40 @@ def render_stage():
         "run_id": RUN_ID, "topic": topic, "title": title,
         "hook": plan.get("hook", ""), "description": plan.get("description", ""),
         "hashtags": plan.get("hashtags", []),
+        "seo_metadata": {
+            "primary_keyword": seo_metadata_plan.get("primary_keyword", ""),
+            "seo_title": seo_metadata_plan.get("seo_title", ""),
+            "seo_description": seo_metadata_plan.get("seo_description", ""),
+            "seo_tags": seo_metadata_plan.get("seo_tags", []),
+            "seo_hashtags": seo_metadata_plan.get("seo_hashtags", []),
+            "language": seo_metadata_plan.get("language", "en"),
+            "seo_optimization": seo_metadata_plan.get("seo_optimization", {}),
+            "metadata_approved": False,
+            "approval_required": True,
+        },
+        "seo_discovery_summary": {
+            "queries_sampled": (plan.get("seo_discovery") or {}).get("queries_sampled", 0),
+            "topic_queries_sampled": ((plan.get("seo_discovery") or {}).get("topic_validation") or {}).get("queries_sampled", 0),
+            "search_volume": None,
+            "topic_validation": [
+                {
+                    "language": item.get("language"),
+                    "query": item.get("query"),
+                    "opportunity_score": item.get("opportunity_score"),
+                    "median_views_per_day_observed": item.get("median_views_per_day_observed"),
+                }
+                for item in ((plan.get("seo_discovery") or {}).get("topic_validation") or {}).get("recommended_opportunities", [])[:3]
+            ],
+            "recommended_opportunities": [
+                {
+                    "language": item.get("language"),
+                    "query": item.get("query"),
+                    "opportunity_score": item.get("opportunity_score"),
+                    "median_views_per_day_observed": item.get("median_views_per_day_observed"),
+                }
+                for item in (plan.get("seo_discovery") or {}).get("recommended_opportunities", [])[:6]
+            ],
+        },
         "narration_script": plan.get("narration_script", ""),
         "narrative_style": plan.get("narrative_style", "documentary"),
         "narration": narration_info, "video_quality": video_quality,
@@ -2502,11 +2659,13 @@ def render_stage():
     )
     report(final_status, "Production complete. " + json.dumps(publish_result, ensure_ascii=False)[:650],
            topic, title, stored.get("object_key", ""), stored.get("media_url", ""), output_metadata)
-    if API:
-        from analytics import collect_and_send
-        analytics_result = collect_and_send(API, JOB_TOKEN)
-    else:
-        analytics_result = {"connected": False, "reason": "dashboard_api_not_configured"}
+    # Report collection and SEO learning belong to Phase 5's weekly/manual workflow,
+    # not to the render path. Creating a video must never trigger repeated report polling.
+    analytics_result = {
+        "connected": False,
+        "reason": "deferred_to_phase5_scheduled_report",
+        "note": "Phase 5 reads the latest completed channel report on its weekly schedule or manual trigger.",
+    }
     (OUT / "analytics.json").write_text(
         json.dumps(analytics_result, ensure_ascii=False, indent=2), encoding="utf-8"
     )

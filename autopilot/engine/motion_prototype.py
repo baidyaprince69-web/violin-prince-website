@@ -803,6 +803,51 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
     final_review_frames = _extract_final_review_frames(
         final_path, output_dir / "final-encoded-qa-frames"
     )
+    # OPTIMIZE the actual rendered video using the same shared engine as Phase 1
+    # and Phase 4. Keep the result as an explicit review artifact; never approve it here.
+    seo_plan = pipeline.seo_optimize(
+        plan,
+        discovery=plan.get("seo_discovery"),
+        profile=pipeline.seo_load_profile(),
+    )
+    seo_metadata_review = {
+        "status": "awaiting_owner_approval",
+        "metadata_approved": False,
+        "approval_required": True,
+        "primary_keyword": seo_plan.get("primary_keyword", ""),
+        "seo_title": seo_plan.get("seo_title", ""),
+        "seo_description": seo_plan.get("seo_description", ""),
+        "seo_tags": seo_plan.get("seo_tags", []),
+        "seo_hashtags": seo_plan.get("seo_hashtags", []),
+        "language": seo_plan.get("language", "en"),
+        "audit": seo_plan.get("seo_optimization", {}),
+        "discover_summary": {
+            "queries_sampled": (plan.get("seo_discovery") or {}).get("queries_sampled", 0),
+            "topic_queries_sampled": ((plan.get("seo_discovery") or {}).get("topic_validation") or {}).get("queries_sampled", 0),
+            "search_volume": None,
+            "topic_validation": [
+                {
+                    "language": item.get("language"),
+                    "query": item.get("query"),
+                    "opportunity_score": item.get("opportunity_score"),
+                    "median_views_per_day_observed": item.get("median_views_per_day_observed"),
+                }
+                for item in ((plan.get("seo_discovery") or {}).get("topic_validation") or {}).get("recommended_opportunities", [])[:3]
+            ],
+            "recommended_opportunities": [
+                {
+                    "language": item.get("language"),
+                    "query": item.get("query"),
+                    "opportunity_score": item.get("opportunity_score"),
+                    "median_views_per_day_observed": item.get("median_views_per_day_observed"),
+                }
+                for item in (plan.get("seo_discovery") or {}).get("recommended_opportunities", [])[:6]
+            ],
+        },
+    }
+    (output_dir / "seo-metadata-review.json").write_text(
+        json.dumps(seo_metadata_review, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     prototype_quality.update({
         "renderer": "HTML Canvas + Playwright + FFmpeg",
         "visual_review_status": metadata.get("visual_review_status", "not_reviewed"),
@@ -860,6 +905,14 @@ def build_prototype(package_dir: Path, output_dir: Path, fps: int = 25) -> dict:
             "quality": prototype_quality,
             "text_renderer": "SVG text overlay over the animated Canvas scene",
             "final_encoded_review_frames": final_review_frames,
+        },
+        "seo_metadata_review": {
+            "file": "seo-metadata-review.json",
+            "status": seo_metadata_review["status"],
+            "metadata_approved": False,
+            "approval_required": True,
+            "primary_keyword": seo_metadata_review["primary_keyword"],
+            "language": seo_metadata_review["language"],
         },
         "recovery": {
             "manifest": manifest_path.name,
