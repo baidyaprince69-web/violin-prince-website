@@ -300,7 +300,7 @@ jobs:
         with:
           name: v3-motion-prototype-43458141839
           run-id: 43458141839
-          github-token: \${{ github.token }}
+          github-token: ${{ github.token }}
           path: work/scene1-recheck
 
       - name: Restore the candidate only when its story plan exactly matches
