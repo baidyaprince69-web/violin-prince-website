@@ -1,4 +1,5 @@
-"""Offline tests for automatic planner narration correction."""
+"""Offline tests for sentence-level planner narration correction."""
+import json
 import os
 import sys
 import tempfile
@@ -20,32 +21,19 @@ VALID_SCRIPT = (
     "It became part of a story no concert hall could ever contain. "
     "Now its music connects that distant journey with listeners across the world."
 )
-FIRST_DRAFT_SCRIPT = (
-    "Can this music really travel through space? "
-    "A violin part travelled into orbit. "
-    "It returned with a remarkable story. "
-    "Now that journey connects distant listeners."
-)
 SHORT_SCRIPT = (
     "Can this music travel through space? "
     "A violin part travelled into orbit. "
     "It returned with a remarkable story. "
     "Now that journey connects distant listeners."
 )
-
-
 SCRIPT_33_WORDS = (
     "Can music travel beyond the concert hall? "
     "A small violin component has unexpectedly reached orbit. "
     "Its journey began with one unusual scientific idea. "
     "Now this remarkable story connects distant music and space listeners."
 )
-SCRIPT_34_WORDS = (
-    "Can music travel beyond the concert hall? "
-    "A small violin component has unexpectedly reached orbit. "
-    "Its journey began with one unusual scientific idea. "
-    "Now this remarkable story connects distant music and space listeners worldwide."
-)
+
 
 def make_test_plan(script):
     url = "https://publisher.example/story-about-a-violin"
@@ -66,119 +54,132 @@ def make_test_plan(script):
     }
 
 
+def sentence_result(sentence):
+    return {"response": {"sentence": sentence}}
+
+
 class PlannerNarrationRetryTests(unittest.TestCase):
-    def test_narration_validator_accepts_40_to_44_word_four_beat_script(self):
+    def setUp(self):
+        self.item = {
+            "title": "A violin component travelled to orbit",
+            "summary": "A publisher reports an instrument component travelled to orbit.",
+            "evidence_text": "A publisher's article reports this instrument component travelled to orbit.",
+            "publisher_domain": "publisher.example",
+            "url": "https://publisher.example/story-about-a-violin",
+            "source": "Test Publisher",
+        }
+
+    def test_narration_validator_accepts_exact_four_sentence_budget(self):
         self.assertEqual(pipeline.narration_validation_error(VALID_SCRIPT), "")
-        self.assertEqual(len(pipeline.re.findall(r"\b[\w’'-]+\b", VALID_SCRIPT)), 41)
+        self.assertEqual(pipeline.narration_sentence_budget_error(VALID_SCRIPT), "")
+        self.assertEqual(pipeline.narration_word_count(VALID_SCRIPT), 41)
+        self.assertEqual(
+            [pipeline.narration_word_count(s) for s in pipeline.narration_sentences(VALID_SCRIPT)],
+            [8, 9, 12, 12],
+        )
 
     def test_narration_validator_reports_actual_short_word_count(self):
         issue = pipeline.narration_validation_error(SHORT_SCRIPT)
         self.assertIn("24 spoken words", issue)
         self.assertIn("40–44", issue)
 
-    def test_make_plan_repairs_short_narration_without_repeating_research(self):
-        original_plan = make_test_plan(SHORT_SCRIPT)
-        corrected_plan = make_test_plan(VALID_SCRIPT)
-        ai_results = [
-            {"response": original_plan},
-            {"response": corrected_plan},
-        ]
-        item = {
-            "title": "A violin component travelled to orbit",
-            "summary": "A publisher reports an instrument component travelled to orbit.",
-            "evidence_text": "A publisher's article reports this instrument component travelled to orbit.",
-            "publisher_domain": "publisher.example",
-            "url": "https://publisher.example/story-about-a-violin",
-            "source": "Test Publisher",
-        }
+    def test_make_plan_repairs_each_sentence_independently_without_research_repeat(self):
+        original_plan = make_test_plan(SCRIPT_33_WORDS)
+        valid_sentences = pipeline.narration_sentences(VALID_SCRIPT)
+        ai_results = [sentence_result(sentence) for sentence in valid_sentences]
+        original_scenes = original_plan["scenes"]
 
         with tempfile.TemporaryDirectory() as folder:
             original_work = pipeline.WORK
             try:
                 pipeline.WORK = Path(folder)
                 with patch.object(pipeline, "ai", side_effect=ai_results) as mock_ai:
-                    result = pipeline.make_plan([item], recent=[])
+                    result = pipeline.make_plan([self.item], recent=[])
 
-                self.assertEqual(mock_ai.call_count, 2)
+                self.assertEqual(mock_ai.call_count, 4)
                 self.assertEqual(result["narration_script"], VALID_SCRIPT)
-                self.assertEqual(result["sources"], [item["url"]])
-                self.assertTrue((Path(folder) / "creative_plan.json").is_file())
-                repair_messages = mock_ai.call_args_list[1].args[1]["messages"]
-                self.assertIn("Change only narration_script", repair_messages[0]["content"])
-                self.assertIn("24 spoken words", repair_messages[1]["content"])
+                self.assertEqual(pipeline.narration_sentence_budget_error(result["narration_script"]), "")
+                self.assertEqual(result["sources"], [self.item["url"]])
+                self.assertEqual(result["scenes"], original_scenes)
+
+                for index, call in enumerate(mock_ai.call_args_list):
+                    payload = call.args[1]
+                    system_message = payload["messages"][0]["content"]
+                    user_message = payload["messages"][1]["content"]
+                    self.assertIn(f"exactly {8 if index == 0 else 9 if index == 1 else 12} spoken words", system_message)
+                    self.assertIn(f"sentence {index + 1} of 4", user_message)
+                    self.assertIn("Verified research evidence", user_message)
+
+                debug = json.loads((Path(folder) / "creative_plan_debug.json").read_text(encoding="utf-8"))
+                self.assertEqual(debug["status"], "repaired")
+                self.assertEqual(debug["current_script"], VALID_SCRIPT)
+                self.assertEqual(len(debug["repair_attempts"]), 4)
             finally:
                 pipeline.WORK = original_work
 
-    def test_make_plan_uses_final_word_budgeted_repair_without_research_repeat(self):
+    def test_make_plan_retries_only_the_sentence_that_misses_its_target(self):
+        valid_sentences = pipeline.narration_sentences(VALID_SCRIPT)
+        seven_word_hook = "Can music move across the universe today?"
+        ai_results = [
+            sentence_result(seven_word_hook),
+            sentence_result(valid_sentences[0]),
+            *[sentence_result(sentence) for sentence in valid_sentences[1:]],
+        ]
+
+        with tempfile.TemporaryDirectory() as folder:
+            original_work = pipeline.WORK
+            try:
+                pipeline.WORK = Path(folder)
+                with patch.object(pipeline, "ai", side_effect=ai_results) as mock_ai:
+                    result = pipeline.make_plan([self.item], recent=[])
+
+                self.assertEqual(mock_ai.call_count, 5)
+                self.assertEqual(result["narration_script"], VALID_SCRIPT)
+                retry_payload = mock_ai.call_args_list[1].args[1]
+                self.assertIn("previous attempt 1", retry_payload["messages"][1]["content"])
+                self.assertIn("7 words", retry_payload["messages"][1]["content"])
+            finally:
+                pipeline.WORK = original_work
+
+    def test_make_plan_preserves_failure_diagnostics_after_bounded_sentence_retries(self):
         original_plan = make_test_plan(SCRIPT_33_WORDS)
-        first_repair = make_test_plan(SCRIPT_34_WORDS)
-        final_repair = make_test_plan(VALID_SCRIPT)
-        item = {
-            "title": "A violin component travelled to orbit",
-            "summary": "A publisher reports an instrument component travelled to orbit.",
-            "evidence_text": "A publisher's article reports this instrument component travelled to orbit.",
-            "publisher_domain": "publisher.example",
-            "url": "https://publisher.example/story-about-a-violin",
-            "source": "Test Publisher",
-        }
+        invalid_hook = "Can music move across the universe today?"
+
         with tempfile.TemporaryDirectory() as folder:
             original_work = pipeline.WORK
             try:
                 pipeline.WORK = Path(folder)
                 with patch.object(
-                    pipeline, "ai",
-                    side_effect=[
-                        {"response": original_plan},
-                        {"response": first_repair},
-                        {"response": final_repair},
-                    ],
-                ) as mock_ai:
-                    result = pipeline.make_plan([item], recent=[])
-
-                self.assertEqual(mock_ai.call_count, 3)
-                self.assertEqual(result["narration_script"], VALID_SCRIPT)
-                self.assertEqual(pipeline.narration_validation_error(result["narration_script"]), "")
-                self.assertEqual(result["sources"], [item["url"]])
-                self.assertEqual(result["scenes"], original_plan["scenes"])
-                final_system = mock_ai.call_args_list[2].args[1]["messages"][0]["content"]
-                final_user = mock_ai.call_args_list[2].args[1]["messages"][1]["content"]
-                self.assertIn("exactly these spoken-word counts", final_system)
-                self.assertIn("8 words in sentence 1, 9 words in sentence 2", final_system)
-                self.assertIn("do not use filler", final_system.lower())
-                self.assertIn("34 spoken words", final_user)
-                self.assertIn("Verified research evidence", final_user)
-            finally:
-                pipeline.WORK = original_work
-
-    def test_make_plan_fails_safely_after_bounded_repairs_instead_of_padding(self):
-        original_plan = make_test_plan(SCRIPT_33_WORDS)
-        still_invalid = make_test_plan(SCRIPT_34_WORDS)
-        item = {
-            "title": "A violin component travelled to orbit",
-            "summary": "A publisher reports an instrument component travelled to orbit.",
-            "evidence_text": "A publisher's article reports this instrument component travelled to orbit.",
-            "publisher_domain": "publisher.example",
-            "url": "https://publisher.example/story-about-a-violin",
-            "source": "Test Publisher",
-        }
-        with tempfile.TemporaryDirectory() as folder:
-            original_work = pipeline.WORK
-            try:
-                pipeline.WORK = Path(folder)
-                with patch.object(
-                    pipeline, "ai",
-                    side_effect=[
-                        {"response": original_plan},
-                        {"response": still_invalid},
-                        {"response": still_invalid},
-                    ],
+                    pipeline,
+                    "ai",
+                    side_effect=[sentence_result(invalid_hook), sentence_result(invalid_hook)],
                 ) as mock_ai:
                     with self.assertRaisesRegex(
                         pipeline.PipelineError,
-                        "No filler or unsupported facts were inserted",
+                        "Narration sentence 1 could not be repaired",
                     ):
-                        pipeline.make_plan([item], recent=[])
-                self.assertEqual(mock_ai.call_count, 3)
+                        pipeline.make_plan([self.item], recent=[])
+
+                self.assertEqual(mock_ai.call_count, 2)
+                debug_path = Path(folder) / "creative_plan_debug.json"
+                self.assertTrue(debug_path.is_file())
+                debug = json.loads(debug_path.read_text(encoding="utf-8"))
+                self.assertEqual(debug["status"], "failed")
+                self.assertEqual(len(debug["repair_attempts"]), 2)
+                self.assertEqual(debug["initial_script"], SCRIPT_33_WORDS)
+                self.assertEqual(debug["initial_plan"]["scenes"], original_plan["scenes"])
+            finally:
+                pipeline.WORK = original_work
+
+    def test_valid_initial_script_does_not_trigger_sentence_repair_calls(self):
+        with tempfile.TemporaryDirectory() as folder:
+            original_work = pipeline.WORK
+            try:
+                pipeline.WORK = Path(folder)
+                with patch.object(pipeline, "ai") as mock_ai:
+                    result = pipeline.make_plan([self.item], recent=[])
+                mock_ai.assert_not_called()
+                self.assertEqual(result["narration_script"], VALID_SCRIPT)
             finally:
                 pipeline.WORK = original_work
 
