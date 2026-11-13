@@ -1265,14 +1265,15 @@ def review_scene_image(path, plan, scene, index):
 
     if is_violin_macro:
         required_checks = [
-            "bridge", "four_strings", "fingerboard", "bow_stick",
+            "bridge", "four_strings", "fingerboard", "one_bow", "bow_stick",
             "horsehair", "hair_contact", "all_in_focus",
         ]
         checklist = (
             "Inspect the actual pixels as a technical violin macro photograph. bridge=YES only if one "
             "complete upright maple bridge is visible with both feet. four_strings=YES only if exactly "
             "four separate, parallel, individually countable strings are visible. fingerboard=YES only "
-            "if the ebony fingerboard is clearly distinct behind the bridge. bow_stick=YES only if one "
+            "if the ebony fingerboard is clearly distinct behind the bridge. one_bow=YES only if exactly "
+            "one complete bow is visible, with no duplicate bow or stray rod. bow_stick=YES only if one "
             "slim, straight, dark wooden bow stick is clearly visible. horsehair=YES only if one narrow "
             "pale horsehair ribbon is separately visible, parallel to the stick, with a visible gap "
             "between the two parts except at frog and tip. hair_contact=YES only if the hair ribbon—not "
@@ -1326,8 +1327,8 @@ def review_storyboard_consistency(path, plan):
         "matching face, hairstyle and clothing. same_violin=YES only if all scenes visibly use the same "
         "amber-varnished violin design and recognizable body/tailpiece/fingerboard details. "
         "macro_anatomy=YES only if Scene 2 clearly shows the complete bridge, exactly four countable "
-        "strings, distinct fingerboard, separate bow stick and horsehair ribbon, and visible hair-to-string "
-        "contact at one point. consistent_palette=YES only if the three scenes share a coherent warm "
+        "strings, distinct fingerboard, exactly one bow with a separate dark stick and pale horsehair ribbon "
+        "joined only at frog and tip, and visible hair-to-one-string contact at one point. consistent_palette=YES only if the three scenes share a coherent warm "
         "cinematic palette and realistic photographic style. Any missing, changed or uncertain requirement "
         "must be NO. Return exactly one line containing every required key exactly once as key=YES or key=NO, "
         "separated by semicolons. Never output a generic PASS, prose, JSON or Markdown. Do not omit any key. "
@@ -1914,13 +1915,13 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         # this entire prompt; the bow/strings requirements are never beyond a cut-off.
         prompt_parts = [
             "SUBJECT & ACTION: " + compact_prompt + ".",
-            "SHOT 2 MACRO CLOSE-UP: 85mm lens, string-height side three-quarter photograph, moderate depth of field; the bridge, all four strings, fingerboard, both bow parts and contact point must be simultaneously sharp.",
-            "VIOLIN GEOMETRY: one complete upright maple bridge with both feet resting on the amber top plate. exactly four separate strings run lengthwise in parallel and are individually countable. A distinct ebony fingerboard extends away from the bridge. Keep all four strings visible on both sides of the bridge.",
-            "BOW GEOMETRY: exactly one bow crosses the strings horizontally at 90 degrees. Show the slim dark wooden stick and narrow pale horsehair ribbon as two separate, continuous parallel parts with a visible gap between them; they join only at frog and tip. Neither part hides the other. No extra rods or duplicate bows.",
-            "CONTACT POINT: the pale horsehair alone touches exactly one string at one clear point between bridge and fingerboard. The dark stick must not touch the strings. Keep the other three strings visibly separate.",
-            "FRAMING & FOCUS: portrait 9:16, bridge across the lower-middle frame and fingerboard extending behind it; keep the complete bridge, exactly four strings, fingerboard, slim dark wooden stick, narrow pale horsehair ribbon and contact point inside frame, simultaneously sharp. No cropping, blur, merging or warped parts.",
+            "SHOT 2 MACRO CLOSE-UP: Single still macro frame; 85mm lens, string-height three-quarter view, moderate depth of field; bridge, four strings, fingerboard, both bow parts and contact point simultaneously sharp.",
+            "VIOLIN GEOMETRY: one complete upright maple bridge, both feet on amber top plate; exactly four separate, parallel, countable strings; distinct ebony fingerboard behind bridge. Keep all four strings visible on both sides.",
+            "BOW GEOMETRY: exactly one bow crosses the strings at 90 degrees. Show straight dark stick and pale horsehair as two separate, continuous, parallel parts with a visible gap; joined only at frog and tip. No extra rods or duplicate bows.",
+            "CONTACT POINT: Hair alone crosses at about 90° and touches one string between bridge and fingerboard at one clear point. The stick never touches strings; the other three remain separate.",
+            "FRAMING & FOCUS: portrait 9:16; complete bridge, four separate strings, fingerboard, both bow parts and contact point fully inside frame and simultaneously sharp; do not crop or merge parts. No blur or warped parts.",
             "RECURRING ASSET ANCHOR: " + anchor + "; maintain believable violin proportions.",
-            "STYLE & LIGHT: photorealistic violin performance photograph; real maple, ebony and amber varnish; warm amber light. No illustration or 3D render.",
+            "STYLE & LIGHT: photorealistic violin performance photograph, macro editorial detail; real maple, ebony, steel strings and amber varnish; warm 3200K key, neutral fill, soft amber rim. No illustration or 3D render.",
             "BACKGROUND: quiet charcoal and walnut tones, no text, logos or watermarks.",
         ]
     else:

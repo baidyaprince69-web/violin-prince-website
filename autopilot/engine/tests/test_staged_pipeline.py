@@ -129,6 +129,26 @@ class StagedPipelineTests(unittest.TestCase):
             finally:
                 pipeline.PACKAGE = original
 
+    def test_visual_package_rejects_contradictory_storyboard_review(self):
+        with tempfile.TemporaryDirectory() as folder:
+            self._write_package(folder, include_images=True)
+            metadata_path = Path(folder) / "stage.json"
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            # A positive pass/score cannot override explicit continuity defects.
+            metadata["storyboard_review"]["issues"] = ["same performer changes between scenes"]
+            metadata["storyboard_review"]["summary"] = "All three panels look consistent."
+            metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+            original = pipeline.PACKAGE
+            try:
+                pipeline.PACKAGE = Path(folder)
+                with self.assertRaisesRegex(
+                    pipeline.PipelineError, "storyboard has not passed AI continuity review"
+                ):
+                    pipeline._read_package(require_images=True)
+            finally:
+                pipeline.PACKAGE = original
+
     def test_visual_package_rejects_scene_review_with_unresolved_issues(self):
         with tempfile.TemporaryDirectory() as folder:
             self._write_package(folder, include_images=True)
@@ -290,7 +310,7 @@ class StagedPipelineTests(unittest.TestCase):
 
     def test_vision_checklist_requires_every_individual_visual_check(self):
         checks = [
-            "bridge", "four_strings", "fingerboard", "bow_stick",
+            "bridge", "four_strings", "fingerboard", "one_bow", "bow_stick",
             "horsehair", "hair_contact", "all_in_focus",
         ]
         answer = "; ".join(f"{key}=YES" for key in checks)
@@ -414,6 +434,28 @@ class StagedPipelineTests(unittest.TestCase):
         self.assertFalse(review["passed"])
         self.assertEqual(review["score"], 97)
         self.assertIn("performer identity differs", review["issues"][0])
+
+    def test_json_pass_is_rejected_when_a_required_check_contradicts_it(self):
+        required = ["same_performer", "same_violin", "macro_anatomy", "consistent_palette"]
+        answer = json.dumps({
+            "score": 99,
+            "passed": True,
+            "issues": [],
+            "checks": {
+                "same_performer": "NO",
+                "same_violin": "YES",
+                "macro_anatomy": "YES",
+                "consistent_palette": "YES",
+            },
+            "summary": "The same performer appears in every scene.",
+        })
+        review = pipeline._parse_vision_assessment(
+            {"result": {"answer": answer}},
+            label="storyboard continuity reviewer",
+            required_checks=required,
+        )
+        self.assertFalse(review["passed"])
+        self.assertIn("same_performer: reviewer marked NO", review["issues"])
 
     def test_empty_vision_response_reports_provider_field_shape(self):
         diagnostic = pipeline._parse_vision_assessment(
