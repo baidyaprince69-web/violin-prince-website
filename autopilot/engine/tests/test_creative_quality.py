@@ -1,4 +1,5 @@
 """Offline tests for Phase 1 creative quality and resilient rendering."""
+import hashlib
 import os
 import sys
 import tempfile
@@ -53,50 +54,14 @@ class CreativeQualityTests(unittest.TestCase):
         # The centre remains the original image colour rather than a crop-only substitute.
         self.assertEqual(frame.getpixel((360, 640)), (160, 90, 45))
 
-    def test_precision_violin_macro_has_physically_ordered_geometry(self):
-        with tempfile.TemporaryDirectory() as folder:
-            target = Path(folder) / "macro-contact.jpg"
-            result = pipeline.make_macro_contact_illustration(target)
-            self.assertTrue(target.is_file())
-            self.assertEqual((result["width"], result["height"]), (720, 1280))
-            self.assertEqual(result["string_count"], 4)
-            self.assertEqual(result["bridge_notch_count"], 4)
-            self.assertEqual(result["bridge_foot_count"], 2)
-            self.assertEqual(result["highlighted_contact_points"], 1)
-            self.assertEqual(result["active_contact_string_number"], 2)
-            self.assertTrue(result["contact_between_fingerboard_and_bridge"])
-            self.assertLess(
-                result["fingerboard_end_y"] + 18,
-                result["contact_y"],
-            )
-            self.assertLess(result["contact_y"], result["bridge_center_y"] - 28)
-            self.assertTrue(result["bow_stick_and_horsehair_separate"])
-            self.assertGreaterEqual(result["bow_hair_stick_separation_px"], 60)
-            self.assertTrue(result["hair_contacts_selected_string"])
-            self.assertEqual(result["bow_hair_contact_string_number"], 2)
-            self.assertEqual(len(result["string_spacing_at_contact_y_px"]), 3)
-            self.assertTrue(all(value >= 50 for value in result["string_spacing_at_contact_y_px"]))
-            positions = result["string_positions_at_contact_y"]
-            self.assertEqual(len(positions), 4)
-            self.assertTrue(all(a < b for a, b in zip(positions, positions[1:])))
-            self.assertTrue(
-                all((b - a) >= 55 for a, b in zip(positions, positions[1:]))
-            )
-            with Image.open(target) as illustration:
-                self.assertEqual(illustration.size, (720, 1280))
-                self.assertEqual(illustration.mode, "RGB")
-
-    def test_precision_macro_is_selected_only_for_violin_bow_performance(self):
-        plan = {"topic": "How a violinist shapes a phrase"}
-        scene = {"image_prompt": "Violin bow hair contacting one string"}
-        self.assertTrue(pipeline.use_precision_macro(plan, scene, 1))
-        self.assertFalse(pipeline.use_precision_macro(plan, scene, 0))
-        self.assertFalse(pipeline.use_precision_macro({"topic": "A cello story"}, scene, 1))
-        self.assertFalse(pipeline.use_precision_macro({"topic": "A violin and cello comparison"}, scene, 1))
-        self.assertFalse(
-            pipeline.use_precision_macro(plan, {"image_prompt": "A macro view of the bridge"}, 1)
-        )
-
+    def test_visual_stage_generates_and_reviews_all_scene_images_with_ai(self):
+        source = (ENGINE / "run.py").read_text(encoding="utf-8")
+        stage = source.split("def visuals_stage(", 1)[1].split("def render_stage(", 1)[0]
+        self.assertIn("generated = make_image(prompt, index)", stage)
+        self.assertIn("review_scene_image(generated, plan, scene, index)", stage)
+        self.assertNotIn("make_macro_contact_illustration", stage)
+        self.assertNotIn("use_precision_macro", stage)
+        self.assertIn("MAX_IMAGE_QA_ATTEMPTS", stage)
     def test_kinetic_captions_keep_measured_sentence_times_and_animation(self):
         with tempfile.TemporaryDirectory() as folder:
             target = Path(folder) / "narration.ass"
@@ -143,7 +108,8 @@ class CreativeQualityTests(unittest.TestCase):
             self.assertIn("warm", prompt.lower())
             self.assertIn("antique gold", prompt)
             self.assertIn("Avoid blue, teal, cyan or cold-blue backgrounds", prompt)
-            self.assertIn("clearly illustrated concept art rather than photography", prompt)
+            self.assertIn("photorealistic cinematic editorial photography", prompt)
+            self.assertNotIn("clearly illustrated concept art rather than photography", prompt)
             self.assertIn("Portrait 9:16 composition", prompt)
             self.assertLessEqual(len(prompt), pipeline.MAX_IMAGE_PROMPT_CHARS)
         self.assertEqual(len(set(prompts)), 3)
@@ -161,18 +127,18 @@ class CreativeQualityTests(unittest.TestCase):
         }
         prompt = pipeline._scene_visual_prompt(scene, index=1, plan=plan)
         for expected in (
-            "EXTREME CLOSE-UP MACRO",
+            "CONTROLLED MACRO CLOSE-UP",
             "85mm macro lens",
-            "very shallow depth of field",
             "RECURRING ASSET ANCHOR",
             "SINGLE FROZEN MACRO KEYFRAME",
             "string-height three-quarter side angle",
-            "four separate, taut, parallel strings",
-            "crosses the strings from frame-left to frame-right at approximately 90 degrees",
-            "horsehair ribbon—not the bow stick",
-            "one sharply focused contact point",
-            "between the bridge and fingerboard",
-            "no hands are required",
+            "four separate, evenly spaced strings",
+            "straight dark wooden stick and pale horsehair ribbon",
+            "visible narrow gap",
+            "attached only at the frog and tip",
+            "horsehair crosses the strings at approximately 90 degrees",
+            "one clear point between bridge and fingerboard",
+            "do not crop the bridge",
             "no duplicate bows",
         ):
             self.assertIn(expected, prompt)
@@ -193,35 +159,35 @@ class CreativeQualityTests(unittest.TestCase):
         payload = pipeline.image_request_payload(prompt)
         self.assertEqual(payload["prompt"], prompt)
         self.assertIn("SUBJECT & ACTION: Violin bow hair contacting one string", prompt)
+        self.assertIn("photorealistic premium instrument-performance photography", prompt)
         self.assertLessEqual(len(prompt), pipeline.MAX_IMAGE_PROMPT_CHARS)
         for phrase in (
             "SINGLE FROZEN MACRO KEYFRAME",
             "85mm macro lens",
-            "four separate, taut, parallel strings",
-            "horsehair ribbon—not the bow stick",
-            "one sharply focused contact point",
-            "between the bridge and fingerboard",
+            "four separate, evenly spaced strings",
+            "straight dark wooden stick and pale horsehair ribbon",
+            "visible narrow gap",
+            "one clear point between bridge and fingerboard",
         ):
             self.assertIn(phrase, payload["prompt"])
 
-    def test_single_story_review_integrates_macro_and_keeps_scope_to_one_video(self):
+    def test_single_story_review_preserves_ai_images_and_keeps_scope_to_one_video(self):
         source = (ENGINE / "motion_prototype.py").read_text(encoding="utf-8")
-        self.assertIn("pipeline.make_macro_contact_illustration(macro_path)", source)
-        self.assertIn('"macro_contact"', source)
+        self.assertNotIn("pipeline.make_macro_contact_illustration", source)
+        self.assertNotIn('"macro_contact"', source)
+        self.assertIn('"visual_review_status"', source)
         self.assertIn('"single_story_prototype_rendered"', source)
         self.assertIn("Only the primary prepared story is rendered", source)
         self.assertNotIn("second_report = build_prototype", source)
-
     def test_renderer_uses_phrase_consistent_captions_and_cinematic_scene_wipe(self):
         renderer = ENGINE.parent / "motion-prototype" / "render.mjs"
         source = renderer.read_text(encoding="utf-8")
         self.assertIn("const transition=.92;", source)
         self.assertIn("function drawSceneTransition", source)
         self.assertIn("Fine copper rails", source)
-        self.assertIn("if (sceneIndex !== 1 || !scene.macro_contact) return;", source)
-        self.assertIn("D.scenes[sceneIndex]?.macro_contact", source)
-        self.assertIn("Let the instrument anatomy occupy the frame", source)
-        self.assertIn("start: 0.005, end: 0.055", source)
+        self.assertIn("{ start: 0.01, end: 0.065, drift: 1, distance: 8, vertical: -2 }", source)
+        self.assertIn("if (index === 1)", source)
+        self.assertNotIn("const isMacroDetail", source)
         self.assertNotIn('if (TECHNICAL_TERMS.test(clean)) return "outline";', source)
         self.assertIn("Keep one expressive treatment across the full phrase", source)
 
@@ -281,20 +247,24 @@ class CreativeQualityTests(unittest.TestCase):
         self.assertNotIn("Violin bow hair contacting one string", prompt)
         self.assertNotIn("maple bridge supports four separate", prompt)
 
-    def test_square_legacy_image_is_not_reused_and_macro_is_always_regenerated(self):
+    def test_scene_images_are_reused_only_after_vision_review_and_hash_match(self):
         with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
-            square = root / "square.jpg"
-            portrait = root / "portrait.jpg"
-            Image.new("RGB", (1024, 1024), (40, 50, 60)).save(square)
-            Image.new("RGB", (pipeline.W, pipeline.H), (40, 50, 60)).save(portrait)
-            violin_plan = {"topic": "How a violinist shapes a phrase"}
-            violin_scene = {"image_prompt": "Violin bow hair contacting one string"}
-            other_scene = {"image_prompt": "A lighthouse at dawn"}
-            self.assertFalse(pipeline.should_reuse_scene_image(square, violin_plan, other_scene, 0))
-            self.assertTrue(pipeline.should_reuse_scene_image(portrait, violin_plan, other_scene, 0))
-            self.assertFalse(pipeline.should_reuse_scene_image(portrait, violin_plan, violin_scene, 1))
-
+            image = Path(folder) / "portrait.jpg"
+            Image.new("RGB", (720, 1280), (40, 50, 60)).save(image)
+            plan = {"topic": "A violin story"}
+            scene = {"image_prompt": "A violinist performs"}
+            self.assertFalse(pipeline.should_reuse_scene_image(image, plan, scene, 0))
+            digest = hashlib.sha256(image.read_bytes()).hexdigest()
+            approved = {
+                "visual_assets": [{
+                    "mode": "cloudflare_flux_portrait_extended",
+                    "sha256": digest,
+                    "visual_review": {"passed": True, "score": 92},
+                }]
+            }
+            self.assertTrue(pipeline.should_reuse_scene_image(image, plan, scene, 0, approved))
+            changed = {"visual_assets": [dict(approved["visual_assets"][0], sha256="wrong")]}
+            self.assertFalse(pipeline.should_reuse_scene_image(image, plan, scene, 0, changed))
     def test_non_performance_macro_uses_one_clear_focal_detail(self):
         prompt = pipeline._scene_visual_prompt(
             {"image_prompt": "A close view of rosin dust moving along a bow hair"},
