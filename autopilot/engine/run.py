@@ -1211,9 +1211,11 @@ def review_scene_image(path, plan, scene, index):
         ". Recurring visual identity: " + str(plan.get("visual_motif", ""))[:160] +
         ". Required checks: " + checklist +
         ' Return exactly one JSON object and no Markdown: '
-        '{"score":0,"passed":false,"issues":["specific visible defect"],"summary":"brief visual assessment"}. '
-        "Score from 0 to 100. The issues array MUST be empty for a pass. If any required object is missing, "
-        "unclear, cropped, fused or out of focus, set passed=false and list each defect in issues. "
+        '{"score":0,"passed":false,"issues":[],"summary":"brief visual assessment"}. '
+        "Score from 0 to 100. For a passing image set passed=true and issues=[] exactly. "
+        "For a failing image set passed=false and put ONLY specific visible defects in issues. "
+        "Never copy, quote or paraphrase the scene prompt or checklist into issues. If any required object is missing, "
+        "unclear, cropped, fused or out of focus, list that visible defect. "
         "For the violin macro, explicitly count all four strings and confirm the complete bridge, fingerboard, "
         "one separate dark bow stick, one pale horsehair ribbon and the single hair-to-string contact point. "
         "Do not assume a detail exists when hidden or unclear. When uncertain, fail and describe the uncertainty."
@@ -1247,9 +1249,11 @@ def review_storyboard_consistency(path, plan):
         "not merely two different violinists: match face, hairstyle, clothing and overall appearance. "
         "All three panels must also show the same amber-varnished violin design and warm visual identity. "
         "Return exactly one JSON object: "
-        '{"score":0,"passed":false,"issues":["specific continuity defect"],"summary":"brief assessment"}. '
-        "Score 0–100. The issues array MUST be empty for a pass. Any performer identity drift, instrument "
-        "design mismatch, lighting/material/color inconsistency or unclear macro anatomy is a rejection. "
+        '{"score":0,"passed":false,"issues":[],"summary":"brief assessment"}. '
+        "Score 0–100. For a passing storyboard set passed=true and issues=[] exactly. For a failing "
+        "storyboard set passed=false and list ONLY specific visible continuity defects in issues; never copy "
+        "the story brief or checklist into issues. Any performer identity drift, instrument design mismatch, "
+        "lighting/material/color inconsistency or unclear macro anatomy is a rejection. "
         "Do not infer hidden details; uncertainty is a reason to fail."
     )
     result = _vision_query(image_data, question, timeout=120)
