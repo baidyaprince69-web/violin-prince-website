@@ -40,8 +40,31 @@ class StagedPipelineTests(unittest.TestCase):
         (folder / "soundtrack.wav").write_bytes(b"fake soundtrack")
         (folder / "narration.wav").write_bytes(b"fake narration")
         if include_images:
+            assets = []
             for index, shade in enumerate((40, 80, 120), start=1):
-                Image.new("RGB", (120, 200), (shade, shade, shade)).save(folder / f"scene-{index}.jpg")
+                image_path = folder / f"scene-{index}.jpg"
+                Image.new("RGB", (720, 1280), (shade, shade, shade)).save(image_path)
+                import hashlib
+                assets.append({
+                    "file": image_path.name,
+                    "mode": "cloudflare_flux_portrait_extended",
+                    "width": 720,
+                    "height": 1280,
+                    "sha256": hashlib.sha256(image_path.read_bytes()).hexdigest(),
+                    "visual_review": {
+                        "model": pipeline.VISION_MODEL,
+                        "score": 92,
+                        "passed": True,
+                        "issues": [],
+                        "summary": "Test fixture visually approved.",
+                    },
+                })
+            metadata["stage"] = "visuals_ready"
+            metadata["visual_review_status"] = "all_scenes_passed_ai_review_human_review_still_required"
+            metadata["visual_assets"] = assets
+            metadata["visual_modes"] = ["cloudflare_flux_portrait_extended"] * 3
+            metadata["visual_review_model"] = pipeline.VISION_MODEL
+            (folder / "stage.json").write_text(json.dumps(metadata), encoding="utf-8")
         return plan
 
     def test_prepared_package_can_load_before_images_exist(self):
@@ -111,11 +134,12 @@ class StagedPipelineTests(unittest.TestCase):
 
     def test_visual_feedback_is_added_without_changing_base_scene_prompt(self):
         scene = {"image_prompt": "A lighthouse at dawn"}
-        prompt = pipeline._scene_visual_prompt(scene, "use a richer illustrated look and stronger depth")
+        prompt = pipeline._scene_visual_prompt(scene, "use realistic photographic depth and a richer natural background")
         self.assertIn("A lighthouse at dawn", prompt)
-        self.assertIn("richer illustrated look", prompt)
+        self.assertIn("realistic photographic depth", prompt)
         self.assertIn("no watermark", prompt)
-        self.assertIn("premium hand-painted cinematic editorial illustration", prompt)
+        self.assertIn("photorealistic cinematic editorial photography", prompt)
+        self.assertNotIn("premium hand-painted cinematic editorial illustration", prompt)
         self.assertIn("Layered foreground, midground and background", prompt)
 
     def test_full_mode_runs_each_stage_once_in_order(self):
