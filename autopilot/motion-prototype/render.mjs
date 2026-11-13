@@ -406,13 +406,10 @@ window.__DATA__ = ${safeJson};
     const eased = easeInOut(progress);
     const cameraProfiles = [
       { start: 0.035, end: 0.12, drift: -1, distance: 22, vertical: 10 },
-      { start: 0.105, end: 0.18, drift: 1, distance: 15, vertical: -20 },
+      { start: 0.01, end: 0.065, drift: 1, distance: 8, vertical: -2 },
       { start: 0.105, end: 0.045, drift: -1, distance: 12, vertical: 8 }
     ];
-    const isMacroDetail = Boolean(D.scenes[sceneIndex]?.macro_contact);
-    const camera = isMacroDetail
-      ? { start: 0.005, end: 0.055, drift: 1, distance: 6, vertical: -5 }
-      : (cameraProfiles[sceneIndex] || cameraProfiles[0]);
+    const camera = cameraProfiles[sceneIndex] || cameraProfiles[0];
     const zoom = camera.start + (camera.end - camera.start) * eased;
     const scale = Math.max(W / image.width, H / image.height) * (1 + zoom);
     const drift = camera.drift * (camera.distance * eased + 5 * Math.sin(progress * Math.PI));
@@ -599,9 +596,8 @@ window.__DATA__ = ${safeJson};
     const chartProgress = easeOut((local - 0.82) / Math.max(1.45, sceneDuration * 0.30));
 
     ctx.save();
-    if (scene.macro_contact) {
-      // Let the instrument anatomy occupy the frame: compact editorial heading,
-      // no large progress chart over the fingerboard or bridge.
+    if (index === 1) {
+      // Keep the detail scene legible: compact editorial heading and no large chart over the close-up.
       const macroFade = ctx.createLinearGradient(0, top - 26, 0, top + 220);
       macroFade.addColorStop(0, "rgba(12,8,7,.72)");
       macroFade.addColorStop(0.72, "rgba(12,8,7,.22)");
