@@ -58,6 +58,41 @@ def write_srt(cues: list[dict], output_path: str | Path) -> Path:
     return target
 
 
+def word_cues_from_tokens(tokens, offset_seconds: float = 0.0,
+                         chunk_duration: float | None = None) -> list[dict]:
+    """Convert Kokoro's model-predicted English token times into safe word cues.
+
+    Kokoro exposes start_ts/end_ts on English MToken objects after joining its
+    predicted phoneme durations. These are generated with the same inference
+    pass as the audio, so no second ASR/forced-alignment model is required.
+    """
+    cues: list[dict] = []
+    offset = max(0.0, float(offset_seconds))
+    limit = None if chunk_duration is None else max(0.0, float(chunk_duration))
+    for token in tokens or []:
+        text = str(getattr(token, "text", "") or "").strip()
+        if not text:
+            continue
+        try:
+            start = float(token.start_ts)
+            end = float(token.end_ts)
+        except (AttributeError, TypeError, ValueError):
+            continue
+        if not (start >= 0.0 and end > start):
+            continue
+        if limit is not None:
+            start = min(start, limit)
+            end = min(end, limit)
+        if end - start < 0.015:
+            continue
+        cues.append({
+            "start": round(offset + start, 3),
+            "end": round(offset + end, 3),
+            "text": text,
+        })
+    return cues
+
+
 def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict]:
     """Generate a spoken narration WAV and sentence-level subtitle timings."""
     import numpy as np
@@ -82,19 +117,41 @@ def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict
     pipeline = KPipeline(lang_code=LANG_CODE)
     audio_parts: list[np.ndarray] = []
     subtitle_cues: list[dict] = []
+    word_cues: list[dict] = []
     cursor = 0
     pause = np.zeros(int(PAUSE_SECONDS * SAMPLE_RATE), dtype=np.float32)
 
     for sentence_index, sentence in enumerate(sentences):
         sentence_parts: list[np.ndarray] = []
-        for _graphemes, _phonemes, audio in pipeline(
+        sentence_word_cues: list[dict] = []
+        chunk_offset = 0.0
+        for generated in pipeline(
             sentence,
             voice=VOICE,
             speed=1.0,
         ):
+            # KPipeline.Result keeps the English MToken objects and their
+            # start_ts/end_ts while remaining tuple-compatible with older code.
+            audio = getattr(generated, "audio", None)
+            if audio is None:
+                try:
+                    audio = generated[2]
+                except (IndexError, TypeError):
+                    audio = None
+            if audio is None:
+                continue
             samples = np.asarray(audio, dtype=np.float32).reshape(-1)
             if samples.size:
+                chunk_duration = samples.size / SAMPLE_RATE
+                sentence_word_cues.extend(
+                    word_cues_from_tokens(
+                        getattr(generated, "tokens", None),
+                        offset_seconds=chunk_offset,
+                        chunk_duration=chunk_duration,
+                    )
+                )
                 sentence_parts.append(samples)
+                chunk_offset += chunk_duration
 
         if not sentence_parts:
             raise RuntimeError("Kokoro returned no speech for a narration sentence.")
@@ -111,6 +168,12 @@ def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict
         cursor += int(spoken.size)
         end = cursor / SAMPLE_RATE
         subtitle_cues.append({"start": round(start, 3), "end": round(end, 3), "text": sentence})
+        for cue in sentence_word_cues:
+            word_cues.append({
+                "start": round(start + cue["start"], 3),
+                "end": round(start + cue["end"], 3),
+                "text": cue["text"],
+            })
 
         if sentence_index < len(sentences) - 1:
             audio_parts.append(pause)
@@ -145,4 +208,9 @@ def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict
         "word_count": word_count,
         "sample_rate": int(info.samplerate),
         "subtitle_cues": subtitle_cues,
+        "word_cues": word_cues,
+        "word_timing_method": (
+            "kokoro_predicted_phoneme_durations"
+            if word_cues else "unavailable_sentence_fallback"
+        ),
     }
