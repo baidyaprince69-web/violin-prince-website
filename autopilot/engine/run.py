@@ -1139,7 +1139,7 @@ def _vision_result_diagnostic(result):
 
 
 def _parse_vision_assessment(result, label="visual reviewer", required_checks=None):
-    """Accept structured JSON or a complete, explicit per-requirement YES/NO checklist."""
+    """Require a scored JSON review or every explicitly named visual check."""
     raw = _vision_text(result)
     assessment = None
     decoder = json.JSONDecoder()
@@ -1169,13 +1169,30 @@ def _parse_vision_assessment(result, label="visual reviewer", required_checks=No
         except (KeyError, TypeError, ValueError, json.JSONDecodeError):
             assessment = None
         else:
+            checks_result = {}
+            if required_checks:
+                checks_object = assessment.get("checks")
+                if not isinstance(checks_object, dict):
+                    issues.append("required per-feature checks object is missing")
+                else:
+                    for check in required_checks:
+                        value = checks_object.get(check)
+                        if value is True or (isinstance(value, str) and value.strip().upper() == "YES"):
+                            checks_result[check] = "YES"
+                        elif value is False or (isinstance(value, str) and value.strip().upper() == "NO"):
+                            checks_result[check] = "NO"
+                            issues.append(f"{check}: reviewer marked NO")
+                        else:
+                            issues.append(f"{check}: missing or invalid check verdict")
+            passed = bool(model_passed and score >= MIN_IMAGE_QA_SCORE and not issues)
             return {
                 "model": VISION_MODEL,
                 "score": score,
-                "passed": bool(model_passed and score >= MIN_IMAGE_QA_SCORE and not issues),
+                "passed": passed,
                 "issues": issues[:8],
                 "summary": summary,
                 "assessment_mode": "structured_json",
+                "checks": checks_result,
             }
 
     compact = re.sub(r"\s+", " ", raw).strip()
@@ -1219,7 +1236,7 @@ def _parse_vision_assessment(result, label="visual reviewer", required_checks=No
         "model": VISION_MODEL,
         "score": 0,
         "passed": False,
-        "issues": [f"{label} response lacked structured JSON or a required checklist"],
+        "issues": [f"{label} response lacked a validated review format"],
         "summary": diagnostic,
         "assessment_mode": "unresolved_text_response",
     }
