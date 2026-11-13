@@ -619,10 +619,14 @@ def make_plan(items, recent=None):
         "Build context, reveal one memorable sourced detail, "
         "and finish with a satisfying payoff. No greeting, filler padding, generic introduction or misleading clickbait. "
         "Use a cinematic storytelling style for human-interest topics and a clear documentary style for factual discoveries. "
-        "Exactly 3 scenes. Each scene needs a concise caption of 9 words maximum and an original, specific image_prompt "
-        "in English. Scene 1 must visualise the hook, scene 2 must show the exact object/action/detail that makes this "
-        "story distinctive, and scene 3 must visually resolve the story. Use three clearly different compositions, "
-        "not three unrelated stock images. Avoid generic musician portraits unless the story specifically concerns a person. "
+        "Exactly 3 scenes. Each scene needs a concise caption of 9 words maximum, an original specific image_prompt "
+        "in English, a graphic_label of 1–3 words, and a graphic_detail of 4–10 words. The graphic_detail must clarify "
+        "the scene using only facts already supported by the supplied research or narration. Never invent a number, "
+        "date, measurement, comparison, quote, statistic, or causal claim for a graphic. If exact data is unavailable, "
+        "write a concise explanatory phrase rather than a statistic. Scene 1 must visualise the hook, scene 2 must show "
+        "the exact object/action/detail that makes this story distinctive, and scene 3 must visually resolve the story. "
+        "Use three clearly different compositions, not three unrelated stock images. Avoid generic musician portraits "
+        "unless the story specifically concerns a person. "
         "Do not illustrate a metaphor as a factual event: for example, if only one instrument component travelled to orbit, "
         "show that component in space rather than an entire violin floating there. Keep the main subject and visual motif "
         "consistent across the three scenes. If no suitable story exists, return skip and reason."
@@ -926,11 +930,21 @@ def make_plan(items, recent=None):
             "Storytelling topic has no traceable research source after ID, URL, title, "
             f"publisher, and topic matching. Planner references: {str(refs)[:240]}."
         )
-    for scene in scenes:
+    graphic_labels = ("THE HOOK", "THE KEY DETAIL", "THE PAYOFF")
+    narration_beats = narration_sentences(narration_script)
+    for index, scene in enumerate(scenes):
         if not scene.get("caption") and scene.get("visual_caption"):
             scene["caption"] = scene["visual_caption"]
         if not scene.get("caption") or not scene.get("image_prompt"):
             raise PipelineError("A scene is missing its caption or visual prompt.")
+        scene["graphic_label"] = re.sub(
+            r"\s+", " ", str(scene.get("graphic_label") or graphic_labels[index])
+        ).strip()[:32]
+        detail = re.sub(r"\s+", " ", str(scene.get("graphic_detail") or "")).strip()
+        if not detail:
+            beat_index = min(index, max(0, len(narration_beats) - 1))
+            detail = narration_beats[beat_index] if narration_beats else str(scene["caption"])
+        scene["graphic_detail"] = textwrap.shorten(detail, width=88, placeholder="…")
     (WORK / "creative_plan.json").write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
     return plan
 
@@ -1008,16 +1022,6 @@ def make_card(source, caption, index, title=""):
                       stroke_width=2, stroke_fill=(0, 0, 0, 170))
             title_y += 43
 
-    caption_lines = textwrap.wrap(str(caption).strip(), width=27)[:2]
-    caption_font = font(34)
-    caption_y = 1010 - max(0, len(caption_lines) - 1) * 22
-    for line in caption_lines:
-        box = draw.textbbox((0, 0), line, font=caption_font, stroke_width=1)
-        x = max(30, (W - (box[2] - box[0])) // 2)
-        draw.text((x, caption_y), line, font=caption_font, fill=white,
-                  stroke_width=2, stroke_fill=(0, 0, 0, 210))
-        caption_y += 46
-
     draw.line((34, 1190, W - 34, 1190), fill=(235, 202, 139, 135), width=1)
     draw.text((34, 1207), "ORIGINAL STORY • ORIGINAL SOUNDTRACK",
               font=font(13), fill=(242, 230, 208, 240))
@@ -1027,6 +1031,107 @@ def make_card(source, caption, index, title=""):
     p = OUT / f"card-{index + 1}.png"
     canvas.convert("RGB").save(p, "PNG", optimize=True)
     return p
+
+def make_motion_graphic_card(scene, index, plan, target):
+    """Create a transparent, source-grounded infographic panel for one story beat."""
+    width, height = 620, 245
+    image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    gold = (235, 202, 139, 255)
+    ivory = (255, 250, 241, 255)
+    muted = (191, 202, 214, 255)
+    draw.rounded_rectangle(
+        (4, 4, width - 4, height - 4), radius=24,
+        fill=(7, 13, 24, 222), outline=(235, 202, 139, 220), width=2
+    )
+    draw.rounded_rectangle((24, 26, 32, height - 26), radius=4, fill=gold)
+    label = re.sub(r"\s+", " ", str(scene.get("graphic_label") or ("STORY BEAT " + str(index + 1)))).strip().upper()
+    label = textwrap.shorten(label, width=30, placeholder="…")
+    draw.text((54, 25), f"{index + 1:02d}  /  03     {label}", font=font(16), fill=gold)
+
+    headline = textwrap.wrap(str(scene.get("caption") or plan.get("title", "")).strip(), width=28)[:2]
+    y = 66
+    for line in headline:
+        draw.text((54, y), line, font=font(30), fill=ivory)
+        y += 38
+
+    detail = textwrap.wrap(str(scene.get("graphic_detail") or "").strip(), width=47)[:2]
+    detail_y = 151 if len(headline) > 1 else 145
+    for line in detail:
+        draw.text((54, detail_y), line, font=font(17), fill=muted)
+        detail_y += 24
+
+    # A restrained three-step progress motif makes the sequence legible without
+    # adding unsupported data or pretending the story contains a measured chart.
+    line_y = height - 22
+    draw.line((width - 112, line_y, width - 26, line_y), fill=(235, 202, 139, 105), width=2)
+    for step in range(3):
+        x = width - 112 + step * 43
+        fill = gold if step <= index else (120, 133, 151, 180)
+        draw.ellipse((x - 5, line_y - 5, x + 5, line_y + 5), fill=fill)
+    target = Path(target)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    image.save(target, "PNG", optimize=True)
+    return target
+
+
+def _ass_timestamp(seconds):
+    centiseconds = max(0, int(round(float(seconds) * 100)))
+    hours, remainder = divmod(centiseconds, 360000)
+    minutes, remainder = divmod(remainder, 6000)
+    whole_seconds, fraction = divmod(remainder, 100)
+    return f"{hours}:{minutes:02}:{whole_seconds:02}.{fraction:02}"
+
+
+def write_kinetic_ass(cues, output_path):
+    """Write animated sentence-level captions aligned to Kokoro's measured cue times."""
+    target = Path(output_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    header = [
+        "[Script Info]",
+        "Title: Violin Prince Kinetic Captions",
+        "ScriptType: v4.00+",
+        f"PlayResX: {W}",
+        f"PlayResY: {H}",
+        "WrapStyle: 2",
+        "ScaledBorderAndShadow: yes",
+        "",
+        "[V4+ Styles]",
+        "Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding",
+        "Style: VP,DejaVu Sans,39,&H00F8F5EF,&H008BCEEA,&HCC07111F,&HCC07111F,-1,0,3,1.6,0,2,54,54,162,1",
+        "",
+        "[Events]",
+        "Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text",
+    ]
+    events = []
+    stopwords = {"the", "and", "for", "with", "from", "that", "this", "into", "was", "are", "its", "one", "when", "their"}
+    for cue in cues:
+        start = float(cue.get("start", 0))
+        end = float(cue.get("end", 0))
+        phrase = re.sub(r"\s+", " ", str(cue.get("text", "")).strip())
+        if not phrase or end <= start:
+            continue
+        words = re.findall(r"[A-Za-z0-9’'-]+", phrase)
+        candidates = [word for word in words if word.casefold() not in stopwords and len(word) >= 4]
+        emphasis = max(candidates or words or [""], key=len)
+        if emphasis:
+            phrase = re.sub(
+                rf"(?i)\b({re.escape(emphasis)})\b",
+                r"{\c&H008BCEEA&\b1}\1{\c&H00F8F5EF&\b0}",
+                phrase,
+                count=1,
+            )
+        phrase = phrase.replace("{", r"\{").replace("}", r"\}")
+        wrapped = r"\N".join(textwrap.wrap(phrase, width=27)[:2])
+        animated = r"{\fad(180,220)\fscx96\fscy96\t(0,180,\fscx100\fscy100)}" + wrapped
+        events.append(
+            f"Dialogue: 0,{_ass_timestamp(start)},{_ass_timestamp(end)},VP,,0,0,0,,{animated}"
+        )
+    if not events:
+        raise PipelineError("No valid narration cues were available for kinetic captions.")
+    target.write_text("\n".join(header + events) + "\n", encoding="utf-8")
+    return target
+
 
 def command(args):
     p = subprocess.run(args, capture_output=True, text=True)
@@ -1095,14 +1200,23 @@ def scene_durations_from_narration(narration_info, total_seconds=24.0):
     return (first, second, third)
 
 
-def camera_motion_filter(frame_count):
-    """Create one slow, centered push-in with cubic ease-in/ease-out motion."""
+def camera_motion_filter(frame_count, scene_index=0):
+    """Use a gentle, eased push with a different continuous drift in each scene."""
     count = max(1, int(frame_count))
     progress = f"min(1,on/{max(1, count - 1)})"
     eased = f"({progress}*{progress}*(3-2*{progress}))"
+    if int(scene_index) % 3 == 0:
+        x_position = f"(0.40+0.20*{eased})"
+        y_position = "0.5"
+    elif int(scene_index) % 3 == 1:
+        x_position = "0.5"
+        y_position = f"(0.42+0.16*{eased})"
+    else:
+        x_position = f"(0.60-0.20*{eased})"
+        y_position = "0.5"
     return (
-        f"zoompan=z='1.01+0.05*{eased}':"
-        "x='(iw-iw/zoom)*0.5':y='(ih-ih/zoom)*0.5':"
+        f"zoompan=z='1.005+0.055*{eased}':"
+        f"x='(iw-iw/zoom)*{x_position}':y='(ih-ih/zoom)*{y_position}':"
         f"d={count}:s={W}x{H}:fps={FPS}"
     )
 
@@ -1127,16 +1241,26 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         else:
             image = make_image(visual_prompt, i)
         card = make_card(image, scene["caption"], i, plan.get("title", ""))
+        graphic = make_motion_graphic_card(
+            scene, i, plan, OUT / f"motion-graphic-{i + 1}.png"
+        )
         clip = OUT / f"scene-{i + 1}.mp4"
         frame_count = max(1, int(round(scene_seconds * FPS)))
-        # Keep the same gentle camera direction in every shot. The cubic easing
-        # removes the stop/start feel and avoids the previous alternating pan.
-        camera = camera_motion_filter(frame_count)
-        vf = camera + ",format=yuv420p"
+        camera = camera_motion_filter(frame_count, i)
+        panel_fade_out = max(0.0, scene_seconds - 0.34)
+        scene_filter = (
+            f"[0:v]{camera},format=rgba[base];"
+            f"[1:v]format=rgba,fade=t=in:st=0:d=0.30:alpha=1,"
+            f"fade=t=out:st={panel_fade_out:.3f}:d=0.28:alpha=1[panel];"
+            "[base][panel]overlay=x='(W-w)/2':"
+            "y='H-h-340-18*(1-min(1,t/0.30))':format=auto,format=yuv420p[v]"
+        )
         command(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
                  "-loop", "1", "-framerate", str(FPS), "-i", str(card),
-                 "-t", f"{scene_seconds:.3f}", "-vf", vf, "-an", "-c:v", "libx264",
-                 "-preset", "veryfast", "-crf", "25", "-pix_fmt", "yuv420p", str(clip)])
+                 "-loop", "1", "-framerate", str(FPS), "-i", str(graphic),
+                 "-t", f"{scene_seconds:.3f}", "-filter_complex", scene_filter,
+                 "-map", "[v]", "-an", "-c:v", "libx264", "-preset", "veryfast",
+                 "-crf", "25", "-pix_fmt", "yuv420p", str(clip)])
         clips.append(clip)
 
     silent = OUT / "silent.mp4"
@@ -1160,25 +1284,24 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
     subtitle_path = OUT / "narration.srt"
     from voiceover import write_srt
     write_srt(narration_info.get("subtitle_cues", []), subtitle_path)
+    ass_path = OUT / "narration.ass"
+    write_kinetic_ass(narration_info.get("subtitle_cues", []), ass_path)
     if audio_source == "generated_ambient_fallback":
-        bed_volume = "0.12"
+        bed_volume = "0.18"
     elif audio_source == "sampled_violin_cc0":
-        bed_volume = "0.16"
+        bed_volume = "0.24"
     else:
-        bed_volume = "0.20"
+        bed_volume = "0.26"
     audio_filter = (
         f"[1:a]volume={bed_volume}[bed];"
-        "[2:a]highpass=f=75,acompressor=threshold=-20dB:ratio=3:attack=12:release=180[voice];"
-        "[bed][voice]amix=inputs=2:duration=longest:dropout_transition=1,"
+        "[2:a]highpass=f=75,acompressor=threshold=-20dB:ratio=3:attack=12:release=180,"
+        "volume=1.15[voice];"
+        "[bed][voice]sidechaincompress=threshold=0.035:ratio=10:attack=18:release=620:knee=4:makeup=1[duckedbed];"
+        "[duckedbed][voice]amix=inputs=2:duration=longest:dropout_transition=1,"
         "loudnorm=I=-16:TP=-1.5:LRA=11,"
         "afade=t=in:st=0:d=0.5,afade=t=out:st=22:d=2[aout]"
     )
-    video_filter = (
-        "subtitles=work/output/narration.srt:"
-        "force_style='FontName=DejaVu Sans,FontSize=18,PrimaryColour=&H00FFFFFF,"
-        "OutlineColour=&H90000000,BorderStyle=3,Outline=2,Shadow=0,Alignment=2,MarginV=100',"
-        "format=yuv420p"
-    )
+    video_filter = "subtitles=work/output/narration.ass,format=yuv420p"
     command(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
              "-i", str(silent), "-stream_loop", "-1", "-i", str(audio_path),
              "-i", str(narration_path),
@@ -1196,10 +1319,13 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         "narration_duration_seconds": round(narration_end, 2),
         "voice_coverage_percent": round(min(100.0, narration_end / 24.0 * 100.0), 1),
         "music_only_ending_seconds": round(max(0.0, 24.0 - narration_end), 2),
-        "camera_motion": "smooth centered ease-in-out push-in",
+        "camera_motion": "scene-specific eased push-in and gentle drift",
+        "motion_graphics": 3,
+        "subtitle_style": "animated sentence-level kinetic typography",
         "scene_transition": "0.35-second crossfade",
         "audio_source": audio_source,
-        "creative_quality_version": 3,
+        "audio_mix": "voice-priority sidechain ducking with music recovery in pauses",
+        "creative_quality_version": 4,
     })
     (OUT / "quality_report.json").write_text(
         json.dumps(quality, ensure_ascii=False, indent=2), encoding="utf-8"
