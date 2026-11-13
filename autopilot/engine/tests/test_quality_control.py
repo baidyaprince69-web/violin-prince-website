@@ -107,6 +107,13 @@ class QualityControlTests(unittest.TestCase):
         self.assertIn("word_timing_method", stage)
         self.assertIn("validate_cues(", stage)
 
+    def test_production_quality_gate_keeps_freeze_detection_enabled(self):
+        source = (ENGINE / "run.py").read_text(encoding="utf-8")
+        self.assertIn("check_freeze=float(FPS) >= 20.0", source)
+        gate = (ENGINE / "quality_control.py").read_text(encoding="utf-8")
+        self.assertIn('freezedetect=n=-50dB:d=1.5', gate)
+        self.assertIn("if check_freeze:", gate)
+
     def test_renderer_distinguishes_legacy_visual_packages_from_ai_reviewed_packages(self):
         source = (ENGINE / "motion_prototype.py").read_text(encoding="utf-8")
         helper = source.split("def _validate_approved_visual_package(", 1)[1].split("def _mix_audio(", 1)[0]

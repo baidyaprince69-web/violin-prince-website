@@ -355,21 +355,25 @@ def run_quality_gate(
     metrics["longest_black_segment_seconds"] = round(longest_black, 3)
     record("extended_black_frames", black.returncode == 0 and longest_black < 0.75, round(longest_black, 3), "< 0.75s contiguous black", "video")
 
-    freeze = _run([
-        "ffmpeg", "-hide_banner", "-i", str(path),
-        "-vf", "freezedetect=n=-50dB:d=1.5", "-an", "-f", "null", "-",
-    ])
-    freeze_log = freeze.stderr.decode("utf-8", "replace")
-    freeze_durations = _event_durations(freeze_log, "freeze_duration")
-    longest_freeze = max(freeze_durations, default=0.0)
-    metrics["longest_freeze_segment_seconds"] = round(longest_freeze, 3)
-    record(
-        "extended_freeze_frames",
-        freeze.returncode == 0 and longest_freeze < 1.5,
-        round(longest_freeze, 3),
-        "< 1.5s contiguous freeze",
-        "video",
-    )
+    if check_freeze:
+        freeze = _run([
+            "ffmpeg", "-hide_banner", "-i", str(path),
+            "-vf", "freezedetect=n=-50dB:d=1.5", "-an", "-f", "null", "-",
+        ])
+        freeze_log = freeze.stderr.decode("utf-8", "replace")
+        freeze_durations = _event_durations(freeze_log, "freeze_duration")
+        longest_freeze = max(freeze_durations, default=0.0)
+        metrics["longest_freeze_segment_seconds"] = round(longest_freeze, 3)
+        record(
+            "extended_freeze_frames",
+            freeze.returncode == 0 and longest_freeze < 1.5,
+            round(longest_freeze, 3),
+            "< 1.5s contiguous freeze",
+            "video",
+        )
+    
+    else:
+        warnings.append("Freeze-frame detection skipped for the low-frame-rate synthetic smoke-test profile.")
 
     if audio_required and audio is not None:
         loudness = _run([
