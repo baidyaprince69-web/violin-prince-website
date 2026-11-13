@@ -282,6 +282,20 @@ class StagedPipelineTests(unittest.TestCase):
         self.assertFalse(mocked.call_args.args[1]["stream"])
         self.assertTrue(mocked.call_args.args[1]["reasoning"])
 
+    def test_storyboard_repair_selects_macro_or_final_performer_scene(self):
+        self.assertEqual(
+            pipeline._storyboard_repair_scene_index(["bow stick is unclear", "bridge cropped"]),
+            1,
+        )
+        self.assertEqual(
+            pipeline._storyboard_repair_scene_index(["performer identity drift"]),
+            2,
+        )
+        self.assertEqual(
+            pipeline._storyboard_repair_scene_index(["inconsistent lighting direction"]),
+            2,
+        )
+
     def test_violin_macro_prompt_keeps_every_physical_detail_in_focus(self):
         prompt = pipeline._scene_visual_prompt(
             {
