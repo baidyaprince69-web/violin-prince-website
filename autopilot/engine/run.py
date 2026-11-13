@@ -1422,7 +1422,7 @@ def _read_package(require_images=False):
 
 def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
     """Build a compact, complete image prompt; never let the model API clip key constraints."""
-    raw_prompt = re.sub(r"\\s+", " ", str(scene.get("image_prompt", ""))).strip()
+    raw_prompt = re.sub(r"\s+", " ", str(scene.get("image_prompt", ""))).strip()
     if not raw_prompt:
         raise PipelineError("A planned scene has no image prompt.")
 
@@ -1440,13 +1440,13 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         raw_prompt,
     ]).lower()
     performance_related = bool(re.search(
-        r"\\b(violinist|virtuoso|musician|performer|performance|playing|bowing|concert|"
-        r"rapid|difficult|speed|fingerboard|bow hand|left hand|right hand|technique)\\b",
+        r"\b(violinist|virtuoso|musician|performer|performance|playing|bowing|concert|"
+        r"rapid|difficult|speed|fingerboard|bow hand|left hand|right hand|technique)\b",
         context,
     ))
     scene_index = max(0, min(2, int(index)))
     compact_prompt = textwrap.shorten(raw_prompt, width=190 if performance_related and scene_index == 1 else 250, placeholder="…")
-    anchor = textwrap.shorten(re.sub(r"\\s+", " ", anchor_raw), width=125, placeholder="…")
+    anchor = textwrap.shorten(re.sub(r"\s+", " ", anchor_raw), width=125, placeholder="…")
 
     if performance_related and scene_index == 1:
         # Put the physical contact geometry before stylistic detail. FLUX receives
@@ -1495,7 +1495,7 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
             )
 
     base_prompt = " ".join(prompt_parts)
-    clean_feedback = textwrap.shorten(re.sub(r"\\s+", " ", str(feedback or "")).strip(), width=90, placeholder="…")
+    clean_feedback = textwrap.shorten(re.sub(r"\s+", " ", str(feedback or "")).strip(), width=90, placeholder="…")
     if clean_feedback:
         optional = " ADDITIONAL DIRECTION: " + clean_feedback
         if len(base_prompt) + len(optional) <= MAX_IMAGE_PROMPT_CHARS:
