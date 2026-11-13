@@ -233,6 +233,7 @@ jobs:
             echo "The artifact includes fresh-visual-test-manifest.json so the skipped stage is visible."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # Re-review the exact failed Scene 1 image; generate only if it is not reusable.
       - name: Restore the prior unapproved Scene 1 candidate for targeted re-review
         if: env.FRESH_VISUAL_TEST == 'true'
         uses: actions/download-artifact@v4
