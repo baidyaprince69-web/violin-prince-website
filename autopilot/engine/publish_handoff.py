@@ -359,6 +359,16 @@ def build_publish_manifest(
     if audio_rights == "rights_review_required":
         blockers.append("Soundtrack origin or license needs review before publication.")
 
+    factual = provenance.get("factual_provenance", {})
+    source_count = len(factual.get("sources", [])) if isinstance(factual, dict) else 0
+    evidence_count = len(factual.get("narration_claim_evidence", [])) if isinstance(factual, dict) else 0
+    independent_count = int(factual.get("independent_publisher_count") or 0) if isinstance(factual, dict) else 0
+    if factual.get("status") != "passed" or source_count < 2 or independent_count < 2 or evidence_count < 3:
+        blockers.append(
+            "Factual provenance is incomplete: require passed source/date checks, two independent publisher sources, "
+            "and exact evidence for narration sentences 2–4."
+        )
+
     repository = str(os.environ.get("GITHUB_REPOSITORY") or "").strip()
     github_run = str(os.environ.get("GITHUB_RUN_ID") or run_id).strip()
     release_tag = f"violin-prince-short-{github_run}"
