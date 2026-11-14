@@ -1039,14 +1039,16 @@ def make_plan(items, recent=None, seo_context=None):
         "retail promotions and generic technology announcements, as well as tragedies, graphic events, violence, "
         "disasters and crimes. Pick the strongest specific story, not merely the loudest headline. "
         "Do not invent facts, dates, statistics, motives, quotations or outcomes. Use only factual claims supported "
-        "by supplied research. For documentary topics, cite at least two source_id values from different publisher_domain "
-        "values when available. Every research item has a source_id. The sources field MUST contain one to three exact "
-        "source_id values copied from the supplied research; never invent IDs or rewrite URLs. A single-source "
-        "cinematic story may cite one ID. Use article excerpts as evidence. A Google News headline is only a topic lead, "
-        "not an article excerpt: without evidence_text, limit factual narration to what the headline explicitly states. "
-        "The pipeline resolves source IDs to original article URLs. Do not output publisher homepages as article URLs. "
+        "by supplied research. Every research item has a source_id. Prefer at least two source_id values from "
+        "different publisher_domain values. The sources field MUST contain one to three exact source_id values "
+        "copied from supplied research; never invent IDs or rewrite URLs. Google News headline links are discovery "
+        "leads only and are not final citations. Only direct publisher article pages with readable evidence can be "
+        "retained in the final package. Do not output publisher homepages as article URLs. "
+        "Return a timeline array for dated events, each with event, date (YYYY-MM-DD), status "
+        "(completed, upcoming, ongoing, or unknown), and source_ids. Judge status against today's date. "
+        "Never describe an event as upcoming, scheduled, or something that 'will' happen when its date has passed. "
         "Do not use song lyrics, copied scripts, named copyrighted characters, logos or identifiable living people in images. "
-        "Return JSON only with topic,title,hook,description,hashtags,narration_script,narrative_style,scenes,sources. "
+        "Return JSON only with topic,title,hook,description,hashtags,narration_script,narrative_style,scenes,sources,timeline. "
         "The narration_script must have 40 to 44 spoken words across exactly four natural, complete sentences. "
         "Aim for 41 words with this exact sentence budget: sentence 1 has 8 words, sentence 2 has 9 words, "
         "sentence 3 has 12 words, and sentence 4 has 12 words. Sentence 1 is the curiosity hook and must be resolved. "
@@ -1820,17 +1822,19 @@ def _package_paths():
         "audio": PACKAGE / "soundtrack.wav",
         "narration": PACKAGE / "narration.wav",
         "research": PACKAGE / "research.json",
+        "quality_control": PACKAGE / "quality_control.json",
     }
 
 
 def _read_package(require_images=False):
     paths = _package_paths()
-    for key in ("plan", "metadata", "audio", "narration"):
+    for key in ("plan", "metadata", "audio", "narration", "quality_control"):
         if not paths[key].is_file():
             raise PipelineError(f"Prepared package is missing {paths[key].name}. Download the correct earlier stage artifact.")
     try:
         plan = json.loads(paths["plan"].read_text(encoding="utf-8"))
         metadata = json.loads(paths["metadata"].read_text(encoding="utf-8"))
+        quality = json.loads(paths["quality_control"].read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise PipelineError("Prepared package contains invalid JSON metadata.") from exc
     narration_info = metadata.get("narration_info")
@@ -1838,6 +1842,19 @@ def _read_package(require_images=False):
         raise PipelineError("Prepared package must contain exactly three planned scenes.")
     if not isinstance(narration_info, dict) or not narration_info.get("subtitle_cues"):
         raise PipelineError("Prepared package is missing narration subtitle timings.")
+    if quality.get("status") != "passed" or quality.get("date_check", {}).get("status") != "passed":
+        raise PipelineError("Story quality-control report is not passed; Visuals and Render are blocked.")
+    sources = plan.get("sources", [])
+    domains = {
+        str(source.get("publisher_domain") or urlparse(source.get("url", "")).netloc).lower().removeprefix("www.")
+        for source in sources if isinstance(source, dict) and is_direct_publisher_article(source)
+    }
+    direct_count = sum(1 for source in sources if isinstance(source, dict) and is_direct_publisher_article(source))
+    if direct_count < 2 or len(domains) < 2:
+        raise PipelineError("Prepared story must retain at least two direct publisher articles from independent domains.")
+    review = metadata.get("story_review") or {}
+    if require_images and review.get("approved") is not True:
+        raise PipelineError("Render blocked: the story has not received explicit human approval before Visuals.")
     image_paths = [PACKAGE / f"scene-{index + 1}.jpg" for index in range(3)]
     if require_images:
         for path in image_paths:
@@ -1915,7 +1932,10 @@ def make_storyboard_preview(plan, image_paths, target):
 
 def _write_review_text(plan, target):
     lines = [
-        "VIOLIN PRINCE — PRE-PRODUCTION REVIEW",
+        "VIOLIN PRINCE — PRE-PRODUCTION STORY REVIEW",
+        "",
+        "HUMAN REVIEW REQUIRED: Visual generation is locked until you approve this story.",
+        "Check the narration, event dates, and every direct publisher source below.",
         "",
         "TITLE: " + str(plan.get("title", "")),
         "TOPIC: " + str(plan.get("topic", "")),
@@ -1924,6 +1944,9 @@ def _write_review_text(plan, target):
         "NARRATION:",
         str(plan.get("narration_script", "")),
         "",
+        "DATE CHECK:",
+        json.dumps((plan.get("quality_control") or {}).get("date_check", {}), ensure_ascii=False, indent=2),
+        "",
         "SCENE PLAN:",
     ]
     for index, scene in enumerate(plan.get("scenes", []), start=1):
@@ -1931,7 +1954,27 @@ def _write_review_text(plan, target):
             f"{index}. {scene.get('caption', '')}",
             "   Visual direction: " + str(scene.get("image_prompt", "")),
         ])
-    lines.extend(["", "SOURCES:", *[str(value) for value in plan.get("sources", [])]])
+    lines.extend(["", "DIRECT PUBLISHER SOURCES:"])
+    for index, source in enumerate(plan.get("sources", []), start=1):
+        if isinstance(source, dict):
+            lines.extend([
+                f"{index}. {source.get('publisher_name') or source.get('publisher_domain') or 'Publisher'} — {source.get('title', '')}",
+                "   Publisher domain: " + str(source.get("publisher_domain", "")),
+                "   Published: " + str(source.get("date", "")),
+                "   Direct article URL: " + str(source.get("url", "")),
+                "   Evidence excerpt: " + str(source.get("evidence_excerpt", ""))[:900],
+                "",
+            ])
+        else:
+            lines.append(f"{index}. {source}")
+    lines.extend([
+        "",
+        "QUALITY GATE:",
+        json.dumps(plan.get("quality_control", {}), ensure_ascii=False, indent=2),
+        "",
+        "VISUAL APPROVAL:",
+        "Do not start Visuals until you have reviewed this file and explicitly approve the story.",
+    ])
     Path(target).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -1961,10 +2004,10 @@ def load_reusable_research():
 
 
 def prepare_stage():
-    """Create research, story, narration and soundtrack once; no images or MP4 yet."""
+    """Create research, a source-audited story, narration and soundtrack; no visuals or MP4."""
     claim_run()
     asset, audio = get_audio()
-    report("running", "Preparing research, story, narration and background music bed.")
+    report("running", "Preparing research, source verification, story, narration and background music bed.")
     items = load_reusable_research()
     if items is None:
         items = research()
@@ -1989,6 +2032,30 @@ def prepare_stage():
         ". Search volume is not available from this API."
     )
     plan = make_plan(items, recent_topics(), seo_context=compact_seo_discovery(discovery))
+
+    # Search again for this exact story, then require multiple direct publisher pages.
+    story_items = research_story_sources(plan, items)
+    verified_sources = select_verified_story_sources(plan, story_items, minimum_sources=2)
+    date_check = validate_story_dates(plan)
+    if date_check["status"] != "passed":
+        raise PipelineError(
+            "Story date quality gate blocked this draft: " +
+            " ".join(date_check.get("issues", [])) +
+            " No narration or visuals were created."
+        )
+    plan["sources"] = [
+        {
+            "source_id": source.get("source_id", ""),
+            "publisher_name": source.get("publisher_name") or source.get("publisher_domain", ""),
+            "publisher_domain": source.get("publisher_domain", ""),
+            "title": source.get("title", ""),
+            "url": source.get("url", ""),
+            "date": source.get("date", ""),
+            "evidence_excerpt": str(source.get("evidence_text") or source.get("summary") or "")[:1400],
+            "link_type": "publisher_article",
+        }
+        for source in verified_sources
+    ]
 
     # Validate the selected story topic in the same three languages; this remains
     # read-only and cannot change video metadata or publication permissions.
@@ -2015,6 +2082,9 @@ def prepare_stage():
         "sample_count": (learning or {}).get("sample_count", 0),
         "learning_ready": bool((learning or {}).get("learning_ready")),
     }
+    plan["quality_control"] = build_story_quality_report(plan, verified_sources, date_check)
+    if plan["quality_control"]["status"] != "passed":
+        raise PipelineError("Story quality-control report did not pass. No narration or visuals were created.")
     topic, title = str(plan.get("topic", "")), str(plan.get("title", "Violin Prince Short"))
     from voiceover import synthesize_voiceover
     narration_path, narration_info = synthesize_voiceover(
@@ -2024,9 +2094,12 @@ def prepare_stage():
     paths["audio"].write_bytes(audio)
     shutil.copy2(narration_path, paths["narration"])
     paths["plan"].write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
-    paths["research"].write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+    paths["research"].write_text(json.dumps(story_items, ensure_ascii=False, indent=2), encoding="utf-8")
+    paths["quality_control"].write_text(
+        json.dumps(plan["quality_control"], ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     paths["metadata"].write_text(json.dumps({
-        "schema_version": 1,
+        "schema_version": 2,
         "prepared_run_id": RUN_ID,
         "asset": asset,
         "narration_info": narration_info,
@@ -2034,19 +2107,45 @@ def prepare_stage():
         "title": title,
         "prepared_at": datetime.now(timezone.utc).isoformat(),
         "stage": "prepared",
+        "story_review": {
+            "status": "awaiting_human_review",
+            "approved": False,
+            "approved_at": None,
+            "approval_method": None,
+        },
     }, ensure_ascii=False, indent=2), encoding="utf-8")
     _write_review_text(plan, PACKAGE / "review.txt")
-    log("Prepared package saved. Review review.txt before generating scene images.")
-    report("prepared", "Story, narration and soundtrack are ready for review.", topic, title,
-           metadata={"stage": "prepared"})
+    log(
+        "Story quality control passed: " +
+        str(plan["quality_control"]["verified_source_count"]) +
+        " direct publisher sources across independent domains; date checks passed."
+    )
+    log("Prepared package saved. Review review.txt and quality_control.json; Visuals remains locked pending approval.")
+    report("prepared", "Source-audited story package is ready for human review; Visuals remains locked.", topic, title,
+           metadata={"stage": "prepared", "story_review": "awaiting_human_review",
+                     "verified_sources": len(verified_sources), "date_check": "passed"})
     return 0
 
 
 def visuals_stage(feedback=""):
-    """Generate only the three scene images from a previously prepared package."""
+    """Generate scene images only after an explicit review of the prepared story."""
     if not CF_ACCOUNT or not CF_TOKEN:
         raise PipelineError("CF_ACCOUNT_ID and CF_AI_TOKEN are required for the Visuals stage.")
+    if os.environ.get("STORY_APPROVED", "false").strip().lower() not in ("true", "1", "yes"):
+        raise PipelineError(
+            "Visuals blocked: review the prepared-package/review.txt and quality_control.json first, "
+            "then re-run Visuals with story_approved=true."
+        )
     plan, metadata, _narration_info, paths, image_paths = _read_package(require_images=False)
+    review = metadata.setdefault("story_review", {})
+    if review.get("approved") is not True:
+        review.update({
+            "status": "approved",
+            "approved": True,
+            "approved_at": datetime.now(timezone.utc).isoformat(),
+            "approval_method": "manual_workflow_dispatch_input",
+        })
+    paths["metadata"].write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
     for index, scene in enumerate(plan["scenes"]):
         # Reuse any valid image already present when recovering a partially completed
         # visual stage; do not spend another model call on work already completed.
@@ -2100,6 +2199,8 @@ def render_stage():
     )
     output_metadata = {
         "run_id": RUN_ID, "topic": topic, "title": title,
+        "quality_control": plan.get("quality_control", {}),
+        "story_review": metadata.get("story_review", {}),
         "hook": plan.get("hook", ""), "description": plan.get("description", ""),
         "hashtags": plan.get("hashtags", []),
         "narration_script": plan.get("narration_script", ""),
