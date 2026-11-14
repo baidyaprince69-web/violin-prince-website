@@ -117,6 +117,20 @@ The ChatGPT production plan can provide the publishing fields under `publish_met
 
 The boolean above is an example only; the daily operator must use the channel's actually confirmed audience classification. Existing evidence-first research and the separate encrypted YouTube SEO learning workflow remain in place.
 
+### Source-backed motion graphics and story coherence — version 10
+
+The renderer now accepts optional structured graphic data per scene and turns it into animated explanatory graphics, driven by the existing narration-word timing:
+
+- An arch-height chart displays measured values and labels. Values are rendered only when supplied by the verified plan; no interpolated or invented measurements are added.
+- A process-flow graphic reveals the actual steps in a physical or musical mechanism.
+- Scenes without a supported data structure retain their existing waveform, melody-map, comparison or performance visualiser.
+
+The chart and process-flow stages use deterministic spring easing, colour-coded states, readable labels and a narration-following progress line. They are composited over the full-colour scene plate; they do not replace the violin hero image. The image prompt now explicitly requires a solid, fully formed amber-brown violin body and excludes hollow shells, transparent bodies, outline-only instruments and monochrome line art.
+
+A second new gate checks **story coherence**, not just quote existence. Each publisher article cited by narration must independently share enough subject anchors with the same core claim (or the descriptive video title when no core claim is supplied). The run stops when a cited source is unrelated, even if its quote is exact and the publisher page is valid. This is a conservative deterministic relevance check, not a semantic fact checker; all source pages and exact quotes still have to pass the existing checks.
+
+This remains the current free-first render architecture: FLUX creates three still image plates; Pillow creates deterministic motion-graphics overlays; FFmpeg composites and encodes the result. It does not claim to create AI-generated moving footage or full 3D object animation.
+
 ## Research basis and implementation choices
 
 The current design borrows production patterns rather than another creator's identity:
