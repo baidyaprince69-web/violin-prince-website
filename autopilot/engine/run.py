@@ -143,8 +143,8 @@ def _validate_creator_violin_recording(path):
     return {"duration_seconds": round(duration, 2), "channels": channels, "sample_rate": sample_rate}
 
 
-def get_audio():
-    if API:
+def get_audio(prefer_creator_assets=True, allow_fallback=True):
+    if prefer_creator_assets and API:
         r = http.get(API + "/internal/assets?kind=audio", headers=auth(), timeout=30)
         r.raise_for_status()
         assets = r.json().get("assets", [])
@@ -162,7 +162,7 @@ def get_audio():
         Path(configured_path) if configured_path
         else Path(__file__).resolve().parent / "assets" / "violin-performance.wav"
     )
-    if recording_path.is_file():
+    if prefer_creator_assets and recording_path.is_file():
         recording_info = _validate_creator_violin_recording(recording_path)
         log("Using the creator's real violin recording as the music bed.")
         return {
@@ -171,8 +171,10 @@ def get_audio():
             "kind": "uploaded_recording",
             **recording_info,
         }, recording_path.read_bytes()
-    if configured_path:
+    if prefer_creator_assets and configured_path:
         log("VIOLIN_RECORDING_PATH was not found; trying the CC0 sampled violin instrument.")
+    if not allow_fallback:
+        return {"filename": "", "audio_source": "none", "kind": "none"}, b""
 
     # Use a small, checksum-verified CC0 multisample pack to render a new violin
     # phrase. Network or sample-render failures fall back quietly instead of
@@ -210,12 +212,12 @@ MAX_PERFORMANCE_VIDEO_BYTES = 90 * 1024 * 1024
 PERFORMANCE_VIDEO_EXTENSIONS = {".mp4", ".mov", ".webm"}
 
 
-def _validate_performance_video_asset(filename, media_bytes):
-    """Validate a private creator video before it enters the staged package."""
+def _validate_performance_video_metadata(filename, size):
+    """Validate the identity and size of a private creator video asset."""
     suffix = Path(str(filename or "")).suffix.lower()
     if suffix not in PERFORMANCE_VIDEO_EXTENSIONS:
         raise PipelineError("Creator performance video must be MP4, MOV or WebM.")
-    size = len(media_bytes or b"")
+    size = int(size or 0)
     if size < 16 * 1024:
         raise PipelineError("Creator performance video is empty or unexpectedly small.")
     if size > MAX_PERFORMANCE_VIDEO_BYTES:
@@ -228,35 +230,70 @@ def _validate_performance_video_asset(filename, media_bytes):
     }
 
 
-def get_creator_performance_video():
-    """Load the newest private video asset, or an explicitly configured local file."""
+def _validate_performance_video_asset(filename, media_bytes):
+    """Validate downloaded bytes without writing private media into workflow artifacts."""
+    return _validate_performance_video_metadata(filename, len(media_bytes or b""))
+
+
+def get_creator_performance_video(include_bytes=False, asset_id=None):
+    """Read private video metadata during Prepare and download the exact asset only during Render."""
     if API:
-        response = http.get(
-            API + "/internal/assets?kind=video",
-            headers=auth(),
-            timeout=30,
-        )
-        response.raise_for_status()
-        assets = [
-            item for item in response.json().get("assets", [])
-            if isinstance(item, dict) and item.get("kind") == "video"
-        ]
-        if assets:
-            asset = assets[0]
-            media = http.get(
-                API + "/internal/assets/" + quote(str(asset["id"]), safe=""),
+        asset = None
+        if asset_id:
+            asset = {"id": str(asset_id)}
+        else:
+            response = http.get(
+                API + "/internal/assets?kind=video",
                 headers=auth(),
-                timeout=180,
+                timeout=30,
             )
-            media.raise_for_status()
-            media_bytes = media.content
-            checked = _validate_performance_video_asset(asset.get("filename"), media_bytes)
-            return {
-                **asset,
+            response.raise_for_status()
+            assets = [
+                item for item in response.json().get("assets", [])
+                if isinstance(item, dict) and item.get("kind") == "video"
+            ]
+            if assets:
+                asset = assets[0]
+
+        if asset:
+            media_metadata = asset
+            if asset_id and not asset.get("filename"):
+                # An exact asset ID comes from the earlier prepared metadata. Its
+                # filename and size are stored there, so no public artifact needs
+                # to contain the raw media.
+                media_metadata = {
+                    "id": str(asset_id),
+                    "filename": "",
+                    "size_bytes": 0,
+                    "kind": "video",
+                }
+            if include_bytes:
+                media = http.get(
+                    API + "/internal/assets/" + quote(str(asset["id"]), safe=""),
+                    headers=auth(),
+                    timeout=180,
+                )
+                media.raise_for_status()
+                media_bytes = media.content
+                filename = (
+                    media.headers.get("Content-Disposition", "")
+                    .split("filename=", 1)[-1].strip().strip('"')
+                    if media.headers.get("Content-Disposition") else ""
+                )
+                filename = filename or str(media_metadata.get("filename") or "creator-performance.mp4")
+                checked = _validate_performance_video_asset(filename, media_bytes)
+            else:
+                checked = _validate_performance_video_metadata(
+                    media_metadata.get("filename"), media_metadata.get("size_bytes")
+                )
+                media_bytes = b""
+            safe_metadata = {
+                "id": str(asset.get("id") or asset_id or ""),
                 **checked,
-                "content_type": asset.get("content_type") or "",
+                "content_type": media_metadata.get("content_type") or "",
                 "source": "private_r2_upload",
-            }, media_bytes
+            }
+            return safe_metadata, media_bytes
 
     configured_path = os.environ.get("VIOLIN_PERFORMANCE_VIDEO_PATH", "").strip()
     video_path = (
@@ -264,13 +301,18 @@ def get_creator_performance_video():
         else Path(__file__).resolve().parent / "assets" / "violin-performance.mp4"
     )
     if video_path.is_file():
-        media_bytes = video_path.read_bytes()
-        checked = _validate_performance_video_asset(video_path.name, media_bytes)
+        checked = _validate_performance_video_metadata(video_path.name, video_path.stat().st_size)
+        media_bytes = video_path.read_bytes() if include_bytes else b""
         return {
             **checked,
             "source": "configured_local_file",
             "content_type": "video/mp4" if video_path.suffix.lower() == ".mp4" else "",
         }, media_bytes
+    if asset_id:
+        raise PipelineError(
+            "The prepared private performance-video asset could not be reached. "
+            "Check AUTOPILOT_API_URL and AUTOPILOT_JOB_TOKEN before Render."
+        )
     log("No creator performance video is uploaded; Scene 3 will use its prepared visual fallback.")
     return {"available": False, "source": "none"}, b""
 
@@ -4345,10 +4387,6 @@ def _read_package(require_images=False):
     ):
         raise PipelineError("Prepared story does not have two dated publisher articles within the seven-day window.")
     performance_video = metadata.get("performance_video") or {}
-    if performance_video.get("available") and not paths["performance_video"].is_file():
-        raise PipelineError("Prepared package says a creator performance video was uploaded, but the video file is missing.")
-    if paths["performance_video"].is_file():
-        _validate_performance_video_asset(paths["performance_video"].name, paths["performance_video"].read_bytes())
     review = metadata.get("story_review") or {}
     if require_images and review.get("approved") is not True:
         raise PipelineError("Render blocked: automated editorial quality gates did not clear this story before Visuals.")
@@ -4530,8 +4568,8 @@ def prepare_stage():
     """Create research, a source-audited story, narration and soundtrack; no visuals or MP4."""
     as_of = datetime.now(timezone.utc)
     claim_run()
-    asset, audio = get_audio()
-    performance_video_asset, performance_video_bytes = get_creator_performance_video()
+    asset, audio = get_audio(prefer_creator_assets=False)
+    performance_video_asset, _ = get_creator_performance_video(include_bytes=False)
     report("running", "Preparing sourced story, narration, violin bed and optional creator performance footage.")
     items = load_reusable_research()
     if items is None:
@@ -4626,8 +4664,6 @@ def prepare_stage():
     )
     paths = _package_paths()
     paths["audio"].write_bytes(audio)
-    if performance_video_bytes:
-        paths["performance_video"].write_bytes(performance_video_bytes)
     shutil.copy2(narration_path, paths["narration"])
     paths["plan"].write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
     paths["research"].write_text(json.dumps(story_items, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -4724,9 +4760,32 @@ def render_stage():
     audio = paths["audio"].read_bytes()
     if len(audio) < 4096:
         raise PipelineError("Prepared soundtrack is missing or unexpectedly small.")
-    log("Rendering from saved research, script, narration, soundtrack and scene images. No AI calls.")
-    audio_source = str(metadata.get("asset", {}).get("audio_source", "generated_ambient_fallback"))
-    performance_video_path = paths["performance_video"] if paths["performance_video"].is_file() else None
+    log("Rendering from saved research, script, narration and scene images. Private media is fetched only now.")
+    active_audio_asset = metadata.get("asset", {})
+    audio_source = str(active_audio_asset.get("audio_source", "generated_ambient_fallback"))
+    private_audio_asset, private_audio_bytes = get_audio(
+        prefer_creator_assets=True, allow_fallback=False
+    )
+    if private_audio_bytes:
+        audio = private_audio_bytes
+        active_audio_asset = private_audio_asset
+        audio_source = str(private_audio_asset.get("audio_source", "uploaded_recording"))
+        log("Using the rights-confirmed private audio asset for the final mix.")
+    performance_video_asset = metadata.get("performance_video") or {"available": False}
+    performance_video_path = None
+    if performance_video_asset.get("available"):
+        fetched_video_asset, video_bytes = get_creator_performance_video(
+            include_bytes=True, asset_id=performance_video_asset.get("id")
+        )
+        private_media_dir = WORK / "private-media"
+        private_media_dir.mkdir(parents=True, exist_ok=True)
+        video_suffix = Path(fetched_video_asset.get("filename") or "creator-performance.mp4").suffix.lower()
+        if video_suffix not in PERFORMANCE_VIDEO_EXTENSIONS:
+            raise PipelineError("The downloaded creator performance video has an unsupported extension.")
+        performance_video_path = private_media_dir / ("creator-performance" + video_suffix)
+        performance_video_path.write_bytes(video_bytes)
+    if not audio_source:
+        audio_source = "generated_ambient_fallback"
     path, video_quality = render(
         plan, audio, paths["narration"], narration_info,
         image_paths=image_paths, audio_source=audio_source,
@@ -4750,12 +4809,15 @@ def render_stage():
         "narration": narration_info, "video_quality": video_quality,
         "captions": [scene["caption"] for scene in plan["scenes"]],
         "sources": plan.get("sources", []),
-        "audio_asset": metadata.get("asset", {}).get("filename", paths["audio"].name),
-        "performance_video_asset": metadata.get("performance_video", {}),
+        "audio_asset": active_audio_asset.get("filename", paths["audio"].name),
+        "performance_video_asset": {
+            key: value for key, value in performance_video_asset.items()
+            if key in ("id", "filename", "size_bytes", "content_type", "available", "source")
+        },
         "audio_source": audio_source,
-        "audio_license": metadata.get("asset", {}).get("license", ""),
-        "audio_source_library": metadata.get("asset", {}).get("source_library", ""),
-        "audio_attribution": metadata.get("asset", {}).get("attribution", ""),
+        "audio_license": active_audio_asset.get("license", ""),
+        "audio_source_library": active_audio_asset.get("source_library", ""),
+        "audio_attribution": active_audio_asset.get("attribution", ""),
         "duration_seconds": 24, "format": "9:16",
         "publishing_status": final_status, "publish_results": publish_result,
         "output_key": stored.get("object_key"), "prepared_run_id": metadata.get("prepared_run_id"),
