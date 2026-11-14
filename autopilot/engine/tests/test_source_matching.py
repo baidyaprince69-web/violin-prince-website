@@ -177,6 +177,8 @@ class PlannerSourceMatchingTests(unittest.TestCase):
             if "bing.com/news/search" in url:
                 bing_calls.append(url)
                 return FakeResponse(content=bing_xml)
+            if "html.duckduckgo.com" in url:
+                return FakeResponse(content=empty_rss)
             raise AssertionError("Unexpected story research URL: " + str(url))
 
         with tempfile.TemporaryDirectory() as folder:
@@ -296,6 +298,121 @@ class PlannerSourceMatchingTests(unittest.TestCase):
         self.assertNotIn("publisher_url", result[0])
         self.assertNotIn("evidence_text", result[0])
         self.assertFalse(pipeline.is_direct_publisher_article(result[0]))
+
+    def test_duckduckgo_search_extracts_final_publisher_urls_from_redirects(self):
+        page = (
+            '<html><body>'
+            '<a class="result__a" href="//duckduckgo.com/l/?uddg='
+            'https%3A%2F%2Fspaceandsky.com%2Froman-space-telescope-instruments-aligned-commissioning%2F">'
+            '<span>Roman telescope instruments now line up</span></a>'
+            '<a data-testid="result-title-a" href="https://orbital-wire.com/astronomy-astrophysics/roman-space-telescope-completes-instrument-alignment/">'
+            'Roman Space Telescope completes instrument alignment</a>'
+            '</body></html>'
+        )
+        records = pipeline.duckduckgo_search_records(page)
+        self.assertEqual(len(records), 2)
+        self.assertEqual(
+            records[0]["url"],
+            "https://spaceandsky.com/roman-space-telescope-instruments-aligned-commissioning/",
+        )
+        self.assertEqual(records[0]["publisher_domain"], "spaceandsky.com")
+        self.assertEqual(records[1]["publisher_domain"], "orbital-wire.com")
+        self.assertTrue(all(item["link_type"] == "discovery_lead" for item in records))
+        self.assertTrue(all(pipeline.is_direct_publisher_article(item) for item in records))
+
+    def test_direct_link_search_results_can_supply_two_readable_publishers(self):
+        space_url = "https://spaceandsky.com/roman-space-telescope-instruments-aligned-commissioning/"
+        orbital_url = "https://orbital-wire.com/astronomy-astrophysics/roman-space-telescope-completes-instrument-alignment/"
+        search_html = (
+            '<html><body>'
+            '<a class="result__a" href="//duckduckgo.com/l/?uddg='
+            'https%3A%2F%2Fspaceandsky.com%2Froman-space-telescope-instruments-aligned-commissioning%2F">'
+            'Roman telescope instruments now line up to a hair’s breadth</a>'
+            '<a class="result__a" href="https://orbital-wire.com/astronomy-astrophysics/roman-space-telescope-completes-instrument-alignment/">'
+            'Roman Space Telescope completes key instrument alignment</a>'
+            '</body></html>'
+        )
+        empty_rss = b"<rss><channel></channel></rss>"
+
+        class FakeResponse:
+            def __init__(self, url="", text="", content=b"", status_code=200):
+                self.url = url
+                self.text = text
+                self.content = content or text.encode("utf-8")
+                self.status_code = status_code
+                self.headers = {"Content-Type": "text/html; charset=utf-8"}
+
+            def raise_for_status(self):
+                if self.status_code >= 400:
+                    raise pipeline.requests.HTTPError(
+                        f"HTTP {self.status_code}", response=self
+                    )
+
+            def json(self):
+                return {"articles": []}
+
+        def fake_search_get(url, *args, **kwargs):
+            if "api.gdeltproject.org" in url:
+                return FakeResponse(url, status_code=429)
+            if "news.google.com" in url or "bing.com/news/search" in url:
+                return FakeResponse(url, content=empty_rss)
+            if "html.duckduckgo.com" in url:
+                return FakeResponse(url, text=search_html)
+            raise AssertionError("Unexpected discovery provider: " + str(url))
+
+        article_paragraphs = {
+            space_url: (
+                "NASA’s Nancy Grace Roman Space Telescope has finished aligning its instruments in space. "
+                "Engineers compared observed star positions with expected positions, then updated the telescope’s internal map. "
+                "The Wide Field Instrument guides the telescope while the Coronagraph searches nearby stars."
+            ),
+            orbital_url: (
+                "NASA’s Nancy Grace Roman Space Telescope completed instrument alignment work on November 13, 2026. "
+                "The Wide Field Instrument’s detectors work together when Roman locks onto guide stars. "
+                "The observatory’s instruments are now prepared for the next commissioning tests."
+            ),
+        }
+
+        def fake_article_get(url, **kwargs):
+            body = "<html><body><p>" + article_paragraphs[url] + "</p></body></html>"
+            return FakeResponse(url, text=body)
+
+        with tempfile.TemporaryDirectory() as folder:
+            original_work = pipeline.WORK
+            try:
+                pipeline.WORK = Path(folder)
+                with (
+                    patch.object(pipeline, "story_search_phrases", return_value=["roman telescope instruments aligned"]),
+                    patch.object(pipeline.http, "get", side_effect=fake_search_get),
+                    patch.object(pipeline.requests, "get", side_effect=fake_article_get),
+                ):
+                    research = pipeline.research_story_sources(
+                        {
+                            "topic": "NASA Roman Space Telescope instrument alignment",
+                            "title": "Roman Telescope Instruments Aligned",
+                            "hook": "How do space instruments align?",
+                        },
+                        [],
+                    )
+
+                selected = pipeline.select_verified_story_sources(
+                    {
+                        "topic": "NASA Roman Space Telescope instrument alignment",
+                        "title": "Roman Telescope Instruments Aligned",
+                        "hook": "How do space instruments align?",
+                    },
+                    research,
+                    minimum_sources=2,
+                )
+            finally:
+                pipeline.WORK = original_work
+
+        self.assertEqual(
+            {item["publisher_domain"] for item in selected},
+            {"spaceandsky.com", "orbital-wire.com"},
+        )
+        self.assertTrue(all(len(item["evidence_text"]) >= 90 for item in selected))
+        self.assertTrue(all(pipeline.is_direct_publisher_article(item) for item in selected))
 
     def test_unrelated_plan_does_not_get_random_source(self):
         plan = {
