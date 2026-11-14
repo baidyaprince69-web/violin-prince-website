@@ -3993,18 +3993,18 @@ def make_motion_graphic_card(scene, index, plan, target):
     draw.rounded_rectangle((24, 26, 32, height - 26), radius=4, fill=gold)
     label = re.sub(r"\s+", " ", str(scene.get("graphic_label") or ("STORY BEAT " + str(index + 1)))).strip().upper()
     label = textwrap.shorten(label, width=30, placeholder="…")
-    draw.text((54, 25), f"{index + 1:02d}  /  03     {label}", font=font(16), fill=gold)
+    draw.text((54, 25), f"{index + 1:02d}  /  03     {label}", font=font(16, "medium"), fill=gold)
 
     headline = textwrap.wrap(str(scene.get("caption") or plan.get("title", "")).strip(), width=28)[:2]
     y = 66
     for line in headline:
-        draw.text((54, y), line, font=font(30), fill=ivory)
+        draw.text((54, y), line, font=font(30, "regular", "serif"), fill=ivory)
         y += 38
 
     detail = textwrap.wrap(str(scene.get("graphic_detail") or "").strip(), width=47)[:2]
     detail_y = 151 if len(headline) > 1 else 145
     for line in detail:
-        draw.text((54, detail_y), line, font=font(17), fill=muted)
+        draw.text((54, detail_y), line, font=font(17, "regular"), fill=muted)
         detail_y += 24
 
     # A restrained three-step progress motif makes the sequence legible without
