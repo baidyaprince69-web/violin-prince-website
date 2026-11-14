@@ -264,11 +264,12 @@ class StagedPipelineTests(unittest.TestCase):
 
     def test_visual_feedback_is_added_without_changing_base_scene_prompt(self):
         scene = {"image_prompt": "A lighthouse at dawn"}
-        prompt = pipeline._scene_visual_prompt(scene, "use a richer illustrated look and stronger depth")
+        feedback = "keep photorealistic violin imagery and add stronger foreground depth"
+        prompt = pipeline._scene_visual_prompt(scene, feedback)
         self.assertIn("A lighthouse at dawn", prompt)
-        self.assertIn("richer illustrated look", prompt)
+        self.assertIn("additional visual direction: " + feedback, prompt)
         self.assertIn("no watermark", prompt)
-        self.assertIn("original high-end photorealistic 3D CGI", prompt)
+        self.assertIn("photorealistic cinematic still imagery", prompt)
         self.assertIn("layered foreground/midground/background", prompt)
 
     def test_full_mode_runs_each_stage_once_in_order(self):
