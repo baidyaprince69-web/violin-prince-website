@@ -351,21 +351,25 @@ def google_news_item_record(item, region, label):
 
 
 def planner_research_items(items):
-    """Pass only direct publisher article links to the planner, with stable IDs."""
+    """Give the planner topic leads, but label non-publisher links as non-citable."""
     fields = (
         "title", "summary", "evidence_text", "publisher_name",
         "publisher_home", "publisher_domain", "url", "date", "source"
     )
     selected = []
     for index, item in enumerate(items[:100], start=1):
-        if not item.get("title") or not is_direct_publisher_article(item):
+        if not item.get("title") or not item.get("url"):
             continue
+        direct = is_direct_publisher_article(item)
         domain = str(item.get("publisher_domain") or urlparse(item.get("url", "")).netloc).lower().removeprefix("www.")
-        if not domain:
-            continue
         record = {key: item.get(key, "") for key in fields}
         record["publisher_domain"] = domain
-        record["link_type"] = "publisher_article"
+        record["source_eligibility"] = "direct_publisher_article" if direct else "discovery_only"
+        record["link_type"] = "publisher_article" if direct else "discovery_lead"
+        if not direct:
+            # RSS descriptions are often headline clusters; never expose them as article evidence.
+            record["summary"] = ""
+            record["evidence_text"] = ""
         record["source_id"] = f"S{index:04d}"
         selected.append(record)
     return selected
@@ -1058,8 +1062,9 @@ def make_plan(items, recent=None, seo_context=None):
         "Do not invent facts, dates, statistics, motives, quotations or outcomes. Use only factual claims supported "
         "by supplied research. Every research item has a source_id. Prefer at least two source_id values from "
         "different publisher_domain values. The sources field MUST contain one to three exact source_id values "
-        "copied from supplied research; never invent IDs or rewrite URLs. Google News headline links are discovery "
-        "leads only and are not final citations. Only direct publisher article pages with readable evidence can be "
+        "copied from supplied research; never invent IDs or rewrite URLs. Items marked discovery_only may guide "
+        "topic selection but cannot support facts or be cited. Google News headline links are discovery leads only "
+        "and are not final citations. Only direct publisher article pages with readable evidence can be "
         "retained in the final package. Do not output publisher homepages as article URLs. "
         "Return a timeline array for dated events, each with event, date (YYYY-MM-DD), status "
         "(completed, upcoming, ongoing, or unknown), and source_ids. Judge status against today's date. "
