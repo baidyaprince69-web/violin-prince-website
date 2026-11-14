@@ -33,14 +33,24 @@ class GoogleNewsPublisherMetadataTests(unittest.TestCase):
         self.assertEqual(record["publisher_domain"], "nasa.gov")
         self.assertEqual(record["url"], "https://news.google.com/rss/articles/example?oc=5")
 
-    def test_planner_receives_headline_with_real_publisher_domain(self):
+    def test_google_news_redirect_is_a_lead_not_a_final_citation(self):
         record = pipeline.google_news_item_record(self.item, "US", "Discovery")
+        compact = pipeline.planner_research_items([record])
+        self.assertEqual(compact, [])
+
+    def test_planner_accepts_direct_publisher_article_links(self):
+        record = pipeline.google_news_item_record(self.item, "US", "Discovery")
+        record["url"] = "https://www.nasa.gov/news-release/example-article/"
+        record["evidence_text"] = (
+            "NASA published a detailed article about the discovery. "
+            "The article explains the instrument, the research team, and the published findings."
+        )
         compact = pipeline.planner_research_items([record])
         self.assertEqual(len(compact), 1)
         self.assertEqual(compact[0]["title"], "Space telescope finds a new signal")
         self.assertEqual(compact[0]["publisher_domain"], "nasa.gov")
         self.assertEqual(compact[0]["publisher_name"], "NASA")
-        self.assertTrue(compact[0]["url"].startswith("https://news.google.com/"))
+        self.assertEqual(compact[0]["url"], "https://www.nasa.gov/news-release/example-article/")
 
     def test_google_news_html_response_does_not_overwrite_publisher_domain(self):
         class FakeResponse:
@@ -58,15 +68,21 @@ class GoogleNewsPublisherMetadataTests(unittest.TestCase):
         self.assertEqual(enriched[0]["publisher_domain"], "nasa.gov")
         self.assertEqual(enriched[0]["url"], record["url"])
 
-    def test_missing_publisher_metadata_uses_explicit_headline_fallback(self):
+    def test_unresolved_google_news_link_is_not_promoted_to_a_publisher_citation(self):
         item = {
             "title": "A new instrument reaches the concert hall",
             "url": "https://news.google.com/rss/articles/unresolved",
             "publisher_domain": "",
         }
-        compact = pipeline.planner_research_items([item])
-        self.assertEqual(len(compact), 1)
-        self.assertEqual(compact[0]["title"], item["title"])
+        self.assertEqual(pipeline.planner_research_items([item]), [])
+
+    def test_google_news_interstitial_can_expose_a_matching_article_url(self):
+        page = (
+            '<html><body><a href="https://www.nasa.gov/news-release/example-article/">'
+            "Read the article</a></body></html>"
+        )
+        resolved = pipeline._publisher_article_url_from_html(page, "nasa.gov")
+        self.assertEqual(resolved, "https://www.nasa.gov/news-release/example-article/")
 
 
 if __name__ == "__main__":
