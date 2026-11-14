@@ -956,29 +956,37 @@ def narration_sentence_budget(sentences, target_total=None):
     priority = (1, 2, 3, 0)
 
     difference = target_total - sum(counts)
+    body_priority = (1, 2, 3)
+    hook_priority = (0,)
     while difference > 0:
-        available = [index for index in priority if counts[index] < limits[index]]
+        available = [index for index in body_priority if counts[index] < limits[index]]
+        if not available:
+            available = [index for index in hook_priority if counts[index] < limits[index]]
         if not available:
             raise PipelineError("Narration word allocation cannot reach the required minimum.")
-        chosen = min(available, key=lambda index: (counts[index] / limits[index], priority.index(index)))
+        chosen = min(available, key=lambda index: (counts[index] / limits[index], body_priority.index(index) if index in body_priority else len(body_priority)))
         counts[chosen] += 1
         difference -= 1
 
     while difference < 0:
-        available = [index for index in priority if counts[index] > floors[index]]
+        available = [index for index in body_priority if counts[index] > floors[index]]
+        if not available:
+            available = [index for index in hook_priority if counts[index] > floors[index]]
         if not available:
             raise PipelineError("Narration word allocation cannot fit the required maximum.")
-        chosen = max(available, key=lambda index: (counts[index] / limits[index], -priority.index(index)))
+        chosen = max(available, key=lambda index: (counts[index] / limits[index], -(body_priority.index(index) if index in body_priority else len(body_priority))))
         counts[chosen] -= 1
         difference += 1
 
     maxima = list(counts)
     extra_capacity = 44 - target_total
     while extra_capacity > 0:
-        available = [index for index in priority if maxima[index] < limits[index]]
+        available = [index for index in body_priority if maxima[index] < limits[index]]
+        if not available:
+            available = [index for index in hook_priority if maxima[index] < limits[index]]
         if not available:
             break
-        chosen = min(available, key=lambda index: (maxima[index] / limits[index], priority.index(index)))
+        chosen = min(available, key=lambda index: (maxima[index] / limits[index], body_priority.index(index) if index in body_priority else len(body_priority)))
         maxima[chosen] += 1
         extra_capacity -= 1
 
