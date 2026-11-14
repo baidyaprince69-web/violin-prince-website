@@ -8,7 +8,7 @@ from html import unescape as html_unescape
 import xml.etree.ElementTree as ET
 from datetime import date, datetime, timezone
 from pathlib import Path
-from urllib.parse import quote, unquote, urlparse, parse_qs
+from urllib.parse import quote, unquote, urlparse, parse_qs, urljoin
 import requests
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 
@@ -725,18 +725,102 @@ def bing_news_item_record(item, label="Bing News story search"):
         "link_type": "discovery_lead",
     }
 
+
+class SearchResultAnchorParser(HTMLParser):
+    """Extract title links from DuckDuckGo's lightweight HTML result page."""
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.results = []
+        self._active = False
+        self._depth = 0
+        self._href = ""
+        self._text = []
+
+    def handle_starttag(self, tag, attrs):
+        values = {str(key).casefold(): value for key, value in attrs}
+        if tag == "a" and not self._active:
+            classes = set(str(values.get("class") or "").casefold().split())
+            test_id = str(values.get("data-testid") or "").casefold()
+            if "result__a" in classes or test_id == "result-title-a":
+                self._active = True
+                self._depth = 1
+                self._href = str(values.get("href") or "")
+                self._text = []
+        elif self._active:
+            self._depth += 1
+
+    def handle_endtag(self, tag):
+        if not self._active:
+            return
+        self._depth -= 1
+        if self._depth <= 0:
+            title = re.sub(r"\s+", " ", " ".join(self._text)).strip()
+            if self._href and title:
+                self.results.append({"href": self._href, "title": title})
+            self._active = False
+            self._depth = 0
+            self._href = ""
+            self._text = []
+
+    def handle_data(self, data):
+        if self._active:
+            self._text.append(data)
+
+
+def duckduckgo_search_records(page_text, label="DuckDuckGo web search"):
+    """Turn search-result anchors into discovery links, never trusted article evidence."""
+    parser = SearchResultAnchorParser()
+    parser.feed(str(page_text or "")[:2_000_000])
+    records = []
+    for result in parser.results[:25]:
+        href = html_unescape(str(result.get("href") or "")).strip()
+        if not href:
+            continue
+        absolute = urljoin("https://html.duckduckgo.com", href)
+        parsed = urlparse(absolute)
+        candidate = absolute
+        if _is_news_aggregator_host(parsed.hostname or ""):
+            query = parse_qs(parsed.query)
+            candidate = ""
+            for key in ("uddg", "url", "target", "u"):
+                values = query.get(key) or []
+                for value in values:
+                    decoded = unquote(value)
+                    if decoded.startswith(("http://", "https://")):
+                        candidate = decoded
+                        break
+                if candidate:
+                    break
+        candidate = candidate.strip()
+        candidate_host = _normalized_publisher_domain(candidate)
+        if not candidate or not candidate_host or _is_news_aggregator_host(candidate_host):
+            continue
+        records.append({
+            "title": str(result["title"])[:220],
+            "summary": "",
+            "url": candidate,
+            "date": "",
+            "source": candidate_host,
+            "publisher_name": candidate_host,
+            "publisher_domain": candidate_host,
+            "source_feed": label,
+            "link_type": "discovery_lead",
+        })
+    return records
+
 def research_story_sources(plan, existing_items):
-    """Run resilient topic searches across RSS providers and enrich direct publisher pages."""
+    """Search GDELT, Google/Bing RSS, and direct-link web results; verify publisher pages."""
     targeted = []
     phrases = story_search_phrases(plan, existing_items)
     gdelt_rate_limited = False
     gdelt_queries = 0
     google_items = 0
     bing_items = 0
+    duckduckgo_items = 0
 
     for phrase in phrases:
         # GDELT is a useful free source but can rate-limit bursts. After the first
-        # HTTP 429, skip further calls in this run and continue with RSS providers.
+        # HTTP 429, skip further calls in this run and continue with other providers.
         if not gdelt_rate_limited:
             try:
                 response = http.get(
@@ -749,12 +833,12 @@ def research_story_sources(plan, existing_items):
                         "sort": "HybridRel",
                         "timespan": "90d",
                     },
-                    timeout=20,
+                    timeout=15,
                 )
                 gdelt_queries += 1
                 if response.status_code == 429:
                     gdelt_rate_limited = True
-                    log("GDELT returned HTTP 429; pausing GDELT for this run and continuing with RSS search.")
+                    log("GDELT returned HTTP 429; pausing GDELT for this run and continuing with other search providers.")
                 else:
                     response.raise_for_status()
                     for article in response.json().get("articles", []):
@@ -771,11 +855,12 @@ def research_story_sources(plan, existing_items):
                             "publisher_name": domain,
                             "publisher_domain": domain,
                             "source_feed": "GDELT story search",
+                            "link_type": "discovery_lead",
                         })
             except Exception as exc:
                 if getattr(getattr(exc, "response", None), "status_code", None) == 429:
                     gdelt_rate_limited = True
-                    log("GDELT returned HTTP 429; pausing GDELT for this run and continuing with RSS search.")
+                    log("GDELT returned HTTP 429; pausing GDELT for this run and continuing with other search providers.")
                 else:
                     log("Targeted GDELT search unavailable for " + phrase[:60] + ": " + str(exc)[:130])
 
@@ -793,10 +878,10 @@ def research_story_sources(plan, existing_items):
                         "ceid": region + ":en",
                     },
                 ).prepare()
-                response = http.get(request.url, timeout=15)
+                response = http.get(request.url, timeout=10)
                 response.raise_for_status()
                 root = ET.fromstring(response.content)
-                for item in root.findall(".//item")[:12]:
+                for item in root.findall(".//item")[:10]:
                     if item.findtext("title") and item.findtext("link"):
                         record = google_news_item_record(item, region, "Story verification")
                         record["source_feed"] = "Google News targeted story search"
@@ -805,22 +890,43 @@ def research_story_sources(plan, existing_items):
             except Exception as exc:
                 log(region + " targeted Google News unavailable: " + str(exc)[:120])
 
-        # Bing News provides a second RSS discovery route if Google News is sparse.
+        # Bing News is a second RSS discovery route; publisher metadata is parsed
+        # separately so a Bing redirect can never become the final publisher.
         try:
             request = requests.Request(
                 "GET",
                 "https://www.bing.com/news/search",
                 params={"q": phrase, "format": "rss", "setmkt": "en-US"},
             ).prepare()
-            response = http.get(request.url, timeout=15)
+            response = http.get(request.url, timeout=10)
             response.raise_for_status()
             root = ET.fromstring(response.content)
-            for item in root.findall(".//item")[:18]:
+            for item in root.findall(".//item")[:12]:
                 if item.findtext("title") and item.findtext("link"):
                     targeted.append(bing_news_item_record(item))
                     bing_items += 1
         except Exception as exc:
             log("Bing News RSS unavailable for " + phrase[:60] + ": " + str(exc)[:120])
+
+        # DuckDuckGo's lightweight HTML results expose outbound publisher URLs
+        # directly. These remain discovery leads until the final page is fetched.
+        try:
+            request = requests.Request(
+                "GET",
+                "https://html.duckduckgo.com/html/",
+                params={"q": phrase},
+            ).prepare()
+            response = http.get(
+                request.url,
+                headers={"User-Agent": "Mozilla/5.0 (compatible; ViolinPrinceAutopilot/0.2)"},
+                timeout=10,
+            )
+            response.raise_for_status()
+            records = duckduckgo_search_records(response.text)
+            targeted.extend(records[:18])
+            duckduckgo_items += len(records[:18])
+        except Exception as exc:
+            log("DuckDuckGo HTML search unavailable for " + phrase[:60] + ": " + str(exc)[:120])
 
     unique = {}
     for item in targeted:
@@ -828,9 +934,15 @@ def research_story_sources(plan, existing_items):
         if key:
             unique.setdefault(key, item)
 
-    # Resolve Google/Bing redirect URLs to final publisher article pages and collect
-    # paragraph evidence. No headline summary is promoted to factual evidence.
-    targeted = enrich_source_evidence(list(unique.values())[:140])
+    # Rank by overlap with this selected story before making network requests.
+    # This avoids spending many timeouts on unrelated search-result pages.
+    ranked = sorted(
+        unique.values(),
+        key=lambda item: source_relevance_score(plan, item),
+        reverse=True,
+    )
+    targeted = enrich_source_evidence(ranked[:100])
+
     combined = []
     seen = set()
     for item in list(targeted) + list(existing_items):
@@ -846,7 +958,8 @@ def research_story_sources(plan, existing_items):
     log(
         f"Story search summary: {len(phrases)} queries, {gdelt_queries} GDELT attempts"
         f"{' (rate-limited)' if gdelt_rate_limited else ''}, {google_items} Google News leads, "
-        f"{bing_items} Bing News leads; {direct_count} direct publisher pages from {len(combined)} records."
+        f"{bing_items} Bing News leads, {duckduckgo_items} DuckDuckGo links; "
+        f"{direct_count} direct publisher pages from {len(combined)} records."
     )
     return combined
 
