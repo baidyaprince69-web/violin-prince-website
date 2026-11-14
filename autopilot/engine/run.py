@@ -4504,6 +4504,7 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         "scene_transition_seconds": round(transition_seconds, 3),
         "visual_reference_language": (plan.get("visual_reference") or {}).get("visual_language", "default_brand"),
         "visual_reference_motion_profile": (plan.get("visual_reference") or {}).get("motion_profile", "not_supplied"),
+        "visual_reference_adaptation_note": (plan.get("visual_reference") or {}).get("adaptation_note", "Standard Violin Prince visual direction retained."),
         "audio_source": audio_source,
         "audio_mix": "voice-priority sidechain ducking; creator performance audio enters with Scene 3 when present",
         "creator_performance_video": {
@@ -4578,6 +4579,12 @@ def _read_package(require_images=False):
     except (OSError, json.JSONDecodeError) as exc:
         raise PipelineError("Prepared package contains invalid JSON metadata.") from exc
     narration_info = metadata.get("narration_info")
+    try:
+        plan["visual_reference"] = normalize_visual_reference(
+            plan.get("visual_reference"), plan.get("scenes")
+        )
+    except (TypeError, ValueError) as exc:
+        raise PipelineError("Prepared package has an invalid visual reference profile: " + str(exc)) from exc
     creative_issues = validate_creative_plan(plan)
     if creative_issues:
         raise PipelineError("Prepared package failed the Violin Prince creative-direction gate: " + " ".join(creative_issues))
@@ -4735,6 +4742,8 @@ def _write_review_text(plan, target, performance_video_asset=None):
         "STORY TYPE: " + str(plan.get("story_type", "")),
         "COVER PERFORMANCE PAYOFF: " + str(plan.get("cover_payoff", "")),
         "SCENE VISUAL MODES: " + ", ".join(str(scene.get("visual_mode", "")) for scene in plan.get("scenes", [])),
+        "VISUAL REFERENCE PROFILE: " + json.dumps(plan.get("visual_reference") or {"status": "not_supplied"}, ensure_ascii=False),
+        "VISUAL REFERENCE ADAPTATION: " + str((plan.get("visual_reference") or {}).get("adaptation_note") or "Standard Violin Prince visual direction retained."),
         "HOOK: " + str(plan.get("hook", "")),
         "",
         "NARRATION:",
