@@ -3911,24 +3911,38 @@ def make_card(source, caption, index, title=""):
 
     gold = (235, 202, 139, 255)
     white = (255, 250, 241, 255)
-    draw.text((34, 36), "VIOLIN PRINCE", font=font(20), fill=gold,
+    brand_font = font(16, "medium")
+    draw.text((34, 36), "VIOLIN PRINCE", font=brand_font, fill=gold,
               stroke_width=1, stroke_fill=(0, 0, 0, 120))
-    draw.line((34, 72, W - 34, 72), fill=(235, 202, 139, 150), width=1)
+    draw.line((34, 72, W - 34, 72), fill=(235, 202, 139, 125), width=1)
 
     if index == 0 and title:
-        title_lines = textwrap.wrap(str(title).strip(), width=27)[:2]
-        title_y = 105
-        title_font = font(31)
-        for line in title_lines:
+        title_font = font(42, "bold", "serif")
+        title_lines = []
+        current = ""
+        for word in str(title).strip().split():
+            candidate = (current + " " + word).strip()
+            bounds = draw.textbbox((0, 0), candidate, font=title_font)
+            if current and bounds[2] - bounds[0] > W - 82:
+                title_lines.append(current)
+                current = word
+            else:
+                current = candidate
+        if current:
+            title_lines.append(current)
+        title_y = 104
+        for line in title_lines[:2]:
+            draw.text((35, title_y + 2), line, font=title_font,
+                      fill=(0, 0, 0, 210), stroke_width=1, stroke_fill=(0, 0, 0, 180))
             draw.text((34, title_y), line, font=title_font, fill=white,
-                      stroke_width=2, stroke_fill=(0, 0, 0, 170))
-            title_y += 43
+                      stroke_width=1, stroke_fill=(10, 10, 14, 150))
+            title_y += 51
 
-    draw.line((34, 1190, W - 34, 1190), fill=(235, 202, 139, 135), width=1)
+    draw.line((34, 1190, W - 34, 1190), fill=(235, 202, 139, 115), width=1)
     draw.text((34, 1207), "ORIGINAL STORY • ORIGINAL SOUNDTRACK",
-              font=font(13), fill=(242, 230, 208, 240))
+              font=font(12, "medium"), fill=(242, 230, 208, 235))
     draw.text((W - 110, 1207), f"{index + 1:02d}/03",
-              font=font(13), fill=(242, 230, 208, 240))
+              font=font(12, "medium"), fill=(242, 230, 208, 235))
 
     p = OUT / f"card-{index + 1}.png"
     canvas.convert("RGB").save(p, "PNG", optimize=True)
@@ -4000,7 +4014,7 @@ def write_kinetic_ass(cues, output_path, word_cues=None):
         "",
         "[V4+ Styles]",
         "Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding",
-        "Style: VP,DejaVu Sans,42,&H008BCAEB,&H00F8F5EF,&HCC07111F,&H00000000,-1,0,1,2.0,1.3,2,64,64,136,1",
+        "Style: VP,DejaVu Sans,42,&H00F8F5EF,&H008BCAEB,&HCC07111F,&H00000000,-1,0,1,2.0,1.3,2,64,64,136,1",
         "",
         "[Events]",
         "Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text",
