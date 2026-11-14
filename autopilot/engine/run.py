@@ -4476,7 +4476,7 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
     mode = str(scene.get("visual_mode") or ("macro_3d" if index == 0 else "cover_performance" if index == 2 else "waveform")).strip().casefold()
     mode_direction = VISUAL_MODE_PROMPTS.get(mode, VISUAL_MODE_PROMPTS["waveform"])
     cover_payoff = str((plan or {}).get("cover_payoff") or "").strip()[:100]
-    clean_feedback = re.sub(r"\\s+", " ", str(feedback or "")).strip()[:260]
+    clean_feedback = re.sub(r"\s+", " ", str(feedback or "")).strip()[:260]
 
     brand_direction = (
         "Violin Prince identity: richly coloured photorealistic cinematic still imagery or indistinguishable CGI; "
