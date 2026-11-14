@@ -944,11 +944,15 @@ def source_relevance_score(plan, item):
 
 
 _GENERIC_ENTITY_WORDS = {
-    "about", "advanced", "album", "artist", "artists", "classical", "computer",
-    "concert", "digital", "discovery", "future", "instrument", "instruments",
-    "music", "musical", "new", "performance", "real", "realistic", "science",
-    "scientific", "song", "sound", "sounds", "space", "technology", "the",
-    "traditional", "violin", "virtual", "world",
+    "about", "advanced", "album", "animation", "animated", "animations",
+    "artist", "artists", "classical", "cinema", "cinematic", "computer",
+    "concert", "digital", "discovery", "entertainment", "film", "films",
+    "future", "industry", "instrument", "instruments", "lullaby", "melancholy",
+    "movie", "movies", "music", "musical", "new", "original", "performance",
+    "real", "realistic", "release", "released", "score", "scores", "science",
+    "scientific", "song", "songs", "sound", "sounds", "soundtrack", "space",
+    "technology", "the", "theater", "theaters", "theatre", "theatres",
+    "traditional", "tv", "television", "violin", "virtual", "weekly", "world",
 }
 
 
@@ -1774,14 +1778,18 @@ def source_content_similarity(left, right):
 
 
 _STORY_GROUP_GENERIC_TERMS = {
-    "ai", "about", "announced", "announces", "announcement", "artist", "artists",
-    "artificial", "breaking", "computer", "computers", "culture", "digital",
-    "discovery", "entertainment", "feature", "features", "future", "global",
-    "intelligence", "latest", "machine", "machines", "music", "musical", "new",
-    "news", "performance", "performances", "report", "reports", "research",
-    "researcher", "researchers", "science", "scientific", "show", "shows",
-    "study", "technology", "today", "trend", "trends", "update", "updates",
-    "violin", "world",
+    "ai", "about", "announced", "announces", "announcement", "animation",
+    "animated", "artist", "artists", "artificial", "breaking", "cinema",
+    "cinematic", "computer", "computers", "culture", "digital", "discovery",
+    "entertainment", "feature", "features", "film", "films", "future", "global",
+    "industry", "intelligence", "latest", "machine", "machines", "media",
+    "movie", "movies", "music", "musical", "new", "news", "original",
+    "performance", "performances", "release", "released", "report", "reports",
+    "research", "researcher", "researchers", "roundup", "score", "scores",
+    "science", "scientific", "show", "shows", "song", "songs", "soundtrack",
+    "study", "technology", "theater", "theaters", "theatre", "theatres",
+    "today", "trend", "trends", "tv", "television", "update", "updates",
+    "weekly", "violin", "world",
 }
 
 
@@ -1793,12 +1801,25 @@ def _story_group_tokens(value):
 
 
 def _story_article_anchors(item):
+    """Extract distinctive named subjects that are actually present in the article body."""
     title = str(item.get("title") or "")
-    anchors = story_entity_anchor_groups({"topic": title, "title": title})
-    return {
-        frozenset(anchor) for anchor in anchors
-        if anchor and not set(anchor).issubset(_STORY_GROUP_GENERIC_TERMS)
-    }
+    body = str(item.get("evidence_text") or "")
+    anchors = story_entity_anchor_groups({
+        "topic": title,
+        "title": title,
+        "description": body,
+    })
+    body_tokens = source_tokens(body)
+    result = set()
+    for anchor in anchors:
+        distinctive = frozenset(
+            token for token in anchor
+            if token not in _STORY_GROUP_GENERIC_TERMS
+            and token not in _GENERIC_ENTITY_WORDS
+        )
+        if distinctive and distinctive.issubset(body_tokens):
+            result.add(distinctive)
+    return result
 
 
 def story_articles_cover_same_subject(left, right):
@@ -1825,13 +1846,16 @@ def story_articles_cover_same_subject(left, right):
     body_overlap = len(shared_body) / max(1, min(len(left_body), len(right_body)))
 
     shared_anchors = _story_article_anchors(left).intersection(_story_article_anchors(right))
-    if shared_anchors and len(shared_body) >= 3 and body_overlap >= 0.08:
-        return True
-    if len(shared_title) >= 2 and title_overlap >= 0.30:
-        return True
-    if len(shared_body) >= 6 and body_overlap >= 0.18 and len(shared_title) >= 1:
-        return True
-    return False
+    if not shared_anchors:
+        return False
+    # A genre/category overlap is not corroboration. At least one distinctive
+    # named subject must occur in both article bodies, along with some shared
+    # contextual evidence. Generic words such as "film", "music" and "weekly"
+    # can never satisfy the subject-anchor requirement.
+    shared_body = _story_group_tokens(left.get("evidence_text", "")).intersection(
+        _story_group_tokens(right.get("evidence_text", ""))
+    )
+    return len(shared_body) >= 3 and body_overlap >= 0.03
 
 
 def build_verified_story_groups(research_items, minimum_publishers=2, maximum_groups=8, as_of=None):
@@ -2771,6 +2795,18 @@ def narration_validation_error(script):
             return f"sentence {index} has {count} words; no sentence may exceed 12"
         if not sentence.endswith((".", "!", "?")):
             return f"sentence {index} is missing closing punctuation"
+        if not sentence.endswith("?"):
+            ending = re.search(
+                r"\b(?:a|an|the|and|or|but|to|of|for|from|in|into|on|at|by|with|about|"
+                r"as|than|that|which|who|because|while|when|where|if|is|are|was|were)\s*[.!]$",
+                sentence,
+                flags=re.IGNORECASE,
+            )
+            if ending:
+                return (
+                    f"sentence {index} appears incomplete; it ends with the dangling word "
+                    f"'{ending.group(0).strip().rstrip('.!')}'"
+                )
 
     return ""
 
