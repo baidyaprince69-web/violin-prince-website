@@ -906,17 +906,17 @@ def narration_sentences(script):
     value = str(script or "").strip()
     if not value:
         return []
-    return [part.strip() for part in re.split(r"(?<=[.!?])\\s+", value) if part.strip()]
+    return [part.strip() for part in re.split(r"(?<=[.!?])\s+", value) if part.strip()]
 
 
 def narration_word_count(value):
     """Count spoken word tokens consistently for the full script and each sentence."""
-    return len(re.findall(r"\\b[\\w’'-]+\\b", str(value or "")))
+    return len(re.findall(r"\b[\w’'-]+\b", str(value or "")))
 
 
 def narration_validation_error(script):
     """Enforce the actual short-form requirements, not arbitrary per-sentence quotas."""
-    text_value = re.sub(r"\\s+", " ", str(script or "")).strip()
+    text_value = re.sub(r"\s+", " ", str(script or "")).strip()
     total_words = narration_word_count(text_value)
     if not 40 <= total_words <= 44:
         return f"it has {total_words} spoken words; the required range is 40–44"
