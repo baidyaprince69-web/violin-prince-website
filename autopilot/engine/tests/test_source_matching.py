@@ -203,6 +203,100 @@ class PlannerSourceMatchingTests(unittest.TestCase):
             for item in result
         ))
 
+    def test_news_aggregator_urls_never_count_as_publisher_articles(self):
+        for url in (
+            "https://www.bing.com/news/apiclick.aspx?ref=feed",
+            "https://www.msn.com/en-us/news/science/story",
+            "https://news.google.com/rss/articles/example",
+            "https://duckduckgo.com/?q=violin",
+        ):
+            with self.subTest(url=url):
+                self.assertFalse(pipeline.is_direct_publisher_article(url))
+
+    def test_bing_namespaced_source_metadata_preserves_publisher_domain(self):
+        item = ET.fromstring(
+            '<item xmlns:News="https://schemas.microsoft.com/News/2010/10">'
+            "<title>MIT virtual violin produces realistic sounds - MIT News</title>"
+            "<link>https://www.bing.com/news/apiclick.aspx?ref=feed</link>"
+            "<pubDate>Sat, 14 Nov 2026 10:00:00 GMT</pubDate>"
+            '<News:Source Url="https://news.mit.edu">MIT News</News:Source>'
+            "</item>"
+        )
+        record = pipeline.bing_news_item_record(item)
+        self.assertEqual(record["publisher_name"], "MIT News")
+        self.assertEqual(record["publisher_home"], "https://news.mit.edu")
+        self.assertEqual(record["publisher_domain"], "news.mit.edu")
+        self.assertTrue(record["url"].startswith("https://www.bing.com/"))
+        self.assertEqual(record["link_type"], "discovery_lead")
+        self.assertFalse(pipeline.is_direct_publisher_article(record))
+
+    def test_bing_interstitial_is_replaced_only_after_publisher_article_fetch(self):
+        article_url = "https://news.mit.edu/2026/virtual-violin"
+        aggregator_html = (
+            '<html><head><link rel="canonical" href="' + article_url +
+            '"></head><body><p>This is only a search results page and not article evidence.</p></body></html>'
+        )
+        article_text = (
+            "MIT engineers describe a computational virtual violin and explain how "
+            "the model reproduces the resonance and timbre of acoustic instruments. "
+            "The article outlines the research approach, the instrument's sound model, "
+            "and the technical details that distinguish the work from a simple recording."
+        )
+        article_html = "<html><body><p>" + article_text + "</p></body></html>"
+
+        class FakeResponse:
+            def __init__(self, url, body):
+                self.url = url
+                self.status_code = 200
+                self.headers = {"Content-Type": "text/html; charset=utf-8"}
+                self.text = body
+
+        responses = {
+            "https://www.bing.com/news/apiclick.aspx?ref=feed": FakeResponse(
+                "https://www.bing.com/news/apiclick.aspx?ref=feed", aggregator_html
+            ),
+            article_url: FakeResponse(article_url, article_html),
+        }
+
+        with patch.object(pipeline.requests, "get", side_effect=lambda url, **kwargs: responses[url]):
+            result = pipeline.enrich_source_evidence([{
+                "title": "MIT virtual violin",
+                "url": "https://www.bing.com/news/apiclick.aspx?ref=feed",
+                "publisher_name": "MIT News",
+                "publisher_domain": "news.mit.edu",
+                "source_feed": "Bing News story search",
+                "link_type": "discovery_lead",
+            }])
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["url"], article_url)
+        self.assertEqual(result[0]["publisher_domain"], "news.mit.edu")
+        self.assertEqual(result[0]["link_type"], "publisher_article")
+        self.assertGreaterEqual(len(result[0]["evidence_text"]), 90)
+
+    def test_bing_interstitial_without_publisher_target_remains_discovery_only(self):
+        class FakeResponse:
+            def __init__(self):
+                self.url = "https://www.bing.com/news/apiclick.aspx?ref=feed"
+                self.status_code = 200
+                self.headers = {"Content-Type": "text/html; charset=utf-8"}
+                self.text = "<html><body><p>Search results page only, not publisher evidence.</p></body></html>"
+
+        with patch.object(pipeline.requests, "get", return_value=FakeResponse()):
+            result = pipeline.enrich_source_evidence([{
+                "title": "A news headline",
+                "url": "https://www.bing.com/news/apiclick.aspx?ref=feed",
+                "publisher_name": "Unknown publisher",
+                "publisher_domain": "",
+                "source_feed": "Bing News story search",
+                "link_type": "discovery_lead",
+            }])
+
+        self.assertEqual(result[0]["link_type"], "discovery_lead")
+        self.assertNotIn("publisher_url", result[0])
+        self.assertNotIn("evidence_text", result[0])
+        self.assertFalse(pipeline.is_direct_publisher_article(result[0]))
+
     def test_unrelated_plan_does_not_get_random_source(self):
         plan = {
             "topic": "A deep ocean fossil discovery",

@@ -200,9 +200,24 @@ def _is_google_host(host):
     return host == "google.com" or host.endswith(".google.com") or host == "googleusercontent.com" or host.endswith(".googleusercontent.com")
 
 
+def _is_news_aggregator_host(host):
+    """Identify search/news portals that can never serve as final publisher evidence."""
+    value = str(host or "").lower().removeprefix("www.").rstrip(".")
+    if not value:
+        return True
+    if _is_google_host(value):
+        return True
+    blocked_roots = (
+        "bing.com", "bing.net", "msn.com", "microsoft.com",
+        "duckduckgo.com", "search.yahoo.com", "newsnow.com",
+        "flipboard.com", "feedly.com",
+    )
+    return any(value == root or value.endswith("." + root) for root in blocked_roots)
+
+
 def _publisher_article_url_from_html(page_text, expected_domain=""):
-    """Find a publisher article URL embedded in a Google News interstitial page."""
-    expected = str(expected_domain or "").lower().removeprefix("www.")
+    """Find a publisher article URL embedded in a news/search interstitial page."""
+    expected = _normalized_publisher_domain(expected_domain)
     text_value = html_unescape(str(page_text or "")).replace("\\u003d", "=").replace("\\/", "/")
     candidates = re.findall(r"https?://[^\s\"'<>]+", text_value, flags=re.IGNORECASE)
     expanded = []
@@ -220,21 +235,22 @@ def _publisher_article_url_from_html(page_text, expected_domain=""):
             continue
 
     ranked = []
-    seen = set()
+    seen_urls = set()
     for candidate in expanded:
         try:
             parsed = urlparse(candidate)
             host = (parsed.hostname or "").lower().removeprefix("www.")
             path = (parsed.path or "").rstrip("/")
-            if parsed.scheme not in ("http", "https") or not host or _is_google_host(host):
+            key = source_key(candidate)
+            if parsed.scheme not in ("http", "https") or not host or _is_news_aggregator_host(host):
                 continue
             if not path or path in ("/rss", "/feed", "/news", "/"):
                 continue
-            if host in seen:
+            if key in seen_urls:
                 continue
             if expected and not (host == expected or host.endswith("." + expected) or expected.endswith("." + host)):
                 continue
-            seen.add(host)
+            seen_urls.add(key)
             ranked.append((3 if expected and host == expected else 1, candidate))
         except Exception:
             continue
@@ -243,7 +259,7 @@ def _publisher_article_url_from_html(page_text, expected_domain=""):
 
 
 def is_direct_publisher_article(item):
-    """Reject Google News redirects and publisher homepages as source citations."""
+    """Reject search/news aggregators and publisher homepages as source citations."""
     if isinstance(item, dict):
         url = str(item.get("url") or item.get("publisher_url") or "").strip()
     else:
@@ -252,11 +268,13 @@ def is_direct_publisher_article(item):
         parsed = urlparse(url)
         host = (parsed.hostname or "").lower().removeprefix("www.")
         path = (parsed.path or "").rstrip("/")
-        if parsed.scheme not in ("http", "https") or not host or _is_google_host(host):
+        if parsed.scheme not in ("http", "https") or not host:
             return False
-        if host in ("news.google.com", "youtube.com", "youtu.be"):
+        if _is_news_aggregator_host(host) or host in ("youtube.com", "youtu.be"):
             return False
-        if not path or path == "/" or path.lower() in ("/rss", "/feed", "/search", "/news"):
+        if not path or path == "/" or path.lower() in (
+            "/rss", "/feed", "/search", "/news", "/news/search", "/news/apiclick.aspx"
+        ):
             return False
         return True
     except Exception:
@@ -264,7 +282,33 @@ def is_direct_publisher_article(item):
 
 
 def enrich_source_evidence(items):
-    """Resolve news redirects to publisher articles and fetch short evidence excerpts."""
+    """Resolve discovery links, then extract evidence only from a final publisher page."""
+    request_headers = {"User-Agent": "Mozilla/5.0 (compatible; ViolinPrinceAutopilot/0.2)"}
+
+    def publisher_page(url):
+        """Fetch a candidate and return final URL, host, and readable article excerpt."""
+        response = requests.get(
+            url,
+            headers=request_headers,
+            timeout=(5, 12),
+            allow_redirects=True,
+        )
+        content_type = response.headers.get("Content-Type", "").lower()
+        final_url = str(response.url or url)
+        final_host = (urlparse(final_url).hostname or "").lower().removeprefix("www.")
+        if response.status_code != 200 or "html" not in content_type:
+            return None
+        if _is_news_aggregator_host(final_host):
+            return None
+        if not is_direct_publisher_article(final_url):
+            return None
+        parser = ParagraphExtractor()
+        parser.feed(response.text[:1_500_000])
+        excerpt = " ".join(parser.paragraphs[:14])[:2200]
+        if len(excerpt) < 90:
+            return None
+        return final_url, final_host, excerpt
+
     def fetch_one(item):
         url = str(item.get("url", ""))
         if not url.startswith(("http://", "https://")):
@@ -272,43 +316,55 @@ def enrich_source_evidence(items):
         try:
             response = requests.get(
                 url,
-                headers={"User-Agent": "Mozilla/5.0 (compatible; ViolinPrinceAutopilot/0.2)"},
+                headers=request_headers,
                 timeout=(5, 12),
                 allow_redirects=True,
             )
-            content_type = response.headers.get("Content-Type", "").lower()
-            final_url = response.url
+            final_url = str(response.url or url)
             final_host = (urlparse(final_url).hostname or "").lower().removeprefix("www.")
-            if response.status_code == 200 and "html" in content_type:
-                parser = ParagraphExtractor()
-                parser.feed(response.text[:1_500_000])
-                excerpt = " ".join(parser.paragraphs[:14])[:2200]
-                if excerpt:
-                    item["evidence_text"] = excerpt
+            content_type = response.headers.get("Content-Type", "").lower()
 
-                if final_host and not _is_google_host(final_host):
-                    item["url"] = final_url
-                    item["publisher_url"] = final_url
-                    item["publisher_domain"] = final_host
-                    item["link_type"] = "publisher_article"
-                else:
-                    resolved = _publisher_article_url_from_html(
-                        response.text[:1_500_000], item.get("publisher_domain", "")
-                    )
-                    if resolved:
-                        item["url"] = resolved
-                        item["publisher_url"] = resolved
-                        item["publisher_domain"] = (urlparse(resolved).hostname or "").lower().removeprefix("www.")
+            if response.status_code == 200 and "html" in content_type:
+                if not _is_news_aggregator_host(final_host) and is_direct_publisher_article(final_url):
+                    parser = ParagraphExtractor()
+                    parser.feed(response.text[:1_500_000])
+                    excerpt = " ".join(parser.paragraphs[:14])[:2200]
+                    if len(excerpt) >= 90:
+                        item["url"] = final_url
+                        item["publisher_url"] = final_url
+                        item["publisher_domain"] = final_host
+                        item["evidence_text"] = excerpt
                         item["link_type"] = "publisher_article"
-            if is_direct_publisher_article(item):
-                item["link_type"] = "publisher_article"
-                item.setdefault("publisher_domain", (urlparse(item["url"]).hostname or "").lower().removeprefix("www."))
+                        return item
+
+                # A search/news portal can reveal the publisher URL, but its own
+                # page text and host are never retained as factual article evidence.
+                expected_domain = item.get("publisher_domain", "")
+                resolved = _publisher_article_url_from_html(
+                    response.text[:1_500_000], expected_domain
+                )
+                if resolved:
+                    verified = publisher_page(resolved)
+                    if verified:
+                        resolved_url, resolved_host, excerpt = verified
+                        item["url"] = resolved_url
+                        item["publisher_url"] = resolved_url
+                        item["publisher_domain"] = resolved_host
+                        item["evidence_text"] = excerpt
+                        item["link_type"] = "publisher_article"
+                        return item
+
+            # Keep the discovery record, but explicitly remove fields that could
+            # accidentally make an aggregator page look like a final citation.
+            if _is_news_aggregator_host(final_host):
+                item.pop("publisher_url", None)
+                item.pop("evidence_text", None)
+                item["link_type"] = "discovery_lead"
         except Exception as exc:
             log("Article evidence unavailable: " + str(exc)[:120])
         return item
 
-    # Resolve publisher redirects before the records are offered to the story planner.
-    candidates = items[:100]
+    candidates = items[:140]
     if not candidates:
         return items
     completed = {}
@@ -630,18 +686,32 @@ def story_search_phrases(plan, existing_items=None):
 
 
 def bing_news_item_record(item, label="Bing News story search"):
-    """Convert a Bing News RSS item into a discovery record, never final evidence by itself."""
-    source_node = item.find("source")
+    """Convert Bing RSS into a discovery record, never final evidence by itself."""
+    # Bing's RSS format can namespace News:Source, so find it by local XML name.
+    source_node = next(
+        (
+            child for child in list(item)
+            if str(child.tag).split("}")[-1].split(":")[-1].casefold() == "source"
+        ),
+        None,
+    )
     publisher_name = (source_node.text or "").strip() if source_node is not None else ""
+    publisher_home = ""
+    if source_node is not None:
+        publisher_home = next(
+            (str(value).strip() for key, value in source_node.attrib.items()
+             if str(key).split("}")[-1].casefold() == "url" and str(value).strip()),
+            "",
+        )
     raw_title = (item.findtext("title") or "").strip()
     if publisher_name and raw_title.casefold().endswith((" - " + publisher_name).casefold()):
         raw_title = raw_title[:-(len(publisher_name) + 3)].strip()
     url = (item.findtext("link") or "").strip()
-    publisher_domain = _normalized_publisher_domain(
-        (source_node.get("url") or "") if source_node is not None else ""
-    )
+    publisher_domain = _normalized_publisher_domain(publisher_home)
     if not publisher_domain:
-        publisher_domain = _normalized_publisher_domain(url)
+        link_host = _normalized_publisher_domain(url)
+        if link_host and not _is_news_aggregator_host(link_host):
+            publisher_domain = link_host
     return {
         "title": raw_title[:220],
         "summary": "",
@@ -649,7 +719,7 @@ def bing_news_item_record(item, label="Bing News story search"):
         "date": (item.findtext("pubDate") or "")[:90],
         "source": publisher_name or publisher_domain or label,
         "publisher_name": publisher_name or publisher_domain,
-        "publisher_home": (source_node.get("url") or "").strip() if source_node is not None else "",
+        "publisher_home": publisher_home,
         "publisher_domain": publisher_domain,
         "source_feed": label,
         "link_type": "discovery_lead",
