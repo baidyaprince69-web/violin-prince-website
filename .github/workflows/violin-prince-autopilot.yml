@@ -117,8 +117,8 @@ jobs:
           print("Validated ChatGPT daily production request: " + plan_path)
           PY
 
-      - name: Check required Cloudflare AI secrets for legacy manual runs
-        if: env.PIPELINE_STAGE != 'render' && steps.daily_request.outputs.plan_path == ''
+      - name: Check required Cloudflare AI secrets for photorealistic image generation
+        if: env.PIPELINE_STAGE != 'render'
         shell: bash
         run: |
           missing=0
@@ -234,7 +234,7 @@ jobs:
         if: env.PIPELINE_STAGE == 'render'
         run: python autopilot/engine/run.py --stage render
 
-      - name: Run ChatGPT-prepared Cloudflare-free daily plan
+      - name: Run ChatGPT-prepared daily plan with photorealistic scene images
         if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path != ''
         env:
           RUN_ID: ${{ github.run_id }}
