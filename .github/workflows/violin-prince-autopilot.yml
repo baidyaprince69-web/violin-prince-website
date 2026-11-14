@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       stage:
-        description: "Run Prepare, review its story package, then run Visuals and Render as separate stages."
+        description: "Run the complete Prepare → Visuals → Render pipeline, or choose one stage for recovery."
         required: true
         type: choice
         default: full
@@ -47,6 +47,8 @@ jobs:
       RUN_MODE: manual
       PIPELINE_STAGE: ${{ github.event_name == 'schedule' && 'prepare' || inputs.stage || 'full' }}
       VISUAL_FEEDBACK: ${{ inputs.visual_feedback }}
+      AUTOPILOT_API_URL: ${{ secrets.AUTOPILOT_API_URL }}
+      AUTOPILOT_JOB_TOKEN: ${{ secrets.AUTOPILOT_JOB_TOKEN }}
       CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
       CF_AI_TOKEN: ${{ secrets.CF_AI_TOKEN }}
       YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
@@ -62,7 +64,17 @@ jobs:
         env:
           SELECTED_STAGE: ${{ github.event_name == 'schedule' && 'prepare' || inputs.stage || 'full' }}
           SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          AUTOPILOT_API_URL: ${{ secrets.AUTOPILOT_API_URL }}
+          AUTOPILOT_JOB_TOKEN: ${{ secrets.AUTOPILOT_JOB_TOKEN }}
         run: |
+          if [[ -n "$AUTOPILOT_API_URL" && -z "$AUTOPILOT_JOB_TOKEN" ]]; then
+            echo "::error::AUTOPILOT_API_URL is set but AUTOPILOT_JOB_TOKEN is missing."
+            exit 1
+          fi
+          if [[ -n "$AUTOPILOT_API_URL" && ! "$AUTOPILOT_API_URL" =~ ^https:// ]]; then
+            echo "::error::AUTOPILOT_API_URL must use HTTPS."
+            exit 1
+          fi
           if [[ "$SELECTED_STAGE" != "full" && "$SELECTED_STAGE" != "prepare" && "$SELECTED_STAGE" != "visuals" && "$SELECTED_STAGE" != "render" ]]; then
             echo "::error::Unknown production stage."
             exit 1
