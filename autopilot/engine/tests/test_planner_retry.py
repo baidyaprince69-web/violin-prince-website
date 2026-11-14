@@ -49,9 +49,19 @@ RUN22_ATTEMPT_3 = (
 
 RUN22_CORRECTED_FIELDS = {
     "sentence_2": "MIT engineers built a virtual violin through detailed computer-based sound modelling research.",
-    "sentence_3": "Digital modelling reproduces realistic violin resonance, timbre, and subtle expressive details faithfully.",
+    "sentence_3": "Digital modelling reproduces realistic violin resonance, timbre, and expressive details faithfully.",
     "sentence_4": "This achievement connects traditional violin artistry with new possibilities for musical creativity.",
 }
+
+RUN23_INITIAL_SENTENCES = [
+    "Can a computer mimic a violin?",
+    "MIT engineers developed new technology to simulate the sound of violins.",
+    "This virtual instrument produces realistic tones through advanced digital modeling techniques.",
+    "These digital strings now sing with a very authentic musical soul.",
+]
+RUN23_CORRECTED_SENTENCE = (
+    "MIT engineers developed technology to simulate violin sounds with remarkable acoustic realism."
+)
 
 
 def make_test_plan(sentences):
@@ -144,6 +154,10 @@ class PlannerNarrationValidationTests(unittest.TestCase):
     def test_run22_composer_repairs_only_sentences_two_to_four(self):
         plan = make_test_plan(RUN22_INITIAL_SENTENCES)
         scenes_before = json.loads(json.dumps(plan["scenes"]))
+        corrected_word_arrays = {
+            field + "_words": sentence.split()
+            for field, sentence in RUN22_CORRECTED_FIELDS.items()
+        }
         tool_response = {
             "choices": [{
                 "message": {
@@ -151,7 +165,7 @@ class PlannerNarrationValidationTests(unittest.TestCase):
                         "type": "function",
                         "function": {
                             "name": "submit_narration_sentence_corrections",
-                            "arguments": json.dumps(RUN22_CORRECTED_FIELDS),
+                            "arguments": json.dumps(corrected_word_arrays),
                         },
                     }],
                 },
@@ -175,14 +189,27 @@ class PlannerNarrationValidationTests(unittest.TestCase):
                 self.assertEqual(mock_ai.call_count, 2)
                 self.assertEqual(result["narration_sentences"][0], RUN22_INITIAL_SENTENCES[0])
                 self.assertEqual(result["narration_sentences"][1:], list(RUN22_CORRECTED_FIELDS.values()))
-                self.assertEqual(pipeline.narration_word_count(result["narration_script"]), 42)
+                self.assertEqual(pipeline.narration_word_count(result["narration_script"]), 40)
                 self.assertEqual(pipeline.narration_validation_error(result["narration_script"]), "")
                 correction_payload = mock_ai.call_args_list[1].args[1]
                 self.assertEqual(correction_payload["tool_choice"]["function"]["name"],
                                  "submit_narration_sentence_corrections")
                 self.assertEqual(
                     correction_payload["tools"][0]["function"]["parameters"]["required"],
-                    ["sentence_2", "sentence_3", "sentence_4"],
+                    ["sentence_2_words", "sentence_3_words", "sentence_4_words"],
+                )
+                array_properties = correction_payload["tools"][0]["function"]["parameters"]["properties"]
+                self.assertEqual(
+                    [array_properties[field]["minItems"] for field in (
+                        "sentence_2_words", "sentence_3_words", "sentence_4_words"
+                    )],
+                    [12, 11, 11],
+                )
+                self.assertEqual(
+                    [array_properties[field]["maxItems"] for field in (
+                        "sentence_2_words", "sentence_3_words", "sentence_4_words"
+                    )],
+                    [12, 11, 11],
                 )
                 locked = json.loads(correction_payload["messages"][1]["content"].split(
                     "Locked sentence fields (must remain unchanged): ", 1
@@ -198,6 +225,85 @@ class PlannerNarrationValidationTests(unittest.TestCase):
                 self.assertEqual(debug["status"], "repaired")
                 self.assertEqual(len(debug["correction_attempts"]), 1)
                 self.assertEqual(debug["correction_attempts"][0]["corrected_sentence_numbers"], [2, 3, 4])
+            finally:
+                pipeline.WORK = original_work
+
+
+    def test_run23_exact_39_word_failure_repairs_only_one_word(self):
+        plan = make_test_plan(RUN23_INITIAL_SENTENCES)
+        initial_script = " ".join(RUN23_INITIAL_SENTENCES)
+        self.assertEqual(pipeline.narration_word_count(initial_script), 39)
+        self.assertIn(
+            "it has 39 spoken words; the required range is 40–44",
+            pipeline.narration_validation_error(initial_script),
+        )
+        self.assertEqual(
+            [pipeline.narration_word_count(value) for value in RUN23_INITIAL_SENTENCES],
+            [6, 11, 11, 11],
+        )
+
+        tool_response = {
+            "choices": [{
+                "message": {
+                    "tool_calls": [{
+                        "type": "function",
+                        "function": {
+                            "name": "submit_narration_sentence_corrections",
+                            "arguments": json.dumps({
+                                "sentence_2_words": RUN23_CORRECTED_SENTENCE.split()
+                            }),
+                        },
+                    }],
+                },
+            }],
+        }
+
+        with tempfile.TemporaryDirectory() as folder:
+            original_work = pipeline.WORK
+            try:
+                pipeline.WORK = Path(folder)
+                with patch.object(
+                    pipeline,
+                    "ai",
+                    side_effect=[
+                        {"response": plan},
+                        tool_response,
+                    ],
+                ) as mock_ai:
+                    result = pipeline.make_plan([self.item], recent=[])
+
+                self.assertEqual(mock_ai.call_count, 2)
+                self.assertEqual(pipeline.narration_word_count(result["narration_script"]), 40)
+                self.assertEqual(pipeline.narration_validation_error(result["narration_script"]), "")
+                self.assertEqual(result["narration_sentences"][0], RUN23_INITIAL_SENTENCES[0])
+                self.assertEqual(result["narration_sentences"][1], RUN23_CORRECTED_SENTENCE)
+                self.assertEqual(result["narration_sentences"][2:], RUN23_INITIAL_SENTENCES[2:])
+
+                correction_payload = mock_ai.call_args_list[1].args[1]
+                parameters = correction_payload["tools"][0]["function"]["parameters"]
+                self.assertEqual(parameters["required"], ["sentence_2_words"])
+                self.assertEqual(parameters["properties"]["sentence_2_words"]["minItems"], 12)
+                self.assertEqual(parameters["properties"]["sentence_2_words"]["maxItems"], 12)
+                locked = json.loads(correction_payload["messages"][1]["content"].split(
+                    "Locked sentence fields (must remain unchanged): ", 1
+                )[1].split("\nDynamic word budgets", 1)[0])
+                self.assertEqual(
+                    locked,
+                    {
+                        "sentence_1": RUN23_INITIAL_SENTENCES[0],
+                        "sentence_3": RUN23_INITIAL_SENTENCES[2],
+                        "sentence_4": RUN23_INITIAL_SENTENCES[3],
+                    },
+                )
+
+                debug = json.loads((Path(folder) / "creative_plan_debug.json").read_text(encoding="utf-8"))
+                self.assertEqual(debug["status"], "repaired")
+                self.assertEqual(debug["final_diagnostics"]["word_count"], 40)
+                self.assertEqual(debug["correction_attempts"][0]["corrected_sentence_numbers"], [2])
+                self.assertEqual(
+                    debug["correction_attempts"][0]["required_word_counts"],
+                    {"sentence_2_words": 12},
+                )
             finally:
                 pipeline.WORK = original_work
 
@@ -218,9 +324,9 @@ class PlannerNarrationValidationTests(unittest.TestCase):
     def test_composer_allows_one_targeted_followup_then_fails_safely(self):
         plan = make_test_plan(RUN22_INITIAL_SENTENCES)
         invalid_fields = {
-            "sentence_2": "MIT engineers created a virtual violin.",
-            "sentence_3": "The virtual violin produces incredibly realistic sounds.",
-            "sentence_4": "This digital breakthrough changes how people experience music.",
+            "sentence_2_words": ["MIT"],
+            "sentence_3_words": ["The"],
+            "sentence_4_words": ["This"],
         }
         response = {
             "choices": [{
