@@ -559,6 +559,13 @@ def _article_page_url_is_directory(url):
         }
         if any(segment in blocked for segment in segments):
             return True
+        if segments and segments[-1] in {
+            "news", "music", "culture", "arts", "features", "articles",
+            "latest", "updates", "stories", "violin", "performing-arts",
+        }:
+            return True
+        if any(segment.endswith((".tag", ".category", ".archive")) for segment in segments):
+            return True
         if segments and segments[0] in {"c", "sections", "topics"}:
             return True
         if len(segments) == 1 and segments[0] in {
@@ -572,7 +579,7 @@ def _article_page_url_is_directory(url):
 
 
 def _article_page_verified(item, url, html, metadata):
-    """Require a matching story headline; OG article tags alone are not proof."""
+    """Require article metadata plus a headline match, or a strong article-like URL."""
     if _article_page_url_is_directory(url):
         return False
     supplied_title = str((item or {}).get("title") or "").strip()
@@ -581,18 +588,29 @@ def _article_page_verified(item, url, html, metadata):
     page_tokens = source_tokens(page_title)
     if len(supplied_tokens) < 2 or len(page_tokens) < 2:
         return False
+
     overlap = len(supplied_tokens.intersection(page_tokens)) / max(
         1, min(len(supplied_tokens), len(page_tokens))
     )
-    # Even pages with Article JSON-LD or og:type=article must match the RSS/search
-    # headline; section landing pages often emit those generic metadata tags too.
     if overlap < 0.45:
         return False
-    if not metadata.get("is_article") and len(
-        [part for part in urlparse(str(url or "")).path.split("/") if part]
-    ) < 2:
+
+    strong_metadata = bool(
+        metadata.get("structured_article") or metadata.get("has_publication_metadata")
+    )
+    if strong_metadata:
+        return True
+
+    # og:type=article is often applied to section/index pages. Without Article
+    # JSON-LD or a page publication timestamp, require a multi-segment slug that
+    # itself identifies the same headline before accepting the publisher's RSS date.
+    parsed = urlparse(str(url or ""))
+    segments = [part for part in (parsed.path or "").split("/") if part]
+    if len(segments) < 2 or not metadata.get("og_type_article"):
         return False
-    return True
+    slug_tokens = source_tokens(unquote(segments[-1].replace("-", " ").replace("_", " ")))
+    slug_overlap = len(slug_tokens.intersection(supplied_tokens)) / max(1, len(supplied_tokens))
+    return slug_overlap >= 0.30
 
 
 def _story_article_eligibility(item, as_of=None):
@@ -1906,7 +1924,7 @@ def build_verified_story_groups(research_items, minimum_publishers=2, maximum_gr
     return deduplicated
 
 
-def discover_source_first_story_groups(research_items, max_seed_queries=2, max_phrases=3, as_of=None):
+def discover_source_first_story_groups(research_items, max_seed_queries=4, max_phrases=4, as_of=None):
     """Find fresh corroborated story groups before asking the editorial planner to choose a topic."""
     pooled = [dict(item) for item in research_items if isinstance(item, dict)]
     groups = build_verified_story_groups(pooled, as_of=as_of)
@@ -1999,6 +2017,10 @@ def discover_source_first_story_groups(research_items, max_seed_queries=2, max_p
                 "publisher_resolution_status": item.get("publisher_resolution_status"),
                 "publisher_resolution_error": item.get("publisher_resolution_error"),
                 "article_page_verified": item.get("article_page_verified") is True,
+                "article_page_kind": item.get("article_page_kind") or "",
+                "publisher_resolution_status": item.get("publisher_resolution_status") or "",
+                "publisher_resolution_error": item.get("publisher_resolution_error") or "",
+                "publication_date_source": item.get("publication_date_source") or "",
                 "publication_date": article_freshness(item, as_of=as_of).get("published_at_utc"),
                 "age_hours": article_freshness(item, as_of=as_of).get("age_hours"),
                 "freshness_status": article_freshness(item, as_of=as_of).get("freshness_status"),
