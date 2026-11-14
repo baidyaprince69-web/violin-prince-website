@@ -1,6 +1,6 @@
 {
-  "source_run_id": "43598897882",
+  "source_run_id": "43599782187",
   "requested_stage": "prepare",
-  "reason": "Retry Prepare after adding verified-source narration repair and preserving targeted story evidence for diagnosis.",
-  "request_version": 11
+  "reason": "Retry Prepare with evidence-first direct publisher discovery, independent article grouping, and strict source-group-only story selection.",
+  "request_version": 12
 }

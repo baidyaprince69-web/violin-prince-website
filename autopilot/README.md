@@ -28,6 +28,20 @@ The individual Prepare, Visuals and Render options are available for repairs or 
 If the story itself needs changing, make a new **Prepare** run. This is the only stage that repeats research and planning.
 
 
+## Evidence-first research and story selection
+
+Prepare now uses a source-first sequence rather than choosing a topic from headlines and searching for evidence afterwards:
+
+1. Broad research collects article leads from free discovery providers, including direct publisher links from DuckDuckGo.
+2. Direct publisher pages are fetched and readable article paragraphs are extracted. Aggregator pages and headlines remain discovery leads only.
+3. Readable articles are grouped around a shared specific subject. A group must contain at least two independent publisher families. Same-family subdomains and substantially syndicated article copies do not count as independent corroboration.
+4. The editorial planner can select only from those eligible groups. Its source IDs must belong to one selected group; it cannot combine unrelated groups or invent a new topic.
+5. Topic-specific searches enrich the selected group. The existing source relevance, named-entity, narration evidence, timeline, date and quality-control gates still run before a prepared package is created.
+
+If a recovered research artifact contains only headlines or aggregator links and no readable direct publisher evidence, Prepare discards that stale cache and performs fresh discovery. The story_candidates.json diagnostic records the eligible groups, publisher families, source IDs and short evidence excerpts.
+
+A story with fewer than two independent, readable publisher articles is rejected. The source threshold is not relaxed to make a run succeed.
+
 ## Use a real violin recording
 
 The preferred Violin Prince music bed is a real performance, not an oscillator imitation.

@@ -410,12 +410,14 @@ class PlannerNarrationValidationTests(unittest.TestCase):
             finally:
                 pipeline.WORK = original_work
 
-    def test_story_source_recovery_tries_one_alternative_candidate(self):
+    def test_story_source_recovery_tries_an_alternative_verified_group(self):
         first_plan = make_test_plan(ORCHESTRA_SENTENCES)
         first_plan["topic"] = "Unverifiable first story"
+        first_plan["source_group"] = {"group_id": "GROUP_FIRST"}
         second_plan = make_test_plan(ORCHESTRA_SENTENCES)
         second_plan["topic"] = "Second story with publisher coverage"
         second_plan["narration_script"] = ORCHESTRA_SCRIPT
+        second_plan["source_group"] = {"group_id": "GROUP_SECOND"}
         verified = [
             {
                 "source_id": "SRC_ORCHESTRA",
@@ -441,8 +443,28 @@ class PlannerNarrationValidationTests(unittest.TestCase):
                 ),
             },
         ]
+        groups = [
+            {
+                "group_id": "GROUP_FIRST",
+                "topic_hint": "Unverifiable first story",
+                "source_ids": ["SRC_FIRST_A", "SRC_FIRST_B"],
+                "sources": [
+                    {"source_id": "SRC_FIRST_A", "publisher_domain": "first-a.example",
+                     "url": "https://first-a.example/story", "evidence_text": "A" * 120},
+                    {"source_id": "SRC_FIRST_B", "publisher_domain": "first-b.example",
+                     "url": "https://first-b.example/story", "evidence_text": "B" * 120},
+                ],
+            },
+            {
+                "group_id": "GROUP_SECOND",
+                "topic_hint": "Second story with publisher coverage",
+                "source_ids": ["SRC_ORCHESTRA", "SRC_BAEVA"],
+                "sources": verified,
+            },
+        ]
 
         with (
+            patch.object(pipeline, "discover_source_first_story_groups", return_value=groups) as discoverer,
             patch.object(pipeline, "make_plan", side_effect=[first_plan, second_plan]) as planner,
             patch.object(pipeline, "research_story_sources", side_effect=[[], ["source-a", "source-b"]]) as researcher,
             patch.object(
@@ -464,8 +486,10 @@ class PlannerNarrationValidationTests(unittest.TestCase):
         self.assertEqual(result_plan["topic"], "Second story with publisher coverage")
         self.assertEqual(story_items, ["source-a", "source-b"])
         self.assertEqual(result_sources, verified)
+        self.assertEqual(discoverer.call_count, 1)
         self.assertEqual(planner.call_count, 2)
         self.assertIn("Unverifiable first story", planner.call_args_list[1].kwargs["recent"])
+        self.assertIn("GROUP_FIRST", planner.call_args_list[1].kwargs["excluded_group_ids"])
         self.assertEqual(researcher.call_count, 2)
         self.assertEqual(verifier.call_count, 2)
 

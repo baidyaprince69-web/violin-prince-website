@@ -658,23 +658,26 @@ def resolve_plan_sources(plan, research_items):
 
 
 def research():
+    """Discover publisher article leads broadly, prioritising music-relevant direct links."""
     items = []
     try:
         r = http.get("https://api.gdeltproject.org/api/v2/doc/doc",
                      params={"query": "(music OR violin OR entertainment OR culture OR film OR science OR technology)",
-                             "mode": "ArtList", "format": "json", "maxrecords": "30",
-                             "sort": "HybridRel", "timespan": "24h"}, timeout=25)
+                             "mode": "ArtList", "format": "json", "maxrecords": "40",
+                             "sort": "HybridRel", "timespan": "7d"}, timeout=25)
         r.raise_for_status()
-        for a in r.json().get("articles", []):
-            if a.get("title") and a.get("url"):
-                article_url = str(a["url"])
-                article_domain = str(a.get("domain") or urlparse(article_url).netloc).lower().removeprefix("www.")
+        for article in r.json().get("articles", []):
+            if article.get("title") and article.get("url"):
+                article_url = str(article["url"])
+                article_domain = str(article.get("domain") or urlparse(article_url).netloc).lower().removeprefix("www.")
                 items.append({
-                    "title": str(a["title"])[:220], "summary": "",
-                    "url": article_url, "date": str(a.get("seendate", "")),
+                    "title": str(article["title"])[:220], "summary": "",
+                    "url": article_url, "date": str(article.get("seendate", "")),
                     "source": article_domain or "GDELT",
                     "publisher_name": article_domain,
                     "publisher_domain": article_domain,
+                    "source_feed": "GDELT broad research",
+                    "link_type": "discovery_lead",
                 })
     except Exception as exc:
         log("GDELT unavailable: " + str(exc)[:160])
@@ -704,17 +707,65 @@ def research():
             except Exception as exc:
                 log(region + " " + label + " RSS unavailable: " + str(exc)[:140])
 
+    # DuckDuckGo exposes direct outbound publisher URLs. These are still only
+    # discovery leads until enrich_source_evidence fetches and reads the article.
+    ddg_queries = [
+        "violin music orchestra instrument research news",
+        "classical music performers festivals competitions news",
+        "music technology instruments research discoveries",
+        "film music composers soundtrack industry news",
+        "music culture arts discoveries performance news",
+    ]
+    ddg_count = 0
+    for query in ddg_queries:
+        try:
+            request = requests.Request(
+                "GET",
+                "https://html.duckduckgo.com/html/",
+                params={"q": query},
+            ).prepare()
+            response = http.get(
+                request.url,
+                headers={"User-Agent": "Mozilla/5.0 (compatible; ViolinPrinceAutopilot/0.2)"},
+                timeout=12,
+            )
+            response.raise_for_status()
+            records = duckduckgo_search_records(response.text, label="DuckDuckGo broad publisher discovery")
+            items.extend(records[:18])
+            ddg_count += len(records[:18])
+        except Exception as exc:
+            log("DuckDuckGo broad research unavailable for " + query[:55] + ": " + str(exc)[:130])
+
     unique = {}
     for item in items:
-        unique.setdefault(item["url"].split("?")[0].rstrip("/"), item)
-    result = list(unique.values())[:75]
+        key = source_key(item.get("url")) or str(item.get("url") or "").split("?")[0].rstrip("/")
+        if key:
+            unique.setdefault(key, item)
+
+    # Prefer real publisher article URLs over aggregator redirects during the
+    # bounded enrichment pass; direct URLs are not trusted until their bodies load.
+    def discovery_priority(item):
+        direct_url = is_direct_publisher_article(item)
+        feed = str(item.get("source_feed") or "")
+        feed_priority = 0 if "DuckDuckGo" in feed else (1 if "GDELT" in feed else 2)
+        title_quality = min(len(source_tokens(item.get("title", ""))), 20)
+        return (0 if direct_url else 1, feed_priority, -title_quality)
+
+    result = sorted(unique.values(), key=discovery_priority)[:120]
     if not result:
         raise PipelineError("All free research feeds were unavailable; no video created.")
     result = enrich_source_evidence(result)
     WORK.mkdir(exist_ok=True)
     (WORK / "research.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    readable = sum(
+        1 for item in result
+        if is_direct_publisher_article(item) and len(str(item.get("evidence_text") or "").strip()) >= 90
+    )
+    log(
+        f"Broad research collected {len(result)} unique leads, including {ddg_count} DuckDuckGo publisher links; "
+        f"{readable} direct publisher pages have readable article evidence."
+    )
     return result
-
 
 def story_search_phrases(plan, existing_items=None):
     """Build searches from the factual description and named story subject first."""
@@ -1054,10 +1105,10 @@ def duckduckgo_search_records(page_text, label="DuckDuckGo web search"):
         })
     return records
 
-def research_story_sources(plan, existing_items):
+def research_story_sources(plan, existing_items, max_phrases=6):
     """Search GDELT, Google/Bing RSS, and direct-link web results; verify publisher pages."""
     targeted = []
-    phrases = story_search_phrases(plan, existing_items)
+    phrases = story_search_phrases(plan, existing_items)[:max(1, min(6, int(max_phrases)))]
     gdelt_rate_limited = False
     gdelt_queries = 0
     google_items = 0
@@ -1251,6 +1302,269 @@ def source_content_similarity(left, right):
     )
 
 
+_STORY_GROUP_GENERIC_TERMS = {
+    "ai", "about", "announced", "announces", "announcement", "artist", "artists",
+    "artificial", "breaking", "computer", "computers", "culture", "digital",
+    "discovery", "entertainment", "feature", "features", "future", "global",
+    "intelligence", "latest", "machine", "machines", "music", "musical", "new",
+    "news", "performance", "performances", "report", "reports", "research",
+    "researcher", "researchers", "science", "scientific", "show", "shows",
+    "study", "technology", "today", "trend", "trends", "update", "updates",
+    "violin", "world",
+}
+
+
+def _story_group_tokens(value):
+    return {
+        token for token in source_tokens(value)
+        if token not in _STORY_GROUP_GENERIC_TERMS
+    }
+
+
+def _story_article_anchors(item):
+    title = str(item.get("title") or "")
+    anchors = story_entity_anchor_groups({"topic": title, "title": title})
+    return {
+        frozenset(anchor) for anchor in anchors
+        if anchor and not set(anchor).issubset(_STORY_GROUP_GENERIC_TERMS)
+    }
+
+
+def story_articles_cover_same_subject(left, right):
+    """Strictly pair readable articles about the same subject, not merely the same genre."""
+    left_family = publisher_family_domain(
+        left.get("publisher_domain") or urlparse(left.get("url", "")).netloc
+    )
+    right_family = publisher_family_domain(
+        right.get("publisher_domain") or urlparse(right.get("url", "")).netloc
+    )
+    if not left_family or not right_family or left_family == right_family:
+        return False
+    if source_content_similarity(left, right) >= 0.82:
+        return False
+
+    left_title = _story_group_tokens(left.get("title", ""))
+    right_title = _story_group_tokens(right.get("title", ""))
+    shared_title = left_title.intersection(right_title)
+    title_overlap = len(shared_title) / max(1, min(len(left_title), len(right_title)))
+
+    left_body = _story_group_tokens(left.get("evidence_text", ""))
+    right_body = _story_group_tokens(right.get("evidence_text", ""))
+    shared_body = left_body.intersection(right_body)
+    body_overlap = len(shared_body) / max(1, min(len(left_body), len(right_body)))
+
+    shared_anchors = _story_article_anchors(left).intersection(_story_article_anchors(right))
+    if shared_anchors and len(shared_body) >= 3 and body_overlap >= 0.08:
+        return True
+    if len(shared_title) >= 2 and title_overlap >= 0.30:
+        return True
+    if len(shared_body) >= 6 and body_overlap >= 0.18 and len(shared_title) >= 1:
+        return True
+    return False
+
+
+def build_verified_story_groups(research_items, minimum_publishers=2, maximum_groups=8):
+    """Cluster only readable, direct publisher articles with independent reporting."""
+    minimum_publishers = max(2, int(minimum_publishers))
+    compact = planner_research_items(research_items)
+    candidates = []
+    for item in compact:
+        evidence = str(item.get("evidence_text") or "").strip()
+        if (
+            item.get("source_eligibility") != "direct_publisher_article"
+            or len(evidence) < 90
+            or not is_direct_publisher_article(item)
+        ):
+            continue
+        domain = _normalized_publisher_domain(
+            item.get("publisher_domain") or urlparse(item.get("url", "")).netloc
+        )
+        family = publisher_family_domain(domain)
+        key = source_key(item.get("url"))
+        source_id = str(item.get("source_id") or "").strip()
+        if not domain or not family or not key or not source_id:
+            continue
+        candidate = dict(item)
+        candidate["publisher_domain"] = domain
+        candidate["publisher_family"] = family
+        candidates.append(candidate)
+
+    candidates.sort(
+        key=lambda item: (
+            len(str(item.get("evidence_text") or "")),
+            len(str(item.get("title") or "")),
+        ),
+        reverse=True,
+    )
+
+    groups = []
+    for seed in candidates:
+        related = [seed]
+        related.extend(
+            item for item in candidates
+            if item is not seed and story_articles_cover_same_subject(seed, item)
+        )
+        selected = []
+        families = set()
+        for item in related:
+            family = str(item.get("publisher_family") or "")
+            if not family or family in families:
+                continue
+            if any(source_content_similarity(item, chosen) >= 0.82 for chosen in selected):
+                continue
+            selected.append(item)
+            families.add(family)
+            if len(selected) >= 4:
+                break
+
+        if len(families) < minimum_publishers:
+            continue
+
+        source_ids = [str(item["source_id"]) for item in selected]
+        group_identity = "|".join(sorted(source_key(item.get("url")) for item in selected))
+        group_id = "STORY_" + hashlib.sha256(group_identity.encode("utf-8")).hexdigest()[:12].upper()
+        groups.append({
+            "group_id": group_id,
+            "topic_hint": str(seed.get("title") or "")[:220],
+            "source_ids": source_ids,
+            "publisher_families": sorted(families),
+            "independent_publisher_count": len(families),
+            "sources": selected,
+            "evidence_characters": sum(len(str(item.get("evidence_text") or "")) for item in selected),
+        })
+
+    # Several seed articles can describe the same story. Keep one strongest
+    # group so the editorial planner sees distinct candidates, not duplicates.
+    deduplicated = []
+    for group in sorted(
+        groups,
+        key=lambda value: (
+            value["independent_publisher_count"],
+            len(value["source_ids"]),
+            value["evidence_characters"],
+        ),
+        reverse=True,
+    ):
+        ids = set(group["source_ids"])
+        if any(
+            len(ids.intersection(set(existing["source_ids"])))
+            / max(1, len(ids.union(set(existing["source_ids"])))) >= 0.55
+            for existing in deduplicated
+        ):
+            continue
+        deduplicated.append(group)
+        if len(deduplicated) >= max(1, int(maximum_groups)):
+            break
+    return deduplicated
+
+
+def discover_source_first_story_groups(research_items, max_seed_queries=2, max_phrases=3):
+    """Find corroborated story groups before asking the editorial planner to choose a topic."""
+    pooled = [dict(item) for item in research_items if isinstance(item, dict)]
+    groups = build_verified_story_groups(pooled)
+    represented_urls = {
+        source_key(source.get("url"))
+        for group in groups for source in group.get("sources", [])
+    }
+
+    music_terms = {
+        "violin", "orchestra", "instrument", "music", "classical", "composer",
+        "film", "soundtrack", "concert", "festival", "piano", "opera",
+        "performer", "symphony", "musician", "acoustic", "conductor",
+    }
+    seed_candidates = []
+    seen_titles = set()
+    for item in pooled:
+        title = re.sub(r"\s+", " ", str(item.get("title") or "")).strip()
+        url = str(item.get("url") or "").strip()
+        key = source_key(url)
+        if not title or not url or not key or title.casefold() in seen_titles:
+            continue
+        seen_titles.add(title.casefold())
+        topical = len(_story_group_tokens(title).intersection(music_terms))
+        direct = 1 if is_direct_publisher_article(item) else 0
+        seed_candidates.append((topical * 3 + direct, len(title), item))
+
+    seed_candidates.sort(key=lambda entry: (entry[0], entry[1]), reverse=True)
+    queried = 0
+    for _score, _length, seed in seed_candidates:
+        seed_url = source_key(seed.get("url"))
+        if seed_url in represented_urls:
+            continue
+        provisional_title = str(seed.get("title") or "").strip()
+        provisional_plan = {
+            "topic": provisional_title,
+            "title": provisional_title,
+            "description": provisional_title,
+        }
+        expanded = research_story_sources(
+            provisional_plan,
+            pooled,
+            max_phrases=max_phrases,
+        )
+        queried += 1
+        seen = {source_key(item.get("url")) for item in pooled}
+        pooled.extend(
+            item for item in expanded
+            if source_key(item.get("url")) and source_key(item.get("url")) not in seen
+        )
+        groups = build_verified_story_groups(pooled)
+        represented_urls = {
+            source_key(source.get("url"))
+            for group in groups for source in group.get("sources", [])
+        }
+        log(
+            f"Source-first discovery checked article seed {queried}/{max_seed_queries}; "
+            f"{len(groups)} corroborated story group(s) currently qualify."
+        )
+        if queried >= max(0, int(max_seed_queries)) or len(groups) >= 6:
+            break
+
+    WORK.mkdir(exist_ok=True)
+    diagnostics = {
+        "schema_version": 1,
+        "research_record_count": len(pooled),
+        "verified_article_count": sum(
+            1 for item in planner_research_items(pooled)
+            if item.get("source_eligibility") == "direct_publisher_article"
+            and len(str(item.get("evidence_text") or "")) >= 90
+        ),
+        "grouping_rule": (
+            "Readable direct publisher articles only; at least two independent publisher families; "
+            "syndicated/near-identical bodies excluded; each grouped article must match the seed subject."
+        ),
+        "groups": [
+            {
+                "group_id": group["group_id"],
+                "topic_hint": group["topic_hint"],
+                "source_ids": group["source_ids"],
+                "publisher_families": group["publisher_families"],
+                "independent_publisher_count": group["independent_publisher_count"],
+                "sources": [
+                    {
+                        "source_id": source.get("source_id"),
+                        "title": source.get("title"),
+                        "publisher_name": source.get("publisher_name"),
+                        "publisher_domain": source.get("publisher_domain"),
+                        "url": source.get("url"),
+                        "evidence_excerpt": str(source.get("evidence_text") or "")[:1200],
+                    }
+                    for source in group["sources"]
+                ],
+            }
+            for group in groups
+        ],
+    }
+    (WORK / "story_candidates.json").write_text(
+        json.dumps(diagnostics, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    log(
+        f"Evidence-first selection produced {len(groups)} eligible story group(s) "
+        f"from {diagnostics['verified_article_count']} readable direct publisher article(s)."
+    )
+    return groups
+
+
 _NARRATION_EVIDENCE_FILLER = {
     "highly", "now", "currently", "today", "really", "very",
 }
@@ -1434,16 +1748,46 @@ def select_verified_story_sources(plan, research_items, minimum_sources=2):
 
 
 def prepare_story_with_source_recovery(items, recent=None, seo_context=None, max_candidates=2):
-    """Try a bounded number of distinct story candidates when source verification fails."""
-    excluded_topics = []
+    """Select only from article groups already corroborated by independent publishers."""
+    story_groups = discover_source_first_story_groups(items)
+    if not story_groups:
+        raise PipelineError(
+            "Evidence-first research found no story group with at least two independent, "
+            "readable direct publisher articles. No topic was selected and no narration or visuals were created."
+        )
+
+    excluded_group_ids = []
     failures = []
-    candidate_limit = max(1, int(max_candidates))
+    candidate_limit = min(max(1, int(max_candidates)), len(story_groups))
     for candidate_number in range(1, candidate_limit + 1):
-        avoid = list(recent or []) + excluded_topics
-        plan = make_plan(items, recent=avoid, seo_context=seo_context)
-        topic = str(plan.get("topic") or plan.get("title") or "untitled story").strip()
+        selected_group_id = ""
+        topic = "unselected source-first candidate"
         try:
-            story_items = research_story_sources(plan, items)
+            plan = make_plan(
+                items,
+                recent=list(recent or []) + [entry.split(":", 1)[0] for entry in failures],
+                seo_context=seo_context,
+                story_groups=story_groups,
+                excluded_group_ids=excluded_group_ids,
+            )
+            selected_group_id = str((plan.get("source_group") or {}).get("group_id") or "")
+            selected_group = next(
+                (group for group in story_groups if group.get("group_id") == selected_group_id),
+                None,
+            )
+            if not selected_group:
+                raise PipelineError(
+                    "Story quality gate blocked: selected plan is not attached to a verified source group."
+                )
+            topic = str(plan.get("topic") or plan.get("title") or selected_group.get("topic_hint") or "untitled story").strip()
+
+            # Topic-specific search is now corroboration and enrichment. The story
+            # already had two independent readable publisher sources before planning.
+            story_items = research_story_sources(
+                plan,
+                selected_group["sources"],
+                max_phrases=4,
+            )
             verified_sources = select_verified_story_sources(
                 plan, story_items, minimum_sources=2
             )
@@ -1480,26 +1824,33 @@ def prepare_story_with_source_recovery(items, recent=None, seo_context=None, max
                     ) from repair_error
 
             validate_and_bind_timeline_sources(plan, verified_sources)
+            plan["source_group"]["verified_source_ids"] = [
+                str(source.get("source_id") or "") for source in verified_sources
+            ]
+            log(
+                "Selected source-first story group " + selected_group_id + " with "
+                + str(len(verified_sources)) + " independently verified publisher articles."
+            )
             return plan, story_items, verified_sources
         except PipelineError as exc:
             message = str(exc)
             if not message.startswith("Story quality gate blocked:"):
                 raise
             failures.append(topic + ": " + message)
-            excluded_topics.append(topic)
-            if candidate_number < candidate_limit:
+            if selected_group_id:
+                excluded_group_ids.append(selected_group_id)
+            if candidate_number < candidate_limit and selected_group_id:
                 log(
-                    f"Story candidate {candidate_number}/{candidate_limit} did not have "
-                    "enough independent, readable publisher sources. Selecting one alternative automatically."
+                    f"Source-first story group {candidate_number}/{candidate_limit} failed final claim/date "
+                    "verification. Excluding that group and asking the planner to choose another eligible group."
                 )
                 continue
             details = " | ".join(failures)
             raise PipelineError(
-                f"Automatic source recovery checked {candidate_number} story candidates, "
-                "but none had the required independent direct publisher evidence. " + details
+                f"Evidence-first selection checked {candidate_number} eligible story group(s), "
+                "but none passed final story verification. " + details
             ) from exc
-    raise PipelineError("Automatic story source recovery ended without a verified candidate.")
-
+    raise PipelineError("Evidence-first story selection ended without a verified candidate.")
 
 _MONTHS = {
     name.casefold(): index for index, name in enumerate(
@@ -2354,7 +2705,69 @@ def compact_seo_discovery(discovery):
     }
 
 
-def make_plan(items, recent=None, seo_context=None):
+def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_group_ids=None):
+    groups_by_id = {}
+    eligible_story_groups = []
+    if story_groups is not None:
+        excluded = {str(value) for value in (excluded_group_ids or [])}
+        for group in story_groups:
+            group_id = str(group.get("group_id") or "").strip()
+            if not group_id or group_id in excluded:
+                continue
+            group_sources = [
+                item for item in group.get("sources", [])
+                if isinstance(item, dict)
+                and is_direct_publisher_article(item)
+                and len(str(item.get("evidence_text") or "").strip()) >= 90
+            ]
+            families = {
+                publisher_family_domain(
+                    item.get("publisher_domain") or urlparse(item.get("url", "")).netloc
+                )
+                for item in group_sources
+            }
+            families.discard("")
+            source_ids = [
+                str(item.get("source_id") or "").strip()
+                for item in group_sources
+                if str(item.get("source_id") or "").strip()
+            ]
+            if len(families) < 2 or len(source_ids) < 2:
+                continue
+            verified_group = dict(group)
+            verified_group["sources"] = group_sources
+            verified_group["source_ids"] = source_ids
+            verified_group["publisher_families"] = sorted(families)
+            verified_group["independent_publisher_count"] = len(families)
+            groups_by_id[group_id] = verified_group
+            eligible_story_groups.append({
+                "group_id": group_id,
+                "topic_hint": str(group.get("topic_hint") or "")[:220],
+                "independent_publisher_count": len(families),
+                "source_ids": source_ids,
+                "articles": [
+                    {
+                        "source_id": item.get("source_id"),
+                        "title": item.get("title"),
+                        "publisher_name": item.get("publisher_name"),
+                        "publisher_domain": item.get("publisher_domain"),
+                        "date": item.get("date"),
+                        "evidence": str(item.get("evidence_text") or "")[:1200],
+                    }
+                    for item in group_sources
+                ],
+            })
+        if not eligible_story_groups:
+            raise PipelineError(
+                "Story quality gate blocked: no source-first candidate group contains "
+                "two independent readable direct publishers."
+            )
+        items = [
+            source
+            for group in groups_by_id.values()
+            for source in group.get("sources", [])
+        ]
+
     system = (
         "You are the editorial director of Violin Prince, a violin creator. Choose one timely, "
         "well-supported, family-friendly subject from these headlines and turn it into an original "
@@ -2367,6 +2780,11 @@ def make_plan(items, recent=None, seo_context=None):
         "chosen when the story has a clear, compelling connection to music or a strong visual idea. Reject unrelated "
         "retail promotions and generic technology announcements, as well as tragedies, graphic events, violence, "
         "disasters and crimes. Pick the strongest specific story, not merely the loudest headline. "
+        "Evidence-first selection is mandatory when eligible story groups are supplied: choose exactly one "
+        "provided group_id, include it as story_group_id, and base every factual detail only on articles "
+        "inside that group. Never combine separate groups or invent a new subject. The sources field must "
+        "contain at least two exact source_id values from the selected group, representing independent "
+        "publisher families. "
         "Do not invent facts, dates, statistics, motives, quotations or outcomes. Use only factual claims supported "
         "by supplied research. Every non-hook narration sentence must be supported by the wording of at least one "
         "readable direct article body, not merely a headline or broad topic overlap. Build each body sentence from "
@@ -2388,7 +2806,7 @@ def make_plan(items, recent=None, seo_context=None):
         "(completed, upcoming, ongoing, or unknown), and source_ids. Judge status against today's date. "
         "Never describe an event as upcoming, scheduled, or something that 'will' happen when its date has passed. "
         "Do not use song lyrics, copied scripts, named copyrighted characters, logos or identifiable living people in images. "
-        "Return JSON only with topic,title,hook,description,hashtags,narration_sentences,narrative_style,scenes,sources,timeline. "
+        "Return JSON only with topic,title,story_group_id,hook,description,hashtags,narration_sentences,narrative_style,scenes,sources,timeline. "
         "The narration_sentences field must be an array of exactly four separate, natural, complete spoken sentences. "
         "Sentence 1 is a concise curiosity hook of 5–8 words and must be resolved by the ending. "
         "No sentence may exceed 12 words; twelve is a maximum, not a target. "
@@ -2421,8 +2839,12 @@ def make_plan(items, recent=None, seo_context=None):
              "Previously published topics to avoid: " + json.dumps(recent or [], ensure_ascii=False) +
              "\nYouTube SEO Discovery context (directional samples, not search volume): " +
              json.dumps(seo_context or {}, ensure_ascii=False) +
-             "\nResearch evidence: " + json.dumps(compact, ensure_ascii=False)}
-        ],
+             "\n" + (
+                 "Eligible source-first story groups (choose exactly one group_id; do not mix them): "
+                 + json.dumps(eligible_story_groups, ensure_ascii=False)
+                 if story_groups is not None
+                 else "Research evidence: " + json.dumps(compact, ensure_ascii=False)
+             )}        ],
         # Gemma 4 supports this parameter; disabling reasoning keeps the response
         # focused on the machine-readable plan expected by the renderer.
         "chat_template_kwargs": {"enable_thinking": False, "clear_thinking": True},
@@ -2433,6 +2855,57 @@ def make_plan(items, recent=None, seo_context=None):
     plan = parse_planner_result(result)
     if plan.get("skip"):
         raise PipelineError("Editorial agent skipped: " + str(plan.get("reason", ""))[:200])
+
+    if story_groups is not None:
+        selected_group_id = str(plan.get("story_group_id") or "").strip()
+        selected_group = groups_by_id.get(selected_group_id)
+        if not selected_group:
+            raise PipelineError(
+                "Story quality gate blocked: editorial planner did not select an eligible "
+                "source-first story_group_id."
+            )
+        allowed_ids = set(selected_group.get("source_ids", []))
+        references = plan.get("sources") or []
+        if isinstance(references, (str, dict)):
+            references = [references]
+        if not isinstance(references, list):
+            references = []
+        referenced_ids = []
+        for reference in references:
+            if isinstance(reference, dict):
+                value = reference.get("source_id") or reference.get("id")
+            else:
+                value = reference
+            value = str(value or "").strip()
+            if value:
+                referenced_ids.append(value)
+        if len(set(referenced_ids)) < 2 or not set(referenced_ids).issubset(allowed_ids):
+            raise PipelineError(
+                "Story quality gate blocked: planner citations must be at least two exact "
+                "source IDs from the one selected eligible story group."
+            )
+        referenced_families = {
+            publisher_family_domain(
+                source.get("publisher_domain") or urlparse(source.get("url", "")).netloc
+            )
+            for source in selected_group["sources"]
+            if str(source.get("source_id") or "") in set(referenced_ids)
+        }
+        referenced_families.discard("")
+        if len(referenced_families) < 2:
+            raise PipelineError(
+                "Story quality gate blocked: planner citations do not represent two independent publishers."
+            )
+        plan["source_group"] = {
+            "group_id": selected_group_id,
+            "topic_hint": selected_group.get("topic_hint", ""),
+            "publisher_families": selected_group.get("publisher_families", []),
+            "independent_publisher_count": selected_group.get("independent_publisher_count", 0),
+            "source_ids": list(selected_group["source_ids"]),
+        }
+        plan["sources"] = list(selected_group["source_ids"])
+        items = selected_group["sources"]
+        compact = planner_research_items(items)
 
     # The planner returns four sentence fields; the composer handles targeted
     # correction and assembles the canonical narration_script for downstream stages.
@@ -3102,6 +3575,17 @@ def load_reusable_research():
     ]
     if not items:
         raise PipelineError("The supplied previous-run research file has no usable titled article links.")
+    readable_direct = [
+        item for item in items
+        if is_direct_publisher_article(item)
+        and len(str(item.get("evidence_text") or "").strip()) >= 90
+    ]
+    if not readable_direct:
+        log(
+            "Preserved research artifact contains no readable direct publisher articles; "
+            "discarding the stale lead-only cache and running fresh publisher discovery."
+        )
+        return None
     WORK.mkdir(exist_ok=True)
     (WORK / "research.json").write_text(
         json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8"
