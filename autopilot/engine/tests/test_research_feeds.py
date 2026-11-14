@@ -242,6 +242,51 @@ class GoogleNewsPublisherMetadataTests(unittest.TestCase):
         self.assertEqual(len(compact), 135)
         self.assertEqual(compact[-1]["url"], records[-1]["url"])
 
+    def test_single_segment_and_tag_pages_with_og_article_are_rejected(self):
+        cases = [
+            (
+                {"title": "Art & Culture - Art news and Cultural Trends"},
+                "https://culture.org/art-and-culture/",
+                (
+                    '<meta property="og:type" content="article">'
+                    '<meta property="og:title" content="Art & Culture - Art news and Cultural Trends">'
+                ),
+            ),
+            (
+                {"title": "All violin articles - The Strad"},
+                "https://www.thestrad.com/violin/4236.tag",
+                (
+                    '<meta property="og:type" content="article">'
+                    '<meta property="og:title" content="All violin articles - The Strad">'
+                ),
+            ),
+        ]
+        for item, url, html in cases:
+            with self.subTest(url=url):
+                metadata = pipeline.extract_article_page_metadata(html)
+                self.assertTrue(metadata["og_type_article"])
+                self.assertFalse(pipeline._article_page_verified(item, url, html, metadata))
+
+    def test_article_without_structured_metadata_needs_a_headline_matching_slug(self):
+        item = {"title": "A new virtual violin model"}
+        matching_html = (
+            '<meta property="og:type" content="article">'
+            '<meta property="og:title" content="A new virtual violin model">'
+        )
+        metadata = pipeline.extract_article_page_metadata(matching_html)
+        self.assertTrue(pipeline._article_page_verified(
+            item,
+            "https://publisher.example/2026/a-new-virtual-violin-model/",
+            matching_html,
+            metadata,
+        ))
+        self.assertFalse(pipeline._article_page_verified(
+            item,
+            "https://publisher.example/sections/music/",
+            matching_html,
+            metadata,
+        ))
+
     def test_google_news_interstitial_can_expose_a_matching_article_url(self):
         page = (
             '<html><body><a href="https://www.nasa.gov/news-release/example-article/">'
