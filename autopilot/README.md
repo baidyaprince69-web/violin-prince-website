@@ -79,7 +79,7 @@ Use the **Private media library** on the Autopilot dashboard to upload media. Fi
 - **Music bed (optional):** MP3, WAV, FLAC, M4A, AAC or OGG. It plays under narration; the performance video's own audio is brought forward in Scene 3 when present.
 - Confirm that you own or have permission to use both the recording and the underlying composition before uploading. Do not upload private material you are not comfortable using in the final video.
 
-The prepared package stores only the private R2 asset ID and safe metadata. During Render, the exact audio/video asset is fetched through the authenticated Worker into a temporary private-media directory. That directory is excluded from workflow artifacts. The final MP4 is the intended output artifact and contains the selected performance.
+The prepared package stores only the private R2 asset ID and safe metadata. During Render, the exact audio/video asset is fetched through the authenticated Worker into a temporary private-media directory. That directory is excluded from workflow artifacts. The diagnostic artifact also excludes the intermediate Scene 3 performance clip and final MP4; the final MP4 is uploaded separately as the video-preview artifact and contains the selected performance.
 
 If no performance video is uploaded, Scene 3 uses its generated cinematic violin-performance visual. If no custom music bed is uploaded, the cloud runner creates a solo violin bed from the CC0 String Studio / VSCO 2 CE sample pack; if sample retrieval fails, it uses the ambient fallback.
 
