@@ -4486,7 +4486,7 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         "This is original art direction. No uncoloured stick figures, wireframes, bare outlines, monochrome line art "
         "or sketch-only main subjects; small coloured hands/figures only to clarify action. "
         "Subtle dust, star glints and restrained teal/amber glow. "
-        "No stock photography, identifiable faces, logos, readable text, lyrics or watermark. "
+        "No stock photography, identifiable faces, logos, readable text or lyrics; no watermark. "
         "Respect sourced facts; no unsupported events or measurements. Portrait 9:16 composition."
     )
     role = shot_roles[max(0, min(2, int(index)))]
