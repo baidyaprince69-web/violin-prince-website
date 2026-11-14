@@ -3850,40 +3850,70 @@ def make_image(prompt, index):
     return path
 
 
-def font(size, weight="bold", family="sans"):
-    """Use distinct display and reading faces instead of bolding every text tier."""
-    if family == "serif":
-        if weight == "regular":
-            candidates = (
-                "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
-                "/usr/share/fonts/truetype/liberation2/LiberationSerif-Regular.ttf",
-            )
-        else:
-            candidates = (
-                "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
-                "/usr/share/fonts/truetype/liberation2/LiberationSerif-Bold.ttf",
-            )
-    elif weight == "regular":
-        candidates = (
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
-        )
-    elif weight == "medium":
-        candidates = (
-            "/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed.ttf",
-            "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
-        )
-    else:
-        candidates = (
-            "/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed-Bold.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-            "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
-        )
-    for candidate in candidates:
-        if Path(candidate).exists():
-            return ImageFont.truetype(candidate, size)
-    return ImageFont.load_default()
+_BRAND_FONT_CACHE = None
 
+
+def _ensure_brand_fonts():
+    """Convert the bundled OFL WOFF2 fonts into local TTF files for Pillow and libass."""
+    global _BRAND_FONT_CACHE
+    if _BRAND_FONT_CACHE is not None:
+        return _BRAND_FONT_CACHE
+
+    source_dir = Path(__file__).resolve().parent / "assets" / "fonts"
+    serif_source = source_dir / "DMSerifDisplay-Regular.woff2"
+    sans_source = source_dir / "DMSans.woff2"
+    if not serif_source.is_file() or not sans_source.is_file():
+        raise FileNotFoundError("Bundled DM Serif Display and DM Sans font assets are required.")
+
+    cache_dir = Path(os.environ.get(
+        "VIOLIN_PRINCE_FONT_CACHE",
+        str(Path.home() / ".cache" / "violin-prince" / "fonts"),
+    ))
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    outputs = {
+        "serif": cache_dir / "DMSerifDisplay-Regular.ttf",
+        "sans_regular": cache_dir / "DMSans-Regular.ttf",
+        "sans_medium": cache_dir / "DMSans-Medium.ttf",
+        "sans_bold": cache_dir / "DMSans-Bold.ttf",
+    }
+
+    if not all(path.is_file() and path.stat().st_size > 0 for path in outputs.values()):
+        try:
+            from fontTools.ttLib import TTFont
+            from fontTools.varLib.instancer import instantiateVariableFont
+        except ImportError as exc:
+            raise RuntimeError(
+                "fontTools with WOFF2 support is required to prepare Violin Prince typography."
+            ) from exc
+
+        serif = TTFont(str(serif_source))
+        serif.flavor = None  # Convert WOFF2 to TTF without modifying font outlines.
+        serif.save(str(outputs["serif"]))
+
+        variable_sans = TTFont(str(sans_source))
+        variable_sans.flavor = None
+        for weight, key in ((400, "sans_regular"), (500, "sans_medium"), (700, "sans_bold")):
+            instance = instantiateVariableFont(variable_sans, {"wght": weight}, inplace=False)
+            instance.flavor = None
+            instance.save(str(outputs[key]))
+
+    if not all(path.is_file() and path.stat().st_size > 0 for path in outputs.values()):
+        raise RuntimeError("One or more Violin Prince brand fonts could not be prepared.")
+
+    _BRAND_FONT_CACHE = {key: str(path) for key, path in outputs.items()}
+    return _BRAND_FONT_CACHE
+
+
+def font(size, weight="bold", family="sans"):
+    """Use DM Serif Display for headlines and weighted DM Sans for all supporting text."""
+    paths = _ensure_brand_fonts()
+    if family == "serif":
+        return ImageFont.truetype(paths["serif"], size)
+
+    weight_key = {"regular": "sans_regular", "medium": "sans_medium", "bold": "sans_bold"}.get(weight)
+    if weight_key is None:
+        raise ValueError("Unsupported DM Sans weight: " + str(weight))
+    return ImageFont.truetype(paths[weight_key], size)
 
 def make_card(source, caption, index, title=""):
     """Create a full-bleed vertical cinematic frame with restrained branding."""
@@ -3917,7 +3947,7 @@ def make_card(source, caption, index, title=""):
     draw.line((34, 72, W - 34, 72), fill=(235, 202, 139, 125), width=1)
 
     if index == 0 and title:
-        title_font = font(42, "bold", "serif")
+        title_font = font(42, "regular", "serif")
         title_lines = []
         current = ""
         for word in str(title).strip().split():
@@ -4014,7 +4044,7 @@ def write_kinetic_ass(cues, output_path, word_cues=None):
         "",
         "[V4+ Styles]",
         "Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding",
-        "Style: VP,DejaVu Sans,42,&H00F8F5EF,&H008BCAEB,&HCC07111F,&H00000000,-1,0,1,2.0,1.3,2,64,64,136,1",
+        "Style: VP,DM Sans,40,&H00F8F5EF,&H008BCAEB,&HCC07111F,&H00000000,-1,0,1,2.0,1.3,2,64,64,136,1",
         "",
         "[Events]",
         "Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text",
@@ -4302,7 +4332,8 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
             "afade=t=in:st=0:d=0.5,afade=t=out:st=22:d=2[aout]"
         )
         audio_inputs = []
-    video_filter = "subtitles=work/output/narration.ass,format=yuv420p"
+    font_dir = Path(_ensure_brand_fonts()["serif"]).parent.as_posix()
+    video_filter = f"subtitles=work/output/narration.ass:fontsdir={font_dir},format=yuv420p"
     command([
         "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
         "-i", str(silent), "-stream_loop", "-1", "-i", str(audio_path),
