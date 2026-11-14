@@ -774,7 +774,8 @@ def story_search_phrases(plan, existing_items=None):
         reverse=True,
     )
     for score, item in ranked_seed:
-        if source_supports_story(plan, item, minimum_score=0.15):
+        seed_minimum = 0.15 if str(plan.get("description") or "").strip() else 0.30
+        if source_supports_story(plan, item, minimum_score=seed_minimum):
             add(item.get("title", ""))
         if len(values) >= 6:
             break
@@ -791,6 +792,12 @@ def story_primary_entity_groups(plan):
         description,
     ):
         tokens = source_tokens(match) - _GENERIC_ENTITY_WORDS
+        acronyms = {
+            token.casefold() for token in re.findall(r"\b[A-Z]{2,}\b", match)
+        }
+        # A named object such as "Roman Space Telescope" is the primary anchor;
+        # the organization acronym (NASA) is useful but should not be mandatory.
+        tokens -= acronyms
         if len(tokens) >= 2 and tokens not in groups:
             groups.append(tokens)
 
