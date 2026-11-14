@@ -414,6 +414,128 @@ class PlannerSourceMatchingTests(unittest.TestCase):
         self.assertTrue(all(len(item["evidence_text"]) >= 90 for item in selected))
         self.assertTrue(all(pipeline.is_direct_publisher_article(item) for item in selected))
 
+    def test_run28_generic_virtual_violin_sites_do_not_support_mit_research_claim(self):
+        plan = {
+            "topic": "Virtual Violin Technology",
+            "title": "The Future of the Violin",
+            "hook": "Can a computer play a violin?",
+            "description": (
+                "MIT engineers have developed a new and highly advanced virtual string instrument. "
+                "This technology replicates the complex sounds of a real acoustic violin."
+            ),
+            "narration_script": (
+                "Can a computer play a violin? MIT engineers have developed a new and highly advanced "
+                "virtual string instrument. This technology replicates the complex sounds of a real "
+                "acoustic violin. Digital innovation now achieves the precision of traditional classical "
+                "musical performance."
+            ),
+        }
+        sources = [
+            {
+                "title": "MIT engineers' virtual violin produces realistic sounds",
+                "url": "https://news.mit.edu/2026/mit-engineers-virtual-violin-produces-realistic-sounds-0429",
+                "publisher_domain": "news.mit.edu",
+                "publisher_name": "MIT News",
+                "evidence_text": (
+                    "MIT engineers developed a computational violin model that reproduces realistic "
+                    "sounds. The article explains the research team's methods for modelling resonance, "
+                    "timbre, and expressive acoustic properties of a violin."
+                ),
+            },
+            {
+                "title": "Virtual Violin — Play Violin Online Free",
+                "url": "https://raugen.com/toolbox/virtual-violin",
+                "publisher_domain": "raugen.com",
+                "publisher_name": "RauGen",
+                "evidence_text": (
+                    "Play a virtual violin online using your keyboard. This browser-based tool lets "
+                    "you explore notes and practice melodies with an interactive instrument."
+                ),
+            },
+            {
+                "title": "Virtual violin",
+                "url": "https://www.musicca.com/violin",
+                "publisher_domain": "musicca.com",
+                "publisher_name": "Musicca",
+                "evidence_text": (
+                    "Play the violin online with this virtual instrument. Select notes and play melodies "
+                    "using your computer keyboard in a simple interactive music tool."
+                ),
+            },
+            {
+                "title": "Online Virtual Violin Sheet Music",
+                "url": "https://iplaymusic.com/strings/online-virtual-violin-sheet-music/",
+                "publisher_domain": "iplaymusic.com",
+                "publisher_name": "iPlayMusic",
+                "evidence_text": (
+                    "Use online virtual violin sheet music to practice songs. The web player offers "
+                    "notes and melodies for people learning how to play a violin."
+                ),
+            },
+        ]
+        for source in sources[1:]:
+            self.assertFalse(
+                pipeline.source_supports_story(plan, source),
+                source["publisher_domain"] + " should not corroborate the MIT research claim",
+            )
+        self.assertTrue(pipeline.source_supports_story(plan, sources[0]))
+
+        with self.assertRaisesRegex(
+            pipeline.PipelineError,
+            "only 1 relevant direct publisher source",
+        ):
+            pipeline.select_verified_story_sources(plan, sources, minimum_sources=2)
+
+    def test_two_publishers_must_both_support_the_named_mit_claim(self):
+        plan = {
+            "topic": "Virtual Violin Technology",
+            "title": "The Future of the Violin",
+            "hook": "Can a computer play a violin?",
+            "description": (
+                "MIT engineers developed a computational virtual violin model that reproduces "
+                "the resonance and timbre of acoustic instruments."
+            ),
+        }
+        sources = [
+            {
+                "title": "MIT engineers' virtual violin produces realistic sounds",
+                "url": "https://news.mit.edu/2026/mit-engineers-virtual-violin-produces-realistic-sounds-0429",
+                "publisher_domain": "news.mit.edu",
+                "publisher_name": "MIT News",
+                "evidence_text": (
+                    "MIT engineers developed a computational violin model that reproduces realistic "
+                    "sounds. The article explains their research methods and how the model recreates "
+                    "the resonance and timbre of an acoustic violin."
+                ),
+            },
+            {
+                "title": "MIT engineers build a computational virtual violin",
+                "url": "https://arstechnica.com/science/2026/11/mit-computational-virtual-violin",
+                "publisher_domain": "arstechnica.com",
+                "publisher_name": "Ars Technica",
+                "evidence_text": (
+                    "MIT engineers have developed a computational virtual violin. Their model recreates "
+                    "the resonance, timbre, and nuanced sounds of a physical violin by modelling how "
+                    "strings and acoustic components respond."
+                ),
+            },
+            {
+                "title": "Virtual violin simulator for music practice",
+                "url": "https://music-tool.example/virtual-violin",
+                "publisher_domain": "music-tool.example",
+                "publisher_name": "Music Tool",
+                "evidence_text": (
+                    "Play an online virtual violin in your browser. Use the keyboard to select notes "
+                    "and practice simple melodies with an interactive instrument."
+                ),
+            },
+        ]
+        selected = pipeline.select_verified_story_sources(plan, sources, minimum_sources=2)
+        self.assertEqual(
+            {item["publisher_domain"] for item in selected},
+            {"news.mit.edu", "arstechnica.com"},
+        )
+
     def test_unrelated_plan_does_not_get_random_source(self):
         plan = {
             "topic": "A deep ocean fossil discovery",
