@@ -2806,7 +2806,7 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
         "(completed, upcoming, ongoing, or unknown), and source_ids. Judge status against today's date. "
         "Never describe an event as upcoming, scheduled, or something that 'will' happen when its date has passed. "
         "Do not use song lyrics, copied scripts, named copyrighted characters, logos or identifiable living people in images. "
-        "Return JSON only with topic,title,hook,description,hashtags,narration_sentences,narrative_style,scenes,sources,timeline. "
+        "Return JSON only with topic,title,story_group_id,hook,description,hashtags,narration_sentences,narrative_style,scenes,sources,timeline. "
         "The narration_sentences field must be an array of exactly four separate, natural, complete spoken sentences. "
         "Sentence 1 is a concise curiosity hook of 5–8 words and must be resolved by the ending. "
         "No sentence may exceed 12 words; twelve is a maximum, not a target. "
