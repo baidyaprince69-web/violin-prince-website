@@ -120,7 +120,8 @@ class PlannerSourceMatchingTests(unittest.TestCase):
         }
         phrases = pipeline.story_search_phrases(plan, self.items)
         self.assertIn("MIT engineers' virtual violin produces realistic sounds", phrases)
-        self.assertIn("mit virtual violin technology digital soul violin", phrases)
+        self.assertIn("mit virtual violin technology digital soul", phrases)
+        self.assertNotIn("A new concert season begins in the city", phrases)
 
     def test_bing_news_rss_record_preserves_publisher_and_article_url(self):
         item = ET.fromstring(
