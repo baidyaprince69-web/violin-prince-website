@@ -1,6 +1,6 @@
 {
-  "source_run_id": "43596075233",
+  "source_run_id": "43597486619",
   "requested_stage": "prepare",
-  "reason": "Retry Run 33 after enforcing the named Roman Telescope subject in article evidence and rebinding timeline claims to verified publisher sources.",
-  "request_version": 9
+  "reason": "Re-run Prepare after tightening syndicated-copy detection and requiring direct article evidence for each factual narration sentence.",
+  "request_version": 10
 }
