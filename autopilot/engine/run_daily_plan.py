@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Run a ChatGPT-authored, source-checked daily plan without Cloudflare services.
+"""Run a ChatGPT-authored, source-checked daily plan with photorealistic scene generation.
 
 ChatGPT writes a compact editorial plan into the repository. This runner verifies
 publisher pages and the evidence quotes, synthesizes narration locally with Kokoro,
-creates deterministic cinematic scene plates with Pillow, then uses the existing
-FFmpeg renderer. It never publishes; the ChatGPT daily operator schedules the
+generates full-colour photorealistic scene images with the existing FLUX image model,
+then uses the existing FFmpeg renderer. It never publishes; the ChatGPT daily operator schedules the
 finished public release asset through Metricool after the render succeeds.
 """
 from __future__ import annotations
@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image
 
 ENGINE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(ENGINE_DIR))
@@ -209,170 +209,6 @@ def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list
     return plan, verified
 
 
-def _draw_violin(draw: ImageDraw.ImageDraw, cx: int, cy: int, scale: float, bright: bool = True) -> None:
-    """Draw an original, simplified violin silhouette for the local scene plate."""
-    gold = (229, 188, 112, 245) if bright else (143, 113, 76, 200)
-    pale = (250, 229, 190, 225)
-    dark = (39, 23, 22, 245)
-    body_w, body_h = int(150 * scale), int(260 * scale)
-    # Two bouts and a narrow waist make the instrument recognisably violin-shaped.
-    draw.ellipse((cx - body_w // 2, cy - body_h // 2, cx + body_w // 2, cy + body_h // 5),
-                 fill=dark, outline=gold, width=max(2, int(5 * scale)))
-    draw.ellipse((cx - int(body_w * .42), cy - int(body_h * .02),
-                  cx + int(body_w * .42), cy + body_h // 2),
-                 fill=dark, outline=gold, width=max(2, int(5 * scale)))
-    waist = int(35 * scale)
-    draw.polygon([
-        (cx - body_w // 2, cy - int(body_h * .14)),
-        (cx - waist, cy - int(body_h * .04)),
-        (cx - int(waist * .65), cy + int(body_h * .15)),
-        (cx - body_w // 2, cy + int(body_h * .28)),
-        (cx + body_w // 2, cy + int(body_h * .28)),
-        (cx + int(waist * .65), cy + int(body_h * .15)),
-        (cx + waist, cy - int(body_h * .04)),
-        (cx + body_w // 2, cy - int(body_h * .14)),
-    ], fill=dark, outline=gold)
-    neck_top = cy - int(body_h * .50)
-    neck_bottom = cy - int(body_h * .23)
-    neck_w = int(28 * scale)
-    draw.rounded_rectangle(
-        (cx - neck_w // 2, neck_top, cx + neck_w // 2, neck_bottom),
-        radius=max(3, int(8 * scale)), fill=(48, 31, 27, 255), outline=gold,
-        width=max(2, int(4 * scale)),
-    )
-    draw.ellipse((cx - int(28 * scale), neck_top - int(34 * scale),
-                  cx + int(28 * scale), neck_top + int(22 * scale)),
-                 outline=gold, width=max(2, int(4 * scale)))
-    # Fingerboard and four strings.
-    for offset in (-9, -3, 3, 9):
-        x = cx + int(offset * scale)
-        draw.line((x, neck_top + int(14 * scale), x, cy + int(body_h * .42)),
-                  fill=pale, width=max(1, int(2 * scale)))
-    bridge_y = cy + int(body_h * .08)
-    draw.polygon([
-        (cx - int(43 * scale), bridge_y),
-        (cx - int(35 * scale), bridge_y - int(22 * scale)),
-        (cx + int(35 * scale), bridge_y - int(22 * scale)),
-        (cx + int(43 * scale), bridge_y),
-    ], fill=(191, 151, 91, 245))
-    for side in (-1, 1):
-        x = cx + int(side * 48 * scale)
-        draw.arc((x - int(25 * scale), cy - int(12 * scale),
-                  x + int(25 * scale), cy + int(80 * scale)),
-                 start=35 if side < 0 else 145, end=310 if side < 0 else 215,
-                 fill=gold, width=max(2, int(4 * scale)))
-
-
-def make_scene_plate(scene: dict[str, Any], index: int, target: Path, title: str) -> Path:
-    """Create a detailed, deterministic 9:16 illustrated plate without paid image APIs."""
-    width, height = 720, 1280
-    image = Image.new("RGB", (width, height))
-    pixels = image.load()
-    top = (6, 10, 20)
-    bottom = (28, 20, 28)
-    for y in range(height):
-        t = y / max(1, height - 1)
-        glow = int(9 * (1 - abs(t - .42) * 1.8))
-        color = tuple(
-            max(0, min(255, int(top[c] * (1 - t) + bottom[c] * t + (glow if c == 0 else glow // 2))))
-            for c in range(3)
-        )
-        for x in range(width):
-            pixels[x, y] = color
-
-    # A soft central amber halo gives depth without downloaded artwork.
-    halo = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    hd = ImageDraw.Draw(halo)
-    cx, cy = width // 2, 565
-    for radius in range(330, 30, -12):
-        alpha = max(1, int((1 - radius / 360) * 5))
-        hd.ellipse((cx - radius, cy - radius, cx + radius, cy + radius),
-                   outline=(188, 135, 73, alpha), width=14)
-    image = Image.alpha_composite(image.convert("RGBA"), halo).convert("RGB")
-    draw = ImageDraw.Draw(image, "RGBA")
-
-    # Fine technical grid and golden measurement marks.
-    for x in range(42, width, 42):
-        draw.line((x, 120, x, 1160), fill=(197, 164, 111, 18), width=1)
-    for y in range(140, 1160, 42):
-        draw.line((30, y, width - 30, y), fill=(197, 164, 111, 15), width=1)
-    for i in range(46):
-        x = (i * 97 + index * 53) % width
-        y = (i * 173 + index * 89) % height
-        radius = 1 + (i % 3)
-        draw.ellipse((x - radius, y - radius, x + radius, y + radius),
-                     fill=(238, 202, 140, 55 + (i % 4) * 18))
-
-    mode = str(scene.get("visual_mode") or "").casefold()
-    if mode in ("macro_3d", "mechanism_3d"):
-        # A violin, bridge and taut strings create a tangible opening/reveal.
-        _draw_violin(draw, 360, 590, 1.65, bright=True)
-        for x in (276, 304, 332, 360, 388, 416, 444):
-            draw.line((x, 100, x, 1060), fill=(241, 214, 164, 90), width=2)
-        for radius in (230, 290, 350):
-            draw.arc((360 - radius, 590 - radius, 360 + radius, 590 + radius),
-                     205, 330, fill=(236, 190, 111, 120), width=3)
-        draw.line((135, 825, 585, 825), fill=(247, 214, 160, 175), width=4)
-        draw.ellipse((345, 806, 375, 836), fill=(255, 223, 167, 235))
-    elif mode == "waveform":
-        for wave in range(7):
-            points = []
-            amplitude = 70 + wave * 20
-            phase = wave * .42
-            for x in range(36, width - 36, 4):
-                import math
-                y = 580 + int(math.sin(x / (26 + wave * 2) + phase) * amplitude)
-                points.append((x, y + wave * 30 - 90))
-            draw.line(points, fill=(237, 192 - wave * 7, 121, 205 - wave * 14), width=4)
-        for radius in (170, 250, 330):
-            draw.arc((360 - radius, 510 - radius, 360 + radius, 510 + radius),
-                     205, 335, fill=(221, 183, 123, 135), width=3)
-    elif mode == "melody_map":
-        import math
-        for band in range(5):
-            points = []
-            for step in range(9):
-                x = 70 + step * 72
-                y = 450 + band * 95 - int(math.sin(step * .78 + band * .35) * (65 + band * 5))
-                points.append((x, y))
-            draw.line(points, fill=(239, 196, 124, 210 - band * 20), width=5)
-            for x, y in points:
-                draw.ellipse((x - 8, y - 8, x + 8, y + 8), fill=(255, 232, 180, 235))
-        _draw_violin(draw, 360, 935, .75, bright=False)
-    elif mode == "comparison":
-        draw.rounded_rectangle((42, 280, 342, 900), radius=28,
-                               fill=(21, 25, 38, 215), outline=(221, 184, 124, 190), width=3)
-        draw.rounded_rectangle((378, 280, 678, 900), radius=28,
-                               fill=(33, 23, 31, 215), outline=(221, 184, 124, 190), width=3)
-        for x in (192, 528):
-            for radius in (55, 95, 135):
-                draw.ellipse((x - radius, 550 - radius, x + radius, 550 + radius),
-                             outline=(239, 196, 124, 170), width=4)
-        draw.line((360, 280, 360, 900), fill=(244, 212, 155, 180), width=2)
-    else:
-        # Final scene: a prominent violin and bow, clearly a symbolic visual rather
-        # than a claim that the creator's personal performance footage was used.
-        _draw_violin(draw, 355, 600, 1.9, bright=True)
-        draw.line((135, 260, 590, 980), fill=(240, 217, 178, 225), width=9)
-        draw.line((145, 260, 600, 980), fill=(122, 87, 57, 230), width=3)
-        for radius in (240, 315, 390):
-            draw.arc((355 - radius, 600 - radius, 355 + radius, 600 + radius),
-                     210, 335, fill=(239, 197, 128, 115), width=3)
-
-    # Vignette and crisp border finish the plate.
-    vignette = Image.new("L", (width, height), 0)
-    vd = ImageDraw.Draw(vignette)
-    vd.rectangle((0, 0, width, height), fill=245)
-    for inset in range(0, 180, 6):
-        alpha = max(0, 150 - inset)
-        vd.rectangle((inset, inset, width - inset, height - inset), outline=alpha, width=6)
-    dark = Image.new("RGB", (width, height), (3, 5, 11))
-    image = Image.composite(image, dark, vignette.filter(ImageFilter.GaussianBlur(26)))
-    target.parent.mkdir(parents=True, exist_ok=True)
-    image.save(target, "JPEG", quality=92, optimize=True)
-    return target
-
-
 def run_daily_plan(plan_path: Path) -> int:
     plan_path = Path(plan_path)
     if not plan_path.is_file():
@@ -412,10 +248,25 @@ def run_daily_plan(plan_path: Path) -> int:
         json.dumps(plan["quality_control"], ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
+    # Reuse the photorealistic FLUX image-generation path from the earlier
+    # Visuals stage. Never silently degrade to stick drawings or line art.
+    if not engine.CF_ACCOUNT or not engine.CF_TOKEN:
+        raise engine.PipelineError(
+            "Photorealistic scene generation requires CF_ACCOUNT_ID and CF_AI_TOKEN. "
+            "The run will stop rather than substitute basic line drawings."
+        )
+
     images = []
     for index, scene in enumerate(plan["scenes"]):
         image_path = engine.PACKAGE / f"scene-{index + 1}.jpg"
-        images.append(make_scene_plate(scene, index, image_path, plan.get("title", "")))
+        prompt = engine._scene_visual_prompt(scene, index=index, plan=plan)
+        generated_image = engine.make_image(prompt, index)
+        image_path.write_bytes(generated_image.read_bytes())
+        with Image.open(image_path) as image_check:
+            if image_check.width < 512 or image_check.height < 512:
+                raise engine.PipelineError(f"Generated scene image {index + 1} is unexpectedly small.")
+            image_check.verify()
+        images.append(image_path)
 
     metadata = {
         "schema_version": 3,
