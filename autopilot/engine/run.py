@@ -759,8 +759,25 @@ def validate_story_dates(plan, as_of=None):
     timeline = plan.get("timeline", [])
     if isinstance(timeline, dict):
         timeline = [timeline]
-    if isinstance(timeline, list):
-        for entry in timeline[:20]:
+    timeline = timeline if isinstance(timeline, list) else []
+    valid_future_event = False
+    for entry in timeline[:20]:
+        if isinstance(entry, dict):
+            event_date = parse_story_date(entry.get("date") or entry.get("event_date"))
+            status = str(entry.get("status") or "unknown").strip().casefold()
+            if event_date and event_date > today and status in ("upcoming", "future", "scheduled", "not_yet_occurred"):
+                valid_future_event = True
+
+    future_event_claim = re.search(
+        r"\b(?:will\s+(?:perform|compete|play|appear|take part|be crowned|be named|be announced|"
+        r"take place|be held|debut|release|launch|open)|scheduled\s+to|set\s+to|due\s+to)\b",
+        script,
+        flags=re.IGNORECASE,
+    )
+    if future_event_claim and not valid_future_event:
+        issues.append("Narration contains future event wording without a verified future-dated timeline entry.")
+
+    for entry in timeline[:20]:
             if not isinstance(entry, dict):
                 continue
             event_date = parse_story_date(entry.get("date") or entry.get("event_date"))
