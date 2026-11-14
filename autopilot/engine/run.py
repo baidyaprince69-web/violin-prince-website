@@ -326,31 +326,152 @@ def article_freshness(item, as_of=None):
     }
 
 
+
+
+def _google_news_article_id(url):
+    """Return the opaque article token from a Google News RSS/article URL."""
+    try:
+        parsed = urlparse(str(url or ""))
+        if (parsed.hostname or "").lower().removeprefix("www.") != "news.google.com":
+            return ""
+        match = re.search(r"/(?:rss/)?(?:articles|read)/([A-Za-z0-9_-]+)", parsed.path)
+        return match.group(1) if match else ""
+    except Exception:
+        return ""
+
+
+def resolve_google_news_article_url(url, interstitial_html, expected_domain=""):
+    """Decode a modern Google News wrapper through its article-page RPC."""
+    article_id = _google_news_article_id(url)
+    if not article_id:
+        raise ValueError("Not a Google News article URL.")
+    page = str(interstitial_html or "")
+    signature_match = re.search(
+        r"""data-n-a-sg\s*=\s*(["'])(.*?)\1""", page, flags=re.IGNORECASE | re.DOTALL
+    )
+    timestamp_match = re.search(
+        r"""data-n-a-ts\s*=\s*(["'])(\d+)\1""", page, flags=re.IGNORECASE
+    )
+    if not signature_match or not timestamp_match:
+        raise ValueError("Google News article page did not expose its decoding signature.")
+    signature = html_unescape(signature_match.group(2))
+    timestamp = int(timestamp_match.group(2))
+    try:
+        locale = (parse_qs(urlparse(str(url)).query).get("ceid") or ["US:en"])[0]
+        if not re.fullmatch(r"[A-Za-z]{2}:[A-Za-z]{2}", locale):
+            locale = "US:en"
+    except Exception:
+        locale = "US:en"
+
+    inner_request = [
+        "garturlreq",
+        [
+            ["X", "X", ["X", "X"], None, None, 1, 1, locale, None, 1,
+             None, None, None, None, None, 0, 1],
+            "X", "X", 1, [1, 1, 1], 1, 1, None, 0, 0, None, 0,
+        ],
+        article_id,
+        timestamp,
+        signature,
+    ]
+    rpc_request = [[[
+        "Fbv4je",
+        json.dumps(inner_request, ensure_ascii=False, separators=(",", ":")),
+        None,
+        "generic",
+    ]]]
+    body = "f.req=" + quote(
+        json.dumps(rpc_request, ensure_ascii=False, separators=(",", ":")),
+        safe="",
+    )
+    response = requests.post(
+        "https://news.google.com/_/DotsSplashUi/data/batchexecute",
+        data=body,
+        headers={
+            "User-Agent": "Mozilla/5.0 (compatible; ViolinPrinceAutopilot/0.2)",
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            "Origin": "https://news.google.com",
+            "Referer": str(url),
+            "Accept-Language": "en-US,en;q=0.9",
+        },
+        timeout=(5, 15),
+    )
+    response.raise_for_status()
+
+    publisher_url = ""
+    for line in str(response.text or "").splitlines():
+        candidate_line = line.strip()
+        if not candidate_line.startswith("[["):
+            continue
+        try:
+            rows = json.loads(candidate_line)
+        except json.JSONDecodeError:
+            continue
+        for row in rows if isinstance(rows, list) else []:
+            if not isinstance(row, list) or len(row) < 3 or row[1] != "Fbv4je":
+                continue
+            try:
+                decoded = json.loads(row[2])
+            except (json.JSONDecodeError, TypeError):
+                continue
+            if isinstance(decoded, list) and len(decoded) > 1:
+                value = str(decoded[1] or "").strip()
+                if value.startswith(("http://", "https://")):
+                    publisher_url = value
+                    break
+        if publisher_url:
+            break
+
+    if not publisher_url:
+        raise ValueError("Google News did not return a publisher URL for this article.")
+    parsed = urlparse(publisher_url)
+    host = (parsed.hostname or "").lower().removeprefix("www.")
+    expected = _normalized_publisher_domain(expected_domain)
+    if parsed.scheme not in ("http", "https") or not host or _is_news_aggregator_host(host):
+        raise ValueError("Google News returned a non-publisher destination.")
+    if expected and not (
+        host == expected or host.endswith("." + expected) or expected.endswith("." + host)
+    ):
+        raise ValueError("Google News destination did not match its RSS publisher identity.")
+    return publisher_url
+
+
 def extract_article_page_metadata(html):
-    """Read publication metadata and article identity from a publisher HTML page."""
+    """Read publication date and article identity signals from publisher HTML."""
     text_value = str(html or "")[:1_500_000]
     meta = {}
-    for match in re.finditer(r"<meta\b[^>]*>", text_value, flags=re.IGNORECASE | re.DOTALL):
-        attrs = {
+
+    def attributes(tag_text):
+        return {
             str(key).casefold(): html_unescape(value.strip())
             for key, _quote, value in re.findall(
                 r"""([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(["'])(.*?)\2""",
-                match.group(0),
+                str(tag_text or ""),
                 flags=re.DOTALL,
             )
         }
+
+    for match in re.finditer(r"<meta\b[^>]*>", text_value, flags=re.IGNORECASE | re.DOTALL):
+        attrs = attributes(match.group(0))
         key = (attrs.get("property") or attrs.get("name") or attrs.get("itemprop") or "").casefold()
         value = attrs.get("content") or attrs.get("datetime") or ""
         if key and value:
             meta[key] = value.strip()
 
     page_title = meta.get("og:title") or meta.get("twitter:title") or ""
+    headline = meta.get("headline") or meta.get("itemprop:headline") or ""
     if not page_title:
-        match = re.search(r"<title\b[^>]*>(.*?)</title\s*>", text_value, flags=re.IGNORECASE | re.DOTALL)
-        if match:
-            page_title = re.sub(r"\s+", " ", html_unescape(re.sub(r"<[^>]+>", " ", match.group(1)))).strip()
+        title_match = re.search(
+            r"<title\b[^>]*>(.*?)</title\s*>", text_value,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        if title_match:
+            page_title = re.sub(
+                r"\s+", " ",
+                html_unescape(re.sub(r"<[^>]+>", " ", title_match.group(1))),
+            ).strip()
 
-    article_type = str(meta.get("og:type") or "").casefold() == "article"
+    og_type_article = str(meta.get("og:type") or "").casefold() == "article"
     published_value = ""
     for key in (
         "article:published_time", "datepublished", "parsely-pub-date",
@@ -360,20 +481,39 @@ def extract_article_page_metadata(html):
             published_value = meta[key]
             break
 
+    # Some publishers expose the publication timestamp only in a <time> element.
+    if not published_value:
+        for match in re.finditer(r"<time\b[^>]*>", text_value, flags=re.IGNORECASE | re.DOTALL):
+            attrs = attributes(match.group(0))
+            itemprop = str(attrs.get("itemprop") or "").casefold()
+            class_or_id = " ".join((str(attrs.get("class") or ""), str(attrs.get("id") or ""))).casefold()
+            is_publication_time = (
+                "datepublished" in itemprop
+                or "date-published" in class_or_id
+                or "published" in class_or_id
+                or "publish-date" in class_or_id
+            )
+            if is_publication_time and attrs.get("datetime"):
+                published_value = attrs["datetime"]
+                break
+
     article_types = {
         "article", "newsarticle", "reportagenewsarticle", "analysisnewsarticle",
         "opinionnewsarticle", "blogposting", "liveblogposting", "techarticle",
     }
+    structured_article = False
 
     def inspect_jsonld(node):
-        nonlocal article_type, published_value, page_title
+        nonlocal structured_article, published_value, headline, page_title
         if isinstance(node, dict):
             raw_type = node.get("@type")
             types = raw_type if isinstance(raw_type, list) else [raw_type]
             if any(str(value or "").casefold() in article_types for value in types):
-                article_type = True
+                structured_article = True
                 if not published_value:
                     published_value = str(node.get("datePublished") or "")
+                if not headline:
+                    headline = str(node.get("headline") or "")
                 if not page_title:
                     page_title = str(node.get("headline") or node.get("name") or "")
             for value in node.values():
@@ -392,12 +532,14 @@ def extract_article_page_metadata(html):
         except (json.JSONDecodeError, TypeError, ValueError):
             continue
 
-    if published_value:
-        article_type = True
     published, _ = parse_publication_timestamp(published_value)
     return {
-        "is_article": article_type,
+        "is_article": bool(structured_article or og_type_article),
+        "structured_article": structured_article,
+        "og_type_article": og_type_article,
+        "has_publication_metadata": bool(published),
         "published_at_utc": published.isoformat().replace("+00:00", "Z") if published else "",
+        "headline": re.sub(r"\s+", " ", str(headline or "")).strip()[:260],
         "page_title": re.sub(r"\s+", " ", str(page_title or "")).strip()[:260],
     }
 
@@ -408,14 +550,16 @@ def _article_page_url_is_directory(url):
         parsed = urlparse(str(url or ""))
         segments = [part.casefold() for part in (parsed.path or "").split("/") if part]
         blocked = {
-            "category", "categories", "tag", "tags", "topic", "topics",
-            "archive", "archives", "section", "sections", "search",
-            "directory", "directories", "author", "authors", "page",
+            "category", "categories", "tag", "tags", "tagged", "topic", "topics",
+            "archive", "archives", "section", "sections", "search", "latest",
+            "directory", "directories", "author", "authors", "page", "all",
             "events", "event", "concerts", "concert", "calendar",
             "programme", "program", "tickets", "schedule", "listings",
             "feed", "rss", "video", "videos",
         }
         if any(segment in blocked for segment in segments):
+            return True
+        if segments and segments[0] in {"c", "sections", "topics"}:
             return True
         if len(segments) == 1 and segments[0] in {
             "news", "features", "culture", "arts", "music", "entertainment",
@@ -428,18 +572,27 @@ def _article_page_url_is_directory(url):
 
 
 def _article_page_verified(item, url, html, metadata):
-    """Require article metadata or a matching article title on an article-like route."""
+    """Require a matching story headline; OG article tags alone are not proof."""
     if _article_page_url_is_directory(url):
         return False
-    if metadata.get("is_article"):
-        return True
-    supplied_tokens = source_tokens(str((item or {}).get("title") or ""))
-    page_tokens = source_tokens(str(metadata.get("page_title") or ""))
+    supplied_title = str((item or {}).get("title") or "").strip()
+    page_title = str(metadata.get("headline") or metadata.get("page_title") or "").strip()
+    supplied_tokens = source_tokens(supplied_title)
+    page_tokens = source_tokens(page_title)
     if len(supplied_tokens) < 2 or len(page_tokens) < 2:
         return False
-    overlap = len(supplied_tokens.intersection(page_tokens)) / max(1, min(len(supplied_tokens), len(page_tokens)))
-    path_segments = [part for part in urlparse(str(url or "")).path.split("/") if part]
-    return overlap >= 0.25 and len(path_segments) >= 2
+    overlap = len(supplied_tokens.intersection(page_tokens)) / max(
+        1, min(len(supplied_tokens), len(page_tokens))
+    )
+    # Even pages with Article JSON-LD or og:type=article must match the RSS/search
+    # headline; section landing pages often emit those generic metadata tags too.
+    if overlap < 0.45:
+        return False
+    if not metadata.get("is_article") and len(
+        [part for part in urlparse(str(url or "")).path.split("/") if part]
+    ) < 2:
+        return False
+    return True
 
 
 def _story_article_eligibility(item, as_of=None):
@@ -634,10 +787,11 @@ def planner_research_items(items):
         "title", "summary", "evidence_text", "publisher_name",
         "publisher_home", "publisher_domain", "url", "date", "source",
         "published_at_utc", "publication_date_source",
-        "article_page_verified", "article_page_kind"
+        "article_page_verified", "article_page_kind", "source_url_original",
+        "publisher_resolution_status", "publisher_resolution_error"
     )
     selected = []
-    for item in items[:100]:
+    for item in items[:350]:
         if not item.get("title") or not item.get("url"):
             continue
         direct = is_direct_publisher_article(item)
