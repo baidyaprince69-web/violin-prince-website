@@ -25,6 +25,7 @@ sys.path.insert(0, str(ENGINE_DIR))
 
 import run as engine  # noqa: E402
 from voiceover import synthesize_voiceover  # noqa: E402
+from publish_handoff import validate_publish_metadata, write_handoff_files  # noqa: E402
 
 
 def _normalise_quote(value: str) -> str:
@@ -195,6 +196,12 @@ def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list
 
     plan["channel_fit"] = engine.channel_fit_report(plan)
     plan["channel_fit"]["status"] = "passed"
+    try:
+        plan["visual_reference"] = engine.normalize_visual_reference(
+            plan.get("visual_reference"), plan.get("scenes")
+        )
+    except (TypeError, ValueError) as exc:
+        raise engine.PipelineError("Visual reference analysis is invalid: " + str(exc)) from exc
     plan["narrative_style"] = str(plan.get("narrative_style") or "documentary").lower()
     if plan["narrative_style"] not in ("documentary", "cinematic_story"):
         plan["narrative_style"] = "documentary"
@@ -219,6 +226,13 @@ def run_daily_plan(plan_path: Path) -> int:
         raise engine.PipelineError("ChatGPT daily plan is not readable JSON.") from exc
 
     plan, verified_sources = validate_and_enrich_plan(plan)
+    try:
+        metadata_check = validate_publish_metadata(plan)
+    except (TypeError, ValueError) as exc:
+        raise engine.PipelineError("YouTube publisher preflight blocked the plan: " + str(exc)) from exc
+    # Store the normalized metadata in the saved plan so every downstream handoff
+    # reads the exact same title, description, tags, language and privacy setting.
+    plan["publish_metadata"] = dict(metadata_check["value"])
     engine.WORK.mkdir(parents=True, exist_ok=True)
     engine.OUT.mkdir(parents=True, exist_ok=True)
     paths = engine._package_paths()
@@ -291,7 +305,30 @@ def run_daily_plan(plan_path: Path) -> int:
     engine.make_storyboard_preview(plan, images, engine.PACKAGE / "storyboard-preview.png")
 
     # Existing FFmpeg render and media QA remain the final authority for the MP4.
-    return engine.render_stage()
+    result = engine.render_stage()
+    if result != 0:
+        return result
+    final_video = engine.OUT / "violin-prince-short.mp4"
+    video_quality = engine.validate_final_video(final_video)
+    manifest, _provenance = write_handoff_files(
+        engine.OUT,
+        plan=plan,
+        verified_sources=verified_sources,
+        audio_asset=audio_asset,
+        audio_path=paths["audio"],
+        narration_info=narration_info,
+        narration_path=engine.OUT / "narration.wav",
+        image_paths=images,
+        final_video_path=final_video,
+        video_quality=video_quality,
+        run_id=engine.RUN_ID,
+    )
+    print(
+        "PUBLISHER_PREFLIGHT="
+        + json.dumps(manifest.get("publisher_preflight", {}), ensure_ascii=False),
+        flush=True,
+    )
+    return 0
 
 
 def main() -> int:
@@ -304,11 +341,16 @@ def main() -> int:
             return result
         final = engine.OUT / "violin-prince-short.mp4"
         quality = engine.validate_final_video(final)
+        publish_manifest = json.loads((engine.OUT / "publish-manifest.json").read_text(encoding="utf-8"))
         print("DAILY_PRODUCTION_RESULT=" + json.dumps({
             "status": "rendered",
             "run_id": engine.RUN_ID,
             "video": str(final),
             "quality": quality,
+            "publish_manifest": str(engine.OUT / "publish-manifest.json"),
+            "asset_provenance": str(engine.OUT / "asset-provenance.json"),
+            "publish_ready": publish_manifest.get("publish_ready", False),
+            "publisher_preflight": publish_manifest.get("publisher_preflight", {}),
             "publishing": "deferred_to_ChatGPT_Metricool_operator",
         }, ensure_ascii=False), flush=True)
         return 0
