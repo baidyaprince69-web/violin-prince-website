@@ -18,16 +18,16 @@ class PlannerSourceMatchingTests(unittest.TestCase):
             {
                 "title": "MIT engineers' virtual violin produces realistic sounds",
                 "summary": "Researchers developed a virtual violin with realistic sound.",
-                "evidence_text": "",
+                "evidence_text": "MIT News explains how engineers developed the virtual violin and tested its realistic sound. The article describes the research team and its findings in detail.",
                 "publisher_name": "MIT News",
                 "publisher_domain": "news.mit.edu",
-                "url": "https://news.google.com/rss/articles/virtual-violin?oc=5",
+                "url": "https://news.mit.edu/2026/virtual-violin",
                 "source": "MIT News",
             },
             {
                 "title": "A new concert season begins in the city",
                 "summary": "A local orchestra announced its concert schedule.",
-                "evidence_text": "",
+                "evidence_text": "City Arts reviewed a virtual violin performance and reported how the instrument produced a realistic sound. The article explains the concert context and the instrument's role in the programme.",
                 "publisher_name": "City Arts",
                 "publisher_domain": "arts.example",
                 "url": "https://arts.example/concert-season",
@@ -76,6 +76,31 @@ class PlannerSourceMatchingTests(unittest.TestCase):
             pipeline.source_key("https://www.example.com/article?utm_source=feed#top"),
             pipeline.source_key("https://example.com/article?oc=5"),
         )
+
+    def test_verified_story_sources_require_two_independent_direct_publishers(self):
+        plan = {
+            "topic": "A virtual violin with realistic sound",
+            "title": "The virtual violin",
+            "hook": "Can a virtual violin sound real?",
+            "sources": [],
+        }
+        selected = pipeline.select_verified_story_sources(plan, self.items, minimum_sources=2)
+        self.assertEqual(len(selected), 2)
+        self.assertEqual(
+            {item["publisher_domain"] for item in selected},
+            {"news.mit.edu", "arts.example"},
+        )
+        self.assertTrue(all(pipeline.is_direct_publisher_article(item) for item in selected))
+
+    def test_verified_story_sources_fail_closed_when_only_one_publisher_exists(self):
+        plan = {
+            "topic": "A virtual violin with realistic sound",
+            "title": "The virtual violin",
+            "hook": "Can a virtual violin sound real?",
+            "sources": [],
+        }
+        with self.assertRaisesRegex(pipeline.PipelineError, "at least 2 independent publishers"):
+            pipeline.select_verified_story_sources(plan, self.items[:1], minimum_sources=2)
 
     def test_unrelated_plan_does_not_get_random_source(self):
         plan = {
