@@ -546,6 +546,33 @@ def _normalized_publisher_domain(value):
     return (parsed.hostname or "").lower().removeprefix("www.").rstrip(".")
 
 
+_COMMON_SECOND_LEVEL_PUBLIC_SUFFIXES = {
+    "ac.uk", "co.uk", "gov.uk", "ltd.uk", "me.uk", "net.uk", "org.uk", "plc.uk",
+    "com.au", "net.au", "org.au", "edu.au", "gov.au",
+    "co.in", "firm.in", "net.in", "org.in", "gen.in", "ind.in",
+    "co.nz", "net.nz", "org.nz", "govt.nz", "ac.nz",
+    "com.br", "net.br", "org.br",
+    "com.cn", "net.cn", "org.cn", "gov.cn",
+    "com.sg", "net.sg", "org.sg", "gov.sg",
+    "co.za", "net.za", "org.za",
+    "co.jp", "ne.jp", "or.jp", "ac.jp", "go.jp",
+}
+
+
+def publisher_family_domain(value):
+    """Collapse subdomains to one publisher family (e.g. news.mit.edu → mit.edu)."""
+    host = _normalized_publisher_domain(value)
+    if not host:
+        return ""
+    labels = host.split(".")
+    if len(labels) <= 2:
+        return host
+    last_two = ".".join(labels[-2:])
+    if last_two in _COMMON_SECOND_LEVEL_PUBLIC_SUFFIXES and len(labels) >= 3:
+        return ".".join(labels[-3:])
+    return last_two
+
+
 def _publisher_domains_match(left, right):
     """Match an exact publisher host or a genuine parent/subdomain relationship."""
     a = _normalized_publisher_domain(left)
@@ -1064,13 +1091,14 @@ def select_verified_story_sources(plan, research_items, minimum_sources=2):
     ranked.sort(key=lambda pair: pair[0], reverse=True)
 
     selected = []
-    domains = set()
+    publisher_families = set()
     seen_urls = set()
     for score, item in ranked:
         url = str(item.get("url") or "")
         domain = str(item.get("publisher_domain") or urlparse(url).netloc).lower().removeprefix("www.")
+        family = publisher_family_domain(domain)
         key = source_key(url)
-        if not domain or not key or domain in domains or key in seen_urls:
+        if not domain or not family or not key or family in publisher_families or key in seen_urls:
             continue
 
         duplicate_of = next(
@@ -1089,13 +1117,13 @@ def select_verified_story_sources(plan, research_items, minimum_sources=2):
             continue
 
         selected.append(item)
-        domains.add(domain)
+        publisher_families.add(family)
         seen_urls.add(key)
         if len(selected) >= 4:
             break
 
     if len(selected) < minimum_sources:
-        available = ", ".join(sorted(domains)) or "none"
+        available = ", ".join(sorted(publisher_families)) or "none"
         raise PipelineError(
             f"Story quality gate blocked: only {len(selected)} relevant direct publisher source(s) "
             f"with readable evidence were found; at least {minimum_sources} independent publishers are required. "
@@ -1266,8 +1294,17 @@ def build_story_quality_report(plan, selected_sources, date_check):
         str(item.get("publisher_domain") or urlparse(item.get("url", "")).netloc).lower().removeprefix("www.")
         for item in selected_sources
     })
+    publisher_families = sorted({
+        publisher_family_domain(item.get("publisher_domain") or urlparse(item.get("url", "")).netloc)
+        for item in selected_sources
+    })
     direct_links = all(is_direct_publisher_article(item) for item in selected_sources)
-    passed = len(selected_sources) >= 2 and len(domains) >= 2 and direct_links and date_check.get("status") == "passed"
+    passed = (
+        len(selected_sources) >= 2
+        and len(publisher_families) >= 2
+        and direct_links
+        and date_check.get("status") == "passed"
+    )
     return {
         "schema_version": 1,
         "status": "passed" if passed else "blocked",
@@ -1275,6 +1312,8 @@ def build_story_quality_report(plan, selected_sources, date_check):
         "minimum_independent_publishers": 2,
         "verified_source_count": len(selected_sources),
         "publisher_domains": domains,
+        "publisher_families": publisher_families,
+        "independent_publisher_count": len(publisher_families),
         "direct_publisher_article_links": direct_links,
         "date_check": date_check,
         "human_review_required": True,
