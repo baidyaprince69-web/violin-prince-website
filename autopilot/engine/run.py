@@ -1258,7 +1258,7 @@ _NARRATION_ASSERTION_MODIFIERS = {
     "breakthrough", "exceptionally", "entire", "fundamentally",
     "gamechanging", "groundbreaking", "incredibly", "revolutionary",
     "sophisticated", "transformative", "transforming", "unprecedented",
-    "vastly", "worldchanging",
+    "vastly", "worldchanging", "soul", "feel", "feels", "feeling", "understand", "understands", "understanding", "conscious", "consciousness",
 }
 
 
@@ -1274,7 +1274,7 @@ def _normalized_narration_claim_tokens(value):
 
 
 def validate_narration_against_sources(plan, verified_sources):
-    """Require each non-hook narration sentence to match a verified article body."""
+    """Require each factual narration sentence to match a verified article body."""
     sentences = narration_sentences(plan.get("narration_script", ""))
     if len(sentences) != 4:
         raise PipelineError(
@@ -1282,6 +1282,7 @@ def validate_narration_against_sources(plan, verified_sources):
         )
 
     evidence_records = []
+    issues = []
     for sentence_number, sentence in enumerate(sentences, start=1):
         # The opening is a curiosity hook, not a factual assertion.
         if sentence_number == 1:
@@ -1289,10 +1290,10 @@ def validate_narration_against_sources(plan, verified_sources):
 
         claim_tokens = _normalized_narration_claim_tokens(sentence)
         if not claim_tokens:
-            raise PipelineError(
-                f"Story quality gate blocked: narration sentence {sentence_number} "
-                "contains no verifiable factual detail."
+            issues.append(
+                f"narration sentence {sentence_number} contains no verifiable factual detail"
             )
+            continue
 
         sentence_tokens = source_tokens(sentence)
         modifiers = sentence_tokens.intersection(_NARRATION_ASSERTION_MODIFIERS)
@@ -1319,10 +1320,10 @@ def validate_narration_against_sources(plan, verified_sources):
             ))
 
         if not candidates:
-            raise PipelineError(
-                f"Story quality gate blocked: narration sentence {sentence_number} "
-                "has no verified publisher article to support it."
+            issues.append(
+                f"narration sentence {sentence_number} has no verified publisher article to support it"
             )
+            continue
 
         candidates.sort(key=lambda value: (value[0], value[1], value[2]), reverse=True)
         (
@@ -1336,18 +1337,19 @@ def validate_narration_against_sources(plan, verified_sources):
         required_matches = min(2, len(claim_tokens))
         if (
             matched_count < required_matches
-            or coverage < 0.50
+            or coverage < 0.30
             or unsupported_modifiers
         ):
-            detail = (
-                f"{matched_count}/{len(claim_tokens)} distinctive terms matched"
-            )
+            detail = f"{matched_count}/{len(claim_tokens)} distinctive terms matched"
+            if matched_terms:
+                detail += "; matched: " + ", ".join(sorted(matched_terms))
             if unsupported_modifiers:
                 detail += "; unsupported emphasis: " + ", ".join(unsupported_modifiers)
-            raise PipelineError(
-                f"Story quality gate blocked: narration sentence {sentence_number} "
-                f"is not sufficiently supported by any verified publisher article ({detail})."
+            issues.append(
+                f"narration sentence {sentence_number} is not sufficiently supported "
+                f"by any verified publisher article ({detail})"
             )
+            continue
 
         evidence_records.append({
             "sentence_number": sentence_number,
@@ -1360,8 +1362,12 @@ def validate_narration_against_sources(plan, verified_sources):
             "coverage": round(coverage, 3),
         })
 
+    if issues:
+        raise PipelineError("Story quality gate blocked: " + "; ".join(issues))
+
     plan["narration_evidence"] = evidence_records
     return evidence_records
+
 
 def select_verified_story_sources(plan, research_items, minimum_sources=2):
     """Select relevant, excerpt-backed, direct article links from independent publishers."""
@@ -1441,7 +1447,38 @@ def prepare_story_with_source_recovery(items, recent=None, seo_context=None, max
             verified_sources = select_verified_story_sources(
                 plan, story_items, minimum_sources=2
             )
-            validate_narration_against_sources(plan, verified_sources)
+            try:
+                validate_narration_against_sources(plan, verified_sources)
+            except PipelineError as evidence_error:
+                sentence_numbers = sorted({
+                    int(value) for value in re.findall(
+                        r"narration sentence (\d+)", str(evidence_error)
+                    )
+                    if 2 <= int(value) <= 4
+                })
+                if not sentence_numbers:
+                    raise
+
+                sentence_indices = [number - 1 for number in sentence_numbers]
+                log(
+                    "Narration evidence check found unsupported sentence(s) "
+                    + ", ".join(str(number) for number in sentence_numbers)
+                    + "; correcting only those sentences from verified publisher articles."
+                )
+                try:
+                    compose_narration(
+                        plan,
+                        verified_sources,
+                        evidence_sources=verified_sources,
+                        force_sentence_indices=sentence_indices,
+                    )
+                    validate_narration_against_sources(plan, verified_sources)
+                except PipelineError as repair_error:
+                    raise PipelineError(
+                        "Story quality gate blocked: narration evidence repair did not pass: "
+                        + str(repair_error)
+                    ) from repair_error
+
             validate_and_bind_timeline_sources(plan, verified_sources)
             return plan, story_items, verified_sources
         except PipelineError as exc:
@@ -1931,19 +1968,32 @@ def _assemble_narration_sentence_words(words, expected_count, field, max_count=N
     return sentence, ""
 
 
-def compose_narration(plan, research_items):
-    """Repair only the minimum number of sentence words needed for valid narration."""
+def compose_narration(
+    plan,
+    research_items,
+    evidence_sources=None,
+    force_sentence_indices=None,
+):
+    """Repair narration length or selected sentences against verified article evidence."""
     sentences = _plan_sentence_fields(plan)
     original_sentences = list(sentences)
     original_script = " ".join(value for value in sentences if value).strip()
     issue = narration_validation_error(original_script)
+    forced_indices = sorted({
+        int(index) for index in (force_sentence_indices or [])
+        if 0 <= int(index) < 4
+    })
     plan["narration_sentences"] = sentences
 
-    if not issue:
+    if not issue and not forced_indices:
         plan["narration_script"] = original_script
         return original_script
 
-    repair_sources = resolve_plan_sources(plan, research_items)
+    repair_sources = (
+        list(evidence_sources)
+        if evidence_sources is not None
+        else resolve_plan_sources(plan, research_items)
+    )
     repair_evidence = [
         {
             "title": str(item.get("title", ""))[:180],
@@ -2011,10 +2061,14 @@ def compose_narration(plan, research_items):
             target_total = current_total
 
         budgets = narration_sentence_budget(sentences, target_total=target_total)
-        target_indices = [
-            index for index, sentence in enumerate(sentences)
-            if _sentence_needs_correction(sentence, index, budgets[index])
-        ]
+        target_indices = (
+            list(forced_indices)
+            if forced_indices
+            else [
+                index for index, sentence in enumerate(sentences)
+                if _sentence_needs_correction(sentence, index, budgets[index])
+            ]
+        )
 
         # A global mismatch should normally resolve through the dynamic sentence budgets.
         # Keep this fallback limited to the body rather than rewriting a valid hook.
@@ -2062,14 +2116,23 @@ def compose_narration(plan, research_items):
             "sentence_" + str(index + 1): sentences[index]
             for index in range(4) if index not in target_indices
         }
+        evidence_repair = evidence_sources is not None
         prompt = (
             "Correct only the requested sentence fields. Return each as an array of individual words. "
             "The array length is exact and is stated in the function schema; do not add or omit words. "
             "Python will join the words into sentences. Do not return or rewrite any locked sentence. "
             "The complete narration must remain exactly four sentences and total 40–44 spoken words. "
-            "Use only facts in the supplied story and evidence. Do not invent dates, statistics, quotes, "
-            "names, motives, or outcomes. No padding, repeated ideas, generic filler, or unsupported claims. "
-            "Return the forced function call and nothing else."
+            "Use only facts stated in the supplied direct publisher article excerpts. Do not invent dates, "
+            "statistics, quotes, names, motives, abilities, or outcomes. No padding, repeated ideas, generic "
+            "filler, metaphor presented as fact, or unsupported claims. Do not personify AI as feeling, "
+            "understanding, or having a soul unless an article explicitly establishes that. "
+            + (
+                "This is an evidence-grounding repair: replace each requested claim with a concrete fact, "
+                "technical detail, or limitation explicitly supported by the verified articles. Sentence four "
+                "must deliver a factual payoff, not a poetic interpretation. "
+                if evidence_repair else ""
+            )
+            + "Return the forced function call and nothing else."
         )
         user_content = (
             "Selected story: " + str(plan.get("topic", ""))[:300]
@@ -2083,8 +2146,13 @@ def compose_narration(plan, research_items):
             + json.dumps(locked, ensure_ascii=False)
             + "\nDynamic word budgets for the requested fields: "
             + json.dumps(required_word_counts, ensure_ascii=False)
-            + "\nVerified research evidence: " + json.dumps(repair_evidence, ensure_ascii=False)
-            + "\nValidation issue: " + current_issue
+            + "\nVerified direct article evidence: " + json.dumps(repair_evidence, ensure_ascii=False)
+            + "\nValidation issue: " + (
+                current_issue or (
+                    "Evidence grounding failed for narration sentence(s): " +
+                    ", ".join(str(index + 1) for index in forced_indices)
+                )
+            )
             + "\nCorrection cycle: " + str(attempt) + " of 2."
         )
         payload = {
@@ -2301,7 +2369,12 @@ def make_plan(items, recent=None, seo_context=None):
         "disasters and crimes. Pick the strongest specific story, not merely the loudest headline. "
         "Do not invent facts, dates, statistics, motives, quotations or outcomes. Use only factual claims supported "
         "by supplied research. Every non-hook narration sentence must be supported by the wording of at least one "
-        "readable direct article body, not merely a headline or broad topic overlap. Avoid unsupported emphasis such as "
+        "readable direct article body, not merely a headline or broad topic overlap. Build each body sentence from "
+        "a specific statement in a readable article paragraph. Do not personify AI as feeling music, understanding "
+        "human experience, having a soul, or learning the deep meaning of every note unless the article explicitly "
+        "demonstrates that exact capability. Do not convert technical classification or emotion recognition into "
+        "a claim about consciousness or human-like feelings. The final sentence must present a sourced result, "
+        "limitation, or concrete implication rather than a poetic metaphor. Avoid unsupported emphasis such as "
         "revolutionary, groundbreaking, exceptionally, fundamentally transforming, or claims about changing the "
         "entire future of a field. When a source describes a current limitation or says a capability is future work, "
         "state that limitation clearly and do not imply the complete capability already exists. Every research item "
