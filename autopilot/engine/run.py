@@ -2668,7 +2668,69 @@ def compact_seo_discovery(discovery):
     }
 
 
-def make_plan(items, recent=None, seo_context=None):
+def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_group_ids=None):
+    groups_by_id = {}
+    eligible_story_groups = []
+    if story_groups is not None:
+        excluded = {str(value) for value in (excluded_group_ids or [])}
+        for group in story_groups:
+            group_id = str(group.get("group_id") or "").strip()
+            if not group_id or group_id in excluded:
+                continue
+            group_sources = [
+                item for item in group.get("sources", [])
+                if isinstance(item, dict)
+                and is_direct_publisher_article(item)
+                and len(str(item.get("evidence_text") or "").strip()) >= 90
+            ]
+            families = {
+                publisher_family_domain(
+                    item.get("publisher_domain") or urlparse(item.get("url", "")).netloc
+                )
+                for item in group_sources
+            }
+            families.discard("")
+            source_ids = [
+                str(item.get("source_id") or "").strip()
+                for item in group_sources
+                if str(item.get("source_id") or "").strip()
+            ]
+            if len(families) < 2 or len(source_ids) < 2:
+                continue
+            verified_group = dict(group)
+            verified_group["sources"] = group_sources
+            verified_group["source_ids"] = source_ids
+            verified_group["publisher_families"] = sorted(families)
+            verified_group["independent_publisher_count"] = len(families)
+            groups_by_id[group_id] = verified_group
+            eligible_story_groups.append({
+                "group_id": group_id,
+                "topic_hint": str(group.get("topic_hint") or "")[:220],
+                "independent_publisher_count": len(families),
+                "source_ids": source_ids,
+                "articles": [
+                    {
+                        "source_id": item.get("source_id"),
+                        "title": item.get("title"),
+                        "publisher_name": item.get("publisher_name"),
+                        "publisher_domain": item.get("publisher_domain"),
+                        "date": item.get("date"),
+                        "evidence": str(item.get("evidence_text") or "")[:1200],
+                    }
+                    for item in group_sources
+                ],
+            })
+        if not eligible_story_groups:
+            raise PipelineError(
+                "Story quality gate blocked: no source-first candidate group contains "
+                "two independent readable direct publishers."
+            )
+        items = [
+            source
+            for group in groups_by_id.values()
+            for source in group.get("sources", [])
+        ]
+
     system = (
         "You are the editorial director of Violin Prince, a violin creator. Choose one timely, "
         "well-supported, family-friendly subject from these headlines and turn it into an original "
@@ -2681,6 +2743,11 @@ def make_plan(items, recent=None, seo_context=None):
         "chosen when the story has a clear, compelling connection to music or a strong visual idea. Reject unrelated "
         "retail promotions and generic technology announcements, as well as tragedies, graphic events, violence, "
         "disasters and crimes. Pick the strongest specific story, not merely the loudest headline. "
+        "Evidence-first selection is mandatory when eligible story groups are supplied: choose exactly one "
+        "provided group_id, include it as story_group_id, and base every factual detail only on articles "
+        "inside that group. Never combine separate groups or invent a new subject. The sources field must "
+        "contain at least two exact source_id values from the selected group, representing independent "
+        "publisher families. "
         "Do not invent facts, dates, statistics, motives, quotations or outcomes. Use only factual claims supported "
         "by supplied research. Every non-hook narration sentence must be supported by the wording of at least one "
         "readable direct article body, not merely a headline or broad topic overlap. Build each body sentence from "
@@ -2735,8 +2802,12 @@ def make_plan(items, recent=None, seo_context=None):
              "Previously published topics to avoid: " + json.dumps(recent or [], ensure_ascii=False) +
              "\nYouTube SEO Discovery context (directional samples, not search volume): " +
              json.dumps(seo_context or {}, ensure_ascii=False) +
-             "\nResearch evidence: " + json.dumps(compact, ensure_ascii=False)}
-        ],
+             "\n" + (
+                 "Eligible source-first story groups (choose exactly one group_id; do not mix them): "
+                 + json.dumps(eligible_story_groups, ensure_ascii=False)
+                 if story_groups is not None
+                 else "Research evidence: " + json.dumps(compact, ensure_ascii=False)
+             )}        ],
         # Gemma 4 supports this parameter; disabling reasoning keeps the response
         # focused on the machine-readable plan expected by the renderer.
         "chat_template_kwargs": {"enable_thinking": False, "clear_thinking": True},
@@ -2747,6 +2818,57 @@ def make_plan(items, recent=None, seo_context=None):
     plan = parse_planner_result(result)
     if plan.get("skip"):
         raise PipelineError("Editorial agent skipped: " + str(plan.get("reason", ""))[:200])
+
+    if story_groups is not None:
+        selected_group_id = str(plan.get("story_group_id") or "").strip()
+        selected_group = groups_by_id.get(selected_group_id)
+        if not selected_group:
+            raise PipelineError(
+                "Story quality gate blocked: editorial planner did not select an eligible "
+                "source-first story_group_id."
+            )
+        allowed_ids = set(selected_group.get("source_ids", []))
+        references = plan.get("sources") or []
+        if isinstance(references, (str, dict)):
+            references = [references]
+        if not isinstance(references, list):
+            references = []
+        referenced_ids = []
+        for reference in references:
+            if isinstance(reference, dict):
+                value = reference.get("source_id") or reference.get("id")
+            else:
+                value = reference
+            value = str(value or "").strip()
+            if value:
+                referenced_ids.append(value)
+        if len(set(referenced_ids)) < 2 or not set(referenced_ids).issubset(allowed_ids):
+            raise PipelineError(
+                "Story quality gate blocked: planner citations must be at least two exact "
+                "source IDs from the one selected eligible story group."
+            )
+        referenced_families = {
+            publisher_family_domain(
+                source.get("publisher_domain") or urlparse(source.get("url", "")).netloc
+            )
+            for source in selected_group["sources"]
+            if str(source.get("source_id") or "") in set(referenced_ids)
+        }
+        referenced_families.discard("")
+        if len(referenced_families) < 2:
+            raise PipelineError(
+                "Story quality gate blocked: planner citations do not represent two independent publishers."
+            )
+        plan["source_group"] = {
+            "group_id": selected_group_id,
+            "topic_hint": selected_group.get("topic_hint", ""),
+            "publisher_families": selected_group.get("publisher_families", []),
+            "independent_publisher_count": selected_group.get("independent_publisher_count", 0),
+            "source_ids": list(selected_group["source_ids"]),
+        }
+        plan["sources"] = list(selected_group["source_ids"])
+        items = selected_group["sources"]
+        compact = planner_research_items(items)
 
     # The planner returns four sentence fields; the composer handles targeted
     # correction and assembles the canonical narration_script for downstream stages.
