@@ -23,6 +23,27 @@ class StagedPipelineTests(unittest.TestCase):
             "title": "Test story",
             "topic": "A test topic",
             "narration_script": "A short test narration.",
+            "sources": [
+                {
+                    "publisher_name": "Publisher One",
+                    "publisher_domain": "publisher-one.example",
+                    "title": "Source one article",
+                    "url": "https://publisher-one.example/articles/source-one",
+                    "link_type": "publisher_article",
+                },
+                {
+                    "publisher_name": "Publisher Two",
+                    "publisher_domain": "publisher-two.example",
+                    "title": "Source two article",
+                    "url": "https://publisher-two.example/articles/source-two",
+                    "link_type": "publisher_article",
+                },
+            ],
+            "quality_control": {
+                "status": "passed",
+                "verified_source_count": 2,
+                "date_check": {"status": "passed"},
+            },
             "scenes": [
                 {"caption": "The opening scene", "image_prompt": "A lighthouse at dawn"},
                 {"caption": "The middle detail", "image_prompt": "A close view of a glowing lantern"},
@@ -34,9 +55,19 @@ class StagedPipelineTests(unittest.TestCase):
             "narration_info": {
                 "subtitle_cues": [{"start": 0.0, "end": 1.0, "text": "A short test narration."}]
             },
+            "story_review": {
+                "status": "approved",
+                "approved": True,
+                "approved_at": "2026-11-14T00:00:00+00:00",
+                "approval_method": "test",
+            },
         }
         (folder / "creative_plan.json").write_text(json.dumps(plan), encoding="utf-8")
         (folder / "stage.json").write_text(json.dumps(metadata), encoding="utf-8")
+        (folder / "quality_control.json").write_text(
+            json.dumps({"status": "passed", "verified_source_count": 2,
+                        "date_check": {"status": "passed"}}), encoding="utf-8"
+        )
         (folder / "soundtrack.wav").write_bytes(b"fake soundtrack")
         (folder / "narration.wav").write_bytes(b"fake narration")
         if include_images:
@@ -108,6 +139,33 @@ class StagedPipelineTests(unittest.TestCase):
                 self.assertEqual(len(images), 3)
             finally:
                 pipeline.PACKAGE = original
+
+    def test_render_package_requires_explicit_story_approval(self):
+        with tempfile.TemporaryDirectory() as folder:
+            self._write_package(folder, include_images=True)
+            metadata_path = Path(folder) / "stage.json"
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            metadata["story_review"]["approved"] = False
+            metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+            original = pipeline.PACKAGE
+            try:
+                pipeline.PACKAGE = Path(folder)
+                with self.assertRaisesRegex(pipeline.PipelineError, "explicit human approval"):
+                    pipeline._read_package(require_images=True)
+            finally:
+                pipeline.PACKAGE = original
+
+    def test_visual_stage_requires_story_approval_input(self):
+        old_value = os.environ.get("STORY_APPROVED")
+        os.environ["STORY_APPROVED"] = "false"
+        try:
+            with self.assertRaisesRegex(pipeline.PipelineError, "Visuals blocked"):
+                pipeline.visuals_stage()
+        finally:
+            if old_value is None:
+                os.environ.pop("STORY_APPROVED", None)
+            else:
+                os.environ["STORY_APPROVED"] = old_value
 
     def test_visual_feedback_is_added_without_changing_base_scene_prompt(self):
         scene = {"image_prompt": "A lighthouse at dawn"}
