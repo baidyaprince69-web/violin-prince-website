@@ -260,7 +260,7 @@ def make_motion_graphic_frames(
     caption = _clean(scene.get("caption") or plan.get("title") or "Music, explained", 88)
     detail = _clean(scene.get("graphic_detail") or "", 110)
     label_font = font(12, "medium")
-    headline_font = font(27, "bold", "serif")
+    headline_font = font(27, "regular", "serif")
     detail_font = font(15, "regular")
 
     def wrap_pixels(draw, value, face, max_width, max_lines):
