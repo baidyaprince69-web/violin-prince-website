@@ -112,7 +112,7 @@ jobs:
           if not Path(plan_path).is_file():
               raise SystemExit("The ChatGPT daily production plan does not exist.")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write("plan_path=" + plan_path + "\\n")
+              output.write("plan_path=" + plan_path + "\n")
           print("Validated ChatGPT daily production request: " + plan_path)
           PY
 
@@ -284,6 +284,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_RUN_ID: ${{ github.run_id }}
+          ASSET_URL: https://github.com/${{ github.repository }}/releases/download/violin-prince-short-${{ github.run_id }}/violin-prince-short.mp4
         shell: bash
         run: |
           python - <<'PY'
@@ -305,15 +306,14 @@ jobs:
           for source in plan.get("sources", [])[:8]:
               if isinstance(source, dict) and source.get("url"):
                   notes.append("- " + str(source.get("title") or source.get("publisher_domain") or "Publisher") + ": " + str(source["url"]))
-          (output / "release-notes.md").write_text("\\n".join(notes) + "\\n", encoding="utf-8")
+          (output / "release-notes.md").write_text("\n".join(notes) + "\n", encoding="utf-8")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
-              handle.write("release_title=" + title.replace("\\n", " ") + "\\n")
+              handle.write("release_title=" + title.replace("\n", " ") + "\n")
           PY
           TAG="violin-prince-short-${RELEASE_RUN_ID}"
           gh release create "$TAG" work/output/violin-prince-short.mp4 \
             --title "Violin Prince — Daily Short ${RELEASE_RUN_ID}" \
             --notes-file work/output/release-notes.md
-          ASSET_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/$TAG/violin-prince-short.mp4"
           python - <<'PY'
           import json
           import os
@@ -346,8 +346,6 @@ jobs:
           )
           print("Public release asset and publishing manifest prepared.")
           PY
-        env:
-          ASSET_URL: https://github.com/${{ github.repository }}/releases/download/violin-prince-short-${{ github.run_id }}/violin-prince-short.mp4
 
       - name: Upload finished video
         if: success() && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')
