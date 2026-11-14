@@ -98,7 +98,29 @@ class FFmpegRenderSmokeTests(unittest.TestCase):
                 "subtitle_cues": [
                     {"start": 0.20, "end": 2.40, "text": "A test voice explains a short story."},
                     {"start": 2.55, "end": 5.20, "text": "A useful detail brings the story to a clear ending."},
-                ]
+                ],
+                "word_cues": [
+                    {"text": "A", "start": 0.20, "end": 0.35, "sentence_index": 0},
+                    {"text": "test", "start": 0.38, "end": 0.63, "sentence_index": 0},
+                    {"text": "voice", "start": 0.66, "end": 0.95, "sentence_index": 0},
+                    {"text": "explains", "start": 1.00, "end": 1.35, "sentence_index": 0},
+                    {"text": "a", "start": 1.38, "end": 1.48, "sentence_index": 0},
+                    {"text": "short", "start": 1.55, "end": 1.85, "sentence_index": 0},
+                    {"text": "story.", "start": 1.90, "end": 2.28, "sentence_index": 0},
+                    {"text": "A", "start": 2.55, "end": 2.66, "sentence_index": 1},
+                    {"text": "useful", "start": 2.68, "end": 3.00, "sentence_index": 1},
+                    {"text": "detail", "start": 3.05, "end": 3.32, "sentence_index": 1},
+                    {"text": "brings", "start": 3.37, "end": 3.65, "sentence_index": 1},
+                    {"text": "the", "start": 3.70, "end": 3.80, "sentence_index": 1},
+                    {"text": "story", "start": 3.85, "end": 4.15, "sentence_index": 1},
+                    {"text": "to", "start": 4.20, "end": 4.30, "sentence_index": 1},
+                    {"text": "a", "start": 4.32, "end": 4.42, "sentence_index": 1},
+                    {"text": "clear", "start": 4.45, "end": 4.75, "sentence_index": 1},
+                    {"text": "ending.", "start": 4.80, "end": 5.20, "sentence_index": 1},
+                ],
+                "word_timing_method": "test fixture",
+                "word_timing_count": 17,
+                "word_sync_status": "passed",
             }
 
             final_path, quality = pipeline.render(
