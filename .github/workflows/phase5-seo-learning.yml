@@ -36,7 +36,7 @@ jobs:
       - name: Install the report collector dependency
         run: |
           python -m pip install --upgrade pip
-          pip install "requests>=2.32,<3"
+          pip install "requests>=2.32,<3" "cryptography>=43,<48"
 
       - name: Compile SEO engine and report collector
         run: |
@@ -73,7 +73,7 @@ jobs:
           fi
           {
             echo "## SEO learning storage"
-            echo "- Storage: GitHub branch `seo-learning-data`"
+            echo '- Storage: GitHub branch `seo-learning-data`'
             echo "- Encryption: AES-256-GCM"
             echo "- Plaintext channel analytics persisted: no"
             echo "- Cloudflare dependency: none for this workflow"
