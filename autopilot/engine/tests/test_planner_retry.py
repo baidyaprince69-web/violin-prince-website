@@ -359,7 +359,8 @@ class PlannerNarrationValidationTests(unittest.TestCase):
         plan["topic"] = "MIT Virtual Violin Technology"
         plan["title"] = "The Digital Soul of the Violin"
         plan["narrative_style"] = "documentary"
-        plan["sources"] = [{"source_id": "S0060", "publisher_domain": "mit.edu"}]
+        planner_reference = {"source_id": "S0060", "publisher_domain": "mit.edu"}
+        plan["sources"] = [planner_reference]
 
         with tempfile.TemporaryDirectory() as folder:
             original_work = pipeline.WORK
@@ -370,7 +371,7 @@ class PlannerNarrationValidationTests(unittest.TestCase):
 
                 self.assertEqual(result["sources"], [])
                 self.assertEqual(result["source_resolution"]["status"], "pending_targeted_verification")
-                self.assertEqual(result["source_reference_hints"], plan["sources"])
+                self.assertEqual(result["source_reference_hints"], [planner_reference])
                 self.assertEqual(result["narrative_style"], "documentary")
             finally:
                 pipeline.WORK = original_work
