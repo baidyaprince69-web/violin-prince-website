@@ -91,7 +91,8 @@ class CreativeDirectionTests(unittest.TestCase):
                 fps=8,
                 font=test_font,
             )
-            self.assertTrue(pattern.is_file())
+            self.assertEqual(pattern.name, "frame-%05d.png")
+            self.assertTrue((Path(folder) / "frame-00001.png").is_file())
             frame_paths = sorted(Path(folder).glob("frame-*.png"))
             self.assertEqual(len(frame_paths), 12)
             with Image.open(frame_paths[0]) as first:
