@@ -238,8 +238,8 @@ class StagedPipelineTests(unittest.TestCase):
         self.assertIn("A lighthouse at dawn", prompt)
         self.assertIn("richer illustrated look", prompt)
         self.assertIn("no watermark", prompt)
-        self.assertIn("premium hand-painted cinematic editorial illustration", prompt)
-        self.assertIn("Layered foreground", prompt)
+        self.assertIn("original high-end photorealistic 3D CGI", prompt)
+        self.assertIn("layered foreground/midground/background", prompt)
 
     def test_full_mode_runs_each_stage_once_in_order(self):
         with tempfile.TemporaryDirectory() as folder:
