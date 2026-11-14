@@ -77,7 +77,10 @@ class GoogleNewsPublisherMetadataTests(unittest.TestCase):
             "url": "https://news.google.com/rss/articles/unresolved",
             "publisher_domain": "",
         }
-        self.assertEqual(pipeline.planner_research_items([item]), [])
+        compact = pipeline.planner_research_items([item])
+        self.assertEqual(len(compact), 1)
+        self.assertEqual(compact[0]["source_eligibility"], "discovery_only")
+        self.assertEqual(pipeline.resolve_plan_sources({"sources": ["S0001"]}, compact), [])
 
     def test_google_news_interstitial_can_expose_a_matching_article_url(self):
         page = (
