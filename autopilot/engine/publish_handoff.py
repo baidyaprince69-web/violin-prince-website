@@ -260,7 +260,7 @@ def build_asset_provenance(
             "origin": "ai_generated_image",
             "provider": "Cloudflare Workers AI",
             "model": "@cf/black-forest-labs/flux-1-schnell",
-            "prompt_sha256": _hash_text(prompt),
+            "scene_prompt_source_sha256": _hash_text(prompt),
             "rights_status": "provider_terms_apply_no_external_stock_asset_inserted",
         })
         scene_assets.append(asset)
