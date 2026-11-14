@@ -1748,16 +1748,46 @@ def select_verified_story_sources(plan, research_items, minimum_sources=2):
 
 
 def prepare_story_with_source_recovery(items, recent=None, seo_context=None, max_candidates=2):
-    """Try a bounded number of distinct story candidates when source verification fails."""
-    excluded_topics = []
+    """Select only from article groups already corroborated by independent publishers."""
+    story_groups = discover_source_first_story_groups(items)
+    if not story_groups:
+        raise PipelineError(
+            "Evidence-first research found no story group with at least two independent, "
+            "readable direct publisher articles. No topic was selected and no narration or visuals were created."
+        )
+
+    excluded_group_ids = []
     failures = []
-    candidate_limit = max(1, int(max_candidates))
+    candidate_limit = min(max(1, int(max_candidates)), len(story_groups))
     for candidate_number in range(1, candidate_limit + 1):
-        avoid = list(recent or []) + excluded_topics
-        plan = make_plan(items, recent=avoid, seo_context=seo_context)
-        topic = str(plan.get("topic") or plan.get("title") or "untitled story").strip()
+        selected_group_id = ""
+        topic = "unselected source-first candidate"
         try:
-            story_items = research_story_sources(plan, items)
+            plan = make_plan(
+                items,
+                recent=list(recent or []) + [entry.split(":", 1)[0] for entry in failures],
+                seo_context=seo_context,
+                story_groups=story_groups,
+                excluded_group_ids=excluded_group_ids,
+            )
+            selected_group_id = str((plan.get("source_group") or {}).get("group_id") or "")
+            selected_group = next(
+                (group for group in story_groups if group.get("group_id") == selected_group_id),
+                None,
+            )
+            if not selected_group:
+                raise PipelineError(
+                    "Story quality gate blocked: selected plan is not attached to a verified source group."
+                )
+            topic = str(plan.get("topic") or plan.get("title") or selected_group.get("topic_hint") or "untitled story").strip()
+
+            # Topic-specific search is now corroboration and enrichment. The story
+            # already had two independent readable publisher sources before planning.
+            story_items = research_story_sources(
+                plan,
+                selected_group["sources"],
+                max_phrases=4,
+            )
             verified_sources = select_verified_story_sources(
                 plan, story_items, minimum_sources=2
             )
@@ -1794,26 +1824,33 @@ def prepare_story_with_source_recovery(items, recent=None, seo_context=None, max
                     ) from repair_error
 
             validate_and_bind_timeline_sources(plan, verified_sources)
+            plan["source_group"]["verified_source_ids"] = [
+                str(source.get("source_id") or "") for source in verified_sources
+            ]
+            log(
+                "Selected source-first story group " + selected_group_id + " with "
+                + str(len(verified_sources)) + " independently verified publisher articles."
+            )
             return plan, story_items, verified_sources
         except PipelineError as exc:
             message = str(exc)
             if not message.startswith("Story quality gate blocked:"):
                 raise
             failures.append(topic + ": " + message)
-            excluded_topics.append(topic)
-            if candidate_number < candidate_limit:
+            if selected_group_id:
+                excluded_group_ids.append(selected_group_id)
+            if candidate_number < candidate_limit and selected_group_id:
                 log(
-                    f"Story candidate {candidate_number}/{candidate_limit} did not have "
-                    "enough independent, readable publisher sources. Selecting one alternative automatically."
+                    f"Source-first story group {candidate_number}/{candidate_limit} failed final claim/date "
+                    "verification. Excluding that group and asking the planner to choose another eligible group."
                 )
                 continue
             details = " | ".join(failures)
             raise PipelineError(
-                f"Automatic source recovery checked {candidate_number} story candidates, "
-                "but none had the required independent direct publisher evidence. " + details
+                f"Evidence-first selection checked {candidate_number} eligible story group(s), "
+                "but none passed final story verification. " + details
             ) from exc
-    raise PipelineError("Automatic story source recovery ended without a verified candidate.")
-
+    raise PipelineError("Evidence-first story selection ended without a verified candidate.")
 
 _MONTHS = {
     name.casefold(): index for index, name in enumerate(
