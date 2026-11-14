@@ -22,7 +22,7 @@ main{max-width:1080px;margin:auto;padding:28px 18px 60px}.top{display:flex;justi
   <section class="grid">
     <div class="card stat"><small>Autopilot</small><strong id="enabled">—</strong><span class="muted" style="font-size:11px">Cloud scheduler state</span></div>
     <div class="card stat"><small>Videos today (UTC)</small><strong id="today">—</strong><span class="muted" style="font-size:11px">Default limit: 1</span></div>
-    <div class="card stat"><small>Approved recordings</small><strong id="assets">—</strong><span class="muted" style="font-size:11px">Private R2 library</span></div>
+    <div class="card stat"><small>Private media assets</small><strong id="assets">—</strong><span class="muted" style="font-size:11px">Audio + video in R2</span></div>
     <div class="card stat"><small>Latest production</small><strong id="latest" style="font-size:18px">—</strong><span class="muted" style="font-size:11px">Most recent run</span></div>
   </section>
 
@@ -36,12 +36,21 @@ main{max-width:1080px;margin:auto;padding:28px 18px 60px}.top{display:flex;justi
 
   <div class="cols section">
     <section class="card">
-      <div class="row"><h2>Optional audio library</h2><span class="badge">R2 storage</span></div>
-      <p class="muted" style="font-size:12px">Optional: upload a rights-cleared recording. If none is uploaded, the cloud runner creates an original synthetic string-style soundtrack. That synthetic track is not a recording of your violin.</p>
+      <div class="row"><h2>Private media library</h2><span class="badge">R2 storage</span></div>
+      <p class="muted" style="font-size:12px">Upload a rights-cleared audio track for the first scenes. Separately upload your own performance video: the final scene will show it as the main visual payoff, and use its recorded sound when available. Media stays in private R2 storage.</p>
+      <label for="audio">Music bed (optional)</label>
       <input class="file" id="audio" type="file" accept=".wav,.mp3,.flac,.m4a,.aac,.ogg,audio/*">
       <label class="checks"><input id="rights" type="checkbox"><span>I confirm I own this recording or have permission to use it, and I have checked any underlying composition rights needed for publication.</span></label>
-      <button id="upload" class="secondary" disabled>Upload to private library</button>
-      <div id="uploadStatus" class="muted" style="font-size:12px;margin-top:10px">No upload started.</div>
+      <button id="upload" class="secondary" disabled>Upload audio</button>
+      <div id="uploadStatus" class="muted" style="font-size:12px;margin-top:10px">No audio upload started.</div>
+      <div style="border-top:1px solid var(--line);margin-top:17px;padding-top:13px">
+        <label for="performanceVideo">Your violin performance video (Scene 3)</label>
+        <input class="file" id="performanceVideo" type="file" accept=".mp4,.mov,.webm,video/*">
+        <div class="muted" style="font-size:11px;margin-top:6px">MP4, MOV or WebM · Up to 90 MB · Up to 10 minutes. The whole frame is preserved; landscape footage is shown over a blurred fill rather than cropped.</div>
+        <label class="checks"><input id="performanceRights" type="checkbox"><span>I confirm I own or have permission to use both the video and its audio, including any underlying composition.</span></label>
+        <button id="uploadPerformance" class="secondary" disabled>Upload performance video</button>
+        <div id="performanceUploadStatus" class="muted" style="font-size:12px;margin-top:10px">No performance video uploaded in this session.</div>
+      </div>
     </section>
     <section class="card">
       <div class="row"><h2>Production control</h2><span class="badge">One attempt per UTC day</span></div>
@@ -109,6 +118,7 @@ main{max-width:1080px;margin:auto;padding:28px 18px 60px}.top{display:flex;justi
     $("connection").textContent = value ? "Connected" : "Not connected";
     $("connection").className = "pill " + (value ? "ok" : "");
     $("upload").disabled = !value || !$("audio").files.length || !$("rights").checked;
+    $("uploadPerformance").disabled = !value || !$("performanceVideo").files.length || !$("performanceRights").checked;
     $("triggerTest").disabled = !value;
   }
   async function refresh() {
@@ -256,6 +266,8 @@ main{max-width:1080px;margin:auto;padding:28px 18px 60px}.top{display:flex;justi
   $("refresh").addEventListener("click", refresh);
   $("audio").addEventListener("change", () => connected(Boolean(state.api && state.token)));
   $("rights").addEventListener("change", () => connected(Boolean(state.api && state.token)));
+  $("performanceVideo").addEventListener("change", () => connected(Boolean(state.api && state.token)));
+  $("performanceRights").addEventListener("change", () => connected(Boolean(state.api && state.token)));
   $("triggerTest").addEventListener("click", async () => {
     $("triggerTest").disabled = true;
     setText("runStatus", "Requesting one draft-only cloud production run...");
@@ -273,6 +285,36 @@ main{max-width:1080px;margin:auto;padding:28px 18px 60px}.top{display:flex;justi
       setText("runStatus", error.message);
     } finally {
       $("triggerTest").disabled = !state.api || !state.token;
+    }
+  });
+
+
+  $("uploadPerformance").addEventListener("click", async () => {
+    const file = $("performanceVideo").files[0];
+    if (!file || !$("performanceRights").checked) return;
+    if (file.size > 90 * 1024 * 1024) {
+      setText("performanceUploadStatus", "This file is larger than 90 MB. Choose a smaller export.");
+      return;
+    }
+    $("uploadPerformance").disabled = true;
+    setText("performanceUploadStatus", "Uploading your performance video to private R2 storage...");
+    try {
+      const result = await request("/api/assets?kind=video", {
+        method: "POST",
+        headers: {
+          "Content-Type": file.type || "application/octet-stream",
+          "X-Filename": file.name,
+          "X-Rights-Confirmed": "true",
+          "X-File-Size": String(file.size)
+        },
+        body: file
+      });
+      setText("performanceUploadStatus", "Uploaded privately: " + result.filename + ". The next Prepare run will attach it to Scene 3.");
+      await refresh();
+    } catch (error) {
+      setText("performanceUploadStatus", error.message);
+    } finally {
+      connected(Boolean(state.api && state.token));
     }
   });
 
