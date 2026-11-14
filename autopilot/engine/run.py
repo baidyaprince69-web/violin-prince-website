@@ -901,69 +901,41 @@ def parse_planner_result(result):
     return plan
 
 
-def narration_validation_error(script):
-    """Return a precise narration constraint failure, or an empty string."""
-    text_value = str(script or "").strip()
-    words = re.findall(r"\b[\w’'-]+\b", text_value)
-    if not 40 <= len(words) <= 44:
-        return f"it has {len(words)} spoken words; the required range is 40–44"
-    sentences = [part.strip() for part in re.split(r"[.!?]+", text_value) if part.strip()]
-    if len(sentences) != 4:
-        return f"it has {len(sentences)} sentences; exactly 4 are required"
-    hook_words = sentences[0].split()
-    if not 5 <= len(hook_words) <= 8:
-        return f"the opening hook has {len(hook_words)} words; 5–8 are required"
-    if any(len(sentence.split()) > 12 for sentence in sentences):
-        return "one or more sentences exceed the 12-word subtitle limit"
-    return ""
-
-
-NARRATION_SENTENCE_WORD_TARGETS = (8, 9, 12, 12)
-
-
 def narration_sentences(script):
     """Split a short spoken script into sentence strings while retaining punctuation."""
     value = str(script or "").strip()
     if not value:
         return []
-    return [part.strip() for part in re.split(r"(?<=[.!?])\s+", value) if part.strip()]
+    return [part.strip() for part in re.split(r"(?<=[.!?])\\s+", value) if part.strip()]
 
 
 def narration_word_count(value):
-    """Use the same token rule for each sentence and the complete narration."""
-    return len(re.findall(r"\b[\w’'-]+\b", str(value or "")))
+    """Count spoken word tokens consistently for the full script and each sentence."""
+    return len(re.findall(r"\\b[\\w’'-]+\\b", str(value or "")))
 
 
-def narration_sentence_error(sentence, target_words):
-    """Validate one generated beat independently of the other narration sentences."""
-    value = re.sub(r"\s+", " ", str(sentence or "")).strip()
-    if not value:
-        return "the sentence is empty"
-    if len(narration_sentences(value)) != 1:
-        return "the response must contain exactly one sentence"
-    count = narration_word_count(value)
-    if count != target_words:
-        return f"it has {count} words; exactly {target_words} are required"
-    if len(value.split()) > 12:
-        return "the sentence exceeds the 12-word subtitle limit"
-    if not value.endswith((".", "!", "?")):
-        return "the sentence is not grammatically closed with punctuation"
-    return ""
+def narration_validation_error(script):
+    """Enforce the actual short-form requirements, not arbitrary per-sentence quotas."""
+    text_value = re.sub(r"\\s+", " ", str(script or "")).strip()
+    total_words = narration_word_count(text_value)
+    if not 40 <= total_words <= 44:
+        return f"it has {total_words} spoken words; the required range is 40–44"
 
-
-def narration_sentence_budget_error(script):
-    """Require four short beats with a deliberate 8/9/12/12 spoken-word rhythm."""
-    sentences = narration_sentences(script)
+    sentences = narration_sentences(text_value)
     if len(sentences) != 4:
         return f"it has {len(sentences)} sentences; exactly 4 are required"
-    counts = [narration_word_count(sentence) for sentence in sentences]
-    if tuple(counts) != NARRATION_SENTENCE_WORD_TARGETS:
-        return (
-            "sentence word counts are " + "/".join(str(value) for value in counts) +
-            "; the required rhythm is 8/9/12/12"
-        )
-    return ""
 
+    counts = [narration_word_count(sentence) for sentence in sentences]
+    if not 5 <= counts[0] <= 8:
+        return f"the opening hook has {counts[0]} words; 5–8 are required"
+
+    for index, (sentence, count) in enumerate(zip(sentences, counts), start=1):
+        if count > 12:
+            return f"sentence {index} has {count} words; no sentence may exceed 12"
+        if not sentence.endswith((".", "!", "?")):
+            return f"sentence {index} is missing closing punctuation"
+
+    return ""
 
 def recent_seo_learning():
     """Decrypt the latest GitHub-native SEO snapshot; never call Cloudflare or poll YouTube."""
@@ -1072,9 +1044,10 @@ def make_plan(items, recent=None, seo_context=None):
         "Do not use song lyrics, copied scripts, named copyrighted characters, logos or identifiable living people in images. "
         "Return JSON only with topic,title,hook,description,hashtags,narration_script,narrative_style,scenes,sources,timeline. "
         "The narration_script must have 40 to 44 spoken words across exactly four natural, complete sentences. "
-        "Aim for 41 words with this exact sentence budget: sentence 1 has 8 words, sentence 2 has 9 words, "
-        "sentence 3 has 12 words, and sentence 4 has 12 words. Sentence 1 is the curiosity hook and must be resolved. "
-        "Keep every sentence at 12 words or fewer and make the wording sound natural when spoken aloud, never padded. "
+        "Sentence 1 is a concise curiosity hook of 5–8 words and must be resolved by the ending. "
+        "No sentence may exceed 12 words; twelve is a maximum, not a target. "
+        "Vary sentence lengths naturally for spoken rhythm. Do not force equal lengths or any fixed per-sentence word budget. "
+        "Make every sentence complete and natural when spoken aloud, never padded. "
         "Build context, reveal one memorable sourced detail, "
         "and finish with a satisfying payoff. No greeting, filler padding, generic introduction or misleading clickbait. "
         "Use a cinematic storytelling style for human-interest topics and a clear documentary style for factual discoveries. "
