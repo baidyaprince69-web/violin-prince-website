@@ -1,5 +1,5 @@
 {
-  "mode": "fresh",
-  "requested_stage": "prepare",
-  "reason": "Re-run clean discovery after enforcing story-specific named-entity corroboration between two independent article bodies and complete narration sentence endings. Keep the flexible freshness policy: prefer within 50 hours, accept through seven days."
+  "mode": "chatgpt_daily_production",
+  "plan_path": ".autopilot/daily-production-plan.json",
+  "reason": "Daily ChatGPT-authored, source-verified Violin Prince production"
 }
