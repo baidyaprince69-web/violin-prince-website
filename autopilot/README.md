@@ -35,7 +35,7 @@ Prepare now uses a source-first sequence rather than choosing a topic from headl
 1. Broad research collects article leads from free discovery providers, including direct publisher links from DuckDuckGo.
 2. Google News RSS article IDs are resolved to publisher destinations before article checks. The system fetches the publisher page, compares its headline with the discovery headline, and extracts readable article paragraphs. Aggregator pages and headlines remain discovery leads only.
 3. Research grouping considers the full bounded discovery pool rather than silently truncating targeted results after the first 100 records. Category/section pages that merely advertise `og:type=article` are rejected unless the page title also matches the specific story.
-4. Readable articles are grouped around a shared specific subject. A group must contain at least two independent publisher families. Same-family subdomains and substantially syndicated article copies do not count as independent corroboration.
+4. Readable articles are grouped only when they share a distinctive named subject present in both article bodies. Broad genre overlap such as “film music”, roundup titles, or generic section language is not corroboration. A group must contain at least two independent publisher families. Same-family subdomains and substantially syndicated article copies do not count as independent corroboration.
 5. The editorial planner can select only from those eligible groups. Its source IDs must belong to one selected group; it cannot combine unrelated groups or invent a new topic.
 6. Publication freshness is flexible: sources published within 50 hours are preferred, but specific verified publisher articles up to **seven days (168 hours)** old remain eligible. Articles older than seven days, with unknown publication dates, or with future-dated metadata are excluded.
 7. Topic-specific searches may enrich research, but final citations are locked to the exact sources in the selected story group. The narration evidence, timeline, event dates, and quality-control gates still run before a prepared package is created.
@@ -44,7 +44,7 @@ Publisher article metadata (including Article/NewsArticle structured data and pu
 
 If a recovered research artifact contains only headlines, unverified pages, or stale articles, Prepare discards that cache and performs fresh discovery. The story_candidates.json diagnostic records article-page checks, publication timestamps, age in hours, the preferred/acceptable freshness status, exclusion reasons, eligible groups, publisher families, source IDs and evidence excerpts.
 
-A story with fewer than two independent, readable, article-specific publisher sources inside the seven-day window is rejected. The source threshold is not relaxed to make a run succeed.
+A story with fewer than two independent, readable, article-specific publisher sources inside the seven-day window is rejected. The source threshold is not relaxed to make a run succeed. A narration sentence must also be complete; a short script ending mid-phrase (for example, on a dangling preposition) is rejected before narration audio is generated.
 
 ## Use a real violin recording
 
