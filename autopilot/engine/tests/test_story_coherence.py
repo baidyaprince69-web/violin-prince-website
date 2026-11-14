@@ -66,6 +66,24 @@ class StoryCoherenceTests(unittest.TestCase):
                 ],
             )
 
+    def test_rejects_selected_source_without_claim_evidence(self):
+        extra = {
+            "source_id": "S003",
+            "title": "Another violin back arch resonance investigation",
+            "evidence_text": "This article also studies violin back arch height and body resonance.",
+        }
+        with self.assertRaisesRegex(Exception, "exactly match"):
+            daily.validate_story_coherence(
+                self.plan,
+                [self.good_source, self.good_second_source, extra],
+                [
+                    {"sentence_number": 2, "source_id": "S001"},
+                    {"sentence_number": 3, "source_id": "S001"},
+                    {"sentence_number": 4, "source_id": "S002"},
+                ],
+            )
+
+
     def test_rejects_story_without_two_cited_sources(self):
         with self.assertRaisesRegex(Exception, "at least two cited"):
             daily.validate_story_coherence(
