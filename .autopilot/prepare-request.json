@@ -1,5 +1,5 @@
 {
   "mode": "fresh",
   "requested_stage": "prepare",
-  "reason": "Run a fresh discovery attempt using the seven-day flexible freshness window, Google News publisher URL resolution, the expanded source pool, article-headline verification, independent publisher corroboration, and immutable citations."
+  "reason": "Re-run clean discovery after enforcing story-specific named-entity corroboration between two independent article bodies and complete narration sentence endings. Keep the flexible freshness policy: prefer within 50 hours, accept through seven days."
 }
