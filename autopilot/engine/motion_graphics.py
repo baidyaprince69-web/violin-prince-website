@@ -131,7 +131,7 @@ def make_motion_graphic_frames(
                 )
         else:
             marker_x = 44 + int(progress * (width - 88))
-            marker_y = int(52 + math.sin(progress * math.tau * 2.2 - phase) * 5)
+            marker_y = int(52 + math.sin(phase + progress * math.tau * 0.45) * 5)
             draw.ellipse(
                 (marker_x - 8, marker_y - 8, marker_x + 8, marker_y + 8),
                 fill=(255, 246, 224, 250),
