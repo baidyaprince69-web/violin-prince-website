@@ -100,8 +100,20 @@ The current design borrows production patterns rather than another creator's ide
 - [marketing-videos](https://github.com/sub-level/marketing-videos) (MIT): separate code-generated graphics from optional footage, use design tokens and verify final renders.
 - [paper2video](https://github.com/edwardyen724-g/paper2video) (Apache-2.0): research-to-script-to-scene orchestration and Manim as a specialist educational-animation option. Its LLM-generated Python execution model is not copied.
 - [anim-studio](https://github.com/DvaitAI-tech/anim-studio) (MIT): headless Blender shot pipeline as a future benchmark, not a required dependency in this CPU-first runner.
+- [aliberson/openmontage](https://github.com/aliberson/openmontage) (AGPL-3.0): reference-video analysis, motion-type classification, structured scene direction and capability reporting. Only the high-level reference-analysis pattern is adopted; no OpenMontage source code, provider integrations or Remotion runtime are copied or installed.
+- [iart-ai/motion-skills](https://github.com/iart-ai/motion-skills) (MIT) and [Barty-Bart/motion-graphics](https://github.com/Barty-Bart/motion-graphics) (MIT): deterministic animation principles, speech-aware choreography, freeze-frame review, contact sheets and encoded-video probing; the relevant craft patterns are already represented in motion system version 7.
 
 The first implementation keeps the current Python / Pillow / FFmpeg / GitHub Actions stack. It does not download or copy any of those repositories' implementation code or third-party assets. Review each repository and its asset licenses independently before adopting any future components.
+
+Other candidates reviewed but not added to the daily engine:
+
+- [Agnes Video Generator](https://github.com/lcy362/agnes-video-generator) (MIT) offers multi-scene AI video generation, but it is not a dependable zero-cost default for unattended daily production: remote inference access, model availability and request limits need a separate verified test before any integration.
+- AI Content Studio was not imported as a complete application; its extra stack would duplicate orchestration without improving this engine's existing evidence-first daily path.
+- The n8n YouTube-to-Shorts workflow repurposes an existing long video, while this channel's pipeline creates original music-fact stories and original violin payoffs.
+- Paper2Video is aimed at turning research papers into presentation videos; its heavier research-animation workflow is not a fit for this short-form music channel.
+- Chatterbox is not added as another voice engine; the current cloud runner keeps Kokoro rather than increasing model downloads and runtime complexity.
+
+The new OpenMontage repository is licensed under AGPL-3.0. This update is an independent implementation of a small workflow idea, not a copy or port of its code.
 
 ## Automated editorial quality gates
 
