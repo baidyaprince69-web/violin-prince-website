@@ -11,6 +11,7 @@ from publish_handoff import (
     build_asset_provenance,
     build_publish_manifest,
     validate_publish_metadata,
+    write_handoff_files,
 )
 
 
@@ -63,6 +64,14 @@ class PublishMetadataTests(unittest.TestCase):
                 "title": "Valid title",
                 "description": "D" * 5001,
             })
+
+    def test_deduplicates_and_caps_tag_count(self):
+        result = validate_publish_metadata({
+            "title": "Valid title",
+            "description": "Description",
+            "tags": [f"tag-{index}" for index in range(35)] + ["TAG-1"],
+        })
+        self.assertEqual(len(result["value"]["tags"]), 30)
 
     def test_rejects_invalid_language_and_privacy(self):
         with self.assertRaisesRegex(ValueError, "valid language tag"):
@@ -246,6 +255,34 @@ class AssetProvenanceTests(unittest.TestCase):
         self.assertTrue(manifest["publish_ready"])
         self.assertEqual(manifest["publisher_preflight"]["status"], "ready")
         self.assertIs(manifest["made_for_kids"], False)
+
+    def test_writes_publish_manifest_and_asset_provenance_files(self):
+        check = validate_publish_metadata({
+            "title": self.plan["title"],
+            "description": "Verified source-led music explanation.",
+            "tags": ["Violin", "Music", "Acoustics"],
+            "made_for_kids": False,
+        })
+        self.plan["publish_metadata"] = check["value"]
+        manifest, provenance = write_handoff_files(
+            self.root / "handoff",
+            plan=self.plan,
+            verified_sources=self.sources,
+            audio_asset=self.audio_asset,
+            audio_path=self.audio,
+            narration_info=self.narration_info,
+            narration_path=self.narration,
+            image_paths=self.images,
+            final_video_path=self.video,
+            video_quality=self.video_quality,
+            run_id="test-run",
+        )
+        manifest_path = self.root / "handoff" / "publish-manifest.json"
+        provenance_path = self.root / "handoff" / "asset-provenance.json"
+        self.assertTrue(manifest_path.is_file())
+        self.assertTrue(provenance_path.is_file())
+        self.assertTrue(manifest["publish_ready"])
+        self.assertEqual(len(provenance["assets"]["scene_images"]), 3)
 
     def test_unknown_soundtrack_license_blocks_publication(self):
         check = validate_publish_metadata({
