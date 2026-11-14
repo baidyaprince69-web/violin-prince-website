@@ -1,8 +1,8 @@
-"""Free CPU text-to-speech for the Violin Prince cloud production runner.
+"""CPU text-to-speech and model-native word timing for Violin Prince.
 
-Kokoro-82M model weights are Apache-2.0. Inference happens on a GitHub-hosted
-runner, not on the user's computer. The selected voice is synthetic and does
-not clone or imitate a real person.
+Kokoro's English tokens carry start/end timestamps derived from the same
+phoneme-duration prediction used to render the waveform. We keep those exact
+timings so the renderer can animate each spoken word instead of guessing.
 """
 from __future__ import annotations
 
@@ -18,10 +18,10 @@ PAUSE_SECONDS = 0.16
 
 def split_sentences(text: str) -> list[str]:
     """Split a short narration into subtitle-friendly spoken sentences."""
-    normalised = re.sub(r"\s+", " ", str(text or "")).strip()
+    normalised = re.sub(r"\\s+", " ", str(text or "")).strip()
     if not normalised:
         return []
-    parts = re.split(r"(?<=[.!?])\s+", normalised)
+    parts = re.split(r"(?<=[.!?])\\s+", normalised)
     return [part.strip() for part in parts if part.strip()]
 
 
@@ -34,15 +34,13 @@ def _srt_timestamp(seconds: float) -> str:
 
 
 def write_srt(cues: list[dict], output_path: str | Path) -> Path:
-    """Write sentence-timed subtitles using the actual TTS chunk durations."""
+    """Write sentence-level fallback subtitles for players without ASS support."""
     target = Path(output_path)
     target.parent.mkdir(parents=True, exist_ok=True)
     lines: list[str] = []
     for index, cue in enumerate(cues, start=1):
         start = float(cue["start"])
         end = float(cue["end"])
-        # Keep subtitle lines short enough to read quickly on a phone screen.
-        # Shorter subtitle rows reduce line count and make captions easier to scan on phones.
         phrase = textwrap.fill(str(cue["text"]).strip(), width=24)
         if not phrase or end <= start:
             continue
@@ -54,20 +52,31 @@ def write_srt(cues: list[dict], output_path: str | Path) -> Path:
         ])
     if not lines:
         raise ValueError("No valid narration subtitle cues were supplied.")
-    target.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+    target.write_text("\\n".join(lines).rstrip() + "\\n", encoding="utf-8")
     return target
 
 
+def _read_result_audio(result):
+    """Read audio from current Kokoro Result objects or their tuple interface."""
+    audio = getattr(result, "audio", None)
+    if audio is not None:
+        return audio
+    try:
+        return result[2]
+    except (TypeError, IndexError, KeyError):
+        return None
+
+
 def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict]:
-    """Generate a spoken narration WAV and sentence-level subtitle timings."""
+    """Generate narration, sentence cues, and Kokoro-native per-word timings."""
     import numpy as np
     import soundfile as sf
     from kokoro import KPipeline
 
-    narration = re.sub(r"\s+", " ", str(text or "")).strip()
+    narration = re.sub(r"\\s+", " ", str(text or "")).strip()
     if not narration:
         raise ValueError("Narration script is empty.")
-    word_count = len(re.findall(r"\b[\w’'-]+\b", narration))
+    word_count = len(re.findall(r"\\b[\\w’'-]+\\b", narration))
     if not 30 <= word_count <= 48:
         raise ValueError("Narration must contain 30–48 spoken words.")
 
@@ -77,44 +86,99 @@ def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict
 
     target = Path(output_path)
     target.parent.mkdir(parents=True, exist_ok=True)
-
-    # CPU inference: no hosted speech API, GPU, or local PC process is used.
     pipeline = KPipeline(lang_code=LANG_CODE)
+
     audio_parts: list[np.ndarray] = []
-    subtitle_cues: list[dict] = []
-    cursor = 0
+    sentence_cues: list[dict] = []
+    word_cues: list[dict] = []
+    cursor_samples = 0
     pause = np.zeros(int(PAUSE_SECONDS * SAMPLE_RATE), dtype=np.float32)
 
     for sentence_index, sentence in enumerate(sentences):
         sentence_parts: list[np.ndarray] = []
-        for _graphemes, _phonemes, audio in pipeline(
-            sentence,
-            voice=VOICE,
-            speed=1.0,
-        ):
-            samples = np.asarray(audio, dtype=np.float32).reshape(-1)
-            if samples.size:
-                sentence_parts.append(samples)
+        sentence_samples = 0
+        sentence_start = cursor_samples / SAMPLE_RATE
+        sentence_word_cues: list[dict] = []
+
+        for result in pipeline(sentence, voice=VOICE, speed=1.0):
+            raw_audio = _read_result_audio(result)
+            if raw_audio is None:
+                raise RuntimeError("Kokoro returned a chunk without audio.")
+            samples = np.asarray(raw_audio, dtype=np.float32).reshape(-1)
+            if samples.size == 0:
+                continue
+            if not np.isfinite(samples).all():
+                raise RuntimeError("Kokoro produced invalid audio samples.")
+
+            chunk_start = sentence_start + sentence_samples / SAMPLE_RATE
+            tokens = getattr(result, "tokens", None) or []
+            for token in tokens:
+                token_text = str(getattr(token, "text", "") or "")
+                whitespace = str(getattr(token, "whitespace", "") or "")
+                start_ts = getattr(token, "start_ts", None)
+                end_ts = getattr(token, "end_ts", None)
+
+                if start_ts is None or end_ts is None:
+                    # Punctuation tokens are not voiced and have no duration.
+                    # Attach them to the preceding spoken word for exact text.
+                    if token_text and sentence_word_cues and not re.search(r"\\w", token_text):
+                        sentence_word_cues[-1]["text"] += token_text
+                        if whitespace:
+                            sentence_word_cues[-1]["whitespace"] = whitespace
+                    elif token_text and re.search(r"\\w", token_text):
+                        raise RuntimeError(
+                            "Kokoro did not provide a timestamp for spoken token "
+                            + repr(token_text) + ". Refusing guessed caption timing."
+                        )
+                    continue
+
+                start = chunk_start + max(0.0, float(start_ts))
+                end = chunk_start + max(0.0, float(end_ts))
+                if end <= start:
+                    raise RuntimeError(
+                        "Kokoro returned a zero-length word timestamp for "
+                        + repr(token_text) + "."
+                    )
+                if not re.search(r"\\w", token_text):
+                    continue
+
+                sentence_word_cues.append({
+                    "text": token_text,
+                    "whitespace": whitespace,
+                    "start": round(start, 4),
+                    "end": round(end, 4),
+                    "sentence_index": sentence_index,
+                })
+
+            sentence_parts.append(samples)
+            sentence_samples += int(samples.size)
 
         if not sentence_parts:
             raise RuntimeError("Kokoro returned no speech for a narration sentence.")
+        if not sentence_word_cues:
+            raise RuntimeError(
+                "Kokoro did not expose native word timings for sentence "
+                + str(sentence_index + 1) + ". Word-synced captions are required."
+            )
 
         spoken = np.concatenate(sentence_parts)
-        if not np.isfinite(spoken).all():
-            raise RuntimeError("Kokoro produced invalid audio samples.")
         peak_sentence = float(np.max(np.abs(spoken)))
         if peak_sentence < 0.002:
             raise RuntimeError("Kokoro produced effectively silent narration.")
 
-        start = cursor / SAMPLE_RATE
+        sentence_end = sentence_start + spoken.size / SAMPLE_RATE
+        sentence_cues.append({
+            "start": round(sentence_start, 4),
+            "end": round(sentence_end, 4),
+            "text": sentence,
+        })
+        word_cues.extend(sentence_word_cues)
         audio_parts.append(spoken)
-        cursor += int(spoken.size)
-        end = cursor / SAMPLE_RATE
-        subtitle_cues.append({"start": round(start, 3), "end": round(end, 3), "text": sentence})
+        cursor_samples += int(spoken.size)
 
         if sentence_index < len(sentences) - 1:
             audio_parts.append(pause)
-            cursor += int(pause.size)
+            cursor_samples += int(pause.size)
 
     waveform = np.concatenate(audio_parts)
     duration = waveform.size / SAMPLE_RATE
@@ -130,6 +194,20 @@ def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict
     if peak > 0.95:
         waveform = waveform * (0.95 / peak)
 
+    # Confirm every sentence has a monotonically timed word sequence inside
+    # that sentence's real audio interval. This is a render-blocking QA gate.
+    for sentence_index, cue in enumerate(sentence_cues):
+        rows = [item for item in word_cues if item["sentence_index"] == sentence_index]
+        if not rows:
+            raise RuntimeError(f"Sentence {sentence_index + 1} has no word timing data.")
+        previous_start = float(cue["start"]) - 0.03
+        for row in rows:
+            if row["start"] < previous_start or row["end"] <= row["start"]:
+                raise RuntimeError("Kokoro word timings are not monotonically ordered.")
+            if row["start"] < float(cue["start"]) - 0.08 or row["end"] > float(cue["end"]) + 0.12:
+                raise RuntimeError("A Kokoro word timestamp falls outside its spoken sentence.")
+            previous_start = row["start"]
+
     sf.write(str(target), waveform, SAMPLE_RATE, subtype="PCM_16")
     info = sf.info(str(target))
     if info.frames <= 0 or info.duration <= 0:
@@ -144,5 +222,10 @@ def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict
         "duration_seconds": round(float(info.duration), 2),
         "word_count": word_count,
         "sample_rate": int(info.samplerate),
-        "subtitle_cues": subtitle_cues,
+        "subtitle_cues": sentence_cues,
+        "word_cues": word_cues,
+        "word_timing_method": "Kokoro model-native token timestamps",
+        "word_timing_count": len(word_cues),
+        "word_sync_status": "passed",
     }
+}
