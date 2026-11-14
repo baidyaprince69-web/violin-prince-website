@@ -131,6 +131,19 @@ class FFmpegRenderSmokeTests(unittest.TestCase):
             self.assertTrue(final_path.exists())
             self.assertEqual(quality["width"], 720)
             self.assertEqual(quality["height"], 1280)
+            self.assertEqual(quality["video_codec"], "h264")
+            self.assertAlmostEqual(quality["fps"], 8.0, places=1)
+            self.assertEqual(quality["motion_timing_source"], "Kokoro-native word timestamps")
+            self.assertTrue(quality["speech_led_motion"])
+            self.assertEqual(len(quality["motion_scene_timeline"]), 3)
+            self.assertTrue(all(item["word_cue_count"] >= 0 for item in quality["motion_scene_timeline"]))
+
+            contact_sheet = pipeline.OUT / "visual-contact-sheet.png"
+            self.assertTrue(contact_sheet.is_file())
+            self.assertEqual(quality["visual_review_contact_sheet"], contact_sheet.name)
+            with Image.open(contact_sheet) as review_sheet:
+                self.assertGreater(review_sheet.width, 900)
+                self.assertGreater(review_sheet.height, 1100)
             self.assertGreaterEqual(quality["duration_seconds"], 23.5)
             self.assertLessEqual(quality["duration_seconds"], 24.5)
             self.assertGreater(quality["file_size_bytes"], 150000)
