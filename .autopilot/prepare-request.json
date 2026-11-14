@@ -1,6 +1,6 @@
 {
-  "source_run_id": "43592684757",
+  "source_run_id": "43593446042",
   "requested_stage": "prepare",
-  "reason": "Retry after correcting Bing/Microsoft news aggregator handling; only final publisher pages with readable article text may count as source evidence.",
-  "request_version": 3
+  "reason": "Retry Run 27 with direct-link web discovery to resolve independent publisher articles from the preserved research context.",
+  "request_version": 4
 }
