@@ -108,7 +108,7 @@ When a Prepare run fails after collecting sources, the diagnostic artifact may s
 - Leave visual_feedback empty or provide an overall image direction.
 - Start the workflow once.
 
-The workflow downloads the earlier diagnostic artifact and reuses its saved research.json. It does not call GDELT or Google News again. The planner then applies one automatic narration correction if the generated script misses the word-count, sentence-count or subtitle limits. The prepared-package and visual-package checkpoints are still saved before later stages continue.
+The workflow downloads the earlier diagnostic artifact and reuses its saved research.json. It does not call GDELT or Google News again. The planner then applies one automatic narration correction if the generated script misses the word-count, sentence-count or subtitle limits. The Full recovery run completes the remaining stages in the same job. If it fails, the diagnostic artifact contains the package and any scene images created before the failure.
 
 ### Repair only the stage that needs it
 
