@@ -91,6 +91,32 @@ This adds no runtime dependency, paid provider, extra API call or new scheduler.
 
 Direct publishing remains disabled inside GitHub Actions. The ChatGPT-operated daily route publishes only through the connected Metricool account after the required YouTube audience setting is confirmed.
 
+### Publisher preflight and asset provenance — version 9
+
+A selective review of [YouTube Automation Agent](https://github.com/darkzOGx/youtube-automation-agent) added two safeguards to the ChatGPT daily handoff without importing its local Node/Chromium application, provider stack, scheduler or direct-publishing agents.
+
+- **Metadata validation runs before scene generation.** YouTube titles are limited to 100 characters, descriptions to 5,000 characters, and tags are de-duplicated and capped at 30 tags / 450 combined characters. Category ID, language tag and privacy status are normalized and checked. Empty descriptions and short tag lists produce warnings; invalid required fields stop the run before it spends on visuals.
+- **The GitHub release now includes two JSON handoff assets:** `publish-manifest.json` and `asset-provenance.json`, alongside the MP4. The manifest gives ChatGPT the normalized title, description, tags, privacy setting, synthetic-media disclosure, source references and publisher-preflight result.
+- **The provenance record** identifies verified publisher articles and the exact quotes used to support narration sentences, and stores SHA-256 hashes and origin metadata for the generated scene images, Kokoro narration, soundtrack and final MP4. It records the pinned CC0-1.0 sample-bank license and attribution when that violin soundtrack is used. AI-generated imagery and narration are labelled as synthetic; provider terms still apply.
+- **Fail-closed audience check:** the daily plan must contain an explicit boolean `made_for_kids` value, based on the channel's confirmed audience setting. If it is missing, the MP4 can still be rendered and released, but `publish_ready` is false and `publisher_preflight.status` is `hold`. ChatGPT must not schedule or publish that release through Metricool until the audience value is confirmed and included in the plan. The engine never guesses this setting.
+- Unknown soundtrack origin/license metadata also places the release on hold. The provenance document is an origin-and-license record, not a legal opinion or blanket rights clearance.
+
+The ChatGPT production plan can provide the publishing fields under `publish_metadata` (or use the compatible top-level fields):
+
+```json
+{
+  "publish_metadata": {
+    "title": "Why Violin Strings Vibrate",
+    "description": "A short, sourced explanation of violin acoustics.",
+    "tags": ["violin", "music", "acoustics"],
+    "privacy_status": "public",
+    "made_for_kids": false
+  }
+}
+```
+
+The boolean above is an example only; the daily operator must use the channel's actually confirmed audience classification. Existing evidence-first research and the separate encrypted YouTube SEO learning workflow remain in place.
+
 ## Research basis and implementation choices
 
 The current design borrows production patterns rather than another creator's identity:
@@ -101,6 +127,7 @@ The current design borrows production patterns rather than another creator's ide
 - [paper2video](https://github.com/edwardyen724-g/paper2video) (Apache-2.0): research-to-script-to-scene orchestration and Manim as a specialist educational-animation option. Its LLM-generated Python execution model is not copied.
 - [anim-studio](https://github.com/DvaitAI-tech/anim-studio) (MIT): headless Blender shot pipeline as a future benchmark, not a required dependency in this CPU-first runner.
 - [aliberson/openmontage](https://github.com/aliberson/openmontage) (AGPL-3.0): reference-video analysis, motion-type classification, structured scene direction and capability reporting. Only the high-level reference-analysis pattern is adopted; no OpenMontage source code, provider integrations or Remotion runtime are copied or installed.
+- [darkzOGx/youtube-automation-agent](https://github.com/darkzOGx/youtube-automation-agent) (MIT): verified production readiness, durable generation recovery, claim/media provenance, upload metadata validation and fail-closed publishing. We selectively adopt metadata/provenance handoff safeguards; its local Node/Chromium dashboard, local scheduler, paid-provider catalogue and direct YouTube/social publishers are not installed or substituted for ChatGPT + Metricool.
 - [iart-ai/motion-skills](https://github.com/iart-ai/motion-skills) (MIT) and [Barty-Bart/motion-graphics](https://github.com/Barty-Bart/motion-graphics) (MIT): deterministic animation principles, speech-aware choreography, freeze-frame review, contact sheets and encoded-video probing; the relevant craft patterns are already represented in motion system version 7.
 
 The first implementation keeps the current Python / Pillow / FFmpeg / GitHub Actions stack. It does not download or copy any of those repositories' implementation code or third-party assets. Review each repository and its asset licenses independently before adopting any future components.
