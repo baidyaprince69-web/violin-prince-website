@@ -22,7 +22,8 @@ try:
     )
     from .motion_graphics import make_motion_graphic_frames, make_ambient_glow_frames
     from .visual_reference import (
-        scene_camera_move, scene_transition, scene_visual_prompt_suffix, transition_duration,
+        normalize_visual_reference, scene_camera_move, scene_transition,
+        scene_visual_prompt_suffix, transition_duration,
     )
 except ImportError:  # Direct script execution from the engine directory.
     from seo_intelligence import build_topic_queries, discover as seo_discover, load_profile as seo_load_profile
@@ -33,7 +34,8 @@ except ImportError:  # Direct script execution from the engine directory.
     )
     from motion_graphics import make_motion_graphic_frames, make_ambient_glow_frames
     from visual_reference import (
-        scene_camera_move, scene_transition, scene_visual_prompt_suffix, transition_duration,
+        normalize_visual_reference, scene_camera_move, scene_transition,
+        scene_visual_prompt_suffix, transition_duration,
     )
 
 API = os.environ.get("AUTOPILOT_API_URL", "").rstrip("/")
