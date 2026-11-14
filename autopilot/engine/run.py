@@ -559,6 +559,14 @@ def _article_page_url_is_directory(url):
         }
         if any(segment in blocked for segment in segments):
             return True
+        if segments and segments[-1] in {
+            "news", "music", "culture", "arts", "features", "articles",
+            "latest", "updates", "stories", "violin", "performing-arts",
+            "classical", "opera", "film", "science", "technology",
+        }:
+            return True
+        if any(segment.endswith((".tag", ".category", ".archive")) for segment in segments):
+            return True
         if segments and segments[0] in {"c", "sections", "topics"}:
             return True
         if len(segments) == 1 and segments[0] in {
@@ -588,11 +596,28 @@ def _article_page_verified(item, url, html, metadata):
     # headline; section landing pages often emit those generic metadata tags too.
     if overlap < 0.45:
         return False
-    if not metadata.get("is_article") and len(
-        [part for part in urlparse(str(url or "")).path.split("/") if part]
-    ) < 2:
+
+    strong_metadata = bool(
+        metadata.get("structured_article") or metadata.get("has_publication_metadata")
+    )
+    if strong_metadata:
+        return True
+
+    # og:type=article is frequently applied to section/index pages. Without
+    # Article JSON-LD or a page publication date, require a multi-segment slug
+    # whose text independently matches the discovered article headline.
+    segments = [
+        part for part in (urlparse(str(url or "")).path or "").split("/") if part
+    ]
+    if len(segments) < 2:
         return False
-    return True
+    slug_tokens = source_tokens(
+        unquote(segments[-1].replace("-", " ").replace("_", " "))
+    )
+    slug_overlap = len(slug_tokens.intersection(supplied_tokens)) / max(
+        1, len(supplied_tokens)
+    )
+    return slug_overlap >= 0.30
 
 
 def _story_article_eligibility(item, as_of=None):
