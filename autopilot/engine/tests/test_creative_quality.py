@@ -49,23 +49,30 @@ class CreativeQualityTests(unittest.TestCase):
     def test_kinetic_captions_keep_measured_sentence_times_and_animation(self):
         with tempfile.TemporaryDirectory() as folder:
             target = Path(folder) / "narration.ass"
-            pipeline.write_kinetic_ass(
-                [{"start": 0.2, "end": 2.4, "text": "A remarkable detail emerges today."}],
-                target,
-            )
+            sentence_cues = [
+                {"start": 0.2, "end": 2.4, "text": "A remarkable detail emerges today."}
+            ]
+            word_cues = [
+                {"text": "A", "start": 0.20, "end": 0.32, "sentence_index": 0},
+                {"text": "remarkable", "start": 0.42, "end": 0.92, "sentence_index": 0},
+                {"text": "detail", "start": 1.00, "end": 1.35, "sentence_index": 0},
+                {"text": "emerges", "start": 1.45, "end": 1.90, "sentence_index": 0},
+                {"text": "today.", "start": 2.00, "end": 2.40, "sentence_index": 0},
+            ]
+            pipeline.write_kinetic_ass(sentence_cues, target, word_cues)
             content = target.read_text(encoding="utf-8")
             self.assertIn("Dialogue: 0,0:00:00.20,0:00:02.40,VP", content)
-            self.assertIn("fad(180,220)", content)
-            self.assertIn("008BCEEA", content)
+            self.assertIn("fad(100,160)", content)
+            self.assertIn("008BCAEB", content)
+            self.assertIn(r"\\kf", content)
             self.assertIn("remarkable", content)
 
-    def test_camera_motion_varies_by_scene_but_keeps_smooth_easing(self):
-        first = pipeline.camera_motion_filter(120, 0)
-        second = pipeline.camera_motion_filter(120, 1)
-        third = pipeline.camera_motion_filter(120, 2)
-        self.assertNotEqual(first, second)
-        self.assertNotEqual(second, third)
-        self.assertIn("3-2*", first)
+    def test_photo_framing_is_stable_without_compulsory_zoom(self):
+        filters = [pipeline.camera_motion_filter(120, index) for index in range(3)]
+        self.assertEqual(filters[0], filters[1])
+        self.assertEqual(filters[1], filters[2])
+        self.assertTrue(all("zoompan" not in expression for expression in filters))
+        self.assertTrue(all("fps=" in expression and "setsar=1" in expression for expression in filters))
 
     def test_scene_timing_has_safe_equal_duration_fallback(self):
         self.assertEqual(
@@ -85,8 +92,9 @@ class CreativeQualityTests(unittest.TestCase):
         self.assertIn("SHOT 3 — PERFORMANCE PAYOFF", prompts[2])
         for prompt in prompts:
             self.assertIn("deep midnight navy", prompt)
-            self.assertIn("original high-end photorealistic 3D CGI", prompt)
-            self.assertIn("physically based rendering", prompt)
+            self.assertIn("photorealistic cinematic still imagery", prompt)
+            self.assertIn("physically believable violin construction", prompt)
+            self.assertIn("visible natural wood grain", prompt)
             self.assertIn("This is original art direction", prompt)
             self.assertIn("Portrait 9:16 composition", prompt)
             self.assertLessEqual(len(prompt), 1800)
