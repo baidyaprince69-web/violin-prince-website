@@ -1,0 +1,6 @@
+{
+  "source_run_id": "43591383009",
+  "requested_stage": "prepare",
+  "reason": "Recover Run 24 after fixing source-discovery handoff and enabling automatic source fallback.",
+  "request_version": 1
+}
