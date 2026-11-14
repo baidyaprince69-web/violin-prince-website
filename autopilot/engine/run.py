@@ -4214,7 +4214,10 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         bed_volume = "0.24"
     else:
         bed_volume = "0.26"
-    performance_start = max(0.0, sum(scene_durations[:2]) - transition_seconds)
+    # Scene 3 starts at the second xfade offset, which overlaps the prior scene
+    # by two transition durations. Align the real performance audio to that same
+    # frame so it does not enter a fraction of a second late.
+    performance_start = max(0.0, sum(scene_durations[:2]) - 2 * transition_seconds)
     performance_audio_seconds = (
         min(scene_durations[2], performance_video_info["duration_seconds"])
         if performance_video_info and performance_video_info.get("has_audio") else 0.0
