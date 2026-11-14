@@ -1,0 +1,132 @@
+name: Verify YouTube SEO learning in Discover
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: youtube-seo-discover-verification
+  cancel-in-progress: false
+
+jobs:
+  verify-learning-feedback:
+    name: Decrypt saved learning and run read-only Discover
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+      YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+      YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+      YOUTUBE_STATE_ENCRYPTION_KEY: ${{ secrets.YOUTUBE_STATE_ENCRYPTION_KEY }}
+      SEO_LEARNING_REPORT_PATH: work/seo-learning-data/seo-learning/latest.enc.json
+
+    steps:
+      - name: Check out the tested SEO engine
+        uses: actions/checkout@v4
+        with:
+          ref: 4ba40de7b1472121d2307156db696925957f01ed
+          path: source
+          persist-credentials: false
+
+      - name: Check out the encrypted learning snapshot
+        uses: actions/checkout@v4
+        with:
+          ref: seo-learning-data
+          path: work/seo-learning-data
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install read-only verification dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install "requests>=2.32,<3" "cryptography>=43,<48"
+
+      - name: Decrypt learning snapshot and verify live Discover feedback
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          import sys
+          from pathlib import Path
+
+          import requests
+
+          engine_root = Path("source/autopilot/engine").resolve()
+          sys.path.insert(0, str(engine_root))
+
+          from seo_intelligence.engine import discover, load_profile
+          from seo_intelligence.storage import load_learning_signals
+
+          snapshot_path = Path(os.environ["SEO_LEARNING_REPORT_PATH"])
+          encryption_key = os.environ.get("YOUTUBE_STATE_ENCRYPTION_KEY", "")
+          if not snapshot_path.is_file():
+              raise SystemExit("Encrypted SEO learning snapshot is missing.")
+
+          learning = load_learning_signals(snapshot_path, encryption_key)
+          if not isinstance(learning, dict):
+              raise SystemExit("No decryptable SEO learning snapshot was found.")
+          if not learning.get("learning_ready") or int(learning.get("sample_count", 0)) < 3:
+              raise SystemExit("Snapshot decrypted, but it does not contain a ready learning sample.")
+
+          print("Encrypted snapshot: decrypted successfully.")
+          print("Snapshot date: " + str(learning.get("captured_at") or "not provided"))
+          print("Learning sample count: " + str(int(learning.get("sample_count", 0))))
+          print("Stored language-signal groups: " + str(len(learning.get("language_signals", []))))
+          print("Stored supported search-term signals: " + str(len(learning.get("search_term_signals", []))))
+
+          token_response = requests.post(
+              "https://oauth2.googleapis.com/token",
+              data={
+                  "client_id": os.environ["YOUTUBE_CLIENT_ID"],
+                  "client_secret": os.environ["YOUTUBE_CLIENT_SECRET"],
+                  "refresh_token": os.environ["YOUTUBE_REFRESH_TOKEN"],
+                  "grant_type": "refresh_token",
+              },
+              timeout=30,
+          )
+          token_response.raise_for_status()
+          access_token = token_response.json().get("access_token")
+          if not access_token:
+              raise SystemExit("Google OAuth did not return an access token.")
+
+          result = discover(
+              profile=load_profile(),
+              access_token=access_token,
+              session=requests.Session(),
+              learned_signals=learning,
+              max_queries=6,
+          )
+
+          planned_languages = sorted({
+              item.get("language", "")
+              for item in result.get("query_plan", [])
+              if item.get("language")
+          })
+          learned_languages = result.get("learned_language_signals_used", [])
+          learned_terms_used = len(result.get("learned_search_terms_used", []))
+          print("Discover status: " + str(result.get("status", "unknown")))
+          print("Read-only YouTube queries completed: " + str(result.get("queries_sampled", 0)))
+          print("Languages retained in the Discover plan: " + ", ".join(planned_languages))
+          print("Language groups consumed from learning: " + str(len(learned_languages)))
+          print("Learned search terms applied to query planning: " + str(learned_terms_used))
+
+          if result.get("queries_sampled", 0) < 1:
+              raise SystemExit("Discover did not complete any live YouTube search queries.")
+          if not {"en", "hi", "bn"}.issubset(set(planned_languages)):
+              raise SystemExit("Discover did not preserve English, Hindi and Bengali coverage.")
+
+          if learned_languages or learned_terms_used:
+              print("PASS: the decrypted learning snapshot influenced the Discover plan.")
+          else:
+              print("WARNING: the snapshot was read and Discover ran, but it contained no actionable language/search-term signal.")
+              print("The balanced multilingual plan was preserved; inspect the learning sample before claiming an SEO priority change.")
+
+          print("Safety: read-only discovery only; no video, metadata, or publication changes.")
+          PY
