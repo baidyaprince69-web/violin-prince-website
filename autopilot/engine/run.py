@@ -4438,7 +4438,7 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         "Use physically believable violin construction, a fully filled solid amber-brown varnished wooden body, visible natural wood grain, realistic highlights and shadows, fine bow hair, polished strings and metal fittings. "
         "Render every subject in complete full colour with detailed surfaces, dimensional lighting and layered foreground/midground/background. "
         "Use a disciplined palette of deep midnight navy, muted teal, antique gold, warm ivory and natural amber wood. "
-        "Never use stick figures, wireframes, bare outlines, uncoloured silhouettes, monochrome line art, sketch-only objects or hollow violin shapes. "
+        "Never use crude uncoloured stick figures, wireframes, bare outlines, monochrome line art, sketch-only objects or hollow violin shapes as the main visual. "
         "Keep the same lighting logic, material finish and recurring visual motif across all three scenes. "
         "This is original art direction, not a recreation of another creator's characters, shots or visual identity. "
         "Use simple coloured stick figures or simplified hand/arm characters only when they genuinely clarify a human action or musical interaction; keep them small, expressive and secondary to the real instrument or photo-based scene. Do not make every scene a stick-figure scene. "
