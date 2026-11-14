@@ -1684,7 +1684,7 @@ def research_story_sources(plan, existing_items, max_phrases=6):
         key=lambda item: source_relevance_score(plan, item),
         reverse=True,
     )
-    targeted = enrich_source_evidence(ranked[:100])
+    targeted = enrich_source_evidence(ranked[:180])
 
     combined = []
     seen = set()
@@ -1972,6 +1972,10 @@ def discover_source_first_story_groups(research_items, max_seed_queries=2, max_p
     diagnostics = {
         "schema_version": 1,
         "research_record_count": len(pooled),
+        "google_news_wrappers_seen": sum(1 for item in pooled if _google_news_article_id(item.get("url")) or _google_news_article_id(item.get("source_url_original"))),
+        "google_news_resolved_count": sum(1 for item in pooled if item.get("publisher_resolution_status") == "resolved_via_google_news_batchexecute"),
+        "google_news_unresolved_count": sum(1 for item in pooled if item.get("publisher_resolution_status") == "unresolved_google_news"),
+        "publisher_resolution_failures": sum(1 for item in pooled if item.get("publisher_resolution_status") in ("fetch_failed", "unresolved_google_news")),
         "verified_article_count": sum(
             1 for item in planner_research_items(pooled)
             if _story_article_eligibility(item, as_of=as_of)[0]
@@ -1991,6 +1995,9 @@ def discover_source_first_story_groups(research_items, max_seed_queries=2, max_p
                 "title": item.get("title"),
                 "publisher_domain": item.get("publisher_domain"),
                 "url": item.get("url"),
+                "source_url_original": item.get("source_url_original"),
+                "publisher_resolution_status": item.get("publisher_resolution_status"),
+                "publisher_resolution_error": item.get("publisher_resolution_error"),
                 "article_page_verified": item.get("article_page_verified") is True,
                 "publication_date": article_freshness(item, as_of=as_of).get("published_at_utc"),
                 "age_hours": article_freshness(item, as_of=as_of).get("age_hours"),
@@ -2019,6 +2026,8 @@ def discover_source_first_story_groups(research_items, max_seed_queries=2, max_p
                         "publisher_name": source.get("publisher_name"),
                         "publisher_domain": source.get("publisher_domain"),
                         "url": source.get("url"),
+                        "source_url_original": source.get("source_url_original"),
+                        "publisher_resolution_status": source.get("publisher_resolution_status"),
                         "published_at_utc": source.get("published_at_utc"),
                         "age_hours": source.get("age_hours"),
                         "freshness_status": source.get("freshness_status"),
