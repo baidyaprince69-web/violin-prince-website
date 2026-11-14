@@ -778,23 +778,23 @@ def validate_story_dates(plan, as_of=None):
         issues.append("Narration contains future event wording without a verified future-dated timeline entry.")
 
     for entry in timeline[:20]:
-            if not isinstance(entry, dict):
-                continue
-            event_date = parse_story_date(entry.get("date") or entry.get("event_date"))
-            status = str(entry.get("status") or "unknown").strip().casefold()
-            event = str(entry.get("event") or entry.get("description") or "event").strip()[:100]
-            if status in ("upcoming", "future", "scheduled", "not_yet_occurred"):
-                if event_date is None:
-                    issues.append(f"Timeline marks '{event}' as upcoming but supplies no verifiable date.")
-                elif event_date <= today:
-                    issues.append(
-                        f"Timeline marks '{event}' as upcoming even though {event_date.isoformat()} has passed."
-                    )
-            if status in ("completed", "complete", "past", "already_happened"):
-                if event_date and event_date > today:
-                    issues.append(
-                        f"Timeline marks '{event}' as completed even though {event_date.isoformat()} is in the future."
-                    )
+        if not isinstance(entry, dict):
+            continue
+        event_date = parse_story_date(entry.get("date") or entry.get("event_date"))
+        status = str(entry.get("status") or "unknown").strip().casefold()
+        event = str(entry.get("event") or entry.get("description") or "event").strip()[:100]
+        if status in ("upcoming", "future", "scheduled", "not_yet_occurred"):
+            if event_date is None:
+                issues.append(f"Timeline marks '{event}' as upcoming but supplies no verifiable date.")
+            elif event_date <= today:
+                issues.append(
+                    f"Timeline marks '{event}' as upcoming even though {event_date.isoformat()} has passed."
+                )
+        if status in ("completed", "complete", "past", "already_happened"):
+            if event_date and event_date > today:
+                issues.append(
+                    f"Timeline marks '{event}' as completed even though {event_date.isoformat()} is in the future."
+                )
     return {
         "status": "blocked" if issues else "passed",
         "checked_on": today.isoformat(),
