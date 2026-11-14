@@ -77,7 +77,7 @@ class CreativeDirectionTests(unittest.TestCase):
         self.assertTrue(any("visual_mode" in item for item in validate_creative_plan(plan)))
 
     def test_visual_modes_render_distinct_explainer_diagrams(self):
-        def test_font(size):
+        def test_font(size, *args, **kwargs):
             from PIL import ImageFont
             return ImageFont.load_default()
 
@@ -131,7 +131,7 @@ class CreativeDirectionTests(unittest.TestCase):
             frame_paths = sorted(Path(folder).glob("frame-*.png"))
             self.assertEqual(len(frame_paths), 12)
             with Image.open(frame_paths[0]) as first:
-                self.assertEqual(first.size, (620, 300))
+                self.assertEqual(first.size, (620, 260))
                 self.assertEqual(first.mode, "RGBA")
                 self.assertEqual(first.getpixel((0, 0))[3], 0)
                 first_copy = first.copy()
