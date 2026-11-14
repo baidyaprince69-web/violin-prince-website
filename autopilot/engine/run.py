@@ -837,6 +837,10 @@ def source_supports_story(plan, item, minimum_score=0.20):
     ))
 
     primary_entities = story_primary_entity_groups(plan)
+    if not primary_entities:
+        # When the factual description is absent (e.g. a seed-search helper),
+        # fall back to the story's named entities rather than generic topic words.
+        primary_entities = story_entity_anchor_groups(plan)
     if primary_entities and not any(group.issubset(article) for group in primary_entities):
         return False
 
