@@ -60,6 +60,48 @@ SECOND_ARTICLE = article(
     ),
 )
 
+
+
+SPACE_CADET_ARTICLE = article(
+    "Space Cadet: Karen O's melancholy lullaby finds its place",
+    "billboard.com",
+    "2026/film/space-cadet-karen-o-lullaby",
+    (
+        "Space Cadet is a dialogue-free animated short with an original song by Karen O. "
+        "The melancholy lullaby was written for the film and gives the silent story an "
+        "emotional voice. Karen O's song follows the central character as the film "
+        "explores belonging, distance, and finding a place in the world. The article "
+        "describes the Space Cadet film and the original music created specifically for it."
+    ),
+)
+
+SPACE_CADET_SECOND_ARTICLE = article(
+    "Space Cadet animated film features a new original song by Karen O",
+    "independentcinema.example",
+    "2026/space-cadet-original-song-karen-o",
+    (
+        "The animated film Space Cadet features an original song written and performed "
+        "by Karen O. The new music gives the dialogue-free short its emotional narrative. "
+        "Space Cadet follows a central character exploring belonging and finding a place "
+        "in the world. The report covers the film's original music and the creative role "
+        "of Karen O in shaping the story."
+    ),
+)
+
+FILM_MUSIC_ROUNDUP = article(
+    "Weekly Film Music Roundup — November 13, 2026",
+    "filmmusicreporter.com",
+    "2026/11/weekly-film-music-roundup-november-13",
+    (
+        "This weekly roundup collects recent film music announcements from several "
+        "productions. It includes notes about new composers, soundtrack releases, "
+        "recording sessions, and upcoming film scores. The report also discusses "
+        "music for unrelated thrillers, historical dramas, and animated projects. "
+        "It does not mention Space Cadet or Karen O."
+    ),
+)
+
+
 UNRELATED_ARTICLE = article(
     "MIT museum opens a new exhibition about modern architecture",
     "museumreview.example",
@@ -96,6 +138,48 @@ class EvidenceFirstGroupingTests(unittest.TestCase):
         copied["evidence_text"] = MIT_ARTICLE["evidence_text"]
         groups = pipeline.build_verified_story_groups([MIT_ARTICLE, copied])
         self.assertEqual(groups, [])
+
+
+    def test_space_cadet_story_requires_the_specific_named_subject(self):
+        plan = {
+            "topic": "Space Cadet original song",
+            "title": "The Melancholy Lullaby of Space Cadet",
+            "description": (
+                "Karen O's original song provides the emotional narrative for the "
+                "dialogue-free animated film Space Cadet."
+            ),
+            "hook": "A silent film needs music.",
+        }
+        self.assertTrue(pipeline.source_supports_story(plan, SPACE_CADET_ARTICLE))
+        self.assertTrue(pipeline.source_supports_story(plan, SPACE_CADET_SECOND_ARTICLE))
+        self.assertFalse(pipeline.source_supports_story(plan, FILM_MUSIC_ROUNDUP))
+
+    def test_film_music_roundup_does_not_corroborate_a_specific_film_story(self):
+        self.assertFalse(
+            pipeline.story_articles_cover_same_subject(
+                SPACE_CADET_ARTICLE,
+                FILM_MUSIC_ROUNDUP,
+            )
+        )
+        self.assertEqual(
+            pipeline.build_verified_story_groups(
+                [SPACE_CADET_ARTICLE, FILM_MUSIC_ROUNDUP]
+            ),
+            [],
+        )
+
+    def test_independent_articles_about_the_same_named_film_still_form_a_group(self):
+        self.assertTrue(
+            pipeline.story_articles_cover_same_subject(
+                SPACE_CADET_ARTICLE,
+                SPACE_CADET_SECOND_ARTICLE,
+            )
+        )
+        groups = pipeline.build_verified_story_groups(
+            [SPACE_CADET_ARTICLE, SPACE_CADET_SECOND_ARTICLE]
+        )
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(groups[0]["independent_publisher_count"], 2)
 
     def test_general_topic_overlap_does_not_join_unrelated_articles(self):
         groups = pipeline.build_verified_story_groups([MIT_ARTICLE, UNRELATED_ARTICLE])
