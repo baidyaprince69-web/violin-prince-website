@@ -248,6 +248,7 @@ jobs:
             work/package/
             work/output/
             work/research.json
+            work/story_research.json
             work/creative_plan.json
             work/creative_plan_debug.json
             work/analytics.json
