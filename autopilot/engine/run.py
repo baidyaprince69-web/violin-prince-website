@@ -1302,6 +1302,269 @@ def source_content_similarity(left, right):
     )
 
 
+_STORY_GROUP_GENERIC_TERMS = {
+    "ai", "about", "announced", "announces", "announcement", "artist", "artists",
+    "artificial", "breaking", "computer", "computers", "culture", "digital",
+    "discovery", "entertainment", "feature", "features", "future", "global",
+    "intelligence", "latest", "machine", "machines", "music", "musical", "new",
+    "news", "performance", "performances", "report", "reports", "research",
+    "researcher", "researchers", "science", "scientific", "show", "shows",
+    "study", "technology", "today", "trend", "trends", "update", "updates",
+    "violin", "world",
+}
+
+
+def _story_group_tokens(value):
+    return {
+        token for token in source_tokens(value)
+        if token not in _STORY_GROUP_GENERIC_TERMS
+    }
+
+
+def _story_article_anchors(item):
+    title = str(item.get("title") or "")
+    anchors = story_entity_anchor_groups({"topic": title, "title": title})
+    return {
+        frozenset(anchor) for anchor in anchors
+        if anchor and not set(anchor).issubset(_STORY_GROUP_GENERIC_TERMS)
+    }
+
+
+def story_articles_cover_same_subject(left, right):
+    """Strictly pair readable articles about the same subject, not merely the same genre."""
+    left_family = publisher_family_domain(
+        left.get("publisher_domain") or urlparse(left.get("url", "")).netloc
+    )
+    right_family = publisher_family_domain(
+        right.get("publisher_domain") or urlparse(right.get("url", "")).netloc
+    )
+    if not left_family or not right_family or left_family == right_family:
+        return False
+    if source_content_similarity(left, right) >= 0.82:
+        return False
+
+    left_title = _story_group_tokens(left.get("title", ""))
+    right_title = _story_group_tokens(right.get("title", ""))
+    shared_title = left_title.intersection(right_title)
+    title_overlap = len(shared_title) / max(1, min(len(left_title), len(right_title)))
+
+    left_body = _story_group_tokens(left.get("evidence_text", ""))
+    right_body = _story_group_tokens(right.get("evidence_text", ""))
+    shared_body = left_body.intersection(right_body)
+    body_overlap = len(shared_body) / max(1, min(len(left_body), len(right_body)))
+
+    shared_anchors = _story_article_anchors(left).intersection(_story_article_anchors(right))
+    if shared_anchors and len(shared_body) >= 3 and body_overlap >= 0.08:
+        return True
+    if len(shared_title) >= 2 and title_overlap >= 0.30:
+        return True
+    if len(shared_body) >= 6 and body_overlap >= 0.18 and len(shared_title) >= 1:
+        return True
+    return False
+
+
+def build_verified_story_groups(research_items, minimum_publishers=2, maximum_groups=8):
+    """Cluster only readable, direct publisher articles with independent reporting."""
+    minimum_publishers = max(2, int(minimum_publishers))
+    compact = planner_research_items(research_items)
+    candidates = []
+    for item in compact:
+        evidence = str(item.get("evidence_text") or "").strip()
+        if (
+            item.get("source_eligibility") != "direct_publisher_article"
+            or len(evidence) < 90
+            or not is_direct_publisher_article(item)
+        ):
+            continue
+        domain = _normalized_publisher_domain(
+            item.get("publisher_domain") or urlparse(item.get("url", "")).netloc
+        )
+        family = publisher_family_domain(domain)
+        key = source_key(item.get("url"))
+        source_id = str(item.get("source_id") or "").strip()
+        if not domain or not family or not key or not source_id:
+            continue
+        candidate = dict(item)
+        candidate["publisher_domain"] = domain
+        candidate["publisher_family"] = family
+        candidates.append(candidate)
+
+    candidates.sort(
+        key=lambda item: (
+            len(str(item.get("evidence_text") or "")),
+            len(str(item.get("title") or "")),
+        ),
+        reverse=True,
+    )
+
+    groups = []
+    for seed in candidates:
+        related = [seed]
+        related.extend(
+            item for item in candidates
+            if item is not seed and story_articles_cover_same_subject(seed, item)
+        )
+        selected = []
+        families = set()
+        for item in related:
+            family = str(item.get("publisher_family") or "")
+            if not family or family in families:
+                continue
+            if any(source_content_similarity(item, chosen) >= 0.82 for chosen in selected):
+                continue
+            selected.append(item)
+            families.add(family)
+            if len(selected) >= 4:
+                break
+
+        if len(families) < minimum_publishers:
+            continue
+
+        source_ids = [str(item["source_id"]) for item in selected]
+        group_identity = "|".join(sorted(source_key(item.get("url")) for item in selected))
+        group_id = "STORY_" + hashlib.sha256(group_identity.encode("utf-8")).hexdigest()[:12].upper()
+        groups.append({
+            "group_id": group_id,
+            "topic_hint": str(seed.get("title") or "")[:220],
+            "source_ids": source_ids,
+            "publisher_families": sorted(families),
+            "independent_publisher_count": len(families),
+            "sources": selected,
+            "evidence_characters": sum(len(str(item.get("evidence_text") or "")) for item in selected),
+        })
+
+    # Several seed articles can describe the same story. Keep one strongest
+    # group so the editorial planner sees distinct candidates, not duplicates.
+    deduplicated = []
+    for group in sorted(
+        groups,
+        key=lambda value: (
+            value["independent_publisher_count"],
+            len(value["source_ids"]),
+            value["evidence_characters"],
+        ),
+        reverse=True,
+    ):
+        ids = set(group["source_ids"])
+        if any(
+            len(ids.intersection(set(existing["source_ids"])))
+            / max(1, len(ids.union(set(existing["source_ids"])))) >= 0.55
+            for existing in deduplicated
+        ):
+            continue
+        deduplicated.append(group)
+        if len(deduplicated) >= max(1, int(maximum_groups)):
+            break
+    return deduplicated
+
+
+def discover_source_first_story_groups(research_items, max_seed_queries=2, max_phrases=3):
+    """Find corroborated story groups before asking the editorial planner to choose a topic."""
+    pooled = [dict(item) for item in research_items if isinstance(item, dict)]
+    groups = build_verified_story_groups(pooled)
+    represented_urls = {
+        source_key(source.get("url"))
+        for group in groups for source in group.get("sources", [])
+    }
+
+    music_terms = {
+        "violin", "orchestra", "instrument", "music", "classical", "composer",
+        "film", "soundtrack", "concert", "festival", "piano", "opera",
+        "performer", "symphony", "musician", "acoustic", "conductor",
+    }
+    seed_candidates = []
+    seen_titles = set()
+    for item in pooled:
+        title = re.sub(r"\s+", " ", str(item.get("title") or "")).strip()
+        url = str(item.get("url") or "").strip()
+        key = source_key(url)
+        if not title or not url or not key or title.casefold() in seen_titles:
+            continue
+        seen_titles.add(title.casefold())
+        topical = len(_story_group_tokens(title).intersection(music_terms))
+        direct = 1 if is_direct_publisher_article(item) else 0
+        seed_candidates.append((topical * 3 + direct, len(title), item))
+
+    seed_candidates.sort(key=lambda entry: (entry[0], entry[1]), reverse=True)
+    queried = 0
+    for _score, _length, seed in seed_candidates:
+        seed_url = source_key(seed.get("url"))
+        if seed_url in represented_urls:
+            continue
+        provisional_title = str(seed.get("title") or "").strip()
+        provisional_plan = {
+            "topic": provisional_title,
+            "title": provisional_title,
+            "description": provisional_title,
+        }
+        expanded = research_story_sources(
+            provisional_plan,
+            pooled,
+            max_phrases=max_phrases,
+        )
+        queried += 1
+        seen = {source_key(item.get("url")) for item in pooled}
+        pooled.extend(
+            item for item in expanded
+            if source_key(item.get("url")) and source_key(item.get("url")) not in seen
+        )
+        groups = build_verified_story_groups(pooled)
+        represented_urls = {
+            source_key(source.get("url"))
+            for group in groups for source in group.get("sources", [])
+        }
+        log(
+            f"Source-first discovery checked article seed {queried}/{max_seed_queries}; "
+            f"{len(groups)} corroborated story group(s) currently qualify."
+        )
+        if queried >= max(0, int(max_seed_queries)) or len(groups) >= 6:
+            break
+
+    WORK.mkdir(exist_ok=True)
+    diagnostics = {
+        "schema_version": 1,
+        "research_record_count": len(pooled),
+        "verified_article_count": sum(
+            1 for item in planner_research_items(pooled)
+            if item.get("source_eligibility") == "direct_publisher_article"
+            and len(str(item.get("evidence_text") or "")) >= 90
+        ),
+        "grouping_rule": (
+            "Readable direct publisher articles only; at least two independent publisher families; "
+            "syndicated/near-identical bodies excluded; each grouped article must match the seed subject."
+        ),
+        "groups": [
+            {
+                "group_id": group["group_id"],
+                "topic_hint": group["topic_hint"],
+                "source_ids": group["source_ids"],
+                "publisher_families": group["publisher_families"],
+                "independent_publisher_count": group["independent_publisher_count"],
+                "sources": [
+                    {
+                        "source_id": source.get("source_id"),
+                        "title": source.get("title"),
+                        "publisher_name": source.get("publisher_name"),
+                        "publisher_domain": source.get("publisher_domain"),
+                        "url": source.get("url"),
+                        "evidence_excerpt": str(source.get("evidence_text") or "")[:1200],
+                    }
+                    for source in group["sources"]
+                ],
+            }
+            for group in groups
+        ],
+    }
+    (WORK / "story_candidates.json").write_text(
+        json.dumps(diagnostics, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    log(
+        f"Evidence-first selection produced {len(groups)} eligible story group(s) "
+        f"from {diagnostics['verified_article_count']} readable direct publisher article(s)."
+    )
+    return groups
+
+
 _NARRATION_EVIDENCE_FILLER = {
     "highly", "now", "currently", "today", "really", "very",
 }
