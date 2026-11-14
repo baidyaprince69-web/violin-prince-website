@@ -348,6 +348,193 @@ def _voice_pulse(time_value: float, beats: list[dict]) -> float:
     return max(0.0, min(1.0, pulse))
 
 
+
+
+def _draw_arch_height_chart(
+    draw: ImageDraw.ImageDraw,
+    left: int,
+    right: int,
+    top: int,
+    bottom: int,
+    progress: float,
+    pulse: float,
+    graphic_data: dict,
+    label_face: object,
+    value_face: object,
+) -> None:
+    """Animate a small, source-data-backed arch-height comparison."""
+    raw_items = graphic_data.get("items")
+    if not isinstance(raw_items, list) or not 2 <= len(raw_items) <= 4:
+        raise ValueError("arch_heights graphic_data needs two to four measured items.")
+
+    items = []
+    for raw in raw_items:
+        if not isinstance(raw, dict):
+            raise ValueError("Each arch-height item must be an object.")
+        try:
+            value = float(raw.get("value"))
+        except (TypeError, ValueError):
+            raise ValueError("Arch-height values must be numeric.")
+        if not math.isfinite(value) or value <= 0:
+            raise ValueError("Arch-height values must be finite and positive.")
+        items.append({
+            "label": _clean(raw.get("label") or "ARCH", 10).upper(),
+            "value": value,
+            "display": _clean(raw.get("display") or f"{value:g} {graphic_data.get('unit', 'mm')}", 16),
+        })
+
+    title = _clean(graphic_data.get("title") or "BACK ARCH HEIGHTS", 30).upper()
+    draw.text((left, top - 13), title, font=label_face, fill=(235, 202, 139, 235))
+    baseline = bottom - 12
+    chart_top = top + 19
+    chart_height = max(18, baseline - chart_top)
+    draw.line((left + 4, baseline, right - 3, baseline), fill=(144, 166, 184, 150), width=1)
+    for fraction in (0.33, 0.66):
+        y = baseline - int(chart_height * fraction)
+        draw.line((left + 4, y, right - 3, y), fill=(120, 143, 162, 55), width=1)
+
+    max_value = max(item["value"] for item in items)
+    slot = (right - left) / len(items)
+    palette = (
+        (74, 190, 185, 235),
+        (235, 202, 139, 245),
+        (110, 153, 203, 235),
+        (205, 160, 119, 235),
+    )
+    for index, item in enumerate(items):
+        centre = int(left + slot * (index + 0.5))
+        target_height = max(12, int(chart_height * 0.78 * item["value"] / max_value))
+        cue_position = index / max(1, len(items) - 1)
+        reveal = _spring_response((progress - cue_position * 0.46) * 2.7, 13.0, 0.88)
+        bar_height = max(0, int(target_height * reveal))
+        bar_width = min(25, max(17, int(slot * 0.42)))
+        x0, x1 = centre - bar_width // 2, centre + bar_width // 2
+        # The faint target outline makes the rise readable without inventing data.
+        draw.rounded_rectangle(
+            (x0, baseline - target_height, x1, baseline),
+            radius=5,
+            outline=(160, 184, 200, 85),
+            width=1,
+        )
+        if bar_height > 1:
+            colour = palette[index % len(palette)]
+            draw.rounded_rectangle(
+                (x0, baseline - bar_height, x1, baseline),
+                radius=5,
+                fill=colour,
+            )
+            cap_y = baseline - bar_height
+            draw.ellipse(
+                (centre - 3, cap_y - 3, centre + 3, cap_y + 3),
+                fill=(255, 246, 225, int(185 + pulse * 55)),
+            )
+        value_text = item["display"]
+        bbox = draw.textbbox((0, 0), value_text, font=value_face)
+        value_width = bbox[2] - bbox[0]
+        draw.text(
+            (centre - value_width / 2, max(top + 5, baseline - target_height - 16)),
+            value_text,
+            font=value_face,
+            fill=(255, 246, 225, 235 if reveal > 0.35 else 110),
+        )
+        label = item["label"]
+        label_box = draw.textbbox((0, 0), label, font=label_face)
+        label_width = label_box[2] - label_box[0]
+        draw.text(
+            (centre - label_width / 2, baseline + 2),
+            label,
+            font=label_face,
+            fill=(191, 202, 214, 225),
+        )
+
+
+def _draw_process_flow(
+    draw: ImageDraw.ImageDraw,
+    left: int,
+    right: int,
+    top: int,
+    bottom: int,
+    progress: float,
+    pulse: float,
+    graphic_data: dict,
+    label_face: object,
+    value_face: object,
+) -> None:
+    """Animate a three-step, labelled explanation rather than a generic sine wave."""
+    raw_items = graphic_data.get("items")
+    if not isinstance(raw_items, list) or not 2 <= len(raw_items) <= 4:
+        raise ValueError("process_flow graphic_data needs two to four labelled steps.")
+    labels = []
+    for raw in raw_items:
+        if isinstance(raw, dict):
+            value = raw.get("label")
+        else:
+            value = raw
+        label = _clean(value, 14).upper()
+        if not label:
+            raise ValueError("Process-flow labels cannot be blank.")
+        labels.append(label)
+
+    title = _clean(graphic_data.get("title") or "WHAT CHANGES", 30).upper()
+    draw.text((left, top - 13), title, font=label_face, fill=(235, 202, 139, 235))
+    centre_y = top + 35
+    usable = right - left - 36
+    centres = [
+        int(left + 18 + usable * index / max(1, len(labels) - 1))
+        for index in range(len(labels))
+    ]
+    # Draw the track first; the bright segment follows the spoken explanation.
+    draw.line(
+        (centres[0], centre_y, centres[-1], centre_y),
+        fill=(120, 143, 162, 115),
+        width=3,
+    )
+    progress_x = centres[0] + int((centres[-1] - centres[0]) * max(0.0, min(1.0, progress)))
+    if progress_x > centres[0]:
+        draw.line((centres[0], centre_y, progress_x, centre_y), fill=(74, 190, 185, 235), width=3)
+
+    for index, (centre, label) in enumerate(zip(centres, labels)):
+        threshold = index / max(1, len(labels) - 1)
+        reveal = _spring_response((progress - threshold) * 2.8, 14.0, 0.88)
+        active = abs(progress - threshold) < 0.18
+        radius = 10 + (int(pulse * 3) if active else 0)
+        if reveal > 0.08:
+            draw.ellipse(
+                (centre - radius - 6, centre_y - radius - 6, centre + radius + 6, centre_y + radius + 6),
+                outline=(74, 190, 185, int(55 + reveal * 70)),
+                width=2,
+            )
+        fill = (
+            (255, 246, 225, 255) if active
+            else (74, 190, 185, 235) if reveal > 0.55
+            else (34, 56, 75, 225)
+        )
+        outline = (235, 202, 139, 245) if active else (144, 166, 184, 170)
+        draw.ellipse(
+            (centre - radius, centre_y - radius, centre + radius, centre_y + radius),
+            fill=fill,
+            outline=outline,
+            width=2,
+        )
+        number = str(index + 1)
+        number_box = draw.textbbox((0, 0), number, font=value_face)
+        number_width = number_box[2] - number_box[0]
+        number_height = number_box[3] - number_box[1]
+        draw.text(
+            (centre - number_width / 2, centre_y - number_height / 2 - 1),
+            number,
+            font=value_face,
+            fill=(5, 11, 23, 255) if active else (255, 246, 225, 245),
+        )
+        label_box = draw.textbbox((0, 0), label, font=label_face)
+        label_width = label_box[2] - label_box[0]
+        draw.text(
+            (centre - label_width / 2, bottom - 17),
+            label,
+            font=label_face,
+            fill=(255, 246, 225, int(90 + 150 * reveal)),
+        )
+
 def make_motion_graphic_frames(
     scene: dict,
     index: int,
@@ -385,6 +572,10 @@ def make_motion_graphic_frames(
     label = _clean(scene.get("graphic_label") or f"STORY BEAT {index + 1}", 28).upper()
     caption = _clean(scene.get("caption") or plan.get("title") or "Music, explained", 88)
     detail = _clean(scene.get("graphic_detail") or "", 110)
+    graphic_data = scene.get("graphic_data") if isinstance(scene.get("graphic_data"), dict) else {}
+    graphic_type = _clean(graphic_data.get("type"), 32).casefold()
+    if graphic_type not in {"arch_heights", "process_flow"}:
+        graphic_type = ""
     label_font = font(12, "medium")
     headline_font = font(27, "regular", "serif")
     detail_font = font(15, "regular")
@@ -470,7 +661,17 @@ def make_motion_graphic_frames(
         ivory = (255, 246, 225, 230)
         muted = (144, 166, 184, 155)
 
-        if mode in {"macro_3d", "mechanism_3d"}:
+        if graphic_type == "arch_heights":
+            _draw_arch_height_chart(
+                draw, left, right, top, bottom, progress, pulse, graphic_data,
+                font(10, "medium"), font(10, "regular")
+            )
+        elif graphic_type == "process_flow":
+            _draw_process_flow(
+                draw, left, right, top, bottom, progress, pulse, graphic_data,
+                font(10, "medium"), font(11, "medium")
+            )
+        elif mode in {"macro_3d", "mechanism_3d"}:
             for strand in range(3):
                 baseline = 62 + strand * 17
                 pts = []
