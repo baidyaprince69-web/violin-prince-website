@@ -461,16 +461,80 @@ def source_tokens(value):
 
 
 def source_relevance_score(plan, item):
-    """Estimate whether a publisher headline supports the selected story topic."""
-    core = source_tokens(" ".join(str(plan.get(key, "")) for key in ("topic", "title", "hook")))
+    """Measure overlap with the full story claim, not only its short title."""
+    core = source_tokens(" ".join(
+        str(plan.get(key, ""))
+        for key in ("topic", "title", "hook", "description", "narration_script")
+    ))
     if not core:
-        core = source_tokens(plan.get("narration_script", ""))
+        core = source_tokens(" ".join(plan.get("narration_sentences", []) or []))
     article = source_tokens(" ".join(str(item.get(key, "")) for key in (
         "title", "summary", "evidence_text", "publisher_name"
     )))
     if not core or not article:
         return 0.0
     return len(core.intersection(article)) / len(core)
+
+
+_GENERIC_ENTITY_WORDS = {
+    "about", "advanced", "album", "artist", "artists", "classical", "computer",
+    "concert", "digital", "discovery", "future", "instrument", "instruments",
+    "music", "musical", "new", "performance", "real", "realistic", "science",
+    "scientific", "song", "sound", "sounds", "space", "technology", "the",
+    "traditional", "violin", "virtual", "world",
+}
+
+
+def story_entity_anchor_groups(plan):
+    """Extract named subject anchors that a source must mention to corroborate the story."""
+    values = " ".join(
+        str(plan.get(key, ""))
+        for key in ("topic", "title", "description", "hook", "narration_script")
+    )
+    groups = []
+    seen = set()
+
+    # Acronyms and initialisms are strong, compact identifiers (MIT, NASA, ESA).
+    for match in re.findall(r"\b[A-Z]{2,}\b", values):
+        token = match.casefold()
+        if token not in _GENERIC_ENTITY_WORDS and token not in seen:
+            seen.add(token)
+            groups.append({token})
+
+    # Multi-word proper names, such as "Roman Space Telescope" or "Alena Baeva".
+    for match in re.findall(
+        r"\b[A-Z][a-zÀ-ÖØ-öø-ÿ’'-]+(?:\s+[A-Z][a-zÀ-ÖØ-öø-ÿ’'-]+)+\b",
+        values,
+    ):
+        tokens = source_tokens(match)
+        tokens = {token for token in tokens if token not in _GENERIC_ENTITY_WORDS}
+        if tokens and tokens not in groups:
+            groups.append(tokens)
+
+    # Single distinctive title/topic names such as "Mozart" or "Eurovision".
+    for field in ("topic", "title"):
+        for match in re.findall(r"\b[A-ZÀ-ÖØ-Þ][A-Za-zÀ-ÖØ-öø-ÿ’'-]{2,}\b", str(plan.get(field, ""))):
+            token = match.casefold()
+            if token in _GENERIC_ENTITY_WORDS or token in seen:
+                continue
+            seen.add(token)
+            groups.append({token})
+
+    return groups
+
+
+def source_supports_story(plan, item, minimum_score=0.20):
+    """Require both story-level relevance and a named-entity anchor when one exists."""
+    score = source_relevance_score(plan, item)
+    if score < minimum_score:
+        return False
+    anchors = story_entity_anchor_groups(plan)
+    if not anchors:
+        return True
+    article = source_tokens(" ".join(
+        str(item.get(key, "")) for key in ("title", "summary", "evidence_text", "publisher_name")
+    ))
+    return any(group.issubset(article) for group in anchors)
 
 
 def _normalized_publisher_domain(value):
@@ -977,7 +1041,9 @@ def select_verified_story_sources(plan, research_items, minimum_sources=2):
         if len(evidence) < 90:
             continue
         score = source_relevance_score(plan, item)
-        if score < 0.08 and source_key(item.get("url")) not in reference_urls:
+        # A model citation cannot override the evidence check: the page must support
+        # the full story claim and mention a named subject where the story has one.
+        if not source_supports_story(plan, item):
             continue
         ranked.append((score, item))
     ranked.sort(key=lambda pair: pair[0], reverse=True)
