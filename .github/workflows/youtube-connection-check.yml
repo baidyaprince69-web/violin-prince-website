@@ -1,0 +1,48 @@
+name: Violin Prince YouTube connection check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: violin-prince-youtube-read-only-check
+  cancel-in-progress: false
+
+jobs:
+  read-only-connection:
+    name: Verify YouTube channel and Analytics access (no upload)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+      YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+      YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+      YOUTUBE_EXPECTED_CHANNEL_ID: ${{ vars.YOUTUBE_EXPECTED_CHANNEL_ID }}
+    steps:
+      - name: Check out tested staging connection code
+        uses: actions/checkout@v4
+        with:
+          # Pin the already-tested read-only connection implementation.
+          ref: 4ba40de7b1472121d2307156db696925957f01ed
+          path: source
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install minimal connection-check dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install "requests>=2.32,<3" "cryptography>=43,<48"
+
+      - name: Compile the read-only YouTube engine
+        working-directory: source
+        run: python -m py_compile autopilot/engine/youtube_native/*.py autopilot/engine/analytics.py autopilot/engine/seo_intelligence/*.py
+
+      - name: Verify OAuth channel and YouTube Analytics (no upload)
+        working-directory: source
+        run: python -m autopilot.engine.youtube_native.connection_check
