@@ -59,6 +59,15 @@ RUN23_INITIAL_SENTENCES = [
     "This virtual instrument produces realistic tones through advanced digital modeling techniques.",
     "These digital strings now sing with a very authentic musical soul.",
 ]
+
+
+INCOMPLETE_ENDING_SCRIPT = (
+    "Can a silent animated film tell its story? "
+    "Karen O composed Space Cadet's mournful original song for the film. "
+    "The animated movie contains no dialogue at all during its quiet playback. "
+    "That original melody explores finding your place and belonging in."
+)
+
 RUN23_CORRECTED_SENTENCE = (
     "MIT engineers developed technology to simulate violin sounds with remarkable acoustic realism."
 )
@@ -105,6 +114,41 @@ class PlannerNarrationValidationTests(unittest.TestCase):
             [pipeline.narration_word_count(value) for value in ORCHESTRA_SENTENCES],
             [8, 10, 12, 12],
         )
+
+
+    def test_validator_rejects_a_sentence_ending_with_a_dangling_preposition(self):
+        self.assertEqual(pipeline.narration_word_count(INCOMPLETE_ENDING_SCRIPT), 41)
+        self.assertEqual(len(pipeline.narration_sentences(INCOMPLETE_ENDING_SCRIPT)), 4)
+        issue = pipeline.narration_validation_error(INCOMPLETE_ENDING_SCRIPT)
+        self.assertIn("sentence 4 appears incomplete", issue)
+        self.assertIn("dangling word 'in'", issue)
+
+    def test_sentence_composer_marks_a_dangling_ending_for_correction(self):
+        sentence = "That original melody explores finding your place and belonging in."
+        self.assertTrue(
+            pipeline._sentence_needs_correction(
+                sentence,
+                3,
+                {"min_words": 5, "max_words": 12},
+            )
+        )
+
+    def test_narration_evidence_gate_rejects_the_truncated_space_cadet_line(self):
+        plan = make_test_plan(pipeline.narration_sentences(INCOMPLETE_ENDING_SCRIPT))
+        plan["title"] = "The Melancholy Lullaby of Space Cadet"
+        plan["narration_script"] = INCOMPLETE_ENDING_SCRIPT
+        source = {
+            "source_id": "SRC_SPACE_CADET",
+            "title": "Space Cadet original song by Karen O",
+            "publisher_name": "Test Publisher",
+            "publisher_domain": "publisher.example",
+            "evidence_text": INCOMPLETE_ENDING_SCRIPT,
+        }
+        with self.assertRaisesRegex(
+            pipeline.PipelineError,
+            r"narration sentence 4 appears incomplete.*dangling word 'in'",
+        ):
+            pipeline.validate_narration_against_sources(plan, [source])
 
     def test_validator_rejects_sentence_above_twelve_words(self):
         sentences = [
