@@ -119,12 +119,22 @@ jobs:
           if not request_path.is_file():
               raise SystemExit("Queued Prepare request file is missing.")
           request = json.loads(request_path.read_text(encoding="utf-8"))
+          mode = str(request.get("mode") or "recover").strip().casefold()
           source_run_id = str(request.get("source_run_id") or "").strip()
-          if not re.fullmatch(r"[0-9]+", source_run_id):
-              raise SystemExit("Queued Prepare request has no valid numeric source_run_id.")
+          if mode == "fresh":
+              if source_run_id:
+                  raise SystemExit("Fresh Prepare requests must not include source_run_id.")
+              message = "Queued fresh Prepare request loaded; discovery will run without reusing an earlier research artifact."
+          elif mode == "recover":
+              if not re.fullmatch(r"[0-9]+", source_run_id):
+                  raise SystemExit("Recovery Prepare requests require a numeric source_run_id.")
+              message = "Queued recovery Prepare request loaded; the selected earlier research artifact will be reused."
+          else:
+              raise SystemExit("Queued Prepare request mode must be 'fresh' or 'recover'.")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write("source_run_id=" + source_run_id + "\n")
-          print("Queued Prepare request loaded; previous research artifact will be reused.")
+              output.write("mode=" + mode + "\n")
+          print(message)
           PY
       - name: Restore the latest encrypted SEO learning snapshot
         if: env.PIPELINE_STAGE == 'prepare'
