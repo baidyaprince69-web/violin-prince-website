@@ -64,7 +64,7 @@ class CreativeQualityTests(unittest.TestCase):
             self.assertIn("Dialogue: 0,0:00:00.20,0:00:02.40,VP", content)
             self.assertIn("fad(100,160)", content)
             self.assertIn("008BCAEB", content)
-            self.assertIn(r"\\kf", content)
+            self.assertIn(r"\kf", content)
             self.assertIn("remarkable", content)
 
     def test_photo_framing_is_stable_without_compulsory_zoom(self):
