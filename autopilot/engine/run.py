@@ -4,10 +4,11 @@ import argparse, base64, json, os, re, shutil, subprocess, sys, textwrap, time, 
 from io import BytesIO
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from html.parser import HTMLParser
+from html import unescape as html_unescape
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
-from urllib.parse import quote, unquote, urlparse
+from urllib.parse import quote, unquote, urlparse, parse_qs
 import requests
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 
@@ -194,8 +195,76 @@ def get_audio():
     }, audio_path.read_bytes()
 
 
+def _is_google_host(host):
+    host = str(host or "").lower().removeprefix("www.")
+    return host == "google.com" or host.endswith(".google.com") or host == "googleusercontent.com" or host.endswith(".googleusercontent.com")
+
+
+def _publisher_article_url_from_html(page_text, expected_domain=""):
+    """Find a publisher article URL embedded in a Google News interstitial page."""
+    expected = str(expected_domain or "").lower().removeprefix("www.")
+    text_value = html_unescape(str(page_text or "")).replace("\\u003d", "=").replace("\\/", "/")
+    candidates = re.findall(r"https?://[^\s\"'<>]+", text_value, flags=re.IGNORECASE)
+    expanded = []
+    for candidate in candidates:
+        candidate = candidate.rstrip("),;\\")
+        expanded.append(candidate)
+        try:
+            parsed = urlparse(candidate)
+            for values in parse_qs(parsed.query).values():
+                for value in values:
+                    decoded = unquote(value)
+                    if decoded.startswith(("http://", "https://")):
+                        expanded.append(decoded)
+        except Exception:
+            continue
+
+    ranked = []
+    seen = set()
+    for candidate in expanded:
+        try:
+            parsed = urlparse(candidate)
+            host = (parsed.hostname or "").lower().removeprefix("www.")
+            path = (parsed.path or "").rstrip("/")
+            if parsed.scheme not in ("http", "https") or not host or _is_google_host(host):
+                continue
+            if not path or path in ("/rss", "/feed", "/news", "/"):
+                continue
+            if host in seen:
+                continue
+            if expected and not (host == expected or host.endswith("." + expected) or expected.endswith("." + host)):
+                continue
+            seen.add(host)
+            ranked.append((3 if expected and host == expected else 1, candidate))
+        except Exception:
+            continue
+    ranked.sort(key=lambda item: item[0], reverse=True)
+    return ranked[0][1] if ranked else ""
+
+
+def is_direct_publisher_article(item):
+    """Reject Google News redirects and publisher homepages as source citations."""
+    if isinstance(item, dict):
+        url = str(item.get("url") or item.get("publisher_url") or "").strip()
+    else:
+        url = str(item or "").strip()
+    try:
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower().removeprefix("www.")
+        path = (parsed.path or "").rstrip("/")
+        if parsed.scheme not in ("http", "https") or not host or _is_google_host(host):
+            return False
+        if host in ("news.google.com", "youtube.com", "youtu.be"):
+            return False
+        if not path or path == "/" or path.lower() in ("/rss", "/feed", "/search", "/news"):
+            return False
+        return True
+    except Exception:
+        return False
+
+
 def enrich_source_evidence(items):
-    """Fetch short public-page excerpts for better fact-checking context."""
+    """Resolve news redirects to publisher articles and fetch short evidence excerpts."""
     def fetch_one(item):
         url = str(item.get("url", ""))
         if not url.startswith(("http://", "https://")):
@@ -203,38 +272,47 @@ def enrich_source_evidence(items):
         try:
             response = requests.get(
                 url,
-                headers={"User-Agent": "Mozilla/5.0 (compatible; ViolinPrinceAutopilot/0.1)"},
-                timeout=(5, 9),
+                headers={"User-Agent": "Mozilla/5.0 (compatible; ViolinPrinceAutopilot/0.2)"},
+                timeout=(5, 12),
                 allow_redirects=True,
             )
             content_type = response.headers.get("Content-Type", "").lower()
-            if response.status_code != 200 or "html" not in content_type:
-                return item
-            parser = ParagraphExtractor()
-            parser.feed(response.text[:1_200_000])
-            excerpt = " ".join(parser.paragraphs[:12])[:1500]
             final_url = response.url
-            if final_url.startswith(("http://", "https://")):
-                final_host = urlparse(final_url).netloc.lower().removeprefix("www.")
-                # Google News can return its own HTML page with HTTP 200 instead
-                # of redirecting to the publisher. Preserve the RSS <source> domain.
-                is_google_host = (final_host == "google.com" or final_host.endswith(".google.com"))
-                if final_host and not is_google_host:
+            final_host = (urlparse(final_url).hostname or "").lower().removeprefix("www.")
+            if response.status_code == 200 and "html" in content_type:
+                parser = ParagraphExtractor()
+                parser.feed(response.text[:1_500_000])
+                excerpt = " ".join(parser.paragraphs[:14])[:2200]
+                if excerpt:
+                    item["evidence_text"] = excerpt
+
+                if final_host and not _is_google_host(final_host):
                     item["url"] = final_url
-                    item["publisher_domain"] = final_host
                     item["publisher_url"] = final_url
-            if excerpt:
-                item["evidence_text"] = excerpt
+                    item["publisher_domain"] = final_host
+                    item["link_type"] = "publisher_article"
+                else:
+                    resolved = _publisher_article_url_from_html(
+                        response.text[:1_500_000], item.get("publisher_domain", "")
+                    )
+                    if resolved:
+                        item["url"] = resolved
+                        item["publisher_url"] = resolved
+                        item["publisher_domain"] = (urlparse(resolved).hostname or "").lower().removeprefix("www.")
+                        item["link_type"] = "publisher_article"
+            if is_direct_publisher_article(item):
+                item["link_type"] = "publisher_article"
+                item.setdefault("publisher_domain", (urlparse(item["url"]).hostname or "").lower().removeprefix("www."))
         except Exception as exc:
             log("Article evidence unavailable: " + str(exc)[:120])
         return item
 
-    # Resolve Google News redirect links to their original publisher pages.
-    candidates = items[:40]
+    # Resolve publisher redirects before the records are offered to the story planner.
+    candidates = items[:100]
     if not candidates:
         return items
     completed = {}
-    with ThreadPoolExecutor(max_workers=6) as pool:
+    with ThreadPoolExecutor(max_workers=8) as pool:
         futures = {pool.submit(fetch_one, dict(item)): item.get("url") for item in candidates}
         for future in as_completed(futures):
             try:
@@ -273,30 +351,23 @@ def google_news_item_record(item, region, label):
 
 
 def planner_research_items(items):
-    """Prepare publisher leads with stable IDs the model can cite without rewriting URLs."""
+    """Pass only direct publisher article links to the planner, with stable IDs."""
     fields = (
         "title", "summary", "evidence_text", "publisher_name",
         "publisher_home", "publisher_domain", "url", "date", "source"
     )
     selected = []
-    for index, item in enumerate(items[:40], start=1):
-        if not item.get("title") or not item.get("url"):
+    for index, item in enumerate(items[:100], start=1):
+        if not item.get("title") or not is_direct_publisher_article(item):
             continue
-        domain = str(item.get("publisher_domain") or "").lower().removeprefix("www.")
-        if not domain or domain == "news.google.com":
+        domain = str(item.get("publisher_domain") or urlparse(item.get("url", "")).netloc).lower().removeprefix("www.")
+        if not domain:
             continue
         record = {key: item.get(key, "") for key in fields}
+        record["publisher_domain"] = domain
+        record["link_type"] = "publisher_article"
         record["source_id"] = f"S{index:04d}"
         selected.append(record)
-    # A few feeds may expose headlines and links without publisher metadata.
-    # Keep those only as a last-resort topic lead; the prompt restricts factual claims.
-    if not selected:
-        for index, item in enumerate(items[:40], start=1):
-            if not item.get("title") or not item.get("url"):
-                continue
-            record = {key: item.get(key, "") for key in fields}
-            record["source_id"] = f"S{index:04d}"
-            selected.append(record)
     return selected
 
 
@@ -342,9 +413,9 @@ def resolve_plan_sources(plan, research_items):
     """Resolve source IDs, URLs, titles, or publisher names to collected research records."""
     candidates = [
         item for item in research_items
-        if item.get("title") and item.get("url")
+        if item.get("title") and is_direct_publisher_article(item)
         and str(item.get("publisher_domain") or urlparse(item.get("url", "")).netloc)
-            .lower().removeprefix("www.") not in ("", "news.google.com")
+            .lower().removeprefix("www.")
     ]
     by_id = {str(item.get("source_id", "")).strip().upper(): item for item in candidates}
     by_url = {source_key(item.get("url", "")): item for item in candidates if source_key(item.get("url", ""))}
@@ -462,6 +533,279 @@ def research():
     WORK.mkdir(exist_ok=True)
     (WORK / "research.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     return result
+
+
+def story_search_phrases(plan):
+    """Build precise named-entity/topic searches without broad unrelated terms."""
+    values = []
+    topic = re.sub(r"\s+", " ", str(plan.get("topic") or "")).strip()
+    title = re.sub(r"\s+", " ", str(plan.get("title") or "")).strip()
+    for text_value in (topic, title):
+        for match in re.findall(r"\b[A-Z][A-Za-z’'-]+(?:\s+[A-Z][A-Za-z’'-]+){1,3}\b", text_value):
+            phrase = re.sub(r"\s+", " ", match).strip()
+            if phrase.casefold().split()[0] in {"from", "how", "why", "what", "when", "where", "the", "this"}:
+                continue
+            if len(phrase) >= 6 and phrase.casefold() not in {item.casefold() for item in values}:
+                values.append(phrase)
+    for text_value in (topic, title):
+        phrase = re.sub(r"[^A-Za-z0-9’' -]", " ", text_value)
+        phrase = re.sub(r"\s+", " ", phrase).strip()
+        if len(phrase.split()) >= 2 and phrase.casefold() not in {item.casefold() for item in values}:
+            values.append(phrase[:120])
+    return values[:4]
+
+
+def research_story_sources(plan, existing_items):
+    """Run targeted story searches and enrich direct publisher articles for fact review."""
+    targeted = []
+    phrases = story_search_phrases(plan)
+    for phrase in phrases:
+        try:
+            response = http.get(
+                "https://api.gdeltproject.org/api/v2/doc/doc",
+                params={
+                    "query": '"' + phrase + '"',
+                    "mode": "ArtList",
+                    "format": "json",
+                    "maxrecords": "40",
+                    "sort": "HybridRel",
+                    "timespan": "90d",
+                },
+                timeout=30,
+            )
+            response.raise_for_status()
+            for article in response.json().get("articles", []):
+                if not article.get("title") or not article.get("url"):
+                    continue
+                article_url = str(article["url"])
+                domain = str(article.get("domain") or urlparse(article_url).netloc).lower().removeprefix("www.")
+                targeted.append({
+                    "title": str(article.get("title", ""))[:220],
+                    "summary": "",
+                    "url": article_url,
+                    "date": str(article.get("seendate", "")),
+                    "source": domain,
+                    "publisher_name": domain,
+                    "publisher_domain": domain,
+                    "source_feed": "GDELT story search",
+                })
+        except Exception as exc:
+            log("Targeted GDELT search unavailable for " + phrase[:60] + ": " + str(exc)[:130])
+
+        # Google News is a discovery feed only; its redirect must resolve to a
+        # publisher article before it can become a final citation.
+        for region in ("GB", "US", "IN"):
+            try:
+                request = requests.Request(
+                    "GET",
+                    "https://news.google.com/rss/search",
+                    params={
+                        "q": '"' + phrase + '"',
+                        "hl": "en",
+                        "gl": region,
+                        "ceid": region + ":en",
+                    },
+                ).prepare()
+                response = http.get(request.url, timeout=20)
+                response.raise_for_status()
+                root = ET.fromstring(response.content)
+                for item in root.findall(".//item")[:12]:
+                    if item.findtext("title") and item.findtext("link"):
+                        record = google_news_item_record(item, region, "Story verification")
+                        record["source_feed"] = "Google News targeted story search"
+                        targeted.append(record)
+            except Exception as exc:
+                log(region + " targeted Google News unavailable: " + str(exc)[:120])
+
+    unique = {}
+    for item in targeted:
+        key = source_key(item.get("url")) or str(item.get("url") or "")
+        if key:
+            unique.setdefault(key, item)
+    targeted = enrich_source_evidence(list(unique.values())[:100])
+    combined = []
+    seen = set()
+    for item in list(targeted) + list(existing_items):
+        key = source_key(item.get("url")) or str(item.get("url") or "")
+        if key and key not in seen:
+            seen.add(key)
+            combined.append(item)
+    WORK.mkdir(exist_ok=True)
+    (WORK / "story_research.json").write_text(
+        json.dumps(combined, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    direct_count = sum(1 for item in combined if is_direct_publisher_article(item))
+    log(f"Targeted story research collected {direct_count} direct publisher article links from {len(combined)} records.")
+    return combined
+
+
+def select_verified_story_sources(plan, research_items, minimum_sources=2):
+    """Select relevant, excerpt-backed, direct article links from independent publishers."""
+    compact = planner_research_items(research_items)
+    referenced = resolve_plan_sources(plan, compact)
+    reference_urls = {source_key(item.get("url")) for item in referenced}
+    ranked = []
+    for item in compact:
+        if not is_direct_publisher_article(item):
+            continue
+        evidence = str(item.get("evidence_text") or item.get("summary") or "").strip()
+        if len(evidence) < 90:
+            continue
+        score = source_relevance_score(plan, item)
+        if score < 0.08 and source_key(item.get("url")) not in reference_urls:
+            continue
+        ranked.append((score, item))
+    ranked.sort(key=lambda pair: pair[0], reverse=True)
+
+    selected = []
+    domains = set()
+    seen_urls = set()
+    for score, item in ranked:
+        url = str(item.get("url") or "")
+        domain = str(item.get("publisher_domain") or urlparse(url).netloc).lower().removeprefix("www.")
+        key = source_key(url)
+        if not domain or not key or domain in domains or key in seen_urls:
+            continue
+        selected.append(item)
+        domains.add(domain)
+        seen_urls.add(key)
+        if len(selected) >= 4:
+            break
+
+    if len(selected) < minimum_sources:
+        available = ", ".join(sorted(domains)) or "none"
+        raise PipelineError(
+            f"Story quality gate blocked: only {len(selected)} relevant direct publisher source(s) "
+            f"with readable evidence were found; at least {minimum_sources} independent publishers are required. "
+            f"Verified domains: {available}. No visuals were generated."
+        )
+    return selected
+
+
+_MONTHS = {
+    name.casefold(): index for index, name in enumerate(
+        ("January", "February", "March", "April", "May", "June",
+         "July", "August", "September", "October", "November", "December"), start=1
+    )
+}
+
+
+def parse_story_date(value):
+    """Parse ISO or common English publication/event-date formats to a date."""
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    text_value = str(value or "").strip()
+    if not text_value:
+        return None
+    try:
+        return datetime.fromisoformat(text_value.replace("Z", "+00:00")).date()
+    except ValueError:
+        pass
+    patterns = (
+        r"\b(?P<month>January|February|March|April|May|June|July|August|September|October|November|December)\s+(?P<day>\d{1,2})(?:st|nd|rd|th)?,?\s+(?P<year>20\d{2})\b",
+        r"\b(?P<day>\d{1,2})(?:st|nd|rd|th)?\s+(?P<month>January|February|March|April|May|June|July|August|September|October|November|December)\s+(?P<year>20\d{2})\b",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text_value, flags=re.IGNORECASE)
+        if match:
+            try:
+                month = _MONTHS[match.group("month").casefold()]
+                return date(int(match.group("year")), month, int(match.group("day")))
+            except (ValueError, KeyError):
+                return None
+    return None
+
+
+def validate_story_dates(plan, as_of=None):
+    """Block dated events that the narration or event timeline still calls upcoming."""
+    today = as_of or datetime.now(timezone.utc).date()
+    script = " ".join(
+        str(plan.get(key) or "")
+        for key in ("title", "topic", "hook", "description", "narration_script")
+    )
+    patterns = (
+        r"\b20\d{2}-\d{2}-\d{2}\b",
+        r"\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:st|nd|rd|th)?,?\s+20\d{2}\b",
+        r"\b\d{1,2}(?:st|nd|rd|th)?\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+20\d{2}\b",
+    )
+    issues = []
+    checked_dates = []
+    for pattern in patterns:
+        for match in re.finditer(pattern, script, flags=re.IGNORECASE):
+            parsed = parse_story_date(match.group(0))
+            if not parsed:
+                continue
+            checked_dates.append({"text": match.group(0), "date": parsed.isoformat()})
+            sentence_start = max(
+                script.rfind(".", 0, match.start()),
+                script.rfind("!", 0, match.start()),
+                script.rfind("?", 0, match.start()),
+            ) + 1
+            preceding = script[sentence_start:match.start()]
+            future_claim = re.search(
+                r"\b(?:will|upcoming|next|set\s+to|scheduled\s+to|due\s+to|expected\s+to|"
+                r"is\s+going\s+to|are\s+going\s+to|is\s+due\s+to)\b",
+                preceding,
+                flags=re.IGNORECASE,
+            )
+            if parsed <= today and future_claim:
+                issues.append(
+                    f"Past event date {parsed.isoformat()} is described with future wording: "
+                    f"{match.group(0)}."
+                )
+
+    timeline = plan.get("timeline", [])
+    if isinstance(timeline, dict):
+        timeline = [timeline]
+    if isinstance(timeline, list):
+        for entry in timeline[:20]:
+            if not isinstance(entry, dict):
+                continue
+            event_date = parse_story_date(entry.get("date") or entry.get("event_date"))
+            status = str(entry.get("status") or "unknown").strip().casefold()
+            event = str(entry.get("event") or entry.get("description") or "event").strip()[:100]
+            if status in ("upcoming", "future", "scheduled", "not_yet_occurred"):
+                if event_date is None:
+                    issues.append(f"Timeline marks '{event}' as upcoming but supplies no verifiable date.")
+                elif event_date <= today:
+                    issues.append(
+                        f"Timeline marks '{event}' as upcoming even though {event_date.isoformat()} has passed."
+                    )
+            if status in ("completed", "complete", "past", "already_happened"):
+                if event_date and event_date > today:
+                    issues.append(
+                        f"Timeline marks '{event}' as completed even though {event_date.isoformat()} is in the future."
+                    )
+    return {
+        "status": "blocked" if issues else "passed",
+        "checked_on": today.isoformat(),
+        "dates_found_in_story": checked_dates,
+        "issues": issues,
+    }
+
+
+def build_story_quality_report(plan, selected_sources, date_check):
+    """Create an auditable source/date report; human review remains mandatory."""
+    domains = sorted({
+        str(item.get("publisher_domain") or urlparse(item.get("url", "")).netloc).lower().removeprefix("www.")
+        for item in selected_sources
+    })
+    direct_links = all(is_direct_publisher_article(item) for item in selected_sources)
+    passed = len(selected_sources) >= 2 and len(domains) >= 2 and direct_links and date_check.get("status") == "passed"
+    return {
+        "schema_version": 1,
+        "status": "passed" if passed else "blocked",
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "minimum_independent_publishers": 2,
+        "verified_source_count": len(selected_sources),
+        "publisher_domains": domains,
+        "direct_publisher_article_links": direct_links,
+        "date_check": date_check,
+        "human_review_required": True,
+        "human_review_status": "awaiting_approval",
+    }
 
 
 def ai(model, payload, timeout=180):
