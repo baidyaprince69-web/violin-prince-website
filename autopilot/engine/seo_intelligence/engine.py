@@ -161,6 +161,7 @@ def discover(
     *,
     profile: dict[str, Any] | None = None,
     api_key: str | None = None,
+    access_token: str | None = None,
     session: requests.Session | None = None,
     learned_signals: dict[str, Any] | None = None,
     max_queries: int | None = None,
@@ -219,19 +220,23 @@ def discover(
         "learned_language_signals_used": sorted(learned_by_language),
         "learned_search_terms_used": learned_terms_used,
     }
-    if not str(api_key or "").strip():
-        base["status"] = "search_api_key_missing"
-        base["note"] = "Search seeds are prepared, but live YouTube result sampling is disabled until YOUTUBE_API_KEY is configured."
+    use_oauth = bool(str(access_token or "").strip())
+    use_api_key = bool(str(api_key or "").strip()) and not use_oauth
+    if not use_oauth and not use_api_key:
+        base["status"] = "search_authorization_missing"
+        base["note"] = "Search seeds are prepared, but live sampling needs the connected YouTube OAuth token or YOUTUBE_API_KEY."
         return base
 
     client = session or requests.Session()
     client.headers.update({"User-Agent": "ViolinPrinceAutopilot/SEO-Intelligence"})
+    if use_oauth:
+        client.headers.update({"Authorization": "Bearer " + str(access_token).strip()})
     sampled = []
     errors = []
     video_by_id: dict[str, dict[str, Any]] = {}
     for item in query_plan:
         try:
-            result = _get_json(client, API_ROOT + "/search", {
+            search_params = {
                 "part": "snippet",
                 "type": "video",
                 "q": item["query"],
@@ -240,8 +245,10 @@ def discover(
                 "safeSearch": "moderate",
                 "maxResults": min(10, max(1, int(profile.get("max_results_per_query", 10)))),
                 "order": "relevance",
-                "key": str(api_key).strip(),
-            })
+            }
+            if use_api_key:
+                search_params["key"] = str(api_key).strip()
+            result = _get_json(client, API_ROOT + "/search", search_params)
             rows = []
             for raw in result.get("items", []):
                 video_id = str((raw.get("id") or {}).get("videoId") or "").strip()
@@ -271,11 +278,13 @@ def discover(
     ids = list(video_by_id)
     if ids:
         try:
-            details = _get_json(client, API_ROOT + "/videos", {
+            stats_params = {
                 "part": "statistics,contentDetails,snippet",
                 "id": ",".join(ids[:50]),
-                "key": str(api_key).strip(),
-            })
+            }
+            if use_api_key:
+                stats_params["key"] = str(api_key).strip()
+            details = _get_json(client, API_ROOT + "/videos", stats_params)
             for raw in details.get("items", []):
                 video_id = str(raw.get("id") or "")
                 stats[video_id] = {
