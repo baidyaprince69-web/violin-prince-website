@@ -114,7 +114,12 @@ class CreativeQualityTests(unittest.TestCase):
         self.assertEqual(reading.getname()[0], "DM Sans")
         self.assertEqual(supporting.getname()[0], "DM Sans")
         self.assertEqual(captions.getname()[0], "DM Sans")
-        self.assertNotEqual(reading.getname()[1], captions.getname()[1])
+
+        from fontTools.ttLib import TTFont
+        regular_face = TTFont(paths["sans_regular"])
+        bold_face = TTFont(paths["sans_bold"])
+        self.assertEqual(regular_face["OS/2"].usWeightClass, 400)
+        self.assertEqual(bold_face["OS/2"].usWeightClass, 700)
 
     def test_storyboard_preview_wraps_captions_without_overlapping_columns(self):
         with tempfile.TemporaryDirectory() as folder:
