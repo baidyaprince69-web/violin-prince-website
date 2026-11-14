@@ -154,6 +154,7 @@ class PlannerSourceMatchingTests(unittest.TestCase):
         class FakeResponse:
             def __init__(self, content=b"", status_code=200):
                 self.content = content
+                self.text = content.decode("utf-8", errors="replace")
                 self.status_code = status_code
 
             def raise_for_status(self):
