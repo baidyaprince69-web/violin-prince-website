@@ -1015,7 +1015,9 @@ def _plan_sentence_fields(plan):
         values = raw
     else:
         values = narration_sentences(plan.get("narration_script", ""))
-    values = [re.sub(r"\s+", " ", str(value or "")).strip() for value in values[:4]]
+    values = [re.sub(r"\s+", " ", str(value or "")).strip() for value in values]
+    if len(values) > 4:
+        values = values[:3] + [" ".join(values[3:])]
     values.extend([""] * (4 - len(values)))
     return values
 
@@ -1037,7 +1039,9 @@ def _parse_narration_tool_response(result, expected_fields):
                     continue
                 for call in message.get("tool_calls", []) or []:
                     function = call.get("function", {}) if isinstance(call, dict) else {}
-                    arguments = function.get("arguments") if isinstance(function, dict) else None
+                    if not isinstance(function, dict) or function.get("name") != "submit_narration_sentence_corrections":
+                        continue
+                    arguments = function.get("arguments")
                     if isinstance(arguments, str):
                         try:
                             arguments = json.loads(arguments)
@@ -1046,7 +1050,10 @@ def _parse_narration_tool_response(result, expected_fields):
                     if isinstance(arguments, dict):
                         return {key: str(arguments.get(key, "") or "").strip() for key in expected_fields}
                 function_call = message.get("function_call")
-                if isinstance(function_call, dict):
+                if (
+                    isinstance(function_call, dict)
+                    and function_call.get("name") == "submit_narration_sentence_corrections"
+                ):
                     arguments = function_call.get("arguments")
                     if isinstance(arguments, str):
                         try:
@@ -1215,13 +1222,26 @@ def compose_narration(plan, research_items):
             "temperature": 0.2,
         }
 
-        response = ai(TEXT_MODEL, payload)
-        corrected = _parse_narration_tool_response(response, target_fields)
-        missing = [field for field in target_fields if not corrected.get(field)]
-        if missing:
-            raise PipelineError(
-                "Narration correction omitted required fields: " + ", ".join(missing)
+        try:
+            response = ai(TEXT_MODEL, payload)
+            corrected = _parse_narration_tool_response(response, target_fields)
+            missing = [field for field in target_fields if not corrected.get(field)]
+            if missing:
+                raise PipelineError(
+                    "Narration correction omitted required fields: " + ", ".join(missing)
+                )
+        except Exception as exc:
+            repair_history.append(
+                {
+                    "attempt": attempt,
+                    "corrected_sentence_numbers": [index + 1 for index in target_indices],
+                    "error": str(exc)[:500],
+                }
             )
+            save_debug("failed")
+            if isinstance(exc, PipelineError):
+                raise
+            raise PipelineError("Narration correction request failed safely: " + str(exc)[:300]) from exc
 
         for index in target_indices:
             value = re.sub(
