@@ -50,7 +50,7 @@ RUN22_ATTEMPT_3 = (
 RUN22_CORRECTED_FIELDS = {
     "sentence_2": "MIT engineers built a virtual violin through detailed computer-based sound modelling research.",
     "sentence_3": "Digital modelling reproduces realistic violin resonance, timbre, and expressive details faithfully.",
-    "sentence_4": "This achievement connects traditional violin artistry with new possibilities for musical creativity.",
+    "sentence_4": "This achievement connects traditional violin artistry with possibilities for musical creativity.",
 }
 
 RUN23_INITIAL_SENTENCES = [
