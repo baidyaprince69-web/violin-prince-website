@@ -151,7 +151,7 @@ def validate_publish_metadata(plan: dict[str, Any]) -> dict[str, Any]:
     audience_confirmed = isinstance(audience, bool)
     if not audience_confirmed:
         warnings.append(
-            "YouTube audience classification is missing; the publisher must hold "
+            "YouTube audience classification is not a boolean; the publisher must hold "
             "the upload until made_for_kids is explicitly confirmed as true or false."
         )
 
