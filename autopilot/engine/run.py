@@ -145,7 +145,7 @@ def _validate_creator_violin_recording(path):
 
 def get_audio():
     if API:
-        r = http.get(API + "/internal/assets", headers=auth(), timeout=30)
+        r = http.get(API + "/internal/assets?kind=audio", headers=auth(), timeout=30)
         r.raise_for_status()
         assets = r.json().get("assets", [])
         if assets:
@@ -204,6 +204,112 @@ def get_audio():
         "audio_source": "generated_ambient_fallback",
         "kind": "generated_audio"
     }, audio_path.read_bytes()
+
+ 
+MAX_PERFORMANCE_VIDEO_BYTES = 90 * 1024 * 1024
+PERFORMANCE_VIDEO_EXTENSIONS = {".mp4", ".mov", ".webm"}
+
+
+def _validate_performance_video_asset(filename, media_bytes):
+    """Validate a private creator video before it enters the staged package."""
+    suffix = Path(str(filename or "")).suffix.lower()
+    if suffix not in PERFORMANCE_VIDEO_EXTENSIONS:
+        raise PipelineError("Creator performance video must be MP4, MOV or WebM.")
+    size = len(media_bytes or b"")
+    if size < 16 * 1024:
+        raise PipelineError("Creator performance video is empty or unexpectedly small.")
+    if size > MAX_PERFORMANCE_VIDEO_BYTES:
+        raise PipelineError("Creator performance video exceeds the 90 MB private-upload limit.")
+    return {
+        "filename": Path(str(filename)).name,
+        "size_bytes": size,
+        "content_type": "",
+        "available": True,
+    }
+
+
+def get_creator_performance_video():
+    """Load the newest private video asset, or an explicitly configured local file."""
+    if API:
+        response = http.get(
+            API + "/internal/assets?kind=video",
+            headers=auth(),
+            timeout=30,
+        )
+        response.raise_for_status()
+        assets = [
+            item for item in response.json().get("assets", [])
+            if isinstance(item, dict) and item.get("kind") == "video"
+        ]
+        if assets:
+            asset = assets[0]
+            media = http.get(
+                API + "/internal/assets/" + quote(str(asset["id"]), safe=""),
+                headers=auth(),
+                timeout=180,
+            )
+            media.raise_for_status()
+            media_bytes = media.content
+            checked = _validate_performance_video_asset(asset.get("filename"), media_bytes)
+            return {
+                **asset,
+                **checked,
+                "content_type": asset.get("content_type") or "",
+                "source": "private_r2_upload",
+            }, media_bytes
+
+    configured_path = os.environ.get("VIOLIN_PERFORMANCE_VIDEO_PATH", "").strip()
+    video_path = (
+        Path(configured_path) if configured_path
+        else Path(__file__).resolve().parent / "assets" / "violin-performance.mp4"
+    )
+    if video_path.is_file():
+        media_bytes = video_path.read_bytes()
+        checked = _validate_performance_video_asset(video_path.name, media_bytes)
+        return {
+            **checked,
+            "source": "configured_local_file",
+            "content_type": "video/mp4" if video_path.suffix.lower() == ".mp4" else "",
+        }, media_bytes
+    log("No creator performance video is uploaded; Scene 3 will use its prepared visual fallback.")
+    return {"available": False, "source": "none"}, b""
+
+
+def probe_creator_performance_video(path):
+    """Inspect a supplied take with ffprobe; do not render unrecognised media."""
+    target = Path(path)
+    if not target.is_file():
+        raise PipelineError("The staged creator performance video is missing.")
+    result = subprocess.run(
+        [
+            "ffprobe", "-v", "error", "-show_entries",
+            "format=duration:stream=codec_type,width,height,codec_name",
+            "-of", "json", str(target),
+        ],
+        capture_output=True, text=True,
+    )
+    if result.returncode:
+        raise PipelineError("ffprobe could not inspect the creator performance video: " + result.stderr[-700:])
+    try:
+        payload = json.loads(result.stdout)
+        duration = float(payload.get("format", {}).get("duration", 0))
+        streams = payload.get("streams", [])
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise PipelineError("Creator performance video returned invalid media metadata.") from exc
+    video = next((item for item in streams if item.get("codec_type") == "video"), None)
+    audio = next((item for item in streams if item.get("codec_type") == "audio"), None)
+    if not video or duration < 2.0:
+        raise PipelineError("Creator performance video must contain at least two seconds of video.")
+    if duration > 600:
+        raise PipelineError("Creator performance video is longer than the 10-minute input limit.")
+    return {
+        "duration_seconds": round(duration, 3),
+        "has_audio": bool(audio),
+        "width": int(video.get("width", 0) or 0),
+        "height": int(video.get("height", 0) or 0),
+        "video_codec": str(video.get("codec_name") or ""),
+        "audio_codec": str(audio.get("codec_name") or "") if audio else "",
+    }
 
 
 def _is_google_host(host):
@@ -3956,10 +4062,15 @@ def camera_motion_filter(frame_count, scene_index=0):
 
 
 def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
-           audio_source="generated_ambient_fallback"):
+           audio_source="generated_ambient_fallback", performance_video_path=None):
     OUT.mkdir(parents=True, exist_ok=True)
     audio_path = WORK / "approved-audio"
     audio_path.write_bytes(audio_bytes)
+    performance_video_path = Path(performance_video_path) if performance_video_path else None
+    performance_video_info = (
+        probe_creator_performance_video(performance_video_path)
+        if performance_video_path and performance_video_path.is_file() else None
+    )
     clips = []
     scene_durations = scene_durations_from_narration(narration_info)
     for i, (scene, scene_seconds) in enumerate(zip(plan["scenes"], scene_durations)):
@@ -3988,19 +4099,48 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         )
         camera = camera_motion_filter(frame_count, i)
         panel_fade_out = max(0.0, scene_seconds - 0.34)
-        scene_filter = (
-            f"[0:v]{camera},format=rgba[base];"
-            f"[1:v]format=rgba,fade=t=in:st=0:d=0.30:alpha=1,"
-            f"fade=t=out:st={panel_fade_out:.3f}:d=0.28:alpha=1[panel];"
-            "[base][panel]overlay=x='(W-w)/2':"
-            "y='H-h-340-18*(1-min(1,t/0.30))':format=auto,format=yuv420p[v]"
-        )
-        command(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
-                 "-loop", "1", "-framerate", str(FPS), "-i", str(card),
-                 "-start_number", "1", "-framerate", str(FPS), "-i", str(graphic_pattern),
-                 "-t", f"{scene_seconds:.3f}", "-filter_complex", scene_filter,
-                 "-map", "[v]", "-an", "-c:v", "libx264", "-preset", "veryfast",
-                 "-crf", "25", "-pix_fmt", "yuv420p", str(clip)])
+        if i == 2 and performance_video_info:
+            # The real creator take becomes the visual subject of the final scene.
+            # A blurred full-frame fill preserves the complete frame when the
+            # source is landscape; portrait footage remains edge-to-edge.
+            scene_filter = (
+                f"[0:v]setpts=PTS-STARTPTS,fps={FPS},"
+                f"tpad=stop_mode=clone:stop_duration={scene_seconds:.3f},"
+                f"trim=duration={scene_seconds:.3f},split=2[bgsrc][fgsrc];"
+                f"[bgsrc]scale={W}:{H}:force_original_aspect_ratio=increase,"
+                f"crop={W}:{H},boxblur=24:10,eq=brightness=-0.18:saturation=0.70[background];"
+                f"[fgsrc]scale={W}:{H}:force_original_aspect_ratio=decrease,"
+                f"pad={W}:{H}:(ow-iw)/2:(oh-ih)/2:color=0x06101D,"
+                "eq=contrast=1.04:saturation=0.92[foreground];"
+                "[background][foreground]overlay=0:0:shortest=1[base];"
+                f"[1:v]format=rgba,fade=t=in:st=0:d=0.30:alpha=1,"
+                f"fade=t=out:st={panel_fade_out:.3f}:d=0.28:alpha=1[panel];"
+                "[base][panel]overlay=x='(W-w)/2':"
+                "y='88-14*(1-min(1,t/0.30))':format=auto,format=yuv420p[v]"
+            )
+            scene_args = [
+                "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                "-i", str(performance_video_path),
+                "-start_number", "1", "-framerate", str(FPS), "-i", str(graphic_pattern),
+            ]
+        else:
+            scene_filter = (
+                f"[0:v]{camera},format=rgba[base];"
+                f"[1:v]format=rgba,fade=t=in:st=0:d=0.30:alpha=1,"
+                f"fade=t=out:st={panel_fade_out:.3f}:d=0.28:alpha=1[panel];"
+                "[base][panel]overlay=x='(W-w)/2':"
+                "y='H-h-340-18*(1-min(1,t/0.30))':format=auto,format=yuv420p[v]"
+            )
+            scene_args = [
+                "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                "-loop", "1", "-framerate", str(FPS), "-i", str(card),
+                "-start_number", "1", "-framerate", str(FPS), "-i", str(graphic_pattern),
+            ]
+        command(scene_args + [
+            "-t", f"{scene_seconds:.3f}", "-filter_complex", scene_filter,
+            "-map", "[v]", "-an", "-c:v", "libx264", "-preset", "veryfast",
+            "-crf", "25", "-pix_fmt", "yuv420p", str(clip)
+        ])
         clips.append(clip)
 
     silent = OUT / "silent.mp4"
@@ -4032,23 +4172,51 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         bed_volume = "0.24"
     else:
         bed_volume = "0.26"
-    audio_filter = (
-        f"[1:a]volume={bed_volume}[bed];"
-        "[2:a]highpass=f=75,acompressor=threshold=-20dB:ratio=3:attack=12:release=180,"
-        "volume=1.15,asplit=2[voice_sc][voice_mix];"
-        "[bed][voice_sc]sidechaincompress=threshold=0.035:ratio=10:attack=18:release=620:knee=4:makeup=1[duckedbed];"
-        "[duckedbed][voice_mix]amix=inputs=2:duration=longest:dropout_transition=1,"
-        "loudnorm=I=-16:TP=-1.5:LRA=11,"
-        "afade=t=in:st=0:d=0.5,afade=t=out:st=22:d=2[aout]"
+    performance_start = max(0.0, sum(scene_durations[:2]) - transition_seconds)
+    performance_audio_seconds = (
+        min(scene_durations[2], performance_video_info["duration_seconds"])
+        if performance_video_info and performance_video_info.get("has_audio") else 0.0
     )
+    if performance_audio_seconds >= 0.5:
+        delay_ms = int(round(performance_start * 1000))
+        bed_fade_start = max(0.0, performance_start - 0.25)
+        take_fade_start = max(0.0, performance_audio_seconds - 0.35)
+        audio_filter = (
+            f"[1:a]volume={bed_volume},afade=t=out:st={bed_fade_start:.3f}:d=0.50[bed];"
+            "[2:a]highpass=f=75,acompressor=threshold=-20dB:ratio=3:attack=12:release=180,"
+            "volume=1.15,asplit=2[voice_sc][voice_mix];"
+            f"[3:a]atrim=duration={performance_audio_seconds:.3f},asetpts=PTS-STARTPTS,"
+            "highpass=f=70,acompressor=threshold=-22dB:ratio=2.5:attack=10:release=220,"
+            "volume=0.95,afade=t=in:st=0:d=0.15,"
+            f"afade=t=out:st={take_fade_start:.3f}:d=0.35,adelay={delay_ms}[creator_take];"
+            "[bed][creator_take]amix=inputs=2:duration=first:dropout_transition=0[music];"
+            "[music][voice_sc]sidechaincompress=threshold=0.035:ratio=10:attack=18:release=620:knee=4:makeup=1[duckedbed];"
+            "[duckedbed][voice_mix]amix=inputs=2:duration=longest:dropout_transition=1,"
+            "loudnorm=I=-16:TP=-1.5:LRA=11,"
+            "afade=t=in:st=0:d=0.5,afade=t=out:st=22:d=2[aout]"
+        )
+        audio_inputs = ["-i", str(performance_video_path)]
+    else:
+        audio_filter = (
+            f"[1:a]volume={bed_volume}[bed];"
+            "[2:a]highpass=f=75,acompressor=threshold=-20dB:ratio=3:attack=12:release=180,"
+            "volume=1.15,asplit=2[voice_sc][voice_mix];"
+            "[bed][voice_sc]sidechaincompress=threshold=0.035:ratio=10:attack=18:release=620:knee=4:makeup=1[duckedbed];"
+            "[duckedbed][voice_mix]amix=inputs=2:duration=longest:dropout_transition=1,"
+            "loudnorm=I=-16:TP=-1.5:LRA=11,"
+            "afade=t=in:st=0:d=0.5,afade=t=out:st=22:d=2[aout]"
+        )
+        audio_inputs = []
     video_filter = "subtitles=work/output/narration.ass,format=yuv420p"
-    command(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
-             "-i", str(silent), "-stream_loop", "-1", "-i", str(audio_path),
-             "-i", str(narration_path),
-             "-map", "0:v:0", "-filter_complex", audio_filter, "-map", "[aout]",
-             "-t", "24", "-vf", video_filter, "-c:v", "libx264",
-             "-preset", "veryfast", "-crf", "24", "-pix_fmt", "yuv420p",
-             "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(final)])
+    command([
+        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+        "-i", str(silent), "-stream_loop", "-1", "-i", str(audio_path),
+        "-i", str(narration_path), *audio_inputs,
+        "-map", "0:v:0", "-filter_complex", audio_filter, "-map", "[aout]",
+        "-t", "24", "-vf", video_filter, "-c:v", "libx264",
+        "-preset", "veryfast", "-crf", "24", "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(final)
+    ])
     quality = validate_final_video(final)
     narration_end = max(
         [float(cue.get("end", 0)) for cue in narration_info.get("subtitle_cues", [])]
@@ -4068,8 +4236,17 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         "subtitle_style": "animated sentence-level kinetic typography",
         "scene_transition": "0.35-second crossfade",
         "audio_source": audio_source,
-        "audio_mix": "voice-priority sidechain ducking with music recovery in pauses",
-        "creative_quality_version": 4,
+        "audio_mix": "voice-priority sidechain ducking; creator performance audio enters with Scene 3 when present",
+        "creator_performance_video": {
+            "inserted": bool(performance_video_info),
+            "duration_seconds": performance_video_info.get("duration_seconds") if performance_video_info else None,
+            "source_width": performance_video_info.get("width") if performance_video_info else None,
+            "source_height": performance_video_info.get("height") if performance_video_info else None,
+            "audio_inserted": bool(performance_audio_seconds >= 0.5),
+            "timeline_start_seconds": round(performance_start, 2) if performance_video_info else None,
+            "fit_mode": "aspect-preserving foreground with blurred fill" if performance_video_info else "prepared CGI scene fallback",
+        },
+        "creative_quality_version": 5,
     })
     (OUT / "quality_report.json").write_text(
         json.dumps(quality, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -4102,6 +4279,7 @@ def _package_paths():
         "plan": PACKAGE / "creative_plan.json",
         "metadata": PACKAGE / "stage.json",
         "audio": PACKAGE / "soundtrack.wav",
+        "performance_video": PACKAGE / "creator-performance-video",
         "narration": PACKAGE / "narration.wav",
         "research": PACKAGE / "research.json",
         "quality_control": PACKAGE / "quality_control.json",
@@ -4166,6 +4344,11 @@ def _read_package(require_images=False):
         )
     ):
         raise PipelineError("Prepared story does not have two dated publisher articles within the seven-day window.")
+    performance_video = metadata.get("performance_video") or {}
+    if performance_video.get("available") and not paths["performance_video"].is_file():
+        raise PipelineError("Prepared package says a creator performance video was uploaded, but the video file is missing.")
+    if paths["performance_video"].is_file():
+        _validate_performance_video_asset(paths["performance_video"].name, paths["performance_video"].read_bytes())
     review = metadata.get("story_review") or {}
     if require_images and review.get("approved") is not True:
         raise PipelineError("Render blocked: the story has not received explicit human approval before Visuals.")
@@ -4346,7 +4529,8 @@ def prepare_stage():
     as_of = datetime.now(timezone.utc)
     claim_run()
     asset, audio = get_audio()
-    report("running", "Preparing research, source verification, story, narration and background music bed.")
+    performance_video_asset, performance_video_bytes = get_creator_performance_video()
+    report("running", "Preparing sourced story, narration, violin bed and optional creator performance footage.")
     items = load_reusable_research()
     if items is None:
         items = research()
@@ -4440,6 +4624,8 @@ def prepare_stage():
     )
     paths = _package_paths()
     paths["audio"].write_bytes(audio)
+    if performance_video_bytes:
+        paths["performance_video"].write_bytes(performance_video_bytes)
     shutil.copy2(narration_path, paths["narration"])
     paths["plan"].write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
     paths["research"].write_text(json.dumps(story_items, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -4447,9 +4633,10 @@ def prepare_stage():
         json.dumps(plan["quality_control"], ensure_ascii=False, indent=2), encoding="utf-8"
     )
     paths["metadata"].write_text(json.dumps({
-        "schema_version": 2,
+        "schema_version": 3,
         "prepared_run_id": RUN_ID,
         "asset": asset,
+        "performance_video": performance_video_asset,
         "narration_info": narration_info,
         "topic": topic,
         "title": title,
@@ -4534,9 +4721,11 @@ def render_stage():
         raise PipelineError("Prepared soundtrack is missing or unexpectedly small.")
     log("Rendering from saved research, script, narration, soundtrack and scene images. No AI calls.")
     audio_source = str(metadata.get("asset", {}).get("audio_source", "generated_ambient_fallback"))
+    performance_video_path = paths["performance_video"] if paths["performance_video"].is_file() else None
     path, video_quality = render(
         plan, audio, paths["narration"], narration_info,
-        image_paths=image_paths, audio_source=audio_source
+        image_paths=image_paths, audio_source=audio_source,
+        performance_video_path=performance_video_path,
     )
     stored = upload(path)
     from publisher import publish_all
@@ -4557,6 +4746,7 @@ def render_stage():
         "captions": [scene["caption"] for scene in plan["scenes"]],
         "sources": plan.get("sources", []),
         "audio_asset": metadata.get("asset", {}).get("filename", paths["audio"].name),
+        "performance_video_asset": metadata.get("performance_video", {}),
         "audio_source": audio_source,
         "audio_license": metadata.get("asset", {}).get("license", ""),
         "audio_source_library": metadata.get("asset", {}).get("source_library", ""),
