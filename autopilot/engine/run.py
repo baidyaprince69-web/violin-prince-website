@@ -3575,6 +3575,17 @@ def load_reusable_research():
     ]
     if not items:
         raise PipelineError("The supplied previous-run research file has no usable titled article links.")
+    readable_direct = [
+        item for item in items
+        if is_direct_publisher_article(item)
+        and len(str(item.get("evidence_text") or "").strip()) >= 90
+    ]
+    if not readable_direct:
+        log(
+            "Preserved research artifact contains no readable direct publisher articles; "
+            "discarding the stale lead-only cache and running fresh publisher discovery."
+        )
+        return None
     WORK.mkdir(exist_ok=True)
     (WORK / "research.json").write_text(
         json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8"
