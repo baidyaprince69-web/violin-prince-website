@@ -97,14 +97,44 @@ class StagedPipelineTests(unittest.TestCase):
                 reuse = pipeline.WORK / "reuse"
                 reuse.mkdir(parents=True)
                 research = [
-                    {"title": f"Headline {index}", "url": f"https://publisher.example/{index}",
-                     "publisher_domain": "publisher.example"}
+                    {
+                        "title": f"Headline {index}",
+                        "url": f"https://publisher{index}.example/articles/{index}",
+                        "publisher_domain": f"publisher{index}.example",
+                        "link_type": "publisher_article",
+                        "evidence_text": (
+                            f"This directly fetched publisher article number {index} contains "
+                            "a readable paragraph with enough factual material to be retained "
+                            "for source-first research and subsequent corroboration checks."
+                        ),
+                    }
                     for index in range(70)
                 ]
                 (reuse / "research.json").write_text(json.dumps(research), encoding="utf-8")
                 loaded = pipeline.load_reusable_research()
                 self.assertEqual(len(loaded), 70)
                 self.assertTrue((pipeline.WORK / "research.json").is_file())
+            finally:
+                pipeline.WORK = original
+
+    def test_lead_only_research_artifact_is_discarded_for_fresh_publisher_discovery(self):
+        with tempfile.TemporaryDirectory() as folder:
+            original = pipeline.WORK
+            try:
+                pipeline.WORK = Path(folder) / "work"
+                reuse = pipeline.WORK / "reuse"
+                reuse.mkdir(parents=True)
+                research = [
+                    {
+                        "title": "A headline from a news aggregator",
+                        "url": "https://news.google.com/rss/articles/example",
+                        "publisher_domain": "publisher.example",
+                    }
+                ]
+                (reuse / "research.json").write_text(json.dumps(research), encoding="utf-8")
+                loaded = pipeline.load_reusable_research()
+                self.assertIsNone(loaded)
+                self.assertFalse((pipeline.WORK / "research.json").exists())
             finally:
                 pipeline.WORK = original
 
