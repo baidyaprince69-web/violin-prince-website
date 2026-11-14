@@ -16,9 +16,19 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 try:
     from .seo_intelligence import build_topic_queries, discover as seo_discover, load_profile as seo_load_profile
     from .seo_intelligence.storage import load_learning_signals
+    from .creative_direction import (
+        CHANNEL_BRIEF, CREATIVE_DIRECTION_VERSION, VISUAL_MODE_PROMPTS,
+        channel_fit_report, validate_creative_plan,
+    )
+    from .motion_graphics import make_motion_graphic_frames
 except ImportError:  # Direct script execution from the engine directory.
     from seo_intelligence import build_topic_queries, discover as seo_discover, load_profile as seo_load_profile
     from seo_intelligence.storage import load_learning_signals
+    from creative_direction import (
+        CHANNEL_BRIEF, CREATIVE_DIRECTION_VERSION, VISUAL_MODE_PROMPTS,
+        channel_fit_report, validate_creative_plan,
+    )
+    from motion_graphics import make_motion_graphic_frames
 
 API = os.environ.get("AUTOPILOT_API_URL", "").rstrip("/")
 JOB_TOKEN = os.environ.get("AUTOPILOT_JOB_TOKEN", "")
@@ -1155,11 +1165,11 @@ def research():
         log("GDELT unavailable: " + str(exc)[:160])
 
     qs = [
-        ("violin OR instrumental music OR orchestral music", "Music"),
-        ("global entertainment OR cinema OR film music", "Entertainment"),
-        ("science OR technology discoveries OR space", "Discovery"),
-        ("world culture OR art OR popular culture", "Culture"),
-        ("music artist OR music festival OR music charts", "Music trends"),
+        ("violin acoustics OR string vibration OR bow friction OR instrument design", "Violin science"),
+        ("music perception OR melody psychology OR rhythm science OR harmony", "Music perception"),
+        ("music production OR recording techniques OR sound design OR timbre", "Music production"),
+        ("song structure OR melody analysis OR arrangement OR orchestration", "Song anatomy"),
+        ("instrument acoustics OR violin resonance OR sound waves OR musical mechanisms", "Instrument facts"),
     ]
     for region in ("US", "GB", "IN"):
         for query, label in qs:
@@ -1182,11 +1192,11 @@ def research():
     # DuckDuckGo exposes direct outbound publisher URLs. These are still only
     # discovery leads until enrich_source_evidence fetches and reads the article.
     ddg_queries = [
-        "violin music orchestra instrument research news",
-        "classical music performers festivals competitions news",
-        "music technology instruments research discoveries",
-        "film music composers soundtrack industry news",
-        "music culture arts discoveries performance news",
+        "violin acoustics string vibration bow friction instrument research",
+        "why melodies sound emotional music perception research",
+        "how instruments produce sound timbre resonance acoustics",
+        "song structure arrangement harmony rhythm music production explanation",
+        "music technology sound design recording techniques research",
     ]
     ddg_count = 0
     for query in ddg_queries:
@@ -2323,6 +2333,14 @@ def prepare_story_with_source_recovery(items, recent=None, seo_context=None, max
                     "Story quality gate blocked: selected plan is not attached to a verified source group."
                 )
             topic = str(plan.get("topic") or plan.get("title") or selected_group.get("topic_hint") or "untitled story").strip()
+            creative_issues = validate_creative_plan(plan)
+            if creative_issues:
+                raise PipelineError(
+                    "Story quality gate blocked: approved Violin Prince format check failed: "
+                    + " ".join(creative_issues)
+                )
+            plan["creative_direction_version"] = CREATIVE_DIRECTION_VERSION
+            plan["channel_fit"] = channel_fit_report(plan)
 
             # Topic-specific search is now corroboration and enrichment. The story
             # already had two independent readable publisher sources before planning.
@@ -3446,63 +3464,57 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
         ]
 
     system = (
-        "You are the editorial director of Violin Prince, a violin creator. Choose one timely, "
-        "well-supported, family-friendly subject from these headlines and turn it into an original "
-        "short visual story with spoken narration and an original string-style instrumental soundtrack. "
-        "Choose for a music-loving audience: prioritise violin and instruments, classical and contemporary music, "
-        "Treat YouTube SEO Discovery context as limited audience-interest evidence only. Never choose a topic solely "
-        "because a sampled opportunity score is high; it must still be well-supported by the research and relevant "
-        "to violin/music listeners. Never describe public result samples as search demand or search volume. "
-        "film music, artists, performances, festivals and music culture. Art, culture, science or discovery may be "
-        "chosen when the story has a clear, compelling connection to music or a strong visual idea. Reject unrelated "
-        "retail promotions and generic technology announcements, as well as tragedies, graphic events, violence, "
-        "disasters and crimes. Pick the strongest specific story, not merely the loudest headline. "
-        "Evidence-first selection is mandatory when eligible story groups are supplied: choose exactly one "
-        "provided group_id, include it as story_group_id, and base every factual detail only on articles "
-        "inside that group. Never combine separate groups or invent a new subject. The sources field must "
-        "contain at least two exact source_id values from the selected group, representing independent "
-        "publisher families. "
+        "You are the editorial director of Violin Prince. The creator has approved this channel identity: "
+        + CHANNEL_BRIEF + " "
+        "This is NOT a celebrity-news channel, musician-biography channel, competition-results channel, "
+        "or a generic music-news roundup. Never choose an individual violinist, singer, composer, musician "
+        "or celebrity as the main subject. Reject biographies, career journeys, personal profiles, prodigy "
+        "stories, competition winners and award announcements, even when they are widely reported. A person "
+        "may be mentioned only as brief context for a musical fact; the subject must remain a sound, instrument, "
+        "musical mechanism, melody, composition technique, song structure, production technique or cover. "
+        "Choose curiosity-driven, explainable facts about violin physics, instrument design, bow/string interaction, "
+        "acoustics, sound perception, melody, harmony, rhythm, song anatomy, arrangement, recording, music "
+        "production or music technology. Prefer a specific question with a surprising but verifiable answer. "
+        "If the available research only supports biographies, competitions, celebrity news or unrelated music news, "
+        "return skip rather than forcing a story. "
+        "Treat YouTube SEO Discovery context as limited audience-interest evidence only. Never describe public result "
+        "samples as search demand or search volume. Evidence-first selection is mandatory when eligible story groups "
+        "are supplied: choose exactly one provided group_id, include it as story_group_id, and base every factual "
+        "detail only on articles inside that group. Never combine separate groups or invent a new subject. The "
+        "sources field must contain at least two exact source_id values from the selected group, representing "
+        "independent publisher families. "
         "Do not invent facts, dates, statistics, motives, quotations or outcomes. Use only factual claims supported "
         "by supplied research. Every non-hook narration sentence must be supported by the wording of at least one "
         "readable direct article body, not merely a headline or broad topic overlap. Build each body sentence from "
-        "a specific statement in a readable article paragraph. Do not personify AI as feeling music, understanding "
-        "human experience, having a soul, or learning the deep meaning of every note unless the article explicitly "
-        "demonstrates that exact capability. Do not convert technical classification or emotion recognition into "
-        "a claim about consciousness or human-like feelings. The final sentence must present a sourced result, "
-        "limitation, or concrete implication rather than a poetic metaphor. Avoid unsupported emphasis such as "
-        "revolutionary, groundbreaking, exceptionally, fundamentally transforming, or claims about changing the "
-        "entire future of a field. When a source describes a current limitation or says a capability is future work, "
-        "state that limitation clearly and do not imply the complete capability already exists. Every research item "
-        "has a source_id. Prefer at least two source_id values from "
-        "different publisher_domain values. The sources field MUST contain one to three exact source_id values "
-        "copied from supplied research; never invent IDs or rewrite URLs. Items marked discovery_only may guide "
-        "topic selection but cannot support facts or be cited. Google News headline links are discovery leads only "
-        "and are not final citations. Only direct publisher article pages with readable evidence can be "
-        "retained in the final package. Do not output publisher homepages as article URLs. "
-        "Return a timeline array for dated events, each with event, date (YYYY-MM-DD), status "
-        "(completed, upcoming, ongoing, or unknown), and source_ids. Judge status against today's date. "
-        "Never describe an event as upcoming, scheduled, or something that 'will' happen when its date has passed. "
-        "Do not use song lyrics, copied scripts, named copyrighted characters, logos or identifiable living people in images. "
-        "Return JSON only with topic,title,story_group_id,hook,description,hashtags,narration_sentences,narrative_style,scenes,sources,timeline. "
+        "a specific statement in a readable article paragraph. Do not turn sound perception into a claim about "
+        "consciousness, and do not personify instruments or software as literally feeling or understanding music. "
+        "The final sentence must present a sourced result, limitation or concrete musical implication, not a poetic "
+        "metaphor. Avoid unsupported emphasis such as revolutionary, groundbreaking, exceptionally or fundamentally "
+        "transforming. State technical limitations clearly. "
+        "Return JSON only with story_type, topic, title, hook, description, hashtags, narration_sentences, "
+        "narrative_style, cover_payoff, scenes, sources, timeline and story_group_id. story_type MUST be exactly one "
+        "of: violin_physics, instrument_design, sound_and_perception, melody_and_composition, song_anatomy, "
+        "music_production, music_technology, violin_cover_breakdown. "
         "The narration_sentences field must be an array of exactly four separate, natural, complete spoken sentences. "
-        "Sentence 1 is a concise curiosity hook of 5–8 words and must be resolved by the ending. "
-        "No sentence may exceed 12 words; twelve is a maximum, not a target. "
-        "Vary sentence lengths naturally for spoken rhythm. Do not force equal lengths or any fixed per-sentence word budget. "
-        "Make every sentence complete and natural when spoken aloud, never padded. The Python composer checks each sentence independently and may correct only fields outside dynamic word limits. "
-        "Build context, reveal one memorable sourced detail, "
-        "and finish with a satisfying payoff. No greeting, filler padding, generic introduction or misleading clickbait. "
-        "Use a cinematic storytelling style for human-interest topics and a clear documentary style for factual discoveries. "
-        "Exactly 3 scenes. Each scene needs a concise caption of 9 words maximum, an original specific image_prompt "
-        "in English, a graphic_label of 1–3 words, and a graphic_detail of 4–10 words. The graphic_detail must clarify "
-        "the scene using only facts already supported by the supplied research or narration. Never invent a number, "
-        "date, measurement, comparison, quote, statistic, or causal claim for a graphic. If exact data is unavailable, "
-        "write a concise explanatory phrase rather than a statistic. Scene 1 must visualise the hook, scene 2 must show "
-        "the exact object/action/detail that makes this story distinctive, and scene 3 must visually resolve the story. "
-        "Use three clearly different compositions, not three unrelated stock images. Avoid generic musician portraits "
-        "unless the story specifically concerns a person. "
-        "Do not illustrate a metaphor as a factual event: for example, if only one instrument component travelled to orbit, "
-        "show that component in space rather than an entire violin floating there. Keep the main subject and visual motif "
-        "consistent across the three scenes. If no suitable story exists, return skip and reason."
+        "Sentence 1 is a concise curiosity hook of 5–8 words and must be resolved by the ending. No sentence may "
+        "exceed 12 words; twelve is a maximum, not a target. Vary sentence lengths naturally for spoken rhythm. "
+        "Build context, reveal one memorable sourced detail, and finish with a satisfying musical payoff. "
+        "cover_payoff is mandatory: describe the exact way a short original Violin Prince violin phrase or cover "
+        "demonstrates the fact. It must be a performance payoff, not background music. Never claim a creator take "
+        "exists; the production stage will identify whether an original creator recording is available. "
+        "Exactly 3 scenes. Each scene needs caption, image_prompt, graphic_label, graphic_detail and visual_mode. "
+        "visual_mode MUST be exactly one of: macro_3d, mechanism_3d, waveform, melody_map, comparison, "
+        "cover_performance. Scene 1 should establish the curiosity with a macro_3d or mechanism_3d hero image. "
+        "Scene 2 should explain the actual musical mechanism with a different visual mode. Scene 3 MUST use "
+        "cover_performance to pay off the explanation with space for the creator's real violin performance. "
+        "Use photorealistic 3D CGI render language: physically based wood, varnish, rosin, metal and string materials, "
+        "cinematic macro photography, believable scale, volumetric rim lighting, layered depth and controlled "
+        "depth-of-field. Use midnight navy, muted teal, antique gold and warm ivory as the recurring palette. "
+        "Use original visual metaphors and composition; do not imitate another creator's characters or exact style. "
+        "Never use generic stock portraits or make a real person the visual subject. No logos, watermarks, readable "
+        "text, lyrics or copyrighted notation in generated images. Exactly three distinct visual compositions must "
+        "tell one connected story. The graphic_detail may use only sourced facts or the narration; never invent a "
+        "number, date, measurement, comparison or statistic. If no suitable music-fact story exists, return skip."
     )
     compact = planner_research_items(items)
     if not compact:
@@ -3511,8 +3523,11 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
         "messages": [
             {"role": "system", "content": system + " Do not show reasoning. Return exactly one JSON object and no preamble or Markdown."},
             {"role": "user", "content":
-             "Create a 24-second story for Violin Prince's music-loving audience from these current research headlines. "
-             "Choose relevance and a strong visual story over generic trendiness. Avoid repeating prior topics. " +
+             "Create one 24-second curiosity-driven music-facts story for the creator-approved Violin Prince format. "
+             "The subject must be a violin, instrument, sound, melody, song structure, arrangement, music-production "
+             "or music-technology fact, never an individual musician biography, competition result or celebrity profile. "
+             "The final scene must demonstrate the fact through an original Violin Prince violin performance insert. "
+             "Choose a teachable fact and a strong visual explanation over generic trendiness. Avoid repeating prior topics. " +
              "Previously published topics to avoid: " + json.dumps(recent or [], ensure_ascii=False) +
              "\nYouTube SEO Discovery context (directional samples, not search volume): " +
              json.dumps(seo_context or {}, ensure_ascii=False) +
@@ -3960,11 +3975,17 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         else:
             image = make_image(visual_prompt, i)
         card = make_card(image, scene["caption"], i, plan.get("title", ""))
-        graphic = make_motion_graphic_card(
-            scene, i, plan, OUT / f"motion-graphic-{i + 1}.png"
-        )
         clip = OUT / f"scene-{i + 1}.mp4"
         frame_count = max(1, int(round(scene_seconds * FPS)))
+        graphic_pattern = make_motion_graphic_frames(
+            scene,
+            i,
+            plan,
+            OUT / f"motion-panel-{i + 1}",
+            frame_count,
+            FPS,
+            font,
+        )
         camera = camera_motion_filter(frame_count, i)
         panel_fade_out = max(0.0, scene_seconds - 0.34)
         scene_filter = (
@@ -3976,7 +3997,7 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         )
         command(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
                  "-loop", "1", "-framerate", str(FPS), "-i", str(card),
-                 "-loop", "1", "-framerate", str(FPS), "-i", str(graphic),
+                 "-start_number", "1", "-framerate", str(FPS), "-i", str(graphic_pattern),
                  "-t", f"{scene_seconds:.3f}", "-filter_complex", scene_filter,
                  "-map", "[v]", "-an", "-c:v", "libx264", "-preset", "veryfast",
                  "-crf", "25", "-pix_fmt", "yuv420p", str(clip)])
@@ -4040,6 +4061,10 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         "music_only_ending_seconds": round(max(0.0, 24.0 - narration_end), 2),
         "camera_motion": "scene-specific eased push-in and gentle drift",
         "motion_graphics": 3,
+        "motion_graphics_renderer": "deterministic per-frame animated music visual explainers",
+        "visual_engine": "photorealistic 3D-CGI scene plates with animated explainer overlays",
+        "visual_modes": [str(scene.get("visual_mode") or "waveform") for scene in plan.get("scenes", [])],
+        "creative_direction_version": CREATIVE_DIRECTION_VERSION,
         "subtitle_style": "animated sentence-level kinetic typography",
         "scene_transition": "0.35-second crossfade",
         "audio_source": audio_source,
@@ -4158,30 +4183,34 @@ def _read_package(require_images=False):
 
 
 def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
-    """Lock every image to one visual identity while giving each scene a distinct role."""
+    """Lock generated scene plates to the approved cinematic 3D-CGI visual identity."""
     prompt = str(scene.get("image_prompt", "")).strip()
     if not prompt:
-        raise PipelineError("A planned scene has no image prompt.")
+        raise PipelineError("A planned scene has no visual prompt.")
     shot_roles = (
-        "SHOT 1 — HOOK: an immediately readable establishing composition with one intriguing "
-        "focal subject and a strong silhouette; make the viewer curious.",
-        "SHOT 2 — DISTINCTIVE DETAIL: a closer, more intimate composition showing the exact "
-        "object, action or detail that makes this story different; avoid a generic posed portrait.",
-        "SHOT 3 — PAYOFF: a wider emotional resolution that visually connects back to the opening "
-        "image and makes the story feel complete.",
+        "SHOT 1 — HOOK: a bold macro 3D hero composition that makes the musical question instantly visible.",
+        "SHOT 2 — MECHANISM: a close scientific view that reveals the exact physical or musical detail.",
+        "SHOT 3 — PERFORMANCE PAYOFF: a cinematic violin-and-bow composition with clean space for the creator's real take.",
     )
-    subject = str((plan or {}).get("topic") or (plan or {}).get("title") or "the story")[:140]
+    subject = str((plan or {}).get("topic") or (plan or {}).get("title") or "the music fact")[:140]
+    mode = str(scene.get("visual_mode") or ("macro_3d" if index == 0 else "cover_performance" if index == 2 else "waveform")).strip().casefold()
+    mode_direction = VISUAL_MODE_PROMPTS.get(mode, VISUAL_MODE_PROMPTS["waveform"])
+    cover_payoff = str((plan or {}).get("cover_payoff") or "")[:180]
     prompt += (
-        f". Story subject: {subject}. {shot_roles[max(0, min(2, int(index)))]} "
-        "Keep the same visual world, recurring subject design and lighting logic across all three images. "
-        "Violin Prince visual identity: premium hand-painted cinematic editorial illustration, "
-        "clearly illustrated concept art rather than photography, refined painterly texture, "
-        "deep midnight navy, muted teal, antique gold and warm ivory highlights. "
-        "Layered foreground, midground and background with clear depth for gentle camera movement; "
-        "intentional negative space for subtitles, elegant cinematic lighting, precise focal detail. "
-        "No generic stock photography, no unrelated people, no text, no lettering, no logos, no watermark. "
-        "Respect real-world scale and the supplied story; symbolic imagery must not imply an unsupported fact. "
-        "Portrait 9:16 composition."
+        f" Story subject: {subject}. {shot_roles[max(0, min(2, int(index)))]} "
+        + mode_direction + " "
+        "Violin Prince visual identity: original high-end photorealistic 3D CGI, "
+        "physically based rendering, realistic violin wood grain and varnish, fine bow hair, "
+        "polished strings and metal fittings, believable instrument scale, cinematic macro lens, "
+        "volumetric rim lighting, layered foreground/midground/background, precise depth of field. "
+        "Use a disciplined palette of deep midnight navy, muted teal, antique gold and warm ivory. "
+        "Keep the same lighting logic, material finish and recurring visual motif across all three scenes. "
+        "This is original art direction, not a recreation of another creator's characters, shots or visual identity. "
+        "No generic stock photography, no celebrity likeness, no identifiable face, no unrelated people, "
+        "no logos, no watermark, no readable text, no song lyrics and no copyrighted notation. "
+        "Respect the exact sourced fact. A symbolic visual must never imply an unsupported event or measurement. "
+        "Portrait 9:16 composition. "
+        + ("Performance connection: " + cover_payoff + " " if cover_payoff else "")
     )
     clean_feedback = re.sub(r"\s+", " ", str(feedback or "")).strip()[:600]
     if clean_feedback:
@@ -4228,6 +4257,10 @@ def _write_review_text(plan, target):
         "",
         "TITLE: " + str(plan.get("title", "")),
         "TOPIC: " + str(plan.get("topic", "")),
+        "APPROVED CHANNEL FORMAT: " + CHANNEL_BRIEF,
+        "STORY TYPE: " + str(plan.get("story_type", "")),
+        "COVER PERFORMANCE PAYOFF: " + str(plan.get("cover_payoff", "")),
+        "SCENE VISUAL MODES: " + ", ".join(str(scene.get("visual_mode", "")) for scene in plan.get("scenes", [])),
         "HOOK: " + str(plan.get("hook", "")),
         "",
         "NARRATION:",
@@ -4263,8 +4296,11 @@ def _write_review_text(plan, target):
         "QUALITY GATE:",
         json.dumps(plan.get("quality_control", {}), ensure_ascii=False, indent=2),
         "",
-        "VISUAL APPROVAL:",
-        "Do not start Visuals until you have reviewed this file and explicitly approve the story.",
+        "STORY REVIEW CHECKPOINT:",
+        "The creator has already approved the standing Violin Prince channel format in creative_direction.py.",
+        "This separate checkpoint is only for this prepared story's facts, sources and narration.",
+        "Do not confuse approval of the channel identity with approval of an individual story.",
+        "Visuals starts only after this specific story is marked approved.",
     ])
     Path(target).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -4392,6 +4428,9 @@ def prepare_stage():
         "learning_ready": bool((learning or {}).get("learning_ready")),
     }
     plan["quality_control"] = build_story_quality_report(plan, verified_sources, date_check, as_of=as_of)
+    plan["channel_fit"] = channel_fit_report(plan)
+    plan["quality_control"]["channel_fit"] = plan["channel_fit"]
+    plan["quality_control"]["creative_direction_version"] = CREATIVE_DIRECTION_VERSION
     if plan["quality_control"]["status"] != "passed":
         raise PipelineError("Story quality-control report did not pass. No narration or visuals were created.")
     topic, title = str(plan.get("topic", "")), str(plan.get("title", "Violin Prince Short"))
