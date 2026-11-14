@@ -21,6 +21,9 @@ try:
         channel_fit_report, validate_creative_plan,
     )
     from .motion_graphics import make_motion_graphic_frames, make_ambient_glow_frames
+    from .visual_reference import (
+        scene_camera_move, scene_transition, scene_visual_prompt_suffix, transition_duration,
+    )
 except ImportError:  # Direct script execution from the engine directory.
     from seo_intelligence import build_topic_queries, discover as seo_discover, load_profile as seo_load_profile
     from seo_intelligence.storage import load_learning_signals
@@ -29,6 +32,9 @@ except ImportError:  # Direct script execution from the engine directory.
         channel_fit_report, validate_creative_plan,
     )
     from motion_graphics import make_motion_graphic_frames, make_ambient_glow_frames
+    from visual_reference import (
+        scene_camera_move, scene_transition, scene_visual_prompt_suffix, transition_duration,
+    )
 
 API = os.environ.get("AUTOPILOT_API_URL", "").rstrip("/")
 JOB_TOKEN = os.environ.get("AUTOPILOT_JOB_TOKEN", "")
@@ -4236,9 +4242,33 @@ def scene_durations_from_narration(narration_info, total_seconds=24.0):
     return (first, second, third)
 
 
-def camera_motion_filter(frame_count, scene_index=0):
-    """Keep the photographic plate stable; motion comes from designed overlays."""
-    return f"fps={FPS},setsar=1"
+def camera_motion_filter(frame_count, scene_index=0, move="locked", duration_seconds=8.0):
+    """Apply an optional, deterministic pan without the old repetitive zoom-push."""
+    if move == "locked":
+        return f"fps={FPS},setsar=1"
+    if move not in {"pan_left", "pan_right", "pan_up", "pan_down"}:
+        raise PipelineError(f"Unsupported reference camera move: {move}")
+
+    # A small overscan creates room for a slow scene-specific pan. The frame
+    # remains the same size; no zoompan filter or browser renderer is needed.
+    margin = 36
+    duration = max(0.1, float(duration_seconds))
+    progress = f"(0.5-0.5*cos(PI*t/{duration:.6f}))"
+    reverse_progress = f"(0.5+0.5*cos(PI*t/{duration:.6f}))"
+    x = str(margin)
+    y = str(margin)
+    if move == "pan_left":
+        x = f"{margin * 2}*{progress}"
+    elif move == "pan_right":
+        x = f"{margin * 2}*{reverse_progress}"
+    elif move == "pan_up":
+        y = f"{margin * 2}*{progress}"
+    elif move == "pan_down":
+        y = f"{margin * 2}*{reverse_progress}"
+    return (
+        f"scale={W + margin * 2}:{H + margin * 2}:flags=lanczos,"
+        f"crop={W}:{H}:x='{x}':y='{y}',fps={FPS},setsar=1"
+    )
 
 
 def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
@@ -4253,7 +4283,9 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
     )
     clips = []
     scene_durations = scene_durations_from_narration(narration_info)
-    transition_seconds = 0.35
+    transition_seconds = transition_duration(plan)
+    first_transition = scene_transition(plan, 0)
+    second_transition = scene_transition(plan, 1)
     scene_starts = [
         0.0,
         max(0.0, scene_durations[0] - transition_seconds),
@@ -4284,11 +4316,7 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
             "timeline_start_seconds": round(scene_start, 3),
             "word_cue_count": len(scene_word_events),
         })
-        visual_prompt = (
-            str(scene["image_prompt"]) +
-            ", portrait 9:16 composition, centred focal subject, vertical framing, "
-            "cinematic natural lighting, no text, no logos, no watermark"
-        )
+        visual_prompt = _scene_visual_prompt(scene, index=i, plan=plan)
         if image_paths is not None:
             image = Path(image_paths[i])
             if not image.is_file():
@@ -4311,7 +4339,9 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         ambient_pattern = make_ambient_glow_frames(
             OUT / f"ambient-glow-{i + 1}", frame_count, FPS, scene_index=i
         )
-        camera = camera_motion_filter(frame_count, i)
+        camera = camera_motion_filter(
+            frame_count, i, scene_camera_move(plan, i), scene_seconds
+        )
         panel_fade_out = max(0.0, scene_seconds - 0.34)
         if i == 2 and performance_video_info:
             # The real creator take becomes the visual subject of the final scene.
@@ -4367,9 +4397,9 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
     first_offset = max(0.0, scene_durations[0] - transition_seconds)
     second_offset = max(0.0, scene_durations[0] + scene_durations[1] - 2 * transition_seconds)
     transition_filter = (
-        f"[0:v][1:v]xfade=transition=fade:duration={transition_seconds:.3f}:"
+        f"[0:v][1:v]xfade=transition={first_transition}:duration={transition_seconds:.3f}:"
         f"offset={first_offset:.3f}[v1];"
-        f"[v1][2:v]xfade=transition=fade:duration={transition_seconds:.3f}:"
+        f"[v1][2:v]xfade=transition={second_transition}:duration={transition_seconds:.3f}:"
         f"offset={second_offset:.3f}[v2];"
         f"[v2]tpad=stop_mode=clone:stop_duration={2 * transition_seconds:.3f},"
         "format=yuv420p[vout]"
@@ -4468,7 +4498,10 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         "visual_modes": [str(scene.get("visual_mode") or "waveform") for scene in plan.get("scenes", [])],
         "creative_direction_version": CREATIVE_DIRECTION_VERSION,
         "subtitle_style": "Kokoro word-timed karaoke typography with gold active-word fill",
-        "scene_transition": "0.35-second crossfade",
+        "scene_transitions": [first_transition, second_transition],
+        "scene_transition_seconds": round(transition_seconds, 3),
+        "visual_reference_language": (plan.get("visual_reference") or {}).get("visual_language", "default_brand"),
+        "visual_reference_motion_profile": (plan.get("visual_reference") or {}).get("motion_profile", "not_supplied"),
         "audio_source": audio_source,
         "audio_mix": "voice-priority sidechain ducking; creator performance audio enters with Scene 3 when present",
         "creator_performance_video": {
@@ -4643,6 +4676,7 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         suffix += " Performance connection: " + cover_payoff
     if clean_feedback:
         suffix += ", additional visual direction: " + clean_feedback
+    suffix += scene_visual_prompt_suffix(plan, index)
 
     # Reserve room for the portrait constraint and creator feedback first.
     # Only shorten the model-written scene description when the total exceeds
