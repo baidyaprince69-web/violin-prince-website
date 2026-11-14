@@ -4230,7 +4230,7 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
             f"[3:a]atrim=duration={performance_audio_seconds:.3f},asetpts=PTS-STARTPTS,"
             "highpass=f=70,acompressor=threshold=-22dB:ratio=2.5:attack=10:release=220,"
             "volume=0.95,afade=t=in:st=0:d=0.15,"
-            f"afade=t=out:st={take_fade_start:.3f}:d=0.35,adelay={delay_ms}[creator_take];"
+            f"afade=t=out:st={take_fade_start:.3f}:d=0.35,adelay={delay_ms}:all=1[creator_take];"
             "[bed][creator_take]amix=inputs=2:duration=first:dropout_transition=0[music];"
             "[music][voice_sc]sidechaincompress=threshold=0.035:ratio=10:attack=18:release=620:knee=4:makeup=1[duckedbed];"
             "[duckedbed][voice_mix]amix=inputs=2:duration=longest:dropout_transition=1,"
@@ -4340,6 +4340,9 @@ def _read_package(require_images=False):
     except (OSError, json.JSONDecodeError) as exc:
         raise PipelineError("Prepared package contains invalid JSON metadata.") from exc
     narration_info = metadata.get("narration_info")
+    creative_issues = validate_creative_plan(plan)
+    if creative_issues:
+        raise PipelineError("Prepared package failed the Violin Prince creative-direction gate: " + " ".join(creative_issues))
     if not isinstance(plan.get("scenes"), list) or len(plan["scenes"]) != 3:
         raise PipelineError("Prepared package must contain exactly three planned scenes.")
     if not isinstance(narration_info, dict) or not narration_info.get("subtitle_cues"):
@@ -4386,7 +4389,6 @@ def _read_package(require_images=False):
         )
     ):
         raise PipelineError("Prepared story does not have two dated publisher articles within the seven-day window.")
-    performance_video = metadata.get("performance_video") or {}
     review = metadata.get("story_review") or {}
     if require_images and review.get("approved") is not True:
         raise PipelineError("Render blocked: automated editorial quality gates did not clear this story before Visuals.")
@@ -4463,7 +4465,7 @@ def make_storyboard_preview(plan, image_paths, target):
         caption = "\n".join(textwrap.wrap(str(scene.get("caption", "")), width=28)[:2])
         draw.multiline_text((left, 808), f"SCENE {index + 1}  ·  {caption}",
                             font=font(16), fill=(245, 238, 226), spacing=3)
-    draw.text((44, 862), "Approve the visual direction before creating the final MP4.",
+    draw.text((44, 862), "Visual preview · Final render follows the automated quality gates.",
               font=font(16), fill=(185, 194, 207))
     canvas.save(target, "PNG", optimize=True)
     return target
@@ -4519,11 +4521,10 @@ def _write_review_text(plan, target, performance_video_asset=None):
         "QUALITY GATE:",
         json.dumps(plan.get("quality_control", {}), ensure_ascii=False, indent=2),
         "",
-        "STORY REVIEW CHECKPOINT:",
-        "The creator has already approved the standing Violin Prince channel format in creative_direction.py.",
-        "This separate checkpoint is only for this prepared story's facts, sources and narration.",
-        "Do not confuse approval of the channel identity with approval of an individual story.",
-        "Visuals starts only after the automated source, date, freshness and channel-fit checks pass.",
+        "AUTOMATED EDITORIAL GATE:",
+        "The standing Violin Prince channel format is approved in creative_direction.py.",
+        "This story must pass its direct-source, date, freshness, narration and channel-fit checks.",
+        "Visuals proceeds automatically only when those checks pass; failed checks stop the run.",
     ])
     Path(target).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -4693,15 +4694,15 @@ def prepare_stage():
         str(plan["quality_control"]["verified_source_count"]) +
         " direct publisher sources across independent domains; date checks passed."
     )
-    log("Prepared package saved. Review review.txt and quality_control.json; Visuals remains locked pending approval.")
-    report("prepared", "Source-audited story package is ready for human review; Visuals remains locked.", topic, title,
-           metadata={"stage": "prepared", "story_review": "awaiting_human_review",
+    log("Prepared package saved. Evidence and channel-fit checks passed; Visuals can proceed automatically.")
+    report("prepared", "Source-audited story package passed the automated editorial gates; Visuals can proceed.", topic, title,
+           metadata={"stage": "prepared", "story_review": "awaiting_automated_quality_gates",
                      "verified_sources": len(verified_sources), "date_check": "passed"})
     return 0
 
 
 def visuals_stage(feedback=""):
-    """Generate scene images only after an explicit review of the prepared story."""
+    """Generate scene images after the automated editorial and evidence checks pass."""
     if not CF_ACCOUNT or not CF_TOKEN:
         raise PipelineError("CF_ACCOUNT_ID and CF_AI_TOKEN are required for the Visuals stage.")
     plan, metadata, _narration_info, paths, image_paths = _read_package(require_images=False)
@@ -4753,7 +4754,7 @@ def visuals_stage(feedback=""):
 
 
 def render_stage():
-    """Assemble an approved visual package without calling any AI service."""
+    """Assemble a quality-gated visual package without calling any AI service."""
     plan, metadata, narration_info, paths, image_paths = _read_package(require_images=True)
     topic = str(plan.get("topic", ""))
     title = str(plan.get("title", "Violin Prince Short"))
