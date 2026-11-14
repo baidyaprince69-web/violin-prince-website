@@ -33,10 +33,13 @@ class GoogleNewsPublisherMetadataTests(unittest.TestCase):
         self.assertEqual(record["publisher_domain"], "nasa.gov")
         self.assertEqual(record["url"], "https://news.google.com/rss/articles/example?oc=5")
 
-    def test_google_news_redirect_is_a_lead_not_a_final_citation(self):
+    def test_google_news_redirect_is_visible_only_as_a_discovery_lead(self):
         record = pipeline.google_news_item_record(self.item, "US", "Discovery")
         compact = pipeline.planner_research_items([record])
-        self.assertEqual(compact, [])
+        self.assertEqual(len(compact), 1)
+        self.assertEqual(compact[0]["source_eligibility"], "discovery_only")
+        self.assertEqual(compact[0]["evidence_text"], "")
+        self.assertEqual(pipeline.resolve_plan_sources({"sources": ["S0001"]}, compact), [])
 
     def test_planner_accepts_direct_publisher_article_links(self):
         record = pipeline.google_news_item_record(self.item, "US", "Discovery")
