@@ -69,6 +69,20 @@ class PlannerNarrationValidationTests(unittest.TestCase):
             "source": "Test Publisher",
         }
 
+    def test_repair_guidance_calculates_word_gap_without_sentence_quotas(self):
+        short_draft = (
+            "A grand orchestra celebrates fifty years. "
+            "The Orchestre national de Metz Grand Est marks its jubilee. "
+            "Renowned violinist Alena Baeva performs Mozart's fifth concerto. "
+            "This milestone honors decades of symphonic excellence and shared musical emotion."
+        )
+        guidance = pipeline.narration_repair_guidance(short_draft)
+        self.assertIn("35 spoken words", guidance)
+        self.assertIn("Add exactly 7 net spoken words", guidance)
+        self.assertIn("Current sentence lengths are 6, 10, 8, 11", guidance)
+        self.assertIn("do not follow per-sentence quotas", guidance)
+        self.assertIn("40–44 words", guidance)
+
     def test_variable_sentence_lengths_pass_without_a_fixed_word_budget(self):
         self.assertEqual(pipeline.narration_validation_error(ORCHESTRA_SCRIPT), "")
         sentences = pipeline.narration_sentences(ORCHESTRA_SCRIPT)
@@ -134,6 +148,11 @@ class PlannerNarrationValidationTests(unittest.TestCase):
                 self.assertIn("no fixed word count for any individual sentence", system_message)
                 self.assertIn("Twelve is a maximum, not a target", system_message)
                 self.assertIn("Verified research evidence", user_message)
+                self.assertIn("Measured length guidance", user_message)
+                self.assertIn("Add exactly 4 net spoken words", user_message)
+                initial_payload = mock_ai.call_args_list[0].args[1]
+                self.assertIn("aim for exactly 42 spoken words", initial_payload["messages"][0]["content"])
+                self.assertEqual(mock_ai.call_args_list[1].args[1]["temperature"], 0.15)
 
                 debug = json.loads(
                     (Path(folder) / "creative_plan_debug.json").read_text(encoding="utf-8")
@@ -169,6 +188,10 @@ class PlannerNarrationValidationTests(unittest.TestCase):
                         pipeline.make_plan([self.item], recent=[])
 
                 self.assertEqual(mock_ai.call_count, 4)
+                self.assertEqual(
+                    [call.args[1]["temperature"] for call in mock_ai.call_args_list[1:]],
+                    [0.15, 0.25, 0.35],
+                )
                 debug = json.loads(
                     (Path(folder) / "creative_plan_debug.json").read_text(encoding="utf-8")
                 )
