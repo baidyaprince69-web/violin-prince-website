@@ -14,7 +14,9 @@ on:
       - "autopilot/engine/motion_prototype.py"
       - "autopilot/engine/tests/test_seo_intelligence.py"
       - "autopilot/engine/tests/test_analytics.py"
+      - "autopilot/engine/tests/test_seo_storage.py"
       - ".github/workflows/phase5-seo-learning.yml"
+      - ".github/workflows/phase4-youtube-connection-check.yml"
       - "autopilot/engine/tests/test_phase3_release.py"
       - "autopilot/engine/tests/test_checkpoint_artifacts.py"
       - ".github/workflows/phase4-youtube-private-beta.yml"
@@ -65,7 +67,7 @@ jobs:
         run: python -m py_compile autopilot/engine/youtube_native/*.py autopilot/engine/seo_intelligence/*.py autopilot/engine/analytics.py autopilot/engine/tests/test_youtube_native.py autopilot/engine/tests/test_phase3_release.py autopilot/engine/tests/test_checkpoint_artifacts.py autopilot/engine/tests/test_seo_intelligence.py autopilot/engine/tests/test_analytics.py
 
       - name: Run offline tests; no credentials or provider calls
-        run: python -m unittest autopilot.engine.tests.test_youtube_native autopilot.engine.tests.test_phase3_release autopilot.engine.tests.test_checkpoint_artifacts autopilot.engine.tests.test_seo_intelligence autopilot.engine.tests.test_analytics -v
+        run: python -m unittest autopilot.engine.tests.test_youtube_native autopilot.engine.tests.test_phase3_release autopilot.engine.tests.test_checkpoint_artifacts autopilot.engine.tests.test_seo_intelligence autopilot.engine.tests.test_analytics autopilot.engine.tests.test_seo_storage -v
 
       - name: Assert publishing gates remain disabled
         run: |
