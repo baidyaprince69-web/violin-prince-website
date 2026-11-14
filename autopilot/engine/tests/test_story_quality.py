@@ -110,6 +110,29 @@ class StoryDateQualityTests(unittest.TestCase):
         )
 
 
+
+class NarrationCompletenessTests(unittest.TestCase):
+    def test_dangling_preposition_at_end_of_sentence_is_rejected(self):
+        script = (
+            "A silent film needs music. "
+            "The animated story follows an astronaut as she leaves her robot behind. "
+            "Karen O performed Soft Machine, giving the film its emotional musical center. "
+            "The song is a lullaby about finding your own place in."
+        )
+        error = pipeline.narration_validation_error(script)
+        self.assertIn("sentence 4 appears incomplete", error)
+        self.assertIn("dangling word 'in'", error)
+
+    def test_complete_narration_sentence_passes_the_same_validation(self):
+        script = (
+            "A silent film needs music. "
+            "The animated story follows an astronaut as she leaves her robot behind. "
+            "Karen O performed Soft Machine, giving the film its emotional musical center. "
+            "The song is a lullaby about finding your own place here."
+        )
+        self.assertEqual(pipeline.narration_validation_error(script), "")
+
+
 class NarrationEvidenceQualityTests(unittest.TestCase):
     def test_evidence_gate_reports_all_unsupported_body_sentences(self):
         plan = {
