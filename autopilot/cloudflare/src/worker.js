@@ -126,37 +126,70 @@ async function dispatchWorkflow(env, mode = "scheduled") {
     "INSERT INTO runs (id,status,mode,created_at,updated_at) VALUES (?,?,?,?,?)"
   ).bind(runId, "queued", mode, isoNow(), isoNow()).run();
 
-  const response = await fetch(
-    "https://api.github.com/repos/" + env.GITHUB_OWNER + "/" + env.GITHUB_REPO +
-      "/actions/workflows/" + env.GITHUB_WORKFLOW + "/dispatches",
-    {
-      method: "POST",
-      headers: {
-        "Authorization": "Bearer " + env.GITHUB_DISPATCH_TOKEN,
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-        "Content-Type": "application/json",
-        "User-Agent": "violin-prince-autopilot"
-      },
-      body: JSON.stringify({
-        ref: env.GITHUB_REF || "main",
-        inputs: { run_id: runId, mode: mode }
-      })
+  let dispatchFailure = "";
+  let dispatchOutcomeUnknown = false;
+  try {
+    const response = await fetch(
+      "https://api.github.com/repos/" + env.GITHUB_OWNER + "/" + env.GITHUB_REPO +
+        "/actions/workflows/" + env.GITHUB_WORKFLOW + "/dispatches",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + env.GITHUB_DISPATCH_TOKEN,
+          "Accept": "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+          "Content-Type": "application/json",
+          "User-Agent": "violin-prince-autopilot"
+        },
+        body: JSON.stringify({
+          ref: env.GITHUB_REF || "main",
+          inputs: { stage: "full", run_id: runId, run_mode: mode }
+        })
+      }
+    );
+    if (!response.ok) {
+      let detail = "";
+      try { detail = (await response.text()).slice(0, 600); } catch { /* HTTP status is already definitive. */ }
+      dispatchFailure = "GitHub dispatch failed: " + response.status +
+        (detail ? " " + detail : "");
     }
-  );
-
-  if (!response.ok) {
-    const detail = (await response.text()).slice(0, 600);
-    await env.DB.prepare("UPDATE runs SET status=?,message=?,updated_at=? WHERE id=?")
-      .bind("failed", "GitHub dispatch failed: " + response.status, isoNow(), runId).run();
-    await event(env, "GitHub dispatch failed: " + response.status + " " + detail, "error", runId);
-    return { ok: false, reason: "github_dispatch_failed" };
+  } catch (error) {
+    // A transport error cannot prove whether GitHub accepted the request.
+    // Keep the daily lock until the outcome can be reconciled to avoid duplicates.
+    dispatchOutcomeUnknown = true;
+    dispatchFailure = "GitHub dispatch outcome is unknown: " +
+      String(error && error.message ? error.message : error).slice(0, 600);
   }
 
-  await event(env, "GitHub-hosted cloud workflow dispatched.", "success", runId);
+  if (dispatchFailure) {
+    try {
+      await env.DB.prepare("UPDATE runs SET status=?,message=?,updated_at=? WHERE id=?")
+        .bind(dispatchOutcomeUnknown ? "dispatch_unknown" : "failed",
+          dispatchFailure.slice(0, 900), isoNow(), runId).run();
+    } catch (error) {
+      await event(env, "Could not persist dispatch failure state: " +
+        String(error && error.message ? error.message : error).slice(0, 400), "warning", runId);
+    }
+    if (!dispatchOutcomeUnknown) {
+      // An explicit non-2xx response confirms that GitHub rejected the dispatch.
+      try {
+        await env.DB.prepare("DELETE FROM daily_dispatches WHERE day_utc=? AND run_id=?")
+          .bind(day, runId).run();
+      } catch (error) {
+        await event(env, "Could not release rejected dispatch reservation: " +
+          String(error && error.message ? error.message : error).slice(0, 400), "warning", runId);
+      }
+    }
+    await event(env, dispatchFailure, dispatchOutcomeUnknown ? "warning" : "error", runId);
+    return {
+      ok: false,
+      reason: dispatchOutcomeUnknown ? "dispatch_outcome_unknown" : "github_dispatch_failed"
+    };
+  }
+
+  await event(env, "GitHub-hosted Full production workflow dispatched.", "success", runId);
   return { ok: true, run_id: runId };
 }
-
 async function handleApi(request, env) {
   const url = new URL(request.url);
   const path = url.pathname;

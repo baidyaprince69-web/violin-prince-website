@@ -17,13 +17,15 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
       DASHBOARD_TOKEN: ${{ secrets.DASHBOARD_TOKEN }}
       AUTOPILOT_JOB_TOKEN: ${{ secrets.AUTOPILOT_JOB_TOKEN }}
-      GITHUB_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
     steps:
       - name: Check required secrets
         shell: bash
+        env:
+          GITHUB_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
+          GH_SECRETS_TOKEN: ${{ secrets.GH_SECRETS_TOKEN }}
         run: |
           missing=0
-          for name in CF_DEPLOY_TOKEN CF_ACCOUNT_ID DASHBOARD_TOKEN AUTOPILOT_JOB_TOKEN GITHUB_DISPATCH_TOKEN; do
+          for name in CF_DEPLOY_TOKEN CF_ACCOUNT_ID DASHBOARD_TOKEN AUTOPILOT_JOB_TOKEN GITHUB_DISPATCH_TOKEN GH_SECRETS_TOKEN; do
             if [ -z "${!name}" ]; then
               echo "::error::Missing GitHub Actions secret: $name"
               missing=1
@@ -64,6 +66,8 @@ jobs:
           echo "The deploy workflow will save this URL as the AUTOPILOT_API_URL GitHub Actions secret." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Configure Worker secrets
+        env:
+          GITHUB_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
         shell: bash
         run: |
           printf '%s' "$DASHBOARD_TOKEN" | npx --yes wrangler@4 secret put DASHBOARD_TOKEN --config=autopilot/cloudflare/wrangler.generated.toml
@@ -73,7 +77,7 @@ jobs:
 
       - name: Save Worker URL as GitHub Actions secret
         env:
-          GH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_SECRETS_TOKEN }}
         shell: bash
         run: |
           if [ -z "$WORKER_URL" ]; then

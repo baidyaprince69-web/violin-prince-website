@@ -28,6 +28,11 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Set up Node.js for Cloudflare Worker tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - name: Compile all Python engine modules
         run: |
           python -m py_compile autopilot/engine/*.py
@@ -62,6 +67,9 @@ jobs:
       - name: Check Cloudflare Worker JavaScript syntax
         run: node --check --input-type=module < autopilot/cloudflare/src/worker.js
 
+      - name: Run Cloudflare Worker dispatch regression tests
+        run: node --test autopilot/cloudflare/tests/worker.test.mjs
+
       - name: Check dashboard JavaScript syntax
         run: |
           python - <<'PY'
@@ -92,6 +100,20 @@ jobs:
               if not isinstance(parsed, dict):
                   raise SystemExit(f"{name}: expected a YAML mapping")
               print(f"{name}: YAML syntax OK")
+
+          autopilot = yaml.load(
+              Path(".github/workflows/violin-prince-autopilot.yml").read_text(encoding="utf-8"),
+              Loader=yaml.BaseLoader,
+          )
+          dispatch_inputs = autopilot.get("on", {}).get("workflow_dispatch", {}).get("inputs", {})
+          missing_inputs = {"stage", "run_id", "run_mode"} - set(dispatch_inputs)
+          if missing_inputs:
+              raise SystemExit("Autopilot workflow is missing Worker dispatch inputs: " + ", ".join(sorted(missing_inputs)))
+          if dispatch_inputs["run_id"].get("required") != "false":
+              raise SystemExit("run_id must remain optional for direct GitHub launches.")
+          if dispatch_inputs["run_mode"].get("default") != "manual":
+              raise SystemExit("run_mode must default to manual for direct GitHub launches.")
+          print("Autopilot Worker dispatch input contract: OK")
           PY
 
       - name: Check production and deployment workflow files exist
