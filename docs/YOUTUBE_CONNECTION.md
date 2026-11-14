@@ -5,12 +5,17 @@ This setup uses GitHub Actions for connection checks and scheduled SEO learning.
 ## Google API setup
 
 1. In Google Cloud Console, create or select a project and enable **YouTube Data API v3** and **YouTube Analytics API**.
-2. Create an OAuth client for a web application. Add this redirect URI if using Google's OAuth Playground:
+2. Configure the OAuth consent screen and add the channel owner as a test user while testing.
+3. Create an OAuth client for a web application. Add this redirect URI if using Google's OAuth Playground:
    `https://developers.google.com/oauthplayground`
-3. Configure the OAuth consent screen and add the channel owner as a test user while testing. Authorize only these scopes:
-   - `https://www.googleapis.com/auth/youtube.upload`
-   - `https://www.googleapis.com/auth/youtube.readonly`
-4. In OAuth Playground, open its settings, select **Use your own OAuth credentials**, and enter the OAuth client ID and client secret. Authorize the two scopes above, exchange the code, and obtain the refresh token. Do not paste credentials or tokens into chat, issues, workflow inputs, or repository files.
+4. In OAuth Playground, open its settings, select **Use your own OAuth credentials**, and enter the OAuth client ID and client secret. Request all three scopes below, authorize them, exchange the code, and obtain the refresh token. Do not paste credentials or tokens into chat, issues, workflow inputs, or repository files.
+
+   Required OAuth scopes:
+   - `https://www.googleapis.com/auth/youtube.readonly` — identify and verify the authorized channel and read channel metadata.
+   - `https://www.googleapis.com/auth/youtube.upload` — upload videos when the separate upload approval gates are explicitly enabled.
+   - `https://www.googleapis.com/auth/yt-analytics.readonly` — read channel/video Analytics reports for the connection check and SEO-learning workflow.
+
+   **Important:** `youtube.readonly` does not replace `yt-analytics.readonly`. The read-only connection check makes an Analytics API request, and Phase 5 SEO learning depends on Analytics access. If the Analytics scope is missing from the grant, the check/learning report will fail with an authorization error. After changing granted scopes, obtain a new refresh token and replace the GitHub secret.
 
 Google documents that offline access is required for long-running services to refresh access tokens without the user present. OAuth authorizations for external apps left in Testing expire after seven days; this is not suitable for unattended weekly publishing. Production publishing status and any required Google verification must be handled through Google's normal process. Do not bypass age, identity, or account verification requirements.
 
@@ -32,7 +37,7 @@ The SEO-learning workflow commits only AES-256-GCM ciphertext to the separate `s
 
 ## Safe test order
 
-1. Run **Phase 4 YouTube connection check**. It refreshes OAuth, reads the authorised channel, and makes one small read-only Analytics request. It never uploads.
+1. Run **Phase 4 YouTube connection check**. It refreshes OAuth, reads the authorized channel, and makes one small read-only Analytics request. It never uploads.
 2. Set `YOUTUBE_EXPECTED_CHANNEL_ID` to the returned channel ID, then run the connection check again.
 3. Run **Phase 5 scheduled YouTube SEO learning** manually once. This collects one bounded 7-day channel report and one bounded 28-day per-video report, then stores only encrypted SEO signals.
 4. Run the YouTube metadata review workflow. Review the title, description, tags, hashtags, audience setting, synthetic-media disclosure, and rights before any private upload test.
