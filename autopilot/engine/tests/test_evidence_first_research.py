@@ -73,6 +73,49 @@ UNRELATED_ARTICLE = article(
 )
 
 
+SPACE_CADET_BILLBOARD = article(
+    "Hear Karen O's Original Song Soft Machine in Kid Koala's Space Cadet",
+    "billboard.com",
+    "culture/tv-film/space-cadet-karen-o-soft-machine",
+    (
+        "Music is a centerpiece of Space Cadet, the film adaptation of Kid Koala's "
+        "graphic novel. The animated movie has no dialogue. The exclusive clip is "
+        "soundtracked by the mournful original song Soft Machine, written and "
+        "performed by Karen O. Space Cadet follows astronaut Celeste on her first "
+        "solo mission and the Guardianbot Robot who raised her. Kid Koala directed "
+        "the film and composed its original score."
+    ),
+)
+
+SPACE_CADET_WEEKLY_ROUNDUP = article(
+    "Weekly Film Music Roundup (November 13, 2026)",
+    "filmmusicreporter.com",
+    "2026/11/13/weekly-film-music-roundup-november-13-2026",
+    (
+        "Opening in theaters nationwide this weekend is the gothic fantasy comedy "
+        "Ebenezer, directed by Ti West and starring Johnny Depp, Rupert Grint, Daisy "
+        "Ridley and Ian McKellen. The film's original music is composed by Tyler "
+        "Bates. Milan Records has released a soundtrack album featuring the "
+        "composer's score today. Also opening nationwide is the action thriller "
+        "How to Rob a Bank, with original music composed by Dom Lewis."
+    ),
+)
+
+SPACE_CADET_SECOND_ARTICLE = article(
+    "Kid Koala's Space Cadet Features Karen O's New Song Soft Machine",
+    "animationmusicjournal.example",
+    "2026/space-cadet-kid-koala-karen-o-soft-machine",
+    (
+        "Kid Koala's animated film Space Cadet features the original song Soft "
+        "Machine, performed by Karen O. The dialogue-free story follows astronaut "
+        "Celeste and her guardian robot as she begins a solo mission. The new song "
+        "adds a wistful musical thread to the Space Cadet film, whose score was "
+        "also composed by Kid Koala."
+    ),
+)
+
+
+
 class EvidenceFirstGroupingTests(unittest.TestCase):
     def test_same_subject_articles_form_a_group_before_story_selection(self):
         groups = pipeline.build_verified_story_groups([MIT_ARTICLE, SECOND_ARTICLE])
@@ -82,6 +125,46 @@ class EvidenceFirstGroupingTests(unittest.TestCase):
         self.assertEqual(set(group["publisher_families"]), {"mit.edu", "physicsworld.com"})
         self.assertEqual(len(group["source_ids"]), 2)
         self.assertTrue(all(len(item["evidence_text"]) >= 90 for item in group["sources"]))
+
+
+    def test_weekly_film_music_roundup_is_not_corroboration_for_space_cadet(self):
+        self.assertFalse(
+            pipeline.story_articles_cover_same_subject(
+                SPACE_CADET_BILLBOARD, SPACE_CADET_WEEKLY_ROUNDUP
+            )
+        )
+        self.assertEqual(
+            pipeline.build_verified_story_groups([
+                SPACE_CADET_BILLBOARD, SPACE_CADET_WEEKLY_ROUNDUP
+            ]),
+            [],
+        )
+
+    def test_a_second_article_with_the_same_named_subject_can_corroborate(self):
+        groups = pipeline.build_verified_story_groups([
+            SPACE_CADET_BILLBOARD, SPACE_CADET_SECOND_ARTICLE
+        ])
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(groups[0]["independent_publisher_count"], 2)
+
+    def test_story_relevance_cannot_be_satisfied_by_genre_words_only(self):
+        plan = {
+            "topic": "Film Music and Animation",
+            "title": "The Melancholy Lullaby of Space Cadet",
+            "description": "Karen O performs Soft Machine for Kid Koala's Space Cadet.",
+            "hook": "A silent film needs music.",
+            "narration_script": (
+                "A silent film needs music. Space Cadet has no dialogue. "
+                "Karen O performed Soft Machine for Kid Koala's animated film. "
+                "The song gives the film an emotional center."
+            ),
+        }
+        self.assertFalse(
+            pipeline.source_supports_story(plan, SPACE_CADET_WEEKLY_ROUNDUP)
+        )
+        self.assertTrue(
+            pipeline.source_supports_story(plan, SPACE_CADET_BILLBOARD)
+        )
 
     def test_subdomains_of_one_publisher_do_not_count_as_independent(self):
         same_family = dict(SECOND_ARTICLE)
