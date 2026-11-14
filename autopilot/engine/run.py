@@ -937,6 +937,43 @@ def narration_validation_error(script):
 
     return ""
 
+
+def narration_repair_guidance(script):
+    """Give the model a measured word-count gap without imposing sentence quotas."""
+    current_count = narration_word_count(script)
+    sentence_counts = [
+        narration_word_count(sentence) for sentence in narration_sentences(script)
+    ]
+    target_count = 42
+    difference = target_count - current_count
+
+    if difference > 0:
+        length_instruction = (
+            f"The current draft has {current_count} spoken words. Add exactly {difference} "
+            f"net spoken words to reach the {target_count}-word target."
+        )
+    elif difference < 0:
+        length_instruction = (
+            f"The current draft has {current_count} spoken words. Remove exactly {-difference} "
+            f"net spoken words to reach the {target_count}-word target."
+        )
+    else:
+        length_instruction = (
+            f"The current draft already has {target_count} spoken words; preserve its length "
+            "while correcting the other validation issue."
+        )
+
+    return (
+        length_instruction
+        + " The allowed total is 40–44 words. Current sentence lengths are "
+        + (", ".join(str(count) for count in sentence_counts) or "unavailable")
+        + ". Keep the hook at 5–8 words and every sentence at 12 words maximum. "
+        "Use remaining room wherever it improves clarity; do not fill sentences to 12, "
+        "do not make sentence lengths equal, and do not follow per-sentence quotas. "
+        "Add only useful, evidence-supported context, not padding or repeated ideas."
+    )
+
+
 def recent_seo_learning():
     """Decrypt the latest GitHub-native SEO snapshot; never call Cloudflare or poll YouTube."""
     report_path = os.environ.get("SEO_LEARNING_REPORT_PATH", "").strip()
@@ -1043,7 +1080,7 @@ def make_plan(items, recent=None, seo_context=None):
         "Never describe an event as upcoming, scheduled, or something that 'will' happen when its date has passed. "
         "Do not use song lyrics, copied scripts, named copyrighted characters, logos or identifiable living people in images. "
         "Return JSON only with topic,title,hook,description,hashtags,narration_script,narrative_style,scenes,sources,timeline. "
-        "The narration_script must have 40 to 44 spoken words across exactly four natural, complete sentences. "
+        "The narration_script should aim for exactly 42 spoken words (40–44 are accepted) across exactly four natural, complete sentences. "
         "Sentence 1 is a concise curiosity hook of 5–8 words and must be resolved by the ending. "
         "No sentence may exceed 12 words; twelve is a maximum, not a target. "
         "Vary sentence lengths naturally for spoken rhythm. Do not force equal lengths or any fixed per-sentence word budget. "
@@ -1152,7 +1189,8 @@ def make_plan(items, recent=None, seo_context=None):
                         "content": (
                             "You are a precise spoken-documentary script editor. Return exactly one JSON "
                             "object with one field named narration_script, and no Markdown or commentary. "
-                            "Write exactly four complete, natural sentences with 40–44 spoken words in total. "
+                            "Write exactly four complete, natural sentences and aim for exactly 42 spoken words; "
+                            "the validator accepts 40–44 inclusive. Count spoken words before returning the script. "
                             "The first sentence must be a concise 5–8-word curiosity hook. "
                             "No individual sentence may exceed 12 words. Twelve is a maximum, not a target. "
                             "Vary sentence lengths naturally; there is no fixed word count for any individual sentence. "
@@ -1170,6 +1208,7 @@ def make_plan(items, recent=None, seo_context=None):
                             "Revise the complete narration for this selected Violin Prince story. "
                             "Do not change its topic, chosen sources, scenes, or visual prompts. "
                             "Current narration: " + (current_script or "[empty narration]") +
+                            "\nMeasured length guidance: " + narration_repair_guidance(current_script) +
                             "\nValidation issue: " + narration_validation_error(current_script) +
                             "\nTopic: " + str(plan.get("topic", ""))[:300] +
                             "\nTitle: " + str(plan.get("title", ""))[:220] +
@@ -1183,7 +1222,9 @@ def make_plan(items, recent=None, seo_context=None):
                 ],
                 "chat_template_kwargs": {"enable_thinking": False, "clear_thinking": True},
                 "max_completion_tokens": 520,
-                "temperature": 0.0,
+                # Small attempt-to-attempt variation prevents identical underlength rewrites;
+                # the deterministic validator remains the final authority.
+                "temperature": (0.15, 0.25, 0.35)[attempt - 1],
             }
 
             repaired = parse_planner_result(ai(TEXT_MODEL, payload))
