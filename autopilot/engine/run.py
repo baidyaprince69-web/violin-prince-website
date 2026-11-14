@@ -1212,16 +1212,156 @@ def research_story_sources(plan, existing_items):
 
 
 def source_content_similarity(left, right):
-    """Compare normalized article-body wording to detect syndicated/reposted copies."""
+    """Detect syndicated copies even when publishers add boilerplate or trim the article."""
+    left_words = re.findall(r"[a-z0-9]{3,}", str(left.get("evidence_text", "")).casefold())
+    right_words = re.findall(r"[a-z0-9]{3,}", str(right.get("evidence_text", "")).casefold())
+    if min(len(left_words), len(right_words)) < 30:
+        return 0.0
+
     left_tokens = source_tokens(left.get("evidence_text", ""))
     right_tokens = source_tokens(right.get("evidence_text", ""))
     if min(len(left_tokens), len(right_tokens)) < 30:
         return 0.0
-    shared = len(left_tokens.intersection(right_tokens))
-    union = len(left_tokens.union(right_tokens))
-    jaccard = shared / union if union else 0.0
-    containment = shared / min(len(left_tokens), len(right_tokens))
-    return max(jaccard, containment if containment >= 0.95 else 0.0)
+
+    shared_tokens = len(left_tokens.intersection(right_tokens))
+    token_union = len(left_tokens.union(right_tokens))
+    token_jaccard = shared_tokens / token_union if token_union else 0.0
+    token_containment = shared_tokens / min(len(left_tokens), len(right_tokens))
+
+    def word_shingles(words, width=5):
+        return {
+            tuple(words[index:index + width])
+            for index in range(max(0, len(words) - width + 1))
+        }
+
+    left_shingles = word_shingles(left_words)
+    right_shingles = word_shingles(right_words)
+    shared_shingles = len(left_shingles.intersection(right_shingles))
+    shingle_containment = (
+        shared_shingles / min(len(left_shingles), len(right_shingles))
+        if left_shingles and right_shingles else 0.0
+    )
+
+    # High containment is strong evidence of the same article body, even if
+    # one publisher adds a credit notice or truncates the final paragraphs.
+    return max(
+        token_jaccard,
+        token_containment if token_containment >= 0.82 else 0.0,
+        shingle_containment if shingle_containment >= 0.72 else 0.0,
+    )
+
+
+_NARRATION_EVIDENCE_FILLER = {
+    "highly", "now", "currently", "today", "really", "very",
+}
+_NARRATION_ASSERTION_MODIFIERS = {
+    "breakthrough", "exceptionally", "entire", "fundamentally",
+    "gamechanging", "groundbreaking", "incredibly", "revolutionary",
+    "sophisticated", "transformative", "transforming", "unprecedented",
+    "vastly", "worldchanging",
+}
+
+
+def _normalized_narration_claim_tokens(value):
+    """Keep distinctive claim words while normalizing simple plurals."""
+    tokens = source_tokens(value) - _GENERIC_ENTITY_WORDS - _NARRATION_EVIDENCE_FILLER
+    normalized = set()
+    for token in tokens:
+        if len(token) > 4 and token.endswith("s") and not token.endswith("ss"):
+            token = token[:-1]
+        normalized.add(token)
+    return normalized
+
+
+def validate_narration_against_sources(plan, verified_sources):
+    """Require each non-hook narration sentence to match a verified article body."""
+    sentences = narration_sentences(plan.get("narration_script", ""))
+    if len(sentences) != 4:
+        raise PipelineError(
+            "Story quality gate blocked: narration evidence check requires exactly four sentences."
+        )
+
+    evidence_records = []
+    for sentence_number, sentence in enumerate(sentences, start=1):
+        # The opening is a curiosity hook, not a factual assertion.
+        if sentence_number == 1:
+            continue
+
+        claim_tokens = _normalized_narration_claim_tokens(sentence)
+        if not claim_tokens:
+            raise PipelineError(
+                f"Story quality gate blocked: narration sentence {sentence_number} "
+                "contains no verifiable factual detail."
+            )
+
+        sentence_tokens = source_tokens(sentence)
+        modifiers = sentence_tokens.intersection(_NARRATION_ASSERTION_MODIFIERS)
+        candidates = []
+        for source in verified_sources:
+            source_text = " ".join(
+                str(source.get(key, ""))
+                for key in ("title", "evidence_text")
+            )
+            source_terms = _normalized_narration_claim_tokens(source_text)
+            source_words = source_tokens(source_text)
+            matched = claim_tokens.intersection(source_terms)
+            unsupported_modifiers = sorted(
+                modifier for modifier in modifiers if modifier not in source_words
+            )
+            coverage = len(matched) / len(claim_tokens)
+            candidates.append((
+                not unsupported_modifiers,
+                len(matched),
+                coverage,
+                source,
+                matched,
+                unsupported_modifiers,
+            ))
+
+        if not candidates:
+            raise PipelineError(
+                f"Story quality gate blocked: narration sentence {sentence_number} "
+                "has no verified publisher article to support it."
+            )
+
+        candidates.sort(key=lambda value: (value[0], value[1], value[2]), reverse=True)
+        (
+            _modifiers_supported,
+            matched_count,
+            coverage,
+            source,
+            matched_terms,
+            unsupported_modifiers,
+        ) = candidates[0]
+        required_matches = min(2, len(claim_tokens))
+        if (
+            matched_count < required_matches
+            or coverage < 0.50
+            or unsupported_modifiers
+        ):
+            detail = (
+                f"{matched_count}/{len(claim_tokens)} distinctive terms matched"
+            )
+            if unsupported_modifiers:
+                detail += "; unsupported emphasis: " + ", ".join(unsupported_modifiers)
+            raise PipelineError(
+                f"Story quality gate blocked: narration sentence {sentence_number} "
+                f"is not sufficiently supported by any verified publisher article ({detail})."
+            )
+
+        evidence_records.append({
+            "sentence_number": sentence_number,
+            "sentence": sentence,
+            "source_id": str(source.get("source_id") or ""),
+            "publisher_name": str(source.get("publisher_name") or source.get("publisher_domain") or ""),
+            "publisher_domain": str(source.get("publisher_domain") or ""),
+            "matched_terms": sorted(matched_terms),
+            "claim_terms": sorted(claim_tokens),
+            "coverage": round(coverage, 3),
+        })
+
+    plan["narration_evidence"] = evidence_records
+    return evidence_records
 
 def select_verified_story_sources(plan, research_items, minimum_sources=2):
     """Select relevant, excerpt-backed, direct article links from independent publishers."""
@@ -1259,7 +1399,7 @@ def select_verified_story_sources(plan, research_items, minimum_sources=2):
         duplicate_of = next(
             (
                 chosen for chosen in selected
-                if source_content_similarity(item, chosen) >= 0.88
+                if source_content_similarity(item, chosen) >= 0.82
             ),
             None,
         )
@@ -1301,6 +1441,7 @@ def prepare_story_with_source_recovery(items, recent=None, seo_context=None, max
             verified_sources = select_verified_story_sources(
                 plan, story_items, minimum_sources=2
             )
+            validate_narration_against_sources(plan, verified_sources)
             validate_and_bind_timeline_sources(plan, verified_sources)
             return plan, story_items, verified_sources
         except PipelineError as exc:
@@ -1455,15 +1596,27 @@ def build_story_quality_report(plan, selected_sources, date_check):
         for item in selected_sources
     })
     direct_links = all(is_direct_publisher_article(item) for item in selected_sources)
+    expected_claim_sentences = max(
+        0, len(narration_sentences(plan.get("narration_script", ""))) - 1
+    )
+    narration_evidence = plan.get("narration_evidence", [])
+    narration_evidence_passed = (
+        isinstance(narration_evidence, list)
+        and len(narration_evidence) == expected_claim_sentences
+    )
     passed = (
         len(selected_sources) >= 2
         and len(publisher_families) >= 2
         and direct_links
         and date_check.get("status") == "passed"
+        and narration_evidence_passed
     )
     return {
         "schema_version": 1,
         "status": "passed" if passed else "blocked",
+        "narration_evidence_status": "passed" if narration_evidence_passed else "not_checked",
+        "narration_claim_sentence_count": len(narration_evidence) if isinstance(narration_evidence, list) else 0,
+        "narration_evidence": narration_evidence if isinstance(narration_evidence, list) else [],
         "checked_at": datetime.now(timezone.utc).isoformat(),
         "minimum_independent_publishers": 2,
         "verified_source_count": len(selected_sources),
@@ -2147,7 +2300,12 @@ def make_plan(items, recent=None, seo_context=None):
         "retail promotions and generic technology announcements, as well as tragedies, graphic events, violence, "
         "disasters and crimes. Pick the strongest specific story, not merely the loudest headline. "
         "Do not invent facts, dates, statistics, motives, quotations or outcomes. Use only factual claims supported "
-        "by supplied research. Every research item has a source_id. Prefer at least two source_id values from "
+        "by supplied research. Every non-hook narration sentence must be supported by the wording of at least one "
+        "readable direct article body, not merely a headline or broad topic overlap. Avoid unsupported emphasis such as "
+        "revolutionary, groundbreaking, exceptionally, fundamentally transforming, or claims about changing the "
+        "entire future of a field. When a source describes a current limitation or says a capability is future work, "
+        "state that limitation clearly and do not imply the complete capability already exists. Every research item "
+        "has a source_id. Prefer at least two source_id values from "
         "different publisher_domain values. The sources field MUST contain one to three exact source_id values "
         "copied from supplied research; never invent IDs or rewrite URLs. Items marked discovery_only may guide "
         "topic selection but cannot support facts or be cited. Google News headline links are discovery leads only "

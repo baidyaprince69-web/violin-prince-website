@@ -77,5 +77,51 @@ class StoryDateQualityTests(unittest.TestCase):
         )
 
 
+class NarrationEvidenceQualityTests(unittest.TestCase):
+    def setUp(self):
+        self.sources = [
+            {
+                "source_id": "SRC_MIT_VIOLIN",
+                "title": "MIT engineers' virtual violin produces realistic sounds",
+                "publisher_name": "MIT News",
+                "publisher_domain": "news.mit.edu",
+                "evidence_text": (
+                    "MIT engineers developed a physics-based computational violin model. "
+                    "It produces realistic sounds when strings are plucked. The model simulates "
+                    "how the instrument structure and surrounding air interact. Bowing is a more "
+                    "complicated interaction to model. Luthiers can adjust wood type and body "
+                    "thickness to compare predicted sound before carving a physical instrument."
+                ),
+            }
+        ]
+
+    def test_unsupported_transformative_narration_claim_is_blocked(self):
+        plan = {
+            "narration_script": (
+                "Can computers model violin sounds? "
+                "MIT engineers developed a computational violin model. "
+                "It produces realistic sounds when strings are plucked. "
+                "These digital strings are fundamentally transforming the entire future of music."
+            )
+        }
+        with self.assertRaisesRegex(pipeline.PipelineError, "narration sentence 4"):
+            pipeline.validate_narration_against_sources(plan, self.sources)
+
+    def test_each_factual_sentence_records_a_direct_article_evidence_match(self):
+        plan = {
+            "narration_script": (
+                "Can computers model violin sounds? "
+                "MIT engineers developed a computational violin model. "
+                "It produces realistic sounds when strings are plucked. "
+                "Bowing is a more complicated interaction to model."
+            )
+        }
+        evidence = pipeline.validate_narration_against_sources(plan, self.sources)
+        self.assertEqual(len(evidence), 3)
+        self.assertEqual([item["sentence_number"] for item in evidence], [2, 3, 4])
+        self.assertTrue(all(item["source_id"] == "SRC_MIT_VIOLIN" for item in evidence))
+        self.assertTrue(all(item["matched_terms"] for item in evidence))
+
+
 if __name__ == "__main__":
     unittest.main()

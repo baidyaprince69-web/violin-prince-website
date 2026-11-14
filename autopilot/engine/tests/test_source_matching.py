@@ -576,6 +576,52 @@ class PlannerSourceMatchingTests(unittest.TestCase):
         ):
             pipeline.select_verified_story_sources(plan, sources, minimum_sources=2)
 
+    def test_syndicated_article_with_different_boilerplate_is_detected(self):
+        plan = {
+            "topic": "MIT computational virtual violin",
+            "title": "MIT engineers create a virtual violin",
+            "description": "MIT engineers developed a computational violin model.",
+        }
+        shared_body = (
+            "MIT engineers developed a computational violin model. The system realistically "
+            "reproduces the sound of plucked strings by simulating how the instrument structure "
+            "interacts with surrounding air. Researchers used the model to explore violin design "
+            "changes before a physical instrument is carved. The current implementation models "
+            "pizzicato, while bowed playing requires additional work. Luthiers can adjust material "
+            "properties and body thickness to compare predicted acoustic results."
+        )
+        sources = [
+            {
+                "title": "MIT computational violin research",
+                "url": "https://publisher-one.example/mit-virtual-violin",
+                "publisher_domain": "publisher-one.example",
+                "publisher_name": "Publisher One",
+                "evidence_text": (
+                    shared_body +
+                    " The publisher also lists newsroom contacts, editor biographies, image captions, "
+                    "licensing notes, and publication policy details."
+                ),
+            },
+            {
+                "title": "MIT computational violin research",
+                "url": "https://publisher-two.example/mit-virtual-violin",
+                "publisher_domain": "publisher-two.example",
+                "publisher_name": "Publisher Two",
+                "evidence_text": (
+                    "A syndication notice identifies the article editor, copyright owner, illustration "
+                    "credit, distribution terms, and newsroom contact details. " + shared_body
+                ),
+            },
+        ]
+
+        similarity = pipeline.source_content_similarity(sources[0], sources[1])
+        self.assertGreaterEqual(similarity, 0.82)
+        with self.assertRaisesRegex(
+            pipeline.PipelineError,
+            "only 1 relevant direct publisher source",
+        ):
+            pipeline.select_verified_story_sources(plan, sources, minimum_sources=2)
+
     def test_distinct_article_body_text_from_second_publisher_counts_independently(self):
         plan = {
             "topic": "MIT computational virtual violin",

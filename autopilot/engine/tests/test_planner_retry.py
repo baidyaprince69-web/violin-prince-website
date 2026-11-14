@@ -415,7 +415,32 @@ class PlannerNarrationValidationTests(unittest.TestCase):
         first_plan["topic"] = "Unverifiable first story"
         second_plan = make_test_plan(ORCHESTRA_SENTENCES)
         second_plan["topic"] = "Second story with publisher coverage"
-        verified = [{"publisher_domain": "a.example"}, {"publisher_domain": "b.example"}]
+        second_plan["narration_script"] = ORCHESTRA_SCRIPT
+        verified = [
+            {
+                "source_id": "SRC_ORCHESTRA",
+                "publisher_domain": "a.example",
+                "publisher_name": "Orchestra Journal",
+                "title": "Orchestre National de Metz Grand Est celebrates fifty years",
+                "url": "https://a.example/orchestre-fifty-years",
+                "evidence_text": (
+                    "The Orchestre National de Metz Grand Est celebrates fifty years. "
+                    "The orchestra honours regional heritage and identity through its programme."
+                ),
+            },
+            {
+                "source_id": "SRC_BAEVA",
+                "publisher_domain": "b.example",
+                "publisher_name": "Classical Review",
+                "title": "International violinist Alena Baeva performs Mozart's fifth concerto in Metz",
+                "url": "https://b.example/baeva-mozart-metz",
+                "evidence_text": (
+                    "International violinist Alena Baeva will perform Mozart's brilliant fifth concerto "
+                    "in Metz. Ravel's music also honours the orchestra's long, remarkable regional "
+                    "heritage and identity."
+                ),
+            },
+        ]
 
         with (
             patch.object(pipeline, "make_plan", side_effect=[first_plan, second_plan]) as planner,
