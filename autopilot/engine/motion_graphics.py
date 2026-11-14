@@ -154,6 +154,85 @@ def _draw_performance_bars(draw: ImageDraw.ImageDraw, phase: float) -> None:
     draw.ellipse((marker_x - 5, 39, marker_x + 5, 49), fill=(255, 246, 224, 245))
 
 
+
+def make_ambient_glow_frames(
+    target_dir: str | Path,
+    frame_count: int,
+    fps: int,
+    scene_index: int = 0,
+) -> Path:
+    """Create subtle, moving illuminated dust, star glints and gradient halos."""
+    target = Path(target_dir)
+    target.mkdir(parents=True, exist_ok=True)
+    width, height = 360, 640
+    count = max(1, int(frame_count))
+    anchors = (
+        (0.12, 0.20, 0.22), (0.84, 0.28, 0.17),
+        (0.18, 0.70, 0.16), (0.87, 0.78, 0.20),
+        (0.52, 0.13, 0.11),
+    )
+    motes = tuple(
+        (
+            (index * 67 + scene_index * 23) % width,
+            (index * 113 + scene_index * 41) % height,
+            0.5 + ((index * 7 + scene_index) % 9) * 0.12,
+            (index * 0.73 + scene_index * 0.51) % math.tau,
+        )
+        for index in range(18)
+    )
+
+    for frame_index in range(count):
+        progress = frame_index / max(1, count - 1)
+        phase = progress * math.tau
+        haze = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        haze_draw = ImageDraw.Draw(haze)
+
+        # Soft coloured light pools drift almost imperceptibly along the edges.
+        for glow_index, (nx, ny, radius) in enumerate(anchors):
+            drift = math.sin(phase + glow_index * 1.23) * 7.0
+            cx = int(nx * width + drift)
+            cy = int(ny * height + math.cos(phase + glow_index) * 9.0)
+            r = int(38 + radius * 35)
+            colour = (235, 190, 112, 19) if glow_index % 2 == 0 else (76, 187, 181, 15)
+            haze_draw.ellipse((cx-r, cy-r, cx+r, cy+r), fill=colour)
+        haze = haze.filter(ImageFilter.GaussianBlur(27 + (scene_index % 2) * 4))
+
+        crisp = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(crisp)
+        # Sparse dust motes gently rise and drift sideways.
+        for mote_index, (x0, y0, scale, offset) in enumerate(motes):
+            travel = progress * 34.0
+            x = int((x0 + math.sin(phase + offset) * 5 + travel * (0.35 + scale * 0.14)) % width)
+            y = int((y0 - travel * (0.45 + scale * 0.20) + math.cos(phase + offset) * 4) % height)
+            pulse = 0.5 + 0.5 * math.sin(phase * (0.8 + scale * 0.16) + offset)
+            alpha = int(34 + pulse * 62)
+            radius = 1 if mote_index % 4 else 2
+            colour = (255, 231, 183, alpha) if mote_index % 3 else (119, 225, 219, int(alpha * 0.8))
+            draw.ellipse((x-radius, y-radius, x+radius, y+radius), fill=colour)
+
+        # Three tiny four-point glints, never oversized decorative stars.
+        for star_index, (nx, ny, radius, speed) in enumerate((
+            (0.78, 0.17, 5, 1.0),
+            (0.16, 0.44, 4, 0.7),
+            (0.88, 0.61, 4, 0.9),
+        )):
+            twinkle = 0.5 + 0.5 * math.sin(phase * speed + star_index * 2.1)
+            alpha = int(75 + twinkle * 105)
+            cx = int(nx * width + math.sin(phase + star_index) * 3)
+            cy = int(ny * height + math.cos(phase * 0.8 + star_index) * 4)
+            length = radius + int(twinkle * 2)
+            draw.line((cx-length, cy, cx+length, cy), fill=(255, 238, 202, alpha), width=1)
+            draw.line((cx, cy-length, cx, cy+length), fill=(255, 238, 202, alpha), width=1)
+            draw.ellipse((cx-1, cy-1, cx+1, cy+1), fill=(255, 250, 232, min(235, alpha+45)))
+
+        Image.alpha_composite(haze, crisp).save(
+            target / f"glow-{frame_index + 1:05d}.png", "PNG", optimize=True
+        )
+
+    return target / "glow-%05d.png"
+
+
+
 def make_motion_graphic_frames(
     scene: dict,
     index: int,
