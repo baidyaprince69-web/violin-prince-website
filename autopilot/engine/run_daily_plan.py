@@ -195,6 +195,12 @@ def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list
 
     plan["channel_fit"] = engine.channel_fit_report(plan)
     plan["channel_fit"]["status"] = "passed"
+    try:
+        plan["visual_reference"] = engine.normalize_visual_reference(
+            plan.get("visual_reference"), plan.get("scenes")
+        )
+    except (TypeError, ValueError) as exc:
+        raise engine.PipelineError("Visual reference analysis is invalid: " + str(exc)) from exc
     plan["narrative_style"] = str(plan.get("narrative_style") or "documentary").lower()
     if plan["narrative_style"] not in ("documentary", "cinematic_story"):
         plan["narrative_style"] = "documentary"
