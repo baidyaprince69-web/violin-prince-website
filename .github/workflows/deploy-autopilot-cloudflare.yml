@@ -21,6 +21,8 @@ jobs:
     steps:
       - name: Check required secrets
         shell: bash
+        env:
+          GH_SECRETS_TOKEN: ${{ secrets.GH_SECRETS_TOKEN }}
         run: |
           missing=0
           for name in CF_DEPLOY_TOKEN CF_ACCOUNT_ID DASHBOARD_TOKEN AUTOPILOT_JOB_TOKEN GITHUB_DISPATCH_TOKEN GH_SECRETS_TOKEN; do
