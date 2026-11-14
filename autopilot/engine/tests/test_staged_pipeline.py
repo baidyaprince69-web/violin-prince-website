@@ -25,6 +25,8 @@ class StagedPipelineTests(unittest.TestCase):
             "narration_script": "A short test narration.",
             "sources": [
                 {
+                    "source_id": "S0001",
+                    "article_page_verified": True,
                     "publisher_name": "Publisher One",
                     "publisher_domain": "publisher-one.example",
                     "title": "Source one article",
@@ -32,6 +34,8 @@ class StagedPipelineTests(unittest.TestCase):
                     "link_type": "publisher_article",
                 },
                 {
+                    "source_id": "S0002",
+                    "article_page_verified": True,
                     "publisher_name": "Publisher Two",
                     "publisher_domain": "publisher-two.example",
                     "title": "Source two article",
@@ -39,10 +43,23 @@ class StagedPipelineTests(unittest.TestCase):
                     "link_type": "publisher_article",
                 },
             ],
+            "source_group": {
+                "group_id": "STORY_TEST",
+                "source_ids": ["S0001", "S0002"],
+                "verified_source_ids": ["S0001", "S0002"],
+            },
             "quality_control": {
                 "status": "passed",
                 "verified_source_count": 2,
                 "date_check": {"status": "passed"},
+                "freshness": {
+                    "status": "passed",
+                    "maximum_age_hours": 168,
+                    "verified_sources": [
+                        {"source_id": "S0001", "freshness_status": "preferred", "age_hours": 12},
+                        {"source_id": "S0002", "freshness_status": "acceptable", "age_hours": 121},
+                    ],
+                },
             },
             "scenes": [
                 {"caption": "The opening scene", "image_prompt": "A lighthouse at dawn"},
@@ -65,8 +82,19 @@ class StagedPipelineTests(unittest.TestCase):
         (folder / "creative_plan.json").write_text(json.dumps(plan), encoding="utf-8")
         (folder / "stage.json").write_text(json.dumps(metadata), encoding="utf-8")
         (folder / "quality_control.json").write_text(
-            json.dumps({"status": "passed", "verified_source_count": 2,
-                        "date_check": {"status": "passed"}}), encoding="utf-8"
+            json.dumps({
+                "status": "passed",
+                "verified_source_count": 2,
+                "date_check": {"status": "passed"},
+                "freshness": {
+                    "status": "passed",
+                    "maximum_age_hours": 168,
+                    "verified_sources": [
+                        {"source_id": "S0001", "freshness_status": "preferred", "age_hours": 12},
+                        {"source_id": "S0002", "freshness_status": "acceptable", "age_hours": 121},
+                    ],
+                },
+            }), encoding="utf-8"
         )
         (folder / "soundtrack.wav").write_bytes(b"fake soundtrack")
         (folder / "narration.wav").write_bytes(b"fake narration")
