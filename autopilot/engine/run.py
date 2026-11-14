@@ -464,10 +464,10 @@ def source_relevance_score(plan, item):
     """Measure overlap with the full story claim, not only its short title."""
     core = source_tokens(" ".join(
         str(plan.get(key, ""))
-        for key in ("topic", "title", "hook", "description", "narration_script")
+        for key in ("topic", "title", "description")
     ))
     if not core:
-        core = source_tokens(" ".join(plan.get("narration_sentences", []) or []))
+        core = source_tokens(plan.get("narration_script", ""))
     article = source_tokens(" ".join(str(item.get(key, "")) for key in (
         "title", "evidence_text"
     )))
