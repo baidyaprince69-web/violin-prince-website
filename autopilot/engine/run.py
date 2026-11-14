@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Free-first cloud producer. Never switches to a paid service."""
-import argparse, base64, hashlib, json, os, re, shutil, subprocess, sys, textwrap, time, uuid, wave
+import argparse, base64, hashlib, json, os, re, shutil, subprocess, sys, tempfile, textwrap, time, uuid, wave
 from io import BytesIO
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from html.parser import HTMLParser
@@ -3850,13 +3850,70 @@ def make_image(prompt, index):
     return path
 
 
-def font(size):
-    for p in ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-              "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf"):
-        if Path(p).exists():
-            return ImageFont.truetype(p, size)
-    return ImageFont.load_default()
+_BRAND_FONT_CACHE = None
 
+
+def _ensure_brand_fonts():
+    """Convert the bundled OFL WOFF2 fonts into local TTF files for Pillow and libass."""
+    global _BRAND_FONT_CACHE
+    if _BRAND_FONT_CACHE is not None:
+        return _BRAND_FONT_CACHE
+
+    source_dir = Path(__file__).resolve().parent / "assets" / "fonts"
+    serif_source = source_dir / "DMSerifDisplay-Regular.woff2"
+    sans_source = source_dir / "DMSans.woff2"
+    if not serif_source.is_file() or not sans_source.is_file():
+        raise FileNotFoundError("Bundled DM Serif Display and DM Sans font assets are required.")
+
+    cache_dir = Path(os.environ.get(
+        "VIOLIN_PRINCE_FONT_CACHE",
+        str(Path.home() / ".cache" / "violin-prince" / "fonts"),
+    ))
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    outputs = {
+        "serif": cache_dir / "DMSerifDisplay-Regular.ttf",
+        "sans_regular": cache_dir / "DMSans-Regular.ttf",
+        "sans_medium": cache_dir / "DMSans-Medium.ttf",
+        "sans_bold": cache_dir / "DMSans-Bold.ttf",
+    }
+
+    if not all(path.is_file() and path.stat().st_size > 0 for path in outputs.values()):
+        try:
+            from fontTools.ttLib import TTFont
+            from fontTools.varLib.instancer import instantiateVariableFont
+        except ImportError as exc:
+            raise RuntimeError(
+                "fontTools with WOFF2 support is required to prepare Violin Prince typography."
+            ) from exc
+
+        serif = TTFont(str(serif_source))
+        serif.flavor = None  # Convert WOFF2 to TTF without modifying font outlines.
+        serif.save(str(outputs["serif"]))
+
+        variable_sans = TTFont(str(sans_source))
+        variable_sans.flavor = None
+        for weight, key in ((400, "sans_regular"), (500, "sans_medium"), (700, "sans_bold")):
+            instance = instantiateVariableFont(variable_sans, {"wght": weight}, inplace=False)
+            instance.flavor = None
+            instance.save(str(outputs[key]))
+
+    if not all(path.is_file() and path.stat().st_size > 0 for path in outputs.values()):
+        raise RuntimeError("One or more Violin Prince brand fonts could not be prepared.")
+
+    _BRAND_FONT_CACHE = {key: str(path) for key, path in outputs.items()}
+    return _BRAND_FONT_CACHE
+
+
+def font(size, weight="bold", family="sans"):
+    """Use DM Serif Display for headlines and weighted DM Sans for all supporting text."""
+    paths = _ensure_brand_fonts()
+    if family == "serif":
+        return ImageFont.truetype(paths["serif"], size)
+
+    weight_key = {"regular": "sans_regular", "medium": "sans_medium", "bold": "sans_bold"}.get(weight)
+    if weight_key is None:
+        raise ValueError("Unsupported DM Sans weight: " + str(weight))
+    return ImageFont.truetype(paths[weight_key], size)
 
 def make_card(source, caption, index, title=""):
     """Create a full-bleed vertical cinematic frame with restrained branding."""
@@ -3884,24 +3941,38 @@ def make_card(source, caption, index, title=""):
 
     gold = (235, 202, 139, 255)
     white = (255, 250, 241, 255)
-    draw.text((34, 36), "VIOLIN PRINCE", font=font(20), fill=gold,
+    brand_font = font(16, "medium")
+    draw.text((34, 36), "VIOLIN PRINCE", font=brand_font, fill=gold,
               stroke_width=1, stroke_fill=(0, 0, 0, 120))
-    draw.line((34, 72, W - 34, 72), fill=(235, 202, 139, 150), width=1)
+    draw.line((34, 72, W - 34, 72), fill=(235, 202, 139, 125), width=1)
 
     if index == 0 and title:
-        title_lines = textwrap.wrap(str(title).strip(), width=27)[:2]
-        title_y = 105
-        title_font = font(31)
-        for line in title_lines:
+        title_font = font(42, "regular", "serif")
+        title_lines = []
+        current = ""
+        for word in str(title).strip().split():
+            candidate = (current + " " + word).strip()
+            bounds = draw.textbbox((0, 0), candidate, font=title_font)
+            if current and bounds[2] - bounds[0] > W - 82:
+                title_lines.append(current)
+                current = word
+            else:
+                current = candidate
+        if current:
+            title_lines.append(current)
+        title_y = 104
+        for line in title_lines[:2]:
+            draw.text((35, title_y + 2), line, font=title_font,
+                      fill=(0, 0, 0, 210), stroke_width=1, stroke_fill=(0, 0, 0, 180))
             draw.text((34, title_y), line, font=title_font, fill=white,
-                      stroke_width=2, stroke_fill=(0, 0, 0, 170))
-            title_y += 43
+                      stroke_width=1, stroke_fill=(10, 10, 14, 150))
+            title_y += 51
 
-    draw.line((34, 1190, W - 34, 1190), fill=(235, 202, 139, 135), width=1)
+    draw.line((34, 1190, W - 34, 1190), fill=(235, 202, 139, 115), width=1)
     draw.text((34, 1207), "ORIGINAL STORY • ORIGINAL SOUNDTRACK",
-              font=font(13), fill=(242, 230, 208, 240))
+              font=font(12, "medium"), fill=(242, 230, 208, 235))
     draw.text((W - 110, 1207), f"{index + 1:02d}/03",
-              font=font(13), fill=(242, 230, 208, 240))
+              font=font(12, "medium"), fill=(242, 230, 208, 235))
 
     p = OUT / f"card-{index + 1}.png"
     canvas.convert("RGB").save(p, "PNG", optimize=True)
@@ -3922,18 +3993,18 @@ def make_motion_graphic_card(scene, index, plan, target):
     draw.rounded_rectangle((24, 26, 32, height - 26), radius=4, fill=gold)
     label = re.sub(r"\s+", " ", str(scene.get("graphic_label") or ("STORY BEAT " + str(index + 1)))).strip().upper()
     label = textwrap.shorten(label, width=30, placeholder="…")
-    draw.text((54, 25), f"{index + 1:02d}  /  03     {label}", font=font(16), fill=gold)
+    draw.text((54, 25), f"{index + 1:02d}  /  03     {label}", font=font(16, "medium"), fill=gold)
 
     headline = textwrap.wrap(str(scene.get("caption") or plan.get("title", "")).strip(), width=28)[:2]
     y = 66
     for line in headline:
-        draw.text((54, y), line, font=font(30), fill=ivory)
+        draw.text((54, y), line, font=font(30, "regular", "serif"), fill=ivory)
         y += 38
 
     detail = textwrap.wrap(str(scene.get("graphic_detail") or "").strip(), width=47)[:2]
     detail_y = 151 if len(headline) > 1 else 145
     for line in detail:
-        draw.text((54, detail_y), line, font=font(17), fill=muted)
+        draw.text((54, detail_y), line, font=font(17, "regular"), fill=muted)
         detail_y += 24
 
     # A restrained three-step progress motif makes the sequence legible without
@@ -3958,13 +4029,13 @@ def _ass_timestamp(seconds):
     return f"{hours}:{minutes:02}:{whole_seconds:02}.{fraction:02}"
 
 
-def write_kinetic_ass(cues, output_path):
-    """Write animated sentence-level captions aligned to Kokoro's measured cue times."""
+def write_kinetic_ass(cues, output_path, word_cues=None):
+    """Render sentence cards whose gold karaoke fill follows Kokoro word onsets."""
     target = Path(output_path)
     target.parent.mkdir(parents=True, exist_ok=True)
     header = [
         "[Script Info]",
-        "Title: Violin Prince Kinetic Captions",
+        "Title: Violin Prince Word-Synced Captions",
         "ScriptType: v4.00+",
         f"PlayResX: {W}",
         f"PlayResY: {H}",
@@ -3973,44 +4044,60 @@ def write_kinetic_ass(cues, output_path):
         "",
         "[V4+ Styles]",
         "Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding",
-        "Style: VP,DejaVu Sans,39,&H00F8F5EF,&H008BCEEA,&HCC07111F,&HCC07111F,-1,0,3,1.6,0,2,54,54,162,1",
+        "Style: VP,DM Sans,40,&H00F8F5EF,&H008BCAEB,&HCC07111F,&H00000000,-1,0,1,2.0,1.3,2,64,64,136,1",
         "",
         "[Events]",
         "Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text",
     ]
-    events = []
-    stopwords = {"the", "and", "for", "with", "from", "that", "this", "into", "was", "are", "its", "one", "when", "their"}
-    for cue in cues:
-        start = float(cue.get("start", 0))
-        end = float(cue.get("end", 0))
-        phrase = re.sub(r"\s+", " ", str(cue.get("text", "")).strip())
-        if not phrase or end <= start:
+    by_sentence = {}
+    for item in word_cues or []:
+        if not isinstance(item, dict):
             continue
-        words = re.findall(r"[A-Za-z0-9’'-]+", phrase)
-        candidates = [word for word in words if word.casefold() not in stopwords and len(word) >= 4]
-        emphasis = max(candidates or words or [""], key=len)
-        caption_lines = textwrap.wrap(phrase, width=27)[:2]
-        formatted_lines = []
-        for line in caption_lines:
-            safe_line = line.replace("{", r"\{").replace("}", r"\}")
-            if emphasis:
-                safe_line = re.sub(
-                    rf"(?i)\b({re.escape(emphasis)})\b",
-                    lambda match: (
-                        r"{\c&H008BCEEA&\b1}" + match.group(1) +
-                        r"{\c&H00F8F5EF&\b0}"
-                    ),
-                    safe_line,
-                    count=1,
-                )
-            formatted_lines.append(safe_line)
-        wrapped = r"\N".join(formatted_lines)
-        animated = r"{\fad(180,220)\fscx96\fscy96\t(0,180,\fscx100\fscy100)}" + wrapped
+        sentence_index = int(item.get("sentence_index", -1))
+        by_sentence.setdefault(sentence_index, []).append(item)
+
+    def safe_ass_text(value):
+        return str(value or "").replace("\\", r"\\").replace("{", r"\{").replace("}", r"\}")
+
+    events = []
+    for sentence_index, cue in enumerate(cues):
+        words = sorted(
+            by_sentence.get(sentence_index, []),
+            key=lambda item: float(item.get("start", 0)),
+        )
+        if not words:
+            raise PipelineError(
+                "Word-synced captions are required; sentence-level timing fallback is disabled."
+            )
+
+        event_start = float(words[0]["start"])
+        event_end = float(words[-1]["end"])
+        if event_end <= event_start:
+            raise PipelineError("Word-synced caption timing is invalid.")
+
+        fragments = [r"{\fad(100,160)\blur0.25}"]
+        line_length = 0
+        for word in words:
+            visible = safe_ass_text(word.get("text", ""))
+            if not visible:
+                continue
+            if line_length and line_length + len(visible) > 25:
+                fragments.append(r"\N")
+                line_length = 0
+            elif line_length:
+                fragments.append(" ")
+
+            onset = max(0, int(round((float(word["start"]) - event_start) * 100)))
+            duration = max(1, int(round((float(word["end"]) - float(word["start"])) * 100)))
+            fragments.append("{\\kt" + str(onset) + "\\kf" + str(duration) + "}" + visible)
+            line_length += len(re.sub(r"[^A-Za-z0-9]", "", str(word.get("text", ""))))
+
+        animated = "".join(fragments)
         events.append(
-            f"Dialogue: 0,{_ass_timestamp(start)},{_ass_timestamp(end)},VP,,0,0,0,,{animated}"
+            f"Dialogue: 0,{_ass_timestamp(event_start)},{_ass_timestamp(event_end)},VP,,0,0,0,,{animated}"
         )
     if not events:
-        raise PipelineError("No valid narration cues were available for kinetic captions.")
+        raise PipelineError("No valid word-timed narration cues were available for captions.")
     target.write_text("\n".join(header + events) + "\n", encoding="utf-8")
     return target
 
@@ -4022,12 +4109,12 @@ def command(args):
 
 
 def validate_final_video(path):
-    """Fail closed unless the final file contains valid vertical video and audio."""
+    """Fail closed unless the encoded file meets the actual vertical MP4 contract."""
     if not path.exists() or path.stat().st_size < 150000:
         raise PipelineError("Final MP4 is missing or unexpectedly small.")
     probe = subprocess.run(
         ["ffprobe", "-v", "error", "-show_entries",
-         "format=duration:stream=codec_type,width,height,sample_rate,channels",
+         "format=duration:stream=codec_type,width,height,sample_rate,channels,codec_name,r_frame_rate",
          "-of", "json", str(path)],
         capture_output=True, text=True
     )
@@ -4045,19 +4132,86 @@ def validate_final_video(path):
     if not video or not audio:
         raise PipelineError("Final MP4 must contain both video and mixed narration/music audio.")
     if int(video.get("width", 0)) != W or int(video.get("height", 0)) != H:
-        raise PipelineError("Final MP4 is not the required 720x1280 vertical format.")
+        raise PipelineError(f"Final MP4 is not the required {W}x{H} vertical format.")
     if not 23.5 <= duration <= 24.5:
         raise PipelineError(f"Final MP4 duration is outside the 24-second target: {duration:.2f}s.")
     if int(audio.get("sample_rate", 0)) < 22050:
         raise PipelineError("Final audio sample rate is unexpectedly low.")
+    codec = str(video.get("codec_name") or "")
+    if codec != "h264":
+        raise PipelineError("Final MP4 video codec must be H.264; received " + (codec or "unknown") + ".")
+    try:
+        rate_num, rate_den = str(video.get("r_frame_rate", "0/1")).split("/", 1)
+        frame_rate = float(rate_num) / max(0.0001, float(rate_den))
+    except (TypeError, ValueError, ZeroDivisionError):
+        raise PipelineError("ffprobe did not return a valid video frame rate.")
+    if abs(frame_rate - float(FPS)) > 0.5:
+        raise PipelineError(
+            f"Final MP4 frame rate is {frame_rate:.3f} fps; expected {FPS} fps."
+        )
 
     return {
         "duration_seconds": round(duration, 2),
         "width": int(video["width"]),
         "height": int(video["height"]),
+        "video_codec": codec,
+        "fps": round(frame_rate, 3),
         "audio_sample_rate": int(audio["sample_rate"]),
         "file_size_bytes": path.stat().st_size,
     }
+
+
+def make_render_contact_sheet(video_path, target_path, sample_points):
+    """Freeze representative encoded frames into one review sheet for visual QA."""
+    video_path = Path(video_path)
+    target = Path(target_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    thumb_width, thumb_height = 320, 568
+    header_height, gap, columns = 34, 18, 3
+    rows = (len(sample_points) + columns - 1) // columns
+    canvas_width = columns * thumb_width + (columns + 1) * gap
+    canvas_height = rows * (thumb_height + header_height) + (rows + 1) * gap
+    canvas = Image.new("RGB", (canvas_width, canvas_height), (8, 14, 25))
+    draw = ImageDraw.Draw(canvas)
+    label_face = font(14, "medium")
+    border = (122, 145, 165)
+
+    with tempfile.TemporaryDirectory(prefix="violin-prince-contact-") as temp_dir:
+        for index, (label, timestamp) in enumerate(sample_points):
+            sample_time = max(0.0, min(23.85, float(timestamp)))
+            frame_path = Path(temp_dir) / f"frame-{index:02d}.png"
+            extracted = subprocess.run(
+                [
+                    "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                    "-ss", f"{sample_time:.3f}", "-i", str(video_path),
+                    "-frames:v", "1",
+                    "-vf", f"scale={thumb_width}:{thumb_height}:force_original_aspect_ratio=increase,crop={thumb_width}:{thumb_height}",
+                    str(frame_path),
+                ],
+                capture_output=True, text=True,
+            )
+            if extracted.returncode or not frame_path.is_file():
+                raise PipelineError(
+                    f"Could not freeze visual QA frame at {sample_time:.2f}s: "
+                    + extracted.stderr[-500:]
+                )
+            with Image.open(frame_path) as frame:
+                thumb = frame.convert("RGB")
+            column, row = index % columns, index // columns
+            x = gap + column * (thumb_width + gap)
+            y = gap + row * (thumb_height + header_height + gap)
+            draw.text((x, y + 8), f"{label}  ·  {sample_time:.2f}s",
+                      font=label_face, fill=(235, 202, 139))
+            canvas.paste(thumb, (x, y + header_height))
+            draw.rectangle(
+                (x, y + header_height, x + thumb_width - 1, y + header_height + thumb_height - 1),
+                outline=border, width=1,
+            )
+
+    canvas.save(target, "PNG", optimize=True)
+    return target
+
+
 
 def scene_durations_from_narration(narration_info, total_seconds=24.0):
     """Allocate scene lengths around spoken beats, leaving a short music-only ending."""
@@ -4083,24 +4237,8 @@ def scene_durations_from_narration(narration_info, total_seconds=24.0):
 
 
 def camera_motion_filter(frame_count, scene_index=0):
-    """Use a gentle, eased push with a different continuous drift in each scene."""
-    count = max(1, int(frame_count))
-    progress = f"min(1,on/{max(1, count - 1)})"
-    eased = f"({progress}*{progress}*(3-2*{progress}))"
-    if int(scene_index) % 3 == 0:
-        x_position = f"(0.40+0.20*{eased})"
-        y_position = "0.5"
-    elif int(scene_index) % 3 == 1:
-        x_position = "0.5"
-        y_position = f"(0.42+0.16*{eased})"
-    else:
-        x_position = f"(0.60-0.20*{eased})"
-        y_position = "0.5"
-    return (
-        f"zoompan=z='1.005+0.055*{eased}':"
-        f"x='(iw-iw/zoom)*{x_position}':y='(ih-ih/zoom)*{y_position}':"
-        f"d={count}:s={W}x{H}:fps={FPS}"
-    )
+    """Keep the photographic plate stable; motion comes from designed overlays."""
+    return f"fps={FPS},setsar=1"
 
 
 def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
@@ -4115,7 +4253,37 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
     )
     clips = []
     scene_durations = scene_durations_from_narration(narration_info)
+    transition_seconds = 0.35
+    scene_starts = [
+        0.0,
+        max(0.0, scene_durations[0] - transition_seconds),
+        max(0.0, scene_durations[0] + scene_durations[1] - 2 * transition_seconds),
+    ]
+    all_word_cues = narration_info.get("word_cues", [])
+    scene_motion_events = []
     for i, (scene, scene_seconds) in enumerate(zip(plan["scenes"], scene_durations)):
+        scene_start = scene_starts[i]
+        scene_word_events = []
+        for cue in all_word_cues if isinstance(all_word_cues, list) else []:
+            if not isinstance(cue, dict):
+                continue
+            try:
+                absolute_start = float(cue.get("start"))
+                absolute_end = float(cue.get("end", absolute_start))
+            except (TypeError, ValueError):
+                continue
+            local_start = absolute_start - scene_start
+            if 0.0 <= local_start < scene_seconds:
+                scene_word_events.append({
+                    "text": str(cue.get("text") or ""),
+                    "start": round(local_start, 3),
+                    "end": round(max(local_start, absolute_end - scene_start), 3),
+                })
+        scene_motion_events.append({
+            "scene": i + 1,
+            "timeline_start_seconds": round(scene_start, 3),
+            "word_cue_count": len(scene_word_events),
+        })
         visual_prompt = (
             str(scene["image_prompt"]) +
             ", portrait 9:16 composition, centred focal subject, vertical framing, "
@@ -4138,6 +4306,7 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
             frame_count,
             FPS,
             font,
+            word_events=scene_word_events,
         )
         ambient_pattern = make_ambient_glow_frames(
             OUT / f"ambient-glow-{i + 1}", frame_count, FPS, scene_index=i
@@ -4195,7 +4364,6 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         clips.append(clip)
 
     silent = OUT / "silent.mp4"
-    transition_seconds = 0.35
     first_offset = max(0.0, scene_durations[0] - transition_seconds)
     second_offset = max(0.0, scene_durations[0] + scene_durations[1] - 2 * transition_seconds)
     transition_filter = (
@@ -4216,7 +4384,7 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
     from voiceover import write_srt
     write_srt(narration_info.get("subtitle_cues", []), subtitle_path)
     ass_path = OUT / "narration.ass"
-    write_kinetic_ass(narration_info.get("subtitle_cues", []), ass_path)
+    write_kinetic_ass(narration_info.get("subtitle_cues", []), ass_path, narration_info.get("word_cues", []))
     if audio_source == "generated_ambient_fallback":
         bed_volume = "0.18"
     elif audio_source == "sampled_violin_cc0":
@@ -4261,7 +4429,8 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
             "afade=t=in:st=0:d=0.5,afade=t=out:st=22:d=2[aout]"
         )
         audio_inputs = []
-    video_filter = "subtitles=work/output/narration.ass,format=yuv420p"
+    font_dir = Path(_ensure_brand_fonts()["serif"]).parent.as_posix()
+    video_filter = f"subtitles=work/output/narration.ass:fontsdir={font_dir},format=yuv420p"
     command([
         "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
         "-i", str(silent), "-stream_loop", "-1", "-i", str(audio_path),
@@ -4272,6 +4441,17 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(final)
     ])
     quality = validate_final_video(final)
+    contact_samples = [
+        ("HOOK / OPEN", 0.55),
+        ("HOOK / BEAT", min(23.65, max(0.8, scene_durations[0] * 0.56))),
+        ("MECHANISM / MID", min(23.65, scene_starts[1] + scene_durations[1] * 0.54)),
+        ("MECHANISM / LATE", min(23.65, scene_starts[1] + scene_durations[1] * 0.86)),
+        ("PERFORMANCE / MID", min(23.65, scene_starts[2] + scene_durations[2] * 0.55)),
+        ("FINAL FRAME", 23.30),
+    ]
+    contact_sheet = make_render_contact_sheet(
+        final, OUT / "visual-contact-sheet.png", contact_samples
+    )
     narration_end = max(
         [float(cue.get("end", 0)) for cue in narration_info.get("subtitle_cues", [])]
         or [float(narration_info.get("duration_seconds", 0))]
@@ -4281,13 +4461,13 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         "narration_duration_seconds": round(narration_end, 2),
         "voice_coverage_percent": round(min(100.0, narration_end / 24.0 * 100.0), 1),
         "music_only_ending_seconds": round(max(0.0, 24.0 - narration_end), 2),
-        "camera_motion": "scene-specific eased push-in and gentle drift",
+        "camera_motion": "locked photographic framing; no repetitive push-in",
         "motion_graphics": 3,
         "motion_graphics_renderer": "deterministic per-frame animated music visual explainers",
         "visual_engine": "photorealistic 3D-CGI scene plates with animated explainer overlays",
         "visual_modes": [str(scene.get("visual_mode") or "waveform") for scene in plan.get("scenes", [])],
         "creative_direction_version": CREATIVE_DIRECTION_VERSION,
-        "subtitle_style": "animated sentence-level kinetic typography",
+        "subtitle_style": "Kokoro word-timed karaoke typography with gold active-word fill",
         "scene_transition": "0.35-second crossfade",
         "audio_source": audio_source,
         "audio_mix": "voice-priority sidechain ducking; creator performance audio enters with Scene 3 when present",
@@ -4300,7 +4480,18 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
             "timeline_start_seconds": round(performance_start, 2) if performance_video_info else None,
             "fit_mode": "aspect-preserving foreground with blurred fill" if performance_video_info else "prepared CGI scene fallback",
         },
-        "creative_quality_version": 5,
+        "word_sync_status": narration_info.get("word_sync_status", "not_checked"),
+        "word_timing_method": narration_info.get("word_timing_method", "not_checked"),
+        "word_timing_count": int(narration_info.get("word_timing_count", 0)),
+        "motion_timing_source": "Kokoro-native word timestamps",
+        "speech_led_motion": True,
+        "motion_scene_timeline": scene_motion_events,
+        "visual_review_contact_sheet": contact_sheet.name,
+        "visual_review_samples": [
+            {"label": label, "time_seconds": round(float(timestamp), 2)}
+            for label, timestamp in contact_samples
+        ],
+        "creative_quality_version": 7,
     })
     (OUT / "quality_report.json").write_text(
         json.dumps(quality, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -4418,42 +4609,50 @@ def _read_package(require_images=False):
 
 
 def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
-    """Lock generated scene plates to the approved cinematic 3D-CGI visual identity."""
-    prompt = str(scene.get("image_prompt", "")).strip()
-    if not prompt:
+    """Build a compact scene prompt without truncating portrait or creator directions."""
+    raw_prompt = str(scene.get("image_prompt", "")).strip()
+    if not raw_prompt:
         raise PipelineError("A planned scene has no visual prompt.")
+
     shot_roles = (
-        "SHOT 1 — HOOK: a bold macro 3D hero composition that makes the musical question instantly visible.",
-        "SHOT 2 — MECHANISM: a close scientific view that reveals the exact physical or musical detail.",
-        "SHOT 3 — PERFORMANCE PAYOFF: a cinematic violin-and-bow composition with clean space for the creator's real take.",
+        "SHOT 1 — HOOK: macro hero view of the musical question.",
+        "SHOT 2 — MECHANISM: close scientific view of the physical or musical detail.",
+        "SHOT 3 — PERFORMANCE PAYOFF: cinematic violin-and-bow view with space for a real take.",
     )
-    subject = str((plan or {}).get("topic") or (plan or {}).get("title") or "the music fact")[:140]
+    subject = str((plan or {}).get("topic") or (plan or {}).get("title") or "the music fact")[:80]
     mode = str(scene.get("visual_mode") or ("macro_3d" if index == 0 else "cover_performance" if index == 2 else "waveform")).strip().casefold()
     mode_direction = VISUAL_MODE_PROMPTS.get(mode, VISUAL_MODE_PROMPTS["waveform"])
-    cover_payoff = str((plan or {}).get("cover_payoff") or "")[:180]
-    prompt += (
-        f" Story subject: {subject}. {shot_roles[max(0, min(2, int(index)))]} "
-        + mode_direction + " "
-        "Violin Prince visual identity: richly coloured photorealistic cinematic still imagery with the finish of premium real-world macro photography, or indistinguishable photorealistic CGI when a scientific cutaway is needed. "
-        "Use physically believable violin construction, a fully filled solid amber-brown varnished wooden body, visible natural wood grain, realistic highlights and shadows, fine bow hair, polished strings and metal fittings. "
-        "Render every subject in complete full colour with detailed surfaces, dimensional lighting and layered foreground/midground/background. "
-        "Use a disciplined palette of deep midnight navy, muted teal, antique gold, warm ivory and natural amber wood. "
-        "Never use crude uncoloured stick figures, wireframes, bare outlines, monochrome line art, sketch-only objects or hollow violin shapes as the main visual. "
-        "Keep the same lighting logic, material finish and recurring visual motif across all three scenes. "
-        "This is original art direction, not a recreation of another creator's characters, shots or visual identity. "
-        "Use simple coloured stick figures or simplified hand/arm characters only when they genuinely clarify a human action or musical interaction; keep them small, expressive and secondary to the real instrument or photo-based scene. Do not make every scene a stick-figure scene. "
-        "Use subtle moving illuminated dust, tiny four-point star glints, soft teal/amber gradient glow and gentle light pulses as atmospheric accents, never as clutter. "
-        "No generic stock photography, no celebrity likeness, no identifiable face, no unrelated people, "
-        "no logos, no watermark, no readable text, no song lyrics and no copyrighted notation. "
-        "Respect the exact sourced fact. A symbolic visual must never imply an unsupported event or measurement. "
-        "Portrait 9:16 composition. "
-        + ("Performance connection: " + cover_payoff + " " if cover_payoff else "")
-    )
-    clean_feedback = re.sub(r"\s+", " ", str(feedback or "")).strip()[:600]
-    if clean_feedback:
-        prompt += ", additional visual direction: " + clean_feedback
-    return prompt[:1800]
+    cover_payoff = str((plan or {}).get("cover_payoff") or "").strip()[:100]
+    clean_feedback = re.sub(r"\s+", " ", str(feedback or "")).strip()[:260]
 
+    brand_direction = (
+        "Violin Prince identity: richly coloured photorealistic cinematic still imagery or indistinguishable CGI; "
+        "physically believable violin construction, amber-brown varnished wood, visible natural wood grain, "
+        "realistic strings, bow hair and metal, dimensional lighting and layered foreground/midground/background. "
+        "Palette: deep midnight navy, muted teal, antique gold, warm ivory and natural amber. Full colour. "
+        "This is original art direction. No uncoloured stick figures, wireframes, bare outlines, monochrome line art "
+        "or sketch-only main subjects; small coloured hands/figures only to clarify action. "
+        "Subtle dust, star glints and restrained teal/amber glow. "
+        "No stock photography, identifiable faces, logos, readable text or lyrics; no watermark. "
+        "Respect sourced facts; no unsupported events or measurements. Portrait 9:16 composition."
+    )
+    role = shot_roles[max(0, min(2, int(index)))]
+    fixed = f" Story subject: {subject}. {role} {mode_direction} {brand_direction}"
+    suffix = ""
+    if cover_payoff:
+        suffix += " Performance connection: " + cover_payoff
+    if clean_feedback:
+        suffix += ", additional visual direction: " + clean_feedback
+
+    # Reserve room for the portrait constraint and creator feedback first.
+    # Only shorten the model-written scene description when the total exceeds
+    # the image-provider prompt budget; never cut off the required suffix.
+    scene_budget = max(0, 1800 - len(fixed) - len(suffix) - 2)
+    scene_text = raw_prompt[:min(500, scene_budget)]
+    result = scene_text + "." + fixed + suffix
+    if len(result) > 1800:
+        raise PipelineError("Scene visual prompt exceeded the 1,800-character provider limit.")
+    return result
 
 def make_storyboard_preview(plan, image_paths, target):
     """Build a single review sheet so visual approval happens before video rendering."""
