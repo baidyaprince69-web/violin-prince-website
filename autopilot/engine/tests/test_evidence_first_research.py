@@ -151,7 +151,7 @@ class EvidenceFirstGroupingTests(unittest.TestCase):
         plan = {
             "topic": "Film Music and Animation",
             "title": "The Melancholy Lullaby of Space Cadet",
-            "description": "Karen O performs Soft Machine for Kid Koala's Space Cadet.",
+            "description": "Space Cadet; Soft Machine; Karen O; Kid Koala.",
             "hook": "A silent film needs music.",
             "narration_script": (
                 "A silent film needs music. Space Cadet has no dialogue. "
