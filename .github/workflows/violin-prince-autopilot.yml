@@ -57,6 +57,7 @@ jobs:
       PUBLISH_ENABLED: "false"
     steps:
       - name: Validate stage inputs
+        if: github.event_name != 'push'
         shell: bash
         env:
           SELECTED_STAGE: ${{ inputs.stage || 'full' }}
