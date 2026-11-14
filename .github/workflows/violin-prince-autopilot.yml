@@ -44,6 +44,12 @@ jobs:
       VISUAL_FEEDBACK: ${{ inputs.visual_feedback }}
       CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
       CF_AI_TOKEN: ${{ secrets.CF_AI_TOKEN }}
+      YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+      YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+      YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+      YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+      YOUTUBE_STATE_ENCRYPTION_KEY: ${{ secrets.YOUTUBE_STATE_ENCRYPTION_KEY }}
+      SEO_LEARNING_REPORT_PATH: work/seo-learning-data/seo-learning/latest.enc.json
       PUBLISH_ENABLED: "false"
     steps:
       - name: Validate stage inputs
@@ -82,6 +88,15 @@ jobs:
 
       - name: Check out the project
         uses: actions/checkout@v4
+
+      - name: Restore the latest encrypted SEO learning snapshot
+        if: env.PIPELINE_STAGE == 'prepare' || env.PIPELINE_STAGE == 'full'
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          ref: seo-learning-data
+          path: work/seo-learning-data
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v5

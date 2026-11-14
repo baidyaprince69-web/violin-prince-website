@@ -11,6 +11,13 @@ from urllib.parse import quote, unquote, urlparse
 import requests
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 
+try:
+    from .seo_intelligence import build_topic_queries, discover as seo_discover, load_profile as seo_load_profile
+    from .seo_intelligence.storage import load_learning_signals
+except ImportError:  # Direct script execution from the engine directory.
+    from seo_intelligence import build_topic_queries, discover as seo_discover, load_profile as seo_load_profile
+    from seo_intelligence.storage import load_learning_signals
+
 API = os.environ.get("AUTOPILOT_API_URL", "").rstrip("/")
 JOB_TOKEN = os.environ.get("AUTOPILOT_JOB_TOKEN", "")
 CF_ACCOUNT = os.environ.get("CF_ACCOUNT_ID", "")
@@ -593,12 +600,96 @@ def narration_sentence_budget_error(script):
     return ""
 
 
-def make_plan(items, recent=None):
+def recent_seo_learning():
+    """Decrypt the latest GitHub-native SEO snapshot; never call Cloudflare or poll YouTube."""
+    report_path = os.environ.get("SEO_LEARNING_REPORT_PATH", "").strip()
+    encryption_key = os.environ.get("YOUTUBE_STATE_ENCRYPTION_KEY", "").strip()
+    if not report_path:
+        log("SEO learning snapshot path is not configured; using the balanced language mix.")
+        return None
+    if not encryption_key:
+        log("SEO learning key is not configured; using the balanced language mix.")
+        return None
+    try:
+        learning = load_learning_signals(report_path, encryption_key)
+        if not isinstance(learning, dict):
+            log("No completed SEO learning snapshot exists yet; using the balanced language mix.")
+            return None
+        log(
+            "Loaded encrypted SEO learning snapshot from " +
+            str(learning.get("captured_at") or "an undated report") +
+            "; only bounded SEO signals will be passed into Discover."
+        )
+        return learning
+    except Exception as exc:
+        log("SEO learning snapshot could not be decrypted; using the balanced language mix: " + str(exc)[:180])
+        return None
+
+
+def recent_youtube_access_token():
+    """Refresh one read-only Discover token per Prepare run; never log or persist it."""
+    required = ("YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN")
+    if not all(os.environ.get(name) for name in required):
+        return None
+    try:
+        response = http.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "client_id": os.environ["YOUTUBE_CLIENT_ID"],
+                "client_secret": os.environ["YOUTUBE_CLIENT_SECRET"],
+                "refresh_token": os.environ["YOUTUBE_REFRESH_TOKEN"],
+                "grant_type": "refresh_token",
+            },
+            timeout=30,
+        )
+        response.raise_for_status()
+        token = response.json().get("access_token")
+        return str(token).strip() if token else None
+    except Exception as exc:
+        log("YouTube OAuth token refresh unavailable for Discover: " + str(exc)[:180])
+        return None
+
+
+def compact_seo_discovery(discovery):
+    """Give the planner a compact audience-interest summary, not a raw API dump."""
+    discovery = discovery if isinstance(discovery, dict) else {}
+    return {
+        "status": discovery.get("status", "unavailable"),
+        "region_code": discovery.get("region_code", "IN"),
+        "queries_sampled": discovery.get("queries_sampled", 0),
+        "search_volume": None,
+        "search_volume_note": discovery.get("search_volume_note", ""),
+        "opportunities": [
+            {
+                "language": item.get("language"),
+                "language_name": item.get("language_name"),
+                "query": item.get("query"),
+                "results_returned": item.get("results_returned"),
+                "median_views_per_day_observed": item.get("median_views_per_day_observed"),
+                "recent_upload_share_30d": item.get("recent_upload_share_30d"),
+                "opportunity_score": item.get("opportunity_score"),
+                "top_result_titles": [
+                    result.get("title", "") for result in item.get("top_results", [])[:2]
+                ],
+            }
+            for item in discovery.get("recommended_opportunities", [])[:6]
+        ],
+        "learned_language_signals_used": discovery.get("learned_language_signals_used", []),
+        # Actual owner search phrases are used in the in-memory planner context only;
+        # they are deliberately not copied into the prepared artifact.
+        "learned_search_term_signal_count": len(discovery.get("learned_search_terms_used", [])),
+    }
+
+
+def make_plan(items, recent=None, seo_context=None):
     system = (
         "You are the editorial director of Violin Prince, a violin creator. Choose one timely, "
         "well-supported, family-friendly subject from these headlines and turn it into an original "
         "short visual story with spoken narration and an original string-style instrumental soundtrack. "
         "Choose for a music-loving audience: prioritise violin and instruments, classical and contemporary music, "
+        "Treat YouTube SEO Discovery context as limited audience-interest evidence only. Never choose a topic solely "
+        "because a sampled opportunity score is high; it must still be well-supported by the research and relevant "
+        "to violin/music listeners. Never describe public result samples as search demand or search volume. "
         "film music, artists, performances, festivals and music culture. Art, culture, science or discovery may be "
         "chosen when the story has a clear, compelling connection to music or a strong visual idea. Reject unrelated "
         "retail promotions and generic technology announcements, as well as tragedies, graphic events, violence, "
@@ -641,6 +732,8 @@ def make_plan(items, recent=None):
              "Create a 24-second story for Violin Prince's music-loving audience from these current research headlines. "
              "Choose relevance and a strong visual story over generic trendiness. Avoid repeating prior topics. " +
              "Previously published topics to avoid: " + json.dumps(recent or [], ensure_ascii=False) +
+             "\nYouTube SEO Discovery context (directional samples, not search volume): " +
+             json.dumps(seo_context or {}, ensure_ascii=False) +
              "\nResearch evidence: " + json.dumps(compact, ensure_ascii=False)}
         ],
         # Gemma 4 supports this parameter; disabling reasoning keeps the response
@@ -1532,7 +1625,52 @@ def prepare_stage():
     if items is None:
         items = research()
         log("Research sources collected: " + str(len(items)))
-    plan = make_plan(items, recent_topics())
+    # DISCOVER: consume the latest encrypted Phase 5 learning snapshot, then sample
+    # a bounded English/Hindi/Bengali search mix before the editorial planner chooses.
+    learning = recent_seo_learning()
+    access_token = recent_youtube_access_token()
+    discovery = seo_discover(
+        profile=seo_load_profile(),
+        api_key=os.environ.get("YOUTUBE_API_KEY", ""),
+        access_token=access_token,
+        learned_signals=learning,
+        max_queries=6,
+    )
+    log(
+        "SEO Discover prepared " + str(discovery.get("queries_sampled", 0)) +
+        " live YouTube query samples; learned language groups used: " +
+        str(len(discovery.get("learned_language_signals_used", []))) +
+        "; learned search terms applied: " +
+        str(len(discovery.get("learned_search_terms_used", []))) +
+        ". Search volume is not available from this API."
+    )
+    plan = make_plan(items, recent_topics(), seo_context=compact_seo_discovery(discovery))
+
+    # Validate the selected story topic in the same three languages; this remains
+    # read-only and cannot change video metadata or publication permissions.
+    topic_queries = build_topic_queries(plan.get("topic") or plan.get("title"))
+    topic_validation = seo_discover(
+        profile=seo_load_profile(),
+        api_key=os.environ.get("YOUTUBE_API_KEY", ""),
+        access_token=access_token,
+        learned_signals=learning,
+        query_plan_override=topic_queries,
+    )
+    plan["seo_discovery_summary"] = {
+        "status": discovery.get("status", "unavailable"),
+        "queries_sampled": discovery.get("queries_sampled", 0),
+        "topic_validation_status": topic_validation.get("status", "unavailable"),
+        "topic_validation_queries_sampled": topic_validation.get("queries_sampled", 0),
+        "learned_language_groups_used": len(discovery.get("learned_language_signals_used", [])),
+        "learned_search_terms_applied": len(discovery.get("learned_search_terms_used", [])),
+        "region_code": discovery.get("region_code", "IN"),
+        "search_volume": None,
+    }
+    plan["seo_learning_snapshot"] = {
+        "captured_at": (learning or {}).get("captured_at"),
+        "sample_count": (learning or {}).get("sample_count", 0),
+        "learning_ready": bool((learning or {}).get("learning_ready")),
+    }
     topic, title = str(plan.get("topic", "")), str(plan.get("title", "Violin Prince Short"))
     from voiceover import synthesize_voiceover
     narration_path, narration_info = synthesize_voiceover(

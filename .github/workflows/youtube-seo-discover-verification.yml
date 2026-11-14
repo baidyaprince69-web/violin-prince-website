@@ -26,7 +26,7 @@ jobs:
       - name: Check out the tested SEO engine
         uses: actions/checkout@v4
         with:
-          ref: 4ba40de7b1472121d2307156db696925957f01ed
+          ref: main
           path: source
           persist-credentials: false
 
@@ -78,7 +78,12 @@ jobs:
           print("Encrypted snapshot: decrypted successfully.")
           print("Snapshot date: " + str(learning.get("captured_at") or "not provided"))
           print("Learning sample count: " + str(int(learning.get("sample_count", 0))))
-          print("Stored language-signal groups: " + str(len(learning.get("language_signals", []))))
+          stored_language_codes = sorted({
+              str(item.get("language") or "").lower()
+              for item in learning.get("language_signals", [])
+              if isinstance(item, dict) and item.get("language")
+          })
+          print("Stored language-signal codes: " + (", ".join(stored_language_codes) or "none"))
           print("Stored supported search-term signals: " + str(len(learning.get("search_term_signals", []))))
 
           token_response = requests.post(
@@ -123,10 +128,10 @@ jobs:
               raise SystemExit("Discover did not preserve English, Hindi and Bengali coverage.")
 
           if learned_languages or learned_terms_used:
-              print("PASS: the decrypted learning snapshot influenced the Discover plan.")
+              print("PASS: supported English/Hindi/Bengali learning signals influenced the Discover plan.")
           else:
-              print("WARNING: the snapshot was read and Discover ran, but it contained no actionable language/search-term signal.")
-              print("The balanced multilingual plan was preserved; inspect the learning sample before claiming an SEO priority change.")
+              print("NOTICE: the snapshot decrypted and Discover ran, but there is no supported actionable English/Hindi/Bengali language or search-term signal yet.")
+              print("The balanced multilingual plan was preserved; no SEO priority shift is claimed.")
 
           print("Safety: read-only discovery only; no video, metadata, or publication changes.")
           PY
