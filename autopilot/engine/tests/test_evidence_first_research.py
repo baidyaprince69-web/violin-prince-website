@@ -3,6 +3,7 @@ import os
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -21,6 +22,10 @@ def article(title, domain, path, body):
         "publisher_domain": domain,
         "url": f"https://{domain}/{path}",
         "date": "2026-11-14",
+        "published_at_utc": "2026-11-14T00:00:00Z",
+        "publication_date_source": "test publisher metadata",
+        "article_page_verified": True,
+        "article_page_kind": "article_metadata",
         "source_feed": "test direct article",
         "link_type": "publisher_article",
         "evidence_text": body,
@@ -105,6 +110,94 @@ class EvidenceFirstGroupingTests(unittest.TestCase):
             pipeline.build_verified_story_groups([aggregator, short]),
             [],
         )
+
+    def test_category_tag_archive_and_event_pages_are_not_article_pages(self):
+        for url in (
+            "https://soundtrackworld.com/category/news/",
+            "https://example.com/tag/violin/",
+            "https://example.com/archive/2026/",
+            "https://example.com/events/world-soundtrack-awards/",
+            "https://en.wikipedia.org/wiki/World_Soundtrack_Awards",
+        ):
+            with self.subTest(url=url):
+                self.assertFalse(pipeline.is_direct_publisher_article(url))
+
+    def test_publication_date_policy_prefers_fifty_hours_but_accepts_up_to_seven_days(self):
+        as_of = datetime(2026, 11, 14, 12, 0, tzinfo=timezone.utc)
+        cases = [
+            (49, "preferred", True),
+            (50, "preferred", True),
+            (51, "acceptable", True),
+            (120, "acceptable", True),
+            (168, "acceptable", True),
+            (169, "stale", False),
+        ]
+        for age, expected_status, expected_eligible in cases:
+            with self.subTest(age_hours=age):
+                record = {
+                    "published_at_utc": (as_of - timedelta(hours=age)).isoformat(),
+                }
+                result = pipeline.article_freshness(record, as_of=as_of)
+                self.assertEqual(result["freshness_status"], expected_status)
+                self.assertEqual(result["freshness_eligible"], expected_eligible)
+
+    def test_recent_but_undated_or_future_articles_do_not_qualify(self):
+        as_of = datetime(2026, 11, 14, 12, 0, tzinfo=timezone.utc)
+        undated = dict(MIT_ARTICLE)
+        undated.pop("date", None)
+        undated.pop("published_at_utc", None)
+        future = dict(SECOND_ARTICLE)
+        future["published_at_utc"] = (as_of + timedelta(hours=2)).isoformat()
+        self.assertFalse(pipeline._story_article_eligibility(undated, as_of)[0])
+        self.assertEqual(pipeline._story_article_eligibility(undated, as_of)[1], "publication_date_missing")
+        self.assertFalse(pipeline._story_article_eligibility(future, as_of)[0])
+        self.assertEqual(pipeline._story_article_eligibility(future, as_of)[1], "publication_date_is_in_the_future")
+
+    def test_two_independent_articles_six_days_old_remain_eligible(self):
+        as_of = datetime(2026, 11, 14, 12, 0, tzinfo=timezone.utc)
+        older_first = dict(MIT_ARTICLE)
+        older_second = dict(SECOND_ARTICLE)
+        published = (as_of - timedelta(days=6)).isoformat()
+        older_first["published_at_utc"] = published
+        older_second["published_at_utc"] = published
+        groups = pipeline.build_verified_story_groups([older_first, older_second], as_of=as_of)
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(groups[0]["preferred_source_count"], 0)
+        self.assertEqual(groups[0]["oldest_source_age_hours"], 144)
+
+    def test_articles_older_than_seven_days_do_not_form_a_group(self):
+        as_of = datetime(2026, 11, 14, 12, 0, tzinfo=timezone.utc)
+        old_first = dict(MIT_ARTICLE)
+        old_second = dict(SECOND_ARTICLE)
+        published = (as_of - timedelta(days=7, hours=1)).isoformat()
+        old_first["published_at_utc"] = published
+        old_second["published_at_utc"] = published
+        self.assertEqual(
+            pipeline.build_verified_story_groups([old_first, old_second], as_of=as_of),
+            [],
+        )
+
+    def test_article_metadata_extraction_reads_published_time_and_jsonld(self):
+        html = (
+            '<html><head><meta property="og:type" content="article">'
+            '<meta property="article:published_time" content="2026-11-12T17:46:00Z">'
+            '<meta property="og:title" content="A virtual violin model">'
+            '</head><body><p>Article evidence.</p></body></html>'
+        )
+        meta = pipeline.extract_article_page_metadata(html)
+        self.assertTrue(meta["is_article"])
+        self.assertEqual(meta["published_at_utc"], "2026-11-12T17:46:00Z")
+        self.assertEqual(meta["page_title"], "A virtual violin model")
+
+        jsonld = (
+            '<script type="application/ld+json">'
+            '{"@type":"NewsArticle","headline":"A new violin discovery",'
+            '"datePublished":"2026-11-13T08:00:00Z"}'
+            '</script>'
+        )
+        structured = pipeline.extract_article_page_metadata(jsonld)
+        self.assertTrue(structured["is_article"])
+        self.assertEqual(structured["published_at_utc"], "2026-11-13T08:00:00Z")
 
     def test_source_first_expansion_finds_corroboration_before_planner_runs(self):
         lead = {
