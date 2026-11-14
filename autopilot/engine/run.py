@@ -644,107 +644,171 @@ def is_direct_publisher_article(item):
 
 
 def enrich_source_evidence(items):
-    """Resolve discovery links, then extract evidence only from a final publisher page."""
-    request_headers = {"User-Agent": "Mozilla/5.0 (compatible; ViolinPrinceAutopilot/0.2)"}
+    """Resolve discovery URLs, then retain evidence only from a verified article page."""
+    request_headers = {"User-Agent": "Mozilla/5.0 (compatible; ViolinPrinceAutopilot/0.3)"}
 
-    def publisher_page(url, source_item=None):
-        """Fetch and verify one specific publisher article, its date and body."""
-        response = requests.get(
-            url,
-            headers=request_headers,
-            timeout=(5, 12),
-            allow_redirects=True,
-        )
+    def promote_publisher_response(response, item, original_url, resolution_status):
         content_type = response.headers.get("Content-Type", "").lower()
-        final_url = str(response.url or url)
+        final_url = str(response.url or original_url)
         final_host = (urlparse(final_url).hostname or "").lower().removeprefix("www.")
         if response.status_code != 200 or "html" not in content_type:
             return None
         if _is_news_aggregator_host(final_host) or not is_direct_publisher_article(final_url):
             return None
         metadata = extract_article_page_metadata(response.text)
-        if not _article_page_verified(source_item or {}, final_url, response.text, metadata):
+        if not _article_page_verified(item, final_url, response.text, metadata):
             return None
         parser = ParagraphExtractor()
         parser.feed(response.text[:1_500_000])
         excerpt = " ".join(parser.paragraphs[:14])[:2200]
         if len(excerpt) < 90:
             return None
-        return final_url, final_host, excerpt, metadata
 
-    def fetch_one(item):
-        url = str(item.get("url", ""))
-        if not url.startswith(("http://", "https://")):
+        item["source_url_original"] = str(original_url or "")
+        item["url"] = final_url
+        item["publisher_url"] = final_url
+        item["publisher_domain"] = final_host
+        item["evidence_text"] = excerpt
+        item["link_type"] = "publisher_article"
+        item["article_page_verified"] = True
+        item["article_page_kind"] = (
+            "structured_article_title_matched" if metadata.get("structured_article")
+            else "og_article_title_matched" if metadata.get("og_type_article")
+            else "article_title_matched"
+        )
+        item["publisher_resolution_status"] = resolution_status
+        item.pop("publisher_resolution_error", None)
+        if metadata.get("published_at_utc"):
+            item["published_at_utc"] = metadata["published_at_utc"]
+            item["publication_date_source"] = "publisher_article_metadata"
+        elif item.get("date"):
+            published, _precision = parse_publication_timestamp(item.get("date"))
+            if published:
+                # Google/Bing RSS dates remain attached to this exact, publisher-
+                # matched article. They are a fallback only when the page has none.
+                item["published_at_utc"] = published.isoformat().replace("+00:00", "Z")
+                item["publication_date_source"] = "publisher_matched_rss_pubdate"
+        return item
+
+    def publisher_page(url, source_item, original_url, resolution_status):
+        response = requests.get(
+            url,
+            headers=request_headers,
+            timeout=(5, 12),
+            allow_redirects=True,
+        )
+        return promote_publisher_response(
+            response, source_item, original_url, resolution_status
+        )
+
+    def fetch_one(item, google_decode_allowed=False):
+        original_url = str(item.get("url") or "")
+        if not original_url.startswith(("http://", "https://")):
             return item
         try:
             response = requests.get(
-                url,
+                original_url,
                 headers=request_headers,
                 timeout=(5, 12),
                 allow_redirects=True,
             )
-            final_url = str(response.url or url)
+            final_url = str(response.url or original_url)
             final_host = (urlparse(final_url).hostname or "").lower().removeprefix("www.")
             content_type = response.headers.get("Content-Type", "").lower()
 
             if response.status_code == 200 and "html" in content_type:
+                # Direct publisher URLs need only one fetch. Article title matching is
+                # still mandatory; Article/OG metadata alone cannot qualify a section page.
                 if not _is_news_aggregator_host(final_host) and is_direct_publisher_article(final_url):
-                    article_meta = extract_article_page_metadata(response.text)
-                    parser = ParagraphExtractor()
-                    parser.feed(response.text[:1_500_000])
-                    excerpt = " ".join(parser.paragraphs[:14])[:2200]
-                    if len(excerpt) >= 90 and _article_page_verified(item, final_url, response.text, article_meta):
-                        item["url"] = final_url
-                        item["publisher_url"] = final_url
-                        item["publisher_domain"] = final_host
-                        item["evidence_text"] = excerpt
-                        item["link_type"] = "publisher_article"
-                        item["article_page_verified"] = True
-                        item["article_page_kind"] = "article_metadata" if article_meta.get("is_article") else "article_title_url_match"
-                        if article_meta.get("published_at_utc"):
-                            item["published_at_utc"] = article_meta["published_at_utc"]
-                            item["publication_date_source"] = "publisher_article_metadata"
-                        return item
+                    promoted = promote_publisher_response(
+                        response, item, original_url, "direct_publisher_url"
+                    )
+                    if promoted:
+                        return promoted
 
-                # A search/news portal can reveal the publisher URL, but its own
-                # page text and host are never retained as factual article evidence.
-                expected_domain = item.get("publisher_domain", "")
-                resolved = _publisher_article_url_from_html(
-                    response.text[:1_500_000], expected_domain
-                )
-                if resolved:
-                    verified = publisher_page(resolved, item)
-                    if verified:
-                        resolved_url, resolved_host, excerpt, article_meta = verified
-                        item["url"] = resolved_url
-                        item["publisher_url"] = resolved_url
-                        item["publisher_domain"] = resolved_host
-                        item["evidence_text"] = excerpt
-                        item["link_type"] = "publisher_article"
-                        item["article_page_verified"] = True
-                        item["article_page_kind"] = "article_metadata" if article_meta.get("is_article") else "article_title_url_match"
-                        if article_meta.get("published_at_utc"):
-                            item["published_at_utc"] = article_meta["published_at_utc"]
-                            item["publication_date_source"] = "publisher_article_metadata"
-                        return item
+                # Current Google News RSS IDs are opaque. The article wrapper embeds a
+                # signature and timestamp for Google's batchexecute resolver; a plain
+                # redirect or URL scrape does not reliably expose the publisher URL.
+                if _google_news_article_id(original_url):
+                    if google_decode_allowed:
+                        try:
+                            resolved_url = resolve_google_news_article_url(
+                                original_url,
+                                response.text,
+                                expected_domain=item.get("publisher_domain", ""),
+                            )
+                            promoted = publisher_page(
+                                resolved_url,
+                                item,
+                                original_url,
+                                "resolved_via_google_news_batchexecute",
+                            )
+                            if promoted:
+                                return promoted
+                            item["publisher_resolution_error"] = (
+                                "Decoded publisher page failed article-title or readable-body verification."
+                            )
+                        except Exception as exc:
+                            item["publisher_resolution_error"] = str(exc)[:220]
+                    else:
+                        item["publisher_resolution_error"] = (
+                            "Google News decode budget reached for this research pass."
+                        )
+                    item["publisher_resolution_status"] = "unresolved_google_news"
+                else:
+                    # Bing and other discovery pages may expose a direct publisher link
+                    # in their HTML; resolve it only when the publisher identity matches.
+                    expected_domain = item.get("publisher_domain", "")
+                    resolved = _publisher_article_url_from_html(
+                        response.text[:1_500_000], expected_domain
+                    )
+                    if resolved:
+                        promoted = publisher_page(
+                            resolved, item, original_url, "resolved_from_discovery_interstitial"
+                        )
+                        if promoted:
+                            return promoted
+                        item["publisher_resolution_error"] = (
+                            "Extracted publisher page failed article-title or readable-body verification."
+                        )
 
-            # Keep the discovery record, but explicitly remove fields that could
-            # accidentally make an aggregator page look like a final citation.
             item.pop("publisher_url", None)
             item.pop("evidence_text", None)
             item["article_page_verified"] = False
             item["article_page_kind"] = "non_article_or_unverified_page"
             item["link_type"] = "discovery_lead"
+            item.setdefault("publisher_resolution_status", "article_page_unverified")
         except Exception as exc:
+            item.pop("publisher_url", None)
+            item.pop("evidence_text", None)
+            item["article_page_verified"] = False
+            item["article_page_kind"] = "non_article_or_unverified_page"
+            item["link_type"] = "discovery_lead"
+            item["publisher_resolution_status"] = "fetch_failed"
+            item["publisher_resolution_error"] = str(exc)[:220]
             log("Article evidence unavailable: " + str(exc)[:120])
         return item
 
-    candidates = items[:140]
+    candidates = items[:240]
     if not candidates:
         return items
+    # Decoding costs two requests per Google News article. Bound the first pass and
+    # prioritize the most relevant (already ranked) Google links to avoid rate bursts.
+    google_urls = [
+        str(item.get("url") or "") for item in candidates
+        if _google_news_article_id(item.get("url"))
+    ]
+    google_decode_allowlist = set(google_urls[:18])
     completed = {}
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        futures = {pool.submit(fetch_one, dict(item)): item.get("url") for item in candidates}
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = {
+            pool.submit(
+                fetch_one,
+                dict(item),
+                str(item.get("url") or "") in google_decode_allowlist,
+            ): item.get("url")
+            for item in candidates
+        }
         for future in as_completed(futures):
             try:
                 result = future.result()
