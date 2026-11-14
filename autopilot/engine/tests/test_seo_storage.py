@@ -83,7 +83,7 @@ class EncryptedSEOLearningStorageTests(unittest.TestCase):
                 read_encrypted_snapshot(path, self.key)
 
     def test_invalid_key_length_is_rejected(self):
-        with self.assertRaisesRegex(ValueError, "exactly 32 random bytes"):
+        with self.assertRaisesRegex(ValueError, "exactly 32 bytes"):
             encrypt_learning_snapshot(self.snapshot, base64.urlsafe_b64encode(b"short").decode("ascii"))
 
 
