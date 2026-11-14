@@ -127,6 +127,7 @@ async function dispatchWorkflow(env, mode = "scheduled") {
   ).bind(runId, "queued", mode, isoNow(), isoNow()).run();
 
   let dispatchFailure = "";
+  let dispatchOutcomeUnknown = false;
   try {
     const response = await fetch(
       "https://api.github.com/repos/" + env.GITHUB_OWNER + "/" + env.GITHUB_REPO +
@@ -147,34 +148,43 @@ async function dispatchWorkflow(env, mode = "scheduled") {
       }
     );
     if (!response.ok) {
-      const detail = (await response.text()).slice(0, 600);
+      let detail = "";
+      try { detail = (await response.text()).slice(0, 600); } catch { /* HTTP status is already definitive. */ }
       dispatchFailure = "GitHub dispatch failed: " + response.status +
         (detail ? " " + detail : "");
     }
   } catch (error) {
-    dispatchFailure = "GitHub dispatch request failed: " +
+    // A transport error cannot prove whether GitHub accepted the request.
+    // Keep the daily lock until the outcome can be reconciled to avoid duplicates.
+    dispatchOutcomeUnknown = true;
+    dispatchFailure = "GitHub dispatch outcome is unknown: " +
       String(error && error.message ? error.message : error).slice(0, 600);
   }
 
   if (dispatchFailure) {
-    // Release the daily reservation only when GitHub has rejected the dispatch
-    // or the request failed before acceptance. This makes a same-day retry safe.
     try {
       await env.DB.prepare("UPDATE runs SET status=?,message=?,updated_at=? WHERE id=?")
-        .bind("failed", dispatchFailure.slice(0, 900), isoNow(), runId).run();
+        .bind(dispatchOutcomeUnknown ? "dispatch_unknown" : "failed",
+          dispatchFailure.slice(0, 900), isoNow(), runId).run();
     } catch (error) {
-      await event(env, "Could not mark failed dispatch run: " +
+      await event(env, "Could not persist dispatch failure state: " +
         String(error && error.message ? error.message : error).slice(0, 400), "warning", runId);
     }
-    try {
-      await env.DB.prepare("DELETE FROM daily_dispatches WHERE day_utc=? AND run_id=?")
-        .bind(day, runId).run();
-    } catch (error) {
-      await event(env, "Could not release failed dispatch reservation: " +
-        String(error && error.message ? error.message : error).slice(0, 400), "warning", runId);
+    if (!dispatchOutcomeUnknown) {
+      // An explicit non-2xx response confirms that GitHub rejected the dispatch.
+      try {
+        await env.DB.prepare("DELETE FROM daily_dispatches WHERE day_utc=? AND run_id=?")
+          .bind(day, runId).run();
+      } catch (error) {
+        await event(env, "Could not release rejected dispatch reservation: " +
+          String(error && error.message ? error.message : error).slice(0, 400), "warning", runId);
+      }
     }
-    await event(env, dispatchFailure, "error", runId);
-    return { ok: false, reason: "github_dispatch_failed" };
+    await event(env, dispatchFailure, dispatchOutcomeUnknown ? "warning" : "error", runId);
+    return {
+      ok: false,
+      reason: dispatchOutcomeUnknown ? "dispatch_outcome_unknown" : "github_dispatch_failed"
+    };
   }
 
   await event(env, "GitHub-hosted Full production workflow dispatched.", "success", runId);
@@ -451,6 +461,3 @@ export default {
     ]));
   }
 };
-
-// Exported for offline Node regression tests; the Worker entry point remains the default export.
-export { dispatchWorkflow };
