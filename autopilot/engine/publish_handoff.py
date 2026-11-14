@@ -9,6 +9,8 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import json
+import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -336,16 +338,22 @@ def build_publish_manifest(
     """Create a publisher-facing handoff. A missing audience choice means HOLD."""
     metadata = metadata_check["value"]
     blockers: list[str] = []
-    if video_quality.get("status") != "passed":
-        blockers.append("Final MP4 quality validation did not pass.")
+    if not (
+        video_quality.get("width") == 720
+        and video_quality.get("height") == 1280
+        and video_quality.get("video_codec") == "h264"
+        and float(video_quality.get("duration_seconds") or 0) > 0
+        and int(video_quality.get("audio_sample_rate") or 0) >= 22050
+    ):
+        blockers.append("Final MP4 quality validation did not return the expected vertical H.264/audio contract.")
     if not metadata_check.get("audience_confirmed"):
         blockers.append("Confirm made_for_kids as true or false before scheduling or publishing.")
     audio_rights = provenance.get("assets", {}).get("soundtrack", {}).get("rights_status")
     if audio_rights == "rights_review_required":
         blockers.append("Soundtrack origin or license needs review before publication.")
 
-    repository = str(__import__("os").environ.get("GITHUB_REPOSITORY") or "").strip()
-    github_run = str(__import__("os").environ.get("GITHUB_RUN_ID") or run_id).strip()
+    repository = str(os.environ.get("GITHUB_REPOSITORY") or "").strip()
+    github_run = str(os.environ.get("GITHUB_RUN_ID") or run_id).strip()
     release_tag = f"violin-prince-short-{github_run}"
     public_video_url = (
         f"https://github.com/{repository}/releases/download/{quote(release_tag, safe='')}/violin-prince-short.mp4"
@@ -429,11 +437,11 @@ def write_handoff_files(
     target = Path(output_dir)
     target.mkdir(parents=True, exist_ok=True)
     (target / "asset-provenance.json").write_text(
-        __import__("json").dumps(provenance, ensure_ascii=False, indent=2),
+        json.dumps(provenance, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
     (target / "publish-manifest.json").write_text(
-        __import__("json").dumps(manifest, ensure_ascii=False, indent=2),
+        json.dumps(manifest, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
     return manifest, provenance
