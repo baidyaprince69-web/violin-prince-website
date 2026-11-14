@@ -154,6 +154,7 @@ class PlannerSourceMatchingTests(unittest.TestCase):
         class FakeResponse:
             def __init__(self, content=b"", status_code=200):
                 self.content = content
+                self.text = content.decode("utf-8", errors="replace")
                 self.status_code = status_code
 
             def raise_for_status(self):
@@ -586,9 +587,9 @@ class PlannerSourceMatchingTests(unittest.TestCase):
             "The model recreates resonance and timbre using the physical properties of the instrument."
         )
         second_body = (
-            "Researchers at MIT describe a digital violin design environment that predicts acoustic "
-            "responses before a maker constructs the instrument. The work combines physical modelling "
-            "with measurements of violin structure and surrounding air."
+            "MIT engineers developed a distinct computational modelling approach for violin instruments. "
+            "Their research compares predicted acoustic responses of strings and materials before a maker "
+            "constructs the instrument, combining physical modelling with detailed measurements."
         )
         sources = [
             {
@@ -656,6 +657,329 @@ class PlannerSourceMatchingTests(unittest.TestCase):
             "only 1 relevant direct publisher source",
         ):
             pipeline.select_verified_story_sources(plan, sources, minimum_sources=2)
+
+    def test_run33_generic_space_music_sources_do_not_support_roman_telescope_claim(self):
+        plan = {
+            "topic": "Musical Innovation in Space",
+            "title": "Violins in Orbit",
+            "description": (
+                "Exploring how NASA's Roman Space Telescope uses precision instruments "
+                "to sync for scientific discovery."
+            ),
+            "narration_script": (
+                "Can instruments play in deep space? The Roman Space Telescope utilizes "
+                "advanced tools to observe the vast cosmos. These precision instruments "
+                "must operate in perfect rhythmic and technical sync."
+            ),
+        }
+        self.assertIn(
+            {"roman", "telescope"},
+            pipeline.story_primary_entity_groups(plan),
+        )
+
+        sources = [
+            {
+                "title": "Innovation in Focus: Space for Music - ISS National Lab",
+                "url": "https://issnationallab.org/iss360/innovation-in-focus-space-for-music/",
+                "publisher_domain": "issnationallab.org",
+                "publisher_name": "ISS National Lab",
+                "evidence_text": (
+                    "This photo essay explores a profound connection between music and the universe. "
+                    "From astronauts playing instruments in space to musical moments inspired by the "
+                    "International Space Station, music and space continue to inspire new discoveries."
+                ),
+            },
+            {
+                "title": "How do you take a violin to space? The story of astronaut Sarah Gillis",
+                "url": "https://www.thestrad.com/lutherie/how-do-you-take-a-violin-to-space/18772.article",
+                "publisher_domain": "thestrad.com",
+                "publisher_name": "The Strad",
+                "evidence_text": (
+                    "Taking a violin into space is no simple task. Astronaut Sarah Gillis selected "
+                    "the instrument for her mission and worked with a violin shop to prepare it for "
+                    "its journey aboard the Polaris Dawn capsule."
+                ),
+            },
+            {
+                "title": "Music in space",
+                "url": "https://en.wikipedia.org/wiki/Music_in_space",
+                "publisher_domain": "en.wikipedia.org",
+                "publisher_name": "Wikipedia",
+                "evidence_text": (
+                    "Music in space is music played in or broadcast from a spacecraft. Astronauts "
+                    "have carried small instruments aboard spacecraft, and music has been played "
+                    "during several missions."
+                ),
+            },
+            {
+                "title": "Musical Innovation: Techniques and History",
+                "url": "https://www.studysmarter.co.uk/explanations/music/music-composition/musical-innovation/",
+                "publisher_domain": "studysmarter.co.uk",
+                "publisher_name": "StudySmarter",
+                "evidence_text": (
+                    "Musical innovation refers to creative advancements in composition, performance, "
+                    "and production, often incorporating new technologies and diverse cultural influences."
+                ),
+            },
+        ]
+        for source in sources:
+            self.assertFalse(
+                pipeline.source_supports_story(plan, source),
+                source["publisher_domain"] + " does not support the Roman Space Telescope claim",
+            )
+        with self.assertRaisesRegex(
+            pipeline.PipelineError,
+            "only 0 relevant direct publisher source",
+        ):
+            pipeline.select_verified_story_sources(plan, sources, minimum_sources=2)
+
+    def test_roman_telescope_description_is_included_in_story_search_queries(self):
+        plan = {
+            "topic": "Musical Innovation in Space",
+            "title": "Violins in Orbit",
+            "description": (
+                "Exploring how NASA's Roman Space Telescope uses precision instruments "
+                "to sync for scientific discovery."
+            ),
+        }
+        phrases = pipeline.story_search_phrases(plan, [])
+        self.assertTrue(any("Roman Space Telescope" in phrase for phrase in phrases))
+        self.assertTrue(any("precision" in phrase.casefold() and "sync" in phrase.casefold() for phrase in phrases))
+
+    def test_timeline_discovery_id_is_rebound_to_verified_publisher_article(self):
+        plan = {
+            "topic": "Musical Innovation in Space",
+            "title": "Violins in Orbit",
+            "description": (
+                "Exploring how NASA's Roman Space Telescope uses precision instruments "
+                "to sync for scientific discovery."
+            ),
+            "timeline": [
+                {
+                    "event": "Instruments on NASA's Roman Space Telescope get in sync for science",
+                    "date": "2026-11-13",
+                    "status": "ongoing",
+                    "source_ids": ["SRC_DISCOVERY_ONLY"],
+                }
+            ],
+        }
+        verified = [
+            {
+                "source_id": "SRC_NASA_VERIFIED",
+                "title": "Instruments on NASA's Roman Space Telescope Get in Sync for Science",
+                "url": "https://science.nasa.gov/missions/roman-space-telescope/instruments-in-sync/",
+                "publisher_domain": "science.nasa.gov",
+                "publisher_name": "NASA Science",
+                "evidence_text": (
+                    "NASA's Roman Space Telescope has brought its instruments into alignment. "
+                    "The precision instruments now operate in sync for scientific observations. "
+                    "Engineers verified that the Wide Field Instrument and telescope systems "
+                    "are aligned for the next stage of commissioning and science operations."
+                ),
+            }
+        ]
+        evidence = pipeline.validate_and_bind_timeline_sources(plan, verified)
+        self.assertEqual(
+            plan["timeline"][0]["source_ids"],
+            ["SRC_NASA_VERIFIED"],
+        )
+        self.assertEqual(evidence[0]["verified_source_ids"], ["SRC_NASA_VERIFIED"])
+        self.assertEqual(evidence[0]["verified_publisher_families"], ["nasa.gov"])
+
+    def test_timeline_claim_without_matching_verified_article_is_blocked(self):
+        plan = {
+            "topic": "Musical Innovation in Space",
+            "title": "Violins in Orbit",
+            "description": (
+                "Exploring how NASA's Roman Space Telescope uses precision instruments "
+                "to sync for scientific discovery."
+            ),
+            "timeline": [
+                {
+                    "event": "Instruments on NASA's Roman Space Telescope get in sync for science",
+                    "date": "2026-11-13",
+                    "status": "ongoing",
+                    "source_ids": ["SRC_DISCOVERY_ONLY"],
+                }
+            ],
+        }
+        unrelated = [
+            {
+                "source_id": "SRC_MUSIC",
+                "title": "Music in space",
+                "url": "https://example.org/music-in-space",
+                "publisher_domain": "example.org",
+                "evidence_text": (
+                    "Astronauts have played music in space using guitars, harmonicas, and other "
+                    "instruments during missions aboard orbital spacecraft."
+                ),
+            }
+        ]
+        with self.assertRaisesRegex(
+            pipeline.PipelineError,
+            "timeline event .* cannot be linked",
+        ):
+            pipeline.validate_and_bind_timeline_sources(plan, unrelated)
+
+    def test_run33_generic_space_music_sources_do_not_support_roman_telescope_claim(self):
+        plan = {
+            "topic": "Musical Innovation in Space",
+            "title": "Violins in Orbit",
+            "description": (
+                "Exploring how NASA's Roman Space Telescope uses precision instruments "
+                "to sync for scientific discovery."
+            ),
+            "narration_script": (
+                "Can instruments play in deep space? The Roman Space Telescope utilizes "
+                "advanced tools to observe the vast cosmos. These precision instruments "
+                "must operate in perfect rhythmic and technical sync."
+            ),
+        }
+        self.assertIn({"roman", "telescope"}, pipeline.story_primary_entity_groups(plan))
+
+        sources = [
+            {
+                "title": "Innovation in Focus: Space for Music - ISS National Lab",
+                "url": "https://issnationallab.org/iss360/innovation-in-focus-space-for-music/",
+                "publisher_domain": "issnationallab.org",
+                "publisher_name": "ISS National Lab",
+                "evidence_text": (
+                    "This photo essay explores a profound connection between music and the universe. "
+                    "From astronauts playing instruments in space to musical moments inspired by the "
+                    "International Space Station, music and space continue to inspire new discoveries."
+                ),
+            },
+            {
+                "title": "How do you take a violin to space? The story of astronaut Sarah Gillis",
+                "url": "https://www.thestrad.com/lutherie/how-do-you-take-a-violin-to-space/18772.article",
+                "publisher_domain": "thestrad.com",
+                "publisher_name": "The Strad",
+                "evidence_text": (
+                    "Taking a violin into space is no simple task. Astronaut Sarah Gillis selected "
+                    "the instrument for her mission and worked with a violin shop to prepare it for "
+                    "its journey aboard the Polaris Dawn capsule."
+                ),
+            },
+            {
+                "title": "Music in space",
+                "url": "https://en.wikipedia.org/wiki/Music_in_space",
+                "publisher_domain": "en.wikipedia.org",
+                "publisher_name": "Wikipedia",
+                "evidence_text": (
+                    "Music in space is music played in or broadcast from a spacecraft. Astronauts "
+                    "have carried small instruments aboard spacecraft, and music has been played "
+                    "during several missions."
+                ),
+            },
+            {
+                "title": "Musical Innovation: Techniques and History",
+                "url": "https://www.studysmarter.co.uk/explanations/music/music-composition/musical-innovation/",
+                "publisher_domain": "studysmarter.co.uk",
+                "publisher_name": "StudySmarter",
+                "evidence_text": (
+                    "Musical innovation refers to creative advancements in composition, performance, "
+                    "and production, often incorporating new technologies and diverse cultural influences."
+                ),
+            },
+        ]
+        for source in sources:
+            self.assertFalse(
+                pipeline.source_supports_story(plan, source),
+                source["publisher_domain"] + " does not support the Roman Space Telescope claim",
+            )
+        with self.assertRaisesRegex(
+            pipeline.PipelineError,
+            "only 0 relevant direct publisher source",
+        ):
+            pipeline.select_verified_story_sources(plan, sources, minimum_sources=2)
+
+    def test_roman_telescope_description_is_included_in_story_search_queries(self):
+        plan = {
+            "topic": "Musical Innovation in Space",
+            "title": "Violins in Orbit",
+            "description": (
+                "Exploring how NASA's Roman Space Telescope uses precision instruments "
+                "to sync for scientific discovery."
+            ),
+        }
+        phrases = pipeline.story_search_phrases(plan, [])
+        self.assertTrue(any("Roman Space Telescope" in phrase for phrase in phrases))
+        self.assertTrue(any(
+            "precision" in phrase.casefold() and "sync" in phrase.casefold()
+            for phrase in phrases
+        ))
+
+    def test_timeline_discovery_id_is_rebound_to_verified_publisher_article(self):
+        plan = {
+            "topic": "Musical Innovation in Space",
+            "title": "Violins in Orbit",
+            "description": (
+                "Exploring how NASA's Roman Space Telescope uses precision instruments "
+                "to sync for scientific discovery."
+            ),
+            "timeline": [
+                {
+                    "event": "Instruments on NASA's Roman Space Telescope get in sync for science",
+                    "date": "2026-11-13",
+                    "status": "ongoing",
+                    "source_ids": ["SRC_DISCOVERY_ONLY"],
+                }
+            ],
+        }
+        verified = [
+            {
+                "source_id": "SRC_NASA_VERIFIED",
+                "title": "Instruments on NASA's Roman Space Telescope Get in Sync for Science",
+                "url": "https://science.nasa.gov/missions/roman-space-telescope/instruments-in-sync/",
+                "publisher_domain": "science.nasa.gov",
+                "publisher_name": "NASA Science",
+                "evidence_text": (
+                    "NASA's Roman Space Telescope has brought its instruments into alignment. "
+                    "The precision instruments now operate in sync for scientific observations. "
+                    "Engineers verified that the Wide Field Instrument and telescope systems "
+                    "are aligned for the next stage of commissioning and science operations."
+                ),
+            }
+        ]
+        evidence = pipeline.validate_and_bind_timeline_sources(plan, verified)
+        self.assertEqual(plan["timeline"][0]["source_ids"], ["SRC_NASA_VERIFIED"])
+        self.assertEqual(evidence[0]["verified_source_ids"], ["SRC_NASA_VERIFIED"])
+        self.assertEqual(evidence[0]["verified_publisher_families"], ["nasa.gov"])
+
+    def test_timeline_claim_without_matching_verified_article_is_blocked(self):
+        plan = {
+            "topic": "Musical Innovation in Space",
+            "title": "Violins in Orbit",
+            "description": (
+                "Exploring how NASA's Roman Space Telescope uses precision instruments "
+                "to sync for scientific discovery."
+            ),
+            "timeline": [
+                {
+                    "event": "Instruments on NASA's Roman Space Telescope get in sync for science",
+                    "date": "2026-11-13",
+                    "status": "ongoing",
+                    "source_ids": ["SRC_DISCOVERY_ONLY"],
+                }
+            ],
+        }
+        unrelated = [
+            {
+                "source_id": "SRC_MUSIC",
+                "title": "Music in space",
+                "url": "https://example.org/music-in-space",
+                "publisher_domain": "example.org",
+                "evidence_text": (
+                    "Astronauts have played music in space using guitars, harmonicas, and other "
+                    "instruments during missions aboard orbital spacecraft."
+                ),
+            }
+        ]
+        with self.assertRaisesRegex(
+            pipeline.PipelineError,
+            "timeline event .* cannot be linked",
+        ):
+            pipeline.validate_and_bind_timeline_sources(plan, unrelated)
 
     def test_unrelated_plan_does_not_get_random_source(self):
         plan = {

@@ -717,45 +717,53 @@ def research():
 
 
 def story_search_phrases(plan, existing_items=None):
-    """Build broad, source-led queries from the story and the actual seed headlines."""
+    """Build searches from the factual description and named story subject first."""
     values = []
     topic = re.sub(r"\s+", " ", str(plan.get("topic") or "")).strip()
     title = re.sub(r"\s+", " ", str(plan.get("title") or "")).strip()
+    description = re.sub(r"\s+", " ", str(plan.get("description") or "")).strip()
 
     def add(value):
         phrase = re.sub(r"\s+", " ", str(value or "")).strip(" -:;,.")
         if len(phrase) >= 6 and len(phrase.split()) >= 2:
             if phrase.casefold() not in {item.casefold() for item in values}:
-                values.append(phrase[:140])
+                values.append(phrase[:160])
 
-    # Named entities are useful search anchors, but never the only queries.
+    # Search the named subject stated in the factual description before generic
+    # topic/title wording. This prevents a broad theme replacing the real story.
+    for match in re.findall(
+        r"\b[A-Z][A-Za-z’'-]+(?:\s+[A-Z][A-Za-z’'-]+){1,4}\b",
+        description,
+    ):
+        phrase = re.sub(r"\s+", " ", match).strip()
+        if phrase.casefold().split()[0] not in {"from", "how", "why", "what", "when", "where", "the", "this"}:
+            add(phrase)
+
     for text_value in (topic, title):
         for match in re.findall(r"\b[A-Z][A-Za-z’'-]+(?:\s+[A-Z][A-Za-z’'-]+){1,3}\b", text_value):
             phrase = re.sub(r"\s+", " ", match).strip()
             if phrase.casefold().split()[0] not in {"from", "how", "why", "what", "when", "where", "the", "this"}:
                 add(phrase)
 
-    # Keep the original editorial wording as a natural query, without exact-match quotes.
+    add(description)
     add(topic)
     add(title)
 
-    # Add a compact keyword query so punctuation and editorial wording do not make
-    # search engines miss the subject (e.g. "MIT virtual violin realistic sounds").
     stopwords = {
         "about", "after", "also", "and", "are", "from", "how", "into", "its",
         "new", "of", "our", "the", "their", "this", "through", "was", "what",
-        "when", "where", "which", "with",
+        "when", "where", "which", "with", "uses", "using", "exploring",
     }
     keywords = [
-        word for word in re.findall(r"[a-z0-9]+", (topic + " " + title).casefold())
+        word for word in re.findall(r"[a-z0-9]+", (description + " " + topic + " " + title).casefold())
         if len(word) > 2 and word not in stopwords
     ]
-    compact_keywords = list(dict.fromkeys(keywords))[:8]
+    compact_keywords = list(dict.fromkeys(keywords))[:10]
     if len(compact_keywords) >= 2:
         add(" ".join(compact_keywords))
 
-    # Search headline variants already present in the seed research. These are
-    # discovery leads only; their URLs still need to resolve to direct articles.
+    # Search only strong seed-headline matches. Discovery leads remain untrusted
+    # until their publisher article is fetched and its body verified.
     ranked_seed = sorted(
         (
             (source_relevance_score(plan, item), item)
@@ -766,12 +774,159 @@ def story_search_phrases(plan, existing_items=None):
         reverse=True,
     )
     for score, item in ranked_seed:
-        if source_supports_story(plan, item, minimum_score=0.15):
+        seed_minimum = 0.15 if str(plan.get("description") or "").strip() else 0.30
+        if source_supports_story(plan, item, minimum_score=seed_minimum):
             add(item.get("title", ""))
         if len(values) >= 6:
             break
 
     return values[:6]
+
+
+def story_primary_entity_groups(plan):
+    """Identify the actual named subject from the factual description."""
+    description = str(plan.get("description") or "").strip()
+    groups = []
+    for match in re.findall(
+        r"\b[A-Z][A-Za-zÀ-ÖØ-öø-ÿ’'-]+(?:\s+[A-Z][A-Za-zÀ-ÖØ-öø-ÿ’'-]+)+\b",
+        description,
+    ):
+        tokens = source_tokens(match) - _GENERIC_ENTITY_WORDS
+        acronyms = {
+            token.casefold() for token in re.findall(r"\b[A-Z]{2,}\b", match)
+        }
+        # A named object such as "Roman Space Telescope" is the primary anchor;
+        # the organization acronym (NASA) is useful but should not be mandatory.
+        tokens -= acronyms
+        if len(tokens) >= 2 and tokens not in groups:
+            groups.append(tokens)
+
+    # Prefer the longest named entity, e.g. {"roman", "telescope"}, over a
+    # broad acronym such as NASA that could appear in unrelated space coverage.
+    groups.sort(key=lambda value: (len(value), len(" ".join(sorted(value)))), reverse=True)
+    if groups:
+        return groups[:2]
+
+    for match in re.findall(r"\b[A-Z]{2,}\b", description):
+        token = match.casefold()
+        if token not in _GENERIC_ENTITY_WORDS:
+            groups.append({token})
+    return groups[:2]
+
+
+def story_description_claim_tokens(plan):
+    """Return the distinctive factual words a source should corroborate."""
+    description = source_tokens(plan.get("description", ""))
+    generic_verbs = {
+        "exploring", "explores", "uses", "using", "use", "helps", "help",
+        "shows", "showing", "offers", "provides", "features", "featuring",
+        "about", "based", "designed", "describes", "examines",
+    }
+    entity_tokens = set().union(*story_primary_entity_groups(plan)) if story_primary_entity_groups(plan) else set()
+    return description - _GENERIC_ENTITY_WORDS - SOURCE_MATCH_STOPWORDS - generic_verbs - entity_tokens
+
+
+def source_supports_story(plan, item, minimum_score=0.20):
+    """Require the named subject and a substantive match to the factual description."""
+    score = source_relevance_score(plan, item)
+    if score < minimum_score:
+        return False
+
+    article = source_tokens(" ".join(
+        str(item.get(key, "")) for key in ("title", "evidence_text")
+    ))
+
+    primary_entities = story_primary_entity_groups(plan)
+    if not primary_entities:
+        # When the factual description is absent (e.g. a seed-search helper),
+        # fall back to the story's named entities rather than generic topic words.
+        primary_entities = story_entity_anchor_groups(plan)
+    if primary_entities and not any(group.issubset(article) for group in primary_entities):
+        return False
+
+    claim_tokens = story_description_claim_tokens(plan)
+    if len(claim_tokens) >= 2:
+        matched = len(claim_tokens.intersection(article))
+        required = min(2, len(claim_tokens))
+        if matched < required:
+            return False
+    elif claim_tokens and not claim_tokens.issubset(article):
+        return False
+
+    return True
+
+
+def validate_and_bind_timeline_sources(plan, verified_sources):
+    """Bind each dated/factual timeline event to a verified article supporting it."""
+    timeline = plan.get("timeline", [])
+    if isinstance(timeline, dict):
+        timeline = [timeline]
+    if not isinstance(timeline, list) or not timeline:
+        plan["timeline"] = []
+        return []
+
+    evidence = []
+    for index, entry in enumerate(timeline[:20]):
+        if not isinstance(entry, dict):
+            raise PipelineError(
+                "Story quality gate blocked: timeline contains a malformed event without a source record."
+            )
+        event = str(entry.get("event") or entry.get("description") or "").strip()
+        event_date = str(entry.get("date") or entry.get("event_date") or "").strip()
+        status = str(entry.get("status") or "unknown").strip().casefold()
+        source_ids = entry.get("source_ids", [])
+        if isinstance(source_ids, str):
+            source_ids = [source_ids]
+        if not isinstance(source_ids, list):
+            source_ids = []
+
+        # Undated unknown placeholders are not factual timeline claims.
+        if not event and not event_date and status == "unknown":
+            continue
+        if not event:
+            raise PipelineError(
+                "Story quality gate blocked: a dated timeline item has no event description."
+            )
+
+        event_plan = {"topic": event, "title": event, "description": event}
+        matching = []
+        for source in verified_sources:
+            event_score = source_relevance_score(event_plan, source)
+            if event_score < 0.25:
+                continue
+            if not source_supports_story(plan, source):
+                continue
+            matching.append((event_score, source))
+
+        if not matching:
+            raise PipelineError(
+                "Story quality gate blocked: timeline event '" + event[:100] +
+                "' cannot be linked to any verified direct publisher article with matching evidence."
+            )
+
+        matching.sort(key=lambda pair: pair[0], reverse=True)
+        bound_sources = [item for _, item in matching[:2]]
+        bound_ids = [str(item.get("source_id") or "").strip() for item in bound_sources]
+        if not all(bound_ids):
+            raise PipelineError(
+                "Story quality gate blocked: a timeline event matched an article without a stable source ID."
+            )
+
+        # Replace discovery-only or stale source IDs with the verified publisher IDs.
+        entry["source_ids"] = bound_ids
+        evidence.append({
+            "event": event,
+            "date": event_date,
+            "verified_source_ids": bound_ids,
+            "verified_publisher_families": sorted({
+                publisher_family_domain(item.get("publisher_domain") or urlparse(item.get("url", "")).netloc)
+                for item in bound_sources
+            }),
+        })
+
+    plan["timeline"] = timeline
+    plan["timeline_evidence"] = evidence
+    return evidence
 
 
 
@@ -1146,6 +1301,7 @@ def prepare_story_with_source_recovery(items, recent=None, seo_context=None, max
             verified_sources = select_verified_story_sources(
                 plan, story_items, minimum_sources=2
             )
+            validate_and_bind_timeline_sources(plan, verified_sources)
             return plan, story_items, verified_sources
         except PipelineError as exc:
             message = str(exc)
@@ -1314,6 +1470,14 @@ def build_story_quality_report(plan, selected_sources, date_check):
         "publisher_domains": domains,
         "publisher_families": publisher_families,
         "independent_publisher_count": len(publisher_families),
+        "timeline_event_count": len(plan.get("timeline_evidence", [])),
+        "timeline_events_have_verified_sources": (
+            len(plan.get("timeline_evidence", [])) ==
+            sum(1 for item in (plan.get("timeline", []) or [])
+                if isinstance(item, dict) and (
+                    item.get("event") or item.get("description") or item.get("date") or item.get("event_date")
+                ))
+        ),
         "direct_publisher_article_links": direct_links,
         "date_check": date_check,
         "human_review_required": True,
