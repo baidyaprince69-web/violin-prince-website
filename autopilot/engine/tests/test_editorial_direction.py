@@ -76,6 +76,41 @@ class CreativeDirectionTests(unittest.TestCase):
         plan["scenes"][1]["visual_mode"] = "celebrity_portrait"
         self.assertTrue(any("visual_mode" in item for item in validate_creative_plan(plan)))
 
+    def test_visual_modes_render_distinct_explainer_diagrams(self):
+        def test_font(size):
+            from PIL import ImageFont
+            return ImageFont.load_default()
+
+        plan = valid_plan()
+        rendered = {}
+        for mode in ("macro_3d", "mechanism_3d", "melody_map", "comparison", "cover_performance"):
+            with tempfile.TemporaryDirectory() as folder:
+                scene = {
+                    "caption": "The same explanation",
+                    "graphic_label": "THE SAME FACT",
+                    "graphic_detail": "The exact same evidence",
+                    "visual_mode": mode,
+                }
+                make_motion_graphic_frames(
+                    scene, 0, plan, Path(folder), frame_count=1, fps=8, font=test_font
+                )
+                with Image.open(Path(folder) / "frame-00001.png") as frame:
+                    rendered[mode] = frame.copy()
+
+        for first_mode, second_mode in (
+            ("macro_3d", "mechanism_3d"),
+            ("mechanism_3d", "melody_map"),
+            ("melody_map", "comparison"),
+            ("comparison", "cover_performance"),
+        ):
+            diff = ImageChops.difference(
+                rendered[first_mode], rendered[second_mode]
+            )
+            self.assertIsNotNone(
+                diff.getbbox(),
+                f"{first_mode} and {second_mode} should render distinct motion diagrams",
+            )
+
     def test_animated_panel_has_transparent_background_and_changes_over_time(self):
         def test_font(size):
             from PIL import ImageFont
