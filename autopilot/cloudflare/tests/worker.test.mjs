@@ -6,8 +6,9 @@ const workerSource = await readFile(
   new URL("../src/worker.js", import.meta.url),
   "utf8",
 );
+const testableWorkerSource = workerSource + "\\nexport { dispatchWorkflow };\\n";
 const workerModuleUrl =
-  "data:text/javascript;base64," + Buffer.from(workerSource).toString("base64");
+  "data:text/javascript;base64," + Buffer.from(testableWorkerSource).toString("base64");
 const { dispatchWorkflow } = await import(workerModuleUrl);
 
 function makeEnvironment(overrides = {}) {
@@ -112,7 +113,7 @@ test("a rejected GitHub dispatch marks the run failed and releases the daily loc
   assert.equal(releasedLock.args[1], failedRun.args[3]);
 });
 
-test("a network failure also releases the daily reservation for a safe retry", async (t) => {
+test("a network failure records an unknown outcome and retains the daily lock", async (t) => {
   const { env, statements } = makeEnvironment();
   await withFetch(t, async () => {
     throw new Error("simulated network outage");
@@ -120,11 +121,11 @@ test("a network failure also releases the daily reservation for a safe retry", a
 
   const result = await dispatchWorkflow(env, "manual");
 
-  assert.deepEqual(result, { ok: false, reason: "github_dispatch_failed" });
-  const failedRun = statements.find((item) => item.sql.startsWith("UPDATE runs SET status="));
+  assert.deepEqual(result, { ok: false, reason: "dispatch_outcome_unknown" });
+  const unresolvedRun = statements.find((item) => item.sql.startsWith("UPDATE runs SET status="));
   const releasedLock = statements.find((item) => item.sql.startsWith("DELETE FROM daily_dispatches"));
-  assert.ok(failedRun);
-  assert.match(failedRun.args[1], /simulated network outage/);
-  assert.ok(releasedLock);
-  assert.equal(releasedLock.args[1], failedRun.args[3]);
+  assert.ok(unresolvedRun);
+  assert.equal(unresolvedRun.args[0], "dispatch_unknown");
+  assert.match(unresolvedRun.args[1], /simulated network outage/);
+  assert.equal(releasedLock, undefined, "an ambiguous delivery must retain the daily lock to prevent duplicate dispatch");
 });
