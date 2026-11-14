@@ -145,6 +145,19 @@ def validate_story_coherence(
         str(item.get("source_id") or "")
         for item in evidence_records if isinstance(item, dict)
     }
+    selected_ids = set(source_by_id)
+    if selected_ids != cited_ids:
+        unused = sorted(selected_ids - cited_ids)
+        unknown = sorted(cited_ids - selected_ids)
+        details = []
+        if unused:
+            details.append("uncited selected sources: " + ", ".join(unused))
+        if unknown:
+            details.append("unselected cited sources: " + ", ".join(unknown))
+        raise engine.PipelineError(
+            "Story-coherence gate requires the evidence source IDs to exactly match the selected sources ("
+            + "; ".join(details) + ")."
+        )
     if len(cited_ids) < 2:
         raise engine.PipelineError(
             "Story-coherence gate requires at least two cited independent publisher articles."
