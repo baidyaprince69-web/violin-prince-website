@@ -6,7 +6,7 @@ const workerSource = await readFile(
   new URL("../src/worker.js", import.meta.url),
   "utf8",
 );
-const testableWorkerSource = workerSource + "\\nexport { dispatchWorkflow };\\n";
+const testableWorkerSource = workerSource + "\nexport { dispatchWorkflow };\n";
 const workerModuleUrl =
   "data:text/javascript;base64," + Buffer.from(testableWorkerSource).toString("base64");
 const { dispatchWorkflow } = await import(workerModuleUrl);
