@@ -165,11 +165,31 @@ class SEOIntelligenceTests(unittest.TestCase):
 
     def test_no_api_key_prepares_queries_without_fabricating_metrics(self):
         result = discover(profile=self.profile, api_key="")
-        self.assertEqual(result["status"], "search_api_key_missing")
+        self.assertEqual(result["status"], "search_authorization_missing")
         self.assertEqual(result["queries_sampled"], 0)
         self.assertEqual(result["search_volume"], None)
         self.assertEqual(len(result["query_plan"]), 9)
         self.assertFalse(result["available"])
+
+    def test_discover_uses_oauth_without_a_separate_api_key(self):
+        session = FakeYouTubeSession()
+        result = discover(
+            profile=self.profile,
+            api_key="",
+            access_token="oauth-access-token",
+            session=session,
+            max_queries=3,
+            now=datetime(2026, 11, 14, tzinfo=timezone.utc),
+        )
+        self.assertTrue(result["available"])
+        self.assertEqual(result["queries_sampled"], 3)
+        self.assertEqual(
+            session.headers.get("Authorization"),
+            "Bearer oauth-access-token",
+        )
+        search_calls = [call for call in session.calls if call[0].endswith("/search")]
+        self.assertEqual(len(search_calls), 3)
+        self.assertTrue(all("key" not in params for _url, params in search_calls))
 
     def test_discover_samples_each_language_and_observed_video_statistics(self):
         session = FakeYouTubeSession()

@@ -10,6 +10,7 @@ on:
       - ".github/workflows/phase4-youtube-validation.yml"
       - ".github/workflows/phase4-youtube-private-beta.yml"
       - ".github/workflows/phase5-seo-learning.yml"
+      - ".github/workflows/phase4-youtube-connection-check.yml"
       - ".github/workflows/v3-motion-prototype.yml"
   pull_request:
     paths:
@@ -37,9 +38,9 @@ jobs:
           python-version: "3.11"
 
       - name: Compile all Python engine modules
-        run: python -m py_compile autopilot/engine/*.py
-      - name: Compile SEO intelligence modules
-        run: python -m py_compile autopilot/engine/seo_intelligence/*.py autopilot/engine/analytics.py autopilot/engine/tests/test_seo_intelligence.py autopilot/engine/tests/test_analytics.py
+        run: python -m py_compile autopilot/engine/*.py autopilot/engine/youtube_native/*.py autopilot/engine/seo_intelligence/*.py
+      - name: Compile SEO intelligence and connection tests
+        run: python -m py_compile autopilot/engine/analytics.py autopilot/engine/tests/test_seo_intelligence.py autopilot/engine/tests/test_analytics.py autopilot/engine/tests/test_seo_storage.py
 
       - name: Install offline render-test tools
         run: |
@@ -93,6 +94,7 @@ jobs:
               ".github/workflows/phase4-youtube-validation.yml",
               ".github/workflows/phase4-youtube-private-beta.yml",
               ".github/workflows/phase5-seo-learning.yml",
+              ".github/workflows/phase4-youtube-connection-check.yml",
           ]
           for name in files:
               parsed = yaml.safe_load(Path(name).read_text(encoding="utf-8"))
@@ -107,3 +109,4 @@ jobs:
           test -s .github/workflows/deploy-autopilot-cloudflare.yml
           test -s .github/workflows/phase4-youtube-private-beta.yml
           test -s .github/workflows/phase5-seo-learning.yml
+          test -s .github/workflows/phase4-youtube-connection-check.yml

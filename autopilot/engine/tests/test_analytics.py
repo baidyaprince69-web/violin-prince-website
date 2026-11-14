@@ -3,7 +3,7 @@ import os
 import unittest
 from unittest.mock import patch
 
-from autopilot.engine.analytics import _language_code, _number, _report_rows, _youtube_search_terms, collect_and_send
+from autopilot.engine.analytics import _language_code, _number, _report_rows, _youtube_search_terms, collect_and_store
 
 
 class FakeResponse:
@@ -92,7 +92,7 @@ class AnalyticsParsingTests(unittest.TestCase):
 
     def test_collector_skips_before_network_when_oauth_credentials_are_missing(self):
         with patch.dict(os.environ, {}, clear=True):
-            result = collect_and_send("https://example.invalid", "unused")
+            result = collect_and_store("work/should-not-be-created.enc.json")
         self.assertFalse(result["connected"])
         self.assertEqual(result["reason"], "credentials_missing")
 
