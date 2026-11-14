@@ -122,8 +122,25 @@ def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list
         and engine.is_direct_publisher_article(item)
     ]
     if len(verified) < 2:
+        diagnostics = []
+        for item in enriched:
+            if not isinstance(item, dict):
+                continue
+            diagnostics.append({
+                "source_id": str(item.get("source_id") or ""),
+                "publisher_domain": str(item.get("publisher_domain") or ""),
+                "url": str(item.get("url") or ""),
+                "article_page_verified": item.get("article_page_verified"),
+                "article_page_kind": str(item.get("article_page_kind") or ""),
+                "resolution_status": str(item.get("publisher_resolution_status") or ""),
+                "resolution_error": str(item.get("publisher_resolution_error") or "")[:220],
+                "published_at_utc": str(item.get("published_at_utc") or ""),
+                "date": str(item.get("date") or ""),
+                "evidence_characters": len(str(item.get("evidence_text") or "")),
+            })
         raise engine.PipelineError(
-            "Fewer than two readable, date-verifiable direct publisher articles passed the source checks."
+            "Fewer than two readable, date-verifiable direct publisher articles passed the source checks. "
+            "Per-source diagnostics: " + json.dumps(diagnostics, ensure_ascii=False)[:1800]
         )
 
     families = {
