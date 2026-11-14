@@ -25,6 +25,7 @@ sys.path.insert(0, str(ENGINE_DIR))
 
 import run as engine  # noqa: E402
 from voiceover import synthesize_voiceover  # noqa: E402
+from publish_handoff import validate_publish_metadata, write_handoff_files  # noqa: E402
 
 
 def _normalise_quote(value: str) -> str:
@@ -85,6 +86,118 @@ def validate_claim_evidence(
         missing = ", ".join(str(value) for value in sorted(expected - set(checked)))
         raise engine.PipelineError("Missing exact publisher evidence for narration sentence(s): " + missing + ".")
     return [checked[number] for number in (2, 3, 4)]
+
+
+
+_STORY_COHERENCE_STOP_WORDS = {
+    "a", "an", "and", "are", "as", "at", "by", "can", "does", "for", "from",
+    "how", "in", "into", "is", "it", "its", "of", "on", "or", "that", "the",
+    "their", "this", "to", "what", "when", "why", "with", "within",
+}
+_STORY_COHERENCE_ALIASES = {
+    "shape": "arch",
+    "curve": "arch",
+    "arching": "arch",
+    "arches": "arch",
+    "resonances": "resonance",
+    "frequencies": "frequency",
+    "violins": "violin",
+    "bodies": "body",
+}
+
+
+def _story_coherence_terms(value: str) -> set[str]:
+    """Reduce a short story claim to meaningful, conservative topic anchors."""
+    tokens = re.findall(r"[a-z0-9]+", str(value or "").casefold())
+    terms = set()
+    for token in tokens:
+        token = _STORY_COHERENCE_ALIASES.get(token, token)
+        if token in _STORY_COHERENCE_STOP_WORDS or len(token) < 3:
+            continue
+        if token.endswith("s") and len(token) > 4:
+            token = token[:-1]
+        terms.add(token)
+    return terms
+
+
+def validate_story_coherence(
+    plan: dict[str, Any],
+    verified_sources: list[dict[str, Any]],
+    evidence_records: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Ensure every cited publisher supports the same title/core claim.
+
+    Exact quotes alone are not enough: two unrelated, accurately quoted studies
+    must not be stitched together as though they were one music fact.
+    """
+    focus = str(plan.get("core_claim") or plan.get("title") or "").strip()
+    focus_terms = _story_coherence_terms(focus)
+    if len(focus_terms) < 2:
+        raise engine.PipelineError(
+            "Story-coherence gate needs a specific core_claim or descriptive title."
+        )
+
+    source_by_id = {
+        str(item.get("source_id") or ""): item
+        for item in verified_sources if isinstance(item, dict)
+    }
+    cited_ids = {
+        str(item.get("source_id") or "")
+        for item in evidence_records if isinstance(item, dict)
+    }
+    selected_ids = set(source_by_id)
+    if selected_ids != cited_ids:
+        unused = sorted(selected_ids - cited_ids)
+        unknown = sorted(cited_ids - selected_ids)
+        details = []
+        if unused:
+            details.append("uncited selected sources: " + ", ".join(unused))
+        if unknown:
+            details.append("unselected cited sources: " + ", ".join(unknown))
+        raise engine.PipelineError(
+            "Story-coherence gate requires the evidence source IDs to exactly match the selected sources ("
+            + "; ".join(details) + ")."
+        )
+    if len(cited_ids) < 2:
+        raise engine.PipelineError(
+            "Story-coherence gate requires at least two cited independent publisher articles."
+        )
+
+    minimum_overlap = 2 if len(focus_terms) >= 3 else 1
+    checked = []
+    for source_id in sorted(cited_ids):
+        source = source_by_id.get(source_id)
+        if source is None:
+            raise engine.PipelineError(
+                f"Story-coherence gate found an evidence record without source {source_id}."
+            )
+        source_text = " ".join((
+            str(source.get("title") or ""),
+            str(source.get("evidence_text") or ""),
+        ))
+        source_terms = _story_coherence_terms(source_text)
+        overlap = sorted(focus_terms.intersection(source_terms))
+        if len(overlap) < minimum_overlap:
+            title = str(source.get("title") or source_id)[:120]
+            raise engine.PipelineError(
+                "Story-coherence gate blocked an unrelated source: "
+                + source_id + " (" + title + "). The article does not substantiate "
+                "the same core claim as '" + focus[:120] + "'. "
+                "Use two publishers covering one shared music fact; do not combine separate studies."
+            )
+        checked.append({
+            "source_id": source_id,
+            "matching_topic_terms": overlap,
+            "minimum_overlap": minimum_overlap,
+        })
+
+    return {
+        "status": "passed",
+        "core_claim": focus[:240],
+        "topic_terms": sorted(focus_terms),
+        "cited_sources": checked,
+        "rule": "Each cited article must independently match the same core claim; unrelated studies are rejected.",
+    }
 
 
 def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -162,6 +275,9 @@ def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list
     plan["narration_evidence"] = validate_claim_evidence(
         plan.get("narration_evidence") or [], verified, sentences
     )
+    plan["story_coherence"] = validate_story_coherence(
+        plan, verified, plan["narration_evidence"]
+    )
 
     plan["sources"] = verified
     plan["source_group"] = {
@@ -195,6 +311,12 @@ def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list
 
     plan["channel_fit"] = engine.channel_fit_report(plan)
     plan["channel_fit"]["status"] = "passed"
+    try:
+        plan["visual_reference"] = engine.normalize_visual_reference(
+            plan.get("visual_reference"), plan.get("scenes")
+        )
+    except (TypeError, ValueError) as exc:
+        raise engine.PipelineError("Visual reference analysis is invalid: " + str(exc)) from exc
     plan["narrative_style"] = str(plan.get("narrative_style") or "documentary").lower()
     if plan["narrative_style"] not in ("documentary", "cinematic_story"):
         plan["narrative_style"] = "documentary"
@@ -219,6 +341,13 @@ def run_daily_plan(plan_path: Path) -> int:
         raise engine.PipelineError("ChatGPT daily plan is not readable JSON.") from exc
 
     plan, verified_sources = validate_and_enrich_plan(plan)
+    try:
+        metadata_check = validate_publish_metadata(plan)
+    except (TypeError, ValueError) as exc:
+        raise engine.PipelineError("YouTube publisher preflight blocked the plan: " + str(exc)) from exc
+    # Store the normalized metadata in the saved plan so every downstream handoff
+    # reads the exact same title, description, tags, language and privacy setting.
+    plan["publish_metadata"] = dict(metadata_check["value"])
     engine.WORK.mkdir(parents=True, exist_ok=True)
     engine.OUT.mkdir(parents=True, exist_ok=True)
     paths = engine._package_paths()
@@ -291,7 +420,30 @@ def run_daily_plan(plan_path: Path) -> int:
     engine.make_storyboard_preview(plan, images, engine.PACKAGE / "storyboard-preview.png")
 
     # Existing FFmpeg render and media QA remain the final authority for the MP4.
-    return engine.render_stage()
+    result = engine.render_stage()
+    if result != 0:
+        return result
+    final_video = engine.OUT / "violin-prince-short.mp4"
+    video_quality = engine.validate_final_video(final_video)
+    manifest, _provenance = write_handoff_files(
+        engine.OUT,
+        plan=plan,
+        verified_sources=verified_sources,
+        audio_asset=audio_asset,
+        audio_path=paths["audio"],
+        narration_info=narration_info,
+        narration_path=engine.OUT / "narration.wav",
+        image_paths=images,
+        final_video_path=final_video,
+        video_quality=video_quality,
+        run_id=engine.RUN_ID,
+    )
+    print(
+        "PUBLISHER_PREFLIGHT="
+        + json.dumps(manifest.get("publisher_preflight", {}), ensure_ascii=False),
+        flush=True,
+    )
+    return 0
 
 
 def main() -> int:
@@ -304,11 +456,16 @@ def main() -> int:
             return result
         final = engine.OUT / "violin-prince-short.mp4"
         quality = engine.validate_final_video(final)
+        publish_manifest = json.loads((engine.OUT / "publish-manifest.json").read_text(encoding="utf-8"))
         print("DAILY_PRODUCTION_RESULT=" + json.dumps({
             "status": "rendered",
             "run_id": engine.RUN_ID,
             "video": str(final),
             "quality": quality,
+            "publish_manifest": str(engine.OUT / "publish-manifest.json"),
+            "asset_provenance": str(engine.OUT / "asset-provenance.json"),
+            "publish_ready": publish_manifest.get("publish_ready", False),
+            "publisher_preflight": publish_manifest.get("publisher_preflight", {}),
             "publishing": "deferred_to_ChatGPT_Metricool_operator",
         }, ensure_ascii=False), flush=True)
         return 0

@@ -21,6 +21,10 @@ try:
         channel_fit_report, validate_creative_plan,
     )
     from .motion_graphics import make_motion_graphic_frames, make_ambient_glow_frames
+    from .visual_reference import (
+        normalize_visual_reference, scene_camera_move, scene_transition,
+        scene_visual_prompt_suffix, transition_duration,
+    )
 except ImportError:  # Direct script execution from the engine directory.
     from seo_intelligence import build_topic_queries, discover as seo_discover, load_profile as seo_load_profile
     from seo_intelligence.storage import load_learning_signals
@@ -29,6 +33,10 @@ except ImportError:  # Direct script execution from the engine directory.
         channel_fit_report, validate_creative_plan,
     )
     from motion_graphics import make_motion_graphic_frames, make_ambient_glow_frames
+    from visual_reference import (
+        normalize_visual_reference, scene_camera_move, scene_transition,
+        scene_visual_prompt_suffix, transition_duration,
+    )
 
 API = os.environ.get("AUTOPILOT_API_URL", "").rstrip("/")
 JOB_TOKEN = os.environ.get("AUTOPILOT_JOB_TOKEN", "")
@@ -3639,8 +3647,11 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
         "The final sentence must present a sourced result, limitation or concrete musical implication, not a poetic "
         "metaphor. Avoid unsupported emphasis such as revolutionary, groundbreaking, exceptionally or fundamentally "
         "transforming. State technical limitations clearly. "
-        "Return JSON only with story_type, topic, title, hook, description, hashtags, narration_sentences, "
+        "Return JSON only with story_type, topic, title, core_claim, hook, description, hashtags, narration_sentences, "
         "narrative_style, cover_payoff, scenes, sources, timeline and story_group_id. story_type MUST be exactly one "
+        "core_claim is one specific, testable sentence describing the single music fact the Short explains. "
+        "Every selected publisher article and every narrated evidence quote must support that same core_claim. "
+        "Never combine separate studies, experiments, animals, instruments or unrelated phenomena into one story. "
         "of: violin_physics, instrument_design, sound_and_perception, melody_and_composition, song_anatomy, "
         "music_production, music_technology, violin_cover_breakdown. "
         "The narration_sentences field must be an array of exactly four separate, natural, complete spoken sentences. "
@@ -3651,6 +3662,11 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
         "demonstrates the fact. It must be a performance payoff, not background music. Never claim a creator take "
         "exists; the production stage will identify whether an original creator recording is available. "
         "Exactly 3 scenes. Each scene needs caption, image_prompt, graphic_label, graphic_detail and visual_mode. "
+        "Use graphic_data when a scene can explain a source-backed measurement or mechanism: type arch_heights "
+        "requires two to four exact measured items with numeric value, display and label; type process_flow "
+        "requires two to four accurate ordered labels. Never invent a number, trend, process step or comparison. "
+        "Scene 1 and Scene 2 should use source-data-backed graphic_data whenever the selected fact provides suitable "
+        "values or a genuine explanatory sequence; Scene 3 may use the performance waveform. "
         "visual_mode MUST be exactly one of: macro_3d, mechanism_3d, waveform, melody_map, comparison, "
         "cover_performance. Scene 1 should establish the curiosity with a macro_3d or mechanism_3d hero image. "
         "Scene 2 should explain the actual musical mechanism with a different visual mode. Scene 3 MUST use "
@@ -4236,9 +4252,33 @@ def scene_durations_from_narration(narration_info, total_seconds=24.0):
     return (first, second, third)
 
 
-def camera_motion_filter(frame_count, scene_index=0):
-    """Keep the photographic plate stable; motion comes from designed overlays."""
-    return f"fps={FPS},setsar=1"
+def camera_motion_filter(frame_count, scene_index=0, move="locked", duration_seconds=8.0):
+    """Apply an optional, deterministic pan without the old repetitive zoom-push."""
+    if move == "locked":
+        return f"fps={FPS},setsar=1"
+    if move not in {"pan_left", "pan_right", "pan_up", "pan_down"}:
+        raise PipelineError(f"Unsupported reference camera move: {move}")
+
+    # A small overscan creates room for a slow scene-specific pan. The frame
+    # remains the same size; no zoompan filter or browser renderer is needed.
+    margin = 36
+    duration = max(0.1, float(duration_seconds))
+    progress = f"(0.5-0.5*cos(PI*t/{duration:.6f}))"
+    reverse_progress = f"(0.5+0.5*cos(PI*t/{duration:.6f}))"
+    x = str(margin)
+    y = str(margin)
+    if move == "pan_left":
+        x = f"{margin * 2}*{progress}"
+    elif move == "pan_right":
+        x = f"{margin * 2}*{reverse_progress}"
+    elif move == "pan_up":
+        y = f"{margin * 2}*{progress}"
+    elif move == "pan_down":
+        y = f"{margin * 2}*{reverse_progress}"
+    return (
+        f"scale={W + margin * 2}:{H + margin * 2}:flags=lanczos,"
+        f"crop={W}:{H}:x='{x}':y='{y}',fps={FPS},setsar=1"
+    )
 
 
 def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
@@ -4253,7 +4293,9 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
     )
     clips = []
     scene_durations = scene_durations_from_narration(narration_info)
-    transition_seconds = 0.35
+    transition_seconds = transition_duration(plan)
+    first_transition = scene_transition(plan, 0)
+    second_transition = scene_transition(plan, 1)
     scene_starts = [
         0.0,
         max(0.0, scene_durations[0] - transition_seconds),
@@ -4284,11 +4326,7 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
             "timeline_start_seconds": round(scene_start, 3),
             "word_cue_count": len(scene_word_events),
         })
-        visual_prompt = (
-            str(scene["image_prompt"]) +
-            ", portrait 9:16 composition, centred focal subject, vertical framing, "
-            "cinematic natural lighting, no text, no logos, no watermark"
-        )
+        visual_prompt = _scene_visual_prompt(scene, index=i, plan=plan)
         if image_paths is not None:
             image = Path(image_paths[i])
             if not image.is_file():
@@ -4311,7 +4349,9 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         ambient_pattern = make_ambient_glow_frames(
             OUT / f"ambient-glow-{i + 1}", frame_count, FPS, scene_index=i
         )
-        camera = camera_motion_filter(frame_count, i)
+        camera = camera_motion_filter(
+            frame_count, i, scene_camera_move(plan, i), scene_seconds
+        )
         panel_fade_out = max(0.0, scene_seconds - 0.34)
         if i == 2 and performance_video_info:
             # The real creator take becomes the visual subject of the final scene.
@@ -4367,9 +4407,9 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
     first_offset = max(0.0, scene_durations[0] - transition_seconds)
     second_offset = max(0.0, scene_durations[0] + scene_durations[1] - 2 * transition_seconds)
     transition_filter = (
-        f"[0:v][1:v]xfade=transition=fade:duration={transition_seconds:.3f}:"
+        f"[0:v][1:v]xfade=transition={first_transition}:duration={transition_seconds:.3f}:"
         f"offset={first_offset:.3f}[v1];"
-        f"[v1][2:v]xfade=transition=fade:duration={transition_seconds:.3f}:"
+        f"[v1][2:v]xfade=transition={second_transition}:duration={transition_seconds:.3f}:"
         f"offset={second_offset:.3f}[v2];"
         f"[v2]tpad=stop_mode=clone:stop_duration={2 * transition_seconds:.3f},"
         "format=yuv420p[vout]"
@@ -4463,12 +4503,25 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         "music_only_ending_seconds": round(max(0.0, 24.0 - narration_end), 2),
         "camera_motion": "locked photographic framing; no repetitive push-in",
         "motion_graphics": 3,
-        "motion_graphics_renderer": "deterministic per-frame animated music visual explainers",
+        "motion_graphics_renderer": "word-synchronised kinetic typography with deterministic per-frame animated explainers",
+        "data_driven_graphics": [
+            {
+                "scene": index + 1,
+                "type": str((scene.get("graphic_data") or {}).get("type") or "mode_default"),
+                "items": len((scene.get("graphic_data") or {}).get("items", []))
+                if isinstance(scene.get("graphic_data"), dict) else 0,
+            }
+            for index, scene in enumerate(plan.get("scenes", []))
+        ],
         "visual_engine": "photorealistic 3D-CGI scene plates with animated explainer overlays",
         "visual_modes": [str(scene.get("visual_mode") or "waveform") for scene in plan.get("scenes", [])],
         "creative_direction_version": CREATIVE_DIRECTION_VERSION,
         "subtitle_style": "Kokoro word-timed karaoke typography with gold active-word fill",
-        "scene_transition": "0.35-second crossfade",
+        "scene_transitions": [first_transition, second_transition],
+        "scene_transition_seconds": round(transition_seconds, 3),
+        "visual_reference_language": (plan.get("visual_reference") or {}).get("visual_language", "default_brand"),
+        "visual_reference_motion_profile": (plan.get("visual_reference") or {}).get("motion_profile", "not_supplied"),
+        "visual_reference_adaptation_note": (plan.get("visual_reference") or {}).get("adaptation_note", "Standard Violin Prince visual direction retained."),
         "audio_source": audio_source,
         "audio_mix": "voice-priority sidechain ducking; creator performance audio enters with Scene 3 when present",
         "creator_performance_video": {
@@ -4543,6 +4596,12 @@ def _read_package(require_images=False):
     except (OSError, json.JSONDecodeError) as exc:
         raise PipelineError("Prepared package contains invalid JSON metadata.") from exc
     narration_info = metadata.get("narration_info")
+    try:
+        plan["visual_reference"] = normalize_visual_reference(
+            plan.get("visual_reference"), plan.get("scenes")
+        )
+    except (TypeError, ValueError) as exc:
+        raise PipelineError("Prepared package has an invalid visual reference profile: " + str(exc)) from exc
     creative_issues = validate_creative_plan(plan)
     if creative_issues:
         raise PipelineError("Prepared package failed the Violin Prince creative-direction gate: " + " ".join(creative_issues))
@@ -4629,6 +4688,8 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         "Violin Prince identity: richly coloured photorealistic cinematic still imagery or indistinguishable CGI; "
         "physically believable violin construction, amber-brown varnished wood, visible natural wood grain, "
         "realistic strings, bow hair and metal, dimensional lighting and layered foreground/midground/background. "
+        "The violin body must be solid, opaque, fully formed amber-brown wood with visible curved front or back surfaces, "
+        "never an empty shell, hollow outline, wireframe, skeletal contour or transparent body. "
         "Palette: deep midnight navy, muted teal, antique gold, warm ivory and natural amber. Full colour. "
         "This is original art direction. No uncoloured stick figures, wireframes, bare outlines, monochrome line art "
         "or sketch-only main subjects; small coloured hands/figures only to clarify action. "
@@ -4643,6 +4704,7 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         suffix += " Performance connection: " + cover_payoff
     if clean_feedback:
         suffix += ", additional visual direction: " + clean_feedback
+    suffix += scene_visual_prompt_suffix(plan, index)
 
     # Reserve room for the portrait constraint and creator feedback first.
     # Only shorten the model-written scene description when the total exceeds
@@ -4699,6 +4761,8 @@ def _write_review_text(plan, target, performance_video_asset=None):
         "STORY TYPE: " + str(plan.get("story_type", "")),
         "COVER PERFORMANCE PAYOFF: " + str(plan.get("cover_payoff", "")),
         "SCENE VISUAL MODES: " + ", ".join(str(scene.get("visual_mode", "")) for scene in plan.get("scenes", [])),
+        "VISUAL REFERENCE PROFILE: " + json.dumps(plan.get("visual_reference") or {"status": "not_supplied"}, ensure_ascii=False),
+        "VISUAL REFERENCE ADAPTATION: " + str((plan.get("visual_reference") or {}).get("adaptation_note") or "Standard Violin Prince visual direction retained."),
         "HOOK: " + str(plan.get("hook", "")),
         "",
         "NARRATION:",
