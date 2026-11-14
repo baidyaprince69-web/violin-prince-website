@@ -24,6 +24,9 @@ MAX_TAGS_LENGTH = 450
 MAX_TAG_COUNT = 30
 DEFAULT_CATEGORY_ID = "10"
 DEFAULT_LANGUAGE = "en"
+# The connected Violin Prince channel's audience setting was explicitly
+# confirmed as not made for kids in the existing ChatGPT production instructions.
+DEFAULT_MADE_FOR_KIDS = False
 VALID_PRIVACY = {"public", "unlisted", "private"}
 
 
@@ -143,6 +146,8 @@ def validate_publish_metadata(plan: dict[str, Any]) -> dict[str, Any]:
         audience = plan.get("made_for_kids")
     if audience is None and isinstance(plan.get("publishing"), dict):
         audience = plan["publishing"].get("made_for_kids")
+    if audience is None:
+        audience = DEFAULT_MADE_FOR_KIDS
     audience_confirmed = isinstance(audience, bool)
     if not audience_confirmed:
         warnings.append(
