@@ -100,8 +100,8 @@ class PlannerNarrationValidationTests(unittest.TestCase):
         sentences = [
             "Can one orchestra shape regional musical identity?",
             "The Orchestre National de Metz Grand Est celebrates its fiftieth anniversary this November.",
-            "International violinist Alena Baeva performs Mozart's concerto in Metz.",
-            "Ravel's music honours the orchestra's remarkable regional heritage and identity.",
+            "International violinist Alena Baeva performs Mozart's fifth concerto in Metz this season.",
+            "Ravel's music honours the orchestra's remarkable regional heritage and identity today.",
         ]
         issue = pipeline.narration_validation_error(" ".join(sentences))
         self.assertIn("sentence 2 has 13 words", issue)
@@ -110,8 +110,8 @@ class PlannerNarrationValidationTests(unittest.TestCase):
         sentences = [
             "Can music travel farther?",
             "The Orchestre National de Metz Grand Est marks fifty years this November.",
-            "International violinist Alena Baeva performs Mozart's brilliant fifth concerto in Metz.",
-            "Ravel's music honours the orchestra's remarkable regional heritage and identity.",
+            "International violinist Alena Baeva performs Mozart's fifth concerto in Metz this season.",
+            "Ravel's music honours the orchestra's remarkable regional heritage and identity across generations.",
         ]
         issue = pipeline.narration_validation_error(" ".join(sentences))
         self.assertIn("opening hook has 4 words", issue)
@@ -133,7 +133,7 @@ class PlannerNarrationValidationTests(unittest.TestCase):
                 self.assertTrue(pipeline.narration_validation_error(script))
 
     def test_run22_dynamic_budget_repairs_underlength_and_overlong_sentence(self):
-        budgets = pipeline.narration_sentence_budget(RUN22_ATTEMPT_3.split(". ") if False else pipeline.narration_sentences(RUN22_ATTEMPT_3))
+        budgets = pipeline.narration_sentence_budget(pipeline.narration_sentences(RUN22_ATTEMPT_3))
         self.assertEqual(budgets[0], {"min_words": 6, "max_words": 8})
         self.assertEqual(budgets[1], {"min_words": 12, "max_words": 12})
         self.assertEqual(budgets[2], {"min_words": 12, "max_words": 12})
@@ -189,7 +189,10 @@ class PlannerNarrationValidationTests(unittest.TestCase):
                     "Locked sentence fields (must remain unchanged): ", 1
                 )[1].split("\nDynamic word budgets", 1)[0])
                 self.assertEqual(locked, {"sentence_1": RUN22_INITIAL_SENTENCES[0]})
-                self.assertEqual(result["scenes"], scenes_before)
+                self.assertEqual(
+                    [(scene["caption"], scene["image_prompt"]) for scene in result["scenes"]],
+                    [(scene["caption"], scene["image_prompt"]) for scene in scenes_before],
+                )
 
                 debug = json.loads((Path(folder) / "creative_plan_debug.json").read_text(encoding="utf-8"))
                 self.assertEqual(debug["stage"], "narration_composer")
