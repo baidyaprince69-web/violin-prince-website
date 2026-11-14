@@ -141,7 +141,19 @@ class AssetProvenanceTests(unittest.TestCase):
                     "source_id": "S001",
                     "publisher_domain": "example.org",
                     "quote": "A string moves in a repeating pattern.",
-                }
+                },
+                {
+                    "sentence_number": 3,
+                    "source_id": "S002",
+                    "publisher_domain": "sound-science.example",
+                    "quote": "The bridge transfers that movement to the body.",
+                },
+                {
+                    "sentence_number": 4,
+                    "source_id": "S001",
+                    "publisher_domain": "example.org",
+                    "quote": "The body helps create the sound we hear.",
+                },
             ],
             "source_group": {"independent_publisher_count": 2},
             "quality_control": {"status": "passed"},
@@ -151,14 +163,24 @@ class AssetProvenanceTests(unittest.TestCase):
                 {"visual_mode": "cover_performance", "image_prompt": "Violin and bow."},
             ],
         }
-        self.sources = [{
-            "source_id": "S001",
-            "title": "How violin strings vibrate",
-            "publisher_name": "Acoustics Example",
-            "publisher_domain": "example.org",
-            "url": "https://example.org/violin-strings",
-            "published_at_utc": "2026-11-14T10:00:00Z",
-        }]
+        self.sources = [
+            {
+                "source_id": "S001",
+                "title": "How violin strings vibrate",
+                "publisher_name": "Acoustics Example",
+                "publisher_domain": "example.org",
+                "url": "https://example.org/violin-strings",
+                "published_at_utc": "2026-11-14T10:00:00Z",
+            },
+            {
+                "source_id": "S002",
+                "title": "How the violin bridge transfers vibration",
+                "publisher_name": "Sound Science Example",
+                "publisher_domain": "sound-science.example",
+                "url": "https://sound-science.example/violin-bridge",
+                "published_at_utc": "2026-11-14T11:00:00Z",
+            },
+        ]
         self.audio_asset = {
             "audio_source": "sampled_violin_cc0",
             "license": "CC0-1.0",
@@ -209,6 +231,8 @@ class AssetProvenanceTests(unittest.TestCase):
             provenance["factual_provenance"]["narration_claim_evidence"][0]["verification"],
             "exact_quote_found_in_verified_publisher_article",
         )
+        self.assertEqual(len(provenance["factual_provenance"]["sources"]), 2)
+        self.assertEqual(len(provenance["factual_provenance"]["narration_claim_evidence"]), 3)
         self.assertEqual(
             provenance["assets"]["soundtrack"]["rights_status"],
             "cc0_license_recorded_from_pinned_sample_manifest",
