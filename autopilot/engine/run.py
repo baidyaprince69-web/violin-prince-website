@@ -218,10 +218,10 @@ def _validate_performance_video_metadata(filename, size):
     if suffix not in PERFORMANCE_VIDEO_EXTENSIONS:
         raise PipelineError("Creator performance video must be MP4, MOV or WebM.")
     size = int(size or 0)
-    if size < 16 * 1024:
-        raise PipelineError("Creator performance video is empty or unexpectedly small.")
     if size > MAX_PERFORMANCE_VIDEO_BYTES:
         raise PipelineError("Creator performance video exceeds the 90 MB private-upload limit.")
+    if size < 16 * 1024:
+        raise PipelineError("Creator performance video is empty or unexpectedly small.")
     return {
         "filename": Path(str(filename)).name,
         "size_bytes": size,
