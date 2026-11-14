@@ -128,7 +128,8 @@ def _language_signals(learned: dict[str, Any] | None) -> dict[str, dict[str, Any
             count = int(item.get("sample_count", 0))
         except (TypeError, ValueError):
             count = 0
-        if code and count >= 3:
+        # Unknown/script-ambiguous titles must never bias English, Hindi or Bengali.
+        if code in {"en", "hi", "bn"} and count >= 3:
             output[code] = item
     return output
 
