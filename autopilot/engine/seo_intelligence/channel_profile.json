@@ -1,0 +1,63 @@
+{
+  "profile_version": 1,
+  "brand_name": "Violin Prince",
+  "creator_name": "Prince Baidya",
+  "region_code": "IN",
+  "primary_market": "India",
+  "default_language": "en",
+  "search_languages": [
+    {
+      "code": "en",
+      "name": "English",
+      "queries": [
+        "violin cover",
+        "emotional violin instrumental",
+        "Violin Prince violin cover",
+        "Western violin cover",
+        "violin gamaka",
+        "Prince Baidya violin"
+      ]
+    },
+    {
+      "code": "hi",
+      "name": "Hindi",
+      "queries": [
+        "हिंदी गानों का वायलिन कवर",
+        "बॉलीवुड वायलिन कवर",
+        "Violin Prince हिंदी वायलिन",
+        "हिंदी रोमांटिक गीत वायलिन पर",
+        "वायलिन गमक",
+        "प्रिंस बैद्य वायलिन"
+      ]
+    },
+    {
+      "code": "bn",
+      "name": "Bengali",
+      "queries": [
+        "বাংলা গানের বেহালা কভার",
+        "বাংলা ভায়োলিন কভার",
+        "Violin Prince বাংলা বেহালা",
+        "বাংলা আধুনিক গান বেহালায়",
+        "বেহালায় গমক",
+        "প্রিন্স বৈদ্য বেহালা"
+      ]
+    }
+  ],
+  "content_pillars": [
+    "Western violin covers and emotional instrumental arrangements",
+    "Bollywood and Hindi film songs arranged for violin",
+    "Bengali songs and film music arranged for violin",
+    "English pop and emotional songs arranged for violin",
+    "violin performance, Western technique and gamaka",
+    "music and soundtrack stories relevant to violin listeners"
+  ],
+  "creator_keywords": [
+    "Violin Prince",
+    "Prince Baidya violin",
+    "violin cover",
+    "violin instrumental"
+  ],
+  "query_budget_per_run": 9,
+  "max_results_per_query": 10,
+  "analytics_minimum_group_size": 3
+}
