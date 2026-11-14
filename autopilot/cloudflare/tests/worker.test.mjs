@@ -13,6 +13,7 @@ const { dispatchWorkflow } = await import(workerModuleUrl);
 
 function makeEnvironment(overrides = {}) {
   const statements = [];
+  let reservedRunId = null;
   const env = {
     AUTOPILOT_ENABLED: "false",
     GITHUB_DISPATCH_TOKEN: "dispatch-token-for-test",
@@ -33,12 +34,18 @@ function makeEnvironment(overrides = {}) {
             if (this.sql.includes("COUNT(*) AS n FROM video_runs")) return { n: 0 };
             if (this.sql.startsWith("SELECT id FROM runs")) return null;
             if (this.sql.startsWith("SELECT run_id FROM daily_dispatches")) {
-              return { run_id: this.args[1] };
+              return reservedRunId ? { run_id: reservedRunId } : null;
             }
             return null;
           },
           async run() {
             statements.push({ sql: this.sql, args: this.args });
+            if (this.sql.startsWith("INSERT OR IGNORE INTO daily_dispatches")) {
+              reservedRunId = this.args[1];
+            }
+            if (this.sql.startsWith("DELETE FROM daily_dispatches") && reservedRunId === this.args[1]) {
+              reservedRunId = null;
+            }
             return { success: true };
           },
         };
@@ -46,9 +53,8 @@ function makeEnvironment(overrides = {}) {
     },
     ...overrides,
   };
-  return { env, statements };
+  return { env, statements, getReservation: () => reservedRunId };
 }
-
 async function withFetch(t, implementation) {
   const previous = globalThis.fetch;
   globalThis.fetch = implementation;
@@ -98,7 +104,7 @@ test("scheduled Worker dispatch is blocked while the scheduler flag is disabled"
 });
 
 test("a rejected GitHub dispatch marks the run failed and releases the daily lock", async (t) => {
-  const { env, statements } = makeEnvironment();
+  const { env, statements, getReservation } = makeEnvironment();
   await withFetch(t, async () => new Response("Invalid workflow input", { status: 422 }));
 
   const result = await dispatchWorkflow(env, "manual");
@@ -111,10 +117,11 @@ test("a rejected GitHub dispatch marks the run failed and releases the daily loc
   assert.match(failedRun.args[1], /422/);
   assert.ok(releasedLock, "daily dispatch reservation should be released after rejection");
   assert.equal(releasedLock.args[1], failedRun.args[3]);
+  assert.equal(getReservation(), null, "the fake D1 reservation should be clear after an explicit rejection");
 });
 
 test("a network failure records an unknown outcome and retains the daily lock", async (t) => {
-  const { env, statements } = makeEnvironment();
+  const { env, statements, getReservation } = makeEnvironment();
   await withFetch(t, async () => {
     throw new Error("simulated network outage");
   });
@@ -128,4 +135,5 @@ test("a network failure records an unknown outcome and retains the daily lock", 
   assert.equal(unresolvedRun.args[0], "dispatch_unknown");
   assert.match(unresolvedRun.args[1], /simulated network outage/);
   assert.equal(releasedLock, undefined, "an ambiguous delivery must retain the daily lock to prevent duplicate dispatch");
+  assert.equal(getReservation(), unresolvedRun.args[3], "the reservation remains held until the outcome is reconciled");
 });
