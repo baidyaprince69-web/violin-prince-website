@@ -469,6 +469,66 @@ class PlannerNarrationValidationTests(unittest.TestCase):
         self.assertEqual(researcher.call_count, 2)
         self.assertEqual(verifier.call_count, 2)
 
+    def test_evidence_repair_rewrites_only_flagged_sentence_from_verified_articles(self):
+        sentences = [
+            "Can computers recreate a violin's sound?",
+            "MIT engineers built a detailed computational model of a virtual violin instrument.",
+            "Its plucked strings recreate realistic resonance and acoustic timbre for listeners.",
+            "Technology is learning the deep soul of every single violin note.",
+        ]
+        plan = make_test_plan(sentences)
+        plan["narration_script"] = " ".join(sentences)
+        verified_sources = [
+            {
+                "source_id": "SRC_VIRTUAL_VIOLIN",
+                "title": "MIT engineers develop a computational virtual violin",
+                "publisher_name": "MIT News",
+                "publisher_domain": "news.mit.edu",
+                "evidence_text": (
+                    "MIT engineers developed a detailed computational model of a virtual violin instrument. "
+                    "Its plucked strings recreate realistic resonance and acoustic timbre for listeners. "
+                    "Bowed string performance remains a difficult challenge for researchers today."
+                ),
+            }
+        ]
+        corrected_words = [
+            "Bowed", "string", "performance", "still", "remains", "a",
+            "difficult", "challenge", "for", "researchers", "today."
+        ]
+        response = {
+            "choices": [{
+                "message": {
+                    "tool_calls": [{
+                        "type": "function",
+                        "function": {
+                            "name": "submit_narration_sentence_corrections",
+                            "arguments": json.dumps({"sentence_4_words": corrected_words}),
+                        },
+                    }],
+                },
+            }],
+        }
+        with tempfile.TemporaryDirectory() as folder:
+            original_work = pipeline.WORK
+            try:
+                pipeline.WORK = Path(folder)
+                with patch.object(pipeline, "ai", return_value=response) as mock_ai:
+                    result = pipeline.compose_narration(
+                        plan,
+                        verified_sources,
+                        evidence_sources=verified_sources,
+                        force_sentence_indices=[3],
+                    )
+                    self.assertEqual(mock_ai.call_count, 1)
+                    prompt_payload = mock_ai.call_args.args[1]
+                    self.assertIn("verified", prompt_payload["messages"][0]["content"].casefold())
+                self.assertNotIn("deep soul", result)
+                self.assertIn("Bowed string performance", result)
+                self.assertEqual(pipeline.narration_word_count(result), 40)
+                pipeline.validate_narration_against_sources(plan, verified_sources)
+            finally:
+                pipeline.WORK = original_work
+
     def test_valid_initial_narration_skips_correction_call(self):
         plan = make_test_plan(ORCHESTRA_SENTENCES)
         with tempfile.TemporaryDirectory() as folder:
