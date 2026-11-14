@@ -263,6 +263,8 @@ jobs:
           path: |
             work/package/
             work/output/
+            !work/output/scene-3.mp4
+            !work/output/violin-prince-short.mp4
             work/research.json
             work/story_candidates.json
             work/story_research.json
