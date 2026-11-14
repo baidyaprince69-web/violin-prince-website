@@ -27,7 +27,7 @@ class PlannerSourceMatchingTests(unittest.TestCase):
             {
                 "title": "A new concert season begins in the city",
                 "summary": "A local orchestra announced its concert schedule.",
-                "evidence_text": "MIT News explains how engineers developed the virtual violin and tested its realistic sound. The article describes the research team and its findings in detail.",
+                "evidence_text": "City Arts reviewed a virtual violin performance and reported how the instrument produced a realistic sound. The article explains the concert context and the instrument's role in the programme.",
                 "publisher_name": "City Arts",
                 "publisher_domain": "arts.example",
                 "url": "https://arts.example/concert-season",
