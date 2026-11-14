@@ -569,78 +569,161 @@ def research():
     return result
 
 
-def story_search_phrases(plan):
-    """Build precise named-entity/topic searches without broad unrelated terms."""
+def story_search_phrases(plan, existing_items=None):
+    """Build broad, source-led queries from the story and the actual seed headlines."""
     values = []
     topic = re.sub(r"\s+", " ", str(plan.get("topic") or "")).strip()
     title = re.sub(r"\s+", " ", str(plan.get("title") or "")).strip()
+
+    def add(value):
+        phrase = re.sub(r"\s+", " ", str(value or "")).strip(" -:;,.")
+        if len(phrase) >= 6 and len(phrase.split()) >= 2:
+            if phrase.casefold() not in {item.casefold() for item in values}:
+                values.append(phrase[:140])
+
+    # Named entities are useful search anchors, but never the only queries.
     for text_value in (topic, title):
         for match in re.findall(r"\b[A-Z][A-Za-z’'-]+(?:\s+[A-Z][A-Za-z’'-]+){1,3}\b", text_value):
             phrase = re.sub(r"\s+", " ", match).strip()
-            if phrase.casefold().split()[0] in {"from", "how", "why", "what", "when", "where", "the", "this"}:
-                continue
-            if len(phrase) >= 6 and phrase.casefold() not in {item.casefold() for item in values}:
-                values.append(phrase)
-    for text_value in (topic, title):
-        phrase = re.sub(r"[^A-Za-z0-9’' -]", " ", text_value)
-        phrase = re.sub(r"\s+", " ", phrase).strip()
-        if len(phrase.split()) >= 2 and phrase.casefold() not in {item.casefold() for item in values}:
-            values.append(phrase[:120])
-    return values[:4]
+            if phrase.casefold().split()[0] not in {"from", "how", "why", "what", "when", "where", "the", "this"}:
+                add(phrase)
 
+    # Keep the original editorial wording as a natural query, without exact-match quotes.
+    add(topic)
+    add(title)
+
+    # Add a compact keyword query so punctuation and editorial wording do not make
+    # search engines miss the subject (e.g. "MIT virtual violin realistic sounds").
+    stopwords = {
+        "about", "after", "also", "and", "are", "from", "how", "into", "its",
+        "new", "of", "our", "the", "their", "this", "through", "was", "what",
+        "when", "where", "which", "with",
+    }
+    keywords = [
+        word for word in re.findall(r"[a-z0-9]+", (topic + " " + title).casefold())
+        if len(word) > 2 and word not in stopwords
+    ]
+    compact_keywords = list(dict.fromkeys(keywords))[:8]
+    if len(compact_keywords) >= 2:
+        add(" ".join(compact_keywords))
+
+    # Search headline variants already present in the seed research. These are
+    # discovery leads only; their URLs still need to resolve to direct articles.
+    ranked_seed = sorted(
+        (
+            (source_relevance_score(plan, item), item)
+            for item in (existing_items or [])
+            if isinstance(item, dict) and item.get("title")
+        ),
+        key=lambda pair: pair[0],
+        reverse=True,
+    )
+    for score, item in ranked_seed:
+        if score >= 0.30:
+            add(item.get("title", ""))
+        if len(values) >= 6:
+            break
+
+    return values[:6]
+
+
+
+
+def bing_news_item_record(item, label="Bing News story search"):
+    """Convert a Bing News RSS item into a discovery record, never final evidence by itself."""
+    source_node = item.find("source")
+    publisher_name = (source_node.text or "").strip() if source_node is not None else ""
+    raw_title = (item.findtext("title") or "").strip()
+    if publisher_name and raw_title.casefold().endswith((" - " + publisher_name).casefold()):
+        raw_title = raw_title[:-(len(publisher_name) + 3)].strip()
+    url = (item.findtext("link") or "").strip()
+    publisher_domain = _normalized_publisher_domain(
+        (source_node.get("url") or "") if source_node is not None else ""
+    )
+    if not publisher_domain:
+        publisher_domain = _normalized_publisher_domain(url)
+    return {
+        "title": raw_title[:220],
+        "summary": "",
+        "url": url,
+        "date": (item.findtext("pubDate") or "")[:90],
+        "source": publisher_name or publisher_domain or label,
+        "publisher_name": publisher_name or publisher_domain,
+        "publisher_home": (source_node.get("url") or "").strip() if source_node is not None else "",
+        "publisher_domain": publisher_domain,
+        "source_feed": label,
+        "link_type": "discovery_lead",
+    }
 
 def research_story_sources(plan, existing_items):
-    """Run targeted story searches and enrich direct publisher articles for fact review."""
+    """Run resilient topic searches across RSS providers and enrich direct publisher pages."""
     targeted = []
-    phrases = story_search_phrases(plan)
-    for phrase in phrases:
-        try:
-            response = http.get(
-                "https://api.gdeltproject.org/api/v2/doc/doc",
-                params={
-                    "query": '"' + phrase + '"',
-                    "mode": "ArtList",
-                    "format": "json",
-                    "maxrecords": "40",
-                    "sort": "HybridRel",
-                    "timespan": "90d",
-                },
-                timeout=30,
-            )
-            response.raise_for_status()
-            for article in response.json().get("articles", []):
-                if not article.get("title") or not article.get("url"):
-                    continue
-                article_url = str(article["url"])
-                domain = str(article.get("domain") or urlparse(article_url).netloc).lower().removeprefix("www.")
-                targeted.append({
-                    "title": str(article.get("title", ""))[:220],
-                    "summary": "",
-                    "url": article_url,
-                    "date": str(article.get("seendate", "")),
-                    "source": domain,
-                    "publisher_name": domain,
-                    "publisher_domain": domain,
-                    "source_feed": "GDELT story search",
-                })
-        except Exception as exc:
-            log("Targeted GDELT search unavailable for " + phrase[:60] + ": " + str(exc)[:130])
+    phrases = story_search_phrases(plan, existing_items)
+    gdelt_rate_limited = False
+    gdelt_queries = 0
+    google_items = 0
+    bing_items = 0
 
-        # Google News is a discovery feed only; its redirect must resolve to a
-        # publisher article before it can become a final citation.
+    for phrase in phrases:
+        # GDELT is a useful free source but can rate-limit bursts. After the first
+        # HTTP 429, skip further calls in this run and continue with RSS providers.
+        if not gdelt_rate_limited:
+            try:
+                response = http.get(
+                    "https://api.gdeltproject.org/api/v2/doc/doc",
+                    params={
+                        "query": phrase,
+                        "mode": "ArtList",
+                        "format": "json",
+                        "maxrecords": "40",
+                        "sort": "HybridRel",
+                        "timespan": "90d",
+                    },
+                    timeout=20,
+                )
+                gdelt_queries += 1
+                if response.status_code == 429:
+                    gdelt_rate_limited = True
+                    log("GDELT returned HTTP 429; pausing GDELT for this run and continuing with RSS search.")
+                else:
+                    response.raise_for_status()
+                    for article in response.json().get("articles", []):
+                        if not article.get("title") or not article.get("url"):
+                            continue
+                        article_url = str(article["url"])
+                        domain = str(article.get("domain") or urlparse(article_url).netloc).lower().removeprefix("www.")
+                        targeted.append({
+                            "title": str(article.get("title", ""))[:220],
+                            "summary": "",
+                            "url": article_url,
+                            "date": str(article.get("seendate", "")),
+                            "source": domain,
+                            "publisher_name": domain,
+                            "publisher_domain": domain,
+                            "source_feed": "GDELT story search",
+                        })
+            except Exception as exc:
+                if getattr(getattr(exc, "response", None), "status_code", None) == 429:
+                    gdelt_rate_limited = True
+                    log("GDELT returned HTTP 429; pausing GDELT for this run and continuing with RSS search.")
+                else:
+                    log("Targeted GDELT search unavailable for " + phrase[:60] + ": " + str(exc)[:130])
+
+        # Google News RSS is a discovery source. Use natural unquoted queries so
+        # minor wording differences do not suppress otherwise relevant articles.
         for region in ("GB", "US", "IN"):
             try:
                 request = requests.Request(
                     "GET",
                     "https://news.google.com/rss/search",
                     params={
-                        "q": '"' + phrase + '"',
+                        "q": phrase,
                         "hl": "en",
                         "gl": region,
                         "ceid": region + ":en",
                     },
                 ).prepare()
-                response = http.get(request.url, timeout=20)
+                response = http.get(request.url, timeout=15)
                 response.raise_for_status()
                 root = ET.fromstring(response.content)
                 for item in root.findall(".//item")[:12]:
@@ -648,15 +731,36 @@ def research_story_sources(plan, existing_items):
                         record = google_news_item_record(item, region, "Story verification")
                         record["source_feed"] = "Google News targeted story search"
                         targeted.append(record)
+                        google_items += 1
             except Exception as exc:
                 log(region + " targeted Google News unavailable: " + str(exc)[:120])
+
+        # Bing News provides a second RSS discovery route if Google News is sparse.
+        try:
+            request = requests.Request(
+                "GET",
+                "https://www.bing.com/news/search",
+                params={"q": phrase, "format": "rss", "setmkt": "en-US"},
+            ).prepare()
+            response = http.get(request.url, timeout=15)
+            response.raise_for_status()
+            root = ET.fromstring(response.content)
+            for item in root.findall(".//item")[:18]:
+                if item.findtext("title") and item.findtext("link"):
+                    targeted.append(bing_news_item_record(item))
+                    bing_items += 1
+        except Exception as exc:
+            log("Bing News RSS unavailable for " + phrase[:60] + ": " + str(exc)[:120])
 
     unique = {}
     for item in targeted:
         key = source_key(item.get("url")) or str(item.get("url") or "")
         if key:
             unique.setdefault(key, item)
-    targeted = enrich_source_evidence(list(unique.values())[:100])
+
+    # Resolve Google/Bing redirect URLs to final publisher article pages and collect
+    # paragraph evidence. No headline summary is promoted to factual evidence.
+    targeted = enrich_source_evidence(list(unique.values())[:140])
     combined = []
     seen = set()
     for item in list(targeted) + list(existing_items):
@@ -669,7 +773,11 @@ def research_story_sources(plan, existing_items):
         json.dumps(combined, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     direct_count = sum(1 for item in combined if is_direct_publisher_article(item))
-    log(f"Targeted story research collected {direct_count} direct publisher article links from {len(combined)} records.")
+    log(
+        f"Story search summary: {len(phrases)} queries, {gdelt_queries} GDELT attempts"
+        f"{' (rate-limited)' if gdelt_rate_limited else ''}, {google_items} Google News leads, "
+        f"{bing_items} Bing News leads; {direct_count} direct publisher pages from {len(combined)} records."
+    )
     return combined
 
 

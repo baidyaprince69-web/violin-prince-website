@@ -1,7 +1,11 @@
 """Regression tests for robust source ID and URL resolution."""
 import os
 import sys
+import tempfile
 import unittest
+import xml.etree.ElementTree as ET
+from pathlib import Path
+from unittest.mock import patch
 from pathlib import Path
 
 os.environ.setdefault("CF_ACCOUNT_ID", "test-account")
@@ -107,6 +111,97 @@ class PlannerSourceMatchingTests(unittest.TestCase):
         }
         with self.assertRaisesRegex(pipeline.PipelineError, "at least 2 independent publishers"):
             pipeline.select_verified_story_sources(plan, self.items[:1], minimum_sources=2)
+
+    def test_story_search_includes_relevant_seed_headline_variants(self):
+        plan = {
+            "topic": "MIT Virtual Violin Technology",
+            "title": "The Digital Soul of the Violin",
+            "hook": "Can a computer mimic a violin?",
+        }
+        phrases = pipeline.story_search_phrases(plan, self.items)
+        self.assertIn("MIT engineers' virtual violin produces realistic sounds", phrases)
+        self.assertIn("mit virtual violin technology digital soul", phrases)
+        self.assertNotIn("A new concert season begins in the city", phrases)
+
+    def test_bing_news_rss_record_preserves_publisher_and_article_url(self):
+        item = ET.fromstring(
+            "<item>"
+            "<title>MIT virtual violin produces realistic sounds - MIT News</title>"
+            "<link>https://news.mit.edu/2026/virtual-violin</link>"
+            "<pubDate>Wed, 14 Nov 2026 10:00:00 GMT</pubDate>"
+            '<source url="https://news.mit.edu">MIT News</source>'
+            "</item>"
+        )
+        record = pipeline.bing_news_item_record(item)
+        self.assertEqual(record["title"], "MIT virtual violin produces realistic sounds")
+        self.assertEqual(record["publisher_name"], "MIT News")
+        self.assertEqual(record["publisher_domain"], "news.mit.edu")
+        self.assertEqual(record["url"], "https://news.mit.edu/2026/virtual-violin")
+        self.assertEqual(record["summary"], "")
+        self.assertEqual(record["link_type"], "discovery_lead")
+
+    def test_research_continues_on_rss_after_first_gdelt_429(self):
+        bing_xml = (
+            b"<rss><channel><item>"
+            b"<title>MIT virtual violin produces realistic sounds - MIT News</title>"
+            b"<link>https://news.mit.edu/2026/virtual-violin</link>"
+            b"<pubDate>Wed, 14 Nov 2026 10:00:00 GMT</pubDate>"
+            b'<source url="https://news.mit.edu">MIT News</source>'
+            b"</item></channel></rss>"
+        )
+        empty_rss = b"<rss><channel></channel></rss>"
+
+        class FakeResponse:
+            def __init__(self, content=b"", status_code=200):
+                self.content = content
+                self.status_code = status_code
+
+            def raise_for_status(self):
+                if self.status_code >= 400:
+                    raise pipeline.requests.HTTPError(
+                        f"HTTP {self.status_code}", response=self
+                    )
+
+            def json(self):
+                return {"articles": []}
+
+        gdelt_calls = []
+        bing_calls = []
+
+        def fake_get(url, *args, **kwargs):
+            if "api.gdeltproject.org" in url:
+                gdelt_calls.append(url)
+                return FakeResponse(status_code=429)
+            if "news.google.com" in url:
+                return FakeResponse(content=empty_rss)
+            if "bing.com/news/search" in url:
+                bing_calls.append(url)
+                return FakeResponse(content=bing_xml)
+            raise AssertionError("Unexpected story research URL: " + str(url))
+
+        with tempfile.TemporaryDirectory() as folder:
+            original_work = pipeline.WORK
+            try:
+                pipeline.WORK = Path(folder)
+                with (
+                    patch.object(pipeline, "story_search_phrases", return_value=["virtual violin", "MIT violin"]),
+                    patch.object(pipeline.http, "get", side_effect=fake_get),
+                    patch.object(pipeline, "enrich_source_evidence", side_effect=lambda items: items),
+                ):
+                    result = pipeline.research_story_sources(
+                        {"topic": "MIT virtual violin", "title": "Digital violin"},
+                        self.items[:1],
+                    )
+            finally:
+                pipeline.WORK = original_work
+
+        self.assertEqual(len(gdelt_calls), 1, "GDELT should pause after its first 429")
+        self.assertEqual(len(bing_calls), 2, "Bing RSS should be attempted for each broad query")
+        self.assertTrue(any(
+            item.get("source_feed") == "Bing News story search"
+            and item.get("url") == "https://news.mit.edu/2026/virtual-violin"
+            for item in result
+        ))
 
     def test_unrelated_plan_does_not_get_random_source(self):
         plan = {
