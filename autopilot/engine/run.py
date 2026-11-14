@@ -20,7 +20,7 @@ try:
         CHANNEL_BRIEF, CREATIVE_DIRECTION_VERSION, VISUAL_MODE_PROMPTS,
         channel_fit_report, validate_creative_plan,
     )
-    from .motion_graphics import make_motion_graphic_frames
+    from .motion_graphics import make_motion_graphic_frames, make_ambient_glow_frames
 except ImportError:  # Direct script execution from the engine directory.
     from seo_intelligence import build_topic_queries, discover as seo_discover, load_profile as seo_load_profile
     from seo_intelligence.storage import load_learning_signals
@@ -28,7 +28,7 @@ except ImportError:  # Direct script execution from the engine directory.
         CHANNEL_BRIEF, CREATIVE_DIRECTION_VERSION, VISUAL_MODE_PROMPTS,
         channel_fit_report, validate_creative_plan,
     )
-    from motion_graphics import make_motion_graphic_frames
+    from motion_graphics import make_motion_graphic_frames, make_ambient_glow_frames
 
 API = os.environ.get("AUTOPILOT_API_URL", "").rstrip("/")
 JOB_TOKEN = os.environ.get("AUTOPILOT_JOB_TOKEN", "")
@@ -3863,8 +3863,8 @@ def make_card(source, caption, index, title=""):
     image = Image.open(source).convert("RGB")
     # Use a portrait crop with a centred safe area instead of a small square inset.
     image = ImageOps.fit(image, (W, H), method=Image.Resampling.LANCZOS, centering=(0.5, 0.46))
-    image = ImageEnhance.Color(image).enhance(0.92)
-    image = ImageEnhance.Contrast(image).enhance(1.04)
+    image = ImageEnhance.Color(image).enhance(1.02)
+    image = ImageEnhance.Contrast(image).enhance(1.05)
     canvas = image.convert("RGBA")
 
     # Soft top and bottom gradients keep type legible without heavy boxes.
@@ -4139,6 +4139,9 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
             FPS,
             font,
         )
+        ambient_pattern = make_ambient_glow_frames(
+            OUT / f"ambient-glow-{i + 1}", frame_count, FPS, scene_index=i
+        )
         camera = camera_motion_filter(frame_count, i)
         panel_fade_out = max(0.0, scene_seconds - 0.34)
         if i == 2 and performance_video_info:
@@ -4158,12 +4161,15 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
                 f"[1:v]format=rgba,fade=t=in:st=0:d=0.30:alpha=1,"
                 f"fade=t=out:st={panel_fade_out:.3f}:d=0.28:alpha=1[panel];"
                 "[base][panel]overlay=x='(W-w)/2':"
-                "y='88-14*(1-min(1,t/0.30))':format=auto,format=yuv420p[v]"
+                "y='88-14*(1-min(1,t/0.30))':format=auto[panelled];"
+                "[2:v]scale=720:1280,format=rgba,colorchannelmixer=aa=0.78[glow];"
+                "[panelled][glow]overlay=0:0:format=auto,format=yuv420p[v]"
             )
             scene_args = [
                 "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
                 "-i", str(performance_video_path),
                 "-start_number", "1", "-framerate", str(FPS), "-i", str(graphic_pattern),
+                "-start_number", "1", "-framerate", str(FPS), "-i", str(ambient_pattern),
             ]
         else:
             scene_filter = (
@@ -4171,12 +4177,15 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
                 f"[1:v]format=rgba,fade=t=in:st=0:d=0.30:alpha=1,"
                 f"fade=t=out:st={panel_fade_out:.3f}:d=0.28:alpha=1[panel];"
                 "[base][panel]overlay=x='(W-w)/2':"
-                "y='H-h-340-18*(1-min(1,t/0.30))':format=auto,format=yuv420p[v]"
+                "y='H-h-340-18*(1-min(1,t/0.30))':format=auto[panelled];"
+                "[2:v]scale=720:1280,format=rgba,colorchannelmixer=aa=0.78[glow];"
+                "[panelled][glow]overlay=0:0:format=auto,format=yuv420p[v]"
             )
             scene_args = [
                 "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
                 "-loop", "1", "-framerate", str(FPS), "-i", str(card),
                 "-start_number", "1", "-framerate", str(FPS), "-i", str(graphic_pattern),
+                "-start_number", "1", "-framerate", str(FPS), "-i", str(ambient_pattern),
             ]
         command(scene_args + [
             "-t", f"{scene_seconds:.3f}", "-filter_complex", scene_filter,
@@ -4432,6 +4441,8 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         "Never use stick figures, wireframes, bare outlines, uncoloured silhouettes, monochrome line art, sketch-only objects or hollow violin shapes. "
         "Keep the same lighting logic, material finish and recurring visual motif across all three scenes. "
         "This is original art direction, not a recreation of another creator's characters, shots or visual identity. "
+        "Use simple coloured stick figures or simplified hand/arm characters only when they genuinely clarify a human action or musical interaction; keep them small, expressive and secondary to the real instrument or photo-based scene. Do not make every scene a stick-figure scene. "
+        "Use subtle moving illuminated dust, tiny four-point star glints, soft teal/amber gradient glow and gentle light pulses as atmospheric accents, never as clutter. "
         "No generic stock photography, no celebrity likeness, no identifiable face, no unrelated people, "
         "no logos, no watermark, no readable text, no song lyrics and no copyrighted notation. "
         "Respect the exact sourced fact. A symbolic visual must never imply an unsupported event or measurement. "
