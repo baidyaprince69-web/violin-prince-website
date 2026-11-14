@@ -658,23 +658,26 @@ def resolve_plan_sources(plan, research_items):
 
 
 def research():
+    """Discover publisher article leads broadly, prioritising music-relevant direct links."""
     items = []
     try:
         r = http.get("https://api.gdeltproject.org/api/v2/doc/doc",
                      params={"query": "(music OR violin OR entertainment OR culture OR film OR science OR technology)",
-                             "mode": "ArtList", "format": "json", "maxrecords": "30",
-                             "sort": "HybridRel", "timespan": "24h"}, timeout=25)
+                             "mode": "ArtList", "format": "json", "maxrecords": "40",
+                             "sort": "HybridRel", "timespan": "7d"}, timeout=25)
         r.raise_for_status()
-        for a in r.json().get("articles", []):
-            if a.get("title") and a.get("url"):
-                article_url = str(a["url"])
-                article_domain = str(a.get("domain") or urlparse(article_url).netloc).lower().removeprefix("www.")
+        for article in r.json().get("articles", []):
+            if article.get("title") and article.get("url"):
+                article_url = str(article["url"])
+                article_domain = str(article.get("domain") or urlparse(article_url).netloc).lower().removeprefix("www.")
                 items.append({
-                    "title": str(a["title"])[:220], "summary": "",
-                    "url": article_url, "date": str(a.get("seendate", "")),
+                    "title": str(article["title"])[:220], "summary": "",
+                    "url": article_url, "date": str(article.get("seendate", "")),
                     "source": article_domain or "GDELT",
                     "publisher_name": article_domain,
                     "publisher_domain": article_domain,
+                    "source_feed": "GDELT broad research",
+                    "link_type": "discovery_lead",
                 })
     except Exception as exc:
         log("GDELT unavailable: " + str(exc)[:160])
@@ -704,17 +707,65 @@ def research():
             except Exception as exc:
                 log(region + " " + label + " RSS unavailable: " + str(exc)[:140])
 
+    # DuckDuckGo exposes direct outbound publisher URLs. These are still only
+    # discovery leads until enrich_source_evidence fetches and reads the article.
+    ddg_queries = [
+        "violin music orchestra instrument research news",
+        "classical music performers festivals competitions news",
+        "music technology instruments research discoveries",
+        "film music composers soundtrack industry news",
+        "music culture arts discoveries performance news",
+    ]
+    ddg_count = 0
+    for query in ddg_queries:
+        try:
+            request = requests.Request(
+                "GET",
+                "https://html.duckduckgo.com/html/",
+                params={"q": query},
+            ).prepare()
+            response = http.get(
+                request.url,
+                headers={"User-Agent": "Mozilla/5.0 (compatible; ViolinPrinceAutopilot/0.2)"},
+                timeout=12,
+            )
+            response.raise_for_status()
+            records = duckduckgo_search_records(response.text, label="DuckDuckGo broad publisher discovery")
+            items.extend(records[:18])
+            ddg_count += len(records[:18])
+        except Exception as exc:
+            log("DuckDuckGo broad research unavailable for " + query[:55] + ": " + str(exc)[:130])
+
     unique = {}
     for item in items:
-        unique.setdefault(item["url"].split("?")[0].rstrip("/"), item)
-    result = list(unique.values())[:75]
+        key = source_key(item.get("url")) or str(item.get("url") or "").split("?")[0].rstrip("/")
+        if key:
+            unique.setdefault(key, item)
+
+    # Prefer real publisher article URLs over aggregator redirects during the
+    # bounded enrichment pass; direct URLs are not trusted until their bodies load.
+    def discovery_priority(item):
+        direct_url = is_direct_publisher_article(item)
+        feed = str(item.get("source_feed") or "")
+        feed_priority = 0 if "DuckDuckGo" in feed else (1 if "GDELT" in feed else 2)
+        title_quality = min(len(source_tokens(item.get("title", ""))), 20)
+        return (0 if direct_url else 1, feed_priority, -title_quality)
+
+    result = sorted(unique.values(), key=discovery_priority)[:120]
     if not result:
         raise PipelineError("All free research feeds were unavailable; no video created.")
     result = enrich_source_evidence(result)
     WORK.mkdir(exist_ok=True)
     (WORK / "research.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    readable = sum(
+        1 for item in result
+        if is_direct_publisher_article(item) and len(str(item.get("evidence_text") or "").strip()) >= 90
+    )
+    log(
+        f"Broad research collected {len(result)} unique leads, including {ddg_count} DuckDuckGo publisher links; "
+        f"{readable} direct publisher pages have readable article evidence."
+    )
     return result
-
 
 def story_search_phrases(plan, existing_items=None):
     """Build searches from the factual description and named story subject first."""
@@ -1054,10 +1105,10 @@ def duckduckgo_search_records(page_text, label="DuckDuckGo web search"):
         })
     return records
 
-def research_story_sources(plan, existing_items):
+def research_story_sources(plan, existing_items, max_phrases=6):
     """Search GDELT, Google/Bing RSS, and direct-link web results; verify publisher pages."""
     targeted = []
-    phrases = story_search_phrases(plan, existing_items)
+    phrases = story_search_phrases(plan, existing_items)[:max(1, min(6, int(max_phrases)))]
     gdelt_rate_limited = False
     gdelt_queries = 0
     google_items = 0
