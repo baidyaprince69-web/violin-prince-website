@@ -1,6 +1,11 @@
 name: Violin Prince Autopilot
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".autopilot/prepare-request.json"
   schedule:
     - cron: "30 5 * * *" # Disabled until repository variable AUTOPILOT_SCHEDULE_ENABLED is true
   workflow_dispatch:
@@ -99,6 +104,28 @@ jobs:
       - name: Check out the project
         uses: actions/checkout@v4
 
+      - name: Read queued Prepare recovery request
+        id: prepare_request
+        if: github.event_name == 'push' && env.PIPELINE_STAGE == 'prepare'
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          request_path = Path(".autopilot/prepare-request.json")
+          if not request_path.is_file():
+              raise SystemExit("Queued Prepare request file is missing.")
+          request = json.loads(request_path.read_text(encoding="utf-8"))
+          source_run_id = str(request.get("source_run_id") or "").strip()
+          if not re.fullmatch(r"[0-9]+", source_run_id):
+              raise SystemExit("Queued Prepare request has no valid numeric source_run_id.")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write("source_run_id=" + source_run_id + "\n")
+          print("Queued Prepare request loaded; previous research artifact will be reused.")
+          PY
       - name: Restore the latest encrypted SEO learning snapshot
         if: env.PIPELINE_STAGE == 'prepare'
         uses: actions/checkout@v4
@@ -116,12 +143,12 @@ jobs:
           cache-dependency-path: autopilot/engine/requirements.txt
 
       - name: Reuse research from an earlier failed run when requested
-        if: (env.PIPELINE_STAGE == 'prepare') && inputs.source_run_id != ''
+        if: (env.PIPELINE_STAGE == 'prepare') && (inputs.source_run_id != '' || steps.prepare_request.outputs.source_run_id != '')
         uses: actions/download-artifact@v4
         with:
-          name: violin-prince-run-${{ inputs.source_run_id }}
+          name: violin-prince-run-${{ inputs.source_run_id || steps.prepare_request.outputs.source_run_id }}
           path: work/reuse
-          run-id: ${{ inputs.source_run_id }}
+          run-id: ${{ inputs.source_run_id || steps.prepare_request.outputs.source_run_id }}
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
 

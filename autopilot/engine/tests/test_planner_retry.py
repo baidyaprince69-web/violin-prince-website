@@ -307,6 +307,109 @@ class PlannerNarrationValidationTests(unittest.TestCase):
             finally:
                 pipeline.WORK = original_work
 
+
+    def test_source_ids_remain_stable_when_research_results_are_reordered(self):
+        items = [
+            {
+                "title": "MIT engineers develop a virtual violin",
+                "url": "https://news.mit.edu/2026/virtual-violin",
+                "publisher_domain": "news.mit.edu",
+                "publisher_name": "MIT News",
+                "evidence_text": "A" * 100,
+            },
+            {
+                "title": "A separate report about violin design",
+                "url": "https://example.org/science/violin-design",
+                "publisher_domain": "example.org",
+                "publisher_name": "Example Science",
+                "evidence_text": "B" * 100,
+            },
+        ]
+        first = {item["url"]: item["source_id"] for item in pipeline.planner_research_items(items)}
+        second = {item["url"]: item["source_id"] for item in pipeline.planner_research_items(list(reversed(items)))}
+        self.assertEqual(first, second)
+
+    def test_source_resolver_uses_publisher_domain_hint_for_subdomain(self):
+        item = {
+            "title": "MIT engineers virtual violin research",
+            "url": "https://news.mit.edu/2026/virtual-violin",
+            "publisher_domain": "news.mit.edu",
+            "publisher_name": "MIT News",
+            "evidence_text": "MIT engineers developed a computational violin model. " * 4,
+        }
+        compact = pipeline.planner_research_items([item])
+        resolved = pipeline.resolve_plan_sources(
+            {"topic": "MIT virtual violin", "title": "Virtual Violin", "sources": [
+                {"source_id": "S0060", "publisher_domain": "mit.edu"}
+            ]},
+            compact,
+        )
+        self.assertEqual(len(resolved), 1)
+        self.assertEqual(resolved[0]["url"], item["url"])
+
+    def test_run24_discovery_only_reference_defers_to_targeted_source_research(self):
+        discovery_item = {
+            "title": "MIT engineers’ virtual violin produces realistic sounds",
+            "url": "https://news.google.com/rss/articles/discovery-only",
+            "publisher_name": "MIT News",
+            "publisher_domain": "news.mit.edu",
+            "summary": "A discovery headline only.",
+        }
+        plan = make_test_plan(ORCHESTRA_SENTENCES)
+        plan["topic"] = "MIT Virtual Violin Technology"
+        plan["title"] = "The Digital Soul of the Violin"
+        plan["narrative_style"] = "documentary"
+        planner_reference = {"source_id": "S0060", "publisher_domain": "mit.edu"}
+        plan["sources"] = [planner_reference]
+
+        with tempfile.TemporaryDirectory() as folder:
+            original_work = pipeline.WORK
+            try:
+                pipeline.WORK = Path(folder)
+                with patch.object(pipeline, "ai", return_value={"response": plan}):
+                    result = pipeline.make_plan([discovery_item], recent=[])
+
+                self.assertEqual(result["sources"], [])
+                self.assertEqual(result["source_resolution"]["status"], "pending_targeted_verification")
+                self.assertEqual(result["source_reference_hints"], [planner_reference])
+                self.assertEqual(result["narrative_style"], "documentary")
+            finally:
+                pipeline.WORK = original_work
+
+    def test_story_source_recovery_tries_one_alternative_candidate(self):
+        first_plan = make_test_plan(ORCHESTRA_SENTENCES)
+        first_plan["topic"] = "Unverifiable first story"
+        second_plan = make_test_plan(ORCHESTRA_SENTENCES)
+        second_plan["topic"] = "Second story with publisher coverage"
+        verified = [{"publisher_domain": "a.example"}, {"publisher_domain": "b.example"}]
+
+        with (
+            patch.object(pipeline, "make_plan", side_effect=[first_plan, second_plan]) as planner,
+            patch.object(pipeline, "research_story_sources", side_effect=[[], ["source-a", "source-b"]]) as researcher,
+            patch.object(
+                pipeline,
+                "select_verified_story_sources",
+                side_effect=[
+                    pipeline.PipelineError("Story quality gate blocked: only 0 relevant direct publisher sources."),
+                    verified,
+                ],
+            ) as verifier,
+        ):
+            result_plan, story_items, result_sources = pipeline.prepare_story_with_source_recovery(
+                [{"title": "seed", "url": "https://seed.example/story"}],
+                recent=["recent topic"],
+                seo_context={"status": "ok"},
+                max_candidates=2,
+            )
+
+        self.assertEqual(result_plan["topic"], "Second story with publisher coverage")
+        self.assertEqual(story_items, ["source-a", "source-b"])
+        self.assertEqual(result_sources, verified)
+        self.assertEqual(planner.call_count, 2)
+        self.assertIn("Unverifiable first story", planner.call_args_list[1].kwargs["recent"])
+        self.assertEqual(researcher.call_count, 2)
+        self.assertEqual(verifier.call_count, 2)
+
     def test_valid_initial_narration_skips_correction_call(self):
         plan = make_test_plan(ORCHESTRA_SENTENCES)
         with tempfile.TemporaryDirectory() as folder:

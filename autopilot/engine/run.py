@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Free-first cloud producer. Never switches to a paid service."""
-import argparse, base64, json, os, re, shutil, subprocess, sys, textwrap, time, uuid, wave
+import argparse, base64, hashlib, json, os, re, shutil, subprocess, sys, textwrap, time, uuid, wave
 from io import BytesIO
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from html.parser import HTMLParser
@@ -351,13 +351,13 @@ def google_news_item_record(item, region, label):
 
 
 def planner_research_items(items):
-    """Give the planner topic leads, but label non-publisher links as non-citable."""
+    """Give the planner topic leads while keeping stable, traceable source IDs."""
     fields = (
         "title", "summary", "evidence_text", "publisher_name",
         "publisher_home", "publisher_domain", "url", "date", "source"
     )
     selected = []
-    for index, item in enumerate(items[:100], start=1):
+    for item in items[:100]:
         if not item.get("title") or not item.get("url"):
             continue
         direct = is_direct_publisher_article(item)
@@ -367,10 +367,14 @@ def planner_research_items(items):
         record["source_eligibility"] = "direct_publisher_article" if direct else "discovery_only"
         record["link_type"] = "publisher_article" if direct else "discovery_lead"
         if not direct:
-            # RSS descriptions are often headline clusters; never expose them as article evidence.
             record["summary"] = ""
             record["evidence_text"] = ""
-        record["source_id"] = f"S{index:04d}"
+        stable_url = source_key(item.get("url"))
+        stable_identity = stable_url or (
+            str(domain) + "|" + re.sub(r"\s+", " ", str(item.get("title", "")).casefold()).strip()
+        )
+        digest = hashlib.sha256(stable_identity.encode("utf-8")).hexdigest()[:16].upper()
+        record["source_id"] = str(item.get("source_id") or ("SRC_" + digest))
         selected.append(record)
     return selected
 
@@ -413,18 +417,33 @@ def source_relevance_score(plan, item):
     return len(core.intersection(article)) / len(core)
 
 
+def _normalized_publisher_domain(value):
+    """Normalize a publisher hostname supplied with or without a URL scheme."""
+    text_value = str(value or "").strip().lower()
+    if not text_value:
+        return ""
+    parsed = urlparse(text_value if "://" in text_value else "//" + text_value)
+    return (parsed.hostname or "").lower().removeprefix("www.").rstrip(".")
+
+
+def _publisher_domains_match(left, right):
+    """Match an exact publisher host or a genuine parent/subdomain relationship."""
+    a = _normalized_publisher_domain(left)
+    b = _normalized_publisher_domain(right)
+    return bool(a and b and (a == b or a.endswith("." + b) or b.endswith("." + a)))
+
+
 def resolve_plan_sources(plan, research_items):
-    """Resolve source IDs, URLs, titles, or publisher names to collected research records."""
+    """Resolve stable IDs, URLs, titles, and publisher domains to direct articles."""
     candidates = [
         item for item in research_items
         if item.get("title") and is_direct_publisher_article(item)
-        and str(item.get("publisher_domain") or urlparse(item.get("url", "")).netloc)
-            .lower().removeprefix("www.")
+        and _normalized_publisher_domain(item.get("publisher_domain") or urlparse(item.get("url", "")).netloc)
     ]
     by_id = {str(item.get("source_id", "")).strip().upper(): item for item in candidates}
     by_url = {source_key(item.get("url", "")): item for item in candidates if source_key(item.get("url", ""))}
 
-    references = plan.get("sources", [])
+    references = plan.get("sources") or plan.get("source_reference_hints") or []
     if isinstance(references, (str, dict)):
         references = [references]
     if not isinstance(references, list):
@@ -433,28 +452,41 @@ def resolve_plan_sources(plan, research_items):
     selected = []
     for reference in references[:8]:
         if isinstance(reference, dict):
-            value = str(
-                reference.get("source_id") or reference.get("id") or
-                reference.get("url") or reference.get("title") or ""
-            ).strip()
+            hints = [
+                reference.get("source_id"), reference.get("id"), reference.get("url"),
+                reference.get("title"), reference.get("publisher_domain"),
+                reference.get("publisher_name"), reference.get("publisher"),
+            ]
         else:
-            value = str(reference or "").strip()
-        if not value:
-            continue
+            hints = [reference]
 
-        matched = by_id.get(value.upper())
-        if not matched:
-            matched = by_url.get(source_key(value))
+        matched = None
+        for raw_hint in hints:
+            value = str(raw_hint or "").strip()
+            if not value:
+                continue
+            matched = by_id.get(value.upper())
+            if matched:
+                break
+            normalized_url = source_key(value)
+            if normalized_url:
+                matched = by_url.get(normalized_url)
+                if matched:
+                    break
 
-        if not matched:
             normalized = " ".join(re.findall(r"[a-z0-9]+", value.casefold()))
             for item in candidates:
                 title = " ".join(re.findall(r"[a-z0-9]+", str(item.get("title", "")).casefold()))
                 publisher = " ".join(re.findall(r"[a-z0-9]+", str(item.get("publisher_name", "")).casefold()))
-                domain = str(item.get("publisher_domain", "")).lower().removeprefix("www.")
-                if normalized and normalized in (title, publisher, domain):
+                domain = _normalized_publisher_domain(item.get("publisher_domain"))
+                if normalized and normalized in (title, publisher):
                     matched = item
                     break
+                if _publisher_domains_match(value, domain):
+                    matched = item
+                    break
+            if matched:
+                break
 
         if matched and matched.get("url") not in [item.get("url") for item in selected]:
             selected.append(matched)
@@ -462,9 +494,6 @@ def resolve_plan_sources(plan, research_items):
     if selected:
         return selected[:5]
 
-    # Some model responses rewrite a Google News redirect as a publisher URL,
-    # or omit citations despite selecting a source-led topic. Recover the closest
-    # matching supplied headline, never a URL invented by the model.
     ranked = sorted(
         ((source_relevance_score(plan, item), item) for item in candidates),
         key=lambda pair: pair[0],
@@ -474,7 +503,8 @@ def resolve_plan_sources(plan, research_items):
         score, item = ranked[0]
         log(
             "Planner source references did not resolve; selected the closest supplied "
-            f"headline by topic overlap ({score:.0%}): {item.get('publisher_name') or item.get('publisher_domain')}."
+            f"direct publisher article by topic overlap ({score:.0%}): "
+            f"{item.get('publisher_name') or item.get('publisher_domain')}."
         )
         return [item]
     return []
@@ -684,6 +714,41 @@ def select_verified_story_sources(plan, research_items, minimum_sources=2):
             f"Verified domains: {available}. No visuals were generated."
         )
     return selected
+
+
+def prepare_story_with_source_recovery(items, recent=None, seo_context=None, max_candidates=2):
+    """Try a bounded number of distinct story candidates when source verification fails."""
+    excluded_topics = []
+    failures = []
+    candidate_limit = max(1, int(max_candidates))
+    for candidate_number in range(1, candidate_limit + 1):
+        avoid = list(recent or []) + excluded_topics
+        plan = make_plan(items, recent=avoid, seo_context=seo_context)
+        topic = str(plan.get("topic") or plan.get("title") or "untitled story").strip()
+        try:
+            story_items = research_story_sources(plan, items)
+            verified_sources = select_verified_story_sources(
+                plan, story_items, minimum_sources=2
+            )
+            return plan, story_items, verified_sources
+        except PipelineError as exc:
+            message = str(exc)
+            if not message.startswith("Story quality gate blocked:"):
+                raise
+            failures.append(topic + ": " + message)
+            excluded_topics.append(topic)
+            if candidate_number < candidate_limit:
+                log(
+                    f"Story candidate {candidate_number}/{candidate_limit} did not have "
+                    "enough independent, readable publisher sources. Selecting one alternative automatically."
+                )
+                continue
+            details = " | ".join(failures)
+            raise PipelineError(
+                f"Automatic source recovery checked {candidate_number} story candidates, "
+                "but none had the required independent direct publisher evidence. " + details
+            ) from exc
+    raise PipelineError("Automatic story source recovery ended without a verified candidate.")
 
 
 _MONTHS = {
@@ -1543,8 +1608,7 @@ def make_plan(items, recent=None, seo_context=None):
         plan["narrative_style"] = "documentary"
 
     planner_source_references = plan.get("sources") or []
-    # Preserve the planner's original references and any narration-repair history.
-    # A later successful validation must not overwrite the diagnostic trail.
+    plan["source_reference_hints"] = planner_source_references
     debug_path = WORK / "creative_plan_debug.json"
     existing_debug = {}
     if debug_path.is_file():
@@ -1563,34 +1627,27 @@ def make_plan(items, recent=None, seo_context=None):
         debug_path.write_text(
             json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8"
         )
+
     compact = planner_research_items(items)
     selected_sources = resolve_plan_sources(plan, compact)
     plan["sources"] = [item["url"] for item in selected_sources[:5]]
-    source_domains = {
-        str(item.get("publisher_domain") or urlparse(item.get("url", "")).netloc)
-            .lower().removeprefix("www.")
-        for item in selected_sources if item.get("url")
+    plan["source_resolution"] = {
+        "status": "seed_sources_resolved" if selected_sources else "pending_targeted_verification",
+        "seed_direct_source_count": len(selected_sources),
+        "note": (
+            "Only direct publisher articles with readable evidence can enter the final package. "
+            "Discovery-only links are search leads, not citations."
+        ),
     }
-    if plan["narrative_style"] == "documentary" and len(source_domains) == 1:
-        # A single verifiable publisher is sufficient for a clearly labelled,
-        # source-led human-interest story; do not present it as multi-source documentary.
-        plan["narrative_style"] = "cinematic_story"
-        log("Using a single-source cinematic story because two independent publishers were not verified.")
-    elif plan["narrative_style"] == "documentary" and len(source_domains) < 1:
-        refs = planner_source_references
-        if isinstance(refs, str):
-            refs = [refs]
-        ref_preview = ", ".join(str(value)[:90] for value in refs[:3]) or "(none returned)"
-        headline_preview = "; ".join(str(item.get("title", ""))[:70] for item in compact[:4])
-        raise PipelineError(
-            "No supplied publisher source could be matched to the selected story. "
-            f"Planner references: {ref_preview}. Available headline examples: {headline_preview}."
+    if not selected_sources:
+        log(
+            "Planner references were discovery-only or unmatched in the seed research. "
+            "Continuing to mandatory story-specific publisher research instead of rejecting the story early."
         )
-    if plan["narrative_style"] == "cinematic_story" and not plan["sources"]:
-        refs = plan.get("sources") or []
-        raise PipelineError(
-            "Storytelling topic has no traceable research source after ID, URL, title, "
-            f"publisher, and topic matching. Planner references: {str(refs)[:240]}."
+    elif len(selected_sources) == 1:
+        log(
+            "One direct seed source matched. Mandatory story-specific research will seek "
+            "a second independent publisher before the package can pass."
         )
     graphic_labels = ("THE HOOK", "THE KEY DETAIL", "THE PAYOFF")
     narration_beats = narration_sentences(narration_script)
@@ -2238,11 +2295,12 @@ def prepare_stage():
         str(len(discovery.get("learned_search_terms_used", []))) +
         ". Search volume is not available from this API."
     )
-    plan = make_plan(items, recent_topics(), seo_context=compact_seo_discovery(discovery))
-
-    # Search again for this exact story, then require multiple direct publisher pages.
-    story_items = research_story_sources(plan, items)
-    verified_sources = select_verified_story_sources(plan, story_items, minimum_sources=2)
+    plan, story_items, verified_sources = prepare_story_with_source_recovery(
+        items,
+        recent=recent_topics(),
+        seo_context=compact_seo_discovery(discovery),
+        max_candidates=2,
+    )
     date_check = validate_story_dates(plan)
     if date_check["status"] != "passed":
         raise PipelineError(

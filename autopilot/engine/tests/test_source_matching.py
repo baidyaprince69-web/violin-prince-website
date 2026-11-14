@@ -37,14 +37,20 @@ class PlannerSourceMatchingTests(unittest.TestCase):
         self.compact = pipeline.planner_research_items(self.items)
 
     def test_planner_assigns_stable_source_ids(self):
-        self.assertEqual([item["source_id"] for item in self.compact], ["S0001", "S0002"])
+        self.assertTrue(all(item["source_id"].startswith("SRC_") for item in self.compact))
+        initial = {item["url"]: item["source_id"] for item in self.compact}
+        reversed_results = {
+            item["url"]: item["source_id"]
+            for item in pipeline.planner_research_items(list(reversed(self.items)))
+        }
+        self.assertEqual(initial, reversed_results)
 
     def test_source_id_resolves_to_original_research_url(self):
         plan = {
             "topic": "A virtual violin with realistic sound",
             "title": "The virtual violin",
             "hook": "Can a virtual violin sound real?",
-            "sources": ["S0001"],
+            "sources": [self.compact[0]["source_id"]],
         }
         selected = pipeline.resolve_plan_sources(plan, self.compact)
         self.assertEqual(len(selected), 1)
