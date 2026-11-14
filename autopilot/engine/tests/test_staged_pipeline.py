@@ -129,6 +129,9 @@ class StagedPipelineTests(unittest.TestCase):
                         "title": f"Headline {index}",
                         "url": f"https://publisher{index}.example/articles/{index}",
                         "publisher_domain": f"publisher{index}.example",
+                        "article_page_verified": True,
+                        "article_page_kind": "article_metadata",
+                        "published_at_utc": "2026-11-14T12:00:00Z",
                         "link_type": "publisher_article",
                         "evidence_text": (
                             f"This directly fetched publisher article number {index} contains "
