@@ -1,6 +1,6 @@
 {
-  "source_run_id": "43591383009",
+  "source_run_id": "43592025774",
   "requested_stage": "prepare",
-  "reason": "Recover Run 24 after fixing source-discovery handoff and enabling automatic source fallback.",
-  "request_version": 1
+  "reason": "Retry Prepare after adding broader seed-headline queries, Bing News RSS, and GDELT rate-limit recovery.",
+  "request_version": 2
 }
