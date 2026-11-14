@@ -112,7 +112,7 @@ class CreativeDirectionTests(unittest.TestCase):
             )
 
     def test_animated_panel_has_transparent_background_and_changes_over_time(self):
-        def test_font(size):
+        def test_font(size, *args, **kwargs):
             from PIL import ImageFont
             return ImageFont.load_default()
 
