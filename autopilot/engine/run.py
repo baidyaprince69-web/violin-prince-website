@@ -739,7 +739,7 @@ def story_search_phrases(plan, existing_items=None):
         reverse=True,
     )
     for score, item in ranked_seed:
-        if score >= 0.30:
+        if source_supports_story(plan, item, minimum_score=0.15):
             add(item.get("title", ""))
         if len(values) >= 6:
             break
