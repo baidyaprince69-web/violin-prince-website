@@ -247,13 +247,15 @@ jobs:
         if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path == ''
         run: python autopilot/engine/run.py --stage full
 
-      - name: Publish finished MP4 as a public release asset for Metricool
+      - name: Publish finished MP4 and publisher handoff as release assets
         id: publish_asset
         if: success() && env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path != ''
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_RUN_ID: ${{ github.run_id }}
           ASSET_URL: https://github.com/${{ github.repository }}/releases/download/violin-prince-short-${{ github.run_id }}/violin-prince-short.mp4
+          MANIFEST_URL: https://github.com/${{ github.repository }}/releases/download/violin-prince-short-${{ github.run_id }}/publish-manifest.json
+          PROVENANCE_URL: https://github.com/${{ github.repository }}/releases/download/violin-prince-short-${{ github.run_id }}/asset-provenance.json
         shell: bash
         run: |
           python - <<'PY'
@@ -289,32 +291,21 @@ jobs:
           from pathlib import Path
 
           output = Path("work/output")
-          metadata = json.loads((output / "metadata.json").read_text(encoding="utf-8"))
-          plan = json.loads(Path("work/package/creative_plan.json").read_text(encoding="utf-8"))
-          manifest = {
-              "status": "rendered",
-              "run_id": os.environ["RELEASE_RUN_ID"],
-              "public_video_url": os.environ["ASSET_URL"],
-              "title": str(plan.get("title") or "Violin Prince")[:100],
-              "description": str(plan.get("description") or ""),
-              "hashtags": plan.get("hashtags") or [],
-              "sources": [
-                  {"title": item.get("title", ""), "url": item.get("url", "")}
-                  for item in plan.get("sources", []) if isinstance(item, dict)
-              ],
-              "duration_seconds": metadata.get("duration_seconds", 24),
-              "format": "9:16",
-              "video_type": "short",
-              "youtube_privacy": "public",
-              "made_for_kids": None,
-              "direct_upload_publishing": "disabled",
-              "publisher": "ChatGPT daily operator via Metricool",
-          }
-          (output / "publish-manifest.json").write_text(
-              json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
-          )
-          print("Public release asset and publishing manifest prepared.")
+          manifest_path = output / "publish-manifest.json"
+          provenance_path = output / "asset-provenance.json"
+          if not manifest_path.is_file() or not provenance_path.is_file():
+              raise SystemExit("Publisher handoff files are missing; refusing to publish an incomplete release.")
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          manifest["run_id"] = os.environ["RELEASE_RUN_ID"]
+          manifest["public_video_url"] = os.environ["ASSET_URL"]
+          manifest["publish_manifest_url"] = os.environ["MANIFEST_URL"]
+          manifest["asset_provenance_url"] = os.environ["PROVENANCE_URL"]
+          manifest["release_tag"] = "violin-prince-short-" + os.environ["RELEASE_RUN_ID"]
+          manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+          print("Publisher handoff ready: " + str(manifest.get("publisher_preflight", {}).get("status", "unknown")))
+          print("Publish ready: " + str(bool(manifest.get("publish_ready"))))
           PY
+          gh release upload "$TAG" work/output/publish-manifest.json work/output/asset-provenance.json --clobber
 
       - name: Upload finished video
         if: success() && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')
