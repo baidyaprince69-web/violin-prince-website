@@ -4462,42 +4462,50 @@ def _read_package(require_images=False):
 
 
 def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
-    """Lock generated scene plates to the approved cinematic 3D-CGI visual identity."""
-    prompt = str(scene.get("image_prompt", "")).strip()
-    if not prompt:
+    """Build a compact scene prompt without truncating portrait or creator directions."""
+    raw_prompt = str(scene.get("image_prompt", "")).strip()
+    if not raw_prompt:
         raise PipelineError("A planned scene has no visual prompt.")
+
     shot_roles = (
-        "SHOT 1 — HOOK: a bold macro 3D hero composition that makes the musical question instantly visible.",
-        "SHOT 2 — MECHANISM: a close scientific view that reveals the exact physical or musical detail.",
-        "SHOT 3 — PERFORMANCE PAYOFF: a cinematic violin-and-bow composition with clean space for the creator's real take.",
+        "SHOT 1 — HOOK: macro hero view of the musical question.",
+        "SHOT 2 — MECHANISM: close scientific view of the physical or musical detail.",
+        "SHOT 3 — PERFORMANCE PAYOFF: cinematic violin-and-bow view with space for a real take.",
     )
-    subject = str((plan or {}).get("topic") or (plan or {}).get("title") or "the music fact")[:140]
+    subject = str((plan or {}).get("topic") or (plan or {}).get("title") or "the music fact")[:80]
     mode = str(scene.get("visual_mode") or ("macro_3d" if index == 0 else "cover_performance" if index == 2 else "waveform")).strip().casefold()
     mode_direction = VISUAL_MODE_PROMPTS.get(mode, VISUAL_MODE_PROMPTS["waveform"])
-    cover_payoff = str((plan or {}).get("cover_payoff") or "")[:180]
-    prompt += (
-        f" Story subject: {subject}. {shot_roles[max(0, min(2, int(index)))]} "
-        + mode_direction + " "
-        "Violin Prince visual identity: richly coloured photorealistic cinematic still imagery with the finish of premium real-world macro photography, or indistinguishable photorealistic CGI when a scientific cutaway is needed. "
-        "Use physically believable violin construction, a fully filled solid amber-brown varnished wooden body, visible natural wood grain, realistic highlights and shadows, fine bow hair, polished strings and metal fittings. "
-        "Render every subject in complete full colour with detailed surfaces, dimensional lighting and layered foreground/midground/background. "
-        "Use a disciplined palette of deep midnight navy, muted teal, antique gold, warm ivory and natural amber wood. "
-        "Never use crude uncoloured stick figures, wireframes, bare outlines, monochrome line art, sketch-only objects or hollow violin shapes as the main visual. "
-        "Keep the same lighting logic, material finish and recurring visual motif across all three scenes. "
-        "This is original art direction, not a recreation of another creator's characters, shots or visual identity. "
-        "Use simple coloured stick figures or simplified hand/arm characters only when they genuinely clarify a human action or musical interaction; keep them small, expressive and secondary to the real instrument or photo-based scene. Do not make every scene a stick-figure scene. "
-        "Use subtle moving illuminated dust, tiny four-point star glints, soft teal/amber gradient glow and gentle light pulses as atmospheric accents, never as clutter. "
-        "No generic stock photography, no celebrity likeness, no identifiable face, no unrelated people, "
-        "no logos, no watermark, no readable text, no song lyrics and no copyrighted notation. "
-        "Respect the exact sourced fact. A symbolic visual must never imply an unsupported event or measurement. "
-        "Portrait 9:16 composition. "
-        + ("Performance connection: " + cover_payoff + " " if cover_payoff else "")
-    )
-    clean_feedback = re.sub(r"\s+", " ", str(feedback or "")).strip()[:600]
-    if clean_feedback:
-        prompt += ", additional visual direction: " + clean_feedback
-    return prompt[:1800]
+    cover_payoff = str((plan or {}).get("cover_payoff") or "").strip()[:100]
+    clean_feedback = re.sub(r"\\s+", " ", str(feedback or "")).strip()[:260]
 
+    brand_direction = (
+        "Violin Prince identity: richly coloured photorealistic cinematic still imagery or indistinguishable CGI; "
+        "physically believable violin construction, amber-brown varnished wood, visible natural wood grain, "
+        "realistic strings, bow hair and metal, dimensional lighting and layered foreground/midground/background. "
+        "Palette: deep midnight navy, muted teal, antique gold, warm ivory and natural amber. Full colour. "
+        "This is original art direction. No uncoloured stick figures, wireframes, bare outlines, monochrome line art "
+        "or sketch-only main subjects; small coloured hands/figures only to clarify action. "
+        "Subtle dust, star glints and restrained teal/amber glow. "
+        "No stock photography, identifiable faces, logos, readable text, lyrics or watermark. "
+        "Respect sourced facts; no unsupported events or measurements. Portrait 9:16 composition."
+    )
+    role = shot_roles[max(0, min(2, int(index)))]
+    fixed = f" Story subject: {subject}. {role} {mode_direction} {brand_direction}"
+    suffix = ""
+    if cover_payoff:
+        suffix += " Performance connection: " + cover_payoff
+    if clean_feedback:
+        suffix += ", additional visual direction: " + clean_feedback
+
+    # Reserve room for the portrait constraint and creator feedback first.
+    # Only shorten the model-written scene description when the total exceeds
+    # the image-provider prompt budget; never cut off the required suffix.
+    scene_budget = max(0, 1800 - len(fixed) - len(suffix) - 2)
+    scene_text = raw_prompt[:min(500, scene_budget)]
+    result = scene_text + "." + fixed + suffix
+    if len(result) > 1800:
+        raise PipelineError("Scene visual prompt exceeded the 1,800-character provider limit.")
+    return result
 
 def make_storyboard_preview(plan, image_paths, target):
     """Build a single review sheet so visual approval happens before video rendering."""
