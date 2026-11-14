@@ -4351,7 +4351,7 @@ def _read_package(require_images=False):
         _validate_performance_video_asset(paths["performance_video"].name, paths["performance_video"].read_bytes())
     review = metadata.get("story_review") or {}
     if require_images and review.get("approved") is not True:
-        raise PipelineError("Render blocked: the story has not received explicit human approval before Visuals.")
+        raise PipelineError("Render blocked: automated editorial quality gates did not clear this story before Visuals.")
     image_paths = [PACKAGE / f"scene-{index + 1}.jpg" for index in range(3)]
     if require_images:
         for path in image_paths:
@@ -4431,12 +4431,14 @@ def make_storyboard_preview(plan, image_paths, target):
     return target
 
 
-def _write_review_text(plan, target):
+def _write_review_text(plan, target, performance_video_asset=None):
+    performance_video_asset = performance_video_asset or {"available": False}
     lines = [
         "VIOLIN PRINCE — PRE-PRODUCTION STORY REVIEW",
         "",
-        "HUMAN REVIEW REQUIRED: Visual generation is locked until you approve this story.",
-        "Check the narration, event dates, and every direct publisher source below.",
+        "AUTOMATED QUALITY GATE: Visuals proceed after source, date, freshness and channel-fit checks pass.",
+        "This report preserves the narration, event dates, direct publisher sources and final-scene media status.",
+        "CREATOR PERFORMANCE VIDEO: " + ("uploaded — " + str(performance_video_asset.get("filename") or "private video") if performance_video_asset.get("available") else "not uploaded — generated Scene 3 fallback will be used"),
         "",
         "TITLE: " + str(plan.get("title", "")),
         "TOPIC: " + str(plan.get("topic", "")),
@@ -4483,7 +4485,7 @@ def _write_review_text(plan, target):
         "The creator has already approved the standing Violin Prince channel format in creative_direction.py.",
         "This separate checkpoint is only for this prepared story's facts, sources and narration.",
         "Do not confuse approval of the channel identity with approval of an individual story.",
-        "Visuals starts only after this specific story is marked approved.",
+        "Visuals starts only after the automated source, date, freshness and channel-fit checks pass.",
     ])
     Path(target).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -4643,13 +4645,13 @@ def prepare_stage():
         "prepared_at": as_of.isoformat(),
         "stage": "prepared",
         "story_review": {
-            "status": "awaiting_human_review",
+            "status": "awaiting_automated_quality_gates",
             "approved": False,
             "approved_at": None,
             "approval_method": None,
         },
     }, ensure_ascii=False, indent=2), encoding="utf-8")
-    _write_review_text(plan, PACKAGE / "review.txt")
+    _write_review_text(plan, PACKAGE / "review.txt", performance_video_asset)
     log(
         "Story quality control passed: " +
         str(plan["quality_control"]["verified_source_count"]) +
@@ -4666,19 +4668,22 @@ def visuals_stage(feedback=""):
     """Generate scene images only after an explicit review of the prepared story."""
     if not CF_ACCOUNT or not CF_TOKEN:
         raise PipelineError("CF_ACCOUNT_ID and CF_AI_TOKEN are required for the Visuals stage.")
-    if os.environ.get("STORY_APPROVED", "false").strip().lower() not in ("true", "1", "yes"):
-        raise PipelineError(
-            "Visuals blocked: review the prepared-package/review.txt and quality_control.json first, "
-            "then re-run Visuals with story_approved=true."
-        )
     plan, metadata, _narration_info, paths, image_paths = _read_package(require_images=False)
+    creative_issues = validate_creative_plan(plan)
+    if creative_issues:
+        raise PipelineError(
+            "Automated channel-fit gate blocked Visuals: " + " ".join(creative_issues)
+        )
+    quality = plan.get("quality_control") or {}
+    if quality.get("status") != "passed":
+        raise PipelineError("Automated source/date/freshness quality gate did not pass; Visuals are blocked.")
     review = metadata.setdefault("story_review", {})
     if review.get("approved") is not True:
         review.update({
-            "status": "approved",
+            "status": "approved_by_automated_quality_gates",
             "approved": True,
             "approved_at": datetime.now(timezone.utc).isoformat(),
-            "approval_method": "manual_workflow_dispatch_input",
+            "approval_method": "automated_source_date_freshness_and_channel_fit_checks",
         })
     paths["metadata"].write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
     for index, scene in enumerate(plan["scenes"]):
