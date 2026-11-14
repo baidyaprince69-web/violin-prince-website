@@ -157,11 +157,15 @@ class StagedPipelineTests(unittest.TestCase):
 
     def test_visual_stage_requires_story_approval_input(self):
         old_value = os.environ.get("STORY_APPROVED")
+        old_account, old_token = pipeline.CF_ACCOUNT, pipeline.CF_TOKEN
         os.environ["STORY_APPROVED"] = "false"
+        pipeline.CF_ACCOUNT = "test-account"
+        pipeline.CF_TOKEN = "test-ai-token"
         try:
             with self.assertRaisesRegex(pipeline.PipelineError, "Visuals blocked"):
                 pipeline.visuals_stage()
         finally:
+            pipeline.CF_ACCOUNT, pipeline.CF_TOKEN = old_account, old_token
             if old_value is None:
                 os.environ.pop("STORY_APPROVED", None)
             else:
