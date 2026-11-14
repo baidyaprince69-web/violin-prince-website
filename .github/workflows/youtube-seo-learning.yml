@@ -1,0 +1,84 @@
+name: Violin Prince YouTube SEO learning
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: violin-prince-youtube-seo-learning
+  cancel-in-progress: false
+
+jobs:
+  collect-and-learn:
+    name: Collect bounded YouTube Analytics and encrypt SEO signals
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+      YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+      YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+      YOUTUBE_STATE_ENCRYPTION_KEY: ${{ secrets.YOUTUBE_STATE_ENCRYPTION_KEY }}
+      SEO_LEARNING_OUTPUT_PATH: ${{ github.workspace }}/source/work/seo-learning/latest.enc.json
+    steps:
+      - name: Check out tested SEO-learning implementation
+        uses: actions/checkout@v4
+        with:
+          ref: 4ba40de7b1472121d2307156db696925957f01ed
+          path: source
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install report collector dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install "requests>=2.32,<3" "cryptography>=43,<48"
+
+      - name: Compile the SEO learner
+        working-directory: source
+        run: |
+          python -m py_compile autopilot/engine/analytics.py autopilot/engine/seo_intelligence/*.py
+
+      - name: Collect bounded reports and encrypt SEO-only learning signals
+        working-directory: source
+        run: python autopilot/engine/analytics.py
+
+      - name: Check out the encrypted SEO-learning branch
+        uses: actions/checkout@v4
+        with:
+          ref: seo-learning-data
+          path: seo-learning-data
+          persist-credentials: true
+          token: ${{ github.token }}
+
+      - name: Store only the encrypted learning snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$SEO_LEARNING_OUTPUT_PATH"
+          mkdir -p seo-learning-data/seo-learning
+          install -m 600 "$SEO_LEARNING_OUTPUT_PATH" seo-learning-data/seo-learning/latest.enc.json
+          cd seo-learning-data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add seo-learning/latest.enc.json
+          if git diff --cached --quiet; then
+            echo "Encrypted SEO snapshot is unchanged; no commit is needed."
+          else
+            git commit -m "Update encrypted YouTube SEO learning snapshot"
+            git push origin HEAD:refs/heads/seo-learning-data
+            echo "Encrypted SEO snapshot committed."
+          fi
+          {
+            echo "## YouTube SEO learning"
+            echo "- Analytics collection: completed"
+            echo "- Stored data: AES-256-GCM encrypted SEO signals only"
+            echo "- Plaintext channel analytics committed: no"
+            echo "- Video uploads or publication: not attempted"
+            echo "- Cloudflare dependency: none for this workflow"
+          } >> "$GITHUB_STEP_SUMMARY"
