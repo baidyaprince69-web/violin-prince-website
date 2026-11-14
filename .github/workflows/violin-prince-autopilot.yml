@@ -6,8 +6,6 @@ on:
       - main
     paths:
       - ".autopilot/prepare-request.json"
-  schedule:
-    - cron: "30 5 * * *" # Disabled until repository variable AUTOPILOT_SCHEDULE_ENABLED is true
   workflow_dispatch:
     inputs:
       stage:
@@ -30,7 +28,7 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
   actions: read
 
 concurrency:
@@ -39,13 +37,12 @@ concurrency:
 
 jobs:
   produce:
-    if: github.event_name != 'schedule' || vars.AUTOPILOT_SCHEDULE_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
       RUN_ID: ${{ github.run_id }}
       RUN_MODE: manual
-      PIPELINE_STAGE: ${{ github.event_name == 'schedule' && 'prepare' || inputs.stage || 'full' }}
+      PIPELINE_STAGE: ${{ inputs.stage || 'full' }}
       VISUAL_FEEDBACK: ${{ inputs.visual_feedback }}
       AUTOPILOT_API_URL: ${{ secrets.AUTOPILOT_API_URL }}
       AUTOPILOT_JOB_TOKEN: ${{ secrets.AUTOPILOT_JOB_TOKEN }}
@@ -60,9 +57,10 @@ jobs:
       PUBLISH_ENABLED: "false"
     steps:
       - name: Validate stage inputs
+        if: github.event_name != 'push'
         shell: bash
         env:
-          SELECTED_STAGE: ${{ github.event_name == 'schedule' && 'prepare' || inputs.stage || 'full' }}
+          SELECTED_STAGE: ${{ inputs.stage || 'full' }}
           SOURCE_RUN_ID: ${{ inputs.source_run_id }}
           AUTOPILOT_API_URL: ${{ secrets.AUTOPILOT_API_URL }}
           AUTOPILOT_JOB_TOKEN: ${{ secrets.AUTOPILOT_JOB_TOKEN }}
@@ -90,8 +88,37 @@ jobs:
             fi
           fi
 
-      - name: Check required Cloudflare AI secrets
-        if: env.PIPELINE_STAGE != 'render'
+      - name: Check out the project
+        uses: actions/checkout@v4
+
+      - name: Read ChatGPT daily production request
+        id: daily_request
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          request_path = Path(".autopilot/prepare-request.json")
+          if not request_path.is_file():
+              raise SystemExit("The ChatGPT production trigger file is missing.")
+          request = json.loads(request_path.read_text(encoding="utf-8"))
+          if request.get("mode") != "chatgpt_daily_production":
+              raise SystemExit("Push-triggered production must use mode=chatgpt_daily_production.")
+          plan_path = str(request.get("plan_path") or ".autopilot/daily-production-plan.json")
+          if not plan_path.startswith(".autopilot/") or ".." in Path(plan_path).parts:
+              raise SystemExit("The daily plan must be inside the .autopilot directory.")
+          if not Path(plan_path).is_file():
+              raise SystemExit("The ChatGPT daily production plan does not exist.")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write("plan_path=" + plan_path + "\n")
+          print("Validated ChatGPT daily production request: " + plan_path)
+          PY
+
+      - name: Check required Cloudflare AI secrets for legacy manual runs
+        if: env.PIPELINE_STAGE != 'render' && steps.daily_request.outputs.plan_path == ''
         shell: bash
         run: |
           missing=0
@@ -103,41 +130,6 @@ jobs:
           done
           if [ "$missing" -ne 0 ]; then exit 1; fi
 
-      - name: Check out the project
-        uses: actions/checkout@v4
-
-      - name: Read queued Prepare recovery request
-        id: prepare_request
-        if: github.event_name == 'push' && env.PIPELINE_STAGE == 'prepare'
-        shell: bash
-        run: |
-          python - <<'PY'
-          import json
-          import os
-          import re
-          from pathlib import Path
-
-          request_path = Path(".autopilot/prepare-request.json")
-          if not request_path.is_file():
-              raise SystemExit("Queued Prepare request file is missing.")
-          request = json.loads(request_path.read_text(encoding="utf-8"))
-          mode = str(request.get("mode") or "recover").strip().casefold()
-          source_run_id = str(request.get("source_run_id") or "").strip()
-          if mode == "fresh":
-              if source_run_id:
-                  raise SystemExit("Fresh Prepare requests must not include source_run_id.")
-              message = "Queued fresh Prepare request loaded; discovery will run without reusing an earlier research artifact."
-          elif mode == "recover":
-              if not re.fullmatch(r"[0-9]+", source_run_id):
-                  raise SystemExit("Recovery Prepare requests require a numeric source_run_id.")
-              message = "Queued recovery Prepare request loaded; the selected earlier research artifact will be reused."
-          else:
-              raise SystemExit("Queued Prepare request mode must be 'fresh' or 'recover'.")
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write("source_run_id=" + source_run_id + "\n")
-              output.write("mode=" + mode + "\n")
-          print(message)
-          PY
       - name: Restore the latest encrypted SEO learning snapshot
         if: env.PIPELINE_STAGE == 'prepare'
         uses: actions/checkout@v4
@@ -242,9 +234,87 @@ jobs:
         if: env.PIPELINE_STAGE == 'render'
         run: python autopilot/engine/run.py --stage render
 
+      - name: Run ChatGPT-prepared Cloudflare-free daily plan
+        if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path != ''
+        env:
+          RUN_ID: ${{ github.run_id }}
+          AUTOPILOT_API_URL: ""
+          AUTOPILOT_JOB_TOKEN: ""
+          PUBLISH_ENABLED: "false"
+        run: python autopilot/engine/run_daily_plan.py --plan "${{ steps.daily_request.outputs.plan_path }}"
+
       - name: Run complete Prepare → Visuals → Render sequence
-        if: env.PIPELINE_STAGE == 'full'
+        if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path == ''
         run: python autopilot/engine/run.py --stage full
+
+      - name: Publish finished MP4 as a public release asset for Metricool
+        id: publish_asset
+        if: success() && env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_RUN_ID: ${{ github.run_id }}
+          ASSET_URL: https://github.com/${{ github.repository }}/releases/download/violin-prince-short-${{ github.run_id }}/violin-prince-short.mp4
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          output = Path("work/output")
+          metadata = json.loads((output / "metadata.json").read_text(encoding="utf-8"))
+          plan = json.loads(Path("work/package/creative_plan.json").read_text(encoding="utf-8"))
+          title = str(plan.get("title") or "Violin Prince")[:90]
+          notes = [
+              "Automatically rendered by the Violin Prince daily production engine.",
+              "",
+              "This release contains the finished vertical MP4 for the connected publishing workflow.",
+              "",
+              "Research sources:",
+          ]
+          for source in plan.get("sources", [])[:8]:
+              if isinstance(source, dict) and source.get("url"):
+                  notes.append("- " + str(source.get("title") or source.get("publisher_domain") or "Publisher") + ": " + str(source["url"]))
+          (output / "release-notes.md").write_text("\n".join(notes) + "\n", encoding="utf-8")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              handle.write("release_title=" + title.replace("\n", " ") + "\n")
+          PY
+          TAG="violin-prince-short-${RELEASE_RUN_ID}"
+          gh release create "$TAG" work/output/violin-prince-short.mp4 \
+            --title "Violin Prince — Daily Short ${RELEASE_RUN_ID}" \
+            --notes-file work/output/release-notes.md
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          output = Path("work/output")
+          metadata = json.loads((output / "metadata.json").read_text(encoding="utf-8"))
+          plan = json.loads(Path("work/package/creative_plan.json").read_text(encoding="utf-8"))
+          manifest = {
+              "status": "rendered",
+              "run_id": os.environ["RELEASE_RUN_ID"],
+              "public_video_url": os.environ["ASSET_URL"],
+              "title": str(plan.get("title") or "Violin Prince")[:100],
+              "description": str(plan.get("description") or ""),
+              "hashtags": plan.get("hashtags") or [],
+              "sources": [
+                  {"title": item.get("title", ""), "url": item.get("url", "")}
+                  for item in plan.get("sources", []) if isinstance(item, dict)
+              ],
+              "duration_seconds": metadata.get("duration_seconds", 24),
+              "format": "9:16",
+              "video_type": "short",
+              "youtube_privacy": "public",
+              "made_for_kids": None,
+              "direct_upload_publishing": "disabled",
+              "publisher": "ChatGPT daily operator via Metricool",
+          }
+          (output / "publish-manifest.json").write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
+          )
+          print("Public release asset and publishing manifest prepared.")
+          PY
 
       - name: Upload finished video
         if: success() && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')

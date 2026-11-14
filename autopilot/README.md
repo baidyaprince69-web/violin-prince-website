@@ -1,6 +1,17 @@
 # Violin Prince Autopilot
 
-A staged, cloud-first short-video production pipeline. It runs on GitHub-hosted runners; the creator's computer does not need to stay on.
+A cloud-first short-video production pipeline. GitHub-hosted runners do the production work; the creator's computer does not need to stay on.
+
+## ChatGPT-operated daily production
+
+ChatGPT is the only daily scheduler. Its existing daily automation prepares one sourced production plan, writes `.autopilot/daily-production-plan.json` to `main`, then updates `.autopilot/prepare-request.json` to trigger this workflow. The GitHub Actions runner produces the MP4 and creates a public GitHub Release asset. ChatGPT then reads that release and schedules the YouTube Short through the connected Metricool brand with automatic publishing enabled.
+
+- The daily route is Cloudflare-free: it re-fetches publisher article pages, verifies exact narration evidence quotes and dates, synthesizes narration with Kokoro, creates original deterministic illustrated scene plates with Pillow, and uses the existing FFmpeg renderer and media QA.
+- The daily route uses no paid image/video generation API. Its scene plates are designed illustrations with motion graphics, not photorealistic AI-generated 3D footage or full character animation.
+- The final scene is a symbolic violin-performance visual unless a permitted creator recording is deliberately added; generated/sample violin audio must never be described as a live recording by the creator.
+- The daily route keeps direct publishing disabled in GitHub. ChatGPT schedules the public release asset through Metricool after the YouTube audience setting has been confirmed. vidIQ remains available for channel research/optimisation; its draft publishing flow requires the user to approve each exact draft.
+- The GitHub cron schedule has been removed. Do not add a second GitHub or Cloudflare scheduler; ChatGPT is the daily operator.
+- The existing manual `workflow_dispatch` full/Prepare/Visuals/Render route remains available as a legacy recovery path and still uses its existing Cloudflare AI secrets.
 
 ## Approved channel identity and production format
 
@@ -21,7 +32,7 @@ The current cloud-first visual implementation is an incremental upgrade, with an
 
 **This is not yet full 3D character/object animation or image-to-video generation.** The scene plates have a 3D-CGI visual treatment, while motion comes from camera movement and animated explainer overlays. The new frame renderer is deterministic and free of paid video APIs. A later milestone can add a true headless 3D renderer only after a small benchmark proves that it fits GitHub-hosted runner time, memory and licensing constraints.
 
-Publishing remains forced off. The workflow creates review artifacts only.
+Direct publishing remains disabled inside GitHub Actions. The ChatGPT-operated daily route publishes only through the connected Metricool account after the required YouTube audience setting is confirmed.
 
 ## Research basis and implementation choices
 
@@ -39,7 +50,7 @@ The first implementation keeps the current Python / Pillow / FFmpeg / GitHub Act
 
 The standing Violin Prince channel direction is already approved. The workflow no longer asks for a second `story_approved` checkbox. Prepare must pass the direct-source, independent-publisher, date, freshness, narration and channel-fit checks. Visuals repeats the channel-fit and quality-control checks before generating any scene images. If a check fails, the run stops and records the reason; an unsuitable story is not forced through. Render verifies that the automated gate was recorded before assembling the MP4.
 
-You can inspect `review.txt`, `quality_control.json` and `storyboard-preview.png` in the run artifacts, but downloading or approving them is not a manual workflow requirement. YouTube/social publishing remains disabled.
+The daily ChatGPT route validates the same source/date/freshness/channel-fit gates before rendering. You can inspect `review.txt`, `quality_control.json` and `storyboard-preview.png` in the run artifacts; no manual download or approval is required to render.
 
 ## One-click production and stage recovery
 
@@ -127,8 +138,8 @@ Artifacts are retained for 14 days. Keep the relevant successful run IDs until y
 - **Kokoro-82M** creates the synthetic narration on a CPU runner. Model weights are Apache-2.0.
 - **Pillow and FFmpeg** create the storyboard, camera movement, animated overlays, subtitles and MP4.
 - Cloudflare Worker, D1 and private R2 are used for the dashboard and private media library. GitHub Actions fetches uploaded media only during Render; raw uploaded media files are not attached to the downloadable package/diagnostic artifacts.
-- Publishing is disabled by the workflow (`PUBLISH_ENABLED=false`).
-- The optional daily schedule remains disabled unless the repository variable `AUTOPILOT_SCHEDULE_ENABLED` is explicitly set to true. It is not needed for the staged manual workflow.
+- GitHub Actions keeps direct publishing disabled (`PUBLISH_ENABLED=false`); ChatGPT hands a successful public release asset to Metricool for YouTube scheduling.
+- There is no GitHub cron schedule. The separate ChatGPT daily automation owns the schedule and triggers this workflow by updating the request file.
 - Do not put API tokens or passwords in prompts, files, source code or chat. Keep tokens in GitHub repository Actions secrets.
 
 ## Creative and editorial limits
@@ -143,7 +154,8 @@ Artifacts are retained for 14 days. Keep the relevant successful run IDs until y
 
 ## Repository files
 
-- engine/run.py — research, story planning, scene generation, staged package validation and rendering.
+- engine/run.py — legacy research/planning and the shared staged render engine.
+- engine/run_daily_plan.py — source-verifies and renders ChatGPT-authored daily plans without Cloudflare.
 - engine/voiceover.py — synthetic narration and sentence timing.
 - engine/violin_sampler.py — checksum-verified CC0 sample download and solo-violin phrase rendering.
 - engine/synth_audio.py — quiet ambient fallback used only if the recording and sample-instrument paths are unavailable.
