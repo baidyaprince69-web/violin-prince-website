@@ -1536,29 +1536,43 @@ def _parse_narration_tool_response(result, expected_fields):
     raise PipelineError("Workers AI did not return the required structured narration word arrays.")
 
 
-def _assemble_narration_sentence_words(words, expected_count, field):
-    """Join validated one-word tokens into a single complete spoken sentence."""
+def _assemble_narration_sentence_words(words, expected_count, field, max_count=None):
+    """Normalize word-array items and validate the actual spoken-word range."""
     if not isinstance(words, list):
-        return "", f"{field} must be an array of individual words"
-    if len(words) != expected_count:
-        return "", (
-            f"{field} returned {len(words)} array items; exactly {expected_count} are required"
-        )
+        return "", f"{field} must be an array of word text"
 
+    maximum = max(expected_count, int(max_count if max_count is not None else expected_count))
     tokens = []
     for index, raw_word in enumerate(words):
         if not isinstance(raw_word, str):
             return "", f"{field} item {index + 1} is not text"
-        word = re.sub(r"\s+", " ", raw_word).strip()
-        if not word or len(word.split()) != 1 or narration_word_count(word) != 1:
-            return "", f"{field} item {index + 1} must contain exactly one spoken word"
-        if index < len(words) - 1 and word.endswith((".", "!", "?")):
-            return "", f"{field} has sentence-ending punctuation before its final word"
-        tokens.append(word)
+        # Some model responses accidentally put two words in one array item.
+        # Split them before validation instead of discarding an otherwise valid sentence.
+        parts = re.sub(r"\s+", " ", raw_word).strip().split()
+        if not parts:
+            return "", f"{field} item {index + 1} is empty"
+        for word in parts:
+            if narration_word_count(word) != 1:
+                return "", f"{field} item {index + 1} contains invalid spoken-word text"
+            tokens.append(word)
 
+    if not tokens:
+        return "", f"{field} contains no spoken words"
+    if len(tokens) < expected_count or len(tokens) > maximum:
+        return "", (
+            f"{field} normalizes to {len(tokens)} spoken words; "
+            f"the allowed range is {expected_count}–{maximum}"
+        )
+
+    for word in tokens[:-1]:
+        if word.endswith((".", "!", "?")):
+            return "", f"{field} has sentence-ending punctuation before its final word"
     if not tokens[-1].endswith((".", "!", "?")):
         return "", f"{field} final word must carry sentence-ending punctuation"
-    return " ".join(tokens), ""
+    sentence = " ".join(tokens)
+    if len(narration_sentences(sentence)) != 1:
+        return "", f"{field} must form exactly one complete sentence"
+    return sentence, ""
 
 
 def compose_narration(plan, research_items):
@@ -1754,9 +1768,16 @@ def compose_narration(plan, research_items):
         for index in target_indices:
             field = "sentence_" + str(index + 1) + "_words"
             words = corrected.get(field)
-            received_word_counts[field] = len(words) if isinstance(words, list) else None
+            received_word_counts[field] = (
+                sum(narration_word_count(part) for value in words if isinstance(value, str)
+                    for part in re.sub(r"\s+", " ", value).strip().split())
+                if isinstance(words, list) else None
+            )
             sentence, array_error = _assemble_narration_sentence_words(
-                words, required_word_counts[field], field
+                words,
+                required_word_counts[field],
+                field,
+                max_count=budgets[index]["max_words"],
             )
             if array_error:
                 array_diagnostics[field] = array_error
