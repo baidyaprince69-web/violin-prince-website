@@ -1,5 +1,5 @@
 {
   "mode": "fresh",
   "requested_stage": "prepare",
-  "reason": "Test current research discovery with publication freshness preferred within 50 hours and accepted through seven days, independent article sources, and immutable citation groups."
+  "reason": "Run a fresh discovery attempt using the seven-day flexible freshness window, Google News publisher URL resolution, the expanded source pool, article-headline verification, independent publisher corroboration, and immutable citations."
 }
