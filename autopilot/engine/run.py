@@ -2766,7 +2766,7 @@ def validate_story_dates(plan, as_of=None):
 
 
 def build_story_quality_report(plan, selected_sources, date_check, as_of=None):
-    """Create an auditable source/date report; human review remains mandatory."""
+    """Create an auditable source/date report for automated editorial quality gates."""
     domains = sorted({
         str(item.get("publisher_domain") or urlparse(item.get("url", "")).netloc).lower().removeprefix("www.")
         for item in selected_sources
