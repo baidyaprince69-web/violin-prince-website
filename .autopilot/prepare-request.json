@@ -1,6 +1,6 @@
 {
-  "source_run_id": "43593446042",
+  "source_run_id": "43593992489",
   "requested_stage": "prepare",
-  "reason": "Retry Run 27 with direct-link web discovery to resolve independent publisher articles from the preserved research context.",
-  "request_version": 4
+  "reason": "Re-run after correcting Run 28 false-positive source validation; require named-claim match and readable article-body evidence.",
+  "request_version": 5
 }
