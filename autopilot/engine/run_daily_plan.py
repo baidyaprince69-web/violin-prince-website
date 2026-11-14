@@ -88,6 +88,105 @@ def validate_claim_evidence(
     return [checked[number] for number in (2, 3, 4)]
 
 
+
+_STORY_COHERENCE_STOP_WORDS = {
+    "a", "an", "and", "are", "as", "at", "by", "can", "does", "for", "from",
+    "how", "in", "into", "is", "it", "its", "of", "on", "or", "that", "the",
+    "their", "this", "to", "what", "when", "why", "with", "within",
+}
+_STORY_COHERENCE_ALIASES = {
+    "shape": "arch",
+    "curve": "arch",
+    "arching": "arch",
+    "arches": "arch",
+    "resonances": "resonance",
+    "frequencies": "frequency",
+    "violins": "violin",
+    "bodies": "body",
+}
+
+
+def _story_coherence_terms(value: str) -> set[str]:
+    """Reduce a short story claim to meaningful, conservative topic anchors."""
+    tokens = re.findall(r"[a-z0-9]+", str(value or "").casefold())
+    terms = set()
+    for token in tokens:
+        token = _STORY_COHERENCE_ALIASES.get(token, token)
+        if token in _STORY_COHERENCE_STOP_WORDS or len(token) < 3:
+            continue
+        if token.endswith("s") and len(token) > 4:
+            token = token[:-1]
+        terms.add(token)
+    return terms
+
+
+def validate_story_coherence(
+    plan: dict[str, Any],
+    verified_sources: list[dict[str, Any]],
+    evidence_records: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Ensure every cited publisher supports the same title/core claim.
+
+    Exact quotes alone are not enough: two unrelated, accurately quoted studies
+    must not be stitched together as though they were one music fact.
+    """
+    focus = str(plan.get("core_claim") or plan.get("title") or "").strip()
+    focus_terms = _story_coherence_terms(focus)
+    if len(focus_terms) < 2:
+        raise engine.PipelineError(
+            "Story-coherence gate needs a specific core_claim or descriptive title."
+        )
+
+    source_by_id = {
+        str(item.get("source_id") or ""): item
+        for item in verified_sources if isinstance(item, dict)
+    }
+    cited_ids = {
+        str(item.get("source_id") or "")
+        for item in evidence_records if isinstance(item, dict)
+    }
+    if len(cited_ids) < 2:
+        raise engine.PipelineError(
+            "Story-coherence gate requires at least two cited independent publisher articles."
+        )
+
+    minimum_overlap = 2 if len(focus_terms) >= 3 else 1
+    checked = []
+    for source_id in sorted(cited_ids):
+        source = source_by_id.get(source_id)
+        if source is None:
+            raise engine.PipelineError(
+                f"Story-coherence gate found an evidence record without source {source_id}."
+            )
+        source_text = " ".join((
+            str(source.get("title") or ""),
+            str(source.get("evidence_text") or ""),
+        ))
+        source_terms = _story_coherence_terms(source_text)
+        overlap = sorted(focus_terms.intersection(source_terms))
+        if len(overlap) < minimum_overlap:
+            title = str(source.get("title") or source_id)[:120]
+            raise engine.PipelineError(
+                "Story-coherence gate blocked an unrelated source: "
+                + source_id + " (" + title + "). The article does not substantiate "
+                "the same core claim as '" + focus[:120] + "'. "
+                "Use two publishers covering one shared music fact; do not combine separate studies."
+            )
+        checked.append({
+            "source_id": source_id,
+            "matching_topic_terms": overlap,
+            "minimum_overlap": minimum_overlap,
+        })
+
+    return {
+        "status": "passed",
+        "core_claim": focus[:240],
+        "topic_terms": sorted(focus_terms),
+        "cited_sources": checked,
+        "rule": "Each cited article must independently match the same core claim; unrelated studies are rejected.",
+    }
+
+
 def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Re-fetch sources and enforce the existing editorial, evidence and freshness gates."""
     if not isinstance(plan, dict):
@@ -162,6 +261,9 @@ def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list
     sentences = engine.narration_sentences(script)
     plan["narration_evidence"] = validate_claim_evidence(
         plan.get("narration_evidence") or [], verified, sentences
+    )
+    plan["story_coherence"] = validate_story_coherence(
+        plan, verified, plan["narration_evidence"]
     )
 
     plan["sources"] = verified
