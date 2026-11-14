@@ -41,6 +41,20 @@ The current cloud-first visual implementation is an incremental upgrade, with an
 - The final type system uses **DM Serif Display** for editorial headlines and **DM Sans** for labels, supporting copy and word-synchronised captions. The WOFF2 assets are bundled with their original SIL Open Font License 1.1 notices in `engine/assets/fonts/`; fontTools creates local TTF working copies for Pillow and FFmpeg/libass. No remote font request is needed while rendering.
 - The previous video was technically encoded but was not visually quality-approved. A frame/contact-sheet review is required for the first render after this correction before treating the new style as accepted.
 
+### Motion system correction — version 7
+
+The motion system now borrows craft principles from the reviewed motion-graphics repositories while retaining the existing cloud-first Python / Pillow / FFmpeg stack:
+
+- **Speech-led choreography:** scene-local Kokoro word timestamps drive the motion panel's visual progress, focus marker, restrained beat pulse, and staggered label/headline/detail reveals. Changes follow spoken content words, not an arbitrary linear timer or music beat.
+- **Deterministic spring animation:** every panel frame is derived from its local time using closed-form damped spring responses. The same frame can be regenerated independently; no CSS transition state, timers, Chromium capture, GPU, or paid video service is required.
+- **Scene-specific visual grammar:** the existing macro, mechanism, waveform, melody-map, comparison, and performance modes remain. Their focus markers now advance on the words assigned to that scene.
+- **Encoded-output verification:** after FFmpeg finishes, ffprobe must confirm H.264, 720 × 1280, approximately 25 fps, the 24-second duration contract, and a valid audio stream. The renderer also freezes six moments from the actual encoded MP4 into `visual-contact-sheet.png`; this sheet is kept with the render artifacts for inspection.
+- **No invented data:** diagrams remain explanatory and source-grounded. Illustrative geometry is not presented as measured instrument data.
+
+The ideas adopted are the pure-time closed-form spring tracks and word-timed morphs from [Barty-Bart's motion-broll skill](https://github.com/Barty-Bart/motion-graphics/tree/main/skills/motion-broll), plus the freeze-frame, contact-sheet and ffprobe verification loop from [iart-ai/motion-skills](https://github.com/iart-ai/motion-skills/tree/master/tools/verify). The [GitHub motion-graphics topic](https://github.com/topics/motion-graphics) was used as a discovery catalogue; [HyperFrames](https://github.com/heygen-com/hyperframes) was reviewed as a larger HTML-to-video framework, but is not added as a runtime dependency. The talking-head-only object-separation workflow, high-energy product-promo templates, browser-based 4× motion-blur renderer, and large sound-effects bundle are not adopted: they add local/GPU/browser or editing overhead and do not fit this photo-first music-explainer pipeline.
+
+A generated contact sheet is a review aid, not automatic creative approval. The first production MP4 using this version still requires a real frame/contact-sheet review before its visual style is accepted.
+ 
 Direct publishing remains disabled inside GitHub Actions. The ChatGPT-operated daily route publishes only through the connected Metricool account after the required YouTube audience setting is confirmed.
 
 ## Research basis and implementation choices
