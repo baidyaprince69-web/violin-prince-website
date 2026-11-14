@@ -16,7 +16,7 @@ from creative_direction import (
     channel_fit_report,
     validate_creative_plan,
 )
-from motion_graphics import make_motion_graphic_frames
+from motion_graphics import make_motion_graphic_frames, _select_word_beats, _voice_progress
 
 
 def valid_plan():
@@ -110,6 +110,26 @@ class CreativeDirectionTests(unittest.TestCase):
                 diff.getbbox(),
                 f"{first_mode} and {second_mode} should render distinct motion diagrams",
             )
+
+    def test_word_beats_drive_spring_progress_in_narration_order(self):
+        events = [
+            {"text": "The", "start": 0.10},
+            {"text": "violin", "start": 0.42},
+            {"text": "bridge", "start": 1.05},
+            {"text": "moves", "start": 1.92},
+            {"text": "with", "start": 2.15},
+            {"text": "vibration", "start": 2.70},
+        ]
+        beats = _select_word_beats(events, duration=3.6)
+        self.assertEqual([item["text"] for item in beats], ["violin", "bridge", "moves", "vibration"])
+
+        progress = _voice_progress
+        samples = [progress(t, 3.6, beats) for t in (0.2, 0.8, 1.5, 2.4, 3.4)]
+        self.assertEqual(samples, sorted(samples))
+        self.assertLess(samples[0], samples[1])
+        self.assertLess(samples[1], samples[2])
+        self.assertLess(samples[2], samples[3])
+        self.assertGreater(samples[4], 0.9)
 
     def test_animated_panel_has_transparent_background_and_changes_over_time(self):
         def test_font(size, *args, **kwargs):
