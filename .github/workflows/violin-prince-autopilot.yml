@@ -6,21 +6,25 @@ on:
   workflow_dispatch:
     inputs:
       stage:
-        description: "Full runs every stage in one launch. Use individual stages only for revisions."
+        description: "Run Prepare, review its story package, then run Visuals and Render as separate stages."
         required: true
         type: choice
-        default: full
+        default: prepare
         options:
-          - full
           - prepare
           - visuals
           - render
       source_run_id:
-        description: "Optional: for Full/Prepare, reuse research from a failed run; for Visuals/Render, use the previous stage run ID."
+        description: "Optional for Prepare research recovery; required for Visuals/Render to identify the previous stage run."
         required: false
         type: string
+      story_approved:
+        description: "Set true only after reviewing review.txt and quality_control.json from the prepared package. Required for Visuals."
+        required: true
+        type: boolean
+        default: false
       visual_feedback:
-        description: "Optional visual changes; used only when stage is Visuals or Full."
+        description: "Optional visual changes; used only when stage is Visuals."
         required: false
         type: string
 
@@ -40,8 +44,9 @@ jobs:
     env:
       RUN_ID: ${{ github.run_id }}
       RUN_MODE: manual
-      PIPELINE_STAGE: ${{ github.event_name == 'schedule' && 'prepare' || inputs.stage || 'full' }}
+      PIPELINE_STAGE: ${{ github.event_name == 'schedule' && 'prepare' || inputs.stage || 'prepare' }}
       VISUAL_FEEDBACK: ${{ inputs.visual_feedback }}
+      STORY_APPROVED: ${{ inputs.story_approved }}
       CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
       CF_AI_TOKEN: ${{ secrets.CF_AI_TOKEN }}
       YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
@@ -55,15 +60,20 @@ jobs:
       - name: Validate stage inputs
         shell: bash
         env:
-          SELECTED_STAGE: ${{ github.event_name == 'schedule' && 'prepare' || inputs.stage || 'full' }}
+          SELECTED_STAGE: ${{ github.event_name == 'schedule' && 'prepare' || inputs.stage || 'prepare' }}
           SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          STORY_APPROVED: ${{ inputs.story_approved }}
         run: |
-          if [[ "$SELECTED_STAGE" != "full" && "$SELECTED_STAGE" != "prepare" && "$SELECTED_STAGE" != "visuals" && "$SELECTED_STAGE" != "render" ]]; then
+          if [[ "$SELECTED_STAGE" != "prepare" && "$SELECTED_STAGE" != "visuals" && "$SELECTED_STAGE" != "render" ]]; then
             echo "::error::Unknown production stage."
             exit 1
           fi
           if [[ -n "$SOURCE_RUN_ID" && ! "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]]; then
             echo "::error::source_run_id must contain only the numeric GitHub Actions run ID."
+            exit 1
+          fi
+          if [[ "$SELECTED_STAGE" == "visuals" && "$STORY_APPROVED" != "true" ]]; then
+            echo "::error::Review the earlier prepared-package artifact, then set story_approved=true to unlock Visuals."
             exit 1
           fi
           if [[ "$SELECTED_STAGE" == "visuals" || "$SELECTED_STAGE" == "render" ]]; then
@@ -90,7 +100,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Restore the latest encrypted SEO learning snapshot
-        if: env.PIPELINE_STAGE == 'prepare' || env.PIPELINE_STAGE == 'full'
+        if: env.PIPELINE_STAGE == 'prepare'
         uses: actions/checkout@v4
         continue-on-error: true
         with:
@@ -106,7 +116,7 @@ jobs:
           cache-dependency-path: autopilot/engine/requirements.txt
 
       - name: Reuse research from an earlier failed run when requested
-        if: (env.PIPELINE_STAGE == 'prepare' || env.PIPELINE_STAGE == 'full') && inputs.source_run_id != ''
+        if: (env.PIPELINE_STAGE == 'prepare') && inputs.source_run_id != ''
         uses: actions/download-artifact@v4
         with:
           name: violin-prince-run-${{ inputs.source_run_id }}
@@ -117,14 +127,14 @@ jobs:
 
 
       - name: Cache Kokoro model weights
-        if: env.PIPELINE_STAGE == 'prepare' || env.PIPELINE_STAGE == 'full'
+        if: env.PIPELINE_STAGE == 'prepare'
         uses: actions/cache@v4
         with:
           path: ~/.cache/huggingface
           key: kokoro-82m-v1-cache
 
       - name: Cache CC0 violin sample zones
-        if: env.PIPELINE_STAGE == 'prepare' || env.PIPELINE_STAGE == 'full'
+        if: env.PIPELINE_STAGE == 'prepare'
         uses: actions/cache@v4
         with:
           path: ~/.cache/violin-prince/cc0-solo-violin-v1
@@ -143,20 +153,20 @@ jobs:
           repository: ${{ github.repository }}
 
       - name: Install preparation dependencies
-        if: env.PIPELINE_STAGE == 'prepare' || env.PIPELINE_STAGE == 'full'
+        if: env.PIPELINE_STAGE == 'prepare'
         run: |
           python -m pip install --upgrade pip
           pip install --index-url https://download.pytorch.org/whl/cpu torch
           pip install -r autopilot/engine/requirements.txt
 
       - name: Install visual generation dependencies
-        if: env.PIPELINE_STAGE == 'visuals' || env.PIPELINE_STAGE == 'full'
+        if: env.PIPELINE_STAGE == 'visuals'
         run: |
           python -m pip install --upgrade pip
           pip install "requests>=2.32,<3" "Pillow>=10.4,<12"
 
       - name: Install rendering dependencies
-        if: env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full'
+        if: env.PIPELINE_STAGE == 'render'
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-dejavu-core
@@ -164,11 +174,11 @@ jobs:
           pip install "requests>=2.32,<3" "Pillow>=10.4,<12"
 
       - name: Prepare research, story, narration and soundtrack
-        if: env.PIPELINE_STAGE == 'prepare' || env.PIPELINE_STAGE == 'full'
+        if: env.PIPELINE_STAGE == 'prepare'
         run: python autopilot/engine/run.py --stage prepare
 
       - name: Upload prepared story package
-        if: success() && (env.PIPELINE_STAGE == 'prepare' || env.PIPELINE_STAGE == 'full')
+        if: success() && (env.PIPELINE_STAGE == 'prepare')
         uses: actions/upload-artifact@v4
         with:
           name: prepared-package
@@ -177,11 +187,11 @@ jobs:
           retention-days: 14
 
       - name: Generate visual scenes and storyboard
-        if: env.PIPELINE_STAGE == 'visuals' || env.PIPELINE_STAGE == 'full'
+        if: env.PIPELINE_STAGE == 'visuals'
         run: python autopilot/engine/run.py --stage visuals
 
       - name: Upload visual review package
-        if: success() && (env.PIPELINE_STAGE == 'visuals' || env.PIPELINE_STAGE == 'full')
+        if: success() && (env.PIPELINE_STAGE == 'visuals')
         uses: actions/upload-artifact@v4
         with:
           name: visual-package
@@ -190,11 +200,11 @@ jobs:
           retention-days: 14
 
       - name: Render final MP4 from saved package (no AI calls)
-        if: env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full'
+        if: env.PIPELINE_STAGE == 'render'
         run: python autopilot/engine/run.py --stage render
 
       - name: Upload finished video
-        if: success() && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')
+        if: success() && (env.PIPELINE_STAGE == 'render')
         uses: actions/upload-artifact@v4
         with:
           name: cloud-video-preview-${{ github.run_id }}
