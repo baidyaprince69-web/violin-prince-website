@@ -1399,7 +1399,7 @@ def select_verified_story_sources(plan, research_items, minimum_sources=2):
         duplicate_of = next(
             (
                 chosen for chosen in selected
-                if source_content_similarity(item, chosen) >= 0.88
+                if source_content_similarity(item, chosen) >= 0.82
             ),
             None,
         )
