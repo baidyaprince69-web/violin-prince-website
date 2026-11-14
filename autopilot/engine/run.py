@@ -13,8 +13,12 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 
 try:
     from .seo_intelligence import build_topic_queries, discover as seo_discover, load_profile as seo_load_profile, optimize as seo_optimize
+    from .seo_intelligence.storage import load_learning_signals
+    from .youtube_native.engine import YouTubeNativeClient
 except ImportError:  # Direct script execution from the engine directory.
     from seo_intelligence import build_topic_queries, discover as seo_discover, load_profile as seo_load_profile, optimize as seo_optimize
+    from seo_intelligence.storage import load_learning_signals
+    from youtube_native.engine import YouTubeNativeClient
 
 API = os.environ.get("AUTOPILOT_API_URL", "").rstrip("/")
 JOB_TOKEN = os.environ.get("AUTOPILOT_JOB_TOKEN", "")
@@ -518,21 +522,40 @@ def recent_topics():
 
 
 def recent_seo_learning():
-    """Read the latest SEO-only learning snapshot; this does not poll YouTube."""
-    if not API:
+    """Decrypt the latest GitHub-native SEO snapshot; no Worker or YouTube polling."""
+    report_path = os.environ.get("SEO_LEARNING_REPORT_PATH", "").strip()
+    encryption_key = os.environ.get("YOUTUBE_STATE_ENCRYPTION_KEY", "").strip()
+    if not report_path:
+        return None
+    if not encryption_key:
+        log("SEO learning key is not configured; using the balanced language mix.")
         return None
     try:
-        response = http.get(API + "/internal/seo-learning", headers=auth(), timeout=20)
-        if response.status_code == 404:
-            return None
-        response.raise_for_status()
-        payload = response.json()
-        learning = payload.get("learning") if isinstance(payload, dict) else None
+        learning = load_learning_signals(report_path, encryption_key)
         if not isinstance(learning, dict):
+            log("No completed SEO learning snapshot exists yet; using the balanced language mix.")
             return None
-        return {**learning, "captured_at": payload.get("captured_at")}
+        log(
+            "Loaded encrypted SEO learning snapshot from " +
+            str(learning.get("captured_at") or "an undated report") +
+            "; only SEO signals are passed into Discover."
+        )
+        return learning
     except Exception as exc:
-        log("Previous SEO learning report unavailable; using the balanced language mix: " + str(exc)[:180])
+        log("SEO learning snapshot could not be decrypted; using the balanced language mix: " + str(exc)[:180])
+        return None
+
+
+def recent_youtube_access_token():
+    """Refresh once per Prepare run so Discover can use OAuth without an API key."""
+    if not all(os.environ.get(name) for name in (
+        "YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN"
+    )):
+        return None
+    try:
+        return YouTubeNativeClient().refresh_access_token()
+    except Exception as exc:
+        log("YouTube OAuth token refresh unavailable for Discover: " + str(exc)[:180])
         return None
 
 
@@ -2261,9 +2284,11 @@ def prepare_stage():
         # before the creative planner chooses a story. Previous learning comes only from
         # a completed Phase 5 analytics report; no continuous polling is performed.
         learning = recent_seo_learning()
+        access_token = recent_youtube_access_token()
         discovery = seo_discover(
             profile=seo_load_profile(),
             api_key=os.environ.get("YOUTUBE_API_KEY", ""),
+            access_token=access_token,
             learned_signals=learning,
         )
         log(
@@ -2279,6 +2304,7 @@ def prepare_stage():
         topic_validation = seo_discover(
             profile=seo_load_profile(),
             api_key=os.environ.get("YOUTUBE_API_KEY", ""),
+            access_token=access_token,
             learned_signals=learning,
             query_plan_override=topic_queries,
         )
