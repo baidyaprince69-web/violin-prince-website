@@ -229,6 +229,40 @@ class PlannerNarrationValidationTests(unittest.TestCase):
                 pipeline.WORK = original_work
 
 
+    def test_word_array_splits_multiword_item_when_spoken_count_is_within_budget(self):
+        words = [
+            "Digital", "music", "has", "truly", "never", "sounded",
+            "quite", "this", "vivid", "or", "so real."
+        ]
+        sentence, issue = pipeline._assemble_narration_sentence_words(
+            words,
+            expected_count=11,
+            field="sentence_4_words",
+            max_count=12,
+        )
+        self.assertEqual(issue, "")
+        self.assertEqual(
+            sentence,
+            "Digital music has truly never sounded quite this vivid or so real.",
+        )
+        self.assertEqual(pipeline.narration_word_count(sentence), 12)
+        self.assertEqual(len(pipeline.narration_sentences(sentence)), 1)
+
+    def test_word_array_still_rejects_spoken_count_above_sentence_maximum(self):
+        words = [
+            "Digital", "music", "has", "truly", "never", "sounded",
+            "quite", "this", "vivid", "or", "so very real."
+        ]
+        sentence, issue = pipeline._assemble_narration_sentence_words(
+            words,
+            expected_count=11,
+            field="sentence_4_words",
+            max_count=12,
+        )
+        self.assertEqual(sentence, "")
+        self.assertIn("normalizes to 13 spoken words", issue)
+        self.assertIn("allowed range is 11–12", issue)
+
     def test_run23_exact_39_word_failure_repairs_only_one_word(self):
         plan = make_test_plan(RUN23_INITIAL_SENTENCES)
         initial_script = " ".join(RUN23_INITIAL_SENTENCES)
