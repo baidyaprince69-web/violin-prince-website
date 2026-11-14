@@ -1,6 +1,6 @@
 {
-  "source_run_id": "43595092535",
+  "source_run_id": "43595586341",
   "requested_stage": "prepare",
-  "reason": "Retry Run 31 after normalizing whitespace-containing narration array entries within sentence word limits.",
-  "request_version": 7
+  "reason": "Retry Run 32 after treating sibling MIT subdomains as one independent publisher family.",
+  "request_version": 8
 }
