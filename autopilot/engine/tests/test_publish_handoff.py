@@ -78,15 +78,25 @@ class PublishMetadataTests(unittest.TestCase):
                 "privacy_status": "everyone",
             })
 
-    def test_missing_audience_classification_is_warning_not_generation_failure(self):
+    def test_missing_audience_classification_uses_the_preconfirmed_channel_default(self):
         result = validate_publish_metadata({
             "title": "Valid title",
             "description": "Description",
             "tags": ["Violin", "Music", "Sound"],
         })
         self.assertTrue(result["valid"])
+        self.assertTrue(result["audience_confirmed"])
+        self.assertIs(result["value"]["made_for_kids"], False)
+
+    def test_invalid_audience_value_is_not_silently_coerced(self):
+        result = validate_publish_metadata({
+            "title": "Valid title",
+            "description": "Description",
+            "tags": ["Violin", "Music", "Sound"],
+            "made_for_kids": "false",
+        })
         self.assertFalse(result["audience_confirmed"])
-        self.assertTrue(any("made_for_kids" in warning for warning in result["warnings"]))
+        self.assertIsNone(result["value"]["made_for_kids"])
 
 
 class AssetProvenanceTests(unittest.TestCase):
@@ -219,7 +229,7 @@ class AssetProvenanceTests(unittest.TestCase):
         self.assertEqual(manifest["publisher_preflight"]["status"], "ready")
         self.assertIs(manifest["made_for_kids"], False)
 
-    def test_missing_audience_setting_puts_publisher_in_hold(self):
+    def test_missing_audience_value_uses_preconfirmed_setting_in_publish_manifest(self):
         plan = {key: value for key, value in self.plan.items() if key != "made_for_kids"}
         check = validate_publish_metadata({
             "title": plan["title"],
@@ -233,10 +243,9 @@ class AssetProvenanceTests(unittest.TestCase):
             provenance=self._provenance(),
             run_id="test-run",
         )
-        self.assertFalse(manifest["publish_ready"])
-        self.assertEqual(manifest["publisher_preflight"]["status"], "hold")
-        self.assertIsNone(manifest["made_for_kids"])
-        self.assertTrue(any("made_for_kids" in item for item in manifest["publisher_preflight"]["blockers"]))
+        self.assertTrue(manifest["publish_ready"])
+        self.assertEqual(manifest["publisher_preflight"]["status"], "ready")
+        self.assertIs(manifest["made_for_kids"], False)
 
     def test_unknown_soundtrack_license_blocks_publication(self):
         check = validate_publish_metadata({
