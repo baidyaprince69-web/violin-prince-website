@@ -240,102 +240,208 @@ def make_motion_graphic_frames(
     target_dir: str | Path,
     frame_count: int,
     fps: int,
-    font: Callable[[int], object],
+    font: Callable[..., object],
 ) -> Path:
-    """Write a transparent animated panel sequence and return its frame pattern."""
+    """Render a restrained glass-style explainer card with a distinct animated diagram."""
     target = Path(target_dir)
     target.mkdir(parents=True, exist_ok=True)
-    width, height = 620, 300
+    width, height = 620, 260
     count = max(1, int(frame_count))
     frame_rate = max(1, int(fps))
     mode = _clean(scene.get("visual_mode") or "waveform", 40).casefold()
-    if mode not in {
+    valid_modes = {
         "macro_3d", "mechanism_3d", "waveform",
         "melody_map", "comparison", "cover_performance",
-    }:
+    }
+    if mode not in valid_modes:
         mode = "waveform"
 
     label = _clean(scene.get("graphic_label") or f"STORY BEAT {index + 1}", 28).upper()
     caption = _clean(scene.get("caption") or plan.get("title") or "Music, explained", 88)
     detail = _clean(scene.get("graphic_detail") or "", 110)
-    headline_lines = []
-    words = caption.split()
-    line = ""
-    for word in words:
-        candidate = (line + " " + word).strip()
-        if len(candidate) > 29 and line:
-            headline_lines.append(line)
-            line = word
-        else:
-            line = candidate
-    if line:
-        headline_lines.append(line)
-    headline_lines = headline_lines[:2]
-    detail_lines = []
-    words = detail.split()
-    line = ""
-    for word in words:
-        candidate = (line + " " + word).strip()
-        if len(candidate) > 50 and line:
-            detail_lines.append(line)
-            line = word
-        else:
-            line = candidate
-    if line:
-        detail_lines.append(line)
-    detail_lines = detail_lines[:2]
+    label_font = font(12, "medium")
+    headline_font = font(27, "bold", "serif")
+    detail_font = font(15, "regular")
+
+    def wrap_pixels(draw, value, face, max_width, max_lines):
+        lines = []
+        current = ""
+        for word in str(value or "").split():
+            candidate = (current + " " + word).strip()
+            bounds = draw.textbbox((0, 0), candidate, font=face)
+            if current and bounds[2] - bounds[0] > max_width:
+                lines.append(current)
+                current = word
+            else:
+                current = candidate
+        if current:
+            lines.append(current)
+        if len(lines) > max_lines:
+            lines = lines[:max_lines]
+            lines[-1] = lines[-1].rstrip(" .") + "…"
+        return lines
+
+    headline_probe = ImageDraw.Draw(Image.new("RGBA", (width, height)))
+    headline_lines = wrap_pixels(headline_probe, caption, headline_font, 282, 2)
+    detail_lines = wrap_pixels(headline_probe, detail, detail_font, 282, 3)
 
     for frame_index in range(count):
         progress = frame_index / max(1, count - 1)
-        phase = progress * math.tau * 2.2
+        eased = progress * progress * (3.0 - 2.0 * progress)
+        phase = eased * math.tau * 1.25
+
+        # Soft light sits behind the card, not over the full photographic image.
+        haze = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        haze_draw = ImageDraw.Draw(haze)
+        glow_x = int(470 + math.sin(phase * 0.7) * 12)
+        haze_draw.ellipse(
+            (glow_x - 100, 8, glow_x + 100, 172),
+            fill=(70, 184, 181, 30),
+        )
+        haze = haze.filter(ImageFilter.GaussianBlur(38))
+
         image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
         draw = ImageDraw.Draw(image)
         draw.rounded_rectangle(
             (4, 4, width - 4, height - 4),
-            radius=25,
-            fill=(5, 11, 23, 226),
-            outline=(235, 202, 139, 225),
-            width=2,
+            radius=22,
+            fill=(5, 11, 23, 206),
+            outline=(174, 194, 207, 112),
+            width=1,
         )
-        draw.rounded_rectangle((24, 18, 32, 83), radius=4, fill=(235, 202, 139, 255))
-
-        # Give each scene a distinct animated explanatory visual, not one repeated waveform.
-        glow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-        glow_draw = ImageDraw.Draw(glow)
-        points = _curve_points(mode, phase, width, 52)
-        glow_draw.line(points, fill=(45, 190, 183, 145), width=13, joint="curve")
-        glow = glow.filter(ImageFilter.GaussianBlur(8))
-        image = Image.alpha_composite(image, glow)
+        # A fine warm edge and a soft teal light create depth without a bulky frame.
+        draw.line((28, 12, width - 28, 12), fill=(235, 202, 139, 100), width=1)
+        draw.rounded_rectangle((28, 30, 32, 57), radius=2, fill=(74, 190, 185, 235))
+        image = Image.alpha_composite(image, haze)
         draw = ImageDraw.Draw(image)
 
-        if mode == "macro_3d":
-            _draw_macro_string(draw, progress, phase, width)
-        elif mode == "mechanism_3d":
-            _draw_mechanism_diagram(draw, progress, phase, width)
+        # Small upper-right diagram window. It changes by story mode and has no
+        # decorative numbers or fabricated measurements.
+        draw.rounded_rectangle(
+            (350, 25, 590, 139),
+            radius=16,
+            fill=(11, 22, 37, 115),
+            outline=(160, 184, 200, 80),
+            width=1,
+        )
+        left, right = 372, 568
+        top, bottom = 42, 122
+        teal = (74, 190, 185, 235)
+        gold = (235, 202, 139, 245)
+        ivory = (255, 246, 225, 230)
+        muted = (144, 166, 184, 155)
+
+        if mode in {"macro_3d", "mechanism_3d"}:
+            # Three vibrating string traces with a bright travelling contact point.
+            for strand in range(3):
+                baseline = 62 + strand * 17
+                pts = []
+                for x in range(left, right + 1, 3):
+                    u = (x - left) / (right - left)
+                    amp = 4.5 + strand * 1.1
+                    y = baseline + math.sin(u * math.tau * 2.0 - phase + strand * 0.22) * amp
+                    pts.append((x, int(y)))
+                draw.line(pts, fill=teal if strand != 1 else gold, width=2, joint="curve")
+            marker_x = left + int(progress * (right - left))
+            marker_y = int(79 + math.sin(phase * 1.4) * 3)
+            for radius, alpha in ((15, 70), (9, 140)):
+                draw.ellipse(
+                    (marker_x-radius, marker_y-radius, marker_x+radius, marker_y+radius),
+                    outline=(235, 202, 139, alpha),
+                    width=2,
+                )
+            draw.ellipse(
+                (marker_x-3, marker_y-3, marker_x+3, marker_y+3),
+                fill=ivory,
+            )
+            if mode == "mechanism_3d":
+                bridge_x = 465
+                draw.polygon(
+                    [(bridge_x-10, 100), (bridge_x+10, 100),
+                     (bridge_x+17, 119), (bridge_x-17, 119)],
+                    fill=(121, 79, 45, 215),
+                    outline=gold,
+                )
+                bow_x = int(390 + progress * 90)
+                draw.line((bow_x, 38, bow_x+38, 115), fill=(226, 231, 230, 155), width=5)
+                draw.line((bow_x, 38, bow_x+38, 115), fill=ivory, width=1)
+
         elif mode == "melody_map":
-            _draw_melody_map(draw, progress, phase, width)
+            staff_y = (55, 69, 83, 97, 111)
+            for y in staff_y:
+                draw.line((left, y, right, y), fill=muted, width=1)
+            note_x = [384, 410, 437, 462, 489, 516, 544, 565]
+            note_y = [101, 85, 92, 64, 78, 55, 72, 88]
+            draw.line(list(zip(note_x, note_y)), fill=teal, width=2, joint="curve")
+            active = min(len(note_x) - 1, int(progress * len(note_x)))
+            for n, (x, y) in enumerate(zip(note_x, note_y)):
+                draw.ellipse(
+                    (x-4, y-3, x+4, y+3),
+                    fill=gold if n <= active else muted,
+                )
+            scan_x = note_x[active]
+            draw.line((scan_x, 42, scan_x, 119), fill=(235, 202, 139, 130), width=1)
+
+        elif mode == "comparison":
+            for row, baseline, colour, amp in (
+                ("A", 67, gold, 10),
+                ("B", 103, teal, 7),
+            ):
+                points = []
+                for x in range(left, right + 1, 3):
+                    u = (x - left) / (right - left)
+                    y = baseline + math.sin(u * math.tau * 1.5 - phase) * amp
+                    points.append((x, int(y)))
+                draw.text((left - 2, baseline - 22), row, font=label_font, fill=colour)
+                draw.line(points, fill=colour, width=2, joint="curve")
+
         elif mode == "cover_performance":
-            _draw_performance_bars(draw, phase)
-        else:
-            _draw_waveform(draw, mode, progress, phase, width)
+            for bar in range(22):
+                x = left + 2 + bar * 9
+                envelope = abs(math.sin((bar / 21) * math.pi))
+                height_px = 8 + int((11 + 27 * envelope) * (
+                    0.35 + 0.65 * abs(math.sin(phase * 1.15 + bar * 0.62))
+                ))
+                draw.rounded_rectangle(
+                    (x, 111-height_px, x+4, 111),
+                    radius=2,
+                    fill=gold if bar % 3 else teal,
+                )
+            draw.line((left, 115, right, 115), fill=muted, width=1)
 
-        draw.text((54, 96), f"{index + 1:02d}  /  03     {label}", font=font(15), fill=(235, 202, 139, 255))
-        y = 126
-        for headline in headline_lines:
-            draw.text((54, y), headline, font=font(27), fill=(255, 250, 241, 255))
-            y += 34
-        detail_y = 205 if len(headline_lines) > 1 else 190
-        for detail_line in detail_lines:
-            draw.text((54, detail_y), detail_line, font=font(16), fill=(191, 202, 214, 255))
-            detail_y += 22
+        else:  # waveform
+            for strand, (baseline, amp, colour) in enumerate((
+                (66, 14, gold), (101, 9, teal),
+            )):
+                points = []
+                for x in range(left, right + 1, 3):
+                    u = (x - left) / (right - left)
+                    y = baseline + math.sin(u * math.tau * 2.0 - phase + strand * 0.35) * amp
+                    points.append((x, int(y)))
+                draw.line(points, fill=colour, width=2, joint="curve")
+            scan_x = left + int(progress * (right - left))
+            draw.line((scan_x, top, scan_x, bottom), fill=(255, 246, 225, 150), width=1)
 
-        # Three-step progress is decorative navigation, not a data claim.
-        line_y = 276
-        draw.line((width - 112, line_y, width - 26, line_y), fill=(235, 202, 139, 110), width=2)
-        for step in range(3):
-            x = width - 112 + step * 43
-            colour = (235, 202, 139, 255) if step <= index else (120, 133, 151, 180)
-            draw.ellipse((x - 5, line_y - 5, x + 5, line_y + 5), fill=colour)
+        # Editorial hierarchy: compact label, large serif headline, lighter readable body.
+        draw.text((48, 31), label, font=label_font, fill=gold)
+        headline_y = 76
+        for line in headline_lines:
+            draw.text((48, headline_y), line, font=headline_font, fill=(255, 250, 241, 255))
+            headline_y += 34
+
+        detail_y = max(151, headline_y + 3)
+        for line in detail_lines:
+            if detail_y > 218:
+                break
+            draw.text((48, detail_y), line, font=detail_font, fill=(191, 202, 214, 245))
+            detail_y += 19
+
+        # Minimal progress indicator, now animated with the visual instead of
+        # three static decorative dots competing with the caption.
+        draw.line((48, 237, width - 48, 237), fill=(132, 151, 169, 100), width=1)
+        progress_x = 48 + int(progress * (width - 96))
+        draw.line((48, 237, progress_x, 237), fill=gold, width=2)
+        draw.ellipse((progress_x-4, 233, progress_x+4, 241), fill=ivory)
 
         image.save(target / f"frame-{frame_index + 1:05d}.png", "PNG", optimize=True)
 
