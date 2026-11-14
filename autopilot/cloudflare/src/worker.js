@@ -126,37 +126,60 @@ async function dispatchWorkflow(env, mode = "scheduled") {
     "INSERT INTO runs (id,status,mode,created_at,updated_at) VALUES (?,?,?,?,?)"
   ).bind(runId, "queued", mode, isoNow(), isoNow()).run();
 
-  const response = await fetch(
-    "https://api.github.com/repos/" + env.GITHUB_OWNER + "/" + env.GITHUB_REPO +
-      "/actions/workflows/" + env.GITHUB_WORKFLOW + "/dispatches",
-    {
-      method: "POST",
-      headers: {
-        "Authorization": "Bearer " + env.GITHUB_DISPATCH_TOKEN,
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-        "Content-Type": "application/json",
-        "User-Agent": "violin-prince-autopilot"
-      },
-      body: JSON.stringify({
-        ref: env.GITHUB_REF || "main",
-        inputs: { run_id: runId, mode: mode }
-      })
+  let dispatchFailure = "";
+  try {
+    const response = await fetch(
+      "https://api.github.com/repos/" + env.GITHUB_OWNER + "/" + env.GITHUB_REPO +
+        "/actions/workflows/" + env.GITHUB_WORKFLOW + "/dispatches",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + env.GITHUB_DISPATCH_TOKEN,
+          "Accept": "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+          "Content-Type": "application/json",
+          "User-Agent": "violin-prince-autopilot"
+        },
+        body: JSON.stringify({
+          ref: env.GITHUB_REF || "main",
+          inputs: { stage: "full", run_id: runId, run_mode: mode }
+        })
+      }
+    );
+    if (!response.ok) {
+      const detail = (await response.text()).slice(0, 600);
+      dispatchFailure = "GitHub dispatch failed: " + response.status +
+        (detail ? " " + detail : "");
     }
-  );
+  } catch (error) {
+    dispatchFailure = "GitHub dispatch request failed: " +
+      String(error && error.message ? error.message : error).slice(0, 600);
+  }
 
-  if (!response.ok) {
-    const detail = (await response.text()).slice(0, 600);
-    await env.DB.prepare("UPDATE runs SET status=?,message=?,updated_at=? WHERE id=?")
-      .bind("failed", "GitHub dispatch failed: " + response.status, isoNow(), runId).run();
-    await event(env, "GitHub dispatch failed: " + response.status + " " + detail, "error", runId);
+  if (dispatchFailure) {
+    // Release the daily reservation only when GitHub has rejected the dispatch
+    // or the request failed before acceptance. This makes a same-day retry safe.
+    try {
+      await env.DB.prepare("UPDATE runs SET status=?,message=?,updated_at=? WHERE id=?")
+        .bind("failed", dispatchFailure.slice(0, 900), isoNow(), runId).run();
+    } catch (error) {
+      await event(env, "Could not mark failed dispatch run: " +
+        String(error && error.message ? error.message : error).slice(0, 400), "warning", runId);
+    }
+    try {
+      await env.DB.prepare("DELETE FROM daily_dispatches WHERE day_utc=? AND run_id=?")
+        .bind(day, runId).run();
+    } catch (error) {
+      await event(env, "Could not release failed dispatch reservation: " +
+        String(error && error.message ? error.message : error).slice(0, 400), "warning", runId);
+    }
+    await event(env, dispatchFailure, "error", runId);
     return { ok: false, reason: "github_dispatch_failed" };
   }
 
-  await event(env, "GitHub-hosted cloud workflow dispatched.", "success", runId);
+  await event(env, "GitHub-hosted Full production workflow dispatched.", "success", runId);
   return { ok: true, run_id: runId };
 }
-
 async function handleApi(request, env) {
   const url = new URL(request.url);
   const path = url.pathname;
@@ -428,3 +451,6 @@ export default {
     ]));
   }
 };
+
+// Exported for offline Node regression tests; the Worker entry point remains the default export.
+export { dispatchWorkflow };
