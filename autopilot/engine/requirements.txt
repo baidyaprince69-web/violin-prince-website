@@ -4,3 +4,4 @@ kokoro>=0.9.4,<1
 soundfile>=0.12,<1
 numpy>=1.26,<3
 cryptography>=43,<48
+fonttools[woff]>=4.50,<5
