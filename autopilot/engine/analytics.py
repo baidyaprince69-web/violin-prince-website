@@ -15,8 +15,10 @@ import requests
 
 try:
     from .seo_intelligence import learn as learn_seo
+    from .seo_intelligence.storage import write_encrypted_snapshot
 except ImportError:  # Direct script execution from the engine directory.
     from seo_intelligence import learn as learn_seo
+    from seo_intelligence.storage import write_encrypted_snapshot
 
 
 TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -179,11 +181,18 @@ def _youtube_search_terms(
     }
 
 
-def collect_and_send(api_url: str, job_token: str) -> dict[str, Any]:
-    required = ("YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN")
-    if not all(os.environ.get(name) for name in required):
-        print("Phase 5 SEO learning skipped: YouTube OAuth credentials are not configured.")
-        return {"connected": False, "reason": "credentials_missing"}
+def collect_and_store(output_path: str | os.PathLike[str]) -> dict[str, Any]:
+    """Read bounded YouTube Analytics reports and persist only encrypted SEO signals."""
+    required = (
+        "YOUTUBE_CLIENT_ID",
+        "YOUTUBE_CLIENT_SECRET",
+        "YOUTUBE_REFRESH_TOKEN",
+        "YOUTUBE_STATE_ENCRYPTION_KEY",
+    )
+    missing = [name for name in required if not os.environ.get(name)]
+    if missing:
+        print("Phase 5 SEO learning cannot run; missing GitHub secrets: " + ", ".join(missing))
+        return {"connected": False, "reason": "credentials_missing", "missing": missing}
 
     session = requests.Session()
     session.headers["User-Agent"] = USER_AGENT
@@ -350,35 +359,38 @@ def collect_and_send(api_url: str, job_token: str) -> dict[str, Any]:
             "seo_learning": learning,
             "captured_at": date.today().isoformat(),
         }
-        serialized_payload = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-        if len(serialized_payload) > 18000:
-            # Keep the D1 payload safely below the Worker request ceiling.
-            payload["per_video"] = payload["per_video"][:8]
-            learning = learn_seo({
-                "period": payload["seo_learning_period"],
-                "videos": payload["per_video"],
-                "search_terms": payload.get("search_terms", []),
-            }, minimum_group_size=3)
-            payload["seo_learning"] = learning
-            serialized_payload = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-        if len(serialized_payload) > 20000:
-            raise RuntimeError("SEO learning report is too large for the configured Worker storage limit.")
-
-        stored = session.post(
-            api_url.rstrip("/") + "/internal/insights",
-            headers={
-                "Authorization": "Bearer " + job_token,
-                "Content-Type": "application/json",
-            },
-            json={"platform": "youtube", "payload": payload},
-            timeout=30,
+        # Store only the learning signals Discover consumes. Raw private analytics
+        # metrics and individual channel reports are deliberately not persisted.
+        safe_learning = {
+            "engine_version": learning.get("engine_version"),
+            "sample_count": learning.get("sample_count", 0),
+            "learning_ready": bool(learning.get("learning_ready")),
+            "period": learning.get("period", payload["seo_learning_period"]),
+            "language_signals": learning.get("language_signals", []),
+            "keyword_signals": learning.get("keyword_signals", []),
+            "search_term_signals": learning.get("search_term_signals", []),
+            "recommendations": learning.get("recommendations", [])[:5],
+        }
+        snapshot = {
+            "captured_at": payload["captured_at"],
+            "seo_learning": safe_learning,
+        }
+        saved_path = write_encrypted_snapshot(
+            snapshot,
+            output_path,
+            os.environ["YOUTUBE_STATE_ENCRYPTION_KEY"],
         )
-        stored.raise_for_status()
         print(
-            "Phase 5 SEO learning report stored. "
-            f"Per-video rows: {len(per_video)}; learning ready: {learning.get('learning_ready')}."
+            "Phase 5 SEO learning snapshot encrypted and saved. "
+            f"Sampled videos: {len(per_video)}; learning ready: {learning.get('learning_ready')}; "
+            "plaintext channel metrics were not persisted."
         )
-        return {"connected": True, "payload": payload}
+        return {
+            "connected": True,
+            "output_path": str(saved_path),
+            "learning_ready": bool(learning.get("learning_ready")),
+            "sample_count": len(per_video),
+        }
     except Exception as exc:
         # Analytics is optional and read-only; report failures never trigger upload retries.
         print("YouTube Analytics unavailable: " + str(exc)[:500])
@@ -386,10 +398,8 @@ def collect_and_send(api_url: str, job_token: str) -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    api_url = os.environ.get("AUTOPILOT_API_URL", "").strip()
-    job_token = os.environ.get("AUTOPILOT_JOB_TOKEN", "").strip()
-    if not api_url or not job_token:
-        print("Phase 5 SEO learning skipped: AUTOPILOT_API_URL or AUTOPILOT_JOB_TOKEN is missing.")
-        raise SystemExit(0)
-    result = collect_and_send(api_url, job_token)
-    raise SystemExit(0 if result.get("connected") or result.get("reason") == "credentials_missing" else 1)
+    output_path = os.environ.get(
+        "SEO_LEARNING_OUTPUT_PATH", "work/seo-learning/latest.enc.json"
+    )
+    result = collect_and_store(output_path)
+    raise SystemExit(0 if result.get("connected") else 1)
