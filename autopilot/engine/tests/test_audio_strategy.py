@@ -69,15 +69,12 @@ class AudioStrategyTests(unittest.TestCase):
             finally:
                 pipeline.WORK = original_work
 
-    def test_camera_motion_uses_eased_scene_specific_drift(self):
-        expression = pipeline.camera_motion_filter(600, 0)
-        alternate = pipeline.camera_motion_filter(600, 1)
-        self.assertIn("zoompan=z='1.005+0.055*", expression)
-        self.assertIn("3-2*", expression)
-        self.assertIn("x='(iw-iw/zoom)*(0.40+0.20*", expression)
-        self.assertIn("y='(ih-ih/zoom)*0.5'", expression)
-        self.assertIn("on/", expression)
-        self.assertNotEqual(expression, alternate)
+    def test_camera_motion_uses_stable_framing_without_repeated_zoom(self):
+        expressions = [pipeline.camera_motion_filter(600, index) for index in range(3)]
+        self.assertTrue(all("zoompan" not in expression for expression in expressions))
+        self.assertEqual(expressions[0], expressions[1])
+        self.assertEqual(expressions[1], expressions[2])
+        self.assertTrue(all("fps=" in expression and "setsar=1" in expression for expression in expressions))
 
 
 if __name__ == "__main__":
