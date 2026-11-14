@@ -1,72 +1,72 @@
 {
-  "story_type": "music_production",
-  "topic": "How bow speed and pressure create an expressive tone just before violin-string vibration becomes unstable",
-  "title": "The Bow's Narrow Zone of Expressive Tone",
-  "hook": "How can a violin bow shape musical expression?",
-  "description": "Two independent string-music publications describe a computer model that tested one hundred bow–string interaction points. The reported result: expressive tone peaked close to the point where the string's regular vibration became unstable.",
+  "story_type": "violin_physics",
+  "topic": "How violin back-arch geometry changes body resonances, alongside a separate new study of detecting vocal sounds within background sound textures.",
+  "title": "Why a Violin's Back Shape Matters",
+  "hook": "Could a violin's curve change the sound it makes?",
+  "description": "A November 2026 acoustics study compared six closely matched violins with three different back-arch heights and measured shifts in body resonances. A separate PLOS Biology study found that mice detected vocalizations better after longer exposure to background sound textures. These are two distinct sound-science findings, not one experiment.",
   "hashtags": [
     "#Violin",
-    "#MusicFacts",
     "#ViolinAcoustics",
-    "#BowTechnique"
+    "#MusicScience",
+    "#MusicFacts"
   ],
   "narrative_style": "documentary",
-  "cover_payoff": "Use the generated solo-violin audio bed as a symbolic listening payoff while animated lines show a stable waveform approaching instability. No real creator performance recording is included, so do not call it Prince's live performance.",
-  "narration_script": "How can a violin bow shape musical expression? A detailed model tested one hundred bow and string interaction points. It found expressivity peaked just before the waveform became unstable. That useful sound zone was narrow, balancing expressive tone with careful control.",
+  "cover_payoff": "Use a generated symbolic solo-violin phrase as an audio illustration while the final scene shows a clean amber signal emerging from layered background sound textures. No creator performance recording is included, so do not describe this as Prince's live performance.",
+  "narration_script": "Violin shape can subtly change its acoustic voice. Researchers built six matched violins with three different back-arch heights. Their resonance frequencies and measured sound levels changed with back arch height. Separately, mice detected vocalizations better after sampling background sound textures longer.",
   "narration_evidence": [
     {
       "sentence_number": 2,
       "source_id": "S001",
-      "quote": "used the programming language Python to simulate a violin string, and then modelled the interaction between bow and string, investigating how changes in bow speed and pressure affect the resulting sound."
+      "quote": "Six violins were constructed to be as similar as possible, only the parameter “back arch height” was varied. The group of six instruments was divided into three pairs with strongly varied arch heights of 12.1, 14.8, and 17.5 mm, respectively."
     },
     {
       "sentence_number": 3,
-      "source_id": "S002",
-      "quote": "He found that expressivity was highest at the moment right before the waveform became unstable"
+      "source_id": "S001",
+      "quote": "Signature body modes of the instruments were shifted apart in frequency and towards higher amplitude for lower back arch heights"
     },
     {
       "sentence_number": 4,
       "source_id": "S002",
-      "quote": "there is a small zone in pressure and speed where the sound is most expressive before it becomes unstable."
+      "quote": "Mice can indeed detect vocalizations better if they had more time within a trial to sample the sound texture."
     }
   ],
   "sources": [
     {
       "source_id": "S001",
-      "title": "Teenage violinist wins $3,500 science award for study of expressive violin sound",
-      "url": "https://www.thestrad.com/news/teenage-violinist-wins-3500-science-award-for-study-of-expressive-violin-sound/22053.article",
-      "publisher_domain": "thestrad.com",
-      "date": "2026-11-10"
+      "title": "Investigating acoustic effects of violin back arch height changes: Constructing a set of test instruments",
+      "url": "https://pubs.aip.org/asa/jasa/article/160/5/4149/3408492/Investigating-acoustic-effects-of-violin-back-arch",
+      "publisher_domain": "pubs.aip.org",
+      "date": "2026-11-11"
     },
     {
       "source_id": "S002",
-      "title": "Teenage Violinist Wins $3,500 U.S. National Science Award for Research into Musical Expression",
-      "url": "https://www.theviolinchannel.com/teenage-violinist-wins-3500-u-s-national-science-award-for-research-into-musical-expression/",
-      "publisher_domain": "theviolinchannel.com",
-      "date": "2026-11-11"
+      "title": "Neural integration of acoustic statistics enables mice to detect acoustic targets in noise",
+      "url": "https://journals.plos.org/plosbiology/article?id=10.1371/journal.pbio.3004082",
+      "publisher_domain": "journals.plos.org",
+      "date": "2026-11-12"
     }
   ],
   "timeline": [],
   "scenes": [
     {
-      "caption": "One bow meets one vibrating string",
-      "image_prompt": "Photorealistic cinematic macro photograph of real violin bow hair meeting a taut violin string above a fully visible amber-brown varnished violin body, individual rosin particles catching warm gold studio light, fine wood grain, rich natural colours, deep midnight-navy background, shallow depth of field, premium music-instrument photography, no people, no text.",
-      "graphic_label": "THE CONTACT",
-      "graphic_detail": "The model tested one hundred bow–string interactions",
+      "caption": "THE HIDDEN CURVE",
+      "image_prompt": "Create an original photorealistic 3D macro scene of a complete full-bodied violin viewed from a low three-quarter angle so its carved, gently convex amber-brown back arch is clearly visible. Show authentic maple wood grain, rich transparent varnish, realistic ribs, purfling, bridge, strings and scroll. Warm raking studio light reveals the curve and wood depth, with a dark charcoal studio background, subtle teal-to-amber atmospheric gradient, a few tiny illuminated dust motes and restrained star glints. Premium cinematic product photography, physically plausible instrument proportions, crisp detail, vertical 9:16 composition. No labels, text, watermark, hollow outline, wireframe or flat illustration.",
+      "graphic_label": "THE HIDDEN CURVE",
+      "graphic_detail": "Six matched violins used three back-arch heights",
       "visual_mode": "macro_3d"
     },
     {
-      "caption": "Speed and pressure change the waveform",
-      "image_prompt": "Photorealistic cinematic scientific visualization built around a real taut violin string and the richly coloured amber-brown violin body, subtle dimensional gold and warm-ivory acoustic wavefronts changing from smooth regular motion toward turbulence, realistic physical materials, deep teal and midnight-navy studio background, dramatic depth and lighting, no flat diagrams, no line art, no text.",
-      "graphic_label": "THE WAVEFORM",
-      "graphic_detail": "Bow speed and pressure shape the sound",
+      "caption": "SHAPE SHIFTS RESONANCE",
+      "image_prompt": "Create a photorealistic cinematic 3D comparison scene showing three full-bodied amber-brown violin backs with visibly different but plausible arch heights, arranged in a precise museum-like studio display. Each violin must have filled varnished wood, natural grain, realistic edges and subtle reflections. Add elegant luminous sound-wave bands and a clean frequency-response visual hovering behind the instruments, suggesting measured resonances without writing numbers or text. Use warm amber key light, controlled teal rim light, subtle shadow depth, small dust particles and restrained glow. Vertical 9:16 composition, no people, no logos, no watermark, no wireframe or line-art instruments.",
+      "graphic_label": "THE KEY DETAIL",
+      "graphic_detail": "Back arch height shifted measured body resonances",
       "visual_mode": "waveform"
     },
     {
-      "caption": "The most expressive point sits near instability",
-      "image_prompt": "Premium photorealistic cinematic product photograph of a complete elegant violin and bow, fully coloured solid amber-brown varnished wooden body with visible grain, polished strings and fine bow hair, surrounded by subtle translucent gold and ivory resonance ribbons suggesting a narrow transition point, warm studio highlights, rich shadows, dark walnut and midnight-navy background, no face, no text.",
-      "graphic_label": "THE SWEET SPOT",
-      "graphic_detail": "Expressivity peaked just before instability",
+      "caption": "A SIGNAL THROUGH THE NOISE",
+      "image_prompt": "Create an original premium photorealistic close-up of a real, fully formed amber-brown violin with its bow contacting the strings, rich varnished maple grain, visible bow hair and precise string detail. A single bright golden waveform emerges from the strings and remains visually distinct while soft layered teal and amber sound-texture waves dissolve behind it, a visual metaphor for a target sound becoming detectable within complex background noise. Keep the violin as the unmistakable hero, cinematic studio lighting, delicate illuminated dust, gentle star glints and nuanced shadows. Vertical 9:16, no captions, no text, no watermark, no empty violin outline, and do not depict or imply a real creator performance recording.",
+      "graphic_label": "THE PAYOFF",
+      "graphic_detail": "A target sound can stand out from background texture",
       "visual_mode": "cover_performance"
     }
   ]
