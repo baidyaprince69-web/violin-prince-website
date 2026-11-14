@@ -97,7 +97,7 @@ FILM_MUSIC_ROUNDUP = article(
         "productions. It includes notes about new composers, soundtrack releases, "
         "recording sessions, and upcoming film scores. The report also discusses "
         "music for unrelated thrillers, historical dramas, and animated projects. "
-        "It does not mention Space Cadet or Karen O."
+        "It surveys general release news without naming the subject of the separate feature article."
     ),
 )
 
