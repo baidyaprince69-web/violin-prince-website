@@ -6,8 +6,8 @@ A cloud-first short-video production pipeline. GitHub-hosted runners do the prod
 
 ChatGPT is the only daily scheduler. Its existing daily automation prepares one sourced production plan, writes `.autopilot/daily-production-plan.json` to `main`, then updates `.autopilot/prepare-request.json` to trigger this workflow. The GitHub Actions runner produces the MP4 and creates a public GitHub Release asset. ChatGPT then reads that release and schedules the YouTube Short through the connected Metricool brand with automatic publishing enabled.
 
-- The daily route is Cloudflare-free: it re-fetches publisher article pages, verifies exact narration evidence quotes and dates, synthesizes narration with Kokoro, creates original deterministic illustrated scene plates with Pillow, and uses the existing FFmpeg renderer and media QA.
-- The daily route uses no paid image/video generation API. Its scene plates are designed illustrations with motion graphics, not photorealistic AI-generated 3D footage or full character animation.
+- The daily route re-fetches publisher article pages, verifies exact narration evidence quotes and dates, synthesizes narration with Kokoro, generates three full-colour photorealistic scene images through the existing Cloudflare Workers AI FLUX.1-schnell image model, and uses the existing FFmpeg renderer and media QA.
+- The daily route uses the same image-generation path as the earlier Visuals stage. It does not use a paid video-generation service; if FLUX image generation is unavailable or quota-limited, the run stops instead of falling back to stick figures, outline drawings or placeholder illustrations.
 - The final scene is a symbolic violin-performance visual unless a permitted creator recording is deliberately added; generated/sample violin audio must never be described as a live recording by the creator.
 - The daily route keeps direct publishing disabled in GitHub. ChatGPT schedules the public release asset through Metricool after the YouTube audience setting has been confirmed. vidIQ remains available for channel research/optimisation; its draft publishing flow requires the user to approve each exact draft.
 - The GitHub cron schedule has been removed. Do not add a second GitHub or Cloudflare scheduler; ChatGPT is the daily operator.
@@ -134,7 +134,7 @@ Artifacts are retained for 14 days. Keep the relevant successful run IDs until y
 - **GitHub Actions** runs the stages in the cloud. No local PC processing is required.
 - The Cloudflare deploy workflow saves `AUTOPILOT_API_URL` as an Actions secret and configures the Worker-side `JOB_TOKEN` from the repository's `AUTOPILOT_JOB_TOKEN` secret. The production workflow passes both secrets into the render job so uploaded dashboard media can be retrieved by the runner.
 - The Cloudflare deploy workflow requires repository secrets `CF_DEPLOY_TOKEN`, `CF_ACCOUNT_ID`, `DASHBOARD_TOKEN`, `AUTOPILOT_JOB_TOKEN` and `GH_DISPATCH_TOKEN`. Do not paste their values into source code or chat.
-- **Cloudflare Workers AI** is used only in Prepare and Visuals. The workflow stops on permission, quota or rate-limit errors; it has no paid fallback.
+- **Cloudflare Workers AI** is used in Prepare, Visuals and ChatGPT daily scene-image generation. The daily route uses FLUX.1-schnell for still images; the GitHub runner handles narration, motion graphics and FFmpeg rendering. The workflow stops on permission, quota or rate-limit errors; it has no paid fallback.
 - **Kokoro-82M** creates the synthetic narration on a CPU runner. Model weights are Apache-2.0.
 - **Pillow and FFmpeg** create the storyboard, camera movement, animated overlays, subtitles and MP4.
 - Cloudflare Worker, D1 and private R2 are used for the dashboard and private media library. GitHub Actions fetches uploaded media only during Render; raw uploaded media files are not attached to the downloadable package/diagnostic artifacts.
