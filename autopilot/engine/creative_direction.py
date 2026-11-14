@@ -1,8 +1,8 @@
 """Approved editorial identity and deterministic fit checks for Violin Prince.
 
-This module keeps the channel concept separate from an individual story review:
-the creator has approved the channel format; every prepared story still has to
-pass factual checks and may be reviewed as a separate production decision.
+The creator has approved the channel format. Each story must pass its own
+automated source, date, freshness, narration and channel-fit gates before
+visual production proceeds; there is no repeated workflow approval checkbox.
 """
 from __future__ import annotations
 
