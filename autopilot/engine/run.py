@@ -944,11 +944,13 @@ def source_relevance_score(plan, item):
 
 
 _GENERIC_ENTITY_WORDS = {
-    "about", "advanced", "album", "artist", "artists", "classical", "computer",
-    "concert", "digital", "discovery", "future", "instrument", "instruments",
-    "music", "musical", "new", "performance", "real", "realistic", "science",
-    "scientific", "song", "sound", "sounds", "space", "technology", "the",
-    "traditional", "violin", "virtual", "world",
+    "about", "advanced", "album", "animated", "animation", "artist", "artists",
+    "classical", "computer", "concert", "digital", "discovery", "film", "films",
+    "future", "instrument", "instruments", "lullaby", "melancholy", "movie", "movies",
+    "music", "musical", "new", "performance", "real", "realistic", "review", "reviews",
+    "science", "scientific", "score", "scores", "silent", "song", "sound", "sounds",
+    "soundtrack", "space", "technology", "the", "traditional", "violin", "virtual",
+    "weekly", "world",
 }
 
 
@@ -968,15 +970,21 @@ def story_entity_anchor_groups(plan):
             seen.add(token)
             groups.append({token})
 
-    # Multi-word proper names, such as "Roman Space Telescope" or "Alena Baeva".
+    # Multi-word proper names, such as "Roman Space Telescope", "Space Cadet",
+    # or "Alena Baeva". Keep generic component words when they belong to a
+    # phrase that also contains a distinctive name token.
     for match in re.findall(
         r"\b[A-Z][a-zÀ-ÖØ-öø-ÿ’'-]+(?:\s+[A-Z][a-zÀ-ÖØ-öø-ÿ’'-]+)+\b",
         values,
     ):
         tokens = source_tokens(match)
-        tokens = {token for token in tokens if token not in _GENERIC_ENTITY_WORDS}
-        if tokens and tokens not in groups:
-            groups.append(tokens)
+        distinctive = tokens - _GENERIC_ENTITY_WORDS
+        if distinctive:
+            anchor = set(tokens)
+            if anchor not in groups:
+                groups.append(anchor)
+        # Avoid weakening a proper-name phrase into loose single-word matches.
+        seen.update(tokens)
 
     # Single distinctive title/topic names such as "Mozart" or "Eurovision".
     for field in ("topic", "title"):
@@ -991,11 +999,13 @@ def story_entity_anchor_groups(plan):
 
 
 def source_supports_story(plan, item, minimum_score=0.20):
-    """Require both story-level relevance and a named-entity anchor when one exists."""
+    """Require the source to name the story's primary subject when the title does."""
     score = source_relevance_score(plan, item)
     if score < minimum_score:
         return False
-    anchors = story_entity_anchor_groups(plan)
+    title = str(plan.get("title") or "").strip()
+    title_anchors = story_entity_anchor_groups({"topic": title, "title": title})
+    anchors = title_anchors or story_entity_anchor_groups(plan)
     if not anchors:
         return True
     article = source_tokens(" ".join(
@@ -1777,8 +1787,10 @@ _STORY_GROUP_GENERIC_TERMS = {
     "ai", "about", "announced", "announces", "announcement", "artist", "artists",
     "artificial", "breaking", "computer", "computers", "culture", "digital",
     "discovery", "entertainment", "feature", "features", "future", "global",
-    "intelligence", "latest", "machine", "machines", "music", "musical", "new",
-    "news", "performance", "performances", "report", "reports", "research",
+    "intelligence", "latest", "lullaby", "machine", "machines", "melancholy",
+    "movie", "movies", "music", "musical", "new", "news", "performance",
+    "performances", "film", "films", "animated", "animation", "weekly", "roundup",
+    "soundtrack", "review", "reviews", "silent", "score", "scores", "report", "reports", "research",
     "researcher", "researchers", "science", "scientific", "show", "shows",
     "study", "technology", "today", "trend", "trends", "update", "updates",
     "violin", "world",
@@ -1824,12 +1836,21 @@ def story_articles_cover_same_subject(left, right):
     shared_body = left_body.intersection(right_body)
     body_overlap = len(shared_body) / max(1, min(len(left_body), len(right_body)))
 
-    shared_anchors = _story_article_anchors(left).intersection(_story_article_anchors(right))
-    if shared_anchors and len(shared_body) >= 3 and body_overlap >= 0.08:
-        return True
-    if len(shared_title) >= 2 and title_overlap >= 0.30:
-        return True
-    if len(shared_body) >= 6 and body_overlap >= 0.18 and len(shared_title) >= 1:
+    left_anchors = _story_article_anchors(left)
+    right_anchors = _story_article_anchors(right)
+    shared_anchors = left_anchors.intersection(right_anchors)
+    if shared_anchors:
+        return len(shared_body) >= 3 and body_overlap >= 0.08
+
+    # If either headline names a specific subject, do not let generic genre
+    # overlap (for example "film music" or "weekly soundtrack roundup") pair it
+    # with an article about a different title. Lexical fallback is only for
+    # stories whose headlines contain no distinctive named subject.
+    if left_anchors or right_anchors:
+        return False
+    if len(shared_title) >= 3 and title_overlap >= 0.55:
+        return len(shared_body) >= 8 and body_overlap >= 0.22
+    if len(shared_body) >= 8 and body_overlap >= 0.22 and len(shared_title) >= 2:
         return True
     return False
 
@@ -2108,6 +2129,14 @@ def validate_narration_against_sources(plan, verified_sources):
     evidence_records = []
     issues = []
     for sentence_number, sentence in enumerate(sentences, start=1):
+        dangling = narration_dangling_final_word(sentence)
+        if dangling:
+            issues.append(
+                f"narration sentence {sentence_number} appears incomplete; "
+                f"it ends with the dangling word '{dangling}'"
+            )
+            continue
+
         # The opening is a curiosity hook, not a factual assertion.
         if sentence_number == 1:
             continue
@@ -2751,6 +2780,23 @@ def narration_word_count(value):
     return len(re.findall(r"\b[\w’'-]+\b", str(value or "")))
 
 
+NARRATION_DANGLING_FINAL_WORDS = {
+    "a", "an", "the", "in", "of", "to", "for", "with", "at", "by", "from",
+    "on", "into", "about", "between", "among", "during", "before", "after",
+    "through", "without", "and", "or", "but", "because", "while", "as",
+    "although", "if", "when", "where", "which", "who", "that",
+}
+
+
+def narration_dangling_final_word(sentence):
+    """Return a dangling final connector/preposition that leaves a sentence unfinished."""
+    words = re.findall(r"[A-Za-zÀ-ÖØ-öø-ÿ’'-]+", str(sentence or "").rstrip())
+    if not words:
+        return ""
+    final_word = words[-1].casefold()
+    return final_word if final_word in NARRATION_DANGLING_FINAL_WORDS else ""
+
+
 def narration_validation_error(script):
     """Enforce the actual short-form requirements, not arbitrary per-sentence quotas."""
     text_value = re.sub(r"\s+", " ", str(script or "")).strip()
@@ -2771,6 +2817,9 @@ def narration_validation_error(script):
             return f"sentence {index} has {count} words; no sentence may exceed 12"
         if not sentence.endswith((".", "!", "?")):
             return f"sentence {index} is missing closing punctuation"
+        dangling = narration_dangling_final_word(sentence)
+        if dangling:
+            return f"sentence {index} appears incomplete; it ends with the dangling word '{dangling}'"
 
     return ""
 
@@ -2841,6 +2890,8 @@ def _sentence_needs_correction(sentence, index, budget):
     if len(parts) != 1:
         return True
     if not value.endswith((".", "!", "?")):
+        return True
+    if narration_dangling_final_word(value):
         return True
     if count < budget["min_words"] or count > budget["max_words"]:
         return True
