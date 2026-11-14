@@ -50,21 +50,21 @@
   "scenes": [
     {
       "caption": "One bow meets one vibrating string",
-      "image_prompt": "An original detailed macro illustration of violin bow hair contacting a taut violin string, fine rosin particles and amber light, dramatic dark wood backdrop, precise contact point, vertical composition, no people or text",
+      "image_prompt": "Photorealistic cinematic macro photograph of real violin bow hair meeting a taut violin string above a fully visible amber-brown varnished violin body, individual rosin particles catching warm gold studio light, fine wood grain, rich natural colours, deep midnight-navy background, shallow depth of field, premium music-instrument photography, no people, no text.",
       "graphic_label": "THE CONTACT",
       "graphic_detail": "The model tested one hundred bow–string interactions",
       "visual_mode": "macro_3d"
     },
     {
       "caption": "Speed and pressure change the waveform",
-      "image_prompt": "An original scientific acoustic illustration of a violin string waveform changing from smooth regular oscillations toward irregular motion, elegant gold and ivory wave ribbons over a midnight charcoal technical background, no text",
+      "image_prompt": "Photorealistic cinematic scientific visualization built around a real taut violin string and the richly coloured amber-brown violin body, subtle dimensional gold and warm-ivory acoustic wavefronts changing from smooth regular motion toward turbulence, realistic physical materials, deep teal and midnight-navy studio background, dramatic depth and lighting, no flat diagrams, no line art, no text.",
       "graphic_label": "THE WAVEFORM",
       "graphic_detail": "Bow speed and pressure shape the sound",
       "visual_mode": "waveform"
     },
     {
       "caption": "The most expressive point sits near instability",
-      "image_prompt": "An original symbolic violin-and-bow visual surrounded by three layered resonance ribbons, a narrow illuminated transition between smooth and turbulent waveform patterns, warm antique gold and dark walnut, no face, no text",
+      "image_prompt": "Premium photorealistic cinematic product photograph of a complete elegant violin and bow, fully coloured solid amber-brown varnished wooden body with visible grain, polished strings and fine bow hair, surrounded by subtle translucent gold and ivory resonance ribbons suggesting a narrow transition point, warm studio highlights, rich shadows, dark walnut and midnight-navy background, no face, no text.",
       "graphic_label": "THE SWEET SPOT",
       "graphic_detail": "Expressivity peaked just before instability",
       "visual_mode": "cover_performance"
