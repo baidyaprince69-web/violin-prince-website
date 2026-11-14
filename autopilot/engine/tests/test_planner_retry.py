@@ -99,7 +99,7 @@ class PlannerNarrationValidationTests(unittest.TestCase):
     def test_validator_rejects_a_hook_that_is_too_short(self):
         script = (
             "Can music travel farther? "
-            "The Orchestre National de Metz Grand Est celebrates fifty years with a major concert. "
+            "The Orchestre National de Metz Grand Est marks fifty years this November. "
             "International violinist Alena Baeva will perform Mozart's brilliant fifth concerto in Metz. "
             "Ravel's music also honours the orchestra's long, remarkable regional heritage and identity."
         )
