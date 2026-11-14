@@ -115,7 +115,12 @@ class FFmpegRenderSmokeTests(unittest.TestCase):
             self.assertTrue(quality["creator_performance_video"]["inserted"])
             self.assertTrue(quality["creator_performance_video"]["audio_inserted"])
             self.assertEqual(quality["creator_performance_video"]["source_width"], 640)
-            self.assertGreater(quality["creator_performance_video"]["timeline_start_seconds"], 5)
+            expected_performance_start = sum(quality["scene_durations_seconds"][:2]) - 0.70
+            self.assertAlmostEqual(
+                quality["creator_performance_video"]["timeline_start_seconds"],
+                expected_performance_start,
+                places=2,
+            )
 
             subtitle_file = pipeline.OUT / "narration.srt"
             self.assertTrue(subtitle_file.exists())
