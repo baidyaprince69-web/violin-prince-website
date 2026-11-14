@@ -36,11 +36,14 @@ Prepare now uses a source-first sequence rather than choosing a topic from headl
 2. Direct publisher pages are fetched and readable article paragraphs are extracted. Aggregator pages and headlines remain discovery leads only.
 3. Readable articles are grouped around a shared specific subject. A group must contain at least two independent publisher families. Same-family subdomains and substantially syndicated article copies do not count as independent corroboration.
 4. The editorial planner can select only from those eligible groups. Its source IDs must belong to one selected group; it cannot combine unrelated groups or invent a new topic.
-5. Topic-specific searches enrich the selected group. The existing source relevance, named-entity, narration evidence, timeline, date and quality-control gates still run before a prepared package is created.
+5. Publication freshness is flexible: sources published within 50 hours are preferred, but specific verified publisher articles up to **seven days (168 hours)** old remain eligible. Articles older than seven days, with unknown publication dates, or with future-dated metadata are excluded.
+6. Topic-specific searches may enrich research, but final citations are locked to the exact sources in the selected story group. The narration evidence, timeline, event dates, and quality-control gates still run before a prepared package is created.
 
-If a recovered research artifact contains only headlines or aggregator links and no readable direct publisher evidence, Prepare discards that stale cache and performs fresh discovery. The story_candidates.json diagnostic records the eligible groups, publisher families, source IDs and short evidence excerpts.
+Publisher article metadata (including Article/NewsArticle structured data and publication timestamps) is preferred over discovery timestamps. Category, tag, topic, archive, directory, event-listing, aggregator and encyclopedia pages do not count as independent article sources. Timeline dates are also checked against explicit dates in the selected articles.
 
-A story with fewer than two independent, readable publisher articles is rejected. The source threshold is not relaxed to make a run succeed.
+If a recovered research artifact contains only headlines, unverified pages, or stale articles, Prepare discards that cache and performs fresh discovery. The story_candidates.json diagnostic records article-page checks, publication timestamps, age in hours, the preferred/acceptable freshness status, exclusion reasons, eligible groups, publisher families, source IDs and evidence excerpts.
+
+A story with fewer than two independent, readable, article-specific publisher sources inside the seven-day window is rejected. The source threshold is not relaxed to make a run succeed.
 
 ## Use a real violin recording
 

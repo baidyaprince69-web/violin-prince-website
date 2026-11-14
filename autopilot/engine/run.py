@@ -7,6 +7,7 @@ from html.parser import HTMLParser
 from html import unescape as html_unescape
 import xml.etree.ElementTree as ET
 from datetime import date, datetime, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from urllib.parse import quote, unquote, urlparse, parse_qs, urljoin
 import requests
@@ -258,10 +259,218 @@ def _publisher_article_url_from_html(page_text, expected_domain=""):
     return ranked[0][1] if ranked else ""
 
 
+
+
+FRESHNESS_PREFERRED_HOURS = 50
+FRESHNESS_MAX_AGE_HOURS = 168
+
+
+def parse_publication_timestamp(value):
+    """Parse an article publication date/time and normalize it to UTC."""
+    if isinstance(value, datetime):
+        parsed, precision = value, "timestamp"
+    elif isinstance(value, date):
+        parsed = datetime(value.year, value.month, value.day, tzinfo=timezone.utc)
+        precision = "date"
+    else:
+        raw = str(value or "").strip()
+        if not raw:
+            return None, "unknown"
+        precision = "date" if re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw) else "timestamp"
+        try:
+            parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except ValueError:
+            try:
+                parsed = parsedate_to_datetime(raw)
+            except (TypeError, ValueError, OverflowError):
+                return None, "unknown"
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc), precision
+
+
+def article_freshness(item, as_of=None):
+    """Prefer articles <=50h old; accept verified publication dates up to seven days."""
+    item = item if isinstance(item, dict) else {}
+    published, precision = parse_publication_timestamp(
+        item.get("published_at_utc") or item.get("date")
+    )
+    if published is None:
+        return {
+            "published_at_utc": "",
+            "publication_precision": "unknown",
+            "age_hours": None,
+            "freshness_status": "unknown",
+            "freshness_eligible": False,
+        }
+    now, _ = parse_publication_timestamp(as_of or datetime.now(timezone.utc))
+    if now is None:
+        now = datetime.now(timezone.utc)
+    age_hours = (now - published).total_seconds() / 3600.0
+    if age_hours < -5.0 / 60.0:
+        status, eligible = "invalid_future_date", False
+    else:
+        age_hours = max(0.0, age_hours)
+        if age_hours <= FRESHNESS_PREFERRED_HOURS:
+            status, eligible = "preferred", True
+        elif age_hours <= FRESHNESS_MAX_AGE_HOURS:
+            status, eligible = "acceptable", True
+        else:
+            status, eligible = "stale", False
+    return {
+        "published_at_utc": published.isoformat().replace("+00:00", "Z"),
+        "publication_precision": precision,
+        "age_hours": round(age_hours, 2),
+        "freshness_status": status,
+        "freshness_eligible": eligible,
+    }
+
+
+def extract_article_page_metadata(html):
+    """Read publication metadata and article identity from a publisher HTML page."""
+    text_value = str(html or "")[:1_500_000]
+    meta = {}
+    for match in re.finditer(r"<meta\b[^>]*>", text_value, flags=re.IGNORECASE | re.DOTALL):
+        attrs = {
+            str(key).casefold(): html_unescape(value.strip())
+            for key, _quote, value in re.findall(
+                r"""([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(["'])(.*?)\2""",
+                match.group(0),
+                flags=re.DOTALL,
+            )
+        }
+        key = (attrs.get("property") or attrs.get("name") or attrs.get("itemprop") or "").casefold()
+        value = attrs.get("content") or attrs.get("datetime") or ""
+        if key and value:
+            meta[key] = value.strip()
+
+    page_title = meta.get("og:title") or meta.get("twitter:title") or ""
+    if not page_title:
+        match = re.search(r"<title\b[^>]*>(.*?)</title\s*>", text_value, flags=re.IGNORECASE | re.DOTALL)
+        if match:
+            page_title = re.sub(r"\s+", " ", html_unescape(re.sub(r"<[^>]+>", " ", match.group(1)))).strip()
+
+    article_type = str(meta.get("og:type") or "").casefold() == "article"
+    published_value = ""
+    for key in (
+        "article:published_time", "datepublished", "parsely-pub-date",
+        "publish-date", "pubdate", "date.created", "dc.date.issued",
+    ):
+        if meta.get(key):
+            published_value = meta[key]
+            break
+
+    article_types = {
+        "article", "newsarticle", "reportagenewsarticle", "analysisnewsarticle",
+        "opinionnewsarticle", "blogposting", "liveblogposting", "techarticle",
+    }
+
+    def inspect_jsonld(node):
+        nonlocal article_type, published_value, page_title
+        if isinstance(node, dict):
+            raw_type = node.get("@type")
+            types = raw_type if isinstance(raw_type, list) else [raw_type]
+            if any(str(value or "").casefold() in article_types for value in types):
+                article_type = True
+                if not published_value:
+                    published_value = str(node.get("datePublished") or "")
+                if not page_title:
+                    page_title = str(node.get("headline") or node.get("name") or "")
+            for value in node.values():
+                inspect_jsonld(value)
+        elif isinstance(node, list):
+            for value in node:
+                inspect_jsonld(value)
+
+    for match in re.finditer(
+        r"<script\b[^>]*type\s*=\s*['\"]application/ld\+json['\"][^>]*>(.*?)</script\s*>",
+        text_value,
+        flags=re.IGNORECASE | re.DOTALL,
+    ):
+        try:
+            inspect_jsonld(json.loads(html_unescape(match.group(1)).strip()))
+        except (json.JSONDecodeError, TypeError, ValueError):
+            continue
+
+    if published_value:
+        article_type = True
+    published, _ = parse_publication_timestamp(published_value)
+    return {
+        "is_article": article_type,
+        "published_at_utc": published.isoformat().replace("+00:00", "Z") if published else "",
+        "page_title": re.sub(r"\s+", " ", str(page_title or "")).strip()[:260],
+    }
+
+
+def _article_page_url_is_directory(url):
+    """Reject category, archive, tag, event-listing and other non-story routes."""
+    try:
+        parsed = urlparse(str(url or ""))
+        segments = [part.casefold() for part in (parsed.path or "").split("/") if part]
+        blocked = {
+            "category", "categories", "tag", "tags", "topic", "topics",
+            "archive", "archives", "section", "sections", "search",
+            "directory", "directories", "author", "authors", "page",
+            "events", "event", "concerts", "concert", "calendar",
+            "programme", "program", "tickets", "schedule", "listings",
+            "feed", "rss", "video", "videos",
+        }
+        if any(segment in blocked for segment in segments):
+            return True
+        if len(segments) == 1 and segments[0] in {
+            "news", "features", "culture", "arts", "music", "entertainment",
+            "research", "science", "technology",
+        }:
+            return True
+        return False
+    except Exception:
+        return True
+
+
+def _article_page_verified(item, url, html, metadata):
+    """Require article metadata or a matching article title on an article-like route."""
+    if _article_page_url_is_directory(url):
+        return False
+    if metadata.get("is_article"):
+        return True
+    supplied_tokens = source_tokens(str((item or {}).get("title") or ""))
+    page_tokens = source_tokens(str(metadata.get("page_title") or ""))
+    if len(supplied_tokens) < 2 or len(page_tokens) < 2:
+        return False
+    overlap = len(supplied_tokens.intersection(page_tokens)) / max(1, min(len(supplied_tokens), len(page_tokens)))
+    path_segments = [part for part in urlparse(str(url or "")).path.split("/") if part]
+    return overlap >= 0.25 and len(path_segments) >= 2
+
+
+def _story_article_eligibility(item, as_of=None):
+    """Return the first auditable reason an article cannot corroborate a story."""
+    freshness = article_freshness(item, as_of=as_of)
+    if not is_direct_publisher_article(item):
+        return False, "not_an_article_specific_publisher_page", freshness
+    if item.get("article_page_verified") is not True:
+        return False, "article_page_not_verified", freshness
+    if len(str(item.get("evidence_text") or "").strip()) < 90:
+        return False, "readable_article_evidence_too_short", freshness
+    if freshness["freshness_status"] == "unknown":
+        return False, "publication_date_missing", freshness
+    if freshness["freshness_status"] == "invalid_future_date":
+        return False, "publication_date_is_in_the_future", freshness
+    if freshness["freshness_status"] == "stale":
+        return False, "published_more_than_seven_days_ago", freshness
+    return True, "", freshness
+
+
+
 def is_direct_publisher_article(item):
-    """Reject search/news aggregators and publisher homepages as source citations."""
+    """Reject aggregators, encyclopedia pages, homepages and known directory routes."""
     if isinstance(item, dict):
         url = str(item.get("url") or item.get("publisher_url") or "").strip()
+        if item.get("article_page_verified") is False:
+            return False
+        if str(item.get("article_page_kind") or "").casefold() in {
+            "category", "archive", "directory", "event_listing", "homepage",
+        }:
+            return False
     else:
         url = str(item or "").strip()
     try:
@@ -272,9 +481,9 @@ def is_direct_publisher_article(item):
             return False
         if _is_news_aggregator_host(host) or host in ("youtube.com", "youtu.be"):
             return False
-        if not path or path == "/" or path.lower() in (
-            "/rss", "/feed", "/search", "/news", "/news/search", "/news/apiclick.aspx"
-        ):
+        if host == "wikipedia.org" or host.endswith(".wikipedia.org") or host == "wikimedia.org" or host.endswith(".wikimedia.org"):
+            return False
+        if not path or path == "/" or _article_page_url_is_directory(url):
             return False
         return True
     except Exception:
@@ -285,8 +494,8 @@ def enrich_source_evidence(items):
     """Resolve discovery links, then extract evidence only from a final publisher page."""
     request_headers = {"User-Agent": "Mozilla/5.0 (compatible; ViolinPrinceAutopilot/0.2)"}
 
-    def publisher_page(url):
-        """Fetch a candidate and return final URL, host, and readable article excerpt."""
+    def publisher_page(url, source_item=None):
+        """Fetch and verify one specific publisher article, its date and body."""
         response = requests.get(
             url,
             headers=request_headers,
@@ -298,16 +507,17 @@ def enrich_source_evidence(items):
         final_host = (urlparse(final_url).hostname or "").lower().removeprefix("www.")
         if response.status_code != 200 or "html" not in content_type:
             return None
-        if _is_news_aggregator_host(final_host):
+        if _is_news_aggregator_host(final_host) or not is_direct_publisher_article(final_url):
             return None
-        if not is_direct_publisher_article(final_url):
+        metadata = extract_article_page_metadata(response.text)
+        if not _article_page_verified(source_item or {}, final_url, response.text, metadata):
             return None
         parser = ParagraphExtractor()
         parser.feed(response.text[:1_500_000])
         excerpt = " ".join(parser.paragraphs[:14])[:2200]
         if len(excerpt) < 90:
             return None
-        return final_url, final_host, excerpt
+        return final_url, final_host, excerpt, metadata
 
     def fetch_one(item):
         url = str(item.get("url", ""))
@@ -326,15 +536,21 @@ def enrich_source_evidence(items):
 
             if response.status_code == 200 and "html" in content_type:
                 if not _is_news_aggregator_host(final_host) and is_direct_publisher_article(final_url):
+                    article_meta = extract_article_page_metadata(response.text)
                     parser = ParagraphExtractor()
                     parser.feed(response.text[:1_500_000])
                     excerpt = " ".join(parser.paragraphs[:14])[:2200]
-                    if len(excerpt) >= 90:
+                    if len(excerpt) >= 90 and _article_page_verified(item, final_url, response.text, article_meta):
                         item["url"] = final_url
                         item["publisher_url"] = final_url
                         item["publisher_domain"] = final_host
                         item["evidence_text"] = excerpt
                         item["link_type"] = "publisher_article"
+                        item["article_page_verified"] = True
+                        item["article_page_kind"] = "article_metadata" if article_meta.get("is_article") else "article_title_url_match"
+                        if article_meta.get("published_at_utc"):
+                            item["published_at_utc"] = article_meta["published_at_utc"]
+                            item["publication_date_source"] = "publisher_article_metadata"
                         return item
 
                 # A search/news portal can reveal the publisher URL, but its own
@@ -344,22 +560,28 @@ def enrich_source_evidence(items):
                     response.text[:1_500_000], expected_domain
                 )
                 if resolved:
-                    verified = publisher_page(resolved)
+                    verified = publisher_page(resolved, item)
                     if verified:
-                        resolved_url, resolved_host, excerpt = verified
+                        resolved_url, resolved_host, excerpt, article_meta = verified
                         item["url"] = resolved_url
                         item["publisher_url"] = resolved_url
                         item["publisher_domain"] = resolved_host
                         item["evidence_text"] = excerpt
                         item["link_type"] = "publisher_article"
+                        item["article_page_verified"] = True
+                        item["article_page_kind"] = "article_metadata" if article_meta.get("is_article") else "article_title_url_match"
+                        if article_meta.get("published_at_utc"):
+                            item["published_at_utc"] = article_meta["published_at_utc"]
+                            item["publication_date_source"] = "publisher_article_metadata"
                         return item
 
             # Keep the discovery record, but explicitly remove fields that could
             # accidentally make an aggregator page look like a final citation.
-            if _is_news_aggregator_host(final_host):
-                item.pop("publisher_url", None)
-                item.pop("evidence_text", None)
-                item["link_type"] = "discovery_lead"
+            item.pop("publisher_url", None)
+            item.pop("evidence_text", None)
+            item["article_page_verified"] = False
+            item["article_page_kind"] = "non_article_or_unverified_page"
+            item["link_type"] = "discovery_lead"
         except Exception as exc:
             log("Article evidence unavailable: " + str(exc)[:120])
         return item
@@ -410,7 +632,9 @@ def planner_research_items(items):
     """Give the planner topic leads while keeping stable, traceable source IDs."""
     fields = (
         "title", "summary", "evidence_text", "publisher_name",
-        "publisher_home", "publisher_domain", "url", "date", "source"
+        "publisher_home", "publisher_domain", "url", "date", "source",
+        "published_at_utc", "publication_date_source",
+        "article_page_verified", "article_page_kind"
     )
     selected = []
     for item in items[:100]:
@@ -672,7 +896,8 @@ def research():
                 article_domain = str(article.get("domain") or urlparse(article_url).netloc).lower().removeprefix("www.")
                 items.append({
                     "title": str(article["title"])[:220], "summary": "",
-                    "url": article_url, "date": str(article.get("seendate", "")),
+                    "url": article_url, "date": "",
+                            "discovered_at": str(article.get("seendate", "")),
                     "source": article_domain or "GDELT",
                     "publisher_name": article_domain,
                     "publisher_domain": article_domain,
@@ -957,6 +1182,8 @@ def validate_and_bind_timeline_sources(plan, verified_sources):
 
         matching.sort(key=lambda pair: pair[0], reverse=True)
         bound_sources = [item for _, item in matching[:2]]
+        if event_date:
+            validate_timeline_date_against_sources(event_date, bound_sources, event)
         bound_ids = [str(item.get("source_id") or "").strip() for item in bound_sources]
         if not all(bound_ids):
             raise PipelineError(
@@ -1147,7 +1374,8 @@ def research_story_sources(plan, existing_items, max_phrases=6):
                             "title": str(article.get("title", ""))[:220],
                             "summary": "",
                             "url": article_url,
-                            "date": str(article.get("seendate", "")),
+                            "date": "",
+                            "discovered_at": str(article.get("seendate", "")),
                             "source": domain,
                             "publisher_name": domain,
                             "publisher_domain": domain,
@@ -1363,18 +1591,14 @@ def story_articles_cover_same_subject(left, right):
     return False
 
 
-def build_verified_story_groups(research_items, minimum_publishers=2, maximum_groups=8):
-    """Cluster only readable, direct publisher articles with independent reporting."""
+def build_verified_story_groups(research_items, minimum_publishers=2, maximum_groups=8, as_of=None):
+    """Group specific, readable publisher articles with independent reporting and dated evidence."""
     minimum_publishers = max(2, int(minimum_publishers))
     compact = planner_research_items(research_items)
     candidates = []
     for item in compact:
-        evidence = str(item.get("evidence_text") or "").strip()
-        if (
-            item.get("source_eligibility") != "direct_publisher_article"
-            or len(evidence) < 90
-            or not is_direct_publisher_article(item)
-        ):
+        eligible, _reason, freshness = _story_article_eligibility(item, as_of=as_of)
+        if not eligible:
             continue
         domain = _normalized_publisher_domain(
             item.get("publisher_domain") or urlparse(item.get("url", "")).netloc
@@ -1385,6 +1609,7 @@ def build_verified_story_groups(research_items, minimum_publishers=2, maximum_gr
         if not domain or not family or not key or not source_id:
             continue
         candidate = dict(item)
+        candidate.update(freshness)
         candidate["publisher_domain"] = domain
         candidate["publisher_family"] = family
         candidates.append(candidate)
@@ -1431,6 +1656,9 @@ def build_verified_story_groups(research_items, minimum_publishers=2, maximum_gr
             "independent_publisher_count": len(families),
             "sources": selected,
             "evidence_characters": sum(len(str(item.get("evidence_text") or "")) for item in selected),
+            "preferred_source_count": sum(1 for item in selected if item.get("freshness_status") == "preferred"),
+            "oldest_source_age_hours": max(float(item.get("age_hours") or 0) for item in selected),
+            "freshness_policy": {"preferred_hours": FRESHNESS_PREFERRED_HOURS, "maximum_age_hours": FRESHNESS_MAX_AGE_HOURS},
         })
 
     # Several seed articles can describe the same story. Keep one strongest
@@ -1439,6 +1667,8 @@ def build_verified_story_groups(research_items, minimum_publishers=2, maximum_gr
     for group in sorted(
         groups,
         key=lambda value: (
+            value.get("preferred_source_count", 0),
+            -value.get("oldest_source_age_hours", FRESHNESS_MAX_AGE_HOURS),
             value["independent_publisher_count"],
             len(value["source_ids"]),
             value["evidence_characters"],
@@ -1458,10 +1688,10 @@ def build_verified_story_groups(research_items, minimum_publishers=2, maximum_gr
     return deduplicated
 
 
-def discover_source_first_story_groups(research_items, max_seed_queries=2, max_phrases=3):
-    """Find corroborated story groups before asking the editorial planner to choose a topic."""
+def discover_source_first_story_groups(research_items, max_seed_queries=2, max_phrases=3, as_of=None):
+    """Find fresh corroborated story groups before asking the editorial planner to choose a topic."""
     pooled = [dict(item) for item in research_items if isinstance(item, dict)]
-    groups = build_verified_story_groups(pooled)
+    groups = build_verified_story_groups(pooled, as_of=as_of)
     represented_urls = {
         source_key(source.get("url"))
         for group in groups for source in group.get("sources", [])
@@ -1508,7 +1738,7 @@ def discover_source_first_story_groups(research_items, max_seed_queries=2, max_p
             item for item in expanded
             if source_key(item.get("url")) and source_key(item.get("url")) not in seen
         )
-        groups = build_verified_story_groups(pooled)
+        groups = build_verified_story_groups(pooled, as_of=as_of)
         represented_urls = {
             source_key(source.get("url"))
             for group in groups for source in group.get("sources", [])
@@ -1526,12 +1756,36 @@ def discover_source_first_story_groups(research_items, max_seed_queries=2, max_p
         "research_record_count": len(pooled),
         "verified_article_count": sum(
             1 for item in planner_research_items(pooled)
-            if item.get("source_eligibility") == "direct_publisher_article"
-            and len(str(item.get("evidence_text") or "")) >= 90
+            if _story_article_eligibility(item, as_of=as_of)[0]
         ),
+        "as_of_utc": (
+            parse_publication_timestamp(as_of)[0].isoformat().replace("+00:00", "Z")
+            if parse_publication_timestamp(as_of)[0] else datetime.now(timezone.utc).isoformat()
+        ),
+        "freshness_policy": {
+            "preferred_hours": FRESHNESS_PREFERRED_HOURS,
+            "maximum_age_hours": FRESHNESS_MAX_AGE_HOURS,
+            "rule": "Prefer publication within 50 hours; accept verified publisher articles up to 168 hours old.",
+        },
+        "article_audit": [
+            {
+                "source_id": item.get("source_id"),
+                "title": item.get("title"),
+                "publisher_domain": item.get("publisher_domain"),
+                "url": item.get("url"),
+                "article_page_verified": item.get("article_page_verified") is True,
+                "publication_date": article_freshness(item, as_of=as_of).get("published_at_utc"),
+                "age_hours": article_freshness(item, as_of=as_of).get("age_hours"),
+                "freshness_status": article_freshness(item, as_of=as_of).get("freshness_status"),
+                "eligible": _story_article_eligibility(item, as_of=as_of)[0],
+                "exclusion_reason": _story_article_eligibility(item, as_of=as_of)[1],
+            }
+            for item in planner_research_items(pooled)
+        ],
         "grouping_rule": (
-            "Readable direct publisher articles only; at least two independent publisher families; "
-            "syndicated/near-identical bodies excluded; each grouped article must match the seed subject."
+            "Specific readable publisher article pages with a known publication date no older than seven days; "
+            "prefer <=50 hours; at least two independent publisher families; "
+            "syndicated/near-identical bodies and directory pages excluded."
         ),
         "groups": [
             {
@@ -1547,6 +1801,10 @@ def discover_source_first_story_groups(research_items, max_seed_queries=2, max_p
                         "publisher_name": source.get("publisher_name"),
                         "publisher_domain": source.get("publisher_domain"),
                         "url": source.get("url"),
+                        "published_at_utc": source.get("published_at_utc"),
+                        "age_hours": source.get("age_hours"),
+                        "freshness_status": source.get("freshness_status"),
+                        "article_page_verified": source.get("article_page_verified") is True,
                         "evidence_excerpt": str(source.get("evidence_text") or "")[:1200],
                     }
                     for source in group["sources"]
@@ -1683,32 +1941,36 @@ def validate_narration_against_sources(plan, verified_sources):
     return evidence_records
 
 
-def select_verified_story_sources(plan, research_items, minimum_sources=2):
-    """Select relevant, excerpt-backed, direct article links from independent publishers."""
+def select_verified_story_sources(
+    plan, research_items, minimum_sources=2, allowed_source_ids=None, as_of=None
+):
+    """Select only eligible articles from the planner's immutable source group."""
     compact = planner_research_items(research_items)
-    referenced = resolve_plan_sources(plan, compact)
-    reference_urls = {source_key(item.get("url")) for item in referenced}
+    allowed_ids = (
+        {str(value).strip() for value in allowed_source_ids if str(value).strip()}
+        if allowed_source_ids is not None else None
+    )
     ranked = []
     for item in compact:
-        if not is_direct_publisher_article(item):
+        source_id = str(item.get("source_id") or "").strip()
+        if allowed_ids is not None and source_id not in allowed_ids:
             continue
-        # Headlines and RSS summaries are discovery clues, not corroborating evidence.
-        # Require a readable publisher-page paragraph before an article can count.
-        evidence = str(item.get("evidence_text") or "").strip()
-        if len(evidence) < 90:
+        eligible, _reason, freshness = _story_article_eligibility(item, as_of=as_of)
+        if not eligible or not source_supports_story(plan, item):
             continue
         score = source_relevance_score(plan, item)
-        # A model citation cannot override the evidence check: the page must support
-        # the full story claim and mention a named subject where the story has one.
-        if not source_supports_story(plan, item):
-            continue
-        ranked.append((score, item))
-    ranked.sort(key=lambda pair: pair[0], reverse=True)
+        ranked.append((
+            score,
+            freshness.get("freshness_status") == "preferred",
+            -float(freshness.get("age_hours") or 0),
+            item,
+        ))
+    ranked.sort(key=lambda pair: (pair[0], pair[1], pair[2]), reverse=True)
 
     selected = []
     publisher_families = set()
     seen_urls = set()
-    for score, item in ranked:
+    for score, _preferred, _age_rank, item in ranked:
         url = str(item.get("url") or "")
         domain = str(item.get("publisher_domain") or urlparse(url).netloc).lower().removeprefix("www.")
         family = publisher_family_domain(domain)
@@ -1739,17 +2001,22 @@ def select_verified_story_sources(plan, research_items, minimum_sources=2):
 
     if len(selected) < minimum_sources:
         available = ", ".join(sorted(publisher_families)) or "none"
+        scope_note = " inside the selected story group" if allowed_ids is not None else ""
         raise PipelineError(
-            f"Story quality gate blocked: only {len(selected)} relevant direct publisher source(s) "
-            f"with readable evidence were found; at least {minimum_sources} independent publishers are required. "
+            f"Story quality gate blocked: only {len(selected)} relevant direct publisher source(s){scope_note} "
+            f"inside the seven-day publication window were found; at least {minimum_sources} independent publishers are required. "
             f"Verified domains: {available}. No visuals were generated."
         )
+    if allowed_ids is not None and not {
+        str(item.get("source_id") or "") for item in selected
+    }.issubset(allowed_ids):
+        raise PipelineError("Story quality gate blocked: final citations drifted outside the selected source group.")
     return selected
 
 
-def prepare_story_with_source_recovery(items, recent=None, seo_context=None, max_candidates=2):
+def prepare_story_with_source_recovery(items, recent=None, seo_context=None, max_candidates=2, as_of=None):
     """Select only from article groups already corroborated by independent publishers."""
-    story_groups = discover_source_first_story_groups(items)
+    story_groups = discover_source_first_story_groups(items, as_of=as_of)
     if not story_groups:
         raise PipelineError(
             "Evidence-first research found no story group with at least two independent, "
@@ -1789,7 +2056,11 @@ def prepare_story_with_source_recovery(items, recent=None, seo_context=None, max
                 max_phrases=4,
             )
             verified_sources = select_verified_story_sources(
-                plan, story_items, minimum_sources=2
+                plan,
+                story_items,
+                minimum_sources=2,
+                allowed_source_ids=selected_group.get("source_ids", []),
+                as_of=as_of,
             )
             try:
                 validate_narration_against_sources(plan, verified_sources)
@@ -1824,9 +2095,19 @@ def prepare_story_with_source_recovery(items, recent=None, seo_context=None, max
                     ) from repair_error
 
             validate_and_bind_timeline_sources(plan, verified_sources)
-            plan["source_group"]["verified_source_ids"] = [
-                str(source.get("source_id") or "") for source in verified_sources
-            ]
+            verified_ids = [str(source.get("source_id") or "") for source in verified_sources]
+            if not set(verified_ids).issubset(set(selected_group.get("source_ids", []))):
+                raise PipelineError(
+                    "Story quality gate blocked: final verified citations do not match the selected source group."
+                )
+            if len({
+                publisher_family_domain(source.get("publisher_domain") or urlparse(source.get("url", "")).netloc)
+                for source in verified_sources
+            }) < 2:
+                raise PipelineError(
+                    "Story quality gate blocked: final citations do not retain two independent publisher families."
+                )
+            plan["source_group"]["verified_source_ids"] = verified_ids
             log(
                 "Selected source-first story group " + selected_group_id + " with "
                 + str(len(verified_sources)) + " independently verified publisher articles."
@@ -1888,9 +2169,74 @@ def parse_story_date(value):
     return None
 
 
+
+
+def _source_event_date_claims(text_value):
+    """Extract explicit month/day/year claims from article prose for timeline cross-checks."""
+    claims = []
+    months = (
+        "Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|"
+        "Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?"
+    )
+    month_to_number = {
+        name[:3].casefold(): index for index, name in enumerate(
+            ("January", "February", "March", "April", "May", "June",
+             "July", "August", "September", "October", "November", "December"), start=1
+        )
+    }
+    pattern = (
+        r"\b(?P<month>" + months + r")\.?\s+(?P<start>\d{1,2})"
+        r"(?:st|nd|rd|th)?(?:\s*(?:[-–—]|to)\s*(?P<end>\d{1,2})(?:st|nd|rd|th)?)?"
+        r"\s*,?\s+(?P<year>20\d{2})\b"
+    )
+    for match in re.finditer(pattern, str(text_value or ""), flags=re.IGNORECASE):
+        month = month_to_number.get(match.group("month")[:3].casefold())
+        if month:
+            try:
+                start, end = int(match.group("start")), int(match.group("end") or match.group("start"))
+                claims.append({
+                    "year": int(match.group("year")), "month": month,
+                    "start_day": min(start, end), "end_day": max(start, end),
+                    "text": match.group(0),
+                })
+            except ValueError:
+                pass
+    for match in re.finditer(r"\b(20\d{2})-(\d{2})-(\d{2})\b", str(text_value or "")):
+        try:
+            year, month, day = map(int, match.groups())
+            date(year, month, day)
+            claims.append({"year": year, "month": month, "start_day": day, "end_day": day, "text": match.group(0)})
+        except ValueError:
+            pass
+    return claims
+
+
+def validate_timeline_date_against_sources(event_date, sources, event):
+    """Reject a model-generated year that conflicts with the selected articles."""
+    parsed = parse_story_date(event_date)
+    if parsed is None:
+        return
+    conflicts = []
+    for source in sources:
+        for claim in _source_event_date_claims(source.get("evidence_text") or ""):
+            if (
+                claim["month"] == parsed.month
+                and claim["start_day"] <= parsed.day <= claim["end_day"]
+                and claim["year"] != parsed.year
+            ):
+                conflicts.append((str(source.get("source_id") or ""), claim["text"]))
+    if conflicts:
+        details = "; ".join(f"{claim} in {source_id or 'a selected article'}" for source_id, claim in conflicts[:3])
+        raise PipelineError(
+            f"Story quality gate blocked: timeline date for '{str(event)[:80]}' conflicts with publisher date evidence: {details}."
+        )
+
+
 def validate_story_dates(plan, as_of=None):
-    """Block dated events that the narration or event timeline still calls upcoming."""
+    """Block dated event claims with stale or ambiguous chronology."""
     today = as_of or datetime.now(timezone.utc).date()
+    if isinstance(today, datetime):
+        today = today.date()
     script = " ".join(
         str(plan.get(key) or "")
         for key in ("title", "topic", "hook", "description", "narration_script")
@@ -1965,6 +2311,10 @@ def validate_story_dates(plan, as_of=None):
                 issues.append(
                     f"Timeline marks '{event}' as completed even though {event_date.isoformat()} is in the future."
                 )
+        if status == "unknown" and event_date and event_date <= today:
+            issues.append(
+                f"Timeline event '{event}' has a past date ({event_date.isoformat()}) but its status is unknown."
+            )
     return {
         "status": "blocked" if issues else "passed",
         "checked_on": today.isoformat(),
@@ -1973,7 +2323,7 @@ def validate_story_dates(plan, as_of=None):
     }
 
 
-def build_story_quality_report(plan, selected_sources, date_check):
+def build_story_quality_report(plan, selected_sources, date_check, as_of=None):
     """Create an auditable source/date report; human review remains mandatory."""
     domains = sorted({
         str(item.get("publisher_domain") or urlparse(item.get("url", "")).netloc).lower().removeprefix("www.")
@@ -1983,7 +2333,10 @@ def build_story_quality_report(plan, selected_sources, date_check):
         publisher_family_domain(item.get("publisher_domain") or urlparse(item.get("url", "")).netloc)
         for item in selected_sources
     })
-    direct_links = all(is_direct_publisher_article(item) for item in selected_sources)
+    direct_links = all(
+        is_direct_publisher_article(item) and item.get("article_page_verified") is True
+        for item in selected_sources
+    )
     expected_claim_sentences = max(
         0, len(narration_sentences(plan.get("narration_script", ""))) - 1
     )
@@ -1992,10 +2345,44 @@ def build_story_quality_report(plan, selected_sources, date_check):
         isinstance(narration_evidence, list)
         and len(narration_evidence) == expected_claim_sentences
     )
+    freshness_records = [
+        {
+            "source_id": str(item.get("source_id") or ""),
+            "publisher_domain": str(item.get("publisher_domain") or ""),
+            **article_freshness(item, as_of=as_of),
+        }
+        for item in selected_sources
+    ]
+    freshness_passed = (
+        len(freshness_records) >= 2
+        and all(
+            item.get("freshness_status") in ("preferred", "acceptable")
+            and item.get("age_hours") is not None
+            and item.get("age_hours") <= FRESHNESS_MAX_AGE_HOURS
+            for item in freshness_records
+        )
+    )
+    freshness_report = {
+        "status": "passed" if freshness_passed else "blocked",
+        "as_of_utc": (
+            parse_publication_timestamp(as_of)[0].isoformat().replace("+00:00", "Z")
+            if parse_publication_timestamp(as_of)[0] else datetime.now(timezone.utc).isoformat()
+        ),
+        "preferred_hours": FRESHNESS_PREFERRED_HOURS,
+        "maximum_age_hours": FRESHNESS_MAX_AGE_HOURS,
+        "preferred_source_count": sum(1 for item in freshness_records if item.get("freshness_status") == "preferred"),
+        "acceptable_older_source_count": sum(1 for item in freshness_records if item.get("freshness_status") == "acceptable"),
+        "oldest_verified_source_age_hours": max(
+            [float(item.get("age_hours") or 0) for item in freshness_records] or [0]
+        ),
+        "verified_sources": freshness_records,
+        "rule": "Prefer articles published within 50 hours; accept verified article pages up to 168 hours old.",
+    }
     passed = (
         len(selected_sources) >= 2
         and len(publisher_families) >= 2
         and direct_links
+        and freshness_passed
         and date_check.get("status") == "passed"
         and narration_evidence_passed
     )
@@ -2011,6 +2398,7 @@ def build_story_quality_report(plan, selected_sources, date_check):
         "publisher_domains": domains,
         "publisher_families": publisher_families,
         "independent_publisher_count": len(publisher_families),
+        "freshness": freshness_report,
         "timeline_event_count": len(plan.get("timeline_evidence", [])),
         "timeline_events_have_verified_sources": (
             len(plan.get("timeline_evidence", [])) ==
@@ -2718,7 +3106,8 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
                 item for item in group.get("sources", [])
                 if isinstance(item, dict)
                 and is_direct_publisher_article(item)
-                and len(str(item.get("evidence_text") or "").strip()) >= 90
+                and item.get("article_page_verified") is True
+                and item.get("freshness_eligible") is True
             ]
             families = {
                 publisher_family_domain(
@@ -3422,16 +3811,48 @@ def _read_package(require_images=False):
         raise PipelineError("Prepared package must contain exactly three planned scenes.")
     if not isinstance(narration_info, dict) or not narration_info.get("subtitle_cues"):
         raise PipelineError("Prepared package is missing narration subtitle timings.")
-    if quality.get("status") != "passed" or quality.get("date_check", {}).get("status") != "passed":
-        raise PipelineError("Story quality-control report is not passed; Visuals and Render are blocked.")
+    if (
+        quality.get("status") != "passed"
+        or quality.get("date_check", {}).get("status") != "passed"
+        or quality.get("freshness", {}).get("status") != "passed"
+    ):
+        raise PipelineError("Story quality-control, date or seven-day freshness report is not passed; Visuals and Render are blocked.")
     sources = plan.get("sources", [])
     domains = {
         str(source.get("publisher_domain") or urlparse(source.get("url", "")).netloc).lower().removeprefix("www.")
         for source in sources if isinstance(source, dict) and is_direct_publisher_article(source)
     }
-    direct_count = sum(1 for source in sources if isinstance(source, dict) and is_direct_publisher_article(source))
+    direct_count = sum(
+        1 for source in sources
+        if isinstance(source, dict)
+        and is_direct_publisher_article(source)
+        and source.get("article_page_verified") is True
+    )
     if direct_count < 2 or len(domains) < 2:
         raise PipelineError("Prepared story must retain at least two direct publisher articles from independent domains.")
+    source_group = plan.get("source_group") or {}
+    allowed_ids = {str(value) for value in source_group.get("source_ids", [])}
+    verified_ids = {str(value) for value in source_group.get("verified_source_ids", [])}
+    actual_ids = {str(source.get("source_id") or "") for source in sources if isinstance(source, dict)}
+    if not allowed_ids or not verified_ids or not verified_ids.issubset(allowed_ids) or actual_ids != verified_ids:
+        raise PipelineError("Prepared story citations do not match the exact verified source group.")
+    freshness_sources = quality.get("freshness", {}).get("verified_sources", [])
+    freshness_ids = {
+        str(item.get("source_id") or "") for item in freshness_sources if isinstance(item, dict)
+    }
+    if (
+        len(freshness_sources) < 2
+        or len(freshness_ids) != len(freshness_sources)
+        or freshness_ids != verified_ids
+        or any(
+            not isinstance(item, dict)
+            or item.get("freshness_status") not in ("preferred", "acceptable")
+            or item.get("age_hours") is None
+            or float(item.get("age_hours")) > FRESHNESS_MAX_AGE_HOURS
+            for item in freshness_sources
+        )
+    ):
+        raise PipelineError("Prepared story does not have two dated publisher articles within the seven-day window.")
     review = metadata.get("story_review") or {}
     if require_images and review.get("approved") is not True:
         raise PipelineError("Render blocked: the story has not received explicit human approval before Visuals.")
@@ -3534,13 +3955,15 @@ def _write_review_text(plan, target):
             f"{index}. {scene.get('caption', '')}",
             "   Visual direction: " + str(scene.get("image_prompt", "")),
         ])
+    lines.extend(["", "FRESHNESS POLICY: Prefer sources within 50 hours; accept verified articles up to 168 hours old.", ""])
     lines.extend(["", "DIRECT PUBLISHER SOURCES:"])
     for index, source in enumerate(plan.get("sources", []), start=1):
         if isinstance(source, dict):
             lines.extend([
                 f"{index}. {source.get('publisher_name') or source.get('publisher_domain') or 'Publisher'} — {source.get('title', '')}",
                 "   Publisher domain: " + str(source.get("publisher_domain", "")),
-                "   Published: " + str(source.get("date", "")),
+                "   Published: " + str(source.get("published_at_utc") or source.get("date", "")),
+                "   Freshness: " + str(source.get("freshness_status") or "checked in quality_control.json"),
                 "   Direct article URL: " + str(source.get("url", "")),
                 "   Evidence excerpt: " + str(source.get("evidence_excerpt", ""))[:900],
                 "",
@@ -3577,8 +4000,8 @@ def load_reusable_research():
         raise PipelineError("The supplied previous-run research file has no usable titled article links.")
     readable_direct = [
         item for item in items
-        if is_direct_publisher_article(item)
-        and len(str(item.get("evidence_text") or "").strip()) >= 90
+        if item.get("article_page_verified") is True
+        and _story_article_eligibility(item)[0]
     ]
     if not readable_direct:
         log(
@@ -3596,6 +4019,7 @@ def load_reusable_research():
 
 def prepare_stage():
     """Create research, a source-audited story, narration and soundtrack; no visuals or MP4."""
+    as_of = datetime.now(timezone.utc)
     claim_run()
     asset, audio = get_audio()
     report("running", "Preparing research, source verification, story, narration and background music bed.")
@@ -3627,8 +4051,9 @@ def prepare_stage():
         recent=recent_topics(),
         seo_context=compact_seo_discovery(discovery),
         max_candidates=2,
+        as_of=as_of,
     )
-    date_check = validate_story_dates(plan)
+    date_check = validate_story_dates(plan, as_of=as_of.date())
     if date_check["status"] != "passed":
         raise PipelineError(
             "Story date quality gate blocked this draft: " +
@@ -3643,6 +4068,10 @@ def prepare_stage():
             "title": source.get("title", ""),
             "url": source.get("url", ""),
             "date": source.get("date", ""),
+            "published_at_utc": source.get("published_at_utc") or article_freshness(source, as_of=as_of).get("published_at_utc", ""),
+            "freshness_status": article_freshness(source, as_of=as_of).get("freshness_status"),
+            "age_hours": article_freshness(source, as_of=as_of).get("age_hours"),
+            "article_page_verified": source.get("article_page_verified") is True,
             "evidence_excerpt": str(source.get("evidence_text") or source.get("summary") or "")[:1400],
             "link_type": "publisher_article",
         }
@@ -3674,7 +4103,7 @@ def prepare_stage():
         "sample_count": (learning or {}).get("sample_count", 0),
         "learning_ready": bool((learning or {}).get("learning_ready")),
     }
-    plan["quality_control"] = build_story_quality_report(plan, verified_sources, date_check)
+    plan["quality_control"] = build_story_quality_report(plan, verified_sources, date_check, as_of=as_of)
     if plan["quality_control"]["status"] != "passed":
         raise PipelineError("Story quality-control report did not pass. No narration or visuals were created.")
     topic, title = str(plan.get("topic", "")), str(plan.get("title", "Violin Prince Short"))
@@ -3697,7 +4126,7 @@ def prepare_stage():
         "narration_info": narration_info,
         "topic": topic,
         "title": title,
-        "prepared_at": datetime.now(timezone.utc).isoformat(),
+        "prepared_at": as_of.isoformat(),
         "stage": "prepared",
         "story_review": {
             "status": "awaiting_human_review",
