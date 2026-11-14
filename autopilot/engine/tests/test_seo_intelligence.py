@@ -288,6 +288,26 @@ class SEOIntelligenceTests(unittest.TestCase):
         self.assertFalse(result["learning_ready"])
         self.assertIn("thumbnail_impressions_ctr", result["metrics_not_available"])
 
+    
+    def test_discover_ignores_unknown_language_learning_signal(self):
+        result = discover(
+            profile=self.profile,
+            api_key="",
+            learned_signals={
+                "language_signals": [
+                    {
+                        "language": "unknown",
+                        "sample_count": 15,
+                        "relative_performance": "above_channel_median",
+                    }
+                ]
+            },
+        )
+        self.assertEqual(result["learned_language_signals_used"], [])
+        self.assertEqual(
+            {item["language"] for item in result["query_plan"]},
+            {"en", "hi", "bn"},
+        )
 
 if __name__ == "__main__":
     unittest.main()
