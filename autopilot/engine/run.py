@@ -836,7 +836,7 @@ def source_supports_story(plan, item, minimum_score=0.20):
     claim_tokens = story_description_claim_tokens(plan)
     if len(claim_tokens) >= 2:
         matched = len(claim_tokens.intersection(article))
-        required = max(2, int((len(claim_tokens) * 0.60) + 0.999))
+        required = min(2, len(claim_tokens))
         if matched < required:
             return False
     elif claim_tokens and not claim_tokens.issubset(article):
