@@ -85,7 +85,9 @@ class CreativeQualityTests(unittest.TestCase):
         self.assertIn("SHOT 3 — PAYOFF", prompts[2])
         for prompt in prompts:
             self.assertIn("deep midnight navy", prompt)
-            self.assertIn("clearly illustrated concept art rather than photography", prompt)
+            self.assertIn("original high-end photorealistic 3D CGI", prompt)
+            self.assertIn("physically based rendering", prompt)
+            self.assertNotIn("recreation of another creator", prompt)
             self.assertIn("Portrait 9:16 composition", prompt)
             self.assertLessEqual(len(prompt), 1800)
         self.assertEqual(len(set(prompts)), 3)
