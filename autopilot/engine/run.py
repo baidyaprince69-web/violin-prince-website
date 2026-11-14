@@ -3659,6 +3659,11 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
         "demonstrates the fact. It must be a performance payoff, not background music. Never claim a creator take "
         "exists; the production stage will identify whether an original creator recording is available. "
         "Exactly 3 scenes. Each scene needs caption, image_prompt, graphic_label, graphic_detail and visual_mode. "
+        "Use graphic_data when a scene can explain a source-backed measurement or mechanism: type arch_heights "
+        "requires two to four exact measured items with numeric value, display and label; type process_flow "
+        "requires two to four accurate ordered labels. Never invent a number, trend, process step or comparison. "
+        "Scene 1 and Scene 2 should use source-data-backed graphic_data whenever the selected fact provides suitable "
+        "values or a genuine explanatory sequence; Scene 3 may use the performance waveform. "
         "visual_mode MUST be exactly one of: macro_3d, mechanism_3d, waveform, melody_map, comparison, "
         "cover_performance. Scene 1 should establish the curiosity with a macro_3d or mechanism_3d hero image. "
         "Scene 2 should explain the actual musical mechanism with a different visual mode. Scene 3 MUST use "
@@ -4495,7 +4500,16 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         "music_only_ending_seconds": round(max(0.0, 24.0 - narration_end), 2),
         "camera_motion": "locked photographic framing; no repetitive push-in",
         "motion_graphics": 3,
-        "motion_graphics_renderer": "deterministic per-frame animated music visual explainers",
+        "motion_graphics_renderer": "word-synchronised kinetic typography with deterministic per-frame animated explainers",
+        "data_driven_graphics": [
+            {
+                "scene": index + 1,
+                "type": str((scene.get("graphic_data") or {}).get("type") or "mode_default"),
+                "items": len((scene.get("graphic_data") or {}).get("items", []))
+                if isinstance(scene.get("graphic_data"), dict) else 0,
+            }
+            for index, scene in enumerate(plan.get("scenes", []))
+        ],
         "visual_engine": "photorealistic 3D-CGI scene plates with animated explainer overlays",
         "visual_modes": [str(scene.get("visual_mode") or "waveform") for scene in plan.get("scenes", [])],
         "creative_direction_version": CREATIVE_DIRECTION_VERSION,
@@ -4671,6 +4685,8 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         "Violin Prince identity: richly coloured photorealistic cinematic still imagery or indistinguishable CGI; "
         "physically believable violin construction, amber-brown varnished wood, visible natural wood grain, "
         "realistic strings, bow hair and metal, dimensional lighting and layered foreground/midground/background. "
+        "The violin body must be solid, opaque, fully formed amber-brown wood with visible curved front or back surfaces, "
+        "never an empty shell, hollow outline, wireframe, skeletal contour or transparent body. "
         "Palette: deep midnight navy, muted teal, antique gold, warm ivory and natural amber. Full colour. "
         "This is original art direction. No uncoloured stick figures, wireframes, bare outlines, monochrome line art "
         "or sketch-only main subjects; small coloured hands/figures only to clarify action. "
