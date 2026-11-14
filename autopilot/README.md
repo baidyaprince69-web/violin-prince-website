@@ -54,7 +54,41 @@ The motion system now borrows craft principles from the reviewed motion-graphics
 The ideas adopted are the pure-time closed-form spring tracks and word-timed morphs from [Barty-Bart's motion-broll skill](https://github.com/Barty-Bart/motion-graphics/tree/main/skills/motion-broll), plus the freeze-frame, contact-sheet and ffprobe verification loop from [iart-ai/motion-skills](https://github.com/iart-ai/motion-skills/tree/master/tools/verify). The [GitHub motion-graphics topic](https://github.com/topics/motion-graphics) was used as a discovery catalogue; [HyperFrames](https://github.com/heygen-com/hyperframes) was reviewed as a larger HTML-to-video framework, but is not added as a runtime dependency. The talking-head-only object-separation workflow, high-energy product-promo templates, browser-based 4× motion-blur renderer, and large sound-effects bundle are not adopted: they add local/GPU/browser or editing overhead and do not fit this photo-first music-explainer pipeline.
 
 A generated contact sheet is a review aid, not automatic creative approval. The first production MP4 using this version still requires a real frame/contact-sheet review before its visual style is accepted.
- 
+
+### Reference-informed visual direction — version 8
+
+OpenMontage's most useful idea for this engine is its **reference-video analysis contract**: understand a reference's pacing, shot types, visual language and whether it uses moving clips or animated stills before deciding how to reproduce its broad craft. We are adopting that idea without installing OpenMontage, Remotion, yt-dlp, PySceneDetect, WhisperX, or another provider stack.
+
+ChatGPT may add an optional `visual_reference` object to the daily production JSON after it has actually reviewed a supplied reference. The engine validates the brief and maps it into the three existing scenes:
+
+- `visual_language`: `cinematic_cgi`, `macro_documentary`, `kinetic_graphics`, or `hybrid`.
+- `pacing`: `rapid`, `dynamic`, `steady`, or `slow`; this selects a short, bounded transition duration.
+- `motion_profile`: `video_clips`, `animated_stills`, `mixed`, or `static`; this is used for honest capability reporting, not to invent a video-generation provider.
+- Three `scene_guidance` entries specify a shot type, an optional small pan (`locked`, `pan_left`, `pan_right`, `pan_up`, `pan_down`), and the outgoing transition (`crossfade`, `wipe_left`, `wipe_right`, `smooth_left`, `fade_through_black`).
+
+Example shape:
+
+```json
+{
+  "visual_reference": {
+    "source_url": "https://www.youtube.com/shorts/REFERENCE_ID",
+    "reference_summary": "Fast macro reveals and dimensional explainer graphics",
+    "motion_profile": "animated_stills",
+    "visual_language": "cinematic_cgi",
+    "pacing": "dynamic",
+    "scene_guidance": [
+      {"shot_type": "extreme_macro", "camera_move": "pan_left", "transition_out": "wipe_left"},
+      {"shot_type": "mechanism_cutaway", "camera_move": "pan_up", "transition_out": "smooth_left"},
+      {"shot_type": "performance_close", "camera_move": "locked", "transition_out": "crossfade"}
+    ]
+  }
+}
+```
+
+If the reference uses real video clips (`video_clips` or `mixed`), the render report records that limitation: this engine still produces FLUX scene images plus deterministic animated overlays, not new AI video clips. The system adapts only high-level craft, never exact frames, text, logos, music, assets or another creator's identity. If no reference analysis is supplied, the existing Violin Prince visual direction and stable framing remain unchanged.
+
+This adds no runtime dependency, paid provider, extra API call or new scheduler. ChatGPT remains the daily operator; GitHub Actions remains the cloud production worker; publishing stays outside the render workflow.
+
 Direct publishing remains disabled inside GitHub Actions. The ChatGPT-operated daily route publishes only through the connected Metricool account after the required YouTube audience setting is confirmed.
 
 ## Research basis and implementation choices
