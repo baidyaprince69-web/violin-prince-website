@@ -1031,12 +1031,22 @@ def _plan_sentence_fields(plan):
 
 
 def _parse_narration_tool_response(result, expected_fields):
-    """Extract the forced function-call arguments returned by Workers AI."""
+    """Extract word arrays from the forced structured narration function call."""
     candidates = []
     if isinstance(result, dict):
         candidates.append(result)
         if isinstance(result.get("response"), dict):
             candidates.append(result["response"])
+
+    def decode_arguments(arguments):
+        if isinstance(arguments, str):
+            try:
+                arguments = json.loads(arguments)
+            except json.JSONDecodeError:
+                return None
+        if isinstance(arguments, dict):
+            return {key: arguments.get(key) for key in expected_fields}
+        return None
 
     for candidate in candidates:
         choices = candidate.get("choices", [])
@@ -1047,44 +1057,59 @@ def _parse_narration_tool_response(result, expected_fields):
                     continue
                 for call in message.get("tool_calls", []) or []:
                     function = call.get("function", {}) if isinstance(call, dict) else {}
-                    if not isinstance(function, dict) or function.get("name") != "submit_narration_sentence_corrections":
+                    if not isinstance(function, dict):
                         continue
-                    arguments = function.get("arguments")
-                    if isinstance(arguments, str):
-                        try:
-                            arguments = json.loads(arguments)
-                        except json.JSONDecodeError:
-                            continue
-                    if isinstance(arguments, dict):
-                        return {key: str(arguments.get(key, "") or "").strip() for key in expected_fields}
+                    if function.get("name") != "submit_narration_sentence_corrections":
+                        continue
+                    parsed = decode_arguments(function.get("arguments"))
+                    if parsed is not None:
+                        return parsed
+
                 function_call = message.get("function_call")
                 if (
                     isinstance(function_call, dict)
                     and function_call.get("name") == "submit_narration_sentence_corrections"
                 ):
-                    arguments = function_call.get("arguments")
-                    if isinstance(arguments, str):
-                        try:
-                            arguments = json.loads(arguments)
-                        except json.JSONDecodeError:
-                            arguments = None
-                    if isinstance(arguments, dict):
-                        return {key: str(arguments.get(key, "") or "").strip() for key in expected_fields}
+                    parsed = decode_arguments(function_call.get("arguments"))
+                    if parsed is not None:
+                        return parsed
 
         response = candidate.get("response")
         if isinstance(response, str):
-            try:
-                parsed = json.loads(response)
-            except json.JSONDecodeError:
-                parsed = None
-            if isinstance(parsed, dict):
-                return {key: str(parsed.get(key, "") or "").strip() for key in expected_fields}
+            parsed = decode_arguments(response)
+            if parsed is not None:
+                return parsed
 
-    raise PipelineError("Workers AI did not return the required structured narration sentence fields.")
+    raise PipelineError("Workers AI did not return the required structured narration word arrays.")
+
+
+def _assemble_narration_sentence_words(words, expected_count, field):
+    """Join validated one-word tokens into a single complete spoken sentence."""
+    if not isinstance(words, list):
+        return "", f"{field} must be an array of individual words"
+    if len(words) != expected_count:
+        return "", (
+            f"{field} returned {len(words)} array items; exactly {expected_count} are required"
+        )
+
+    tokens = []
+    for index, raw_word in enumerate(words):
+        if not isinstance(raw_word, str):
+            return "", f"{field} item {index + 1} is not text"
+        word = re.sub(r"\s+", " ", raw_word).strip()
+        if not word or len(word.split()) != 1 or narration_word_count(word) != 1:
+            return "", f"{field} item {index + 1} must contain exactly one spoken word"
+        if index < len(words) - 1 and word.endswith((".", "!", "?")):
+            return "", f"{field} has sentence-ending punctuation before its final word"
+        tokens.append(word)
+
+    if not tokens[-1].endswith((".", "!", "?")):
+        return "", f"{field} final word must carry sentence-ending punctuation"
+    return " ".join(tokens), ""
 
 
 def compose_narration(plan, research_items):
-    """Validate four sentence fields and repair only fields outside their dynamic budgets."""
+    """Repair only the minimum number of sentence words needed for valid narration."""
     sentences = _plan_sentence_fields(plan)
     original_sentences = list(sentences)
     original_script = " ".join(value for value in sentences if value).strip()
@@ -1119,6 +1144,7 @@ def compose_narration(plan, research_items):
 
     def save_debug(status):
         WORK.mkdir(parents=True, exist_ok=True)
+        current_script = " ".join(sentences).strip()
         debug_path.write_text(
             json.dumps(
                 {
@@ -1129,7 +1155,15 @@ def compose_narration(plan, research_items):
                     "initial_plan": plan,
                     "correction_attempts": repair_history,
                     "current_sentences": sentences,
-                    "current_script": " ".join(sentences).strip(),
+                    "current_script": current_script,
+                    "final_diagnostics": {
+                        "word_count": narration_word_count(current_script),
+                        "sentence_count": len(narration_sentences(current_script)),
+                        "sentence_word_counts": [
+                            narration_word_count(sentence) for sentence in sentences
+                        ],
+                        "validation_error": narration_validation_error(current_script),
+                    },
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -1144,37 +1178,54 @@ def compose_narration(plan, research_items):
         current_script = " ".join(sentences).strip()
         current_issue = narration_validation_error(current_script)
         current_total = narration_word_count(current_script)
-        target_total = current_total if 40 <= current_total <= 44 else 42
+
+        # Aim for the nearest valid boundary, not an arbitrary 42-word target.
+        if current_total < 40:
+            target_total = 40
+        elif current_total > 44:
+            target_total = 44
+        else:
+            target_total = current_total
+
         budgets = narration_sentence_budget(sentences, target_total=target_total)
         target_indices = [
             index for index, sentence in enumerate(sentences)
             if _sentence_needs_correction(sentence, index, budgets[index])
         ]
 
-        # A global mismatch must always result in at least one targeted correction.
+        # A global mismatch should normally resolve through the dynamic sentence budgets.
+        # Keep this fallback limited to the body rather than rewriting a valid hook.
         if current_issue and not target_indices:
             target_indices = [1, 2, 3]
-        target_fields = ["sentence_" + str(index + 1) for index in target_indices]
+
+        target_fields = ["sentence_" + str(index + 1) + "_words" for index in target_indices]
+        required_word_counts = {
+            "sentence_" + str(index + 1) + "_words": budgets[index]["min_words"]
+            for index in target_indices
+        }
         properties = {}
         for index in target_indices:
-            field = "sentence_" + str(index + 1)
-            budget = budgets[index]
+            field = "sentence_" + str(index + 1) + "_words"
+            required_count = required_word_counts[field]
             role = ("curiosity hook", "story context", "distinctive sourced detail", "narrative payoff")[index]
             properties[field] = {
-                "type": "string",
+                "type": "array",
                 "description": (
-                    "Write exactly one complete, natural spoken sentence serving as the "
-                    + role + ". It must contain "
-                    + str(budget["min_words"]) + " to " + str(budget["max_words"])
-                    + " words, inclusive. Preserve the supported facts and chronology."
+                    "Return exactly " + str(required_count) + " individual spoken words for the "
+                    + role + ". One word per array item, with no spaces inside an item. "
+                    "Place sentence-ending punctuation on the final item only. "
+                    "Preserve supported facts and chronology."
                 ),
+                "items": {"type": "string", "minLength": 1},
+                "minItems": required_count,
+                "maxItems": required_count,
             }
 
         tool = {
             "type": "function",
             "function": {
                 "name": function_name,
-                "description": "Return only the requested corrected narration sentence fields.",
+                "description": "Return word arrays only for the requested narration sentence fields.",
                 "strict": True,
                 "parameters": {
                     "type": "object",
@@ -1189,7 +1240,9 @@ def compose_narration(plan, research_items):
             for index in range(4) if index not in target_indices
         }
         prompt = (
-            "Correct only the requested sentence fields. Do not return or rewrite any locked sentence. "
+            "Correct only the requested sentence fields. Return each as an array of individual words. "
+            "The array length is exact and is stated in the function schema; do not add or omit words. "
+            "Python will join the words into sentences. Do not return or rewrite any locked sentence. "
             "The complete narration must remain exactly four sentences and total 40–44 spoken words. "
             "Use only facts in the supplied story and evidence. Do not invent dates, statistics, quotes, "
             "names, motives, or outcomes. No padding, repeated ideas, generic filler, or unsupported claims. "
@@ -1206,13 +1259,7 @@ def compose_narration(plan, research_items):
             + "\nLocked sentence fields (must remain unchanged): "
             + json.dumps(locked, ensure_ascii=False)
             + "\nDynamic word budgets for the requested fields: "
-            + json.dumps(
-                {
-                    "sentence_" + str(index + 1): budgets[index]
-                    for index in target_indices
-                },
-                ensure_ascii=False,
-            )
+            + json.dumps(required_word_counts, ensure_ascii=False)
             + "\nVerified research evidence: " + json.dumps(repair_evidence, ensure_ascii=False)
             + "\nValidation issue: " + current_issue
             + "\nCorrection cycle: " + str(attempt) + " of 2."
@@ -1230,31 +1277,58 @@ def compose_narration(plan, research_items):
             "temperature": 0.2,
         }
 
+        response = ai(TEXT_MODEL, payload)
         try:
-            response = ai(TEXT_MODEL, payload)
             corrected = _parse_narration_tool_response(response, target_fields)
-            missing = [field for field in target_fields if not corrected.get(field)]
-            if missing:
-                raise PipelineError(
-                    "Narration correction omitted required fields: " + ", ".join(missing)
-                )
-        except Exception as exc:
+        except PipelineError as exc:
             repair_history.append(
                 {
                     "attempt": attempt,
                     "corrected_sentence_numbers": [index + 1 for index in target_indices],
-                    "error": str(exc)[:500],
+                    "required_word_counts": required_word_counts,
+                    "received_word_counts": {},
+                    "array_diagnostics": {"tool_response": str(exc)[:400]},
+                    "validation_error": str(exc)[:400],
                 }
             )
-            save_debug("failed")
-            if isinstance(exc, PipelineError):
-                raise
-            raise PipelineError("Narration correction request failed safely: " + str(exc)[:300]) from exc
+            save_debug("in_progress")
+            log("Narration word-array correction cycle " + str(attempt) + "/2 returned an invalid structure; retrying.")
+            continue
 
+        assembled = {}
+        array_diagnostics = {}
+        received_word_counts = {}
         for index in target_indices:
-            value = re.sub(
-                r"\s+", " ", str(corrected.get("sentence_" + str(index + 1), "") or "")
-            ).strip()
+            field = "sentence_" + str(index + 1) + "_words"
+            words = corrected.get(field)
+            received_word_counts[field] = len(words) if isinstance(words, list) else None
+            sentence, array_error = _assemble_narration_sentence_words(
+                words, required_word_counts[field], field
+            )
+            if array_error:
+                array_diagnostics[field] = array_error
+            else:
+                assembled[index] = sentence
+
+        if array_diagnostics:
+            repair_history.append(
+                {
+                    "attempt": attempt,
+                    "corrected_sentence_numbers": [index + 1 for index in target_indices],
+                    "required_word_counts": required_word_counts,
+                    "received_word_counts": received_word_counts,
+                    "array_diagnostics": array_diagnostics,
+                    "validation_error": "; ".join(array_diagnostics.values()),
+                }
+            )
+            save_debug("in_progress")
+            log(
+                "Narration word-array correction cycle " + str(attempt) + "/2 did not pass: "
+                + "; ".join(array_diagnostics.values()) + "."
+            )
+            continue
+
+        for index, value in assembled.items():
             sentences[index] = value
 
         updated_script = " ".join(sentences).strip()
@@ -1263,10 +1337,8 @@ def compose_narration(plan, research_items):
             {
                 "attempt": attempt,
                 "corrected_sentence_numbers": [index + 1 for index in target_indices],
-                "requested_word_ranges": {
-                    "sentence_" + str(index + 1): budgets[index]
-                    for index in target_indices
-                },
+                "required_word_counts": required_word_counts,
+                "received_word_counts": received_word_counts,
                 "word_count": narration_word_count(updated_script),
                 "sentence_count": len(narration_sentences(updated_script)),
                 "sentence_word_counts": [
@@ -1285,24 +1357,23 @@ def compose_narration(plan, research_items):
             log(
                 "Sentence-based narration passed validation after correction cycle "
                 + str(attempt) + "/2 (" + str(narration_word_count(updated_script))
-                + " words; locked sentences preserved)."
+                + " words; only requested sentence words changed)."
             )
             return updated_script
 
         log(
-            "Sentence-based narration correction cycle "
-            + str(attempt) + "/2 did not pass: " + updated_issue + "."
+            "Sentence-based narration correction cycle " + str(attempt) + "/2 did not pass: "
+            + updated_issue + "."
         )
 
     save_debug("failed")
     final_script = " ".join(sentences).strip()
     raise PipelineError(
         "Narration composer stopped safely after two targeted correction cycles. "
-        "The complete narration still must contain 40–44 words, exactly four complete sentences, "
+        "The narration must contain 40–44 words, exactly four complete sentences, "
         "a 5–8-word hook, and no sentence over 12 words. Final diagnostic: "
         + narration_validation_error(final_script)
     )
-
 
 def recent_seo_learning():
     """Decrypt the latest GitHub-native SEO snapshot; never call Cloudflare or poll YouTube."""
