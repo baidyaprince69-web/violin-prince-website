@@ -1,8 +1,9 @@
-"""CPU text-to-speech and model-native word timing for Violin Prince.
+"""CPU text-to-speech with model-native word timings for Violin Prince.
 
 Kokoro's English tokens carry start/end timestamps derived from the same
-phoneme-duration prediction used to render the waveform. We keep those exact
-timings so the renderer can animate each spoken word instead of guessing.
+phoneme-duration prediction used to render the waveform. The renderer uses
+those exact timings for word-synchronised captions rather than estimating
+where words should appear.
 """
 from __future__ import annotations
 
@@ -18,10 +19,10 @@ PAUSE_SECONDS = 0.16
 
 def split_sentences(text: str) -> list[str]:
     """Split a short narration into subtitle-friendly spoken sentences."""
-    normalised = re.sub(r"\\s+", " ", str(text or "")).strip()
+    normalised = re.sub(r"\s+", " ", str(text or "")).strip()
     if not normalised:
         return []
-    parts = re.split(r"(?<=[.!?])\\s+", normalised)
+    parts = re.split(r"(?<=[.!?])\s+", normalised)
     return [part.strip() for part in parts if part.strip()]
 
 
@@ -52,7 +53,7 @@ def write_srt(cues: list[dict], output_path: str | Path) -> Path:
         ])
     if not lines:
         raise ValueError("No valid narration subtitle cues were supplied.")
-    target.write_text("\\n".join(lines).rstrip() + "\\n", encoding="utf-8")
+    target.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
     return target
 
 
@@ -73,10 +74,10 @@ def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict
     import soundfile as sf
     from kokoro import KPipeline
 
-    narration = re.sub(r"\\s+", " ", str(text or "")).strip()
+    narration = re.sub(r"\s+", " ", str(text or "")).strip()
     if not narration:
         raise ValueError("Narration script is empty.")
-    word_count = len(re.findall(r"\\b[\\w’'-]+\\b", narration))
+    word_count = len(re.findall(r"\b[\w’'-]+\b", narration))
     if not 30 <= word_count <= 48:
         raise ValueError("Narration must contain 30–48 spoken words.")
 
@@ -121,11 +122,11 @@ def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict
                 if start_ts is None or end_ts is None:
                     # Punctuation tokens are not voiced and have no duration.
                     # Attach them to the preceding spoken word for exact text.
-                    if token_text and sentence_word_cues and not re.search(r"\\w", token_text):
+                    if token_text and sentence_word_cues and not re.search(r"\w", token_text):
                         sentence_word_cues[-1]["text"] += token_text
                         if whitespace:
                             sentence_word_cues[-1]["whitespace"] = whitespace
-                    elif token_text and re.search(r"\\w", token_text):
+                    elif token_text and re.search(r"\w", token_text):
                         raise RuntimeError(
                             "Kokoro did not provide a timestamp for spoken token "
                             + repr(token_text) + ". Refusing guessed caption timing."
@@ -139,7 +140,7 @@ def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict
                         "Kokoro returned a zero-length word timestamp for "
                         + repr(token_text) + "."
                     )
-                if not re.search(r"\\w", token_text):
+                if not re.search(r"\w", token_text):
                     continue
 
                 sentence_word_cues.append({
@@ -200,13 +201,13 @@ def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict
         rows = [item for item in word_cues if item["sentence_index"] == sentence_index]
         if not rows:
             raise RuntimeError(f"Sentence {sentence_index + 1} has no word timing data.")
-        previous_start = float(cue["start"]) - 0.03
+        previous_end = float(cue["start"]) - 0.03
         for row in rows:
-            if row["start"] < previous_start or row["end"] <= row["start"]:
+            if row["start"] < previous_end - 0.03 or row["end"] <= row["start"]:
                 raise RuntimeError("Kokoro word timings are not monotonically ordered.")
             if row["start"] < float(cue["start"]) - 0.08 or row["end"] > float(cue["end"]) + 0.12:
                 raise RuntimeError("A Kokoro word timestamp falls outside its spoken sentence.")
-            previous_start = row["start"]
+            previous_end = row["end"]
 
     sf.write(str(target), waveform, SAMPLE_RATE, subtype="PCM_16")
     info = sf.info(str(target))
@@ -228,4 +229,3 @@ def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict
         "word_timing_count": len(word_cues),
         "word_sync_status": "passed",
     }
-}
