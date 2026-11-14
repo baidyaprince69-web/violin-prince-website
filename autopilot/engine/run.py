@@ -1028,6 +1028,19 @@ def research_story_sources(plan, existing_items):
     return combined
 
 
+
+def source_content_similarity(left, right):
+    """Compare normalized article-body wording to detect syndicated/reposted copies."""
+    left_tokens = source_tokens(left.get("evidence_text", ""))
+    right_tokens = source_tokens(right.get("evidence_text", ""))
+    if min(len(left_tokens), len(right_tokens)) < 30:
+        return 0.0
+    shared = len(left_tokens.intersection(right_tokens))
+    union = len(left_tokens.union(right_tokens))
+    jaccard = shared / union if union else 0.0
+    containment = shared / min(len(left_tokens), len(right_tokens))
+    return max(jaccard, containment if containment >= 0.95 else 0.0)
+
 def select_verified_story_sources(plan, research_items, minimum_sources=2):
     """Select relevant, excerpt-backed, direct article links from independent publishers."""
     compact = planner_research_items(research_items)
@@ -1059,6 +1072,22 @@ def select_verified_story_sources(plan, research_items, minimum_sources=2):
         key = source_key(url)
         if not domain or not key or domain in domains or key in seen_urls:
             continue
+
+        duplicate_of = next(
+            (
+                chosen for chosen in selected
+                if source_content_similarity(item, chosen) >= 0.88
+            ),
+            None,
+        )
+        if duplicate_of:
+            log(
+                "Excluded copied/syndicated source content from "
+                f"{domain}; it substantially duplicates the article from "
+                f"{duplicate_of.get('publisher_domain') or urlparse(duplicate_of.get('url', '')).netloc}."
+            )
+            continue
+
         selected.append(item)
         domains.add(domain)
         seen_urls.add(key)

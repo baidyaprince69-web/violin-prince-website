@@ -1,6 +1,6 @@
 {
-  "source_run_id": "43593992489",
+  "source_run_id": "43594692669",
   "requested_stage": "prepare",
-  "reason": "Re-run after correcting Run 28 false-positive source validation; require named-claim match and readable article-body evidence.",
-  "request_version": 5
+  "reason": "Retry Run 30 with duplicate article-body clustering so syndication copies cannot inflate independent publisher counts.",
+  "request_version": 6
 }

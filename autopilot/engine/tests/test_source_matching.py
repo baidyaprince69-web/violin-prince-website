@@ -536,6 +536,86 @@ class PlannerSourceMatchingTests(unittest.TestCase):
             {"news.mit.edu", "arstechnica.com"},
         )
 
+    def test_identical_article_text_from_two_domains_counts_as_one_source(self):
+        plan = {
+            "topic": "MIT computational virtual violin",
+            "title": "MIT engineers create a virtual violin",
+            "description": "MIT engineers developed a physics-based computational violin model.",
+        }
+        shared_body = (
+            "MIT engineers developed a computational violin model that reproduces realistic sounds. "
+            "The article explains how the research team models the resonance and timbre of acoustic "
+            "instruments before a physical violin is built. Their work gives instrument makers a way "
+            "to evaluate design changes using a computational model and detailed acoustic measurements."
+        )
+        sources = [
+            {
+                "title": "MIT engineers create a computational virtual violin",
+                "url": "https://publisher-one.example/mit-virtual-violin",
+                "publisher_domain": "publisher-one.example",
+                "publisher_name": "Publisher One",
+                "evidence_text": shared_body,
+            },
+            {
+                "title": "MIT engineers create a computational virtual violin",
+                "url": "https://publisher-two.example/mit-virtual-violin",
+                "publisher_domain": "publisher-two.example",
+                "publisher_name": "Publisher Two",
+                "evidence_text": shared_body.replace(".", ";"),
+            },
+        ]
+
+        self.assertGreaterEqual(
+            pipeline.source_content_similarity(sources[0], sources[1]),
+            0.88,
+        )
+        with self.assertRaisesRegex(
+            pipeline.PipelineError,
+            "only 1 relevant direct publisher source",
+        ):
+            pipeline.select_verified_story_sources(plan, sources, minimum_sources=2)
+
+    def test_distinct_article_body_text_from_second_publisher_counts_independently(self):
+        plan = {
+            "topic": "MIT computational virtual violin",
+            "title": "MIT engineers create a virtual violin",
+            "description": "MIT engineers developed a physics-based computational violin model.",
+        }
+        first_body = (
+            "MIT engineers developed a computational violin model that reproduces realistic sounds. "
+            "The model recreates resonance and timbre using the physical properties of the instrument."
+        )
+        second_body = (
+            "Researchers at MIT describe a digital violin design environment that predicts acoustic "
+            "responses before a maker constructs the instrument. The work combines physical modelling "
+            "with measurements of violin structure and surrounding air."
+        )
+        sources = [
+            {
+                "title": "MIT engineers create a computational virtual violin",
+                "url": "https://publisher-one.example/mit-virtual-violin",
+                "publisher_domain": "publisher-one.example",
+                "publisher_name": "Publisher One",
+                "evidence_text": first_body,
+            },
+            {
+                "title": "MIT researchers model violin acoustics digitally",
+                "url": "https://publisher-two.example/mit-acoustic-model",
+                "publisher_domain": "publisher-two.example",
+                "publisher_name": "Publisher Two",
+                "evidence_text": second_body,
+            },
+        ]
+        self.assertLess(
+            pipeline.source_content_similarity(sources[0], sources[1]),
+            0.88,
+        )
+        selected = pipeline.select_verified_story_sources(plan, sources, minimum_sources=2)
+        self.assertEqual(
+            {item["publisher_domain"] for item in selected},
+            {"publisher-one.example", "publisher-two.example"},
+        )
+
     def test_unrelated_plan_does_not_get_random_source(self):
         plan = {
             "topic": "A deep ocean fossil discovery",
