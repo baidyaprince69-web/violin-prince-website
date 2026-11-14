@@ -3850,11 +3850,38 @@ def make_image(prompt, index):
     return path
 
 
-def font(size):
-    for p in ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-              "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf"):
-        if Path(p).exists():
-            return ImageFont.truetype(p, size)
+def font(size, weight="bold", family="sans"):
+    """Use distinct display and reading faces instead of bolding every text tier."""
+    if family == "serif":
+        if weight == "regular":
+            candidates = (
+                "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
+                "/usr/share/fonts/truetype/liberation2/LiberationSerif-Regular.ttf",
+            )
+        else:
+            candidates = (
+                "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
+                "/usr/share/fonts/truetype/liberation2/LiberationSerif-Bold.ttf",
+            )
+    elif weight == "regular":
+        candidates = (
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+        )
+    elif weight == "medium":
+        candidates = (
+            "/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed.ttf",
+            "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+        )
+    else:
+        candidates = (
+            "/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed-Bold.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+        )
+    for candidate in candidates:
+        if Path(candidate).exists():
+            return ImageFont.truetype(candidate, size)
     return ImageFont.load_default()
 
 
@@ -3958,13 +3985,13 @@ def _ass_timestamp(seconds):
     return f"{hours}:{minutes:02}:{whole_seconds:02}.{fraction:02}"
 
 
-def write_kinetic_ass(cues, output_path):
-    """Write animated sentence-level captions aligned to Kokoro's measured cue times."""
+def write_kinetic_ass(cues, output_path, word_cues=None):
+    """Render sentence cards whose gold karaoke fill follows Kokoro word onsets."""
     target = Path(output_path)
     target.parent.mkdir(parents=True, exist_ok=True)
     header = [
         "[Script Info]",
-        "Title: Violin Prince Kinetic Captions",
+        "Title: Violin Prince Word-Synced Captions",
         "ScriptType: v4.00+",
         f"PlayResX: {W}",
         f"PlayResY: {H}",
@@ -3973,45 +4000,61 @@ def write_kinetic_ass(cues, output_path):
         "",
         "[V4+ Styles]",
         "Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding",
-        "Style: VP,DejaVu Sans,39,&H00F8F5EF,&H008BCEEA,&HCC07111F,&HCC07111F,-1,0,3,1.6,0,2,54,54,162,1",
+        "Style: VP,DejaVu Sans,42,&H008BCAEB,&H00F8F5EF,&HCC07111F,&H00000000,-1,0,1,2.0,1.3,2,64,64,136,1",
         "",
         "[Events]",
         "Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text",
     ]
-    events = []
-    stopwords = {"the", "and", "for", "with", "from", "that", "this", "into", "was", "are", "its", "one", "when", "their"}
-    for cue in cues:
-        start = float(cue.get("start", 0))
-        end = float(cue.get("end", 0))
-        phrase = re.sub(r"\s+", " ", str(cue.get("text", "")).strip())
-        if not phrase or end <= start:
+    by_sentence = {}
+    for item in word_cues or []:
+        if not isinstance(item, dict):
             continue
-        words = re.findall(r"[A-Za-z0-9’'-]+", phrase)
-        candidates = [word for word in words if word.casefold() not in stopwords and len(word) >= 4]
-        emphasis = max(candidates or words or [""], key=len)
-        caption_lines = textwrap.wrap(phrase, width=27)[:2]
-        formatted_lines = []
-        for line in caption_lines:
-            safe_line = line.replace("{", r"\{").replace("}", r"\}")
-            if emphasis:
-                safe_line = re.sub(
-                    rf"(?i)\b({re.escape(emphasis)})\b",
-                    lambda match: (
-                        r"{\c&H008BCEEA&\b1}" + match.group(1) +
-                        r"{\c&H00F8F5EF&\b0}"
-                    ),
-                    safe_line,
-                    count=1,
-                )
-            formatted_lines.append(safe_line)
-        wrapped = r"\N".join(formatted_lines)
-        animated = r"{\fad(180,220)\fscx96\fscy96\t(0,180,\fscx100\fscy100)}" + wrapped
+        sentence_index = int(item.get("sentence_index", -1))
+        by_sentence.setdefault(sentence_index, []).append(item)
+
+    def safe_ass_text(value):
+        return str(value or "").replace("\\", r"\\").replace("{", r"\{").replace("}", r"\}")
+
+    events = []
+    for sentence_index, cue in enumerate(cues):
+        words = sorted(
+            by_sentence.get(sentence_index, []),
+            key=lambda item: float(item.get("start", 0)),
+        )
+        if not words:
+            raise PipelineError(
+                "Word-synced captions are required; sentence-level timing fallback is disabled."
+            )
+
+        event_start = float(words[0]["start"])
+        event_end = float(words[-1]["end"])
+        if event_end <= event_start:
+            raise PipelineError("Word-synced caption timing is invalid.")
+
+        fragments = [r"{\\fad(100,160)\\blur0.25}"]
+        line_length = 0
+        for word in words:
+            visible = safe_ass_text(word.get("text", ""))
+            if not visible:
+                continue
+            if line_length and line_length + len(visible) > 25:
+                fragments.append(r"\\N")
+                line_length = 0
+            elif line_length:
+                fragments.append(" ")
+
+            onset = max(0, int(round((float(word["start"]) - event_start) * 100)))
+            duration = max(1, int(round((float(word["end"]) - float(word["start"])) * 100)))
+            fragments.append("{\\\\kt" + str(onset) + "\\\\kf" + str(duration) + "}" + visible)
+            line_length += len(re.sub(r"[^A-Za-z0-9]", "", str(word.get("text", ""))))
+
+        animated = "".join(fragments)
         events.append(
-            f"Dialogue: 0,{_ass_timestamp(start)},{_ass_timestamp(end)},VP,,0,0,0,,{animated}"
+            f"Dialogue: 0,{_ass_timestamp(event_start)},{_ass_timestamp(event_end)},VP,,0,0,0,,{animated}"
         )
     if not events:
-        raise PipelineError("No valid narration cues were available for kinetic captions.")
-    target.write_text("\n".join(header + events) + "\n", encoding="utf-8")
+        raise PipelineError("No valid word-timed narration cues were available for captions.")
+    target.write_text("\\n".join(header + events) + "\\n", encoding="utf-8")
     return target
 
 
@@ -4083,24 +4126,8 @@ def scene_durations_from_narration(narration_info, total_seconds=24.0):
 
 
 def camera_motion_filter(frame_count, scene_index=0):
-    """Use a gentle, eased push with a different continuous drift in each scene."""
-    count = max(1, int(frame_count))
-    progress = f"min(1,on/{max(1, count - 1)})"
-    eased = f"({progress}*{progress}*(3-2*{progress}))"
-    if int(scene_index) % 3 == 0:
-        x_position = f"(0.40+0.20*{eased})"
-        y_position = "0.5"
-    elif int(scene_index) % 3 == 1:
-        x_position = "0.5"
-        y_position = f"(0.42+0.16*{eased})"
-    else:
-        x_position = f"(0.60-0.20*{eased})"
-        y_position = "0.5"
-    return (
-        f"zoompan=z='1.005+0.055*{eased}':"
-        f"x='(iw-iw/zoom)*{x_position}':y='(ih-ih/zoom)*{y_position}':"
-        f"d={count}:s={W}x{H}:fps={FPS}"
-    )
+    """Keep the photographic plate stable; motion comes from designed overlays."""
+    return f"fps={FPS},setsar=1"
 
 
 def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
@@ -4216,7 +4243,7 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
     from voiceover import write_srt
     write_srt(narration_info.get("subtitle_cues", []), subtitle_path)
     ass_path = OUT / "narration.ass"
-    write_kinetic_ass(narration_info.get("subtitle_cues", []), ass_path)
+    write_kinetic_ass(narration_info.get("subtitle_cues", []), ass_path, narration_info.get("word_cues", []))
     if audio_source == "generated_ambient_fallback":
         bed_volume = "0.18"
     elif audio_source == "sampled_violin_cc0":
@@ -4281,13 +4308,13 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         "narration_duration_seconds": round(narration_end, 2),
         "voice_coverage_percent": round(min(100.0, narration_end / 24.0 * 100.0), 1),
         "music_only_ending_seconds": round(max(0.0, 24.0 - narration_end), 2),
-        "camera_motion": "scene-specific eased push-in and gentle drift",
+        "camera_motion": "locked photographic framing; no repetitive push-in",
         "motion_graphics": 3,
         "motion_graphics_renderer": "deterministic per-frame animated music visual explainers",
         "visual_engine": "photorealistic 3D-CGI scene plates with animated explainer overlays",
         "visual_modes": [str(scene.get("visual_mode") or "waveform") for scene in plan.get("scenes", [])],
         "creative_direction_version": CREATIVE_DIRECTION_VERSION,
-        "subtitle_style": "animated sentence-level kinetic typography",
+        "subtitle_style": "Kokoro word-timed karaoke typography with gold active-word fill",
         "scene_transition": "0.35-second crossfade",
         "audio_source": audio_source,
         "audio_mix": "voice-priority sidechain ducking; creator performance audio enters with Scene 3 when present",
@@ -4300,7 +4327,10 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
             "timeline_start_seconds": round(performance_start, 2) if performance_video_info else None,
             "fit_mode": "aspect-preserving foreground with blurred fill" if performance_video_info else "prepared CGI scene fallback",
         },
-        "creative_quality_version": 5,
+        "word_sync_status": narration_info.get("word_sync_status", "not_checked"),
+        "word_timing_method": narration_info.get("word_timing_method", "not_checked"),
+        "word_timing_count": int(narration_info.get("word_timing_count", 0)),
+        "creative_quality_version": 6,
     })
     (OUT / "quality_report.json").write_text(
         json.dumps(quality, ensure_ascii=False, indent=2), encoding="utf-8"
