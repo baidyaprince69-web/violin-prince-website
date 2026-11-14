@@ -43,7 +43,7 @@ jobs:
       - name: Run offline audio and narration helper tests
         run: python -m unittest discover -s autopilot/engine/tests -v
 
-      - name: Run Run 22 narration-only regressions after the full suite
+      - name: Run narration composer regressions after the full suite
         run: python -m unittest autopilot.engine.tests.test_planner_retry -v
 
       - name: Validate D1 SQL schema
