@@ -4031,21 +4031,21 @@ def write_kinetic_ass(cues, output_path, word_cues=None):
         if event_end <= event_start:
             raise PipelineError("Word-synced caption timing is invalid.")
 
-        fragments = [r"{\\fad(100,160)\\blur0.25}"]
+        fragments = [r"{\fad(100,160)\blur0.25}"]
         line_length = 0
         for word in words:
             visible = safe_ass_text(word.get("text", ""))
             if not visible:
                 continue
             if line_length and line_length + len(visible) > 25:
-                fragments.append(r"\\N")
+                fragments.append(r"\N")
                 line_length = 0
             elif line_length:
                 fragments.append(" ")
 
             onset = max(0, int(round((float(word["start"]) - event_start) * 100)))
             duration = max(1, int(round((float(word["end"]) - float(word["start"])) * 100)))
-            fragments.append("{\\\\kt" + str(onset) + "\\\\kf" + str(duration) + "}" + visible)
+            fragments.append("{\\kt" + str(onset) + "\\kf" + str(duration) + "}" + visible)
             line_length += len(re.sub(r"[^A-Za-z0-9]", "", str(word.get("text", ""))))
 
         animated = "".join(fragments)
@@ -4054,7 +4054,7 @@ def write_kinetic_ass(cues, output_path, word_cues=None):
         )
     if not events:
         raise PipelineError("No valid word-timed narration cues were available for captions.")
-    target.write_text("\\n".join(header + events) + "\\n", encoding="utf-8")
+    target.write_text("\n".join(header + events) + "\n", encoding="utf-8")
     return target
 
 
