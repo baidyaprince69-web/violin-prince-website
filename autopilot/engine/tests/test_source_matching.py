@@ -16,6 +16,16 @@ sys.path.insert(0, str(ENGINE))
 import run as pipeline
 
 
+def _select_verified_test_sources(plan, sources, **kwargs):
+    """Mark synthetic unit-test records as verified article pages with known dates."""
+    for item in sources:
+        if isinstance(item, dict):
+            item.setdefault("article_page_verified", True)
+            item.setdefault("article_page_kind", "article_metadata")
+            item.setdefault("published_at_utc", "2026-11-14T12:00:00Z")
+    return pipeline.select_verified_story_sources(plan, sources, **kwargs)
+
+
 class PlannerSourceMatchingTests(unittest.TestCase):
     def setUp(self):
         self.items = [
@@ -26,6 +36,9 @@ class PlannerSourceMatchingTests(unittest.TestCase):
                 "publisher_name": "MIT News",
                 "publisher_domain": "news.mit.edu",
                 "url": "https://news.mit.edu/2026/virtual-violin",
+                "article_page_verified": True,
+                "article_page_kind": "article_metadata",
+                "published_at_utc": "2026-11-14T12:00:00Z",
                 "source": "MIT News",
             },
             {
@@ -35,6 +48,9 @@ class PlannerSourceMatchingTests(unittest.TestCase):
                 "publisher_name": "City Arts",
                 "publisher_domain": "arts.example",
                 "url": "https://arts.example/concert-season",
+                "article_page_verified": True,
+                "article_page_kind": "article_metadata",
+                "published_at_utc": "2026-11-14T12:00:00Z",
                 "source": "City Arts",
             },
         ]
@@ -94,7 +110,7 @@ class PlannerSourceMatchingTests(unittest.TestCase):
             "hook": "Can a virtual violin sound real?",
             "sources": [],
         }
-        selected = pipeline.select_verified_story_sources(plan, self.items, minimum_sources=2)
+        selected = _select_verified_test_sources(plan, self.items, minimum_sources=2)
         self.assertEqual(len(selected), 2)
         self.assertEqual(
             {item["publisher_domain"] for item in selected},
@@ -110,7 +126,7 @@ class PlannerSourceMatchingTests(unittest.TestCase):
             "sources": [],
         }
         with self.assertRaisesRegex(pipeline.PipelineError, "at least 2 independent publishers"):
-            pipeline.select_verified_story_sources(plan, self.items[:1], minimum_sources=2)
+            _select_verified_test_sources(plan, self.items[:1], minimum_sources=2)
 
     def test_story_search_includes_relevant_seed_headline_variants(self):
         plan = {
@@ -245,7 +261,12 @@ class PlannerSourceMatchingTests(unittest.TestCase):
             "The article outlines the research approach, the instrument's sound model, "
             "and the technical details that distinguish the work from a simple recording."
         )
-        article_html = "<html><body><p>" + article_text + "</p></body></html>"
+        article_html = (
+            '<html><head><meta property="og:type" content="article">'
+            '<meta property="article:published_time" content="2026-11-14T10:00:00Z">'
+            '<meta property="og:title" content="MIT virtual violin"></head>'
+            "<body><p>" + article_text + "</p></body></html>"
+        )
 
         class FakeResponse:
             def __init__(self, url, body):
@@ -375,7 +396,17 @@ class PlannerSourceMatchingTests(unittest.TestCase):
         }
 
         def fake_article_get(url, **kwargs):
-            body = "<html><body><p>" + article_paragraphs[url] + "</p></body></html>"
+            article_title = (
+                "Roman telescope instruments now line up to a hair’s breadth"
+                if url == space_url else
+                "Roman Space Telescope completes key instrument alignment"
+            )
+            body = (
+                '<html><head><meta property="og:type" content="article">'
+                '<meta property="article:published_time" content="2026-11-13T10:00:00Z">'
+                '<meta property="og:title" content="' + article_title + '"></head>'
+                "<body><p>" + article_paragraphs[url] + "</p></body></html>"
+            )
             return FakeResponse(url, text=body)
 
         with tempfile.TemporaryDirectory() as folder:
@@ -396,7 +427,7 @@ class PlannerSourceMatchingTests(unittest.TestCase):
                         [],
                     )
 
-                selected = pipeline.select_verified_story_sources(
+                selected = _select_verified_test_sources(
                     {
                         "topic": "NASA Roman Space Telescope instrument alignment",
                         "title": "Roman Telescope Instruments Aligned",
@@ -485,7 +516,7 @@ class PlannerSourceMatchingTests(unittest.TestCase):
             pipeline.PipelineError,
             "only 1 relevant direct publisher source",
         ):
-            pipeline.select_verified_story_sources(plan, sources, minimum_sources=2)
+            _select_verified_test_sources(plan, sources, minimum_sources=2)
 
     def test_two_publishers_must_both_support_the_named_mit_claim(self):
         plan = {
@@ -531,7 +562,7 @@ class PlannerSourceMatchingTests(unittest.TestCase):
                 ),
             },
         ]
-        selected = pipeline.select_verified_story_sources(plan, sources, minimum_sources=2)
+        selected = _select_verified_test_sources(plan, sources, minimum_sources=2)
         self.assertEqual(
             {item["publisher_domain"] for item in selected},
             {"news.mit.edu", "arstechnica.com"},
@@ -574,7 +605,7 @@ class PlannerSourceMatchingTests(unittest.TestCase):
             pipeline.PipelineError,
             "only 1 relevant direct publisher source",
         ):
-            pipeline.select_verified_story_sources(plan, sources, minimum_sources=2)
+            _select_verified_test_sources(plan, sources, minimum_sources=2)
 
     def test_syndicated_article_with_different_boilerplate_is_detected(self):
         plan = {
@@ -620,7 +651,7 @@ class PlannerSourceMatchingTests(unittest.TestCase):
             pipeline.PipelineError,
             "only 1 relevant direct publisher source",
         ):
-            pipeline.select_verified_story_sources(plan, sources, minimum_sources=2)
+            _select_verified_test_sources(plan, sources, minimum_sources=2)
 
     def test_distinct_article_body_text_from_second_publisher_counts_independently(self):
         plan = {
@@ -657,7 +688,7 @@ class PlannerSourceMatchingTests(unittest.TestCase):
             pipeline.source_content_similarity(sources[0], sources[1]),
             0.88,
         )
-        selected = pipeline.select_verified_story_sources(plan, sources, minimum_sources=2)
+        selected = _select_verified_test_sources(plan, sources, minimum_sources=2)
         self.assertEqual(
             {item["publisher_domain"] for item in selected},
             {"publisher-one.example", "publisher-two.example"},
@@ -702,7 +733,7 @@ class PlannerSourceMatchingTests(unittest.TestCase):
             pipeline.PipelineError,
             "only 1 relevant direct publisher source",
         ):
-            pipeline.select_verified_story_sources(plan, sources, minimum_sources=2)
+            _select_verified_test_sources(plan, sources, minimum_sources=2)
 
     def test_run33_generic_space_music_sources_do_not_support_roman_telescope_claim(self):
         plan = {
@@ -777,7 +808,7 @@ class PlannerSourceMatchingTests(unittest.TestCase):
             pipeline.PipelineError,
             "only 0 relevant direct publisher source",
         ):
-            pipeline.select_verified_story_sources(plan, sources, minimum_sources=2)
+            _select_verified_test_sources(plan, sources, minimum_sources=2)
 
     def test_roman_telescope_description_is_included_in_story_search_queries(self):
         plan = {
@@ -937,7 +968,7 @@ class PlannerSourceMatchingTests(unittest.TestCase):
             pipeline.PipelineError,
             "only 0 relevant direct publisher source",
         ):
-            pipeline.select_verified_story_sources(plan, sources, minimum_sources=2)
+            _select_verified_test_sources(plan, sources, minimum_sources=2)
 
     def test_roman_telescope_description_is_included_in_story_search_queries(self):
         plan = {
