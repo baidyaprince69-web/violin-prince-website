@@ -1,0 +1,73 @@
+{
+  "story_type": "instrument_design",
+  "topic": "How violin body arch height and bow-string interaction each influence the sound a violin produces",
+  "title": "A Violin's Shape Changes Its Sound",
+  "hook": "So, why does a violin's shape matter?",
+  "description": "Two recent reports look at different parts of violin sound: a controlled study compared instruments with different back arch heights, while a separate computer model examined how bow speed and pressure affect a vibrating string.",
+  "hashtags": [
+    "#Violin",
+    "#MusicFacts",
+    "#ViolinAcoustics",
+    "#MusicScience"
+  ],
+  "narrative_style": "documentary",
+  "cover_payoff": "Use a short original violin phrase as a listening payoff, with animated lines showing the string and body resonances. No creator performance recording is included, so the final scene must remain a clearly symbolic violin visual.",
+  "narration_script": "So, why does a violin's shape matter? Researchers built six violins, changing only their back arch height. A separate model tested how bow speed and pressure affect sound. The measurements showed several body resonances shifted as the arch height changed.",
+  "narration_evidence": [
+    {
+      "sentence_number": 2,
+      "source_id": "S001",
+      "quote": "Six violins were constructed to be as similar as possible, only the parameter “back arch height” was varied."
+    },
+    {
+      "sentence_number": 3,
+      "source_id": "S002",
+      "quote": "used the programming language Python to simulate a violin string, and then modelled the interaction between bow and string, investigating how changes in bow speed and pressure affect the resulting sound."
+    },
+    {
+      "sentence_number": 4,
+      "source_id": "S001",
+      "quote": "Signature body modes of the instruments were shifted apart in frequency and towards higher amplitude for lower back arch heights"
+    }
+  ],
+  "sources": [
+    {
+      "source_id": "S001",
+      "title": "Investigating acoustic effects of violin back arch height changes: Constructing a set of test instruments",
+      "url": "https://pubs.aip.org/asa/jasa/article/160/5/4149/3408492/Investigating-acoustic-effects-of-violin-back-arch",
+      "publisher_domain": "pubs.aip.org",
+      "date": "2026-11-11"
+    },
+    {
+      "source_id": "S002",
+      "title": "Teenage violinist wins $3,500 science award for study of expressive violin sound",
+      "url": "https://www.thestrad.com/news/teenage-violinist-wins-3500-science-award-for-study-of-expressive-violin-sound/22053.article",
+      "publisher_domain": "thestrad.com",
+      "date": "2026-11-10"
+    }
+  ],
+  "timeline": [],
+  "scenes": [
+    {
+      "caption": "A violin's outline is part of its sound",
+      "image_prompt": "Original cinematic cutaway-style macro illustration of a violin body, golden varnished maple and spruce, emphasize the arched back plate and curved ribs, technical museum-lighting, portrait composition, no person",
+      "graphic_label": "THE SHAPE",
+      "graphic_detail": "Researchers varied only the back arch height",
+      "visual_mode": "macro_3d"
+    },
+    {
+      "caption": "The bow changes the string's vibration",
+      "image_prompt": "Original scientific visualization of a violin bow contacting one taut string, luminous vibration wave travelling along the string, precise bridge geometry and dark walnut wood, antique gold and warm ivory, no text",
+      "graphic_label": "THE STRING",
+      "graphic_detail": "A model tested bow speed and pressure",
+      "visual_mode": "waveform"
+    },
+    {
+      "caption": "The body responds with its own resonances",
+      "image_prompt": "Original symbolic violin performance composition, close-up violin body with glowing resonance rings and bow crossing the strings, dramatic warm gold against midnight charcoal, no face, no text, no logos",
+      "graphic_label": "THE RESONANCE",
+      "graphic_detail": "Back arch height shifted measured body modes",
+      "visual_mode": "cover_performance"
+    }
+  ]
+}
