@@ -728,7 +728,7 @@ class PlannerSourceMatchingTests(unittest.TestCase):
             )
         with self.assertRaisesRegex(
             pipeline.PipelineError,
-            "only 0 relevant direct publisher sources",
+            "only 0 relevant direct publisher source",
         ):
             pipeline.select_verified_story_sources(plan, sources, minimum_sources=2)
 
