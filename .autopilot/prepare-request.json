@@ -1,6 +1,6 @@
 {
-  "source_run_id": "43592025774",
+  "source_run_id": "43592684757",
   "requested_stage": "prepare",
-  "reason": "Retry Prepare after adding broader seed-headline queries, Bing News RSS, and GDELT rate-limit recovery.",
-  "request_version": 2
+  "reason": "Retry after correcting Bing/Microsoft news aggregator handling; only final publisher pages with readable article text may count as source evidence.",
+  "request_version": 3
 }
