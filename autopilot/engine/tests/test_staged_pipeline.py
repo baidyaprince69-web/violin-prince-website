@@ -20,8 +20,10 @@ class StagedPipelineTests(unittest.TestCase):
         folder = Path(folder)
         folder.mkdir(parents=True, exist_ok=True)
         plan = {
-            "title": "Test story",
-            "topic": "A test topic",
+            "title": "How a violin string creates sound",
+            "topic": "The physical vibration of a violin string",
+            "story_type": "violin_physics",
+            "cover_payoff": "An original violin phrase will let listeners hear the string vibration becoming a resonant musical note.",
             "narration_script": "A short test narration.",
             "sources": [
                 {
@@ -62,9 +64,9 @@ class StagedPipelineTests(unittest.TestCase):
                 },
             },
             "scenes": [
-                {"caption": "The opening scene", "image_prompt": "A lighthouse at dawn"},
-                {"caption": "The middle detail", "image_prompt": "A close view of a glowing lantern"},
-                {"caption": "The final reveal", "image_prompt": "A ship returning safely to shore"},
+                {"caption": "The opening scene", "image_prompt": "A macro view of a violin string", "visual_mode": "macro_3d"},
+                {"caption": "The middle detail", "image_prompt": "A waveform showing vibration", "visual_mode": "waveform"},
+                {"caption": "The final reveal", "image_prompt": "A violin performance close-up", "visual_mode": "cover_performance"},
             ],
         }
         metadata = {
@@ -201,7 +203,7 @@ class StagedPipelineTests(unittest.TestCase):
             finally:
                 pipeline.PACKAGE = original
 
-    def test_render_package_requires_explicit_story_approval(self):
+    def test_render_package_requires_automated_quality_gate_clearance(self):
         with tempfile.TemporaryDirectory() as folder:
             self._write_package(folder, include_images=True)
             metadata_path = Path(folder) / "stage.json"
@@ -211,26 +213,54 @@ class StagedPipelineTests(unittest.TestCase):
             original = pipeline.PACKAGE
             try:
                 pipeline.PACKAGE = Path(folder)
-                with self.assertRaisesRegex(pipeline.PipelineError, "explicit human approval"):
+                with self.assertRaisesRegex(pipeline.PipelineError, "automated editorial quality gates"):
                     pipeline._read_package(require_images=True)
             finally:
                 pipeline.PACKAGE = original
 
-    def test_visual_stage_requires_story_approval_input(self):
-        old_value = os.environ.get("STORY_APPROVED")
-        old_account, old_token = pipeline.CF_ACCOUNT, pipeline.CF_TOKEN
-        os.environ["STORY_APPROVED"] = "false"
-        pipeline.CF_ACCOUNT = "test-account"
-        pipeline.CF_TOKEN = "test-ai-token"
-        try:
-            with self.assertRaisesRegex(pipeline.PipelineError, "Visuals blocked"):
-                pipeline.visuals_stage()
-        finally:
-            pipeline.CF_ACCOUNT, pipeline.CF_TOKEN = old_account, old_token
-            if old_value is None:
-                os.environ.pop("STORY_APPROVED", None)
-            else:
-                os.environ["STORY_APPROVED"] = old_value
+    def test_visual_stage_passes_automatically_after_quality_gates_without_checkbox(self):
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            self._write_package(folder, include_images=False)
+            metadata_path = folder / "stage.json"
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            metadata["story_review"] = {
+                "status": "awaiting_automated_quality_gates",
+                "approved": False,
+                "approved_at": None,
+                "approval_method": None,
+            }
+            metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+            original_package = pipeline.PACKAGE
+            original_account, original_token = pipeline.CF_ACCOUNT, pipeline.CF_TOKEN
+            old_approval = os.environ.get("STORY_APPROVED")
+            pipeline.PACKAGE = folder
+            pipeline.CF_ACCOUNT, pipeline.CF_TOKEN = "test-account", "test-ai-token"
+            os.environ["STORY_APPROVED"] = "false"
+
+            def fake_make_image(_prompt, index):
+                target = folder / f"generated-{index + 1}.jpg"
+                Image.new("RGB", (120, 200), (40 + index * 25, 55, 80)).save(target, "JPEG")
+                return target
+
+            try:
+                with unittest.mock.patch.object(pipeline, "make_image", side_effect=fake_make_image):
+                    pipeline.visuals_stage()
+                updated = json.loads(metadata_path.read_text(encoding="utf-8"))
+                self.assertTrue(updated["story_review"]["approved"])
+                self.assertEqual(
+                    updated["story_review"]["approval_method"],
+                    "automated_source_date_freshness_and_channel_fit_checks",
+                )
+                self.assertTrue((folder / "storyboard-preview.png").is_file())
+            finally:
+                pipeline.PACKAGE = original_package
+                pipeline.CF_ACCOUNT, pipeline.CF_TOKEN = original_account, original_token
+                if old_approval is None:
+                    os.environ.pop("STORY_APPROVED", None)
+                else:
+                    os.environ["STORY_APPROVED"] = old_approval
 
     def test_visual_feedback_is_added_without_changing_base_scene_prompt(self):
         scene = {"image_prompt": "A lighthouse at dawn"}
