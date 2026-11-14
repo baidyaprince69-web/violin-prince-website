@@ -469,7 +469,7 @@ def source_relevance_score(plan, item):
     if not core:
         core = source_tokens(" ".join(plan.get("narration_sentences", []) or []))
     article = source_tokens(" ".join(str(item.get(key, "")) for key in (
-        "title", "summary", "evidence_text", "publisher_name"
+        "title", "evidence_text"
     )))
     if not core or not article:
         return 0.0
@@ -532,7 +532,7 @@ def source_supports_story(plan, item, minimum_score=0.20):
     if not anchors:
         return True
     article = source_tokens(" ".join(
-        str(item.get(key, "")) for key in ("title", "summary", "evidence_text", "publisher_name")
+        str(item.get(key, "")) for key in ("title", "evidence_text")
     ))
     return any(group.issubset(article) for group in anchors)
 
@@ -1037,7 +1037,9 @@ def select_verified_story_sources(plan, research_items, minimum_sources=2):
     for item in compact:
         if not is_direct_publisher_article(item):
             continue
-        evidence = str(item.get("evidence_text") or item.get("summary") or "").strip()
+        # Headlines and RSS summaries are discovery clues, not corroborating evidence.
+        # Require a readable publisher-page paragraph before an article can count.
+        evidence = str(item.get("evidence_text") or "").strip()
         if len(evidence) < 90:
             continue
         score = source_relevance_score(plan, item)
