@@ -92,6 +92,8 @@ def validate_publish_metadata(plan: dict[str, Any]) -> dict[str, Any]:
         raw_tags = plan.get("tags")
     if raw_tags is None:
         raw_tags = source.get("hashtags", plan.get("hashtags", []))
+        if isinstance(raw_tags, str):
+            raw_tags = raw_tags.split()
     tags = _parse_tag_values(raw_tags)
 
     errors: list[str] = []
