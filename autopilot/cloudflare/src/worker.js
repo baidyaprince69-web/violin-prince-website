@@ -223,8 +223,11 @@ async function handleApi(request, env) {
     const filename = safeName(request.headers.get("X-Filename"));
     const kind = url.searchParams.get("kind") || "audio";
     if (!["audio","video"].includes(kind)) return json({ error: "Unsupported asset type." }, 400);
-    const allowed = /\.(mp3|wav|flac|m4a|aac|ogg|mp4|mov|webm)$/i.test(filename);
-    if (!allowed) return json({ error: "Unsupported file extension." }, 400);
+    const audioFile = /\.(mp3|wav|flac|m4a|aac|ogg)$/i.test(filename);
+    const videoFile = /\.(mp4|mov|webm)$/i.test(filename);
+    if ((kind === "audio" && !audioFile) || (kind === "video" && !videoFile)) {
+      return json({ error: "File extension does not match the selected media type." }, 400);
+    }
     const contentType = request.headers.get("Content-Type") || "application/octet-stream";
     const id = crypto.randomUUID();
     const key = "library/" + id + "/" + filename;
@@ -304,9 +307,11 @@ async function handleApi(request, env) {
   }
 
   if (path === "/internal/assets" && request.method === "GET") {
+    const kind = url.searchParams.get("kind") || "audio";
+    if (!["audio", "video"].includes(kind)) return json({ error: "Unsupported asset type." }, 400);
     const rows = await env.DB.prepare(
-      "SELECT id,filename,kind,content_type,size_bytes,object_key FROM assets WHERE active=1 AND rights_confirmed=1 AND kind='audio' ORDER BY created_at DESC LIMIT 50"
-    ).all();
+      "SELECT id,filename,kind,content_type,size_bytes,object_key FROM assets WHERE active=1 AND rights_confirmed=1 AND kind=? ORDER BY created_at DESC LIMIT 50"
+    ).bind(kind).all();
     return json({ assets: rows.results || [] });
   }
 

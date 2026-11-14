@@ -72,6 +72,19 @@ class FFmpegRenderSmokeTests(unittest.TestCase):
                 output.setframerate(sample_rate)
                 output.writeframes(samples.tobytes())
 
+            performance_video = pipeline.WORK / "creator-performance-test.mp4"
+            subprocess.run(
+                [
+                    "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                    "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=8",
+                    "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=24000",
+                    "-t", "9", "-c:v", "libx264", "-preset", "ultrafast",
+                    "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "96k",
+                    str(performance_video),
+                ],
+                check=True,
+            )
+
             plan = {
                 "title": "A Small Test Story",
                 "narration_script": "A test voice explains a short story with a beginning, a useful detail and a clear ending.",
@@ -90,7 +103,7 @@ class FFmpegRenderSmokeTests(unittest.TestCase):
 
             final_path, quality = pipeline.render(
                 plan, background.read_bytes(), narration, narration_info,
-                image_paths=prepared_images
+                image_paths=prepared_images, performance_video_path=performance_video
             )
 
             self.assertTrue(final_path.exists())
@@ -99,6 +112,15 @@ class FFmpegRenderSmokeTests(unittest.TestCase):
             self.assertGreaterEqual(quality["duration_seconds"], 23.5)
             self.assertLessEqual(quality["duration_seconds"], 24.5)
             self.assertGreater(quality["file_size_bytes"], 150000)
+            self.assertTrue(quality["creator_performance_video"]["inserted"])
+            self.assertTrue(quality["creator_performance_video"]["audio_inserted"])
+            self.assertEqual(quality["creator_performance_video"]["source_width"], 640)
+            expected_performance_start = sum(quality["scene_durations_seconds"][:2]) - 0.70
+            self.assertAlmostEqual(
+                quality["creator_performance_video"]["timeline_start_seconds"],
+                expected_performance_start,
+                places=2,
+            )
 
             subtitle_file = pipeline.OUT / "narration.srt"
             self.assertTrue(subtitle_file.exists())

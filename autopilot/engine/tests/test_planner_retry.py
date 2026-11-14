@@ -72,12 +72,17 @@ def make_test_plan(sentences):
         "hook": "Can a computer mimic a soul?",
         "description": "A sourced story about a virtual violin.",
         "hashtags": ["#Violin", "#MusicTechnology"],
+        "story_type": "music_technology",
+        "cover_payoff": (
+            "Use an original Violin Prince violin phrase to compare the modelled "
+            "sound with a real plucked-string performance."
+        ),
         "narration_sentences": list(sentences),
         "narrative_style": "cinematic_story",
         "scenes": [
-            {"caption": "A virtual violin takes shape", "image_prompt": "A virtual violin interface"},
-            {"caption": "Digital sound modelling", "image_prompt": "A clear sound-wave visualization"},
-            {"caption": "Tradition meets digital creativity", "image_prompt": "A violin beside digital strings"},
+            {"caption": "A virtual violin takes shape", "image_prompt": "A virtual violin interface", "visual_mode": "macro_3d"},
+            {"caption": "Digital sound modelling", "image_prompt": "A clear sound-wave visualization", "visual_mode": "waveform"},
+            {"caption": "Hear the musical difference", "image_prompt": "A violin beside digital strings", "visual_mode": "cover_performance"},
         ],
         "sources": [{"source_id": "S0001"}],
         "timeline": [],

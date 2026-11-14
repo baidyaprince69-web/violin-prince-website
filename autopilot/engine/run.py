@@ -16,9 +16,19 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 try:
     from .seo_intelligence import build_topic_queries, discover as seo_discover, load_profile as seo_load_profile
     from .seo_intelligence.storage import load_learning_signals
+    from .creative_direction import (
+        CHANNEL_BRIEF, CREATIVE_DIRECTION_VERSION, VISUAL_MODE_PROMPTS,
+        channel_fit_report, validate_creative_plan,
+    )
+    from .motion_graphics import make_motion_graphic_frames
 except ImportError:  # Direct script execution from the engine directory.
     from seo_intelligence import build_topic_queries, discover as seo_discover, load_profile as seo_load_profile
     from seo_intelligence.storage import load_learning_signals
+    from creative_direction import (
+        CHANNEL_BRIEF, CREATIVE_DIRECTION_VERSION, VISUAL_MODE_PROMPTS,
+        channel_fit_report, validate_creative_plan,
+    )
+    from motion_graphics import make_motion_graphic_frames
 
 API = os.environ.get("AUTOPILOT_API_URL", "").rstrip("/")
 JOB_TOKEN = os.environ.get("AUTOPILOT_JOB_TOKEN", "")
@@ -133,9 +143,9 @@ def _validate_creator_violin_recording(path):
     return {"duration_seconds": round(duration, 2), "channels": channels, "sample_rate": sample_rate}
 
 
-def get_audio():
-    if API:
-        r = http.get(API + "/internal/assets", headers=auth(), timeout=30)
+def get_audio(prefer_creator_assets=True, allow_fallback=True):
+    if prefer_creator_assets and API:
+        r = http.get(API + "/internal/assets?kind=audio", headers=auth(), timeout=30)
         r.raise_for_status()
         assets = r.json().get("assets", [])
         if assets:
@@ -152,7 +162,7 @@ def get_audio():
         Path(configured_path) if configured_path
         else Path(__file__).resolve().parent / "assets" / "violin-performance.wav"
     )
-    if recording_path.is_file():
+    if prefer_creator_assets and recording_path.is_file():
         recording_info = _validate_creator_violin_recording(recording_path)
         log("Using the creator's real violin recording as the music bed.")
         return {
@@ -161,8 +171,10 @@ def get_audio():
             "kind": "uploaded_recording",
             **recording_info,
         }, recording_path.read_bytes()
-    if configured_path:
+    if prefer_creator_assets and configured_path:
         log("VIOLIN_RECORDING_PATH was not found; trying the CC0 sampled violin instrument.")
+    if not allow_fallback:
+        return {"filename": "", "audio_source": "none", "kind": "none"}, b""
 
     # Use a small, checksum-verified CC0 multisample pack to render a new violin
     # phrase. Network or sample-render failures fall back quietly instead of
@@ -194,6 +206,152 @@ def get_audio():
         "audio_source": "generated_ambient_fallback",
         "kind": "generated_audio"
     }, audio_path.read_bytes()
+
+ 
+MAX_PERFORMANCE_VIDEO_BYTES = 90 * 1024 * 1024
+PERFORMANCE_VIDEO_EXTENSIONS = {".mp4", ".mov", ".webm"}
+
+
+def _validate_performance_video_metadata(filename, size):
+    """Validate the identity and size of a private creator video asset."""
+    suffix = Path(str(filename or "")).suffix.lower()
+    if suffix not in PERFORMANCE_VIDEO_EXTENSIONS:
+        raise PipelineError("Creator performance video must be MP4, MOV or WebM.")
+    size = int(size or 0)
+    if size > MAX_PERFORMANCE_VIDEO_BYTES:
+        raise PipelineError("Creator performance video exceeds the 90 MB private-upload limit.")
+    if size < 16 * 1024:
+        raise PipelineError("Creator performance video is empty or unexpectedly small.")
+    return {
+        "filename": Path(str(filename)).name,
+        "size_bytes": size,
+        "content_type": "",
+        "available": True,
+    }
+
+
+def _validate_performance_video_asset(filename, media_bytes):
+    """Validate downloaded bytes without writing private media into workflow artifacts."""
+    return _validate_performance_video_metadata(filename, len(media_bytes or b""))
+
+
+def get_creator_performance_video(include_bytes=False, asset_id=None):
+    """Read private video metadata during Prepare and download the exact asset only during Render."""
+    if API:
+        asset = None
+        if asset_id:
+            asset = {"id": str(asset_id)}
+        else:
+            response = http.get(
+                API + "/internal/assets?kind=video",
+                headers=auth(),
+                timeout=30,
+            )
+            response.raise_for_status()
+            assets = [
+                item for item in response.json().get("assets", [])
+                if isinstance(item, dict) and item.get("kind") == "video"
+            ]
+            if assets:
+                asset = assets[0]
+
+        if asset:
+            media_metadata = asset
+            if asset_id and not asset.get("filename"):
+                # An exact asset ID comes from the earlier prepared metadata. Its
+                # filename and size are stored there, so no public artifact needs
+                # to contain the raw media.
+                media_metadata = {
+                    "id": str(asset_id),
+                    "filename": "",
+                    "size_bytes": 0,
+                    "kind": "video",
+                }
+            if include_bytes:
+                media = http.get(
+                    API + "/internal/assets/" + quote(str(asset["id"]), safe=""),
+                    headers=auth(),
+                    timeout=180,
+                )
+                media.raise_for_status()
+                media_bytes = media.content
+                filename = (
+                    media.headers.get("Content-Disposition", "")
+                    .split("filename=", 1)[-1].strip().strip('"')
+                    if media.headers.get("Content-Disposition") else ""
+                )
+                filename = filename or str(media_metadata.get("filename") or "creator-performance.mp4")
+                checked = _validate_performance_video_asset(filename, media_bytes)
+            else:
+                checked = _validate_performance_video_metadata(
+                    media_metadata.get("filename"), media_metadata.get("size_bytes")
+                )
+                media_bytes = b""
+            safe_metadata = {
+                "id": str(asset.get("id") or asset_id or ""),
+                **checked,
+                "content_type": media_metadata.get("content_type") or "",
+                "source": "private_r2_upload",
+            }
+            return safe_metadata, media_bytes
+
+    configured_path = os.environ.get("VIOLIN_PERFORMANCE_VIDEO_PATH", "").strip()
+    video_path = (
+        Path(configured_path) if configured_path
+        else Path(__file__).resolve().parent / "assets" / "violin-performance.mp4"
+    )
+    if video_path.is_file():
+        checked = _validate_performance_video_metadata(video_path.name, video_path.stat().st_size)
+        media_bytes = video_path.read_bytes() if include_bytes else b""
+        return {
+            **checked,
+            "source": "configured_local_file",
+            "content_type": "video/mp4" if video_path.suffix.lower() == ".mp4" else "",
+        }, media_bytes
+    if asset_id:
+        raise PipelineError(
+            "The prepared private performance-video asset could not be reached. "
+            "Check AUTOPILOT_API_URL and AUTOPILOT_JOB_TOKEN before Render."
+        )
+    log("No creator performance video is uploaded; Scene 3 will use its prepared visual fallback.")
+    return {"available": False, "source": "none"}, b""
+
+
+def probe_creator_performance_video(path):
+    """Inspect a supplied take with ffprobe; do not render unrecognised media."""
+    target = Path(path)
+    if not target.is_file():
+        raise PipelineError("The staged creator performance video is missing.")
+    result = subprocess.run(
+        [
+            "ffprobe", "-v", "error", "-show_entries",
+            "format=duration:stream=codec_type,width,height,codec_name",
+            "-of", "json", str(target),
+        ],
+        capture_output=True, text=True,
+    )
+    if result.returncode:
+        raise PipelineError("ffprobe could not inspect the creator performance video: " + result.stderr[-700:])
+    try:
+        payload = json.loads(result.stdout)
+        duration = float(payload.get("format", {}).get("duration", 0))
+        streams = payload.get("streams", [])
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise PipelineError("Creator performance video returned invalid media metadata.") from exc
+    video = next((item for item in streams if item.get("codec_type") == "video"), None)
+    audio = next((item for item in streams if item.get("codec_type") == "audio"), None)
+    if not video or duration < 2.0:
+        raise PipelineError("Creator performance video must contain at least two seconds of video.")
+    if duration > 600:
+        raise PipelineError("Creator performance video is longer than the 10-minute input limit.")
+    return {
+        "duration_seconds": round(duration, 3),
+        "has_audio": bool(audio),
+        "width": int(video.get("width", 0) or 0),
+        "height": int(video.get("height", 0) or 0),
+        "video_codec": str(video.get("codec_name") or ""),
+        "audio_codec": str(audio.get("codec_name") or "") if audio else "",
+    }
 
 
 def _is_google_host(host):
@@ -1155,11 +1313,11 @@ def research():
         log("GDELT unavailable: " + str(exc)[:160])
 
     qs = [
-        ("violin OR instrumental music OR orchestral music", "Music"),
-        ("global entertainment OR cinema OR film music", "Entertainment"),
-        ("science OR technology discoveries OR space", "Discovery"),
-        ("world culture OR art OR popular culture", "Culture"),
-        ("music artist OR music festival OR music charts", "Music trends"),
+        ("violin acoustics OR string vibration OR bow friction OR instrument design", "Violin science"),
+        ("music perception OR melody psychology OR rhythm science OR harmony", "Music perception"),
+        ("music production OR recording techniques OR sound design OR timbre", "Music production"),
+        ("song structure OR melody analysis OR arrangement OR orchestration", "Song anatomy"),
+        ("instrument acoustics OR violin resonance OR sound waves OR musical mechanisms", "Instrument facts"),
     ]
     for region in ("US", "GB", "IN"):
         for query, label in qs:
@@ -1182,11 +1340,11 @@ def research():
     # DuckDuckGo exposes direct outbound publisher URLs. These are still only
     # discovery leads until enrich_source_evidence fetches and reads the article.
     ddg_queries = [
-        "violin music orchestra instrument research news",
-        "classical music performers festivals competitions news",
-        "music technology instruments research discoveries",
-        "film music composers soundtrack industry news",
-        "music culture arts discoveries performance news",
+        "violin acoustics string vibration bow friction instrument research",
+        "why melodies sound emotional music perception research",
+        "how instruments produce sound timbre resonance acoustics",
+        "song structure arrangement harmony rhythm music production explanation",
+        "music technology sound design recording techniques research",
     ]
     ddg_count = 0
     for query in ddg_queries:
@@ -2323,6 +2481,14 @@ def prepare_story_with_source_recovery(items, recent=None, seo_context=None, max
                     "Story quality gate blocked: selected plan is not attached to a verified source group."
                 )
             topic = str(plan.get("topic") or plan.get("title") or selected_group.get("topic_hint") or "untitled story").strip()
+            creative_issues = validate_creative_plan(plan)
+            if creative_issues:
+                raise PipelineError(
+                    "Story quality gate blocked: approved Violin Prince format check failed: "
+                    + " ".join(creative_issues)
+                )
+            plan["creative_direction_version"] = CREATIVE_DIRECTION_VERSION
+            plan["channel_fit"] = channel_fit_report(plan)
 
             # Topic-specific search is now corroboration and enrichment. The story
             # already had two independent readable publisher sources before planning.
@@ -2600,7 +2766,7 @@ def validate_story_dates(plan, as_of=None):
 
 
 def build_story_quality_report(plan, selected_sources, date_check, as_of=None):
-    """Create an auditable source/date report; human review remains mandatory."""
+    """Create an auditable source/date report for automated editorial quality gates."""
     domains = sorted({
         str(item.get("publisher_domain") or urlparse(item.get("url", "")).netloc).lower().removeprefix("www.")
         for item in selected_sources
@@ -3446,63 +3612,57 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
         ]
 
     system = (
-        "You are the editorial director of Violin Prince, a violin creator. Choose one timely, "
-        "well-supported, family-friendly subject from these headlines and turn it into an original "
-        "short visual story with spoken narration and an original string-style instrumental soundtrack. "
-        "Choose for a music-loving audience: prioritise violin and instruments, classical and contemporary music, "
-        "Treat YouTube SEO Discovery context as limited audience-interest evidence only. Never choose a topic solely "
-        "because a sampled opportunity score is high; it must still be well-supported by the research and relevant "
-        "to violin/music listeners. Never describe public result samples as search demand or search volume. "
-        "film music, artists, performances, festivals and music culture. Art, culture, science or discovery may be "
-        "chosen when the story has a clear, compelling connection to music or a strong visual idea. Reject unrelated "
-        "retail promotions and generic technology announcements, as well as tragedies, graphic events, violence, "
-        "disasters and crimes. Pick the strongest specific story, not merely the loudest headline. "
-        "Evidence-first selection is mandatory when eligible story groups are supplied: choose exactly one "
-        "provided group_id, include it as story_group_id, and base every factual detail only on articles "
-        "inside that group. Never combine separate groups or invent a new subject. The sources field must "
-        "contain at least two exact source_id values from the selected group, representing independent "
-        "publisher families. "
+        "You are the editorial director of Violin Prince. The creator has approved this channel identity: "
+        + CHANNEL_BRIEF + " "
+        "This is NOT a celebrity-news channel, musician-biography channel, competition-results channel, "
+        "or a generic music-news roundup. Never choose an individual violinist, singer, composer, musician "
+        "or celebrity as the main subject. Reject biographies, career journeys, personal profiles, prodigy "
+        "stories, competition winners and award announcements, even when they are widely reported. A person "
+        "may be mentioned only as brief context for a musical fact; the subject must remain a sound, instrument, "
+        "musical mechanism, melody, composition technique, song structure, production technique or cover. "
+        "Choose curiosity-driven, explainable facts about violin physics, instrument design, bow/string interaction, "
+        "acoustics, sound perception, melody, harmony, rhythm, song anatomy, arrangement, recording, music "
+        "production or music technology. Prefer a specific question with a surprising but verifiable answer. "
+        "If the available research only supports biographies, competitions, celebrity news or unrelated music news, "
+        "return skip rather than forcing a story. "
+        "Treat YouTube SEO Discovery context as limited audience-interest evidence only. Never describe public result "
+        "samples as search demand or search volume. Evidence-first selection is mandatory when eligible story groups "
+        "are supplied: choose exactly one provided group_id, include it as story_group_id, and base every factual "
+        "detail only on articles inside that group. Never combine separate groups or invent a new subject. The "
+        "sources field must contain at least two exact source_id values from the selected group, representing "
+        "independent publisher families. "
         "Do not invent facts, dates, statistics, motives, quotations or outcomes. Use only factual claims supported "
         "by supplied research. Every non-hook narration sentence must be supported by the wording of at least one "
         "readable direct article body, not merely a headline or broad topic overlap. Build each body sentence from "
-        "a specific statement in a readable article paragraph. Do not personify AI as feeling music, understanding "
-        "human experience, having a soul, or learning the deep meaning of every note unless the article explicitly "
-        "demonstrates that exact capability. Do not convert technical classification or emotion recognition into "
-        "a claim about consciousness or human-like feelings. The final sentence must present a sourced result, "
-        "limitation, or concrete implication rather than a poetic metaphor. Avoid unsupported emphasis such as "
-        "revolutionary, groundbreaking, exceptionally, fundamentally transforming, or claims about changing the "
-        "entire future of a field. When a source describes a current limitation or says a capability is future work, "
-        "state that limitation clearly and do not imply the complete capability already exists. Every research item "
-        "has a source_id. Prefer at least two source_id values from "
-        "different publisher_domain values. The sources field MUST contain one to three exact source_id values "
-        "copied from supplied research; never invent IDs or rewrite URLs. Items marked discovery_only may guide "
-        "topic selection but cannot support facts or be cited. Google News headline links are discovery leads only "
-        "and are not final citations. Only direct publisher article pages with readable evidence can be "
-        "retained in the final package. Do not output publisher homepages as article URLs. "
-        "Return a timeline array for dated events, each with event, date (YYYY-MM-DD), status "
-        "(completed, upcoming, ongoing, or unknown), and source_ids. Judge status against today's date. "
-        "Never describe an event as upcoming, scheduled, or something that 'will' happen when its date has passed. "
-        "Do not use song lyrics, copied scripts, named copyrighted characters, logos or identifiable living people in images. "
-        "Return JSON only with topic,title,story_group_id,hook,description,hashtags,narration_sentences,narrative_style,scenes,sources,timeline. "
+        "a specific statement in a readable article paragraph. Do not turn sound perception into a claim about "
+        "consciousness, and do not personify instruments or software as literally feeling or understanding music. "
+        "The final sentence must present a sourced result, limitation or concrete musical implication, not a poetic "
+        "metaphor. Avoid unsupported emphasis such as revolutionary, groundbreaking, exceptionally or fundamentally "
+        "transforming. State technical limitations clearly. "
+        "Return JSON only with story_type, topic, title, hook, description, hashtags, narration_sentences, "
+        "narrative_style, cover_payoff, scenes, sources, timeline and story_group_id. story_type MUST be exactly one "
+        "of: violin_physics, instrument_design, sound_and_perception, melody_and_composition, song_anatomy, "
+        "music_production, music_technology, violin_cover_breakdown. "
         "The narration_sentences field must be an array of exactly four separate, natural, complete spoken sentences. "
-        "Sentence 1 is a concise curiosity hook of 5–8 words and must be resolved by the ending. "
-        "No sentence may exceed 12 words; twelve is a maximum, not a target. "
-        "Vary sentence lengths naturally for spoken rhythm. Do not force equal lengths or any fixed per-sentence word budget. "
-        "Make every sentence complete and natural when spoken aloud, never padded. The Python composer checks each sentence independently and may correct only fields outside dynamic word limits. "
-        "Build context, reveal one memorable sourced detail, "
-        "and finish with a satisfying payoff. No greeting, filler padding, generic introduction or misleading clickbait. "
-        "Use a cinematic storytelling style for human-interest topics and a clear documentary style for factual discoveries. "
-        "Exactly 3 scenes. Each scene needs a concise caption of 9 words maximum, an original specific image_prompt "
-        "in English, a graphic_label of 1–3 words, and a graphic_detail of 4–10 words. The graphic_detail must clarify "
-        "the scene using only facts already supported by the supplied research or narration. Never invent a number, "
-        "date, measurement, comparison, quote, statistic, or causal claim for a graphic. If exact data is unavailable, "
-        "write a concise explanatory phrase rather than a statistic. Scene 1 must visualise the hook, scene 2 must show "
-        "the exact object/action/detail that makes this story distinctive, and scene 3 must visually resolve the story. "
-        "Use three clearly different compositions, not three unrelated stock images. Avoid generic musician portraits "
-        "unless the story specifically concerns a person. "
-        "Do not illustrate a metaphor as a factual event: for example, if only one instrument component travelled to orbit, "
-        "show that component in space rather than an entire violin floating there. Keep the main subject and visual motif "
-        "consistent across the three scenes. If no suitable story exists, return skip and reason."
+        "Sentence 1 is a concise curiosity hook of 5–8 words and must be resolved by the ending. No sentence may "
+        "exceed 12 words; twelve is a maximum, not a target. Vary sentence lengths naturally for spoken rhythm. "
+        "Build context, reveal one memorable sourced detail, and finish with a satisfying musical payoff. "
+        "cover_payoff is mandatory: describe the exact way a short original Violin Prince violin phrase or cover "
+        "demonstrates the fact. It must be a performance payoff, not background music. Never claim a creator take "
+        "exists; the production stage will identify whether an original creator recording is available. "
+        "Exactly 3 scenes. Each scene needs caption, image_prompt, graphic_label, graphic_detail and visual_mode. "
+        "visual_mode MUST be exactly one of: macro_3d, mechanism_3d, waveform, melody_map, comparison, "
+        "cover_performance. Scene 1 should establish the curiosity with a macro_3d or mechanism_3d hero image. "
+        "Scene 2 should explain the actual musical mechanism with a different visual mode. Scene 3 MUST use "
+        "cover_performance to pay off the explanation with space for the creator's real violin performance. "
+        "Use photorealistic 3D CGI render language: physically based wood, varnish, rosin, metal and string materials, "
+        "cinematic macro photography, believable scale, volumetric rim lighting, layered depth and controlled "
+        "depth-of-field. Use midnight navy, muted teal, antique gold and warm ivory as the recurring palette. "
+        "Use original visual metaphors and composition; do not imitate another creator's characters or exact style. "
+        "Never use generic stock portraits or make a real person the visual subject. No logos, watermarks, readable "
+        "text, lyrics or copyrighted notation in generated images. Exactly three distinct visual compositions must "
+        "tell one connected story. The graphic_detail may use only sourced facts or the narration; never invent a "
+        "number, date, measurement, comparison or statistic. If no suitable music-fact story exists, return skip."
     )
     compact = planner_research_items(items)
     if not compact:
@@ -3511,8 +3671,11 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
         "messages": [
             {"role": "system", "content": system + " Do not show reasoning. Return exactly one JSON object and no preamble or Markdown."},
             {"role": "user", "content":
-             "Create a 24-second story for Violin Prince's music-loving audience from these current research headlines. "
-             "Choose relevance and a strong visual story over generic trendiness. Avoid repeating prior topics. " +
+             "Create one 24-second curiosity-driven music-facts story for the creator-approved Violin Prince format. "
+             "The subject must be a violin, instrument, sound, melody, song structure, arrangement, music-production "
+             "or music-technology fact, never an individual musician biography, competition result or celebrity profile. "
+             "The final scene must demonstrate the fact through an original Violin Prince violin performance insert. "
+             "Choose a teachable fact and a strong visual explanation over generic trendiness. Avoid repeating prior topics. " +
              "Previously published topics to avoid: " + json.dumps(recent or [], ensure_ascii=False) +
              "\nYouTube SEO Discovery context (directional samples, not search volume): " +
              json.dumps(seo_context or {}, ensure_ascii=False) +
@@ -3941,10 +4104,15 @@ def camera_motion_filter(frame_count, scene_index=0):
 
 
 def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
-           audio_source="generated_ambient_fallback"):
+           audio_source="generated_ambient_fallback", performance_video_path=None):
     OUT.mkdir(parents=True, exist_ok=True)
     audio_path = WORK / "approved-audio"
     audio_path.write_bytes(audio_bytes)
+    performance_video_path = Path(performance_video_path) if performance_video_path else None
+    performance_video_info = (
+        probe_creator_performance_video(performance_video_path)
+        if performance_video_path and performance_video_path.is_file() else None
+    )
     clips = []
     scene_durations = scene_durations_from_narration(narration_info)
     for i, (scene, scene_seconds) in enumerate(zip(plan["scenes"], scene_durations)):
@@ -3960,26 +4128,61 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         else:
             image = make_image(visual_prompt, i)
         card = make_card(image, scene["caption"], i, plan.get("title", ""))
-        graphic = make_motion_graphic_card(
-            scene, i, plan, OUT / f"motion-graphic-{i + 1}.png"
-        )
         clip = OUT / f"scene-{i + 1}.mp4"
         frame_count = max(1, int(round(scene_seconds * FPS)))
+        graphic_pattern = make_motion_graphic_frames(
+            scene,
+            i,
+            plan,
+            OUT / f"motion-panel-{i + 1}",
+            frame_count,
+            FPS,
+            font,
+        )
         camera = camera_motion_filter(frame_count, i)
         panel_fade_out = max(0.0, scene_seconds - 0.34)
-        scene_filter = (
-            f"[0:v]{camera},format=rgba[base];"
-            f"[1:v]format=rgba,fade=t=in:st=0:d=0.30:alpha=1,"
-            f"fade=t=out:st={panel_fade_out:.3f}:d=0.28:alpha=1[panel];"
-            "[base][panel]overlay=x='(W-w)/2':"
-            "y='H-h-340-18*(1-min(1,t/0.30))':format=auto,format=yuv420p[v]"
-        )
-        command(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
-                 "-loop", "1", "-framerate", str(FPS), "-i", str(card),
-                 "-loop", "1", "-framerate", str(FPS), "-i", str(graphic),
-                 "-t", f"{scene_seconds:.3f}", "-filter_complex", scene_filter,
-                 "-map", "[v]", "-an", "-c:v", "libx264", "-preset", "veryfast",
-                 "-crf", "25", "-pix_fmt", "yuv420p", str(clip)])
+        if i == 2 and performance_video_info:
+            # The real creator take becomes the visual subject of the final scene.
+            # A blurred full-frame fill preserves the complete frame when the
+            # source is landscape; portrait footage remains edge-to-edge.
+            scene_filter = (
+                f"[0:v]setpts=PTS-STARTPTS,fps={FPS},"
+                f"tpad=stop_mode=clone:stop_duration={scene_seconds:.3f},"
+                f"trim=duration={scene_seconds:.3f},split=2[bgsrc][fgsrc];"
+                f"[bgsrc]scale={W}:{H}:force_original_aspect_ratio=increase,"
+                f"crop={W}:{H},boxblur=24:10,eq=brightness=-0.18:saturation=0.70[background];"
+                f"[fgsrc]scale={W}:{H}:force_original_aspect_ratio=decrease,"
+                f"pad={W}:{H}:(ow-iw)/2:(oh-ih)/2:color=0x06101D,"
+                "eq=contrast=1.04:saturation=0.92[foreground];"
+                "[background][foreground]overlay=0:0:shortest=1[base];"
+                f"[1:v]format=rgba,fade=t=in:st=0:d=0.30:alpha=1,"
+                f"fade=t=out:st={panel_fade_out:.3f}:d=0.28:alpha=1[panel];"
+                "[base][panel]overlay=x='(W-w)/2':"
+                "y='88-14*(1-min(1,t/0.30))':format=auto,format=yuv420p[v]"
+            )
+            scene_args = [
+                "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                "-i", str(performance_video_path),
+                "-start_number", "1", "-framerate", str(FPS), "-i", str(graphic_pattern),
+            ]
+        else:
+            scene_filter = (
+                f"[0:v]{camera},format=rgba[base];"
+                f"[1:v]format=rgba,fade=t=in:st=0:d=0.30:alpha=1,"
+                f"fade=t=out:st={panel_fade_out:.3f}:d=0.28:alpha=1[panel];"
+                "[base][panel]overlay=x='(W-w)/2':"
+                "y='H-h-340-18*(1-min(1,t/0.30))':format=auto,format=yuv420p[v]"
+            )
+            scene_args = [
+                "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                "-loop", "1", "-framerate", str(FPS), "-i", str(card),
+                "-start_number", "1", "-framerate", str(FPS), "-i", str(graphic_pattern),
+            ]
+        command(scene_args + [
+            "-t", f"{scene_seconds:.3f}", "-filter_complex", scene_filter,
+            "-map", "[v]", "-an", "-c:v", "libx264", "-preset", "veryfast",
+            "-crf", "25", "-pix_fmt", "yuv420p", str(clip)
+        ])
         clips.append(clip)
 
     silent = OUT / "silent.mp4"
@@ -4011,23 +4214,54 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         bed_volume = "0.24"
     else:
         bed_volume = "0.26"
-    audio_filter = (
-        f"[1:a]volume={bed_volume}[bed];"
-        "[2:a]highpass=f=75,acompressor=threshold=-20dB:ratio=3:attack=12:release=180,"
-        "volume=1.15,asplit=2[voice_sc][voice_mix];"
-        "[bed][voice_sc]sidechaincompress=threshold=0.035:ratio=10:attack=18:release=620:knee=4:makeup=1[duckedbed];"
-        "[duckedbed][voice_mix]amix=inputs=2:duration=longest:dropout_transition=1,"
-        "loudnorm=I=-16:TP=-1.5:LRA=11,"
-        "afade=t=in:st=0:d=0.5,afade=t=out:st=22:d=2[aout]"
+    # Scene 3 starts at the second xfade offset, which overlaps the prior scene
+    # by two transition durations. Align the real performance audio to that same
+    # frame so it does not enter a fraction of a second late.
+    performance_start = max(0.0, sum(scene_durations[:2]) - 2 * transition_seconds)
+    performance_audio_seconds = (
+        min(scene_durations[2], performance_video_info["duration_seconds"])
+        if performance_video_info and performance_video_info.get("has_audio") else 0.0
     )
+    if performance_audio_seconds >= 0.5:
+        delay_ms = int(round(performance_start * 1000))
+        bed_fade_start = max(0.0, performance_start - 0.25)
+        take_fade_start = max(0.0, performance_audio_seconds - 0.35)
+        audio_filter = (
+            f"[1:a]volume={bed_volume},afade=t=out:st={bed_fade_start:.3f}:d=0.50[bed];"
+            "[2:a]highpass=f=75,acompressor=threshold=-20dB:ratio=3:attack=12:release=180,"
+            "volume=1.15,asplit=2[voice_sc][voice_mix];"
+            f"[3:a]atrim=duration={performance_audio_seconds:.3f},asetpts=PTS-STARTPTS,"
+            "highpass=f=70,acompressor=threshold=-22dB:ratio=2.5:attack=10:release=220,"
+            "volume=0.95,afade=t=in:st=0:d=0.15,"
+            f"afade=t=out:st={take_fade_start:.3f}:d=0.35,adelay={delay_ms}:all=1[creator_take];"
+            "[bed][creator_take]amix=inputs=2:duration=first:dropout_transition=0[music];"
+            "[music][voice_sc]sidechaincompress=threshold=0.035:ratio=10:attack=18:release=620:knee=4:makeup=1[duckedbed];"
+            "[duckedbed][voice_mix]amix=inputs=2:duration=longest:dropout_transition=1,"
+            "loudnorm=I=-16:TP=-1.5:LRA=11,"
+            "afade=t=in:st=0:d=0.5,afade=t=out:st=22:d=2[aout]"
+        )
+        audio_inputs = ["-i", str(performance_video_path)]
+    else:
+        audio_filter = (
+            f"[1:a]volume={bed_volume}[bed];"
+            "[2:a]highpass=f=75,acompressor=threshold=-20dB:ratio=3:attack=12:release=180,"
+            "volume=1.15,asplit=2[voice_sc][voice_mix];"
+            "[bed][voice_sc]sidechaincompress=threshold=0.035:ratio=10:attack=18:release=620:knee=4:makeup=1[duckedbed];"
+            "[duckedbed][voice_mix]amix=inputs=2:duration=longest:dropout_transition=1,"
+            "loudnorm=I=-16:TP=-1.5:LRA=11,"
+            "afade=t=in:st=0:d=0.5,afade=t=out:st=22:d=2[aout]"
+        )
+        audio_inputs = []
     video_filter = "subtitles=work/output/narration.ass,format=yuv420p"
-    command(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
-             "-i", str(silent), "-stream_loop", "-1", "-i", str(audio_path),
-             "-i", str(narration_path),
-             "-map", "0:v:0", "-filter_complex", audio_filter, "-map", "[aout]",
-             "-t", "24", "-vf", video_filter, "-c:v", "libx264",
-             "-preset", "veryfast", "-crf", "24", "-pix_fmt", "yuv420p",
-             "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(final)])
+    command([
+        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+        "-i", str(silent), "-stream_loop", "-1", "-i", str(audio_path),
+        "-i", str(narration_path), *audio_inputs,
+        "-map", "0:v:0", "-filter_complex", audio_filter, "-map", "[aout]",
+        "-t", "24", "-vf", video_filter, "-c:v", "libx264",
+        "-preset", "veryfast", "-crf", "24", "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(final)
+    ])
     quality = validate_final_video(final)
     narration_end = max(
         [float(cue.get("end", 0)) for cue in narration_info.get("subtitle_cues", [])]
@@ -4040,11 +4274,24 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         "music_only_ending_seconds": round(max(0.0, 24.0 - narration_end), 2),
         "camera_motion": "scene-specific eased push-in and gentle drift",
         "motion_graphics": 3,
+        "motion_graphics_renderer": "deterministic per-frame animated music visual explainers",
+        "visual_engine": "photorealistic 3D-CGI scene plates with animated explainer overlays",
+        "visual_modes": [str(scene.get("visual_mode") or "waveform") for scene in plan.get("scenes", [])],
+        "creative_direction_version": CREATIVE_DIRECTION_VERSION,
         "subtitle_style": "animated sentence-level kinetic typography",
         "scene_transition": "0.35-second crossfade",
         "audio_source": audio_source,
-        "audio_mix": "voice-priority sidechain ducking with music recovery in pauses",
-        "creative_quality_version": 4,
+        "audio_mix": "voice-priority sidechain ducking; creator performance audio enters with Scene 3 when present",
+        "creator_performance_video": {
+            "inserted": bool(performance_video_info),
+            "duration_seconds": performance_video_info.get("duration_seconds") if performance_video_info else None,
+            "source_width": performance_video_info.get("width") if performance_video_info else None,
+            "source_height": performance_video_info.get("height") if performance_video_info else None,
+            "audio_inserted": bool(performance_audio_seconds >= 0.5),
+            "timeline_start_seconds": round(performance_start, 2) if performance_video_info else None,
+            "fit_mode": "aspect-preserving foreground with blurred fill" if performance_video_info else "prepared CGI scene fallback",
+        },
+        "creative_quality_version": 5,
     })
     (OUT / "quality_report.json").write_text(
         json.dumps(quality, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -4077,6 +4324,7 @@ def _package_paths():
         "plan": PACKAGE / "creative_plan.json",
         "metadata": PACKAGE / "stage.json",
         "audio": PACKAGE / "soundtrack.wav",
+        "performance_video": PACKAGE / "creator-performance-video",
         "narration": PACKAGE / "narration.wav",
         "research": PACKAGE / "research.json",
         "quality_control": PACKAGE / "quality_control.json",
@@ -4095,6 +4343,9 @@ def _read_package(require_images=False):
     except (OSError, json.JSONDecodeError) as exc:
         raise PipelineError("Prepared package contains invalid JSON metadata.") from exc
     narration_info = metadata.get("narration_info")
+    creative_issues = validate_creative_plan(plan)
+    if creative_issues:
+        raise PipelineError("Prepared package failed the Violin Prince creative-direction gate: " + " ".join(creative_issues))
     if not isinstance(plan.get("scenes"), list) or len(plan["scenes"]) != 3:
         raise PipelineError("Prepared package must contain exactly three planned scenes.")
     if not isinstance(narration_info, dict) or not narration_info.get("subtitle_cues"):
@@ -4143,7 +4394,7 @@ def _read_package(require_images=False):
         raise PipelineError("Prepared story does not have two dated publisher articles within the seven-day window.")
     review = metadata.get("story_review") or {}
     if require_images and review.get("approved") is not True:
-        raise PipelineError("Render blocked: the story has not received explicit human approval before Visuals.")
+        raise PipelineError("Render blocked: automated editorial quality gates did not clear this story before Visuals.")
     image_paths = [PACKAGE / f"scene-{index + 1}.jpg" for index in range(3)]
     if require_images:
         for path in image_paths:
@@ -4158,30 +4409,34 @@ def _read_package(require_images=False):
 
 
 def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
-    """Lock every image to one visual identity while giving each scene a distinct role."""
+    """Lock generated scene plates to the approved cinematic 3D-CGI visual identity."""
     prompt = str(scene.get("image_prompt", "")).strip()
     if not prompt:
-        raise PipelineError("A planned scene has no image prompt.")
+        raise PipelineError("A planned scene has no visual prompt.")
     shot_roles = (
-        "SHOT 1 — HOOK: an immediately readable establishing composition with one intriguing "
-        "focal subject and a strong silhouette; make the viewer curious.",
-        "SHOT 2 — DISTINCTIVE DETAIL: a closer, more intimate composition showing the exact "
-        "object, action or detail that makes this story different; avoid a generic posed portrait.",
-        "SHOT 3 — PAYOFF: a wider emotional resolution that visually connects back to the opening "
-        "image and makes the story feel complete.",
+        "SHOT 1 — HOOK: a bold macro 3D hero composition that makes the musical question instantly visible.",
+        "SHOT 2 — MECHANISM: a close scientific view that reveals the exact physical or musical detail.",
+        "SHOT 3 — PERFORMANCE PAYOFF: a cinematic violin-and-bow composition with clean space for the creator's real take.",
     )
-    subject = str((plan or {}).get("topic") or (plan or {}).get("title") or "the story")[:140]
+    subject = str((plan or {}).get("topic") or (plan or {}).get("title") or "the music fact")[:140]
+    mode = str(scene.get("visual_mode") or ("macro_3d" if index == 0 else "cover_performance" if index == 2 else "waveform")).strip().casefold()
+    mode_direction = VISUAL_MODE_PROMPTS.get(mode, VISUAL_MODE_PROMPTS["waveform"])
+    cover_payoff = str((plan or {}).get("cover_payoff") or "")[:180]
     prompt += (
-        f". Story subject: {subject}. {shot_roles[max(0, min(2, int(index)))]} "
-        "Keep the same visual world, recurring subject design and lighting logic across all three images. "
-        "Violin Prince visual identity: premium hand-painted cinematic editorial illustration, "
-        "clearly illustrated concept art rather than photography, refined painterly texture, "
-        "deep midnight navy, muted teal, antique gold and warm ivory highlights. "
-        "Layered foreground, midground and background with clear depth for gentle camera movement; "
-        "intentional negative space for subtitles, elegant cinematic lighting, precise focal detail. "
-        "No generic stock photography, no unrelated people, no text, no lettering, no logos, no watermark. "
-        "Respect real-world scale and the supplied story; symbolic imagery must not imply an unsupported fact. "
-        "Portrait 9:16 composition."
+        f" Story subject: {subject}. {shot_roles[max(0, min(2, int(index)))]} "
+        + mode_direction + " "
+        "Violin Prince visual identity: original high-end photorealistic 3D CGI, "
+        "physically based rendering, realistic violin wood grain and varnish, fine bow hair, "
+        "polished strings and metal fittings, believable instrument scale, cinematic macro lens, "
+        "volumetric rim lighting, layered foreground/midground/background, precise depth of field. "
+        "Use a disciplined palette of deep midnight navy, muted teal, antique gold and warm ivory. "
+        "Keep the same lighting logic, material finish and recurring visual motif across all three scenes. "
+        "This is original art direction, not a recreation of another creator's characters, shots or visual identity. "
+        "No generic stock photography, no celebrity likeness, no identifiable face, no unrelated people, "
+        "no logos, no watermark, no readable text, no song lyrics and no copyrighted notation. "
+        "Respect the exact sourced fact. A symbolic visual must never imply an unsupported event or measurement. "
+        "Portrait 9:16 composition. "
+        + ("Performance connection: " + cover_payoff + " " if cover_payoff else "")
     )
     clean_feedback = re.sub(r"\s+", " ", str(feedback or "")).strip()[:600]
     if clean_feedback:
@@ -4213,21 +4468,27 @@ def make_storyboard_preview(plan, image_paths, target):
         caption = "\n".join(textwrap.wrap(str(scene.get("caption", "")), width=28)[:2])
         draw.multiline_text((left, 808), f"SCENE {index + 1}  ·  {caption}",
                             font=font(16), fill=(245, 238, 226), spacing=3)
-    draw.text((44, 862), "Approve the visual direction before creating the final MP4.",
+    draw.text((44, 862), "Visual preview · Final render follows the automated quality gates.",
               font=font(16), fill=(185, 194, 207))
     canvas.save(target, "PNG", optimize=True)
     return target
 
 
-def _write_review_text(plan, target):
+def _write_review_text(plan, target, performance_video_asset=None):
+    performance_video_asset = performance_video_asset or {"available": False}
     lines = [
         "VIOLIN PRINCE — PRE-PRODUCTION STORY REVIEW",
         "",
-        "HUMAN REVIEW REQUIRED: Visual generation is locked until you approve this story.",
-        "Check the narration, event dates, and every direct publisher source below.",
+        "AUTOMATED QUALITY GATE: Visuals proceed after source, date, freshness and channel-fit checks pass.",
+        "This report preserves the narration, event dates, direct publisher sources and final-scene media status.",
+        "CREATOR PERFORMANCE VIDEO: " + ("uploaded — " + str(performance_video_asset.get("filename") or "private video") if performance_video_asset.get("available") else "not uploaded — generated Scene 3 fallback will be used"),
         "",
         "TITLE: " + str(plan.get("title", "")),
         "TOPIC: " + str(plan.get("topic", "")),
+        "APPROVED CHANNEL FORMAT: " + CHANNEL_BRIEF,
+        "STORY TYPE: " + str(plan.get("story_type", "")),
+        "COVER PERFORMANCE PAYOFF: " + str(plan.get("cover_payoff", "")),
+        "SCENE VISUAL MODES: " + ", ".join(str(scene.get("visual_mode", "")) for scene in plan.get("scenes", [])),
         "HOOK: " + str(plan.get("hook", "")),
         "",
         "NARRATION:",
@@ -4263,8 +4524,10 @@ def _write_review_text(plan, target):
         "QUALITY GATE:",
         json.dumps(plan.get("quality_control", {}), ensure_ascii=False, indent=2),
         "",
-        "VISUAL APPROVAL:",
-        "Do not start Visuals until you have reviewed this file and explicitly approve the story.",
+        "AUTOMATED EDITORIAL GATE:",
+        "The standing Violin Prince channel format is approved in creative_direction.py.",
+        "This story must pass its direct-source, date, freshness, narration and channel-fit checks.",
+        "Visuals proceeds automatically only when those checks pass; failed checks stop the run.",
     ])
     Path(target).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -4309,8 +4572,9 @@ def prepare_stage():
     """Create research, a source-audited story, narration and soundtrack; no visuals or MP4."""
     as_of = datetime.now(timezone.utc)
     claim_run()
-    asset, audio = get_audio()
-    report("running", "Preparing research, source verification, story, narration and background music bed.")
+    asset, audio = get_audio(prefer_creator_assets=False)
+    performance_video_asset, _ = get_creator_performance_video(include_bytes=False)
+    report("running", "Preparing sourced story, narration, violin bed and optional creator performance footage.")
     items = load_reusable_research()
     if items is None:
         items = research()
@@ -4392,6 +4656,9 @@ def prepare_stage():
         "learning_ready": bool((learning or {}).get("learning_ready")),
     }
     plan["quality_control"] = build_story_quality_report(plan, verified_sources, date_check, as_of=as_of)
+    plan["channel_fit"] = channel_fit_report(plan)
+    plan["quality_control"]["channel_fit"] = plan["channel_fit"]
+    plan["quality_control"]["creative_direction_version"] = CREATIVE_DIRECTION_VERSION
     if plan["quality_control"]["status"] != "passed":
         raise PipelineError("Story quality-control report did not pass. No narration or visuals were created.")
     topic, title = str(plan.get("topic", "")), str(plan.get("title", "Violin Prince Short"))
@@ -4408,51 +4675,55 @@ def prepare_stage():
         json.dumps(plan["quality_control"], ensure_ascii=False, indent=2), encoding="utf-8"
     )
     paths["metadata"].write_text(json.dumps({
-        "schema_version": 2,
+        "schema_version": 3,
         "prepared_run_id": RUN_ID,
         "asset": asset,
+        "performance_video": performance_video_asset,
         "narration_info": narration_info,
         "topic": topic,
         "title": title,
         "prepared_at": as_of.isoformat(),
         "stage": "prepared",
         "story_review": {
-            "status": "awaiting_human_review",
+            "status": "awaiting_automated_quality_gates",
             "approved": False,
             "approved_at": None,
             "approval_method": None,
         },
     }, ensure_ascii=False, indent=2), encoding="utf-8")
-    _write_review_text(plan, PACKAGE / "review.txt")
+    _write_review_text(plan, PACKAGE / "review.txt", performance_video_asset)
     log(
         "Story quality control passed: " +
         str(plan["quality_control"]["verified_source_count"]) +
         " direct publisher sources across independent domains; date checks passed."
     )
-    log("Prepared package saved. Review review.txt and quality_control.json; Visuals remains locked pending approval.")
-    report("prepared", "Source-audited story package is ready for human review; Visuals remains locked.", topic, title,
-           metadata={"stage": "prepared", "story_review": "awaiting_human_review",
+    log("Prepared package saved. Evidence and channel-fit checks passed; Visuals can proceed automatically.")
+    report("prepared", "Source-audited story package passed the automated editorial gates; Visuals can proceed.", topic, title,
+           metadata={"stage": "prepared", "story_review": "awaiting_automated_quality_gates",
                      "verified_sources": len(verified_sources), "date_check": "passed"})
     return 0
 
 
 def visuals_stage(feedback=""):
-    """Generate scene images only after an explicit review of the prepared story."""
+    """Generate scene images after the automated editorial and evidence checks pass."""
     if not CF_ACCOUNT or not CF_TOKEN:
         raise PipelineError("CF_ACCOUNT_ID and CF_AI_TOKEN are required for the Visuals stage.")
-    if os.environ.get("STORY_APPROVED", "false").strip().lower() not in ("true", "1", "yes"):
-        raise PipelineError(
-            "Visuals blocked: review the prepared-package/review.txt and quality_control.json first, "
-            "then re-run Visuals with story_approved=true."
-        )
     plan, metadata, _narration_info, paths, image_paths = _read_package(require_images=False)
+    creative_issues = validate_creative_plan(plan)
+    if creative_issues:
+        raise PipelineError(
+            "Automated channel-fit gate blocked Visuals: " + " ".join(creative_issues)
+        )
+    quality = plan.get("quality_control") or {}
+    if quality.get("status") != "passed":
+        raise PipelineError("Automated source/date/freshness quality gate did not pass; Visuals are blocked.")
     review = metadata.setdefault("story_review", {})
     if review.get("approved") is not True:
         review.update({
-            "status": "approved",
+            "status": "approved_by_automated_quality_gates",
             "approved": True,
             "approved_at": datetime.now(timezone.utc).isoformat(),
-            "approval_method": "manual_workflow_dispatch_input",
+            "approval_method": "automated_source_date_freshness_and_channel_fit_checks",
         })
     paths["metadata"].write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
     for index, scene in enumerate(plan["scenes"]):
@@ -4486,18 +4757,43 @@ def visuals_stage(feedback=""):
 
 
 def render_stage():
-    """Assemble an approved visual package without calling any AI service."""
+    """Assemble a quality-gated visual package without calling any AI service."""
     plan, metadata, narration_info, paths, image_paths = _read_package(require_images=True)
     topic = str(plan.get("topic", ""))
     title = str(plan.get("title", "Violin Prince Short"))
     audio = paths["audio"].read_bytes()
     if len(audio) < 4096:
         raise PipelineError("Prepared soundtrack is missing or unexpectedly small.")
-    log("Rendering from saved research, script, narration, soundtrack and scene images. No AI calls.")
-    audio_source = str(metadata.get("asset", {}).get("audio_source", "generated_ambient_fallback"))
+    log("Rendering from saved research, script, narration and scene images. Private media is fetched only now.")
+    active_audio_asset = metadata.get("asset", {})
+    audio_source = str(active_audio_asset.get("audio_source", "generated_ambient_fallback"))
+    private_audio_asset, private_audio_bytes = get_audio(
+        prefer_creator_assets=True, allow_fallback=False
+    )
+    if private_audio_bytes:
+        audio = private_audio_bytes
+        active_audio_asset = private_audio_asset
+        audio_source = str(private_audio_asset.get("audio_source", "uploaded_recording"))
+        log("Using the rights-confirmed private audio asset for the final mix.")
+    performance_video_asset = metadata.get("performance_video") or {"available": False}
+    performance_video_path = None
+    if performance_video_asset.get("available"):
+        fetched_video_asset, video_bytes = get_creator_performance_video(
+            include_bytes=True, asset_id=performance_video_asset.get("id")
+        )
+        private_media_dir = WORK / "private-media"
+        private_media_dir.mkdir(parents=True, exist_ok=True)
+        video_suffix = Path(fetched_video_asset.get("filename") or "creator-performance.mp4").suffix.lower()
+        if video_suffix not in PERFORMANCE_VIDEO_EXTENSIONS:
+            raise PipelineError("The downloaded creator performance video has an unsupported extension.")
+        performance_video_path = private_media_dir / ("creator-performance" + video_suffix)
+        performance_video_path.write_bytes(video_bytes)
+    if not audio_source:
+        audio_source = "generated_ambient_fallback"
     path, video_quality = render(
         plan, audio, paths["narration"], narration_info,
-        image_paths=image_paths, audio_source=audio_source
+        image_paths=image_paths, audio_source=audio_source,
+        performance_video_path=performance_video_path,
     )
     stored = upload(path)
     from publisher import publish_all
@@ -4517,11 +4813,15 @@ def render_stage():
         "narration": narration_info, "video_quality": video_quality,
         "captions": [scene["caption"] for scene in plan["scenes"]],
         "sources": plan.get("sources", []),
-        "audio_asset": metadata.get("asset", {}).get("filename", paths["audio"].name),
+        "audio_asset": active_audio_asset.get("filename", paths["audio"].name),
+        "performance_video_asset": {
+            key: value for key, value in performance_video_asset.items()
+            if key in ("id", "filename", "size_bytes", "content_type", "available", "source")
+        },
         "audio_source": audio_source,
-        "audio_license": metadata.get("asset", {}).get("license", ""),
-        "audio_source_library": metadata.get("asset", {}).get("source_library", ""),
-        "audio_attribution": metadata.get("asset", {}).get("attribution", ""),
+        "audio_license": active_audio_asset.get("license", ""),
+        "audio_source_library": active_audio_asset.get("source_library", ""),
+        "audio_attribution": active_audio_asset.get("attribution", ""),
         "duration_seconds": 24, "format": "9:16",
         "publishing_status": final_status, "publish_results": publish_result,
         "output_key": stored.get("object_key"), "prepared_run_id": metadata.get("prepared_run_id"),
