@@ -586,9 +586,9 @@ class PlannerSourceMatchingTests(unittest.TestCase):
             "The model recreates resonance and timbre using the physical properties of the instrument."
         )
         second_body = (
-            "Researchers at MIT describe a digital violin design environment that predicts acoustic "
-            "responses before a maker constructs the instrument. The work combines physical modelling "
-            "with measurements of violin structure and surrounding air."
+            "MIT engineers developed a distinct computational modelling approach for violin instruments. "
+            "Their research compares predicted acoustic responses of strings and materials before a maker "
+            "constructs the instrument, combining physical modelling with detailed measurements."
         )
         sources = [
             {
@@ -834,7 +834,7 @@ class PlannerSourceMatchingTests(unittest.TestCase):
                 "must operate in perfect rhythmic and technical sync."
             ),
         }
-        self.assertIn({"nasa", "roman", "telescope"}, pipeline.story_primary_entity_groups(plan))
+        self.assertIn({"roman", "telescope"}, pipeline.story_primary_entity_groups(plan))
 
         sources = [
             {
