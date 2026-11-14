@@ -1756,8 +1756,7 @@ def discover_source_first_story_groups(research_items, max_seed_queries=2, max_p
         "research_record_count": len(pooled),
         "verified_article_count": sum(
             1 for item in planner_research_items(pooled)
-            if item.get("source_eligibility") == "direct_publisher_article"
-            and len(str(item.get("evidence_text") or "")) >= 90
+            if _story_article_eligibility(item, as_of=as_of)[0]
         ),
         "as_of_utc": (
             parse_publication_timestamp(as_of)[0].isoformat().replace("+00:00", "Z")
@@ -2334,7 +2333,10 @@ def build_story_quality_report(plan, selected_sources, date_check, as_of=None):
         publisher_family_domain(item.get("publisher_domain") or urlparse(item.get("url", "")).netloc)
         for item in selected_sources
     })
-    direct_links = all(is_direct_publisher_article(item) for item in selected_sources)
+    direct_links = all(
+        is_direct_publisher_article(item) and item.get("article_page_verified") is True
+        for item in selected_sources
+    )
     expected_claim_sentences = max(
         0, len(narration_sentences(plan.get("narration_script", ""))) - 1
     )
@@ -3820,7 +3822,12 @@ def _read_package(require_images=False):
         str(source.get("publisher_domain") or urlparse(source.get("url", "")).netloc).lower().removeprefix("www.")
         for source in sources if isinstance(source, dict) and is_direct_publisher_article(source)
     }
-    direct_count = sum(1 for source in sources if isinstance(source, dict) and is_direct_publisher_article(source))
+    direct_count = sum(
+        1 for source in sources
+        if isinstance(source, dict)
+        and is_direct_publisher_article(source)
+        and source.get("article_page_verified") is True
+    )
     if direct_count < 2 or len(domains) < 2:
         raise PipelineError("Prepared story must retain at least two direct publisher articles from independent domains.")
     source_group = plan.get("source_group") or {}
@@ -3830,11 +3837,20 @@ def _read_package(require_images=False):
     if not allowed_ids or not verified_ids or not verified_ids.issubset(allowed_ids) or actual_ids != verified_ids:
         raise PipelineError("Prepared story citations do not match the exact verified source group.")
     freshness_sources = quality.get("freshness", {}).get("verified_sources", [])
-    if len(freshness_sources) < 2 or any(
-        item.get("freshness_status") not in ("preferred", "acceptable")
-        or item.get("age_hours") is None
-        or float(item.get("age_hours")) > FRESHNESS_MAX_AGE_HOURS
-        for item in freshness_sources if isinstance(item, dict)
+    freshness_ids = {
+        str(item.get("source_id") or "") for item in freshness_sources if isinstance(item, dict)
+    }
+    if (
+        len(freshness_sources) < 2
+        or len(freshness_ids) != len(freshness_sources)
+        or freshness_ids != verified_ids
+        or any(
+            not isinstance(item, dict)
+            or item.get("freshness_status") not in ("preferred", "acceptable")
+            or item.get("age_hours") is None
+            or float(item.get("age_hours")) > FRESHNESS_MAX_AGE_HOURS
+            for item in freshness_sources
+        )
     ):
         raise PipelineError("Prepared story does not have two dated publisher articles within the seven-day window.")
     review = metadata.get("story_review") or {}
