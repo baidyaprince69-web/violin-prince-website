@@ -2003,8 +2003,8 @@ def select_verified_story_sources(
         available = ", ".join(sorted(publisher_families)) or "none"
         scope_note = " inside the selected story group" if allowed_ids is not None else ""
         raise PipelineError(
-            f"Story quality gate blocked: only {len(selected)} relevant fresh article source(s){scope_note} "
-            f"with readable evidence were found; at least {minimum_sources} independent publishers are required. "
+            f"Story quality gate blocked: only {len(selected)} relevant direct publisher source(s){scope_note} "
+            f"inside the seven-day publication window were found; at least {minimum_sources} independent publishers are required. "
             f"Verified domains: {available}. No visuals were generated."
         )
     if allowed_ids is not None and not {
