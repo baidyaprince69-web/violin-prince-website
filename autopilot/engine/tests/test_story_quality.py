@@ -78,6 +78,22 @@ class StoryDateQualityTests(unittest.TestCase):
 
 
 class NarrationEvidenceQualityTests(unittest.TestCase):
+    def test_evidence_gate_reports_all_unsupported_body_sentences(self):
+        plan = {
+            "narration_script": (
+                "Can computers truly feel music? "
+                "New AI models can identify emotions in instrumental music with precision. "
+                "Researchers use convolutional neural networks for classification tasks. "
+                "Technology is learning the deep soul of each note."
+            )
+        }
+        with self.assertRaises(pipeline.PipelineError) as raised:
+            pipeline.validate_narration_against_sources(plan, self.sources)
+        message = str(raised.exception)
+        self.assertIn("narration sentence 2", message)
+        self.assertIn("narration sentence 3", message)
+        self.assertIn("narration sentence 4", message)
+
     def setUp(self):
         self.sources = [
             {
