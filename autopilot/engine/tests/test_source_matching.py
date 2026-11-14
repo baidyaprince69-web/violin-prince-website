@@ -616,6 +616,47 @@ class PlannerSourceMatchingTests(unittest.TestCase):
             {"publisher-one.example", "publisher-two.example"},
         )
 
+    def test_sibling_subdomains_of_one_publisher_count_as_one_outlet(self):
+        self.assertEqual(pipeline.publisher_family_domain("news.mit.edu"), "mit.edu")
+        self.assertEqual(pipeline.publisher_family_domain("oge.mit.edu"), "mit.edu")
+        self.assertEqual(pipeline.publisher_family_domain("news.example.co.uk"), "example.co.uk")
+        self.assertEqual(pipeline.publisher_family_domain("research.example.co.uk"), "example.co.uk")
+
+        plan = {
+            "topic": "MIT computational virtual violin",
+            "title": "MIT engineers create a virtual violin",
+            "description": "MIT engineers developed a physics-based computational violin model.",
+        }
+        sources = [
+            {
+                "title": "MIT engineers create a computational virtual violin",
+                "url": "https://news.mit.edu/2026/virtual-violin",
+                "publisher_domain": "news.mit.edu",
+                "publisher_name": "MIT News",
+                "evidence_text": (
+                    "MIT engineers developed a computational violin that reproduces the sound "
+                    "of a real instrument. The article explains how the model predicts resonance "
+                    "and timbre from the violin's physical structure."
+                ),
+            },
+            {
+                "title": "MIT virtual violin research and instrument design",
+                "url": "https://oge.mit.edu/oge_news/virtual-violin",
+                "publisher_domain": "oge.mit.edu",
+                "publisher_name": "MIT Office of Graduate Education",
+                "evidence_text": (
+                    "MIT researchers created a virtual violin model to simulate how a physical "
+                    "instrument produces sound. The report describes computational methods for "
+                    "testing changes to instrument design before carving wood."
+                ),
+            },
+        ]
+        with self.assertRaisesRegex(
+            pipeline.PipelineError,
+            "only 1 relevant direct publisher source",
+        ):
+            pipeline.select_verified_story_sources(plan, sources, minimum_sources=2)
+
     def test_unrelated_plan_does_not_get_random_source(self):
         plan = {
             "topic": "A deep ocean fossil discovery",
