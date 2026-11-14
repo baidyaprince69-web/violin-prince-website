@@ -66,6 +66,7 @@ class CreativeQualityTests(unittest.TestCase):
             self.assertIn("008BCAEB", content)
             self.assertIn(r"\kf", content)
             self.assertIn("remarkable", content)
+            self.assertIn("Style: VP,DM Sans,40", content)
 
     def test_photo_framing_is_stable_without_compulsory_zoom(self):
         filters = [pipeline.camera_motion_filter(120, index) for index in range(3)]
@@ -99,6 +100,21 @@ class CreativeQualityTests(unittest.TestCase):
             self.assertIn("Portrait 9:16 composition", prompt)
             self.assertLessEqual(len(prompt), 1800)
         self.assertEqual(len(set(prompts)), 3)
+
+    def test_brand_typefaces_load_with_distinct_display_and_reading_roles(self):
+        paths = pipeline._ensure_brand_fonts()
+        self.assertTrue(all(Path(path).is_file() for path in paths.values()))
+
+        display = pipeline.font(32, "regular", "serif")
+        reading = pipeline.font(22, "regular")
+        supporting = pipeline.font(22, "medium")
+        captions = pipeline.font(40, "bold")
+
+        self.assertEqual(display.getname()[0], "DM Serif Display")
+        self.assertEqual(reading.getname()[0], "DM Sans")
+        self.assertEqual(supporting.getname()[0], "DM Sans")
+        self.assertEqual(captions.getname()[0], "DM Sans")
+        self.assertNotEqual(reading.getname()[1], captions.getname()[1])
 
     def test_storyboard_preview_wraps_captions_without_overlapping_columns(self):
         with tempfile.TemporaryDirectory() as folder:
