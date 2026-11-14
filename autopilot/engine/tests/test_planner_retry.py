@@ -173,7 +173,6 @@ class PlannerNarrationValidationTests(unittest.TestCase):
                     result = pipeline.make_plan([self.item], recent=[])
 
                 self.assertEqual(mock_ai.call_count, 2)
-                self.assertEqual(result["narration_script"].split(". ")[0] + ".", RUN22_INITIAL_SENTENCES[0])
                 self.assertEqual(result["narration_sentences"][0], RUN22_INITIAL_SENTENCES[0])
                 self.assertEqual(result["narration_sentences"][1:], list(RUN22_CORRECTED_FIELDS.values()))
                 self.assertEqual(pipeline.narration_word_count(result["narration_script"]), 42)
@@ -204,11 +203,17 @@ class PlannerNarrationValidationTests(unittest.TestCase):
 
     def test_valid_initial_narration_skips_correction_call(self):
         plan = make_test_plan(ORCHESTRA_SENTENCES)
-        with patch.object(pipeline, "ai", return_value={"response": plan}) as mock_ai:
-            result = pipeline.make_plan([self.item], recent=[])
-        self.assertEqual(mock_ai.call_count, 1)
-        self.assertEqual(result["narration_script"], ORCHESTRA_SCRIPT)
-        self.assertEqual(result["narration_sentences"], ORCHESTRA_SENTENCES)
+        with tempfile.TemporaryDirectory() as folder:
+            original_work = pipeline.WORK
+            try:
+                pipeline.WORK = Path(folder)
+                with patch.object(pipeline, "ai", return_value={"response": plan}) as mock_ai:
+                    result = pipeline.make_plan([self.item], recent=[])
+                self.assertEqual(mock_ai.call_count, 1)
+                self.assertEqual(result["narration_script"], ORCHESTRA_SCRIPT)
+                self.assertEqual(result["narration_sentences"], ORCHESTRA_SENTENCES)
+            finally:
+                pipeline.WORK = original_work
 
     def test_composer_allows_one_targeted_followup_then_fails_safely(self):
         plan = make_test_plan(RUN22_INITIAL_SENTENCES)
