@@ -3,7 +3,6 @@ import json
 import os
 import sys
 import unittest
-from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 import xml.etree.ElementTree as ET
@@ -15,9 +14,6 @@ sys.path.insert(0, str(ENGINE))
 
 import run as pipeline
 
-
-def datetime_for_test(value):
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
 class GoogleNewsPublisherMetadataTests(unittest.TestCase):
