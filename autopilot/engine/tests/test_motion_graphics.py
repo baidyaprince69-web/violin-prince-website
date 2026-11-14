@@ -41,7 +41,7 @@ class MotionGraphicsDataTests(unittest.TestCase):
                     {"text": "resonance", "start": 1.7},
                 ],
             )
-            self.assertTrue(Path(pattern).is_file())
+            self.assertTrue(str(pattern).endswith("frame-%05d.png"))
             with Image.open(Path(temp_dir) / "frame-00012.png") as frame:
                 self.assertEqual(frame.size, (620, 260))
                 self.assertEqual(frame.mode, "RGBA")
