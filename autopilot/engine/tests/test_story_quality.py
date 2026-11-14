@@ -16,6 +16,39 @@ import run as pipeline
 class StoryDateQualityTests(unittest.TestCase):
     AS_OF = date(2026, 11, 14)
 
+
+    def test_timeline_year_conflicting_with_publisher_article_is_blocked(self):
+        sources = [
+            {
+                "source_id": "SRC_A",
+                "evidence_text": (
+                    "The World Soundtrack Awards will take place in Ghent from "
+                    "October 8–10, 2026, during Film Fest Gent."
+                ),
+            },
+            {
+                "source_id": "SRC_B",
+                "evidence_text": (
+                    "The 2026 World Soundtrack Awards programme runs from October 8 to 10, 2026."
+                ),
+            },
+        ]
+        with self.assertRaisesRegex(pipeline.PipelineError, "conflicts with publisher date evidence"):
+            pipeline.validate_timeline_date_against_sources("2025-10-10", sources, "World Soundtrack Awards")
+
+    def test_timeline_year_matching_publisher_article_is_allowed(self):
+        sources = [
+            {
+                "source_id": "SRC_A",
+                "evidence_text": "The World Soundtrack Awards take place October 8–10, 2026, in Ghent.",
+            }
+        ]
+        self.assertIsNone(
+            pipeline.validate_timeline_date_against_sources(
+                "2026-10-10", sources, "World Soundtrack Awards"
+            )
+        )
+
     def test_past_event_described_as_upcoming_is_blocked(self):
         plan = {
             "narration_script": "She will perform at the final on October 15, 2026.",
