@@ -38,6 +38,7 @@ The current cloud-first visual implementation is an incremental upgrade, with an
 - Preserve Kokoro's native token start/end timestamps instead of discarding them after sentence-level audio generation. The caption layer uses those timestamps for word-by-word karaoke highlighting and blocks the render when valid word timings are unavailable.
 - Replace the single heavy bold-font treatment with separate display, label and body-text roles. Scene headlines use a serif display face; explanatory text uses a lighter sans-serif face.
 - Simplify the explainer panel: the photograph stays dominant, the diagram occupies a compact upper-right window, and each story mode has a distinct animated visual instead of a repeated generic card.
+- The final type system uses **DM Serif Display** for editorial headlines and **DM Sans** for labels, supporting copy and word-synchronised captions. The WOFF2 assets are bundled with their original SIL Open Font License 1.1 notices in `engine/assets/fonts/`; fontTools creates local TTF working copies for Pillow and FFmpeg/libass. No remote font request is needed while rendering.
 - The previous video was technically encoded but was not visually quality-approved. A frame/contact-sheet review is required for the first render after this correction before treating the new style as accepted.
 
 Direct publishing remains disabled inside GitHub Actions. The ChatGPT-operated daily route publishes only through the connected Metricool account after the required YouTube audience setting is confirmed.
