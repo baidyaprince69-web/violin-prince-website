@@ -91,7 +91,7 @@ def _draw_mechanism_diagram(draw: ImageDraw.ImageDraw, progress: float, phase: f
     )
     arrow_x = 275 + int(progress * 24)
     draw.line((arrow_x, 24, arrow_x + 42, 24), fill=(74, 190, 185, 230), width=2)
-    draw.line((arrow_x + 33, 18, arrow_x + 42, 24, arrow_x + 33, 30),
+    draw.line(((arrow_x + 33, 18), (arrow_x + 42, 24), (arrow_x + 33, 30)),
               fill=(74, 190, 185, 230), width=2)
 
 
