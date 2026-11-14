@@ -335,7 +335,7 @@ def _voice_progress(time_value: float, duration: float, beats: list[dict]) -> fl
     last_start = float(beats[-1]["start"])
     finish_at = max(last_start, min(max(0.0, duration - 0.02), last_start + 0.55))
     keyframes.append((finish_at, 0.98))
-    return _spring_track(keyframes)(time_value)
+    return _spring_track(keyframes, damping=1.0)(time_value)
 
 
 def _voice_pulse(time_value: float, beats: list[dict]) -> float:
@@ -380,7 +380,7 @@ def make_motion_graphic_frames(
         for beat_index, beat in enumerate(beats):
             keyframes.append((float(beat["start"]), 0.12 + 0.76 * (beat_index + 1) / len(beats)))
         keyframes.append((max(float(beats[-1]["start"]), min(max(0.0, duration - 0.02), float(beats[-1]["start"]) + 0.55)), 0.98))
-        progress_track = _spring_track(keyframes)
+        progress_track = _spring_track(keyframes, damping=1.0)
 
     label = _clean(scene.get("graphic_label") or f"STORY BEAT {index + 1}", 28).upper()
     caption = _clean(scene.get("caption") or plan.get("title") or "Music, explained", 88)
