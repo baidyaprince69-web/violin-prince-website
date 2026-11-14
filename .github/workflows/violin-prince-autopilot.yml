@@ -59,7 +59,7 @@ jobs:
       - name: Validate stage inputs
         shell: bash
         env:
-          SELECTED_STAGE: ${{ github.event_name == 'schedule' && 'prepare' || inputs.stage || 'full' }}
+          SELECTED_STAGE: ${{ inputs.stage || 'full' }}
           SOURCE_RUN_ID: ${{ inputs.source_run_id }}
           AUTOPILOT_API_URL: ${{ secrets.AUTOPILOT_API_URL }}
           AUTOPILOT_JOB_TOKEN: ${{ secrets.AUTOPILOT_JOB_TOKEN }}
@@ -129,38 +129,6 @@ jobs:
           done
           if [ "$missing" -ne 0 ]; then exit 1; fi
 
-      - name: Read queued Prepare recovery request
-        id: prepare_request
-        if: github.event_name == 'push' && env.PIPELINE_STAGE == 'prepare'
-        shell: bash
-        run: |
-          python - <<'PY'
-          import json
-          import os
-          import re
-          from pathlib import Path
-
-          request_path = Path(".autopilot/prepare-request.json")
-          if not request_path.is_file():
-              raise SystemExit("Queued Prepare request file is missing.")
-          request = json.loads(request_path.read_text(encoding="utf-8"))
-          mode = str(request.get("mode") or "recover").strip().casefold()
-          source_run_id = str(request.get("source_run_id") or "").strip()
-          if mode == "fresh":
-              if source_run_id:
-                  raise SystemExit("Fresh Prepare requests must not include source_run_id.")
-              message = "Queued fresh Prepare request loaded; discovery will run without reusing an earlier research artifact."
-          elif mode == "recover":
-              if not re.fullmatch(r"[0-9]+", source_run_id):
-                  raise SystemExit("Recovery Prepare requests require a numeric source_run_id.")
-              message = "Queued recovery Prepare request loaded; the selected earlier research artifact will be reused."
-          else:
-              raise SystemExit("Queued Prepare request mode must be 'fresh' or 'recover'.")
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write("source_run_id=" + source_run_id + "\n")
-              output.write("mode=" + mode + "\n")
-          print(message)
-          PY
       - name: Restore the latest encrypted SEO learning snapshot
         if: env.PIPELINE_STAGE == 'prepare'
         uses: actions/checkout@v4
@@ -352,9 +320,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cloud-video-preview-${{ github.run_id }}
-          path: |
-            work/output/violin-prince-short.mp4
-            work/output/publish-manifest.json
+          path: work/output/violin-prince-short.mp4
           if-no-files-found: error
           retention-days: 14
 
