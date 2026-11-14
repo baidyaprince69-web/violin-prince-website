@@ -2,6 +2,7 @@
 """Free-first cloud producer. Never switches to a paid service."""
 import argparse, base64, hashlib, json, os, re, shutil, subprocess, sys, textwrap, time, uuid, wave
 from io import BytesIO
+import difflib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from html.parser import HTMLParser
 from html import unescape as html_unescape
@@ -856,6 +857,112 @@ def source_supports_story(plan, item, minimum_score=0.20):
     return True
 
 
+NARRATION_EMPHASIS_TERMS = {
+    "advanced", "best", "breakthrough", "entire", "exceptional", "exceptionally",
+    "first", "fundamentally", "groundbreaking", "highly", "incredible", "incredibly",
+    "leading", "only", "revolution", "revolutionary", "sophisticated", "transform",
+    "transformed", "transforming", "transformative", "unprecedented", "worldwide",
+}
+
+
+def _narration_evidence_tokens(value):
+    """Normalize common English inflections while retaining the original word forms."""
+    words = source_tokens(value)
+    normalized = set(words)
+    for word in words:
+        if len(word) > 5 and word.endswith("ies"):
+            normalized.add(word[:-3] + "y")
+        elif len(word) > 6 and word.endswith("ing"):
+            stem = word[:-3]
+            if len(stem) > 2 and stem[-1] == stem[-2]:
+                stem = stem[:-1]
+            normalized.add(stem)
+        elif len(word) > 5 and word.endswith("ed"):
+            stem = word[:-2]
+            if len(stem) > 2 and stem[-1] == stem[-2]:
+                stem = stem[:-1]
+            normalized.add(stem)
+        elif len(word) > 5 and word.endswith("es"):
+            normalized.add(word[:-2] + "e")
+        elif len(word) > 4 and word.endswith("s"):
+            normalized.add(word[:-1])
+        elif len(word) > 6 and word.endswith("ly"):
+            normalized.add(word[:-2])
+    return normalized
+
+
+def narration_evidence_report(plan, verified_sources, minimum_coverage=0.60):
+    """Require each factual narration sentence to be substantially grounded in article text."""
+    script = str(plan.get("narration_script") or "").strip()
+    sentences = narration_sentences(script)
+    evidence_by_source = []
+    for source in verified_sources:
+        source_text = " ".join((
+            str(source.get("title") or ""),
+            str(source.get("evidence_text") or ""),
+        ))
+        evidence_by_source.append((
+            str(source.get("source_id") or ""),
+            _narration_evidence_tokens(source_text),
+        ))
+    evidence_tokens = set().union(*(tokens for _, tokens in evidence_by_source)) if evidence_by_source else set()
+
+    details = []
+    issues = []
+    for index, sentence in enumerate(sentences):
+        claim_tokens = _narration_evidence_tokens(sentence)
+        matched = claim_tokens.intersection(evidence_tokens)
+        coverage = len(matched) / len(claim_tokens) if claim_tokens else 0.0
+        supporting_ids = [
+            source_id for source_id, tokens in evidence_by_source
+            if source_id and len(claim_tokens.intersection(tokens)) >= 2
+        ]
+        unsupported_emphasis = sorted(
+            claim_tokens.intersection(NARRATION_EMPHASIS_TERMS) - evidence_tokens
+        )
+        details.append({
+            "sentence_number": index + 1,
+            "sentence": sentence,
+            "claim_token_count": len(claim_tokens),
+            "supported_token_count": len(matched),
+            "support_coverage": round(coverage, 3),
+            "unsupported_emphasis_terms": unsupported_emphasis,
+            "supporting_source_ids": supporting_ids,
+        })
+
+        # The opening line is a curiosity question; the following three lines carry
+        # the factual explanation and must be checked against the verified articles.
+        if index == 0:
+            continue
+        required = max(2, int(len(claim_tokens) * minimum_coverage + 0.999999))
+        if not claim_tokens:
+            issues.append(f"Sentence {index + 1} contains no checkable factual detail.")
+        elif len(matched) < required:
+            issues.append(
+                f"Sentence {index + 1} is only {coverage:.0%} supported by the selected article text; "
+                f"at least {minimum_coverage:.0%} is required."
+            )
+        if unsupported_emphasis:
+            issues.append(
+                f"Sentence {index + 1} contains unsupported emphasis or impact terms: "
+                + ", ".join(unsupported_emphasis) + "."
+            )
+
+    if len(sentences) != 4:
+        issues.append(f"Narration has {len(sentences)} sentences; exactly 4 are required.")
+    if len(evidence_by_source) < 2:
+        issues.append("Narration evidence check requires at least two verified direct publisher sources.")
+
+    return {
+        "status": "blocked" if issues else "passed",
+        "minimum_sentence_support_coverage": minimum_coverage,
+        "checked_sentence_count": len(sentences),
+        "hook_is_question_only": True,
+        "sentences": details,
+        "issues": issues,
+    }
+
+
 def validate_and_bind_timeline_sources(plan, verified_sources):
     """Bind each dated/factual timeline event to a verified article supporting it."""
     timeline = plan.get("timeline", [])
@@ -1212,16 +1319,30 @@ def research_story_sources(plan, existing_items):
 
 
 def source_content_similarity(left, right):
-    """Compare normalized article-body wording to detect syndicated/reposted copies."""
-    left_tokens = source_tokens(left.get("evidence_text", ""))
-    right_tokens = source_tokens(right.get("evidence_text", ""))
+    """Detect copied articles even when one publisher adds boilerplate or a disclaimer."""
+    left_tokens = [
+        word for word in re.findall(r"[a-z0-9]{3,}", str(left.get("evidence_text", "")).casefold())
+        if word not in SOURCE_MATCH_STOPWORDS
+    ]
+    right_tokens = [
+        word for word in re.findall(r"[a-z0-9]{3,}", str(right.get("evidence_text", "")).casefold())
+        if word not in SOURCE_MATCH_STOPWORDS
+    ]
     if min(len(left_tokens), len(right_tokens)) < 30:
         return 0.0
-    shared = len(left_tokens.intersection(right_tokens))
-    union = len(left_tokens.union(right_tokens))
+    left_set, right_set = set(left_tokens), set(right_tokens)
+    shared = len(left_set.intersection(right_set))
+    union = len(left_set.union(right_set))
     jaccard = shared / union if union else 0.0
-    containment = shared / min(len(left_tokens), len(right_tokens))
-    return max(jaccard, containment if containment >= 0.95 else 0.0)
+    containment = shared / min(len(left_set), len(right_set)) if left_set and right_set else 0.0
+    sequence_similarity = difflib.SequenceMatcher(
+        None, left_tokens, right_tokens, autojunk=False
+    ).ratio()
+    return max(
+        jaccard,
+        sequence_similarity,
+        containment if containment >= 0.95 else 0.0,
+    )
 
 def select_verified_story_sources(plan, research_items, minimum_sources=2):
     """Select relevant, excerpt-backed, direct article links from independent publishers."""
@@ -1259,7 +1380,7 @@ def select_verified_story_sources(plan, research_items, minimum_sources=2):
         duplicate_of = next(
             (
                 chosen for chosen in selected
-                if source_content_similarity(item, chosen) >= 0.88
+                if source_content_similarity(item, chosen) >= 0.80
             ),
             None,
         )
@@ -1301,6 +1422,14 @@ def prepare_story_with_source_recovery(items, recent=None, seo_context=None, max
             verified_sources = select_verified_story_sources(
                 plan, story_items, minimum_sources=2
             )
+            narration_check = narration_evidence_report(plan, verified_sources)
+            plan["narration_evidence"] = narration_check
+            if narration_check["status"] != "passed":
+                details = " | ".join(narration_check.get("issues", []))
+                raise PipelineError(
+                    "Story quality gate blocked: narration claims are not sufficiently supported "
+                    "by the selected direct publisher articles. " + details
+                )
             validate_and_bind_timeline_sources(plan, verified_sources)
             return plan, story_items, verified_sources
         except PipelineError as exc:
@@ -1455,10 +1584,13 @@ def build_story_quality_report(plan, selected_sources, date_check):
         for item in selected_sources
     })
     direct_links = all(is_direct_publisher_article(item) for item in selected_sources)
+    narration_evidence = plan.get("narration_evidence") or {}
+    narration_evidence_status = narration_evidence.get("status", "blocked")
     passed = (
         len(selected_sources) >= 2
         and len(publisher_families) >= 2
         and direct_links
+        and narration_evidence_status == "passed"
         and date_check.get("status") == "passed"
     )
     return {
@@ -1479,6 +1611,9 @@ def build_story_quality_report(plan, selected_sources, date_check):
                 ))
         ),
         "direct_publisher_article_links": direct_links,
+        "narration_evidence_status": narration_evidence_status,
+        "narration_sentence_evidence": narration_evidence.get("sentences", []),
+        "narration_evidence_issues": narration_evidence.get("issues", []),
         "date_check": date_check,
         "human_review_required": True,
         "human_review_status": "awaiting_approval",
@@ -2147,7 +2282,7 @@ def make_plan(items, recent=None, seo_context=None):
         "retail promotions and generic technology announcements, as well as tragedies, graphic events, violence, "
         "disasters and crimes. Pick the strongest specific story, not merely the loudest headline. "
         "Do not invent facts, dates, statistics, motives, quotations or outcomes. Use only factual claims supported "
-        "by supplied research. Every research item has a source_id. Prefer at least two source_id values from "
+        "by supplied research. Every factual narration sentence must be traceable to concrete details in the article evidence, not merely to the topic or theme. Do not claim a prototype or simulation is a consumer-ready instrument, playable product, or completed capability unless the sources say so. Do not claim an invention is transforming an industry, revolutionising music, or changing the future unless the articles explicitly establish that impact. Preserve technical limits and distinguish what the model currently demonstrates from work planned for later. Avoid unsupported hype adjectives. Every research item has a source_id. Prefer at least two source_id values from "
         "different publisher_domain values. The sources field MUST contain one to three exact source_id values "
         "copied from supplied research; never invent IDs or rewrite URLs. Items marked discovery_only may guide "
         "topic selection but cannot support facts or be cited. Google News headline links are discovery leads only "

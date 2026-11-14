@@ -992,5 +992,68 @@ class PlannerSourceMatchingTests(unittest.TestCase):
         self.assertEqual(selected, [])
 
 
+
+    def test_boilerplate_prefixed_copy_is_not_counted_as_an_independent_publisher(self):
+        plan = {
+            "topic": "MIT computational virtual violin",
+            "title": "MIT engineers create a virtual violin",
+            "description": (
+                "MIT engineers developed a computational virtual violin model that simulates "
+                "how vibrating strings and surrounding air produce sound."
+            ),
+        }
+        shared_body = (
+            "MIT engineers developed a physics-based computational violin model. "
+            "The model captures the physical response of vibrating strings and the surrounding air. "
+            "It enables luthiers to test design changes and estimate the sound before carving wood. "
+            "Researchers demonstrated two short musical excerpts using the model and plucked strings. "
+            "Bowing is not yet simulated and remains planned for future development. "
+        ) * 2
+        sources = [
+            {
+                "title": "MIT engineers' virtual violin produces realistic sounds",
+                "url": "https://www.eurekalert.org/news-releases/virtual-violin",
+                "publisher_domain": "eurekalert.org",
+                "publisher_name": "EurekAlert!",
+                "evidence_text": shared_body,
+            },
+            {
+                "title": "MIT engineers' virtual violin produces realistic sounds",
+                "url": "https://news.mit.edu/2026/virtual-violin",
+                "publisher_domain": "news.mit.edu",
+                "publisher_name": "MIT News",
+                "evidence_text": (
+                    "Image-use and copyright notice: images on this website are available "
+                    "under the publisher's stated licensing terms. " + shared_body
+                ),
+            },
+            {
+                "title": "MIT's virtual violin offers luthiers a new design tool",
+                "url": "https://arstechnica.com/science/2026/virtual-violin-design-tool",
+                "publisher_domain": "arstechnica.com",
+                "publisher_name": "Ars Technica",
+                "evidence_text": (
+                    "MIT engineers developed a computer simulation to help violin makers compare "
+                    "instrument designs before construction. The computational model estimates sound "
+                    "by modelling how strings interact with the air around a violin. Unlike sample-based "
+                    "software, the tool calculates the physical response of the instrument and can "
+                    "recreate the sound of plucked strings. The team demonstrated two short excerpts; "
+                    "bowed playing remains future development."
+                ),
+            },
+        ]
+
+        self.assertGreaterEqual(
+            pipeline.source_content_similarity(sources[0], sources[1]),
+            0.80,
+        )
+        selected = pipeline.select_verified_story_sources(plan, sources, minimum_sources=2)
+        self.assertEqual(len(selected), 2)
+        self.assertIn("arstechnica.com", {item["publisher_domain"] for item in selected})
+        self.assertEqual(
+            len({item["publisher_domain"] for item in selected}),
+            2,
+        )
+
 if __name__ == "__main__":
     unittest.main()
