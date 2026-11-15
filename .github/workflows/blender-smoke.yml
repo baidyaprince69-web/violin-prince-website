@@ -5,14 +5,18 @@ on:
     branches:
       - feature/blender-3d-overlays
     paths:
+      - "autopilot/engine/asset_resolver.py"
       - "autopilot/engine/blender_renderer.py"
       - "autopilot/engine/blender_scene.py"
+      - "autopilot/engine/tests/test_asset_resolver.py"
       - "autopilot/engine/tests/test_blender_renderer.py"
       - ".github/workflows/blender-smoke.yml"
   pull_request:
     paths:
+      - "autopilot/engine/asset_resolver.py"
       - "autopilot/engine/blender_renderer.py"
       - "autopilot/engine/blender_scene.py"
+      - "autopilot/engine/tests/test_asset_resolver.py"
       - "autopilot/engine/tests/test_blender_renderer.py"
       - ".github/workflows/blender-smoke.yml"
   workflow_dispatch:
@@ -25,12 +29,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      # Blender Eevee needs an EGL context. Use Mesa's software renderer on runners
-      # that do not expose a hardware GPU/display server.
       EGL_PLATFORM: surfaceless
       LIBGL_ALWAYS_SOFTWARE: "1"
       MESA_LOADER_DRIVER_OVERRIDE: llvmpipe
       BLENDER_RENDER_SAMPLES: "8"
+      SKETCHFAB_MODEL_URL: "https://sketchfab.com/3d-models/violin-0162dea1b1044cd281c57af5e5fc2046"
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -47,10 +50,34 @@ jobs:
           blender --version
           ffmpeg -version | head -n 1
 
-      - name: Install preview contact-sheet dependency
-        run: python -m pip install --upgrade pip Pillow
+      - name: Install preview dependencies
+        run: python -m pip install --upgrade pip requests Pillow
 
-      - name: Render one cinematic animated 3D violin scene
+      - name: Resolve the exact Sketchfab violin asset
+        id: asset
+        env:
+          SKETCHFAB_ACCESS_TOKEN: \${{ secrets.SKETCHFAB_ACCESS_TOKEN }}
+        run: |
+          python autopilot/engine/asset_resolver.py \
+            --model-url "$SKETCHFAB_MODEL_URL" \
+            --output-dir "$RUNNER_TEMP/violin-prince-blender-preview/assets"
+
+      - name: Explain reference-only result when model download is unavailable
+        if: steps.asset.outputs.downloaded != 'true'
+        run: |
+          {
+            echo "## Blender preview not rendered yet"
+            echo
+            echo "The Sketchfab resolver could not obtain an authorised, commercially suitable model file."
+            echo "It saved the model metadata, licence and creator attribution, and any permitted preview reference."
+            echo "To render this exact mesh, add a valid authenticated Sketchfab access token as the repository secret \`SKETCHFAB_ACCESS_TOKEN\`."
+            echo "No viewer scraping or procedural violin fallback is used."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Render the imported Sketchfab violin with cinematic camera movement
+        if: steps.asset.outputs.downloaded == 'true'
+        env:
+          BLENDER_VIOLIN_MODEL_PATH: \${{ steps.asset.outputs.model_path }}
         run: |
           python autopilot/engine/blender_renderer.py \
             --production-preview \
@@ -58,28 +85,30 @@ jobs:
             --resolution 360x640 \
             --fps 18
 
-      - name: Verify that the preview is a real encoded video
+      - name: Verify the actual Blender-rendered video
+        if: steps.asset.outputs.downloaded == 'true'
         run: |
           VIDEO="$RUNNER_TEMP/violin-prince-blender-preview/blender-full-3d-production-preview.mp4"
           ffprobe -v error \
             -show_entries format=duration:stream=codec_name,width,height,r_frame_rate \
             -of json "$VIDEO"
           DURATION="$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$VIDEO")"
-          python -c 'import sys; value=float(sys.argv[1]); assert value >= 2.8, f"preview too short: {value:.3f}s"; print(f"Verified animated preview duration: {value:.3f}s")' "$DURATION"
+          python -c 'import sys; value=float(sys.argv[1]); assert value >= 2.8, f"preview too short: {value:.3f}s"; print(f"Verified imported-model Blender preview duration: {value:.3f}s")' "$DURATION"
           test -s "$RUNNER_TEMP/violin-prince-blender-preview/blender-production-contact-sheet.jpg"
           test -s "$RUNNER_TEMP/violin-prince-blender-preview/blender-production-report.json"
           test -s "$RUNNER_TEMP/violin-prince-blender-preview/blender-scene-1-poster.png"
           test -s "$RUNNER_TEMP/violin-prince-blender-preview/blender-scene-1.mp4"
 
-      - name: Upload production preview and verification evidence
+      - name: Upload asset provenance and rendered production evidence
         uses: actions/upload-artifact@v4
         with:
-          name: violin-prince-full-3d-blender-preview
+          name: violin-prince-blender-model-and-preview
           path: |
-            ${{ runner.temp }}/violin-prince-blender-preview/blender-full-3d-production-preview.mp4
-            ${{ runner.temp }}/violin-prince-blender-preview/blender-production-contact-sheet.jpg
-            ${{ runner.temp }}/violin-prince-blender-preview/blender-production-report.json
-            ${{ runner.temp }}/violin-prince-blender-preview/blender-scene-*.mp4
-            ${{ runner.temp }}/violin-prince-blender-preview/blender-scene-*-poster.png
-          if-no-files-found: error
+            \${{ runner.temp }}/violin-prince-blender-preview/assets/**
+            \${{ runner.temp }}/violin-prince-blender-preview/blender-full-3d-production-preview.mp4
+            \${{ runner.temp }}/violin-prince-blender-preview/blender-production-contact-sheet.jpg
+            \${{ runner.temp }}/violin-prince-blender-preview/blender-production-report.json
+            \${{ runner.temp }}/violin-prince-blender-preview/blender-scene-*.mp4
+            \${{ runner.temp }}/violin-prince-blender-preview/blender-scene-*-poster.png
+          if-no-files-found: warn
           retention-days: 14
