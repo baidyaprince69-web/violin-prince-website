@@ -717,6 +717,33 @@ def build_scene(config):
 
     # Set the first frame explicitly after all camera keys are authored.
     scene.frame_set(1)
+    bpy.context.view_layer.update()
+
+    # Daily production must use the pinned Frame By Plane extension. It builds
+    # depth-separated image planes behind the real 3D hero model; it is not
+    # merely installed as an unused add-on.
+    frame_by_plane_report = None
+    background_manifest = str(config.get("frame_by_plane_manifest") or "").strip()
+    frame_by_plane_required = bool(config.get("frame_by_plane_required", False))
+    if frame_by_plane_required and not background_manifest:
+        raise RuntimeError("This daily scene requires a Frame By Plane background manifest.")
+    if background_manifest:
+        from frame_by_plane_adapter import build_frame_by_plane_background
+        instrument_front_y = (
+            float(asset_bounds["front_y"])
+            if isinstance(asset_bounds, dict) and asset_bounds.get("front_y") is not None
+            else -0.30
+        )
+        frame_by_plane_report = build_frame_by_plane_background(
+            background_manifest,
+            camera,
+            instrument_front_y,
+            frame_end,
+            expected_blender="5.2.4",
+            expected_extension="8.0.1",
+        )
+        if int(frame_by_plane_report.get("layer_count", 0)) < 3:
+            raise RuntimeError("Frame By Plane did not create the three required cinematic depth layers.")
 
     world = bpy.data.worlds.new("Violin Prince midnight atmosphere")
     world.use_nodes = True
@@ -763,6 +790,7 @@ def build_scene(config):
     scene.render.filepath = str(Path(config["output"]).resolve().with_suffix(""))
     scene.frame_set(1)
     bpy.ops.render.render(animation=True)
+    return frame_by_plane_report
 
 
 def main():
@@ -770,8 +798,10 @@ def main():
     config = json.loads(Path(args.config).read_text(encoding="utf-8"))
     config["output"] = args.output
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
-    build_scene(config)
-    print("BLENDER_FULL_FRAME_3D_RENDERED=" + str(Path(args.output).resolve()))
+    frame_by_plane_report = build_scene(config)
+    if frame_by_plane_report is not None:
+        print("FRAME_BY_PLANE_REPORT=" + json.dumps(frame_by_plane_report, ensure_ascii=False), flush=True)
+    print("BLENDER_FULL_FRAME_3D_RENDERED=" + str(Path(args.output).resolve()), flush=True)
 
 
 if __name__ == "__main__":
