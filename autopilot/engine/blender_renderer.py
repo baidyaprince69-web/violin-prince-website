@@ -245,6 +245,10 @@ def render_scene_video(
         "no_transparent_overlay": True,
         "camera_animation": True,
         "object_animation": True,
+        "model_asset": Path(model_asset_path).name if model_asset_path else None,
+        "asset_provenance_path": str(Path(model_asset_path).parent.parent / "asset-provenance.json")
+        if model_asset_path and (Path(model_asset_path).parent.parent / "asset-provenance.json").is_file()
+        else None,
         **media,
     }
 
