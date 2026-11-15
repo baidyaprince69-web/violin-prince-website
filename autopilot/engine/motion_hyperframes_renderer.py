@@ -98,7 +98,7 @@ def build_content_context(
     return {
         "title": _clean_text(plan.get("title"), 60),
         "topic": _clean_text(plan.get("topic"), 90),
-        "hook": _clean_text(plan.get("hook"), 140),
+        "hook": _clean_text(plan.get("hook"), 110),
         "narration_script": _clean_text(plan.get("narration_script"), 1800),
         "captions": [scene["caption"] for scene in scenes],
         "scenes": scenes,

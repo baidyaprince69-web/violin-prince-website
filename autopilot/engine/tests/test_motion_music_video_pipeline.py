@@ -15,18 +15,20 @@ import run_daily_plan as daily
 
 
 class MotionExplainerPipelineTests(unittest.TestCase):
-    def test_main_cli_blocks_motion_prepare_that_would_call_legacy_workers_ai(self):
+    def test_main_cli_routes_motion_prepare_and_full_to_chatgpt_plan_runner(self):
         for stage in ("prepare", "full"):
             with self.subTest(stage=stage), patch.dict(os.environ, {
                 "MOTION_HYPERFRAMES_RENDER_ENABLED": "true",
                 "BLENDER_RENDER_ENABLED": "false",
                 "PUBLISH_ENABLED": "false",
-            }), patch.object(pipeline, "prepare_stage") as prepare:
-                with self.assertRaisesRegex(
-                    pipeline.PipelineError, "ChatGPT-authored, source-verified plan"
-                ):
-                    pipeline.main(stage=stage)
-                prepare.assert_not_called()
+            }), patch.object(pipeline, "log"), patch.object(pipeline, "report"), patch.object(
+                pipeline, "make_plan",
+                side_effect=AssertionError("the retired Workers AI planner must not run"),
+            ), patch.object(
+                pipeline, "prepare_motion_music_video_stage",
+                side_effect=AssertionError("the retired instrumental-only preparer must not run"),
+            ):
+                self.assertEqual(pipeline.main(stage=stage), 1)
 
     def test_daily_plan_motion_route_uses_kokoro_and_skips_cloud_image_or_blender_paths(self):
         asset = {

@@ -5236,24 +5236,15 @@ def main(stage="full", visual_feedback=""):
     WORK.mkdir(exist_ok=True)
     OUT.mkdir(exist_ok=True)
     try:
-        motion_enabled = str(os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "false")).strip().lower() in {"1", "true", "yes", "on"}
-        if motion_enabled and stage in ("prepare", "full"):
+        if stage in ("prepare", "full"):
             raise PipelineError(
-                "Motion explainer preparation must use the ChatGPT-authored, source-verified plan "
-                "through autopilot/engine/run_daily_plan.py. This staged CLI must not call the "
-                "legacy Workers AI planning route or create an instrumental-only package."
+                "Prepare and Full production must use the ChatGPT-authored, source-verified plan "
+                "through autopilot/engine/run_daily_plan.py. The legacy staged Prepare route has "
+                "been retired; it must not create a second plan or bypass Kokoro narration."
             )
-        if stage == "prepare":
-            return prepare_stage()
         if stage == "visuals":
             return visuals_stage(visual_feedback)
         if stage == "render":
-            return render_stage()
-        if stage == "full":
-            if prepare_stage() != 0:
-                return 1
-            if visuals_stage(visual_feedback) != 0:
-                return 1
             return render_stage()
         raise PipelineError("Unknown pipeline stage: " + str(stage))
     except Exception as exc:
