@@ -6,6 +6,12 @@ on:
       - feature/blender-3d-overlays
     paths:
       - ".github/workflows/blender-proof-shot.yml"
+      - ".autopilot/first-production-story.json"
+      - "autopilot/engine/asset_resolver.py"
+      - "autopilot/engine/story_asset_resolver.py"
+      - "autopilot/engine/first_production_blender.py"
+      - "autopilot/engine/tests/test_asset_resolver.py"
+      - "autopilot/engine/tests/test_story_asset_resolver.py"
   workflow_dispatch:
 
 permissions:
