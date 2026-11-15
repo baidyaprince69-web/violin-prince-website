@@ -15,6 +15,8 @@ VOICE = "af_heart"
 LANG_CODE = "a"  # American English
 SAMPLE_RATE = 24000
 PAUSE_SECONDS = 0.16
+# Keep required 40–44-word Shorts narration within the 21.5-second voice limit.
+NARRATION_SPEED = 1.15
 
 
 def split_sentences(text: str) -> list[str]:
@@ -101,7 +103,7 @@ def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict
         sentence_start = cursor_samples / SAMPLE_RATE
         sentence_word_cues: list[dict] = []
 
-        for result in pipeline(sentence, voice=VOICE, speed=1.0):
+        for result in pipeline(sentence, voice=VOICE, speed=NARRATION_SPEED):
             raw_audio = _read_result_audio(result)
             if raw_audio is None:
                 raise RuntimeError("Kokoro returned a chunk without audio.")
@@ -218,6 +220,7 @@ def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict
         "engine": "Kokoro-82M",
         "model_license": "Apache-2.0",
         "voice": VOICE,
+        "speed": NARRATION_SPEED,
         "language": "English (American)",
         "voice_type": "synthetic_not_voice_cloned",
         "duration_seconds": round(float(info.duration), 2),
