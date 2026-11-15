@@ -130,6 +130,9 @@ class MotionExplainerPipelineTests(unittest.TestCase):
                     }), encoding="utf-8")
                     return 0
 
+                plan_path = root / "chatgpt-plan.json"
+                plan_path.write_text(json.dumps(plan), encoding="utf-8")
+
                 with patch.dict(os.environ, {
                     "MOTION_HYPERFRAMES_RENDER_ENABLED": "true",
                     "BLENDER_RENDER_ENABLED": "false",
@@ -148,7 +151,7 @@ class MotionExplainerPipelineTests(unittest.TestCase):
                     daily, "resolve_story_asset",
                     side_effect=AssertionError("Motion must not invoke the optional Blender asset resolver"),
                 ):
-                    result = daily.run_daily_plan(root / "chatgpt-plan.json")
+                    result = daily.run_daily_plan(plan_path)
 
                 self.assertEqual(result, 0)
                 render_stage.assert_called_once()
