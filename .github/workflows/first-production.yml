@@ -52,9 +52,9 @@ jobs:
     timeout-minutes: 120
     strategy:
       fail-fast: false
-      max-parallel: 4
+      max-parallel: 8
       matrix:
-        segment: [0, 1, 2, 3]
+        segment: [0, 1, 2, 3, 4, 5, 6, 7]
     env:
       EGL_PLATFORM: surfaceless
       LIBGL_ALWAYS_SOFTWARE: "1"
@@ -91,7 +91,7 @@ jobs:
               --width 540 --height 960 --fps 25 --duration 24 \
               --sample-index "$SEGMENT" \
               --sample-count 24 \
-              --total-samples 96 \
+              --total-samples 192 \
               --frames-dir work/frames \
               --project-path work/blender-visual.blend
           python - <<'PY'
@@ -177,7 +177,7 @@ jobs:
           sudo apt-get install -y ffmpeg fonts-dejavu-core
           python -m pip install --upgrade pip
           python -m pip install "Pillow>=10.4,<12"
-      - name: Download all 96 Blender frame samples
+      - name: Download all 192 Blender frame samples
         uses: actions/download-artifact@v4
         with:
           pattern: violin-prince-blender-frames-*
@@ -208,16 +208,16 @@ jobs:
           from pathlib import Path
           frames = sorted(Path("work/first-production/frames").glob("frame_*.png"))
           reports = sorted(Path("work/render-data/segment-reports").glob("segment-*.json"))
-          assert len(frames) == 96, f"Expected 96 Blender frames, found {len(frames)}"
-          assert len(reports) == 4, f"Expected four segment reports, found {len(reports)}"
+          assert len(frames) == 192, f"Expected 192 Blender frames, found {len(frames)}"
+          assert len(reports) == 8, f"Expected eight segment reports, found {len(reports)}"
           for report_path in reports:
               report = json.loads(report_path.read_text())
               assert report["sample_count"] == 24
               assert report["actual_imported_mesh_count"] >= 1
-          print("Verified 96 Blender frames across four parallel render workers.")
+          print("Verified 192 Blender frames across eight parallel render workers.")
           PY
           ffmpeg -y -hide_banner -loglevel error \
-            -framerate 4 -start_number 0 \
+            -framerate 8 -start_number 0 \
             -i work/first-production/frames/frame_%04d.png \
             -vf "minterpolate=fps=25:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1,scale=720:1280:flags=lanczos,format=yuv420p" \
             -an -c:v libx264 -preset medium -crf 18 \
@@ -256,7 +256,7 @@ jobs:
           assert (video_stream["width"], video_stream["height"]) == (720, 1280)
           assert audio_stream["codec_name"] == "aac" and audio_stream["channels"] == 2
           assert 23.5 <= duration <= 24.5, duration
-          assert len(list((root / "frames").glob("frame_*.png"))) == 96
+          assert len(list((root / "frames").glob("frame_*.png"))) == 192
           assert (root / "blender-visual.blend").is_file()
           assert (root / "assets" / "violin.glb").is_file()
           assert (root / "assets" / "asset-provenance.json").is_file()
@@ -271,8 +271,8 @@ jobs:
               "frame_rate": video_stream.get("r_frame_rate"),
               "video_codec": video_stream["codec_name"],
               "audio_codec": audio_stream["codec_name"],
-              "blender_render_samples": 96,
-              "parallel_blender_workers": 4,
+              "blender_render_samples": 192,
+              "parallel_blender_workers": 8,
               "output_fps": 25,
               "model_provider": asset["provider"],
               "model_license": asset["license"],
@@ -335,7 +335,7 @@ jobs:
           {
             echo "## First production completed — not published"
             echo
-            echo "- Blender: 96 frames distributed across four parallel CPU render workers"
+            echo "- Blender: 192 frames distributed across eight parallel CPU render workers"
             echo "- Motion: optical-flow interpolation to 25 FPS"
             echo "- Picture: actual imported CC0 violin GLB, animated camera, bow, 3D titles and resonance graphics"
             echo "- Audio: Kokoro narration, new CC0 sampled violin phrase, original transition effects"
