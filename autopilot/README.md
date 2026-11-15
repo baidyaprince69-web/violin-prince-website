@@ -11,9 +11,9 @@ A GitHub-native daily production pipeline for Violin Prince Shorts. ChatGPT prep
 5. **Motion and render:** the existing motion-graphics engine, timing system, Pillow composition and FFmpeg renderer assemble the final 9:16 video. FFprobe and the existing video QA validate the result.
 6. **Handoff:** GitHub Actions creates a release containing the MP4, \`publish-manifest.json\` and \`asset-provenance.json\`; it also uploads the MP4 and diagnostics as workflow artifacts.
 
-## No Cloudflare setup
+## Infrastructure
 
-This project does not use Cloudflare. It requires no Cloudflare account, email verification, Worker, D1 database, R2 bucket, Workers AI token, Wrangler CLI or Cloudflare deployment workflow.
+This project requires no external infrastructure account, service registration, database, object-storage bucket, AI provider token or vendor deployment workflow.
 
 The production route uses GitHub Actions, Python, Pillow, FFmpeg, Kokoro, the bundled CC0 violin sample library and the ChatGPT-prepared plan. The Autopilot page is a static control-room page linking to GitHub Actions, releases and source code.
 

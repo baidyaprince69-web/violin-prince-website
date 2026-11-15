@@ -45,7 +45,7 @@ jobs:
       - name: Run narration composer regressions
         run: python -m unittest autopilot.engine.tests.test_planner_retry -v
 
-      - name: Verify GitHub-native production has no Cloudflare dependency
+      - name: Verify GitHub-native production has no retired service configuration
         shell: bash
         run: |
           set -euo pipefail
@@ -59,8 +59,8 @@ jobs:
             ".github/workflows/violin-prince-autopilot.yml"
             ".github/workflows/autopilot-checks.yml"
           )
-          if grep -niE 'Cloudflare|cloudflare|CF_ACCOUNT_ID|CF_AI_TOKEN|AUTOPILOT_API_URL|AUTOPILOT_JOB_TOKEN|workers\.dev|wrangler|R2 bucket|D1 database' "\${files[@]}"; then
-            echo "::error::A Cloudflare dependency or setup instruction remains."
+          if grep -niE 'CF_ACCOUNT_ID|CF_AI_TOKEN|AUTOPILOT_API_URL|AUTOPILOT_JOB_TOKEN|workers\.dev|wrangler|R2 bucket|D1 database|GITHUB_DISPATCH_TOKEN|DASHBOARD_TOKEN' "\${files[@]}"; then
+            echo "::error::A retired external-service configuration remains."
             exit 1
           fi
           test ! -e ".github/workflows/deploy-autopilot-cloudflare.yml"
