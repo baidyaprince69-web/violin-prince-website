@@ -391,7 +391,38 @@ def run_daily_plan(plan_path: Path) -> int:
                 access_token=os.environ.get("SKETCHFAB_ACCESS_TOKEN"),
             )
         except StoryAssetError as exc:
-            raise engine.PipelineError("Story-specific 3D model gate blocked production: " + str(exc)) from exc
+            # Keep the detailed resolver diagnostic in the run log. The top-level
+            # resolver exception includes a large JSON payload which GitHub's
+            # shortened error lines can truncate before the actual download reason.
+            diagnostic_path = engine.WORK / "story-assets" / "asset-resolution-diagnostic.json"
+            diagnostic = {}
+            try:
+                if diagnostic_path.is_file():
+                    diagnostic = json.loads(diagnostic_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                diagnostic = {}
+            base_message = str(exc).split("Diagnostic:", 1)[0].strip()
+            failure_details = []
+            for failure in (diagnostic.get("attempted") or [])[:3]:
+                if not isinstance(failure, dict):
+                    continue
+                model_name = str(failure.get("model_name") or failure.get("model_uid") or "Selected model")
+                detail = str(failure.get("error") or "").strip()
+                if detail:
+                    failure_details.append(model_name + ": " + detail[:260])
+            if not failure_details:
+                for failure in (diagnostic.get("preferred_model_errors") or [])[:2]:
+                    if isinstance(failure, dict):
+                        detail = str(failure.get("error") or "").strip()
+                        if detail:
+                            failure_details.append("Preferred model metadata: " + detail[:260])
+            if not failure_details:
+                failure_details.append("No per-model download detail was written by the resolver.")
+            detail_text = " Download detail: " + " | ".join(failure_details)
+            raise engine.PipelineError(
+                "Story-specific 3D model gate blocked production: "
+                + base_message + detail_text
+            ) from exc
         model_path = str(model_asset.get("local_model_path") or "")
         if not model_path:
             raise engine.PipelineError("Story asset resolver returned no actual 3D model path.")
