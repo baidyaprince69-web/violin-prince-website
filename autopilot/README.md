@@ -314,3 +314,6 @@ The render report and artifact retain `asset-provenance.json` so the model's cre
 ## First production review run
 
 The one-off first production job renders a full 24-second Blender film from an imported licensed violin GLB, creates Kokoro narration and a new CC0 sampled-violin backing phrase, then exports a review-only MP4 and editable project bundle. The review job is gated by the `[run-first-production]` marker in draft PR #48. It does not publish or schedule YouTube uploads.
+
+
+The Linux Blender runner installs the distribution-matched `python3-numpy` package because Blender's GLTF importer imports NumPy from Blender's embedded Python runtime. The workflow verifies NumPy from inside Blender before attempting mesh import; a missing dependency must stop the render.
