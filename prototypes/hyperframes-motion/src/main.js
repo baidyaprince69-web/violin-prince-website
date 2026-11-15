@@ -81,9 +81,10 @@ if (captionKicker) {
 
 // The explainer diagram is data-driven. It only displays facts supplied by the
 // approved planner; it never manufactures measurements or process steps.
-function makeDiagramNode(label, value = "") {
+function makeDiagramNode(label, value = "", index = 0) {
   const node = document.createElement("div");
   node.className = "diagram-node";
+  node.dataset.diagramIndex = String(index);
   const title = document.createElement("span");
   title.className = "diagram-node-label";
   title.textContent = label || "Key detail";
@@ -104,13 +105,15 @@ function renderDiagram(scene) {
     : {};
   const items = Array.isArray(graphic.items) ? graphic.items.slice(0, 4) : [];
   const kind = String(graphic.type || "").toLowerCase();
+  diagramItems.dataset.diagramKind = kind || "explanation";
 
   if (kind === "process_flow" && items.length >= 2) {
     items.forEach((item, index) => {
-      diagramItems.appendChild(makeDiagramNode(item.label, ""));
+      diagramItems.appendChild(makeDiagramNode(item.label, "", index));
       if (index < items.length - 1) {
         const arrow = document.createElement("span");
         arrow.className = "diagram-arrow";
+        arrow.dataset.diagramIndex = String(index + 0.5);
         arrow.textContent = "→";
         diagramItems.appendChild(arrow);
       }
@@ -122,7 +125,7 @@ function renderDiagram(scene) {
     const values = items.map((item) => Math.max(0, Number(item.value) || 0));
     const maximum = Math.max(...values, 1);
     items.forEach((item, index) => {
-      const node = makeDiagramNode(item.label, item.display || "");
+      const node = makeDiagramNode(item.label, item.display || "", index);
       const track = document.createElement("div");
       track.className = "diagram-bar-track";
       const bar = document.createElement("div");
@@ -141,6 +144,56 @@ function renderDiagram(scene) {
     (scene?.graphic_detail ? " — " + scene.graphic_detail : "") ||
     "MOTION + HYPERFRAMES VISUAL TEST";
   diagramItems.appendChild(fallback);
+}
+
+function sceneTimingRange(sceneIndex) {
+  if (narrationWords.length) {
+    const sentenceMinimum = sceneIndex === 0 ? 0 : sceneIndex === 1 ? 1 : 3;
+    const sentenceMaximum = sceneIndex === 0 ? 0 : sceneIndex === 1 ? 2 : Number.POSITIVE_INFINITY;
+    const cues = narrationWords.filter((cue) => {
+      const sentence = Number(cue.sentence_index || 0);
+      return sentence >= sentenceMinimum && sentence <= sentenceMaximum;
+    });
+    if (cues.length) {
+      return {
+        start: Number(cues[0].start),
+        end: Number(cues[cues.length - 1].end),
+      };
+    }
+  }
+  return {
+    start: DURATION * sceneIndex / 3,
+    end: DURATION * (sceneIndex + 1) / 3,
+  };
+}
+
+// Reveal each approved process step as its corresponding sentence is spoken.
+// The result is a pure function of the seek time, so random-access rendering is
+// deterministic and does not depend on previous frames.
+function syncDiagramMotion(seconds, sceneIndex) {
+  const children = Array.from(diagramItems.children);
+  if (!children.length) return;
+  const range = sceneTimingRange(sceneIndex);
+  const span = Math.max(0.6, range.end - range.start);
+  const progress = Math.max(0, Math.min(1, (seconds - range.start) / span));
+  const nodeCount = children.filter((element) => element.classList.contains("diagram-node")).length;
+  children.forEach((element) => {
+    const rawIndex = Number(element.dataset.diagramIndex || 0);
+    const revealAt = Math.max(0, Math.min(0.82, (rawIndex / Math.max(1, nodeCount)) * 0.82));
+    const reveal = Math.max(0, Math.min(1, (progress - revealAt) / 0.12));
+    element.style.opacity = reveal.toFixed(4);
+    if (element.classList.contains("diagram-arrow")) {
+      element.style.transform = "translateX(" + ((1 - reveal) * 14).toFixed(2) + "px)";
+    } else {
+      element.style.transform = "translateY(" + ((1 - reveal) * 22).toFixed(2) + "px) scale(" +
+        (0.96 + reveal * 0.04).toFixed(4) + ")";
+    }
+    const bar = element.querySelector(".diagram-bar");
+    if (bar) {
+      bar.style.transformOrigin = "center bottom";
+      bar.style.transform = "scaleY(" + reveal.toFixed(4) + ")";
+    }
+  });
 }
 
 function sceneIndexForSentence(sentenceIndex) {
@@ -198,6 +251,7 @@ function syncScene(seconds) {
     renderDiagram(scene);
     lastSceneIndex = nextIndex;
   }
+  syncDiagramMotion(seconds, nextIndex);
 }
 
 function syncNarrationCaption(seconds) {
