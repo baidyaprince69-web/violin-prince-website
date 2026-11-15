@@ -78,7 +78,7 @@ class BlenderRendererTests(unittest.TestCase):
             with Image.open(output_path) as composite:
                 self.assertEqual(composite.size, (720, 1280))
                 self.assertEqual(composite.mode, "RGB")
-                self.assertNotEqual(composite.getpixel((360, 640)), (8, 16, 30))
+                self.assertNotEqual(composite.getpixel((360, 512)), (8, 16, 30))
 
 
 if __name__ == "__main__":
