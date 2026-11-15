@@ -508,8 +508,8 @@ def run_daily_plan(plan_path: Path) -> int:
         # Existing still-image pipeline remains available when Blender is disabled.
         if not engine.CF_ACCOUNT or not engine.CF_TOKEN:
             raise engine.PipelineError(
-                "Photorealistic scene generation requires CF_ACCOUNT_ID and CF_AI_TOKEN. "
-                "The run will stop rather than substitute basic line drawings."
+                "The legacy FLUX still-image route requires CF_ACCOUNT_ID and CF_AI_TOKEN. "
+                "The daily Blender + Frame By Plane route does not use this fallback."
             )
         for index, scene in enumerate(plan["scenes"]):
             image_path = engine.PACKAGE / f"scene-{index + 1}.jpg"
