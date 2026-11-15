@@ -309,3 +309,8 @@ The Blender preview workflow resolves the configured Sketchfab model URL before 
 To enable the authenticated download, add a valid Sketchfab OAuth access token as the repository Actions secret `SKETCHFAB_ACCESS_TOKEN`. Do not put the token in source files, workflow variables, commits, issue comments or ChatGPT messages. Tokens can expire; update the secret when Sketchfab requires re-authentication.
 
 The render report and artifact retain `asset-provenance.json` so the model's creator and licence remain traceable. No scraping of the Sketchfab viewer, direct media URL guessing, licence bypass, or silent procedural fallback is permitted.
+
+
+## First production review run
+
+The one-off first production job renders a full 24-second Blender film from an imported licensed violin GLB, creates Kokoro narration and a new CC0 sampled-violin backing phrase, then exports a review-only MP4 and editable project bundle. The review job is gated by the `[run-first-production]` marker in draft PR #48. It does not publish or schedule YouTube uploads.
