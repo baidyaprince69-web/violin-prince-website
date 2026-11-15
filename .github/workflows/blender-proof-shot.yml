@@ -108,6 +108,7 @@ jobs:
           retention-days: 7
 
   produce-audio:
+    needs: [resolve-story-model]
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
