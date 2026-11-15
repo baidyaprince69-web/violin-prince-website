@@ -377,25 +377,35 @@ def run_daily_plan(plan_path: Path) -> int:
         json.dumps(plan["quality_control"], ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
-    # Reuse the photorealistic FLUX image-generation path from the earlier
-    # Visuals stage. Never silently degrade to stick drawings or line art.
-    if not engine.CF_ACCOUNT or not engine.CF_TOKEN:
-        raise engine.PipelineError(
-            "Photorealistic scene generation requires CF_ACCOUNT_ID and CF_AI_TOKEN. "
-            "The run will stop rather than substitute basic line drawings."
-        )
-
+    blender_enabled = engine.is_blender_render_enabled()
     images = []
-    for index, scene in enumerate(plan["scenes"]):
-        image_path = engine.PACKAGE / f"scene-{index + 1}.jpg"
-        prompt = engine._scene_visual_prompt(scene, index=index, plan=plan)
-        generated_image = engine.make_image(prompt, index)
-        image_path.write_bytes(generated_image.read_bytes())
-        with Image.open(image_path) as image_check:
-            if image_check.width < 512 or image_check.height < 512:
-                raise engine.PipelineError(f"Generated scene image {index + 1} is unexpectedly small.")
-            image_check.verify()
-        images.append(image_path)
+    if blender_enabled:
+        # Blender constructs and animates complete 3D scenes at render time.
+        # No FLUX stills are generated or used as scene backgrounds.
+        for index in range(3):
+            (engine.PACKAGE / f"scene-{index + 1}.jpg").unlink(missing_ok=True)
+        print(
+            "BLENDER_MODE=full_frame_3d; FLUX scene-image generation skipped; "
+            "Blender will render every scene from its own camera.",
+            flush=True,
+        )
+    else:
+        # Existing still-image pipeline remains available when Blender is disabled.
+        if not engine.CF_ACCOUNT or not engine.CF_TOKEN:
+            raise engine.PipelineError(
+                "Photorealistic scene generation requires CF_ACCOUNT_ID and CF_AI_TOKEN. "
+                "The run will stop rather than substitute basic line drawings."
+            )
+        for index, scene in enumerate(plan["scenes"]):
+            image_path = engine.PACKAGE / f"scene-{index + 1}.jpg"
+            prompt = engine._scene_visual_prompt(scene, index=index, plan=plan)
+            generated_image = engine.make_image(prompt, index)
+            image_path.write_bytes(generated_image.read_bytes())
+            with Image.open(image_path) as image_check:
+                if image_check.width < 512 or image_check.height < 512:
+                    raise engine.PipelineError(f"Generated scene image {index + 1} is unexpectedly small.")
+                image_check.verify()
+            images.append(image_path)
 
     metadata = {
         "schema_version": 3,
@@ -417,13 +427,20 @@ def run_daily_plan(plan_path: Path) -> int:
     }
     paths["metadata"].write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
     engine._write_review_text(plan, engine.PACKAGE / "review.txt", {"available": False})
-    engine.make_storyboard_preview(plan, images, engine.PACKAGE / "storyboard-preview.png")
+    if not blender_enabled:
+        engine.make_storyboard_preview(plan, images, engine.PACKAGE / "storyboard-preview.png")
 
-    # Existing FFmpeg render and media QA remain the final authority for the MP4.
+    # Blender renders complete scene clips when enabled; otherwise the existing
+    # still-image/Pillow/FFmpeg route remains unchanged.
     result = engine.render_stage()
     if result != 0:
         return result
     final_video = engine.OUT / "violin-prince-short.mp4"
+    if blender_enabled:
+        images = [engine.OUT / f"blender-scene-{index + 1}-poster.jpg" for index in range(3)]
+        if not all(path.is_file() and path.stat().st_size > 1024 for path in images):
+            raise engine.PipelineError("Blender scene poster frames are missing; cannot verify the rendered 3D scenes.")
+        engine.make_storyboard_preview(plan, images, engine.OUT / "blender-storyboard-review.png")
     video_quality = engine.validate_final_video(final_video)
     manifest, _provenance = write_handoff_files(
         engine.OUT,
