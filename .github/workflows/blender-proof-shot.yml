@@ -29,7 +29,7 @@ concurrency:
 
 jobs:
   resolve-story-model:
-    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.render_proof == true) || (github.event_name == 'push' && github.event.head_commit.message == 'VIOLIN_PRINCE_REVIEW_PROOF_COMPACT_RETRY_ONCE') }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.render_proof == true }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -157,7 +157,7 @@ jobs:
           retention-days: 7
 
   produce-audio:
-    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.render_proof == true) || (github.event_name == 'push' && github.event.head_commit.message == 'VIOLIN_PRINCE_REVIEW_PROOF_COMPACT_RETRY_ONCE') }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.render_proof == true }}
     needs: [resolve-story-model]
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -220,7 +220,7 @@ jobs:
           retention-days: 7
 
   prepare-blender-runtime:
-    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.render_proof == true) || (github.event_name == 'push' && github.event.head_commit.message == 'VIOLIN_PRINCE_REVIEW_PROOF_COMPACT_RETRY_ONCE') }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.render_proof == true }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -257,7 +257,7 @@ jobs:
           retention-days: 7
 
   render-proof-frames:
-    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.render_proof == true) || (github.event_name == 'push' && github.event.head_commit.message == 'VIOLIN_PRINCE_REVIEW_PROOF_COMPACT_RETRY_ONCE') }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.render_proof == true }}
     needs: [resolve-story-model, produce-audio, prepare-blender-runtime]
     runs-on: ubuntu-latest
     timeout-minutes: 50
@@ -424,7 +424,7 @@ jobs:
           retention-days: 30
 
   assemble-proof:
-    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.render_proof == true) || (github.event_name == 'push' && github.event.head_commit.message == 'VIOLIN_PRINCE_REVIEW_PROOF_COMPACT_RETRY_ONCE') }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.render_proof == true }}
     needs: [resolve-story-model, produce-audio, render-proof-frames]
     runs-on: ubuntu-latest
     timeout-minutes: 30
