@@ -383,7 +383,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cloud-video-preview-${{ github.run_id }}
-          path: work/output/violin-prince-short.mp4
+          path: |
+            work/output/violin-prince-short.mp4
+            work/output/violin-prince-full-track.mp4
           if-no-files-found: error
           retention-days: 14
 
@@ -398,6 +400,7 @@ jobs:
             work/story-assets/asset-resolution-diagnostic.json
             !work/output/scene-3.mp4
             !work/output/violin-prince-short.mp4
+            !work/output/violin-prince-full-track.mp4
             work/research.json
             work/story_candidates.json
             work/story_research.json

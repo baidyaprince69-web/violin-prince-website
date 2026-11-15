@@ -65,7 +65,7 @@ jobs:
             -of default=noprint_wrappers=1:nokey=1 output/duration-test.wav
 
       - name: Exercise the Autopilot renderer bridge with the 37.5-second fixture
-        working-directory: ../..
+        working-directory: .
         run: |
           python - <<'PY'
           import json
@@ -96,7 +96,7 @@ jobs:
           output = Path("work/output")
           output.mkdir(parents=True, exist_ok=True)
           (output / "motion-render-report.json").write_text(
-              json.dumps(report, indent=2) + "\\n", encoding="utf-8"
+              json.dumps(report, indent=2) + "\n", encoding="utf-8"
           )
           print(json.dumps(report, indent=2))
           PY

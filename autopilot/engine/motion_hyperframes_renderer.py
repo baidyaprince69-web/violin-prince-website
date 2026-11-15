@@ -153,7 +153,7 @@ def render_full_track(
         if shutil.which(binary) is None:
             raise MotionHyperFramesError(f"Required rendering executable is not installed: {binary}")
 
-    workspace = Path(work_dir)
+    workspace = Path(work_dir).resolve()
     workspace.mkdir(parents=True, exist_ok=True)
     audio_path = workspace / ("source-audio" + suffix)
     context_path = workspace / "content-context.json"
@@ -225,7 +225,7 @@ def render_full_track(
         if abs(media["video_duration_seconds"] - expected_duration) > 0.25:
             raise MotionHyperFramesError("Rendered video stream does not cover the selected audio track.")
 
-        destination = Path(output_path)
+        destination = Path(output_path).resolve()
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(expected_mp4, destination)
         if contact_sheet.is_file():

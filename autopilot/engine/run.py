@@ -5212,7 +5212,7 @@ def render_stage():
                 "the generated short fallback soundtrack is not a full-song substitute."
             )
         log("Using the optional Motion + HyperFrames renderer with the selected full-track audio asset.")
-        path = OUT / "violin-prince-short.mp4"
+        path = OUT / "violin-prince-full-track.mp4"
         video_quality = render_full_track(
             audio_bytes=audio,
             audio_filename=str(active_audio_asset.get("filename") or paths["audio"].name),

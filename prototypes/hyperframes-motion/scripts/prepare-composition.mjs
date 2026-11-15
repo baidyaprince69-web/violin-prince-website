@@ -80,7 +80,7 @@ if (contentArgument && !contentArgument.startsWith("--")) {
   const contentPath = resolve(process.cwd(), contentArgument);
   const rawContent = JSON.parse(readFileSync(contentPath, "utf8"));
   const cleanText = (value, limit) => typeof value === "string"
-    ? value.replace(/\\s+/g, " ").trim().slice(0, limit)
+    ? value.replace(/\s+/g, " ").trim().slice(0, limit)
     : "";
   contentConfig = {
     title: cleanText(rawContent.title, 60),
@@ -92,15 +92,15 @@ if (contentArgument && !contentArgument.startsWith("--")) {
   };
 }
 const contentJson = JSON.stringify(contentConfig)
-  .replaceAll("<", "\\\\u003c")
-  .replaceAll(">", "\\\\u003e")
-  .replaceAll("&", "\\\\u0026");
+  .replaceAll("<", "\\u003c")
+  .replaceAll(">", "\\u003e")
+  .replaceAll("&", "\\u0026");
 const html = template
   .replaceAll("__DURATION_SECONDS__", durationText)
   .replace("__AUDIO_SOURCE__", audioSource)
   .replace("__CONTENT_JSON__", contentJson);
 
-if (html.includes("__DURATION_SECONDS__") || html.includes("__AUDIO_SOURCE__")) {
+if (html.includes("__DURATION_SECONDS__") || html.includes("__AUDIO_SOURCE__") || html.includes("__CONTENT_JSON__")) {
   throw new Error("The composition still contains an unresolved media placeholder.");
 }
 writeFileSync(resolve(projectRoot, "index.html"), html, "utf8");
