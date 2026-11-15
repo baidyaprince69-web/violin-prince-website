@@ -134,6 +134,22 @@ def fetch_model_metadata(uid: str, session: requests.Session | None = None) -> d
     return _request_json(client, f"{API_ROOT}/models/{uid}")
 
 
+def _authorization_headers(access_token: str) -> dict[str, str]:
+    """Build the documented auth header for an API token or OAuth token.
+
+    Sketchfab account API tokens use the Token scheme. OAuth access tokens
+    use Bearer; preserve an explicit scheme when one was supplied.
+    """
+    value = str(access_token or "").strip()
+    if not value:
+        raise AssetResolutionError("A non-empty Sketchfab API token is required.")
+    if value.casefold().startswith(("token ", "bearer ")):
+        authorization = value
+    else:
+        authorization = "Token " + value
+    return {"Authorization": authorization}
+
+
 def _download_to_file(
     session: requests.Session, url: str, destination: Path, maximum_bytes: int
 ) -> int:
@@ -263,7 +279,7 @@ def resolve_sketchfab_asset(
             "is required by the official Download API."
         )
     else:
-        headers = {"Authorization": "Bearer " + access_token}
+        headers = _authorization_headers(access_token)
         download_info = _request_json(
             client, f"{API_ROOT}/models/{uid}/download", headers=headers
         )
