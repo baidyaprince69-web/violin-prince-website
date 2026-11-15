@@ -1,6 +1,0 @@
-{
-  "mode": "bootstrap_autopilot_worker",
-  "purpose": "Provision the existing private media library and save its workers.dev URL into the AUTOPILOT_API_URL repository secret for full-track Motion + HyperFrames production.",
-  "publish_enabled": false,
-  "autopilot_enabled": false
-}
