@@ -33,33 +33,69 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Resolve a public CC0 violin mesh
+      - name: Resolve a story-specific licensed instrument with real bow and strings
+        env:
+          SKETCHFAB_ACCESS_TOKEN: ${{ secrets.SKETCHFAB_ACCESS_TOKEN }}
         run: |
+          set -Eeuo pipefail
           python -m pip install --upgrade pip
           python -m pip install "requests>=2.32,<3"
           mkdir -p work/first-production/assets
-          python autopilot/engine/first_production_asset.py work/first-production/assets \
+          python autopilot/engine/story_asset_resolver.py \
+            --plan .autopilot/first-production-story.json \
+            --output-dir work/first-production/assets/story-selected \
             | tee work/first-production/asset-resolution.json
           python - <<'PY'
+          import hashlib
           import json
+          import shutil
           from pathlib import Path
+
           root = Path("work/first-production")
-          data = json.loads((root / "asset-resolution.json").read_text())
-          model = root / "assets" / "violin.glb"
-          manifest = root / "assets" / "asset-provenance.json"
-          assert model.is_file() and model.read_bytes()[:4] == b"glTF"
-          assert manifest.is_file()
-          assert data.get("license", "").upper().startswith("CC0")
-          assert data.get("commercial_use_allowed") is True
-          print("Verified CC0 violin mesh:", model.stat().st_size, "bytes")
+          asset = json.loads((root / "asset-resolution.json").read_text(encoding="utf-8"))
+          source = Path(asset["local_model_path"])
+          assert source.is_file() and source.suffix.lower() in {".glb", ".gltf"}
+          assert asset.get("commercial_use_allowed") is True
+          assert asset.get("license_code") and asset.get("license_label")
+          parts = asset.get("model_parts") or {}
+          assert parts.get("bow"), "The selected model must include real bow mesh nodes."
+          assert parts.get("strings"), "The selected model must include real string mesh nodes."
+
+          target_dir = root / "assets" / "selected-model"
+          shutil.copytree(source.parent, target_dir, dirs_exist_ok=True)
+          target = target_dir / source.name
+          assert target.is_file() and target.stat().st_size >= 4096
+          if target.suffix.lower() == ".glb":
+              assert target.read_bytes()[:4] == b"glTF"
+          relative = "assets/selected-model/" + target.name
+          asset["local_model_path"] = relative
+          asset["model_relative_path"] = relative
+          asset["sha256"] = hashlib.sha256(target.read_bytes()).hexdigest()
+          asset["asset_selection_policy"] = (
+              "story-specific licensed model search; real bow and string mesh nodes; "
+              "official authenticated download; no image/reference or procedural substitute"
+          )
+          manifest_path = root / "assets" / "asset-provenance.json"
+          asset["manifest_path"] = "assets/asset-provenance.json"
+          manifest_path.write_text(json.dumps(asset, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          (root / "assets" / "model-path.txt").write_text(relative + "\n", encoding="utf-8")
+          (root / "asset-resolution.json").write_text(json.dumps(asset, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps({
+              "provider": asset.get("provider"),
+              "model": asset.get("model_name"),
+              "license": asset.get("license_label"),
+              "bow_meshes": len(parts["bow"]),
+              "string_meshes": len(parts["strings"]),
+              "model_file": relative,
+              "sha256": asset["sha256"],
+          }, indent=2))
           PY
-      - name: Upload verified model and provenance
+      - name: Upload verified story-specific model and provenance
         uses: actions/upload-artifact@v4
         with:
           name: violin-prince-first-production-assets
           path: |
-            work/first-production/assets/violin.glb
-            work/first-production/assets/asset-provenance.json
+            work/first-production/assets/**
             work/first-production/asset-resolution.json
           if-no-files-found: error
           retention-days: 7
@@ -101,12 +137,15 @@ jobs:
         run: |
           python -m py_compile autopilot/engine/first_production_blender.py
           mkdir -p work/frames work/segment-reports
+          MODEL_RELATIVE="$(cat work/first-production/assets/model-path.txt)"
+          MODEL_PATH="work/first-production/$MODEL_RELATIVE"
+          test -s "$MODEL_PATH"
           blender --background --factory-startup \
             --python autopilot/engine/first_production_blender.py \
             -- \
-              --model work/first-production/assets/violin.glb \
+              --model "$MODEL_PATH" \
               --report "work/segment-reports/segment-${SEGMENT}.json" \
-              --width 540 --height 960 --fps 25 --duration 24 \
+              --width 1080 --height 1920 --fps 25 --duration 24 --render-samples 96 \
               --sample-index "$SEGMENT" \
               --sample-count 30 \
               --total-samples 600 \
@@ -174,6 +213,8 @@ jobs:
           test -s work/first-production/cinematic-sound-effects.wav
           test -s work/first-production/final-audio-mix.wav
           test -s work/first-production/captions.srt
+          test -s work/first-production/captions.ass
+          test -s work/first-production/word-timing.json
           test -s work/first-production/audio-report.json
       - name: Upload audio stems and narration assets
         uses: actions/upload-artifact@v4
@@ -245,9 +286,9 @@ jobs:
           ffmpeg -y -hide_banner -loglevel error \
             -framerate 25 -start_number 0 \
             -i work/first-production/frames/frame_%04d.png \
-            -vf "scale=720:1280:flags=lanczos,format=yuv420p" \
-            -an -c:v libx264 -preset medium -crf 18 \
-            -r 25 -fps_mode cfr -t 24 -movflags +faststart \
+            -vf "format=yuv420p" \
+            -an -c:v libx264 -preset slow -crf 17 \
+            -r 25 -fps_mode cfr -frames:v 600 -t 24 -movflags +faststart \
             work/first-production/blender-visual.mp4
           test -s work/first-production/blender-visual.mp4
           ffprobe -v error \
@@ -258,7 +299,7 @@ jobs:
           ffmpeg -y -hide_banner -loglevel error \
             -i work/first-production/blender-visual.mp4 \
             -i work/first-production/final-audio-mix.wav \
-            -vf "subtitles=work/first-production/captions.srt:force_style='FontName=DejaVu Sans,FontSize=22,PrimaryColour=&H00F4F2EA,OutlineColour=&H00101925,BorderStyle=1,Outline=2,Shadow=0,Alignment=2,MarginV=94'" \
+            -vf "subtitles=work/first-production/captions.ass" \
             -map 0:v:0 -map 1:a:0 \
             -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p \
             -r 25 -c:a aac -b:a 192k -ar 48000 -ac 2 \
@@ -279,7 +320,7 @@ jobs:
           audio_stream = next(s for s in probe["streams"] if s.get("codec_type") == "audio")
           duration = float(probe["format"]["duration"])
           assert video_stream["codec_name"] == "h264"
-          assert (video_stream["width"], video_stream["height"]) == (720, 1280)
+          assert (video_stream["width"], video_stream["height"]) == (1080, 1920)
           assert video_stream.get("r_frame_rate") == "25/1"
           rendered_frames = int(video_stream.get("nb_read_frames", video_stream.get("nb_frames", 0)))
           assert rendered_frames == 600, f"Expected 600 final video frames, found {rendered_frames}"
@@ -287,10 +328,18 @@ jobs:
           assert 23.5 <= duration <= 24.5, duration
           assert len(list((root / "frames").glob("frame_*.png"))) == 600
           assert (root / "blender-visual.blend").is_file()
-          assert (root / "assets" / "violin.glb").is_file()
+          model_relative = (root / "assets" / "model-path.txt").read_text().strip()
+          assert (root / model_relative).is_file()
           assert (root / "assets" / "asset-provenance.json").is_file()
           audio = json.loads((root / "audio-report.json").read_text())
           asset = json.loads((root / "assets" / "asset-provenance.json").read_text())
+          assert audio["narration"]["duration_seconds"] >= 21.5
+          assert audio["music"]["duration_seconds"] >= 23.95
+          assert audio["final_mix"]["duration_seconds"] >= 23.90
+          assert audio["narration"]["word_timing_count"] >= 30
+          assert asset.get("commercial_use_allowed") is True
+          assert (asset.get("model_parts") or {}).get("bow")
+          assert (asset.get("model_parts") or {}).get("strings")
           report = {
               "status": "complete",
               "video": str(video),
@@ -307,8 +356,11 @@ jobs:
               "final_video_frame_count": rendered_frames,
               "frame_interpolation": "none — all 600 frames rendered natively in Blender",
               "model_provider": asset["provider"],
-              "model_license": asset["license"],
+              "model_license": asset.get("license_label"),
               "model_sha256": asset["sha256"],
+              "real_bow_mesh_count": len(asset["model_parts"]["bow"]),
+              "real_string_mesh_count": len(asset["model_parts"]["strings"]),
+              "word_synchronized_captions": True,
               "narration_engine": audio["narration"]["engine"],
               "music_license": audio["music"]["license"],
               "publishing": "NOT PUBLISHED — review copy only",
@@ -324,8 +376,8 @@ jobs:
           zip -r ../../Violin-Prince-First-Production-Project.zip \
             assets asset-resolution.json blender-visual.blend blender-visual.mp4 \
             production-script.txt narration.wav cc0-violin-music.wav \
-            cinematic-sound-effects.wav final-audio-mix.wav captions.srt \
-            audio-report.json final-production-report.json
+            cinematic-sound-effects.wav final-audio-mix.wav captions.srt captions.ass \
+            word-timing.json storyboard.json audio-report.json final-production-report.json
           cd ../..
           python - <<'PY'
           import subprocess
@@ -369,8 +421,8 @@ jobs:
             echo
             echo "- Blender: all 600 native timeline frames distributed across 20 parallel CPU render workers"
             echo "- Motion: native Blender rendering at 25 FPS; no optical-flow interpolation"
-            echo "- Picture: actual imported CC0 violin GLB, animated camera, bow, 3D titles and resonance graphics"
-            echo "- Audio: Kokoro narration, new CC0 sampled violin phrase, original transition effects"
+            echo "- Picture: story-selected licensed instrument with imported bow and strings under one Blender rig; 1080×1920 native rendering"
+            echo "- Audio: Kokoro narration close to the final frame, CC0 violin phrase through 24 seconds, word-highlighted ASS captions and transition effects"
             echo "- Output: downloadable MP4 and editable production project bundle"
             echo "- Publishing: disabled; review copy only"
           } >> "$GITHUB_STEP_SUMMARY"
