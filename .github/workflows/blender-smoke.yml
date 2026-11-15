@@ -24,6 +24,12 @@ jobs:
   blender-production-preview:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      # Blender Eevee needs an EGL context. Use Mesa's software renderer on runners
+      # that do not expose a hardware GPU/display server.
+      EGL_PLATFORM: surfaceless
+      LIBGL_ALWAYS_SOFTWARE: "1"
+      MESA_LOADER_DRIVER_OVERRIDE: llvmpipe
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -36,7 +42,7 @@ jobs:
       - name: Install Blender and FFmpeg
         run: |
           sudo apt-get update
-          sudo apt-get install -y blender ffmpeg
+          sudo apt-get install -y blender ffmpeg libegl1 libegl-mesa0 libgl1 libgl1-mesa-dri libgbm1 libxkbcommon0
           blender --version
           ffmpeg -version | head -n 1
 
