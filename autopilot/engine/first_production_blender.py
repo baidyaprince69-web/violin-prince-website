@@ -401,10 +401,24 @@ def build_scene(args):
     add_text_overlay(camera, "WOOD AND AIR SHAPE THE TONE", -0.82, -0.78, 246, 370, white, size=0.165)
     add_text_overlay(camera, "FOUR STRINGS. ONE VOICE.", -0.82, -0.78, 475, frame_end, gold, size=0.22)
 
-    # Headless Eevee CPU render settings.
-    scene.render.engine = "BLENDER_EEVEE_NEXT"
+    # Select the Eevee identifier exposed by this installed Blender build.
+    # Blender 5.0 uses BLENDER_EEVEE; earlier 4.x builds used BLENDER_EEVEE_NEXT.
+    engine_items = scene.render.bl_rna.properties["engine"].enum_items
+    supported_engines = {item.identifier for item in engine_items}
+    if "BLENDER_EEVEE" in supported_engines:
+        render_engine = "BLENDER_EEVEE"
+    elif "BLENDER_EEVEE_NEXT" in supported_engines:
+        render_engine = "BLENDER_EEVEE_NEXT"
+    elif "CYCLES" in supported_engines:
+        render_engine = "CYCLES"
+    else:
+        raise RuntimeError("This Blender build exposes no supported Eevee or Cycles render engine.")
+    scene.render.engine = render_engine
     if hasattr(scene, "eevee") and hasattr(scene.eevee, "taa_render_samples"):
         scene.eevee.taa_render_samples = 24
+    if render_engine == "CYCLES":
+        scene.cycles.device = "CPU"
+        scene.cycles.samples = 24
     scene.render.threads_mode = "FIXED"
     scene.render.threads = max(1, min(os.cpu_count() or 2, 4))
     scene.render.resolution_x = args.width
@@ -443,7 +457,7 @@ def build_scene(args):
 
     report = {
         "status": "blender_render_completed",
-        "renderer": "Blender Eevee Next",
+        "renderer": "Blender " + render_engine,
         "model_source": str(Path(args.model).resolve()),
         "model_type": "imported GLB mesh; not a procedural substitute",
         "resolution": [args.width, args.height],
