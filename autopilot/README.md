@@ -273,23 +273,24 @@ Artifacts are retained for 14 days. Keep the relevant successful run IDs until y
 - .github/workflows/violin-prince-autopilot.yml — staged GitHub Actions workflow.
 - .github/workflows/autopilot-checks.yml — offline code and workflow validation.
 
-### Optional Blender true-3D overlays — version 11
+### Blender full-frame animated 3D production — version 12
 
-The existing Python / Pillow / FFmpeg renderer now has an optional Blender backend for real procedural 3D geometry:
+**Correction:** the earlier transparent-overlay prototype is superseded and is not used. When Blender mode is enabled, Blender is the primary scene renderer:
 
-- macro_3d scenes can receive a Blender-rendered vibrating-string / acoustic-wave overlay.
-- mechanism_3d scenes can receive a Blender-rendered stylised bridge / string-mechanism overlay.
-- Blender renders a transparent RGBA still with Cycles on CPU. The overlay is composited over the existing scene plate; Pillow retains captions and animated explainers, and FFmpeg retains camera motion, transitions, audio and final encoding.
-- This first integration renders one real 3D frame per eligible scene. It is not yet full frame-by-frame 3D animation, a photorealistic violin model, or a replacement for the existing FLUX scene plate.
-- The geometry is procedural and original. No external model packs, paid assets, GPU or Blender add-ons are downloaded.
+- Blender builds and renders each full scene from its own 3D camera. The scene output is an opaque MP4, not an RGBA pass, not a layer over a FLUX image, and not a still with post-render camera movement.
+- Existing visual modes map to procedural Blender scenes: vibrating strings, bridge/mechanism cutaway, acoustic wave field, 3D melody path, side-by-side mechanism comparison, and a solid amber violin with an animated bow.
+- The strings use animated mesh shape keys; the camera moves; objects, rings, particles and the bow animate; materials, floor/background, depth, shadows and lighting are rendered in Blender.
+- Pillow still-image cards and explainer panels are bypassed in Blender mode. FFmpeg only joins the full-frame Blender scene clips, then handles narration, soundtrack, captions/subtitles and final encoding/QA.
+- The creator's existing 720 × 1280 / 25 fps output contract remains. A separate lower-resolution preview workflow renders three short scenes and uploads the MP4, scene clips, contact sheet and machine-readable report as a GitHub Actions artifact.
+- This is procedural 3D geometry and animation, not yet a photorealistic scanned violin model or motion-captured human performer. No external models, paid assets, GPU or add-ons are downloaded.
 
-Blender is opt-in to protect the normal daily workflow from unexpected install time or CPU rendering cost:
+Blender remains opt-in so the established daily engine is not changed without a visual approval:
 
 1. Open repository Settings → Secrets and variables → Actions → Variables.
-2. Add the repository variable BLENDER_RENDER_ENABLED with value true.
-3. The production workflow installs the Ubuntu Blender package only for full or render stages when that variable is exactly true.
-4. The render stops safely if Blender is enabled but the executable is unavailable or a scene fails validation. It does not silently claim that a 3D scene was rendered.
+2. Add repository variable BLENDER_RENDER_ENABLED with value true.
+3. The production workflow installs Blender only for full/render stages when that variable is exactly true. FLUX image credentials are not required in full Blender mode.
+4. If Blender is enabled and a scene cannot render or validate, the production fails closed; it must not silently return to still-image or overlay rendering.
 
-When the variable is absent or false, the original renderer behaves as before and Blender is not installed. The standalone .github/workflows/blender-smoke.yml workflow installs Blender on a CPU runner and renders/composites a small real 3D scene so its runtime can be checked independently before enabling it for daily production.
+When the variable is absent or false, the current Python / Pillow / FFmpeg still-image workflow remains unchanged and Blender is not installed. The .github/workflows/blender-smoke.yml workflow is now a full-scene production preview: it installs Blender and FFmpeg, renders three complete animated scenes and uploads the MP4, contact sheet, per-scene clips/posters and render report.
 
-BLENDER_BIN can override the executable path. BLENDER_RENDER_TIMEOUT_SECONDS controls each scene render, bounded to 15–600 seconds. Initial renders use two CPU threads, six Cycles samples and a 540 × 960 transparent overlay, which is upscaled and composited at the existing 720 × 1280 output size.
+BLENDER_BIN can override the executable. BLENDER_RENDER_TIMEOUT_SECONDS controls each production scene, bounded to 30–900 seconds. The full production renderer uses Blender Eevee on CPU, fixed two-thread execution, and FFmpeg for final assembly.
