@@ -22,6 +22,13 @@ def main():
     args=parser.parse_args(raw)
     runtime=verify_frame_by_plane()
     scene=bpy.context.scene
+    # Blender's background startup file contains a default cube, camera and
+    # light. The cube sits directly in front of this test's background planes
+    # and falsely appears as a large gray occlusion in the smoke render.
+    # Start from a clean object scene so this test measures FBP layer output.
+    for existing_object in tuple(bpy.data.objects):
+        bpy.data.objects.remove(existing_object, do_unlink=True)
+    scene.camera = None
     engines={item.identifier for item in scene.render.bl_rna.properties["engine"].enum_items}
     scene.render.engine="BLENDER_EEVEE" if "BLENDER_EEVEE" in engines else "BLENDER_EEVEE_NEXT"
     scene.render.resolution_x=360
