@@ -4694,16 +4694,23 @@ def _package_paths():
 
 def _read_package(require_images=False):
     paths = _package_paths()
-    for key in ("plan", "metadata", "audio", "narration", "quality_control"):
+    try:
+        metadata = json.loads(paths["metadata"].read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise PipelineError("Prepared package contains invalid stage metadata.") from exc
+    motion_music_video = metadata.get("production_type") == "motion_music_video"
+    required = ("plan", "metadata", "audio", "quality_control")
+    if not motion_music_video:
+        required = (*required, "narration")
+    for key in required:
         if not paths[key].is_file():
             raise PipelineError(f"Prepared package is missing {paths[key].name}. Download the correct earlier stage artifact.")
     try:
         plan = json.loads(paths["plan"].read_text(encoding="utf-8"))
-        metadata = json.loads(paths["metadata"].read_text(encoding="utf-8"))
         quality = json.loads(paths["quality_control"].read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise PipelineError("Prepared package contains invalid JSON metadata.") from exc
-    narration_info = metadata.get("narration_info")
+    narration_info = metadata.get("narration_info") or {}
     try:
         plan["visual_reference"] = normalize_visual_reference(
             plan.get("visual_reference"), plan.get("scenes")
@@ -4715,50 +4722,63 @@ def _read_package(require_images=False):
         raise PipelineError("Prepared package failed the Violin Prince creative-direction gate: " + " ".join(creative_issues))
     if not isinstance(plan.get("scenes"), list) or len(plan["scenes"]) != 3:
         raise PipelineError("Prepared package must contain exactly three planned scenes.")
-    if not isinstance(narration_info, dict) or not narration_info.get("subtitle_cues"):
-        raise PipelineError("Prepared package is missing narration subtitle timings.")
-    if (
-        quality.get("status") != "passed"
-        or quality.get("date_check", {}).get("status") != "passed"
-        or quality.get("freshness", {}).get("status") != "passed"
-    ):
-        raise PipelineError("Story quality-control, date or seven-day freshness report is not passed; Visuals and Render are blocked.")
-    sources = plan.get("sources", [])
-    domains = {
-        str(source.get("publisher_domain") or urlparse(source.get("url", "")).netloc).lower().removeprefix("www.")
-        for source in sources if isinstance(source, dict) and is_direct_publisher_article(source)
-    }
-    direct_count = sum(
-        1 for source in sources
-        if isinstance(source, dict)
-        and is_direct_publisher_article(source)
-        and source.get("article_page_verified") is True
-    )
-    if direct_count < 2 or len(domains) < 2:
-        raise PipelineError("Prepared story must retain at least two direct publisher articles from independent domains.")
-    source_group = plan.get("source_group") or {}
-    allowed_ids = {str(value) for value in source_group.get("source_ids", [])}
-    verified_ids = {str(value) for value in source_group.get("verified_source_ids", [])}
-    actual_ids = {str(source.get("source_id") or "") for source in sources if isinstance(source, dict)}
-    if not allowed_ids or not verified_ids or not verified_ids.issubset(allowed_ids) or actual_ids != verified_ids:
-        raise PipelineError("Prepared story citations do not match the exact verified source group.")
-    freshness_sources = quality.get("freshness", {}).get("verified_sources", [])
-    freshness_ids = {
-        str(item.get("source_id") or "") for item in freshness_sources if isinstance(item, dict)
-    }
-    if (
-        len(freshness_sources) < 2
-        or len(freshness_ids) != len(freshness_sources)
-        or freshness_ids != verified_ids
-        or any(
-            not isinstance(item, dict)
-            or item.get("freshness_status") not in ("preferred", "acceptable")
-            or item.get("age_hours") is None
-            or float(item.get("age_hours")) > FRESHNESS_MAX_AGE_HOURS
-            for item in freshness_sources
+    if motion_music_video:
+        asset = metadata.get("asset") if isinstance(metadata.get("asset"), dict) else {}
+        if (
+            quality.get("status") != "passed"
+            or quality.get("production_type") != "motion_music_video"
+            or asset.get("audio_source") != "sampled_violin_cc0"
+            or asset.get("kind") != "generated_sampled_instrument"
+        ):
+            raise PipelineError(
+                "Motion music-video package must contain a passed local-quality report "
+                "and the repository's generated CC0 sampled-violin track."
+            )
+    else:
+        if not isinstance(narration_info, dict) or not narration_info.get("subtitle_cues"):
+            raise PipelineError("Prepared package is missing narration subtitle timings.")
+        if (
+            quality.get("status") != "passed"
+            or quality.get("date_check", {}).get("status") != "passed"
+            or quality.get("freshness", {}).get("status") != "passed"
+        ):
+            raise PipelineError("Story quality-control, date or seven-day freshness report is not passed; Visuals and Render are blocked.")
+        sources = plan.get("sources", [])
+        domains = {
+            str(source.get("publisher_domain") or urlparse(source.get("url", "")).netloc).lower().removeprefix("www.")
+            for source in sources if isinstance(source, dict) and is_direct_publisher_article(source)
+        }
+        direct_count = sum(
+            1 for source in sources
+            if isinstance(source, dict)
+            and is_direct_publisher_article(source)
+            and source.get("article_page_verified") is True
         )
-    ):
-        raise PipelineError("Prepared story does not have two dated publisher articles within the seven-day window.")
+        if direct_count < 2 or len(domains) < 2:
+            raise PipelineError("Prepared story must retain at least two direct publisher articles from independent domains.")
+        source_group = plan.get("source_group") or {}
+        allowed_ids = {str(value) for value in source_group.get("source_ids", [])}
+        verified_ids = {str(value) for value in source_group.get("verified_source_ids", [])}
+        actual_ids = {str(source.get("source_id") or "") for source in sources if isinstance(source, dict)}
+        if not allowed_ids or not verified_ids or not verified_ids.issubset(allowed_ids) or actual_ids != verified_ids:
+            raise PipelineError("Prepared story citations do not match the exact verified source group.")
+        freshness_sources = quality.get("freshness", {}).get("verified_sources", [])
+        freshness_ids = {
+            str(item.get("source_id") or "") for item in freshness_sources if isinstance(item, dict)
+        }
+        if (
+            len(freshness_sources) < 2
+            or len(freshness_ids) != len(freshness_sources)
+            or freshness_ids != verified_ids
+            or any(
+                not isinstance(item, dict)
+                or item.get("freshness_status") not in ("preferred", "acceptable")
+                or item.get("age_hours") is None
+                or float(item.get("age_hours")) > FRESHNESS_MAX_AGE_HOURS
+                for item in freshness_sources
+            )
+        ):
+            raise PipelineError("Prepared story does not have two dated publisher articles within the seven-day window.")
     review = metadata.get("story_review") or {}
     if require_images and review.get("approved") is not True:
         raise PipelineError("Render blocked: automated editorial quality gates did not clear this story before Visuals.")
@@ -4963,6 +4983,136 @@ def load_reusable_research():
     )
     log(f"Reusing {len(items)} preserved research sources from an earlier run; research feeds will not be called again.")
     return items
+
+
+def prepare_motion_music_video_stage():
+    """Prepare a generated-violin music video without the legacy story/AI pipeline."""
+    motion_enabled = str(os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "false")).strip().lower() in {"1", "true", "yes", "on"}
+    if not motion_enabled:
+        raise PipelineError("The dedicated motion music-video preparation requires Motion + HyperFrames to be enabled.")
+    if is_blender_render_enabled():
+        raise PipelineError("Motion music-video preparation and Blender cannot run in the same production.")
+
+    as_of = datetime.now(timezone.utc)
+    claim_run()
+    report("running", "Generating the full-length CC0 sampled-violin composition for Motion + HyperFrames.")
+    asset, audio = get_audio(prefer_creator_assets=False)
+    if (
+        not audio or len(audio) < 4096
+        or asset.get("audio_source") != "sampled_violin_cc0"
+        or asset.get("kind") != "generated_sampled_instrument"
+    ):
+        raise PipelineError("Motion music-video preparation requires the repository's verified sampled-violin generator.")
+
+    scenes = [
+        {
+            "caption": "A note takes shape",
+            "visual_mode": "waveform",
+            "image_prompt": "A luminous violin waveform emerging from a deep midnight field, with warm amber and muted gold pulses, elegant negative space and restrained cinematic motion",
+        },
+        {
+            "caption": "The melody unfolds",
+            "visual_mode": "melody_map",
+            "image_prompt": "An original abstract melody map made from flowing pitch contours, delicate note-like light particles and layered rhythm marks, midnight navy with antique gold and warm ivory accents",
+        },
+        {
+            "caption": "A resonant finale",
+            "visual_mode": "cover_performance",
+            "image_prompt": "A graceful violin-and-bow silhouette formed from warm amber light and fine vibrating strings, composed as a restrained performance-inspired closing image without a face or readable text",
+        },
+    ]
+    title = "Violin Prince — Midnight Resonance"
+    topic = "Original Solo Violin Composition"
+    plan = {
+        "story_type": "music_production",
+        "topic": topic,
+        "title": title,
+        "hook": "An original sampled-violin composition unfolds across one continuous motion-graphics performance.",
+        "description": (
+            "An original solo-violin arrangement created by the repository's "
+            "CC0 sampled instrument generator, presented as a continuous Violin Prince "
+            "motion-graphics music video."
+        ),
+        "narration_script": "",
+        "narrative_style": "instrumental_music_video",
+        "cover_payoff": (
+            "The original sampled solo-violin composition is the musical centerpiece "
+            "throughout the complete continuous visual timeline."
+        ),
+        "scenes": scenes,
+        "sources": [],
+        "hashtags": ["#ViolinPrince", "#SoloViolin", "#InstrumentalMusic"],
+        "visual_reference": normalize_visual_reference(None, scenes),
+    }
+    creative_issues = validate_creative_plan(plan)
+    if creative_issues:
+        raise PipelineError("The generated music-video visual plan failed creative validation: " + " ".join(creative_issues))
+    plan["channel_fit"] = channel_fit_report(plan)
+    quality = {
+        "status": "passed",
+        "production_type": "motion_music_video",
+        "audio_check": {
+            "status": "passed",
+            "audio_source": asset.get("audio_source"),
+            "duration_seconds": asset.get("duration_seconds"),
+            "sample_rate": asset.get("sample_rate"),
+            "license": asset.get("license"),
+            "sample_bank_revision": asset.get("sample_bank_revision"),
+        },
+        "visual_plan_check": {
+            "status": "passed",
+            "scene_count": len(scenes),
+            "visual_modes": [scene["visual_mode"] for scene in scenes],
+            "creative_direction_version": CREATIVE_DIRECTION_VERSION,
+        },
+        "not_applicable": ["news_research", "publisher_freshness", "narration_evidence"],
+    }
+    plan["quality_control"] = quality
+
+    paths = _package_paths()
+    paths["audio"].write_bytes(audio)
+    paths["plan"].write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
+    paths["research"].write_text("[]\\n", encoding="utf-8")
+    paths["quality_control"].write_text(json.dumps(quality, ensure_ascii=False, indent=2), encoding="utf-8")
+    paths["metadata"].write_text(json.dumps({
+        "schema_version": 4,
+        "production_type": "motion_music_video",
+        "prepared_run_id": RUN_ID,
+        "asset": asset,
+        "performance_video": {"available": False},
+        "narration_info": {},
+        "topic": topic,
+        "title": title,
+        "prepared_at": as_of.isoformat(),
+        "stage": "prepared",
+        "story_review": {
+            "status": "awaiting_visual_plan_validation",
+            "approved": False,
+            "approved_at": None,
+            "approval_method": None,
+        },
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    (PACKAGE / "review.txt").write_text(
+        "VIOLIN PRINCE — FULL-TRACK MUSIC VIDEO\\n"
+        f"Title: {title}\\n"
+        f"Music source: {asset.get('audio_source')}\\n"
+        f"Track length: {asset.get('duration_seconds')} seconds\\n"
+        "Visual route: Motion + HyperFrames 2D/2.5D composition\\n"
+        "Publishing: disabled\\n",
+        encoding="utf-8",
+    )
+    log(
+        "Prepared the Motion music-video package using only the existing CC0 sampled-violin "
+        f"generator ({asset.get('duration_seconds')} seconds). No story AI, narration or external media service was used."
+    )
+    report(
+        "prepared",
+        "Local sampled-violin music-video package and three-beat visual plan passed validation.",
+        topic,
+        title,
+        metadata={"production_type": "motion_music_video", "audio_source": asset.get("audio_source")},
+    )
+    return 0
 
 
 def prepare_stage():
@@ -5327,16 +5477,18 @@ def main(stage="full", visual_feedback=""):
     WORK.mkdir(exist_ok=True)
     OUT.mkdir(exist_ok=True)
     try:
+        motion_enabled = str(os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "false")).strip().lower() in {"1", "true", "yes", "on"}
         if stage == "prepare":
-            return prepare_stage()
+            return prepare_motion_music_video_stage() if motion_enabled else prepare_stage()
         if stage == "visuals":
             return visuals_stage(visual_feedback)
         if stage == "render":
             return render_stage()
         if stage == "full":
-            # One-click mode: keep each successful intermediate package before
-            # continuing, so later failures never force the earlier stages to repeat.
-            if prepare_stage() != 0:
+            # One-click mode: Motion music videos use the local sampled-violin
+            # preparer; the legacy story/Shorts pipeline remains a separate route.
+            prepare = prepare_motion_music_video_stage if motion_enabled else prepare_stage
+            if prepare() != 0:
                 return 1
             if visuals_stage(visual_feedback) != 0:
                 return 1
