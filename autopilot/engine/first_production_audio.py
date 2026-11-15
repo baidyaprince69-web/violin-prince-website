@@ -17,11 +17,10 @@ from voiceover import synthesize_voiceover, write_srt, write_karaoke_ass
 from violin_sampler import create_sampled_violin_bed
 
 SCRIPT = (
-    "A violin's sound begins when the bow draws across a string. "
-    "The bridge carries vibration into the maple body. "
-    "Its carved plates and air resonate, shaping tone and projecting sound through the f-holes. "
-    "Each note changes with bow pressure, speed, and contact. "
-    "Four strings become one clear voice."
+    "Violin sound begins when bow hair grips a string. "
+    "The bridge carries vibration into the maple body, where wood and air shape the tone. "
+    "Sound leaves through the f-holes. "
+    "Bow speed, pressure, and contact shape each phrase; the final note resolves as the camera returns to the instrument."
 )
 TITLE = "How a Violin Makes Sound"
 
@@ -102,10 +101,10 @@ def main():
         json.dumps(narration_info["word_cues"], ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-    if narration_info["duration_seconds"] < 18.0:
+    if not 21.5 <= float(narration_info["duration_seconds"]) <= 22.4:
         raise RuntimeError(
-            "Narration is shorter than the 18-second production minimum. "
-            "The 24-second story needs speech to continue close to its ending."
+            "Narration must finish between 21.5 and 22.4 seconds so the spoken final phrase "
+            "reaches the closing shot. Revise the script or pacing; do not leave a long silent voice gap."
         )
 
     music_path = output / "cc0-violin-music.wav"
@@ -132,7 +131,12 @@ def main():
         ],
         "title_safe_area": {"brand": "top-left fixed", "subject_title": "below brand, shot-start only", "model": "central hero area"},
         "caption_safe_area": {"position": "lower centre", "lines": 1, "words_per_event": 2, "highlight": "Kokoro-native word timestamps; active word gold"},
-        "audio_timeline": {"narration": "starts at 0s and is paced to run close to the final scene", "music": "0–24s, natural opening and final 2s fade", "transition_sfx": "shot cut accents"},
+        "audio_timeline": {
+            "narration": "0s start; final spoken phrase is paced to finish at 21.5–22.4s with a short natural resonance tail",
+            "music": "0–24s; audible from the opening frame and resolves with the final image",
+            "transition_sfx": "shot cut accents aligned to the six scene transitions",
+            "final_image_and_audio": "the closing shot, final spoken phrase and musical cadence share the same endpoint",
+        },
         "full_render_authorized": False,
     }
     storyboard_path = output / "storyboard.json"
@@ -141,9 +145,10 @@ def main():
     mixed_path = output / "final-audio-mix.wav"
     filters = (
         "[1:a]volume=0.22,lowpass=f=10500,"
-        "afade=t=in:st=0:d=0.65,afade=t=out:st=22.0:d=2.0[bed];"
+        "afade=t=in:st=0:d=0.30,afade=t=out:st=22.8:d=1.2[bed];"
         "[0:a]highpass=f=75,lowpass=f=11500,"
-        "acompressor=threshold=0.11:ratio=2.7:attack=10:release=140:makeup=1.55[voice];"
+        "acompressor=threshold=0.11:ratio=2.7:attack=10:release=140:makeup=1.55,"
+        "aecho=0.8:0.20:90|180|300:0.22|0.13|0.07[voice];"
         "[2:a]volume=0.20[sfx];"
         "[bed][voice]sidechaincompress=threshold=0.025:ratio=4:attack=18:release=280[ducked];"
         "[ducked][voice][sfx]amix=inputs=3:duration=longest:normalize=0,"
@@ -162,6 +167,8 @@ def main():
         raise RuntimeError(
             f"Audio bed/mix must cover the full 24-second picture (music={music_duration:.2f}s, mix={mix_duration:.2f}s)."
         )
+    if narration_info["duration_seconds"] < 21.5:
+        raise RuntimeError("The final spoken phrase does not reach the closing scene.")
     report = {
         "title": TITLE,
         "script": SCRIPT,
@@ -174,6 +181,8 @@ def main():
             "duration_seconds": narration_info["duration_seconds"],
             "word_count": narration_info["word_count"],
             "word_timing_count": narration_info["word_timing_count"],
+            "target_finish_window_seconds": [21.5, 22.4],
+            "voice_resonance_tail_seconds": round(max(0.0, 24.0 - narration_info["duration_seconds"]), 2),
         },
         "music": {
             "file": music_path.name,
@@ -191,6 +200,9 @@ def main():
         "karaoke_captions": karaoke_path.name,
         "word_timing_file": word_timing_path.name,
         "voice_tracks_target_near_end": True,
+        "narration_full_timeline_gate": "passed",
+        "music_covers_full_video": True,
+        "final_audio_endpoint_seconds": 24.0,
     }
     (output / "audio-report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False, indent=2))
