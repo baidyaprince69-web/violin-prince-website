@@ -42,6 +42,31 @@ def parse_args():
     return parser.parse_args(raw)
 
 
+def iter_action_fcurves(animated):
+    """Yield animation curves on both Blender's legacy and layered Action APIs."""
+    animation_data = getattr(animated, "animation_data", None)
+    action = getattr(animation_data, "action", None) if animation_data else None
+    if action is None:
+        return
+    # Blender 4.3 and earlier (and compatible legacy Actions).
+    legacy_curves = getattr(action, "fcurves", None)
+    if legacy_curves is not None:
+        yield from legacy_curves
+        return
+    # Blender 4.4+ layered Actions; Blender 5.0 removed Action.fcurves.
+    slot = getattr(animation_data, "action_slot", None)
+    if slot is None:
+        return
+    for layer in action.layers:
+        for strip in layer.strips:
+            try:
+                channelbag = strip.channelbag(slot)
+            except (AttributeError, TypeError, RuntimeError):
+                channelbag = None
+            if channelbag is not None:
+                yield from channelbag.fcurves
+
+
 def set_material(name, colour, *, metallic=0.0, roughness=0.35, emission=0.0):
     mat = bpy.data.materials.new(name)
     mat.diffuse_color = (*colour, 1.0)
@@ -156,8 +181,7 @@ def add_camera_motion_graphics(camera, frame_end, gold, teal, cut_frames, *, pro
     progress.keyframe_insert(data_path="scale", frame=1)
     progress.scale = (1.0, 1.0, 1.0)
     progress.keyframe_insert(data_path="scale", frame=frame_end)
-    if progress.animation_data and progress.animation_data.action:
-        for curve in progress.animation_data.action.fcurves:
+    for curve in iter_action_fcurves(progress):
             for point in curve.keyframe_points:
                 point.interpolation = "LINEAR"
 
@@ -177,8 +201,7 @@ def add_camera_motion_graphics(camera, frame_end, gold, teal, cut_frames, *, pro
             sweep.keyframe_insert(data_path="location", frame=max(1, cut_frame - 3))
             sweep.location = (horizontal_span * 1.55, offset_y, -5.75)
             sweep.keyframe_insert(data_path="location", frame=min(frame_end, cut_frame + 3))
-            if sweep.animation_data and sweep.animation_data.action:
-                for curve in sweep.animation_data.action.fcurves:
+            for curve in iter_action_fcurves(sweep):
                     for point in curve.keyframe_points:
                         point.interpolation = "LINEAR"
             sweeps.append(sweep)
@@ -426,8 +449,7 @@ def make_bow_animation(source_bow_meshes, front_y, bounds, frame_end):
         frame = max(1, min(frame_end, int(round(1 + (frame_end - 1) * fraction))))
         bow_root.location = base_location + Vector((x_shift, 0.0, z_shift))
         bow_root.keyframe_insert(data_path="location", frame=frame)
-    if bow_root.animation_data and bow_root.animation_data.action:
-        for curve in bow_root.animation_data.action.fcurves:
+    for curve in iter_action_fcurves(bow_root):
             for point in curve.keyframe_points:
                 point.interpolation = "BEZIER"
                 point.handle_left_type = "AUTO"
@@ -615,9 +637,7 @@ def build_scene(args):
         camera.data.lens = lens
         camera.data.keyframe_insert(data_path="lens", frame=frame)
     for animated in (camera, focus, camera.data):
-        action = animated.animation_data.action if animated.animation_data else None
-        if action:
-            for curve in action.fcurves:
+        for curve in iter_action_fcurves(animated):
                 for point in curve.keyframe_points:
                     if int(round(point.co.x)) in cut_end_frames:
                         point.interpolation = "CONSTANT"
