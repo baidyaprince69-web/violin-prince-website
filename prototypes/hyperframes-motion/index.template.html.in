@@ -30,14 +30,14 @@
     <header id="top-mark" class="top-mark clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="2">
       <span class="mark-dot"></span>
       <span>VIOLIN PRINCE</span>
-      <span class="top-index" data-layout-ignore>MUSIC / MOTION / FEELING</span>
+      <span class="top-index" data-layout-ignore>RESEARCH / EXPLAINED / ANIMATED</span>
     </header>
     <div id="top-rule" class="top-rule clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="2"></div>
 
     <section id="headline-one" class="headline headline-one clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="3">
-      <p class="eyebrow" data-layout-ignore><span class="eyebrow-line"></span> A DIFFERENT KIND OF LANGUAGE</p>
-      <h1>LET THE<br /><em>STRINGS</em><br />SPEAK.</h1>
-      <p class="headline-note">Some feelings are better heard than explained.</p>
+      <p class="eyebrow" data-layout-ignore><span class="eyebrow-line"></span> THE QUESTION</p>
+      <h1 id="explainer-title">A MUSIC FACT, EXPLAINED.</h1>
+      <p class="headline-note">A researched explanation, spoken by Kokoro and shown through motion.</p>
     </section>
 
     <section id="wave-section" class="wave-section clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="4">
@@ -45,18 +45,20 @@
         <span data-layout-ignore>THE LANGUAGE OF STRINGS</span>
         <span class="wave-caption-right" data-layout-ignore>01 / 03</span>
       </div>
-      <div id="waveform" class="waveform" aria-hidden="true"></div>
+      <div id="waveform" class="waveform" aria-hidden="true">
+        <div id="diagram-items" class="diagram-items"></div>
+      </div>
       <div class="wave-foot">
-        <span data-layout-ignore>VIBRATION</span>
+        <span id="diagram-detail-left" data-layout-ignore>THE MECHANISM</span>
         <span class="wave-foot-line" data-layout-ignore></span>
-        <span data-layout-ignore>EMOTION</span>
+        <span id="diagram-detail-right" data-layout-ignore>STEP BY STEP</span>
       </div>
     </section>
 
     <section id="headline-two" class="headline headline-two clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="5">
-      <p class="eyebrow" data-layout-ignore><span class="eyebrow-line"></span> ONE INSTRUMENT</p>
-      <h2>INFINITE<br /><em>FEELING.</em></h2>
-      <p class="headline-note">Every note carries a story of its own.</p>
+      <p class="eyebrow" data-layout-ignore><span class="eyebrow-line"></span> THE EXPLANATION</p>
+      <h2 id="scene-two-title">THE KEY MECHANISM</h2>
+      <p class="headline-note">The important detail, visualised clearly.</p>
     </section>
 
     <div id="orbit" class="orbit clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="1" aria-hidden="true">
@@ -70,9 +72,9 @@
     <div id="particle-layer" class="particle-layer clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="1" aria-hidden="true"></div>
 
     <section id="headline-three" class="headline headline-three clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="6">
-      <p class="eyebrow" data-layout-ignore><span class="eyebrow-line"></span> CLOSE YOUR EYES</p>
-      <h2>FEEL<br />EVERY<br /><em>NOTE.</em></h2>
-      <p class="headline-note">VIOLIN PRINCE — WHERE SOUND BECOMES SENTIMENT.</p>
+      <p class="eyebrow" data-layout-ignore><span class="eyebrow-line"></span> THE TAKEAWAY</p>
+      <h2 id="scene-three-title">WHAT THIS MEANS</h2>
+      <p class="headline-note">A clear final takeaway from the researched explanation.</p>
     </section>
 
     <footer id="end-card" class="end-card clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="7">
@@ -82,12 +84,17 @@
       <p class="end-subtitle" data-layout-ignore>LET THE MUSIC STAY WITH YOU.</p>
     </footer>
 
+    <section id="narration-caption" class="narration-caption clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="10">
+      <p id="caption-kicker">KOKORO · WORD-SYNCHRONISED EXPLANATION</p>
+      <div id="caption-line" aria-live="off"></div>
+    </section>
+
     <div id="bottom-progress" class="bottom-progress clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="8">
-      <span class="progress-label" data-layout-ignore>A MOMENT IN MUSIC</span>
+      <span class="progress-label" data-layout-ignore>EXPLAINER TIMELINE</span>
       <span class="progress-track"><span id="progress-fill"></span></span>
       <span class="progress-time" data-layout-ignore>00:10</span>
     </div>
-    <audio id="music-bed" src="__AUDIO_SOURCE__" data-start="0" data-track-index="9" preload="auto"></audio>
+    <audio id="narration-mix" src="__AUDIO_SOURCE__" data-start="0" data-track-index="9" preload="auto"></audio>
   </main>
 </body>
 </html>
