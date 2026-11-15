@@ -372,7 +372,7 @@ def render_scene_video(
     )
     # Production remains capped at its configured 900-second process timeout.
     # A larger value is only passed explicitly by the manual, sample-limited benchmark.
-    safe_timeout = max(30, min(safe_timeout, 3600))
+    safe_timeout = max(30, min(safe_timeout, 3600 if benchmark_enabled else 900))
 
     benchmark_max_frames = 0
     if benchmark_enabled:
@@ -487,6 +487,16 @@ def render_scene_video(
                 diagnostics_path=diagnostics_path,
                 env=process_env,
             )
+
+    # Preserve successful stdout/stderr too: EGL/Mesa warnings and runtime renderer
+    # diagnostics often occur on otherwise successful renders.
+    _write_process_diagnostics(
+        diagnostics_path,
+        blender_command,
+        stdout=blender_process.stdout,
+        stderr=blender_process.stderr,
+        returncode=blender_process.returncode,
+    )
 
     # Blender appends its selected media extension to the output basename.
     # Accept that canonical file and rename it to the adapter's requested path.
