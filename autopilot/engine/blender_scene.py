@@ -117,6 +117,13 @@ def _register_render_telemetry(scene, config):
                 print("BLENDER_PREFLIGHT_REPORT_WRITE_WARNING=" + str(exc)[:240], flush=True)
         _write_timing_report()
         print("BLENDER_PREFLIGHT_ABORT=" + json.dumps(report, ensure_ascii=False), flush=True)
+        # Also close the timeline at this exact frame. If an operator context
+        # prevents render.cancel() from running in a handler, Blender's animation
+        # loop still has no remaining frames to process.
+        try:
+            scene.frame_end = int(scene.frame_current)
+        except Exception as exc:
+            report["frame_end_adjust_error"] = str(exc)[:240]
         try:
             bpy.ops.render.cancel()
         except Exception as exc:
@@ -163,6 +170,7 @@ def _register_render_telemetry(scene, config):
             record["render_write_callback_elapsed_seconds"] = round(
                 max(0.0, early_write - started["started_perf"]), 6
             )
+            record.pop("_render_post_perf", None)
         frame_records.append(record)
         records_by_frame[frame_number] = record
         _TIMINGS["last_frame_completed"] = frame_number
