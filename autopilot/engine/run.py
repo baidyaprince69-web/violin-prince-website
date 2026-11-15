@@ -5372,9 +5372,13 @@ def main(stage="full", visual_feedback=""):
     OUT.mkdir(exist_ok=True)
     try:
         motion_enabled = str(os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "false")).strip().lower() in {"1", "true", "yes", "on"}
+        if motion_enabled and stage in ("prepare", "full"):
+            raise PipelineError(
+                "Motion explainer preparation must use the ChatGPT-authored, source-verified plan "
+                "through autopilot/engine/run_daily_plan.py. This staged CLI must not call the "
+                "legacy Workers AI planning route or create an instrumental-only package."
+            )
         if stage == "prepare":
-            # The Motion renderer changes the visual engine, not the editorial
-            # product. Every route still researches a subject and creates Kokoro speech.
             return prepare_stage()
         if stage == "visuals":
             return visuals_stage(visual_feedback)
