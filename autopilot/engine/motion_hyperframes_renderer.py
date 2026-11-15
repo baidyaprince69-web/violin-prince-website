@@ -77,6 +77,81 @@ def _run_step(label: str, args: list[str], project_root: Path, timeout_seconds: 
     return result.stdout or ""
 
 
+def _run_composition_check(
+    project_root: Path,
+    timeout_seconds: int,
+    report_path: Path,
+) -> dict[str, Any]:
+    """Run the full HyperFrames browser gate and persist its machine-readable report."""
+    env = os.environ.copy()
+    env["HYPERFRAMES_NO_TELEMETRY"] = "1"
+    try:
+        result = subprocess.run(
+            ["npm", "run", "check", "--", "--json"],
+            cwd=str(project_root),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise MotionHyperFramesError(
+            f"HyperFrames browser validation exceeded its {timeout_seconds}-second safety timeout."
+        ) from exc
+
+    combined = ((result.stdout or "") + "\n" + (result.stderr or "")).strip()
+    report: dict[str, Any] | None = None
+    start = combined.find("{")
+    if start >= 0:
+        try:
+            report, _ = json.JSONDecoder().raw_decode(combined[start:])
+        except json.JSONDecodeError:
+            report = None
+
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    if isinstance(report, dict):
+        report_path.write_text(
+            json.dumps(report, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        ok = report.get("ok") is True
+        browser_skipped = report.get("browserSkipped") is True
+        sections = ("lint", "runtime", "layout", "motion", "contrast", "craft", "audio", "hdr")
+        findings = {
+            name: report.get(name)
+            for name in sections
+            if report.get(name) not in (None, [], {})
+        }
+        if result.returncode or not ok or browser_skipped:
+            details = json.dumps(
+                {
+                    "ok": report.get("ok"),
+                    "browserSkipped": browser_skipped,
+                    "findings": findings,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            raise MotionHyperFramesError(
+                "HyperFrames browser validation did not pass. "
+                f"Full report saved to {report_path}.\n{details[-12000:]}"
+            )
+        return report
+
+    fallback = combined[-12000:] if combined else "HyperFrames returned no JSON report or command output."
+    report_path.write_text(fallback + "\n", encoding="utf-8")
+    if result.returncode:
+        raise MotionHyperFramesError(
+            "HyperFrames browser validation failed and did not return valid JSON. "
+            f"Diagnostics saved to {report_path}.\n{fallback}"
+        )
+    raise MotionHyperFramesError(
+        "HyperFrames browser validation returned success without a valid JSON report. "
+        f"Diagnostics saved to {report_path}."
+    )
+
+
 def _probe_mp4(path: Path) -> dict[str, Any]:
     try:
         result = subprocess.run(
@@ -181,12 +256,19 @@ def render_full_track(
         ("Prepare the Motion browser module", ["npm", "run", "prepare:motion"]),
         ("Ensure the pinned HyperFrames browser", ["npx", "hyperframes", "browser", "ensure"]),
         ("Lint the HyperFrames composition", ["npm", "run", "lint"]),
-        ("Validate the HyperFrames composition", ["npm", "run", "check"]),
     ]
 
     try:
         for label, args in steps:
             _run_step(label, args, project_root, timeout_seconds)
+
+        destination_parent = Path(output_path).resolve().parent
+        check_report_path = destination_parent / "motion-hyperframes-check.json"
+        check_report = _run_composition_check(
+            project_root,
+            timeout_seconds,
+            check_report_path,
+        )
 
         manifest_path = output_dir / "audio-manifest.json"
         if not manifest_path.is_file():
@@ -244,6 +326,7 @@ def render_full_track(
             "visual_cycle_seconds": min(10.0, expected_duration),
             "visual_cycle_repeats": expected_duration > 10.0,
             "content_context_used": True,
+            "hyperframes_check_ok": check_report.get("ok") is True,
         }
     finally:
         audio_path.unlink(missing_ok=True)

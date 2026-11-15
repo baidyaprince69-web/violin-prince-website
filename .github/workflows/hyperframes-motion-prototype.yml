@@ -123,6 +123,7 @@ jobs:
             work/output/motion-contact-sheet.jpg
             work/output/motion-seeking-report.json
             work/output/motion-render-report.json
+            work/output/motion-hyperframes-check.json
           if-no-files-found: warn
           retention-days: 7
 
