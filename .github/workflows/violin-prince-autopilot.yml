@@ -119,7 +119,7 @@ jobs:
           PY
 
       - name: Check required Cloudflare AI secrets for photorealistic image generation
-        if: env.PIPELINE_STAGE != 'render'
+        if: env.PIPELINE_STAGE != 'render' && env.BLENDER_RENDER_ENABLED != 'true'
         shell: bash
         run: |
           missing=0
