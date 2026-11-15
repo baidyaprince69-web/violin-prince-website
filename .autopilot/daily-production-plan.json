@@ -1,73 +1,133 @@
 {
-  "story_type": "violin_physics",
-  "topic": "How violin back-arch geometry changes body resonances, alongside a separate new study of detecting vocal sounds within background sound textures.",
-  "title": "Why a Violin's Back Shape Matters",
-  "hook": "Could a violin's curve change the sound it makes?",
-  "description": "A November 2026 acoustics study compared six closely matched violins with three different back-arch heights and measured shifts in body resonances. A separate PLOS Biology study found that mice detected vocalizations better after longer exposure to background sound textures. These are two distinct sound-science findings, not one experiment.",
+  "story_type": "music_technology",
+  "core_claim": "USF-Audio expands digital audio dynamic range by folding signals before digitization and mathematically reconstructing the original waveform.",
+  "topic": "A research prototype uses analog waveform folding and mathematical reconstruction to capture greater audio dynamic range within a six-bit converter.",
+  "title": "How Digital Audio Can Capture More Dynamic Range",
+  "hook": "Can six bits preserve quiet and loud sounds?",
+  "description": "Imperial College London researchers demonstrated USF-Audio, a research-stage audio capture method that folds a waveform before digitization and mathematically reconstructs it. A six-bit prototype achieved at least 18 dB more dynamic range than a conventional six-bit converter. In a 52-person listening study, reconstructed audio received higher quality ratings. This is a research prototype, not a consumer recorder product.\n\nResearch: Imperial College London — https://www.imperial.ac.uk/news/articles/2026/imperial-engineers-challenge-90-year-limitation-in-digital-audio-sensing/\nIndependent analysis: XenoSpectrum — https://xenospectrum.com/en/usf-audio-modulo-wrapping-adc/",
   "hashtags": [
-    "#Violin",
-    "#ViolinAcoustics",
-    "#MusicScience",
-    "#MusicFacts"
+    "#DigitalAudio",
+    "#MusicTechnology",
+    "#AudioEngineering",
+    "#MusicProduction",
+    "#ViolinPrince"
+  ],
+  "tags": [
+    "digital audio",
+    "music technology",
+    "audio engineering",
+    "dynamic range",
+    "audio recording",
+    "sound design",
+    "Violin Prince"
   ],
   "narrative_style": "documentary",
-  "cover_payoff": "Use a generated symbolic solo-violin phrase as an audio illustration while the final scene shows a clean amber signal emerging from layered background sound textures. No creator performance recording is included, so do not describe this as Prince's live performance.",
-  "narration_script": "Violin shape can subtly change its acoustic voice. Researchers built six matched violins with three different back-arch heights. Their resonance frequencies and measured sound levels changed with back arch height. Separately, mice detected vocalizations better after sampling background sound textures longer.",
+  "cover_payoff": "Use an original short violin phrase as an audio illustration while a quiet-to-loud waveform is shown being folded, digitized and reconstructed. Use the pinned CC0 sample source; no creator performance recording is included, so do not describe this as Prince's live performance.",
+  "narration_script": "Digital audio research is challenging an old limit. Researchers fold the signal before digitizing, then mathematically reconstruct its original waveform. The six-bit prototype achieved at least eighteen decibels greater dynamic range. Fifty-two listeners rated reconstructed audio quality higher than conventional recordings.",
   "narration_evidence": [
     {
       "sentence_number": 2,
-      "source_id": "S001",
-      "quote": "Six violins were constructed to be as similar as possible, only the parameter “back arch height” was varied. The group of six instruments was divided into three pairs with strongly varied arch heights of 12.1, 14.8, and 17.5 mm, respectively."
+      "source_id": "S002",
+      "quote": "A research team at Imperial College London, made up of Ruiming Guo, Yuliang Zhu and Ayush Bhandari, has developed USF-Audio, a new technique that folds an audio waveform before digitizing it and then mathematically reconstructs the original waveform afterward."
     },
     {
       "sentence_number": 3,
       "source_id": "S001",
-      "quote": "Signature body modes of the instruments were shifted apart in frequency and towards higher amplitude for lower back arch heights"
+      "quote": "In experiments using just six bits per sample, the prototype achieved at least 18 dB greater dynamic range than a conventional six-bit converter."
     },
     {
       "sentence_number": 4,
-      "source_id": "S002",
-      "quote": "Mice can indeed detect vocalizations better if they had more time within a trial to sample the sound texture."
+      "source_id": "S001",
+      "quote": "A listening study involving 52 participants also found that reconstructed audio received higher quality ratings than conventional recordings at the same bit depth."
     }
   ],
   "sources": [
     {
       "source_id": "S001",
-      "title": "Investigating acoustic effects of violin back arch height changes: Constructing a set of test instruments",
-      "url": "https://pubs.aip.org/asa/jasa/article/160/5/4149/3408492/Investigating-acoustic-effects-of-violin-back-arch",
-      "publisher_domain": "pubs.aip.org",
+      "title": "Imperial engineers challenge 90-year limitation in digital audio sensing",
+      "url": "https://www.imperial.ac.uk/news/articles/2026/imperial-engineers-challenge-90-year-limitation-in-digital-audio-sensing/",
+      "publisher_domain": "imperial.ac.uk",
       "date": "2026-11-11"
     },
     {
       "source_id": "S002",
-      "title": "Neural integration of acoustic statistics enables mice to detect acoustic targets in noise",
-      "url": "https://journals.plos.org/plosbiology/article?id=10.1371/journal.pbio.3004082",
-      "publisher_domain": "journals.plos.org",
+      "title": "Imperial College's USF-Audio Folds Sound Waves Before Digitizing, Widening Dynamic Range Without Adding Bits",
+      "url": "https://xenospectrum.com/en/usf-audio-modulo-wrapping-adc/",
+      "publisher_domain": "xenospectrum.com",
       "date": "2026-11-12"
     }
   ],
   "timeline": [],
   "scenes": [
     {
-      "caption": "THE HIDDEN CURVE",
-      "image_prompt": "Create an original photorealistic 3D macro scene of a complete full-bodied violin viewed from a low three-quarter angle so its carved, gently convex amber-brown back arch is clearly visible. Show authentic maple wood grain, rich transparent varnish, realistic ribs, purfling, bridge, strings and scroll. Warm raking studio light reveals the curve and wood depth, with a dark charcoal studio background, subtle teal-to-amber atmospheric gradient, a few tiny illuminated dust motes and restrained star glints. Premium cinematic product photography, physically plausible instrument proportions, crisp detail, vertical 9:16 composition. No labels, text, watermark, hollow outline, wireframe or flat illustration.",
-      "graphic_label": "THE HIDDEN CURVE",
-      "graphic_detail": "Six matched violins used three back-arch heights",
+      "caption": "THE DIGITAL CEILING",
+      "image_prompt": "Create a premium photorealistic cinematic 3D macro scene featuring a complete, solid-bodied amber-brown violin as the unmistakable music source. Show authentic maple wood grain, rich transparent varnish, ebony fittings, realistic bridge, strings, tailpiece and scroll, with believable instrument proportions. A luminous golden audio waveform grows from a faint signal into strong peaks approaching a subtle abstract digital recording ceiling, visually suggesting the challenge of preserving both quiet detail and loud transients. Dark charcoal studio, restrained teal and amber rim light, natural shadows, delicate dust motes and a few restrained glints. Vertical 9:16, crisp material detail. No text, logos, watermark, hollow shell, outline, wireframe or monochrome illustration.",
+      "graphic_label": "THE RECORDING LIMIT",
+      "graphic_detail": "Conventional converters trade signal range against bit resolution",
       "visual_mode": "macro_3d"
     },
     {
-      "caption": "SHAPE SHIFTS RESONANCE",
-      "image_prompt": "Create a photorealistic cinematic 3D comparison scene showing three full-bodied amber-brown violin backs with visibly different but plausible arch heights, arranged in a precise museum-like studio display. Each violin must have filled varnished wood, natural grain, realistic edges and subtle reflections. Add elegant luminous sound-wave bands and a clean frequency-response visual hovering behind the instruments, suggesting measured resonances without writing numbers or text. Use warm amber key light, controlled teal rim light, subtle shadow depth, small dust particles and restrained glow. Vertical 9:16 composition, no people, no logos, no watermark, no wireframe or line-art instruments.",
-      "graphic_label": "THE KEY DETAIL",
-      "graphic_detail": "Back arch height shifted measured body resonances",
-      "visual_mode": "waveform"
+      "caption": "FOLD, DIGITIZE, REBUILD",
+      "image_prompt": "Create a photorealistic cinematic 3D explainer scene with a fully formed amber-brown violin in the foreground, natural wood grain and rich varnish. Behind it, show a clean luminous golden waveform being mathematically folded into a bounded band, passing through an abstract generic converter stage, then returning as a smooth reconstructed waveform. Make this a conceptual scientific visualization, not a depiction of a real commercial product or a claim about exact hardware appearance. Dark studio, teal-and-amber accents, subtle reflections, realistic depth, soft particles and uncluttered composition. Vertical 9:16. No text, numbers, logos, watermark, empty violin shell, outline, wireframe or monochrome.",
+      "graphic_label": "THE NEW SIGNAL PATH",
+      "graphic_detail": "USF-Audio folds, digitizes and mathematically reconstructs the waveform",
+      "visual_mode": "waveform",
+      "graphic_data": {
+        "type": "process_flow",
+        "title": "USF-AUDIO SIGNAL PATH",
+        "items": [
+          "FOLD SIGNAL",
+          "DIGITIZE",
+          "REBUILD AUDIO"
+        ]
+      }
     },
     {
-      "caption": "A SIGNAL THROUGH THE NOISE",
-      "image_prompt": "Create an original premium photorealistic close-up of a real, fully formed amber-brown violin with its bow contacting the strings, rich varnished maple grain, visible bow hair and precise string detail. A single bright golden waveform emerges from the strings and remains visually distinct while soft layered teal and amber sound-texture waves dissolve behind it, a visual metaphor for a target sound becoming detectable within complex background noise. Keep the violin as the unmistakable hero, cinematic studio lighting, delicate illuminated dust, gentle star glints and nuanced shadows. Vertical 9:16, no captions, no text, no watermark, no empty violin outline, and do not depict or imply a real creator performance recording.",
-      "graphic_label": "THE PAYOFF",
-      "graphic_detail": "A target sound can stand out from background texture",
+      "caption": "MORE RANGE, SAME SIX BITS",
+      "image_prompt": "Create an original premium photorealistic close performance-style composition centered on a complete, solid amber-brown violin with realistic bow hair touching visible strings. Preserve authentic wood grain, transparent varnish, bridge, fingerboard, fittings and natural studio highlights. A warm golden waveform emerges from the violin, retaining delicate quiet details and bright loud peaks without clipping, while subtle teal-and-amber sound bands create depth behind it. The instrument must remain fully formed and unmistakably real, with physically plausible proportions. No human face or fake creator likeness. Cinematic dark studio, gentle dust motes and restrained glints, vertical 9:16, no labels, text, logos, watermark, hollow shell, outline or wireframe.",
+      "graphic_label": "THE LISTENING TEST",
+      "graphic_detail": "Fifty-two participants rated reconstructed audio higher in the reported six-bit listening study",
       "visual_mode": "cover_performance"
     }
-  ]
+  ],
+  "publish_metadata": {
+    "title": "How Digital Audio Can Capture More Dynamic Range",
+    "description": "A new research-stage audio capture method folds waveforms before digitization, then mathematically reconstructs them. Imperial College London's six-bit prototype achieved at least 18 dB more dynamic range than a conventional six-bit converter. In a 52-person listening study, reconstructed audio received higher quality ratings. This is a research prototype, not a consumer recorder.\n\nResearch: https://www.imperial.ac.uk/news/articles/2026/imperial-engineers-challenge-90-year-limitation-in-digital-audio-sensing/\nIndependent analysis: https://xenospectrum.com/en/usf-audio-modulo-wrapping-adc/",
+    "tags": [
+      "digital audio",
+      "music technology",
+      "audio engineering",
+      "dynamic range",
+      "audio recording",
+      "sound design",
+      "Violin Prince"
+    ],
+    "category_id": "10",
+    "default_language": "en",
+    "privacy_status": "public",
+    "made_for_kids": false
+  },
+  "visual_reference": {
+    "motion_profile": "animated_stills",
+    "visual_language": "hybrid",
+    "pacing": "dynamic",
+    "reference_summary": "Original Violin Prince music-technology explainer: photorealistic amber-brown violin hero imagery, crisp signal diagrams, kinetic captions, controlled camera movement and restrained teal-and-amber lighting.",
+    "scene_guidance": [
+      {
+        "shot_type": "wide_hero",
+        "camera_move": "pan_left",
+        "transition_out": "wipe_right"
+      },
+      {
+        "shot_type": "mechanism_cutaway",
+        "camera_move": "pan_up",
+        "transition_out": "smooth_left"
+      },
+      {
+        "shot_type": "performance_close",
+        "camera_move": "pan_right",
+        "transition_out": "fade_through_black"
+      }
+    ]
+  }
 }
