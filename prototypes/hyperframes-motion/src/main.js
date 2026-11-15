@@ -77,6 +77,7 @@ const sequence = [
   ["#wave-section", { opacity: [0, 1], y: [34, 0] }, { duration: 0.9, ease: "easeOut", at: 1.72 }],
   ["#wave-section .wave-caption", { opacity: [0, 1], x: [-18, 0] }, { duration: 0.6, ease: "easeOut", at: 2.02 }],
   ["#wave-section .wave-foot", { opacity: [0, 1] }, { duration: 0.7, ease: "easeOut", at: 2.15 }],
+  ["#wave-section", { opacity: [1, 0], y: [0, -24] }, { duration: 0.55, ease: "easeIn", at: 3.18 }],
   ["#orbit", { opacity: [0, 0.68, 0.42], scale: [0.82, 1.03, 1.1], rotate: [0, 18, 42] }, { duration: 8.2, ease: "linear", times: [0, 0.42, 1], at: 1.15 }],
   ["#orbit .orbit-arc", { opacity: [0, 1, 0.45], pathLength: [0, 1, 1] }, { duration: 4.2, ease: "easeOut", times: [0, 0.6, 1], at: 1.8 }],
   ["#headline-one", { opacity: [1, 0] }, { duration: 0.55, ease: "easeIn", at: 3.22 }],
@@ -88,9 +89,9 @@ const sequence = [
   ["#headline-three h2", { opacity: [0, 1], y: [36, 0] }, { duration: 0.9, ease: "easeOut", at: 6.78 }],
   ["#headline-three .headline-note", { opacity: [0, 1] }, { duration: 0.65, ease: "easeOut", at: 7.2 }],
   ["#headline-three", { opacity: [1, 0] }, { duration: 0.48, ease: "easeIn", at: 7.72 }],
-  ["#end-card", { opacity: [0, 1], y: [22, 0] }, { duration: 0.65, ease: "easeOut", at: 7.15 }],
-  ["#end-card .end-rule", { scaleX: [0, 1] }, { duration: 0.55, ease: "easeOut", at: 7.2 }],
-  ["#end-card .end-name", { opacity: [0, 1], y: [18, 0] }, { duration: 0.5, ease: "easeOut", at: 7.35 }]
+  ["#end-card", { opacity: [0, 1], y: [22, 0] }, { duration: 0.65, ease: "easeOut", at: 7.95 }],
+  ["#end-card .end-rule", { scaleX: [0, 1] }, { duration: 0.55, ease: "easeOut", at: 8.0 }],
+  ["#end-card .end-name", { opacity: [0, 1], y: [18, 0] }, { duration: 0.5, ease: "easeOut", at: 8.15 }]
 ];
 
 for (let index = 0; index < barCount; index += 1) {
