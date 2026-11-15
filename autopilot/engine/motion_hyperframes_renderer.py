@@ -323,8 +323,8 @@ def render_full_track(
             "renderer": "motion_hyperframes",
             "full_track": True,
             "source_duration_seconds": expected_duration,
-            "visual_cycle_seconds": min(10.0, expected_duration),
-            "visual_cycle_repeats": expected_duration > 10.0,
+            "visual_sequence_duration_seconds": expected_duration,
+            "visual_sequence_repeats": False,
             "content_context_used": True,
             "hyperframes_check_ok": check_report.get("ok") is True,
         }
