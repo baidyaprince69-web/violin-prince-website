@@ -421,8 +421,8 @@ def decimate_render_meshes(meshes, face_limit=70000, preserve_meshes=()):
     eligible_meshes = [obj for obj in valid_meshes if obj not in fixed_meshes]
     fixed_faces = sum(len(obj.data.polygons) for obj in fixed_meshes)
     eligible_faces = sum(len(obj.data.polygons) for obj in eligible_meshes)
-    budget = max(10000, int(face_limit))
-    eligible_budget = max(1000, budget - fixed_faces)
+    budget = max(100, int(face_limit))
+    eligible_budget = max(100, budget - fixed_faces)
     ratio = model_decimation_ratio(eligible_faces, eligible_budget)
 
     if ratio < 0.999 and eligible_meshes:
