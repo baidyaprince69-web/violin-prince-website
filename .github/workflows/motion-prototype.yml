@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: motion-prototype-\${{ github.ref }}
+  group: motion-prototype-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -61,7 +61,7 @@ jobs:
         run: |
           ffprobe -v error \
             -show_entries format=duration \
-            -show_entries stream=codec_name,width,height,r_frame_rate \
+            -show_entries stream=codec_type,codec_name,width,height,r_frame_rate \
             -of json renders/violin-prince-motion-prototype.mp4 > renders/probe.json
           python - <<'PY'
           import json
@@ -89,7 +89,7 @@ jobs:
       - name: Upload rendered preview and evidence
         uses: actions/upload-artifact@v4
         with:
-          name: violin-prince-motion-prototype-\${{ github.run_number }}
+          name: violin-prince-motion-prototype-${{ github.run_number }}
           path: |
             motion-prototype/renders/violin-prince-motion-prototype.mp4
             motion-prototype/renders/contact-sheet.png
