@@ -4668,8 +4668,8 @@ def _read_package(require_images=False):
 
 
 def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
-    """Build a useful Violin Prince prompt within FLUX's 1,800-character limit."""
-    raw_prompt = " ".join(str(scene.get("image_prompt", "")).split()).strip()
+    """Build a compact scene prompt without truncating portrait or creator directions."""
+    raw_prompt = str(scene.get("image_prompt", "")).strip()
     if not raw_prompt:
         raise PipelineError("A planned scene has no visual prompt.")
 
@@ -4681,54 +4681,35 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
     subject = str((plan or {}).get("topic") or (plan or {}).get("title") or "the music fact")[:80]
     mode = str(scene.get("visual_mode") or ("macro_3d" if index == 0 else "cover_performance" if index == 2 else "waveform")).strip().casefold()
     mode_direction = VISUAL_MODE_PROMPTS.get(mode, VISUAL_MODE_PROMPTS["waveform"])
+    cover_payoff = str((plan or {}).get("cover_payoff") or "").strip()[:100]
+    clean_feedback = re.sub(r"\s+", " ", str(feedback or "")).strip()[:260]
 
-    # Keep the recognisable instrument identity, but avoid spending most of the
-    # provider budget on repeated negative prompts and decorative adjectives.
     brand_direction = (
-        "Violin Prince identity: richly coloured photorealistic cinematic still imagery or CGI; "
-        "physically believable violin construction, a complete, solid, opaque amber-brown violin "
-        "with visible natural wood grain, rich varnish, realistic strings, bow hair and metal fittings; "
-        "dimensional lighting and layered foreground/midground/background. "
-        "The violin body must be solid, opaque and fully formed, never an empty shell, hollow outline, "
-        "wireframe, skeletal contour or transparent body. "
-        "Palette: deep midnight navy, muted teal, antique gold, warm ivory and natural amber. Full colour. "
-        "This is original art direction. No stock imagery, identifiable faces, logos, readable text or lyrics; "
-        "no watermark. Respect sourced facts and measurements. Portrait 9:16 composition."
+        "Violin Prince identity: photorealistic cinematic still imagery; physically believable violin construction, "
+        "complete solid opaque amber-brown varnished wood, visible natural wood grain, realistic bridge, strings, "
+        "ebony fittings and bow. Never hollow, transparent, shell-like, skeletal, wireframe or outline. "
+        "Full colour: deep midnight navy, muted teal, antique gold, warm ivory and natural amber; dimensional studio "
+        "lighting, layered depth, subtle dust and restrained glints. This is original art direction. "
+        "No stock photography, identifiable faces, logos, readable text, lyrics or watermark. "
+        "Respect verified facts. Portrait 9:16 composition."
     )
     role = shot_roles[max(0, min(2, int(index)))]
-    fixed = f"Story subject: {subject}. {role} {mode_direction} {brand_direction}"
-
-    # Scene description is the most important scene-specific input. Optional
-    # reference notes, cover context and feedback are appended only when room
-    # remains; none can make an otherwise valid prompt exceed the API limit.
-    scene_text = raw_prompt[:420].rstrip()
-    result = scene_text + ". " + fixed
-
-    optional_parts = []
-    reference_suffix = scene_visual_prompt_suffix(plan, index).strip()
-    if reference_suffix:
-        optional_parts.append(reference_suffix)
-    cover_payoff = str((plan or {}).get("cover_payoff") or "").strip()
+    fixed = f" Story subject: {subject}. {role} {mode_direction} {brand_direction}"
+    suffix = ""
     if cover_payoff:
-        optional_parts.append("Performance connection: " + cover_payoff[:100])
-    clean_feedback = " ".join(str(feedback or "").split()).strip()
+        suffix += " Performance connection: " + cover_payoff
     if clean_feedback:
-        optional_parts.append("additional visual direction: " + clean_feedback[:180])
+        suffix += ", additional visual direction: " + clean_feedback
+    suffix += scene_visual_prompt_suffix(plan, index)
 
-    for addition in optional_parts:
-        addition = " ".join(addition.split())
-        remaining = 1800 - len(result) - 1
-        if remaining <= 0:
-            break
-        if len(addition) > remaining:
-            addition = addition[:remaining].rsplit(" ", 1)[0].rstrip(" ,;:")
-        if addition:
-            result += " " + addition
-
+    # Reserve room for the portrait constraint and creator feedback first.
+    # Only shorten the model-written scene description when the total exceeds
+    # the image-provider prompt budget; never cut off the required suffix.
+    scene_budget = max(0, 1800 - len(fixed) - len(suffix) - 2)
+    scene_text = raw_prompt[:min(500, scene_budget)]
+    result = scene_text + "." + fixed + suffix
     if len(result) > 1800:
-        raise PipelineError(
-            f"Scene visual prompt exceeded the 1,800-character provider limit ({len(result)} characters)."
-        )
+        raise PipelineError("Scene visual prompt exceeded the 1,800-character provider limit.")
     return result
 
 def make_storyboard_preview(plan, image_paths, target):
