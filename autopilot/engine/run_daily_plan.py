@@ -442,6 +442,9 @@ def run_daily_plan(plan_path: Path) -> int:
             raise engine.PipelineError("Blender scene poster frames are missing; cannot verify the rendered 3D scenes.")
         engine.make_storyboard_preview(plan, images, engine.OUT / "blender-storyboard-review.png")
     video_quality = engine.validate_final_video(final_video)
+    if blender_enabled:
+        render_report = json.loads((engine.OUT / "quality_report.json").read_text(encoding="utf-8"))
+        video_quality["blender_rendering"] = render_report.get("blender_rendering", {})
     manifest, _provenance = write_handoff_files(
         engine.OUT,
         plan=plan,
