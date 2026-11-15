@@ -30,6 +30,7 @@ jobs:
       EGL_PLATFORM: surfaceless
       LIBGL_ALWAYS_SOFTWARE: "1"
       MESA_LOADER_DRIVER_OVERRIDE: llvmpipe
+      BLENDER_RENDER_SAMPLES: "8"
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -54,8 +55,8 @@ jobs:
           python autopilot/engine/blender_renderer.py \
             --production-preview \
             --output-dir "$RUNNER_TEMP/violin-prince-blender-preview" \
-            --resolution 360x640 \
-            --fps 24
+            --resolution 240x426 \
+            --fps 16
 
       - name: Verify that the preview is a real encoded video
         run: |
