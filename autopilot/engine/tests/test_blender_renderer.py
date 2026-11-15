@@ -235,8 +235,9 @@ class BlenderRendererTests(unittest.TestCase):
             output = root / "scene.mp4"
             captured = {}
 
-            def fake_blender_run(command, timeout, label, diagnostics_path=None):
+            def fake_blender_run(command, timeout, label, diagnostics_path=None, env=None):
                 captured["command"] = command
+                captured["child_env"] = env
                 config_path = Path(command[command.index("--config") + 1])
                 captured["config"] = json.loads(config_path.read_text(encoding="utf-8"))
                 Path(command[command.index("--output") + 1]).write_bytes(b"V" * 5000)

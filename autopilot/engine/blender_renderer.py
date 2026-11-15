@@ -17,6 +17,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from benchmark_telemetry import capture_host_diagnostics
+
 SUPPORTED_SCENE_TYPES = {
     "macro_3d": "string_vibration",
     "mechanism_3d": "bridge_cutaway",
@@ -166,11 +168,18 @@ def _run(
     label: str,
     *,
     diagnostics_path: str | Path | None = None,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess:
     try:
-        result = subprocess.run(
-            command, capture_output=True, text=True, timeout=timeout, check=False
-        )
+        run_options = {
+            "capture_output": True,
+            "text": True,
+            "timeout": timeout,
+            "check": False,
+        }
+        if env is not None:
+            run_options["env"] = env
+        result = subprocess.run(command, **run_options)
     except subprocess.TimeoutExpired as exc:
         if diagnostics_path is not None:
             saved = _write_process_diagnostics(
@@ -266,10 +275,38 @@ def render_scene_video(
     resolution: tuple[int, int] = (400, 712),
     fps: int = 16,
     timeout_seconds: int | None = None,
+    benchmark_overrides: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
-    """Render one complete opaque animated 3D scene as an MP4 clip."""
+    """Render one complete opaque animated 3D scene as an MP4 clip.
+
+    The benchmark-only arguments are accepted only when
+    BLENDER_BENCHMARK_DIAGNOSTICS=1. They cannot silently alter normal
+    production rendering.
+    """
     if not is_blender_render_enabled(enabled):
         return None
+
+    benchmark_enabled = os.environ.get("BLENDER_BENCHMARK_DIAGNOSTICS", "").strip() == "1"
+    diagnostics_enabled = benchmark_enabled or os.environ.get(
+        "BLENDER_RENDER_DIAGNOSTICS", ""
+    ).strip().casefold() in {"1", "true", "yes", "on"}
+    overrides = dict(benchmark_overrides or {})
+    allowed_overrides = {
+        "disable_dof",
+        "disable_frame_by_plane",
+        "disable_model",
+        "disable_shadows",
+        "samples",
+    }
+    unknown_overrides = sorted(set(overrides) - allowed_overrides)
+    if unknown_overrides:
+        raise BlenderRenderError(
+            "Unsupported benchmark-only scene overrides: " + ", ".join(unknown_overrides)
+        )
+    if overrides and not benchmark_enabled:
+        raise BlenderRenderError(
+            "Diagnostic scene overrides are blocked unless BLENDER_BENCHMARK_DIAGNOSTICS=1."
+        )
 
     scene_type = scene_type_for(scene)
     if not scene_type:
@@ -286,6 +323,13 @@ def render_scene_video(
     model_asset_required = bool(
         scene.get("model_asset_required") if isinstance(scene, dict) else False
     ) or scene_type == "violin_performance"
+    if overrides.get("disable_model"):
+        if scene_type == "violin_performance":
+            raise BlenderRenderError(
+                "The model ablation is not supported for the cover-performance scene."
+            )
+        model_asset_path = ""
+        model_asset_required = False
     if model_asset_required:
         if not model_asset_path or not Path(model_asset_path).is_file():
             raise BlenderRenderError(
@@ -301,6 +345,9 @@ def render_scene_video(
     frame_by_plane_manifest = str(
         (scene.get("frame_by_plane_manifest") if isinstance(scene, dict) else "") or ""
     ).strip()
+    if overrides.get("disable_frame_by_plane"):
+        frame_by_plane_required = False
+        frame_by_plane_manifest = ""
     if frame_by_plane_required and not frame_by_plane_manifest:
         raise BlenderRenderError("This daily scene requires a Frame By Plane background manifest.")
     if frame_by_plane_manifest and not Path(frame_by_plane_manifest).is_file():
@@ -323,10 +370,43 @@ def render_scene_video(
         if timeout_seconds is not None
         else os.environ.get("BLENDER_RENDER_TIMEOUT_SECONDS", "480")
     )
-    safe_timeout = max(30, min(safe_timeout, 900))
+    # Production remains capped at its configured 900-second process timeout.
+    # A larger value is only passed explicitly by the manual, sample-limited benchmark.
+    safe_timeout = max(30, min(safe_timeout, 3600 if benchmark_enabled else 900))
+
+    benchmark_max_frames = 0
+    if benchmark_enabled:
+        try:
+            benchmark_max_frames = int(os.environ.get("BENCH_MAX_FRAMES", "3"))
+        except (TypeError, ValueError) as exc:
+            raise BlenderRenderError("BENCH_MAX_FRAMES must be an integer from 1 to 8.") from exc
+        if not 1 <= benchmark_max_frames <= 8:
+            raise BlenderRenderError("BENCH_MAX_FRAMES must be between 1 and 8.")
+    elif os.environ.get("BENCH_MAX_FRAMES"):
+        raise BlenderRenderError(
+            "BENCH_MAX_FRAMES is reserved for the manual diagnostic workflow."
+        )
+
+    samples = blender_render_samples()
+    if "samples" in overrides:
+        try:
+            samples = max(1, min(int(overrides["samples"]), 32))
+        except (TypeError, ValueError) as exc:
+            raise BlenderRenderError("Benchmark sample override must be an integer.") from exc
 
     destination = Path(output_path)
     destination.parent.mkdir(parents=True, exist_ok=True)
+    diagnostics_dir = destination.parent / "blender-diagnostics"
+    diagnostics_path = diagnostics_dir / f"{destination.stem}.log"
+    timings_path = diagnostics_dir / f"{destination.stem}.timings.json"
+    preflight_report_path = diagnostics_dir / f"{destination.stem}-preflight-abort-report.json"
+    if diagnostics_enabled:
+        host_diagnostics_path = Path(
+            os.environ.get("BLENDER_HOST_DIAGNOSTICS_PATH")
+            or diagnostics_dir / "host-diagnostics.json"
+        )
+        capture_host_diagnostics(host_diagnostics_path)
+
     script_path = Path(__file__).with_name("blender_scene.py")
     if not script_path.is_file():
         raise BlenderRenderError("The full-scene Blender production script is missing.")
@@ -342,13 +422,28 @@ def render_scene_video(
             "fps": fps,
             "duration_seconds": duration,
             "threads": threads_per_worker,
-            "samples": blender_render_samples(),
+            "samples": samples,
             "model_face_limit": blender_model_face_limit(),
             "model_asset_path": model_asset_path,
             "model_asset_kind": str(scene.get("model_asset_kind") or "generic"),
             "model_asset_required": model_asset_required,
             "frame_by_plane_manifest": frame_by_plane_manifest,
             "frame_by_plane_required": frame_by_plane_required,
+            "diagnostics_enabled": diagnostics_enabled,
+            "diagnostics_path": str(timings_path.resolve()),
+            "preflight_report_path": str(preflight_report_path.resolve()),
+            "preflight_enabled": (
+                not benchmark_enabled
+                and os.environ.get("BLENDER_RENDER_PREFLIGHT_ENABLED", "")
+                .strip().casefold() in {"1", "true", "yes", "on"}
+            ),
+            "preflight_timeout_seconds": safe_timeout,
+            "preflight_reserve_seconds": _bounded_env_int(
+                "BLENDER_RENDER_PREFLIGHT_RESERVE_SECONDS", 30, 0, 300
+            ),
+            "preflight_first_frame_multiplier": 1.25,
+            "benchmark_max_frames": benchmark_max_frames,
+            "benchmark_overrides": overrides,
         }
         config_path.write_text(json.dumps(config), encoding="utf-8")
         blender_command = [
@@ -359,15 +454,53 @@ def render_scene_video(
             "--", "--config", str(config_path),
             "--output", str(destination.resolve()),
         ]
-        diagnostics_path = (
-            destination.parent / "blender-diagnostics" / f"{destination.stem}.log"
-        )
-        blender_process = _run(
-            blender_command,
-            timeout=safe_timeout,
-            label=f"Blender full-scene render ({scene_type})",
-            diagnostics_path=diagnostics_path,
-        )
+
+        process_env = None
+        if benchmark_enabled:
+            process_env = os.environ.copy()
+            egl_mode = process_env.get("BENCH_EGL_MODE", "surfaceless").strip().casefold()
+            if egl_mode == "surfaceless":
+                process_env["EGL_PLATFORM"] = "surfaceless"
+            elif egl_mode == "unset":
+                process_env.pop("EGL_PLATFORM", None)
+            elif egl_mode == "xvfb":
+                process_env.pop("EGL_PLATFORM", None)
+                xvfb_run = shutil.which("xvfb-run")
+                if not xvfb_run:
+                    raise BlenderRenderError(
+                        "EGL mode xvfb was selected but xvfb-run is not installed."
+                    )
+                blender_command = [xvfb_run, "-a", *blender_command]
+            else:
+                raise BlenderRenderError(
+                    "BENCH_EGL_MODE must be one of: surfaceless, unset, xvfb."
+                )
+
+        if process_env is None:
+            blender_process = _run(
+                blender_command,
+                timeout=safe_timeout,
+                label=f"Blender full-scene render ({scene_type})",
+                diagnostics_path=diagnostics_path,
+            )
+        else:
+            blender_process = _run(
+                blender_command,
+                timeout=safe_timeout,
+                label=f"Blender full-scene render ({scene_type})",
+                diagnostics_path=diagnostics_path,
+                env=process_env,
+            )
+
+    # Preserve successful stdout/stderr too: EGL/Mesa warnings and runtime renderer
+    # diagnostics often occur on otherwise successful renders.
+    _write_process_diagnostics(
+        diagnostics_path,
+        blender_command,
+        stdout=blender_process.stdout,
+        stderr=blender_process.stderr,
+        returncode=blender_process.returncode,
+    )
 
     # Blender appends its selected media extension to the output basename.
     # Accept that canonical file and rename it to the adapter's requested path.
@@ -396,7 +529,12 @@ def render_scene_video(
             + "Output directory entries=" + repr(nearby)
             + "; full Blender diagnostics saved to " + str(diagnostics_path)
         )
-    media = _probe_video(destination, (width, height), duration)
+    expected_seconds = (
+        benchmark_max_frames / float(fps)
+        if benchmark_max_frames
+        else duration
+    )
+    media = _probe_video(destination, (width, height), expected_seconds)
     frame_by_plane_report = None
     for line in (blender_process.stdout or "").splitlines():
         if line.startswith("FRAME_BY_PLANE_REPORT="):
@@ -412,6 +550,12 @@ def render_scene_video(
         [executable, "--version"], capture_output=True, text=True, timeout=20, check=False
     )
     version_lines = (version_result.stdout or version_result.stderr or "").splitlines()
+    timing_report = None
+    if timings_path.is_file():
+        try:
+            timing_report = json.loads(timings_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            timing_report = {"status": "unreadable", "path": str(timings_path)}
     return {
         "status": "rendered",
         "scene_type": scene_type,
@@ -429,9 +573,12 @@ def render_scene_video(
         "asset_provenance_path": str(Path(model_asset_path).parent.parent / "asset-provenance.json")
         if model_asset_path and (Path(model_asset_path).parent.parent / "asset-provenance.json").is_file()
         else None,
+        "diagnostics_path": str(diagnostics_path),
+        "timings_path": str(timings_path),
+        "timings": timing_report,
+        "benchmark_overrides": overrides,
         **media,
     }
-
 
 def _poster(video_path: Path, output_path: Path, timestamp: float) -> None:
     # Stay inside the actual clip duration. A seek at 1.5s into a 1.5s video

@@ -11,6 +11,10 @@ import json
 import math
 import random
 import sys
+import os
+import re
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Blender's `--python path/to/blender_scene.py` execution does not guarantee
@@ -22,7 +26,305 @@ if ENGINE_DIR not in sys.path:
 
 import bpy
 from blender_renderer import model_decimation_ratio
+from benchmark_telemetry import process_snapshot, write_json_atomic
 from mathutils import Matrix, Vector
+
+
+_PROCESS_START = time.perf_counter()
+_TIMINGS = None
+
+
+def _gpu_runtime_info():
+    info = {}
+    try:
+        import gpu
+
+        for key, function_name in (
+            ("vendor", "vendor_get"),
+            ("renderer", "renderer_get"),
+            ("version", "version_get"),
+            ("device_type", "device_type_get"),
+        ):
+            function = getattr(gpu.platform, function_name, None)
+            if callable(function):
+                try:
+                    info[key] = str(function())
+                except Exception as exc:
+                    info[key + "_error"] = str(exc)[:180]
+    except Exception as exc:
+        info["api_error"] = str(exc)[:180]
+    return info
+
+
+def _write_timing_report():
+    if not isinstance(_TIMINGS, dict):
+        return
+    path = str(_TIMINGS.get("diagnostics_path") or "").strip()
+    if not path:
+        return
+    try:
+        write_json_atomic(path, _TIMINGS)
+    except Exception as exc:
+        print("BLENDER_DIAGNOSTICS_WRITE_WARNING=" + str(exc)[:240], flush=True)
+
+
+def _register_render_telemetry(scene, config):
+    """Collect one record per rendered frame and enforce the optional time-budget gate."""
+    global _TIMINGS
+    if not isinstance(_TIMINGS, dict):
+        return []
+
+    preflight_enabled = bool(config.get("preflight_enabled", False))
+    diagnostics_enabled = bool(config.get("diagnostics_enabled", False))
+    if not preflight_enabled and not diagnostics_enabled:
+        return []
+
+    active = {}
+    records_by_frame = {}
+    writes_before_post = {}
+    frame_change_started = {}
+    frame_change_durations = {}
+    stats_by_frame = {}
+    render_stats_records = _TIMINGS.setdefault("render_stats", [])
+    frame_records = _TIMINGS.setdefault("frames", [])
+
+    def request_preflight_abort(gate_name, projected_seconds, observed):
+        if _TIMINGS.get("preflight", {}).get("aborted"):
+            return
+        timeout_seconds = max(30, int(config.get("preflight_timeout_seconds", 900)))
+        reserve_seconds = max(0, min(int(config.get("preflight_reserve_seconds", 30)), 300))
+        budget_seconds = max(30, timeout_seconds - reserve_seconds)
+        report = {
+            "schema_version": 1,
+            "status": "aborted",
+            "aborted": True,
+            "gate": gate_name,
+            "scene_type": str(config.get("scene_type") or ""),
+            "frame_count": int(scene.frame_end - scene.frame_start + 1),
+            "observed": observed,
+            "projected_total_seconds": round(float(projected_seconds), 3),
+            "timeout_seconds": timeout_seconds,
+            "reserved_seconds": reserve_seconds,
+            "usable_budget_seconds": budget_seconds,
+            "captured_at_utc": datetime.now(timezone.utc).isoformat(),
+            "reason": (
+                "Measured frame time projects beyond the configured Blender process budget. "
+                "The scene was cancelled after the measured sample; no quality settings were changed."
+            ),
+        }
+        _TIMINGS["preflight"] = report
+        _TIMINGS["status"] = "preflight_aborted"
+        report_path = str(config.get("preflight_report_path") or "").strip()
+        if report_path:
+            try:
+                write_json_atomic(report_path, report)
+            except Exception as exc:
+                print("BLENDER_PREFLIGHT_REPORT_WRITE_WARNING=" + str(exc)[:240], flush=True)
+        _write_timing_report()
+        print("BLENDER_PREFLIGHT_ABORT=" + json.dumps(report, ensure_ascii=False), flush=True)
+        # Also close the timeline at this exact frame. If an operator context
+        # prevents render.cancel() from running in a handler, Blender's animation
+        # loop still has no remaining frames to process.
+        try:
+            scene.frame_end = int(scene.frame_current)
+        except Exception as exc:
+            report["frame_end_adjust_error"] = str(exc)[:240]
+        try:
+            bpy.ops.render.cancel()
+        except Exception as exc:
+            report["cancel_error"] = str(exc)[:240]
+            _write_timing_report()
+
+    def on_render_pre(render_scene):
+        frame_number = int(render_scene.frame_current)
+        snapshot = process_snapshot()
+        active[frame_number] = {
+            "started_perf": time.perf_counter(),
+            "started_cpu_user": float(snapshot.get("cpu_user_seconds", 0.0)),
+            "started_cpu_system": float(snapshot.get("cpu_system_seconds", 0.0)),
+            "frame_set_seconds": frame_change_durations.pop(frame_number, 0.0),
+            "start_snapshot": snapshot,
+        }
+
+    def on_render_post(render_scene):
+        frame_number = int(render_scene.frame_current)
+        started = active.pop(frame_number, None)
+        if not started:
+            return
+        ended_perf = time.perf_counter()
+        snapshot = process_snapshot()
+        render_wall_seconds = max(0.0, ended_perf - started["started_perf"])
+        frame_set_seconds = max(0.0, float(started.get("frame_set_seconds", 0.0)))
+        wall_seconds = frame_set_seconds + render_wall_seconds
+        cpu_user = max(
+            0.0, float(snapshot.get("cpu_user_seconds", 0.0)) - started["started_cpu_user"]
+        )
+        cpu_system = max(
+            0.0, float(snapshot.get("cpu_system_seconds", 0.0)) - started["started_cpu_system"]
+        )
+        record = {
+            "frame": frame_number,
+            "wall_seconds": round(wall_seconds, 6),
+            "frame_set_seconds": round(frame_set_seconds, 6),
+            "render_wall_seconds": round(render_wall_seconds, 6),
+            "cpu_user_seconds": round(cpu_user, 6),
+            "cpu_system_seconds": round(cpu_system, 6),
+            "cpu_total_seconds": round(cpu_user + cpu_system, 6),
+            "process_elapsed_seconds": round(ended_perf - _PROCESS_START, 6),
+            "resources_after_frame": snapshot,
+            "render_stats": stats_by_frame.get(frame_number),
+            "_render_post_perf": ended_perf,
+        }
+        early_write = writes_before_post.pop(frame_number, None)
+        if early_write is not None:
+            record["render_write_before_render_post"] = True
+            record["render_write_callback_elapsed_seconds"] = round(
+                max(0.0, early_write - started["started_perf"]), 6
+            )
+            record.pop("_render_post_perf", None)
+        frame_records.append(record)
+        records_by_frame[frame_number] = record
+        _TIMINGS["last_frame_completed"] = frame_number
+        _write_timing_report()
+
+        if not preflight_enabled or _TIMINGS.get("preflight", {}).get("aborted"):
+            return
+
+        total_frames = max(1, int(render_scene.frame_end - render_scene.frame_start + 1))
+        setup_seconds = float(
+            _TIMINGS.get("stages", {}).get("elapsed_before_render_seconds", 0.0)
+        )
+        timeout_seconds = max(30, int(config.get("preflight_timeout_seconds", 900)))
+        reserve_seconds = max(0, min(int(config.get("preflight_reserve_seconds", 30)), 300))
+        budget_seconds = max(30, timeout_seconds - reserve_seconds)
+
+        if frame_number == int(render_scene.frame_start):
+            multiplier = float(config.get("preflight_first_frame_multiplier", 1.25))
+            projected = setup_seconds + wall_seconds * total_frames
+            _TIMINGS["preflight"] = {
+                "gate_1": "passed" if projected <= budget_seconds * multiplier else "aborted",
+                "first_frame_projection_seconds": round(projected, 3),
+                "first_frame_multiplier": multiplier,
+                "usable_budget_seconds": budget_seconds,
+            }
+            if projected > budget_seconds * multiplier:
+                request_preflight_abort(
+                    "frame_1_projection",
+                    projected,
+                    {"frame_1_wall_seconds": round(wall_seconds, 3), "setup_seconds": round(setup_seconds, 3)},
+                )
+                return
+
+        elif frame_number == int(render_scene.frame_start) + 1 and len(frame_records) >= 2:
+            first_frame_seconds = float(frame_records[0]["wall_seconds"])
+            projected = setup_seconds + first_frame_seconds + (total_frames - 1) * wall_seconds
+            _TIMINGS.setdefault("preflight", {})["gate_2"] = (
+                "passed" if projected <= budget_seconds else "aborted"
+            )
+            _TIMINGS["preflight"]["second_frame_projection_seconds"] = round(projected, 3)
+            _TIMINGS["preflight"]["usable_budget_seconds"] = budget_seconds
+            if projected > budget_seconds:
+                request_preflight_abort(
+                    "frame_2_projection",
+                    projected,
+                    {
+                        "frame_1_wall_seconds": round(first_frame_seconds, 3),
+                        "frame_2_wall_seconds": round(wall_seconds, 3),
+                        "setup_seconds": round(setup_seconds, 3),
+                    },
+                )
+            else:
+                _write_timing_report()
+
+    def on_frame_change_pre(changed_scene):
+        frame_change_started[int(changed_scene.frame_current)] = time.perf_counter()
+
+    def on_frame_change_post(changed_scene):
+        frame_number = int(changed_scene.frame_current)
+        started_at = frame_change_started.pop(frame_number, None)
+        if started_at is not None:
+            frame_change_durations[frame_number] = max(0.0, time.perf_counter() - started_at)
+
+    def _stats_time_seconds(value):
+        try:
+            parts = [float(item) for item in str(value).split(":")]
+            if len(parts) == 3:
+                return parts[0] * 3600.0 + parts[1] * 60.0 + parts[2]
+            if len(parts) == 2:
+                return parts[0] * 60.0 + parts[1]
+            if len(parts) == 1:
+                return parts[0]
+        except (TypeError, ValueError):
+            return None
+        return None
+
+    def on_render_stats(stats_text):
+        raw = str(stats_text)
+        frame_match = re.search(r"\bFra:\s*(\d+)", raw)
+        frame_number = (
+            int(frame_match.group(1))
+            if frame_match
+            else int(scene.frame_current)
+        )
+        entry = {"frame": frame_number, "raw": raw[:1200]}
+        render_match = re.search(r"\bTime:\s*([0-9:.]+)", raw)
+        saving_match = re.search(r"\bSaving:\s*([0-9:.]+)", raw)
+        if render_match:
+            entry["render_seconds"] = _stats_time_seconds(render_match.group(1))
+        if saving_match:
+            entry["saving_seconds"] = _stats_time_seconds(saving_match.group(1))
+        stats_by_frame[frame_number] = entry
+        render_stats_records.append(entry)
+        if len(render_stats_records) > 500:
+            del render_stats_records[:-500]
+        record = records_by_frame.get(frame_number)
+        if record is not None:
+            record["render_stats"] = entry
+
+    def on_render_write(render_scene):
+        frame_number = int(render_scene.frame_current)
+        now = time.perf_counter()
+        record = records_by_frame.get(frame_number)
+        if record is None:
+            # Blender versions can dispatch render_write before render_post.
+            # Preserve the observation without inventing an append duration.
+            writes_before_post[frame_number] = now
+            return
+        record["video_append_and_write_seconds"] = round(
+            max(0.0, now - (record.get("_render_post_perf") or now)), 6
+        )
+        record.pop("_render_post_perf", None)
+        record["render_write_callback_observed"] = True
+        _write_timing_report()
+
+    bpy.app.handlers.render_pre.append(on_render_pre)
+    bpy.app.handlers.render_post.append(on_render_post)
+    handlers = [
+        (bpy.app.handlers.render_pre, on_render_pre),
+        (bpy.app.handlers.render_post, on_render_post),
+        (bpy.app.handlers.frame_change_pre, on_frame_change_pre),
+        (bpy.app.handlers.frame_change_post, on_frame_change_post),
+    ]
+    bpy.app.handlers.frame_change_pre.append(on_frame_change_pre)
+    bpy.app.handlers.frame_change_post.append(on_frame_change_post)
+    render_stats_handlers = getattr(bpy.app.handlers, "render_stats", None)
+    if isinstance(render_stats_handlers, list):
+        render_stats_handlers.append(on_render_stats)
+        handlers.append((render_stats_handlers, on_render_stats))
+    render_write_handlers = getattr(bpy.app.handlers, "render_write", None)
+    if isinstance(render_write_handlers, list):
+        render_write_handlers.append(on_render_write)
+        handlers.append((render_write_handlers, on_render_write))
+    return handlers
+
+
+def _remove_render_telemetry_handlers(handlers):
+    for collection, handler in handlers:
+        try:
+            if handler in collection:
+                collection.remove(handler)
+        except Exception:
+            pass
 
 
 def parse_arguments():
@@ -702,6 +1004,20 @@ def add_bow_for_imported_violin(bounds, mat_wood, mat_strings, frame_end, mat_eb
 
 
 def build_scene(config):
+    global _TIMINGS
+    build_started = time.perf_counter()
+    _TIMINGS = {
+        "schema_version": 1,
+        "status": "building_scene",
+        "scene_type": str(config.get("scene_type") or ""),
+        "pid": os.getpid(),
+        "started_at_utc": datetime.now(timezone.utc).isoformat(),
+        "process_elapsed_at_build_start_seconds": round(build_started - _PROCESS_START, 6),
+        "diagnostics_path": str(config.get("diagnostics_path") or ""),
+        "stages": {},
+        "frames": [],
+        "renderer": {},
+    }
     clear_scene()
     if bool(config.get("geometry_budget_smoke", False)):
         _run_geometry_budget_smoke(int(config.get("geometry_budget_smoke_limit", 700)))
@@ -732,9 +1048,13 @@ def build_scene(config):
     model_root = None
     asset_bounds = None
     if asset_path:
+        model_import_started = time.perf_counter()
         model_root, asset_bounds = import_gltf_asset(
             asset_path,
             face_limit=int(config.get("model_face_limit", 60000)),
+        )
+        _TIMINGS["stages"]["model_import_and_decimation_seconds"] = round(
+            time.perf_counter() - model_import_started, 6
         )
         model_root["story_asset_kind"] = asset_kind
         model_root.keyframe_insert(data_path="rotation_euler", frame=1)
@@ -839,7 +1159,8 @@ def build_scene(config):
     bpy.context.collection.objects.link(camera)
     camera_data.lens = 48.0
     camera_data.sensor_fit = "VERTICAL"
-    camera_data.dof.use_dof = True
+    benchmark_overrides = config.get("benchmark_overrides") or {}
+    camera_data.dof.use_dof = not bool(benchmark_overrides.get("disable_dof", False))
     camera_data.dof.aperture_fstop = 5.6
 
     # A tracked focus object keeps the violin composed while the camera travels.
@@ -889,6 +1210,7 @@ def build_scene(config):
     frame_by_plane_required = bool(config.get("frame_by_plane_required", False))
     if frame_by_plane_required and not background_manifest:
         raise RuntimeError("This daily scene requires a Frame By Plane background manifest.")
+    frame_by_plane_started = time.perf_counter()
     if background_manifest:
         from frame_by_plane_adapter import build_frame_by_plane_background
         instrument_front_y = (
@@ -906,6 +1228,9 @@ def build_scene(config):
         )
         if int(frame_by_plane_report.get("layer_count", 0)) < 3:
             raise RuntimeError("Frame By Plane did not create the three required cinematic depth layers.")
+    _TIMINGS["stages"]["frame_by_plane_setup_seconds"] = round(
+        time.perf_counter() - frame_by_plane_started, 6
+    )
 
     world = bpy.data.worlds.new("Violin Prince midnight atmosphere")
     world.use_nodes = True
@@ -926,6 +1251,10 @@ def build_scene(config):
 
     if hasattr(scene, "eevee") and hasattr(scene.eevee, "taa_render_samples"):
         scene.eevee.taa_render_samples = max(1, min(int(config.get("samples", 4)), 32))
+    if bool(benchmark_overrides.get("disable_shadows", False)):
+        for light_object in (obj for obj in scene.objects if obj.type == "LIGHT"):
+            if hasattr(light_object.data, "use_shadow"):
+                light_object.data.use_shadow = False
     scene.render.threads_mode = "FIXED"
     scene.render.threads = max(1, min(int(config.get("threads", 2)), 2))
     scene.render.resolution_x = max(160, min(int(config.get("width", 360)), 1920))
@@ -937,7 +1266,52 @@ def build_scene(config):
     scene.frame_step = 1
     scene.render.film_transparent = False
 
+    benchmark_max_frames = max(0, min(int(config.get("benchmark_max_frames", 0) or 0), 8))
+    if benchmark_max_frames:
+        scene.frame_end = min(int(scene.frame_end), benchmark_max_frames)
+
     scene.view_settings.view_transform = "AgX" if "AgX" in scene.view_settings.bl_rna.properties["view_transform"].enum_items.keys() else "Standard"
+
+    depsgraph_started = time.perf_counter()
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    try:
+        depsgraph.update()
+    except Exception:
+        bpy.context.view_layer.update()
+    _TIMINGS["stages"]["depsgraph_update_seconds"] = round(
+        time.perf_counter() - depsgraph_started, 6
+    )
+    _TIMINGS["stages"]["scene_build_total_seconds"] = round(
+        time.perf_counter() - build_started, 6
+    )
+    _TIMINGS["stages"]["elapsed_before_render_seconds"] = round(
+        time.perf_counter() - _PROCESS_START, 6
+    )
+    _TIMINGS["renderer"] = {
+        "blender_version": str(getattr(bpy.app, "version_string", "unknown")),
+        "render_engine": str(scene.render.engine),
+        "gpu_platform": _gpu_runtime_info(),
+        "resolution": [int(scene.render.resolution_x), int(scene.render.resolution_y)],
+        "resolution_percentage": int(scene.render.resolution_percentage),
+        "fps": int(scene.render.fps),
+        "eevee_render_samples": (
+            int(scene.eevee.taa_render_samples)
+            if hasattr(scene, "eevee") and hasattr(scene.eevee, "taa_render_samples")
+            else None
+        ),
+        "threads": int(scene.render.threads),
+        "depth_of_field_enabled": bool(camera_data.dof.use_dof),
+        "frame_by_plane_enabled": bool(frame_by_plane_report),
+        "frame_by_plane_layers": int(frame_by_plane_report.get("layer_count", 0))
+        if isinstance(frame_by_plane_report, dict) else 0,
+        "model_asset_kind": str(config.get("model_asset_kind") or ""),
+    }
+    _TIMINGS["benchmark"] = {
+        "max_sample_frames": benchmark_max_frames or None,
+        "overrides": benchmark_overrides,
+        "preflight_enabled": bool(config.get("preflight_enabled", False)),
+    }
+    _write_timing_report()
 
     # The CI integration proof renders one actual composed frame. It exercises
     # model/scene construction, the slotted Action API, camera setup, native
@@ -956,7 +1330,15 @@ def build_scene(config):
         smoke_frame = max(1, min(frame_end, int(config.get("smoke_frame", 1))))
         scene.frame_set(smoke_frame)
         bpy.context.view_layer.update()
+        render_handlers = _register_render_telemetry(scene, config)
+        render_started = time.perf_counter()
         result = bpy.ops.render.render(write_still=True)
+        _remove_render_telemetry_handlers(render_handlers)
+        _TIMINGS["stages"]["still_render_wall_seconds"] = round(
+            time.perf_counter() - render_started, 6
+        )
+        _TIMINGS["status"] = "rendered_smoke_still"
+        _write_timing_report()
         if "FINISHED" not in result or not still_path.is_file():
             raise RuntimeError(
                 "Blender did not write the Frame By Plane smoke still: "
@@ -978,7 +1360,22 @@ def build_scene(config):
         scene.render.ffmpeg.gopsize = fps
         scene.render.filepath = str(Path(config["output"]).resolve().with_suffix(""))
         scene.frame_set(1)
+        render_handlers = _register_render_telemetry(scene, config)
+        render_started = time.perf_counter()
         render_result = bpy.ops.render.render(animation=True)
+        _remove_render_telemetry_handlers(render_handlers)
+        _TIMINGS["stages"]["animation_render_wall_seconds"] = round(
+            time.perf_counter() - render_started, 6
+        )
+        if _TIMINGS.get("preflight", {}).get("status") == "aborted":
+            _TIMINGS["ended_at_utc"] = datetime.now(timezone.utc).isoformat()
+            _write_timing_report()
+            raise RuntimeError(
+                "Blender preflight cancelled the animation after measured frame "
+                + str(_TIMINGS.get("last_frame_completed", "unknown"))
+                + ". See "
+                + str(config.get("preflight_report_path") or "preflight-abort-report.json")
+            )
         if "FINISHED" not in render_result:
             raise RuntimeError(
                 "Blender animation render operator did not finish: "
@@ -986,6 +1383,9 @@ def build_scene(config):
                 + "; output_prefix="
                 + scene.render.filepath
             )
+        _TIMINGS["status"] = "rendered"
+        _TIMINGS["ended_at_utc"] = datetime.now(timezone.utc).isoformat()
+        _write_timing_report()
     return frame_by_plane_report
 
 
