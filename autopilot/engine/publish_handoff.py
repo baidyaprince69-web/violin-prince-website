@@ -199,6 +199,48 @@ def _hash_text(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def _external_blender_model_assets(video_quality: dict[str, Any]) -> list[dict[str, Any]]:
+    """Read licence/creator data emitted by the Blender asset resolver."""
+    blender = video_quality.get("blender_rendering") or {}
+    reports = blender.get("scenes", []) if isinstance(blender, dict) else []
+    discovered: dict[str, dict[str, Any]] = {}
+    for report in reports:
+        if not isinstance(report, dict):
+            continue
+        manifest_path = str(report.get("asset_provenance_path") or "").strip()
+        if not manifest_path:
+            continue
+        path = Path(manifest_path)
+        if not path.is_file():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(data, dict) or data.get("resolution") != "downloaded_model":
+            continue
+        key = str(data.get("model_uid") or data.get("source_url") or manifest_path)
+        discovered[key] = {
+            "asset_type": "external_3d_model",
+            "provider": str(data.get("provider") or "Sketchfab"),
+            "model_uid": str(data.get("model_uid") or ""),
+            "name": str(data.get("model_name") or "3D model"),
+            "creator": str(data.get("creator") or ""),
+            "license": str(data.get("license_label") or "Unknown"),
+            "license_url": str(data.get("license_url") or ""),
+            "source_url": str(data.get("source_url") or ""),
+            "attribution": str(data.get("attribution") or ""),
+            "commercial_use_allowed": bool(data.get("commercial_use_allowed")),
+            "rights_status": (
+                "commercial_license_and_creator_attribution_recorded"
+                if data.get("commercial_use_allowed")
+                else "rights_review_required"
+            ),
+            "provenance_manifest": str(path),
+        }
+    return list(discovered.values())
+
+
 def build_asset_provenance(
     *,
     plan: dict[str, Any],
@@ -249,19 +291,45 @@ def build_asset_provenance(
 
     scenes = plan.get("scenes", [])
     scene_assets = []
+    blender_details = video_quality.get("blender_rendering") or {}
+    blender_active = bool(blender_details.get("enabled")) if isinstance(blender_details, dict) else False
+    external_model_assets = _external_blender_model_assets(video_quality)
+    uses_imported_performance_model = blender_active and any(
+        isinstance(scene, dict) and str(scene.get("visual_mode") or "") == "cover_performance"
+        for scene in scenes
+    )
+    if uses_imported_performance_model and not external_model_assets:
+        raise ValueError(
+            "Blender cover_performance output has no downloaded model provenance; "
+            "refusing to create a publish handoff without verified creator/licence details."
+        )
     for index, image_path in enumerate(image_paths):
         scene = scenes[index] if index < len(scenes) and isinstance(scenes[index], dict) else {}
         prompt = str(scene.get("image_prompt") or "")
         asset = _hash_file(image_path)
         asset.update({
-            "asset_type": "scene_image",
+            "asset_type": "blender_3d_scene_poster" if blender_active else "scene_image",
             "scene_number": index + 1,
             "visual_mode": str(scene.get("visual_mode") or ""),
-            "origin": "ai_generated_image",
-            "provider": "Cloudflare Workers AI",
-            "model": "@cf/black-forest-labs/flux-1-schnell",
+            "origin": "blender_3d_render_frame" if blender_active else "ai_generated_image",
+            "provider": (
+                "Blender Eevee + Sketchfab" if blender_active and external_model_assets
+                else "Blender Foundation Blender renderer" if blender_active
+                else "Cloudflare Workers AI"
+            ),
+            "model": (
+                "Imported Sketchfab glTF/GLB model with original Blender camera, lighting and animation"
+                if blender_active and external_model_assets
+                else "Blender Eevee procedural 3D scene" if blender_active
+                else "@cf/black-forest-labs/flux-1-schnell"
+            ),
             "scene_prompt_source_sha256": _hash_text(prompt),
-            "rights_status": "provider_terms_apply_no_external_stock_asset_inserted",
+            "rights_status": (
+                "external_model_licence_and_creator_attribution_recorded"
+                if blender_active and external_model_assets
+                else "original_procedural_3d_geometry_no_external_assets" if blender_active
+                else "provider_terms_apply_no_external_stock_asset_inserted"
+            ),
         })
         scene_assets.append(asset)
 
@@ -314,6 +382,7 @@ def build_asset_provenance(
         },
         "assets": {
             "scene_images": scene_assets,
+            "external_3d_models": external_model_assets,
             "narration": narration,
             "soundtrack": soundtrack,
             "final_video": final_video,
@@ -329,7 +398,8 @@ def build_asset_provenance(
         "rights_notice": (
             "This file records media origins and license metadata available to the pipeline. "
             "It is not legal advice or blanket rights clearance. Provider terms apply to generated "
-            "media; separately supplied assets require their own permission review."
+            "media; separately supplied assets require their own permission review. Required external "
+            "3D model credits are also copied into the publisher-facing description."
         ),
     }
 
@@ -345,6 +415,41 @@ def build_publish_manifest(
     """Create a publisher-facing handoff. A missing audience choice means HOLD."""
     metadata = metadata_check["value"]
     blockers: list[str] = []
+    description = str(metadata.get("description") or "")
+    external_models = provenance.get("assets", {}).get("external_3d_models", [])
+    external_models = external_models if isinstance(external_models, list) else []
+    external_credits = []
+    credits_to_append = []
+    for model in external_models:
+        if not isinstance(model, dict):
+            continue
+        name = str(model.get("name") or "3D model")
+        raw_creator = str(model.get("creator") or "").strip()
+        creator = raw_creator or "Unknown creator"
+        provider = str(model.get("provider") or "Sketchfab")
+        raw_license = str(model.get("license") or "").strip()
+        license_label = raw_license or "Unknown licence"
+        source_url = str(model.get("source_url") or "")
+        license_url = str(model.get("license_url") or "")
+        if not model.get("commercial_use_allowed"):
+            blockers.append(f"External 3D model {name} has no recorded commercial-use permission.")
+        if not raw_creator or not source_url.strip() or not raw_license:
+            blockers.append(f"External 3D model {name} is missing required creator/source/licence attribution.")
+        credit = (
+            f'3D model: "{name}" by {creator} on {provider}. '
+            f"Licence: {license_label}. Source: {source_url}"
+            + (f" Licence details: {license_url}" if license_url else "")
+        )
+        external_credits.append(credit)
+        if credit not in description:
+            credits_to_append.append(credit)
+    if credits_to_append:
+        description = (description.rstrip() + "\n\n" + "\n".join(credits_to_append)).strip()
+    if len(description) > MAX_DESCRIPTION_LENGTH:
+        blockers.append(
+            "Required 3D model attribution makes the YouTube description exceed "
+            f"{MAX_DESCRIPTION_LENGTH} characters; shorten other copy without removing the credit."
+        )
     if not (
         video_quality.get("width") == 720
         and video_quality.get("height") == 1280
@@ -384,7 +489,8 @@ def build_publish_manifest(
         "release_tag": release_tag,
         "public_video_url": public_video_url or None,
         "title": metadata["title"],
-        "description": metadata["description"],
+        "description": description,
+        "external_asset_credits": external_credits,
         "tags": metadata["tags"],
         "hashtags": plan.get("hashtags") or [],
         "category_id": metadata["category_id"],

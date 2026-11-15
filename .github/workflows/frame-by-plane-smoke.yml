@@ -1,0 +1,91 @@
+name: Frame By Plane 2.5D engine smoke test
+
+on:
+  push:
+    branches:
+      - feature/blender-3d-overlays
+    paths:
+      - ".autopilot/first-production-story.json"
+      - ".github/actions/setup-blender-frame-by-plane/**"
+      - ".github/workflows/frame-by-plane-smoke.yml"
+      - "autopilot/engine/frame_by_plane_adapter.py"
+      - "autopilot/engine/cinematic_background.py"
+      - "autopilot/engine/tests/frame_by_plane_smoke.py"
+      - "autopilot/engine/tests/test_frame_by_plane_adapter.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frame-by-plane-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      LIBGL_ALWAYS_SOFTWARE: "1"
+      MESA_LOADER_DRIVER_OVERRIDE: llvmpipe
+      EGL_PLATFORM: surfaceless
+    steps:
+      - name: Check out the feature branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python for background plate generation
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install background plate generator dependency
+        run: python -m pip install "Pillow>=10,<13"
+
+      - name: Set up pinned Blender and Frame By Plane
+        uses: ./.github/actions/setup-blender-frame-by-plane
+
+      - name: Run pure-Python manifest safety tests
+        run: python -m unittest autopilot.engine.tests.test_frame_by_plane_adapter -v
+
+      - name: Generate story-specific layered cinematic environment
+        run: |
+          set -Eeuo pipefail
+          python autopilot/engine/cinematic_background.py \
+            --plan .autopilot/first-production-story.json \
+            --output-dir work/frame-by-plane-smoke/backgrounds
+
+      - name: Build Frame By Plane multiplane and render one smoke frame
+        run: |
+          set -Eeuo pipefail
+          mkdir -p work/frame-by-plane-smoke
+          blender --background \
+            --python autopilot/engine/tests/frame_by_plane_smoke.py \
+            -- \
+            --manifest work/frame-by-plane-smoke/backgrounds/background-manifest.json \
+            --output-dir work/frame-by-plane-smoke \
+            --report work/frame-by-plane-smoke/report.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("work/frame-by-plane-smoke/report.json").read_text())
+          assert report["status"] == "frame_by_plane_smoke_rendered"
+          assert report["blender_version"] == "5.2.4"
+          assert report["extension_version"] == "8.0.1"
+          assert report["layer_count"] == 3
+          assert Path(report["render_file"]).is_file()
+          assert Path(report["render_file"]).stat().st_size > 1024
+          assert Path(report["blend_file"]).is_file()
+          print(json.dumps(report, indent=2))
+          PY
+
+      - name: Upload smoke render, editable project and generated plates
+        uses: actions/upload-artifact@v4
+        with:
+          name: violin-prince-frame-by-plane-smoke
+          path: |
+            work/frame-by-plane-smoke/report.json
+            work/frame-by-plane-smoke/frame-by-plane-smoke.png
+            work/frame-by-plane-smoke/frame-by-plane-smoke.blend
+            work/frame-by-plane-smoke/backgrounds/**
+          if-no-files-found: error
+          retention-days: 7

@@ -26,6 +26,7 @@ sys.path.insert(0, str(ENGINE_DIR))
 import run as engine  # noqa: E402
 from voiceover import synthesize_voiceover  # noqa: E402
 from publish_handoff import validate_publish_metadata, write_handoff_files  # noqa: E402
+from story_asset_resolver import resolve_story_asset, StoryAssetError  # noqa: E402
 
 
 def _normalise_quote(value: str) -> str:
@@ -377,25 +378,74 @@ def run_daily_plan(plan_path: Path) -> int:
         json.dumps(plan["quality_control"], ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
-    # Reuse the photorealistic FLUX image-generation path from the earlier
-    # Visuals stage. Never silently degrade to stick drawings or line art.
-    if not engine.CF_ACCOUNT or not engine.CF_TOKEN:
-        raise engine.PipelineError(
-            "Photorealistic scene generation requires CF_ACCOUNT_ID and CF_AI_TOKEN. "
-            "The run will stop rather than substitute basic line drawings."
-        )
-
+    blender_enabled = engine.is_blender_render_enabled()
     images = []
-    for index, scene in enumerate(plan["scenes"]):
-        image_path = engine.PACKAGE / f"scene-{index + 1}.jpg"
-        prompt = engine._scene_visual_prompt(scene, index=index, plan=plan)
-        generated_image = engine.make_image(prompt, index)
-        image_path.write_bytes(generated_image.read_bytes())
-        with Image.open(image_path) as image_check:
-            if image_check.width < 512 or image_check.height < 512:
-                raise engine.PipelineError(f"Generated scene image {index + 1} is unexpectedly small.")
-            image_check.verify()
-        images.append(image_path)
+    model_asset = None
+    if blender_enabled:
+        # One real model is selected for this story and shared across its shots,
+        # so a different topic naturally receives a different physical subject.
+        try:
+            model_asset = resolve_story_asset(
+                plan,
+                engine.WORK / "story-assets",
+                access_token=os.environ.get("SKETCHFAB_ACCESS_TOKEN"),
+            )
+        except StoryAssetError as exc:
+            raise engine.PipelineError("Story-specific 3D model gate blocked production: " + str(exc)) from exc
+        model_path = str(model_asset.get("local_model_path") or "")
+        if not model_path:
+            raise engine.PipelineError("Story asset resolver returned no actual 3D model path.")
+        query = str(model_asset.get("selection_query") or "")
+        subject_text = " ".join((
+            str(plan.get("asset_subject") or ""),
+            str(plan.get("model_query") or ""),
+            query,
+        )).casefold()
+        asset_kind = str(plan.get("asset_kind") or ("violin" if "violin" in subject_text else "generic")).casefold()
+        plan["model_asset"] = {
+            key: model_asset.get(key)
+            for key in (
+                "provider", "model_uid", "model_name", "source_url", "creator",
+                "license_code", "license_label", "license_url", "attribution",
+                "selection_query", "selection_score", "face_count", "vertex_count",
+                "pbr_type", "local_model_path", "manifest_path", "sha256",
+                "model_parts", "bow_rig_required",
+            )
+            if model_asset.get(key) is not None
+        }
+        for scene in plan["scenes"]:
+            scene["model_asset_path"] = model_path
+            scene["model_asset_kind"] = asset_kind
+            scene["model_asset_required"] = True
+        # The plan is rewritten after model selection so Render reads exactly the
+        # same story-to-model assignment that passed the licence and quality gates.
+        paths["plan"].write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
+        # Blender constructs and animates complete 3D scenes at render time.
+        # No FLUX stills are generated or used as scene backgrounds.
+        for index in range(3):
+            (engine.PACKAGE / f"scene-{index + 1}.jpg").unlink(missing_ok=True)
+        print(
+            "BLENDER_MODE=full_frame_3d; FLUX scene-image generation skipped; "
+            "Blender will render every scene from its own camera.",
+            flush=True,
+        )
+    else:
+        # Existing still-image pipeline remains available when Blender is disabled.
+        if not engine.CF_ACCOUNT or not engine.CF_TOKEN:
+            raise engine.PipelineError(
+                "Photorealistic scene generation requires CF_ACCOUNT_ID and CF_AI_TOKEN. "
+                "The run will stop rather than substitute basic line drawings."
+            )
+        for index, scene in enumerate(plan["scenes"]):
+            image_path = engine.PACKAGE / f"scene-{index + 1}.jpg"
+            prompt = engine._scene_visual_prompt(scene, index=index, plan=plan)
+            generated_image = engine.make_image(prompt, index)
+            image_path.write_bytes(generated_image.read_bytes())
+            with Image.open(image_path) as image_check:
+                if image_check.width < 512 or image_check.height < 512:
+                    raise engine.PipelineError(f"Generated scene image {index + 1} is unexpectedly small.")
+                image_check.verify()
+            images.append(image_path)
 
     metadata = {
         "schema_version": 3,
@@ -403,6 +453,7 @@ def run_daily_plan(plan_path: Path) -> int:
         "narration_info": narration_info,
         "asset": audio_asset,
         "performance_video": {"available": False, "source": "not_uploaded"},
+        "model_asset": plan.get("model_asset", {}),
         "topic": str(plan.get("topic") or ""),
         "title": str(plan.get("title") or "Violin Prince"),
         "prepared_at": datetime.now(timezone.utc).isoformat(),
@@ -417,14 +468,24 @@ def run_daily_plan(plan_path: Path) -> int:
     }
     paths["metadata"].write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
     engine._write_review_text(plan, engine.PACKAGE / "review.txt", {"available": False})
-    engine.make_storyboard_preview(plan, images, engine.PACKAGE / "storyboard-preview.png")
+    if not blender_enabled:
+        engine.make_storyboard_preview(plan, images, engine.PACKAGE / "storyboard-preview.png")
 
-    # Existing FFmpeg render and media QA remain the final authority for the MP4.
+    # Blender renders complete scene clips when enabled; otherwise the existing
+    # still-image/Pillow/FFmpeg route remains unchanged.
     result = engine.render_stage()
     if result != 0:
         return result
     final_video = engine.OUT / "violin-prince-short.mp4"
+    if blender_enabled:
+        images = [engine.OUT / f"blender-scene-{index + 1}-poster.png" for index in range(3)]
+        if not all(path.is_file() and path.stat().st_size > 1024 for path in images):
+            raise engine.PipelineError("Blender scene poster frames are missing; cannot verify the rendered 3D scenes.")
+        engine.make_storyboard_preview(plan, images, engine.OUT / "blender-storyboard-review.png")
     video_quality = engine.validate_final_video(final_video)
+    if blender_enabled:
+        render_report = json.loads((engine.OUT / "quality_report.json").read_text(encoding="utf-8"))
+        video_quality["blender_rendering"] = render_report.get("blender_rendering", {})
     manifest, _provenance = write_handoff_files(
         engine.OUT,
         plan=plan,
