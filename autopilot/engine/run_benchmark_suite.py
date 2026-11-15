@@ -224,9 +224,7 @@ def _run_group(
     case_host_path = DIAGNOSTICS / f"host-{safe_case}.json"
     os.environ["BLENDER_HOST_DIAGNOSTICS_PATH"] = str(case_host_path)
     os.environ["BLENDER_RENDER_WORKERS"] = str(max(1, min(workers, 3)))
-    if lp_num_threads is None:
-        os.environ.pop("LP_NUM_THREADS", None)
-    else:
+    if lp_num_threads is not None:
         os.environ["LP_NUM_THREADS"] = lp_num_threads
 
     try:
