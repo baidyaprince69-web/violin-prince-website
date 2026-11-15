@@ -65,10 +65,19 @@ const captionKicker = document.getElementById("caption-kicker");
 if (!waveform || !diagramItems || !particleLayer || !captionLine) {
   throw new Error("The prototype explainer layers are incomplete.");
 }
-if (contentConfig.narration_engine !== "Kokoro-82M" || contentConfig.narration_voice !== "af_heart" || narrationWords.length === 0) {
-  throw new Error("The explainer composition requires Kokoro af_heart word timings.");
+const narrationContextPresent = Boolean(contentConfig.narration_engine || contentConfig.narration_voice);
+const isNarratedExplainer =
+  contentConfig.narration_engine === "Kokoro-82M" &&
+  contentConfig.narration_voice === "af_heart" &&
+  narrationWords.length > 0;
+if (narrationContextPresent && !isNarratedExplainer) {
+  throw new Error("The explainer composition requires valid Kokoro af_heart word timings.");
 }
-if (captionKicker) captionKicker.textContent = "KOKORO · WORD-SYNCHRONISED EXPLANATION";
+if (captionKicker) {
+  captionKicker.textContent = isNarratedExplainer
+    ? "KOKORO · WORD-SYNCHRONISED EXPLANATION"
+    : "MOTION + HYPERFRAMES VISUAL TEST";
+}
 
 // The explainer diagram is data-driven. It only displays facts supplied by the
 // approved planner; it never manufactures measurements or process steps.
@@ -129,7 +138,8 @@ function renderDiagram(scene) {
   const fallback = document.createElement("div");
   fallback.className = "diagram-fallback";
   fallback.textContent = (scene?.caption || contentConfig.topic || "") +
-    (scene?.graphic_detail ? " — " + scene.graphic_detail : "");
+    (scene?.graphic_detail ? " — " + scene.graphic_detail : "") ||
+    "MOTION + HYPERFRAMES VISUAL TEST";
   diagramItems.appendChild(fallback);
 }
 
