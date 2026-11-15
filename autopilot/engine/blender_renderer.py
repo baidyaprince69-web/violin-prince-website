@@ -155,7 +155,7 @@ def render_scene_video(
     if model_asset_required:
         if not model_asset_path or not Path(model_asset_path).is_file():
             raise BlenderRenderError(
-                "This story scene requires its verified, downloaded 3D model. "
+                "This story scene requires its verified downloaded 3D model. "
                 "The asset resolver must finish successfully; no reference-image or placeholder fallback is allowed."
             )
         if Path(model_asset_path).suffix.casefold() not in {".gltf", ".glb"}:
