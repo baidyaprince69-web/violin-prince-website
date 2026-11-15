@@ -11,7 +11,6 @@ on:
       - "autopilot/engine/blender_reference.py"
       - "autopilot/engine/blender_renderer.py"
       - "autopilot/engine/blender_scene.py"
-      - "autopilot/engine/blender_renderer.py"
       - "autopilot/engine/frame_by_plane_backgrounds.py"
       - "autopilot/engine/frame_by_plane_adapter.py"
       - "autopilot/engine/blender_frame_by_plane_smoke.py"
@@ -28,6 +27,10 @@ on:
       - "autopilot/engine/blender_reference.py"
       - "autopilot/engine/blender_renderer.py"
       - "autopilot/engine/blender_scene.py"
+      - "autopilot/engine/frame_by_plane_backgrounds.py"
+      - "autopilot/engine/frame_by_plane_adapter.py"
+      - "autopilot/engine/blender_frame_by_plane_smoke.py"
+      - ".github/actions/setup-blender-frame-by-plane/action.yml"
       - "autopilot/engine/first_production_blender.py"
       - "autopilot/engine/voiceover.py"
       - "autopilot/engine/tests/**"
@@ -62,8 +65,8 @@ jobs:
       - name: Render one isolated Blender + Frame By Plane scene
         run: python autopilot/engine/blender_frame_by_plane_smoke.py --output-dir work/blender-fbp-smoke
 
-      - name: Upload the single-scene integration proof
-        if: always() && hashFiles('work/blender-fbp-smoke/single-scene-frame-by-plane-smoke.mp4') != ''
+      - name: Upload the single-frame integration proof
+        if: always() && hashFiles('work/blender-fbp-smoke/single-scene-frame-by-plane-smoke.png') != ''
         uses: actions/upload-artifact@v4
         with:
           name: blender-frame-by-plane-smoke
