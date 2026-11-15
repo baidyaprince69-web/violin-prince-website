@@ -76,6 +76,6 @@ jobs:
             \${{ runner.temp }}/violin-prince-blender-preview/blender-production-contact-sheet.jpg
             \${{ runner.temp }}/violin-prince-blender-preview/blender-production-report.json
             \${{ runner.temp }}/violin-prince-blender-preview/blender-scene-*.mp4
-            \${{ runner.temp }}/violin-prince-blender-preview/blender-scene-*-poster.jpg
+            \${{ runner.temp }}/violin-prince-blender-preview/blender-scene-*-poster.png
           if-no-files-found: error
           retention-days: 14
