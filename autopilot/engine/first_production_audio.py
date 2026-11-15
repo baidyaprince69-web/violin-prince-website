@@ -20,7 +20,8 @@ SCRIPT = (
     "Violin sound begins when bow hair grips a string. "
     "The bridge carries vibration into the maple body, where wood and air shape the tone. "
     "Sound leaves through the f-holes. "
-    "Bow speed, pressure, and contact shape each phrase; the final note resolves as the camera returns to the instrument."
+    "Bow speed, pressure, and contact shape each phrase; the camera reveals the bridge, carved plates and scroll, "
+    "then returns to the complete instrument as its final note softly resolves."
 )
 TITLE = "How a Violin Makes Sound"
 
