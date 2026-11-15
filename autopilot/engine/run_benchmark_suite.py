@@ -129,6 +129,9 @@ def _restore_saved_package() -> tuple[dict[str, Any], list[dict[str, Any]]]:
     if not model_path.is_file() or model_path.suffix.casefold() not in {".gltf", ".glb"}:
         raise RuntimeError("The restored story asset is not a valid local glTF/GLB file.")
 
+    # Ensure the credential is absent even when the artifact already contains a local model.
+    os.environ.pop("SKETCHFAB_ACCESS_TOKEN", None)
+
     plan["model_asset"] = dict(model_record)
     plan["model_asset"]["local_model_path"] = str(model_path.resolve())
     for scene in scenes:
