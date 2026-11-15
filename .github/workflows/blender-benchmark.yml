@@ -77,7 +77,7 @@ jobs:
       BENCH_EGL_MODE: ${{ github.event_name == 'push' && 'surfaceless' || inputs.egl_mode }}
       LIBGL_ALWAYS_SOFTWARE: "1"
       MESA_LOADER_DRIVER_OVERRIDE: "llvmpipe"
-      SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+      SOURCE_RUN_ID: ${{ github.event_name == 'push' && '43735549545' || inputs.source_run_id }}
 
     steps:
       - name: Check out benchmark code
@@ -175,9 +175,14 @@ jobs:
           import math
           import subprocess
           from pathlib import Path
-          from PIL import Image, ImageChops, ImageDraw, ImageStat
 
           output = Path("work/output")
+          videos = list(output.glob("benchmark-*.mp4")) if output.exists() else []
+          if not videos:
+              print("No benchmark clips were produced; skipping visual comparison.")
+              raise SystemExit(0)
+          from PIL import Image, ImageChops, ImageDraw, ImageStat
+
           diagnostics = output / "blender-diagnostics"
           cases = [
               "workers-1", "workers-2", "workers-3",
@@ -295,6 +300,11 @@ jobs:
               output.write(f"- Completed cases: {counts['completed']}\n")
               output.write(f"- Failed cases: {counts['failed']}\n")
               ratio = data.get("scene_1_contention_slowdown_ratio")
-              output.write(f"- Scene 1 contention slowdown ratio: {ratio if ratio is not None else 'not available'}\n")
+              if ratio is not None:
+                  output.write(f"- Scene 1 contention slowdown ratio: {ratio}\n")
+              for group in data.get("group_metrics", []):
+                  output.write(f"- {group.get('case')}: {group.get('total_wall_seconds')} seconds; {group.get('scenes_completed')} scenes completed\n")
+              if data.get("best_worker_count_by_total_wall_seconds") is not None:
+                  output.write(f"- Fastest complete worker group: {data.get('best_worker_count_by_total_wall_seconds')} workers\n")
               output.write("- Publishing: disabled\n")
           PY
