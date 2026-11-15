@@ -22,21 +22,25 @@ if (contentNode) {
     throw new Error("The Autopilot content context is not valid JSON.");
   }
 }
-function setContentText(selector, value) {
+function setContentText(selector, value, maxChars = 42) {
   const element = document.querySelector(selector);
   if (element && typeof value === "string" && value.trim()) {
-    element.textContent = value.trim();
+    element.textContent = value.trim().replace(/\\s+/g, " ").slice(0, maxChars);
   }
 }
 const sceneCaptions = Array.isArray(contentConfig.captions) ? contentConfig.captions : [];
-setContentText("#headline-one h1", contentConfig.title);
-setContentText("#headline-one .headline-note", contentConfig.hook);
-setContentText("#wave-section .wave-caption", contentConfig.topic);
-setContentText("#headline-two h2", sceneCaptions[0]);
-setContentText("#headline-two .headline-note", sceneCaptions[1]);
-setContentText("#headline-three h2", sceneCaptions[1] || sceneCaptions[0]);
-setContentText("#headline-three .headline-note", sceneCaptions[2]);
-setContentText("#bottom-progress .progress-label", contentConfig.topic);
+const shortHook = typeof contentConfig.hook === "string"
+  ? contentConfig.hook.trim().split(/\\s+/).slice(0, 4).join(" ")
+  : "";
+setContentText("#headline-one .headline-note", shortHook, 32);
+setContentText("#wave-section .wave-caption > span:first-child", contentConfig.topic, 25);
+setContentText("#headline-two h2", sceneCaptions[0], 24);
+setContentText("#headline-two .headline-note", sceneCaptions[1], 38);
+setContentText(
+  "#bottom-progress .progress-label",
+  sceneCaptions[2] || contentConfig.title || contentConfig.topic,
+  26,
+);
 
 const waveform = document.getElementById("waveform");
 const particleLayer = document.getElementById("particle-layer");
