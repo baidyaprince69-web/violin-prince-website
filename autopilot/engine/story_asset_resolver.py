@@ -22,6 +22,7 @@ from asset_resolver import (
     AssetResolutionError,
     _license_details,
     fetch_model_metadata,
+    model_uid_from_url,
     resolve_sketchfab_asset,
 )
 
@@ -241,7 +242,7 @@ def score_candidate(model: dict[str, Any], query: str) -> float:
     overlap = len(query_terms.intersection(_search_result_terms(model)))
     relevance = overlap / max(1, len(query_terms))
     geometry = min(1.0, max(0.0, (face_count - MIN_FACE_COUNT) / 400_000))
-    pbr = str(model.get("pbr_type") or "").casefold() not in {"", "none", "false"}
+    pbr = str(model.get("pbr_type") or model.get("pbrType") or "").casefold() not in {"", "none", "false"}
     try:
         likes = max(0, int(model.get("likeCount") or model.get("like_count") or 0))
     except (TypeError, ValueError):
@@ -329,6 +330,57 @@ def rank_story_models(models: list[dict[str, Any]], query: str) -> list[dict[str
     ]
 
 
+def _preferred_model_entries(plan: dict[str, Any]) -> list[tuple[str, str]]:
+    """Validate and preserve plan-ordered Sketchfab URLs selected for this story."""
+    raw = plan.get("preferred_model_urls") or []
+    if isinstance(raw, str):
+        raw = [raw]
+    if not isinstance(raw, list):
+        raise StoryAssetError("preferred_model_urls must be a list of Sketchfab model URLs.")
+    entries: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for value in raw:
+        source_url = str(value or "").strip()
+        if not source_url:
+            continue
+        try:
+            uid = model_uid_from_url(source_url)
+        except AssetResolutionError as exc:
+            raise StoryAssetError("Invalid preferred Sketchfab model URL: " + source_url) from exc
+        if uid not in seen:
+            seen.add(uid)
+            entries.append((source_url, uid))
+    return entries
+
+
+def load_preferred_story_models(
+    plan: dict[str, Any],
+    *,
+    session: requests.Session | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
+    """Fetch public metadata for explicitly selected models before broad discovery."""
+    client = session or requests.Session()
+    loaded: list[dict[str, Any]] = []
+    failures: list[dict[str, str]] = []
+    for source_url, uid in _preferred_model_entries(plan):
+        try:
+            metadata = fetch_model_metadata(uid, client)
+            if not isinstance(metadata, dict):
+                raise StoryAssetError("Sketchfab returned invalid metadata for " + uid)
+            loaded.append({
+                **metadata,
+                "uid": uid,
+                "_violin_prince_source_url": source_url,
+            })
+        except (requests.RequestException, AssetResolutionError, ValueError, StoryAssetError) as exc:
+            failures.append({
+                "model_uid": uid,
+                "source_url": source_url,
+                "error": str(exc)[:400],
+            })
+    return loaded, failures
+
+
 def resolve_story_asset(
     plan: dict[str, Any],
     output_dir: str | Path,
@@ -352,14 +404,53 @@ def resolve_story_asset(
         require_violin_parts = requested_kind in {"violin", "stringed_instrument"} or "violin" in _tokens(query)
     folder = Path(output_dir).expanduser().resolve()
     folder.mkdir(parents=True, exist_ok=True)
-    models = search_story_models(query, session=session)
-    ranked = rank_story_models(models, query)
-    ranked = [item for item in ranked if _face_count(item) >= max(MIN_FACE_COUNT, int(min_face_count))]
+    client = session or requests.Session()
+    preferred_entries = _preferred_model_entries(plan)
+    preferred_models, preferred_errors = load_preferred_story_models(plan, session=client)
+
+    search_error = ""
+    try:
+        discovered_models = search_story_models(query, session=client)
+    except StoryAssetError as exc:
+        # An explicitly selected valid model must remain usable even if broad
+        # discovery is temporarily unavailable. Discovery is only a fallback.
+        if not preferred_models:
+            raise
+        search_error = str(exc)[:500]
+        discovered_models = []
+
+    preferred_ranked = {
+        _model_uid(item): item
+        for item in rank_story_models(preferred_models, query)
+    }
+    preferred_uids = {uid for _url, uid in preferred_entries}
+    ranked = [
+        preferred_ranked[uid]
+        for _url, uid in preferred_entries
+        if uid in preferred_ranked
+    ]
+    ranked.extend(
+        item for item in rank_story_models(discovered_models, query)
+        if _model_uid(item) not in preferred_uids
+    )
+    ranked = [
+        item for item in ranked
+        if _face_count(item) >= max(MIN_FACE_COUNT, int(min_face_count))
+    ]
     if not ranked:
+        diagnostic = {
+            "query": query,
+            "preferred_model_urls": [url for url, _uid in preferred_entries],
+            "preferred_model_errors": preferred_errors,
+            "search_error": search_error,
+            "ranked_candidates": 0,
+            "reference_fallback": False,
+        }
         raise StoryAssetError(
-            "No downloadable, commercially permitted model met the story relevance "
-            f"and {max(MIN_FACE_COUNT, int(min_face_count)):,}-face quality gate for query: {query!r}. "
-            "The render is blocked rather than using a thumbnail or low-detail substitute."
+            "No explicitly selected or discovered model met the licence, download and "
+            f"{max(MIN_FACE_COUNT, int(min_face_count)):,}-face quality gates for query: {query!r}. "
+            "The render remains blocked; no preview image or low-detail substitute will be used. "
+            "Selection diagnostics: " + json.dumps(diagnostic, ensure_ascii=False)[:1200]
         )
 
     failures = []
@@ -367,11 +458,17 @@ def resolve_story_asset(
         uid = _model_uid(candidate)
         candidate_dir = folder / uid
         try:
+            source_url = str(
+                candidate.get("_violin_prince_source_url")
+                or candidate.get("viewerUrl")
+                or candidate.get("url")
+                or f"https://sketchfab.com/models/{uid}"
+            )
             record = resolve_sketchfab_asset(
-                uid,
+                source_url,
                 candidate_dir,
                 access_token=token,
-                session=session,
+                session=client,
                 require_download=True,
             )
             model_path = Path(str(record.get("local_model_path") or ""))
@@ -390,6 +487,7 @@ def resolve_story_asset(
             manifest_path = Path(str(record["manifest_path"]))
             record.update({
                 "model_parts": model_parts,
+                "source_url": source_url,
                 "bow_rig_required": bool(require_violin_parts),
                 "selection_query": query,
                 "selection_score": candidate["violin_prince_asset_score"],
@@ -419,6 +517,9 @@ def resolve_story_asset(
     diagnostic.write_text(
         json.dumps({
             "query": query,
+            "preferred_model_urls": [url for url, _uid in preferred_entries],
+            "preferred_model_errors": preferred_errors,
+            "search_error": search_error,
             "ranked_candidates": len(ranked),
             "attempted": failures,
             "reference_fallback": False,
