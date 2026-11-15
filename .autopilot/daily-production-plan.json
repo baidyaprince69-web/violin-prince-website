@@ -38,8 +38,8 @@
     },
     {
       "sentence_number": 4,
-      "source_id": "S001",
-      "quote": "apply EQ, compression and reverb to input signals with no latency without using your CPU."
+      "source_id": "S002",
+      "quote": "The DSP also handles EQ, compression and reverb on the inputs with no latency and no load on your computer."
     }
   ],
   "sources": [
