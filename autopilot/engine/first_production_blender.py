@@ -290,13 +290,6 @@ def make_resonance_rings(front_y, frame_end, teal):
     return rings
 
 
-def set_interpolation_bezier():
-    for action in bpy.data.actions:
-        for curve in action.fcurves:
-            for key in curve.keyframe_points:
-                key.interpolation = "BEZIER"
-
-
 def build_scene(args):
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
@@ -407,8 +400,6 @@ def build_scene(args):
     add_text_overlay(camera, "THE BRIDGE CARRIES THE VIBRATION", -0.82, -0.78, 146, 242, white, size=0.155)
     add_text_overlay(camera, "WOOD AND AIR SHAPE THE TONE", -0.82, -0.78, 246, 370, white, size=0.165)
     add_text_overlay(camera, "FOUR STRINGS. ONE VOICE.", -0.82, -0.78, 475, frame_end, gold, size=0.22)
-
-    set_interpolation_bezier()
 
     # Headless Eevee CPU render settings.
     scene.render.engine = "BLENDER_EEVEE_NEXT"
