@@ -331,3 +331,137 @@ body {
   transform: scaleX(0);
   transform-origin: left center;
 }
+
+
+/* Explainer-specific data graphics and word-synchronised narration. */
+#explainer-title {
+  max-width: 840px;
+  font-size: 84px;
+  line-height: 0.98;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+#scene-two-title, #scene-three-title {
+  max-width: 840px;
+  font-size: 78px;
+  line-height: 1.02;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+.diagram-items {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 10px 4px;
+}
+.diagram-node {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 104px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 12px 10px;
+  border: 1px solid rgba(201, 173, 131, 0.34);
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(26, 38, 69, 0.92), rgba(10, 17, 34, 0.88));
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.18);
+  color: #f4f0e9;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.diagram-node-label {
+  color: rgba(232, 236, 245, 0.92);
+  font-size: 17px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+.diagram-node-value {
+  color: #d8bd91;
+  font-size: 25px;
+  line-height: 1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.diagram-arrow {
+  flex: 0 0 auto;
+  color: #c9ad83;
+  font-size: 28px;
+  line-height: 1;
+  opacity: 0.9;
+}
+.diagram-bar-track {
+  width: 100%;
+  height: 58px;
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  border-bottom: 1px solid rgba(216, 222, 239, 0.2);
+}
+.diagram-bar {
+  width: 56%;
+  min-height: 7px;
+  border-radius: 7px 7px 2px 2px;
+  background: linear-gradient(180deg, #e6d4b4 0%, #7e94c4 58%, #425887 100%);
+  box-shadow: 0 0 18px rgba(119, 151, 208, 0.2);
+}
+.diagram-fallback {
+  width: 100%;
+  text-align: center;
+  color: rgba(232, 236, 245, 0.9);
+  font-size: 22px;
+  line-height: 1.35;
+  font-weight: 600;
+  text-wrap: balance;
+}
+.narration-caption {
+  z-index: 10;
+  position: absolute;
+  left: 120px;
+  right: 120px;
+  bottom: 310px;
+  min-height: 146px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  padding: 22px 30px;
+  border: 1px solid rgba(201, 173, 131, 0.24);
+  border-radius: 24px;
+  background: linear-gradient(145deg, rgba(9, 15, 31, 0.92), rgba(16, 25, 46, 0.82));
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(14px);
+  text-align: center;
+}
+#caption-kicker {
+  margin: 0;
+  color: rgba(201, 173, 131, 0.82);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+#caption-line {
+  min-height: 44px;
+  color: rgba(234, 238, 247, 0.72);
+  font-size: 30px;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0.005em;
+  text-wrap: balance;
+}
+.caption-word {
+  display: inline-block;
+  margin: 0 5px;
+  white-space: pre;
+}
+.caption-word-active {
+  color: #f6dfb7;
+  text-shadow: 0 0 18px rgba(216, 189, 145, 0.3);
+}
