@@ -164,6 +164,7 @@ jobs:
           path: |
             work/output/blender-diagnostics/
             work/output/benchmark-*.mp4
+            work/story-assets/asset-resolution-diagnostic.json
           if-no-files-found: warn
           retention-days: 7
 
@@ -185,12 +186,12 @@ jobs:
               "failed": sum(item.get("status") == "failed" for item in data.get("results", [])),
           }
           with open(__import__("os").environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as output:
-              output.write("# Blender benchmark summary\\n\\n")
-              output.write(f"- Suite: `{data.get('suite')}`\\n")
-              output.write(f"- Sample frames per process: {data.get('sample_frames')}\\n")
-              output.write(f"- Completed cases: {counts['completed']}\\n")
-              output.write(f"- Failed cases: {counts['failed']}\\n")
+              output.write("# Blender benchmark summary\n\n")
+              output.write(f"- Suite: `{data.get('suite')}`\n")
+              output.write(f"- Sample frames per process: {data.get('sample_frames')}\n")
+              output.write(f"- Completed cases: {counts['completed']}\n")
+              output.write(f"- Failed cases: {counts['failed']}\n")
               ratio = data.get("scene_1_contention_slowdown_ratio")
-              output.write(f"- Scene 1 contention slowdown ratio: {ratio if ratio is not None else 'not available'}\\n")
-              output.write("- Publishing: disabled\\n")
+              output.write(f"- Scene 1 contention slowdown ratio: {ratio if ratio is not None else 'not available'}\n")
+              output.write("- Publishing: disabled\n")
           PY
