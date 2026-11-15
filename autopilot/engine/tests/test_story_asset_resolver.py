@@ -38,6 +38,37 @@ class StoryAssetResolverTests(unittest.TestCase):
         self.assertIn("piano", query)
         self.assertNotIn("unrelated", query)
 
+    def test_preferred_model_urls_are_parsed_and_deduplicated(self):
+        first = "https://sketchfab.com/3d-models/violin-0162dea1b1044cd281c57af5e5fc2046"
+        second = "https://sketchfab.com/3d-models/violin-b45bce730d8a489c83ecc944f3725475"
+        entries = resolver._preferred_model_entries({
+            "preferred_model_urls": [first, second, first],
+        })
+        self.assertEqual(
+            entries,
+            [
+                (first, "0162dea1b1044cd281c57af5e5fc2046"),
+                (second, "b45bce730d8a489c83ecc944f3725475"),
+            ],
+        )
+
+    def test_explicit_models_are_loaded_before_search_and_keep_source_url(self):
+        source = "https://sketchfab.com/3d-models/violin-0162dea1b1044cd281c57af5e5fc2046"
+        with patch.object(resolver, "fetch_model_metadata", return_value={
+            "name": "Violin",
+            "faceCount": 120000,
+            "isDownloadable": True,
+            "license": {"slug": "cc-by"},
+        }) as fetch:
+            models, failures = resolver.load_preferred_story_models({
+                "preferred_model_urls": [source],
+            })
+        self.assertEqual(failures, [])
+        self.assertEqual(len(models), 1)
+        self.assertEqual(models[0]["uid"], "0162dea1b1044cd281c57af5e5fc2046")
+        self.assertEqual(models[0]["_violin_prince_source_url"], source)
+        fetch.assert_called_once()
+
     def test_violin_story_query_requires_bow_and_strings(self):
         query = resolver.derive_story_query({
             "topic": "How a violin bridge transfers vibration",
