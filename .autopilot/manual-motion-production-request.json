@@ -1,6 +1,6 @@
 {
-  "mode": "manual_full_track_music_video",
-  "music_duration_seconds": 180,
-  "request": "Generate a full-length Violin Prince instrumental music video from the repository's existing CC0 sampled-violin generator. Render the complete 180-second track using Motion + HyperFrames, run full media and visual QA, and upload the MP4 plus reports as GitHub Actions artifacts. Do not publish.",
+  "mode": "manual_narrated_explainer",
+  "music_duration_seconds": 24,
+  "request": "Generate a source-verified Violin Prince explainer. Research one specific violin, sound or music-production fact; write the approved explanation script; synthesize the spoken explanation with Kokoro-82M af_heart and retain native word-level timestamps; then animate the planned explanation scenes with Motion + HyperFrames. Keep the voice clear and primary, with the CC0 sampled-violin audio only as a quiet optional background bed. Run factual, narration, caption, visual and MP4 QA. Upload the finished explainer and reports as GitHub Actions artifacts. Do not publish.",
   "trigger_marker": "[manual-motion-production]"
 }

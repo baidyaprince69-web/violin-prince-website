@@ -68,7 +68,7 @@ jobs:
       # The dedicated manual request uses Motion + HyperFrames without Blender.
       BLENDER_RENDER_ENABLED: ${{ (github.event_name == 'schedule' || (github.event_name == 'push' && !contains(github.event.head_commit.message, '[manual-motion-production]'))) && 'true' || (github.event_name == 'workflow_dispatch' && vars.BLENDER_RENDER_ENABLED == 'true' && 'true') || 'false' }}
       MOTION_HYPERFRAMES_RENDER_ENABLED: ${{ (github.event_name == 'push' && contains(github.event.head_commit.message, '[manual-motion-production]')) && 'true' || (github.event_name == 'workflow_dispatch' && vars.BLENDER_RENDER_ENABLED != 'true' && (vars.MOTION_HYPERFRAMES_RENDER_ENABLED || 'true')) || 'false' }}
-      MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS: ${{ vars.MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS || '180' }}
+      MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS: ${{ vars.MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS || '24' }}
       BLENDER_RENDER_WORKERS: "3"
       BLENDER_THREADS_PER_WORKER: "1"
       BLENDER_RENDER_WIDTH: "400"
@@ -145,7 +145,7 @@ jobs:
           print("Validated ChatGPT daily production request: " + plan_path)
           PY
 
-      - name: Validate manual full-track music-video request
+      - name: Validate manual narrated-explainer request
         id: manual_motion_request
         if: github.event_name == 'push' && contains(github.event.head_commit.message, '[manual-motion-production]')
         shell: bash
@@ -159,15 +159,15 @@ jobs:
           if not request_path.is_file():
               raise SystemExit("Manual full-track production request is missing.")
           request = json.loads(request_path.read_text(encoding="utf-8"))
-          if request.get("mode") != "manual_full_track_music_video":
-              raise SystemExit("Manual request mode must be manual_full_track_music_video.")
-          duration = float(request.get("music_duration_seconds", 180))
-          if not 24 <= duration <= 600:
-              raise SystemExit("Music duration must be between 24 and 600 seconds.")
+          if request.get("mode") != "manual_narrated_explainer":
+              raise SystemExit("Manual request mode must be manual_narrated_explainer.")
+          duration = float(request.get("music_duration_seconds", 24))
+          if not 24 <= duration <= 30:
+              raise SystemExit("The optional background bed must be between 24 and 30 seconds.")
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
               env.write(f"MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS={duration:g}\n")
-          print(f"Validated manual Motion full-track request: {duration:g} seconds.")
-          print("Selected the existing CC0 sampled-violin generator and Motion + HyperFrames.")
+          print(f"Validated manual narrated-explainer request with a {duration:g}-second optional bed.")
+          print("The researched script and Kokoro af_heart narration remain mandatory; Motion animates the explanation.")
           print("Publishing remains disabled.")
           PY
 
@@ -423,6 +423,7 @@ jobs:
           path: |
             work/output/violin-prince-short.mp4
             work/output/violin-prince-full-track.mp4
+            work/output/violin-prince-explainer.mp4
           if-no-files-found: error
           retention-days: 14
 

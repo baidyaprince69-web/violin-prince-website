@@ -1,69 +1,48 @@
-# Violin Prince — Motion + HyperFrames prototype
+# Violin Prince — narrated explainer renderer
 
-A variable-duration vertical motion-graphics renderer. The supplied music file determines the exported video length; the authored Motion sequence is mapped once across the complete soundtrack and is not repeated as a ten-second loop.
+Motion + HyperFrames is the animation and video-rendering engine for Violin Prince explainer videos. It does not replace research, scriptwriting or narration.
 
-## What this tests
+## Intended production
 
-- Motion JavaScript for seekable typography, waveform bars, particles and parallax.
-- HyperFrames for frame-by-frame browser capture, source-audio playback and MP4 encoding.
-- 1080 × 1920 at 30 fps.
-- Full-track audio/video duration matching.
-- A cloud-render job using a 37.5-second fixture to prove the output exceeds ten seconds and the visual timeline advances between early and late checkpoints.
-- No Blender, AI video service, external media downloads or publishing credentials.
+1. Research a specific violin, sound, music or music-production fact and verify it against independent publisher sources.
+2. Write the short explanation script and pass the existing editorial, factual and freshness gates.
+3. Generate the spoken explanation using Kokoro-82M with the `af_heart` voice and retain the model-native word timestamps.
+4. Animate the three scene plan: the question, the explanatory mechanism and the takeaway. Use the approved scene captions, graphic labels, source-backed process steps or measurements; never invent data.
+5. Render through Motion + HyperFrames. Kokoro is the primary audio. The repository's CC0 sampled-violin audio is an optional, quiet, side-chain-ducked background bed.
+6. Verify narration/video duration, word-timed captions, deterministic seeking, video/audio streams, H.264, 1080 × 1920 and 30 fps.
 
-## Full-track duration
+The current planner is intentionally short-form (approximately 24 seconds of narration). This integration does not yet generate long-form three-minute documentaries.
 
-The preparation step probes the supplied audio file with FFprobe, copies it to the local generated asset folder, and writes its exact duration into the HyperFrames composition. The same source is attached as a timed audio clip. HyperFrames uses the complete audio file when no shorter clip duration is set.
+## Renderer implementation
 
-The authored ten-second Motion sequence is scaled to the exact audio duration and played once. HyperFrames seeks directly across that full timeline, so the same ten-second motif is not wrapped around the soundtrack. The progress line and duration label use the full track duration. This is an initial continuous motion-graphics timeline; richer chapter-specific visuals, lyric/caption synchronization and optional real 3D violin shots remain later visual upgrades.
+- Motion JavaScript provides seekable scene transitions, typography, animated infographic nodes, particles and progress.
+- The composition receives the approved research-backed scene plan and Kokoro's native word timings from Autopilot.
+- HyperFrames captures the full narration timeline and FFmpeg encodes the final MP4.
+- The voice is mixed at full level. The optional violin bed is reduced and ducked under speech. Setting `MOTION_HYPERFRAMES_MUSIC_BED_ENABLED=false` removes the bed entirely.
+- The renderer refuses to create a Motion output without Kokoro-82M `af_heart` audio and passed word timestamps. Old narration-free music-video packages are rejected.
+- The current Motion route is 2D/2.5D animation and infographic graphics. It does not yet provide a realistic 3D violin model.
 
-Supported input extensions: MP3, WAV, M4A, AAC, FLAC and OGG. Track length is limited to 20 minutes in this prototype to keep cloud render jobs bounded.
-
-## Run with a real music file
+## Local commands
 
 Requires Node.js 22+ and FFmpeg.
 
-\`\`\`bash
+```bash
 npm install
-npm run prepare:composition -- --audio /path/to/your-cover.wav
+npm run prepare:composition -- --audio /path/to/narration-first-explainer-mix.wav --content-json /path/to/content-context.json
 npm run prepare:motion
 npm run lint
 npm run check
 npm run verify:seeking
 npm run render
 npm run verify
-\`\`\`
+```
 
-The output is \`output/violin-prince-motion-full-track.mp4\`. The generated \`index.html\`, \`assets/music-bed.*\` and \`output/\` are local build files and are ignored by Git.
+The workflow exports the final explainer to the GitHub Actions artifact. The prototype's internal temporary filenames retain legacy naming but do not change the production type.
 
-## Cloud verification
+## Scope and safeguards
 
-GitHub Actions generates a 37.5-second audio fixture, builds the composition from the detected duration, checks frame seeking at an early and a late time, renders the complete track, and verifies:
-- the MP4 contains both video and audio streams;
-- the video is 1080 × 1920, 30 fps, H.264;
-- the final MP4 duration matches the source audio within 250 ms;
-- repeated random-access requests produce the same decoded pixels.
-
-## Optional Autopilot integration
-
-For manual staged **Full** and **Render** runs, Motion + HyperFrames is selected by default. Set the repository Actions variable **BLENDER_RENDER_ENABLED=true** to choose the optional Blender route instead, or set **MOTION_HYPERFRAMES_RENDER_ENABLED=false** to disable Motion. Scheduled/push daily-plan runs remain on their existing separate Blender route until migrated. Node.js 22 and Motion/HyperFrames dependencies are installed only when the Motion route is selected.
-
-The repository's existing CC0 sampled-violin generator (**autopilot/engine/violin_sampler.py**) creates the music source for this route. Its phrase arrangement can be rendered for a configurable duration (180 seconds by default, maximum ten minutes); no creator recording or external media-storage service is required. The generated track is passed into the Motion composition. The composition also receives the approved plan title, hook, topic and up to three scene captions. The Motion route is selected by default for manual staged Full/Render runs, skips legacy still-image generation, and does not invoke the remote asset API, object storage or publisher. The separate scheduled ChatGPT daily-plan route remains on its existing Blender-based Shorts/explainer path until it is migrated separately. Motion and Blender are mutually exclusive; Blender remains an optional 3D route. Publishing is blocked whenever **PUBLISH_ENABLED=true**. The bridge ensures the pinned HyperFrames Chrome browser before validation and rendering.
-
-The renderer writes its MP4 and QA reports into the GitHub Actions artifact output. The Motion renderer does not use the legacy remote-media upload or Shorts publishing path.
-
-## Blender is optional
-
-This prototype is a 2D/2.5D composition. It does not install, import, invoke or require Blender.
-
-For the wider Autopilot, \`BLENDER_RENDER_ENABLED\` is the explicit opt-in for the existing full-frame 3D route. The regular Autopilot workflow is being changed in this draft PR to default that flag to \`false\`, including on pushes. Set the repository Actions variable \`BLENDER_RENDER_ENABLED=true\` only when a run specifically requires a real 3D instrument/scene. The dedicated first-production Blender workflow remains separately and intentionally 3D-only.
-
-The 2D route uses HTML/CSS/SVG and Motion in Chromium, then HyperFrames/FFmpeg for video capture and encoding. It still uses cloud CPU resources; the goal is to avoid the heavier software-rendered Blender 3D path for flat graphics, titles and 2.5D elements. Rendering speed is measured rather than assumed.
-
-## Motion module and deterministic rendering
-
-The HTML import map points to the pinned Motion ESM package and local browser dependencies under \`node_modules\`; the Motion implementation is not bundled into HyperFrames' scanned script. The timeline is paused and exposes a seek adapter to HyperFrames. The adapter maps full-track time directly onto the once-through visual sequence while keeping progress tied to the complete audio duration.
-
-## Safety and scope
-
-YouTube publishing remains disabled. This prototype has no upload step or publishing credentials and does not alter production publishing settings. The existing Blender production route and benchmark branch remain separate. PR #57 stays draft until the full-track output is reviewed and the renderer is ready for a controlled Autopilot integration.
+- Manual Motion production uses the existing researched Prepare pipeline; Kokoro is not skipped.
+- The old music-only Prepare entry point fails closed.
+- The optional Blender route remains separate; it is not a Motion fallback.
+- No Cloudflare media-storage route is used by the Motion renderer.
+- YouTube publishing remains disabled during this integration. PR #57 stays draft and unmerged until the narrated output is reviewed.

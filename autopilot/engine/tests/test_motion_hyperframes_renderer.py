@@ -13,6 +13,7 @@ from motion_hyperframes_renderer import (
     build_content_context,
     is_motion_hyperframes_render_enabled,
     select_renderer,
+    render_full_track,
 )
 
 
@@ -47,17 +48,41 @@ class MotionHyperFramesRendererTests(unittest.TestCase):
             "title": "A Song for the Quiet Hours",
             "topic": "Violin Cover",
             "hook": "A familiar melody, heard in a different light.",
+            "narration_script": "A concise explanation of this musical idea.",
             "scenes": [
-                {"caption": "The melody begins"},
+                {
+                    "caption": "The melody begins",
+                    "visual_mode": "macro_3d",
+                    "graphic_label": "THE QUESTION",
+                    "graphic_detail": "The first important observation",
+                    "graphic_data": {"type": "process_flow", "items": [{"label": "Bow", "display": "Bow"}]},
+                },
                 {"caption": "A rising phrase"},
                 {"caption": "The final note"},
                 {"caption": "Not included"},
             ],
+        }, {
+            "engine": "Kokoro-82M",
+            "voice": "af_heart",
+            "word_cues": [{"text": "A", "start": 0.0, "end": 0.2, "sentence_index": 0}],
         })
         self.assertEqual(result["title"], "A Song for the Quiet Hours")
         self.assertEqual(result["topic"], "Violin Cover")
         self.assertEqual(len(result["captions"]), 3)
         self.assertEqual(result["captions"][2], "The final note")
+        self.assertEqual(result["narration_engine"], "Kokoro-82M")
+        self.assertEqual(result["narration_voice"], "af_heart")
+        self.assertEqual(result["narration_words"][0]["text"], "A")
+        self.assertEqual(result["scenes"][0]["graphic_data"]["items"][0]["label"], "Bow")
+
+    def test_renderer_refuses_instrumental_only_audio(self):
+        with self.assertRaisesRegex(MotionHyperFramesError, "Kokoro narration audio is required"):
+            render_full_track(
+                audio_bytes=b"v" * 4096,
+                audio_filename="violin.wav",
+                output_path="unused.mp4",
+                work_dir="unused",
+            )
 
     def test_editorial_context_is_bounded_and_non_string_values_are_ignored(self):
         result = build_content_context({

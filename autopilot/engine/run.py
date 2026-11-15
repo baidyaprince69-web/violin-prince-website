@@ -202,9 +202,8 @@ def get_audio(prefer_creator_assets=True, allow_fallback=True):
     if not allow_fallback:
         return {"filename": "", "audio_source": "none", "kind": "none"}, b""
 
-    # The Motion full-track route uses the repository's existing CC0 sampled-
-    # violin instrument generator. Its default short-preview length remains 24s;
-    # the full-track route requests a complete arrangement (180s by default).
+    # Motion explainers use only a short quiet background bed. The explanation
+    # length is determined by Kokoro narration, never by an instrumental track.
     day_seed = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     motion_enabled = str(os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "false")).strip().lower() in {"1", "true", "yes", "on"}
     music_duration = (
@@ -4699,9 +4698,12 @@ def _read_package(require_images=False):
     except (OSError, json.JSONDecodeError) as exc:
         raise PipelineError("Prepared package contains invalid stage metadata.") from exc
     motion_music_video = metadata.get("production_type") == "motion_music_video"
-    required = ("plan", "metadata", "audio", "quality_control")
-    if not motion_music_video:
-        required = (*required, "narration")
+    if motion_music_video:
+        raise PipelineError(
+            "This saved package is from the retired music-only route and has no Kokoro explanation. "
+            "Run a fresh Prepare stage to create a narrated explainer."
+        )
+    required = ("plan", "metadata", "audio", "quality_control", "narration")
     for key in required:
         if not paths[key].is_file():
             raise PipelineError(f"Prepared package is missing {paths[key].name}. Download the correct earlier stage artifact.")
@@ -4986,133 +4988,11 @@ def load_reusable_research():
 
 
 def prepare_motion_music_video_stage():
-    """Prepare a generated-violin music video without the legacy story/AI pipeline."""
-    motion_enabled = str(os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "false")).strip().lower() in {"1", "true", "yes", "on"}
-    if not motion_enabled:
-        raise PipelineError("The dedicated motion music-video preparation requires Motion + HyperFrames to be enabled.")
-    if is_blender_render_enabled():
-        raise PipelineError("Motion music-video preparation and Blender cannot run in the same production.")
-
-    as_of = datetime.now(timezone.utc)
-    claim_run()
-    report("running", "Generating the full-length CC0 sampled-violin composition for Motion + HyperFrames.")
-    asset, audio = get_audio(prefer_creator_assets=False)
-    if (
-        not audio or len(audio) < 4096
-        or asset.get("audio_source") != "sampled_violin_cc0"
-        or asset.get("kind") != "generated_sampled_instrument"
-    ):
-        raise PipelineError("Motion music-video preparation requires the repository's verified sampled-violin generator.")
-
-    scenes = [
-        {
-            "caption": "A note takes shape",
-            "visual_mode": "waveform",
-            "image_prompt": "A luminous violin waveform emerging from a deep midnight field, with warm amber and muted gold pulses, elegant negative space and restrained cinematic motion",
-        },
-        {
-            "caption": "The melody unfolds",
-            "visual_mode": "melody_map",
-            "image_prompt": "An original abstract melody map made from flowing pitch contours, delicate note-like light particles and layered rhythm marks, midnight navy with antique gold and warm ivory accents",
-        },
-        {
-            "caption": "A resonant finale",
-            "visual_mode": "cover_performance",
-            "image_prompt": "A graceful violin-and-bow silhouette formed from warm amber light and fine vibrating strings, composed as a restrained performance-inspired closing image without a face or readable text",
-        },
-    ]
-    title = "Violin Prince — Midnight Resonance"
-    topic = "Original Solo Violin Composition"
-    plan = {
-        "story_type": "music_production",
-        "topic": topic,
-        "title": title,
-        "hook": "An original sampled-violin composition unfolds across one continuous motion-graphics performance.",
-        "description": (
-            "An original solo-violin arrangement created by the repository's "
-            "CC0 sampled instrument generator, presented as a continuous Violin Prince "
-            "motion-graphics music video."
-        ),
-        "narration_script": "",
-        "narrative_style": "instrumental_music_video",
-        "cover_payoff": (
-            "The original sampled solo-violin composition is the musical centerpiece "
-            "throughout the complete continuous visual timeline."
-        ),
-        "scenes": scenes,
-        "sources": [],
-        "hashtags": ["#ViolinPrince", "#SoloViolin", "#InstrumentalMusic"],
-        "visual_reference": normalize_visual_reference(None, scenes),
-    }
-    creative_issues = validate_creative_plan(plan)
-    if creative_issues:
-        raise PipelineError("The generated music-video visual plan failed creative validation: " + " ".join(creative_issues))
-    plan["channel_fit"] = channel_fit_report(plan)
-    quality = {
-        "status": "passed",
-        "production_type": "motion_music_video",
-        "audio_check": {
-            "status": "passed",
-            "audio_source": asset.get("audio_source"),
-            "duration_seconds": asset.get("duration_seconds"),
-            "sample_rate": asset.get("sample_rate"),
-            "license": asset.get("license"),
-            "sample_bank_revision": asset.get("sample_bank_revision"),
-        },
-        "visual_plan_check": {
-            "status": "passed",
-            "scene_count": len(scenes),
-            "visual_modes": [scene["visual_mode"] for scene in scenes],
-            "creative_direction_version": CREATIVE_DIRECTION_VERSION,
-        },
-        "not_applicable": ["news_research", "publisher_freshness", "narration_evidence"],
-    }
-    plan["quality_control"] = quality
-
-    paths = _package_paths()
-    paths["audio"].write_bytes(audio)
-    paths["plan"].write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
-    paths["research"].write_text("[]\n", encoding="utf-8")
-    paths["quality_control"].write_text(json.dumps(quality, ensure_ascii=False, indent=2), encoding="utf-8")
-    paths["metadata"].write_text(json.dumps({
-        "schema_version": 4,
-        "production_type": "motion_music_video",
-        "prepared_run_id": RUN_ID,
-        "asset": asset,
-        "performance_video": {"available": False},
-        "narration_info": {},
-        "topic": topic,
-        "title": title,
-        "prepared_at": as_of.isoformat(),
-        "stage": "prepared",
-        "story_review": {
-            "status": "awaiting_visual_plan_validation",
-            "approved": False,
-            "approved_at": None,
-            "approval_method": None,
-        },
-    }, ensure_ascii=False, indent=2), encoding="utf-8")
-    (PACKAGE / "review.txt").write_text(
-        "VIOLIN PRINCE — FULL-TRACK MUSIC VIDEO\n"
-        f"Title: {title}\n"
-        f"Music source: {asset.get('audio_source')}\n"
-        f"Track length: {asset.get('duration_seconds')} seconds\n"
-        "Visual route: Motion + HyperFrames 2D/2.5D composition\n"
-        "Publishing: disabled\n",
-        encoding="utf-8",
+    """Fail closed: the old narration-free music-video route is retired."""
+    raise PipelineError(
+        "The narration-free Motion music-video route is retired. Use the researched "
+        "explainer Prepare stage so Kokoro narration and word timings are present."
     )
-    log(
-        "Prepared the Motion music-video package using only the existing CC0 sampled-violin "
-        f"generator ({asset.get('duration_seconds')} seconds). No story AI, narration or external media service was used."
-    )
-    report(
-        "prepared",
-        "Local sampled-violin music-video package and three-beat visual plan passed validation.",
-        topic,
-        title,
-        metadata={"production_type": "motion_music_video", "audio_source": asset.get("audio_source")},
-    )
-    return 0
 
 
 def prepare_stage():
