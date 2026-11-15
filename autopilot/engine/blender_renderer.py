@@ -82,7 +82,7 @@ def blender_render_samples() -> int:
 
 def blender_model_face_limit() -> int:
     """Maximum imported violin mesh face count used by the CPU scene renderer."""
-    return _bounded_env_int("BLENDER_MODEL_FACE_LIMIT", 70000, 10000, 500000)
+    return _bounded_env_int("BLENDER_MODEL_FACE_LIMIT", 60000, 10000, 500000)
 
 
 def model_decimation_ratio(face_count: int, face_limit: int) -> float:
