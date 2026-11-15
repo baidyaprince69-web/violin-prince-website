@@ -65,11 +65,17 @@ for (const check of checks) {
     );
   }
 }
+if (hashes[0] === hashes[1]) {
+  throw new Error(
+    "The full-track visual timeline did not change between the early and late checkpoints."
+  );
+}
 
 const report = {
   status: "passed",
   composition_duration_seconds: duration,
-  visual_cycle_seconds: Math.min(10, duration),
+  visual_sequence_duration_seconds: duration,
+  visual_sequence_repeats: false,
   seek_order_seconds: ordered,
   compared_pixels: "RGBA decoded pixels (not PNG metadata)",
   repeated_time_matches: checks.map(item => ({
