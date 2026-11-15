@@ -71,7 +71,6 @@ jobs:
       LIBGL_ALWAYS_SOFTWARE: "1"
       MESA_LOADER_DRIVER_OVERRIDE: "llvmpipe"
       SOURCE_RUN_ID: ${{ inputs.source_run_id }}
-      SKETCHFAB_ACCESS_TOKEN: ${{ secrets.SKETCHFAB_ACCESS_TOKEN }}
 
     steps:
       - name: Check out benchmark code
@@ -79,6 +78,8 @@ jobs:
 
       - name: Validate inputs and hard publishing boundary
         shell: bash
+        env:
+          SKETCHFAB_ACCESS_TOKEN: ${{ secrets.SKETCHFAB_ACCESS_TOKEN }}
         run: |
           set -Eeuo pipefail
           [[ "$PUBLISH_ENABLED" == "false" ]] || {
@@ -150,6 +151,8 @@ jobs:
             autopilot/engine/tests/test_benchmark_telemetry.py
 
       - name: Run bounded benchmark suite
+        env:
+          SKETCHFAB_ACCESS_TOKEN: ${{ secrets.SKETCHFAB_ACCESS_TOKEN }}
         run: |
           python autopilot/engine/run_benchmark_suite.py \
             --suite "${{ inputs.benchmark_suite }}" \
