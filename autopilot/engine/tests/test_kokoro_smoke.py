@@ -31,7 +31,7 @@ class KokoroModelSmokeTest(unittest.TestCase):
             self.assertEqual(info["engine"], "Kokoro-82M")
             self.assertGreater(info["duration_seconds"], 1.0)
             self.assertLessEqual(info["duration_seconds"], 21.5)
-            self.assertEqual(info["speed"], 1.10)
+            self.assertEqual(info["speed"], 1.15)
             self.assertEqual(info["sample_rate"], 24000)
             self.assertEqual(info["voice_type"], "synthetic_not_voice_cloned")
             self.assertGreaterEqual(len(info["subtitle_cues"]), 2)
