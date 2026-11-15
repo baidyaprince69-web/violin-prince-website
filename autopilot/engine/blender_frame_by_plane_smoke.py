@@ -90,7 +90,7 @@ def main() -> int:
         "samples": 4,
         "geometry_budget_smoke": True,
         "geometry_budget_smoke_limit": 700,
-        "model_face_limit": 70000,
+        "model_face_limit": 60000,
         "frame_by_plane_manifest": str(manifest_path),
         "frame_by_plane_required": True,
         "smoke_still": True,
