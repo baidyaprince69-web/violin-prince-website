@@ -1,0 +1,20 @@
+{
+  "name": "violin-prince-motion-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A deterministic Motion-powered vertical animation rendered with HyperFrames.",
+  "scripts": {
+    "build": "node scripts/copy-assets.mjs && esbuild src/main.js --bundle --format=iife --target=es2022 --outfile=dist/main.js --minify",
+    "test": "node scripts/check-contract.mjs",
+    "render": "node -e \"import('node:fs').then(({mkdirSync}) => mkdirSync('renders', { recursive: true }))\" && hyperframes render --output renders/violin-prince-motion-prototype.mp4 --fps 30 --quality standard --workers 1"
+  },
+  "dependencies": {
+    "gsap": "3.15.0",
+    "hyperframes": "0.9.52",
+    "motion": "14.14.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}
