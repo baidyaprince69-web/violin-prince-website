@@ -163,7 +163,14 @@ FETCH_TOTAL_BUDGET_SECONDS=40 run ./fast.sh out/a.bin "$GOOD" "$B/slow" "$B/ok"
 assert "hanging primary is cut off within its slice; fallback succeeds" '[ "$rc" -eq 0 ] && dest_ok && [ "$(hits /slow)" -eq 2 ] && [ "$(hits /ok)" -eq 1 ] && [ "$elapsed" -le 30 ]'
 
 FETCH_TOTAL_BUDGET_SECONDS=40 run ./fast.sh out/a.bin "$GOOD" "$B/slow" "$B/slow"
-assert "all sources hang: bounded failure (+3s tolerance)" '[ "$rc" -eq 1 ] && [ ! -e out/a.bin ] && [ "$(hits /slow)" -eq 4 ] && [ "$elapsed" -le 43 ]'
+all_slow_hits=$(hits /slow)
+dest_exists=false
+[ -e out/a.bin ] && dest_exists=true
+echo "DEBUG all-sources-hang: rc=$rc slow_hits=$all_slow_hits elapsed=${elapsed}s dest_exists=$dest_exists"
+assert "all sources hang: exits unsuccessfully" '[ "$rc" -eq 1 ]'
+assert "all sources hang: no archive installed" '[ ! -e out/a.bin ]'
+assert "all sources hang: both sources receive two timed attempts" '[ "$all_slow_hits" -eq 4 ]'
+assert "all sources hang: stays within 40s budget plus tolerance" '[ "$elapsed" -le 43 ]'
 
 FETCH_USER_AGENT='custom-agent/1' run ./fast.sh out/a.bin "$GOOD" "$B/ok"
 assert "custom User-Agent only when explicitly set" '[ "$rc" -eq 0 ] && grep -q "^custom-agent/1" ua.log'
