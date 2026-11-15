@@ -249,19 +249,20 @@ def build_asset_provenance(
 
     scenes = plan.get("scenes", [])
     scene_assets = []
+    blender_active = bool((video_quality.get("blender_rendering") or {}).get("enabled"))
     for index, image_path in enumerate(image_paths):
         scene = scenes[index] if index < len(scenes) and isinstance(scenes[index], dict) else {}
         prompt = str(scene.get("image_prompt") or "")
         asset = _hash_file(image_path)
         asset.update({
-            "asset_type": "scene_image",
+            "asset_type": "blender_3d_scene_poster" if blender_active else "scene_image",
             "scene_number": index + 1,
             "visual_mode": str(scene.get("visual_mode") or ""),
-            "origin": "ai_generated_image",
-            "provider": "Cloudflare Workers AI",
-            "model": "@cf/black-forest-labs/flux-1-schnell",
+            "origin": "blender_3d_render_frame" if blender_active else "ai_generated_image",
+            "provider": "Blender Foundation Blender renderer" if blender_active else "Cloudflare Workers AI",
+            "model": "Blender Eevee procedural 3D scene" if blender_active else "@cf/black-forest-labs/flux-1-schnell",
             "scene_prompt_source_sha256": _hash_text(prompt),
-            "rights_status": "provider_terms_apply_no_external_stock_asset_inserted",
+            "rights_status": "original_procedural_3d_geometry_no_external_assets" if blender_active else "provider_terms_apply_no_external_stock_asset_inserted",
         })
         scene_assets.append(asset)
 
