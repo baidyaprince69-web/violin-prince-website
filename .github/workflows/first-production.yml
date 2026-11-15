@@ -201,7 +201,7 @@ jobs:
       - name: Verify all parallel Blender segments and assemble 25 FPS picture
         run: |
           mkdir -p work/first-production/assets work/first-production/frames
-          cp work/render-data/frame_*.png work/first-production/frames/
+          cp work/render-data/frames/frame_*.png work/first-production/frames/
           cp work/render-data/blender-visual.blend work/first-production/
           python - <<'PY'
           import json
