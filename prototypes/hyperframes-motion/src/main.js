@@ -162,9 +162,14 @@ function syncScene(seconds) {
     else break;
   }
   const nextIndex = sceneIndexForSentence(Number(cue?.sentence_index || 0));
+  const scene = scenes[nextIndex] || scenes[Math.min(nextIndex, scenes.length - 1)] || {};
+  const finalNarrationEnd = narrationWords.length
+    ? Number(narrationWords[narrationWords.length - 1].end)
+    : DURATION;
+  const outroVisible = isNarratedExplainer && seconds >= finalNarrationEnd + 0.25;
   sceneHeadlines.forEach((headline, index) => {
     if (!headline) return;
-    headline.style.opacity = index === nextIndex ? "1" : "0";
+    headline.style.opacity = !outroVisible && index === nextIndex ? "1" : "0";
     headline.querySelectorAll(".eyebrow, h1, h2, .headline-note").forEach((element) => {
       element.style.opacity = "1";
       element.style.transform = "none";
@@ -172,15 +177,25 @@ function syncScene(seconds) {
   });
   const diagramPanel = document.getElementById("wave-section");
   if (diagramPanel) {
-    diagramPanel.style.opacity = "1";
+    diagramPanel.style.opacity = outroVisible ? "0" : "1";
     diagramPanel.style.transform = "none";
     diagramPanel.querySelectorAll(".wave-caption, .wave-foot").forEach((element) => {
       element.style.opacity = "1";
       element.style.transform = "none";
     });
   }
+  setContentText("#wave-section .wave-caption-right", String(nextIndex + 1) + " / 03", 12);
+  setContentText("#diagram-detail-left", scene.graphic_detail || scene.caption, 42);
+  setContentText("#diagram-detail-right", scene.graphic_label || "THE EXPLANATION", 42);
+  const endCard = document.getElementById("end-card");
+  if (endCard) {
+    endCard.style.opacity = outroVisible ? "1" : "0";
+    endCard.querySelectorAll(".end-name, .end-kicker, .end-subtitle, .end-rule").forEach((element) => {
+      element.style.opacity = "1";
+    });
+  }
   if (nextIndex !== lastSceneIndex) {
-    renderDiagram(scenes[nextIndex] || scenes[Math.min(nextIndex, scenes.length - 1)] || {});
+    renderDiagram(scene);
     lastSceneIndex = nextIndex;
   }
 }
