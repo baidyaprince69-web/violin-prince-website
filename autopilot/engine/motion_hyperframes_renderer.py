@@ -69,9 +69,10 @@ def _run_step(label: str, args: list[str], project_root: Path, timeout_seconds: 
             f"{label} exceeded its {timeout_seconds}-second safety timeout."
         ) from exc
     if result.returncode:
-        details = (result.stderr or result.stdout or "No command output")[-1800:]
+        details = ((result.stdout or "") + "\n" + (result.stderr or "")).strip()
+        details = details[-12000:] if details else "No command output"
         raise MotionHyperFramesError(
-            f"{label} failed with exit code {result.returncode}: {details}"
+            f"{label} failed with exit code {result.returncode}:\n{details}"
         )
     return result.stdout or ""
 
