@@ -13,6 +13,7 @@ import json
 import os
 import statistics
 import sys
+import time
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
@@ -36,7 +37,7 @@ PACKAGE = WORK / "package"
 OUTPUT = WORK / "output"
 DIAGNOSTICS = OUTPUT / "blender-diagnostics"
 
-VALID_SUITES = {"full_matrix", "baseline_and_contention", "ablation_only"}
+VALID_SUITES = {"full_matrix", "baseline_and_contention", "ablation_only", "worker_matrix"}
 VALID_EGL_MODES = {"surfaceless", "unset", "xvfb"}
 
 
@@ -234,6 +235,7 @@ def _run_group(
     if lp_num_threads is not None:
         os.environ["LP_NUM_THREADS"] = lp_num_threads
 
+    group_started = time.perf_counter()
     try:
         results: list[dict[str, Any]] = []
         with concurrent.futures.ThreadPoolExecutor(
@@ -254,6 +256,11 @@ def _run_group(
             for future in concurrent.futures.as_completed(futures):
                 results.append(future.result())
         results.sort(key=lambda item: int(item["scene_index"]))
+        group_wall_seconds = round(time.perf_counter() - group_started, 3)
+        for item in results:
+            item["group_wall_seconds"] = group_wall_seconds
+            item["workers_requested"] = max(1, min(workers, 3))
+            item["lp_num_threads"] = lp_num_threads if lp_num_threads is not None else "default"
         return results
     finally:
         if old_workers is None:
@@ -278,6 +285,57 @@ def _build_suite(
     results: list[dict[str, Any]] = []
     scene_one = [(0, scenes[0])]
     all_scenes = list(enumerate(scenes))
+
+    if suite == "worker_matrix":
+        # Compare like-for-like: every worker count renders the same three scenes,
+        # at identical resolution, samples, and sample-frame cap.
+        worker_groups: list[dict[str, Any]] = []
+        for worker_count in (1, 2, 3):
+            case_name = f"workers_{worker_count}"
+            print(f"BENCHMARK_CASE={case_name}", flush=True)
+            group_results = _run_group(
+                case_name,
+                all_scenes,
+                workers=worker_count,
+                timeout_seconds=timeout_seconds,
+            )
+            results.extend(group_results)
+            if group_results:
+                worker_groups.append({
+                    "case": case_name,
+                    "workers": worker_count,
+                    "total_wall_seconds": group_results[0].get("group_wall_seconds"),
+                    "all_scenes_completed": all(item.get("status") == "completed" for item in group_results),
+                })
+
+        valid_groups = [
+            item for item in worker_groups
+            if item["all_scenes_completed"] and item["total_wall_seconds"] is not None
+        ]
+        if not valid_groups:
+            raise RuntimeError("No complete worker-count comparison was available for the llvmpipe thread sweep.")
+        best_group = min(valid_groups, key=lambda item: float(item["total_wall_seconds"]))
+        print(
+            "BENCHMARK_BEST_WORKER_COUNT="
+            + json.dumps(best_group, ensure_ascii=False),
+            flush=True,
+        )
+
+        # Isolate Mesa llvmpipe threading with one representative scene and one
+        # Blender process. These runs do not alter production settings.
+        for thread_count in ("1", "2", "4"):
+            case_name = f"llvmpipe_threads_{thread_count}"
+            print(f"BENCHMARK_CASE={case_name}", flush=True)
+            results.extend(
+                _run_group(
+                    case_name,
+                    scene_one,
+                    workers=1,
+                    timeout_seconds=timeout_seconds,
+                    lp_num_threads=thread_count,
+                )
+            )
+        return results
 
     print("BENCHMARK_CASE=single_worker_baseline", flush=True)
     results.extend(
@@ -446,6 +504,37 @@ def main() -> int:
         if contention:
             cont_time = float(contention["median_frame_wall_seconds"])
             summary["scene_1_contention_slowdown_ratio"] = round(cont_time / base_time, 4) if base_time else None
+
+    # Compact, non-duplicated wall-clock metrics for each benchmark case.
+    group_metrics: dict[str, dict[str, Any]] = {}
+    for item in results:
+        case_name = str(item.get("case") or "unknown")
+        if case_name not in group_metrics:
+            group_metrics[case_name] = {
+                "case": case_name,
+                "workers_requested": item.get("workers_requested"),
+                "lp_num_threads": item.get("lp_num_threads"),
+                "total_wall_seconds": item.get("group_wall_seconds"),
+                "scenes_completed": 0,
+                "scenes_failed": 0,
+            }
+        if item.get("status") == "completed":
+            group_metrics[case_name]["scenes_completed"] += 1
+        else:
+            group_metrics[case_name]["scenes_failed"] += 1
+    summary["group_metrics"] = list(group_metrics.values())
+    if args.suite == "worker_matrix":
+        candidates = [
+            item for item in summary["group_metrics"]
+            if item["case"] in {"workers_1", "workers_2", "workers_3"}
+            and item["scenes_failed"] == 0
+            and item["total_wall_seconds"] is not None
+        ]
+        if candidates:
+            best = min(candidates, key=lambda item: float(item["total_wall_seconds"]))
+            summary["best_worker_count_by_total_wall_seconds"] = best["workers_requested"]
+            summary["best_worker_group_wall_seconds"] = best["total_wall_seconds"]
+        summary["llvmpipe_thread_sweep_scope"] = "scene 1 only; one Blender process; LP_NUM_THREADS=1,2,4"
 
     summary_path = DIAGNOSTICS / "benchmark-summary.json"
     write_json_atomic(summary_path, summary)
