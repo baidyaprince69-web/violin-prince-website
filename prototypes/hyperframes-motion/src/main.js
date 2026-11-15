@@ -252,7 +252,9 @@ function syncScene(seconds) {
   const nextIndex = sceneIndexForSentence(Number(cue?.sentence_index || 0));
   const scene = scenes[nextIndex] || scenes[Math.min(nextIndex, scenes.length - 1)] || {};
   const sceneRange = sceneTimingRange(nextIndex);
-  const sceneReveal = Math.max(0, Math.min(1, (seconds - sceneRange.start) / 0.48));
+  const timedReveal = Math.max(0, Math.min(1, (seconds - sceneRange.start) / 0.48));
+  // Keep the opening frame usable as the video's thumbnail.
+  const sceneReveal = nextIndex === 0 ? 1 : timedReveal;
 
   const finalNarrationEnd = narrationWords.length
     ? Number(narrationWords[narrationWords.length - 1].end)
@@ -345,7 +347,7 @@ for (let index = 0; index < particleCount; index += 1) {
 }
 
 const sequence = [
-  ["#top-mark", { opacity: [0, 1], y: [-18, 0] }, { duration: 0.72, ease: "easeOut", at: 0.12 }],
+  ["#top-mark", { y: [-18, 0] }, { duration: 0.72, ease: "easeOut", at: 0 }],
   ["#top-rule", { scaleX: [0, 1] }, { duration: 0.9, ease: "easeOut", at: 0.32 }],
   ["#haze-a", { x: [-34, 24, -8], y: [24, -12, 10], scale: [0.92, 1.08, 1] }, { duration: 10, ease: "linear", times: [0, 0.55, 1], at: 0 }],
   ["#haze-b", { x: [26, -24, 12], y: [-12, 18, -4], scale: [1.05, 0.94, 1.02] }, { duration: 10, ease: "linear", times: [0, 0.5, 1], at: 0 }],
