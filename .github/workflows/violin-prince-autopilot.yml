@@ -38,7 +38,7 @@ permissions:
 
 concurrency:
   group: violin-prince-autopilot-staged
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   produce:
@@ -66,8 +66,8 @@ jobs:
       PUBLISH_ENABLED: "false"
       # The scheduled daily-plan route retains its existing Blender path.
       # The dedicated manual request uses Motion + HyperFrames without Blender.
-      BLENDER_RENDER_ENABLED: ${{ (github.event_name == 'schedule' || (github.event_name == 'push' && !contains(toJSON(github.event.commits.*.added), '.autopilot/manual-motion-production-request.json') && !contains(toJSON(github.event.commits.*.modified), '.autopilot/manual-motion-production-request.json'))) && 'true' || (github.event_name == 'workflow_dispatch' && vars.BLENDER_RENDER_ENABLED == 'true' && 'true') || 'false' }}
-      MOTION_HYPERFRAMES_RENDER_ENABLED: ${{ (github.event_name == 'push' && (contains(toJSON(github.event.commits.*.added), '.autopilot/manual-motion-production-request.json') || contains(toJSON(github.event.commits.*.modified), '.autopilot/manual-motion-production-request.json'))) && 'true' || (github.event_name == 'workflow_dispatch' && vars.BLENDER_RENDER_ENABLED != 'true' && (vars.MOTION_HYPERFRAMES_RENDER_ENABLED || 'true')) || 'false' }}
+      BLENDER_RENDER_ENABLED: ${{ (github.event_name == 'schedule' || (github.event_name == 'push' && !contains(github.event.head_commit.message, '[manual-motion-production]'))) && 'true' || (github.event_name == 'workflow_dispatch' && vars.BLENDER_RENDER_ENABLED == 'true' && 'true') || 'false' }}
+      MOTION_HYPERFRAMES_RENDER_ENABLED: ${{ (github.event_name == 'push' && contains(github.event.head_commit.message, '[manual-motion-production]')) && 'true' || (github.event_name == 'workflow_dispatch' && vars.BLENDER_RENDER_ENABLED != 'true' && (vars.MOTION_HYPERFRAMES_RENDER_ENABLED || 'true')) || 'false' }}
       MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS: ${{ vars.MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS || '180' }}
       BLENDER_RENDER_WORKERS: "3"
       BLENDER_THREADS_PER_WORKER: "1"
@@ -121,7 +121,7 @@ jobs:
 
       - name: Read ChatGPT daily production request
         id: daily_request
-        if: github.event_name == 'schedule' || (github.event_name == 'push' && !contains(toJSON(github.event.commits.*.added), '.autopilot/manual-motion-production-request.json') && !contains(toJSON(github.event.commits.*.modified), '.autopilot/manual-motion-production-request.json'))
+        if: github.event_name == 'schedule' || (github.event_name == 'push' && !contains(github.event.head_commit.message, '[manual-motion-production]'))
         shell: bash
         run: |
           python - <<'PY'
@@ -147,7 +147,7 @@ jobs:
 
       - name: Validate manual full-track music-video request
         id: manual_motion_request
-        if: github.event_name == 'push' && (contains(toJSON(github.event.commits.*.added), '.autopilot/manual-motion-production-request.json') || contains(toJSON(github.event.commits.*.modified), '.autopilot/manual-motion-production-request.json'))
+        if: github.event_name == 'push' && contains(github.event.head_commit.message, '[manual-motion-production]')
         shell: bash
         run: |
           python - <<'PY'
@@ -172,7 +172,7 @@ jobs:
           PY
 
       - name: Require licensed Sketchfab access for the Cloudflare-independent daily route
-        if: github.event_name == 'schedule' || (github.event_name == 'push' && !contains(toJSON(github.event.commits.*.added), '.autopilot/manual-motion-production-request.json') && !contains(toJSON(github.event.commits.*.modified), '.autopilot/manual-motion-production-request.json'))
+        if: github.event_name == 'schedule' || (github.event_name == 'push' && !contains(github.event.head_commit.message, '[manual-motion-production]'))
         shell: bash
         env:
           MODEL_TOKEN: ${{ secrets.SKETCHFAB_ACCESS_TOKEN }}
