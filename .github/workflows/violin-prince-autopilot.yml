@@ -225,6 +225,7 @@ jobs:
 
       - name: Install pinned Blender 5.2.4 and Frame By Plane 8.0.1
         if: env.BLENDER_RENDER_ENABLED == 'true' && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')
+        timeout-minutes: 30
         uses: ./.github/actions/setup-blender-frame-by-plane
 
       - name: Prepare research, story, narration and soundtrack
