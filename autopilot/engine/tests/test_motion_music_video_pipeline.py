@@ -59,6 +59,7 @@ class MotionExplainerPipelineTests(unittest.TestCase):
                 "The body and air shape the sound we hear."
             ),
             "narrative_style": "documentary",
+            "quality_control": {"status": "passed"},
             "cover_payoff": "A short original violin phrase demonstrates the explained mechanism.",
             "sources": [{"source_id": "S001", "url": "https://example.com/source"}],
             "scenes": [
