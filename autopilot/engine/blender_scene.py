@@ -21,6 +21,7 @@ if ENGINE_DIR not in sys.path:
     sys.path.insert(0, ENGINE_DIR)
 
 import bpy
+from blender_renderer import model_decimation_ratio
 from mathutils import Matrix, Vector
 
 
@@ -398,7 +399,106 @@ def add_melody_path(mat_gold, mat_teal, frame_end):
 
 
 
-def import_gltf_asset(filepath):
+def decimate_render_meshes(meshes, face_limit=60000, preserve_meshes=()):
+    """Reduce imported hero geometry in memory for CPU rendering.
+
+    Separate string meshes and very small detail meshes are preserved. The
+    downloaded GLTF/GLB file is never modified. Material assignments remain on
+    the evaluated mesh. Up to three bounded collapse passes compensate for
+    Blender's approximate face target while keeping the complete hero within
+    a predictable geometry budget.
+    """
+    valid_meshes = [
+        obj for obj in meshes
+        if getattr(obj, "type", "") == "MESH"
+        and getattr(getattr(obj, "data", None), "polygons", None) is not None
+    ]
+    preserve_ids = {obj.as_pointer() for obj in preserve_meshes}
+    original_faces = sum(len(obj.data.polygons) for obj in valid_meshes)
+    fixed_meshes = [
+        obj for obj in valid_meshes
+        if obj.as_pointer() in preserve_ids or len(obj.data.polygons) < 400
+    ]
+    eligible_meshes = [obj for obj in valid_meshes if obj not in fixed_meshes]
+    fixed_faces = sum(len(obj.data.polygons) for obj in fixed_meshes)
+    budget = max(100, int(face_limit))
+    eligible_budget = max(100, budget - fixed_faces)
+    combined_ratio = 1.0
+    applied_passes = 0
+    decimated_names = set()
+
+    if bpy.context.object is not None and bpy.context.object.mode != "OBJECT":
+        bpy.ops.object.mode_set(mode="OBJECT")
+
+    for pass_index in range(3):
+        eligible_faces = sum(len(obj.data.polygons) for obj in eligible_meshes)
+        ratio = model_decimation_ratio(eligible_faces, eligible_budget)
+        if ratio >= 0.999 or not eligible_meshes:
+            break
+        combined_ratio *= ratio
+        for obj in eligible_meshes:
+            # Imported objects can share mesh datablocks. Make the render copy
+            # unique before applying modifiers so one part cannot mutate another.
+            if int(getattr(obj.data, "users", 1)) > 1:
+                obj.data = obj.data.copy()
+            modifier = obj.modifiers.new(
+                name=f"Violin Prince CPU geometry budget {pass_index + 1}",
+                type="DECIMATE",
+            )
+            modifier.decimate_type = "COLLAPSE"
+            modifier.ratio = ratio
+            if hasattr(modifier, "use_collapse_triangulate"):
+                modifier.use_collapse_triangulate = False
+            for selected in tuple(bpy.context.selected_objects):
+                selected.select_set(False)
+            obj.select_set(True)
+            bpy.context.view_layer.objects.active = obj
+            result = bpy.ops.object.modifier_apply(modifier=modifier.name)
+            obj.select_set(False)
+            if "FINISHED" not in result:
+                raise RuntimeError(
+                    "Could not apply the bounded Decimate modifier to imported model part "
+                    + str(obj.name) + ": " + repr(result)
+                )
+            decimated_names.add(str(obj.name))
+        applied_passes += 1
+
+    render_faces = sum(len(obj.data.polygons) for obj in valid_meshes)
+    report = {
+        "original_faces": int(original_faces),
+        "render_faces": int(render_faces),
+        "face_limit": int(budget),
+        "decimation_ratio": round(float(combined_ratio), 6),
+        "passes": int(applied_passes),
+        "preserved_faces": int(fixed_faces),
+        "preserved_meshes": len(fixed_meshes),
+        "decimated_meshes": len(decimated_names),
+    }
+    if render_faces > budget * 1.35:
+        raise RuntimeError(
+            "Imported violin remains above the CPU render geometry budget after "
+            + str(applied_passes) + " collapse passes: "
+            + json.dumps(report, ensure_ascii=False)
+        )
+    return report
+
+def _run_geometry_budget_smoke(face_limit=700):
+    """Exercise the same Blender Decimate path on a temporary high-poly mesh."""
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=64, ring_count=32, radius=1.0)
+    probe = bpy.context.object
+    original_faces = len(probe.data.polygons)
+    report = decimate_render_meshes([probe], face_limit=face_limit)
+    bpy.data.objects.remove(probe, do_unlink=True)
+    if original_faces <= face_limit or report["render_faces"] > face_limit * 1.35:
+        raise RuntimeError(
+            "Blender geometry-budget smoke did not reduce the temporary mesh: "
+            + json.dumps(report, ensure_ascii=False)
+        )
+    print("MODEL_GEOMETRY_SMOKE=" + json.dumps(report, ensure_ascii=False), flush=True)
+    return report
+
+
+def import_gltf_asset(filepath, face_limit=60000):
     """Import and normalize a downloaded Sketchfab glTF/GLB violin asset."""
     path = Path(filepath).expanduser().resolve()
     if not path.is_file() or path.suffix.casefold() not in {".gltf", ".glb"}:
@@ -436,6 +536,10 @@ def import_gltf_asset(filepath):
     if not meshes:
         raise RuntimeError("The downloaded model contained no visible subject geometry after excluding its source bow.")
     source_strings = [obj for obj in meshes if "string" in object_name_chain(obj)]
+    geometry_report = decimate_render_meshes(
+        meshes, face_limit=face_limit, preserve_meshes=source_strings
+    )
+    print("MODEL_GEOMETRY_REPORT=" + json.dumps(geometry_report, ensure_ascii=False), flush=True)
 
     bpy.context.view_layer.update()
     corners = [
@@ -519,7 +623,9 @@ def import_gltf_asset(filepath):
         "center_z": float((min(point.z for point in transformed_corners) + max(point.z for point in transformed_corners)) * 0.5),
         "source_bow_meshes_hidden": len(source_bows),
         "source_string_meshes": len(source_strings),
+        "geometry_report": geometry_report,
     }
+    root["geometry_report"] = json.dumps(geometry_report, ensure_ascii=False)
     return root, bounds
 
 
@@ -597,6 +703,8 @@ def add_bow_for_imported_violin(bounds, mat_wood, mat_strings, frame_end, mat_eb
 
 def build_scene(config):
     clear_scene()
+    if bool(config.get("geometry_budget_smoke", False)):
+        _run_geometry_budget_smoke(int(config.get("geometry_budget_smoke_limit", 700)))
     random.seed(int(config.get("seed", 1)))
     scene_type = str(config.get("scene_type") or "")
     frame_end = max(24, int(config.get("fps", 24) * config.get("duration_seconds", 3.0)))
@@ -624,7 +732,10 @@ def build_scene(config):
     model_root = None
     asset_bounds = None
     if asset_path:
-        model_root, asset_bounds = import_gltf_asset(asset_path)
+        model_root, asset_bounds = import_gltf_asset(
+            asset_path,
+            face_limit=int(config.get("model_face_limit", 60000)),
+        )
         model_root["story_asset_kind"] = asset_kind
         model_root.keyframe_insert(data_path="rotation_euler", frame=1)
         model_root.rotation_euler.y = 0.018
@@ -814,7 +925,7 @@ def build_scene(config):
         scene.cycles.samples = 8
 
     if hasattr(scene, "eevee") and hasattr(scene.eevee, "taa_render_samples"):
-        scene.eevee.taa_render_samples = max(8, min(int(config.get("samples", 16)), 32))
+        scene.eevee.taa_render_samples = max(1, min(int(config.get("samples", 4)), 32))
     scene.render.threads_mode = "FIXED"
     scene.render.threads = max(1, min(int(config.get("threads", 2)), 2))
     scene.render.resolution_x = max(160, min(int(config.get("width", 360)), 1920))

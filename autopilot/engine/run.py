@@ -25,7 +25,10 @@ try:
         normalize_visual_reference, scene_camera_move, scene_transition,
         scene_visual_prompt_suffix, transition_duration,
     )
-    from .blender_renderer import is_blender_render_enabled, render_scene_video, blender_render_worker_count
+    from .blender_renderer import (
+        is_blender_render_enabled, render_scene_video, blender_render_worker_count,
+        blender_render_resolution, blender_render_fps,
+    )
     from .parallel_render import parallel_map_ordered
 except ImportError:  # Direct script execution from the engine directory.
     from seo_intelligence import build_topic_queries, discover as seo_discover, load_profile as seo_load_profile
@@ -39,7 +42,10 @@ except ImportError:  # Direct script execution from the engine directory.
         normalize_visual_reference, scene_camera_move, scene_transition,
         scene_visual_prompt_suffix, transition_duration,
     )
-    from blender_renderer import is_blender_render_enabled, render_scene_video, blender_render_worker_count
+    from blender_renderer import (
+        is_blender_render_enabled, render_scene_video, blender_render_worker_count,
+        blender_render_resolution, blender_render_fps,
+    )
     from parallel_render import parallel_map_ordered
 
 API = os.environ.get("AUTOPILOT_API_URL", "").rstrip("/")
@@ -4321,7 +4327,7 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
             clip = OUT / f"scene-{index + 1}.mp4"
             result = render_scene_video(
                 scene, clip, scene_index=index, duration_seconds=scene_seconds,
-                resolution=(W, H), fps=FPS,
+                resolution=blender_render_resolution(), fps=blender_render_fps(),
             )
             if not result:
                 raise PipelineError(
@@ -4479,7 +4485,7 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         f"[v1][2:v]xfade=transition={second_transition}:duration={transition_seconds:.3f}:"
         f"offset={second_offset:.3f}[v2];"
         f"[v2]tpad=stop_mode=clone:stop_duration={2 * transition_seconds:.3f},"
-        "format=yuv420p[vout]"
+        f"scale={W}:{H}:flags=lanczos,fps={FPS},setsar=1,format=yuv420p[vout]"
     )
     command(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
              "-i", str(clips[0]), "-i", str(clips[1]), "-i", str(clips[2]),
