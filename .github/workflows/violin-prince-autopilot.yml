@@ -67,7 +67,7 @@ jobs:
       # Motion is the default explainer renderer. Blender is a deliberate opt-in.
       # The manual narrated-explainer request always selects Motion and disables Blender.
       BLENDER_RENDER_ENABLED: ${{ (github.event_name != 'push' || !contains(github.event.head_commit.message, '[manual-motion-production]')) && vars.BLENDER_RENDER_ENABLED == 'true' && 'true' || 'false' }}
-      MOTION_HYPERFRAMES_RENDER_ENABLED: ${{ ((github.event_name == 'push' && contains(github.event.head_commit.message, '[manual-motion-production]')) || (vars.BLENDER_RENDER_ENABLED != 'true' && (github.event_name == 'schedule' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.stage == 'full') || vars.MOTION_HYPERFRAMES_RENDER_ENABLED == 'true'))) && 'true' || 'false' }}
+      MOTION_HYPERFRAMES_RENDER_ENABLED: ${{ ((github.event_name == 'push' && contains(github.event.head_commit.message, '[manual-motion-production]')) || (vars.BLENDER_RENDER_ENABLED != 'true' && (github.event_name == 'schedule' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' || vars.MOTION_HYPERFRAMES_RENDER_ENABLED == 'true'))) && 'true' || 'false' }}
       MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS: ${{ vars.MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS || '24' }}
       BLENDER_RENDER_WORKERS: "3"
       BLENDER_THREADS_PER_WORKER: "1"
