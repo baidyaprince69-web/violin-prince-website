@@ -149,14 +149,17 @@ def render_scene_video(
         or os.environ.get("BLENDER_VIOLIN_MODEL_PATH")
         or ""
     ).strip()
-    if scene_type == "violin_performance":
+    model_asset_required = bool(
+        scene.get("model_asset_required") if isinstance(scene, dict) else False
+    ) or scene_type == "violin_performance"
+    if model_asset_required:
         if not model_asset_path or not Path(model_asset_path).is_file():
             raise BlenderRenderError(
-                "A verified downloaded .gltf/.glb violin asset is required for cover_performance. "
-                "Set BLENDER_VIOLIN_MODEL_PATH; procedural placeholder models are disabled."
+                "This story scene requires its verified, downloaded 3D model. "
+                "The asset resolver must finish successfully; no reference-image or placeholder fallback is allowed."
             )
         if Path(model_asset_path).suffix.casefold() not in {".gltf", ".glb"}:
-            raise BlenderRenderError("The Blender violin asset must be a .gltf or .glb file.")
+            raise BlenderRenderError("The selected story asset must be a .gltf or .glb file.")
 
     executable = _find_blender(blender_executable)
     if not executable:
@@ -195,6 +198,8 @@ def render_scene_video(
             "threads": 2,
             "samples": max(8, min(int(os.environ.get("BLENDER_RENDER_SAMPLES", "16")), 32)),
             "model_asset_path": model_asset_path,
+            "model_asset_kind": str(scene.get("model_asset_kind") or "generic"),
+            "model_asset_required": model_asset_required,
         }
         config_path.write_text(json.dumps(config), encoding="utf-8")
         blender_process = _run(
