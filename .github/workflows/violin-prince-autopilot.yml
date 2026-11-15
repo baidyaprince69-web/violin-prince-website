@@ -257,7 +257,7 @@ jobs:
         if: env.PIPELINE_STAGE == 'render'
         run: python autopilot/engine/run.py --stage render
 
-      - name: Run ChatGPT-prepared daily plan with photorealistic scene images
+      - name: Run ChatGPT-prepared daily plan with Blender + Frame By Plane 2.5D scenes
         if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path != ''
         env:
           RUN_ID: ${{ github.run_id }}
