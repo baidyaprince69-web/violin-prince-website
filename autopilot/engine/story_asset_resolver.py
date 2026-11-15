@@ -118,11 +118,15 @@ def _license_allowed(model: dict[str, Any]) -> bool:
         term in (code + " " + label).casefold()
         for term in ("noncommercial", "non-commercial", "by-nc", "-nc", "editorial", "no-derivatives", "no-derivative", "-nd")
     )
-    return not blocked and code in {
-        "cc0", "cc0-1-0", "cc0-1.0", "cc-by", "cc-by-4.0",
-        "cc-by-4-0", "by", "cc-attribution", "cc-attribution-4.0",
-        "cc-attribution-4-0",
-    }
+    accepted = (
+        code in {"cc0", "cc0-1-0", "cc0-1.0", "cc-by", "cc-by-4.0",
+                 "cc-by-4-0", "by", "cc-attribution", "cc-attribution-4.0",
+                 "cc-attribution-4-0"}
+        or "cc0" in code
+        or "cc-by-4-0" in code
+        or "cc-attribution-4-0" in code
+    )
+    return not blocked and accepted
 
 
 def _is_downloadable(model: dict[str, Any]) -> bool:
