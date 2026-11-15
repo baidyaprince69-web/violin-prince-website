@@ -1,48 +1,41 @@
-# Violin Prince — narrated explainer renderer
+# Violin Prince — Narrated explainer renderer
 
-Motion + HyperFrames is the animation and video-rendering engine for Violin Prince explainer videos. It does not replace research, scriptwriting or narration.
+Motion + HyperFrames is the default visual renderer for the researched Violin Prince explainer pipeline. It is not an instrumental-only music-video route.
 
-## Intended production
+## Intended production flow
 
-1. Research a specific violin, sound, music or music-production fact and verify it against independent publisher sources.
-2. Write the short explanation script and pass the existing editorial, factual and freshness gates.
-3. Generate the spoken explanation using Kokoro-82M with the `af_heart` voice and retain the model-native word timestamps.
-4. Animate the three scene plan: the question, the explanatory mechanism and the takeaway. Use the approved scene captions, graphic labels, source-backed process steps or measurements; never invent data.
-5. Render through Motion + HyperFrames. Kokoro is the primary audio. The repository's CC0 sampled-violin audio is an optional, quiet, side-chain-ducked background bed.
-6. Verify narration/video duration, word-timed captions, deterministic seeking, video/audio streams, H.264, 1080 × 1920 and 30 fps.
+1. A ChatGPT-authored production plan selects a specific explainable subject and supplies the researched explanation, scene direction, source URLs and sentence-level evidence.
+2. The runner re-fetches the publisher pages and validates source independence, dates, exact sentence evidence, freshness and channel fit.
+3. Kokoro-82M generates the spoken explanation with the `af_heart` voice. Its native word-level timestamps are mandatory and are retained for the renderer.
+4. Motion + HyperFrames animates the three approved explanation scenes. The composition builds process-flow or measured-value graphics only from supplied plan data, changes scene content at the relevant narration sentence, and highlights the spoken words using Kokoro's timestamps.
+5. FFmpeg mixes Kokoro as the primary audio with an optional CC0 sampled-violin bed at low gain, sidechain-ducked under the narration. Set `MOTION_HYPERFRAMES_MUSIC_BED_ENABLED=false` to omit the violin bed completely.
+6. The renderer verifies the MP4 streams, frame size/rate, duration against the narration, audio presence, word timing metadata and seek behaviour. The output is a GitHub Actions artifact; publishing stays disabled.
 
-The current planner is intentionally short-form (approximately 24 seconds of narration). This integration does not yet generate long-form three-minute documentaries.
-
-## Renderer implementation
-
-- Motion JavaScript provides seekable scene transitions, typography, animated infographic nodes, particles and progress.
-- The composition receives the approved research-backed scene plan and Kokoro's native word timings from Autopilot.
-- HyperFrames captures the full narration timeline and FFmpeg encodes the final MP4.
-- The voice is mixed at full level. The optional violin bed is reduced and ducked under speech. Setting `MOTION_HYPERFRAMES_MUSIC_BED_ENABLED=false` removes the bed entirely.
-- The renderer refuses to create a Motion output without Kokoro-82M `af_heart` audio and passed word timestamps. Old narration-free music-video packages are rejected.
-- The current Motion route is 2D/2.5D animation and infographic graphics. It does not yet provide a realistic 3D violin model.
-
-## Local commands
-
-Requires Node.js 22+ and FFmpeg.
+The manual Motion request consumes `.autopilot/daily-production-plan.json` through:
 
 ```bash
-npm install
-npm run prepare:composition -- --audio /path/to/narration-first-explainer-mix.wav --content-json /path/to/content-context.json
-npm run prepare:motion
-npm run lint
-npm run check
-npm run verify:seeking
-npm run render
-npm run verify
+python autopilot/engine/run_daily_plan.py --plan .autopilot/daily-production-plan.json
 ```
 
-The workflow exports the final explainer to the GitHub Actions artifact. The prototype's internal temporary filenames retain legacy naming but do not change the production type.
+That path does not call Cloudflare, Workers AI, R2, FLUX or a remote image service. It uses the existing local Kokoro engine and the ChatGPT-prepared plan. The sampled violin is only an optional background bed; it is never treated as the explanation or the primary audio.
 
-## Scope and safeguards
+## Renderer capabilities and limits
 
-- Manual Motion production uses the existing researched Prepare pipeline; Kokoro is not skipped.
-- The old music-only Prepare entry point fails closed.
-- The optional Blender route remains separate; it is not a Motion fallback.
-- No Cloudflare media-storage route is used by the Motion renderer.
-- YouTube publishing remains disabled during this integration. PR #57 stays draft and unmerged until the narrated output is reviewed.
+- 1080 × 1920 vertical output at 30 fps.
+- Motion JavaScript provides seekable animation; HyperFrames handles frame capture and FFmpeg encoding.
+- Sourced process-flow and measured-value diagrams are built from the story plan. When a story has no suitable numeric graphic, the renderer displays its approved scene caption and supporting detail rather than inventing data.
+- Captions follow Kokoro's native word timestamps. Each active word is highlighted with nearby words for readable context.
+- The timeline is driven by the narration duration; it does not repeat a fixed ten-second visual loop.
+- This renderer is HTML/CSS/SVG and 2D/2.5D motion graphics. It does **not** create a photorealistic 3D violin model. Blender remains a separate optional, explicitly enabled 3D renderer; it is not installed or invoked as an automatic fallback when Motion fails.
+
+## Local development
+
+Requires Node.js 22+, FFmpeg, Python dependencies from `autopilot/engine/requirements.txt`, and locally cached Kokoro model weights.
+
+The test fixture workflow validates the browser composition independently from the full story pipeline. It checks 1080 × 1920 at 30 fps, audio/video duration equality, random-access seeking and deterministic decoded frames.
+
+## Publishing and external services
+
+`PUBLISH_ENABLED=false` is enforced for this production route. The rendered MP4 and diagnostic reports are uploaded only as GitHub Actions artifacts. The Motion route does not upload to the website, create a release, or publish to YouTube.
+
+The optional Blender route continues to use its separately configured licensed model and Frame By Plane workflow. It is selected only when `BLENDER_RENDER_ENABLED=true`; it is never a fallback for a failed Motion render.
