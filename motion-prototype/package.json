@@ -10,7 +10,6 @@
     "render": "node -e \"import('node:fs').then(({mkdirSync}) => mkdirSync('renders', { recursive: true }))\" && hyperframes render --output renders/violin-prince-motion-prototype.mp4 --fps 30 --quality standard --workers 1"
   },
   "dependencies": {
-    "gsap": "3.15.0",
     "hyperframes": "0.9.52",
     "motion": "14.14.0"
   },

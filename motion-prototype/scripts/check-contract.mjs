@@ -5,7 +5,8 @@ const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const source = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
 const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 
-assert.ok(html.includes('data-composition-id="main"'), "Composition ID must match root timeline");
+assert.ok(html.includes('data-composition-id="main"'), "Composition ID must be present");
+assert.ok(html.includes("data-no-timeline"), "Root must opt out of GSAP timeline registration");
 assert.ok(html.includes('data-width="720"'), "Prototype width must be 720px");
 assert.ok(html.includes('data-height="1280"'), "Prototype height must be 1280px");
 assert.ok(html.includes('data-duration="10"'), "Prototype duration must be 10 seconds");
@@ -19,10 +20,10 @@ for (const id of ["particles-opening", "particles-wave", "particles-outro"]) {
 }
 assert.ok(source.includes('animate('), "Motion must drive the composition");
 assert.ok(source.includes('controls.time ='), "Motion controls must be explicitly seekable");
-assert.ok(source.includes('window.__timelines.main ='), "HyperFrames root timeline must be registered");
-assert.ok(!source.includes('document.getElementById') && !source.includes('appendChild'), "Scene elements must be authored statically");
+assert.ok(source.includes('addEventListener("hf-seek"'), "Motion must respond to HyperFrames frame seeks");
+assert.ok(!source.includes('gsap') && !source.includes('window.__timelines'), "Motion adapter must not register a dummy GSAP timeline");
 assert.equal(manifest.dependencies.motion, "14.14.0");
 assert.equal(manifest.dependencies.hyperframes, "0.9.52");
-assert.equal(manifest.dependencies.gsap, "3.15.0");
+assert.ok(!manifest.dependencies.gsap, "GSAP should not be required");
 
-console.log("Composition contract checks passed.");
+console.log("Motion frame-adapter contract checks passed.");

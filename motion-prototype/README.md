@@ -14,11 +14,11 @@ Output contract: **720 × 1280, 30 fps, 10 seconds, H.264 MP4**.
 
 ## Rendering architecture
 
-- **Motion 14.14.0** owns the visible animation and exposes a paused, seekable timeline.
-- **HyperFrames 0.9.52** captures exact frames and encodes the MP4.
-- **GSAP 3.15.0** is used only as a small compatibility clock because HyperFrames' documented composition contract registers a paused GSAP root timeline in the window timeline registry. A tweened property setter seeks each Motion control to the matching timestamp, so seeking still works even when HyperFrames suppresses GSAP update callbacks. GSAP does not author the visible effects.
-- **esbuild** bundles Motion and GSAP locally, so the rendered page makes no CDN or font-network requests.
+- **Motion 14.14.0** owns the visible animation. Its paused Web Animations API controls expose a seekable `.time` value.
+- **HyperFrames 0.9.52** owns the render clock and dispatches `hf-seek` for each requested frame. The prototype seeks every Motion control from that exact timestamp; it does not start a second clock.
+- **esbuild** bundles Motion locally, so the rendered page makes no CDN or font-network requests.
 - Local font files are copied from the existing Autopilot font assets during the build, together with their OFL notices.
+- No GSAP, Blender, or paid video service is required for this prototype.
 
 ## Run locally
 
