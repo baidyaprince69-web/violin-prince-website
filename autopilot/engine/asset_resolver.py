@@ -221,7 +221,13 @@ def resolve_sketchfab_asset(
         "noncommercial", "non-commercial", "by-nc", "-nc", "editorial",
         "no-derivatives", "no-derivative", "-nd",
     ))
-    commercial_ok = license_code in COMMERCIAL_LICENSES and not license_blocked
+    commercial_code_allowed = (
+        license_code in COMMERCIAL_LICENSES
+        or "cc0" in license_code
+        or "cc-by-4-0" in license_code
+        or "cc-attribution-4-0" in license_code
+    )
+    commercial_ok = commercial_code_allowed and not license_blocked
     raw_downloadable = model.get("isDownloadable", model.get("is_downloadable", False))
     downloadable = raw_downloadable is True or str(raw_downloadable).strip().casefold() in {"1", "true", "yes"}
     creator = _creator(model)
