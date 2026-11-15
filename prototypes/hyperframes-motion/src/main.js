@@ -35,7 +35,7 @@ const sequence = [
   ["#haze-a", { x: [-34, 24, -8], y: [24, -12, 10], scale: [0.92, 1.08, 1] }, { duration: 10, ease: "linear", times: [0, 0.55, 1], at: 0 }],
   ["#haze-b", { x: [26, -24, 12], y: [-12, 18, -4], scale: [1.05, 0.94, 1.02] }, { duration: 10, ease: "linear", times: [0, 0.5, 1], at: 0 }],
   ["#headline-one .eyebrow", { opacity: [0, 1], x: [-20, 0] }, { duration: 0.7, ease: "easeOut", at: 0.62 }],
-  ["#headline-one h1", { opacity: [0, 1], y: [54, 0] }, { duration: 1.1, ease: "easeOut", at: 0.86 }],
+  ["#headline-one h1", { opacity: [1, 1], y: [18, 0], scale: [0.97, 1] }, { duration: 1.1, ease: "easeOut", at: 0 }],
   ["#headline-one .headline-note", { opacity: [0, 1], y: [16, 0] }, { duration: 0.7, ease: "easeOut", at: 1.62 }],
   ["#wave-section", { opacity: [0, 1], y: [34, 0] }, { duration: 0.9, ease: "easeOut", at: 1.72 }],
   ["#wave-section .wave-caption", { opacity: [0, 1], x: [-18, 0] }, { duration: 0.6, ease: "easeOut", at: 2.02 }],

@@ -9,6 +9,13 @@
   <script type="importmap" id="motion-importmap">
     {"imports":{"motion":"./node_modules/motion/dist/es/index.mjs","framer-motion/dom":"./node_modules/framer-motion/dist/es/dom.mjs","motion-dom":"./node_modules/motion-dom/dist/es/index.mjs","motion-utils":"./node_modules/motion-utils/dist/es/index.mjs"}}
   </script>
+  <script>
+    // Motion's unbundled ESM expects NODE_ENV to exist; provide only that
+    // build-time flag without bundling or vendoring the Motion implementation.
+    window.process = window.process || {};
+    window.process.env = window.process.env || {};
+    window.process.env.NODE_ENV = "production";
+  </script>
   <script type="module" src="./src/main.js"></script>
 </head>
 <body>
