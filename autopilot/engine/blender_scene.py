@@ -260,15 +260,15 @@ def _register_render_telemetry(scene, config):
 
     def on_render_stats(stats_text):
         raw = str(stats_text)
-        frame_match = re.search(r"\\bFra:\\s*(\\d+)", raw)
+        frame_match = re.search(r"\bFra:\s*(\d+)", raw)
         frame_number = (
             int(frame_match.group(1))
             if frame_match
             else int(scene.frame_current)
         )
         entry = {"frame": frame_number, "raw": raw[:1200]}
-        render_match = re.search(r"\\bTime:\\s*([0-9:.]+)", raw)
-        saving_match = re.search(r"\\bSaving:\\s*([0-9:.]+)", raw)
+        render_match = re.search(r"\bTime:\s*([0-9:.]+)", raw)
+        saving_match = re.search(r"\bSaving:\s*([0-9:.]+)", raw)
         if render_match:
             entry["render_seconds"] = _stats_time_seconds(render_match.group(1))
         if saving_match:
