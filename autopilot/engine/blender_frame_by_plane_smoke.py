@@ -87,7 +87,10 @@ def main() -> int:
         "fps": 12,
         "duration_seconds": 2.0,
         "threads": 1,
-        "samples": 8,
+        "samples": 4,
+        "geometry_budget_smoke": True,
+        "geometry_budget_smoke_limit": 700,
+        "model_face_limit": 70000,
         "frame_by_plane_manifest": str(manifest_path),
         "frame_by_plane_required": True,
         "smoke_still": True,
@@ -108,10 +111,12 @@ def main() -> int:
     rendered = run_checked(command, timeout=300, label="Single-scene Blender + Frame By Plane render")
 
     report = None
+    geometry_report = None
     for line in rendered.stdout.splitlines():
         if line.startswith("FRAME_BY_PLANE_REPORT="):
             report = json.loads(line.split("=", 1)[1])
-            break
+        elif line.startswith("MODEL_GEOMETRY_SMOKE="):
+            geometry_report = json.loads(line.split("=", 1)[1])
     if not isinstance(report, dict):
         raise RuntimeError(
             "Blender produced no machine-readable Frame By Plane report.\n"
@@ -120,6 +125,8 @@ def main() -> int:
         )
     if report.get("extension_version") != "8.0.1" or int(report.get("layer_count", 0)) != 3:
         raise RuntimeError("The smoke render did not confirm all three Frame By Plane 8.0.1 layers.")
+    if not isinstance(geometry_report, dict) or int(geometry_report.get("render_faces", 0)) > 945:
+        raise RuntimeError("Blender did not pass its bounded mesh-decimation smoke test.")
 
     if not output_still.is_file() or output_still.stat().st_size < 1024:
         produced = sorted(path.name for path in output_dir.rglob("*") if path.is_file())
