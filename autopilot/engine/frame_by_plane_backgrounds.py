@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import random
 from pathlib import Path
 from typing import Any
@@ -59,9 +60,17 @@ def _make_atmosphere(size: tuple[int, int], seed: int) -> Image.Image:
     )
     image = Image.alpha_composite(image, glows.filter(ImageFilter.GaussianBlur(max(24, width // 8))))
 
-    grain = Image.effect_noise(size, 9).convert("RGBA")
-    grain.putalpha(16)
-    image = Image.alpha_composite(image, grain)
+    # Pillow's effect_noise() uses process-global randomness, which made
+    # identical story plans produce different image files on separate runs.
+    # A seeded, low-resolution noise field keeps the grain cinematic and
+    # reproducible without paying for per-pixel Python loops at full resolution.
+    noise_size = (max(48, width // 4), max(48, height // 4))
+    noise_rng = random.Random(seed ^ 0x4E01)
+    noise = Image.frombytes(
+        "L", noise_size, noise_rng.randbytes(noise_size[0] * noise_size[1])
+    ).resize(size, Image.Resampling.BICUBIC).convert("RGBA")
+    noise.putalpha(14)
+    image = Image.alpha_composite(image, noise)
 
     lights = Image.new("RGBA", size, (0, 0, 0, 0))
     light_draw = ImageDraw.Draw(lights)
@@ -73,6 +82,72 @@ def _make_atmosphere(size: tuple[int, int], seed: int) -> Image.Image:
         light_draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=colour)
     lights = lights.filter(ImageFilter.GaussianBlur(max(3, width // 100)))
     return Image.alpha_composite(image, lights)
+
+
+def _draw_signal_displays(
+    canvas: Image.Image,
+    size: tuple[int, int],
+    seed: int,
+) -> Image.Image:
+    """Add restrained, topic-relevant audio-analysis displays to the studio wall."""
+    width, height = size
+    rng = random.Random(seed ^ 0x51A61)
+    glow = Image.new("RGBA", size, (0, 0, 0, 0))
+    glow_draw = ImageDraw.Draw(glow)
+    draw = ImageDraw.Draw(canvas)
+    panel_y0, panel_y1 = int(height * 0.115), int(height * 0.335)
+    panel_width = int(width * 0.205)
+    panel_specs = (
+        (int(width * 0.035), (68, 205, 193, 220), 0.78),
+        (int(width * 0.760), (232, 174, 92, 220), 0.58),
+    )
+    for panel_index, (x0, signal_colour, amplitude) in enumerate(panel_specs):
+        x1 = x0 + panel_width
+        draw.rounded_rectangle(
+            (x0, panel_y0, x1, panel_y1),
+            radius=max(8, width // 90),
+            fill=(3, 9, 17, 226),
+            outline=(139, 105, 69, 170),
+            width=max(2, width // 360),
+        )
+        inset = max(9, width // 70)
+        inner = (x0 + inset, panel_y0 + inset, x1 - inset, panel_y1 - inset)
+        left, top, right, bottom = inner
+        for grid_index in range(1, 5):
+            gy = top + int((bottom - top) * grid_index / 5)
+            draw.line((left, gy, right, gy), fill=(76, 103, 116, 58), width=1)
+        for grid_index in range(1, 7):
+            gx = left + int((right - left) * grid_index / 7)
+            draw.line((gx, top, gx, bottom), fill=(76, 103, 116, 42), width=1)
+
+        points = []
+        point_count = 112
+        phase = rng.uniform(-math.pi, math.pi)
+        for point_index in range(point_count):
+            t = point_index / (point_count - 1)
+            x = left + int(t * (right - left))
+            envelope = 0.18 + 0.82 * abs(math.sin(math.pi * t)) ** 0.65
+            carrier = (
+                math.sin((8.0 + panel_index * 3.0) * math.pi * t + phase)
+                + 0.27 * math.sin(23.0 * math.pi * t - phase * 0.4)
+            ) / 1.27
+            y = int((top + bottom) * 0.5 - carrier * envelope * amplitude * (bottom - top) * 0.39)
+            points.append((x, y))
+        glow_draw.line(points, fill=(*signal_colour[:3], 95), width=max(5, width // 150), joint="curve")
+        draw.line(points, fill=signal_colour, width=max(2, width // 420), joint="curve")
+
+        # Small calibration LEDs give the panels scale without adding text.
+        led_y = panel_y1 - max(7, height // 120)
+        led_width = max(3, width // 160)
+        for led in range(8):
+            led_x = left + led * (led_width + max(3, width // 260))
+            led_colour = signal_colour if led < (5 + panel_index) else (49, 66, 77, 150)
+            draw.rounded_rectangle(
+                (led_x, led_y, led_x + led_width, led_y + max(2, height // 260)),
+                radius=2,
+                fill=led_colour,
+            )
+    return Image.alpha_composite(canvas, glow.filter(ImageFilter.GaussianBlur(max(3, width // 160))))
 
 
 def _draw_acoustic_environment(size: tuple[int, int], seed: int, scene: dict[str, Any]) -> Image.Image:
@@ -145,6 +220,17 @@ def _draw_acoustic_environment(size: tuple[int, int], seed: int, scene: dict[str
         y = rng.randint(int(height * 0.16), int(height * 0.40))
         radius = rng.randint(2, max(3, width // 240))
         draw.ellipse((x-radius, y-radius, x+radius, y+radius), fill=(211, 160, 91, rng.randint(45, 105)))
+    prompt = " ".join((
+        str(scene.get("image_prompt") or ""),
+        str(scene.get("caption") or ""),
+        str(scene.get("graphic_label") or ""),
+        str(scene.get("graphic_detail") or ""),
+    )).casefold()
+    if any(term in prompt for term in (
+        "audio", "waveform", "dynamic range", "signal", "frequency",
+        "spectrum", "digit", "converter", "recording", "sound",
+    )):
+        canvas = _draw_signal_displays(canvas, size, seed)
     return canvas.filter(ImageFilter.GaussianBlur(max(1, width // 1200)))
 
 

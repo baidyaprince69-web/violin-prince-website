@@ -163,7 +163,7 @@ class BlenderRendererTests(unittest.TestCase):
                 report = {"enabled": True, "layer_count": 3, "extension_version": "8.0.1"}
                 return subprocess.CompletedProcess(
                     command, 0,
-                    stdout="FRAME_BY_PLANE_REPORT=" + json.dumps(report) + "\\n",
+                    stdout="FRAME_BY_PLANE_REPORT=" + json.dumps(report) + "\n",
                     stderr="",
                 )
 
@@ -179,7 +179,7 @@ class BlenderRendererTests(unittest.TestCase):
                  patch.object(
                      blender_renderer.subprocess, "run",
                      return_value=subprocess.CompletedProcess(
-                         ["blender", "--version"], 0, stdout="Blender 5.2.4\\n", stderr=""
+                         ["blender", "--version"], 0, stdout="Blender 5.2.4\n", stderr=""
                      ),
                  ):
                 result = blender_renderer.render_scene_video(
