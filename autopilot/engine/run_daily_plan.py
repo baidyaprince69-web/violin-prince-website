@@ -336,10 +336,12 @@ def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list
 
 
 def run_daily_plan(plan_path: Path) -> int:
-    if is_motion_hyperframes_render_enabled():
+    motion_enabled = is_motion_hyperframes_render_enabled()
+    blender_enabled = engine.is_blender_render_enabled()
+    if motion_enabled and blender_enabled:
         raise engine.PipelineError(
-            "The ChatGPT daily-plan workflow creates a Shorts-specific handoff and uses its own short soundtrack. "
-            "Disable MOTION_HYPERFRAMES_RENDER_ENABLED for this route; use the staged full-track Render pipeline instead."
+            "Motion + HyperFrames and Blender are mutually exclusive. "
+            "Disable Blender for the narrated Motion explainer."
         )
     plan_path = Path(plan_path)
     if not plan_path.is_file():
@@ -386,7 +388,6 @@ def run_daily_plan(plan_path: Path) -> int:
         json.dumps(plan["quality_control"], ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
-    blender_enabled = engine.is_blender_render_enabled()
     images = []
     model_asset = None
     if blender_enabled:
@@ -510,12 +511,25 @@ def run_daily_plan(plan_path: Path) -> int:
             "layers_per_scene=3; FLUX_and_Cloudflare_image_generation_skipped.",
             flush=True,
         )
+    elif motion_enabled:
+        # The ChatGPT plan already contains the researched script, evidence and
+        # scene-specific visual directions. Motion constructs the explanatory
+        # diagrams and typography locally; do not invoke FLUX, Cloudflare or Blender.
+        images = []
+        for index in range(3):
+            (engine.PACKAGE / f"scene-{index + 1}.jpg").unlink(missing_ok=True)
+        print(
+            "MOTION_EXPLAINER=enabled; Kokoro narration is primary; "
+            "scene-specific diagrams and word-synchronised captions are rendered locally.",
+            flush=True,
+        )
     else:
-        # Existing still-image pipeline remains available when Blender is disabled.
+        # Preserve the legacy still-image path only for runs which explicitly
+        # choose neither Motion nor Blender.
         if not engine.CF_ACCOUNT or not engine.CF_TOKEN:
             raise engine.PipelineError(
                 "The legacy FLUX still-image route requires CF_ACCOUNT_ID and CF_AI_TOKEN. "
-                "The daily Blender + Frame By Plane route does not use this fallback."
+                "Use Motion + HyperFrames or explicitly enable the optional Blender route instead."
             )
         for index, scene in enumerate(plan["scenes"]):
             image_path = engine.PACKAGE / f"scene-{index + 1}.jpg"
@@ -529,7 +543,11 @@ def run_daily_plan(plan_path: Path) -> int:
             images.append(image_path)
 
     metadata = {
-        "schema_version": 3,
+        "schema_version": 4,
+        "production_type": "narrated_explainer" if motion_enabled else "daily_plan_short",
+        "visual_renderer": "motion_hyperframes_narrated_explainer" if motion_enabled else (
+            "blender_full_frame_3d" if blender_enabled else "legacy_still_image"
+        ),
         "prepared_run_id": engine.RUN_ID,
         "narration_info": narration_info,
         "asset": audio_asset,
@@ -558,6 +576,41 @@ def run_daily_plan(plan_path: Path) -> int:
     result = engine.render_stage()
     if result != 0:
         return result
+    if motion_enabled:
+        final_video = engine.OUT / "violin-prince-explainer.mp4"
+        if not final_video.is_file() or final_video.stat().st_size < 4096:
+            raise engine.PipelineError("Motion completed without a valid narrated explainer MP4.")
+        output_metadata_path = engine.OUT / "metadata.json"
+        try:
+            output_metadata = json.loads(output_metadata_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise engine.PipelineError("Motion output metadata is missing or invalid.") from exc
+        video_quality = output_metadata.get("video_quality") or {}
+        narration = output_metadata.get("narration") or {}
+        if (
+            output_metadata.get("render_engine") != "motion_hyperframes"
+            or narration.get("engine") != "Kokoro-82M"
+            or narration.get("voice") != "af_heart"
+            or narration.get("word_sync_status") != "passed"
+            or video_quality.get("primary_audio_source") != "Kokoro-82M"
+            or video_quality.get("narration_word_sync_status") != "passed"
+            or output_metadata.get("publishing_status") != "rendered"
+        ):
+            raise engine.PipelineError("Rendered MP4 failed the Kokoro narration, word-sync or publishing-disabled checks.")
+        print(
+            "DAILY_PRODUCTION_RESULT=" + json.dumps({
+                "status": "rendered",
+                "run_id": engine.RUN_ID,
+                "video": str(final_video),
+                "primary_audio_source": "Kokoro-82M af_heart",
+                "word_timing_count": video_quality.get("narration_word_timing_count"),
+                "music_bed_enabled": video_quality.get("music_bed_enabled"),
+                "publishing": "disabled",
+            }, ensure_ascii=False),
+            flush=True,
+        )
+        return 0
+
     final_video = engine.OUT / "violin-prince-short.mp4"
     if blender_enabled:
         images = [engine.OUT / f"blender-scene-{index + 1}-poster.png" for index in range(3)]
