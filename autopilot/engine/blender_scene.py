@@ -280,7 +280,6 @@ def _register_render_telemetry(scene, config):
         record = records_by_frame.get(frame_number)
         if record is not None:
             record["render_stats"] = entry
-        _write_timing_report()
 
     def on_render_write(render_scene):
         frame_number = int(render_scene.frame_current)
