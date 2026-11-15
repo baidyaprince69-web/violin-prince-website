@@ -98,7 +98,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: violin-prince-motion-full-track-\${{ github.run_number }}
+          name: violin-prince-motion-full-track
           path: |
             prototypes/hyperframes-motion/output/violin-prince-motion-full-track.mp4
             prototypes/hyperframes-motion/output/contact-sheet.jpg
