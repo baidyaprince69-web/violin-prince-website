@@ -50,6 +50,14 @@ except ImportError:  # Direct script execution from the engine directory.
 
 API = os.environ.get("AUTOPILOT_API_URL", "").rstrip("/")
 JOB_TOKEN = os.environ.get("AUTOPILOT_JOB_TOKEN", "")
+# The Motion full-track production is intentionally self-contained: it uses the
+# repository's sampled-violin generator and GitHub Actions artifacts, not the
+# legacy remote asset API or external object storage.
+if str(os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "false")).strip().lower() in {"1", "true", "yes", "on"}:
+    API = ""
+    JOB_TOKEN = ""
+    os.environ["AUTOPILOT_API_URL"] = ""
+    os.environ["AUTOPILOT_JOB_TOKEN"] = ""
 CF_ACCOUNT = os.environ.get("CF_ACCOUNT_ID", "")
 CF_TOKEN = os.environ.get("CF_AI_TOKEN", "")
 RUN_ID = os.environ.get("RUN_ID", str(uuid.uuid4()))
