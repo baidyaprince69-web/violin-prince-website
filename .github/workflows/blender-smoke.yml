@@ -6,6 +6,7 @@ on:
       - feature/blender-3d-overlays
     paths:
       - "autopilot/engine/asset_resolver.py"
+      - "autopilot/engine/blender_reference.py"
       - "autopilot/engine/blender_renderer.py"
       - "autopilot/engine/blender_scene.py"
       - "autopilot/engine/tests/test_asset_resolver.py"
@@ -14,6 +15,7 @@ on:
   pull_request:
     paths:
       - "autopilot/engine/asset_resolver.py"
+      - "autopilot/engine/blender_reference.py"
       - "autopilot/engine/blender_renderer.py"
       - "autopilot/engine/blender_scene.py"
       - "autopilot/engine/tests/test_asset_resolver.py"
@@ -55,7 +57,7 @@ jobs:
 
       - name: Run asset resolver and Blender adapter tests
         run: |
-          python -m py_compile autopilot/engine/asset_resolver.py autopilot/engine/blender_renderer.py autopilot/engine/blender_scene.py
+          python -m py_compile autopilot/engine/asset_resolver.py autopilot/engine/blender_reference.py autopilot/engine/blender_renderer.py autopilot/engine/blender_scene.py
           python -m unittest autopilot/engine/tests/test_asset_resolver.py autopilot/engine/tests/test_blender_renderer.py -v
 
       - name: Resolve the exact Sketchfab violin asset
@@ -66,6 +68,18 @@ jobs:
           python autopilot/engine/asset_resolver.py \
             --model-url "$SKETCHFAB_MODEL_URL" \
             --output-dir "$RUNNER_TEMP/violin-prince-blender-preview/assets"
+
+      - name: Prepare a Blender viewport reference scene
+        if: steps.asset.outputs.downloaded != 'true' && steps.asset.outputs.reference_path != ''
+        env:
+          BLENDER_REFERENCE_IMAGE: \${{ steps.asset.outputs.reference_path }}
+          BLENDER_REFERENCE_MANIFEST: \${{ steps.asset.outputs.manifest_path }}
+        run: |
+          blender --background --factory-startup \
+            --python autopilot/engine/blender_reference.py \
+            -- --image "$BLENDER_REFERENCE_IMAGE" \
+            --manifest "$BLENDER_REFERENCE_MANIFEST" \
+            --output "$RUNNER_TEMP/violin-prince-blender-preview/blender-viewport-reference.blend"
 
       - name: Explain reference-only result when model download is unavailable
         if: steps.asset.outputs.downloaded != 'true'
@@ -110,6 +124,7 @@ jobs:
           name: violin-prince-blender-model-and-preview
           path: |
             ${{ runner.temp }}/violin-prince-blender-preview/assets/**
+            ${{ runner.temp }}/violin-prince-blender-preview/blender-viewport-reference.blend
             ${{ runner.temp }}/violin-prince-blender-preview/blender-full-3d-production-preview.mp4
             ${{ runner.temp }}/violin-prince-blender-preview/blender-production-contact-sheet.jpg
             ${{ runner.temp }}/violin-prince-blender-preview/blender-production-report.json
