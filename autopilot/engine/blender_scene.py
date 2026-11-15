@@ -79,6 +79,8 @@ def _register_render_telemetry(scene, config):
         return []
 
     active = {}
+    records_by_frame = {}
+    writes_before_post = {}
     frame_records = _TIMINGS.setdefault("frames", [])
 
     def request_preflight_abort(gate_name, projected_seconds, observed):
@@ -90,6 +92,7 @@ def _register_render_telemetry(scene, config):
         report = {
             "schema_version": 1,
             "status": "aborted",
+            "aborted": True,
             "gate": gate_name,
             "scene_type": str(config.get("scene_type") or ""),
             "frame_count": int(scene.frame_end - scene.frame_start + 1),
@@ -152,8 +155,16 @@ def _register_render_telemetry(scene, config):
             "cpu_total_seconds": round(cpu_user + cpu_system, 6),
             "process_elapsed_seconds": round(ended_perf - _PROCESS_START, 6),
             "resources_after_frame": snapshot,
+            "_render_post_perf": ended_perf,
         }
+        early_write = writes_before_post.pop(frame_number, None)
+        if early_write is not None:
+            record["render_write_before_render_post"] = True
+            record["render_write_callback_elapsed_seconds"] = round(
+                max(0.0, early_write - started["started_perf"]), 6
+            )
         frame_records.append(record)
+        records_by_frame[frame_number] = record
         _TIMINGS["last_frame_completed"] = frame_number
         _write_timing_report()
 
@@ -206,12 +217,33 @@ def _register_render_telemetry(scene, config):
             else:
                 _write_timing_report()
 
+    def on_render_write(render_scene):
+        frame_number = int(render_scene.frame_current)
+        now = time.perf_counter()
+        record = records_by_frame.get(frame_number)
+        if record is None:
+            # Blender versions can dispatch render_write before render_post.
+            # Preserve the observation without inventing an append duration.
+            writes_before_post[frame_number] = now
+            return
+        record["video_append_and_write_seconds"] = round(
+            max(0.0, now - (record.get("_render_post_perf") or now)), 6
+        )
+        record.pop("_render_post_perf", None)
+        record["render_write_callback_observed"] = True
+        _write_timing_report()
+
     bpy.app.handlers.render_pre.append(on_render_pre)
     bpy.app.handlers.render_post.append(on_render_post)
-    return [
+    handlers = [
         (bpy.app.handlers.render_pre, on_render_pre),
         (bpy.app.handlers.render_post, on_render_post),
     ]
+    render_write_handlers = getattr(bpy.app.handlers, "render_write", None)
+    if isinstance(render_write_handlers, list):
+        render_write_handlers.append(on_render_write)
+        handlers.append((render_write_handlers, on_render_write))
+    return handlers
 
 
 def _remove_render_telemetry_handlers(handlers):
