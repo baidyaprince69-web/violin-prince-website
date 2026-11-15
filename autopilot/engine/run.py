@@ -4723,7 +4723,7 @@ def _read_package(require_images=False):
     ):
         raise PipelineError("Prepared story does not have two dated publisher articles within the seven-day window.")
     review = metadata.get("story_review") or {}
-    if require_images and review.get("approved") is not True:
+    if (require_images or is_blender_render_enabled()) and review.get("approved") is not True:
         raise PipelineError("Render blocked: automated editorial quality gates did not clear this story before Visuals.")
     image_paths = [PACKAGE / f"scene-{index + 1}.jpg" for index in range(3)]
     if require_images:
@@ -5065,8 +5065,9 @@ def prepare_stage():
 
 
 def visuals_stage(feedback=""):
-    """Generate scene images after the automated editorial and evidence checks pass."""
-    if not CF_ACCOUNT or not CF_TOKEN:
+    """Prepare either FLUX stills or the plan for complete Blender 3D scene rendering."""
+    blender_enabled = is_blender_render_enabled()
+    if not blender_enabled and (not CF_ACCOUNT or not CF_TOKEN):
         raise PipelineError("CF_ACCOUNT_ID and CF_AI_TOKEN are required for the Visuals stage.")
     plan, metadata, _narration_info, paths, image_paths = _read_package(require_images=False)
     creative_issues = validate_creative_plan(plan)
@@ -5086,33 +5087,46 @@ def visuals_stage(feedback=""):
             "approval_method": "automated_source_date_freshness_and_channel_fit_checks",
         })
     paths["metadata"].write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
-    for index, scene in enumerate(plan["scenes"]):
-        # Reuse any valid image already present when recovering a partially completed
-        # visual stage; do not spend another model call on work already completed.
-        if image_paths[index].is_file():
-            try:
-                with Image.open(image_paths[index]) as existing:
-                    existing.verify()
-                log(f"Reusing valid scene image {index + 1}/3 from an earlier attempt.")
-                continue
-            except Exception:
-                image_paths[index].unlink(missing_ok=True)
+    if blender_enabled:
+        # A Blender 3D production has no generated still-image plates. The scene
+        # templates, objects, lighting, camera and animation are all built and
+        # rendered by Blender during the Render stage.
+        for image_path in image_paths:
+            image_path.unlink(missing_ok=True)
+        storyboard = None
+        metadata["visual_renderer"] = "blender_full_frame_3d"
+        metadata["visuals_description"] = "Blender builds and animates full-frame opaque 3D scenes; no FLUX still plates or transparent 3D overlays."
+        log("Blender full-scene mode selected: skipped FLUX image generation; Render will build real animated 3D scenes.")
+    else:
+        for index, scene in enumerate(plan["scenes"]):
+            # Reuse valid images when recovering a partially completed visual stage.
+            if image_paths[index].is_file():
+                try:
+                    with Image.open(image_paths[index]) as existing:
+                        existing.verify()
+                    log(f"Reusing valid scene image {index + 1}/3 from an earlier attempt.")
+                    continue
+                except Exception:
+                    image_paths[index].unlink(missing_ok=True)
 
-        prompt = _scene_visual_prompt(scene, feedback, index=index, plan=plan)
-        try:
-            generated = make_image(prompt, index)
-        except (requests.Timeout, requests.ConnectionError):
-            log(f"Temporary connection issue for scene {index + 1}; retrying once.")
-            time.sleep(2)
-            generated = make_image(prompt, index)
-        shutil.copy2(generated, image_paths[index])
-        log(f"Prepared scene image {index + 1}/3.")
-    storyboard = make_storyboard_preview(plan, image_paths, PACKAGE / "storyboard-preview.png")
+            prompt = _scene_visual_prompt(scene, feedback, index=index, plan=plan)
+            try:
+                generated = make_image(prompt, index)
+            except (requests.Timeout, requests.ConnectionError):
+                log(f"Temporary connection issue for scene {index + 1}; retrying once.")
+                time.sleep(2)
+                generated = make_image(prompt, index)
+            shutil.copy2(generated, image_paths[index])
+            log(f"Prepared scene image {index + 1}/3.")
+        storyboard = make_storyboard_preview(plan, image_paths, PACKAGE / "storyboard-preview.png")
     metadata["stage"] = "visuals_ready"
     metadata["visual_feedback"] = re.sub(r"\s+", " ", str(feedback or "")).strip()[:600]
     metadata["visuals_run_id"] = RUN_ID
     paths["metadata"].write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
-    log("Storyboard preview created: " + str(storyboard))
+    if storyboard:
+        log("Storyboard preview created: " + str(storyboard))
+    else:
+        log("Blender storyboard is deferred until the rendered scene clips produce verification frames.")
     return 0
 
 
