@@ -1,12 +1,6 @@
 name: Deploy Violin Prince Autopilot to Cloudflare
 
 on:
-  push:
-    branches:
-      - main
-      - prototype/motion-hyperframes-2026-11-15
-    paths:
-      - ".autopilot/deploy-worker-request.json"
   workflow_dispatch:
 
 permissions:
