@@ -50,22 +50,26 @@ jobs:
       - name: Install preview contact-sheet dependency
         run: python -m pip install --upgrade pip Pillow
 
-      - name: Render three complete animated 3D scenes
+      - name: Render one cinematic animated 3D violin scene
         run: |
           python autopilot/engine/blender_renderer.py \
             --production-preview \
             --output-dir "$RUNNER_TEMP/violin-prince-blender-preview" \
-            --resolution 240x426 \
-            --fps 16
+            --resolution 360x640 \
+            --fps 18
 
       - name: Verify that the preview is a real encoded video
         run: |
+          VIDEO="$RUNNER_TEMP/violin-prince-blender-preview/blender-full-3d-production-preview.mp4"
           ffprobe -v error \
             -show_entries format=duration:stream=codec_name,width,height,r_frame_rate \
-            -of json \
-            "$RUNNER_TEMP/violin-prince-blender-preview/blender-full-3d-production-preview.mp4"
+            -of json "$VIDEO"
+          DURATION="$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$VIDEO")"
+          python -c 'import sys; value=float(sys.argv[1]); assert value >= 2.8, f"preview too short: {value:.3f}s"; print(f"Verified animated preview duration: {value:.3f}s")' "$DURATION"
           test -s "$RUNNER_TEMP/violin-prince-blender-preview/blender-production-contact-sheet.jpg"
           test -s "$RUNNER_TEMP/violin-prince-blender-preview/blender-production-report.json"
+          test -s "$RUNNER_TEMP/violin-prince-blender-preview/blender-scene-1-poster.png"
+          test -s "$RUNNER_TEMP/violin-prince-blender-preview/blender-scene-1.mp4"
 
       - name: Upload production preview and verification evidence
         uses: actions/upload-artifact@v4
