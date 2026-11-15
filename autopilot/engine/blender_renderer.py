@@ -1,7 +1,8 @@
-"""Optional, CPU-only Blender overlays for the Violin Prince render pipeline.
+"""Full-frame animated Blender renderer for Violin Prince Autopilot.
 
-The renderer deliberately creates one transparent 3D still per eligible scene.
-Pillow retains typography/diagrams and FFmpeg retains timeline motion and encoding.
+Blender owns the entire visual scene and outputs an opaque MP4 scene clip.
+There is no transparent render, image-plate composite, or Blender overlay.
+FFmpeg remains responsible only for joining scenes, audio, subtitles and final QA.
 """
 from __future__ import annotations
 
@@ -19,6 +20,10 @@ from typing import Any
 SUPPORTED_SCENE_TYPES = {
     "macro_3d": "string_vibration",
     "mechanism_3d": "bridge_cutaway",
+    "waveform": "wave_field",
+    "melody_map": "melody_path",
+    "comparison": "comparison",
+    "cover_performance": "violin_performance",
 }
 
 
@@ -27,14 +32,12 @@ class BlenderRenderError(RuntimeError):
 
 
 def is_blender_render_enabled(value: str | bool | None = None) -> bool:
-    """Read the opt-in switch; Blender stays off unless explicitly enabled."""
     if value is None:
         value = os.environ.get("BLENDER_RENDER_ENABLED", "false")
     return str(value).strip().casefold() in {"1", "true", "yes", "on"}
 
 
 def _find_blender(executable: str | None = None) -> str | None:
-    """Resolve BLENDER_BIN or the standard Blender executable."""
     candidate = str(executable or os.environ.get("BLENDER_BIN") or "blender").strip()
     if not candidate:
         return None
@@ -45,87 +48,126 @@ def _find_blender(executable: str | None = None) -> str | None:
 
 
 def scene_type_for(scene: dict[str, Any]) -> str | None:
-    """Map only approved visual modes to known procedural Blender scenes."""
     if not isinstance(scene, dict):
         return None
-    mode = str(scene.get("visual_mode") or "").strip().casefold()
-    return SUPPORTED_SCENE_TYPES.get(mode)
+    return SUPPORTED_SCENE_TYPES.get(str(scene.get("visual_mode") or "").strip().casefold())
 
 
 def _stable_seed(scene: dict[str, Any], scene_index: int) -> int:
-    seed_payload = {
+    value = {
         "visual_mode": str(scene.get("visual_mode") or ""),
         "caption": str(scene.get("caption") or ""),
         "image_prompt": str(scene.get("image_prompt") or ""),
         "scene_index": int(scene_index),
     }
     digest = hashlib.sha256(
-        json.dumps(seed_payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
+        json.dumps(value, sort_keys=True, ensure_ascii=False).encode("utf-8")
     ).hexdigest()
     return int(digest[:8], 16)
 
 
-def _blender_version(executable: str) -> str:
+def _run(command: list[str], timeout: int, label: str) -> subprocess.CompletedProcess:
     try:
         result = subprocess.run(
-            [executable, "--version"],
-            capture_output=True,
-            text=True,
-            timeout=15,
-            check=False,
+            command, capture_output=True, text=True, timeout=timeout, check=False
         )
-    except (OSError, subprocess.TimeoutExpired):
-        return "unknown"
-    first_line = (result.stdout or result.stderr or "").strip().splitlines()
-    return first_line[0][:120] if first_line else "unknown"
+    except subprocess.TimeoutExpired as exc:
+        raise BlenderRenderError(f"{label} exceeded its {timeout}-second timeout.") from exc
+    except OSError as exc:
+        raise BlenderRenderError(f"{label} could not start: {str(exc)[:300]}") from exc
+    if result.returncode:
+        detail = (result.stderr or result.stdout or "No diagnostic returned.")[-1800:]
+        raise BlenderRenderError(f"{label} failed: {detail}")
+    return result
 
 
-def render_scene_overlay(
+def _probe_video(path: Path, expected_size: tuple[int, int], expected_seconds: float) -> dict[str, Any]:
+    result = _run(
+        [
+            "ffprobe", "-v", "error", "-show_entries",
+            "format=duration:stream=codec_type,width,height,codec_name,r_frame_rate",
+            "-of", "json", str(path),
+        ],
+        timeout=30,
+        label="ffprobe validation",
+    )
+    try:
+        payload = json.loads(result.stdout)
+        video = next(
+            item for item in payload.get("streams", [])
+            if item.get("codec_type") == "video"
+        )
+        duration = float(payload.get("format", {}).get("duration", 0))
+    except (ValueError, TypeError, StopIteration, json.JSONDecodeError) as exc:
+        raise BlenderRenderError("Blender output did not contain a valid video stream.") from exc
+
+    width, height = int(video.get("width", 0)), int(video.get("height", 0))
+    if (width, height) != expected_size:
+        raise BlenderRenderError(
+            f"Blender scene is {width}×{height}; expected {expected_size[0]}×{expected_size[1]}."
+        )
+    if duration < expected_seconds - 0.30:
+        raise BlenderRenderError(
+            f"Blender scene is only {duration:.2f}s; expected about {expected_seconds:.2f}s."
+        )
+    if str(video.get("codec_name") or "") not in {"h264", "hevc", "mpeg4"}:
+        raise BlenderRenderError("Blender output is not a supported encoded video.")
+    return {
+        "duration_seconds": round(duration, 3),
+        "width": width,
+        "height": height,
+        "codec": video.get("codec_name"),
+        "frame_rate": video.get("r_frame_rate"),
+    }
+
+
+def render_scene_video(
     scene: dict[str, Any],
     output_path: str | Path,
     scene_index: int = 0,
+    duration_seconds: float = 8.0,
     *,
     enabled: bool | None = None,
     blender_executable: str | None = None,
-    resolution: tuple[int, int] = (540, 960),
+    resolution: tuple[int, int] = (720, 1280),
+    fps: int = 25,
     timeout_seconds: int | None = None,
 ) -> dict[str, Any] | None:
-    """Render a transparent Blender overlay for one supported scene.
-
-    Returns None when the feature is disabled or the scene mode is not supported.
-    When enabled for a supported mode, missing Blender or a failed render is fatal:
-    the caller must not silently claim that a Blender scene was produced.
-    """
+    """Render one complete opaque animated 3D scene as an MP4 clip."""
     if not is_blender_render_enabled(enabled):
         return None
 
     scene_type = scene_type_for(scene)
     if not scene_type:
-        return None
+        raise BlenderRenderError(
+            "Blender is enabled but the scene visual_mode has no Blender scene template: "
+            + str(scene.get("visual_mode") if isinstance(scene, dict) else "invalid scene")
+        )
 
     executable = _find_blender(blender_executable)
     if not executable:
         raise BlenderRenderError(
-            "Blender rendering is enabled, but the Blender executable was not found. "
-            "Install Blender or set BLENDER_BIN; the render will not silently fall back."
+            "Blender rendering is enabled, but Blender was not found. "
+            "Install Blender or set BLENDER_BIN; no image/overlay fallback is permitted."
         )
 
-    width, height = (int(resolution[0]), int(resolution[1]))
-    if width < 64 or height < 64 or width > 1920 or height > 1920:
-        raise BlenderRenderError("Blender overlay resolution is outside the safe 64–1920 pixel range.")
+    width, height = int(resolution[0]), int(resolution[1])
+    if width < 160 or height < 284 or width > 1920 or height > 1920:
+        raise BlenderRenderError("Blender video resolution is outside the safe 160–1920 pixel range.")
+    fps = max(12, min(int(fps), 30))
+    duration = max(1.0, min(float(duration_seconds), 24.0))
+    safe_timeout = int(
+        timeout_seconds
+        if timeout_seconds is not None
+        else os.environ.get("BLENDER_RENDER_TIMEOUT_SECONDS", "480")
+    )
+    safe_timeout = max(30, min(safe_timeout, 900))
 
     destination = Path(output_path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     script_path = Path(__file__).with_name("blender_scene.py")
     if not script_path.is_file():
-        raise BlenderRenderError("The Blender scene-generation script is missing.")
-
-    safe_timeout = int(
-        timeout_seconds
-        if timeout_seconds is not None
-        else os.environ.get("BLENDER_RENDER_TIMEOUT_SECONDS", "180")
-    )
-    safe_timeout = max(15, min(safe_timeout, 600))
+        raise BlenderRenderError("The full-scene Blender production script is missing.")
 
     with tempfile.TemporaryDirectory(prefix="violin-prince-blender-") as folder:
         config_path = Path(folder) / "scene.json"
@@ -134,155 +176,188 @@ def render_scene_overlay(
             "seed": _stable_seed(scene, scene_index),
             "width": width,
             "height": height,
-            "samples": 6,
+            "fps": fps,
+            "duration_seconds": duration,
             "threads": 2,
+            "samples": 16,
         }
         config_path.write_text(json.dumps(config), encoding="utf-8")
-        command = [
-            executable,
-            "--background",
-            "--factory-startup",
-            "--threads",
-            "2",
-            "--python",
-            str(script_path),
-            "--",
-            "--config",
-            str(config_path),
-            "--output",
-            str(destination.resolve()),
-        ]
-        try:
-            result = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                timeout=safe_timeout,
-                check=False,
-            )
-        except subprocess.TimeoutExpired as exc:
-            raise BlenderRenderError(
-                f"Blender exceeded the {safe_timeout}-second scene-render limit."
-            ) from exc
-        except OSError as exc:
-            raise BlenderRenderError("Blender could not be started: " + str(exc)[:300]) from exc
+        _run(
+            [
+                executable, "--background", "--factory-startup",
+                "--threads", "2", "--python", str(script_path),
+                "--", "--config", str(config_path),
+                "--output", str(destination.resolve()),
+            ],
+            timeout=safe_timeout,
+            label=f"Blender full-scene render ({scene_type})",
+        )
 
-        if result.returncode != 0:
-            detail = (result.stderr or result.stdout or "No Blender diagnostic was returned.")[-1200:]
-            raise BlenderRenderError("Blender scene rendering failed: " + detail)
-        if not destination.is_file() or destination.stat().st_size < 1024:
-            raise BlenderRenderError("Blender exited without producing a valid overlay PNG.")
-
-    try:
-        from PIL import Image
-
-        with Image.open(destination) as overlay:
-            overlay.load()
-            if overlay.size != (width, height):
-                raise BlenderRenderError(
-                    f"Blender overlay has size {overlay.size}; expected {(width, height)}."
-                )
-            if overlay.mode != "RGBA":
-                raise BlenderRenderError("Blender overlay must preserve an RGBA transparency channel.")
-            if overlay.getchannel("A").getbbox() is None:
-                raise BlenderRenderError("Blender overlay is fully transparent.")
-    except BlenderRenderError:
-        raise
-    except Exception as exc:
-        raise BlenderRenderError("Blender output could not be validated: " + str(exc)[:300]) from exc
-
+    if not destination.is_file() or destination.stat().st_size < 4096:
+        raise BlenderRenderError("Blender exited without producing a complete MP4 scene.")
+    media = _probe_video(destination, (width, height), duration)
+    version_result = subprocess.run(
+        [executable, "--version"], capture_output=True, text=True, timeout=20, check=False
+    )
+    version_lines = (version_result.stdout or version_result.stderr or "").splitlines()
     return {
         "status": "rendered",
         "scene_type": scene_type,
         "visual_mode": str(scene.get("visual_mode") or ""),
         "output_path": str(destination),
-        "resolution": [width, height],
-        "render_engine": "Cycles CPU",
-        "samples": 6,
-        "blender_version": _blender_version(executable),
-        "animation_scope": "single true-3D RGBA frame; FFmpeg supplies the existing scene motion",
+        "renderer": "Blender Eevee CPU",
+        "blender_version": version_lines[0][:120] if version_lines else "unknown",
+        "rendered_as": "full-frame opaque 3D animation",
+        "no_image_plate": True,
+        "no_transparent_overlay": True,
+        "camera_animation": True,
+        "object_animation": True,
+        **media,
     }
 
 
-def composite_scene_overlay(
-    base_image_path: str | Path,
-    overlay_path: str | Path,
-    output_path: str | Path,
-    size: tuple[int, int] = (720, 1280),
-) -> Path:
-    """Composite Blender's transparent 3D layer over the existing scene plate."""
-    from PIL import Image, ImageOps
+def _poster(video_path: Path, output_path: Path, timestamp: float) -> None:
+    _run(
+        [
+            "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+            "-ss", f"{timestamp:.3f}", "-i", str(video_path),
+            "-frames:v", "1", "-q:v", "2", str(output_path),
+        ],
+        timeout=30,
+        label="Blender scene poster extraction",
+    )
+    if not output_path.is_file() or output_path.stat().st_size < 1024:
+        raise BlenderRenderError("Could not extract a verification frame from the Blender scene.")
 
-    destination = Path(output_path)
+
+def _contact_sheet(posters: list[Path], destination: Path) -> None:
+    from PIL import Image, ImageDraw
+
+    cell_w, cell_h, gap, header = 360, 640, 20, 58
+    canvas = Image.new(
+        "RGB", (gap + len(posters) * (cell_w + gap), header + cell_h + gap),
+        (8, 15, 26),
+    )
+    draw = ImageDraw.Draw(canvas)
+    for index, path in enumerate(posters):
+        with Image.open(path) as frame:
+            frame = frame.convert("RGB").resize((cell_w, cell_h), Image.Resampling.LANCZOS)
+            x = gap + index * (cell_w + gap)
+            canvas.paste(frame, (x, header))
+            draw.text((x + 8, 18), f"BLENDER 3D SCENE {index + 1}", fill=(239, 202, 139))
     destination.parent.mkdir(parents=True, exist_ok=True)
-    width, height = int(size[0]), int(size[1])
-    with Image.open(base_image_path) as base_source, Image.open(overlay_path) as overlay_source:
-        base = ImageOps.fit(
-            base_source.convert("RGBA"),
-            (width, height),
-            method=Image.Resampling.LANCZOS,
-            centering=(0.5, 0.46),
-        )
-        overlay = overlay_source.convert("RGBA")
-        if overlay.size != (width, height):
-            overlay = overlay.resize((width, height), Image.Resampling.LANCZOS)
-        base.alpha_composite(overlay)
-        base.convert("RGB").save(destination, format="PNG", optimize=True)
-    return destination
+    canvas.save(destination, quality=92)
 
 
-def _smoke_test(output_dir: Path, blender_executable: str | None = None) -> dict[str, Any]:
-    """Run one small real Blender render and verify its transparent composite."""
-    from PIL import Image
-
+def _production_preview(output_dir: Path, blender_executable: str | None = None,
+                        resolution: tuple[int, int] = (360, 640), fps: int = 24) -> dict[str, Any]:
+    """Render three complete animated 3D scenes and assemble a visual-only preview."""
     output_dir.mkdir(parents=True, exist_ok=True)
-    overlay_path = output_dir / "blender-smoke-overlay.png"
-    composite_path = output_dir / "blender-smoke-composite.png"
-    base_path = output_dir / "blender-smoke-base.png"
-    Image.new("RGB", (720, 1280), (7, 15, 28)).save(base_path)
-    report = render_scene_overlay(
+    samples = [
         {
             "visual_mode": "macro_3d",
-            "caption": "Blender CPU render smoke test",
-            "image_prompt": "A violin string vibrating in a cinematic 3D scene",
+            "caption": "Macro view: vibrating violin strings",
+            "image_prompt": "A close 3D macro study of four violin strings vibrating above a carved amber bridge.",
         },
-        overlay_path,
-        scene_index=0,
-        enabled=True,
-        blender_executable=blender_executable,
-        resolution=(360, 640),
-        timeout_seconds=180,
+        {
+            "visual_mode": "mechanism_3d",
+            "caption": "Mechanism: bridge and strings",
+            "image_prompt": "A cinematic 3D cutaway of a violin bridge, strings, carved feet and acoustic resonance.",
+        },
+        {
+            "visual_mode": "cover_performance",
+            "caption": "Performance: violin and moving bow",
+            "image_prompt": "A complete amber violin in a dark studio with an animated bow crossing the strings.",
+        },
+    ]
+    clips: list[Path] = []
+    posters: list[Path] = []
+    scene_reports: list[dict[str, Any]] = []
+    for index, scene in enumerate(samples):
+        clip = output_dir / f"blender-scene-{index + 1}.mp4"
+        report = render_scene_video(
+            scene, clip, scene_index=index, duration_seconds=3.0,
+            enabled=True, blender_executable=blender_executable,
+            resolution=resolution, fps=fps, timeout_seconds=480,
+        )
+        if not report:
+            raise BlenderRenderError("Blender preview unexpectedly skipped a scene.")
+        poster = output_dir / f"blender-scene-{index + 1}-poster.jpg"
+        _poster(clip, poster, 1.5)
+        clips.append(clip)
+        posters.append(poster)
+        scene_reports.append(report)
+
+    concat_list = output_dir / "concat-list.txt"
+    concat_list.write_text(
+        "".join("file '" + str(path.resolve()).replace("'", "'\\''") + "'\n" for path in clips),
+        encoding="utf-8",
     )
-    if not report:
-        raise BlenderRenderError("The Blender smoke test did not render an eligible scene.")
-    composite_scene_overlay(base_path, overlay_path, composite_path, size=(720, 1280))
-    with Image.open(composite_path) as rendered:
-        rendered.load()
-        if rendered.size != (720, 1280):
-            raise BlenderRenderError("The Blender composite failed its 720×1280 output check.")
+    preview = output_dir / "blender-full-3d-production-preview.mp4"
+    _run(
+        [
+            "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+            "-f", "concat", "-safe", "0", "-i", str(concat_list),
+            "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
+            "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(preview),
+        ],
+        timeout=120,
+        label="Blender scene preview assembly",
+    )
+    contact = output_dir / "blender-production-contact-sheet.jpg"
+    _contact_sheet(posters, contact)
+    report_path = output_dir / "blender-production-report.json"
+    report_path.write_text(
+        json.dumps(
+            {
+                "status": "passed",
+                "production_mode": "full-frame animated 3D",
+                "renderer": "Blender Eevee CPU",
+                "scene_count": len(scene_reports),
+                "resolution": list(resolution),
+                "fps": fps,
+                "total_preview_seconds": round(sum(item["duration_seconds"] for item in scene_reports), 2),
+                "no_image_plate": True,
+                "no_transparent_overlay": True,
+                "scenes": scene_reports,
+                "preview": preview.name,
+                "contact_sheet": contact.name,
+            },
+            ensure_ascii=False, indent=2,
+        ),
+        encoding="utf-8",
+    )
+    if not preview.is_file() or preview.stat().st_size < 4096:
+        raise BlenderRenderError("Blender preview assembly did not produce a valid MP4.")
     return {
         "status": "passed",
-        "blender": report.get("blender_version", "unknown"),
-        "scene_type": report["scene_type"],
-        "overlay_resolution": report["resolution"],
-        "composite_resolution": [720, 1280],
-        "composite": str(composite_path),
+        "preview": str(preview),
+        "contact_sheet": str(contact),
+        "report": str(report_path),
+        "scenes": scene_reports,
     }
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Optional Blender CPU-rendered 3D overlays.")
-    parser.add_argument("--smoke-test", action="store_true")
-    parser.add_argument("--output-dir", default="work/blender-smoke")
+    parser = argparse.ArgumentParser(description="Render actual full-frame Violin Prince 3D scenes with Blender.")
+    parser.add_argument("--production-preview", action="store_true")
+    parser.add_argument("--output-dir", default="work/blender-production-preview")
     parser.add_argument("--blender-bin", default=None)
+    parser.add_argument("--resolution", default="360x640")
+    parser.add_argument("--fps", type=int, default=24)
     args = parser.parse_args()
-    if not args.smoke_test:
-        parser.error("Use --smoke-test to run the Blender integration check.")
+    if not args.production_preview:
+        parser.error("Use --production-preview to render a complete animated 3D preview.")
     try:
-        print(json.dumps(_smoke_test(Path(args.output_dir), args.blender_bin), indent=2))
+        width_text, height_text = args.resolution.lower().split("x", 1)
+        resolution = (int(width_text), int(height_text))
+        result = _production_preview(
+            Path(args.output_dir), args.blender_bin, resolution, args.fps
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     except Exception as exc:
-        print("Blender smoke test failed: " + str(exc)[:1000], file=sys.stderr)
+        print("Blender full-scene production failed: " + str(exc)[:1200], file=sys.stderr)
         return 1
 
 
