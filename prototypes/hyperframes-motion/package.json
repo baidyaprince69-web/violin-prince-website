@@ -1,0 +1,19 @@
+{
+  "name": "violin-prince-motion-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Isolated 10-second Motion + HyperFrames motion-graphics prototype for Violin Prince.",
+  "scripts": {
+    "build": "esbuild src/main.js --bundle --format=iife --target=chrome120 --outfile=dist/main.js",
+    "lint": "hyperframes lint",
+    "check": "hyperframes check",
+    "render": "node -e \"require('node:fs').mkdirSync('output', { recursive: true })\" && hyperframes render --quality draft --workers 1 --output output/violin-prince-motion-10s.mp4",
+    "verify": "node scripts/verify-render.mjs"
+  },
+  "devDependencies": {
+    "@hyperframes/cli": "0.9.53",
+    "esbuild": "0.28.2",
+    "motion": "14.12.0"
+  }
+}

@@ -1,0 +1,109 @@
+name: Violin Prince Motion Graphics Prototype
+
+on:
+  push:
+    branches:
+      - prototype/motion-hyperframes-2026-11-15
+    paths:
+      - ".github/workflows/hyperframes-motion-prototype.yml"
+      - "prototypes/hyperframes-motion/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: violin-prince-motion-prototype-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    name: Render 10-second Motion + HyperFrames sample
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PUBLISH_ENABLED: "false"
+      YOUTUBE_PUBLISH_ENABLED: "false"
+      CI: "true"
+    defaults:
+      run:
+        working-directory: prototypes/hyperframes-motion
+    steps:
+      - name: Check out isolated prototype branch
+        uses: actions/checkout@v4
+
+      - name: Enforce the no-publishing boundary
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$PUBLISH_ENABLED" == "false" ]]
+          [[ "$YOUTUBE_PUBLISH_ENABLED" == "false" ]]
+          echo "Publishing is disabled. No YouTube upload step or publishing credentials are configured."
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
+
+      - name: Install prototype dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Bundle Motion animation code
+        run: npm run build
+
+      - name: Validate HyperFrames composition
+        run: |
+          npx hyperframes lint
+          npx hyperframes check
+
+      - name: Render the 10-second vertical MP4
+        run: npm run render
+
+      - name: Verify render dimensions, duration and codec
+        run: npm run verify
+
+      - name: Create contact sheet
+        if: always()
+        run: |
+          if [[ -f output/violin-prince-motion-10s.mp4 ]]; then
+            ffmpeg -hide_banner -loglevel error \
+              -i output/violin-prince-motion-10s.mp4 \
+              -vf "fps=1/2,scale=270:480,tile=2x3" \
+              -frames:v 1 output/contact-sheet.jpg
+          fi
+
+      - name: Upload MP4 and visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: violin-prince-motion-prototype-${{ github.run_number }}
+          path: |
+            prototypes/hyperframes-motion/output/violin-prince-motion-10s.mp4
+            prototypes/hyperframes-motion/output/contact-sheet.jpg
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Write render report
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Violin Prince Motion Prototype"
+            echo
+            echo "- Branch: `$GITHUB_REF_NAME`"
+            echo "- Publishing: disabled"
+            if [[ -f output/violin-prince-motion-10s.mp4 ]]; then
+              echo "- MP4: generated"
+              ffprobe -v error -show_entries format=duration \
+                -of default=noprint_wrappers=1:nokey=1 \
+                output/violin-prince-motion-10s.mp4 | \
+                awk '{ print "- Duration: " $1 " seconds" }'
+            else
+              echo "- MP4: not generated; inspect the render steps above"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
