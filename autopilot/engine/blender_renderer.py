@@ -179,7 +179,7 @@ def render_scene_video(
             "fps": fps,
             "duration_seconds": duration,
             "threads": 2,
-            "samples": 16,
+            "samples": max(8, min(int(os.environ.get("BLENDER_RENDER_SAMPLES", "16")), 32)),
         }
         config_path.write_text(json.dumps(config), encoding="utf-8")
         blender_process = _run(
@@ -294,7 +294,7 @@ def _production_preview(output_dir: Path, blender_executable: str | None = None,
     for index, scene in enumerate(samples):
         clip = output_dir / f"blender-scene-{index + 1}.mp4"
         report = render_scene_video(
-            scene, clip, scene_index=index, duration_seconds=3.0,
+            scene, clip, scene_index=index, duration_seconds=1.5,
             enabled=True, blender_executable=blender_executable,
             resolution=resolution, fps=fps, timeout_seconds=480,
         )
