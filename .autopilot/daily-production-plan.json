@@ -146,7 +146,8 @@
     ]
   },
   "preferred_model_urls": [
-    "https://sketchfab.com/3d-models/violin-b45bce730d8a489c83ecc944f3725475"
+    "https://sketchfab.com/3d-models/rigged-violin-5861a7409a354c5abb3def9e94101385",
+    "https://sketchfab.com/3d-models/violin-401df6b99a4142eeb6bb1c02ef09c18d"
   ],
   "preferred_bow_model_urls": [
     "https://sketchfab.com/3d-models/violin-bow-af332828a42f4f8cbbe81bea3de0b00d"
