@@ -10,6 +10,7 @@ import argparse
 import json
 import os
 import re
+import struct
 import sys
 from pathlib import Path
 from typing import Any
@@ -79,13 +80,92 @@ def derive_story_query(plan: dict[str, Any]) -> str:
             "The plan does not identify a physical subject for 3D model discovery. "
             "Add model_query or a specific topic/title."
         )
+    # A violin-performance asset must include genuine bow and string geometry.
+    # These search terms are story-specific and are not applied to unrelated topics.
+    if "violin" in subject_tokens:
+        for required_part in ("bow", "strings"):
+            if required_part not in subject_tokens:
+                subject_tokens.append(required_part)
     # Keep search intent concrete. Search terms come from the story itself.
-    subject = " ".join(subject_tokens[:7])
+    subject = " ".join(subject_tokens[:9])
     return f"{subject} realistic detailed PBR 3D model"
 
 
 def _model_uid(model: dict[str, Any]) -> str:
     return str(model.get("uid") or model.get("id") or "").strip()
+
+
+def inspect_named_model_parts(model_path: str | Path) -> dict[str, list[str]]:
+    """Read semantic mesh names from glTF/GLB nodes without rendering the model."""
+    path = Path(model_path)
+    payload = path.read_bytes()
+    if path.suffix.casefold() == ".glb":
+        if len(payload) < 20 or payload[:4] != b"glTF":
+            raise StoryAssetError("The downloaded GLB has an invalid header.")
+        offset = 12
+        document = None
+        while offset + 8 <= len(payload):
+            chunk_size, chunk_type = struct.unpack_from("<II", payload, offset)
+            offset += 8
+            end = offset + chunk_size
+            if end > len(payload):
+                raise StoryAssetError("The downloaded GLB contains a truncated chunk.")
+            if chunk_type == 0x4E4F534A:
+                document = json.loads(payload[offset:end].decode("utf-8").rstrip(" \\t\\r\\n\\x00"))
+                break
+            offset = end
+        if not isinstance(document, dict):
+            raise StoryAssetError("The GLB does not contain a valid glTF JSON chunk.")
+    else:
+        try:
+            document = json.loads(payload.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise StoryAssetError("The downloaded glTF document is invalid.") from exc
+
+    nodes = document.get("nodes") or []
+    meshes = document.get("meshes") or []
+    scenes = document.get("scenes") or []
+    result: dict[str, list[str]] = {"bow": [], "strings": []}
+    visited: set[int] = set()
+
+    def walk(index: int, inherited_names: list[str]) -> None:
+        if index in visited or not isinstance(index, int) or index < 0 or index >= len(nodes):
+            return
+        visited.add(index)
+        node = nodes[index]
+        if not isinstance(node, dict):
+            return
+        name = str(node.get("name") or f"node_{index}")
+        chain = inherited_names + [name]
+        tokens = set(re.findall(r"[a-z0-9]+", " ".join(chain).casefold()))
+        has_bow = bool(tokens.intersection({"bow", "bowstick", "bowhair", "bowfrog", "horsehair"}))
+        has_strings = any("string" in token for token in tokens)
+        mesh_index = node.get("mesh")
+        if isinstance(mesh_index, int) and 0 <= mesh_index < len(meshes):
+            label = " / ".join(chain)
+            if has_bow:
+                result["bow"].append(label)
+            if has_strings:
+                result["strings"].append(label)
+        for child in node.get("children") or []:
+            walk(child, chain)
+
+    roots = []
+    for scene in scenes:
+        if isinstance(scene, dict):
+            roots.extend(index for index in scene.get("nodes") or [] if isinstance(index, int))
+    if not roots:
+        child_indices = {
+            child
+            for node in nodes if isinstance(node, dict)
+            for child in node.get("children") or [] if isinstance(child, int)
+        }
+        roots = [index for index in range(len(nodes)) if index not in child_indices]
+    for index in roots:
+        walk(index, [])
+    for index in range(len(nodes)):
+        walk(index, [])
+    return result
 
 
 def _face_count(model: dict[str, Any]) -> int:
@@ -256,6 +336,7 @@ def resolve_story_asset(
     access_token: str | None = None,
     session: requests.Session | None = None,
     min_face_count: int = MIN_FACE_COUNT,
+    require_violin_parts: bool | None = None,
 ) -> dict[str, Any]:
     """Search, rank, download and verify one real model selected for a story."""
     token = str(access_token or os.environ.get("SKETCHFAB_ACCESS_TOKEN") or "").strip()
@@ -266,6 +347,9 @@ def resolve_story_asset(
             "Actions secret. No reference image or placeholder model will be used."
         )
     query = derive_story_query(plan)
+    if require_violin_parts is None:
+        requested_kind = str(plan.get("asset_kind") or "").casefold()
+        require_violin_parts = requested_kind in {"violin", "stringed_instrument"} or "violin" in _tokens(query)
     folder = Path(output_dir).expanduser().resolve()
     folder.mkdir(parents=True, exist_ok=True)
     models = search_story_models(query, session=session)
@@ -297,8 +381,16 @@ def resolve_story_asset(
                 raise StoryAssetError("The downloaded 3D model is unexpectedly small.")
             if model_path.suffix.casefold() == ".glb" and model_path.read_bytes()[:4] != b"glTF":
                 raise StoryAssetError("The GLB file header failed validation.")
+            model_parts = inspect_named_model_parts(model_path)
+            if require_violin_parts and (not model_parts["bow"] or not model_parts["strings"]):
+                raise StoryAssetError(
+                    "This violin candidate does not contain separately named, downloadable "
+                    "bow and string mesh nodes. It cannot pass the one-rig performance gate."
+                )
             manifest_path = Path(str(record["manifest_path"]))
             record.update({
+                "model_parts": model_parts,
+                "bow_rig_required": bool(require_violin_parts),
                 "selection_query": query,
                 "selection_score": candidate["violin_prince_asset_score"],
                 "face_count": _face_count(candidate),
