@@ -29,32 +29,156 @@ function setContentText(selector, value, maxChars = 42) {
     element.textContent = value.trim().replace(/\\s+/g, " ").slice(0, maxChars);
   }
 }
+const scenes = Array.isArray(contentConfig.scenes) ? contentConfig.scenes.slice(0, 3) : [];
 const sceneCaptions = Array.isArray(contentConfig.captions) ? contentConfig.captions : [];
-const shortHook = typeof contentConfig.hook === "string"
-  ? contentConfig.hook.trim().split(/\\s+/).slice(0, 4).join(" ")
-  : "";
-setContentText("#headline-one .headline-note", shortHook, 32);
-setContentText("#wave-section .wave-caption > span:first-child", contentConfig.topic, 25);
-setContentText("#headline-two h2", sceneCaptions[0], 24);
-setContentText("#headline-two .headline-note", sceneCaptions[1], 38);
+const narrationWords = Array.isArray(contentConfig.narration_words)
+  ? contentConfig.narration_words.filter((cue) =>
+      cue && typeof cue.text === "string" &&
+      Number.isFinite(Number(cue.start)) && Number.isFinite(Number(cue.end)) &&
+      Number(cue.start) >= 0 && Number(cue.end) > Number(cue.start)
+    )
+  : [];
+setContentText("#top-mark .top-index", "RESEARCH / EXPLAINED / ANIMATED", 36);
+setContentText("#headline-one .eyebrow", scenes[0]?.graphic_label || "THE QUESTION", 32);
+setContentText("#explainer-title", contentConfig.title || contentConfig.topic, 48);
+setContentText("#headline-one .headline-note", contentConfig.hook, 110);
 setContentText(
-  "#bottom-progress .progress-label",
-  sceneCaptions[2] || contentConfig.title || contentConfig.topic,
-  26,
+  "#wave-section .wave-caption > span:first-child",
+  scenes[0]?.graphic_label || scenes[0]?.caption || contentConfig.topic,
+  38,
 );
+setContentText("#diagram-detail-left", scenes[0]?.graphic_detail || "THE MECHANISM", 32);
+setContentText("#diagram-detail-right", scenes[1]?.graphic_label || "STEP BY STEP", 32);
+setContentText("#headline-two .eyebrow", scenes[1]?.graphic_label || "THE EXPLANATION", 32);
+setContentText("#scene-two-title", scenes[1]?.caption || sceneCaptions[1], 60);
+setContentText("#headline-two .headline-note", scenes[1]?.graphic_detail || "", 110);
+setContentText("#headline-three .eyebrow", scenes[2]?.graphic_label || "THE TAKEAWAY", 32);
+setContentText("#scene-three-title", scenes[2]?.caption || sceneCaptions[2], 60);
+setContentText("#headline-three .headline-note", scenes[2]?.graphic_detail || "", 110);
+setContentText("#bottom-progress .progress-label", contentConfig.topic, 48);
 
 const waveform = document.getElementById("waveform");
+const diagramItems = document.getElementById("diagram-items");
 const particleLayer = document.getElementById("particle-layer");
-if (!waveform || !particleLayer) throw new Error("The prototype visual layers are incomplete.");
-
-// Fixed arithmetic keeps every generated visual identical across renders.
-const barCount = 56;
-for (let index = 0; index < barCount; index += 1) {
-  const bar = document.createElement("span");
-  bar.className = "wave-bar";
-  bar.id = "wave-bar-" + index;
-  waveform.appendChild(bar);
+const captionLine = document.getElementById("caption-line");
+const captionKicker = document.getElementById("caption-kicker");
+if (!waveform || !diagramItems || !particleLayer || !captionLine) {
+  throw new Error("The prototype explainer layers are incomplete.");
 }
+if (contentConfig.narration_engine !== "Kokoro-82M" || contentConfig.narration_voice !== "af_heart" || narrationWords.length === 0) {
+  throw new Error("The explainer composition requires Kokoro af_heart word timings.");
+}
+if (captionKicker) captionKicker.textContent = "KOKORO · WORD-SYNCHRONISED EXPLANATION";
+
+// The explainer diagram is data-driven. It only displays facts supplied by the
+// approved planner; it never manufactures measurements or process steps.
+function makeDiagramNode(label, value = "") {
+  const node = document.createElement("div");
+  node.className = "diagram-node";
+  const title = document.createElement("span");
+  title.className = "diagram-node-label";
+  title.textContent = label || "Key detail";
+  node.appendChild(title);
+  if (value) {
+    const detail = document.createElement("span");
+    detail.className = "diagram-node-value";
+    detail.textContent = value;
+    node.appendChild(detail);
+  }
+  return node;
+}
+
+function renderDiagram(scene) {
+  diagramItems.replaceChildren();
+  const graphic = scene && scene.graphic_data && typeof scene.graphic_data === "object"
+    ? scene.graphic_data
+    : {};
+  const items = Array.isArray(graphic.items) ? graphic.items.slice(0, 4) : [];
+  const kind = String(graphic.type || "").toLowerCase();
+
+  if (kind === "process_flow" && items.length >= 2) {
+    items.forEach((item, index) => {
+      diagramItems.appendChild(makeDiagramNode(item.label, ""));
+      if (index < items.length - 1) {
+        const arrow = document.createElement("span");
+        arrow.className = "diagram-arrow";
+        arrow.textContent = "→";
+        diagramItems.appendChild(arrow);
+      }
+    });
+    return;
+  }
+
+  if (kind === "arch_heights" && items.length >= 2) {
+    const values = items.map((item) => Math.max(0, Number(item.value) || 0));
+    const maximum = Math.max(...values, 1);
+    items.forEach((item, index) => {
+      const node = makeDiagramNode(item.label, item.display || "");
+      const track = document.createElement("div");
+      track.className = "diagram-bar-track";
+      const bar = document.createElement("div");
+      bar.className = "diagram-bar";
+      bar.style.height = Math.max(8, Math.round(values[index] / maximum * 100)) + "%";
+      track.appendChild(bar);
+      node.insertBefore(track, node.lastChild);
+      diagramItems.appendChild(node);
+    });
+    return;
+  }
+
+  const fallback = document.createElement("div");
+  fallback.className = "diagram-fallback";
+  fallback.textContent = (scene?.caption || contentConfig.topic || "") +
+    (scene?.graphic_detail ? " — " + scene.graphic_detail : "");
+  diagramItems.appendChild(fallback);
+}
+
+function sceneIndexForSentence(sentenceIndex) {
+  if (sentenceIndex <= 0) return 0;
+  if (sentenceIndex >= 3) return 2;
+  return 1;
+}
+
+let lastSceneIndex = -1;
+function syncScene(seconds) {
+  let cue = narrationWords[0];
+  for (const word of narrationWords) {
+    if (Number(word.start) <= seconds) cue = word;
+    else break;
+  }
+  const nextIndex = sceneIndexForSentence(Number(cue?.sentence_index || 0));
+  if (nextIndex !== lastSceneIndex) {
+    renderDiagram(scenes[nextIndex] || scenes[Math.min(nextIndex, scenes.length - 1)] || {});
+    lastSceneIndex = nextIndex;
+  }
+}
+
+function syncNarrationCaption(seconds) {
+  let activeIndex = -1;
+  for (let index = 0; index < narrationWords.length; index += 1) {
+    const cue = narrationWords[index];
+    if (seconds >= Number(cue.start) && seconds <= Number(cue.end)) {
+      activeIndex = index;
+      break;
+    }
+    if (Number(cue.start) <= seconds) activeIndex = index;
+  }
+  captionLine.replaceChildren();
+  if (activeIndex < 0) return;
+  const first = Math.max(0, activeIndex - 1);
+  const last = Math.min(narrationWords.length, activeIndex + 2);
+  for (let index = first; index < last; index += 1) {
+    const word = document.createElement("span");
+    word.className = index === activeIndex
+      ? "caption-word caption-word-active"
+      : "caption-word";
+    word.textContent = narrationWords[index].text;
+    captionLine.appendChild(word);
+  }
+}
+
+syncScene(0);
+syncNarrationCaption(0);
 
 const particleCount = 18;
 for (let index = 0; index < particleCount; index += 1) {
@@ -93,26 +217,6 @@ const sequence = [
   ["#end-card .end-rule", { scaleX: [0, 1] }, { duration: 0.55, ease: "easeOut", at: 8.0 }],
   ["#end-card .end-name", { opacity: [0, 1], y: [18, 0] }, { duration: 0.5, ease: "easeOut", at: 8.15 }]
 ];
-
-for (let index = 0; index < barCount; index += 1) {
-  const phase = (index * 13) % 17;
-  const peak = 0.42 + (phase / 17) * 0.72;
-  const dip = 0.14 + ((index * 7) % 11) / 42;
-  const peakTwo = 0.38 + ((index * 5) % 19) / 25;
-  sequence.push([
-    "#wave-bar-" + index,
-    {
-      scaleY: [0.16, peak, dip, peakTwo, 0.2],
-      opacity: [0.28, 0.95, 0.52, 0.9, 0.35]
-    },
-    {
-      duration: 6.8,
-      ease: "linear",
-      times: [0, 0.22, 0.48, 0.77, 1],
-      at: 1.72
-    }
-  ]);
-}
 
 for (let index = 0; index < particleCount; index += 1) {
   const offset = (index % 6) * 13 - 32;
@@ -170,6 +274,8 @@ function seek(seconds) {
   if (progressFill) {
     progressFill.style.transform = "scaleX(" + (safeTime / DURATION).toFixed(8) + ")";
   }
+  syncScene(safeTime);
+  syncNarrationCaption(safeTime);
   lastTime = safeTime;
 }
 
