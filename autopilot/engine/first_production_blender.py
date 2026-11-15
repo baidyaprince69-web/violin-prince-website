@@ -28,10 +28,10 @@ def parse_args():
     parser.add_argument("--duration", type=float, default=24.0)
     parser.add_argument("--sample-index", type=int, default=0,
                         help="Zero-based parallel render segment.")
-    parser.add_argument("--sample-count", type=int, default=24,
+    parser.add_argument("--sample-count", type=int, default=30,
                         help="Frames rendered by this worker.")
-    parser.add_argument("--total-samples", type=int, default=192,
-                        help="Total temporally distributed Blender frames.")
+    parser.add_argument("--total-samples", type=int, default=600,
+                        help="Total Blender-rendered timeline frames.")
     parser.add_argument("--frames-dir", required=True)
     parser.add_argument("--project-path", required=True)
     return parser.parse_args(raw)
@@ -470,7 +470,7 @@ def build_scene(args):
 
     sample_records = []
     for global_index in range(start_index, end_index):
-        # The configured samples are distributed evenly across the full animation timeline.
+        # At 600 samples for this 600-frame timeline, each native frame is rendered exactly once.
         timeline_frame = 1 + round(
             global_index * (frame_end - 1) / (args.total_samples - 1)
         )
