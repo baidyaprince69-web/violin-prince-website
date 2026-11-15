@@ -219,27 +219,33 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  render-proof-shot:
+  render-proof-frames:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.render_proof == true }}
     needs: [resolve-story-model, produce-audio]
     runs-on: ubuntu-latest
     timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        segment: [0, 1, 2, 3, 4]
     env:
       EGL_PLATFORM: surfaceless
       LIBGL_ALWAYS_SOFTWARE: "1"
       MESA_LOADER_DRIVER_OVERRIDE: llvmpipe
       PYTHONUNBUFFERED: "1"
+      SEGMENT: ${{ matrix.segment }}
     steps:
-      - name: Check out the feature branch
+      - name: Check out the proof renderer
         uses: actions/checkout@v4
 
-      - name: Download the story-selected model
+      - name: Download the story-selected violin and bow
         uses: actions/download-artifact@v4
         with:
           name: violin-prince-proof-model
           path: work/first-production
 
-      - name: Download the complete audio and caption package
+      - name: Download narration, violin music and captions
         uses: actions/download-artifact@v4
         with:
           name: violin-prince-proof-audio
@@ -253,17 +259,17 @@ jobs:
       - name: Install pinned Blender 5.2.4 LTS and Frame By Plane 8.0.1
         uses: ./.github/actions/setup-blender-frame-by-plane
 
-      - name: Install cinematic background generator dependency
+      - name: Install the background plate generator
         run: python -m pip install "Pillow>=10,<13"
 
-      - name: Generate the story-specific 2.5D background plates
+      - name: Generate the same story background on this worker
         run: |
           set -Eeuo pipefail
           python autopilot/engine/cinematic_background.py \
             --plan .autopilot/first-production-story.json \
             --output-dir work/first-production/cinematic-background
 
-      - name: Render one 4.6-second native-resolution Blender proof
+      - name: Render this worker's 23-frame Blender segment
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -284,58 +290,232 @@ jobs:
             --bow-model "$BOW_MODEL_PATH" \
             --strings-in-instrument \
             --background-manifest "$BACKGROUND_MANIFEST" \
-            --report work/proof-reports/proof-shot.json \
+            --report "work/proof-reports/segment-${SEGMENT}.json" \
             --width 1080 --height 1920 --fps 25 --duration 4.6 \
             --render-samples 64 \
-            --sample-index 0 --sample-count 115 --total-samples 115 \
+            --sample-index "$SEGMENT" --sample-count 23 --total-samples 115 \
             --frames-dir work/proof-frames \
             --project-path work/Violin-Prince-Proof.blend \
             --proof-shot
           python - <<'PY'
           import json
+          import os
           from pathlib import Path
-          report = json.loads(Path("work/proof-reports/proof-shot.json").read_text(encoding="utf-8"))
+
+          segment = int(os.environ["SEGMENT"])
+          report = json.loads(
+              Path(f"work/proof-reports/segment-{segment}.json").read_text(encoding="utf-8")
+          )
           assert report["proof_shot_only"] is True
           assert report["duration_seconds"] == 4.6
-          assert report["sample_count"] == 115
+          assert report["sample_count"] == 23
           assert report["total_samples"] == 115
+          assert report["sample_index"] == segment
+          assert report["sample_start"] == segment * 23
+          assert report["sample_end_exclusive"] == (segment + 1) * 23
           assert report["resolution"] == [1080, 1920]
           assert report["actual_imported_mesh_count"] >= 3
           assert report["bow_rig_count"] == 1
           assert report["source_bow_meshes_rigged"] >= 1
           assert report["visible_bow_mesh_count"] == report["source_bow_meshes_rigged"]
-          assert (
-              report["source_string_meshes"] >= 1
-              or report["strings_embedded_in_instrument"] is True
-          )
+          assert report["source_string_meshes"] >= 1 or report["strings_embedded_in_instrument"] is True
           assert report["bow_geometry_source"] == "separate licensed imported bow GLB/glTF"
           assert report["render_architecture"] == "hybrid_2.5D_plus_real_3D"
           assert report["frame_by_plane"]["enabled"] is True
           assert report["frame_by_plane"]["extension_version"] == "8.0.1"
           assert report["frame_by_plane"]["layer_count"] == 3
           assert report["motion_graphics"]["progress_bar"] is True
-          frames = sorted(Path("work/proof-frames").glob("frame_*.png"))
-          assert len(frames) == 115, f"Expected 115 proof frames, found {len(frames)}"
-          assert all(frame.stat().st_size > 1024 for frame in frames)
+          assert len(report["samples"]) == 23
+          for item in report["samples"]:
+              frame = Path(item["file"])
+              assert frame.is_file() and frame.stat().st_size > 1024
           print(json.dumps({
-              "proof_seconds": report["duration_seconds"],
-              "proof_frames": report["sample_count"],
+              "worker": segment,
+              "rendered_frames": len(report["samples"]),
+              "global_frame_range": [report["sample_start"], report["sample_end_exclusive"] - 1],
               "resolution": report["resolution"],
-              "bow_rig_count": report["bow_rig_count"],
-              "bow_mesh_components": report["bow_rig_components"],
-              "real_string_meshes": report["source_string_meshes"],
-              "motion_graphics": report["motion_graphics"],
+              "blender_workers": 5,
               "full_600_frame_render": "NOT RUN",
-          }, ensure_ascii=False, indent=2))
+          }, indent=2))
           PY
 
-      - name: Encode the Blender proof and burn animated word captions
+      - name: Upload this worker's frames and segment report
+        uses: actions/upload-artifact@v4
+        with:
+          name: violin-prince-proof-frames-${{ matrix.segment }}
+          path: |
+            work/proof-frames/
+            work/proof-reports/segment-${{ matrix.segment }}.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload the editable Blender project from worker zero
+        if: matrix.segment == 0
+        uses: actions/upload-artifact@v4
+        with:
+          name: violin-prince-proof-project
+          path: work/Violin-Prince-Proof.blend
+          if-no-files-found: error
+          retention-days: 30
+
+  assemble-proof:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.render_proof == true }}
+    needs: [resolve-story-model, produce-audio, render-proof-frames]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out proof assembly code
+        uses: actions/checkout@v4
+
+      - name: Download the story-selected violin and bow
+        uses: actions/download-artifact@v4
+        with:
+          name: violin-prince-proof-model
+          path: work/first-production
+
+      - name: Download narration, violin music and captions
+        uses: actions/download-artifact@v4
+        with:
+          name: violin-prince-proof-audio
+          path: work/first-production
+
+      - name: Download all five parallel Blender frame segments
+        uses: actions/download-artifact@v4
+        with:
+          pattern: violin-prince-proof-frames-*
+          path: work
+          merge-multiple: true
+
+      - name: Download the editable Blender project
+        uses: actions/download-artifact@v4
+        with:
+          name: violin-prince-proof-project
+          path: work
+
+      - name: Set up Python for proof report assembly
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install the cinematic background generator
+        run: python -m pip install "Pillow>=10,<13"
+
+      - name: Recreate the story background plates for the final deliverable
         run: |
-          ffmpeg -y -hide_banner -loglevel error             -framerate 25 -start_number 0             -i work/proof-frames/frame_%04d.png             -frames:v 115 -vf "format=yuv420p"             -an -c:v libx264 -preset slow -crf 17             -r 25 -fps_mode cfr -movflags +faststart             work/first-production/blender-proof-picture.mp4
-          ffmpeg -y -hide_banner -loglevel error             -i work/first-production/blender-proof-picture.mp4             -i work/first-production/final-audio-mix.wav             -vf "subtitles=work/first-production/captions.ass"             -map 0:v:0 -map 1:a:0             -frames:v 115 -t 4.6             -c:v libx264 -preset slow -crf 17 -pix_fmt yuv420p             -r 25 -fps_mode cfr             -c:a aac -b:a 192k -ar 48000 -ac 2             -movflags +faststart             work/first-production/Violin-Prince-4.6s-Proof.mp4
+          python autopilot/engine/cinematic_background.py \
+            --plan .autopilot/first-production-story.json \
+            --output-dir work/first-production/cinematic-background
+
+      - name: Verify and assemble all 115 rendered frames
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          import json
+          import shutil
+          from pathlib import Path
+
+          root = Path("work")
+          frames_dir = root / "proof-frames"
+          reports_dir = root / "proof-reports"
+          reports_dir.mkdir(parents=True, exist_ok=True)
+          all_samples = []
+          segment_summaries = []
+          reports = []
+
+          for segment in range(5):
+              report_path = reports_dir / f"segment-{segment}.json"
+              assert report_path.is_file(), f"Missing worker report {segment}"
+              report = json.loads(report_path.read_text(encoding="utf-8"))
+              assert report["sample_index"] == segment
+              assert report["sample_count"] == 23
+              assert report["total_samples"] == 115
+              assert report["sample_start"] == segment * 23
+              assert report["sample_end_exclusive"] == (segment + 1) * 23
+              assert report["frame_by_plane"]["enabled"] is True
+              assert report["frame_by_plane"]["layer_count"] == 3
+              assert report["render_architecture"] == "hybrid_2.5D_plus_real_3D"
+              assert report["bow_rig_count"] == 1
+              assert report["source_bow_meshes_rigged"] >= 1
+              assert report["bow_geometry_source"] == "separate licensed imported bow GLB/glTF"
+              assert len(report["samples"]) == 23
+              reports.append(report)
+              all_samples.extend(report["samples"])
+              segment_summaries.append({
+                  "worker": segment,
+                  "sample_start": report["sample_start"],
+                  "sample_end_exclusive": report["sample_end_exclusive"],
+                  "frames": report["sample_count"],
+              })
+
+          all_samples.sort(key=lambda item: int(item["sample_index"]))
+          indexes = [int(item["sample_index"]) for item in all_samples]
+          assert indexes == list(range(115)), f"Frame index gap or duplicate: {indexes}"
+          expected_files = [frames_dir / f"frame_{index:04d}.png" for index in range(115)]
+          missing = [str(path) for path in expected_files if not path.is_file()]
+          assert not missing, f"Missing rendered frame files: {missing[:10]}"
+          assert all(path.stat().st_size > 1024 for path in expected_files)
+
+          merged = dict(reports[0])
+          merged.update({
+              "sample_index": 0,
+              "sample_start": 0,
+              "sample_end_exclusive": 115,
+              "sample_count": 115,
+              "total_samples": 115,
+              "samples": all_samples,
+              "render_worker_count": 5,
+              "render_segments": segment_summaries,
+              "blend_project": "work/Violin-Prince-Proof.blend",
+          })
+          (reports_dir / "proof-shot.json").write_text(
+              json.dumps(merged, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          project = root / "Violin-Prince-Proof.blend"
+          assert project.is_file() and project.stat().st_size > 1024
+          shutil.copy2(project, root / "first-production" / "Violin-Prince-Proof.blend")
+          print(json.dumps({
+              "status": "all_parallel_segments_verified",
+              "render_workers": 5,
+              "frames": len(all_samples),
+              "resolution": merged["resolution"],
+              "worker_segments": segment_summaries,
+              "frame_by_plane_layers": merged["frame_by_plane"]["layer_count"],
+              "full_600_frame_render": "NOT RUN",
+          }, indent=2))
+          PY
+
+      - name: Install FFmpeg for proof assembly
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Encode parallel Blender frames with narration, violin music and karaoke captions
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ffmpeg -y -hide_banner -loglevel error \
+            -framerate 25 -start_number 0 \
+            -i work/proof-frames/frame_%04d.png \
+            -frames:v 115 -vf "format=yuv420p" \
+            -an -c:v libx264 -preset fast -crf 17 \
+            -r 25 -fps_mode cfr -movflags +faststart \
+            work/first-production/blender-proof-picture.mp4
+          ffmpeg -y -hide_banner -loglevel error \
+            -i work/first-production/blender-proof-picture.mp4 \
+            -i work/first-production/final-audio-mix.wav \
+            -vf "subtitles=work/first-production/captions.ass" \
+            -map 0:v:0 -map 1:a:0 \
+            -frames:v 115 -t 4.6 \
+            -c:v libx264 -preset fast -crf 17 -pix_fmt yuv420p \
+            -r 25 -fps_mode cfr \
+            -c:a aac -b:a 192k -ar 48000 -ac 2 \
+            -movflags +faststart \
+            work/first-production/Violin-Prince-4.6s-Proof.mp4
           test -s work/first-production/Violin-Prince-4.6s-Proof.mp4
 
-      - name: Verify proof duration, native frame count, sound and caption timing
+      - name: Verify final proof duration, all 115 frames, sound and caption timing
         run: |
           python - <<'PY'
           import json
@@ -359,14 +539,16 @@ jobs:
           assert 4.5 <= duration <= 4.7
           audio = json.loads((root / "audio-report.json").read_text(encoding="utf-8"))
           asset = json.loads((root / "assets" / "asset-provenance.json").read_text(encoding="utf-8"))
-          render = json.loads((root / "proof-reports" / "proof-shot.json").read_text(encoding="utf-8"))
+          render = json.loads((Path("work/proof-reports/proof-shot.json")).read_text(encoding="utf-8"))
           report = {
               "status": "proof_render_complete",
               "duration_seconds": duration,
               "resolution": [picture["width"], picture["height"]],
               "fps": picture["r_frame_rate"],
               "frames": frames,
-              "bow_rig_count": 1,
+              "render_worker_count": render["render_worker_count"],
+              "render_segments": render["render_segments"],
+              "bow_rig_count": render["bow_rig_count"],
               "render_architecture": render["render_architecture"],
               "frame_by_plane": render["frame_by_plane"],
               "model_name": asset.get("model_name"),
@@ -388,9 +570,11 @@ jobs:
           )
           print(json.dumps(report, ensure_ascii=False, indent=2))
           PY
-          ffmpeg -y -hide_banner -loglevel error             -ss 1.6 -i work/first-production/Violin-Prince-4.6s-Proof.mp4             -frames:v 1 work/first-production/proof-frame.jpg
+          ffmpeg -y -hide_banner -loglevel error \
+            -ss 1.6 -i work/first-production/Violin-Prince-4.6s-Proof.mp4 \
+            -frames:v 1 work/first-production/proof-frame.jpg
 
-      - name: Upload the 4.6-second proof for visual review
+      - name: Upload the 4.6-second proof and editable Blender project for visual review
         uses: actions/upload-artifact@v4
         with:
           name: violin-prince-4.6s-blender-proof
@@ -406,13 +590,14 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Confirm that only the short proof was rendered
+      - name: Confirm that only the segmented short proof was rendered
         if: success()
         run: |
           {
-            echo "## Blender proof shot complete — full production still locked"
+            echo "## Parallel Blender proof shot complete — full production still locked"
             echo
             echo "- Proof: 4.6 seconds, 115 Blender frames at native 1080×1920 / 25 FPS"
+            echo "- Rendering: five parallel Blender workers, 23 frames per worker"
             echo "- Model: downloaded violin geometry with visible integrated strings, plus a separate licensed bow mesh"
             echo "- Background: Frame By Plane 8.0.1 multiplane layers behind the real 3D instrument"
             echo "- Rig: one animated control rig over the imported bow mesh components"
