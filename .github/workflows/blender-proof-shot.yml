@@ -25,7 +25,7 @@ permissions:
 
 concurrency:
   group: violin-prince-blender-proof-shot-segmented
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   resolve-story-model:
