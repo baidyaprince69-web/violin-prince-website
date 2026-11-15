@@ -330,7 +330,11 @@ def make_vibrating_strings(front_y, body_width, bounds, frame_end, silver, sourc
         obj = add_curve(f"Animated explanatory string {index + 1}", points, silver, bevel=0.0045)
         obj["animation"] = "subtle string oscillation layered in the Blender scene"
         # Slight global sway is intentionally restrained.
-        for frame, strength in ((1, 0.0), (120, 0.012), (240, -0.012), (360, 0.009), (frame_end, 0.0)):
+        for fraction, strength in (
+            (0.00, 0.0), (0.25, 0.012), (0.50, -0.012),
+            (0.75, 0.009), (1.00, 0.0),
+        ):
+            frame = max(1, min(frame_end, int(round(1 + (frame_end - 1) * fraction))))
             obj.location.y = strength
             obj.keyframe_insert(data_path="location", frame=frame)
         output.append(obj)
@@ -643,7 +647,7 @@ def build_scene(args):
         "source_string_meshes": source_string_count,
         "animated_strings": len(strings),
         "resonance_rings": len(rings),
-        "3d_title_objects": 5,
+        "3d_title_objects": 2 if args.proof_shot else 7,
         "blend_project": str(project_path) if args.sample_index == 0 else None,
         "samples": sample_records,
     }
