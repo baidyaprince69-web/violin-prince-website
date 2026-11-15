@@ -1,0 +1,42 @@
+{
+  "title": "How a Violin Makes Sound",
+  "topic": "How a violin produces sound through bow-string friction, bridge vibration, resonance and the f-holes",
+  "core_claim": "The bow excites the strings and the violin body shapes and radiates the resulting sound",
+  "asset_kind": "violin",
+  "asset_subject": "complete violin",
+  "model_query": "realistic complete violin instrument with bow and strings, scroll, tuning pegs, bridge and f-holes, detailed photorealistic PBR",
+  "require_violin_parts": true,
+  "narrative_style": "cinematic_story",
+  "scenes": [
+    {
+      "graphic_label": "THE HERO REVEAL",
+      "caption": "A complete violin and one bow",
+      "graphic_detail": "Show the whole instrument and a single imported bow"
+    },
+    {
+      "graphic_label": "BOW MEETS THE STRINGS",
+      "caption": "Bow hair excites the strings",
+      "graphic_detail": "Show actual bow and string mesh contact"
+    },
+    {
+      "graphic_label": "THE BRIDGE",
+      "caption": "Vibration moves through the bridge",
+      "graphic_detail": "Macro framing of the real bridge and strings"
+    },
+    {
+      "graphic_label": "THE BODY RESONATES",
+      "caption": "Wood and air shape the tone",
+      "graphic_detail": "Carved plates and f-hole detail"
+    },
+    {
+      "graphic_label": "THE SCROLL",
+      "caption": "Tuning pegs hold the strings",
+      "graphic_detail": "Detailed scroll and peg close-up"
+    },
+    {
+      "graphic_label": "THE FINAL HERO SHOT",
+      "caption": "One voice from four strings",
+      "graphic_detail": "Full instrument hero composition"
+    }
+  ]
+}
