@@ -9,9 +9,10 @@ const DURATION = Number(root.dataset.duration);
 if (!Number.isFinite(DURATION) || DURATION < 1) {
   throw new Error("The full-track composition needs a valid audio-derived duration.");
 }
-const BASE_CYCLE_DURATION = 10;
-const CYCLE_DURATION = Math.min(BASE_CYCLE_DURATION, DURATION);
-const CYCLE_SCALE = CYCLE_DURATION / BASE_CYCLE_DURATION;
+// The authored ten-second sequence is stretched across the source track once.
+// HyperFrames seeks on the complete timeline; no modulo/repeat loop is used.
+const BASE_SEQUENCE_DURATION = 10;
+const TIMELINE_SCALE = DURATION / BASE_SEQUENCE_DURATION;
 
 const contentNode = document.getElementById("vp-content-config");
 let contentConfig = {};
@@ -139,8 +140,8 @@ const scaledSequence = sequence.map(([selector, properties, options]) => [
   properties,
   {
     ...options,
-    duration: options.duration * CYCLE_SCALE,
-    at: (options.at ?? 0) * CYCLE_SCALE
+    duration: options.duration * TIMELINE_SCALE,
+    at: (options.at ?? 0) * TIMELINE_SCALE
   }
 ]);
 const motionTimeline = animate(scaledSequence, { autoplay: false });
@@ -162,10 +163,8 @@ let lastTime = 0;
 
 function seek(seconds) {
   const safeTime = Math.max(0, Math.min(DURATION, Number(seconds) || 0));
-  const cycleTime = safeTime >= DURATION
-    ? CYCLE_DURATION
-    : safeTime % CYCLE_DURATION;
-  motionTimeline.time = cycleTime;
+  // Seek directly on the complete, stretched composition timeline.
+  motionTimeline.time = safeTime;
 
   if (progressFill) {
     progressFill.style.transform = "scaleX(" + (safeTime / DURATION).toFixed(8) + ")";
