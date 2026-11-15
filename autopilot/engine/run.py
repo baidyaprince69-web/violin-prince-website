@@ -4686,8 +4686,8 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
     # provider budget on repeated negative prompts and decorative adjectives.
     brand_direction = (
         "Violin Prince identity: richly coloured photorealistic cinematic still imagery or CGI; "
-        "physically believable violin construction, complete solid opaque amber-brown wood, "
-        "visible natural wood grain, rich varnish, realistic strings, bow hair and metal fittings; "
+        "physically believable violin construction, a complete, solid, opaque amber-brown violin "
+        "with visible natural wood grain, rich varnish, realistic strings, bow hair and metal fittings; "
         "dimensional lighting and layered foreground/midground/background. "
         "The violin body must be solid, opaque and fully formed, never an empty shell, hollow outline, "
         "wireframe, skeletal contour or transparent body. "
