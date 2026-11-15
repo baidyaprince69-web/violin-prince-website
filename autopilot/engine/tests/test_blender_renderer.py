@@ -23,6 +23,23 @@ class BlenderRendererTests(unittest.TestCase):
         self.assertFalse(blender_renderer.is_blender_render_enabled("false"))
         self.assertFalse(blender_renderer.is_blender_render_enabled(""))
 
+    def test_parallel_worker_count_is_bounded_to_scene_count_and_three(self):
+        with patch.dict(os.environ, {"BLENDER_RENDER_WORKERS": "9"}, clear=True):
+            self.assertEqual(blender_renderer.blender_render_worker_count(8), 3)
+            self.assertEqual(blender_renderer.blender_render_worker_count(2), 2)
+        with patch.dict(os.environ, {"BLENDER_RENDER_WORKERS": "0"}, clear=True):
+            self.assertEqual(blender_renderer.blender_render_worker_count(8), 1)
+        with patch.dict(os.environ, {"BLENDER_RENDER_WORKERS": "bad"}, clear=True):
+            self.assertEqual(blender_renderer.blender_render_worker_count(8), 1)
+
+    def test_parallel_blender_processes_default_to_one_cpu_thread_each(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(blender_renderer.blender_threads_per_worker(), 1)
+        with patch.dict(os.environ, {"BLENDER_THREADS_PER_WORKER": "3"}, clear=True):
+            self.assertEqual(blender_renderer.blender_threads_per_worker(), 3)
+        with patch.dict(os.environ, {"BLENDER_THREADS_PER_WORKER": "99"}, clear=True):
+            self.assertEqual(blender_renderer.blender_threads_per_worker(), 4)
+
     def test_all_existing_visual_modes_have_full_3d_templates(self):
         expected = {
             "macro_3d": "string_vibration",
