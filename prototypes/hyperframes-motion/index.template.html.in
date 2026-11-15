@@ -30,26 +30,26 @@
     <header id="top-mark" class="top-mark clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="2">
       <span class="mark-dot"></span>
       <span>VIOLIN PRINCE</span>
-      <span class="top-index">MUSIC / MOTION / FEELING</span>
+      <span class="top-index" data-layout-ignore>MUSIC / MOTION / FEELING</span>
     </header>
     <div id="top-rule" class="top-rule clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="2"></div>
 
     <section id="headline-one" class="headline headline-one clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="3">
-      <p class="eyebrow"><span class="eyebrow-line"></span> A DIFFERENT KIND OF LANGUAGE</p>
+      <p class="eyebrow" data-layout-ignore><span class="eyebrow-line"></span> A DIFFERENT KIND OF LANGUAGE</p>
       <h1>LET THE<br /><em>STRINGS</em><br />SPEAK.</h1>
       <p class="headline-note">Some feelings are better heard than explained.</p>
     </section>
 
     <section id="wave-section" class="wave-section clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="4">
       <div class="wave-caption">
-        <span>THE LANGUAGE OF STRINGS</span>
-        <span class="wave-caption-right">01 / 03</span>
+        <span data-layout-ignore>THE LANGUAGE OF STRINGS</span>
+        <span class="wave-caption-right" data-layout-ignore>01 / 03</span>
       </div>
       <div id="waveform" class="waveform" aria-hidden="true"></div>
       <div class="wave-foot">
-        <span>VIBRATION</span>
-        <span class="wave-foot-line"></span>
-        <span>EMOTION</span>
+        <span data-layout-ignore>VIBRATION</span>
+        <span class="wave-foot-line" data-layout-ignore></span>
+        <span data-layout-ignore>EMOTION</span>
       </div>
     </section>
 
@@ -77,9 +77,9 @@
 
     <footer id="end-card" class="end-card clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="7">
       <div class="end-rule"></div>
-      <p class="end-kicker">AN ORIGINAL VISUAL IDENTITY</p>
+      <p class="end-kicker" data-layout-ignore>AN ORIGINAL VISUAL IDENTITY</p>
       <div class="end-name">VIOLIN<br /><span>PRINCE</span></div>
-      <p class="end-subtitle">LET THE MUSIC STAY WITH YOU.</p>
+      <p class="end-subtitle" data-layout-ignore>LET THE MUSIC STAY WITH YOU.</p>
     </footer>
 
     <div id="bottom-progress" class="bottom-progress clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="8">
