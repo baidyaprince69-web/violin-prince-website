@@ -1,9 +1,7 @@
 name: Violin Prince first complete Blender production
 
 on:
-  push:
-    branches:
-      - feature/blender-3d-overlays
+  pull_request:
     paths:
       - "autopilot/engine/first_production_asset.py"
       - "autopilot/engine/first_production_blender.py"
@@ -48,6 +46,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install "requests>=2.32,<3" "numpy>=1.26,<3" "soundfile>=0.12,<1" "Pillow>=10.4,<12"
+
+      - name: Compile all first-production Python modules
+        run: |
+          python -m py_compile             autopilot/engine/first_production_asset.py             autopilot/engine/first_production_blender.py             autopilot/engine/first_production_audio.py             autopilot/engine/voiceover.py             autopilot/engine/violin_sampler.py
 
       - name: Download and verify a real CC0 violin mesh
         id: asset
