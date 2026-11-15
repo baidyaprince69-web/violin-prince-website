@@ -1,0 +1,239 @@
+name: Violin Prince first complete Blender production
+
+on:
+  push:
+    branches:
+      - feature/blender-3d-overlays
+    paths:
+      - "autopilot/engine/first_production_asset.py"
+      - "autopilot/engine/first_production_blender.py"
+      - "autopilot/engine/first_production_audio.py"
+      - "autopilot/engine/voiceover.py"
+      - "autopilot/engine/violin_sampler.py"
+      - ".github/workflows/first-production.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  first-complete-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      EGL_PLATFORM: surfaceless
+      LIBGL_ALWAYS_SOFTWARE: "1"
+      MESA_LOADER_DRIVER_OVERRIDE: llvmpipe
+      BLENDER_RENDER_SAMPLES: "24"
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Check out the Blender production source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Blender, FFmpeg and speech runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            blender ffmpeg espeak-ng libsndfile1 fonts-dejavu-core \
+            libegl1 libegl-mesa0 libgl1 libgl1-mesa-dri libgbm1 libxkbcommon0
+          blender --version
+          ffmpeg -version | head -n 1
+
+      - name: Install asset and audio base dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "requests>=2.32,<3" "numpy>=1.26,<3" "soundfile>=0.12,<1" "Pillow>=10.4,<12"
+
+      - name: Download and verify a real CC0 violin mesh
+        id: asset
+        run: |
+          mkdir -p "$RUNNER_TEMP/violin-prince-first-production/assets"
+          python autopilot/engine/first_production_asset.py \
+            "$RUNNER_TEMP/violin-prince-first-production/assets" \
+            | tee "$RUNNER_TEMP/violin-prince-first-production/asset-resolution.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root = Path(os.environ["RUNNER_TEMP"]) / "violin-prince-first-production"
+          data = json.loads((root / "asset-resolution.json").read_text())
+          model = Path(data["model_path"])
+          assert model.is_file() and model.read_bytes()[:4] == b"glTF"
+          assert data.get("license", "").upper().startswith("CC0")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write("model_path=" + str(model) + "\n")
+              out.write("manifest_path=" + str(root / "assets" / "asset-provenance.json") + "\n")
+          print("Verified model:", data["provider"], data["model_name"], data["license"], data["size_bytes"], "bytes")
+          PY
+
+      - name: Render the complete 3D film in Blender
+        env:
+          MODEL_PATH: ${{ steps.asset.outputs.model_path }}
+        run: |
+          mkdir -p work/first-production
+          blender --background --factory-startup \
+            --python autopilot/engine/first_production_blender.py \
+            -- \
+              --model "$MODEL_PATH" \
+              --output "work/first-production/blender-visual.mp4" \
+              --report "work/first-production/blender-render-report.json" \
+              --width 720 --height 1280 --fps 25 --duration 24
+
+      - name: Verify Blender rendered the imported model and full frame sequence
+        run: |
+          test -s work/first-production/blender-visual.mp4
+          test -s work/first-production/blender-visual.blend
+          test -s work/first-production/blender-render-report.json
+          ffprobe -v error \
+            -show_entries format=duration:stream=codec_name,width,height,r_frame_rate \
+            -of json work/first-production/blender-visual.mp4
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          report = json.loads(Path("work/first-production/blender-render-report.json").read_text())
+          assert report["model_type"].startswith("imported GLB mesh")
+          assert report["actual_imported_mesh_count"] > 0
+          assert report["frame_count"] == 600
+          assert report["camera_moves"] == 6
+          print("Blender evidence verified:", report)
+          probe = subprocess.check_output([
+              "ffprobe", "-v", "error", "-show_entries", "format=duration",
+              "-of", "default=noprint_wrappers=1:nokey=1",
+              "work/first-production/blender-visual.mp4"
+          ], text=True)
+          assert float(probe.strip()) >= 23.8
+          PY
+
+      - name: Install Kokoro CPU narration runtime
+        run: |
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install "kokoro>=0.9.4,<1"
+
+      - name: Generate narration, CC0 violin music and sound design
+        run: |
+          python autopilot/engine/first_production_audio.py work/first-production
+
+      - name: Assemble the complete video with voice, music and captions
+        run: |
+          ffmpeg -y -hide_banner -loglevel error \
+            -i work/first-production/blender-visual.mp4 \
+            -i work/first-production/final-audio-mix.wav \
+            -vf "subtitles=work/first-production/captions.srt:force_style='FontName=DejaVu Sans,FontSize=22,PrimaryColour=&H00F4F2EA,OutlineColour=&H00101925,BorderStyle=1,Outline=2,Shadow=0,Alignment=2,MarginV=94'" \
+            -map 0:v:0 -map 1:a:0 \
+            -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p \
+            -r 25 -c:a aac -b:a 192k -ar 48000 -ac 2 \
+            -t 24 -movflags +faststart \
+            work/first-production/Violin-Prince-First-Production.mp4
+          ffprobe -v error \
+            -show_entries format=duration:stream=codec_type,codec_name,width,height,sample_rate,channels \
+            -of json work/first-production/Violin-Prince-First-Production.mp4
+
+      - name: Verify final video, audio mix, subtitles and provenance
+        run: |
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          video = Path("work/first-production/Violin-Prince-First-Production.mp4")
+          assert video.is_file() and video.stat().st_size > 2_000_000
+          probe = json.loads(subprocess.check_output([
+              "ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", str(video)
+          ], text=True))
+          streams = probe["streams"]
+          v = next(s for s in streams if s.get("codec_type") == "video")
+          a = next(s for s in streams if s.get("codec_type") == "audio")
+          assert (v["width"], v["height"]) == (720, 1280)
+          assert v["codec_name"] == "h264"
+          assert a["codec_name"] == "aac" and a["channels"] == 2
+          duration = float(probe["format"]["duration"])
+          assert 23.5 <= duration <= 24.5, duration
+          for name in ("production-script.txt", "narration.wav", "cc0-violin-music.wav",
+                       "cinematic-sound-effects.wav", "final-audio-mix.wav", "captions.srt",
+                       "audio-report.json", "blender-visual.blend"):
+              path = Path("work/first-production") / name
+              assert path.is_file() and path.stat().st_size > 0, name
+          asset = json.loads(Path("work/first-production/assets/asset-provenance.json").read_text())
+          audio = json.loads(Path("work/first-production/audio-report.json").read_text())
+          report = {
+              "status": "complete",
+              "video": str(video),
+              "video_bytes": video.stat().st_size,
+              "duration_seconds": duration,
+              "resolution": [v["width"], v["height"]],
+              "frame_rate": v.get("r_frame_rate"),
+              "video_codec": v["codec_name"],
+              "audio_codec": a["codec_name"],
+              "audio_sample_rate": a.get("sample_rate"),
+              "model_provider": asset["provider"],
+              "model_license": asset["license"],
+              "model_sha256": asset["sha256"],
+              "narration_engine": audio["narration"]["engine"],
+              "music_license": audio["music"]["license"],
+              "publishing": "NOT PUBLISHED — review copy only",
+          }
+          Path("work/first-production/final-production-report.json").write_text(
+              json.dumps(report, ensure_ascii=False, indent=2) + "\n"
+          )
+          print(json.dumps(report, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Create an editable production project bundle
+        run: |
+          cd work/first-production
+          zip -r ../../Violin-Prince-First-Production-Project.zip \
+            assets asset-resolution.json blender-visual.blend blender-render-report.json \
+            production-script.txt narration.wav cc0-violin-music.wav \
+            cinematic-sound-effects.wav final-audio-mix.wav captions.srt \
+            audio-report.json final-production-report.json
+          cd ../..
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+          from PIL import Image, ImageDraw
+          video = "work/first-production/Violin-Prince-First-Production.mp4"
+          frames = []
+          for index, sec in enumerate((1.0, 5.5, 11.0, 17.0, 22.5)):
+              target = Path(f"work/first-production/contact-{index+1}.png")
+              subprocess.run([
+                  "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                  "-ss", str(sec), "-i", video, "-frames:v", "1", str(target)
+              ], check=True)
+              frames.append(Image.open(target).convert("RGB").resize((216, 384)))
+          canvas = Image.new("RGB", (5 * 216 + 6 * 16, 384 + 64), (8, 14, 25))
+          draw = ImageDraw.Draw(canvas)
+          for index, frame in enumerate(frames):
+              x = 16 + index * (216 + 16)
+              canvas.paste(frame, (x, 48))
+              draw.text((x + 6, 18), f"SHOT {index+1}", fill=(238, 211, 160))
+          canvas.save("work/first-production/contact-sheet.jpg", quality=92)
+          PY
+
+      - name: Upload full first production for review — no publication
+        uses: actions/upload-artifact@v4
+        with:
+          name: violin-prince-first-complete-production
+          path: |
+            work/first-production/Violin-Prince-First-Production.mp4
+            Violin-Prince-First-Production-Project.zip
+            work/first-production/contact-sheet.jpg
+            work/first-production/final-production-report.json
+            work/first-production/production-script.txt
+            work/first-production/assets/asset-provenance.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Summarise review-only result
+        if: success()
+        run: |
+          {
+            echo "## First production completed — not published"
+            echo
+            echo "- Video: 720×1280, 25 fps, 24 seconds"
+            echo "- Picture: Blender-rendered imported CC0 violin GLB, animated camera, bow, 3D titles and resonance graphics"
+            echo "- Audio: Kokoro narration, newly arranged CC0 sampled violin phrase, original sound effects"
+            echo "- Output: downloadable MP4 and editable production project bundle"
+            echo "- Publishing: disabled; review copy only"
+          } >> "$GITHUB_STEP_SUMMARY"
