@@ -3,43 +3,6 @@ import { gsap } from "gsap";
 
 const DURATION = 10;
 
-function createParticles(containerId, count, seedOffset = 0) {
-  const container = document.getElementById(containerId);
-  if (!container) throw new Error("Missing particle container: " + containerId);
-
-  for (let index = 0; index < count; index += 1) {
-    const particle = document.createElement("span");
-    const x = (index * 73 + seedOffset * 19 + 11) % 100;
-    const y = (index * 47 + seedOffset * 31 + 17) % 100;
-    const size = 2 + ((index + seedOffset) % 3);
-
-    particle.className = "particle";
-    particle.style.left = x + "%";
-    particle.style.top = y + "%";
-    particle.style.width = size + "px";
-    particle.style.height = size + "px";
-    container.appendChild(particle);
-  }
-}
-
-function createWaveformBars() {
-  const container = document.getElementById("waveform-bars");
-  if (!container) throw new Error("Missing waveform container");
-
-  for (let index = 0; index < 46; index += 1) {
-    const bar = document.createElement("span");
-    const envelope = 25 + Math.abs(Math.sin(index * 0.69)) * 74 + Math.abs(Math.sin(index * 0.21)) * 22;
-    bar.className = "waveform-bar";
-    bar.style.height = envelope.toFixed(1) + "px";
-    container.appendChild(bar);
-  }
-}
-
-createParticles("particles-opening", 12, 2);
-createParticles("particles-wave", 8, 5);
-createParticles("particles-outro", 12, 9);
-createWaveformBars();
-
 /*
  * Motion owns every visible animation. The paused timeline can be assigned an
  * exact time, making each rendered frame reproducible.

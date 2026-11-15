@@ -54,6 +54,9 @@ jobs:
       - name: Validate the composition contract
         run: npm test
 
+      - name: Report HyperFrames composition lint
+        run: npx hyperframes lint || true
+
       - name: Render MP4 with HyperFrames
         run: npm run render
 
