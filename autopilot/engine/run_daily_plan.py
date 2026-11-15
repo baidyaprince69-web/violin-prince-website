@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Run a ChatGPT-authored, source-checked daily plan with Blender and Frame By Plane.
+"""Render a ChatGPT-authored, source-verified Violin Prince explainer plan.
 
-ChatGPT supplies the editorial plan, narration and scene direction. This runner
-verifies publisher evidence, synthesizes narration locally with Kokoro, creates
-three deterministic cinematic image layers per scene, and asks Blender 5.2.4
-plus Frame By Plane 8.0.1 to build a 2.5D background behind the licensed 3D hero.
-No AI image service or Cloudflare dependency is used in the daily Blender route.
-This script never publishes; it creates the quality-gated release handoff only.
+The plan supplies the topic, evidence-backed script, citations and scene direction.
+This runner re-fetches and verifies publisher evidence, synthesizes Kokoro-82M
+af_heart narration with native word timings, and can send the package to either
+the default Motion + HyperFrames 2D/2.5D explainer renderer or the explicit
+optional Blender + Frame By Plane route. The Motion path builds its scene
+diagrams and word-synchronised captions locally without Cloudflare or FLUX.
+Publishing is always disabled here; finished MP4s are QA-gated artifacts.
 """
 from __future__ import annotations
 
