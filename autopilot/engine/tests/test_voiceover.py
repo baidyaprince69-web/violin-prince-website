@@ -28,7 +28,7 @@ class KaraokeCaptionTests(unittest.TestCase):
             self.assertIn("PlayResX: 720", source)
             self.assertIn("PlayResY: 1280", source)
             self.assertIn("Style: Karaoke", source)
-            self.assertEqual(source.count("Dialogue:"), 3)
+            self.assertEqual(source.count("Dialogue:"), 4)
             self.assertEqual(source.count(r"{\k"), 6)
             self.assertNotIn("The violin sings.", source)
 
