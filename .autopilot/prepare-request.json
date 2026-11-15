@@ -1,5 +1,5 @@
 {
   "mode": "chatgpt_daily_production",
   "plan_path": ".autopilot/daily-production-plan.json",
-  "reason": "Retry today's Violin Prince production and preserve the exact Sketchfab download diagnostic"
+  "reason": "Retry Blender production with pinned licensed assets and detailed Sketchfab failure diagnostics"
 }
