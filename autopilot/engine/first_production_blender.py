@@ -225,7 +225,7 @@ def import_and_normalise_model(model_path: Path):
     return root, meshes, imported, bounds
 
 
-def make_bow_animation(front_y, body_width, bounds, frame_end, gold, hair_mat):
+def make_bow_animation(front_y, body_width, bounds, frame_end, bow_wood, hair_mat, ebony_mat):
     """Build one coherent bow assembly and animate it as a single rig."""
     half = max(0.72, min(1.32, body_width * 0.70))
     bridge_z = float(bounds["min_z"]) * 0.12 + float(bounds["max_z"]) * 0.02
@@ -247,7 +247,7 @@ def make_bow_animation(front_y, body_width, bounds, frame_end, gold, hair_mat):
             (half * 0.5, front_y - 0.142, bridge_z - 0.025),
             (half, front_y - 0.150, bridge_z - 0.055),
         ],
-        gold, bevel=0.018,
+        bow_wood, bevel=0.018,
     )
     hair = add_curve(
         "Bow rig | continuous horsehair ribbon",
@@ -267,7 +267,7 @@ def make_bow_animation(front_y, body_width, bounds, frame_end, gold, hair_mat):
     frog.name = "Bow rig | ebony frog"
     frog.dimensions = (0.24, 0.065, 0.075)
     bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-    frog.data.materials.append(hair_mat)
+    frog.data.materials.append(ebony_mat)
     frog_bevel = frog.modifiers.new("Soft frog edges", "BEVEL")
     frog_bevel.width = 0.018
     frog_bevel.segments = 3
@@ -278,7 +278,7 @@ def make_bow_animation(front_y, body_width, bounds, frame_end, gold, hair_mat):
     )
     tip = bpy.context.object
     tip.name = "Bow rig | rounded tip"
-    tip.data.materials.append(gold)
+    tip.data.materials.append(bow_wood)
 
     components = (stick, hair, frog, tip)
     for component in components:
@@ -382,7 +382,9 @@ def build_scene(args):
 
     gold = set_material("Violin Prince antique gold", (0.77, 0.45, 0.17), metallic=0.65, roughness=0.24, emission=0.08)
     teal = set_material("Resonance teal light", (0.035, 0.52, 0.54), metallic=0.25, roughness=0.24, emission=0.48)
-    white = set_material("Warm white type", (0.90, 0.88, 0.80), metallic=0.05, roughness=0.28, emission=0.65)
+    white = set_material("Warm white type and bow horsehair", (0.90, 0.88, 0.80), metallic=0.05, roughness=0.28, emission=0.65)
+    bow_wood = set_material("Bow stick | dark seasoned maple", (0.24, 0.073, 0.022), metallic=0.04, roughness=0.24)
+    ebony = set_material("Bow frog | polished ebony", (0.012, 0.015, 0.022), metallic=0.08, roughness=0.20)
     silver = set_material("Fine string silver", (0.50, 0.64, 0.73), metallic=0.88, roughness=0.18, emission=0.03)
     floor_mat = set_material("Midnight navy stage", (0.008, 0.018, 0.035), metallic=0.28, roughness=0.32)
 
@@ -428,7 +430,7 @@ def build_scene(args):
     world.node_tree.nodes["Background"].inputs["Strength"].default_value = 0.20
     scene.world = world
 
-    bow_root, bow_components = make_bow_animation(front_y, body_width, bounds, frame_end, gold, white)
+    bow_root, bow_components = make_bow_animation(front_y, body_width, bounds, frame_end, bow_wood, white, ebony)
     source_string_count = int(root.get("source_string_meshes", 0))
     strings = make_vibrating_strings(front_y, body_width, bounds, frame_end, silver, source_string_count)
     rings = make_resonance_rings(front_y, frame_end, teal)
