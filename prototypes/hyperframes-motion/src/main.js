@@ -105,7 +105,25 @@ function renderDiagram(scene) {
     : {};
   const items = Array.isArray(graphic.items) ? graphic.items.slice(0, 4) : [];
   const kind = String(graphic.type || "").toLowerCase();
-  diagramItems.dataset.diagramKind = kind || "explanation";
+  const visualMode = String(scene?.visual_mode || "").toLowerCase();
+  diagramItems.dataset.diagramKind = kind || visualMode || "explanation";
+
+  if (!kind && visualMode === "waveform") {
+    // Decorative signal bars, not measured audio data.
+    const levels = [
+      18, 34, 27, 58, 39, 76, 45, 90, 56, 72,
+      38, 84, 50, 96, 62, 78, 42, 68, 31, 88,
+      48, 74, 36, 60, 28, 82, 46, 70, 32, 54
+    ];
+    levels.forEach((level, index) => {
+      const bar = document.createElement("span");
+      bar.className = "wave-bar";
+      bar.dataset.diagramIndex = String(index);
+      bar.style.height = level + "%";
+      diagramItems.appendChild(bar);
+    });
+    return;
+  }
 
   if (kind === "process_flow" && items.length >= 2) {
     items.forEach((item, index) => {
@@ -118,6 +136,17 @@ function renderDiagram(scene) {
         diagramItems.appendChild(arrow);
       }
     });
+    return;
+  }
+
+  if (kind === "comparison" && items.length >= 2) {
+    diagramItems.appendChild(makeDiagramNode(items[0].label, items[0].display || "", 0));
+    const divider = document.createElement("span");
+    divider.className = "diagram-vs";
+    divider.dataset.diagramIndex = "0.5";
+    divider.textContent = "VS";
+    diagramItems.appendChild(divider);
+    diagramItems.appendChild(makeDiagramNode(items[1].label, items[1].display || "", 1));
     return;
   }
 
@@ -140,9 +169,10 @@ function renderDiagram(scene) {
 
   const fallback = document.createElement("div");
   fallback.className = "diagram-fallback";
-  fallback.textContent = (scene?.caption || contentConfig.topic || "") +
-    (scene?.graphic_detail ? " — " + scene.graphic_detail : "") ||
-    "MOTION + HYPERFRAMES VISUAL TEST";
+  const fallbackText = [scene?.caption, scene?.graphic_detail]
+    .filter((part) => typeof part === "string" && part.trim())
+    .join(" — ");
+  fallback.textContent = fallbackText || contentConfig.topic || "MOTION + HYPERFRAMES VISUAL TEST";
   diagramItems.appendChild(fallback);
 }
 
@@ -176,10 +206,11 @@ function syncDiagramMotion(seconds, sceneIndex) {
   const range = sceneTimingRange(sceneIndex);
   const span = Math.max(0.6, range.end - range.start);
   const progress = Math.max(0, Math.min(1, (seconds - range.start) / span));
-  const nodeCount = children.filter((element) => element.classList.contains("diagram-node")).length;
+  const diagramNodeCount = children.filter((element) => element.classList.contains("diagram-node")).length;
+  const revealCount = diagramNodeCount || children.length;
   children.forEach((element) => {
     const rawIndex = Number(element.dataset.diagramIndex || 0);
-    const revealAt = Math.max(0, Math.min(0.82, (rawIndex / Math.max(1, nodeCount)) * 0.82));
+    const revealAt = Math.max(0, Math.min(0.82, (rawIndex / Math.max(1, revealCount)) * 0.82));
     const reveal = Math.max(0, Math.min(1, (progress - revealAt) / 0.12));
     element.style.opacity = reveal.toFixed(4);
     if (element.classList.contains("diagram-arrow")) {
@@ -302,7 +333,6 @@ const sequence = [
   ["#wave-section", { opacity: [0, 1], y: [34, 0] }, { duration: 0.9, ease: "easeOut", at: 1.72 }],
   ["#wave-section .wave-caption", { opacity: [0, 1], x: [-18, 0] }, { duration: 0.6, ease: "easeOut", at: 2.02 }],
   ["#wave-section .wave-foot", { opacity: [0, 1] }, { duration: 0.7, ease: "easeOut", at: 2.15 }],
-  ["#wave-section", { opacity: [1, 0], y: [0, -24] }, { duration: 0.55, ease: "easeIn", at: 3.18 }],
   ["#orbit", { opacity: [0, 0.68, 0.42], scale: [0.82, 1.03, 1.1], rotate: [0, 18, 42] }, { duration: 8.2, ease: "linear", times: [0, 0.42, 1], at: 1.15 }],
   ["#orbit .orbit-arc", { opacity: [0, 1, 0.45], pathLength: [0, 1, 1] }, { duration: 4.2, ease: "easeOut", times: [0, 0.6, 1], at: 1.8 }],
   ["#headline-one", { opacity: [1, 0] }, { duration: 0.55, ease: "easeIn", at: 3.22 }],
@@ -313,7 +343,6 @@ const sequence = [
   ["#headline-three .eyebrow", { opacity: [0, 1], x: [-18, 0] }, { duration: 0.6, ease: "easeOut", at: 6.58 }],
   ["#headline-three h2", { opacity: [0, 1], y: [36, 0] }, { duration: 0.9, ease: "easeOut", at: 6.78 }],
   ["#headline-three .headline-note", { opacity: [0, 1] }, { duration: 0.65, ease: "easeOut", at: 7.2 }],
-  ["#headline-three", { opacity: [1, 0] }, { duration: 0.48, ease: "easeIn", at: 7.72 }],
   ["#end-card", { opacity: [0, 1], y: [22, 0] }, { duration: 0.65, ease: "easeOut", at: 7.95 }],
   ["#end-card .end-rule", { scaleX: [0, 1] }, { duration: 0.55, ease: "easeOut", at: 8.0 }],
   ["#end-card .end-name", { opacity: [0, 1], y: [18, 0] }, { duration: 0.5, ease: "easeOut", at: 8.15 }]

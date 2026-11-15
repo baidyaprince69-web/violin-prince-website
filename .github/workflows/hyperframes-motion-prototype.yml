@@ -201,8 +201,15 @@ jobs:
                   {
                       "caption": "HEAR THE VIOLIN. TRUST THE MIX.",
                       "graphic_label": "THE TAKEAWAY",
-                      "graphic_detail": "The explanation connects room correction to a more reliable listening decision.",
+                      "graphic_detail": "A more dependable reference for listening decisions.",
                       "visual_mode": "comparison",
+                      "graphic_data": {
+                          "type": "comparison",
+                          "items": [
+                              {"label": "ROOM RESPONSE", "display": "Measured"},
+                              {"label": "MONITOR OUTPUT", "display": "Adjusted"}
+                          ]
+                      },
                   },
               ],
           }

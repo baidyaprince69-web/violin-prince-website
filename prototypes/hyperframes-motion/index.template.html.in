@@ -85,7 +85,7 @@
     </footer>
 
     <section id="narration-caption" class="narration-caption clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="10">
-      <p id="caption-kicker">KOKORO · WORD-SYNCHRONISED EXPLANATION</p>
+      <p id="caption-kicker" data-layout-ignore>KOKORO · WORD-SYNCHRONISED EXPLANATION</p>
       <div id="caption-line" aria-live="off"></div>
     </section>
 
