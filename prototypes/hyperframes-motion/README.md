@@ -44,6 +44,14 @@ GitHub Actions generates a 37.5-second audio fixture, builds the composition fro
 - the final MP4 duration matches the source audio within 250 ms;
 - repeated random-access requests produce the same decoded pixels.
 
+## Optional Autopilot integration
+
+The regular Autopilot renderer remains the default. Set the repository Actions variable **MOTION_HYPERFRAMES_RENDER_ENABLED=true** to select this full-track 2D/2.5D route for a Render or Full stage. The variable defaults to **false**; Node.js 22 and Motion/HyperFrames dependencies are installed only when this route is enabled.
+
+The selected uploaded/creator violin recording is passed from Autopilot's existing Render-stage audio selection into the composition. The composition also receives the already-approved plan title, hook, topic and up to three scene captions. The existing Prepare, Visuals and editorial approval stages still run. The full-track route requires real uploaded/creator audio, refuses generated fallback audio, and is limited to ten minutes in this initial integration. It is mutually exclusive with **BLENDER_RENDER_ENABLED** for now; select Blender for the existing 3D scene route. Full-track output is blocked whenever **PUBLISH_ENABLED=true**, because the current publisher is designed for Shorts rather than full-length music videos.
+
+The renderer writes into the normal Autopilot output, storage and reporting path. Its feature flag remains off by default, so ordinary production runs are unchanged.
+
 ## Blender is optional
 
 This prototype is a 2D/2.5D composition. It does not install, import, invoke or require Blender.

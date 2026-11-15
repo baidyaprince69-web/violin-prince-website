@@ -13,6 +13,31 @@ const BASE_CYCLE_DURATION = 10;
 const CYCLE_DURATION = Math.min(BASE_CYCLE_DURATION, DURATION);
 const CYCLE_SCALE = CYCLE_DURATION / BASE_CYCLE_DURATION;
 
+const contentNode = document.getElementById("vp-content-config");
+let contentConfig = {};
+if (contentNode) {
+  try {
+    contentConfig = JSON.parse(contentNode.textContent || "{}");
+  } catch {
+    throw new Error("The Autopilot content context is not valid JSON.");
+  }
+}
+function setContentText(selector, value) {
+  const element = document.querySelector(selector);
+  if (element && typeof value === "string" && value.trim()) {
+    element.textContent = value.trim();
+  }
+}
+const sceneCaptions = Array.isArray(contentConfig.captions) ? contentConfig.captions : [];
+setContentText("#headline-one h1", contentConfig.title);
+setContentText("#headline-one .headline-note", contentConfig.hook);
+setContentText("#wave-section .wave-caption", contentConfig.topic);
+setContentText("#headline-two h2", sceneCaptions[0]);
+setContentText("#headline-two .headline-note", sceneCaptions[1]);
+setContentText("#headline-three h2", sceneCaptions[1] || sceneCaptions[0]);
+setContentText("#headline-three .headline-note", sceneCaptions[2]);
+setContentText("#bottom-progress .progress-label", contentConfig.topic);
+
 const waveform = document.getElementById("waveform");
 const particleLayer = document.getElementById("particle-layer");
 if (!waveform || !particleLayer) throw new Error("The prototype visual layers are incomplete.");

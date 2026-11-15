@@ -64,35 +64,48 @@ jobs:
           ffprobe -v error -select_streams a:0 -show_entries format=duration \
             -of default=noprint_wrappers=1:nokey=1 output/duration-test.wav
 
-      - name: Build composition from the full audio duration
-        run: npm run prepare:composition -- --audio output/duration-test.wav
-
-      - name: Load Motion as a local external ES module
-        run: npm run prepare:motion
-
-      - name: Validate HyperFrames composition
+      - name: Exercise the Autopilot renderer bridge with the 37.5-second fixture
+        working-directory: ../..
         run: |
-          npm run lint
-          npm run check
+          python - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, "autopilot/engine")
+          from motion_hyperframes_renderer import render_full_track
 
-      - name: Verify deterministic random-access seeking across the full track
-        run: npm run verify:seeking
+          fixture = Path("prototypes/hyperframes-motion/output/duration-test.wav")
+          if not fixture.is_file():
+              raise SystemExit("The longer-than-10-second audio fixture is missing.")
+          report = render_full_track(
+              audio_bytes=fixture.read_bytes(),
+              audio_filename=fixture.name,
+              output_path="work/output/violin-prince-motion-full-track.mp4",
+              work_dir="work/motion-hyperframes-bridge",
+              plan={
+                  "title": "Autopilot Integration Fixture",
+                  "topic": "Motion + HyperFrames bridge test",
+                  "hook": "A fixture verifies duration and rendering through Autopilot.",
+                  "scenes": [
+                      {"caption": "The opening scene"},
+                      {"caption": "The middle scene"},
+                      {"caption": "The final scene"},
+                  ],
+              },
+          )
+          output = Path("work/output")
+          output.mkdir(parents=True, exist_ok=True)
+          (output / "motion-render-report.json").write_text(
+              json.dumps(report, indent=2) + "\\n", encoding="utf-8"
+          )
+          print(json.dumps(report, indent=2))
+          PY
 
-      - name: Render the complete audio track
-        run: npm run render
-
-      - name: Verify full-track MP4, audio, dimensions and codec
-        run: npm run verify
-
-      - name: Create contact sheet
+      - name: Confirm the Autopilot bridge outputs
         if: always()
         run: |
-          if [[ -f output/violin-prince-motion-full-track.mp4 ]]; then
-            ffmpeg -hide_banner -loglevel error \
-              -i output/violin-prince-motion-full-track.mp4 \
-              -vf "fps=1/6,scale=270:480,tile=3x2" \
-              -frames:v 1 output/contact-sheet.jpg
-          fi
+          test -f ../../work/output/violin-prince-motion-full-track.mp4 || echo "Full-track MP4 was not generated."
+          test -f ../../work/output/motion-contact-sheet.jpg || echo "Contact sheet was not generated."
 
       - name: Upload full-track MP4, contact sheet and test reports
         if: always()
@@ -100,10 +113,10 @@ jobs:
         with:
           name: violin-prince-motion-full-track
           path: |
-            prototypes/hyperframes-motion/output/violin-prince-motion-full-track.mp4
-            prototypes/hyperframes-motion/output/contact-sheet.jpg
-            prototypes/hyperframes-motion/output/audio-manifest.json
-            prototypes/hyperframes-motion/output/seeking-check/
+            work/output/violin-prince-motion-full-track.mp4
+            work/output/motion-contact-sheet.jpg
+            work/output/motion-seeking-report.json
+            work/output/motion-render-report.json
           if-no-files-found: warn
           retention-days: 7
 
@@ -117,26 +130,26 @@ jobs:
             echo "- Branch: $GITHUB_REF_NAME"
             echo "- Publishing: disabled"
             echo "- Blender: not installed or invoked"
-            if [[ -f output/audio-manifest.json ]]; then
+            if [[ -f ../../work/output/motion-render-report.json ]]; then
               python - <<'PY'
           import json
-          with open("output/audio-manifest.json", encoding="utf-8") as f:
-              m = json.load(f)
-          print("- Source audio duration: " + str(m["source_duration_seconds"]) + " seconds")
-          print("- Composition duration: " + str(m["composition_duration_seconds"]) + " seconds")
+          from pathlib import Path
+          report = json.loads(Path("../../work/output/motion-render-report.json").read_text(encoding="utf-8"))
+          print("- Source audio duration: " + str(report["source_duration_seconds"]) + " seconds")
+          print("- Exported MP4 duration: " + str(report["duration_seconds"]) + " seconds")
+          print("- Format: " + str(report["width"]) + "x" + str(report["height"]) + " at " + str(report["fps"]) + " fps")
+          print("- Audio included: " + str(report["audio_included"]))
           PY
+            else
+              echo "- Full-track render report: missing; inspect the bridge step above"
             fi
-            if [[ -f output/seeking-check/seeking-report.json ]]; then
+            if [[ -f ../../work/output/motion-seeking-report.json ]]; then
               echo "- Random-access seeking: verified"
             else
               echo "- Random-access seeking: not verified"
             fi
-            if [[ -f output/violin-prince-motion-full-track.mp4 ]]; then
-              echo "- MP4: generated"
-              ffprobe -v error -show_entries format=duration \
-                -of default=noprint_wrappers=1:nokey=1 \
-                output/violin-prince-motion-full-track.mp4 | \
-                awk '{ print "- MP4 duration: " $1 " seconds" }'
+            if [[ -f ../../work/output/violin-prince-motion-full-track.mp4 ]]; then
+              echo "- MP4: generated by the Autopilot renderer bridge"
             else
               echo "- MP4: not generated; inspect the render steps above"
             fi

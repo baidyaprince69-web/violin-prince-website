@@ -57,6 +57,7 @@ jobs:
       SEO_LEARNING_REPORT_PATH: work/seo-learning-data/seo-learning/latest.enc.json
       PUBLISH_ENABLED: "false"
       BLENDER_RENDER_ENABLED: ${{ vars.BLENDER_RENDER_ENABLED || 'false' }}
+      MOTION_HYPERFRAMES_RENDER_ENABLED: ${{ vars.MOTION_HYPERFRAMES_RENDER_ENABLED || 'false' }}
       BLENDER_RENDER_WORKERS: "3"
       BLENDER_THREADS_PER_WORKER: "1"
       BLENDER_RENDER_WIDTH: "400"
@@ -230,6 +231,17 @@ jobs:
           sudo apt-get install -y ffmpeg fonts-dejavu-core
           python -m pip install --upgrade pip
           pip install "requests>=2.32,<3" "Pillow>=10.4,<12"
+
+      - name: Set up Node.js 22 for Motion + HyperFrames
+        if: env.MOTION_HYPERFRAMES_RENDER_ENABLED == 'true' && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pinned Motion + HyperFrames dependencies
+        if: env.MOTION_HYPERFRAMES_RENDER_ENABLED == 'true' && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')
+        working-directory: prototypes/hyperframes-motion
+        run: npm install --no-audit --no-fund
 
       - name: Install pinned Blender 5.2.4 and Frame By Plane 8.0.1
         if: env.BLENDER_RENDER_ENABLED == 'true' && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')

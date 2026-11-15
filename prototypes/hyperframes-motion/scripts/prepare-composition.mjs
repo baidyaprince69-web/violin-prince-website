@@ -15,6 +15,8 @@ const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
 const audioIndex = args.indexOf("--audio");
 const audioArgument = audioIndex >= 0 ? args[audioIndex + 1] : "";
+const contentIndex = args.indexOf("--content-json");
+const contentArgument = contentIndex >= 0 ? args[contentIndex + 1] : "";
 
 if (!audioArgument || audioArgument.startsWith("--")) {
   throw new Error("Usage: node scripts/prepare-composition.mjs --audio path/to/music-file");
@@ -67,15 +69,36 @@ for (const name of readdirSync(assetsDir)) {
 
 const templatePath = resolve(projectRoot, "index.template.html.in");
 const template = readFileSync(templatePath, "utf8");
-if (!template.includes("__DURATION_SECONDS__") || !template.includes("__AUDIO_SOURCE__")) {
+if (!template.includes("__DURATION_SECONDS__") || !template.includes("__AUDIO_SOURCE__") || !template.includes("__CONTENT_JSON__")) {
   throw new Error("The dynamic composition template is missing required placeholders.");
 }
 
 const durationText = duration.toFixed(3).replace(/\.?0+$/, "");
 const audioSource = "./assets/" + assetName;
+let contentConfig = {};
+if (contentArgument && !contentArgument.startsWith("--")) {
+  const contentPath = resolve(process.cwd(), contentArgument);
+  const rawContent = JSON.parse(readFileSync(contentPath, "utf8"));
+  const cleanText = (value, limit) => typeof value === "string"
+    ? value.replace(/\\s+/g, " ").trim().slice(0, limit)
+    : "";
+  contentConfig = {
+    title: cleanText(rawContent.title, 60),
+    topic: cleanText(rawContent.topic, 64),
+    hook: cleanText(rawContent.hook, 110),
+    captions: Array.isArray(rawContent.captions)
+      ? rawContent.captions.slice(0, 3).map((value) => cleanText(value, 72))
+      : []
+  };
+}
+const contentJson = JSON.stringify(contentConfig)
+  .replaceAll("<", "\\\\u003c")
+  .replaceAll(">", "\\\\u003e")
+  .replaceAll("&", "\\\\u0026");
 const html = template
   .replaceAll("__DURATION_SECONDS__", durationText)
-  .replace("__AUDIO_SOURCE__", audioSource);
+  .replace("__AUDIO_SOURCE__", audioSource)
+  .replace("__CONTENT_JSON__", contentJson);
 
 if (html.includes("__DURATION_SECONDS__") || html.includes("__AUDIO_SOURCE__")) {
   throw new Error("The composition still contains an unresolved media placeholder.");

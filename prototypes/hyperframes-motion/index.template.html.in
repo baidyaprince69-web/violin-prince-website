@@ -4,7 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=1080, height=1920, initial-scale=1" />
   <meta name="color-scheme" content="dark" />
-  <title>Violin Prince — Motion Graphics Prototype</title>
+  <title>Violin Prince — Motion Graphics</title>
+  <script id="vp-content-config" type="application/json">__CONTENT_JSON__</script>
   <link rel="stylesheet" href="./src/styles.css" />
   <script type="importmap" id="motion-importmap">
     {"imports":{"motion":"./node_modules/motion/dist/es/index.mjs","framer-motion/dom":"./node_modules/framer-motion/dist/es/dom.mjs","motion-dom":"./node_modules/motion-dom/dist/es/index.mjs","motion-utils":"./node_modules/motion-utils/dist/es/index.mjs"}}

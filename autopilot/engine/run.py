@@ -5148,6 +5148,15 @@ def visuals_stage(feedback=""):
 def render_stage():
     """Assemble a quality-gated visual package without calling any AI service."""
     blender_enabled = is_blender_render_enabled()
+    try:
+        from .motion_hyperframes_renderer import (
+            is_motion_hyperframes_render_enabled, render_full_track, select_renderer,
+        )
+    except ImportError:  # Direct script execution from the engine directory.
+        from motion_hyperframes_renderer import (
+            is_motion_hyperframes_render_enabled, render_full_track, select_renderer,
+        )
+    renderer = select_renderer(is_motion_hyperframes_render_enabled(), blender_enabled)
     plan, metadata, narration_info, paths, image_paths = _read_package(require_images=not blender_enabled)
     if metadata.get("story_review", {}).get("approved") is not True:
         raise PipelineError("Render blocked: automated editorial quality gates did not approve this story.")
@@ -5168,6 +5177,11 @@ def render_stage():
         audio_source = str(private_audio_asset.get("audio_source", "uploaded_recording"))
         log("Using the rights-confirmed private audio asset for the final mix.")
     performance_video_asset = metadata.get("performance_video") or {"available": False}
+    if renderer == "motion_hyperframes" and performance_video_asset.get("available"):
+        raise PipelineError(
+            "Motion + HyperFrames currently renders the approved music track with 2D/2.5D graphics. "
+            "Use the existing Blender route when this package includes a creator performance video or genuine 3D scene shots."
+        )
     performance_video_path = None
     if performance_video_asset.get("available"):
         fetched_video_asset, video_bytes = get_creator_performance_video(
@@ -5182,11 +5196,36 @@ def render_stage():
         performance_video_path.write_bytes(video_bytes)
     if not audio_source:
         audio_source = "generated_ambient_fallback"
-    path, video_quality = render(
-        plan, audio, paths["narration"], narration_info,
-        image_paths=image_paths, audio_source=audio_source,
-        performance_video_path=performance_video_path,
-    )
+    if renderer == "motion_hyperframes":
+        if str(os.environ.get("PUBLISH_ENABLED", "false")).strip().lower() in {"1", "true", "yes", "on"}:
+            raise PipelineError(
+                "Full-track Motion + HyperFrames output cannot use the existing Shorts publishing path. "
+                "Keep PUBLISH_ENABLED=false until a separate full-length music-video publisher is implemented."
+            )
+        real_audio = (
+            audio_source in {"uploaded_recording", "creator_recorded_violin"}
+            or active_audio_asset.get("kind") == "uploaded_recording"
+        )
+        if not real_audio:
+            raise PipelineError(
+                "Full-track Motion + HyperFrames requires an actual uploaded/creator violin recording; "
+                "the generated short fallback soundtrack is not a full-song substitute."
+            )
+        log("Using the optional Motion + HyperFrames renderer with the selected full-track audio asset.")
+        path = OUT / "violin-prince-short.mp4"
+        video_quality = render_full_track(
+            audio_bytes=audio,
+            audio_filename=str(active_audio_asset.get("filename") or paths["audio"].name),
+            output_path=path,
+            work_dir=WORK / "motion-hyperframes",
+            plan=plan,
+        )
+    else:
+        path, video_quality = render(
+            plan, audio, paths["narration"], narration_info,
+            image_paths=image_paths, audio_source=audio_source,
+            performance_video_path=performance_video_path,
+        )
     stored = upload(path)
     from publisher import publish_all
     publish_result = publish_all(path, stored.get("media_url", ""), plan)
@@ -5211,10 +5250,11 @@ def render_stage():
             if key in ("id", "filename", "size_bytes", "content_type", "available", "source")
         },
         "audio_source": audio_source,
+        "render_engine": renderer,
         "audio_license": active_audio_asset.get("license", ""),
         "audio_source_library": active_audio_asset.get("source_library", ""),
         "audio_attribution": active_audio_asset.get("attribution", ""),
-        "duration_seconds": 24, "format": "9:16",
+        "duration_seconds": round(float(video_quality.get("duration_seconds", 24)), 3), "format": "9:16",
         "publishing_status": final_status, "publish_results": publish_result,
         "output_key": stored.get("object_key"), "prepared_run_id": metadata.get("prepared_run_id"),
         "visuals_run_id": metadata.get("visuals_run_id"),
