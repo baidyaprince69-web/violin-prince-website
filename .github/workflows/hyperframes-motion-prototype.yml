@@ -100,7 +100,7 @@ jobs:
               raise SystemExit("The generated violin track does not cover 37.5 seconds.")
           PY
           ffprobe -v error -select_streams a:0 -show_entries format=duration \
-            -of default=noprint_wrappers=1:nokey=1 output/duration-test.wav
+            -of default=noprint_wrappers=1:nokey=1 prototypes/hyperframes-motion/output/duration-test.wav
 
       - name: Exercise the Autopilot renderer bridge with the 37.5-second fixture
         working-directory: .
