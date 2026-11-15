@@ -64,10 +64,10 @@ jobs:
       YOUTUBE_STATE_ENCRYPTION_KEY: ${{ secrets.YOUTUBE_STATE_ENCRYPTION_KEY }}
       SEO_LEARNING_REPORT_PATH: work/seo-learning-data/seo-learning/latest.enc.json
       PUBLISH_ENABLED: "false"
-      # The scheduled daily-plan route retains its existing Blender path.
-      # The dedicated manual request uses Motion + HyperFrames without Blender.
-      BLENDER_RENDER_ENABLED: ${{ (github.event_name == 'schedule' || (github.event_name == 'push' && !contains(github.event.head_commit.message, '[manual-motion-production]'))) && 'true' || (github.event_name == 'workflow_dispatch' && vars.BLENDER_RENDER_ENABLED == 'true' && 'true') || 'false' }}
-      MOTION_HYPERFRAMES_RENDER_ENABLED: ${{ (github.event_name == 'push' && contains(github.event.head_commit.message, '[manual-motion-production]')) && 'true' || (github.event_name == 'workflow_dispatch' && vars.BLENDER_RENDER_ENABLED != 'true' && (vars.MOTION_HYPERFRAMES_RENDER_ENABLED || 'true')) || 'false' }}
+      # Motion is the default explainer renderer. Blender is a deliberate opt-in.
+      # The manual narrated-explainer request always selects Motion and disables Blender.
+      BLENDER_RENDER_ENABLED: ${{ (github.event_name != 'push' || !contains(github.event.head_commit.message, '[manual-motion-production]')) && vars.BLENDER_RENDER_ENABLED == 'true' && 'true' || 'false' }}
+      MOTION_HYPERFRAMES_RENDER_ENABLED: ${{ ((github.event_name == 'push' && contains(github.event.head_commit.message, '[manual-motion-production]')) || (vars.BLENDER_RENDER_ENABLED != 'true' && (github.event_name == 'schedule' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.stage == 'full') || vars.MOTION_HYPERFRAMES_RENDER_ENABLED == 'true'))) && 'true' || 'false' }}
       MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS: ${{ vars.MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS || '24' }}
       BLENDER_RENDER_WORKERS: "3"
       BLENDER_THREADS_PER_WORKER: "1"
@@ -121,7 +121,7 @@ jobs:
 
       - name: Read ChatGPT daily production request
         id: daily_request
-        if: github.event_name == 'schedule' || (github.event_name == 'push' && !contains(github.event.head_commit.message, '[manual-motion-production]'))
+        if: github.event_name == 'schedule' || (github.event_name == 'push' && !contains(github.event.head_commit.message, '[manual-motion-production]')) || (github.event_name == 'workflow_dispatch' && inputs.stage == 'full')
         shell: bash
         run: |
           python - <<'PY'
@@ -179,8 +179,8 @@ jobs:
           print("Cloudflare and Blender are skipped; publishing remains disabled.")
           PY
 
-      - name: Require licensed Sketchfab access for the Cloudflare-independent daily route
-        if: github.event_name == 'schedule' || (github.event_name == 'push' && !contains(github.event.head_commit.message, '[manual-motion-production]'))
+      - name: Require licensed Sketchfab access when optional Blender is selected
+        if: env.BLENDER_RENDER_ENABLED == 'true' && (github.event_name == 'schedule' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.stage == 'full'))
         shell: bash
         env:
           MODEL_TOKEN: ${{ secrets.SKETCHFAB_ACCESS_TOKEN }}
@@ -334,7 +334,7 @@ jobs:
           BLENDER_RENDER_ENABLED: "false"
         run: python autopilot/engine/run_daily_plan.py --plan "${{ steps.manual_motion_request.outputs.plan_path }}"
 
-      - name: Run ChatGPT-prepared daily plan with Blender + Frame By Plane 2.5D scenes
+      - name: Run ChatGPT-prepared explainer with selected renderer (Motion default; Blender opt-in)
         if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path != ''
         env:
           RUN_ID: ${{ github.run_id }}
