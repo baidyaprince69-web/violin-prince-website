@@ -507,9 +507,12 @@ def build_scene(args):
     if args.proof_shot:
         if not 4.0 <= float(args.duration) <= 5.0:
             raise RuntimeError("A proof shot must be between 4.0 and 5.0 seconds.")
-        if args.sample_index != 0 or args.sample_count != args.total_samples or args.total_samples > 125:
+        # A proof may be split across parallel workers, but the entire proof
+        # timeline remains capped at 125 frames. This permits 5 x 23-frame
+        # slices without ever opening the 600-frame production path.
+        if args.total_samples > 125 or args.sample_count > 125:
             raise RuntimeError(
-                "Proof mode is limited to one local segment of at most 125 frames; "
+                "Proof mode is limited to a total of at most 125 frames; "
                 "a full 600-frame render is forbidden."
             )
     root, meshes, imported, bounds, source_bows, source_strings = import_and_normalise_model(
