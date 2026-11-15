@@ -216,10 +216,12 @@ def resolve_sketchfab_asset(
     client = session or requests.Session()
     model = fetch_model_metadata(uid, client)
     license_code, license_label, license_url = _license_details(model)
-    commercial_ok = bool(
-        license_code in COMMERCIAL_LICENSES
-        or _license_details(model)[0] in COMMERCIAL_LICENSES
-    )
+    license_text = (license_code + " " + license_label).casefold()
+    license_blocked = any(term in license_text for term in (
+        "noncommercial", "non-commercial", "by-nc", "-nc", "editorial",
+        "no-derivatives", "no-derivative", "-nd",
+    ))
+    commercial_ok = license_code in COMMERCIAL_LICENSES and not license_blocked
     raw_downloadable = model.get("isDownloadable", model.get("is_downloadable", False))
     downloadable = raw_downloadable is True or str(raw_downloadable).strip().casefold() in {"1", "true", "yes"}
     creator = _creator(model)
