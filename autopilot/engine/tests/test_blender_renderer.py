@@ -40,6 +40,34 @@ class BlenderRendererTests(unittest.TestCase):
         with patch.dict(os.environ, {"BLENDER_THREADS_PER_WORKER": "99"}, clear=True):
             self.assertEqual(blender_renderer.blender_threads_per_worker(), 4)
 
+    def test_cpu_render_defaults_use_bounded_internal_quality(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(blender_renderer.blender_render_resolution(), (400, 712))
+            self.assertEqual(blender_renderer.blender_render_fps(), 16)
+            self.assertEqual(blender_renderer.blender_render_samples(), 4)
+            self.assertEqual(blender_renderer.blender_model_face_limit(), 70000)
+
+    def test_cpu_render_settings_allow_safe_overrides_and_clamping(self):
+        with patch.dict(os.environ, {
+            "BLENDER_RENDER_WIDTH": "1200",
+            "BLENDER_RENDER_HEIGHT": "2100",
+            "BLENDER_RENDER_FPS": "60",
+            "BLENDER_RENDER_SAMPLES": "0",
+            "BLENDER_MODEL_FACE_LIMIT": "900000",
+        }, clear=True):
+            self.assertEqual(blender_renderer.blender_render_resolution(), (1200, 1920))
+            self.assertEqual(blender_renderer.blender_render_fps(), 30)
+            self.assertEqual(blender_renderer.blender_render_samples(), 1)
+            self.assertEqual(blender_renderer.blender_model_face_limit(), 500000)
+
+    def test_model_decimation_ratio_respects_face_budget(self):
+        self.assertEqual(blender_renderer.model_decimation_ratio(40000, 70000), 1.0)
+        self.assertAlmostEqual(
+            blender_renderer.model_decimation_ratio(658580, 70000),
+            70000 / 658580,
+            places=6,
+        )
+
     def test_all_existing_visual_modes_have_full_3d_templates(self):
         expected = {
             "macro_3d": "string_vibration",
