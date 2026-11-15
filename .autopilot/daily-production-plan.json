@@ -1,105 +1,120 @@
 {
   "story_type": "music_technology",
-  "core_claim": "USF-Audio expands digital audio dynamic range by folding signals before digitization and mathematically reconstructing the original waveform.",
-  "topic": "A research prototype uses analog waveform folding and mathematical reconstruction to capture greater audio dynamic range within a six-bit converter.",
-  "title": "How Digital Audio Can Capture More Dynamic Range",
-  "hook": "Can six bits preserve quiet and loud sounds?",
-  "description": "Imperial College London researchers demonstrated USF-Audio, a research-stage audio capture method that folds a waveform before digitization and mathematically reconstructs it. A six-bit prototype achieved at least 18 dB more dynamic range than a conventional six-bit converter. In a 52-person listening study, reconstructed audio received higher quality ratings. This is a research prototype, not a consumer recorder product.\n\nResearch: Imperial College London — https://www.imperial.ac.uk/news/articles/2026/imperial-engineers-challenge-90-year-limitation-in-digital-audio-sensing/\nIndependent analysis: XenoSpectrum — https://xenospectrum.com/en/usf-audio-modulo-wrapping-adc/",
+  "core_claim": "Audient's new iD MK3 interfaces add RoomTune monitor room correction and onboard DSP.",
+  "topic": "How Audient's third-generation iD interfaces use RoomTune to measure room acoustics and adjust monitor playback, while onboard DSP handles input effects.",
+  "title": "Can Your Room Trick Your Violin Mix?",
+  "hook": "Your room can quietly mislead your mix.",
+  "description": "Your room can colour what you hear while mixing. Audient's third-generation iD interfaces add RoomTune monitor correction, which measures room acoustics and adjusts the signal sent to your speakers. Their onboard DSP also runs EQ, compression and reverb without using your computer's CPU. This is monitor correction and input processing, not a change to the original violin recording.\n\nSources:\nMusicRadar: https://www.musicradar.com/music-tech/this-isnt-a-spec-refresh-its-a-completely-new-technology-platform-audient-launches-next-generation-of-id-audio-interfaces-with-onboard-dsp-and-built-in-monitor-correction\nMixdown: https://mixdownmag.com.au/news/room-correction-comes-to-every-model-in-audients-redesigned-id-range/",
   "hashtags": [
-    "#DigitalAudio",
-    "#MusicTechnology",
-    "#AudioEngineering",
+    "#Violin",
     "#MusicProduction",
+    "#AudioEngineering",
+    "#RoomCorrection",
     "#ViolinPrince"
   ],
   "tags": [
-    "digital audio",
-    "music technology",
+    "violin mix",
+    "room correction",
+    "RoomTune",
+    "audio interfaces",
+    "music production",
     "audio engineering",
-    "dynamic range",
-    "audio recording",
-    "sound design",
+    "monitoring",
     "Violin Prince"
   ],
   "narrative_style": "documentary",
-  "cover_payoff": "Use an original short violin phrase as an audio illustration while a quiet-to-loud waveform is shown being folded, digitized and reconstructed. Use the pinned CC0 sample source; no creator performance recording is included, so do not describe this as Prince's live performance.",
-  "narration_script": "Digital audio research is challenging an old limit. Researchers fold the signal before digitizing, then mathematically reconstruct its original waveform. The six-bit prototype achieved at least eighteen decibels greater dynamic range. Fifty-two listeners rated reconstructed audio quality higher than conventional recordings.",
+  "cover_payoff": "Use a short sampled violin phrase as a familiar listening reference while the final scene returns to a fully modelled violin and bow. Keep the room-response diagram conceptual: do not invent measured room data or imply that Prince recorded the sample live.",
+  "narration_script": "Your room can quietly mislead your mix. Audient's new interfaces combine console-style preamps with onboard digital processing. RoomTune measures room acoustics and adjusts the signal reaching your monitors. Its onboard DSP runs EQ, compression, and reverb without burdening your computer.",
   "narration_evidence": [
     {
       "sentence_number": 2,
-      "source_id": "S002",
-      "quote": "A research team at Imperial College London, made up of Ruiming Guo, Yuliang Zhu and Ayush Bhandari, has developed USF-Audio, a new technique that folds an audio waveform before digitizing it and then mathematically reconstructs the original waveform afterward."
+      "source_id": "S001",
+      "quote": "Audient has unveiled the next generation of its iD series of audio interfaces, built on what the company is calling the Analogue Intelligence platform, bringing together Audient’s analogue mic preamps with onboard DSP, monitor correction and new tone-shaping tools."
     },
     {
       "sentence_number": 3,
-      "source_id": "S001",
-      "quote": "In experiments using just six bits per sample, the prototype achieved at least 18 dB greater dynamic range than a conventional six-bit converter."
+      "source_id": "S002",
+      "quote": "It measures your room and adjusts the signal going to your monitors to compensate for its acoustics, with the correction stored on and run from the interface’s DSP, so it applies to everything coming out of the speakers rather than only inside a DAW."
     },
     {
       "sentence_number": 4,
       "source_id": "S001",
-      "quote": "A listening study involving 52 participants also found that reconstructed audio received higher quality ratings than conventional recordings at the same bit depth."
+      "quote": "The onboard DSP that handles RoomTune also runs hardware-accelerated effects, letting you apply EQ, compression and reverb to input signals with no latency without using your CPU."
     }
   ],
   "sources": [
     {
       "source_id": "S001",
-      "title": "Imperial engineers challenge 90-year limitation in digital audio sensing",
-      "url": "https://www.imperial.ac.uk/news/articles/2026/imperial-engineers-challenge-90-year-limitation-in-digital-audio-sensing/",
-      "publisher_domain": "imperial.ac.uk",
-      "date": "2026-11-11"
+      "title": "\"This isn't a spec refresh – it's a completely new technology platform\": Audient launches next generation of iD audio interfaces with onboard DSP and built-in monitor correction",
+      "url": "https://www.musicradar.com/music-tech/this-isnt-a-spec-refresh-its-a-completely-new-technology-platform-audient-launches-next-generation-of-id-audio-interfaces-with-onboard-dsp-and-built-in-monitor-correction",
+      "publisher_domain": "musicradar.com",
+      "date": "2026-11-12"
     },
     {
       "source_id": "S002",
-      "title": "Imperial College's USF-Audio Folds Sound Waves Before Digitizing, Widening Dynamic Range Without Adding Bits",
-      "url": "https://xenospectrum.com/en/usf-audio-modulo-wrapping-adc/",
-      "publisher_domain": "xenospectrum.com",
-      "date": "2026-11-12"
+      "title": "Room correction comes to every model in Audient’s redesigned iD range",
+      "url": "https://mixdownmag.com.au/news/room-correction-comes-to-every-model-in-audients-redesigned-id-range/",
+      "publisher_domain": "mixdownmag.com.au",
+      "date": "2026-11-13"
     }
   ],
   "timeline": [],
   "scenes": [
     {
-      "caption": "THE DIGITAL CEILING",
-      "image_prompt": "Create a premium photorealistic cinematic 3D macro scene featuring a complete, solid-bodied amber-brown violin as the unmistakable music source. Show authentic maple wood grain, rich transparent varnish, ebony fittings, realistic bridge, strings, tailpiece and scroll, with believable instrument proportions. A luminous golden audio waveform grows from a faint signal into strong peaks approaching a subtle abstract digital recording ceiling, visually suggesting the challenge of preserving both quiet detail and loud transients. Dark charcoal studio, restrained teal and amber rim light, natural shadows, delicate dust motes and a few restrained glints. Vertical 9:16, crisp material detail. No text, logos, watermark, hollow shell, outline, wireframe or monochrome illustration.",
-      "graphic_label": "THE RECORDING LIMIT",
-      "graphic_detail": "Conventional converters trade signal range against bit resolution",
+      "caption": "YOUR ROOM SHAPES WHAT YOU HEAR",
+      "image_prompt": "Premium photorealistic cinematic full-frame 3D scene for a vertical music-technology explainer. A complete, believable amber-brown violin rests in a dark midnight mixing room, with a pair of studio monitors and subtle room surfaces visible around it. Show soft golden sound waves travelling from a speaker, reflecting from the room walls and returning toward a listening position. The reflections are an abstract visual metaphor, not measured data. Rich maple grain, glossy but natural varnish, ebony fingerboard, bridge and strings, realistic scale, deep teal shadows, controlled amber rim lighting, atmospheric depth, physically based materials. No text, numbers, logos, watermark, wireframe, outline illustration, incomplete instrument or fake person.",
+      "graphic_label": "YOUR ROOM SHAPES WHAT YOU HEAR",
+      "graphic_detail": "Room reflections can colour monitor playback",
       "visual_mode": "macro_3d"
     },
     {
-      "caption": "FOLD, DIGITIZE, REBUILD",
-      "image_prompt": "Create a photorealistic cinematic 3D explainer scene with a fully formed amber-brown violin in the foreground, natural wood grain and rich varnish. Behind it, show a clean luminous golden waveform being mathematically folded into a bounded band, passing through an abstract generic converter stage, then returning as a smooth reconstructed waveform. Make this a conceptual scientific visualization, not a depiction of a real commercial product or a claim about exact hardware appearance. Dark studio, teal-and-amber accents, subtle reflections, realistic depth, soft particles and uncluttered composition. Vertical 9:16. No text, numbers, logos, watermark, empty violin shell, outline, wireframe or monochrome.",
-      "graphic_label": "THE NEW SIGNAL PATH",
-      "graphic_detail": "USF-Audio folds, digitizes and mathematically reconstructs the waveform",
+      "caption": "MEASURE THE ROOM. ADJUST THE MONITORS.",
+      "image_prompt": "A clear photorealistic 3D scientific visualization in a dark acoustic studio. Show a calibrated reference microphone between two studio monitors, a soft golden test waveform travelling through the room, and a restrained abstract DSP stage guiding the monitor signal. Visualize the room response as a smooth conceptual curve with no numeric values, then show a more even conceptual curve after correction. Keep all curves clearly illustrative, not real measurements from a particular room. Cinematic midnight navy, antique gold and muted teal, realistic metal and glass, precise reflections, vertical 9:16 composition, no text, no brand marks, no watermark, no wireframe or cartoon style.",
+      "graphic_label": "ROOMTUNE MONITOR CORRECTION",
+      "graphic_detail": "DSP adjusts the signal sent to the monitors",
       "visual_mode": "waveform",
       "graphic_data": {
         "type": "process_flow",
-        "title": "USF-AUDIO SIGNAL PATH",
+        "title": "ROOMTUNE SIGNAL PATH",
         "items": [
-          "FOLD SIGNAL",
-          "DIGITIZE",
-          "REBUILD AUDIO"
+          "MEASURE THE ROOM",
+          "APPLY DSP CORRECTION",
+          "ADJUST MONITOR OUTPUT"
         ]
       }
     },
     {
-      "caption": "MORE RANGE, SAME SIX BITS",
-      "image_prompt": "Create an original premium photorealistic close performance-style composition centered on a complete, solid amber-brown violin with realistic bow hair touching visible strings. Preserve authentic wood grain, transparent varnish, bridge, fingerboard, fittings and natural studio highlights. A warm golden waveform emerges from the violin, retaining delicate quiet details and bright loud peaks without clipping, while subtle teal-and-amber sound bands create depth behind it. The instrument must remain fully formed and unmistakably real, with physically plausible proportions. No human face or fake creator likeness. Cinematic dark studio, gentle dust motes and restrained glints, vertical 9:16, no labels, text, logos, watermark, hollow shell, outline or wireframe.",
-      "graphic_label": "THE LISTENING TEST",
-      "graphic_detail": "Fifty-two participants rated reconstructed audio higher in the reported six-bit listening study",
+      "caption": "HEAR THE VIOLIN. TRUST THE MIX.",
+      "image_prompt": "A premium photorealistic 3D close performance-style composition centred on a fully formed amber-brown violin and a separate realistic bow contacting visible strings. Show detailed maple grain, fine transparent varnish, correct bridge, fingerboard, tailpiece and fittings. A warm golden waveform emerges from the instrument while the background transitions from subtle room reflections to a calmer, balanced listening space. No person or creator likeness is shown. Keep the violin and bow physically plausible, with cinematic studio lighting, realistic depth of field, restrained teal accents and a midnight navy environment. Vertical 9:16, no text, labels, logos or watermark, no incomplete shell, wireframe or outline illustration.",
+      "graphic_label": "THE MUSICAL PAYOFF",
+      "graphic_detail": "A sampled violin phrase makes the monitoring idea tangible",
       "visual_mode": "cover_performance"
     }
   ],
+  "asset_subject": "violin",
+  "asset_kind": "violin",
+  "model_query": "realistic PBR violin model with visible strings and bow",
+  "performance_feedback": {
+    "sample_window": "2026-10-16 to 2026-11-15; Metricool video rows had unavailable engagement fields, supplemented by vidIQ latest Short uploads",
+    "sample_count": 5,
+    "confidence": "low: only two of the five latest Shorts exceeded 100 views, and the available vidIQ list does not include average view duration",
+    "strengths_to_preserve": [
+      "Keep a clear violin-led musical payoff as a consistent channel identity element; the recent mixed-topic sample does not prove it is a performance driver."
+    ],
+    "one_change_to_test": "Test a visually clear room-reflection versus corrected-monitor contrast in the opening two seconds, without presenting illustrative curves as measured data.",
+    "measurement_for_next_upload": "At 24 hours compare views, likes, comments, shares and average view duration where available; treat this as an exploratory test rather than a proven channel-wide rule."
+  },
   "publish_metadata": {
-    "title": "How Digital Audio Can Capture More Dynamic Range",
-    "description": "A new research-stage audio capture method folds waveforms before digitization, then mathematically reconstructs them. Imperial College London's six-bit prototype achieved at least 18 dB more dynamic range than a conventional six-bit converter. In a 52-person listening study, reconstructed audio received higher quality ratings. This is a research prototype, not a consumer recorder.\n\nResearch: https://www.imperial.ac.uk/news/articles/2026/imperial-engineers-challenge-90-year-limitation-in-digital-audio-sensing/\nIndependent analysis: https://xenospectrum.com/en/usf-audio-modulo-wrapping-adc/",
+    "title": "Can Your Room Trick Your Violin Mix?",
+    "description": "Your room can colour what you hear while mixing. Audient's third-generation iD interfaces add RoomTune monitor correction, which measures room acoustics and adjusts the signal sent to your speakers. Their onboard DSP also runs EQ, compression and reverb without using your computer's CPU. This is monitor correction and input processing, not a change to the original violin recording.\n\nSources:\nMusicRadar: https://www.musicradar.com/music-tech/this-isnt-a-spec-refresh-its-a-completely-new-technology-platform-audient-launches-next-generation-of-id-audio-interfaces-with-onboard-dsp-and-built-in-monitor-correction\nMixdown: https://mixdownmag.com.au/news/room-correction-comes-to-every-model-in-audients-redesigned-id-range/",
     "tags": [
-      "digital audio",
-      "music technology",
+      "violin mix",
+      "room correction",
+      "RoomTune",
+      "audio interfaces",
+      "music production",
       "audio engineering",
-      "dynamic range",
-      "audio recording",
-      "sound design",
+      "monitoring",
       "Violin Prince"
     ],
     "category_id": "10",
@@ -111,7 +126,7 @@
     "motion_profile": "animated_stills",
     "visual_language": "hybrid",
     "pacing": "dynamic",
-    "reference_summary": "Original Violin Prince music-technology explainer: photorealistic amber-brown violin hero imagery, crisp signal diagrams, kinetic captions, controlled camera movement and restrained teal-and-amber lighting.",
+    "reference_summary": "Original Violin Prince music-technology explainer with a full-frame amber-brown violin, true 3D room acoustics metaphor, crisp DSP signal graphics, kinetic captions, dimensional cinematic studio lighting and a distinct musical payoff.",
     "scene_guidance": [
       {
         "shot_type": "wide_hero",
