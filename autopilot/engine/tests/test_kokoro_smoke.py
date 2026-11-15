@@ -1,4 +1,4 @@
-"""Model-level Kokoro TTS smoke test; no paid speech API or Cloudflare secrets."""
+"""Model-level Kokoro TTS smoke test; no paid speech API or external speech credentials."""
 import importlib.util
 import tempfile
 import sys
