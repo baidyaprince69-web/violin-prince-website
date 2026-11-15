@@ -4368,29 +4368,6 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         else:
             image = make_image(visual_prompt, i)
 
-        # Add real procedural 3D geometry only to the existing 3D visual modes.
-        # The original scene plate remains the base; Pillow and FFmpeg still own
-        # typography, explainers, camera motion, transitions and final encoding.
-        if blender_enabled:
-            blender_overlay = OUT / f"blender-overlay-{i + 1}.png"
-            blender_result = render_scene_overlay(scene, blender_overlay, scene_index=i)
-            if blender_result:
-                composited_image = OUT / f"blender-composite-{i + 1}.png"
-                composite_scene_overlay(image, blender_overlay, composited_image, size=(W, H))
-                image = composited_image
-                blender_scene_reports.append({"scene": i + 1, **blender_result})
-                log(
-                    f"Blender 3D overlay rendered for scene {i + 1}: "
-                    f"{blender_result.get('scene_type')} "
-                    f"({blender_result.get('blender_version', 'unknown')})."
-                )
-            else:
-                blender_scene_reports.append({
-                    "scene": i + 1,
-                    "status": "skipped",
-                    "reason": "visual_mode_not_supported",
-                    "visual_mode": str(scene.get("visual_mode") or ""),
-                })
         card = make_card(image, scene["caption"], i, plan.get("title", ""))
         clip = OUT / f"scene-{i + 1}.mp4"
         frame_count = max(1, int(round(scene_seconds * FPS)))
