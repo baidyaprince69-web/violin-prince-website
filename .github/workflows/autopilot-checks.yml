@@ -37,7 +37,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-dejavu-core
           python -m pip install --upgrade pip
-          pip install -r autopilot/engine/requirements.txt PyYAML
+          pip install requests Pillow PyYAML numpy soundfile cryptography 'fonttools[woff]>=4.50,<5'
 
       - name: Run complete Python test suite
         run: python -m unittest discover -s autopilot/engine/tests -v
@@ -49,16 +49,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          files=(
-            "autopilot/engine/run.py"
-            "autopilot/engine/run_daily_plan.py"
-            "autopilot/engine/publish_handoff.py"
-            "autopilot/engine/procedural_visuals.py"
-            "autopilot/README.md"
-            "autopilot/index.html"
-            ".github/workflows/violin-prince-autopilot.yml"
-          )
-          if grep -niE 'CF_ACCOUNT_ID|CF_AI_TOKEN|AUTOPILOT_API_URL|AUTOPILOT_JOB_TOKEN|workers\.dev|wrangler|R2 bucket|D1 database|GITHUB_DISPATCH_TOKEN|DASHBOARD_TOKEN' "${files[@]}"; then
+          if git grep -niE 'Cloudflare|cloudflare|CF_ACCOUNT_ID|CF_AI_TOKEN|AUTOPILOT_API_URL|AUTOPILOT_JOB_TOKEN|workers\.dev|wrangler|R2 bucket|D1 database|GITHUB_DISPATCH_TOKEN|DASHBOARD_TOKEN' -- . ':(exclude).github/workflows/autopilot-checks.yml'; then
             echo "::error::A retired external-service configuration remains."
             exit 1
           fi
