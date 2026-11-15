@@ -4685,17 +4685,13 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
     clean_feedback = re.sub(r"\s+", " ", str(feedback or "")).strip()[:260]
 
     brand_direction = (
-        "Violin Prince identity: richly coloured photorealistic cinematic still imagery or indistinguishable CGI; "
-        "physically believable violin construction, amber-brown varnished wood, visible natural wood grain, "
-        "realistic strings, bow hair and metal, dimensional lighting and layered foreground/midground/background. "
-        "The violin body must be solid, opaque, fully formed amber-brown wood with visible curved front or back surfaces, "
-        "never an empty shell, hollow outline, wireframe, skeletal contour or transparent body. "
-        "Palette: deep midnight navy, muted teal, antique gold, warm ivory and natural amber. Full colour. "
-        "This is original art direction. No uncoloured stick figures, wireframes, bare outlines, monochrome line art "
-        "or sketch-only main subjects; small coloured hands/figures only to clarify action. "
-        "Subtle dust, star glints and restrained teal/amber glow. "
-        "No stock photography, identifiable faces, logos, readable text or lyrics; no watermark. "
-        "Respect sourced facts; no unsupported events or measurements. Portrait 9:16 composition."
+        "Violin Prince identity: photorealistic cinematic still imagery; physically believable violin construction, "
+        "complete solid opaque amber-brown varnished wood, visible natural wood grain, realistic bridge, strings, "
+        "ebony fittings and bow. Never hollow, transparent, shell-like, skeletal, wireframe or outline. "
+        "Full colour: deep midnight navy, muted teal, antique gold, warm ivory and natural amber; dimensional studio "
+        "lighting, layered depth, subtle dust and restrained glints. This is original art direction. "
+        "No stock photography, identifiable faces, logos, readable text, lyrics or watermark. "
+        "Respect verified facts. Portrait 9:16 composition."
     )
     role = shot_roles[max(0, min(2, int(index)))]
     fixed = f" Story subject: {subject}. {role} {mode_direction} {brand_direction}"
