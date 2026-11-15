@@ -24,8 +24,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: violin-prince-blender-proof-shot
-  cancel-in-progress: true
+  group: violin-prince-blender-proof-shot-segmented
+  cancel-in-progress: false
 
 jobs:
   resolve-story-model:
@@ -219,9 +219,44 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  prepare-blender-runtime:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.render_proof == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out the pinned render environment
+        uses: actions/checkout@v4
+
+      - name: Install Blender 5.2.4 and Frame By Plane 8.0.1 once
+        uses: ./.github/actions/setup-blender-frame-by-plane
+
+      - name: Package the checksum-verified Blender and enabled extension runtime
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p work
+          test -x "$RUNNER_TEMP/blender-5.2.4-linux-x64/blender"
+          test -d "$RUNNER_TEMP/violin-prince-blender-config"
+          test -d "$RUNNER_TEMP/violin-prince-blender-scripts"
+          tar -cf work/blender-frame-by-plane-runtime.tar \
+            -C "$RUNNER_TEMP" \
+            blender-5.2.4-linux-x64 \
+            violin-prince-blender-config \
+            violin-prince-blender-scripts
+          sha256sum work/blender-frame-by-plane-runtime.tar
+
+      - name: Share the verified Blender runtime with all five workers
+        uses: actions/upload-artifact@v4
+        with:
+          name: violin-prince-blender-runtime
+          path: work/blender-frame-by-plane-runtime.tar
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 7
+
   render-proof-frames:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.render_proof == true }}
-    needs: [resolve-story-model, produce-audio]
+    needs: [resolve-story-model, produce-audio, prepare-blender-runtime]
     runs-on: ubuntu-latest
     timeout-minutes: 50
     strategy:
@@ -256,8 +291,38 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install pinned Blender 5.2.4 LTS and Frame By Plane 8.0.1
-        uses: ./.github/actions/setup-blender-frame-by-plane
+      - name: Install headless rendering libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core libegl1 libegl-mesa0 libgl1 libgl1-mesa-dri libgbm1 libxkbcommon0 xz-utils
+
+      - name: Download the one-time verified Blender and Frame By Plane runtime
+        uses: actions/download-artifact@v4
+        with:
+          name: violin-prince-blender-runtime
+          path: work
+
+      - name: Activate the shared Blender and Frame By Plane runtime
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          tar -xf work/blender-frame-by-plane-runtime.tar -C "$RUNNER_TEMP"
+          BLENDER_DIR="$RUNNER_TEMP/blender-5.2.4-linux-x64"
+          CONFIG_DIR="$RUNNER_TEMP/violin-prince-blender-config"
+          SCRIPTS_DIR="$RUNNER_TEMP/violin-prince-blender-scripts"
+          test -x "$BLENDER_DIR/blender"
+          test -d "$CONFIG_DIR"
+          test -d "$SCRIPTS_DIR"
+          {
+            echo "$BLENDER_DIR"
+            echo "BLENDER_USER_CONFIG=$CONFIG_DIR"
+            echo "BLENDER_USER_SCRIPTS=$SCRIPTS_DIR"
+          } >> "$GITHUB_PATH"
+          echo "BLENDER_USER_CONFIG=$CONFIG_DIR" >> "$GITHUB_ENV"
+          echo "BLENDER_USER_SCRIPTS=$SCRIPTS_DIR" >> "$GITHUB_ENV"
+          "$BLENDER_DIR/blender" --version
+          "$BLENDER_DIR/blender" --background --python-expr \
+            "import bpy, importlib, pathlib, tomllib; enabled=[a.module for a in bpy.context.preferences.addons if a.module.startswith('bl_ext.') and a.module.endswith('.frame_by_plane')]; assert len(enabled)==1, enabled; module=importlib.import_module(enabled[0]); manifest=pathlib.Path(module.__file__).resolve().parent/'blender_manifest.toml'; data=tomllib.loads(manifest.read_text()); assert data.get('version')=='8.0.1', data.get('version'); print('FRAME_BY_PLANE_SHARED_RUNTIME_OK='+data['version']+' MODULE='+enabled[0])"
 
       - name: Install the background plate generator
         run: python -m pip install "Pillow>=10,<13"
