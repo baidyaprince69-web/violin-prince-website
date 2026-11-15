@@ -48,7 +48,7 @@ jobs:
   benchmark:
     name: Controlled Blender benchmark
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: ${{ inputs.benchmark_suite == 'baseline_and_contention' && 90 || 240 }}
     env:
       # Hard safety boundary: this workflow has no publishing steps or credentials.
       PUBLISH_ENABLED: "false"
