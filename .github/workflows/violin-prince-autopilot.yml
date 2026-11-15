@@ -10,6 +10,7 @@ on:
       - prototype/motion-hyperframes-2026-11-15
     paths:
       - ".autopilot/prepare-request.json"
+      - ".autopilot/manual-motion-production-request.json"
   workflow_dispatch:
     inputs:
       stage:
@@ -60,10 +61,10 @@ jobs:
       YOUTUBE_STATE_ENCRYPTION_KEY: ${{ secrets.YOUTUBE_STATE_ENCRYPTION_KEY }}
       SEO_LEARNING_REPORT_PATH: work/seo-learning-data/seo-learning/latest.enc.json
       PUBLISH_ENABLED: "false"
-      # Scheduled/push daily-plan runs retain their existing Blender route.
-      # Manual staged full-track productions use Motion + HyperFrames by default.
-      BLENDER_RENDER_ENABLED: ${{ (github.event_name == 'push' || github.event_name == 'schedule') && 'true' || vars.BLENDER_RENDER_ENABLED || 'false' }}
-      MOTION_HYPERFRAMES_RENDER_ENABLED: ${{ github.event_name == 'workflow_dispatch' && vars.BLENDER_RENDER_ENABLED != 'true' && (vars.MOTION_HYPERFRAMES_RENDER_ENABLED || 'true') || 'false' }}
+      # The scheduled daily-plan route retains its existing Blender path.
+      # The dedicated manual request uses Motion + HyperFrames without Blender.
+      BLENDER_RENDER_ENABLED: ${{ (github.event_name == 'schedule' || (github.event_name == 'push' && !contains(toJSON(github.event.commits.*.added), '.autopilot/manual-motion-production-request.json') && !contains(toJSON(github.event.commits.*.modified), '.autopilot/manual-motion-production-request.json'))) && 'true' || (github.event_name == 'workflow_dispatch' && vars.BLENDER_RENDER_ENABLED == 'true' && 'true') || 'false' }}
+      MOTION_HYPERFRAMES_RENDER_ENABLED: ${{ (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (contains(toJSON(github.event.commits.*.added), '.autopilot/manual-motion-production-request.json') || contains(toJSON(github.event.commits.*.modified), '.autopilot/manual-motion-production-request.json')))) && vars.BLENDER_RENDER_ENABLED != 'true' && (vars.MOTION_HYPERFRAMES_RENDER_ENABLED || 'true') || 'false' }}
       MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS: ${{ vars.MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS || '180' }}
       BLENDER_RENDER_WORKERS: "3"
       BLENDER_THREADS_PER_WORKER: "1"
@@ -117,7 +118,7 @@ jobs:
 
       - name: Read ChatGPT daily production request
         id: daily_request
-        if: github.event_name == 'push' || github.event_name == 'schedule'
+        if: github.event_name == 'schedule' || (github.event_name == 'push' && !contains(toJSON(github.event.commits.*.added), '.autopilot/manual-motion-production-request.json') && !contains(toJSON(github.event.commits.*.modified), '.autopilot/manual-motion-production-request.json'))
         shell: bash
         run: |
           python - <<'PY'
@@ -141,8 +142,36 @@ jobs:
           print("Validated ChatGPT daily production request: " + plan_path)
           PY
 
+      - name: Validate manual full-track music-video request
+        id: manual_motion_request
+        if: github.event_name == 'push' && (contains(toJSON(github.event.commits.*.added), '.autopilot/manual-motion-production-request.json') || contains(toJSON(github.event.commits.*.modified), '.autopilot/manual-motion-production-request.json'))
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          request_path = Path(".autopilot/manual-motion-production-request.json")
+          if not request_path.is_file():
+              raise SystemExit("Manual full-track production request is missing.")
+          request = json.loads(request_path.read_text(encoding="utf-8"))
+          if request.get("mode") != "manual_full_track_music_video":
+              raise SystemExit("Manual request mode must be manual_full_track_music_video.")
+          duration = float(request.get("music_duration_seconds", 180))
+          if not 24 <= duration <= 600:
+              raise SystemExit("Music duration must be between 24 and 600 seconds.")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
+              env.write("MOTION_HYPERFRAMES_RENDER_ENABLED=true\\n")
+              env.write("BLENDER_RENDER_ENABLED=false\\n")
+              env.write(f"MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS={duration:g}\\n")
+          print(f"Validated manual Motion full-track request: {duration:g} seconds.")
+          print("Selected the existing CC0 sampled-violin generator and Motion + HyperFrames.")
+          print("Publishing remains disabled.")
+          PY
+
       - name: Require licensed Sketchfab access for the Cloudflare-independent daily route
-        if: github.event_name == 'push' || github.event_name == 'schedule'
+        if: github.event_name == 'schedule' || (github.event_name == 'push' && !contains(toJSON(github.event.commits.*.added), '.autopilot/manual-motion-production-request.json') && !contains(toJSON(github.event.commits.*.modified), '.autopilot/manual-motion-production-request.json'))
         shell: bash
         env:
           MODEL_TOKEN: ${{ secrets.SKETCHFAB_ACCESS_TOKEN }}
