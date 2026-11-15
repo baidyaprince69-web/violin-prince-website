@@ -1,0 +1,325 @@
+name: Violin Prince Blender proof shot
+
+on:
+  push:
+    branches:
+      - feature/blender-3d-overlays
+    paths:
+      - ".github/workflows/blender-proof-shot.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: violin-prince-blender-proof-shot
+  cancel-in-progress: false
+
+jobs:
+  resolve-story-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SKETCHFAB_ACCESS_TOKEN: ${{ secrets.SKETCHFAB_ACCESS_TOKEN }}
+    steps:
+      - name: Check out the feature branch
+        uses: actions/checkout@v4
+
+      - name: Require the official Sketchfab download credential
+        shell: bash
+        run: |
+          if [ -z "$SKETCHFAB_ACCESS_TOKEN" ]; then
+            echo "::error::SKETCHFAB_ACCESS_TOKEN is not configured. Add the official Sketchfab API access token as a repository Actions secret. No reference image or placeholder model will be used."
+            exit 1
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Search, rank, download and validate the story-specific model
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install "requests>=2.32,<3"
+          mkdir -p work/first-production/assets
+          python autopilot/engine/story_asset_resolver.py             --plan .autopilot/first-production-story.json             --output-dir work/first-production/assets/story-selected             | tee work/first-production/asset-resolution.json
+          python - <<'PY'
+          import hashlib
+          import json
+          import shutil
+          from pathlib import Path
+
+          root = Path("work/first-production")
+          asset = json.loads((root / "asset-resolution.json").read_text(encoding="utf-8"))
+          original = Path(asset["local_model_path"])
+          assert original.is_file(), "The authenticated download returned no real model file."
+          assert original.suffix.lower() in {".glb", ".gltf"}
+          assert asset.get("commercial_use_allowed") is True
+          parts = asset.get("model_parts") or {}
+          assert parts.get("bow"), "The candidate has no imported bow mesh."
+          assert parts.get("strings"), "The candidate has no imported string mesh."
+
+          selected_dir = root / "assets" / "selected-model"
+          shutil.copytree(original.parent, selected_dir, dirs_exist_ok=True)
+          selected = selected_dir / original.name
+          assert selected.is_file() and selected.stat().st_size >= 4096
+          if selected.suffix.lower() == ".glb":
+              assert selected.read_bytes()[:4] == b"glTF"
+
+          relative = "assets/selected-model/" + selected.name
+          asset["local_model_path"] = relative
+          asset["model_relative_path"] = relative
+          asset["sha256"] = hashlib.sha256(selected.read_bytes()).hexdigest()
+          asset["asset_selection_policy"] = (
+              "story-aware discovery; commercial-use licence gate; genuine bow and string "
+              "mesh nodes; official Sketchfab model download; no reference-image fallback"
+          )
+          asset["manifest_path"] = "assets/asset-provenance.json"
+          (root / "assets" / "model-path.txt").write_text(relative + "\n", encoding="utf-8")
+          (root / "assets" / "asset-provenance.json").write_text(
+              json.dumps(asset, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+          )
+          (root / "asset-resolution.json").write_text(
+              json.dumps(asset, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+          )
+          print(json.dumps({
+              "provider": asset.get("provider"),
+              "model": asset.get("model_name"),
+              "creator": asset.get("creator"),
+              "license": asset.get("license_label"),
+              "bow_mesh_nodes": len(parts["bow"]),
+              "string_mesh_nodes": len(parts["strings"]),
+              "model_file": relative,
+              "sha256": asset["sha256"],
+          }, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload the actual model and its licence manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: violin-prince-proof-model
+          path: |
+            work/first-production/assets/**
+            work/first-production/asset-resolution.json
+          if-no-files-found: error
+          retention-days: 7
+
+  produce-audio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out the feature branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install audio dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libsndfile1
+          python -m pip install --upgrade pip
+          python -m pip install "numpy>=1.26,<3" "soundfile>=0.12,<1" "requests>=2.32,<3"
+
+      - name: Install the free CPU Kokoro speech runtime
+        run: |
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install "kokoro>=0.9.4,<1"
+
+      - name: Create full-timeline voice, violin music, word timings and captions
+        run: |
+          mkdir -p work/first-production
+          python autopilot/engine/first_production_audio.py work/first-production
+          test -s work/first-production/narration.wav
+          test -s work/first-production/cc0-violin-music.wav
+          test -s work/first-production/final-audio-mix.wav
+          test -s work/first-production/captions.ass
+          test -s work/first-production/word-timing.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("work/first-production")
+          report = json.loads((root / "audio-report.json").read_text(encoding="utf-8"))
+          assert 21.5 <= report["narration"]["duration_seconds"] <= 22.4
+          assert report["music"]["duration_seconds"] >= 23.95
+          assert report["final_mix"]["duration_seconds"] >= 23.90
+          ass = (root / "captions.ass").read_text(encoding="utf-8")
+          assert "\\k" in ass, "ASS file does not contain karaoke word-highlighting tags."
+          print(json.dumps({
+              "narration_seconds": report["narration"]["duration_seconds"],
+              "narration_words": report["narration"]["word_count"],
+              "native_word_timings": report["narration"]["word_timing_count"],
+              "music_seconds": report["music"]["duration_seconds"],
+              "mix_seconds": report["final_mix"]["duration_seconds"],
+              "captions": "word-synchronised ASS karaoke",
+          }, indent=2))
+          PY
+
+      - name: Upload audio proof stems
+        uses: actions/upload-artifact@v4
+        with:
+          name: violin-prince-proof-audio
+          path: work/first-production/*
+          if-no-files-found: error
+          retention-days: 7
+
+  render-proof-shot:
+    needs: [resolve-story-model, produce-audio]
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      EGL_PLATFORM: surfaceless
+      LIBGL_ALWAYS_SOFTWARE: "1"
+      MESA_LOADER_DRIVER_OVERRIDE: llvmpipe
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Check out the feature branch
+        uses: actions/checkout@v4
+
+      - name: Download the story-selected model
+        uses: actions/download-artifact@v4
+        with:
+          name: violin-prince-proof-model
+          path: work/first-production
+
+      - name: Download the complete audio and caption package
+        uses: actions/download-artifact@v4
+        with:
+          name: violin-prince-proof-audio
+          path: work/first-production
+
+      - name: Install Blender, FFmpeg and headless render dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y             blender ffmpeg python3-numpy fonts-dejavu-core             libegl1 libegl-mesa0 libgl1 libgl1-mesa-dri libgbm1 libxkbcommon0
+          blender --version
+          blender --background --python-expr             "import sys, numpy; print('Blender Python:', sys.version); print('Blender NumPy:', numpy.__version__)"
+
+      - name: Render one 4.6-second native-resolution Blender proof
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m py_compile autopilot/engine/first_production_blender.py
+          mkdir -p work/proof-frames work/proof-reports
+          MODEL_RELATIVE="$(cat work/first-production/assets/model-path.txt)"
+          MODEL_PATH="work/first-production/$MODEL_RELATIVE"
+          test -s "$MODEL_PATH"
+          blender --background --factory-startup             --python autopilot/engine/first_production_blender.py             --               --model "$MODEL_PATH"               --report work/proof-reports/proof-shot.json               --width 1080 --height 1920 --fps 25 --duration 4.6               --render-samples 64               --sample-index 0 --sample-count 115 --total-samples 115               --frames-dir work/proof-frames               --project-path work/Violin-Prince-Proof.blend               --proof-shot
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("work/proof-reports/proof-shot.json").read_text(encoding="utf-8"))
+          assert report["proof_shot_only"] is True
+          assert report["duration_seconds"] == 4.6
+          assert report["sample_count"] == 115
+          assert report["total_samples"] == 115
+          assert report["resolution"] == [1080, 1920]
+          assert report["actual_imported_mesh_count"] >= 3
+          assert report["bow_rig_count"] == 1
+          assert report["source_bow_meshes_rigged"] >= 1
+          assert report["visible_bow_mesh_count"] == report["source_bow_meshes_rigged"]
+          assert report["source_string_meshes"] >= 1
+          assert report["motion_graphics"]["progress_bar"] is True
+          frames = sorted(Path("work/proof-frames").glob("frame_*.png"))
+          assert len(frames) == 115, f"Expected 115 proof frames, found {len(frames)}"
+          assert all(frame.stat().st_size > 1024 for frame in frames)
+          print(json.dumps({
+              "proof_seconds": report["duration_seconds"],
+              "proof_frames": report["sample_count"],
+              "resolution": report["resolution"],
+              "bow_rig_count": report["bow_rig_count"],
+              "bow_mesh_components": report["bow_rig_components"],
+              "real_string_meshes": report["source_string_meshes"],
+              "motion_graphics": report["motion_graphics"],
+              "full_600_frame_render": "NOT RUN",
+          }, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Encode the Blender proof and burn animated word captions
+        run: |
+          ffmpeg -y -hide_banner -loglevel error             -framerate 25 -start_number 0             -i work/proof-frames/frame_%04d.png             -frames:v 115 -vf "format=yuv420p"             -an -c:v libx264 -preset slow -crf 17             -r 25 -fps_mode cfr -movflags +faststart             work/first-production/blender-proof-picture.mp4
+          ffmpeg -y -hide_banner -loglevel error             -i work/first-production/blender-proof-picture.mp4             -i work/first-production/final-audio-mix.wav             -vf "subtitles=work/first-production/captions.ass"             -map 0:v:0 -map 1:a:0             -frames:v 115 -t 4.6             -c:v libx264 -preset slow -crf 17 -pix_fmt yuv420p             -r 25 -fps_mode cfr             -c:a aac -b:a 192k -ar 48000 -ac 2             -movflags +faststart             work/first-production/Violin-Prince-4.6s-Proof.mp4
+          test -s work/first-production/Violin-Prince-4.6s-Proof.mp4
+
+      - name: Verify proof duration, native frame count, sound and caption timing
+        run: |
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          root = Path("work/first-production")
+          video = root / "Violin-Prince-4.6s-Proof.mp4"
+          probe = json.loads(subprocess.check_output([
+              "ffprobe", "-v", "error", "-count_frames",
+              "-show_streams", "-show_format", "-of", "json", str(video)
+          ], text=True))
+          picture = next(item for item in probe["streams"] if item.get("codec_type") == "video")
+          sound = next(item for item in probe["streams"] if item.get("codec_type") == "audio")
+          duration = float(probe["format"]["duration"])
+          frames = int(picture.get("nb_read_frames", picture.get("nb_frames", 0)))
+          assert (picture["width"], picture["height"]) == (1080, 1920)
+          assert picture.get("r_frame_rate") == "25/1"
+          assert frames == 115
+          assert sound["codec_name"] == "aac" and sound["channels"] == 2
+          assert 4.5 <= duration <= 4.7
+          audio = json.loads((root / "audio-report.json").read_text(encoding="utf-8"))
+          asset = json.loads((root / "assets" / "asset-provenance.json").read_text(encoding="utf-8"))
+          report = {
+              "status": "proof_render_complete",
+              "duration_seconds": duration,
+              "resolution": [picture["width"], picture["height"]],
+              "fps": picture["r_frame_rate"],
+              "frames": frames,
+              "bow_rig_count": 1,
+              "model_name": asset.get("model_name"),
+              "model_creator": asset.get("creator"),
+              "model_license": asset.get("license_label"),
+              "narration_seconds": audio["narration"]["duration_seconds"],
+              "music_seconds": audio["music"]["duration_seconds"],
+              "music_and_voice_included_from_video_start": True,
+              "captions": "burned-in word-synchronised ASS karaoke",
+              "full_600_frame_render": "NOT RUN",
+              "publishing": "NOT PUBLISHED",
+          }
+          (root / "proof-report.json").write_text(
+              json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+          )
+          print(json.dumps(report, ensure_ascii=False, indent=2))
+          PY
+          ffmpeg -y -hide_banner -loglevel error             -ss 1.6 -i work/first-production/Violin-Prince-4.6s-Proof.mp4             -frames:v 1 work/first-production/proof-frame.jpg
+
+      - name: Upload the 4.6-second proof for visual review
+        uses: actions/upload-artifact@v4
+        with:
+          name: violin-prince-4.6s-blender-proof
+          path: |
+            work/first-production/Violin-Prince-4.6s-Proof.mp4
+            work/first-production/proof-frame.jpg
+            work/first-production/proof-report.json
+            work/first-production/Violin-Prince-Proof.blend
+            work/first-production/assets/**
+            work/first-production/audio-report.json
+            work/first-production/storyboard.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Confirm that only the short proof was rendered
+        if: success()
+        run: |
+          {
+            echo "## Blender proof shot complete — full production still locked"
+            echo
+            echo "- Proof: 4.6 seconds, 115 Blender frames at native 1080×1920 / 25 FPS"
+            echo "- Model: downloaded from the story-aware model resolver, with real bow and string meshes"
+            echo "- Rig: one animated bow control rig"
+            echo "- Layout: Violin Prince brand, story title, progress motion graphic and lower karaoke caption band"
+            echo "- Audio: narration and violin music begin with the picture; the proof contains the opening 4.6 seconds"
+            echo "- Full 600-frame render: NOT RUN"
+            echo "- Publishing: disabled"
+          } >> "$GITHUB_STEP_SUMMARY"
