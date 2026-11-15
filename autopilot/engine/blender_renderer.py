@@ -84,18 +84,92 @@ def _stable_seed(scene: dict[str, Any], scene_index: int) -> int:
     return int(digest[:8], 16)
 
 
-def _run(command: list[str], timeout: int, label: str) -> subprocess.CompletedProcess:
+def _diagnostic_text(value: Any) -> str:
+    """Decode subprocess output consistently; TimeoutExpired may expose bytes."""
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return str(value)
+
+
+def _write_process_diagnostics(
+    path: str | Path,
+    command: list[str],
+    *,
+    stdout: Any = "",
+    stderr: Any = "",
+    returncode: int | None = None,
+    error: str = "",
+) -> Path:
+    """Persist complete child-process output so CI summaries cannot hide tracebacks."""
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    sections = [
+        "Violin Prince Blender process diagnostics",
+        "returncode: " + (str(returncode) if returncode is not None else "unavailable"),
+        "command: " + json.dumps([str(item) for item in command], ensure_ascii=False),
+    ]
+    if error:
+        sections.extend(["", "PROCESS ERROR", error])
+    sections.extend(["", "===== STDOUT =====", _diagnostic_text(stdout),
+                     "", "===== STDERR =====", _diagnostic_text(stderr)])
+    destination.write_text("\n".join(sections) + "\n", encoding="utf-8")
+    return destination
+
+
+def _run(
+    command: list[str],
+    timeout: int,
+    label: str,
+    *,
+    diagnostics_path: str | Path | None = None,
+) -> subprocess.CompletedProcess:
     try:
         result = subprocess.run(
             command, capture_output=True, text=True, timeout=timeout, check=False
         )
     except subprocess.TimeoutExpired as exc:
-        raise BlenderRenderError(f"{label} exceeded its {timeout}-second timeout.") from exc
+        if diagnostics_path is not None:
+            saved = _write_process_diagnostics(
+                diagnostics_path, command, stdout=exc.stdout, stderr=exc.stderr,
+                error=f"{label} exceeded its {timeout}-second timeout.",
+            )
+            suffix = f" Full diagnostics: {saved}"
+        else:
+            suffix = ""
+        raise BlenderRenderError(
+            f"{label} exceeded its {timeout}-second timeout.{suffix}"
+        ) from exc
     except OSError as exc:
-        raise BlenderRenderError(f"{label} could not start: {str(exc)[:300]}") from exc
+        if diagnostics_path is not None:
+            saved = _write_process_diagnostics(
+                diagnostics_path, command, error=f"{label} could not start: {exc}",
+            )
+            suffix = f" Full diagnostics: {saved}"
+        else:
+            suffix = ""
+        raise BlenderRenderError(
+            f"{label} could not start: {str(exc)[:300]}.{suffix}"
+        ) from exc
     if result.returncode:
-        detail = (result.stderr or result.stdout or "No diagnostic returned.")[-1800:]
-        raise BlenderRenderError(f"{label} failed: {detail}")
+        if diagnostics_path is not None:
+            saved = _write_process_diagnostics(
+                diagnostics_path, command, stdout=result.stdout, stderr=result.stderr,
+                returncode=result.returncode,
+            )
+            suffix = f" Full diagnostics: {saved}"
+        else:
+            suffix = ""
+        stdout_tail = _diagnostic_text(result.stdout)[-1800:]
+        stderr_tail = _diagnostic_text(result.stderr)[-1800:]
+        detail = "\n".join(part for part in (
+            "STDERR:\n" + stderr_tail if stderr_tail else "",
+            "STDOUT:\n" + stdout_tail if stdout_tail else "",
+        ) if part) or "No diagnostic returned."
+        raise BlenderRenderError(
+            f"{label} failed with exit code {result.returncode}: {detail}.{suffix}"
+        )
     return result
 
 
@@ -234,17 +308,22 @@ def render_scene_video(
             "frame_by_plane_required": frame_by_plane_required,
         }
         config_path.write_text(json.dumps(config), encoding="utf-8")
+        blender_command = [
+            executable, "--background",
+            # Keep the dedicated BLENDER_USER_CONFIG preferences loaded so
+            # the installed official Frame By Plane extension remains enabled.
+            "--threads", str(threads_per_worker), "--python", str(script_path),
+            "--", "--config", str(config_path),
+            "--output", str(destination.resolve()),
+        ]
+        diagnostics_path = (
+            destination.parent / "blender-diagnostics" / f"{destination.stem}.log"
+        )
         blender_process = _run(
-            [
-                executable, "--background",
-                # Keep the dedicated BLENDER_USER_CONFIG preferences loaded so
-                # the installed official Frame By Plane extension remains enabled.
-                "--threads", str(threads_per_worker), "--python", str(script_path),
-                "--", "--config", str(config_path),
-                "--output", str(destination.resolve()),
-            ],
+            blender_command,
             timeout=safe_timeout,
             label=f"Blender full-scene render ({scene_type})",
+            diagnostics_path=diagnostics_path,
         )
 
     # Blender appends its selected media extension to the output basename.
@@ -257,15 +336,22 @@ def render_scene_video(
         if len(candidates) == 1:
             candidates[0].replace(destination)
     if not destination.is_file() or destination.stat().st_size < 4096:
-        diagnostic = (
-            (blender_process.stderr or "")[-1200:]
-            + "\\n"
-            + (blender_process.stdout or "")[-1200:]
-        )
-        nearby = [path.name for path in destination.parent.iterdir() if path.is_file()]
+        if not diagnostics_path.is_file():
+            _write_process_diagnostics(
+                diagnostics_path,
+                blender_command,
+                stdout=blender_process.stdout,
+                stderr=blender_process.stderr,
+                returncode=blender_process.returncode,
+                error="Blender exited successfully but did not create the requested MP4.",
+            )
+        nearby = [path.name for path in destination.parent.iterdir()]
         raise BlenderRenderError(
-            "Blender exited without producing the requested MP4 scene. "
-            "Output directory files=" + repr(nearby) + "; Blender diagnostics=" + diagnostic
+            "Blender exited with code "
+            + str(blender_process.returncode)
+            + " but did not produce the requested MP4 scene. "
+            + "Output directory entries=" + repr(nearby)
+            + "; full Blender diagnostics saved to " + str(diagnostics_path)
         )
     media = _probe_video(destination, (width, height), duration)
     frame_by_plane_report = None

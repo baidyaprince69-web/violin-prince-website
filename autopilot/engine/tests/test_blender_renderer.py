@@ -144,6 +144,58 @@ class BlenderRendererTests(unittest.TestCase):
                     )
                 find_blender.assert_not_called()
 
+    def test_failed_blender_process_preserves_complete_stdout_and_stderr(self):
+        import subprocess
+
+        with tempfile.TemporaryDirectory() as temp:
+            diagnostics = Path(temp) / "blender-diagnostics" / "scene-1.log"
+            completed = subprocess.CompletedProcess(
+                ["blender"], 1, stdout="stdout traceback tail", stderr="stderr exception detail"
+            )
+            with patch.object(blender_renderer.subprocess, "run", return_value=completed):
+                with self.assertRaisesRegex(
+                    blender_renderer.BlenderRenderError, "Full diagnostics"
+                ):
+                    blender_renderer._run(
+                        ["blender"], 60, "Blender scene render",
+                        diagnostics_path=diagnostics,
+                    )
+            saved = diagnostics.read_text(encoding="utf-8")
+            self.assertIn("stdout traceback tail", saved)
+            self.assertIn("stderr exception detail", saved)
+            self.assertIn("returncode: 1", saved)
+
+    def test_missing_mp4_preserves_child_process_output_when_blender_returns_zero(self):
+        import subprocess
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            output = root / "scene-1.mp4"
+            child_output = subprocess.CompletedProcess(
+                ["blender"], 0,
+                stdout="BLENDER_FULL_FRAME_3D_RENDERED=/tmp/scene-1.mp4",
+                stderr="renderer warning detail",
+            )
+
+            def fake_blender_run(command, timeout, label, diagnostics_path=None):
+                return child_output
+
+            with patch.object(
+                blender_renderer, "_find_blender", return_value="/usr/bin/blender"
+            ), patch.object(blender_renderer, "_run", side_effect=fake_blender_run):
+                with self.assertRaisesRegex(
+                    blender_renderer.BlenderRenderError, "full Blender diagnostics saved"
+                ):
+                    blender_renderer.render_scene_video(
+                        {"visual_mode": "macro_3d"}, output, enabled=True
+                    )
+
+            diagnostics = root / "blender-diagnostics" / "scene-1.log"
+            saved = diagnostics.read_text(encoding="utf-8")
+            self.assertIn("BLENDER_FULL_FRAME_3D_RENDERED=", saved)
+            self.assertIn("renderer warning detail", saved)
+            self.assertIn("returncode: 0", saved)
+
     def test_daily_frame_by_plane_manifest_is_passed_to_blender_and_reported(self):
         import json
         import subprocess
@@ -155,7 +207,7 @@ class BlenderRendererTests(unittest.TestCase):
             output = root / "scene.mp4"
             captured = {}
 
-            def fake_blender_run(command, timeout, label):
+            def fake_blender_run(command, timeout, label, diagnostics_path=None):
                 captured["command"] = command
                 config_path = Path(command[command.index("--config") + 1])
                 captured["config"] = json.loads(config_path.read_text(encoding="utf-8"))
