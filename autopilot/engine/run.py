@@ -25,7 +25,8 @@ try:
         normalize_visual_reference, scene_camera_move, scene_transition,
         scene_visual_prompt_suffix, transition_duration,
     )
-    from .blender_renderer import is_blender_render_enabled, render_scene_video
+    from .blender_renderer import is_blender_render_enabled, render_scene_video, blender_render_worker_count
+    from .parallel_render import parallel_map_ordered
 except ImportError:  # Direct script execution from the engine directory.
     from seo_intelligence import build_topic_queries, discover as seo_discover, load_profile as seo_load_profile
     from seo_intelligence.storage import load_learning_signals
@@ -38,7 +39,8 @@ except ImportError:  # Direct script execution from the engine directory.
         normalize_visual_reference, scene_camera_move, scene_transition,
         scene_visual_prompt_suffix, transition_duration,
     )
-    from blender_renderer import is_blender_render_enabled, render_scene_video
+    from blender_renderer import is_blender_render_enabled, render_scene_video, blender_render_worker_count
+    from parallel_render import parallel_map_ordered
 
 API = os.environ.get("AUTOPILOT_API_URL", "").rstrip("/")
 JOB_TOKEN = os.environ.get("AUTOPILOT_JOB_TOKEN", "")
@@ -4307,6 +4309,51 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
     scene_motion_events = []
     blender_enabled = is_blender_render_enabled()
     blender_scene_reports = []
+    blender_render_outputs = {}
+    if blender_enabled:
+        render_tasks = [
+            (index, scene, float(scene_seconds))
+            for index, (scene, scene_seconds) in enumerate(zip(plan["scenes"], scene_durations))
+        ]
+
+        def _render_blender_scene(task):
+            index, scene, scene_seconds = task
+            clip = OUT / f"scene-{index + 1}.mp4"
+            result = render_scene_video(
+                scene, clip, scene_index=index, duration_seconds=scene_seconds,
+                resolution=(W, H), fps=FPS,
+            )
+            if not result:
+                raise PipelineError(
+                    f"Blender skipped scene {index + 1}; refusing an incomplete 3D production."
+                )
+            poster = OUT / f"blender-scene-{index + 1}-poster.png"
+            command([
+                "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                "-ss", f"{scene_seconds / 2:.3f}", "-i", str(clip),
+                "-frames:v", "1", "-f", "image2", str(poster),
+            ])
+            if not poster.is_file() or poster.stat().st_size < 1024:
+                raise PipelineError(
+                    f"Blender scene {index + 1} did not produce a verifiable poster frame."
+                )
+            result["poster_path"] = str(poster)
+            return index, clip, result
+
+        render_workers = blender_render_worker_count(len(render_tasks))
+        log(
+            f"Starting {len(render_tasks)} independent Blender scene renders "
+            f"concurrently (workers={render_workers}, threads per worker="
+            f"{os.environ.get('BLENDER_THREADS_PER_WORKER', '1')})."
+        )
+        rendered_scenes = parallel_map_ordered(
+            render_tasks, _render_blender_scene, max_workers=render_workers
+        )
+        blender_render_outputs = {
+            index: (clip, result)
+            for index, clip, result in rendered_scenes
+        }
+
     for i, (scene, scene_seconds) in enumerate(zip(plan["scenes"], scene_durations)):
         scene_start = scene_starts[i]
         scene_word_events = []
@@ -4331,29 +4378,14 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
             "word_cue_count": len(scene_word_events),
         })
 
-        # Blender owns the complete opaque scene when enabled. It produces
-        # animated MP4 frames from a real 3D camera, not a transparent overlay.
+        # Each independent scene is already rendered by a separate Blender
+        # process. Join them only after all parallel workers have succeeded.
         if blender_enabled:
-            clip = OUT / f"scene-{i + 1}.mp4"
-            blender_result = render_scene_video(
-                scene, clip, scene_index=i, duration_seconds=scene_seconds,
-                resolution=(W, H), fps=FPS,
-            )
-            if not blender_result:
-                raise PipelineError(f"Blender skipped scene {i + 1}; refusing an incomplete 3D production.")
-            poster = OUT / f"blender-scene-{i + 1}-poster.png"
-            command([
-                "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
-                "-ss", f"{scene_seconds / 2:.3f}", "-i", str(clip),
-                "-frames:v", "1", "-f", "image2", str(poster),
-            ])
-            if not poster.is_file() or poster.stat().st_size < 1024:
-                raise PipelineError(f"Blender scene {i + 1} did not produce a verifiable poster frame.")
-            blender_result["poster_path"] = str(poster)
+            clip, blender_result = blender_render_outputs[i]
             blender_scene_reports.append({"scene": i + 1, **blender_result})
             clips.append(clip)
             log(
-                f"Blender rendered full-frame 3D scene {i + 1}/3: "
+                f"Blender parallel worker completed scene {i + 1}/3: "
                 f"{blender_result.get('scene_type')} "
                 f"({blender_result.get('duration_seconds')}s, "
                 f"{blender_result.get('width')}×{blender_result.get('height')})."
