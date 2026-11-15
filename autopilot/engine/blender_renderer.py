@@ -401,7 +401,11 @@ def render_scene_video(
     timings_path = diagnostics_dir / f"{destination.stem}.timings.json"
     preflight_report_path = diagnostics_dir / f"{destination.stem}-preflight-abort-report.json"
     if diagnostics_enabled:
-        capture_host_diagnostics(diagnostics_dir / "host-diagnostics.json")
+        host_diagnostics_path = Path(
+            os.environ.get("BLENDER_HOST_DIAGNOSTICS_PATH")
+            or diagnostics_dir / "host-diagnostics.json"
+        )
+        capture_host_diagnostics(host_diagnostics_path)
 
     script_path = Path(__file__).with_name("blender_scene.py")
     if not script_path.is_file():
