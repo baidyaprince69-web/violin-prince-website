@@ -162,9 +162,7 @@ jobs:
           if not 24 <= duration <= 600:
               raise SystemExit("Music duration must be between 24 and 600 seconds.")
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
-              env.write("MOTION_HYPERFRAMES_RENDER_ENABLED=true\\n")
-              env.write("BLENDER_RENDER_ENABLED=false\\n")
-              env.write(f"MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS={duration:g}\\n")
+              env.write(f"MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS={duration:g}\n")
           print(f"Validated manual Motion full-track request: {duration:g} seconds.")
           print("Selected the existing CC0 sampled-violin generator and Motion + HyperFrames.")
           print("Publishing remains disabled.")
