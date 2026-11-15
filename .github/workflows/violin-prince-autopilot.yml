@@ -157,18 +157,26 @@ jobs:
 
           request_path = Path(".autopilot/manual-motion-production-request.json")
           if not request_path.is_file():
-              raise SystemExit("Manual full-track production request is missing.")
+              raise SystemExit("Manual narrated-explainer request is missing.")
           request = json.loads(request_path.read_text(encoding="utf-8"))
           if request.get("mode") != "manual_narrated_explainer":
               raise SystemExit("Manual request mode must be manual_narrated_explainer.")
+          plan_path = str(request.get("plan_path") or ".autopilot/daily-production-plan.json")
+          if not plan_path.startswith(".autopilot/") or ".." in Path(plan_path).parts:
+              raise SystemExit("The explainer plan must remain inside the .autopilot directory.")
+          if not Path(plan_path).is_file():
+              raise SystemExit("The ChatGPT-authored research and explanation plan is missing.")
           duration = float(request.get("music_duration_seconds", 24))
-          if not 24 <= duration <= 30:
-              raise SystemExit("The optional background bed must be between 24 and 30 seconds.")
+          if not 1 <= duration <= 120:
+              raise SystemExit("Optional violin background-bed source duration must be between 1 and 120 seconds.")
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
-              env.write(f"MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS={duration:g}\n")
-          print(f"Validated manual narrated-explainer request with a {duration:g}-second optional bed.")
-          print("The researched script and Kokoro af_heart narration remain mandatory; Motion animates the explanation.")
-          print("Publishing remains disabled.")
+              env.write(f"MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS={duration:g}\\n")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write("plan_path=" + plan_path + "\\n")
+          print("Validated ChatGPT-authored explainer plan: " + plan_path)
+          print("Selected evidence validation, Kokoro-82M af_heart narration and Motion + HyperFrames.")
+          print("CC0 violin is an optional quiet background bed, not the primary audio.")
+          print("Cloudflare and Blender are skipped; publishing remains disabled.")
           PY
 
       - name: Require licensed Sketchfab access for the Cloudflare-independent daily route
@@ -315,6 +323,17 @@ jobs:
         if: env.PIPELINE_STAGE == 'render'
         run: python autopilot/engine/run.py --stage render
 
+      - name: Run ChatGPT-prepared narrated explainer with Kokoro + Motion
+        if: env.PIPELINE_STAGE == 'full' && steps.manual_motion_request.outputs.plan_path != ''
+        env:
+          RUN_ID: ${{ github.run_id }}
+          AUTOPILOT_API_URL: ""
+          AUTOPILOT_JOB_TOKEN: ""
+          PUBLISH_ENABLED: "false"
+          MOTION_HYPERFRAMES_RENDER_ENABLED: "true"
+          BLENDER_RENDER_ENABLED: "false"
+        run: python autopilot/engine/run_daily_plan.py --plan "${{ steps.manual_motion_request.outputs.plan_path }}"
+
       - name: Run ChatGPT-prepared daily plan with Blender + Frame By Plane 2.5D scenes
         if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path != ''
         env:
@@ -325,7 +344,7 @@ jobs:
         run: python autopilot/engine/run_daily_plan.py --plan "${{ steps.daily_request.outputs.plan_path }}"
 
       - name: Run complete Prepare → Visuals → Render sequence
-        if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path == ''
+        if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path == '' && steps.manual_motion_request.outputs.plan_path == ''
         run: python autopilot/engine/run.py --stage full
 
       - name: Publish finished MP4 and publisher handoff as release assets
@@ -438,6 +457,7 @@ jobs:
             work/story-assets/asset-resolution-diagnostic.json
             !work/output/scene-3.mp4
             !work/output/violin-prince-short.mp4
+            !work/output/violin-prince-explainer.mp4
             work/research.json
             work/story_candidates.json
             work/story_research.json
