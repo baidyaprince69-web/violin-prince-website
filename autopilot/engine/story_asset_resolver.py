@@ -28,6 +28,7 @@ from asset_resolver import (
 
 USER_AGENT = "ViolinPrinceAutopilot/2.0 (story-specific licensed 3D asset resolver)"
 MIN_FACE_COUNT = 80_000
+PREFERRED_MIN_FACE_COUNT = 70_000
 MAX_CANDIDATES = 24
 DOWNLOAD_ATTEMPTS = 8
 STOP_WORDS = {
@@ -234,10 +235,10 @@ def _search_result_terms(model: dict[str, Any]) -> set[str]:
     return set(_tokens(" ".join(parts)))
 
 
-def score_candidate(model: dict[str, Any], query: str) -> float:
+def score_candidate(model: dict[str, Any], query: str, *, min_face_count: int = MIN_FACE_COUNT) -> float:
     """Prioritise topic match, substantial geometry, PBR and community vetting."""
     face_count = _face_count(model)
-    if face_count < MIN_FACE_COUNT or not _license_allowed(model) or not _is_downloadable(model):
+    if face_count < int(min_face_count) or not _license_allowed(model) or not _is_downloadable(model):
         return float("-inf")
     query_terms = set(_tokens(query))
     overlap = len(query_terms.intersection(_search_result_terms(model)))
@@ -307,12 +308,12 @@ def search_story_models(
     return enriched
 
 
-def rank_story_models(models: list[dict[str, Any]], query: str) -> list[dict[str, Any]]:
+def rank_story_models(models: list[dict[str, Any]], query: str, *, min_face_count: int = MIN_FACE_COUNT) -> list[dict[str, Any]]:
     ranked = []
     seen = set()
     for model in models:
         uid = _model_uid(model)
-        score = score_candidate(model, query)
+        score = score_candidate(model, query, min_face_count=min_face_count)
         if not uid or uid in seen or score == float("-inf"):
             continue
         seen.add(uid)
@@ -331,13 +332,17 @@ def rank_story_models(models: list[dict[str, Any]], query: str) -> list[dict[str
     ]
 
 
-def _preferred_model_entries(plan: dict[str, Any]) -> list[tuple[str, str]]:
+def _preferred_model_entries(
+    plan: dict[str, Any],
+    *,
+    field_name: str = "preferred_model_urls",
+) -> list[tuple[str, str]]:
     """Validate and preserve plan-ordered Sketchfab URLs selected for this story."""
-    raw = plan.get("preferred_model_urls") or []
+    raw = plan.get(field_name) or []
     if isinstance(raw, str):
         raw = [raw]
     if not isinstance(raw, list):
-        raise StoryAssetError("preferred_model_urls must be a list of Sketchfab model URLs.")
+        raise StoryAssetError(f"{field_name} must be a list of Sketchfab model URLs.")
     entries: list[tuple[str, str]] = []
     seen: set[str] = set()
     for value in raw:
@@ -347,7 +352,7 @@ def _preferred_model_entries(plan: dict[str, Any]) -> list[tuple[str, str]]:
         try:
             uid = model_uid_from_url(source_url)
         except AssetResolutionError as exc:
-            raise StoryAssetError("Invalid preferred Sketchfab model URL: " + source_url) from exc
+            raise StoryAssetError(f"Invalid preferred Sketchfab model URL in {field_name}: " + source_url) from exc
         if uid not in seen:
             seen.add(uid)
             entries.append((source_url, uid))
@@ -358,12 +363,13 @@ def load_preferred_story_models(
     plan: dict[str, Any],
     *,
     session: requests.Session | None = None,
+    field_name: str = "preferred_model_urls",
 ) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
     """Fetch public metadata for explicitly selected models before broad discovery."""
     client = session or requests.Session()
     loaded: list[dict[str, Any]] = []
     failures: list[dict[str, str]] = []
-    for source_url, uid in _preferred_model_entries(plan):
+    for source_url, uid in _preferred_model_entries(plan, field_name=field_name):
         try:
             metadata = fetch_model_metadata(uid, client)
             if not isinstance(metadata, dict):
@@ -408,7 +414,12 @@ def resolve_story_asset(
     client = session or requests.Session()
     preferred_entries = _preferred_model_entries(plan)
     preferred_models, preferred_errors = load_preferred_story_models(plan, session=client)
-
+    preferred_bow_entries = _preferred_model_entries(
+        plan, field_name="preferred_bow_model_urls"
+    )
+    preferred_bow_models, preferred_bow_errors = load_preferred_story_models(
+        plan, session=client, field_name="preferred_bow_model_urls"
+    )
     search_error = ""
     try:
         discovered_models = search_story_models(query, session=client)
@@ -421,7 +432,7 @@ def resolve_story_asset(
         discovered_models = []
 
     preferred_model_diagnostics = []
-    minimum_faces = max(MIN_FACE_COUNT, int(min_face_count))
+    minimum_faces = max(PREFERRED_MIN_FACE_COUNT, min(int(min_face_count), PREFERRED_MIN_FACE_COUNT))
     for item in preferred_models:
         uid = _model_uid(item)
         face_count = _face_count(item)
@@ -451,7 +462,11 @@ def resolve_story_asset(
         })
     preferred_ranked = {
         _model_uid(item): item
-        for item in rank_story_models(preferred_models, query)
+        for item in rank_story_models(
+            preferred_models,
+            query,
+            min_face_count=max(PREFERRED_MIN_FACE_COUNT, min(int(min_face_count), PREFERRED_MIN_FACE_COUNT)),
+        )
     }
     preferred_uids = {uid for _url, uid in preferred_entries}
     ranked = [
@@ -463,16 +478,16 @@ def resolve_story_asset(
         item for item in rank_story_models(discovered_models, query)
         if _model_uid(item) not in preferred_uids
     )
-    ranked = [
-        item for item in ranked
-        if _face_count(item) >= max(MIN_FACE_COUNT, int(min_face_count))
-    ]
+    # Explicitly preferred models use the lower, still substantial geometry floor.
+    # Broad automatic discovery retains the stricter 80k-face quality gate.
     if not ranked:
         diagnostic = {
             "query": query,
             "preferred_model_urls": [url for url, _uid in preferred_entries],
             "preferred_model_errors": preferred_errors,
             "preferred_model_diagnostics": preferred_model_diagnostics,
+            "preferred_bow_model_errors": preferred_bow_errors,
+            "preferred_bow_model_urls": [url for url, _uid in preferred_bow_entries],
             "search_error": search_error,
             "ranked_candidates": 0,
             "reference_fallback": False,
@@ -510,18 +525,92 @@ def resolve_story_asset(
             if model_path.suffix.casefold() == ".glb" and model_path.read_bytes()[:4] != b"glTF":
                 raise StoryAssetError("The GLB file header failed validation.")
             model_parts = inspect_named_model_parts(model_path)
-            if require_violin_parts and (not model_parts["bow"] or not model_parts["strings"]):
+            embedded_strings = bool(plan.get("strings_in_combined_mesh"))
+            separate_bow_available = bool(preferred_bow_entries)
+            if require_violin_parts and not model_parts["bow"] and not separate_bow_available:
                 raise StoryAssetError(
-                    "The imported violin candidate failed the separate-part gate: "
-                    + f"bow_nodes={len(model_parts['bow'])}, "
-                    + f"string_nodes={len(model_parts['strings'])}, "
-                    + "mesh_nodes=" + json.dumps(model_parts.get("mesh_nodes", [])[:80], ensure_ascii=False)
-                    + ". No synthetic bow or unverified strings will be added."
+                    "The violin has no named bow mesh and no separately licensed bow asset is configured."
                 )
+            if require_violin_parts and not model_parts["strings"] and not embedded_strings:
+                raise StoryAssetError(
+                    "The violin has no named string mesh and the plan does not verify that strings "
+                    "are integrated into the selected instrument geometry."
+                )
+            bow_record = None
+            if not model_parts["bow"] and preferred_bow_entries:
+                bow_failures = []
+                for bow_candidate in preferred_bow_models:
+                    bow_uid = _model_uid(bow_candidate)
+                    bow_source_url = str(
+                        bow_candidate.get("_violin_prince_source_url")
+                        or bow_candidate.get("viewerUrl")
+                        or bow_candidate.get("url")
+                        or f"https://sketchfab.com/models/{bow_uid}"
+                    )
+                    bow_candidate_dir = folder / "separate-bow" / bow_uid
+                    try:
+                        if not _license_allowed(bow_candidate):
+                            raise StoryAssetError("The selected bow licence is not CC0/CC-BY.")
+                        if not _is_downloadable(bow_candidate):
+                            raise StoryAssetError("The selected bow is not marked downloadable.")
+                        if "bow" not in _search_result_terms(bow_candidate):
+                            raise StoryAssetError("The selected secondary asset is not identified as a bow.")
+                        bow_record = resolve_sketchfab_asset(
+                            bow_source_url,
+                            bow_candidate_dir,
+                            access_token=token,
+                            session=client,
+                            require_download=True,
+                        )
+                        bow_path = Path(str(bow_record.get("local_model_path") or ""))
+                        if not bow_path.is_file() or bow_path.suffix.casefold() not in {".glb", ".gltf"}:
+                            raise StoryAssetError("The official bow download did not produce GLB/glTF geometry.")
+                        if bow_path.stat().st_size < 4096:
+                            raise StoryAssetError("The downloaded bow geometry is unexpectedly small.")
+                        bow_parts = inspect_named_model_parts(bow_path)
+                        if not bow_parts.get("mesh_nodes"):
+                            raise StoryAssetError("The downloaded bow contains no mesh nodes.")
+                        bow_record.update({
+                            "model_parts": bow_parts,
+                            "source_url": bow_source_url,
+                            "creator": _creator_name(bow_candidate),
+                            "face_count": _face_count(bow_candidate),
+                            "vertex_count": bow_candidate.get("vertexCount"),
+                            "license_code": _license_details(bow_candidate)[0],
+                            "license_label": _license_details(bow_candidate)[1],
+                            "role": "separate imported violin bow geometry controlled by the single bow rig",
+                        })
+                        bow_record["manifest_path"] = str(
+                            Path(str(bow_record["manifest_path"]))
+                        )
+                        break
+                    except Exception as bow_exc:
+                        bow_failures.append({
+                            "model_uid": bow_uid,
+                            "model_name": str(bow_candidate.get("name") or "")[:120],
+                            "error": str(bow_exc)[:1000],
+                        })
+                if bow_record is None:
+                    raise StoryAssetError(
+                        "No preferred licensed bow could be downloaded through Sketchfab's official API: "
+                        + json.dumps(bow_failures, ensure_ascii=False)[:3000]
+                    )
+            elif model_parts["bow"]:
+                record["bow_source"] = "integrated named bow meshes from the selected violin GLB"
+            elif require_violin_parts:
+                raise StoryAssetError("A separate genuine bow mesh is required for this violin story.")
+
             manifest_path = Path(str(record["manifest_path"]))
             record.update({
                 "model_parts": model_parts,
                 "source_url": source_url,
+                "strings_in_combined_mesh": bool(plan.get("strings_in_combined_mesh")),
+                "string_representation": (
+                    "included in the downloaded violin geometry"
+                    if not model_parts["strings"] and plan.get("strings_in_combined_mesh")
+                    else "separate named mesh nodes"
+                ),
+                "bow_model": bow_record,
                 "bow_rig_required": bool(require_violin_parts),
                 "selection_query": query,
                 "selection_score": candidate["violin_prince_asset_score"],
@@ -573,6 +662,8 @@ def resolve_story_asset(
         + json.dumps({
             "preferred_model_errors": preferred_errors,
             "preferred_model_diagnostics": preferred_model_diagnostics,
+            "preferred_bow_model_errors": preferred_bow_errors,
+            "preferred_bow_model_urls": [url for url, _uid in preferred_bow_entries],
             "search_error": search_error,
             "candidate_failures": failures,
         }, ensure_ascii=False)[:7500]
@@ -604,6 +695,8 @@ def main() -> int:
                 output.write("model_path=" + str(result["local_model_path"]) + "\n")
                 output.write("manifest_path=" + str(result["manifest_path"]) + "\n")
                 output.write("model_uid=" + str(result["model_uid"]) + "\n")
+                if result.get("bow_model", {}).get("local_model_path"):
+                    output.write("bow_model_path=" + str(result["bow_model"]["local_model_path"]) + "\n")
         return 0
     except Exception as exc:
         print("Story-specific asset resolution failed: " + str(exc)[:1800], file=sys.stderr)
