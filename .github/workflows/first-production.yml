@@ -44,6 +44,35 @@ jobs:
         run: |
           python -m py_compile             autopilot/engine/first_production_asset.py             autopilot/engine/first_production_blender.py             autopilot/engine/first_production_audio.py             autopilot/engine/voiceover.py             autopilot/engine/violin_sampler.py
 
+      - name: Install NumPy into Blender's embedded Python for GLB import
+        run: |
+          cat > "$RUNNER_TEMP/install-blender-numpy.py" <<'PY'
+          import bpy
+          import os
+          import subprocess
+          from pathlib import Path
+
+          python_exe = str(getattr(bpy.app, "binary_path_python", "") or "")
+          if not python_exe or not Path(python_exe).is_file():
+              raise SystemExit("Blender did not expose its embedded Python executable.")
+          print("Blender embedded Python:", python_exe)
+          subprocess.run([python_exe, "-m", "ensurepip", "--upgrade"], check=False)
+          target = str(Path(os.environ["RUNNER_TEMP"]) / "blender-python-site")
+          subprocess.check_call([
+              python_exe, "-m", "pip", "install", "--no-cache-dir",
+              "--target", target, "numpy>=1.26,<3"
+          ])
+          test_env = os.environ.copy()
+          test_env["PYTHONPATH"] = target + os.pathsep + test_env.get("PYTHONPATH", "")
+          subprocess.check_call([
+              "blender", "--background", "--python-expr",
+              "import numpy; print('Blender NumPy:', numpy.__version__)"
+          ], env=test_env)
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
+              env.write("BLENDER_EXTRA_PYTHONPATH=" + target + "\n")
+          PY
+          blender --background --python "$RUNNER_TEMP/install-blender-numpy.py"
+
       - name: Download and verify a real CC0 violin mesh
         id: asset
         run: |
@@ -70,7 +99,7 @@ jobs:
           MODEL_PATH: ${{ steps.asset.outputs.model_path }}
         run: |
           mkdir -p work/first-production
-          blender --background --factory-startup \
+          PYTHONPATH="$BLENDER_EXTRA_PYTHONPATH" blender --background --factory-startup \
             --python autopilot/engine/first_production_blender.py \
             -- \
               --model "$MODEL_PATH" \
