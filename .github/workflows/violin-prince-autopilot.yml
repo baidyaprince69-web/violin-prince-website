@@ -56,6 +56,9 @@ jobs:
       SEO_LEARNING_REPORT_PATH: work/seo-learning-data/seo-learning/latest.enc.json
       PUBLISH_ENABLED: "false"
       BLENDER_RENDER_ENABLED: ${{ vars.BLENDER_RENDER_ENABLED || 'false' }}
+      EGL_PLATFORM: surfaceless
+      LIBGL_ALWAYS_SOFTWARE: "1"
+      MESA_LOADER_DRIVER_OVERRIDE: llvmpipe
     steps:
       - name: Validate stage inputs
         if: github.event_name != 'push'
@@ -208,7 +211,7 @@ jobs:
       - name: Install Blender only when true-3D rendering is enabled
         if: env.BLENDER_RENDER_ENABLED == 'true' && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')
         run: |
-          sudo apt-get install -y blender
+          sudo apt-get install -y blender libegl1 libegl-mesa0 libgl1 libgl1-mesa-dri libgbm1 libxkbcommon0
           blender --version
 
       - name: Prepare research, story, narration and soundtrack
