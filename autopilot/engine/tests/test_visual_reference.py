@@ -124,6 +124,44 @@ class VisualReferenceTests(unittest.TestCase):
         self.assertTrue(issues)
         self.assertIn("exactly three", issues[0])
 
+    def test_daily_scene_prompts_stay_within_provider_budget_and_keep_violin_identity(self):
+        scenes = [
+            {
+                "visual_mode": mode,
+                "image_prompt": (
+                    "Create a premium photorealistic cinematic scene with detailed amber violin "
+                    "materials, rich lighting, realistic acoustic waveforms and layered depth. "
+                ) * 12,
+            }
+            for mode in ("macro_3d", "waveform", "cover_performance")
+        ]
+        profile = normalize_visual_reference(
+            {
+                "visual_language": "hybrid",
+                "motion_profile": "animated_stills",
+                "scene_guidance": [{}, {}, {}],
+            },
+            scenes,
+        )
+        plan = {
+            "topic": "A research prototype expands dynamic range in digital audio",
+            "cover_payoff": "A short original violin phrase illustrates the audio result.",
+            "visual_reference": profile,
+        }
+
+        for index, scene in enumerate(scenes):
+            prompt = pipeline._scene_visual_prompt(
+                scene,
+                feedback="keep the lighting cinematic and the composition uncluttered " * 20,
+                index=index,
+                plan=plan,
+            )
+            self.assertLessEqual(len(prompt), 1800)
+            self.assertIn("solid, opaque amber-brown violin", prompt)
+            self.assertIn("Portrait 9:16 composition", prompt)
+            self.assertIn("Story subject:", prompt)
+            self.assertGreater(len(prompt), 900)
+
     def test_reference_camera_moves_are_deterministic_pans_not_zoompan(self):
         locked = pipeline.camera_motion_filter(200, 0)
         left = pipeline.camera_motion_filter(200, 0, "pan_left", 8.0)
