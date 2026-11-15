@@ -96,6 +96,36 @@ class StoryAssetResolverTests(unittest.TestCase):
         self.assertIn("bow", query)
         self.assertIn("strings", query)
 
+    def test_gltf_package_size_includes_external_geometry_and_textures(self):
+        import json
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            descriptor = root / "scene.gltf"
+            descriptor.write_text(json.dumps({
+                "buffers": [{"uri": "scene.bin", "byteLength": 8192}],
+                "images": [{"uri": "textures/albedo.png"}],
+            }), encoding="utf-8")
+            (root / "scene.bin").write_bytes(b"g" * 8192)
+            (root / "textures").mkdir()
+            (root / "textures" / "albedo.png").write_bytes(b"t" * 2048)
+            self.assertGreaterEqual(resolver._model_package_size(descriptor), 8192 + 2048)
+
+    def test_gltf_package_rejects_missing_or_escaping_external_assets(self):
+        import json
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            descriptor = root / "scene.gltf"
+            descriptor.write_text(json.dumps({
+                "buffers": [{"uri": "../outside.bin", "byteLength": 4096}],
+            }), encoding="utf-8")
+            with self.assertRaisesRegex(resolver.StoryAssetError, "outside"):
+                resolver._model_package_size(descriptor)
+            descriptor.write_text(json.dumps({
+                "buffers": [{"uri": "missing.bin", "byteLength": 4096}],
+            }), encoding="utf-8")
+            with self.assertRaisesRegex(resolver.StoryAssetError, "missing"):
+                resolver._model_package_size(descriptor)
+
     def test_imported_gltf_must_expose_named_bow_and_string_meshes(self):
         import json
         with tempfile.TemporaryDirectory() as temp:
