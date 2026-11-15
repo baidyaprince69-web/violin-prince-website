@@ -13,14 +13,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: violin-prince-motion-prototype-${{ github.ref }}
+  group: violin-prince-motion-prototype-\${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   render:
-    name: Render 10-second Motion + HyperFrames sample
+    name: Render variable-duration Motion + HyperFrames sample
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     env:
       PUBLISH_ENABLED: "false"
       YOUTUBE_PUBLISH_ENABLED: "false"
@@ -54,6 +54,19 @@ jobs:
       - name: Install prototype dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Create longer-than-10-second audio fixture
+        run: |
+          mkdir -p output
+          ffmpeg -hide_banner -loglevel error \
+            -f lavfi -i "sine=frequency=440:sample_rate=48000:duration=37.5" \
+            -af "volume=0.12,afade=t=in:st=0:d=0.25,afade=t=out:st=35.5:d=2" \
+            -c:a pcm_s16le output/duration-test.wav
+          ffprobe -v error -select_streams a:0 -show_entries format=duration \
+            -of default=noprint_wrappers=1:nokey=1 output/duration-test.wav
+
+      - name: Build composition from the full audio duration
+        run: npm run prepare:composition -- --audio output/duration-test.wav
+
       - name: Load Motion as a local external ES module
         run: npm run prepare:motion
 
@@ -62,33 +75,34 @@ jobs:
           npm run lint
           npm run check
 
-      - name: Verify deterministic random-access frame seeking
+      - name: Verify deterministic random-access seeking across the full track
         run: npm run verify:seeking
 
-      - name: Render the 10-second vertical MP4
+      - name: Render the complete audio track
         run: npm run render
 
-      - name: Verify render dimensions, duration and codec
+      - name: Verify full-track MP4, audio, dimensions and codec
         run: npm run verify
 
       - name: Create contact sheet
         if: always()
         run: |
-          if [[ -f output/violin-prince-motion-10s.mp4 ]]; then
+          if [[ -f output/violin-prince-motion-full-track.mp4 ]]; then
             ffmpeg -hide_banner -loglevel error \
-              -i output/violin-prince-motion-10s.mp4 \
-              -vf "fps=1/2,scale=270:480,tile=2x3" \
+              -i output/violin-prince-motion-full-track.mp4 \
+              -vf "fps=1/6,scale=270:480,tile=3x2" \
               -frames:v 1 output/contact-sheet.jpg
           fi
 
-      - name: Upload MP4, contact sheet and seek-test frames
+      - name: Upload full-track MP4, contact sheet and test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: violin-prince-motion-prototype-${{ github.run_number }}
+          name: violin-prince-motion-full-track-\${{ github.run_number }}
           path: |
-            prototypes/hyperframes-motion/output/violin-prince-motion-10s.mp4
+            prototypes/hyperframes-motion/output/violin-prince-motion-full-track.mp4
             prototypes/hyperframes-motion/output/contact-sheet.jpg
+            prototypes/hyperframes-motion/output/audio-manifest.json
             prototypes/hyperframes-motion/output/seeking-check/
           if-no-files-found: warn
           retention-days: 7
@@ -98,22 +112,31 @@ jobs:
         shell: bash
         run: |
           {
-            echo "## Violin Prince Motion Prototype"
+            echo "## Violin Prince Full-track Motion Prototype"
             echo
             echo "- Branch: $GITHUB_REF_NAME"
             echo "- Publishing: disabled"
-            echo "- Blender: not installed or invoked by this 2D/2.5D prototype"
+            echo "- Blender: not installed or invoked"
+            if [[ -f output/audio-manifest.json ]]; then
+              python - <<'PY'
+          import json
+          with open("output/audio-manifest.json", encoding="utf-8") as f:
+              m = json.load(f)
+          print("- Source audio duration: " + str(m["source_duration_seconds"]) + " seconds")
+          print("- Composition duration: " + str(m["composition_duration_seconds"]) + " seconds")
+          PY
+            fi
             if [[ -f output/seeking-check/seeking-report.json ]]; then
               echo "- Random-access seeking: verified"
             else
               echo "- Random-access seeking: not verified"
             fi
-            if [[ -f output/violin-prince-motion-10s.mp4 ]]; then
+            if [[ -f output/violin-prince-motion-full-track.mp4 ]]; then
               echo "- MP4: generated"
               ffprobe -v error -show_entries format=duration \
                 -of default=noprint_wrappers=1:nokey=1 \
-                output/violin-prince-motion-10s.mp4 | \
-                awk '{ print "- Duration: " $1 " seconds" }'
+                output/violin-prince-motion-full-track.mp4 | \
+                awk '{ print "- MP4 duration: " $1 " seconds" }'
             else
               echo "- MP4: not generated; inspect the render steps above"
             fi

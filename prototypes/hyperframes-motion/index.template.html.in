@@ -19,27 +19,27 @@
   <script type="module" src="./src/main.js"></script>
 </head>
 <body>
-  <main id="root" data-composition-id="vp-motion-10s" data-start="0"
-    data-duration="10" data-width="1080" data-height="1920" data-fps="30">
-    <div id="haze-a" class="haze haze-a clip" data-start="0" data-duration="10" data-track-index="0"></div>
-    <div id="haze-b" class="haze haze-b clip" data-start="0" data-duration="10" data-track-index="0"></div>
-    <div id="star-field" class="star-field clip" data-start="0" data-duration="10" data-track-index="0"></div>
-    <div id="grain" class="grain clip" data-start="0" data-duration="10" data-track-index="0"></div>
+  <main id="root" data-composition-id="vp-motion-dynamic" data-start="0"
+    data-duration="__DURATION_SECONDS__" data-width="1080" data-height="1920" data-fps="30">
+    <div id="haze-a" class="haze haze-a clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="0"></div>
+    <div id="haze-b" class="haze haze-b clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="0"></div>
+    <div id="star-field" class="star-field clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="0"></div>
+    <div id="grain" class="grain clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="0"></div>
 
-    <header id="top-mark" class="top-mark clip" data-start="0" data-duration="10" data-track-index="2">
+    <header id="top-mark" class="top-mark clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="2">
       <span class="mark-dot"></span>
       <span>VIOLIN PRINCE</span>
       <span class="top-index">MUSIC / MOTION / FEELING</span>
     </header>
-    <div id="top-rule" class="top-rule clip" data-start="0" data-duration="10" data-track-index="2"></div>
+    <div id="top-rule" class="top-rule clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="2"></div>
 
-    <section id="headline-one" class="headline headline-one clip" data-start="0" data-duration="10" data-track-index="3">
+    <section id="headline-one" class="headline headline-one clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="3">
       <p class="eyebrow"><span class="eyebrow-line"></span> A DIFFERENT KIND OF LANGUAGE</p>
       <h1>LET THE<br /><em>STRINGS</em><br />SPEAK.</h1>
       <p class="headline-note">Some feelings are better heard than explained.</p>
     </section>
 
-    <section id="wave-section" class="wave-section clip" data-start="0" data-duration="10" data-track-index="4">
+    <section id="wave-section" class="wave-section clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="4">
       <div class="wave-caption">
         <span>THE LANGUAGE OF STRINGS</span>
         <span class="wave-caption-right">01 / 03</span>
@@ -52,13 +52,13 @@
       </div>
     </section>
 
-    <section id="headline-two" class="headline headline-two clip" data-start="0" data-duration="10" data-track-index="5">
+    <section id="headline-two" class="headline headline-two clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="5">
       <p class="eyebrow"><span class="eyebrow-line"></span> ONE INSTRUMENT</p>
       <h2>INFINITE<br /><em>FEELING.</em></h2>
       <p class="headline-note">Every note carries a story of its own.</p>
     </section>
 
-    <div id="orbit" class="orbit clip" data-start="0" data-duration="10" data-track-index="1" aria-hidden="true">
+    <div id="orbit" class="orbit clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="1" aria-hidden="true">
       <svg viewBox="0 0 600 600" role="presentation">
         <circle class="orbit-ring orbit-ring-one" cx="300" cy="300" r="245"></circle>
         <circle class="orbit-ring orbit-ring-two" cx="300" cy="300" r="190"></circle>
@@ -66,26 +66,27 @@
         <path class="orbit-arc" d="M300 55 A245 245 0 0 1 529 213"></path>
       </svg>
     </div>
-    <div id="particle-layer" class="particle-layer clip" data-start="0" data-duration="10" data-track-index="1" aria-hidden="true"></div>
+    <div id="particle-layer" class="particle-layer clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="1" aria-hidden="true"></div>
 
-    <section id="headline-three" class="headline headline-three clip" data-start="0" data-duration="10" data-track-index="6">
+    <section id="headline-three" class="headline headline-three clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="6">
       <p class="eyebrow"><span class="eyebrow-line"></span> CLOSE YOUR EYES</p>
       <h2>FEEL<br />EVERY<br /><em>NOTE.</em></h2>
       <p class="headline-note">VIOLIN PRINCE — WHERE SOUND BECOMES SENTIMENT.</p>
     </section>
 
-    <footer id="end-card" class="end-card clip" data-start="0" data-duration="10" data-track-index="7">
+    <footer id="end-card" class="end-card clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="7">
       <div class="end-rule"></div>
       <p class="end-kicker">AN ORIGINAL VISUAL IDENTITY</p>
       <div class="end-name">VIOLIN<br /><span>PRINCE</span></div>
       <p class="end-subtitle">LET THE MUSIC STAY WITH YOU.</p>
     </footer>
 
-    <div id="bottom-progress" class="bottom-progress clip" data-start="0" data-duration="10" data-track-index="8">
+    <div id="bottom-progress" class="bottom-progress clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="8">
       <span class="progress-label" data-layout-ignore>A MOMENT IN MUSIC</span>
       <span class="progress-track"><span id="progress-fill"></span></span>
       <span class="progress-time" data-layout-ignore>00:10</span>
     </div>
+    <audio id="music-bed" src="__AUDIO_SOURCE__" data-start="0" data-track-index="9" preload="auto"></audio>
   </main>
 </body>
 </html>

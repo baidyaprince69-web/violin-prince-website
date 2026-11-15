@@ -6,10 +6,26 @@ import { fileURLToPath } from "node:url";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outputDir = resolve(projectRoot, "output/seeking-check");
+const html = readFileSync(resolve(projectRoot, "index.html"), "utf8");
+const durationMatch = html.match(/<main\b[^>]*data-duration="([0-9.]+)"/i);
+const duration = Number(durationMatch?.[1]);
+
+if (!Number.isFinite(duration) || duration < 3) {
+  throw new Error("The seeking test requires a prepared composition of at least 3 seconds.");
+}
+
 rmSync(outputDir, { recursive: true, force: true });
 mkdirSync(outputDir, { recursive: true });
 
-const orderedTimes = "5.25,1.25,5.25,1.25";
+const lateTime = Math.min(
+  duration - 0.5,
+  Math.max(5.25, Math.floor(duration * 0.72 * 4) / 4)
+);
+const earlyTime = Math.min(1.25, duration / 4);
+const ordered = [lateTime, earlyTime, lateTime, earlyTime];
+const formatTime = (value) => String(Number(value.toFixed(2)));
+const orderedTimes = ordered.map(formatTime).join(",");
+
 execFileSync("npx", [
   "hyperframes",
   "snapshot",
@@ -18,12 +34,9 @@ execFileSync("npx", [
   "--output", outputDir
 ], { cwd: projectRoot, stdio: "inherit" });
 
-const frames = [
-  "frame-00-at-5.25s.png",
-  "frame-01-at-1.25s.png",
-  "frame-02-at-5.25s.png",
-  "frame-03-at-1.25s.png"
-];
+const frames = ordered.map((time, index) =>
+  "frame-" + String(index).padStart(2, "0") + "-at-" + formatTime(time) + "s.png"
+);
 
 function pixelHash(file) {
   const source = resolve(outputDir, file);
@@ -40,8 +53,8 @@ function pixelHash(file) {
 
 const hashes = frames.map(pixelHash);
 const checks = [
-  { time: 5.25, first: hashes[0], repeated: hashes[2] },
-  { time: 1.25, first: hashes[1], repeated: hashes[3] }
+  { time: lateTime, first: hashes[0], repeated: hashes[2] },
+  { time: earlyTime, first: hashes[1], repeated: hashes[3] }
 ];
 
 for (const check of checks) {
@@ -55,7 +68,9 @@ for (const check of checks) {
 
 const report = {
   status: "passed",
-  seek_order_seconds: [5.25, 1.25, 5.25, 1.25],
+  composition_duration_seconds: duration,
+  visual_cycle_seconds: Math.min(10, duration),
+  seek_order_seconds: ordered,
   compared_pixels: "RGBA decoded pixels (not PNG metadata)",
   repeated_time_matches: checks.map(item => ({
     time_seconds: item.time,

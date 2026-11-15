@@ -3,14 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Isolated 10-second Motion + HyperFrames motion-graphics prototype for Violin Prince.",
+  "description": "Variable-duration Motion + HyperFrames renderer prototype for Violin Prince.",
   "scripts": {
     "prepare:motion": "node scripts/prepare-motion.mjs",
     "lint": "hyperframes lint .",
     "check": "hyperframes check",
     "verify:seeking": "node scripts/verify-seeking.mjs",
-    "render": "node -e \"require('node:fs').mkdirSync('output', { recursive: true })\" && hyperframes render --quality draft --workers 1 --output output/violin-prince-motion-10s.mp4",
-    "verify": "node scripts/verify-render.mjs"
+    "render": "node -e \"require('node:fs').mkdirSync('output', { recursive: true })\" && hyperframes render --quality draft --workers 1 --output output/violin-prince-motion-full-track.mp4",
+    "verify": "node scripts/verify-render.mjs",
+    "prepare:composition": "node scripts/prepare-composition.mjs"
   },
   "devDependencies": {
     "hyperframes": "0.9.52",

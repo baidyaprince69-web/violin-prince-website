@@ -1,10 +1,17 @@
 import { animate } from "motion";
 
-const ROOT_ID = "vp-motion-10s";
-const DURATION = 10;
+const ROOT_ID = "vp-motion-dynamic";
 const root = document.getElementById("root");
 
 if (!root) throw new Error("The HyperFrames composition root was not found.");
+
+const DURATION = Number(root.dataset.duration);
+if (!Number.isFinite(DURATION) || DURATION < 1) {
+  throw new Error("The full-track composition needs a valid audio-derived duration.");
+}
+const BASE_CYCLE_DURATION = 10;
+const CYCLE_DURATION = Math.min(BASE_CYCLE_DURATION, DURATION);
+const CYCLE_SCALE = CYCLE_DURATION / BASE_CYCLE_DURATION;
 
 const waveform = document.getElementById("waveform");
 const particleLayer = document.getElementById("particle-layer");
@@ -53,8 +60,7 @@ const sequence = [
   ["#headline-three", { opacity: [1, 0] }, { duration: 0.48, ease: "easeIn", at: 7.72 }],
   ["#end-card", { opacity: [0, 1], y: [22, 0] }, { duration: 0.65, ease: "easeOut", at: 7.15 }],
   ["#end-card .end-rule", { scaleX: [0, 1] }, { duration: 0.55, ease: "easeOut", at: 7.2 }],
-  ["#end-card .end-name", { opacity: [0, 1], y: [18, 0] }, { duration: 0.5, ease: "easeOut", at: 7.35 }],
-  ["#bottom-progress #progress-fill", { scaleX: [0, 1] }, { duration: DURATION, ease: "linear", at: 0 }]
+  ["#end-card .end-name", { opacity: [0, 1], y: [18, 0] }, { duration: 0.5, ease: "easeOut", at: 7.35 }]
 ];
 
 for (let index = 0; index < barCount; index += 1) {
@@ -99,14 +105,42 @@ for (let index = 0; index < particleCount; index += 1) {
 
 // Motion supplies the seekable animation controls; HyperFrames owns the frame clock.
 // This compact adapter exposes the methods used by HyperFrames' timeline registry.
-const motionTimeline = animate(sequence, { autoplay: false });
+const scaledSequence = sequence.map(([selector, properties, options]) => [
+  selector,
+  properties,
+  {
+    ...options,
+    duration: options.duration * CYCLE_SCALE,
+    at: (options.at ?? 0) * CYCLE_SCALE
+  }
+]);
+const motionTimeline = animate(scaledSequence, { autoplay: false });
 motionTimeline.pause();
+
+const progressFill = document.getElementById("progress-fill");
+const progressTime = document.querySelector("#bottom-progress .progress-time");
+
+function formatTimestamp(seconds) {
+  const totalSeconds = Math.max(0, Math.ceil(seconds));
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainder = totalSeconds % 60;
+  return String(minutes).padStart(2, "0") + ":" + String(remainder).padStart(2, "0");
+}
+
+if (progressTime) progressTime.textContent = formatTimestamp(DURATION);
 
 let lastTime = 0;
 
 function seek(seconds) {
   const safeTime = Math.max(0, Math.min(DURATION, Number(seconds) || 0));
-  motionTimeline.time = safeTime;
+  const cycleTime = safeTime >= DURATION
+    ? CYCLE_DURATION
+    : safeTime % CYCLE_DURATION;
+  motionTimeline.time = cycleTime;
+
+  if (progressFill) {
+    progressFill.style.transform = "scaleX(" + (safeTime / DURATION).toFixed(8) + ")";
+  }
   lastTime = safeTime;
 }
 
