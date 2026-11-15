@@ -294,3 +294,18 @@ Blender remains opt-in so the established daily engine is not changed without a 
 When the variable is absent or false, the current Python / Pillow / FFmpeg still-image workflow remains unchanged and Blender is not installed. The .github/workflows/blender-smoke.yml workflow is now a full-scene production preview: it installs Blender and FFmpeg, renders one cinematic animated violin scene and uploads the MP4, contact sheet, per-scene clips/posters and render report.
 
 BLENDER_BIN can override the executable. BLENDER_RENDER_TIMEOUT_SECONDS controls each production scene, bounded to 30–900 seconds. The full production renderer uses Blender Eevee on CPU, fixed two-thread execution, and FFmpeg for final assembly.
+
+## Licensed Blender model assets
+
+The Blender performance scene no longer accepts the old procedural violin placeholder. It requires an imported `.gltf` or `.glb` model.
+
+The Blender preview workflow resolves the configured Sketchfab model URL before rendering:
+
+1. Read the public model metadata and record its creator, source URL, download availability and licence.
+2. Permit automatic downloads only for the initial commercial-use allowlist (CC0 and CC Attribution). NonCommercial, NoDerivatives, Editorial and unrecognized licences are not used in monetized Violin Prince videos.
+3. If the asset is downloadable and a valid authenticated Sketchfab access token is present, request the glTF archive through the official Sketchfab Download API, validate the ZIP paths and size, extract it, and import the actual geometry into Blender.
+4. If downloading is unavailable, preserve the attribution/licence manifest and, only where the licence permits commercial use, save a provider thumbnail as a modelling reference. This reference-only result does not run the Blender performance render and is never presented as a finished 3D model.
+
+To enable the authenticated download, add a valid Sketchfab OAuth access token as the repository Actions secret `SKETCHFAB_ACCESS_TOKEN`. Do not put the token in source files, workflow variables, commits, issue comments or ChatGPT messages. Tokens can expire; update the secret when Sketchfab requires re-authentication.
+
+The render report and artifact retain `asset-provenance.json` so the model's creator and licence remain traceable. No scraping of the Sketchfab viewer, direct media URL guessing, licence bypass, or silent procedural fallback is permitted.
