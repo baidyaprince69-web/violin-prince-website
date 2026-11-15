@@ -205,7 +205,7 @@ def _validate_performance_video_asset(filename, media_bytes):
 
 def get_creator_performance_video(include_bytes=False, asset_id=None):
     """Read private video metadata during Prepare and download the exact asset only during Render."""
-    configured_path = os.environ.get("VIOLIN_PERFORMANCE_VIDEO_PATH", "").strip()    configured_path = os.environ.get("VIOLIN_PERFORMANCE_VIDEO_PATH", "").strip()
+    configured_path = os.environ.get("VIOLIN_PERFORMANCE_VIDEO_PATH", "").strip()
     video_path = (
         Path(configured_path) if configured_path
         else Path(__file__).resolve().parent / "assets" / "violin-performance.mp4"
