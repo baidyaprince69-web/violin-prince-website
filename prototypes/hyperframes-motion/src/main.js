@@ -26,7 +26,7 @@ if (contentNode) {
 function setContentText(selector, value, maxChars = 42) {
   const element = document.querySelector(selector);
   if (element && typeof value === "string" && value.trim()) {
-    element.textContent = value.trim().replace(/\\s+/g, " ").slice(0, maxChars);
+    element.textContent = value.trim().replace(/\s+/g, " ").slice(0, maxChars);
   }
 }
 const scenes = Array.isArray(contentConfig.scenes) ? contentConfig.scenes.slice(0, 3) : [];
@@ -140,6 +140,11 @@ function sceneIndexForSentence(sentenceIndex) {
 }
 
 let lastSceneIndex = -1;
+const sceneHeadlines = [
+  document.getElementById("headline-one"),
+  document.getElementById("headline-two"),
+  document.getElementById("headline-three"),
+];
 function syncScene(seconds) {
   let cue = narrationWords[0];
   for (const word of narrationWords) {
@@ -147,6 +152,23 @@ function syncScene(seconds) {
     else break;
   }
   const nextIndex = sceneIndexForSentence(Number(cue?.sentence_index || 0));
+  sceneHeadlines.forEach((headline, index) => {
+    if (!headline) return;
+    headline.style.opacity = index === nextIndex ? "1" : "0";
+    headline.querySelectorAll(".eyebrow, h1, h2, .headline-note").forEach((element) => {
+      element.style.opacity = "1";
+      element.style.transform = "none";
+    });
+  });
+  const diagramPanel = document.getElementById("wave-section");
+  if (diagramPanel) {
+    diagramPanel.style.opacity = "1";
+    diagramPanel.style.transform = "none";
+    diagramPanel.querySelectorAll(".wave-caption, .wave-foot").forEach((element) => {
+      element.style.opacity = "1";
+      element.style.transform = "none";
+    });
+  }
   if (nextIndex !== lastSceneIndex) {
     renderDiagram(scenes[nextIndex] || scenes[Math.min(nextIndex, scenes.length - 1)] || {});
     lastSceneIndex = nextIndex;
