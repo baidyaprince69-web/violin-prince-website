@@ -182,6 +182,8 @@ def _render_case(
             "status": "completed",
             "output": str(output_path),
             "diagnostics": result.get("diagnostics_path"),
+            "host_diagnostics": os.environ.get("BLENDER_HOST_DIAGNOSTICS_PATH")
+            or str(DIAGNOSTICS / "host-diagnostics.json"),
             "timings_path": result.get("timings_path"),
             "timings": result.get("timings"),
             "benchmark_overrides": dict(overrides or {}),
@@ -217,6 +219,10 @@ def _run_group(
 ) -> list[dict[str, Any]]:
     old_workers = os.environ.get("BLENDER_RENDER_WORKERS")
     old_lp = os.environ.get("LP_NUM_THREADS")
+    old_host_path = os.environ.get("BLENDER_HOST_DIAGNOSTICS_PATH")
+    safe_case = "".join(char.lower() if char.isalnum() else "-" for char in case_name).strip("-")
+    case_host_path = DIAGNOSTICS / f"host-{safe_case}.json"
+    os.environ["BLENDER_HOST_DIAGNOSTICS_PATH"] = str(case_host_path)
     os.environ["BLENDER_RENDER_WORKERS"] = str(max(1, min(workers, 3)))
     if lp_num_threads is None:
         os.environ.pop("LP_NUM_THREADS", None)
@@ -253,6 +259,10 @@ def _run_group(
             os.environ.pop("LP_NUM_THREADS", None)
         else:
             os.environ["LP_NUM_THREADS"] = old_lp
+        if old_host_path is None:
+            os.environ.pop("BLENDER_HOST_DIAGNOSTICS_PATH", None)
+        else:
+            os.environ["BLENDER_HOST_DIAGNOSTICS_PATH"] = old_host_path
 
 
 def _build_suite(
