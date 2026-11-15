@@ -34,8 +34,8 @@ URL_UID_RE = re.compile(r"-([a-f0-9]{32})/?$", re.IGNORECASE)
 # Default to assets that can be used in a monetized Violin Prince video.
 # Unknown, NonCommercial, NoDerivatives and Editorial licences require review.
 COMMERCIAL_LICENSES = {
-    "cc0", "cc0-1.0", "cc-by", "cc-by-4.0", "by",
-    "cc-attribution", "cc-attribution-4.0",
+    "cc0", "cc0-1-0", "cc0-1.0", "cc-by", "cc-by-4.0", "cc-by-4-0", "by",
+    "cc-attribution", "cc-attribution-4.0", "cc-attribution-4-0",
 }
 
 
@@ -220,7 +220,8 @@ def resolve_sketchfab_asset(
         license_code in COMMERCIAL_LICENSES
         or _license_details(model)[0] in COMMERCIAL_LICENSES
     )
-    downloadable = bool(model.get("isDownloadable", model.get("is_downloadable", False)))
+    raw_downloadable = model.get("isDownloadable", model.get("is_downloadable", False))
+    downloadable = raw_downloadable is True or str(raw_downloadable).strip().casefold() in {"1", "true", "yes"}
     creator = _creator(model)
     viewer_url = str(model.get("viewerUrl") or model.get("url") or model_url)
     record: dict[str, Any] = {
@@ -253,18 +254,6 @@ def resolve_sketchfab_asset(
             "The model is marked downloadable, but an authenticated Sketchfab access token "
             "is required by the official Download API."
         )
-        thumbnail_url = _thumbnail_url(model)
-        if thumbnail_url:
-            parsed = urlparse(thumbnail_url)
-            suffix = Path(parsed.path).suffix.lower()
-            if suffix not in {".jpg", ".jpeg", ".png", ".webp"}:
-                suffix = ".jpg"
-            reference = folder / ("sketchfab-reference" + suffix)
-            try:
-                _download_to_file(client, thumbnail_url, reference, MAX_REFERENCE_BYTES)
-                record["reference_image_path"] = str(reference)
-            except (requests.RequestException, AssetResolutionError):
-                record["reference_image_error"] = "The provider preview could not be retrieved."
     else:
         headers = {"Authorization": "Bearer " + access_token}
         download_info = _request_json(
@@ -283,6 +272,22 @@ def resolve_sketchfab_asset(
             "local_model_path": str(model_path),
             "reason": "Downloaded through the official authenticated Sketchfab Download API.",
         })
+
+    # A provider thumbnail is a modelling reference only, not a substitute for
+    # mesh geometry. Fetch it only when the model's licence permits commercial use.
+    if record["resolution"] == "reference_only" and commercial_ok and not record["reference_image_path"]:
+        thumbnail_url = _thumbnail_url(model)
+        if thumbnail_url:
+            parsed = urlparse(thumbnail_url)
+            suffix = Path(parsed.path).suffix.lower()
+            if suffix not in {".jpg", ".jpeg", ".png", ".webp"}:
+                suffix = ".jpg"
+            reference = folder / ("sketchfab-reference" + suffix)
+            try:
+                _download_to_file(client, thumbnail_url, reference, MAX_REFERENCE_BYTES)
+                record["reference_image_path"] = str(reference)
+            except (requests.RequestException, AssetResolutionError):
+                record["reference_image_error"] = "The provider preview could not be retrieved."
 
     if require_download and record["resolution"] != "downloaded_model":
         raise AssetResolutionError(str(record.get("reason") or "A real model download was required."))
