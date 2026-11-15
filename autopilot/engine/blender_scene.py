@@ -13,6 +13,13 @@ import random
 import sys
 from pathlib import Path
 
+# Blender's `--python path/to/blender_scene.py` execution does not guarantee
+# that this script's directory is on sys.path. Daily scenes import the local
+# Frame By Plane adapter at build time, so add the engine directory explicitly.
+ENGINE_DIR = str(Path(__file__).resolve().parent)
+if ENGINE_DIR not in sys.path:
+    sys.path.insert(0, ENGINE_DIR)
+
 import bpy
 from mathutils import Matrix, Vector
 
