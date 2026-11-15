@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      RUN_ID: \${{ github.run_id }}
+      RUN_ID: ${{ github.run_id }}
       PUBLISH_ENABLED: "false"
     steps:
       - name: Check out the project
@@ -37,8 +37,8 @@ jobs:
         id: daily_request
         shell: bash
         env:
-          EVENT_NAME: \${{ github.event_name }}
-          INPUT_PLAN_PATH: \${{ inputs.plan_path }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_PLAN_PATH: ${{ inputs.plan_path }}
         run: |
           python - <<'PY'
           import json
@@ -100,18 +100,18 @@ jobs:
 
       - name: Produce the Short from the prepared plan
         env:
-          RUN_ID: \${{ github.run_id }}
+          RUN_ID: ${{ github.run_id }}
           PUBLISH_ENABLED: "false"
-        run: python autopilot/engine/run_daily_plan.py --plan "\${{ steps.daily_request.outputs.plan_path }}"
+        run: python autopilot/engine/run_daily_plan.py --plan "${{ steps.daily_request.outputs.plan_path }}"
 
       - name: Create release with video and publisher handoff
         if: success()
         env:
-          GH_TOKEN: \${{ github.token }}
-          RELEASE_RUN_ID: \${{ github.run_id }}
-          ASSET_URL: https://github.com/\${{ github.repository }}/releases/download/violin-prince-short-\${{ github.run_id }}/violin-prince-short.mp4
-          MANIFEST_URL: https://github.com/\${{ github.repository }}/releases/download/violin-prince-short-\${{ github.run_id }}/publish-manifest.json
-          PROVENANCE_URL: https://github.com/\${{ github.repository }}/releases/download/violin-prince-short-\${{ github.run_id }}/asset-provenance.json
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_RUN_ID: ${{ github.run_id }}
+          ASSET_URL: https://github.com/${{ github.repository }}/releases/download/violin-prince-short-${{ github.run_id }}/violin-prince-short.mp4
+          MANIFEST_URL: https://github.com/${{ github.repository }}/releases/download/violin-prince-short-${{ github.run_id }}/publish-manifest.json
+          PROVENANCE_URL: https://github.com/${{ github.repository }}/releases/download/violin-prince-short-${{ github.run_id }}/asset-provenance.json
         shell: bash
         run: |
           python - <<'PY'
@@ -136,10 +136,14 @@ jobs:
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
               handle.write("release_title=" + title.replace("\n", " ") + "\n")
           PY
-          TAG="violin-prince-short-\${RELEASE_RUN_ID}"
-          gh release create "$TAG" work/output/violin-prince-short.mp4 \
-            --title "Violin Prince — Daily Short \${RELEASE_RUN_ID}" \
-            --notes-file work/output/release-notes.md
+          TAG="violin-prince-short-${RELEASE_RUN_ID}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" work/output/violin-prince-short.mp4 --clobber
+          else
+            gh release create "$TAG" work/output/violin-prince-short.mp4 \
+              --title "Violin Prince — Daily Short ${RELEASE_RUN_ID}" \
+              --notes-file work/output/release-notes.md
+          fi
           python - <<'PY'
           import json
           import os
@@ -166,7 +170,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: violin-prince-short-\${{ github.run_id }}
+          name: violin-prince-short-${{ github.run_id }}
           path: work/output/violin-prince-short.mp4
           if-no-files-found: error
           retention-days: 14
@@ -175,7 +179,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: violin-prince-diagnostics-\${{ github.run_id }}
+          name: violin-prince-diagnostics-${{ github.run_id }}
           path: |
             work/package/
             work/output/

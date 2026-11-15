@@ -41,6 +41,7 @@ except ImportError:  # Direct script execution from the engine directory.
     from procedural_visuals import render_scene_art
 
 RUN_ID = os.environ.get("RUN_ID", os.environ.get("GITHUB_RUN_ID", str(uuid.uuid4())))
+TEXT_MODEL = "github_native_disabled"
 WORK, OUT, IMAGES = Path("work"), Path("work/output"), Path("work/images")
 W, H, FPS, SECONDS = 720, 1280, 25, 8
 http = requests.Session()

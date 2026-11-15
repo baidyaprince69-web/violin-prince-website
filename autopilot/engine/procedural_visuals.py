@@ -107,7 +107,7 @@ def _waveform(canvas, rng):
         d.ellipse((cx-radius,cy-radius,cx+radius,cy+radius),outline=(95,190,194,52),width=2)
     points=[]
     for x in range(-8,WIDTH+9,4):
-        t=x/WIDTH; envelope=.2+.8*math.sin(math.pi*t)**.7
+        t=x/WIDTH; envelope=.2+.8*max(0.0, math.sin(math.pi*t))**.7
         y=cy+(math.sin(t*math.tau*4.1)+.32*math.sin(t*math.tau*10.8))*205*envelope
         points.append((x,round(y)))
     d.line(points,fill=(5,14,25,230),width=23,joint="curve")
