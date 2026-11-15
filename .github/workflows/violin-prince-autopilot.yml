@@ -64,7 +64,7 @@ jobs:
       # The scheduled daily-plan route retains its existing Blender path.
       # The dedicated manual request uses Motion + HyperFrames without Blender.
       BLENDER_RENDER_ENABLED: ${{ (github.event_name == 'schedule' || (github.event_name == 'push' && !contains(toJSON(github.event.commits.*.added), '.autopilot/manual-motion-production-request.json') && !contains(toJSON(github.event.commits.*.modified), '.autopilot/manual-motion-production-request.json'))) && 'true' || (github.event_name == 'workflow_dispatch' && vars.BLENDER_RENDER_ENABLED == 'true' && 'true') || 'false' }}
-      MOTION_HYPERFRAMES_RENDER_ENABLED: ${{ (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (contains(toJSON(github.event.commits.*.added), '.autopilot/manual-motion-production-request.json') || contains(toJSON(github.event.commits.*.modified), '.autopilot/manual-motion-production-request.json')))) && vars.BLENDER_RENDER_ENABLED != 'true' && (vars.MOTION_HYPERFRAMES_RENDER_ENABLED || 'true') || 'false' }}
+      MOTION_HYPERFRAMES_RENDER_ENABLED: ${{ (github.event_name == 'push' && (contains(toJSON(github.event.commits.*.added), '.autopilot/manual-motion-production-request.json') || contains(toJSON(github.event.commits.*.modified), '.autopilot/manual-motion-production-request.json'))) && 'true' || (github.event_name == 'workflow_dispatch' && vars.BLENDER_RENDER_ENABLED != 'true' && (vars.MOTION_HYPERFRAMES_RENDER_ENABLED || 'true')) || 'false' }}
       MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS: ${{ vars.MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS || '180' }}
       BLENDER_RENDER_WORKERS: "3"
       BLENDER_THREADS_PER_WORKER: "1"
