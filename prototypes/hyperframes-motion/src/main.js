@@ -49,11 +49,11 @@ const sequence = [
   ["#headline-two", { opacity: [1, 0] }, { duration: 0.55, ease: "easeIn", at: 6.28 }],
   ["#headline-three .eyebrow", { opacity: [0, 1], x: [-18, 0] }, { duration: 0.6, ease: "easeOut", at: 6.58 }],
   ["#headline-three h2", { opacity: [0, 1], y: [36, 0] }, { duration: 0.9, ease: "easeOut", at: 6.78 }],
-  ["#headline-three .headline-note", { opacity: [0, 1] }, { duration: 0.65, ease: "easeOut", at: 7.65 }],
-  ["#headline-three", { opacity: [1, 0] }, { duration: 0.48, ease: "easeIn", at: 8.58 }],
-  ["#end-card", { opacity: [0, 1], y: [22, 0] }, { duration: 0.75, ease: "easeOut", at: 8.72 }],
-  ["#end-card .end-rule", { scaleX: [0, 1] }, { duration: 0.65, ease: "easeOut", at: 8.8 }],
-  ["#end-card .end-name", { opacity: [0, 1], y: [18, 0] }, { duration: 0.6, ease: "easeOut", at: 9.02 }],
+  ["#headline-three .headline-note", { opacity: [0, 1] }, { duration: 0.65, ease: "easeOut", at: 7.2 }],
+  ["#headline-three", { opacity: [1, 0] }, { duration: 0.48, ease: "easeIn", at: 7.72 }],
+  ["#end-card", { opacity: [0, 1], y: [22, 0] }, { duration: 0.65, ease: "easeOut", at: 7.15 }],
+  ["#end-card .end-rule", { scaleX: [0, 1] }, { duration: 0.55, ease: "easeOut", at: 7.2 }],
+  ["#end-card .end-name", { opacity: [0, 1], y: [18, 0] }, { duration: 0.5, ease: "easeOut", at: 7.35 }],
   ["#bottom-progress #progress-fill", { scaleX: [0, 1] }, { duration: DURATION, ease: "linear", at: 0 }]
 ];
 
