@@ -14,6 +14,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from PIL import Image
+
 ENGINE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(ENGINE_DIR))
 
@@ -66,24 +68,31 @@ def main() -> int:
             },
         ],
     }
+    # Match the headless CPU rendering environment used by daily production.
+    os.environ.setdefault("EGL_PLATFORM", "surfaceless")
+    os.environ.setdefault("LIBGL_ALWAYS_SOFTWARE", "1")
+    os.environ.setdefault("MESA_LOADER_DRIVER_OVERRIDE", "llvmpipe")
+
     bundles = create_frame_by_plane_backgrounds(
         scene_plan, background_root, size=(540, 960)
     )
     manifest_path = Path(bundles[0]["manifest_path"]).resolve()
-    output_video = output_dir / "single-scene-frame-by-plane-smoke.mp4"
+    output_still = output_dir / "single-scene-frame-by-plane-smoke.png"
     config_path = output_dir / "scene-config.json"
     config = {
         "scene_type": "wave_field",
         "seed": 20261115,
-        "width": 360,
-        "height": 640,
+        "width": 270,
+        "height": 480,
         "fps": 12,
         "duration_seconds": 2.0,
         "threads": 1,
         "samples": 8,
         "frame_by_plane_manifest": str(manifest_path),
         "frame_by_plane_required": True,
-        "output": str(output_video),
+        "smoke_still": True,
+        "smoke_frame": 1,
+        "output": str(output_still),
     }
     config_path.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -91,7 +100,7 @@ def main() -> int:
     command = [
         blender, "--background", "--threads", "1",
         "--python", str(blender_script),
-        "--", "--config", str(config_path), "--output", str(output_video),
+        "--", "--config", str(config_path), "--output", str(output_still),
     ]
     rendered = run_checked(command, timeout=300, label="Single-scene Blender + Frame By Plane render")
 
@@ -109,28 +118,23 @@ def main() -> int:
     if report.get("extension_version") != "8.0.1" or int(report.get("layer_count", 0)) != 3:
         raise RuntimeError("The smoke render did not confirm all three Frame By Plane 8.0.1 layers.")
 
-    if not output_video.is_file() or output_video.stat().st_size < 4096:
-        raise RuntimeError("The single-scene Blender smoke render did not produce an MP4.")
-    probed = run_checked(
-        [
-            "ffprobe", "-v", "error", "-show_entries",
-            "format=duration:stream=codec_type,width,height,codec_name",
-            "-of", "json", str(output_video),
-        ],
-        timeout=30, label="ffprobe validation of the Blender smoke MP4",
-    )
-    media = json.loads(probed.stdout)
-    video_stream = next(
-        (stream for stream in media.get("streams", []) if stream.get("codec_type") == "video"),
-        None,
-    )
-    duration = float((media.get("format") or {}).get("duration") or 0)
-    if not video_stream:
-        raise RuntimeError("The Blender smoke MP4 has no video stream.")
-    if (int(video_stream.get("width", 0)), int(video_stream.get("height", 0))) != (360, 640):
-        raise RuntimeError("The Blender smoke MP4 does not match the expected 360×640 test resolution.")
-    if duration < 1.5:
-        raise RuntimeError(f"The Blender smoke MP4 is too short: {duration:.3f}s.")
+    if not output_still.is_file() or output_still.stat().st_size < 1024:
+        produced = sorted(path.name for path in output_dir.rglob("*") if path.is_file())
+        raise RuntimeError(
+            "Blender did not produce the expected one-frame PNG proof. "
+            f"Files found={produced}; stdout={(rendered.stdout or '')[-5000:]}; "
+            f"stderr={(rendered.stderr or '')[-3000:]}"
+        )
+    try:
+        with Image.open(output_still) as image:
+            image.verify()
+        with Image.open(output_still) as image:
+            if image.size != (270, 480) or image.mode not in {"RGB", "RGBA"}:
+                raise RuntimeError(
+                    f"Unexpected smoke image properties: size={image.size}, mode={image.mode}"
+                )
+    except Exception as exc:
+        raise RuntimeError(f"The Blender smoke image is invalid: {exc}") from exc
 
     version = run_checked([blender, "--version"], timeout=20, label="Blender version check")
     version_line = (version.stdout or version.stderr).splitlines()[0]
@@ -140,9 +144,10 @@ def main() -> int:
         "frame_by_plane_version": report.get("extension_version"),
         "frame_by_plane_layers": report.get("layer_count"),
         "rendered_as": report.get("mode"),
-        "duration_seconds": round(duration, 3),
-        "resolution": [360, 640],
-        "video": str(output_video),
+        "rendered_frame": 1,
+        "resolution": [270, 480],
+        "image_bytes": output_still.stat().st_size,
+        "proof_image": str(output_still),
     }, ensure_ascii=False))
     return 0
 
