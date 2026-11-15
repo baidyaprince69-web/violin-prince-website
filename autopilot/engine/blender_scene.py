@@ -197,21 +197,17 @@ def add_vibrating_string(name, x_start, x_end, y, z, mat, frame_end, seed_offset
         for side in range(sides):
             vertex_index = index * sides + side
             vibration.data[vertex_index].co.z += displacement
-    period = max(8, int(frame_end / 3))
+    # One full visible vibration cycle across the complete scene duration.
+    # Keep every keyframe inside the frame range and avoid legacy Action.fcurves
+    # access, which was removed from Blender 5's slotted-action API.
+    period = max(8, int(frame_end) - 1)
     frames = [
         (1, -1.0), (1 + period // 4, 0.0), (1 + period // 2, 1.0),
-        (1 + 3 * period // 4, 0.0), (1 + period, -1.0),
+        (1 + (3 * period) // 4, 0.0), (frame_end, -1.0),
     ]
     for frame, strength in frames:
         vibration.value = strength
         vibration.keyframe_insert(data_path="value", frame=frame)
-    if obj.data.shape_keys and obj.data.shape_keys.animation_data:
-        action = obj.data.shape_keys.animation_data.action
-        if action:
-            for fcurve in action.fcurves:
-                for point in fcurve.keyframe_points:
-                    point.interpolation = "SINE"
-                fcurve.modifiers.new("CYCLES")
     obj["animation"] = "A shape-key mesh deformation visibly vibrates along the string"
     return obj
 
@@ -490,13 +486,18 @@ def build_scene(config):
     scene.render.film_transparent = False
 
     scene.view_settings.view_transform = "AgX" if "AgX" in scene.view_settings.bl_rna.properties["view_transform"].enum_items.keys() else "Standard"
+    # Blender 5 distinguishes image and video media types. VIDEO must be set
+    # before the FFMPEG file format, otherwise headless animation may not write.
+    if hasattr(scene.render.image_settings, "media_type"):
+        scene.render.image_settings.media_type = "VIDEO"
     scene.render.image_settings.file_format = "FFMPEG"
+    scene.render.use_file_extension = True
     scene.render.ffmpeg.format = "MPEG4"
     scene.render.ffmpeg.codec = "H264"
     scene.render.ffmpeg.constant_rate_factor = "HIGH"
     scene.render.ffmpeg.ffmpeg_preset = "GOOD"
     scene.render.ffmpeg.gopsize = fps
-    scene.render.filepath = str(Path(config["output"]).resolve())
+    scene.render.filepath = str(Path(config["output"]).resolve().with_suffix(""))
     scene.frame_set(1)
     bpy.ops.render.render(animation=True)
 
