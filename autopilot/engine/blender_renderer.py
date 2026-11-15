@@ -37,6 +37,24 @@ def is_blender_render_enabled(value: str | bool | None = None) -> bool:
     return str(value).strip().casefold() in {"1", "true", "yes", "on"}
 
 
+def blender_render_worker_count(scene_count: int) -> int:
+    """Return the bounded number of concurrent independent Blender scene jobs."""
+    try:
+        requested = int(os.environ.get("BLENDER_RENDER_WORKERS", "3"))
+    except (TypeError, ValueError):
+        requested = 1
+    return max(1, min(max(1, int(scene_count)), max(1, requested), 3))
+
+
+def blender_threads_per_worker() -> int:
+    """Keep each Blender process lightweight when scenes are rendered concurrently."""
+    try:
+        requested = int(os.environ.get("BLENDER_THREADS_PER_WORKER", "1"))
+    except (TypeError, ValueError):
+        requested = 1
+    return max(1, min(requested, 4))
+
+
 def _find_blender(executable: str | None = None) -> str | None:
     candidate = str(executable or os.environ.get("BLENDER_BIN") or "blender").strip()
     if not candidate:
@@ -186,6 +204,7 @@ def render_scene_video(
     if not script_path.is_file():
         raise BlenderRenderError("The full-scene Blender production script is missing.")
 
+    threads_per_worker = blender_threads_per_worker()
     with tempfile.TemporaryDirectory(prefix="violin-prince-blender-") as folder:
         config_path = Path(folder) / "scene.json"
         config = {
@@ -195,7 +214,7 @@ def render_scene_video(
             "height": height,
             "fps": fps,
             "duration_seconds": duration,
-            "threads": 2,
+            "threads": threads_per_worker,
             "samples": max(8, min(int(os.environ.get("BLENDER_RENDER_SAMPLES", "16")), 32)),
             "model_asset_path": model_asset_path,
             "model_asset_kind": str(scene.get("model_asset_kind") or "generic"),
@@ -205,7 +224,7 @@ def render_scene_video(
         blender_process = _run(
             [
                 executable, "--background", "--factory-startup",
-                "--threads", "2", "--python", str(script_path),
+                "--threads", str(threads_per_worker), "--python", str(script_path),
                 "--", "--config", str(config_path),
                 "--output", str(destination.resolve()),
             ],
