@@ -89,7 +89,7 @@ jobs:
             echo
             echo "The Sketchfab resolver could not obtain an authorised, commercially suitable model file."
             echo "It saved the model metadata, licence and creator attribution, and any permitted preview reference."
-            echo "To render this exact mesh, add a valid authenticated Sketchfab access token as the repository secret `SKETCHFAB_ACCESS_TOKEN`."
+            echo "To render this exact mesh, add a valid authenticated Sketchfab access token as the repository secret SKETCHFAB_ACCESS_TOKEN."
             echo "No viewer scraping or procedural violin fallback is used."
           } >> "$GITHUB_STEP_SUMMARY"
 
