@@ -424,14 +424,16 @@ def build_publish_manifest(
         if not isinstance(model, dict):
             continue
         name = str(model.get("name") or "3D model")
-        creator = str(model.get("creator") or "Unknown creator")
+        raw_creator = str(model.get("creator") or "").strip()
+        creator = raw_creator or "Unknown creator"
         provider = str(model.get("provider") or "Sketchfab")
-        license_label = str(model.get("license") or "Unknown licence")
+        raw_license = str(model.get("license") or "").strip()
+        license_label = raw_license or "Unknown licence"
         source_url = str(model.get("source_url") or "")
         license_url = str(model.get("license_url") or "")
         if not model.get("commercial_use_allowed"):
             blockers.append(f"External 3D model {name} has no recorded commercial-use permission.")
-        if not creator.strip() or not source_url.strip() or not license_label.strip():
+        if not raw_creator or not source_url.strip() or not raw_license:
             blockers.append(f"External 3D model {name} is missing required creator/source/licence attribution.")
         credit = (
             f'3D model: "{name}" by {creator} on {provider}. '
