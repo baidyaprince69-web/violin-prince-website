@@ -1,5 +1,5 @@
 {
   "mode": "chatgpt_daily_production",
   "plan_path": ".autopilot/daily-production-plan.json",
-  "reason": "Run Violin Prince Short after approved Kokoro narration timing fix"
+  "reason": "Run Violin Prince Short after merged scene prompt provider-budget fix"
 }
