@@ -76,10 +76,10 @@ jobs:
         with:
           name: violin-prince-full-3d-blender-preview
           path: |
-            \${{ runner.temp }}/violin-prince-blender-preview/blender-full-3d-production-preview.mp4
-            \${{ runner.temp }}/violin-prince-blender-preview/blender-production-contact-sheet.jpg
-            \${{ runner.temp }}/violin-prince-blender-preview/blender-production-report.json
-            \${{ runner.temp }}/violin-prince-blender-preview/blender-scene-*.mp4
-            \${{ runner.temp }}/violin-prince-blender-preview/blender-scene-*-poster.png
+            ${{ runner.temp }}/violin-prince-blender-preview/blender-full-3d-production-preview.mp4
+            ${{ runner.temp }}/violin-prince-blender-preview/blender-production-contact-sheet.jpg
+            ${{ runner.temp }}/violin-prince-blender-preview/blender-production-report.json
+            ${{ runner.temp }}/violin-prince-blender-preview/blender-scene-*.mp4
+            ${{ runner.temp }}/violin-prince-blender-preview/blender-scene-*-poster.png
           if-no-files-found: error
           retention-days: 14
