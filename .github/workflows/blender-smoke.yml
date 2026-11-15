@@ -1,4 +1,4 @@
-name: Blender CPU render smoke test
+name: Blender full-scene 3D production preview
 
 on:
   pull_request:
@@ -13,9 +13,9 @@ permissions:
   contents: read
 
 jobs:
-  blender-smoke:
+  blender-production-preview:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -25,17 +25,42 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install Blender and report the runtime version
+      - name: Install Blender and FFmpeg
         run: |
           sudo apt-get update
-          sudo apt-get install -y blender
+          sudo apt-get install -y blender ffmpeg
           blender --version
+          ffmpeg -version | head -n 1
 
-      - name: Install the lightweight compositor dependency
+      - name: Install preview contact-sheet dependency
         run: python -m pip install --upgrade pip Pillow
 
-      - name: Render and composite a real procedural 3D scene
+      - name: Render three complete animated 3D scenes
         run: |
           python autopilot/engine/blender_renderer.py \
-            --smoke-test \
-            --output-dir "$RUNNER_TEMP/violin-prince-blender-smoke"
+            --production-preview \
+            --output-dir "$RUNNER_TEMP/violin-prince-blender-preview" \
+            --resolution 360x640 \
+            --fps 24
+
+      - name: Verify that the preview is a real encoded video
+        run: |
+          ffprobe -v error \
+            -show_entries format=duration:stream=codec_name,width,height,r_frame_rate \
+            -of json \
+            "$RUNNER_TEMP/violin-prince-blender-preview/blender-full-3d-production-preview.mp4"
+          test -s "$RUNNER_TEMP/violin-prince-blender-preview/blender-production-contact-sheet.jpg"
+          test -s "$RUNNER_TEMP/violin-prince-blender-preview/blender-production-report.json"
+
+      - name: Upload production preview and verification evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: violin-prince-full-3d-blender-preview
+          path: |
+            \${{ runner.temp }}/violin-prince-blender-preview/blender-full-3d-production-preview.mp4
+            \${{ runner.temp }}/violin-prince-blender-preview/blender-production-contact-sheet.jpg
+            \${{ runner.temp }}/violin-prince-blender-preview/blender-production-report.json
+            \${{ runner.temp }}/violin-prince-blender-preview/blender-scene-*.mp4
+            \${{ runner.temp }}/violin-prince-blender-preview/blender-scene-*-poster.jpg
+          if-no-files-found: error
+          retention-days: 14
