@@ -4341,11 +4341,11 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
             )
             if not blender_result:
                 raise PipelineError(f"Blender skipped scene {i + 1}; refusing an incomplete 3D production.")
-            poster = OUT / f"blender-scene-{i + 1}-poster.jpg"
+            poster = OUT / f"blender-scene-{i + 1}-poster.png"
             command([
                 "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
                 "-ss", f"{scene_seconds / 2:.3f}", "-i", str(clip),
-                "-frames:v", "1", "-q:v", "2", str(poster),
+                "-frames:v", "1", "-f", "image2", str(poster),
             ])
             if not poster.is_file() or poster.stat().st_size < 1024:
                 raise PipelineError(f"Blender scene {i + 1} did not produce a verifiable poster frame.")
