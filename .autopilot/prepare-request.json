@@ -1,7 +1,5 @@
 {
-  "mode": "motion_hyperframes_full_track",
-  "renderer": "motion_hyperframes",
-  "track_source": "latest_rights_confirmed_creator_recording",
-  "publish_enabled": false,
-  "reason": "Run the regular Autopilot Prepare → Visuals → Render pipeline using the existing rights-confirmed creator recording. Motion + HyperFrames is the main full-track renderer; Blender remains optional and is not selected for this production."
+  "mode": "chatgpt_daily_production",
+  "plan_path": ".autopilot/daily-production-plan.json",
+  "reason": "Full production verification after PR #55: render the saved daily plan using Blender 5.2.4 and Frame By Plane 8.0.1 with three parallel scene workers, an in-memory licensed violin geometry budget of 60000 faces, 400x712 internal resolution, 16 fps and 4 Eevee samples; conform the final master to 720x1280 at 25 fps; keep PUBLISH_ENABLED=false, create a draft artifact only, and leave every previously uploaded YouTube video untouched."
 }
