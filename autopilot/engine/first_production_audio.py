@@ -13,14 +13,15 @@ import soundfile as sf
 ENGINE = Path(__file__).resolve().parent
 sys.path.insert(0, str(ENGINE))
 
-from voiceover import synthesize_voiceover, write_srt
+from voiceover import synthesize_voiceover, write_srt, write_karaoke_ass
 from violin_sampler import create_sampled_violin_bed
 
 SCRIPT = (
-    "A violin's sound begins when the bow sets a string moving. "
-    "The bridge carries that vibration into the wooden body. "
-    "Its plates and inner air resonate, shaping the tone and projecting sound through the f-holes. "
-    "Four strings become a voice."
+    "A violin's sound begins when the bow draws across a string. "
+    "The bridge carries vibration into the maple body. "
+    "Its carved plates and air resonate, shaping tone and projecting sound through the f-holes. "
+    "Each note changes with bow pressure, speed, and contact. "
+    "Four strings become one clear voice."
 )
 TITLE = "How a Violin Makes Sound"
 
@@ -80,9 +81,10 @@ def main():
     script_path.write_text(
         f"{TITLE}\n\nNarration:\n{SCRIPT}\n\n"
         "Visual direction:\n"
-        "A real imported violin mesh in a midnight-blue studio. A slow three-quarter reveal, "
-        "a close move toward the bridge, a sweep past the f-holes, a scroll detail, and a final hero shot. "
-        "The bow, camera, 3D title cards, dust and resonance rings are animated inside Blender.\n\n"
+        "Six distinct full-frame Blender shots: hero reveal (0–3.5s), bow/string contact (3.5–7.5s), "
+        "bridge vibration (7.5–12s), body resonance and f-holes (12–17s), scroll and pegs (17–20.5s), "
+        "and a final hero resolve (20.5–24s). Every shot has its own framing and transition. "
+        "Use the story-selected real downloaded model and exactly one bow rig.\n\n"
         "Audio disclosure:\n"
         "Narration is synthetic Kokoro speech. The instrumental is a newly arranged phrase rendered "
         "from a checksum-verified CC0 violin sample library. It is not a live recording by the creator.\n",
@@ -93,6 +95,18 @@ def main():
     narration_path, narration_info = synthesize_voiceover(SCRIPT, narration_path)
     captions_path = output / "captions.srt"
     write_srt(narration_info["subtitle_cues"], captions_path)
+    karaoke_path = output / "captions.ass"
+    write_karaoke_ass(narration_info["word_cues"], karaoke_path, width=720, height=1280, words_per_caption=2)
+    word_timing_path = output / "word-timing.json"
+    word_timing_path.write_text(
+        json.dumps(narration_info["word_cues"], ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    if narration_info["duration_seconds"] < 18.0:
+        raise RuntimeError(
+            "Narration is shorter than the 18-second production minimum. "
+            "The 24-second story needs speech to continue close to its ending."
+        )
 
     music_path = output / "cc0-violin-music.wav"
     music_path, music_info = create_sampled_violin_bed(
@@ -102,6 +116,27 @@ def main():
 
     sfx_path = output / "cinematic-sound-effects.wav"
     create_sfx(sfx_path)
+
+    storyboard = {
+        "title": TITLE,
+        "duration_seconds": 24.0,
+        "format": "9:16",
+        "production_mode": "full-frame Blender 3D; story-selected real downloaded asset",
+        "shots": [
+            {"id": 1, "start": 0.0, "end": 3.5, "title": "The hero reveal", "camera": "three-quarter wide reveal", "visual": "complete violin with one visible bow rig", "transition_out": "match cut on bow direction"},
+            {"id": 2, "start": 3.5, "end": 7.5, "title": "Bow meets the strings", "camera": "macro bow-hair contact track", "visual": "single bow rig crossing the actual string plane", "transition_out": "directional camera whip"},
+            {"id": 3, "start": 7.5, "end": 12.0, "title": "The bridge transfers vibration", "camera": "bridge-level macro dolly", "visual": "bridge, string path and restrained vibration graphics", "transition_out": "resonance match dissolve"},
+            {"id": 4, "start": 12.0, "end": 17.0, "title": "The body resonates", "camera": "f-hole and carved-plate close sweep", "visual": "wood grain, f-hole detail and expanding acoustic rings", "transition_out": "vertical detail wipe"},
+            {"id": 5, "start": 17.0, "end": 20.5, "title": "The scroll and tuning pegs", "camera": "upper-instrument macro tilt", "visual": "scroll, pegs and string winding detail", "transition_out": "match cut to full silhouette"},
+            {"id": 6, "start": 20.5, "end": 24.0, "title": "Four strings, one voice", "camera": "final hero dolly-out and settle", "visual": "full instrument, brand and composed final image", "transition_out": "final musical cadence and image hold"},
+        ],
+        "title_safe_area": {"brand": "top-left fixed", "subject_title": "below brand, shot-start only", "model": "central hero area"},
+        "caption_safe_area": {"position": "lower centre", "lines": 1, "words_per_event": 2, "highlight": "Kokoro-native word timestamps; active word gold"},
+        "audio_timeline": {"narration": "starts at 0s and is paced to run close to the final scene", "music": "0–24s, natural opening and final 2s fade", "transition_sfx": "shot cut accents"},
+        "full_render_authorized": False,
+    }
+    storyboard_path = output / "storyboard.json"
+    storyboard_path.write_text(json.dumps(storyboard, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     mixed_path = output / "final-audio-mix.wav"
     filters = (
@@ -121,9 +156,16 @@ def main():
         "-ar", "48000", "-ac", "2", "-c:a", "pcm_s16le", str(mixed_path),
     ], "Narration/music mix", timeout=180)
 
+    music_duration = float(sf.info(str(music_path)).duration)
+    mix_duration = float(sf.info(str(mixed_path)).duration)
+    if music_duration < 23.95 or mix_duration < 23.90:
+        raise RuntimeError(
+            f"Audio bed/mix must cover the full 24-second picture (music={music_duration:.2f}s, mix={mix_duration:.2f}s)."
+        )
     report = {
         "title": TITLE,
         "script": SCRIPT,
+        "storyboard": storyboard_path.name,
         "narration": {
             "file": narration_path.name,
             "engine": narration_info["engine"],
@@ -135,6 +177,7 @@ def main():
         },
         "music": {
             "file": music_path.name,
+            "duration_seconds": round(music_duration, 3),
             "origin": music_info["audio_source"],
             "license": music_info["license"],
             "source_library": music_info["source_library"],
@@ -143,8 +186,11 @@ def main():
             "zones_used": music_info["zones_used"],
         },
         "sound_effects": {"file": sfx_path.name, "origin": "original procedural effects"},
-        "final_mix": {"file": mixed_path.name, "sample_rate": 48000, "channels": 2},
+        "final_mix": {"file": mixed_path.name, "duration_seconds": round(mix_duration, 3), "sample_rate": 48000, "channels": 2},
         "captions": captions_path.name,
+        "karaoke_captions": karaoke_path.name,
+        "word_timing_file": word_timing_path.name,
+        "voice_tracks_target_near_end": True,
     }
     (output / "audio-report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False, indent=2))
