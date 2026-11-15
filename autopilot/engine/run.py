@@ -4536,10 +4536,10 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         "narration_duration_seconds": round(narration_end, 2),
         "voice_coverage_percent": round(min(100.0, narration_end / 24.0 * 100.0), 1),
         "music_only_ending_seconds": round(max(0.0, 24.0 - narration_end), 2),
-        "camera_motion": "locked photographic framing; no repetitive push-in",
-        "motion_graphics": 3,
-        "motion_graphics_renderer": "word-synchronised kinetic typography with deterministic per-frame animated explainers",
-        "data_driven_graphics": [
+        "camera_motion": "animated Blender 3D camera" if blender_enabled else "locked photographic framing; no repetitive push-in",
+        "motion_graphics": 0 if blender_enabled else 3,
+        "motion_graphics_renderer": "Blender-authored 3D object and camera animation" if blender_enabled else "word-synchronised kinetic typography with deterministic per-frame animated explainers",
+        "data_driven_graphics": ([] if blender_enabled else [
             {
                 "scene": index + 1,
                 "type": str((scene.get("graphic_data") or {}).get("type") or "mode_default"),
@@ -4547,7 +4547,7 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
                 if isinstance(scene.get("graphic_data"), dict) else 0,
             }
             for index, scene in enumerate(plan.get("scenes", []))
-        ],
+        ]),
         "visual_engine": (
             "full-frame animated 3D scenes rendered directly by Blender"
             if blender_enabled else
@@ -4584,8 +4584,8 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         "word_sync_status": narration_info.get("word_sync_status", "not_checked"),
         "word_timing_method": narration_info.get("word_timing_method", "not_checked"),
         "word_timing_count": int(narration_info.get("word_timing_count", 0)),
-        "motion_timing_source": "Kokoro-native word timestamps",
-        "speech_led_motion": True,
+        "motion_timing_source": "Kokoro word timestamps drive captions; Blender scene motion is authored independently" if blender_enabled else "Kokoro-native word timestamps",
+        "speech_led_motion": False if blender_enabled else True,
         "motion_scene_timeline": scene_motion_events,
         "visual_review_contact_sheet": contact_sheet.name,
         "visual_review_samples": [
