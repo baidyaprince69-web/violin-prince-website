@@ -108,11 +108,12 @@ def _restore_saved_package() -> tuple[dict[str, Any], list[dict[str, Any]]]:
             "restoring the already selected licensed model from the saved plan.",
             flush=True,
         )
+        access_token = os.environ.get("SKETCHFAB_ACCESS_TOKEN")
         try:
             model_record = resolve_story_asset(
                 plan,
                 WORK / "story-assets",
-                access_token=os.environ.get("SKETCHFAB_ACCESS_TOKEN"),
+                access_token=access_token,
             )
         except (StoryAssetError, OSError, ValueError) as exc:
             raise RuntimeError(
@@ -120,6 +121,9 @@ def _restore_saved_package() -> tuple[dict[str, Any], list[dict[str, Any]]]:
                 "Check the SKETCHFAB_ACCESS_TOKEN repository secret. "
                 + str(exc)[:700]
             ) from exc
+        finally:
+            # Do not pass repository secrets into the Blender subprocesses.
+            os.environ.pop("SKETCHFAB_ACCESS_TOKEN", None)
         model_path = Path(str(model_record.get("local_model_path") or "")).expanduser()
 
     if not model_path.is_file() or model_path.suffix.casefold() not in {".gltf", ".glb"}:
