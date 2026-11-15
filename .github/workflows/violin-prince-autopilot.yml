@@ -170,9 +170,9 @@ jobs:
           if not 1 <= duration <= 120:
               raise SystemExit("Optional violin background-bed source duration must be between 1 and 120 seconds.")
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
-              env.write(f"MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS={duration:g}\\n")
+              env.write(f"MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS={duration:g}\n")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write("plan_path=" + plan_path + "\\n")
+              output.write("plan_path=" + plan_path + "\n")
           print("Validated ChatGPT-authored explainer plan: " + plan_path)
           print("Selected evidence validation, Kokoro-82M af_heart narration and Motion + HyperFrames.")
           print("CC0 violin is an optional quiet background bed, not the primary audio.")
