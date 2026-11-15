@@ -1,6 +1,14 @@
 name: Blender full-scene 3D production preview
 
 on:
+  push:
+    branches:
+      - feature/blender-3d-overlays
+    paths:
+      - "autopilot/engine/blender_renderer.py"
+      - "autopilot/engine/blender_scene.py"
+      - "autopilot/engine/tests/test_blender_renderer.py"
+      - ".github/workflows/blender-smoke.yml"
   pull_request:
     paths:
       - "autopilot/engine/blender_renderer.py"
