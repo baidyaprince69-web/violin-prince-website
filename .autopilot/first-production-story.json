@@ -46,5 +46,12 @@
       "caption": "One voice from four strings",
       "graphic_detail": "Full instrument hero composition"
     }
-  ]
+  ],
+  "cinematic_background": {
+    "preset": "midnight_resonance",
+    "art_direction": "Dark performance studio, distant acoustic arches, warm amber and teal light beams, subtle haze and soft foreground bokeh. Preserve central negative space for the real violin.",
+    "layer_count": 3,
+    "aspect_ratio": "9:16",
+    "strategy": "Story-specific separated image plates imported as native Frame By Plane layers"
+  }
 }

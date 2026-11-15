@@ -39,6 +39,7 @@ def parse_args():
     parser.add_argument("--frames-dir", required=True)
     parser.add_argument("--project-path", required=True)
     parser.add_argument("--proof-shot", action="store_true", help="Render one short proof shot, never a full storyboard.")
+    parser.add_argument("--background-manifest", help="Story-specific image layers imported through Frame By Plane.")
     return parser.parse_args(raw)
 
 
@@ -646,6 +647,18 @@ def build_scene(args):
                         point.handle_left_type = "AUTO"
                         point.handle_right_type = "AUTO"
 
+    frame_by_plane_report = None
+    if args.background_manifest:
+        from frame_by_plane_adapter import build_frame_by_plane_background
+        frame_by_plane_report = build_frame_by_plane_background(
+            args.background_manifest,
+            camera,
+            front_y,
+            frame_end,
+            expected_blender="5.2.4",
+            expected_extension="8.0.1",
+        )
+
     # Brand and story labels occupy a fixed top safe band; karaoke captions are
     # burned in separately in a reserved lower band.
     add_text_overlay(camera, "Violin Prince", 0.075, 0.945, 1, frame_end, gold, size=0.022, distance=6.0)
@@ -808,6 +821,8 @@ def build_scene(args):
         ),
         "animated_strings": 0,
         "resonance_rings": len(rings),
+        "render_architecture": "hybrid_2.5D_plus_real_3D" if frame_by_plane_report else "real_3D_only",
+        "frame_by_plane": frame_by_plane_report or {"enabled": False, "reason": "No background manifest supplied."},
         "motion_graphics": {
             "progress_bar": True,
             "transition_sweep_count": len(motion_graphics["transition_sweeps"]),

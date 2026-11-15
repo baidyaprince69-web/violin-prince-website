@@ -13,6 +13,12 @@ on:
       - "autopilot/engine/tests/test_asset_resolver.py"
       - "autopilot/engine/tests/test_story_asset_resolver.py"
   workflow_dispatch:
+    inputs:
+      render_proof:
+        description: Render the 4.6-second 115-frame violin proof. Leave disabled for code checks.
+        type: boolean
+        required: true
+        default: false
 
 permissions:
   contents: read
@@ -23,6 +29,7 @@ concurrency:
 
 jobs:
   resolve-story-model:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.render_proof == true }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -150,6 +157,7 @@ jobs:
           retention-days: 7
 
   produce-audio:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.render_proof == true }}
     needs: [resolve-story-model]
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -212,6 +220,7 @@ jobs:
           retention-days: 7
 
   render-proof-shot:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.render_proof == true }}
     needs: [resolve-story-model, produce-audio]
     runs-on: ubuntu-latest
     timeout-minutes: 50
@@ -236,12 +245,23 @@ jobs:
           name: violin-prince-proof-audio
           path: work/first-production
 
-      - name: Install Blender, FFmpeg and headless render dependencies
+      - name: Set up Python for cinematic background generation
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pinned Blender 5.2.4 LTS and Frame By Plane 8.0.1
+        uses: ./.github/actions/setup-blender-frame-by-plane
+
+      - name: Install cinematic background generator dependency
+        run: python -m pip install "Pillow>=10,<13"
+
+      - name: Generate the story-specific 2.5D background plates
         run: |
-          sudo apt-get update
-          sudo apt-get install -y             blender ffmpeg python3-numpy fonts-dejavu-core             libegl1 libegl-mesa0 libgl1 libgl1-mesa-dri libgbm1 libxkbcommon0
-          blender --version
-          blender --background --python-expr             "import sys, numpy; print('Blender Python:', sys.version); print('Blender NumPy:', numpy.__version__)"
+          set -Eeuo pipefail
+          python autopilot/engine/cinematic_background.py \
+            --plan .autopilot/first-production-story.json \
+            --output-dir work/first-production/cinematic-background
 
       - name: Render one 4.6-second native-resolution Blender proof
         shell: bash
@@ -253,9 +273,24 @@ jobs:
           MODEL_PATH="work/first-production/$MODEL_RELATIVE"
           BOW_MODEL_RELATIVE="$(cat work/first-production/assets/bow-model-path.txt)"
           BOW_MODEL_PATH="work/first-production/$BOW_MODEL_RELATIVE"
+          BACKGROUND_MANIFEST="work/first-production/cinematic-background/background-manifest.json"
           test -s "$MODEL_PATH"
           test -s "$BOW_MODEL_PATH"
-          blender --background --factory-startup             --python autopilot/engine/first_production_blender.py             --               --model "$MODEL_PATH"               --bow-model "$BOW_MODEL_PATH"               --strings-in-instrument               --report work/proof-reports/proof-shot.json               --width 1080 --height 1920 --fps 25 --duration 4.6               --render-samples 64               --sample-index 0 --sample-count 115 --total-samples 115               --frames-dir work/proof-frames               --project-path work/Violin-Prince-Proof.blend               --proof-shot
+          test -s "$BACKGROUND_MANIFEST"
+          blender --background \
+            --python autopilot/engine/first_production_blender.py \
+            -- \
+            --model "$MODEL_PATH" \
+            --bow-model "$BOW_MODEL_PATH" \
+            --strings-in-instrument \
+            --background-manifest "$BACKGROUND_MANIFEST" \
+            --report work/proof-reports/proof-shot.json \
+            --width 1080 --height 1920 --fps 25 --duration 4.6 \
+            --render-samples 64 \
+            --sample-index 0 --sample-count 115 --total-samples 115 \
+            --frames-dir work/proof-frames \
+            --project-path work/Violin-Prince-Proof.blend \
+            --proof-shot
           python - <<'PY'
           import json
           from pathlib import Path
@@ -274,6 +309,10 @@ jobs:
               or report["strings_embedded_in_instrument"] is True
           )
           assert report["bow_geometry_source"] == "separate licensed imported bow GLB/glTF"
+          assert report["render_architecture"] == "hybrid_2.5D_plus_real_3D"
+          assert report["frame_by_plane"]["enabled"] is True
+          assert report["frame_by_plane"]["extension_version"] == "8.0.1"
+          assert report["frame_by_plane"]["layer_count"] == 3
           assert report["motion_graphics"]["progress_bar"] is True
           frames = sorted(Path("work/proof-frames").glob("frame_*.png"))
           assert len(frames) == 115, f"Expected 115 proof frames, found {len(frames)}"
@@ -320,6 +359,7 @@ jobs:
           assert 4.5 <= duration <= 4.7
           audio = json.loads((root / "audio-report.json").read_text(encoding="utf-8"))
           asset = json.loads((root / "assets" / "asset-provenance.json").read_text(encoding="utf-8"))
+          render = json.loads((root / "proof-reports" / "proof-shot.json").read_text(encoding="utf-8"))
           report = {
               "status": "proof_render_complete",
               "duration_seconds": duration,
@@ -327,6 +367,8 @@ jobs:
               "fps": picture["r_frame_rate"],
               "frames": frames,
               "bow_rig_count": 1,
+              "render_architecture": render["render_architecture"],
+              "frame_by_plane": render["frame_by_plane"],
               "model_name": asset.get("model_name"),
               "model_creator": asset.get("creator"),
               "model_license": asset.get("license_label"),
@@ -357,6 +399,7 @@ jobs:
             work/first-production/proof-frame.jpg
             work/first-production/proof-report.json
             work/first-production/Violin-Prince-Proof.blend
+            work/first-production/cinematic-background/**
             work/first-production/assets/**
             work/first-production/audio-report.json
             work/first-production/storyboard.json
@@ -371,6 +414,7 @@ jobs:
             echo
             echo "- Proof: 4.6 seconds, 115 Blender frames at native 1080×1920 / 25 FPS"
             echo "- Model: downloaded violin geometry with visible integrated strings, plus a separate licensed bow mesh"
+            echo "- Background: Frame By Plane 8.0.1 multiplane layers behind the real 3D instrument"
             echo "- Rig: one animated control rig over the imported bow mesh components"
             echo "- Layout: Violin Prince brand, story title, progress motion graphic and lower karaoke caption band"
             echo "- Audio: narration and violin music begin with the picture; the proof contains the opening 4.6 seconds"
