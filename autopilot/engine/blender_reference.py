@@ -35,6 +35,7 @@ def main():
 
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     image = bpy.data.images.load(str(image_path), check_existing=True)
+    image.pack()  # Embed the reference so the downloaded .blend is self-contained.
 
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
