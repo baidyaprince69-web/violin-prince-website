@@ -82,13 +82,47 @@ if (contentArgument && !contentArgument.startsWith("--")) {
   const cleanText = (value, limit) => typeof value === "string"
     ? value.replace(/\s+/g, " ").trim().slice(0, limit)
     : "";
+  const scenes = Array.isArray(rawContent.scenes) ? rawContent.scenes.slice(0, 3) : [];
+  const safeScenes = scenes.map((scene) => {
+    const graphic = scene && typeof scene.graphic_data === "object" ? scene.graphic_data : {};
+    return {
+      caption: cleanText(scene?.caption, 72),
+      visual_mode: cleanText(scene?.visual_mode, 32),
+      graphic_label: cleanText(scene?.graphic_label, 42),
+      graphic_detail: cleanText(scene?.graphic_detail, 110),
+      graphic_data: {
+        type: cleanText(graphic.type, 24),
+        items: Array.isArray(graphic.items) ? graphic.items.slice(0, 4).map((item) => ({
+          label: cleanText(item?.label, 38),
+          display: cleanText(item?.display, 22),
+          value: Number.isFinite(Number(item?.value)) ? Number(item.value) : null
+        })) : []
+      }
+    };
+  });
+  const narrationWords = Array.isArray(rawContent.narration_words)
+    ? rawContent.narration_words.slice(0, 200).map((cue) => ({
+        text: cleanText(cue?.text, 32),
+        start: Number(cue?.start),
+        end: Number(cue?.end),
+        sentence_index: Number(cue?.sentence_index || 0)
+      })).filter((cue) =>
+        cue.text && Number.isFinite(cue.start) && Number.isFinite(cue.end) &&
+        cue.start >= 0 && cue.end > cue.start
+      )
+    : [];
   contentConfig = {
     title: cleanText(rawContent.title, 60),
-    topic: cleanText(rawContent.topic, 64),
-    hook: cleanText(rawContent.hook, 110),
+    topic: cleanText(rawContent.topic, 90),
+    hook: cleanText(rawContent.hook, 140),
+    narration_script: cleanText(rawContent.narration_script, 1800),
+    narration_engine: cleanText(rawContent.narration_engine, 32),
+    narration_voice: cleanText(rawContent.narration_voice, 32),
     captions: Array.isArray(rawContent.captions)
       ? rawContent.captions.slice(0, 3).map((value) => cleanText(value, 72))
-      : []
+      : safeScenes.map((scene) => scene.caption),
+    scenes: safeScenes,
+    narration_words: narrationWords
   };
 }
 const contentJson = JSON.stringify(contentConfig)
