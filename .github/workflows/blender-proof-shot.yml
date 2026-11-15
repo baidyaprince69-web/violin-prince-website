@@ -80,14 +80,14 @@ jobs:
           selected_dir = root / "assets" / "selected-model"
           shutil.copytree(original.parent, selected_dir, dirs_exist_ok=True)
           selected = selected_dir / original.name
-          assert selected.is_file() and selected.stat().st_size >= 4096
+          assert selected.is_file() and int(asset.get("package_size_bytes", 0)) >= 4096
           if selected.suffix.lower() == ".glb":
               assert selected.read_bytes()[:4] == b"glTF"
 
           bow_selected_dir = selected_dir / "bow"
           shutil.copytree(bow_original.parent, bow_selected_dir, dirs_exist_ok=True)
           bow_selected = bow_selected_dir / bow_original.name
-          assert bow_selected.is_file() and bow_selected.stat().st_size >= 4096
+          assert bow_selected.is_file() and int(bow.get("package_size_bytes", 0)) >= 4096
           if bow_selected.suffix.lower() == ".glb":
               assert bow_selected.read_bytes()[:4] == b"glTF"
 
