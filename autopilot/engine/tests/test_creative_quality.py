@@ -101,6 +101,54 @@ class CreativeQualityTests(unittest.TestCase):
             self.assertLessEqual(len(prompt), 1800)
         self.assertEqual(len(set(prompts)), 3)
 
+    def test_daily_music_technology_plan_fits_cloudflare_image_prompt_budget(self):
+        profile = pipeline.normalize_visual_reference(
+            {
+                "visual_language": "hybrid",
+                "scene_guidance": [
+                    {"shot_type": "wide_hero"},
+                    {"shot_type": "mechanism_cutaway"},
+                    {"shot_type": "performance_close"},
+                ],
+            },
+            [
+                {"visual_mode": "macro_3d"},
+                {"visual_mode": "waveform"},
+                {"visual_mode": "cover_performance"},
+            ],
+        )
+        plan = {
+            "topic": (
+                "A research prototype uses analog waveform folding and mathematical "
+                "reconstruction to capture greater audio dynamic range within a six-bit converter."
+            ),
+            "cover_payoff": (
+                "Use an original short violin phrase as an audio illustration while a quiet-to-loud "
+                "waveform is shown being folded, digitized and reconstructed. This is not a live creator take."
+            ),
+            "visual_reference": profile,
+        }
+        scene_prompts = [
+            "Create a premium photorealistic cinematic 3D macro scene featuring a complete solid-bodied amber-brown violin. "
+            + ("Authentic maple grain, reflective varnish, natural studio light and detailed acoustic waveforms. " * 24),
+            "Create a photorealistic explainer with a complete solid amber-brown violin, realistic strings and a folded audio waveform. "
+            + ("Show the mechanism clearly with restrained teal-and-amber lighting and realistic depth. " * 24),
+            "Create a cinematic violin close performance composition with a solid amber-brown instrument and visible bow hair. "
+            + ("Preserve natural wood grain, bridge, fingerboard, strings and studio highlights. " * 24),
+        ]
+        modes = ("macro_3d", "waveform", "cover_performance")
+        for index, raw in enumerate(scene_prompts):
+            prompt = pipeline._scene_visual_prompt(
+                {"image_prompt": raw, "visual_mode": modes[index]},
+                index=index,
+                plan=plan,
+            )
+            self.assertLessEqual(len(prompt), 1800)
+            self.assertIn("solid opaque amber-brown", prompt)
+            self.assertIn("visible natural wood grain", prompt)
+            self.assertIn("Portrait 9:16 composition", prompt)
+            self.assertIn("Reference-informed treatment", prompt)
+
     def test_brand_typefaces_load_with_distinct_display_and_reading_roles(self):
         paths = pipeline._ensure_brand_fonts()
         self.assertTrue(all(Path(path).is_file() for path in paths.values()))
