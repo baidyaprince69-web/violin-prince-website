@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Regression suite for fetch-verified.sh. Needs bash, curl, python3, coreutils.
 # Usage: test-fetch-verified.sh path/to/fetch-verified.sh
+# The assert helper evaluates fixed expressions; their references are intentionally opaque to ShellCheck.
+# shellcheck disable=SC2016,SC2034,SC2329
 set -uo pipefail
 
 if [ "$#" -ne 1 ] || [ ! -f "$1" ]; then
