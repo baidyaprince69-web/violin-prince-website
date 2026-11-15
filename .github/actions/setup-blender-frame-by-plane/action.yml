@@ -62,16 +62,12 @@ runs:
         echo "path=$BLENDER_BIN" >> "$GITHUB_OUTPUT"
         "$BLENDER_BIN" --version
 
-    - name: Add Blender's official extensions repository
+    - name: Enable Blender's official extension repository and online access
       shell: bash
       run: |
         set -Eeuo pipefail
-        blender --command extension repo-add \
-          --name "Violin Prince Official Blender Extensions" \
-          --url "https://extensions.blender.org/api/v1/extensions/" \
-          violin_prince_official
         blender --background --python-expr \
-          "import bpy; bpy.context.preferences.system.use_online_access=True; repo=next(r for r in bpy.context.preferences.extensions.repos if r.module == 'violin_prince_official'); repo.enabled=True; bpy.ops.wm.save_userpref()"
+          "import bpy; bpy.context.preferences.system.use_online_access=True; repo=next(r for r in bpy.context.preferences.extensions.repos if r.module == 'blender_org'); assert repo.remote_url.rstrip('/') == 'https://extensions.blender.org/api/v1/extensions'; repo.enabled=True; bpy.ops.wm.save_userpref()"
 
     - name: Install and enable Frame By Plane from the official repository
       shell: bash
@@ -81,7 +77,7 @@ runs:
         blender --command extension install -s -e frame_by_plane
         blender --command extension list
         blender --background --python-expr \
-          "import bpy, importlib, pathlib, tomllib; module=importlib.import_module('bl_ext.violin_prince_official.frame_by_plane'); package=pathlib.Path(module.__file__).resolve().parent; manifest=package/'blender_manifest.toml'; assert manifest.is_file(), str(manifest); data=tomllib.loads(manifest.read_text()); assert data.get('id') == 'frame_by_plane'; assert data.get('version') == '8.0.1', data.get('version'); assert any(a.module == 'bl_ext.violin_prince_official.frame_by_plane' for a in bpy.context.preferences.addons); print('FRAME_BY_PLANE_PIN_OK=' + data['version'])" \
+          "import bpy, importlib, pathlib, tomllib; enabled=[a.module for a in bpy.context.preferences.addons if a.module.startswith('bl_ext.') and a.module.endswith('.frame_by_plane')]; assert len(enabled)==1, enabled; module_name=enabled[0]; repo_module=module_name.split('.')[1]; repo=next(r for r in bpy.context.preferences.extensions.repos if r.module==repo_module); assert repo.remote_url.rstrip('/')=='https://extensions.blender.org/api/v1/extensions'; module=importlib.import_module(module_name); manifest=pathlib.Path(module.__file__).resolve().parent/'blender_manifest.toml'; data=tomllib.loads(manifest.read_text()); assert data.get('id')=='frame_by_plane'; assert data.get('version')=='8.0.1', data.get('version'); print('FRAME_BY_PLANE_PIN_OK='+data['version']+' MODULE='+module_name)" \
           > "$RUNNER_TEMP/frame-by-plane-verify.log" 2>&1
         cat "$RUNNER_TEMP/frame-by-plane-verify.log"
         grep -Fq "FRAME_BY_PLANE_PIN_OK=8.0.1" "$RUNNER_TEMP/frame-by-plane-verify.log"

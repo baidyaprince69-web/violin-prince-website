@@ -137,27 +137,34 @@ def verify_frame_by_plane(
         )
     actual_blender = ".".join(str(part) for part in actual_version)
 
-    repos = getattr(bpy_module.context.preferences.extensions, "repos", ())
-    matches = [
-        repo for repo in repos
-        if str(getattr(repo, "module", "")) == OFFICIAL_REPOSITORY_MODULE
-        and (str(getattr(repo, "remote_url", "") or "").rstrip("/") + "/") == OFFICIAL_REPOSITORY_URL
-    ]
-    if len(matches) != 1:
-        raise FrameByPlaneError(
-            "Expected exactly one Frame By Plane installation source at the official pinned repository; "
-            f"found {len(matches)}."
-        )
-    repo = matches[0]
-    module_name = f"bl_ext.{repo.module}.frame_by_plane"
-    enabled = any(
-        str(getattr(item, "module", "")) == module_name
+    # Blender's extension CLI installs the package into its official
+    # blender_org repository. Resolve the actual loaded add-on module rather
+    # than assuming a custom repository module or cache directory.
+    enabled_modules = [
+        str(getattr(item, "module", ""))
         for item in bpy_module.context.preferences.addons
-    )
-    if not enabled:
+        if str(getattr(item, "module", "")).startswith("bl_ext.")
+        and str(getattr(item, "module", "")).endswith(".frame_by_plane")
+    ]
+    repos = getattr(bpy_module.context.preferences.extensions, "repos", ())
+    matching = []
+    for module_name in enabled_modules:
+        parts = module_name.split(".")
+        if len(parts) != 3:
+            continue
+        repo_module = parts[1]
+        for repo in repos:
+            if str(getattr(repo, "module", "")) != repo_module:
+                continue
+            remote_url = str(getattr(repo, "remote_url", "") or "").rstrip("/")
+            if remote_url == OFFICIAL_REPOSITORY_URL.rstrip("/"):
+                matching.append((module_name, repo))
+    if len(matching) != 1:
         raise FrameByPlaneError(
-            "Frame By Plane is installed but not enabled. Install it with Blender's extension --enable option."
+            "Expected exactly one enabled Frame By Plane add-on from Blender's official "
+            f"extensions.blender.org repository; found {len(matching)}."
         )
+    module_name, repo = matching[0]
 
     try:
         extension_module = importlib.import_module(module_name)
