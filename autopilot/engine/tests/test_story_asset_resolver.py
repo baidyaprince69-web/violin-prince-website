@@ -38,6 +38,50 @@ class StoryAssetResolverTests(unittest.TestCase):
         self.assertIn("piano", query)
         self.assertNotIn("unrelated", query)
 
+    def test_violin_story_query_requires_bow_and_strings(self):
+        query = resolver.derive_story_query({
+            "topic": "How a violin bridge transfers vibration",
+            "title": "The violin's sound",
+        })
+        self.assertIn("violin", query)
+        self.assertIn("bow", query)
+        self.assertIn("strings", query)
+
+    def test_imported_gltf_must_expose_named_bow_and_string_meshes(self):
+        import json
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "violin.gltf"
+            path.write_text(json.dumps({
+                "scene": 0,
+                "scenes": [{"nodes": [0]}],
+                "nodes": [
+                    {"name": "Violin", "children": [1, 2]},
+                    {"name": "violin_bow", "mesh": 0},
+                    {"name": "violin_strings", "mesh": 1},
+                ],
+                "meshes": [{"name": "Bow"}, {"name": "Strings"}],
+            }), encoding="utf-8")
+            parts = resolver.inspect_named_model_parts(path)
+            self.assertEqual(parts["bow"], ["Violin / violin_bow"])
+            self.assertEqual(parts["strings"], ["Violin / violin_strings"])
+
+    def test_gltf_part_inspection_inherits_parent_names(self):
+        import json
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "violin.gltf"
+            path.write_text(json.dumps({
+                "scene": 0,
+                "scenes": [{"nodes": [0]}],
+                "nodes": [
+                    {"name": "Bow Assembly", "children": [1]},
+                    {"name": "Maple Stick", "mesh": 0},
+                ],
+                "meshes": [{"name": "Stick"}],
+            }), encoding="utf-8")
+            parts = resolver.inspect_named_model_parts(path)
+            self.assertEqual(parts["bow"], ["Bow Assembly / Maple Stick"])
+            self.assertEqual(parts["strings"], [])
+
     def test_missing_physical_subject_fails_closed(self):
         with self.assertRaises(resolver.StoryAssetError):
             resolver.derive_story_query({"title": "A and the of"})
