@@ -450,8 +450,8 @@ def build_scene(config):
     track = camera.constraints.new(type="TRACK_TO")
     track.name = "Keep the violin in cinematic focus"
     track.target = focus_target
-    track.track_axis = "-Z"
-    track.up_axis = "Y"
+    track.track_axis = "TRACK_NEGATIVE_Z"
+    track.up_axis = "UP_Y"
 
     scene = bpy.context.scene
     scene.camera = camera
