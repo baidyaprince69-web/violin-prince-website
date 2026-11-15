@@ -102,6 +102,3 @@ jobs:
           test -s .github/workflows/blender-smoke.yml
           test -s .github/workflows/deploy-autopilot-cloudflare.yml
 
-  first-production:
-    if: github.event_name == 'pull_request' && contains(github.event.pull_request.body, '[run-first-production]')
-    uses: ./.github/workflows/first-production.yml
