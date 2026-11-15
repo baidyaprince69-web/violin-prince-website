@@ -21,12 +21,19 @@ def parse_args():
     raw = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", required=True)
-    parser.add_argument("--output", required=True)
     parser.add_argument("--report", required=True)
     parser.add_argument("--width", type=int, default=720)
     parser.add_argument("--height", type=int, default=1280)
     parser.add_argument("--fps", type=int, default=25)
     parser.add_argument("--duration", type=float, default=24.0)
+    parser.add_argument("--sample-index", type=int, default=0,
+                        help="Zero-based parallel render segment.")
+    parser.add_argument("--sample-count", type=int, default=24,
+                        help="Frames rendered by this worker.")
+    parser.add_argument("--total-samples", type=int, default=96,
+                        help="Total temporally distributed Blender frames.")
+    parser.add_argument("--frames-dir", required=True)
+    parser.add_argument("--project-path", required=True)
     return parser.parse_args(raw)
 
 
@@ -430,50 +437,85 @@ def build_scene(args):
     scene.frame_step = 1
     scene.render.film_transparent = False
     scene.view_settings.view_transform = "AgX"
-    if hasattr(scene.render.image_settings, "media_type"):
-        scene.render.image_settings.media_type = "VIDEO"
-    scene.render.image_settings.file_format = "FFMPEG"
+    scene.render.image_settings.file_format = "PNG"
+    scene.render.image_settings.color_mode = "RGB"
     scene.render.use_file_extension = True
-    scene.render.ffmpeg.format = "MPEG4"
-    scene.render.ffmpeg.codec = "H264"
-    scene.render.ffmpeg.constant_rate_factor = "HIGH"
-    scene.render.ffmpeg.ffmpeg_preset = "GOOD"
-    scene.render.ffmpeg.gopsize = args.fps
-    out = Path(args.output).expanduser().resolve()
-    out.parent.mkdir(parents=True, exist_ok=True)
-    scene.render.filepath = str(out.with_suffix(""))
-    scene.frame_set(1)
+    scene.render.image_settings.compression = 20
 
-    # Pack all textures and save an editable native Blender project before render.
+    frames_dir = Path(args.frames_dir).expanduser().resolve()
+    frames_dir.mkdir(parents=True, exist_ok=True)
+    report_path = Path(args.report).expanduser().resolve()
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    project_path = Path(args.project_path).expanduser().resolve()
+    project_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if args.total_samples < 2 or args.sample_count < 1:
+        raise RuntimeError("At least two total samples and one sample per segment are required.")
+    if args.sample_index < 0:
+        raise RuntimeError("The render segment index cannot be negative.")
+    start_index = args.sample_index * args.sample_count
+    end_index = min(start_index + args.sample_count, args.total_samples)
+    if start_index >= args.total_samples:
+        raise RuntimeError("This render segment begins outside the total sample range.")
+
+    # Pack textures and save one reusable editable project before the frame workers render.
     for image in bpy.data.images:
         if image.source == "FILE" and not image.packed_file:
             try:
                 image.pack()
             except Exception:
                 pass
-    project_path = out.with_suffix(".blend")
-    bpy.ops.wm.save_as_mainfile(filepath=str(project_path))
-    bpy.ops.render.render(animation=True)
+    if args.sample_index == 0:
+        bpy.ops.wm.save_as_mainfile(filepath=str(project_path))
+
+    sample_records = []
+    for global_index in range(start_index, end_index):
+        # The 96 samples are distributed evenly across the full 600-frame animation.
+        timeline_frame = 1 + round(
+            global_index * (frame_end - 1) / (args.total_samples - 1)
+        )
+        scene.frame_set(timeline_frame)
+        output_frame = frames_dir / f"frame_{global_index:04d}.png"
+        scene.render.filepath = str(output_frame)
+        bpy.ops.render.render(write_still=True)
+        if not output_frame.is_file() or output_frame.stat().st_size < 1024:
+            raise RuntimeError("Blender did not create the expected image: " + str(output_frame))
+        sample_records.append({
+            "sample_index": global_index,
+            "timeline_frame": timeline_frame,
+            "file": str(output_frame),
+            "bytes": output_frame.stat().st_size,
+        })
+        print(
+            "FIRST_PRODUCTION_FRAME "
+            + str(global_index + 1) + "/" + str(args.total_samples)
+            + " timeline=" + str(timeline_frame)
+        )
 
     report = {
-        "status": "blender_render_completed",
+        "status": "blender_frame_samples_completed",
         "renderer": "Blender " + render_engine,
         "model_source": str(Path(args.model).resolve()),
         "model_type": "imported GLB mesh; not a procedural substitute",
         "resolution": [args.width, args.height],
-        "fps": args.fps,
+        "target_fps": args.fps,
         "duration_seconds": args.duration,
-        "frame_count": frame_end,
+        "timeline_frame_count": frame_end,
+        "sample_count": len(sample_records),
+        "total_samples": args.total_samples,
+        "sample_index": args.sample_index,
+        "sample_start": start_index,
+        "sample_end_exclusive": end_index,
         "camera_moves": len(camera_moves),
         "actual_imported_mesh_count": len(meshes),
         "animated_bow": True,
         "animated_strings": len(strings),
         "resonance_rings": len(rings),
         "3d_title_objects": 5,
-        "blend_project": str(project_path),
-        "render_output": str(out),
+        "blend_project": str(project_path) if args.sample_index == 0 else None,
+        "samples": sample_records,
     }
-    Path(args.report).write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print("BLENDER_FIRST_PRODUCTION_REPORT=" + json.dumps(report, ensure_ascii=False))
 
 
