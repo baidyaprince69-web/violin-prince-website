@@ -34,6 +34,20 @@ class SketchfabAssetResolverTests(unittest.TestCase):
         self.assertFalse(asset_resolver._license_details(blocked)[0] in asset_resolver.COMMERCIAL_LICENSES)
         self.assertFalse(asset_resolver._license_details(unknown)[0] in asset_resolver.COMMERCIAL_LICENSES)
 
+    def test_api_token_uses_sketchfab_token_auth_scheme(self):
+        self.assertEqual(
+            asset_resolver._authorization_headers("example-api-token"),
+            {"Authorization": "Token example-api-token"},
+        )
+        self.assertEqual(
+            asset_resolver._authorization_headers("Bearer example-oauth-token"),
+            {"Authorization": "Bearer example-oauth-token"},
+        )
+        self.assertEqual(
+            asset_resolver._authorization_headers("Token already-prefixed-token"),
+            {"Authorization": "Token already-prefixed-token"},
+        )
+
     def test_reference_only_when_no_download_token(self):
         model = {
             "name": "Violin",
