@@ -25,7 +25,7 @@ permissions:
 
 concurrency:
   group: violin-prince-blender-proof-shot-segmented
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   resolve-story-model:
@@ -235,12 +235,14 @@ jobs:
         run: |
           set -Eeuo pipefail
           mkdir -p work
-          test -x "$RUNNER_TEMP/blender-5.2.4-linux-x64/blender"
+          test -s "$RUNNER_TEMP/blender-5.2.4-linux-x64.tar.xz"
           test -d "$RUNNER_TEMP/violin-prince-blender-config"
           test -d "$RUNNER_TEMP/violin-prince-blender-scripts"
+          # The setup action already verified this archive against Blender's
+          # official SHA-256 list. Keep it compressed inside the shared bundle.
           tar -cf work/blender-frame-by-plane-runtime.tar \
             -C "$RUNNER_TEMP" \
-            blender-5.2.4-linux-x64 \
+            blender-5.2.4-linux-x64.tar.xz \
             violin-prince-blender-config \
             violin-prince-blender-scripts
           sha256sum work/blender-frame-by-plane-runtime.tar
@@ -307,6 +309,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           tar -xf work/blender-frame-by-plane-runtime.tar -C "$RUNNER_TEMP"
+          tar -xf "$RUNNER_TEMP/blender-5.2.4-linux-x64.tar.xz" -C "$RUNNER_TEMP"
           BLENDER_DIR="$RUNNER_TEMP/blender-5.2.4-linux-x64"
           CONFIG_DIR="$RUNNER_TEMP/violin-prince-blender-config"
           SCRIPTS_DIR="$RUNNER_TEMP/violin-prince-blender-scripts"
