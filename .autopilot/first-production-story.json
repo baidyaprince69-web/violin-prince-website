@@ -5,6 +5,10 @@
   "asset_kind": "violin",
   "asset_subject": "complete violin",
   "model_query": "realistic complete violin instrument with bow and strings, scroll, tuning pegs, bridge and f-holes, detailed photorealistic PBR",
+  "preferred_model_urls": [
+    "https://sketchfab.com/3d-models/violin-0162dea1b1044cd281c57af5e5fc2046",
+    "https://sketchfab.com/3d-models/violin-b45bce730d8a489c83ecc944f3725475"
+  ],
   "require_violin_parts": true,
   "narrative_style": "cinematic_story",
   "scenes": [
