@@ -146,11 +146,11 @@
     ]
   },
   "preferred_model_urls": [
-    "https://sketchfab.com/3d-models/rigged-violin-5861a7409a354c5abb3def9e94101385",
     "https://sketchfab.com/3d-models/violin-401df6b99a4142eeb6bb1c02ef09c18d"
   ],
   "preferred_bow_model_urls": [
     "https://sketchfab.com/3d-models/violin-bow-af332828a42f4f8cbbe81bea3de0b00d"
   ],
-  "strings_in_combined_mesh": false
+  "strings_in_combined_mesh": true,
+  "asset_selection_note": "The selected model's published Sketchfab preview visibly shows the violin with strings running along the fingerboard. Its GLB node names do not identify a separate string object; treat the strings as visually integrated into the imported violin geometry. Keep the render blocked if the imported model preview does not visibly retain the strings."
 }
