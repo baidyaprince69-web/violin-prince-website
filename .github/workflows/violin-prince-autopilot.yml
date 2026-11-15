@@ -38,7 +38,7 @@ concurrency:
 jobs:
   produce:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 90
     env:
       RUN_ID: ${{ github.run_id }}
       RUN_MODE: manual
@@ -48,6 +48,7 @@ jobs:
       AUTOPILOT_JOB_TOKEN: ${{ secrets.AUTOPILOT_JOB_TOKEN }}
       CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
       CF_AI_TOKEN: ${{ secrets.CF_AI_TOKEN }}
+      SKETCHFAB_ACCESS_TOKEN: ${{ secrets.SKETCHFAB_ACCESS_TOKEN }}
       YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
       YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
       YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
@@ -55,7 +56,10 @@ jobs:
       YOUTUBE_STATE_ENCRYPTION_KEY: ${{ secrets.YOUTUBE_STATE_ENCRYPTION_KEY }}
       SEO_LEARNING_REPORT_PATH: work/seo-learning-data/seo-learning/latest.enc.json
       PUBLISH_ENABLED: "false"
-      BLENDER_RENDER_ENABLED: ${{ vars.BLENDER_RENDER_ENABLED || 'false' }}
+      BLENDER_RENDER_ENABLED: ${{ github.event_name == 'push' && 'true' || vars.BLENDER_RENDER_ENABLED || 'false' }}
+      BLENDER_RENDER_WORKERS: "3"
+      BLENDER_THREADS_PER_WORKER: "1"
+      BLENDER_RENDER_TIMEOUT_SECONDS: "900"
       EGL_PLATFORM: surfaceless
       LIBGL_ALWAYS_SOFTWARE: "1"
       MESA_LOADER_DRIVER_OVERRIDE: llvmpipe
@@ -121,8 +125,19 @@ jobs:
           print("Validated ChatGPT daily production request: " + plan_path)
           PY
 
-      - name: Check required Cloudflare AI secrets for photorealistic image generation
-        if: env.PIPELINE_STAGE != 'render' && env.BLENDER_RENDER_ENABLED != 'true'
+      - name: Require licensed Sketchfab access for the Cloudflare-independent daily route
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          MODEL_TOKEN: ${{ secrets.SKETCHFAB_ACCESS_TOKEN }}
+        run: |
+          if [ -z "$MODEL_TOKEN" ]; then
+            echo "::error::SKETCHFAB_ACCESS_TOKEN is required to download a licensed story-specific 3D model. No placeholder model or Cloudflare image fallback will be used."
+            exit 1
+          fi
+
+      - name: Check Cloudflare secrets only for the legacy manual image route
+        if: github.event_name == 'workflow_dispatch' && env.PIPELINE_STAGE != 'render' && env.BLENDER_RENDER_ENABLED != 'true'
         shell: bash
         run: |
           missing=0
@@ -208,11 +223,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install "requests>=2.32,<3" "Pillow>=10.4,<12"
 
-      - name: Install Blender only when true-3D rendering is enabled
+      - name: Install pinned Blender 5.2.4 and Frame By Plane 8.0.1
         if: env.BLENDER_RENDER_ENABLED == 'true' && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')
-        run: |
-          sudo apt-get install -y blender libegl1 libegl-mesa0 libgl1 libgl1-mesa-dri libgbm1 libxkbcommon0
-          blender --version
+        uses: ./.github/actions/setup-blender-frame-by-plane
 
       - name: Prepare research, story, narration and soundtrack
         if: env.PIPELINE_STAGE == 'prepare'
@@ -269,12 +282,39 @@ jobs:
         shell: bash
         run: |
           python - <<'PY'
+          import hashlib
           import json
           import os
           from pathlib import Path
 
           output = Path("work/output")
-          metadata = json.loads((output / "metadata.json").read_text(encoding="utf-8"))
+          video_path = output / "violin-prince-short.mp4"
+          manifest_path = output / "publish-manifest.json"
+          provenance_path = output / "asset-provenance.json"
+          if not video_path.is_file() or video_path.stat().st_size < 4096:
+              raise SystemExit("Final MP4 is missing or unexpectedly small; refusing a release.")
+          if not manifest_path.is_file() or not provenance_path.is_file():
+              raise SystemExit("Publisher handoff files are missing; refusing a release.")
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+          preflight = manifest.get("publisher_preflight") or {}
+          if manifest.get("status") != "rendered":
+              raise SystemExit("Release blocked: manifest status is not rendered.")
+          if manifest.get("publish_ready") is not True or preflight.get("status") != "ready":
+              blockers = preflight.get("blockers") or []
+              raise SystemExit("Release blocked by publisher preflight: " + json.dumps(blockers, ensure_ascii=False))
+          if preflight.get("blockers"):
+              raise SystemExit("Release blocked: publisher preflight contains unresolved blockers.")
+          factual = provenance.get("factual_provenance") or {}
+          if factual.get("status") != "passed" or int(factual.get("independent_publisher_count") or 0) < 2:
+              raise SystemExit("Release blocked: factual provenance is incomplete.")
+          assets = provenance.get("assets") or {}
+          final_video_record = assets.get("final_video") or {}
+          digest = hashlib.sha256(video_path.read_bytes()).hexdigest()
+          if final_video_record.get("sha256") != digest:
+              raise SystemExit("Release blocked: final MP4 SHA-256 does not match the provenance record.")
+          if not 20 <= float(manifest.get("duration_seconds") or 0) <= 25:
+              raise SystemExit("Release blocked: MP4 duration is outside the YouTube Shorts production contract.")
           plan = json.loads(Path("work/package/creative_plan.json").read_text(encoding="utf-8"))
           title = str(plan.get("title") or "Violin Prince")[:90]
           notes = [
