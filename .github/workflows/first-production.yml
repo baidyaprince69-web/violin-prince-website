@@ -47,14 +47,14 @@ jobs:
           retention-days: 7
 
   blender-render:
-    needs: resolve-assets
+    needs: [resolve-assets, audio-production]
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
       fail-fast: false
-      max-parallel: 8
+      max-parallel: 20
       matrix:
-        segment: [0, 1, 2, 3, 4, 5, 6, 7]
+        segment: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     env:
       EGL_PLATFORM: surfaceless
       LIBGL_ALWAYS_SOFTWARE: "1"
@@ -77,7 +77,7 @@ jobs:
           blender --version
           blender --background --python-expr \
             "import sys, numpy; print('Blender Python:', sys.version); print('Blender NumPy:', numpy.__version__)"
-      - name: Compile and render this worker's 24 Blender frames
+      - name: Compile and render this worker's 30 native Blender frames
         env:
           SEGMENT: ${{ matrix.segment }}
         run: |
@@ -90,8 +90,8 @@ jobs:
               --report "work/segment-reports/segment-${SEGMENT}.json" \
               --width 540 --height 960 --fps 25 --duration 24 \
               --sample-index "$SEGMENT" \
-              --sample-count 24 \
-              --total-samples 192 \
+              --sample-count 30 \
+              --total-samples 600 \
               --frames-dir work/frames \
               --project-path work/blender-visual.blend
           python - <<'PY'
@@ -99,14 +99,14 @@ jobs:
           from pathlib import Path
           segment = int(os.environ["SEGMENT"])
           report = json.loads(Path(f"work/segment-reports/segment-{segment}.json").read_text())
-          assert report["sample_count"] == 24
+          assert report["sample_count"] == 30
           assert report["actual_imported_mesh_count"] >= 1
           assert report["model_type"].startswith("imported GLB mesh")
-          assert len(report["samples"]) == 24
+          assert len(report["samples"]) == 30
           for item in report["samples"]:
               frame = Path(item["file"])
               assert frame.is_file() and frame.stat().st_size > 1024
-          print(f"Segment {segment}: verified 24 Blender-rendered frames.")
+          print(f"Segment {segment}: verified 30 Blender-rendered frames.")
           PY
       - name: Upload this worker's rendered frames and report
         uses: actions/upload-artifact@v4
@@ -167,7 +167,7 @@ jobs:
   assemble-review-video:
     needs: [resolve-assets, blender-render, audio-production]
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - name: Check out the Blender production source
         uses: actions/checkout@v4
@@ -177,7 +177,7 @@ jobs:
           sudo apt-get install -y ffmpeg fonts-dejavu-core
           python -m pip install --upgrade pip
           python -m pip install "Pillow>=10.4,<12"
-      - name: Download all 192 Blender frame samples
+      - name: Download all 600 native Blender frame samples
         uses: actions/download-artifact@v4
         with:
           pattern: violin-prince-blender-frames-*
@@ -208,18 +208,25 @@ jobs:
           from pathlib import Path
           frames = sorted(Path("work/first-production/frames").glob("frame_*.png"))
           reports = sorted(Path("work/render-data/segment-reports").glob("segment-*.json"))
-          assert len(frames) == 192, f"Expected 192 Blender frames, found {len(frames)}"
-          assert len(reports) == 8, f"Expected eight segment reports, found {len(reports)}"
+          assert len(frames) == 600, f"Expected 600 Blender frames, found {len(frames)}"
+          assert len(reports) == 20, f"Expected 20 segment reports, found {len(reports)}"
+          sample_indices = []
+          timeline_frames = []
           for report_path in reports:
               report = json.loads(report_path.read_text())
-              assert report["sample_count"] == 24
+              assert report["sample_count"] == 30
+              assert report["total_samples"] == 600
               assert report["actual_imported_mesh_count"] >= 1
-          print("Verified 192 Blender frames across eight parallel render workers.")
+              sample_indices.extend(item["sample_index"] for item in report["samples"])
+              timeline_frames.extend(item["timeline_frame"] for item in report["samples"])
+          assert sorted(sample_indices) == list(range(600)), "Missing or duplicated global frame indices"
+          assert sorted(timeline_frames) == list(range(1, 601)), "Every native timeline frame must be rendered exactly once"
+          print("Verified all 600 native Blender frames across 20 parallel render workers.")
           PY
           ffmpeg -y -hide_banner -loglevel error \
-            -framerate 8 -start_number 0 \
+            -framerate 25 -start_number 0 \
             -i work/first-production/frames/frame_%04d.png \
-            -vf "minterpolate=fps=25:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1,scale=720:1280:flags=lanczos,format=yuv420p" \
+            -vf "scale=720:1280:flags=lanczos,format=yuv420p" \
             -an -c:v libx264 -preset medium -crf 18 \
             -r 25 -fps_mode cfr -t 24 -movflags +faststart \
             work/first-production/blender-visual.mp4
@@ -247,16 +254,19 @@ jobs:
           video = root / "Violin-Prince-First-Production.mp4"
           assert video.is_file() and video.stat().st_size > 1_000_000
           probe = json.loads(subprocess.check_output([
-              "ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", str(video)
+              "ffprobe", "-v", "error", "-count_frames", "-show_streams", "-show_format", "-of", "json", str(video)
           ], text=True))
           video_stream = next(s for s in probe["streams"] if s.get("codec_type") == "video")
           audio_stream = next(s for s in probe["streams"] if s.get("codec_type") == "audio")
           duration = float(probe["format"]["duration"])
           assert video_stream["codec_name"] == "h264"
           assert (video_stream["width"], video_stream["height"]) == (720, 1280)
+          assert video_stream.get("r_frame_rate") == "25/1"
+          rendered_frames = int(video_stream.get("nb_read_frames", video_stream.get("nb_frames", 0)))
+          assert rendered_frames == 600, f"Expected 600 final video frames, found {rendered_frames}"
           assert audio_stream["codec_name"] == "aac" and audio_stream["channels"] == 2
           assert 23.5 <= duration <= 24.5, duration
-          assert len(list((root / "frames").glob("frame_*.png"))) == 192
+          assert len(list((root / "frames").glob("frame_*.png"))) == 600
           assert (root / "blender-visual.blend").is_file()
           assert (root / "assets" / "violin.glb").is_file()
           assert (root / "assets" / "asset-provenance.json").is_file()
@@ -271,9 +281,12 @@ jobs:
               "frame_rate": video_stream.get("r_frame_rate"),
               "video_codec": video_stream["codec_name"],
               "audio_codec": audio_stream["codec_name"],
-              "blender_render_samples": 192,
-              "parallel_blender_workers": 8,
+              "blender_render_samples": 600,
+              "parallel_blender_workers": 20,
               "output_fps": 25,
+              "native_blender_fps": 25,
+              "final_video_frame_count": rendered_frames,
+              "frame_interpolation": "none — all 600 frames rendered natively in Blender",
               "model_provider": asset["provider"],
               "model_license": asset["license"],
               "model_sha256": asset["sha256"],
@@ -290,7 +303,7 @@ jobs:
         run: |
           cd work/first-production
           zip -r ../../Violin-Prince-First-Production-Project.zip \
-            assets asset-resolution.json frames blender-visual.blend blender-visual.mp4 \
+            assets asset-resolution.json blender-visual.blend blender-visual.mp4 \
             production-script.txt narration.wav cc0-violin-music.wav \
             cinematic-sound-effects.wav final-audio-mix.wav captions.srt \
             audio-report.json final-production-report.json
@@ -335,8 +348,8 @@ jobs:
           {
             echo "## First production completed — not published"
             echo
-            echo "- Blender: 192 frames distributed across eight parallel CPU render workers"
-            echo "- Motion: optical-flow interpolation to 25 FPS"
+            echo "- Blender: all 600 native timeline frames distributed across 20 parallel CPU render workers"
+            echo "- Motion: native Blender rendering at 25 FPS; no optical-flow interpolation"
             echo "- Picture: actual imported CC0 violin GLB, animated camera, bow, 3D titles and resonance graphics"
             echo "- Audio: Kokoro narration, new CC0 sampled violin phrase, original transition effects"
             echo "- Output: downloadable MP4 and editable production project bundle"
