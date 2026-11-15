@@ -111,5 +111,99 @@ class BlenderRendererTests(unittest.TestCase):
                     )
 
 
+    def test_daily_frame_by_plane_scene_fails_closed_without_manifest(self):
+        with patch.object(blender_renderer, "_find_blender") as find_blender:
+            with self.assertRaisesRegex(
+                blender_renderer.BlenderRenderError, "requires a Frame By Plane"
+            ):
+                blender_renderer.render_scene_video(
+                    {
+                        "visual_mode": "macro_3d",
+                        "frame_by_plane_required": True,
+                    },
+                    "unused.mp4",
+                    enabled=True,
+                )
+            find_blender.assert_not_called()
+
+    def test_daily_frame_by_plane_scene_rejects_missing_manifest_file(self):
+        with tempfile.TemporaryDirectory() as temp:
+            missing = Path(temp) / "missing-background-manifest.json"
+            with patch.object(blender_renderer, "_find_blender") as find_blender:
+                with self.assertRaisesRegex(
+                    blender_renderer.BlenderRenderError, "manifest does not exist"
+                ):
+                    blender_renderer.render_scene_video(
+                        {
+                            "visual_mode": "macro_3d",
+                            "frame_by_plane_required": True,
+                            "frame_by_plane_manifest": str(missing),
+                        },
+                        "unused.mp4",
+                        enabled=True,
+                    )
+                find_blender.assert_not_called()
+
+    def test_daily_frame_by_plane_manifest_is_passed_to_blender_and_reported(self):
+        import json
+        import subprocess
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            manifest = root / "background-manifest.json"
+            manifest.write_text('{"schema_version":1,"layers":[]}', encoding="utf-8")
+            output = root / "scene.mp4"
+            captured = {}
+
+            def fake_blender_run(command, timeout, label):
+                captured["command"] = command
+                config_path = Path(command[command.index("--config") + 1])
+                captured["config"] = json.loads(config_path.read_text(encoding="utf-8"))
+                Path(command[command.index("--output") + 1]).write_bytes(b"V" * 5000)
+                report = {"enabled": True, "layer_count": 3, "extension_version": "8.0.1"}
+                return subprocess.CompletedProcess(
+                    command, 0,
+                    stdout="FRAME_BY_PLANE_REPORT=" + json.dumps(report) + "\\n",
+                    stderr="",
+                )
+
+            with patch.object(blender_renderer, "_find_blender", return_value="/usr/bin/blender"), \
+                 patch.object(blender_renderer, "_run", side_effect=fake_blender_run), \
+                 patch.object(
+                     blender_renderer, "_probe_video",
+                     return_value={
+                         "duration_seconds": 8.0, "width": 720, "height": 1280,
+                         "codec": "h264", "frame_rate": "25/1",
+                     },
+                 ), \
+                 patch.object(
+                     blender_renderer.subprocess, "run",
+                     return_value=subprocess.CompletedProcess(
+                         ["blender", "--version"], 0, stdout="Blender 5.2.4\\n", stderr=""
+                     ),
+                 ):
+                result = blender_renderer.render_scene_video(
+                    {
+                        "visual_mode": "macro_3d",
+                        "frame_by_plane_required": True,
+                        "frame_by_plane_manifest": str(manifest),
+                    },
+                    output,
+                    enabled=True,
+                    resolution=(720, 1280),
+                    fps=25,
+                    duration_seconds=8.0,
+                )
+
+            self.assertEqual(
+                captured["config"]["frame_by_plane_manifest"], str(manifest)
+            )
+            self.assertTrue(captured["config"]["frame_by_plane_required"])
+            self.assertNotIn("--factory-startup", captured["command"])
+            self.assertEqual(result["frame_by_plane"]["layer_count"], 3)
+            self.assertIn("Frame By Plane 2.5D", result["rendered_as"])
+
+
+
 if __name__ == "__main__":
     unittest.main()
