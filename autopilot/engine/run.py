@@ -25,6 +25,9 @@ try:
         normalize_visual_reference, scene_camera_move, scene_transition,
         scene_visual_prompt_suffix, transition_duration,
     )
+    from .blender_renderer import (
+        is_blender_render_enabled, render_scene_overlay, composite_scene_overlay,
+    )
 except ImportError:  # Direct script execution from the engine directory.
     from seo_intelligence import build_topic_queries, discover as seo_discover, load_profile as seo_load_profile
     from seo_intelligence.storage import load_learning_signals
@@ -36,6 +39,9 @@ except ImportError:  # Direct script execution from the engine directory.
     from visual_reference import (
         normalize_visual_reference, scene_camera_move, scene_transition,
         scene_visual_prompt_suffix, transition_duration,
+    )
+    from blender_renderer import (
+        is_blender_render_enabled, render_scene_overlay, composite_scene_overlay,
     )
 
 API = os.environ.get("AUTOPILOT_API_URL", "").rstrip("/")
@@ -4303,6 +4309,8 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
     ]
     all_word_cues = narration_info.get("word_cues", [])
     scene_motion_events = []
+    blender_enabled = is_blender_render_enabled()
+    blender_scene_reports = []
     for i, (scene, scene_seconds) in enumerate(zip(plan["scenes"], scene_durations)):
         scene_start = scene_starts[i]
         scene_word_events = []
@@ -4333,6 +4341,30 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
                 raise PipelineError(f"Prepared scene image {i + 1} is missing.")
         else:
             image = make_image(visual_prompt, i)
+
+        # Add real procedural 3D geometry only to the existing 3D visual modes.
+        # The original scene plate remains the base; Pillow and FFmpeg still own
+        # typography, explainers, camera motion, transitions and final encoding.
+        if blender_enabled:
+            blender_overlay = OUT / f"blender-overlay-{i + 1}.png"
+            blender_result = render_scene_overlay(scene, blender_overlay, scene_index=i)
+            if blender_result:
+                composited_image = OUT / f"blender-composite-{i + 1}.png"
+                composite_scene_overlay(image, blender_overlay, composited_image, size=(W, H))
+                image = composited_image
+                blender_scene_reports.append({"scene": i + 1, **blender_result})
+                log(
+                    f"Blender 3D overlay rendered for scene {i + 1}: "
+                    f"{blender_result.get('scene_type')} "
+                    f"({blender_result.get('blender_version', 'unknown')})."
+                )
+            else:
+                blender_scene_reports.append({
+                    "scene": i + 1,
+                    "status": "skipped",
+                    "reason": "visual_mode_not_supported",
+                    "visual_mode": str(scene.get("visual_mode") or ""),
+                })
         card = make_card(image, scene["caption"], i, plan.get("title", ""))
         clip = OUT / f"scene-{i + 1}.mp4"
         frame_count = max(1, int(round(scene_seconds * FPS)))
@@ -4513,7 +4545,14 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
             }
             for index, scene in enumerate(plan.get("scenes", []))
         ],
-        "visual_engine": "photorealistic 3D-CGI scene plates with animated explainer overlays",
+        "visual_engine": "photorealistic scene plates with optional Blender-rendered 3D geometry and animated explainer overlays",
+        "blender_rendering": {
+            "enabled": blender_enabled,
+            "renderer": "Blender Cycles CPU",
+            "composition": "transparent Blender RGBA overlay over the existing scene plate; Pillow adds graphics and FFmpeg handles motion/encoding",
+            "scenes": blender_scene_reports,
+            "animation_scope": "one true-3D frame per eligible scene; full frame-by-frame Blender animation is a later benchmarked phase",
+        },
         "visual_modes": [str(scene.get("visual_mode") or "waveform") for scene in plan.get("scenes", [])],
         "creative_direction_version": CREATIVE_DIRECTION_VERSION,
         "subtitle_style": "Kokoro word-timed karaoke typography with gold active-word fill",
