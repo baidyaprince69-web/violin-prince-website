@@ -51,4 +51,16 @@ jobs:
           python -m unittest autopilot.engine.tests.test_asset_resolver autopilot.engine.tests.test_story_asset_resolver autopilot.engine.tests.test_blender_renderer autopilot.engine.tests.test_voiceover -v
       - name: Confirm no full-render matrix is part of the smoke workflow
         run: |
-          ! grep -Eq 'matrix:|total-samples 600|sample-count 30' .github/workflows/blender-smoke.yml
+          python - <<'PY'
+          from pathlib import Path
+
+          content = Path(".github/workflows/blender-smoke.yml").read_text(encoding="utf-8")
+          checked = "\\n".join(
+              line for line in content.splitlines()
+              if "forbidden_tokens =" not in line and "checked = " not in line
+          )
+          forbidden_tokens = ("matrix:", "total-samples 600", "sample-count 30")
+          matches = [token for token in forbidden_tokens if token in checked]
+          assert not matches, f"The smoke workflow must not contain full-render controls: {matches}"
+          print("Offline smoke workflow has no full-render matrix or frame-partition settings.")
+          PY
