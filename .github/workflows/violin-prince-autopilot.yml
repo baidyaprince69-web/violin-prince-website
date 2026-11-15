@@ -42,6 +42,9 @@ concurrency:
 
 jobs:
   produce:
+    # A manual request committed on the prototype branch must not replay when
+    # that request file is later merged into main.
+    if: ${{ !(github.event_name == 'push' && github.ref_name == 'main' && (contains(toJSON(github.event.commits.*.added), '.autopilot/manual-motion-production-request.json') || contains(toJSON(github.event.commits.*.modified), '.autopilot/manual-motion-production-request.json'))) }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
