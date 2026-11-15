@@ -1,7 +1,8 @@
-"""Procedural, fully opaque animated 3D scene generator for Blender.
+"""Blender 3D hero-scene renderer with mandatory Frame By Plane daily backgrounds.
 
-The scene is rendered by Blender from its own camera into an MP4. No transparent
-pass, pre-generated scene image or composited Blender overlay is used.
+The licensed instrument is real 3D geometry. Daily production adds native
+Frame By Plane image layers behind it for camera-space parallax and 2.5D depth.
+Blender renders the composed scene directly to an opaque MP4 clip.
 """
 from __future__ import annotations
 
