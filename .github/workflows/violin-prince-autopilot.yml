@@ -272,7 +272,7 @@ jobs:
 
       - name: Publish finished MP4 and publisher handoff as release assets
         id: publish_asset
-        if: success() && env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path != ''
+        if: success() && env.PUBLISH_ENABLED == 'true' && env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path != ''
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_RUN_ID: ${{ github.run_id }}
