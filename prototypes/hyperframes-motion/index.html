@@ -6,6 +6,17 @@
   <meta name="color-scheme" content="dark" />
   <title>Violin Prince — Motion Graphics Prototype</title>
   <link rel="stylesheet" href="./src/styles.css" />
+  <script>
+    // Register a fail-fast placeholder before the deferred Motion bundle.
+    // The bundle replaces it once DOM parsing has completed.
+    window.__timelines = window.__timelines || {};
+    window.__timelines["vp-motion-10s"] = {
+      pause: function () {},
+      totalTime: function () { throw new Error("Motion timeline bundle did not register."); },
+      time: function () { throw new Error("Motion timeline bundle did not register."); },
+      duration: function () { return 10; }
+    };
+  </script>
   <script defer src="./dist/main.js"></script>
 </head>
 <body>
@@ -77,16 +88,5 @@
       <span class="progress-time">00:10</span>
     </div>
   </main>
-
-  <script>
-    window.__timelines = window.__timelines || {};
-    // The bundled Motion adapter replaces this fail-fast placeholder before rendering begins.
-    window.__timelines["vp-motion-10s"] = {
-      pause: function () {},
-      totalTime: function () { throw new Error("Motion timeline bundle did not register."); },
-      time: function () { throw new Error("Motion timeline bundle did not register."); },
-      duration: function () { return 10; }
-    };
-  </script>
 </body>
 </html>

@@ -58,8 +58,8 @@ jobs:
 
       - name: Validate HyperFrames composition
         run: |
-          npx hyperframes lint
-          npx hyperframes check
+          npm run lint
+          npm run check
 
       - name: Render the 10-second vertical MP4
         run: npm run render
@@ -95,7 +95,7 @@ jobs:
           {
             echo "## Violin Prince Motion Prototype"
             echo
-            echo "- Branch: `$GITHUB_REF_NAME`"
+            echo "- Branch: $GITHUB_REF_NAME"
             echo "- Publishing: disabled"
             if [[ -f output/violin-prince-motion-10s.mp4 ]]; then
               echo "- MP4: generated"
