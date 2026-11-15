@@ -113,6 +113,15 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Upload model-resolution diagnostics even when selection fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: violin-prince-model-resolution-diagnostics
+          path: work/first-production/assets/story-selected/asset-resolution-diagnostic.json
+          if-no-files-found: ignore
+          retention-days: 7
+
   produce-audio:
     needs: [resolve-story-model]
     runs-on: ubuntu-latest
