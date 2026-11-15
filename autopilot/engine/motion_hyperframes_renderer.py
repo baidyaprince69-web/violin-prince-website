@@ -10,7 +10,7 @@ from typing import Any
 
 SUPPORTED_AUDIO_SUFFIXES = {".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg"}
 DEFAULT_MAX_TRACK_SECONDS = 600.0
-RENDER_FILENAME = "violin-prince-explainer.mp4"
+RENDER_FILENAME = "violin-prince-motion-full-track.mp4"
 
 
 class MotionHyperFramesError(RuntimeError):
