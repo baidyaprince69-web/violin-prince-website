@@ -16,7 +16,7 @@ LANG_CODE = "a"  # American English
 SAMPLE_RATE = 24000
 PAUSE_SECONDS = 0.16
 # Keep required 40–44-word Shorts narration within the 21.5-second voice limit.
-NARRATION_SPEED = 1.10
+NARRATION_SPEED = 1.15
 
 
 def split_sentences(text: str) -> list[str]:
