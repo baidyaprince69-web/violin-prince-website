@@ -6,8 +6,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-os.environ.setdefault("CF_ACCOUNT_ID", "test-account")
-os.environ.setdefault("CF_AI_TOKEN", "test-ai-token")
 ENGINE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ENGINE))
 
@@ -233,13 +231,11 @@ class StagedPipelineTests(unittest.TestCase):
             metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
 
             original_package = pipeline.PACKAGE
-            original_account, original_token = pipeline.CF_ACCOUNT, pipeline.CF_TOKEN
             old_approval = os.environ.get("STORY_APPROVED")
             pipeline.PACKAGE = folder
-            pipeline.CF_ACCOUNT, pipeline.CF_TOKEN = "test-account", "test-ai-token"
             os.environ["STORY_APPROVED"] = "false"
 
-            def fake_make_image(_prompt, index):
+            def fake_make_image(_prompt, index, **_kwargs):
                 target = folder / f"generated-{index + 1}.jpg"
                 Image.new("RGB", (120, 200), (40 + index * 25, 55, 80)).save(target, "JPEG")
                 return target
@@ -256,7 +252,6 @@ class StagedPipelineTests(unittest.TestCase):
                 self.assertTrue((folder / "storyboard-preview.png").is_file())
             finally:
                 pipeline.PACKAGE = original_package
-                pipeline.CF_ACCOUNT, pipeline.CF_TOKEN = original_account, original_token
                 if old_approval is None:
                     os.environ.pop("STORY_APPROVED", None)
                 else:

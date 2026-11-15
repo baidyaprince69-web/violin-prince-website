@@ -352,12 +352,8 @@ def run_daily_plan(plan_path: Path) -> int:
     engine.OUT.mkdir(parents=True, exist_ok=True)
     paths = engine._package_paths()
 
-    # The daily ChatGPT mode is deliberately independent from the optional
-    # Cloudflare Worker, R2 bucket, and all direct-publishing credentials.
-    engine.API = ""
-    engine.JOB_TOKEN = ""
-    os.environ["AUTOPILOT_API_URL"] = ""
-    os.environ["AUTOPILOT_JOB_TOKEN"] = ""
+    # The daily ChatGPT mode is GitHub-native: no Worker, database, private
+    # media bucket, image provider account or direct-publishing service is needed.
     os.environ["PUBLISH_ENABLED"] = "false"
 
     audio_asset, audio_bytes = engine.get_audio(prefer_creator_assets=False)
@@ -377,19 +373,13 @@ def run_daily_plan(plan_path: Path) -> int:
         json.dumps(plan["quality_control"], ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
-    # Reuse the photorealistic FLUX image-generation path from the earlier
-    # Visuals stage. Never silently degrade to stick drawings or line art.
-    if not engine.CF_ACCOUNT or not engine.CF_TOKEN:
-        raise engine.PipelineError(
-            "Photorealistic scene generation requires CF_ACCOUNT_ID and CF_AI_TOKEN. "
-            "The run will stop rather than substitute basic line drawings."
-        )
-
+    # Original full-colour scene artwork is generated locally; no stock
+    # photographs, image API, provider account or external service is used.
     images = []
     for index, scene in enumerate(plan["scenes"]):
         image_path = engine.PACKAGE / f"scene-{index + 1}.jpg"
         prompt = engine._scene_visual_prompt(scene, index=index, plan=plan)
-        generated_image = engine.make_image(prompt, index)
+        generated_image = engine.make_image(prompt, index, scene=scene, plan=plan)
         image_path.write_bytes(generated_image.read_bytes())
         with Image.open(image_path) as image_check:
             if image_check.width < 512 or image_check.height < 512:

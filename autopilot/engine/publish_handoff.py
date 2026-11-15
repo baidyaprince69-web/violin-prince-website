@@ -257,11 +257,11 @@ def build_asset_provenance(
             "asset_type": "scene_image",
             "scene_number": index + 1,
             "visual_mode": str(scene.get("visual_mode") or ""),
-            "origin": "ai_generated_image",
-            "provider": "Cloudflare Workers AI",
-            "model": "@cf/black-forest-labs/flux-1-schnell",
+            "origin": "original_procedural_artwork",
+            "provider": "Violin Prince Pillow Scene Renderer",
+            "model": "procedural-scene-art-v1",
             "scene_prompt_source_sha256": _hash_text(prompt),
-            "rights_status": "provider_terms_apply_no_external_stock_asset_inserted",
+            "rights_status": "original_code_generated_no_external_stock_asset",
         })
         scene_assets.append(asset)
 
@@ -324,7 +324,7 @@ def build_asset_provenance(
         },
         "synthetic_media": {
             "contains_synthetic_media": True,
-            "reason": "The video contains AI-generated scene imagery and synthetic TTS narration.",
+            "reason": "The video contains synthetic TTS narration; all visual scenes are original procedural artwork and motion graphics.",
         },
         "rights_notice": (
             "This file records media origins and license metadata available to the pipeline. "
