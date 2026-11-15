@@ -52,6 +52,24 @@ class StoryAssetResolverTests(unittest.TestCase):
             ],
         )
 
+    def test_bow_url_field_can_be_loaded_separately(self):
+        source = "https://sketchfab.com/3d-models/violin-bow-af332828a42f4f8cbbe81bea3de0b00d"
+        with patch.object(resolver, "fetch_model_metadata", return_value={
+            "name": "Violin Bow",
+            "faceCount": 4300,
+            "isDownloadable": True,
+            "license": {"slug": "cc-by"},
+        }) as fetch:
+            models, failures = resolver.load_preferred_story_models(
+                {"preferred_bow_model_urls": [source]},
+                field_name="preferred_bow_model_urls",
+            )
+        self.assertEqual(failures, [])
+        self.assertEqual(len(models), 1)
+        self.assertEqual(models[0]["name"], "Violin Bow")
+        self.assertEqual(models[0]["_violin_prince_source_url"], source)
+        fetch.assert_called_once()
+
     def test_explicit_models_are_loaded_before_search_and_keep_source_url(self):
         source = "https://sketchfab.com/3d-models/violin-0162dea1b1044cd281c57af5e5fc2046"
         with patch.object(resolver, "fetch_model_metadata", return_value={
@@ -126,6 +144,30 @@ class StoryAssetResolverTests(unittest.TestCase):
         self.assertFalse(resolver._license_allowed({"license": {"slug": "custom"}}))
         self.assertTrue(resolver._license_allowed({"license": {"slug": "cc-by"}}))
         self.assertTrue(resolver._license_allowed({"license": {"slug": "cc0"}}))
+
+    def test_explicit_preferred_model_can_pass_70k_face_floor(self):
+        preferred = {
+            "uid": "c" * 32,
+            "name": "Violin",
+            "license": {"slug": "cc-by"},
+            "isDownloadable": True,
+            "faceCount": 74878,
+            "vertexCount": 37669,
+            "pbrType": "metalness",
+            "tags": [{"name": "violin"}],
+        }
+        self.assertEqual(
+            resolver.score_candidate(preferred, "violin bow strings"),
+            float("-inf"),
+        )
+        self.assertGreater(
+            resolver.score_candidate(
+                preferred,
+                "violin bow strings",
+                min_face_count=resolver.PREFERRED_MIN_FACE_COUNT,
+            ),
+            0,
+        )
 
     def test_candidate_quality_gate_requires_download_and_geometry(self):
         good = {
