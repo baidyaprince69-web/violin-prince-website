@@ -1,0 +1,84 @@
+name: Set up pinned Blender and Frame By Plane
+description: Install official Blender 5.2.4 LTS and Frame By Plane from Blender Extensions.
+outputs:
+  blender-path:
+    description: Absolute path to the pinned Blender executable.
+    value: ${{ steps.blender.outputs.path }}
+runs:
+  using: composite
+  steps:
+    - name: Install headless rendering libraries
+      shell: bash
+      run: |
+        set -Eeuo pipefail
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg fonts-dejavu-core libegl1 libegl-mesa0 libgl1 libgl1-mesa-dri libgbm1 libxkbcommon0 curl xz-utils
+
+    - name: Download and checksum official Blender 5.2.4 LTS
+      id: blender
+      shell: bash
+      run: |
+        set -Eeuo pipefail
+        VERSION="5.2.4"
+        ARCHIVE="blender-$VERSION-linux-x64.tar.xz"
+        BASE="https://download.blender.org/release/Blender5.2"
+        CONFIG_DIR="$RUNNER_TEMP/violin-prince-blender-config"
+        SCRIPTS_DIR="$RUNNER_TEMP/violin-prince-blender-scripts"
+        mkdir -p "$CONFIG_DIR" "$SCRIPTS_DIR"
+        {
+          echo "BLENDER_USER_CONFIG=$CONFIG_DIR"
+          echo "BLENDER_USER_SCRIPTS=$SCRIPTS_DIR"
+        } >> "$GITHUB_ENV"
+        curl --fail --location --retry 3 --retry-delay 2 "$BASE/$ARCHIVE" -o "$RUNNER_TEMP/$ARCHIVE"
+        curl --fail --location --retry 3 --retry-delay 2 "$BASE/blender-$VERSION.sha256" -o "$RUNNER_TEMP/blender-$VERSION.sha256"
+        python3 - "$RUNNER_TEMP/blender-$VERSION.sha256" "$RUNNER_TEMP/$ARCHIVE" "$ARCHIVE" <<'PY'
+        import hashlib
+        import re
+        import sys
+        from pathlib import Path
+        checksum_file, archive_file, expected_name = map(Path, sys.argv[1:])
+        expected = None
+        for line in checksum_file.read_text(encoding="utf-8").splitlines():
+            match = re.match(r"^\s*([0-9a-fA-F]{64})\s+\*?(.+?)\s*$", line)
+            if match and Path(match.group(2)).name == expected_name.name:
+                expected = match.group(1).lower()
+                break
+        if not expected:
+            raise SystemExit("Official Blender checksum list did not contain the requested Linux archive.")
+        digest = hashlib.sha256()
+        with archive_file.open("rb") as handle:
+            for block in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(block)
+        actual = digest.hexdigest()
+        if actual != expected:
+            raise SystemExit(f"Blender archive checksum mismatch: expected {expected}, got {actual}")
+        print(f"Verified {expected_name.name}: SHA-256 {actual}")
+        PY
+        tar -xf "$RUNNER_TEMP/$ARCHIVE" -C "$RUNNER_TEMP"
+        BLENDER_DIR="$RUNNER_TEMP/blender-$VERSION-linux-x64"
+        BLENDER_BIN="$BLENDER_DIR/blender"
+        test -x "$BLENDER_BIN"
+        echo "$BLENDER_DIR" >> "$GITHUB_PATH"
+        echo "path=$BLENDER_BIN" >> "$GITHUB_OUTPUT"
+        "$BLENDER_BIN" --version
+
+    - name: Add Blender's official extensions repository
+      shell: bash
+      run: |
+        set -Eeuo pipefail
+        blender --command extension repo-add \
+          --name "Violin Prince Official Blender Extensions" \
+          --url "https://extensions.blender.org/api/v1/extensions/" \
+          violin_prince_official
+        blender --background --python-expr \
+          "import bpy; repo=next(r for r in bpy.context.preferences.extensions.repos if r.module == 'violin_prince_official'); repo.enabled=True; bpy.ops.wm.save_userpref()"
+
+    - name: Install and enable Frame By Plane from the official repository
+      shell: bash
+      run: |
+        set -Eeuo pipefail
+        blender --command extension sync
+        blender --command extension install -s -e frame_by_plane
+        blender --command extension list
+        blender --background --python-expr \
+          "import bpy, pathlib, tomllib; repo=next(r for r in bpy.context.preferences.extensions.repos if r.module == 'violin_prince_official'); p=pathlib.Path(repo.directory)/'frame_by_plane'/'blender_manifest.toml'; m=tomllib.loads(p.read_text()); assert m.get('id') == 'frame_by_plane'; assert m.get('version') == '8.0.1', m.get('version'); assert any(a.module == 'bl_ext.violin_prince_official.frame_by_plane' for a in bpy.context.preferences.addons); print('FRAME_BY_PLANE_PIN_OK=' + m['version'])"
