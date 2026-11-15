@@ -37,7 +37,7 @@ class KokoroModelSmokeTest(unittest.TestCase):
             self.assertGreaterEqual(len(info["subtitle_cues"]), 2)
             srt = write_srt(info["subtitle_cues"], Path(folder) / "kokoro-smoke.srt")
             self.assertTrue(srt.exists())
-            self.assertIn("Tonight, the city", srt.read_text(encoding="utf-8"))
+            self.assertIn("Digital audio research", srt.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
