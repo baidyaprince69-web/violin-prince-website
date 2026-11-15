@@ -382,5 +382,6 @@ jobs:
             work/creative_plan.json
             work/creative_plan_debug.json
             work/analytics.json
+            work/story-assets/asset-resolution-diagnostic.json
           if-no-files-found: ignore
           retention-days: 14
