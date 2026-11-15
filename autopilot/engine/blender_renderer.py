@@ -273,19 +273,9 @@ def _production_preview(output_dir: Path, blender_executable: str | None = None,
     output_dir.mkdir(parents=True, exist_ok=True)
     samples = [
         {
-            "visual_mode": "macro_3d",
-            "caption": "Macro view: vibrating violin strings",
-            "image_prompt": "A close 3D macro study of four violin strings vibrating above a carved amber bridge.",
-        },
-        {
-            "visual_mode": "mechanism_3d",
-            "caption": "Mechanism: bridge and strings",
-            "image_prompt": "A cinematic 3D cutaway of a violin bridge, strings, carved feet and acoustic resonance.",
-        },
-        {
             "visual_mode": "cover_performance",
-            "caption": "Performance: violin and moving bow",
-            "image_prompt": "A complete amber violin in a dark studio with an animated bow crossing the strings.",
+            "caption": "Full 3D violin: animated bow performance",
+            "image_prompt": "A solid, complete amber violin with carved body, fingerboard, pegs, strings, f-holes and an animated bow in a dramatic midnight studio.",
         },
     ]
     clips: list[Path] = []
