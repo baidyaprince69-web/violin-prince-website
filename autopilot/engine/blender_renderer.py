@@ -1,8 +1,8 @@
-"""Full-frame animated Blender renderer for Violin Prince Autopilot.
+"""Blender renderer for Violin Prince's 3D hero + optional Frame By Plane scenes.
 
-Blender owns the entire visual scene and outputs an opaque MP4 scene clip.
-There is no transparent render, image-plate composite, or Blender overlay.
-FFmpeg remains responsible only for joining scenes, audio, subtitles and final QA.
+Daily production uses native Frame By Plane image layers for 2.5D backgrounds
+behind the licensed 3D instrument model. Blender outputs opaque MP4 scene clips;
+FFmpeg joins scenes, audio, subtitles and performs final QA.
 """
 from __future__ import annotations
 
@@ -236,7 +236,9 @@ def render_scene_video(
         config_path.write_text(json.dumps(config), encoding="utf-8")
         blender_process = _run(
             [
-                executable, "--background", "--factory-startup",
+                executable, "--background",
+                # Keep the dedicated BLENDER_USER_CONFIG preferences loaded so
+                # the installed official Frame By Plane extension remains enabled.
                 "--threads", str(threads_per_worker), "--python", str(script_path),
                 "--", "--config", str(config_path),
                 "--output", str(destination.resolve()),
