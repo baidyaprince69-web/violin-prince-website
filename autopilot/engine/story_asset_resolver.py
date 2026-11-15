@@ -31,7 +31,7 @@ STOP_WORDS = {
     "a", "an", "and", "are", "as", "at", "by", "can", "does", "for",
     "from", "how", "in", "into", "is", "it", "its", "of", "on", "or",
     "the", "their", "this", "to", "what", "when", "why", "with", "within",
-    "violin", "prince", "story", "explained", "short", "video", "music",
+    "prince", "story", "explained", "short", "video", "music",
     "realistic", "detailed", "high", "quality", "model", "pbr", "3d",
 }
 
@@ -103,8 +103,12 @@ def _creator_name(model: dict[str, Any]) -> str:
 
 
 def _license_allowed(model: dict[str, Any]) -> bool:
-    code, _label, _url = _license_details(model)
-    return code in {
+    code, label, _url = _license_details(model)
+    blocked = any(
+        term in (code + " " + label).casefold()
+        for term in ("noncommercial", "non-commercial", "by-nc", "-nc", "editorial", "no-derivatives", "no-derivative", "-nd")
+    )
+    return not blocked and code in {
         "cc0", "cc0-1-0", "cc0-1.0", "cc-by", "cc-by-4.0",
         "cc-by-4-0", "by", "cc-attribution", "cc-attribution-4.0",
         "cc-attribution-4-0",
@@ -114,6 +118,13 @@ def _license_allowed(model: dict[str, Any]) -> bool:
 def _is_downloadable(model: dict[str, Any]) -> bool:
     value = model.get("isDownloadable", model.get("is_downloadable", False))
     return value is True or str(value).strip().casefold() in {"1", "true", "yes"}
+
+
+def _likes(model: dict[str, Any]) -> int:
+    try:
+        return max(0, int(model.get("likeCount") or model.get("like_count") or 0))
+    except (TypeError, ValueError):
+        return 0
 
 
 def _search_result_terms(model: dict[str, Any]) -> set[str]:
@@ -193,7 +204,7 @@ def rank_story_models(models: list[dict[str, Any]], query: str) -> list[dict[str
         key=lambda item: (
             item[0],
             _face_count(item[1]),
-            int(item[1].get("likeCount") or 0),
+            _likes(item[1]),
         ),
         reverse=True,
     )
