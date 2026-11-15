@@ -569,11 +569,11 @@ def run_daily_plan(plan_path: Path) -> int:
     }
     paths["metadata"].write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
     engine._write_review_text(plan, engine.PACKAGE / "review.txt", {"available": False})
-    if not blender_enabled:
+    if not blender_enabled and not motion_enabled:
         engine.make_storyboard_preview(plan, images, engine.PACKAGE / "storyboard-preview.png")
 
-    # Blender renders complete scene clips when enabled; otherwise the existing
-    # still-image/Pillow/FFmpeg route remains unchanged.
+    # Blender renders complete scene clips when explicitly enabled. Motion builds
+    # its own diagrams and synchronized caption layers without still-image assets.
     result = engine.render_stage()
     if result != 0:
         return result
