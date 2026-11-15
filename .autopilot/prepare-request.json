@@ -1,5 +1,5 @@
 {
   "mode": "chatgpt_daily_production",
   "plan_path": ".autopilot/daily-production-plan.json",
-  "reason": "Full production verification after PR #54 fixed Blender's engine import path: run the saved daily plan using checksum-verified Blender 5.2.4 and Frame By Plane 8.0.1 with three parallel scene workers; keep PUBLISH_ENABLED=false, create a draft artifact only, and leave every previously uploaded YouTube video untouched."
+  "reason": "Full production verification after PR #55: render the saved daily plan using Blender 5.2.4 and Frame By Plane 8.0.1 with three parallel scene workers, an in-memory licensed violin geometry budget of 60000 faces, 400x712 internal resolution, 16 fps and 4 Eevee samples; conform the final master to 720x1280 at 25 fps; keep PUBLISH_ENABLED=false, create a draft artifact only, and leave every previously uploaded YouTube video untouched."
 }
