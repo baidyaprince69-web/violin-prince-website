@@ -182,7 +182,7 @@ def render_scene_video(
             "samples": 16,
         }
         config_path.write_text(json.dumps(config), encoding="utf-8")
-        _run(
+        blender_process = _run(
             [
                 executable, "--background", "--factory-startup",
                 "--threads", "2", "--python", str(script_path),
@@ -193,8 +193,26 @@ def render_scene_video(
             label=f"Blender full-scene render ({scene_type})",
         )
 
+    # Blender appends its selected media extension to the output basename.
+    # Accept that canonical file and rename it to the adapter's requested path.
+    if not destination.is_file():
+        candidates = sorted(
+            path for path in destination.parent.glob(destination.stem + "*.mp4")
+            if path.is_file() and path.stat().st_size >= 4096
+        )
+        if len(candidates) == 1:
+            candidates[0].replace(destination)
     if not destination.is_file() or destination.stat().st_size < 4096:
-        raise BlenderRenderError("Blender exited without producing a complete MP4 scene.")
+        diagnostic = (
+            (blender_process.stderr or "")[-1200:]
+            + "\\n"
+            + (blender_process.stdout or "")[-1200:]
+        )
+        nearby = [path.name for path in destination.parent.iterdir() if path.is_file()]
+        raise BlenderRenderError(
+            "Blender exited without producing the requested MP4 scene. "
+            "Output directory files=" + repr(nearby) + "; Blender diagnostics=" + diagnostic
+        )
     media = _probe_video(destination, (width, height), duration)
     version_result = subprocess.run(
         [executable, "--version"], capture_output=True, text=True, timeout=20, check=False
