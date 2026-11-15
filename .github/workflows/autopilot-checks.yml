@@ -83,6 +83,7 @@ jobs:
           files = [
               ".github/workflows/autopilot-checks.yml",
               ".github/workflows/blender-smoke.yml",
+              ".github/workflows/blender-benchmark.yml",
               ".github/workflows/first-production.yml",
               ".github/workflows/violin-prince-autopilot.yml",
               ".github/workflows/deploy-autopilot-cloudflare.yml",
