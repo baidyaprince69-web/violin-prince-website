@@ -34,6 +34,7 @@ def parse_args():
                         help="Total Blender-rendered timeline frames.")
     parser.add_argument("--frames-dir", required=True)
     parser.add_argument("--project-path", required=True)
+    parser.add_argument("--proof-shot", action="store_true", help="Render one short proof shot, never a full storyboard.")
     return parser.parse_args(raw)
 
 
@@ -83,10 +84,13 @@ def add_curve(name, points, material, bevel=0.012):
     return obj
 
 
-def add_text_overlay(camera, text, x, y, start_frame, end_frame, material, *, size=0.19, distance=6.0, align="LEFT"):
-    data = bpy.data.curves.new("3D title typography", "FONT")
+def add_text_overlay(camera, text, x, y, start_frame, end_frame, material, *, size=0.035, distance=6.0, align="LEFT"):
+    """Place typography in a resolution-independent, camera-locked safe area."""
+    data = bpy.data.curves.new("2D-safe title typography", "FONT")
     data.body = text
-    data.size = size
+    vertical_span = distance * float(camera.data.sensor_height) / max(1.0, float(camera.data.lens))
+    horizontal_span = vertical_span * (720.0 / 1280.0)
+    data.size = vertical_span * float(size)
     data.align_x = align
     data.align_y = "CENTER"
     data.extrude = 0.0008
@@ -94,7 +98,7 @@ def add_text_overlay(camera, text, x, y, start_frame, end_frame, material, *, si
     obj = bpy.data.objects.new("Camera-facing title — " + text[:32], data)
     bpy.context.collection.objects.link(obj)
     obj.parent = camera
-    obj.location = (x, y, -distance)
+    obj.location = ((float(x) - 0.5) * horizontal_span, (float(y) - 0.5) * vertical_span, -distance)
     obj.rotation_euler = (0.0, 0.0, 0.0)
     obj.data.materials.append(material)
 
@@ -110,8 +114,8 @@ def add_text_overlay(camera, text, x, y, start_frame, end_frame, material, *, si
 
 
 def import_and_normalise_model(model_path: Path):
-    if not model_path.is_file() or model_path.suffix.casefold() != ".glb":
-        raise RuntimeError("A real downloaded .glb violin mesh is required.")
+    if not model_path.is_file() or model_path.suffix.casefold() not in {".glb", ".gltf"}:
+        raise RuntimeError("A real downloaded .glb/.gltf model is required.")
     before = set(bpy.context.scene.objects)
     result = bpy.ops.import_scene.gltf(filepath=str(model_path))
     if "FINISHED" not in result:
@@ -119,7 +123,26 @@ def import_and_normalise_model(model_path: Path):
     imported = [obj for obj in bpy.context.scene.objects if obj not in before]
     meshes = [obj for obj in imported if obj.type == "MESH"]
     if not meshes:
-        raise RuntimeError("The downloaded GLB did not contain mesh geometry.")
+        raise RuntimeError("The downloaded GLB/glTF did not contain mesh geometry.")
+
+    def object_name_chain(obj):
+        names = []
+        current = obj
+        while current is not None:
+            names.append(str(current.name).casefold())
+            current = current.parent
+        return " ".join(names)
+
+    bow_tokens = ("bow", "bowstick", "bowhair", "horsehair", "bowfrog")
+    source_bows = [obj for obj in meshes if any(token in object_name_chain(obj).replace(" ", "") for token in bow_tokens)]
+    for source_bow in source_bows:
+        source_bow.hide_render = True
+        source_bow.hide_set(True)
+    instrument_meshes = [obj for obj in meshes if obj not in source_bows]
+    if not instrument_meshes:
+        raise RuntimeError("Every imported mesh was classified as a bow; no violin body remains.")
+    source_strings = [obj for obj in instrument_meshes if "string" in object_name_chain(obj)]
+    meshes = instrument_meshes
 
     bpy.context.view_layer.update()
     corners = [
@@ -166,6 +189,8 @@ def import_and_normalise_model(model_path: Path):
     bpy.context.collection.objects.link(root)
     root.empty_display_type = "PLAIN_AXES"
     root.empty_display_size = 0.15
+    root["source_bow_meshes_hidden"] = len(source_bows)
+    root["source_string_meshes"] = len(source_strings)
     for obj in imported:
         if obj.parent not in imported_set:
             world = obj.matrix_world.copy()
@@ -200,50 +225,93 @@ def import_and_normalise_model(model_path: Path):
     return root, meshes, imported, bounds
 
 
-def make_bow_animation(front_y, body_width, frame_end, gold, hair_mat):
-    half = max(1.1, body_width * 0.78)
-    bow = add_curve(
-        "Animated maple bow stick",
+def make_bow_animation(front_y, body_width, bounds, frame_end, gold, hair_mat):
+    """Build one coherent bow assembly and animate it as a single rig."""
+    half = max(0.72, min(1.32, body_width * 0.70))
+    bridge_z = float(bounds["min_z"]) * 0.12 + float(bounds["max_z"]) * 0.02
+    bow_root = bpy.data.objects.new("BOW RIG — single performance control", None)
+    bpy.context.collection.objects.link(bow_root)
+    bow_root.empty_display_type = "PLAIN_AXES"
+    bow_root.empty_display_size = 0.22
+    bow_root.location = (0.0, 0.0, 0.0)
+    bow_root["rig_type"] = "single_parented_bow_assembly"
+    bow_root["visible_bow_rig_count"] = 1
+    bow_root["contact_plane"] = "parallel to bridge; horsehair aligned just above the imported string plane"
+
+    stick = add_curve(
+        "Bow rig | tapered maple stick",
         [
-            (-half, front_y - 0.13, 0.08),
-            (-half * 0.5, front_y - 0.14, 0.035),
-            (0.0, front_y - 0.145, 0.0),
-            (half * 0.5, front_y - 0.14, -0.035),
-            (half, front_y - 0.13, -0.08),
+            (-half, front_y - 0.150, bridge_z + 0.055),
+            (-half * 0.5, front_y - 0.142, bridge_z + 0.025),
+            (0.0, front_y - 0.137, bridge_z),
+            (half * 0.5, front_y - 0.142, bridge_z - 0.025),
+            (half, front_y - 0.150, bridge_z - 0.055),
         ],
-        gold, bevel=0.026,
+        gold, bevel=0.018,
     )
     hair = add_curve(
-        "White bow hair",
+        "Bow rig | continuous horsehair ribbon",
         [
-            (-half, front_y - 0.045, 0.12),
-            (-half * 0.5, front_y - 0.05, 0.09),
-            (0.0, front_y - 0.052, 0.06),
-            (half * 0.5, front_y - 0.05, 0.03),
-            (half, front_y - 0.045, 0.0),
+            (-half, front_y - 0.075, bridge_z + 0.015),
+            (-half * 0.5, front_y - 0.071, bridge_z + 0.007),
+            (0.0, front_y - 0.069, bridge_z),
+            (half * 0.5, front_y - 0.071, bridge_z - 0.007),
+            (half, front_y - 0.075, bridge_z - 0.015),
         ],
-        hair_mat, bevel=0.006,
+        hair_mat, bevel=0.0045,
     )
-    for obj in (bow, hair):
-        for frame, x_shift, z_shift in (
-            (1, -0.24, -0.06),
-            (100, 0.20, 0.04),
-            (200, -0.18, 0.015),
-            (300, 0.22, -0.035),
-            (400, -0.16, 0.05),
-            (500, 0.20, -0.015),
-            (frame_end, -0.12, 0.0),
-        ):
-            obj.location = (x_shift, 0.0, z_shift)
-            obj.keyframe_insert(data_path="location", frame=frame)
-        obj["animation"] = "Bow moves back and forth over the imported violin strings"
-    return bow, hair
+
+    # Frog and tip are children of the same rig control.
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(-half + 0.18, front_y - 0.116, bridge_z + 0.006))
+    frog = bpy.context.object
+    frog.name = "Bow rig | ebony frog"
+    frog.dimensions = (0.24, 0.065, 0.075)
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    frog.data.materials.append(hair_mat)
+    frog_bevel = frog.modifiers.new("Soft frog edges", "BEVEL")
+    frog_bevel.width = 0.018
+    frog_bevel.segments = 3
+
+    bpy.ops.mesh.primitive_uv_sphere_add(
+        segments=16, ring_count=8, radius=0.035,
+        location=(half - 0.015, front_y - 0.150, bridge_z - 0.055),
+    )
+    tip = bpy.context.object
+    tip.name = "Bow rig | rounded tip"
+    tip.data.materials.append(gold)
+
+    components = (stick, hair, frog, tip)
+    for component in components:
+        world = component.matrix_world.copy()
+        component.parent = bow_root
+        component.matrix_parent_inverse = Matrix.Identity(4)
+        component.matrix_basis = world
+
+    poses = (
+        (0.00, 0.0, 0.0),
+        (0.25, 0.115, 0.012),
+        (0.50, -0.115, -0.008),
+        (0.75, 0.105, 0.010),
+        (1.00, 0.0, 0.0),
+    )
+    for fraction, x_shift, z_shift in poses:
+        frame = max(1, min(frame_end, int(round(1 + (frame_end - 1) * fraction))))
+        bow_root.location = (x_shift, 0.0, z_shift)
+        bow_root.keyframe_insert(data_path="location", frame=frame)
+    if bow_root.animation_data and bow_root.animation_data.action:
+        for curve in bow_root.animation_data.action.fcurves:
+            for point in curve.keyframe_points:
+                point.interpolation = "BEZIER"
+                point.handle_left_type = "AUTO"
+                point.handle_right_type = "AUTO"
+    bow_root["animation"] = "One parented bow rig performs short reciprocal strokes across the strings."
+    return bow_root, components
 
 
-def make_vibrating_strings(front_y, body_width, bounds, frame_end, silver):
-    # Add only an explanatory, subtly animated string layer if the source GLB
-    # did not already expose identifiable string objects.
-    string_names = {"string", "strings", "violinstring"}
+def make_vibrating_strings(front_y, body_width, bounds, frame_end, silver, source_string_count=0):
+    # Do not overlay a second string set when the imported model already has strings.
+    if int(source_string_count) > 0:
+        return []
     # Source mesh remains untouched; these four thin metal lines clarify the
     # string-to-bridge path in close camera shots.
     half = min(body_width * 0.22, 0.33)
@@ -283,14 +351,15 @@ def make_resonance_rings(front_y, frame_end, teal):
         ring = bpy.context.object
         ring.name = f"Expanding acoustic resonance ring {index + 1}"
         ring.data.materials.append(teal)
-        for frame, factor in (
-            (1, (0.01, 0.01, 0.01)),
-            (250, (0.70, 0.70, 0.70)),
-            (290, (1.00, 1.00, 1.00)),
-            (330, (1.28, 1.28, 1.28)),
-            (370, (1.55, 1.55, 1.55)),
-            (frame_end, (1.80, 1.80, 1.80)),
+        for fraction, factor in (
+            (0.00, (0.01, 0.01, 0.01)),
+            (0.35, (0.70, 0.70, 0.70)),
+            (0.50, (1.00, 1.00, 1.00)),
+            (0.65, (1.28, 1.28, 1.28)),
+            (0.82, (1.55, 1.55, 1.55)),
+            (1.00, (1.80, 1.80, 1.80)),
         ):
+            frame = max(1, min(frame_end, int(round(1 + (frame_end - 1) * fraction))))
             ring.scale = factor
             ring.keyframe_insert(data_path="scale", frame=frame)
         rings.append(ring)
@@ -359,8 +428,9 @@ def build_scene(args):
     world.node_tree.nodes["Background"].inputs["Strength"].default_value = 0.20
     scene.world = world
 
-    bow, bow_hair = make_bow_animation(front_y, body_width, frame_end, gold, white)
-    strings = make_vibrating_strings(front_y, body_width, bounds, frame_end, silver)
+    bow_root, bow_components = make_bow_animation(front_y, body_width, bounds, frame_end, gold, white)
+    source_string_count = int(root.get("source_string_meshes", 0))
+    strings = make_vibrating_strings(front_y, body_width, bounds, frame_end, silver, source_string_count)
     rings = make_resonance_rings(front_y, frame_end, teal)
 
     # Animated cinematic camera: reveal, bridge macro, f-hole sweep, scroll detail, hero return.
@@ -384,15 +454,49 @@ def build_scene(args):
     track.track_axis = "TRACK_NEGATIVE_Z"
     track.up_axis = "UP_Y"
 
-    # Six key poses at the shot boundaries: every movement is a Blender camera keyframe.
-    camera_moves = [
-        (1,   (3.9, front_y - 9.6, 1.05), (0.0, front_y, 0.10), 52.0),
-        (150, (-3.4, front_y - 8.9, 1.25), (0.0, front_y, 0.12), 55.0),
-        (250, (-1.2, front_y - 5.1, -0.30), (0.0, front_y, -0.40), 72.0),
-        (375, (2.0, front_y - 5.9, 0.15), (0.0, front_y, -0.15), 66.0),
-        (475, (0.5, front_y - 5.7, 2.15), (0.0, front_y, 1.25), 70.0),
-        (frame_end, (1.3, front_y - 9.7, 0.60), (0.0, front_y, 0.08), 52.0),
+    # Six authored scenes with distinct framing and hard cuts between shots.
+    shot_specs = [
+        {"label": "THE HERO REVEAL", "start": 0.000, "end": 0.145,
+         "start_camera": (2.4, front_y - 10.8, 0.75), "end_camera": (0.9, front_y - 9.8, 0.55),
+         "start_target": (0.0, front_y, 0.15), "end_target": (0.0, front_y, 0.18),
+         "start_lens": 49.0, "end_lens": 53.0},
+        {"label": "BOW MEETS THE STRINGS", "start": 0.145, "end": 0.3125,
+         "start_camera": (1.4, front_y - 5.2, 0.20), "end_camera": (-0.4, front_y - 4.7, -0.12),
+         "start_target": (0.0, front_y, -0.25), "end_target": (0.0, front_y, -0.30),
+         "start_lens": 76.0, "end_lens": 84.0},
+        {"label": "THE BRIDGE TRANSFERS VIBRATION", "start": 0.3125, "end": 0.500,
+         "start_camera": (-1.6, front_y - 4.8, -0.28), "end_camera": (0.9, front_y - 4.5, -0.35),
+         "start_target": (0.0, front_y, -0.42), "end_target": (0.0, front_y, -0.42),
+         "start_lens": 88.0, "end_lens": 92.0},
+        {"label": "THE BODY RESONATES", "start": 0.500, "end": 0.7083,
+         "start_camera": (-1.4, front_y - 5.0, -0.55), "end_camera": (1.3, front_y - 4.8, -0.42),
+         "start_target": (0.0, front_y, -0.55), "end_target": (0.0, front_y, -0.55),
+         "start_lens": 78.0, "end_lens": 86.0},
+        {"label": "THE SCROLL AND TUNING PEGS", "start": 0.7083, "end": 0.8542,
+         "start_camera": (1.15, front_y - 4.8, 2.55), "end_camera": (-0.25, front_y - 4.3, 2.72),
+         "start_target": (0.0, front_y, 1.55), "end_target": (0.0, front_y, 1.62),
+         "start_lens": 82.0, "end_lens": 88.0},
+        {"label": "THE FINAL HERO SHOT", "start": 0.8542, "end": 1.000,
+         "start_camera": (-2.2, front_y - 10.6, 0.70), "end_camera": (0.0, front_y - 10.0, 0.60),
+         "start_target": (0.0, front_y, 0.12), "end_target": (0.0, front_y, 0.12),
+         "start_lens": 50.0, "end_lens": 54.0},
     ]
+    def at_fraction(fraction):
+        return max(1, min(frame_end, int(round(1 + (frame_end - 1) * fraction))))
+
+    camera_moves = []
+    cut_end_frames = []
+    active_shots = [shot_specs[0]] if args.proof_shot else shot_specs
+    for shot in active_shots:
+        start_frame = at_fraction(0.0 if args.proof_shot else shot["start"])
+        end_frame = frame_end if args.proof_shot else max(start_frame + 1, at_fraction(shot["end"]) - 1)
+        camera_moves.extend((
+            (start_frame, shot["start_camera"], shot["start_target"], shot["start_lens"]),
+            (end_frame, shot["end_camera"], shot["end_target"], shot["end_lens"]),
+        ))
+        if not args.proof_shot and shot is not shot_specs[-1]:
+            cut_end_frames.append(end_frame)
+
     for frame, position, target, lens in camera_moves:
         camera.location = position
         camera.keyframe_insert(data_path="location", frame=frame)
@@ -400,13 +504,31 @@ def build_scene(args):
         focus.keyframe_insert(data_path="location", frame=frame)
         camera.data.lens = lens
         camera.data.keyframe_insert(data_path="lens", frame=frame)
+    for animated in (camera, focus, camera.data):
+        action = animated.animation_data.action if animated.animation_data else None
+        if action:
+            for curve in action.fcurves:
+                for point in curve.keyframe_points:
+                    if int(round(point.co.x)) in cut_end_frames:
+                        point.interpolation = "CONSTANT"
+                    else:
+                        point.interpolation = "BEZIER"
+                        point.handle_left_type = "AUTO"
+                        point.handle_right_type = "AUTO"
 
-    # Camera-facing typography is itself real 3D text in the Blender project.
-    add_text_overlay(camera, "VIOLIN PRINCE", -0.82, 0.95, 1, frame_end, gold, size=0.13, distance=6.0)
-    add_text_overlay(camera, "A STRING BEGINS THE STORY", -0.82, -0.78, 1, 142, white, size=0.17)
-    add_text_overlay(camera, "THE BRIDGE CARRIES THE VIBRATION", -0.82, -0.78, 146, 242, white, size=0.155)
-    add_text_overlay(camera, "WOOD AND AIR SHAPE THE TONE", -0.82, -0.78, 246, 370, white, size=0.165)
-    add_text_overlay(camera, "FOUR STRINGS. ONE VOICE.", -0.82, -0.78, 475, frame_end, gold, size=0.22)
+    # Brand and story labels occupy a fixed top safe band; karaoke captions are
+    # burned in separately in a reserved lower band.
+    add_text_overlay(camera, "Violin Prince", 0.075, 0.945, 1, frame_end, gold, size=0.022, distance=6.0)
+    if args.proof_shot:
+        add_text_overlay(camera, "HOW A VIOLIN MAKES SOUND", 0.075, 0.835, 1, frame_end, white, size=0.038, distance=6.0)
+    else:
+        for shot in shot_specs:
+            start_frame = at_fraction(shot["start"])
+            end_frame = max(start_frame + 1, at_fraction(shot["end"]) - 1)
+            add_text_overlay(
+                camera, shot["label"], 0.075, 0.835,
+                start_frame, end_frame, white, size=0.030, distance=6.0,
+            )
 
     # Select the Eevee identifier exposed by this installed Blender build.
     # Blender 5.0 uses BLENDER_EEVEE; earlier 4.x builds used BLENDER_EEVEE_NEXT.
@@ -422,10 +544,10 @@ def build_scene(args):
         raise RuntimeError("This Blender build exposes no supported Eevee or Cycles render engine.")
     scene.render.engine = render_engine
     if hasattr(scene, "eevee") and hasattr(scene.eevee, "taa_render_samples"):
-        scene.eevee.taa_render_samples = 24
+        scene.eevee.taa_render_samples = 64
     if render_engine == "CYCLES":
         scene.cycles.device = "CPU"
-        scene.cycles.samples = 24
+        scene.cycles.samples = 48
     scene.render.threads_mode = "FIXED"
     scene.render.threads = max(1, min(os.cpu_count() or 2, 4))
     scene.render.resolution_x = args.width
@@ -507,8 +629,16 @@ def build_scene(args):
         "sample_start": start_index,
         "sample_end_exclusive": end_index,
         "camera_moves": len(camera_moves),
+        "storyboard_scenes": 1 if args.proof_shot else len(shot_specs),
+        "proof_shot_only": bool(args.proof_shot),
+        "native_resolution": [args.width, args.height],
+        "render_samples": 64 if render_engine != "CYCLES" else 48,
         "actual_imported_mesh_count": len(meshes),
         "animated_bow": True,
+        "bow_rig_count": 1,
+        "bow_rig_components": len(bow_components),
+        "source_bow_meshes_hidden": int(root.get("source_bow_meshes_hidden", 0)),
+        "source_string_meshes": source_string_count,
         "animated_strings": len(strings),
         "resonance_rings": len(rings),
         "3d_title_objects": 5,
