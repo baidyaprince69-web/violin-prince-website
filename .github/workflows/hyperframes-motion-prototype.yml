@@ -57,16 +57,48 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-dejavu-core
 
+      - name: Set up Python for the existing violin sampler
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install existing sampler dependencies
+        run: python -m pip install --upgrade numpy requests soundfile
+
+      - name: Cache the existing CC0 violin sample bank
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/violin-prince/cc0-solo-violin-v1
+          key: violin-prince-cc0-solo-violin-v1
+
       - name: Install prototype dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Create longer-than-10-second audio fixture
+      - name: Generate a 37.5-second violin track with the repository's existing sampler
+        working-directory: .
         run: |
-          mkdir -p output
-          ffmpeg -hide_banner -loglevel error \
-            -f lavfi -i "sine=frequency=440:sample_rate=48000:duration=37.5" \
-            -af "volume=0.12,afade=t=in:st=0:d=0.25,afade=t=out:st=35.5:d=2" \
-            -c:a pcm_s16le output/duration-test.wav
+          mkdir -p prototypes/hyperframes-motion/output
+          python - <<'PY'
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, "autopilot/engine")
+          from violin_sampler import create_sampled_violin_bed
+
+          target = Path("prototypes/hyperframes-motion/output/duration-test.wav")
+          path, report = create_sampled_violin_bed(
+              target,
+              seed_text="violin-prince-motion-ci:existing-sampled-instrument",
+              duration_seconds=37.5,
+          )
+          print("Generated the CI source using the repository's existing CC0 violin sampler.")
+          print(report)
+          if report.get("audio_source") != "sampled_violin_cc0":
+              raise SystemExit("The test audio was not created by the sampled violin instrument.")
+          if abs(float(report.get("duration_seconds", 0)) - 37.5) > 0.01:
+              raise SystemExit("The generated violin track does not cover 37.5 seconds.")
+          PY
           ffprobe -v error -select_streams a:0 -show_entries format=duration \
             -of default=noprint_wrappers=1:nokey=1 output/duration-test.wav
 
