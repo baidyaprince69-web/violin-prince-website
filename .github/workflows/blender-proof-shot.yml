@@ -238,13 +238,23 @@ jobs:
           test -s "$RUNNER_TEMP/blender-5.2.4-linux-x64.tar.xz"
           test -d "$RUNNER_TEMP/violin-prince-blender-config"
           test -d "$RUNNER_TEMP/violin-prince-blender-scripts"
-          # The setup action already verified this archive against Blender's
-          # official SHA-256 list. Keep it compressed inside the shared bundle.
+          # The extension is installed into Blender's selected repository path,
+          # which may live outside BLENDER_USER_CONFIG. Find and bundle that
+          # repository directory as well as the preferences that enable it.
+          FBP_MANIFEST="$(find "$RUNNER_TEMP" -type f -path '*/frame_by_plane/blender_manifest.toml' -print -quit)"
+          test -n "$FBP_MANIFEST"
+          FBP_MODULE_DIR="$(dirname "$FBP_MANIFEST")"
+          FBP_REPO_DIR="$(dirname "$FBP_MODULE_DIR")"
+          FBP_REPO_REL="$(realpath --relative-to="$RUNNER_TEMP" "$FBP_REPO_DIR")"
+          echo "Bundling Frame By Plane repository directory: $FBP_REPO_REL"
+          # The setup action already verified Blender's compressed archive
+          # against the official SHA-256 list. Preserve it without expansion.
           tar -cf work/blender-frame-by-plane-runtime.tar \
             -C "$RUNNER_TEMP" \
             blender-5.2.4-linux-x64.tar.xz \
             violin-prince-blender-config \
-            violin-prince-blender-scripts
+            violin-prince-blender-scripts \
+            "$FBP_REPO_REL"
           sha256sum work/blender-frame-by-plane-runtime.tar
 
       - name: Share the verified Blender runtime with all five workers
