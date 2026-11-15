@@ -16,6 +16,14 @@ from pathlib import Path
 import bpy
 from mathutils import Matrix, Vector
 
+# Blender may execute this file as a standalone background script without
+# placing its containing engine directory on sys.path. Add the directory that
+# owns this script so the Frame By Plane adapter and sibling engine modules are
+# importable in both CI and local headless Blender runs.
+ENGINE_DIRECTORY = str(Path(__file__).resolve().parent)
+if ENGINE_DIRECTORY not in sys.path:
+    sys.path.insert(0, ENGINE_DIRECTORY)
+
 
 def parse_args():
     raw = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
