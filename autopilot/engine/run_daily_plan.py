@@ -409,6 +409,7 @@ def run_daily_plan(plan_path: Path) -> int:
                 "license_code", "license_label", "license_url", "attribution",
                 "selection_query", "selection_score", "face_count", "vertex_count",
                 "pbr_type", "local_model_path", "manifest_path", "sha256",
+                "model_parts", "bow_rig_required",
             )
             if model_asset.get(key) is not None
         }
