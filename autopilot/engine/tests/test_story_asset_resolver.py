@@ -95,6 +95,10 @@ class StoryAssetResolverTests(unittest.TestCase):
             parts = resolver.inspect_named_model_parts(path)
             self.assertEqual(parts["bow"], ["Violin / violin_bow"])
             self.assertEqual(parts["strings"], ["Violin / violin_strings"])
+            self.assertEqual(
+                parts["mesh_nodes"],
+                ["Violin / violin_bow", "Violin / violin_strings"],
+            )
 
     def test_gltf_part_inspection_inherits_parent_names(self):
         import json
