@@ -4700,7 +4700,7 @@ def _read_package(require_images=False):
     ):
         raise PipelineError("Prepared story does not have two dated publisher articles within the seven-day window.")
     review = metadata.get("story_review") or {}
-    if (require_images or is_blender_render_enabled()) and review.get("approved") is not True:
+    if require_images and review.get("approved") is not True:
         raise PipelineError("Render blocked: automated editorial quality gates did not clear this story before Visuals.")
     image_paths = [PACKAGE / f"scene-{index + 1}.jpg" for index in range(3)]
     if require_images:
@@ -5111,6 +5111,8 @@ def render_stage():
     """Assemble a quality-gated visual package without calling any AI service."""
     blender_enabled = is_blender_render_enabled()
     plan, metadata, narration_info, paths, image_paths = _read_package(require_images=not blender_enabled)
+    if metadata.get("story_review", {}).get("approved") is not True:
+        raise PipelineError("Render blocked: automated editorial quality gates did not approve this story.")
     topic = str(plan.get("topic", ""))
     title = str(plan.get("title", "Violin Prince Short"))
     audio = paths["audio"].read_bytes()
