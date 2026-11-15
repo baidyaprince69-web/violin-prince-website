@@ -55,7 +55,7 @@ class MotionHyperFramesRendererTests(unittest.TestCase):
                     "visual_mode": "macro_3d",
                     "graphic_label": "THE QUESTION",
                     "graphic_detail": "The first important observation",
-                    "graphic_data": {"type": "process_flow", "items": [{"label": "Bow", "display": "Bow"}]},
+                    "graphic_data": {"type": "process_flow", "items": [{"label": "Bow", "display": "Bow"}, "Bridge moves"]},
                 },
                 {"caption": "A rising phrase"},
                 {"caption": "The final note"},
@@ -74,6 +74,7 @@ class MotionHyperFramesRendererTests(unittest.TestCase):
         self.assertEqual(result["narration_voice"], "af_heart")
         self.assertEqual(result["narration_words"][0]["text"], "A")
         self.assertEqual(result["scenes"][0]["graphic_data"]["items"][0]["label"], "Bow")
+        self.assertEqual(result["scenes"][0]["graphic_data"]["items"][1]["label"], "Bridge moves")
 
     def test_renderer_refuses_instrumental_only_audio(self):
         with self.assertRaisesRegex(MotionHyperFramesError, "Kokoro narration audio is required"):
