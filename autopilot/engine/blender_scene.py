@@ -21,6 +21,7 @@ if ENGINE_DIR not in sys.path:
     sys.path.insert(0, ENGINE_DIR)
 
 import bpy
+from blender_renderer import model_decimation_ratio
 from mathutils import Matrix, Vector
 
 
