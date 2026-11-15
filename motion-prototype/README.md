@@ -16,7 +16,7 @@ Output contract: **720 × 1280, 30 fps, 10 seconds, H.264 MP4**.
 
 - **Motion 14.14.0** owns the visible animation and exposes a paused, seekable timeline.
 - **HyperFrames 0.9.52** captures exact frames and encodes the MP4.
-- **GSAP 3.15.0** is used only as a small compatibility clock because HyperFrames' documented composition contract registers a paused GSAP root timeline in the window timeline registry. Its update callback seeks the Motion timeline to the matching timestamp. GSAP does not author the visible effects.
+- **GSAP 3.15.0** is used only as a small compatibility clock because HyperFrames' documented composition contract registers a paused GSAP root timeline in the window timeline registry. A tweened property setter seeks each Motion control to the matching timestamp, so seeking still works even when HyperFrames suppresses GSAP update callbacks. GSAP does not author the visible effects.
 - **esbuild** bundles Motion and GSAP locally, so the rendered page makes no CDN or font-network requests.
 - Local font files are copied from the existing Autopilot font assets during the build, together with their OFL notices.
 

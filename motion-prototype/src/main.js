@@ -48,13 +48,20 @@ function seekMotion(time) {
   }
 }
 
-const clock = { progress: 0 };
-const rootTimeline = gsap.timeline({
-  paused: true,
-  onUpdate: () => seekMotion(Math.max(0, Math.min(DURATION, rootTimeline.time())))
-});
-rootTimeline.to(clock, { progress: 1, duration: DURATION, ease: "none" }, 0);
+let lastFrameTime = 0;
+const clock = {
+  get frameTime() {
+    return lastFrameTime;
+  },
+  set frameTime(value) {
+    lastFrameTime = value;
+    seekMotion(Math.max(0, Math.min(DURATION, value)));
+  }
+};
+
+const rootTimeline = gsap.timeline({ paused: true });
+rootTimeline.to(clock, { frameTime: DURATION, duration: DURATION, ease: "none" }, 0);
 
 window.__timelines = window.__timelines || {};
 window.__timelines.main = rootTimeline;
-seekMotion(0);
+clock.frameTime = 0;
