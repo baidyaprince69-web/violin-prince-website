@@ -62,7 +62,7 @@
   "scenes": [
     {
       "caption": "YOUR ROOM SHAPES WHAT YOU HEAR",
-      "image_prompt": "Premium physically accurate, high-detail 3D cinematic full-frame 3D scene for a vertical music-technology explainer. A complete, believable amber-brown violin rests in a dark midnight mixing room, with a pair of studio monitors and subtle room surfaces visible around it. Show soft golden sound waves travelling from a speaker, reflecting from the room walls and returning toward a listening position. The reflections are an abstract visual metaphor, not measured data. Rich maple grain, glossy but natural varnish, ebony fingerboard, bridge and strings, realistic scale, deep teal shadows, controlled amber rim lighting, atmospheric depth, physically based materials. No text, numbers, logos, watermark, wireframe, outline illustration, incomplete instrument or fake person.",
+      "image_prompt": "Premium physically accurate, high-detail 3D cinematic Blender full-frame 3D scene for a vertical music-technology explainer. A complete, believable amber-brown violin rests in a dark midnight mixing room, with a pair of studio monitors and subtle room surfaces visible around it. Show soft golden sound waves travelling from a speaker, reflecting from the room walls and returning toward a listening position. The reflections are an abstract visual metaphor, not measured data. Rich maple grain, glossy but natural varnish, ebony fingerboard, bridge and strings, realistic scale, deep teal shadows, controlled amber rim lighting, atmospheric depth, physically based materials. No text, numbers, logos, watermark, wireframe, outline illustration, incomplete instrument or fake person.",
       "graphic_label": "YOUR ROOM SHAPES WHAT YOU HEAR",
       "graphic_detail": "Room reflections can colour monitor playback",
       "visual_mode": "macro_3d"
@@ -91,9 +91,9 @@
       "visual_mode": "cover_performance"
     }
   ],
-  "asset_subject": "violin",
+  "asset_subject": "violin strings bow",
   "asset_kind": "violin",
-  "model_query": "realistic violin with visible strings and separate bow",
+  "model_query": "realistic violin with visible strings and bow",
   "performance_feedback": {
     "sample_window": "2026-10-16 to 2026-11-15; Metricool video rows had unavailable engagement fields, supplemented by vidIQ latest Short uploads",
     "sample_count": 5,
@@ -146,11 +146,22 @@
     ]
   },
   "preferred_model_urls": [
-    "https://sketchfab.com/3d-models/violin-401df6b99a4142eeb6bb1c02ef09c18d"
+    "https://sketchfab.com/3d-models/violin-b45bce730d8a489c83ecc944f3725475"
   ],
   "preferred_bow_model_urls": [
     "https://sketchfab.com/3d-models/violin-bow-af332828a42f4f8cbbe81bea3de0b00d"
   ],
   "strings_in_combined_mesh": true,
-  "asset_selection_note": "The selected model's published Sketchfab preview visibly shows the violin with strings running along the fingerboard. Its GLB node names do not identify a separate string object; treat the strings as visually integrated into the imported violin geometry. Keep the render blocked if the imported model preview does not visibly retain the strings."
+  "asset_selection_note": "The selected model's published Sketchfab preview visibly shows the violin with strings running along the fingerboard. Its GLB node names do not identify a separate string object; treat the strings as visually integrated into the imported violin geometry. Keep the render blocked if the imported model preview does not visibly retain the strings.",
+  "frame_by_plane_direction": {
+    "mode": "Blender 3D hero + Frame By Plane 2.5D backgrounds",
+    "layers_per_scene": 3,
+    "order": [
+      "far atmosphere",
+      "studio environment",
+      "foreground depth"
+    ],
+    "no_chatgpt_generated_stills": true,
+    "no_cloudflare_image_generation": true
+  }
 }
