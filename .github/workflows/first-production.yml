@@ -57,16 +57,28 @@ jobs:
             "$RUNNER_TEMP/violin-prince-first-production/assets" \
             | tee "$RUNNER_TEMP/violin-prince-first-production/asset-resolution.json"
           python - <<'PY'
-          import json, os
+          import json, os, shutil
           from pathlib import Path
           root = Path(os.environ["RUNNER_TEMP"]) / "violin-prince-first-production"
           data = json.loads((root / "asset-resolution.json").read_text())
-          model = Path(data["model_path"])
-          assert model.is_file() and model.read_bytes()[:4] == b"glTF"
+          source_model = Path(data["model_path"])
+          source_manifest = Path(data["manifest_path"])
+          assert source_model.is_file() and source_model.read_bytes()[:4] == b"glTF"
+          assert source_manifest.is_file()
           assert data.get("license", "").upper().startswith("CC0")
-          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
-              out.write("model_path=" + str(model) + "\n")
-              out.write("manifest_path=" + str(root / "assets" / "asset-provenance.json") + "\n")
+          production = Path("work/first-production")
+          asset_dir = production / "assets"
+          asset_dir.mkdir(parents=True, exist_ok=True)
+          model = asset_dir / "violin.glb"
+          manifest = asset_dir / "asset-provenance.json"
+          shutil.copy2(source_model, model)
+          shutil.copy2(source_manifest, manifest)
+          (production / "asset-resolution.json").write_text(
+              json.dumps(data, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8"
+          )
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write("model_path=" + str(model.resolve()) + "\\n")
+              out.write("manifest_path=" + str(manifest.resolve()) + "\\n")
           print("Verified model:", data["provider"], data["model_name"], data["license"], data["size_bytes"], "bytes")
           PY
 
@@ -184,7 +196,8 @@ jobs:
         run: |
           cd work/first-production
           zip -r ../../Violin-Prince-First-Production-Project.zip \
-            assets asset-resolution.json blender-visual.blend blender-render-report.json \
+            assets asset-resolution.json blender-visual.mp4 blender-visual.blend blender-render-report.json \
+            Violin-Prince-First-Production.mp4 \
             production-script.txt narration.wav cc0-violin-music.wav \
             cinematic-sound-effects.wav final-audio-mix.wav captions.srt \
             audio-report.json final-production-report.json
