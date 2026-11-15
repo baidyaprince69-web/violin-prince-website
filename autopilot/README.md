@@ -273,7 +273,7 @@ Artifacts are retained for 14 days. Keep the relevant successful run IDs until y
 - .github/workflows/violin-prince-autopilot.yml — staged GitHub Actions workflow.
 - .github/workflows/autopilot-checks.yml — offline code and workflow validation.
 
-### Blender full-frame animated 3D production — version 12
+### Blender full-frame animated 3D production — version 13
 
 **Correction:** the earlier transparent-overlay prototype is superseded and is not used. When Blender mode is enabled, Blender is the primary scene renderer:
 
@@ -281,7 +281,7 @@ Artifacts are retained for 14 days. Keep the relevant successful run IDs until y
 - Existing visual modes map to procedural Blender scenes: vibrating strings, bridge/mechanism cutaway, acoustic wave field, 3D melody path, side-by-side mechanism comparison, and a solid amber violin with an animated bow.
 - The strings use animated mesh shape keys; the camera moves; objects, rings, particles and the bow animate; materials, floor/background, depth, shadows and lighting are rendered in Blender.
 - Pillow still-image cards and explainer panels are bypassed in Blender mode. FFmpeg only joins the full-frame Blender scene clips, then handles narration, soundtrack, captions/subtitles and final encoding/QA.
-- The creator's existing 720 × 1280 / 25 fps output contract remains. A separate lower-resolution preview workflow renders three short scenes and uploads the MP4, scene clips, contact sheet and machine-readable report as a GitHub Actions artifact.
+- The creator's existing 720 × 1280 / 25 fps output contract remains. The current review preview renders one three-second violin-performance scene at 360 × 640 / 18 fps, with five keyframed Blender camera beats: establish, left three-quarter reveal, front sweep, right-side orbit and closing dolly-in. The workflow uploads the MP4, scene clip, midpoint PNG, contact sheet and machine-readable report as a GitHub Actions artifact.
 - This is procedural 3D geometry and animation, not yet a photorealistic scanned violin model or motion-captured human performer. No external models, paid assets, GPU or add-ons are downloaded.
 
 Blender remains opt-in so the established daily engine is not changed without a visual approval:
@@ -291,6 +291,6 @@ Blender remains opt-in so the established daily engine is not changed without a 
 3. The production workflow installs Blender only for full/render stages when that variable is exactly true. FLUX image credentials are not required in full Blender mode.
 4. If Blender is enabled and a scene cannot render or validate, the production fails closed; it must not silently return to still-image or overlay rendering.
 
-When the variable is absent or false, the current Python / Pillow / FFmpeg still-image workflow remains unchanged and Blender is not installed. The .github/workflows/blender-smoke.yml workflow is now a full-scene production preview: it installs Blender and FFmpeg, renders three complete animated scenes and uploads the MP4, contact sheet, per-scene clips/posters and render report.
+When the variable is absent or false, the current Python / Pillow / FFmpeg still-image workflow remains unchanged and Blender is not installed. The .github/workflows/blender-smoke.yml workflow is now a full-scene production preview: it installs Blender and FFmpeg, renders one cinematic animated violin scene and uploads the MP4, contact sheet, per-scene clips/posters and render report.
 
 BLENDER_BIN can override the executable. BLENDER_RENDER_TIMEOUT_SECONDS controls each production scene, bounded to 30–900 seconds. The full production renderer uses Blender Eevee on CPU, fixed two-thread execution, and FFmpeg for final assembly.
