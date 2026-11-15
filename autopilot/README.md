@@ -31,7 +31,7 @@ No social publishing credential or permission is added by this pipeline change.
 
 ## Visual-art trade-off
 
-Removing Cloudflare also removes its FLUX image-generation service. The replacement renders original stylized artwork locally; it is not photorealistic AI imagery. It avoids new accounts, provider keys, paid APIs and stock-photo licensing dependencies. The procedural backgrounds are then enhanced by the existing synchronized typography, diagrams, waveforms, camera motion, transitions, glow and FFmpeg composition.
+Removing the hosted image-generation service also removes its photorealistic image-generation capability. The replacement renders original stylized artwork locally; it is not photorealistic AI imagery. It avoids new accounts, provider keys, paid APIs and stock-photo licensing dependencies. The procedural backgrounds are then enhanced by the existing synchronized typography, diagrams, waveforms, camera motion, transitions, glow and FFmpeg composition.
 
 ## Important files
 
