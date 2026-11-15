@@ -112,29 +112,9 @@ def load_background_manifest(manifest_path: str | Path) -> dict:
     }
 
 
-def _locate_installed_extension(bpy_module):
-    repos = getattr(bpy_module.context.preferences.extensions, "repos", ())
-    candidates = []
-    for repo in repos:
-        if str(getattr(repo, "module", "")) != OFFICIAL_REPOSITORY_MODULE:
-            continue
-        remote_url = str(getattr(repo, "remote_url", "") or "").rstrip("/") + "/"
-        if remote_url != OFFICIAL_REPOSITORY_URL:
-            continue
-        package_dir = Path(str(getattr(repo, "directory", ""))) / "frame_by_plane"
-        manifest_path = package_dir / "blender_manifest.toml"
-        if manifest_path.is_file():
-            candidates.append((repo, package_dir, manifest_path))
-    if len(candidates) != 1:
-        raise FrameByPlaneError(
-            "Expected exactly one Frame By Plane installation from the pinned official "
-            f"repository {OFFICIAL_REPOSITORY_MODULE}; found {len(candidates)}."
-        )
-    return candidates[0]
-
-
 def verify_frame_by_plane(
-    *, expected_blender: str = LOCKED_BLENDER,
+    *,
+    expected_blender: str = LOCKED_BLENDER,
     expected_extension: str = LOCKED_FRAME_BY_PLANE,
     bpy_module=None,
 ):
@@ -144,12 +124,56 @@ def verify_frame_by_plane(
             import bpy as bpy_module
         except ImportError as exc:
             raise FrameByPlaneError("This check must run inside Blender's Python runtime.") from exc
-    actual_blender = str(getattr(bpy_module.app, "version_string", ""))
-    if actual_blender != expected_blender:
+
+    try:
+        expected_version = tuple(int(part) for part in expected_blender.split("."))
+        actual_version = tuple(int(part) for part in bpy_module.app.version[:3])
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise FrameByPlaneError("Could not read Blender's numeric version tuple.") from exc
+    if actual_version != expected_version:
         raise FrameByPlaneError(
-            f"Violin Prince pins Blender {expected_blender}; found {actual_blender or 'unknown'}."
+            f"Violin Prince pins Blender {expected_blender}; found "
+            + ".".join(str(part) for part in actual_version)
         )
-    repo, package_dir, manifest_path = _locate_installed_extension(bpy_module)
+    actual_blender = ".".join(str(part) for part in actual_version)
+
+    repos = getattr(bpy_module.context.preferences.extensions, "repos", ())
+    matches = [
+        repo for repo in repos
+        if str(getattr(repo, "module", "")) == OFFICIAL_REPOSITORY_MODULE
+        and (str(getattr(repo, "remote_url", "") or "").rstrip("/") + "/") == OFFICIAL_REPOSITORY_URL
+    ]
+    if len(matches) != 1:
+        raise FrameByPlaneError(
+            "Expected exactly one Frame By Plane installation source at the official pinned repository; "
+            f"found {len(matches)}."
+        )
+    repo = matches[0]
+    module_name = f"bl_ext.{repo.module}.frame_by_plane"
+    enabled = any(
+        str(getattr(item, "module", "")) == module_name
+        for item in bpy_module.context.preferences.addons
+    )
+    if not enabled:
+        raise FrameByPlaneError(
+            "Frame By Plane is installed but not enabled. Install it with Blender's extension --enable option."
+        )
+
+    try:
+        extension_module = importlib.import_module(module_name)
+        builder = importlib.import_module(module_name + ".builder")
+    except Exception as exc:
+        raise FrameByPlaneError(f"Could not import installed Frame By Plane modules: {exc}") from exc
+
+    module_file = getattr(extension_module, "__file__", None)
+    if not module_file:
+        raise FrameByPlaneError("Frame By Plane's installed module did not expose a filesystem location.")
+    package_dir = Path(module_file).resolve().parent
+    manifest_path = package_dir / "blender_manifest.toml"
+    if not manifest_path.is_file():
+        raise FrameByPlaneError(
+            "Frame By Plane is imported but its package manifest is missing: " + str(manifest_path)
+        )
     try:
         manifest = tomllib.loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, tomllib.TOMLDecodeError) as exc:
@@ -161,44 +185,41 @@ def verify_frame_by_plane(
     license_id = " ".join(raw_license) if isinstance(raw_license, list) else str(raw_license)
     if extension_id != "frame_by_plane" or version != expected_extension:
         raise FrameByPlaneError(
-            f"Expected Frame By Plane {expected_extension}; found {extension_id or 'unknown'} {version or 'unknown'}."
+            f"Expected Frame By Plane {expected_extension}; found "
+            f"{extension_id or 'unknown'} {version or 'unknown'}."
         )
     if "GPL-3.0" not in license_id.upper():
         raise FrameByPlaneError(f"Unexpected Frame By Plane licence identifier: {license_id!r}")
 
-    module_name = f"bl_ext.{repo.module}.frame_by_plane"
-    enabled = any(
-        str(getattr(item, "module", "")) == module_name
-        for item in bpy_module.context.preferences.addons
-    )
-    if not enabled:
-        raise FrameByPlaneError(
-            "Frame By Plane is installed but not enabled. Install it with Blender's --enable option."
-        )
-    try:
-        extension_module = importlib.import_module(module_name)
-        builder = importlib.import_module(module_name + ".builder")
-    except Exception as exc:
-        raise FrameByPlaneError(f"Could not import installed Frame By Plane modules: {exc}") from exc
-
     build_rig = getattr(builder, "build_fbp_rig", None)
     place_layers = getattr(builder, "fbp_layer_placement", None)
     if not callable(build_rig) or not callable(place_layers):
-        raise FrameByPlaneError("This Frame By Plane build does not expose its native layer builder and camera placement API.")
+        raise FrameByPlaneError(
+            "This Frame By Plane build does not expose its native layer builder and camera placement API."
+        )
     required = {"context", "rig_name", "directory", "files_list", "location", "target_collection"}
     try:
         available = set(inspect.signature(build_rig).parameters)
     except (TypeError, ValueError) as exc:
         raise FrameByPlaneError("Could not inspect the Frame By Plane native layer builder.") from exc
     if not required.issubset(available):
-        raise FrameByPlaneError(f"Frame By Plane builder API changed; missing {sorted(required - available)}.")
+        raise FrameByPlaneError(
+            f"Frame By Plane builder API changed; missing {sorted(required - available)}."
+        )
 
     return {
-        "blender_version": actual_blender, "extension_id": extension_id,
-        "extension_version": version, "extension_license": license_id,
-        "repository_module": str(repo.module), "repository_url": str(repo.remote_url),
-        "package_path": str(package_dir.resolve()), "module_name": module_name,
-        "builder": build_rig, "placement_factory": place_layers, "module": extension_module,
+        "blender_version": actual_blender,
+        "blender_version_string": str(getattr(bpy_module.app, "version_string", actual_blender)),
+        "extension_id": extension_id,
+        "extension_version": version,
+        "extension_license": license_id,
+        "repository_module": str(repo.module),
+        "repository_url": str(repo.remote_url),
+        "package_path": str(package_dir.resolve()),
+        "module_name": module_name,
+        "builder": build_rig,
+        "placement_factory": place_layers,
+        "module": extension_module,
     }
 
 

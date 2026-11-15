@@ -81,4 +81,7 @@ runs:
         blender --command extension install -s -e frame_by_plane
         blender --command extension list
         blender --background --python-expr \
-          "import bpy, pathlib, tomllib; repo=next(r for r in bpy.context.preferences.extensions.repos if r.module == 'violin_prince_official'); p=pathlib.Path(repo.directory)/'frame_by_plane'/'blender_manifest.toml'; m=tomllib.loads(p.read_text()); assert m.get('id') == 'frame_by_plane'; assert m.get('version') == '8.0.1', m.get('version'); assert any(a.module == 'bl_ext.violin_prince_official.frame_by_plane' for a in bpy.context.preferences.addons); print('FRAME_BY_PLANE_PIN_OK=' + m['version'])"
+          "import bpy, importlib, pathlib, tomllib; module=importlib.import_module('bl_ext.violin_prince_official.frame_by_plane'); package=pathlib.Path(module.__file__).resolve().parent; manifest=package/'blender_manifest.toml'; assert manifest.is_file(), str(manifest); data=tomllib.loads(manifest.read_text()); assert data.get('id') == 'frame_by_plane'; assert data.get('version') == '8.0.1', data.get('version'); assert any(a.module == 'bl_ext.violin_prince_official.frame_by_plane' for a in bpy.context.preferences.addons); print('FRAME_BY_PLANE_PIN_OK=' + data['version'])" \
+          > "$RUNNER_TEMP/frame-by-plane-verify.log" 2>&1
+        cat "$RUNNER_TEMP/frame-by-plane-verify.log"
+        grep -Fq "FRAME_BY_PLANE_PIN_OK=8.0.1" "$RUNNER_TEMP/frame-by-plane-verify.log"
