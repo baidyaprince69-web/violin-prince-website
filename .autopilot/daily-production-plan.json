@@ -23,7 +23,7 @@
     "Violin Prince"
   ],
   "narrative_style": "documentary",
-  "cover_payoff": "Use a short sampled violin phrase as a familiar listening reference while the final scene returns to a fully modelled violin and bow. Keep the room-response diagram conceptual: do not invent measured room data or imply that Prince recorded the sample live.",
+  "cover_payoff": "Use the separately licensed violin and bow geometry selected for this story. Blender should animate the bow rig across the instrument strings; use a short sample violin phrase as an illustrative audio layer, not as a claim of a live recording.",
   "narration_script": "Your room can quietly mislead your mix. Audient's new interfaces combine console-style preamps with onboard digital processing. RoomTune measures room acoustics and adjusts the signal reaching your monitors. Its onboard DSP runs EQ, compression, and reverb without burdening your computer.",
   "narration_evidence": [
     {
@@ -62,14 +62,14 @@
   "scenes": [
     {
       "caption": "YOUR ROOM SHAPES WHAT YOU HEAR",
-      "image_prompt": "Premium photorealistic cinematic full-frame 3D scene for a vertical music-technology explainer. A complete, believable amber-brown violin rests in a dark midnight mixing room, with a pair of studio monitors and subtle room surfaces visible around it. Show soft golden sound waves travelling from a speaker, reflecting from the room walls and returning toward a listening position. The reflections are an abstract visual metaphor, not measured data. Rich maple grain, glossy but natural varnish, ebony fingerboard, bridge and strings, realistic scale, deep teal shadows, controlled amber rim lighting, atmospheric depth, physically based materials. No text, numbers, logos, watermark, wireframe, outline illustration, incomplete instrument or fake person.",
+      "image_prompt": "Premium physically accurate, high-detail 3D cinematic full-frame 3D scene for a vertical music-technology explainer. A complete, believable amber-brown violin rests in a dark midnight mixing room, with a pair of studio monitors and subtle room surfaces visible around it. Show soft golden sound waves travelling from a speaker, reflecting from the room walls and returning toward a listening position. The reflections are an abstract visual metaphor, not measured data. Rich maple grain, glossy but natural varnish, ebony fingerboard, bridge and strings, realistic scale, deep teal shadows, controlled amber rim lighting, atmospheric depth, physically based materials. No text, numbers, logos, watermark, wireframe, outline illustration, incomplete instrument or fake person.",
       "graphic_label": "YOUR ROOM SHAPES WHAT YOU HEAR",
       "graphic_detail": "Room reflections can colour monitor playback",
       "visual_mode": "macro_3d"
     },
     {
       "caption": "MEASURE THE ROOM. ADJUST THE MONITORS.",
-      "image_prompt": "A clear photorealistic 3D scientific visualization in a dark acoustic studio. Show a calibrated reference microphone between two studio monitors, a soft golden test waveform travelling through the room, and a restrained abstract DSP stage guiding the monitor signal. Visualize the room response as a smooth conceptual curve with no numeric values, then show a more even conceptual curve after correction. Keep all curves clearly illustrative, not real measurements from a particular room. Cinematic midnight navy, antique gold and muted teal, realistic metal and glass, precise reflections, vertical 9:16 composition, no text, no brand marks, no watermark, no wireframe or cartoon style.",
+      "image_prompt": "A clear physically accurate, high-detail 3D 3D scientific visualization in a dark acoustic studio. Show a calibrated reference microphone between two studio monitors, a soft golden test waveform travelling through the room, and a restrained abstract DSP stage guiding the monitor signal. Visualize the room response as a smooth conceptual curve with no numeric values, then show a more even conceptual curve after correction. Keep all curves clearly illustrative, not real measurements from a particular room. Cinematic midnight navy, antique gold and muted teal, realistic metal and glass, precise reflections, vertical 9:16 composition, no text, no brand marks, no watermark, no wireframe or cartoon style.",
       "graphic_label": "ROOMTUNE MONITOR CORRECTION",
       "graphic_detail": "DSP adjusts the signal sent to the monitors",
       "visual_mode": "waveform",
@@ -85,7 +85,7 @@
     },
     {
       "caption": "HEAR THE VIOLIN. TRUST THE MIX.",
-      "image_prompt": "A premium photorealistic 3D close performance-style composition centred on a fully formed amber-brown violin and a separate realistic bow contacting visible strings. Show detailed maple grain, fine transparent varnish, correct bridge, fingerboard, tailpiece and fittings. A warm golden waveform emerges from the instrument while the background transitions from subtle room reflections to a calmer, balanced listening space. No person or creator likeness is shown. Keep the violin and bow physically plausible, with cinematic studio lighting, realistic depth of field, restrained teal accents and a midnight navy environment. Vertical 9:16, no text, labels, logos or watermark, no incomplete shell, wireframe or outline illustration.",
+      "image_prompt": "A premium physically accurate, high-detail 3D 3D close performance-style composition centred on a fully formed amber-brown violin and a separate realistic bow contacting visible strings. Show detailed maple grain, fine transparent varnish, correct bridge, fingerboard, tailpiece and fittings. A warm golden waveform emerges from the instrument while the background transitions from subtle room reflections to a calmer, balanced listening space. No person or creator likeness is shown. Keep the violin and bow physically plausible, with cinematic studio lighting, realistic depth of field, restrained teal accents and a midnight navy environment. Vertical 9:16, no text, labels, logos or watermark, no incomplete shell, wireframe or outline illustration.",
       "graphic_label": "THE MUSICAL PAYOFF",
       "graphic_detail": "A sampled violin phrase makes the monitoring idea tangible",
       "visual_mode": "cover_performance"
@@ -93,7 +93,7 @@
   ],
   "asset_subject": "violin",
   "asset_kind": "violin",
-  "model_query": "realistic PBR violin model with visible strings and bow",
+  "model_query": "realistic violin with visible strings and separate bow",
   "performance_feedback": {
     "sample_window": "2026-10-16 to 2026-11-15; Metricool video rows had unavailable engagement fields, supplemented by vidIQ latest Short uploads",
     "sample_count": 5,
@@ -144,5 +144,12 @@
         "transition_out": "fade_through_black"
       }
     ]
-  }
+  },
+  "preferred_model_urls": [
+    "https://sketchfab.com/3d-models/violin-b45bce730d8a489c83ecc944f3725475"
+  ],
+  "preferred_bow_model_urls": [
+    "https://sketchfab.com/3d-models/violin-bow-af332828a42f4f8cbbe81bea3de0b00d"
+  ],
+  "strings_in_combined_mesh": false
 }
