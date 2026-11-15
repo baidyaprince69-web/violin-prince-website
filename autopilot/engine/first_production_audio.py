@@ -95,7 +95,7 @@ def main():
     captions_path = output / "captions.srt"
     write_srt(narration_info["subtitle_cues"], captions_path)
     karaoke_path = output / "captions.ass"
-    write_karaoke_ass(narration_info["word_cues"], karaoke_path, width=720, height=1280, words_per_caption=2)
+    write_karaoke_ass(narration_info["word_cues"], karaoke_path, width=1080, height=1920, words_per_caption=2)
     word_timing_path = output / "word-timing.json"
     word_timing_path.write_text(
         json.dumps(narration_info["word_cues"], ensure_ascii=False, indent=2) + "\n",
