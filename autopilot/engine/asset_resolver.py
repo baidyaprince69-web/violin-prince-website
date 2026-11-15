@@ -317,6 +317,7 @@ def main() -> int:
                 output.write("downloaded=" + str(result["resolution"] == "downloaded_model").lower() + "\n")
                 output.write("model_path=" + str(result.get("local_model_path") or "") + "\n")
                 output.write("manifest_path=" + str(result["manifest_path"]) + "\n")
+                output.write("reference_path=" + str(result.get("reference_image_path") or "") + "\n")
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     except Exception as exc:
