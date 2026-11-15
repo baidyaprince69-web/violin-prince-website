@@ -130,39 +130,81 @@ def _download_sample(relative: str, expected_sha256: str, expected_size: int) ->
     raise RuntimeError(f"Violin sample download failed for {relative}: {last_error}")
 
 
-def _events(seed_text: str) -> list[tuple[int, int, int, int]]:
-    """Return (note, velocity, start_beat, duration_beats) for a 24-second phrase."""
+def _normalise_duration(duration_seconds: float) -> tuple[int, float]:
+    """Return whole-beat duration metadata within the full-track safety limit."""
+    try:
+        seconds = float(duration_seconds)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Violin music duration must be a number of seconds.") from exc
+    if not math.isfinite(seconds) or seconds < DURATION_SECONDS or seconds > 600.0:
+        raise ValueError(
+            f"Violin music duration must be between {DURATION_SECONDS:g} and 600 seconds."
+        )
+    total_beats = max(32, int(round(seconds / BEAT_SECONDS)))
+    return total_beats, total_beats * BEAT_SECONDS
+
+
+def _rotate_phrase(
+    phrase: tuple[tuple[int, int, int], ...], amount: int
+) -> tuple[tuple[int, int, int], ...]:
+    shift = amount % len(phrase)
+    return phrase[shift:] + phrase[:shift]
+
+
+def _events(
+    seed_text: str, duration_seconds: float = DURATION_SECONDS
+) -> list[tuple[int, int, int, int]]:
+    """Compose a duration-aware solo-violin arrangement with changing sections."""
+    total_beats, _actual_duration = _normalise_duration(duration_seconds)
     digest = hashlib.sha256(seed_text.encode("utf-8")).digest()
-    transpose = (0, 2, 4)[digest[0] % 3]
-    first = [(note + transpose, velocity, beats) for note, beats, velocity in PHRASE_A]
-    second = [(note + transpose, velocity, beats) for note, beats, velocity in PHRASE_B]
-
-    # Small deterministic phrasing differences, without changing the 32-beat length.
-    if digest[1] % 2:
-        second = second[2:] + second[:2]
-    if digest[2] % 2:
-        first = first[:6] + [(n, max(52, v - 6), b) for n, v, b in first[6:]]
-
+    seed_transpose = (0, 1, 2)[digest[0] % 3]
+    phrase_patterns = (
+        (PHRASE_A, PHRASE_B),
+        (_rotate_phrase(PHRASE_A, 2), _rotate_phrase(PHRASE_B, 3)),
+        (PHRASE_B, PHRASE_A),
+        (_rotate_phrase(PHRASE_B, 1), _rotate_phrase(PHRASE_A, 4)),
+    )
+    section_transpositions = (0, 2, -2, 4, -4, 1, -1, 3)
+    section_dynamics = (0, -5, 3, 6, -2, 2, -4, 4)
     events: list[tuple[int, int, int, int]] = []
     beat = 0
-    for note, velocity, beats in first + second:
-        events.append((note, velocity, beat, beats))
-        beat += beats
-    if beat != 32:
-        raise RuntimeError(f"Violin arrangement is {beat} beats; expected 32.")
-    return events
+    section_index = 0
 
+    while beat < total_beats:
+        first, second = phrase_patterns[section_index % len(phrase_patterns)]
+        transpose = seed_transpose + section_transpositions[section_index % len(section_transpositions)]
+        dynamic = section_dynamics[section_index % len(section_dynamics)]
+        for phrase_index, phrase in enumerate((first, second)):
+            phrase_dynamic = dynamic + (2 if phrase_index == 1 and section_index % 2 == 0 else 0)
+            for note, note_beats, velocity in phrase:
+                remaining = total_beats - beat
+                if remaining <= 0:
+                    break
+                duration_beats = min(int(note_beats), remaining)
+                varied_note = max(55, min(84, int(note) + transpose))
+                varied_velocity = max(42, min(108, int(velocity) + phrase_dynamic))
+                events.append((varied_note, varied_velocity, beat, duration_beats))
+                beat += duration_beats
+            if beat >= total_beats:
+                break
+        section_index += 1
+
+    if not events or events[-1][2] + events[-1][3] != total_beats:
+        raise RuntimeError("The generated violin arrangement does not cover its full duration.")
+    return events
 
 def render_from_sample_arrays(
     output_path: str | Path,
     manifest: dict[str, Any],
     samples: dict[str, tuple[np.ndarray, int]],
     seed_text: str = "",
+    duration_seconds: float = DURATION_SECONDS,
 ) -> Path:
     """Render offline from decoded sample arrays; this keeps CI tests network-free."""
     zones = manifest.get("zones", [])
-    events = _events(seed_text)
-    total_frames = SAMPLE_RATE * DURATION_SECONDS
+    total_beats, actual_duration = _normalise_duration(duration_seconds)
+    events = _events(seed_text, duration_seconds=actual_duration)
+    total_frames = int(round(SAMPLE_RATE * actual_duration))
     mix = np.zeros((total_frames, 2), dtype=np.float32)
 
     for event_index, (note, velocity, start_beat, beats) in enumerate(events):
@@ -178,7 +220,7 @@ def render_from_sample_arrays(
         root_pitch = int(zone["rootPitch"])
         pitch_ratio = 2.0 ** ((note - root_pitch) / 12.0)
         start = int(round(start_beat * BEAT_SECONDS * SAMPLE_RATE))
-        seconds = min(DURATION_SECONDS - start / SAMPLE_RATE, beats * BEAT_SECONDS + 0.035)
+        seconds = min(actual_duration - start / SAMPLE_RATE, beats * BEAT_SECONDS + 0.035)
         frame_count = max(1, int(round(seconds * SAMPLE_RATE)))
         positions = np.arange(frame_count, dtype=np.float32) * (
             float(source_rate) / SAMPLE_RATE * pitch_ratio
@@ -230,12 +272,15 @@ def render_from_sample_arrays(
 
 
 def create_sampled_violin_bed(
-    output_path: str | Path, seed_text: str = ""
+    output_path: str | Path,
+    seed_text: str = "",
+    duration_seconds: float = DURATION_SECONDS,
 ) -> tuple[Path, dict[str, Any]]:
-    """Download only the note zones required, verify their hashes, then render."""
+    """Download only the note zones required, verify their hashes, then render a full arrangement."""
+    _total_beats, actual_duration = _normalise_duration(duration_seconds)
     manifest = _load_manifest()
     zones = manifest["zones"]
-    events = _events(seed_text)
+    events = _events(seed_text, duration_seconds=actual_duration)
     chosen: dict[str, dict[str, Any]] = {}
     for note, velocity, _start, _beats in events:
         zone = _choose_zone(zones, note, velocity)
@@ -258,13 +303,16 @@ def create_sampled_violin_bed(
             audio = audio.mean(axis=1)
         decoded[relative] = (np.asarray(audio, dtype=np.float32), int(sample_rate))
 
-    target = render_from_sample_arrays(output_path, manifest, decoded, seed_text=seed_text)
+    target = render_from_sample_arrays(
+        output_path, manifest, decoded, seed_text=seed_text,
+        duration_seconds=actual_duration,
+    )
     info = {
         "audio_source": "sampled_violin_cc0",
         "license": manifest["license"],
         "source_library": manifest.get("sourceLibrary", "VSCO 2 Community Edition"),
         "attribution": manifest.get("attribution", "Versilian Studios"),
-        "duration_seconds": DURATION_SECONDS,
+        "duration_seconds": actual_duration,
         "sample_rate": SAMPLE_RATE,
         "zones_used": len(chosen),
         "sample_bank_revision": SAMPLE_REVISION,
