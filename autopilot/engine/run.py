@@ -4674,9 +4674,9 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         raise PipelineError("A planned scene has no visual prompt.")
 
     shot_roles = (
-        "SHOT 1 — HOOK: macro hero detail.",
-        "SHOT 2 — MECHANISM: clear scientific close-up.",
-        "SHOT 3 — PAYOFF: cinematic violin, bow and hands.",
+        "SHOT 1 — HOOK: macro hero view of the musical question.",
+        "SHOT 2 — MECHANISM: close scientific view of the physical or musical detail.",
+        "SHOT 3 — PERFORMANCE PAYOFF: cinematic violin-and-bow view with space for a real take.",
     )
     subject = str((plan or {}).get("topic") or (plan or {}).get("title") or "the music fact")[:80]
     mode = str(scene.get("visual_mode") or ("macro_3d" if index == 0 else "cover_performance" if index == 2 else "waveform")).strip().casefold()
@@ -4685,14 +4685,15 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
     # Keep the recognisable instrument identity, but avoid spending most of the
     # provider budget on repeated negative prompts and decorative adjectives.
     brand_direction = (
-        "Violin Prince look: richly coloured, photorealistic cinematic still/CGI. "
-        "Show a complete, solid, opaque amber-brown violin with authentic maple grain, "
-        "rich varnish, visible strings, bridge, bow hair and metal fittings; believable proportions. "
-        "Never an empty shell, outline, wireframe, skeleton or transparent body. "
-        "Palette: midnight navy/charcoal, muted teal, antique gold, natural amber and warm ivory. "
-        "Use dimensional studio light, layered depth, subtle dust and restrained glints. "
-        "No stock imagery, identifiable faces, logos, readable text, lyrics or watermark. "
-        "Keep sourced facts accurate. Portrait 9:16 composition."
+        "Violin Prince identity: richly coloured photorealistic cinematic still imagery or CGI; "
+        "physically believable violin construction, complete solid opaque amber-brown wood, "
+        "visible natural wood grain, rich varnish, realistic strings, bow hair and metal fittings; "
+        "dimensional lighting and layered foreground/midground/background. "
+        "The violin body must be solid, opaque and fully formed, never an empty shell, hollow outline, "
+        "wireframe, skeletal contour or transparent body. "
+        "Palette: deep midnight navy, muted teal, antique gold, warm ivory and natural amber. Full colour. "
+        "This is original art direction. No stock imagery, identifiable faces, logos, readable text or lyrics; "
+        "no watermark. Respect sourced facts and measurements. Portrait 9:16 composition."
     )
     role = shot_roles[max(0, min(2, int(index)))]
     fixed = f"Story subject: {subject}. {role} {mode_direction} {brand_direction}"
@@ -4712,7 +4713,7 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         optional_parts.append("Performance connection: " + cover_payoff[:100])
     clean_feedback = " ".join(str(feedback or "").split()).strip()
     if clean_feedback:
-        optional_parts.append("Additional visual direction: " + clean_feedback[:180])
+        optional_parts.append("additional visual direction: " + clean_feedback[:180])
 
     for addition in optional_parts:
         addition = " ".join(addition.split())
