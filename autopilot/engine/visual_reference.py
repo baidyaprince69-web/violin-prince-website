@@ -215,13 +215,29 @@ def scene_visual_prompt_suffix(plan: dict[str, Any] | None, index: int) -> str:
     scene = guidance[index]
     if not isinstance(scene, dict):
         return ""
-    visual_language = VISUAL_LANGUAGES.get(str(profile.get("visual_language") or ""), "")
-    shot = SHOT_TYPES.get(str(scene.get("shot_type") or ""), "")
+    language_cues = {
+        "cinematic_cgi": "photoreal 3D depth and tactile instrument materials",
+        "macro_documentary": "natural macro optics and observed physical detail",
+        "kinetic_graphics": "dimensional explainer graphics with clear hierarchy",
+        "hybrid": "photoreal violin imagery with crisp explainer graphics",
+    }
+    shot_cues = {
+        "extreme_macro": "Extreme macro framing",
+        "macro": "Tight violin macro framing",
+        "mechanism_cutaway": "Scientific mechanism cutaway",
+        "close_detail": "One clear focal detail",
+        "overhead": "Clean overhead component layout",
+        "split_wide": "Balanced side-by-side comparison",
+        "performance_close": "Violin, bow and hands close-up",
+        "wide_hero": "Spacious cinematic hero framing",
+    }
+    visual_language = language_cues.get(str(profile.get("visual_language") or ""), "")
+    shot = shot_cues.get(str(scene.get("shot_type") or ""), "")
     if not visual_language and not shot:
         return ""
     return (
-        " Reference-informed treatment: " + visual_language + " " + shot + " "
-        + str(profile.get("originality_rule") or "")
+        " Reference-informed treatment: " + visual_language + "; " + shot
+        + ". Original composition; do not reproduce exact frames, logos, assets or creator identity."
     )
 
 
