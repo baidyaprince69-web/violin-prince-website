@@ -320,3 +320,8 @@ The Linux Blender runner installs the distribution-matched `python3-numpy` packa
 
 
 The first-production job copies the resolved `.glb` and its `asset-provenance.json` into `work/first-production/assets` before rendering. Both the video export and Blender project bundle use this staged copy, and GitHub Actions step outputs are newline-delimited so the model path is passed intact.
+
+
+## Efficient first-production rendering
+
+The first review film is rendered from 96 Blender timeline samples (4 samples per second) rather than rendering all 600 output frames independently. Four parallel GitHub-hosted Blender workers each render 24 samples. The assembly job uses FFmpeg motion-compensated optical-flow interpolation to create the 25 FPS review MP4. Narration and audio are generated in a separate job in parallel with Blender. This keeps the render work split across bounded runner jobs; the output remains a full 24-second video and includes the editable Blender scene and imported violin asset.
