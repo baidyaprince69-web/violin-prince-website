@@ -1,5 +1,6 @@
 {
   "mode": "manual_full_track_music_video",
   "music_duration_seconds": 180,
-  "request": "Generate a full-length Violin Prince instrumental music video from the repository's existing CC0 sampled-violin generator. Render the complete 180-second track using Motion + HyperFrames, run full media and visual QA, and upload the MP4 plus reports as GitHub Actions artifacts. Do not publish."
+  "request": "Generate a full-length Violin Prince instrumental music video from the repository's existing CC0 sampled-violin generator. Render the complete 180-second track using Motion + HyperFrames, run full media and visual QA, and upload the MP4 plus reports as GitHub Actions artifacts. Do not publish.",
+  "trigger_marker": "[manual-motion-production]"
 }
