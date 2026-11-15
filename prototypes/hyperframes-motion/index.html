@@ -7,7 +7,7 @@
   <title>Violin Prince — Motion Graphics Prototype</title>
   <link rel="stylesheet" href="./src/styles.css" />
   <script type="importmap" id="motion-importmap">
-    {"imports":{"motion":"./node_modules/motion/dist/es/index.mjs"}}
+    {"imports":{"motion":"./node_modules/motion/dist/es/index.mjs","framer-motion/dom":"./node_modules/framer-motion/dist/es/dom.mjs","motion-dom":"./node_modules/motion-dom/dist/es/index.mjs","motion-utils":"./node_modules/motion-utils/dist/es/index.mjs"}}
   </script>
   <script type="module" src="./src/main.js"></script>
 </head>
@@ -75,9 +75,9 @@
     </footer>
 
     <div id="bottom-progress" class="bottom-progress clip" data-start="0" data-duration="10" data-track-index="8">
-      <span class="progress-label">A MOMENT IN MUSIC</span>
+      <span class="progress-label" data-layout-ignore>A MOMENT IN MUSIC</span>
       <span class="progress-track"><span id="progress-fill"></span></span>
-      <span class="progress-time">00:10</span>
+      <span class="progress-time" data-layout-ignore>00:10</span>
     </div>
   </main>
 </body>

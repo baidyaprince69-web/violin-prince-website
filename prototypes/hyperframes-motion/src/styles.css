@@ -195,7 +195,7 @@ body {
   transform-origin: center bottom;
 }
 .wave-foot {
-  color: rgba(216, 222, 239, 0.42);
+  color: rgba(216, 222, 239, 0.82);
   font-size: 10px;
   letter-spacing: 0.2em;
 }
@@ -302,7 +302,7 @@ body {
 
 .bottom-progress {
   z-index: 10;
-  inset: auto 78px 70px 78px;
+  inset: auto 78px 220px 78px;
   height: 34px;
   display: flex;
   align-items: center;
@@ -310,7 +310,7 @@ body {
 }
 .progress-label, .progress-time {
   color: rgba(216, 222, 239, 0.42);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.15em;
   white-space: nowrap;

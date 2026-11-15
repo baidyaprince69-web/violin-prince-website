@@ -40,7 +40,7 @@ The MP4 is written to `output/violin-prince-motion-10s.mp4`.
 
 ## Motion is an external module
 
-The HTML import map points to the installed, pinned Motion ESM file under `node_modules`. The composition script stays a small native browser module; the Motion package is not bundled into it or copied into a file that HyperFrames scans. The preparation script reads Motion's own package export map and checks that its local ESM entry exists. No runtime CDN request is needed.
+The HTML import map points to the installed, pinned Motion ESM file and its local browser dependencies under `node_modules`. The composition script stays a small native browser module; the Motion packages are not bundled into it or copied into a file that HyperFrames scans. The preparation script reads each package's own export map and checks that every local ESM entry exists. No runtime CDN request is needed.
 
 The timeline is paused. HyperFrames controls its registered timeline adapter, and every requested time is applied directly to Motion's timeline. The seek test asks for 5.25 s, then 1.25 s, then both again, and compares decoded RGBA pixels for the repeated requests. This tests random-access order as well as repeatability.
 
