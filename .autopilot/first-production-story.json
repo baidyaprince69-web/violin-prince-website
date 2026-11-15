@@ -9,6 +9,10 @@
     "https://sketchfab.com/3d-models/violin-0162dea1b1044cd281c57af5e5fc2046",
     "https://sketchfab.com/3d-models/violin-b45bce730d8a489c83ecc944f3725475"
   ],
+  "preferred_bow_model_urls": [
+    "https://sketchfab.com/3d-models/violin-bow-af332828a42f4f8cbbe81bea3de0b00d"
+  ],
+  "strings_in_combined_mesh": true,
   "require_violin_parts": true,
   "narrative_style": "cinematic_story",
   "scenes": [
