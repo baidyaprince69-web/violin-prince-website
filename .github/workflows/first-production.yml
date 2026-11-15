@@ -1,14 +1,7 @@
 name: Violin Prince first complete Blender production
 
 on:
-  pull_request:
-    paths:
-      - "autopilot/engine/first_production_asset.py"
-      - "autopilot/engine/first_production_blender.py"
-      - "autopilot/engine/first_production_audio.py"
-      - "autopilot/engine/voiceover.py"
-      - "autopilot/engine/violin_sampler.py"
-      - ".github/workflows/first-production.yml"
+  workflow_call:
   workflow_dispatch:
 
 permissions:
