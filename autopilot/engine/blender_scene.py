@@ -820,20 +820,47 @@ def build_scene(config):
     scene.render.film_transparent = False
 
     scene.view_settings.view_transform = "AgX" if "AgX" in scene.view_settings.bl_rna.properties["view_transform"].enum_items.keys() else "Standard"
-    # Blender 5 distinguishes image and video media types. VIDEO must be set
-    # before the FFMPEG file format, otherwise headless animation may not write.
-    if hasattr(scene.render.image_settings, "media_type"):
-        scene.render.image_settings.media_type = "VIDEO"
-    scene.render.image_settings.file_format = "FFMPEG"
-    scene.render.use_file_extension = True
-    scene.render.ffmpeg.format = "MPEG4"
-    scene.render.ffmpeg.codec = "H264"
-    scene.render.ffmpeg.constant_rate_factor = "HIGH"
-    scene.render.ffmpeg.ffmpeg_preset = "GOOD"
-    scene.render.ffmpeg.gopsize = fps
-    scene.render.filepath = str(Path(config["output"]).resolve().with_suffix(""))
-    scene.frame_set(1)
-    bpy.ops.render.render(animation=True)
+
+    # The CI integration proof renders one actual composed frame. It exercises
+    # model/scene construction, the slotted Action API, camera setup, native
+    # Frame By Plane geometry and the final Eevee composition without spending
+    # several minutes encoding a throwaway animation on software-rendered CI.
+    # The normal daily production path remains the full animated FFmpeg render.
+    if bool(config.get("smoke_still", False)):
+        image_settings = scene.render.image_settings
+        if hasattr(image_settings, "media_type"):
+            image_settings.media_type = "IMAGE"
+        image_settings.file_format = "PNG"
+        image_settings.color_mode = "RGBA"
+        scene.render.use_file_extension = False
+        still_path = Path(config["output"]).resolve()
+        scene.render.filepath = str(still_path)
+        smoke_frame = max(1, min(frame_end, int(config.get("smoke_frame", 1))))
+        scene.frame_set(smoke_frame)
+        bpy.context.view_layer.update()
+        result = bpy.ops.render.render(write_still=True)
+        if "FINISHED" not in result or not still_path.is_file():
+            raise RuntimeError(
+                "Blender did not write the Frame By Plane smoke still: "
+                + str(still_path)
+                + "; operator_result="
+                + repr(result)
+            )
+    else:
+        # Blender 5 distinguishes image and video media types. VIDEO must be set
+        # before the FFMPEG file format, otherwise headless animation may not write.
+        if hasattr(scene.render.image_settings, "media_type"):
+            scene.render.image_settings.media_type = "VIDEO"
+        scene.render.image_settings.file_format = "FFMPEG"
+        scene.render.use_file_extension = True
+        scene.render.ffmpeg.format = "MPEG4"
+        scene.render.ffmpeg.codec = "H264"
+        scene.render.ffmpeg.constant_rate_factor = "HIGH"
+        scene.render.ffmpeg.ffmpeg_preset = "GOOD"
+        scene.render.ffmpeg.gopsize = fps
+        scene.render.filepath = str(Path(config["output"]).resolve().with_suffix(""))
+        scene.frame_set(1)
+        bpy.ops.render.render(animation=True)
     return frame_by_plane_report
 
 
