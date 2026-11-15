@@ -46,11 +46,11 @@ GitHub Actions generates a 37.5-second audio fixture, builds the composition fro
 
 ## Optional Autopilot integration
 
-The regular Autopilot renderer remains the default. Set the repository Actions variable **MOTION_HYPERFRAMES_RENDER_ENABLED=true** to select this full-track 2D/2.5D route for a Render or Full stage. The variable defaults to **false**; Node.js 22 and Motion/HyperFrames dependencies are installed only when this route is enabled.
+For manual staged **Full** and **Render** runs, Motion + HyperFrames is selected by default. Set the repository Actions variable **BLENDER_RENDER_ENABLED=true** to choose the optional Blender route instead, or set **MOTION_HYPERFRAMES_RENDER_ENABLED=false** to disable Motion. Scheduled/push daily-plan runs remain on their existing separate Blender route until migrated. Node.js 22 and Motion/HyperFrames dependencies are installed only when the Motion route is selected.
 
 The repository's existing CC0 sampled-violin generator (**autopilot/engine/violin_sampler.py**) creates the music source for this route. Its phrase arrangement can be rendered for a configurable duration (180 seconds by default, maximum ten minutes); no creator recording or external media-storage service is required. The generated track is passed into the Motion composition. The composition also receives the approved plan title, hook, topic and up to three scene captions. The Motion route is selected by default for manual staged Full/Render runs, skips legacy still-image generation, and does not invoke the remote asset API, object storage or publisher. The separate scheduled ChatGPT daily-plan route remains on its existing Blender-based Shorts/explainer path until it is migrated separately. Motion and Blender are mutually exclusive; Blender remains an optional 3D route. Publishing is blocked whenever **PUBLISH_ENABLED=true**. The bridge ensures the pinned HyperFrames Chrome browser before validation and rendering.
 
-The renderer writes into the normal Autopilot output, storage and reporting path. Its feature flag remains off by default, so ordinary production runs are unchanged.
+The renderer writes its MP4 and QA reports into the GitHub Actions artifact output. The Motion renderer does not use the legacy remote-media upload or Shorts publishing path.
 
 ## Blender is optional
 
