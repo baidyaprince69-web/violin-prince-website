@@ -417,8 +417,10 @@ def build_publish_manifest(
     blockers: list[str] = []
     description = str(metadata.get("description") or "")
     external_models = provenance.get("assets", {}).get("external_3d_models", [])
+    external_models = external_models if isinstance(external_models, list) else []
     external_credits = []
-    for model in external_models if isinstance(external_models, list) else []:
+    credits_to_append = []
+    for model in external_models:
         if not isinstance(model, dict):
             continue
         name = str(model.get("name") or "3D model")
@@ -436,10 +438,11 @@ def build_publish_manifest(
             f"Licence: {license_label}. Source: {source_url}"
             + (f" Licence details: {license_url}" if license_url else "")
         )
+        external_credits.append(credit)
         if credit not in description:
-            external_credits.append(credit)
-    if external_credits:
-        description = (description.rstrip() + "\n\n" + "\n".join(external_credits)).strip()
+            credits_to_append.append(credit)
+    if credits_to_append:
+        description = (description.rstrip() + "\n\n" + "\n".join(credits_to_append)).strip()
     if len(description) > MAX_DESCRIPTION_LENGTH:
         blockers.append(
             "Required 3D model attribution makes the YouTube description exceed "
