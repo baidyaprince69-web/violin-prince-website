@@ -15,7 +15,9 @@ assert.match(html, /id="outro"[\s\S]*?data-track-index="2"/, "Outro scene timing
 assert.match(source, /animate\(/, "Motion must drive the composition");
 assert.doesNotMatch(source, /document\.(getElementById|createElement)|appendChild/, "Scene elements must be authored statically for deterministic rendering");
 assert.equal((html.match(/class="waveform-bar"/g) || []).length, 46, "Waveform must contain 46 authored bars");
-assert.ok(groups.every(([id]) => html.includes(`id="${id}"`)), "All authored particle fields must exist");
+for (const id of ["particles-opening", "particles-wave", "particles-outro"]) {
+  assert.match(html, new RegExp(`id="${id}"`), `Missing authored particle field: ${id}`);
+}
 assert.match(source, /motionTimeline\.time\s*=/, "Motion must be explicitly seekable");
 assert.match(source, /window\.__timelines\.main\s*=/, "HyperFrames root timeline must be registered");
 assert.equal(manifest.dependencies.motion, "14.14.0");
