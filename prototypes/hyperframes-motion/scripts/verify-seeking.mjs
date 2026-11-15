@@ -34,7 +34,7 @@ function pixelHash(file) {
     "-f", "rawvideo",
     "-pix_fmt", "rgba",
     "-"
-  ]);
+  ], { maxBuffer: 32 * 1024 * 1024 });
   return createHash("sha256").update(rgba).digest("hex");
 }
 
