@@ -1,5 +1,6 @@
 {
   "mode": "chatgpt_daily_production",
   "plan_path": ".autopilot/daily-production-plan.json",
-  "reason": "Run the existing ChatGPT-authored daily production plan through the Cloudflare-independent GitHub Actions route. Use Blender + Frame By Plane for the licensed 3D instrument and layered backgrounds; create a draft artifact only; keep PUBLISH_ENABLED=false and leave every previously uploaded YouTube video untouched."
+  "reason": "Run the ChatGPT-authored, source-verified daily production plan through the full Blender + Frame By Plane 3D route. Resolve and download the selected licensed violin mesh and separately licensed bow geometry, verify visible strings and bow mesh, animate the physical violin and bow in the explainer scenes, and produce the actual narration-backed MP4 with attribution and QA artifacts. Keep PUBLISH_ENABLED=false and YOUTUBE_PUBLISH_ENABLED=false. Do not touch or upload any previously published YouTube videos. No abstract smoke-test substitute or automatic Motion fallback is acceptable.",
+  "request_revision": "verified-real-violin-and-bow-3d-model-test"
 }
