@@ -208,7 +208,7 @@ def get_audio(prefer_creator_assets=True, allow_fallback=True):
     day_seed = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     motion_enabled = str(os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "false")).strip().lower() in {"1", "true", "yes", "on"}
     music_duration = (
-        float(os.environ.get("MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS", "180"))
+        float(os.environ.get("MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS", "24"))
         if motion_enabled else 24.0
     )
     try:
@@ -5283,9 +5283,9 @@ def visuals_stage(feedback=""):
         for image_path in image_paths:
             image_path.unlink(missing_ok=True)
         storyboard = None
-        metadata["visual_renderer"] = "motion_hyperframes_full_track"
-        metadata["visuals_description"] = "The Motion + HyperFrames composition supplies the full-track motion-graphics timeline."
-        log("Motion + HyperFrames selected: skipped still-image generation; the renderer will build the full-track composition.")
+        metadata["visual_renderer"] = "motion_hyperframes_narrated_explainer"
+        metadata["visuals_description"] = "Motion + HyperFrames animates the approved research-backed scenes and synchronises visible captions to Kokoro word timings."
+        log("Motion + HyperFrames selected: building animated explainer scenes from the approved research and narration package; no unrelated still-image route is used.")
     elif blender_enabled:
         # A Blender 3D production has no generated still-image plates. The scene
         # templates, objects, lighting, camera and animation are all built and
@@ -5354,14 +5354,31 @@ def render_stage():
     active_audio_asset = metadata.get("asset", {})
     audio_source = str(active_audio_asset.get("audio_source", "generated_ambient_fallback"))
     if renderer == "motion_hyperframes":
-        # Keep the staged CC0 sampled-violin result as the authoritative music input.
-        # The Motion route must not replace it with an unrelated private upload.
+        # The researched explainer package must contain Kokoro speech and exact
+        # model-native word timings. The sampled violin is only an optional bed.
         if active_audio_asset.get("kind") != "generated_sampled_instrument" or audio_source != "sampled_violin_cc0":
             raise PipelineError(
-                "Motion + HyperFrames requires the repository's generated CC0 sampled-violin "
-                "track from Prepare. Re-run Prepare with the Motion renderer enabled."
+                "Motion explainer requires the repository's verified CC0 sampled-violin bed. "
+                "Re-run Prepare with the Motion renderer enabled."
             )
-        log("Using the prepared full-length CC0 sampled-violin composition for Motion + HyperFrames.")
+        if not paths["narration"].is_file():
+            raise PipelineError("Motion explainer package is missing Kokoro narration.wav.")
+        if (
+            not isinstance(narration_info, dict)
+            or narration_info.get("engine") != "Kokoro-82M"
+            or narration_info.get("voice") != "af_heart"
+            or narration_info.get("word_sync_status") != "passed"
+            or not narration_info.get("word_cues")
+        ):
+            raise PipelineError(
+                "Motion explainer requires Kokoro-82M af_heart speech and passed native word timings."
+            )
+        narration_bytes = paths["narration"].read_bytes()
+        if len(narration_bytes) < 4096:
+            raise PipelineError("Kokoro narration.wav is missing or unexpectedly small.")
+        if not str(plan.get("narration_script") or "").strip():
+            raise PipelineError("Motion explainer is missing its researched explanation script.")
+        log("Kokoro narration is the primary audio. The sampled violin is retained only as a quiet, ducked background bed.")
     else:
         log("Rendering from saved research, script, narration and scene images. Private media is fetched only now.")
         private_audio_asset, private_audio_bytes = get_audio(
@@ -5395,19 +5412,16 @@ def render_stage():
     if renderer == "motion_hyperframes":
         if str(os.environ.get("PUBLISH_ENABLED", "false")).strip().lower() in {"1", "true", "yes", "on"}:
             raise PipelineError(
-                "Full-track Motion + HyperFrames output cannot use the existing Shorts publishing path. "
-                "Keep PUBLISH_ENABLED=false until a separate full-length music-video publisher is implemented."
+                "Motion explainer publishing is disabled during this integration. "
+                "Keep PUBLISH_ENABLED=false until the explainer output and publisher contract are approved."
             )
-        if audio_source != "sampled_violin_cc0" or active_audio_asset.get("kind") != "generated_sampled_instrument":
-            raise PipelineError(
-                "Motion + HyperFrames accepts the repository's verified CC0 sampled-violin output "
-                "for this generated-music production."
-            )
-        log("Rendering the full generated CC0 violin arrangement with Motion + HyperFrames.")
-        path = OUT / "violin-prince-full-track.mp4"
+        log("Rendering a Kokoro-narrated explainer with the CC0 violin bed mixed quietly underneath.")
+        path = OUT / "violin-prince-explainer.mp4"
         video_quality = render_full_track(
             audio_bytes=audio,
             audio_filename=str(active_audio_asset.get("filename") or paths["audio"].name),
+            narration_bytes=paths["narration"].read_bytes(),
+            narration_info=narration_info,
             output_path=path,
             work_dir=WORK / "motion-hyperframes",
             plan=plan,
@@ -5479,16 +5493,15 @@ def main(stage="full", visual_feedback=""):
     try:
         motion_enabled = str(os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "false")).strip().lower() in {"1", "true", "yes", "on"}
         if stage == "prepare":
-            return prepare_motion_music_video_stage() if motion_enabled else prepare_stage()
+            # The Motion renderer changes the visual engine, not the editorial
+            # product. Every route still researches a subject and creates Kokoro speech.
+            return prepare_stage()
         if stage == "visuals":
             return visuals_stage(visual_feedback)
         if stage == "render":
             return render_stage()
         if stage == "full":
-            # One-click mode: Motion music videos use the local sampled-violin
-            # preparer; the legacy story/Shorts pipeline remains a separate route.
-            prepare = prepare_motion_music_video_stage if motion_enabled else prepare_stage
-            if prepare() != 0:
+            if prepare_stage() != 0:
                 return 1
             if visuals_stage(visual_feedback) != 0:
                 return 1
