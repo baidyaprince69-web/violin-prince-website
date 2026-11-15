@@ -152,8 +152,8 @@ jobs:
             exit 1
           fi
 
-      - name: Check Cloudflare secrets only for the legacy manual image route
-        if: github.event_name == 'workflow_dispatch' && env.PIPELINE_STAGE != 'render' && env.BLENDER_RENDER_ENABLED != 'true'
+      - name: Check legacy image-route credentials only when Motion is not selected
+        if: github.event_name == 'workflow_dispatch' && env.PIPELINE_STAGE != 'render' && env.BLENDER_RENDER_ENABLED != 'true' && env.MOTION_HYPERFRAMES_RENDER_ENABLED != 'true'
         shell: bash
         run: |
           missing=0
