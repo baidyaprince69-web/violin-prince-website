@@ -81,6 +81,8 @@ def _register_render_telemetry(scene, config):
     active = {}
     records_by_frame = {}
     writes_before_post = {}
+    frame_change_started = {}
+    frame_change_durations = {}
     frame_records = _TIMINGS.setdefault("frames", [])
 
     def request_preflight_abort(gate_name, projected_seconds, observed):
@@ -137,6 +139,7 @@ def _register_render_telemetry(scene, config):
             "started_perf": time.perf_counter(),
             "started_cpu_user": float(snapshot.get("cpu_user_seconds", 0.0)),
             "started_cpu_system": float(snapshot.get("cpu_system_seconds", 0.0)),
+            "frame_set_seconds": frame_change_durations.pop(frame_number, 0.0),
             "start_snapshot": snapshot,
         }
 
@@ -147,7 +150,9 @@ def _register_render_telemetry(scene, config):
             return
         ended_perf = time.perf_counter()
         snapshot = process_snapshot()
-        wall_seconds = max(0.0, ended_perf - started["started_perf"])
+        render_wall_seconds = max(0.0, ended_perf - started["started_perf"])
+        frame_set_seconds = max(0.0, float(started.get("frame_set_seconds", 0.0)))
+        wall_seconds = frame_set_seconds + render_wall_seconds
         cpu_user = max(
             0.0, float(snapshot.get("cpu_user_seconds", 0.0)) - started["started_cpu_user"]
         )
@@ -157,6 +162,8 @@ def _register_render_telemetry(scene, config):
         record = {
             "frame": frame_number,
             "wall_seconds": round(wall_seconds, 6),
+            "frame_set_seconds": round(frame_set_seconds, 6),
+            "render_wall_seconds": round(render_wall_seconds, 6),
             "cpu_user_seconds": round(cpu_user, 6),
             "cpu_system_seconds": round(cpu_system, 6),
             "cpu_total_seconds": round(cpu_user + cpu_system, 6),
@@ -225,6 +232,15 @@ def _register_render_telemetry(scene, config):
             else:
                 _write_timing_report()
 
+    def on_frame_change_pre(changed_scene):
+        frame_change_started[int(changed_scene.frame_current)] = time.perf_counter()
+
+    def on_frame_change_post(changed_scene):
+        frame_number = int(changed_scene.frame_current)
+        started_at = frame_change_started.pop(frame_number, None)
+        if started_at is not None:
+            frame_change_durations[frame_number] = max(0.0, time.perf_counter() - started_at)
+
     def on_render_write(render_scene):
         frame_number = int(render_scene.frame_current)
         now = time.perf_counter()
@@ -246,7 +262,11 @@ def _register_render_telemetry(scene, config):
     handlers = [
         (bpy.app.handlers.render_pre, on_render_pre),
         (bpy.app.handlers.render_post, on_render_post),
+        (bpy.app.handlers.frame_change_pre, on_frame_change_pre),
+        (bpy.app.handlers.frame_change_post, on_frame_change_post),
     ]
+    bpy.app.handlers.frame_change_pre.append(on_frame_change_pre)
+    bpy.app.handlers.frame_change_post.append(on_frame_change_post)
     render_write_handlers = getattr(bpy.app.handlers, "render_write", None)
     if isinstance(render_write_handlers, list):
         render_write_handlers.append(on_render_write)
