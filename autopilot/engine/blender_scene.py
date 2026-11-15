@@ -364,6 +364,27 @@ def import_gltf_asset(filepath):
     if not meshes:
         raise RuntimeError("The downloaded asset contains no mesh geometry.")
 
+    def object_name_chain(obj):
+        names = []
+        current = obj
+        while current is not None:
+            names.append(str(current.name).casefold())
+            current = current.parent
+        return " ".join(names)
+
+    source_bows = [
+        obj for obj in meshes
+        if any(token in object_name_chain(obj).replace(" ", "") for token in
+               ("bow", "bowstick", "bowhair", "horsehair", "bowfrog"))
+    ]
+    for source_bow in source_bows:
+        source_bow.hide_render = True
+        source_bow.hide_set(True)
+    meshes = [obj for obj in meshes if obj not in source_bows]
+    if not meshes:
+        raise RuntimeError("The downloaded model contained no visible subject geometry after excluding its source bow.")
+    source_strings = [obj for obj in meshes if "string" in object_name_chain(obj)]
+
     bpy.context.view_layer.update()
     corners = [
         obj.matrix_world @ Vector(corner)
@@ -414,6 +435,8 @@ def import_gltf_asset(filepath):
     bpy.context.collection.objects.link(root)
     root.empty_display_type = "PLAIN_AXES"
     root.empty_display_size = 0.18
+    root["source_bow_meshes_hidden"] = len(source_bows)
+    root["source_string_meshes"] = len(source_strings)
 
     imported_set = set(imported)
     top_level = [obj for obj in imported if obj.parent not in imported_set]
@@ -439,46 +462,86 @@ def import_gltf_asset(filepath):
         "front_y": float(front_y),
         "width": float(width),
         "depth": float(depth),
+        "min_z": float(min(point.z for point in transformed_corners)),
+        "max_z": float(max(point.z for point in transformed_corners)),
+        "center_z": float((min(point.z for point in transformed_corners) + max(point.z for point in transformed_corners)) * 0.5),
+        "source_bow_meshes_hidden": len(source_bows),
+        "source_string_meshes": len(source_strings),
     }
     return root, bounds
 
 
-def add_bow_for_imported_violin(bounds, mat_gold, mat_strings, frame_end):
-    """Add a separate animated bow aligned to the imported violin's strings."""
-    front_y = float(bounds["front_y"]) - 0.085
-    half_span = max(1.05, float(bounds["width"]) * 0.68)
+def add_bow_for_imported_violin(bounds, mat_wood, mat_strings, frame_end, mat_ebony):
+    """Create one bow assembly with a single animated root over the source strings."""
+    front_y = float(bounds["front_y"]) - 0.055
+    half_span = max(0.72, min(1.32, float(bounds["width"]) * 0.70))
+    bridge_z = float(bounds.get("center_z", 0.0)) - 0.32
+    rig = bpy.data.objects.new("BOW RIG — one animated control", None)
+    bpy.context.collection.objects.link(rig)
+    rig.empty_display_type = "PLAIN_AXES"
+    rig.empty_display_size = 0.18
+    rig["rig_type"] = "single_parented_bow_assembly"
+    rig["visible_bow_rig_count"] = 1
+
     bow = add_curve(
-        "Animated bow over imported violin",
+        "Bow rig | maple stick",
         [
-            (-half_span, front_y - 0.08, 0.05),
-            (-half_span * 0.5, front_y - 0.10, 0.025),
-            (0.0, front_y - 0.11, 0.0),
-            (half_span * 0.5, front_y - 0.10, -0.025),
-            (half_span, front_y - 0.08, -0.05),
+            (-half_span, front_y - 0.105, bridge_z + 0.045),
+            (-half_span * 0.5, front_y - 0.100, bridge_z + 0.020),
+            (0.0, front_y - 0.098, bridge_z),
+            (half_span * 0.5, front_y - 0.100, bridge_z - 0.020),
+            (half_span, front_y - 0.105, bridge_z - 0.045),
         ],
-        mat_gold, bevel=0.024,
+        mat_wood, bevel=0.018,
     )
     hair = add_curve(
-        "Bow hair across imported violin strings",
+        "Bow rig | horsehair",
         [
-            (-half_span, front_y, 0.10),
-            (-half_span * 0.5, front_y, 0.075),
-            (0.0, front_y, 0.05),
-            (half_span * 0.5, front_y, 0.025),
-            (half_span, front_y, 0.0),
+            (-half_span, front_y - 0.032, bridge_z + 0.010),
+            (-half_span * 0.5, front_y - 0.030, bridge_z + 0.005),
+            (0.0, front_y - 0.029, bridge_z),
+            (half_span * 0.5, front_y - 0.030, bridge_z - 0.005),
+            (half_span, front_y - 0.032, bridge_z - 0.010),
         ],
-        mat_strings, bevel=0.007,
+        mat_strings, bevel=0.0045,
     )
-    for obj in (bow, hair):
-        obj.keyframe_insert(data_path="location", frame=1)
-        obj.location.x = 0.42
-        obj.location.z = 0.08
-        obj.keyframe_insert(data_path="location", frame=max(2, frame_end // 2))
-        obj.location.x = -0.30
-        obj.location.z = -0.045
-        obj.keyframe_insert(data_path="location", frame=frame_end)
-        obj["animation"] = "Bow moves across the imported violin strings"
-    return bow, hair
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(-half_span + 0.16, front_y - 0.075, bridge_z))
+    frog = bpy.context.object
+    frog.name = "Bow rig | ebony frog"
+    frog.dimensions = (0.23, 0.06, 0.07)
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    frog.data.materials.append(mat_ebony)
+    edge = frog.modifiers.new("Rounded frog edges", "BEVEL")
+    edge.width = 0.015
+    edge.segments = 3
+    bpy.ops.mesh.primitive_uv_sphere_add(
+        segments=16, ring_count=8, radius=0.03,
+        location=(half_span - 0.015, front_y - 0.105, bridge_z - 0.045),
+    )
+    tip = bpy.context.object
+    tip.name = "Bow rig | tip"
+    tip.data.materials.append(mat_wood)
+
+    for component in (bow, hair, frog, tip):
+        matrix = component.matrix_world.copy()
+        component.parent = rig
+        component.matrix_parent_inverse = Matrix.Identity(4)
+        component.matrix_basis = matrix
+    for fraction, x_shift, z_shift in (
+        (0.00, 0.0, 0.0), (0.25, 0.11, 0.01), (0.50, -0.11, -0.008),
+        (0.75, 0.10, 0.008), (1.00, 0.0, 0.0),
+    ):
+        frame = max(1, min(frame_end, int(round(1 + (frame_end - 1) * fraction))))
+        rig.location = (x_shift, 0.0, z_shift)
+        rig.keyframe_insert(data_path="location", frame=frame)
+    if rig.animation_data and rig.animation_data.action:
+        for curve in rig.animation_data.action.fcurves:
+            for point in curve.keyframe_points:
+                point.interpolation = "BEZIER"
+                point.handle_left_type = "AUTO"
+                point.handle_right_type = "AUTO"
+    rig["animation"] = "One rig moves stick, horsehair, frog and tip together."
+    return rig
 
 
 def build_scene(config):
@@ -505,7 +568,46 @@ def build_scene(config):
     add_cube("Infinite midnight studio floor", (0.0, 0.8, -2.35), (200.0, 200.0, 0.15), background)
     add_cube("Midnight studio background wall", (0.0, 3.5, 3.0), (200.0, 0.2, 200.0), background)
 
-    if scene_type in {"string_vibration", "bridge_cutaway", "wave_field"}:
+    asset_path = str(config.get("model_asset_path") or "").strip()
+    asset_kind = str(config.get("model_asset_kind") or "generic").casefold()
+    model_root = None
+    asset_bounds = None
+    if asset_path:
+        model_root, asset_bounds = import_gltf_asset(asset_path)
+        model_root["story_asset_kind"] = asset_kind
+        model_root.keyframe_insert(data_path="rotation_euler", frame=1)
+        model_root.rotation_euler.y = 0.018
+        model_root.rotation_euler.z = -0.012
+        model_root.keyframe_insert(data_path="rotation_euler", frame=frame_end)
+        if asset_kind == "violin":
+            bow_wood = material("Bow maple wood", (0.28, 0.095, 0.028), 0.05, 0.27, 0.0)
+            ebony = material("Bow frog ebony", (0.012, 0.016, 0.022), 0.08, 0.24, 0.0)
+            rig = add_bow_for_imported_violin(asset_bounds, bow_wood, silver, frame_end, ebony)
+            model_root["visible_bow_rig_count"] = 1
+            model_root["bow_rig_name"] = rig.name
+        else:
+            model_root["visible_bow_rig_count"] = 0
+
+        # The real mesh is the visual subject. Motion graphics are deliberately
+        # restrained so they explain the asset instead of replacing it.
+        if scene_type in {"string_vibration", "bridge_cutaway", "wave_field"}:
+            for index, radius in enumerate((1.15, 1.60, 2.05)):
+                add_ripple_ring(
+                    f"Story model resonance ring {index + 1}",
+                    radius, float(asset_bounds["front_y"]) - 0.22,
+                    teal, frame_end, index * 0.08,
+                )
+        elif scene_type == "melody_path":
+            add_melody_path(gold, teal, frame_end)
+        elif scene_type == "comparison":
+            for index, x in enumerate((-1.6, 1.6)):
+                add_curve(
+                    f"Comparison guide {index + 1}",
+                    [(x, -0.3, -1.1), (x, -0.3, 1.1)],
+                    teal if index == 0 else gold, bevel=0.012,
+                )
+
+    elif scene_type in {"string_vibration", "bridge_cutaway", "wave_field"}:
         bridge = add_bridge(wood)
         bridge.location.z = -0.10 if scene_type != "string_vibration" else -0.55
         for index in range(4):
@@ -546,14 +648,10 @@ def build_scene(config):
             )
 
     elif scene_type == "violin_performance":
-        asset_path = str(config.get("model_asset_path") or "").strip()
-        if not asset_path:
-            raise RuntimeError(
-                "A real downloaded .gltf/.glb violin asset is required for cover_performance. "
-                "The procedural placeholder violin is deliberately disabled."
-            )
-        _asset_root, asset_bounds = import_gltf_asset(asset_path)
-        add_bow_for_imported_violin(asset_bounds, gold, silver, frame_end)
+        raise RuntimeError(
+            "A real downloaded violin asset is required for cover_performance. "
+            "The procedural placeholder violin is deliberately disabled."
+        )
 
     # Suspended dust particles are true 3D objects with their own transforms.
     for index in range(18):
