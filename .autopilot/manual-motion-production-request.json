@@ -1,6 +1,7 @@
 {
   "mode": "manual_narrated_explainer",
+  "plan_path": ".autopilot/daily-production-plan.json",
   "music_duration_seconds": 24,
-  "request": "Generate a source-verified Violin Prince explainer. Research one specific violin, sound or music-production fact; write the approved explanation script; synthesize the spoken explanation with Kokoro-82M af_heart and retain native word-level timestamps; then animate the planned explanation scenes with Motion + HyperFrames. Keep the voice clear and primary, with the CC0 sampled-violin audio only as a quiet optional background bed. Run factual, narration, caption, visual and MP4 QA. Upload the finished explainer and reports as GitHub Actions artifacts. Do not publish.",
+  "request": "Use the ChatGPT-authored research-backed daily production plan. Re-fetch and verify its independent publisher articles and sentence evidence, synthesize Kokoro-82M af_heart narration with native word-level timings, animate the three explanatory scenes and synchronised captions with Motion + HyperFrames, and mix the CC0 sampled violin only as an optional quiet ducked background bed. Run factual, narration, caption, visual and MP4 QA. Upload the narrated explainer and reports as GitHub Actions artifacts. Do not publish. Do not invoke Cloudflare, FLUX or Blender.",
   "trigger_marker": "[manual-motion-production]"
 }
