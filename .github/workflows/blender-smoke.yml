@@ -72,8 +72,8 @@ jobs:
       - name: Prepare a Blender viewport reference scene
         if: steps.asset.outputs.downloaded != 'true' && steps.asset.outputs.reference_path != ''
         env:
-          BLENDER_REFERENCE_IMAGE: \${{ steps.asset.outputs.reference_path }}
-          BLENDER_REFERENCE_MANIFEST: \${{ steps.asset.outputs.manifest_path }}
+          BLENDER_REFERENCE_IMAGE: ${{ steps.asset.outputs.reference_path }}
+          BLENDER_REFERENCE_MANIFEST: ${{ steps.asset.outputs.manifest_path }}
         run: |
           blender --background --factory-startup \
             --python autopilot/engine/blender_reference.py \
