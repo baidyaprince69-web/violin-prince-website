@@ -74,11 +74,11 @@ jobs:
           shutil.copy2(source_model, model)
           shutil.copy2(source_manifest, manifest)
           (production / "asset-resolution.json").write_text(
-              json.dumps(data, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8"
+              json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
           )
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
-              out.write("model_path=" + str(model.resolve()) + "\\n")
-              out.write("manifest_path=" + str(manifest.resolve()) + "\\n")
+              out.write("model_path=" + str(model.resolve()) + "\n")
+              out.write("manifest_path=" + str(manifest.resolve()) + "\n")
           print("Verified model:", data["provider"], data["model_name"], data["license"], data["size_bytes"], "bytes")
           PY
 
