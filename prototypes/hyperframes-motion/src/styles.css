@@ -153,7 +153,7 @@ body {
   z-index: 5;
   top: 848px;
   left: 120px;
-  right: 220px;
+  right: 340px;
   height: 310px;
   opacity: 0;
 }
@@ -436,7 +436,7 @@ body {
   top: auto;
   left: 120px;
   right: 120px;
-  bottom: 560px;
+  bottom: 660px;
   height: 146px;
   min-height: 146px;
   box-sizing: border-box;
