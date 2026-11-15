@@ -313,12 +313,9 @@ jobs:
           test -x "$BLENDER_DIR/blender"
           test -d "$CONFIG_DIR"
           test -d "$SCRIPTS_DIR"
-          {
-            echo "$BLENDER_DIR"
-            echo "BLENDER_USER_CONFIG=$CONFIG_DIR"
-            echo "BLENDER_USER_SCRIPTS=$SCRIPTS_DIR"
-          } >> "$GITHUB_PATH"
+          echo "$BLENDER_DIR" >> "$GITHUB_PATH"
           echo "BLENDER_USER_CONFIG=$CONFIG_DIR" >> "$GITHUB_ENV"
+          echo "BLENDER_USER_SCRIPTS=$SCRIPTS_DIR" >> "$GITHUB_ENV"
           echo "BLENDER_USER_SCRIPTS=$SCRIPTS_DIR" >> "$GITHUB_ENV"
           "$BLENDER_DIR/blender" --version
           "$BLENDER_DIR/blender" --background --python-expr \
