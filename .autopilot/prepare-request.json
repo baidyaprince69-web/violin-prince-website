@@ -1,5 +1,5 @@
 {
   "mode": "chatgpt_daily_production",
   "plan_path": ".autopilot/daily-production-plan.json",
-  "reason": "Post-merge renderer and publishing-manifest validation for the Violin Prince daily production"
+  "reason": "Run Violin Prince Short after approved Kokoro narration timing fix"
 }
