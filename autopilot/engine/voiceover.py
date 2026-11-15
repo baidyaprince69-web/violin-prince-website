@@ -16,7 +16,7 @@ LANG_CODE = "a"  # American English
 SAMPLE_RATE = 24000
 PAUSE_SECONDS = 0.22
 # A measured pace keeps the complete narration audible near the 24-second finale.
-NARRATION_SPEED = 0.90
+NARRATION_SPEED = 1.15
 
 
 def split_sentences(text: str) -> list[str]:
@@ -167,8 +167,8 @@ def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict
     if not narration:
         raise ValueError("Narration script is empty.")
     word_count = len(re.findall(r"\b[\w’'-]+\b", narration))
-    if not 30 <= word_count <= 48:
-        raise ValueError("Narration must contain 30–48 spoken words.")
+    if not 30 <= word_count <= 60:
+        raise ValueError("Narration must contain 30–60 spoken words.")
 
     sentences = split_sentences(narration)
     if not sentences:
