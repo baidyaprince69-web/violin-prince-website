@@ -420,6 +420,35 @@ def resolve_story_asset(
         search_error = str(exc)[:500]
         discovered_models = []
 
+    preferred_model_diagnostics = []
+    minimum_faces = max(MIN_FACE_COUNT, int(min_face_count))
+    for item in preferred_models:
+        uid = _model_uid(item)
+        face_count = _face_count(item)
+        license_code, license_label, _license_url = _license_details(item)
+        reasons = []
+        if face_count < minimum_faces:
+            reasons.append(f"face_count {face_count} is below {minimum_faces}")
+        if not _license_allowed(item):
+            reasons.append("licence is not CC0/CC-BY")
+        if not _is_downloadable(item):
+            reasons.append("model is not marked downloadable")
+        preferred_model_diagnostics.append({
+            "model_uid": uid,
+            "model_name": str(item.get("name") or item.get("title") or "")[:160],
+            "face_count": face_count,
+            "vertex_count": item.get("vertexCount", item.get("vertex_count")),
+            "downloadable": _is_downloadable(item),
+            "license_code": license_code,
+            "license_label": license_label,
+            "pbr_type": item.get("pbrType", item.get("pbr_type")),
+            "tags": [
+                tag.get("name") if isinstance(tag, dict) else str(tag)
+                for tag in (item.get("tags") or [])[:20]
+            ],
+            "eligible": not reasons,
+            "rejection_reasons": reasons,
+        })
     preferred_ranked = {
         _model_uid(item): item
         for item in rank_story_models(preferred_models, query)
@@ -443,6 +472,7 @@ def resolve_story_asset(
             "query": query,
             "preferred_model_urls": [url for url, _uid in preferred_entries],
             "preferred_model_errors": preferred_errors,
+            "preferred_model_diagnostics": preferred_model_diagnostics,
             "search_error": search_error,
             "ranked_candidates": 0,
             "reference_fallback": False,
@@ -529,6 +559,7 @@ def resolve_story_asset(
             "query": query,
             "preferred_model_urls": [url for url, _uid in preferred_entries],
             "preferred_model_errors": preferred_errors,
+            "preferred_model_diagnostics": preferred_model_diagnostics,
             "search_error": search_error,
             "ranked_candidates": len(ranked),
             "attempted": failures,
@@ -541,6 +572,7 @@ def resolve_story_asset(
         "Sketchfab Download API. Diagnostic: " + str(diagnostic) + " — "
         + json.dumps({
             "preferred_model_errors": preferred_errors,
+            "preferred_model_diagnostics": preferred_model_diagnostics,
             "search_error": search_error,
             "candidate_failures": failures,
         }, ensure_ascii=False)[:7500]
