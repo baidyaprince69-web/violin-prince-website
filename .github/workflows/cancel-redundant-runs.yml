@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Cancel only verified superseded PR runs
+      - name: Cancel only verified redundant runs and preserve the selected production
         env:
           GH_TOKEN: ${{ github.token }}
           KEEP_RUN_ID: "43698607527"
@@ -26,20 +26,42 @@ jobs:
         run: |
           set -Eeuo pipefail
           api="https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs"
-          obsolete_runs=(
-            43698597711
-            43698590308
-            43698138152
-            43698133226
-            43696566982
-            43696554920
-          )
           summary="$RUNNER_TEMP/cancel-summary.txt"
           : > "$summary"
 
+          runs_json="$RUNNER_TEMP/branch-runs.json"
+          curl -fsS \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "$api?branch=feature/blender-3d-overlays&per_page=100" > "$runs_json"
+
+          mapfile -t obsolete_runs < <(jq -r --arg keep "$KEEP_RUN_ID" --arg sha "$KEEP_HEAD_SHA" '
+            .workflow_runs[]
+            | select(.head_branch == "feature/blender-3d-overlays")
+            | select(.status == "queued" or .status == "in_progress")
+            | select(
+                (
+                  .name == "Autopilot code checks"
+                  and (.event == "push" or .event == "pull_request")
+                  and ((.id | tostring) != $keep)
+                  and .head_sha != $sha
+                )
+                or
+                (
+                  .name == "Blender full-scene 3D production preview"
+                  and .event == "pull_request"
+                )
+              )
+            | .id
+          ' "$runs_json")
+
+          echo "Preserving selected production run $KEEP_RUN_ID on commit $KEEP_HEAD_SHA."
+          echo "Found ${#obsolete_runs[@]} redundant queued/running workflow run(s)."
+
           for run_id in "${obsolete_runs[@]}"; do
             if [[ "$run_id" == "$KEEP_RUN_ID" ]]; then
-              echo "Safety guard: refusing to cancel the protected latest run $run_id" >&2
+              echo "Safety guard: refusing to cancel protected run $run_id" >&2
               exit 1
             fi
 
@@ -50,7 +72,7 @@ jobs:
               -H "X-GitHub-Api-Version: 2022-11-28" \
               "$api/$run_id")"
             if [[ "$http_code" != "200" ]]; then
-              echo "Could not verify run $run_id (HTTP $http_code); leaving it untouched." | tee -a "$summary"
+              echo "Could not verify run $run_id (HTTP $http_code); left untouched." | tee -a "$summary"
               continue
             fi
 
@@ -61,13 +83,21 @@ jobs:
             head_sha="$(jq -r '.head_sha // ""' "$response")"
 
             if [[ "$branch" != "feature/blender-3d-overlays" || \
-                  "$name" != "Autopilot code checks" || \
-                  "$event" != "pull_request" || \
-                  "$head_sha" == "$KEEP_HEAD_SHA" ]]; then
-              echo "Safety guard: run $run_id did not match the obsolete PR-run criteria; left untouched." | tee -a "$summary"
+                  "$head_sha" == "$KEEP_HEAD_SHA" || \
+                  "$name" == "Cancel redundant Violin Prince production runs" ]]; then
+              echo "Safety guard: run $run_id did not match cancellation criteria; left untouched." | tee -a "$summary"
               continue
             fi
 
+            if [[ "$name" == "Autopilot code checks" && \
+                  ( "$event" != "push" && "$event" != "pull_request" ) ]]; then
+              echo "Run $run_id had an unexpected event type; left untouched." | tee -a "$summary"
+              continue
+            fi
+            if [[ "$name" == "Blender full-scene 3D production preview" && "$event" != "pull_request" ]]; then
+              echo "Run $run_id was not a PR preview; left untouched." | tee -a "$summary"
+              continue
+            fi
             if [[ "$status" != "queued" && "$status" != "in_progress" ]]; then
               echo "Run $run_id is already $status; no cancellation needed." | tee -a "$summary"
               continue
@@ -81,9 +111,9 @@ jobs:
               "$api/$run_id/cancel")"
 
             if [[ "$cancel_code" == "202" ]]; then
-              echo "Cancellation accepted for obsolete run $run_id (previous status: $status)." | tee -a "$summary"
+              echo "Cancellation accepted: $run_id ($name, $event, previous status $status)." | tee -a "$summary"
             else
-              echo "Cancellation request for run $run_id returned HTTP $cancel_code; verify its final status." | tee -a "$summary"
+              echo "Cancellation for run $run_id returned HTTP $cancel_code; final status must be checked." | tee -a "$summary"
             fi
           done
 
