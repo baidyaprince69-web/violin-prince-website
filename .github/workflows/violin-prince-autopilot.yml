@@ -60,7 +60,11 @@ jobs:
       YOUTUBE_STATE_ENCRYPTION_KEY: ${{ secrets.YOUTUBE_STATE_ENCRYPTION_KEY }}
       SEO_LEARNING_REPORT_PATH: work/seo-learning-data/seo-learning/latest.enc.json
       PUBLISH_ENABLED: "false"
+      # Scheduled/push daily-plan runs retain their existing Blender route.
+      # Manual staged full-track productions use Motion + HyperFrames by default.
       BLENDER_RENDER_ENABLED: ${{ (github.event_name == 'push' || github.event_name == 'schedule') && 'true' || vars.BLENDER_RENDER_ENABLED || 'false' }}
+      MOTION_HYPERFRAMES_RENDER_ENABLED: ${{ github.event_name == 'workflow_dispatch' && vars.BLENDER_RENDER_ENABLED != 'true' && (vars.MOTION_HYPERFRAMES_RENDER_ENABLED || 'true') || 'false' }}
+      MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS: ${{ vars.MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS || '180' }}
       BLENDER_RENDER_WORKERS: "3"
       BLENDER_THREADS_PER_WORKER: "1"
       BLENDER_RENDER_WIDTH: "400"
@@ -235,6 +239,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install "requests>=2.32,<3" "Pillow>=10.4,<12"
 
+      - name: Set up Node.js for Motion + HyperFrames
+        if: env.MOTION_HYPERFRAMES_RENDER_ENABLED == 'true' && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pinned Motion + HyperFrames dependencies
+        if: env.MOTION_HYPERFRAMES_RENDER_ENABLED == 'true' && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')
+        working-directory: prototypes/hyperframes-motion
+        run: npm install --no-audit --no-fund
+
       - name: Install pinned Blender 5.2.4 and Frame By Plane 8.0.1
         if: env.BLENDER_RENDER_ENABLED == 'true' && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')
         timeout-minutes: 30
@@ -375,7 +390,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cloud-video-preview-${{ github.run_id }}
-          path: work/output/violin-prince-short.mp4
+          path: |
+            work/output/violin-prince-short.mp4
+            work/output/violin-prince-full-track.mp4
           if-no-files-found: error
           retention-days: 14
 
