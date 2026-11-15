@@ -1,6 +1,12 @@
 name: Violin Prince Blender Benchmark
 
 on:
+  # One-off experiment branch; does not run on main or production pushes.
+  push:
+    branches:
+      - benchmark/worker-matrix-2026-11-15
+    paths:
+      - .github/workflows/blender-benchmark.yml
   workflow_dispatch:
     inputs:
       source_run_id:
@@ -17,6 +23,7 @@ on:
           - baseline_and_contention
           - full_matrix
           - ablation_only
+          - worker_matrix
       sample_frames:
         description: "Maximum initial animation frames rendered per Blender process."
         required: true
@@ -48,7 +55,7 @@ jobs:
   benchmark:
     name: Controlled Blender benchmark
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ inputs.benchmark_suite == 'baseline_and_contention' && 90 || 240 }}
+    timeout-minutes: ${{ github.event_name == 'push' && 120 || (inputs.benchmark_suite == 'baseline_and_contention' && 90 || 240) }}
     env:
       # Hard safety boundary: this workflow has no publishing steps or credentials.
       PUBLISH_ENABLED: "false"
@@ -66,8 +73,8 @@ jobs:
       BLENDER_MODEL_FACE_LIMIT: "60000"
       BLENDER_RENDER_TIMEOUT_SECONDS: "900"
       BENCH_RENDER_TIMEOUT_SECONDS: "2400"
-      BENCH_MAX_FRAMES: ${{ inputs.sample_frames }}
-      BENCH_EGL_MODE: ${{ inputs.egl_mode }}
+      BENCH_MAX_FRAMES: ${{ github.event_name == 'push' && '3' || inputs.sample_frames }}
+      BENCH_EGL_MODE: ${{ github.event_name == 'push' && 'surfaceless' || inputs.egl_mode }}
       LIBGL_ALWAYS_SOFTWARE: "1"
       MESA_LOADER_DRIVER_OVERRIDE: "llvmpipe"
       SOURCE_RUN_ID: ${{ inputs.source_run_id }}
@@ -123,7 +130,7 @@ jobs:
       - name: Install benchmark-only Python dependency
         run: |
           python -m pip install --upgrade pip
-          python -m pip install "requests>=2.32,<3"
+          python -m pip install "requests>=2.32,<3" "Pillow>=10.4,<12"
 
       - name: Install Xvfb for the optional display-mode comparison
         run: |
@@ -155,9 +162,101 @@ jobs:
           SKETCHFAB_ACCESS_TOKEN: ${{ secrets.SKETCHFAB_ACCESS_TOKEN }}
         run: |
           python autopilot/engine/run_benchmark_suite.py \
-            --suite "${{ inputs.benchmark_suite }}" \
+            --suite "${{ github.event_name == 'push' && 'worker_matrix' || inputs.benchmark_suite }}" \
             --sample-frames "$BENCH_MAX_FRAMES" \
             --egl-mode "$BENCH_EGL_MODE"
+
+      - name: Extract benchmark frames and compare visual quality
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import math
+          import subprocess
+          from pathlib import Path
+          from PIL import Image, ImageChops, ImageDraw, ImageStat
+
+          output = Path("work/output")
+          diagnostics = output / "blender-diagnostics"
+          cases = [
+              "workers-1", "workers-2", "workers-3",
+              "llvmpipe-threads-1", "llvmpipe-threads-2", "llvmpipe-threads-4",
+          ]
+          previews = {}
+          for case in cases:
+              scene_indices = [1, 2, 3] if case.startswith("workers-") else [1]
+              for scene_index in scene_indices:
+                  video = output / ("benchmark-" + case + "-scene-" + str(scene_index) + ".mp4")
+                  if not video.is_file():
+                      continue
+                  preview = output / ("benchmark-" + case + "-scene-" + str(scene_index) + "-first-frame.png")
+                  subprocess.run([
+                      "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                      "-i", str(video), "-frames:v", "1", "-update", "1", str(preview),
+                  ], check=True)
+                  previews[(case, scene_index)] = preview
+
+          def compare(reference_path, candidate_path):
+              with Image.open(reference_path) as ref_image, Image.open(candidate_path) as candidate_image:
+                  ref = ref_image.convert("RGB")
+                  candidate = candidate_image.convert("RGB")
+                  if ref.size != candidate.size:
+                      candidate = candidate.resize(ref.size)
+                  stats = ImageStat.Stat(ImageChops.difference(ref, candidate))
+                  mean = sum(stats.mean) / 3.0
+                  rms = math.sqrt(sum(value * value for value in stats.rms) / 3.0)
+                  psnr = None if rms == 0 else round(20.0 * math.log10(255.0 / rms), 3)
+                  return {"mean_absolute_channel_difference": round(mean, 4), "psnr_db": psnr}
+
+          comparison = {
+              "method": "Decoded first-frame RGB comparison after H.264 encoding",
+              "worker_count_comparisons": [],
+              "llvmpipe_thread_comparisons": [],
+              "note": "Pixel similarity is diagnostic; inspect the contact sheet for visual quality.",
+          }
+          for scene_index in (1, 2, 3):
+              reference = previews.get(("workers-1", scene_index))
+              if reference:
+                  for worker_count in (2, 3):
+                      candidate = previews.get(("workers-" + str(worker_count), scene_index))
+                      if candidate:
+                          item = {"scene": scene_index, "workers": worker_count}
+                          item.update(compare(reference, candidate))
+                          comparison["worker_count_comparisons"].append(item)
+
+          reference = previews.get(("workers-1", 1))
+          if reference:
+              for thread_count in (1, 2, 4):
+                  candidate = previews.get(("llvmpipe-threads-" + str(thread_count), 1))
+                  if candidate:
+                      item = {"lp_num_threads": thread_count}
+                      item.update(compare(reference, candidate))
+                      comparison["llvmpipe_thread_comparisons"].append(item)
+
+          columns = ("workers-1", "workers-2", "workers-3")
+          thumb_w, thumb_h, label_h, pad = 240, 426, 30, 12
+          sheet = Image.new("RGB", (pad + 3 * (thumb_w + pad), pad + 3 * (thumb_h + label_h + pad)), "white")
+          draw = ImageDraw.Draw(sheet)
+          for col, case in enumerate(columns):
+              for row, scene_index in enumerate((1, 2, 3)):
+                  x = pad + col * (thumb_w + pad)
+                  y = pad + row * (thumb_h + label_h + pad)
+                  draw.text((x, y), case + " / scene " + str(scene_index), fill="black")
+                  preview = previews.get((case, scene_index))
+                  if preview:
+                      with Image.open(preview) as image:
+                          thumb = image.convert("RGB")
+                          thumb.thumbnail((thumb_w, thumb_h))
+                          sheet.paste(thumb, (x, y + label_h))
+          sheet.save(output / "benchmark-quality-contact-sheet.png")
+          diagnostics.mkdir(parents=True, exist_ok=True)
+          (diagnostics / "visual-quality-comparison.json").write_text(
+              json.dumps(comparison, indent=2) + "\n", encoding="utf-8"
+          )
+          print(json.dumps(comparison, indent=2))
+          print("Extracted " + str(len(previews)) + " benchmark preview frames.")
+          PY
 
       - name: Upload diagnostic reports and short benchmark clips
         if: always()
@@ -167,6 +266,7 @@ jobs:
           path: |
             work/output/blender-diagnostics/
             work/output/benchmark-*.mp4
+            work/output/benchmark-*.png
             work/story-assets/asset-resolution-diagnostic.json
           if-no-files-found: warn
           retention-days: 7
