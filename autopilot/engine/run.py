@@ -25,9 +25,7 @@ try:
         normalize_visual_reference, scene_camera_move, scene_transition,
         scene_visual_prompt_suffix, transition_duration,
     )
-    from .blender_renderer import (
-        is_blender_render_enabled, render_scene_overlay, composite_scene_overlay,
-    )
+    from .blender_renderer import is_blender_render_enabled, render_scene_video
 except ImportError:  # Direct script execution from the engine directory.
     from seo_intelligence import build_topic_queries, discover as seo_discover, load_profile as seo_load_profile
     from seo_intelligence.storage import load_learning_signals
@@ -40,9 +38,7 @@ except ImportError:  # Direct script execution from the engine directory.
         normalize_visual_reference, scene_camera_move, scene_transition,
         scene_visual_prompt_suffix, transition_duration,
     )
-    from blender_renderer import (
-        is_blender_render_enabled, render_scene_overlay, composite_scene_overlay,
-    )
+    from blender_renderer import is_blender_render_enabled, render_scene_video
 
 API = os.environ.get("AUTOPILOT_API_URL", "").rstrip("/")
 JOB_TOKEN = os.environ.get("AUTOPILOT_JOB_TOKEN", "")
@@ -4334,6 +4330,36 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
             "timeline_start_seconds": round(scene_start, 3),
             "word_cue_count": len(scene_word_events),
         })
+
+        # Blender owns the complete opaque scene when enabled. It produces
+        # animated MP4 frames from a real 3D camera, not a transparent overlay.
+        if blender_enabled:
+            clip = OUT / f"scene-{i + 1}.mp4"
+            blender_result = render_scene_video(
+                scene, clip, scene_index=i, duration_seconds=scene_seconds,
+                resolution=(W, H), fps=FPS,
+            )
+            if not blender_result:
+                raise PipelineError(f"Blender skipped scene {i + 1}; refusing an incomplete 3D production.")
+            poster = OUT / f"blender-scene-{i + 1}-poster.jpg"
+            command([
+                "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                "-ss", f"{scene_seconds / 2:.3f}", "-i", str(clip),
+                "-frames:v", "1", "-q:v", "2", str(poster),
+            ])
+            if not poster.is_file() or poster.stat().st_size < 1024:
+                raise PipelineError(f"Blender scene {i + 1} did not produce a verifiable poster frame.")
+            blender_result["poster_path"] = str(poster)
+            blender_scene_reports.append({"scene": i + 1, **blender_result})
+            clips.append(clip)
+            log(
+                f"Blender rendered full-frame 3D scene {i + 1}/3: "
+                f"{blender_result.get('scene_type')} "
+                f"({blender_result.get('duration_seconds')}s, "
+                f"{blender_result.get('width')}×{blender_result.get('height')})."
+            )
+            continue
+
         visual_prompt = _scene_visual_prompt(scene, index=i, plan=plan)
         if image_paths is not None:
             image = Path(image_paths[i])
@@ -4545,13 +4571,19 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
             }
             for index, scene in enumerate(plan.get("scenes", []))
         ],
-        "visual_engine": "photorealistic scene plates with optional Blender-rendered 3D geometry and animated explainer overlays",
+        "visual_engine": (
+            "full-frame animated 3D scenes rendered directly by Blender"
+            if blender_enabled else
+            "photorealistic scene plates with Pillow motion graphics and FFmpeg animation"
+        ),
         "blender_rendering": {
             "enabled": blender_enabled,
-            "renderer": "Blender Cycles CPU",
-            "composition": "transparent Blender RGBA overlay over the existing scene plate; Pillow adds graphics and FFmpeg handles motion/encoding",
+            "renderer": "Blender Eevee CPU — full-frame scene renderer" if blender_enabled else "disabled",
+            "composition": "Blender owns each 3D frame; FFmpeg joins scenes and adds soundtrack, narration and subtitles",
             "scenes": blender_scene_reports,
-            "animation_scope": "one true-3D frame per eligible scene; full frame-by-frame Blender animation is a later benchmarked phase",
+            "animation_scope": "frame-by-frame 3D object deformation, camera movement, lighting and materials",
+            "no_image_plate": blender_enabled,
+            "no_transparent_overlay": blender_enabled,
         },
         "visual_modes": [str(scene.get("visual_mode") or "waveform") for scene in plan.get("scenes", [])],
         "creative_direction_version": CREATIVE_DIRECTION_VERSION,
@@ -5086,7 +5118,8 @@ def visuals_stage(feedback=""):
 
 def render_stage():
     """Assemble a quality-gated visual package without calling any AI service."""
-    plan, metadata, narration_info, paths, image_paths = _read_package(require_images=True)
+    blender_enabled = is_blender_render_enabled()
+    plan, metadata, narration_info, paths, image_paths = _read_package(require_images=not blender_enabled)
     topic = str(plan.get("topic", ""))
     title = str(plan.get("title", "Violin Prince Short"))
     audio = paths["audio"].read_bytes()
