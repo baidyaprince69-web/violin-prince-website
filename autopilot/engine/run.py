@@ -194,18 +194,26 @@ def get_audio(prefer_creator_assets=True, allow_fallback=True):
     if not allow_fallback:
         return {"filename": "", "audio_source": "none", "kind": "none"}, b""
 
-    # Use a small, checksum-verified CC0 multisample pack to render a new violin
-    # phrase. Network or sample-render failures fall back quietly instead of
-    # failing Prepare or introducing a paid service.
+    # The Motion full-track route uses the repository's existing CC0 sampled-
+    # violin instrument generator. Its default short-preview length remains 24s;
+    # the full-track route requests a complete arrangement (180s by default).
     day_seed = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    motion_enabled = str(os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "false")).strip().lower() in {"1", "true", "yes", "on"}
+    music_duration = (
+        float(os.environ.get("MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS", "180"))
+        if motion_enabled else 24.0
+    )
     try:
         from violin_sampler import create_sampled_violin_bed
         audio_path = WORK / "sampled-violin-background.wav"
         audio_path, sample_info = create_sampled_violin_bed(
-            audio_path, seed_text=day_seed + ":" + RUN_ID
+            audio_path,
+            seed_text=day_seed + ":" + RUN_ID,
+            duration_seconds=music_duration,
         )
         log(
-            "Rendered a 24-second solo-violin bed from the CC0 sample pack "
+            f"Rendered a {sample_info.get('duration_seconds', music_duration):.2f}-second "
+            "solo-violin arrangement from the repository's CC0 sample pack "
             f"({sample_info.get('zones_used', 0)} sample zones)."
         )
         return {
@@ -214,6 +222,12 @@ def get_audio(prefer_creator_assets=True, allow_fallback=True):
             "kind": "generated_sampled_instrument",
         }, audio_path.read_bytes()
     except Exception as exc:
+        if motion_enabled:
+            raise PipelineError(
+                "The full-track Motion route requires the existing CC0 sampled-violin "
+                "generator. It failed, so the run will stop instead of substituting ambient audio: "
+                + str(exc)[:400]
+            ) from exc
         log("CC0 sampled violin unavailable; using the quiet ambient fallback: " + str(exc)[:220])
 
     from synth_audio import create_ambient_fallback
@@ -5080,10 +5094,13 @@ def prepare_stage():
 
 
 def visuals_stage(feedback=""):
-    """Prepare either FLUX stills or the plan for complete Blender 3D scene rendering."""
+    """Prepare the selected visual route without invoking an unrelated renderer."""
     blender_enabled = is_blender_render_enabled()
-    if not blender_enabled and (not CF_ACCOUNT or not CF_TOKEN):
-        raise PipelineError("CF_ACCOUNT_ID and CF_AI_TOKEN are required for the Visuals stage.")
+    motion_enabled = str(os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "false")).strip().lower() in {"1", "true", "yes", "on"}
+    if motion_enabled and blender_enabled:
+        raise PipelineError("Motion + HyperFrames and Blender cannot both be enabled for the same production.")
+    if not blender_enabled and not motion_enabled and (not CF_ACCOUNT or not CF_TOKEN):
+        raise PipelineError("CF_ACCOUNT_ID and CF_AI_TOKEN are required for the legacy image-visuals route.")
     plan, metadata, _narration_info, paths, image_paths = _read_package(require_images=False)
     creative_issues = validate_creative_plan(plan)
     if creative_issues:
@@ -5102,7 +5119,16 @@ def visuals_stage(feedback=""):
             "approval_method": "automated_source_date_freshness_and_channel_fit_checks",
         })
     paths["metadata"].write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
-    if blender_enabled:
+    if motion_enabled:
+        # Motion + HyperFrames owns its animated composition. It does not consume
+        # the legacy three FLUX stills, so do not require or generate them here.
+        for image_path in image_paths:
+            image_path.unlink(missing_ok=True)
+        storyboard = None
+        metadata["visual_renderer"] = "motion_hyperframes_full_track"
+        metadata["visuals_description"] = "The Motion + HyperFrames composition supplies the full-track motion-graphics timeline."
+        log("Motion + HyperFrames selected: skipped still-image generation; the renderer will build the full-track composition.")
+    elif blender_enabled:
         # A Blender 3D production has no generated still-image plates. The scene
         # templates, objects, lighting, camera and animation are all built and
         # rendered by Blender during the Render stage.
@@ -5157,7 +5183,9 @@ def render_stage():
             is_motion_hyperframes_render_enabled, render_full_track, select_renderer,
         )
     renderer = select_renderer(is_motion_hyperframes_render_enabled(), blender_enabled)
-    plan, metadata, narration_info, paths, image_paths = _read_package(require_images=not blender_enabled)
+    plan, metadata, narration_info, paths, image_paths = _read_package(
+        require_images=renderer == "standard"
+    )
     if metadata.get("story_review", {}).get("approved") is not True:
         raise PipelineError("Render blocked: automated editorial quality gates did not approve this story.")
     topic = str(plan.get("topic", ""))
@@ -5165,17 +5193,27 @@ def render_stage():
     audio = paths["audio"].read_bytes()
     if len(audio) < 4096:
         raise PipelineError("Prepared soundtrack is missing or unexpectedly small.")
-    log("Rendering from saved research, script, narration and scene images. Private media is fetched only now.")
     active_audio_asset = metadata.get("asset", {})
     audio_source = str(active_audio_asset.get("audio_source", "generated_ambient_fallback"))
-    private_audio_asset, private_audio_bytes = get_audio(
-        prefer_creator_assets=True, allow_fallback=False
-    )
-    if private_audio_bytes:
-        audio = private_audio_bytes
-        active_audio_asset = private_audio_asset
-        audio_source = str(private_audio_asset.get("audio_source", "uploaded_recording"))
-        log("Using the rights-confirmed private audio asset for the final mix.")
+    if renderer == "motion_hyperframes":
+        # Keep the staged CC0 sampled-violin result as the authoritative music input.
+        # The Motion route must not replace it with an unrelated private upload.
+        if active_audio_asset.get("kind") != "generated_sampled_instrument" or audio_source != "sampled_violin_cc0":
+            raise PipelineError(
+                "Motion + HyperFrames requires the repository's generated CC0 sampled-violin "
+                "track from Prepare. Re-run Prepare with the Motion renderer enabled."
+            )
+        log("Using the prepared full-length CC0 sampled-violin composition for Motion + HyperFrames.")
+    else:
+        log("Rendering from saved research, script, narration and scene images. Private media is fetched only now.")
+        private_audio_asset, private_audio_bytes = get_audio(
+            prefer_creator_assets=True, allow_fallback=False
+        )
+        if private_audio_bytes:
+            audio = private_audio_bytes
+            active_audio_asset = private_audio_asset
+            audio_source = str(private_audio_asset.get("audio_source", "uploaded_recording"))
+            log("Using the rights-confirmed private audio asset for the final mix.")
     performance_video_asset = metadata.get("performance_video") or {"available": False}
     if renderer == "motion_hyperframes" and performance_video_asset.get("available"):
         raise PipelineError(
@@ -5202,16 +5240,12 @@ def render_stage():
                 "Full-track Motion + HyperFrames output cannot use the existing Shorts publishing path. "
                 "Keep PUBLISH_ENABLED=false until a separate full-length music-video publisher is implemented."
             )
-        real_audio = (
-            audio_source in {"uploaded_recording", "creator_recorded_violin"}
-            or active_audio_asset.get("kind") == "uploaded_recording"
-        )
-        if not real_audio:
+        if audio_source != "sampled_violin_cc0" or active_audio_asset.get("kind") != "generated_sampled_instrument":
             raise PipelineError(
-                "Full-track Motion + HyperFrames requires an actual uploaded/creator violin recording; "
-                "the generated short fallback soundtrack is not a full-song substitute."
+                "Motion + HyperFrames accepts the repository's verified CC0 sampled-violin output "
+                "for this generated-music production."
             )
-        log("Using the optional Motion + HyperFrames renderer with the selected full-track audio asset.")
+        log("Rendering the full generated CC0 violin arrangement with Motion + HyperFrames.")
         path = OUT / "violin-prince-full-track.mp4"
         video_quality = render_full_track(
             audio_bytes=audio,
@@ -5226,9 +5260,15 @@ def render_stage():
             image_paths=image_paths, audio_source=audio_source,
             performance_video_path=performance_video_path,
         )
-    stored = upload(path)
-    from publisher import publish_all
-    publish_result = publish_all(path, stored.get("media_url", ""), plan)
+    if renderer == "motion_hyperframes":
+        # Full-track music-video output is a GitHub Actions artifact only.
+        # Do not call the legacy remote-media upload or publishing route.
+        stored = {"object_key": "", "media_url": ""}
+        publish_result = {"results": [], "all_succeeded": False, "disabled": True}
+    else:
+        stored = upload(path)
+        from publisher import publish_all
+        publish_result = publish_all(path, stored.get("media_url", ""), plan)
     has_publication = bool(publish_result.get("results"))
     final_status = "published" if has_publication and publish_result.get("all_succeeded") else (
         "partially_published" if has_publication else "rendered"
