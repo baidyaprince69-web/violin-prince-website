@@ -1,11 +1,29 @@
 name: Violin Prince first complete Blender production
 on:
-  workflow_call:
   workflow_dispatch:
+    inputs:
+      full_render_confirmation:
+        description: "Type RENDER_600_FRAMES only after approving the full 600-frame production."
+        required: true
+        type: string
 permissions:
   contents: read
 jobs:
+  full-render-approval:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require explicit approval for the 600-frame render
+        env:
+          CONFIRMATION: ${{ inputs.full_render_confirmation }}
+        run: |
+          if [ "$CONFIRMATION" != "RENDER_600_FRAMES" ]; then
+            echo "Blocked: this workflow can render 600 frames only after explicit approval."
+            exit 1
+          fi
+          echo "Explicit full-render approval received."
+
   resolve-assets:
+    needs: [full-render-approval]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -47,7 +65,7 @@ jobs:
           retention-days: 7
 
   blender-render:
-    needs: [resolve-assets, audio-production]
+    needs: [full-render-approval, resolve-assets, audio-production]
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
@@ -127,6 +145,7 @@ jobs:
           retention-days: 7
 
   audio-production:
+    needs: [full-render-approval]
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -165,7 +184,7 @@ jobs:
           retention-days: 7
 
   assemble-review-video:
-    needs: [resolve-assets, blender-render, audio-production]
+    needs: [full-render-approval, resolve-assets, blender-render, audio-production]
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
