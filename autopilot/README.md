@@ -272,3 +272,56 @@ Artifacts are retained for 14 days. Keep the relevant successful run IDs until y
 - engine/tests/ — offline regression, model-contract, storyboard and FFmpeg render tests.
 - .github/workflows/violin-prince-autopilot.yml — staged GitHub Actions workflow.
 - .github/workflows/autopilot-checks.yml — offline code and workflow validation.
+
+### Blender full-frame animated 3D production — version 13
+
+**Correction:** the earlier transparent-overlay prototype is superseded and is not used. When Blender mode is enabled, Blender is the primary scene renderer:
+
+- Blender builds and renders each full scene from its own 3D camera. The scene output is an opaque MP4, not an RGBA pass, not a layer over a FLUX image, and not a still with post-render camera movement.
+- Existing visual modes map to procedural Blender scenes: vibrating strings, bridge/mechanism cutaway, acoustic wave field, 3D melody path, side-by-side mechanism comparison, and a solid amber violin with an animated bow.
+- The strings use animated mesh shape keys; the camera moves; objects, rings, particles and the bow animate; materials, floor/background, depth, shadows and lighting are rendered in Blender.
+- Pillow still-image cards and explainer panels are bypassed in Blender mode. FFmpeg only joins the full-frame Blender scene clips, then handles narration, soundtrack, captions/subtitles and final encoding/QA.
+- The creator's existing 720 × 1280 / 25 fps output contract remains. The current review preview renders one three-second violin-performance scene at 360 × 640 / 18 fps, with five keyframed Blender camera beats: establish, left three-quarter reveal, front sweep, right-side orbit and closing dolly-in. The workflow uploads the MP4, scene clip, midpoint PNG, contact sheet and machine-readable report as a GitHub Actions artifact.
+- This is procedural 3D geometry and animation, not yet a photorealistic scanned violin model or motion-captured human performer. No external models, paid assets, GPU or add-ons are downloaded.
+
+Blender remains opt-in so the established daily engine is not changed without a visual approval:
+
+1. Open repository Settings → Secrets and variables → Actions → Variables.
+2. Add repository variable BLENDER_RENDER_ENABLED with value true.
+3. The production workflow installs Blender only for full/render stages when that variable is exactly true. FLUX image credentials are not required in full Blender mode.
+4. If Blender is enabled and a scene cannot render or validate, the production fails closed; it must not silently return to still-image or overlay rendering.
+
+When the variable is absent or false, the current Python / Pillow / FFmpeg still-image workflow remains unchanged and Blender is not installed. The .github/workflows/blender-smoke.yml workflow is now a full-scene production preview: it installs Blender and FFmpeg, renders one cinematic animated violin scene and uploads the MP4, contact sheet, per-scene clips/posters and render report.
+
+BLENDER_BIN can override the executable. BLENDER_RENDER_TIMEOUT_SECONDS controls each production scene, bounded to 30–900 seconds. The full production renderer uses Blender Eevee on CPU, fixed two-thread execution, and FFmpeg for final assembly.
+
+## Licensed Blender model assets
+
+The Blender performance scene no longer accepts the old procedural violin placeholder. It requires an imported `.gltf` or `.glb` model.
+
+The Blender preview workflow resolves the configured Sketchfab model URL before rendering:
+
+1. Read the public model metadata and record its creator, source URL, download availability and licence.
+2. Permit automatic downloads only for the initial commercial-use allowlist (CC0 and CC Attribution). NonCommercial, NoDerivatives, Editorial and unrecognized licences are not used in monetized Violin Prince videos.
+3. If the asset is downloadable and a valid authenticated Sketchfab access token is present, request the glTF archive through the official Sketchfab Download API, validate the ZIP paths and size, extract it, and import the actual geometry into Blender.
+4. If downloading is unavailable, preserve the attribution/licence manifest and, only where the licence permits commercial use, save a provider thumbnail as a modelling reference. This reference-only result does not run the Blender performance render and is never presented as a finished 3D model.
+
+To enable the authenticated download, add a valid Sketchfab OAuth access token as the repository Actions secret `SKETCHFAB_ACCESS_TOKEN`. Do not put the token in source files, workflow variables, commits, issue comments or ChatGPT messages. Tokens can expire; update the secret when Sketchfab requires re-authentication.
+
+The render report and artifact retain `asset-provenance.json` so the model's creator and licence remain traceable. No scraping of the Sketchfab viewer, direct media URL guessing, licence bypass, or silent procedural fallback is permitted.
+
+
+## First production review run
+
+The one-off first production job renders a full 24-second Blender film from an imported licensed violin GLB, creates Kokoro narration and a new CC0 sampled-violin backing phrase, then exports a review-only MP4 and editable project bundle. The review job is gated by the `[run-first-production]` marker in draft PR #48. It does not publish or schedule YouTube uploads.
+
+
+The Linux Blender runner installs the distribution-matched `python3-numpy` package because Blender's GLTF importer imports NumPy from Blender's embedded Python runtime. The workflow verifies NumPy from inside Blender before attempting mesh import; a missing dependency must stop the render.
+
+
+The first-production job copies the resolved `.glb` and its `asset-provenance.json` into `work/first-production/assets` before rendering. Both the video export and Blender project bundle use this staged copy, and GitHub Actions step outputs are newline-delimited so the model path is passed intact.
+
+
+## Efficient first-production rendering
+
+The first review film is rendered from all 600 native Blender timeline frames (24 seconds at 25 FPS), with no optical-flow frame interpolation. Twenty parallel GitHub-hosted Blender workers each render 30 frames. Twenty is the standard-runner concurrency ceiling on the Free plan, so the workflow uses the maximum documented parallelism while keeping each worker's 30-frame slice within the existing job timeout. Narration and audio are generated before the Blender matrix begins, leaving the full runner pool available for the 20 render jobs. The final verification checks that every timeline frame from 1 through 600 is present exactly once and that the MP4 contains 600 frames at 25 FPS. The editable Blender scene and imported violin asset are included in the review bundle; intermediate PNG frames remain temporary workflow artifacts rather than being duplicated inside the downloadable ZIP.
