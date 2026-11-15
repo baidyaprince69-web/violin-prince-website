@@ -410,39 +410,6 @@ def make_bow_animation(source_bow_meshes, front_y, bounds, frame_end):
     return bow_root, list(source_bow_meshes)
 
 
-def make_vibrating_strings(front_y, body_width, bounds, frame_end, silver, source_string_count=0):
-    # Do not overlay a second string set when the imported model already has strings.
-    if int(source_string_count) > 0:
-        return []
-    # Source mesh remains untouched; these four thin metal lines clarify the
-    # string-to-bridge path in close camera shots.
-    half = min(body_width * 0.22, 0.33)
-    z_top = bounds["max_z"] * 0.67
-    z_bottom = bounds["min_z"] * 0.63
-    output = []
-    for index in range(4):
-        x = (index - 1.5) * (half * 2.0 / 3.0)
-        points = [
-            (x, front_y - 0.085, z_bottom),
-            (x, front_y - 0.090, z_bottom * 0.25),
-            (x, front_y - 0.095, 0.0),
-            (x, front_y - 0.090, z_top * 0.62),
-            (x, front_y - 0.080, z_top),
-        ]
-        obj = add_curve(f"Animated explanatory string {index + 1}", points, silver, bevel=0.0045)
-        obj["animation"] = "subtle string oscillation layered in the Blender scene"
-        # Slight global sway is intentionally restrained.
-        for fraction, strength in (
-            (0.00, 0.0), (0.25, 0.012), (0.50, -0.012),
-            (0.75, 0.009), (1.00, 0.0),
-        ):
-            frame = max(1, min(frame_end, int(round(1 + (frame_end - 1) * fraction))))
-            obj.location.y = strength
-            obj.keyframe_insert(data_path="location", frame=frame)
-        output.append(obj)
-    return output
-
-
 def make_resonance_rings(front_y, frame_end, teal):
     rings = []
     for index, radius in enumerate((0.62, 0.90, 1.18)):
@@ -497,9 +464,6 @@ def build_scene(args):
     gold = set_material("Violin Prince antique gold", (0.77, 0.45, 0.17), metallic=0.65, roughness=0.24, emission=0.08)
     teal = set_material("Resonance teal light", (0.035, 0.52, 0.54), metallic=0.25, roughness=0.24, emission=0.48)
     white = set_material("Warm white type and bow horsehair", (0.90, 0.88, 0.80), metallic=0.05, roughness=0.28, emission=0.65)
-    bow_wood = set_material("Bow stick | dark seasoned maple", (0.24, 0.073, 0.022), metallic=0.04, roughness=0.24)
-    ebony = set_material("Bow frog | polished ebony", (0.012, 0.015, 0.022), metallic=0.08, roughness=0.20)
-    silver = set_material("Fine string silver", (0.50, 0.64, 0.73), metallic=0.88, roughness=0.18, emission=0.03)
     floor_mat = set_material("Midnight navy stage", (0.008, 0.018, 0.035), metallic=0.28, roughness=0.32)
 
     # Studio floor, circular plinth and subtle atmospheric environment.
