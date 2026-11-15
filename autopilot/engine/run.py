@@ -3373,7 +3373,7 @@ def compose_narration(
     )
 
 def recent_seo_learning():
-    """Decrypt the latest GitHub-native SEO snapshot; never call Cloudflare or poll YouTube."""
+    """Decrypt the latest GitHub-native SEO snapshot; without external cloud services or live YouTube polling."""
     report_path = os.environ.get("SEO_LEARNING_REPORT_PATH", "").strip()
     encryption_key = os.environ.get("YOUTUBE_STATE_ENCRYPTION_KEY", "").strip()
     if not report_path:

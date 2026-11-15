@@ -5,7 +5,6 @@ on:
     paths:
       - "autopilot/**"
       - ".github/workflows/violin-prince-autopilot.yml"
-      - ".github/workflows/deploy-autopilot-cloudflare.yml"
       - ".github/workflows/autopilot-checks.yml"
   pull_request:
     paths:
@@ -38,63 +37,69 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-dejavu-core
           python -m pip install --upgrade pip
-          pip install requests Pillow PyYAML numpy soundfile cryptography 'fonttools[woff]>=4.50,<5'
+          pip install -r autopilot/engine/requirements.txt PyYAML
 
-      - name: Run offline audio and narration helper tests
+      - name: Run complete Python test suite
         run: python -m unittest discover -s autopilot/engine/tests -v
 
-      - name: Run narration composer regressions after the full suite
+      - name: Run narration composer regressions
         run: python -m unittest autopilot.engine.tests.test_planner_retry -v
 
-      - name: Validate D1 SQL schema
+      - name: Verify GitHub-native production has no Cloudflare dependency
+        shell: bash
         run: |
-          python - <<'PY'
-          import sqlite3
-          from pathlib import Path
-          db = sqlite3.connect(":memory:")
-          db.executescript(Path("autopilot/cloudflare/schema.sql").read_text())
-          print("D1 schema parses successfully.")
-          PY
+          set -euo pipefail
+          files=(
+            "autopilot/engine/run.py"
+            "autopilot/engine/run_daily_plan.py"
+            "autopilot/engine/publish_handoff.py"
+            "autopilot/engine/procedural_visuals.py"
+            "autopilot/README.md"
+            "autopilot/index.html"
+            ".github/workflows/violin-prince-autopilot.yml"
+            ".github/workflows/autopilot-checks.yml"
+          )
+          if grep -niE 'Cloudflare|cloudflare|CF_ACCOUNT_ID|CF_AI_TOKEN|AUTOPILOT_API_URL|AUTOPILOT_JOB_TOKEN|workers\.dev|wrangler|R2 bucket|D1 database' "\${files[@]}"; then
+            echo "::error::A Cloudflare dependency or setup instruction remains."
+            exit 1
+          fi
+          test ! -e ".github/workflows/deploy-autopilot-cloudflare.yml"
+          test ! -d "autopilot/cloudflare"
+          test ! -e "autopilot/scripts/provision-cloudflare.mjs"
+          test ! -e "autopilot/engine/analytics.py"
+          echo "Cloudflare removal contract: OK"
 
-      - name: Check Cloudflare provisioning script syntax
-        run: node --check autopilot/scripts/provision-cloudflare.mjs
-
-      - name: Check Cloudflare Worker JavaScript syntax
-        run: node --check --input-type=module < autopilot/cloudflare/src/worker.js
-
-      - name: Check dashboard JavaScript syntax
-        run: |
-          python - <<'PY'
-          import re
-          from pathlib import Path
-          html = Path("autopilot/index.html").read_text()
-          match = re.search(r"<script>(.*?)</script>", html, re.S)
-          if not match:
-              raise SystemExit("Dashboard inline script was not found.")
-          Path("/tmp/dashboard.js").write_text(match.group(1))
-          PY
-          node --check /tmp/dashboard.js
-
-      - name: Validate workflow YAML syntax
+      - name: Validate GitHub production workflow contract
         run: |
           python - <<'PY'
           from pathlib import Path
           import yaml
-          files = [
-              ".github/workflows/autopilot-checks.yml",
-              ".github/workflows/violin-prince-autopilot.yml",
-              ".github/workflows/deploy-autopilot-cloudflare.yml",
-              ".github/workflows/youtube-seo-learning.yml",
-              ".github/workflows/youtube-seo-discover-verification.yml",
-          ]
-          for name in files:
-              parsed = yaml.safe_load(Path(name).read_text(encoding="utf-8"))
-              if not isinstance(parsed, dict):
-                  raise SystemExit(f"{name}: expected a YAML mapping")
-              print(f"{name}: YAML syntax OK")
+
+          workflow = yaml.load(
+              Path(".github/workflows/violin-prince-autopilot.yml").read_text(encoding="utf-8"),
+              Loader=yaml.BaseLoader,
+          )
+          events = workflow.get("on", {})
+          if "schedule" in events:
+              raise SystemExit("No second scheduled production trigger is allowed.")
+          dispatch = events.get("workflow_dispatch", {}).get("inputs", {})
+          if "plan_path" not in dispatch:
+              raise SystemExit("Manual plan_path input is missing.")
+          steps = workflow["jobs"]["produce"]["steps"]
+          if not any(step.get("name") == "Produce the Short from the prepared plan" for step in steps):
+              raise SystemExit("Prepared-plan production step is missing.")
+          if not any(step.get("name") == "Create release with video and publisher handoff" for step in steps):
+              raise SystemExit("GitHub release handoff step is missing.")
+          if workflow["jobs"]["produce"].get("env", {}).get("PUBLISH_ENABLED") != "false":
+              raise SystemExit("External publishing must remain disabled.")
+          if not any(step.get("name") == "Upload finished video" for step in steps):
+              raise SystemExit("Workflow video artifact is missing.")
+          print("GitHub-native production workflow contract: OK")
           PY
 
-      - name: Check production and deployment workflow files exist
+      - name: Check required production source files exist
         run: |
           test -s .github/workflows/violin-prince-autopilot.yml
-          test -s .github/workflows/deploy-autopilot-cloudflare.yml
+          test -s autopilot/engine/run_daily_plan.py
+          test -s autopilot/engine/procedural_visuals.py
+          test -s autopilot/engine/publish_handoff.py
