@@ -12,6 +12,7 @@ import math
 import random
 import sys
 import os
+import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -83,6 +84,8 @@ def _register_render_telemetry(scene, config):
     writes_before_post = {}
     frame_change_started = {}
     frame_change_durations = {}
+    stats_by_frame = {}
+    render_stats_records = _TIMINGS.setdefault("render_stats", [])
     frame_records = _TIMINGS.setdefault("frames", [])
 
     def request_preflight_abort(gate_name, projected_seconds, observed):
@@ -169,6 +172,7 @@ def _register_render_telemetry(scene, config):
             "cpu_total_seconds": round(cpu_user + cpu_system, 6),
             "process_elapsed_seconds": round(ended_perf - _PROCESS_START, 6),
             "resources_after_frame": snapshot,
+            "render_stats": stats_by_frame.get(frame_number),
             "_render_post_perf": ended_perf,
         }
         early_write = writes_before_post.pop(frame_number, None)
@@ -241,6 +245,43 @@ def _register_render_telemetry(scene, config):
         if started_at is not None:
             frame_change_durations[frame_number] = max(0.0, time.perf_counter() - started_at)
 
+    def _stats_time_seconds(value):
+        try:
+            parts = [float(item) for item in str(value).split(":")]
+            if len(parts) == 3:
+                return parts[0] * 3600.0 + parts[1] * 60.0 + parts[2]
+            if len(parts) == 2:
+                return parts[0] * 60.0 + parts[1]
+            if len(parts) == 1:
+                return parts[0]
+        except (TypeError, ValueError):
+            return None
+        return None
+
+    def on_render_stats(stats_text):
+        raw = str(stats_text)
+        frame_match = re.search(r"\\bFra:\\s*(\\d+)", raw)
+        frame_number = (
+            int(frame_match.group(1))
+            if frame_match
+            else int(scene.frame_current)
+        )
+        entry = {"frame": frame_number, "raw": raw[:1200]}
+        render_match = re.search(r"\\bTime:\\s*([0-9:.]+)", raw)
+        saving_match = re.search(r"\\bSaving:\\s*([0-9:.]+)", raw)
+        if render_match:
+            entry["render_seconds"] = _stats_time_seconds(render_match.group(1))
+        if saving_match:
+            entry["saving_seconds"] = _stats_time_seconds(saving_match.group(1))
+        stats_by_frame[frame_number] = entry
+        render_stats_records.append(entry)
+        if len(render_stats_records) > 500:
+            del render_stats_records[:-500]
+        record = records_by_frame.get(frame_number)
+        if record is not None:
+            record["render_stats"] = entry
+        _write_timing_report()
+
     def on_render_write(render_scene):
         frame_number = int(render_scene.frame_current)
         now = time.perf_counter()
@@ -267,6 +308,10 @@ def _register_render_telemetry(scene, config):
     ]
     bpy.app.handlers.frame_change_pre.append(on_frame_change_pre)
     bpy.app.handlers.frame_change_post.append(on_frame_change_post)
+    render_stats_handlers = getattr(bpy.app.handlers, "render_stats", None)
+    if isinstance(render_stats_handlers, list):
+        render_stats_handlers.append(on_render_stats)
+        handlers.append((render_stats_handlers, on_render_stats))
     render_write_handlers = getattr(bpy.app.handlers, "render_write", None)
     if isinstance(render_write_handlers, list):
         render_write_handlers.append(on_render_write)
