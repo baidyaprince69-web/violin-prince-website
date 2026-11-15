@@ -1,5 +1,5 @@
 {
   "mode": "chatgpt_daily_production",
   "plan_path": ".autopilot/daily-production-plan.json",
-  "reason": "Retry today's source-verified Violin Prince production after exact publisher quote correction"
+  "reason": "Retry today's Violin Prince production with plain-text publisher evidence excerpts"
 }
