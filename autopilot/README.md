@@ -317,3 +317,6 @@ The one-off first production job renders a full 24-second Blender film from an i
 
 
 The Linux Blender runner installs the distribution-matched `python3-numpy` package because Blender's GLTF importer imports NumPy from Blender's embedded Python runtime. The workflow verifies NumPy from inside Blender before attempting mesh import; a missing dependency must stop the render.
+
+
+The first-production job copies the resolved `.glb` and its `asset-provenance.json` into `work/first-production/assets` before rendering. Both the video export and Blender project bundle use this staged copy, and GitHub Actions step outputs are newline-delimited so the model path is passed intact.
