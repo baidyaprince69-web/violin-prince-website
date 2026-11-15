@@ -200,21 +200,23 @@ def verify_frame_by_plane(
 
     build_rig = getattr(builder, "build_fbp_rig", None)
     place_layers = getattr(builder, "fbp_layer_placement", None)
-    if not callable(build_rig) or not callable(place_layers):
+    if not callable(build_rig):
         available_builder = sorted(
             name for name in dir(builder)
             if name.startswith(("build_", "fbp_", "camera_"))
         )
         raise FrameByPlaneError(
-            "Frame By Plane native API mismatch: "
+            "Frame By Plane does not expose its native image-layer builder: "
             f"module={getattr(builder, '__file__', '<unknown>')}; "
-            f"build_fbp_rig={callable(build_rig)}; "
-            f"fbp_layer_placement={callable(place_layers)}; "
             f"available={available_builder[:100]}"
         )
-    required = {"context", "rig_name", "directory", "files_list", "location", "target_collection"}
+    required = {
+        "context", "rig_name", "directory", "files_list", "location",
+        "target_collection", "follow_collection_color",
+    }
     try:
-        available = set(inspect.signature(build_rig).parameters)
+        builder_parameters = inspect.signature(build_rig).parameters
+        available = set(builder_parameters)
     except (TypeError, ValueError) as exc:
         raise FrameByPlaneError("Could not inspect the Frame By Plane native layer builder.") from exc
     if not required.issubset(available):
@@ -233,9 +235,98 @@ def verify_frame_by_plane(
         "package_path": str(package_dir.resolve()),
         "module_name": module_name,
         "builder": build_rig,
-        "placement_factory": place_layers,
+        # Frame By Plane 8.0.1 has the native layer builder but does not expose
+        # the later camera-placement helper. The adapter supplies an equivalent
+        # camera-space placement fallback for that pinned release.
+        "placement_factory": place_layers if callable(place_layers) else None,
+        "placement_source": "frame_by_plane" if callable(place_layers) else "violin_prince_camera_adapter",
+        "builder_parameters": sorted(available),
         "module": extension_module,
     }
+
+
+class _AdapterCameraPlacement:
+    """Camera-aware placement compatible with Frame By Plane 8.0.1.
+
+    Frame By Plane 8.0.1 exposes build_fbp_rig but not the later
+    fbp_layer_placement helper. This mirrors the extension's camera-frame
+    placement contract using Blender's public camera/mathutils APIs.
+    """
+
+    def __init__(self, scene, camera, anchor, vector_type):
+        self.scene = scene
+        self.anchor = vector_type(anchor)
+        self.camera = None
+        self.rotation = None
+        self.forward = None
+        self.origin = None
+        self.uses_camera = False
+
+        if camera is None or getattr(camera, "type", "") != "CAMERA":
+            return
+
+        try:
+            cam_loc, cam_rot, _cam_scale = camera.matrix_world.decompose()
+            cam_rot.normalize()
+            forward = cam_rot @ vector_type((0.0, 0.0, -1.0))
+            if forward.length < 1e-8:
+                return
+            forward.normalize()
+
+            camera_data = camera.data
+            clip_start = max(1e-4, float(getattr(camera_data, "clip_start", 0.1) or 0.1))
+            clip_end = max(
+                clip_start * 2.0,
+                float(getattr(camera_data, "clip_end", 1000.0) or 1000.0),
+            )
+            depth = float((self.anchor - cam_loc).dot(forward))
+            if not (clip_start * 1.5 < depth < clip_end * 0.95):
+                depth = min(max(10.0, clip_start * 2.0), clip_end * 0.5)
+
+            frame = camera_data.view_frame(scene=scene)
+            center_x = sum(point.x for point in frame) / 4.0
+            center_y = sum(point.y for point in frame) / 4.0
+            if getattr(camera_data, "type", "PERSP") == "ORTHO":
+                local = vector_type((center_x, center_y, -depth))
+            else:
+                frame_z = abs(float(frame[0].z))
+                if frame_z < 1e-8:
+                    frame_z = 1.0
+                local = vector_type((center_x, center_y, -frame_z)) * (depth / frame_z)
+
+            self.camera = camera
+            self.rotation = cam_rot
+            self.forward = forward
+            self.origin = cam_loc + cam_rot @ local
+            self.uses_camera = True
+        except (AttributeError, ReferenceError, RuntimeError, TypeError, ValueError, ZeroDivisionError):
+            self.uses_camera = False
+
+    def location(self, offset=0.0):
+        if not self.uses_camera:
+            raise FrameByPlaneError("The active camera could not be resolved for 2.5D layer placement.")
+        return self.origin + self.forward * float(offset or 0.0)
+
+    def place(self, rig, offset=0.0):
+        if not rig or not self.uses_camera:
+            return False
+        try:
+            rig.location = self.location(offset)
+            mode = str(getattr(rig, "rotation_mode", "XYZ") or "XYZ")
+            if mode == "QUATERNION":
+                rig.rotation_quaternion = self.rotation.copy()
+            elif mode == "AXIS_ANGLE":
+                axis, angle = self.rotation.to_axis_angle()
+                rig.rotation_axis_angle = (angle, axis.x, axis.y, axis.z)
+            else:
+                rig.rotation_euler = self.rotation.to_euler(mode)
+            try:
+                rig.fbp_is_vertical = abs(self.forward.z) < (0.5 ** 0.5)
+            except (AttributeError, ReferenceError, RuntimeError, TypeError, ValueError):
+                pass
+            return True
+        except (AttributeError, ReferenceError, RuntimeError, TypeError, ValueError):
+            return False
 
 
 def build_frame_by_plane_background(
@@ -260,11 +351,18 @@ def build_frame_by_plane_background(
     scene.frame_set(1)
     bpy_module.context.view_layer.update()
 
-    placement = runtime["placement_factory"](
-        scene, camera=camera, anchor=(0.0, float(instrument_front_y), 0.0),
-    )
+    if runtime["placement_factory"] is not None:
+        placement = runtime["placement_factory"](
+            scene, camera=camera, anchor=(0.0, float(instrument_front_y), 0.0),
+        )
+        placement_source = "frame_by_plane"
+    else:
+        placement = _AdapterCameraPlacement(
+            scene, camera, (0.0, float(instrument_front_y), 0.0), Vector,
+        )
+        placement_source = "violin_prince_camera_adapter"
     if not bool(getattr(placement, "uses_camera", False)):
-        raise FrameByPlaneError("Frame By Plane could not bind its multiplane layout to the active camera.")
+        raise FrameByPlaneError("The active camera could not be bound to the 2.5D multiplane layout.")
 
     camera_origin = camera.matrix_world.translation.copy()
     camera_rotation = camera.matrix_world.to_quaternion()
@@ -360,4 +458,6 @@ def build_frame_by_plane_background(
         "layers": built_layers,
         "depth_order": "camera-facing planes placed behind the imported 3D violin and bow",
         "parallax": "camera-space depth plus per-layer motion",
+        "placement_source": placement_source,
+        "builder_parameters": runtime["builder_parameters"],
     }
