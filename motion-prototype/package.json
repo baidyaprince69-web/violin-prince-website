@@ -5,7 +5,7 @@
   "type": "module",
   "description": "A deterministic Motion-powered vertical animation rendered with HyperFrames.",
   "scripts": {
-    "build": "node scripts/copy-assets.mjs && esbuild src/main.js --bundle --format=iife --target=es2022 --outfile=dist/main.js --minify",
+    "build": "node scripts/copy-assets.mjs && esbuild src/main.js --bundle --format=iife --target=es2022 --outfile=dist/main.js --sourcemap",
     "test": "node scripts/check-contract.mjs",
     "render": "node -e \"import('node:fs').then(({mkdirSync}) => mkdirSync('renders', { recursive: true }))\" && hyperframes render --output renders/violin-prince-motion-prototype.mp4 --fps 30 --quality standard --workers 1"
   },
