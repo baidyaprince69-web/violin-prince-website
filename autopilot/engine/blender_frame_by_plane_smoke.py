@@ -96,7 +96,10 @@ def main() -> int:
     }
     config_path.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    blender_script = ENGINE_DIR / "tests" / "blender_fbp_smoke_scene.py"
+    # Exercise the exact production entry point. The old test wrapper inserted
+    # ENGINE_DIR into sys.path before importing blender_scene, hiding a missing
+    # bootstrap in Blender's direct --python execution mode.
+    blender_script = ENGINE_DIR / "blender_scene.py"
     command = [
         blender, "--background", "--threads", "1",
         "--python", str(blender_script),
