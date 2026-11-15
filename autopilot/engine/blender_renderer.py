@@ -235,10 +235,13 @@ def render_scene_video(
 
 
 def _poster(video_path: Path, output_path: Path, timestamp: float) -> None:
+    # Stay inside the actual clip duration. A seek at 1.5s into a 1.5s video
+    # lands on EOF and returns no packet, even though Blender rendered the MP4.
+    safe_timestamp = max(0.05, float(timestamp))
     _run(
         [
             "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
-            "-ss", f"{timestamp:.3f}", "-i", str(video_path),
+            "-ss", f"{safe_timestamp:.3f}", "-i", str(video_path),
             "-frames:v", "1", "-f", "image2", str(output_path),
         ],
         timeout=30,
@@ -269,7 +272,7 @@ def _contact_sheet(posters: list[Path], destination: Path) -> None:
 
 def _production_preview(output_dir: Path, blender_executable: str | None = None,
                         resolution: tuple[int, int] = (360, 640), fps: int = 24) -> dict[str, Any]:
-    """Render three complete animated 3D scenes and assemble a visual-only preview."""
+    """Render one animated 3D violin scene with cinematic camera movement."""
     output_dir.mkdir(parents=True, exist_ok=True)
     samples = [
         {
@@ -284,14 +287,14 @@ def _production_preview(output_dir: Path, blender_executable: str | None = None,
     for index, scene in enumerate(samples):
         clip = output_dir / f"blender-scene-{index + 1}.mp4"
         report = render_scene_video(
-            scene, clip, scene_index=index, duration_seconds=1.5,
+            scene, clip, scene_index=index, duration_seconds=3.0,
             enabled=True, blender_executable=blender_executable,
-            resolution=resolution, fps=fps, timeout_seconds=480,
+            resolution=resolution, fps=fps, timeout_seconds=600,
         )
         if not report:
             raise BlenderRenderError("Blender preview unexpectedly skipped a scene.")
         poster = output_dir / f"blender-scene-{index + 1}-poster.png"
-        _poster(clip, poster, 1.5)
+        _poster(clip, poster, report["duration_seconds"] / 2.0)
         clips.append(clip)
         posters.append(poster)
         scene_reports.append(report)
