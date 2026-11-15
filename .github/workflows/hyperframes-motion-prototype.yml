@@ -25,6 +25,7 @@ jobs:
       PUBLISH_ENABLED: "false"
       YOUTUBE_PUBLISH_ENABLED: "false"
       CI: "true"
+      HYPERFRAMES_NO_TELEMETRY: "1"
     defaults:
       run:
         working-directory: prototypes/hyperframes-motion
@@ -53,13 +54,16 @@ jobs:
       - name: Install prototype dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Bundle Motion animation code
-        run: npm run build
+      - name: Load Motion as a local external ES module
+        run: npm run prepare:motion
 
       - name: Validate HyperFrames composition
         run: |
           npm run lint
           npm run check
+
+      - name: Verify deterministic random-access frame seeking
+        run: npm run verify:seeking
 
       - name: Render the 10-second vertical MP4
         run: npm run render
@@ -77,7 +81,7 @@ jobs:
               -frames:v 1 output/contact-sheet.jpg
           fi
 
-      - name: Upload MP4 and visual evidence
+      - name: Upload MP4, contact sheet and seek-test frames
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -85,6 +89,7 @@ jobs:
           path: |
             prototypes/hyperframes-motion/output/violin-prince-motion-10s.mp4
             prototypes/hyperframes-motion/output/contact-sheet.jpg
+            prototypes/hyperframes-motion/output/seeking-check/
           if-no-files-found: warn
           retention-days: 7
 
@@ -97,6 +102,12 @@ jobs:
             echo
             echo "- Branch: $GITHUB_REF_NAME"
             echo "- Publishing: disabled"
+            echo "- Blender: not installed or invoked by this 2D/2.5D prototype"
+            if [[ -f output/seeking-check/seeking-report.json ]]; then
+              echo "- Random-access seeking: verified"
+            else
+              echo "- Random-access seeking: not verified"
+            fi
             if [[ -f output/violin-prince-motion-10s.mp4 ]]; then
               echo "- MP4: generated"
               ffprobe -v error -show_entries format=duration \

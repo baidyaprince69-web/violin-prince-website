@@ -56,7 +56,7 @@ jobs:
       YOUTUBE_STATE_ENCRYPTION_KEY: ${{ secrets.YOUTUBE_STATE_ENCRYPTION_KEY }}
       SEO_LEARNING_REPORT_PATH: work/seo-learning-data/seo-learning/latest.enc.json
       PUBLISH_ENABLED: "false"
-      BLENDER_RENDER_ENABLED: ${{ github.event_name == 'push' && 'true' || vars.BLENDER_RENDER_ENABLED || 'false' }}
+      BLENDER_RENDER_ENABLED: ${{ vars.BLENDER_RENDER_ENABLED || 'false' }}
       BLENDER_RENDER_WORKERS: "3"
       BLENDER_THREADS_PER_WORKER: "1"
       BLENDER_RENDER_WIDTH: "400"

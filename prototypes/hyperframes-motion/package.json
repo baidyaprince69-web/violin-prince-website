@@ -5,14 +5,14 @@
   "type": "module",
   "description": "Isolated 10-second Motion + HyperFrames motion-graphics prototype for Violin Prince.",
   "scripts": {
-    "build": "esbuild src/main.js --bundle --format=iife --target=chrome120 --outfile=dist/main.js",
+    "prepare:motion": "node scripts/prepare-motion.mjs",
     "lint": "hyperframes lint .",
     "check": "hyperframes check",
+    "verify:seeking": "node scripts/verify-seeking.mjs",
     "render": "node -e \"require('node:fs').mkdirSync('output', { recursive: true })\" && hyperframes render --quality draft --workers 1 --output output/violin-prince-motion-10s.mp4",
     "verify": "node scripts/verify-render.mjs"
   },
   "devDependencies": {
-    "esbuild": "0.28.2",
     "hyperframes": "0.9.52",
     "motion": "14.12.0"
   }
