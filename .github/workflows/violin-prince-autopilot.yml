@@ -1,7 +1,7 @@
 name: Violin Prince Autopilot
 
 on:
-  # GitHub scheduled workflows use UTC; 00:30 UTC is 06:00 in India.
+  # Daily local-time start: 00:30 UTC = 06:00 Asia/Kolkata.
   schedule:
     - cron: "30 0 * * *"
   push:
@@ -22,14 +22,6 @@ on:
           - prepare
           - visuals
           - render
-      renderer:
-        description: "Main renderer is Motion + HyperFrames. Choose Blender only for an optional 3D render."
-        required: true
-        type: choice
-        default: motion_hyperframes
-        options:
-          - motion_hyperframes
-          - blender
       source_run_id:
         description: "Optional for Prepare/Full research recovery; required for Visuals/Render to identify the previous stage run."
         required: false
@@ -53,7 +45,7 @@ jobs:
     timeout-minutes: 90
     env:
       RUN_ID: ${{ github.run_id }}
-      RUN_MODE: ${{ github.event_name == 'schedule' && 'daily_scheduled' || github.event_name == 'push' && 'triggered' || 'manual' }}
+      RUN_MODE: manual
       PIPELINE_STAGE: ${{ inputs.stage || 'full' }}
       VISUAL_FEEDBACK: ${{ inputs.visual_feedback }}
       AUTOPILOT_API_URL: ${{ secrets.AUTOPILOT_API_URL }}
@@ -68,8 +60,7 @@ jobs:
       YOUTUBE_STATE_ENCRYPTION_KEY: ${{ secrets.YOUTUBE_STATE_ENCRYPTION_KEY }}
       SEO_LEARNING_REPORT_PATH: work/seo-learning-data/seo-learning/latest.enc.json
       PUBLISH_ENABLED: "false"
-      BLENDER_RENDER_ENABLED: ${{ (inputs.renderer || 'motion_hyperframes') == 'blender' && 'true' || 'false' }}
-      MOTION_HYPERFRAMES_RENDER_ENABLED: ${{ (inputs.renderer || 'motion_hyperframes') == 'motion_hyperframes' && 'true' || 'false' }}
+      BLENDER_RENDER_ENABLED: ${{ (github.event_name == 'push' || github.event_name == 'schedule') && 'true' || vars.BLENDER_RENDER_ENABLED || 'false' }}
       BLENDER_RENDER_WORKERS: "3"
       BLENDER_THREADS_PER_WORKER: "1"
       BLENDER_RENDER_WIDTH: "400"
@@ -117,47 +108,48 @@ jobs:
             fi
           fi
 
-      - name: Verify existing private creator recording before expensive production
-        if: env.MOTION_HYPERFRAMES_RENDER_ENABLED == 'true' && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')
-        shell: bash
-        env:
-          AUTOPILOT_API_URL: ${{ secrets.AUTOPILOT_API_URL }}
-          AUTOPILOT_JOB_TOKEN: ${{ secrets.AUTOPILOT_JOB_TOKEN }}
-        run: |
-          set -Eeuo pipefail
-          if [[ -z "$AUTOPILOT_API_URL" ]]; then
-            echo "::error::AUTOPILOT_API_URL is missing. Configure the deployed Autopilot Worker URL before running the real-track Motion renderer."
-            exit 1
-          fi
-          if [[ -z "$AUTOPILOT_JOB_TOKEN" ]]; then
-            echo "::error::AUTOPILOT_JOB_TOKEN is missing. The private recording library cannot be read."
-            exit 1
-          fi
-          if [[ ! "$AUTOPILOT_API_URL" =~ ^https:// ]]; then
-            echo "::error::AUTOPILOT_API_URL must use HTTPS."
-            exit 1
-          fi
-          assets_json="$(curl --fail --silent --show-error --max-time 30 \
-            -H "Authorization: Bearer $AUTOPILOT_JOB_TOKEN" \
-            "${AUTOPILOT_API_URL%/}/internal/assets?kind=audio")"
-          printf '%s' "$assets_json" | python -c '
-          import json, sys
-          data = json.load(sys.stdin)
-          assets = data.get("assets") or []
-          if not assets:
-              raise SystemExit("No rights-confirmed creator recording exists in the private Autopilot audio library.")
-          asset = assets[0]
-          name = str(asset.get("filename") or "")
-          size = int(asset.get("size_bytes") or 0)
-          if not name.lower().endswith((".wav", ".mp3", ".m4a", ".aac", ".flac", ".ogg")) or size < 4096:
-              raise SystemExit("The newest private audio asset is not a supported, non-empty recording.")
-          print("Private creator recording verified: " + name + " (" + str(size) + " bytes).")
-          '
       - name: Check out the project
         uses: actions/checkout@v4
 
-      - name: Check image-generation credentials for the Motion production pipeline
-        if: env.PIPELINE_STAGE != 'render' && env.MOTION_HYPERFRAMES_RENDER_ENABLED == 'true'
+      - name: Read ChatGPT daily production request
+        id: daily_request
+        if: github.event_name == 'push' || github.event_name == 'schedule'
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          request_path = Path(".autopilot/prepare-request.json")
+          if not request_path.is_file():
+              raise SystemExit("The ChatGPT production trigger file is missing.")
+          request = json.loads(request_path.read_text(encoding="utf-8"))
+          if request.get("mode") != "chatgpt_daily_production":
+              raise SystemExit("Push-triggered production must use mode=chatgpt_daily_production.")
+          plan_path = str(request.get("plan_path") or ".autopilot/daily-production-plan.json")
+          if not plan_path.startswith(".autopilot/") or ".." in Path(plan_path).parts:
+              raise SystemExit("The daily plan must be inside the .autopilot directory.")
+          if not Path(plan_path).is_file():
+              raise SystemExit("The ChatGPT daily production plan does not exist.")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write("plan_path=" + plan_path + "\n")
+          print("Validated ChatGPT daily production request: " + plan_path)
+          PY
+
+      - name: Require licensed Sketchfab access for the Cloudflare-independent daily route
+        if: github.event_name == 'push' || github.event_name == 'schedule'
+        shell: bash
+        env:
+          MODEL_TOKEN: ${{ secrets.SKETCHFAB_ACCESS_TOKEN }}
+        run: |
+          if [ -z "$MODEL_TOKEN" ]; then
+            echo "::error::SKETCHFAB_ACCESS_TOKEN is required to download a licensed story-specific 3D model. No placeholder model or Cloudflare image fallback will be used."
+            exit 1
+          fi
+
+      - name: Check Cloudflare secrets only for the legacy manual image route
+        if: github.event_name == 'workflow_dispatch' && env.PIPELINE_STAGE != 'render' && env.BLENDER_RENDER_ENABLED != 'true'
         shell: bash
         run: |
           missing=0
@@ -186,7 +178,7 @@ jobs:
           cache-dependency-path: autopilot/engine/requirements.txt
 
       - name: Reuse research from an earlier failed run when requested
-        if: (env.PIPELINE_STAGE == 'prepare' || env.PIPELINE_STAGE == 'full') && inputs.source_run_id != ''
+        if: (env.PIPELINE_STAGE == 'prepare' || env.PIPELINE_STAGE == 'full') && (inputs.source_run_id != '' || steps.prepare_request.outputs.source_run_id != '')
         uses: actions/download-artifact@v4
         with:
           name: violin-prince-run-${{ inputs.source_run_id || steps.prepare_request.outputs.source_run_id }}
@@ -243,17 +235,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install "requests>=2.32,<3" "Pillow>=10.4,<12"
 
-      - name: Set up Node.js 22 for Motion + HyperFrames
-        if: env.MOTION_HYPERFRAMES_RENDER_ENABLED == 'true' && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      - name: Install pinned Motion + HyperFrames dependencies
-        if: env.MOTION_HYPERFRAMES_RENDER_ENABLED == 'true' && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')
-        working-directory: prototypes/hyperframes-motion
-        run: npm install --no-audit --no-fund
-
       - name: Install pinned Blender 5.2.4 and Frame By Plane 8.0.1
         if: env.BLENDER_RENDER_ENABLED == 'true' && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')
         timeout-minutes: 30
@@ -289,18 +270,112 @@ jobs:
         if: env.PIPELINE_STAGE == 'render'
         run: python autopilot/engine/run.py --stage render
 
-      - name: Run full Prepare → Visuals → Motion + HyperFrames production
-        if: env.PIPELINE_STAGE == 'full'
+      - name: Run ChatGPT-prepared daily plan with Blender + Frame By Plane 2.5D scenes
+        if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path != ''
+        env:
+          RUN_ID: ${{ github.run_id }}
+          AUTOPILOT_API_URL: ""
+          AUTOPILOT_JOB_TOKEN: ""
+          PUBLISH_ENABLED: "false"
+        run: python autopilot/engine/run_daily_plan.py --plan "${{ steps.daily_request.outputs.plan_path }}"
+
+      - name: Run complete Prepare → Visuals → Render sequence
+        if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path == ''
         run: python autopilot/engine/run.py --stage full
+
+      - name: Publish finished MP4 and publisher handoff as release assets
+        id: publish_asset
+        if: success() && env.PUBLISH_ENABLED == 'true' && env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_RUN_ID: ${{ github.run_id }}
+          ASSET_URL: https://github.com/${{ github.repository }}/releases/download/violin-prince-short-${{ github.run_id }}/violin-prince-short.mp4
+          MANIFEST_URL: https://github.com/${{ github.repository }}/releases/download/violin-prince-short-${{ github.run_id }}/publish-manifest.json
+          PROVENANCE_URL: https://github.com/${{ github.repository }}/releases/download/violin-prince-short-${{ github.run_id }}/asset-provenance.json
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          output = Path("work/output")
+          video_path = output / "violin-prince-short.mp4"
+          manifest_path = output / "publish-manifest.json"
+          provenance_path = output / "asset-provenance.json"
+          if not video_path.is_file() or video_path.stat().st_size < 4096:
+              raise SystemExit("Final MP4 is missing or unexpectedly small; refusing a release.")
+          if not manifest_path.is_file() or not provenance_path.is_file():
+              raise SystemExit("Publisher handoff files are missing; refusing a release.")
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+          preflight = manifest.get("publisher_preflight") or {}
+          if manifest.get("status") != "rendered":
+              raise SystemExit("Release blocked: manifest status is not rendered.")
+          if manifest.get("publish_ready") is not True or preflight.get("status") != "ready":
+              blockers = preflight.get("blockers") or []
+              raise SystemExit("Release blocked by publisher preflight: " + json.dumps(blockers, ensure_ascii=False))
+          if preflight.get("blockers"):
+              raise SystemExit("Release blocked: publisher preflight contains unresolved blockers.")
+          factual = provenance.get("factual_provenance") or {}
+          if factual.get("status") != "passed" or int(factual.get("independent_publisher_count") or 0) < 2:
+              raise SystemExit("Release blocked: factual provenance is incomplete.")
+          assets = provenance.get("assets") or {}
+          final_video_record = assets.get("final_video") or {}
+          digest = hashlib.sha256(video_path.read_bytes()).hexdigest()
+          if final_video_record.get("sha256") != digest:
+              raise SystemExit("Release blocked: final MP4 SHA-256 does not match the provenance record.")
+          if not 20 <= float(manifest.get("duration_seconds") or 0) <= 25:
+              raise SystemExit("Release blocked: MP4 duration is outside the YouTube Shorts production contract.")
+          plan = json.loads(Path("work/package/creative_plan.json").read_text(encoding="utf-8"))
+          title = str(plan.get("title") or "Violin Prince")[:90]
+          notes = [
+              "Automatically rendered by the Violin Prince daily production engine.",
+              "",
+              "This release contains the finished vertical MP4 for the connected publishing workflow.",
+              "",
+              "Research sources:",
+          ]
+          for source in plan.get("sources", [])[:8]:
+              if isinstance(source, dict) and source.get("url"):
+                  notes.append("- " + str(source.get("title") or source.get("publisher_domain") or "Publisher") + ": " + str(source["url"]))
+          (output / "release-notes.md").write_text("\n".join(notes) + "\n", encoding="utf-8")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              handle.write("release_title=" + title.replace("\n", " ") + "\n")
+          PY
+          TAG="violin-prince-short-${RELEASE_RUN_ID}"
+          gh release create "$TAG" work/output/violin-prince-short.mp4 \
+            --title "Violin Prince — Daily Short ${RELEASE_RUN_ID}" \
+            --notes-file work/output/release-notes.md
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          output = Path("work/output")
+          manifest_path = output / "publish-manifest.json"
+          provenance_path = output / "asset-provenance.json"
+          if not manifest_path.is_file() or not provenance_path.is_file():
+              raise SystemExit("Publisher handoff files are missing; refusing to publish an incomplete release.")
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          manifest["run_id"] = os.environ["RELEASE_RUN_ID"]
+          manifest["public_video_url"] = os.environ["ASSET_URL"]
+          manifest["publish_manifest_url"] = os.environ["MANIFEST_URL"]
+          manifest["asset_provenance_url"] = os.environ["PROVENANCE_URL"]
+          manifest["release_tag"] = "violin-prince-short-" + os.environ["RELEASE_RUN_ID"]
+          manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+          print("Publisher handoff ready: " + str(manifest.get("publisher_preflight", {}).get("status", "unknown")))
+          print("Publish ready: " + str(bool(manifest.get("publish_ready"))))
+          PY
+          gh release upload "$TAG" work/output/publish-manifest.json work/output/asset-provenance.json --clobber
 
       - name: Upload finished video
         if: success() && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')
         uses: actions/upload-artifact@v4
         with:
           name: cloud-video-preview-${{ github.run_id }}
-          path: |
-            work/output/violin-prince-short.mp4
-            work/output/violin-prince-full-track.mp4
+          path: work/output/violin-prince-short.mp4
           if-no-files-found: error
           retention-days: 14
 
@@ -315,7 +390,6 @@ jobs:
             work/story-assets/asset-resolution-diagnostic.json
             !work/output/scene-3.mp4
             !work/output/violin-prince-short.mp4
-            !work/output/violin-prince-full-track.mp4
             work/research.json
             work/story_candidates.json
             work/story_research.json
