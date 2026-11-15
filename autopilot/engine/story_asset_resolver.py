@@ -126,7 +126,7 @@ def inspect_named_model_parts(model_path: str | Path) -> dict[str, list[str]]:
     nodes = document.get("nodes") or []
     meshes = document.get("meshes") or []
     scenes = document.get("scenes") or []
-    result: dict[str, list[str]] = {"bow": [], "strings": []}
+    result: dict[str, list[str]] = {"bow": [], "strings": [], "mesh_nodes": []}
     visited: set[int] = set()
 
     def walk(index: int, inherited_names: list[str]) -> None:
@@ -144,6 +144,7 @@ def inspect_named_model_parts(model_path: str | Path) -> dict[str, list[str]]:
         mesh_index = node.get("mesh")
         if isinstance(mesh_index, int) and 0 <= mesh_index < len(meshes):
             label = " / ".join(chain)
+            result["mesh_nodes"].append(label)
             if has_bow:
                 result["bow"].append(label)
             if has_strings:
@@ -481,8 +482,11 @@ def resolve_story_asset(
             model_parts = inspect_named_model_parts(model_path)
             if require_violin_parts and (not model_parts["bow"] or not model_parts["strings"]):
                 raise StoryAssetError(
-                    "This violin candidate does not contain separately named, downloadable "
-                    "bow and string mesh nodes. It cannot pass the one-rig performance gate."
+                    "The imported violin candidate failed the separate-part gate: "
+                    + f"bow_nodes={len(model_parts['bow'])}, "
+                    + f"string_nodes={len(model_parts['strings'])}, "
+                    + "mesh_nodes=" + json.dumps(model_parts.get("mesh_nodes", [])[:80], ensure_ascii=False)
+                    + ". No synthetic bow or unverified strings will be added."
                 )
             manifest_path = Path(str(record["manifest_path"]))
             record.update({
@@ -508,10 +512,16 @@ def resolve_story_asset(
             )
             return record
         except Exception as exc:
+            license_code, license_label, _license_url = _license_details(candidate)
             failures.append({
                 "model_uid": uid,
                 "model_name": str(candidate.get("name") or "")[:120],
-                "error": str(exc)[:500],
+                "face_count": _face_count(candidate),
+                "vertex_count": candidate.get("vertexCount", candidate.get("vertex_count")),
+                "is_downloadable": _is_downloadable(candidate),
+                "license_code": license_code,
+                "license_label": license_label,
+                "error": str(exc)[:3500],
             })
     diagnostic = folder / "asset-resolution-diagnostic.json"
     diagnostic.write_text(
@@ -529,7 +539,11 @@ def resolve_story_asset(
     raise StoryAssetError(
         "No candidate model could be downloaded and verified through the official "
         "Sketchfab Download API. Diagnostic: " + str(diagnostic) + " — "
-        + json.dumps(failures, ensure_ascii=False)[:1500]
+        + json.dumps({
+            "preferred_model_errors": preferred_errors,
+            "search_error": search_error,
+            "candidate_failures": failures,
+        }, ensure_ascii=False)[:7500]
     )
 
 
