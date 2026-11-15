@@ -20,12 +20,13 @@ from asset_resolver import (
     API_ROOT,
     AssetResolutionError,
     _license_details,
+    fetch_model_metadata,
     resolve_sketchfab_asset,
 )
 
 USER_AGENT = "ViolinPrinceAutopilot/2.0 (story-specific licensed 3D asset resolver)"
-MIN_FACE_COUNT = 25_000
-MAX_CANDIDATES = 100
+MIN_FACE_COUNT = 80_000
+MAX_CANDIDATES = 24
 DOWNLOAD_ATTEMPTS = 8
 STOP_WORDS = {
     "a", "an", "and", "are", "as", "at", "by", "can", "does", "for",
@@ -88,11 +89,20 @@ def _model_uid(model: dict[str, Any]) -> str:
 
 
 def _face_count(model: dict[str, Any]) -> int:
-    value = model.get("faceCount", model.get("face_count", 0))
-    try:
-        return max(0, int(value or 0))
-    except (TypeError, ValueError):
-        return 0
+    values = [model.get("faceCount", model.get("face_count", 0))]
+    archives = model.get("archives") or {}
+    if isinstance(archives, dict):
+        for archive in archives.values():
+            if isinstance(archive, dict):
+                values.append(archive.get("faceCount", archive.get("face_count", 0)))
+    for value in values:
+        try:
+            parsed = max(0, int(value or 0))
+            if parsed:
+                return parsed
+        except (TypeError, ValueError):
+            continue
+    return 0
 
 
 def _creator_name(model: dict[str, Any]) -> str:
@@ -185,9 +195,30 @@ def search_story_models(
     except (requests.RequestException, ValueError) as exc:
         raise StoryAssetError("Sketchfab public model search failed: " + str(exc)[:400]) from exc
     rows = payload.get("results") if isinstance(payload, dict) else None
+    if isinstance(rows, dict):
+        rows = rows.get("models")
     if not isinstance(rows, list):
         raise StoryAssetError("Sketchfab returned an unexpected model-search response.")
-    return [row for row in rows if isinstance(row, dict)]
+    enriched = []
+    # Search results can omit geometry fields. Fetch official public model
+    # metadata for each candidate so the detail/licence gate uses real counts,
+    # rather than guessing from a thumbnail or accepting an unknown value.
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        details = row
+        uid = _model_uid(row)
+        if uid and not _face_count(row):
+            try:
+                metadata = fetch_model_metadata(uid, client)
+                if isinstance(metadata, dict):
+                    details = {**row, **metadata}
+            except (requests.RequestException, AssetResolutionError, ValueError):
+                # Keep the original result; the quality gate will reject if
+                # geometry metadata remains unavailable.
+                pass
+        enriched.append(details)
+    return enriched
 
 
 def rank_story_models(models: list[dict[str, Any]], query: str) -> list[dict[str, Any]]:
