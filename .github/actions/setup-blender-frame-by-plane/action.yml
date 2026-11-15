@@ -71,7 +71,7 @@ runs:
           --url "https://extensions.blender.org/api/v1/extensions/" \
           violin_prince_official
         blender --background --python-expr \
-          "import bpy; repo=next(r for r in bpy.context.preferences.extensions.repos if r.module == 'violin_prince_official'); repo.enabled=True; bpy.ops.wm.save_userpref()"
+          "import bpy; bpy.context.preferences.system.use_online_access=True; repo=next(r for r in bpy.context.preferences.extensions.repos if r.module == 'violin_prince_official'); repo.enabled=True; bpy.ops.wm.save_userpref()"
 
     - name: Install and enable Frame By Plane from the official repository
       shell: bash

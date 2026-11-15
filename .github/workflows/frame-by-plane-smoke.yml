@@ -12,15 +12,6 @@ on:
       - "autopilot/engine/cinematic_background.py"
       - "autopilot/engine/tests/frame_by_plane_smoke.py"
       - "autopilot/engine/tests/test_frame_by_plane_adapter.py"
-  pull_request:
-    paths:
-      - ".autopilot/first-production-story.json"
-      - ".github/actions/setup-blender-frame-by-plane/**"
-      - ".github/workflows/frame-by-plane-smoke.yml"
-      - "autopilot/engine/frame_by_plane_adapter.py"
-      - "autopilot/engine/cinematic_background.py"
-      - "autopilot/engine/tests/frame_by_plane_smoke.py"
-      - "autopilot/engine/tests/test_frame_by_plane_adapter.py"
   workflow_dispatch:
 
 permissions:
