@@ -464,4 +464,8 @@ def build_scene(args):
 
 
 if __name__ == "__main__":
-    build_scene(parse_args())
+    try:
+        build_scene(parse_args())
+    except Exception as exc:
+        print("FIRST_PRODUCTION_BLENDER_FAILED: " + str(exc)[:1800], file=sys.stderr)
+        sys.exit(1)
