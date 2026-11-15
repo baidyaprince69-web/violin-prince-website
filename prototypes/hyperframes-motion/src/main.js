@@ -9,8 +9,8 @@ const DURATION = Number(root.dataset.duration);
 if (!Number.isFinite(DURATION) || DURATION < 1) {
   throw new Error("The full-track composition needs a valid audio-derived duration.");
 }
-// The authored ten-second sequence is stretched across the source track once.
-// HyperFrames seeks on the complete timeline; no modulo/repeat loop is used.
+// Ambient Motion elements are stretched across the full source track.
+// Narrative scene changes use Kokoro sentence/word timestamps directly; no scene is looped.
 const BASE_SEQUENCE_DURATION = 10;
 const TIMELINE_SCALE = DURATION / BASE_SEQUENCE_DURATION;
 
@@ -245,39 +245,61 @@ function syncScene(seconds) {
     if (Number(word.start) <= seconds) cue = word;
     else break;
   }
+
+  // The spoken sentence is the single source of truth for every narrative
+  // visual: title, diagram, explanatory labels and word captions all move on
+  // the same native Kokoro clock.
   const nextIndex = sceneIndexForSentence(Number(cue?.sentence_index || 0));
   const scene = scenes[nextIndex] || scenes[Math.min(nextIndex, scenes.length - 1)] || {};
+  const sceneRange = sceneTimingRange(nextIndex);
+  const sceneReveal = Math.max(0, Math.min(1, (seconds - sceneRange.start) / 0.48));
+
   const finalNarrationEnd = narrationWords.length
     ? Number(narrationWords[narrationWords.length - 1].end)
     : DURATION;
-  const outroVisible = isNarratedExplainer && seconds >= finalNarrationEnd + 0.25;
+  const outroStart = finalNarrationEnd + 0.12;
+  const outroReveal = isNarratedExplainer
+    ? Math.max(0, Math.min(1, (seconds - outroStart) / 0.38))
+    : 0;
+  const outroVisible = outroReveal > 0;
+
   sceneHeadlines.forEach((headline, index) => {
     if (!headline) return;
-    headline.style.opacity = !outroVisible && index === nextIndex ? "1" : "0";
+    const active = !outroVisible && index === nextIndex;
+    headline.style.opacity = active ? "1" : "0";
     headline.querySelectorAll(".eyebrow, h1, h2, .headline-note").forEach((element) => {
-      element.style.opacity = "1";
-      element.style.transform = "none";
+      element.style.opacity = active ? sceneReveal.toFixed(4) : "0";
+      element.style.transform = active
+        ? "translateY(" + ((1 - sceneReveal) * 18).toFixed(2) + "px)"
+        : "translateY(18px)";
     });
   });
+
   const diagramPanel = document.getElementById("wave-section");
   if (diagramPanel) {
-    diagramPanel.style.opacity = outroVisible ? "0" : "1";
-    diagramPanel.style.transform = "none";
+    diagramPanel.style.opacity = outroVisible ? "0" : sceneReveal.toFixed(4);
+    diagramPanel.style.transform = outroVisible
+      ? "translateY(-12px)"
+      : "translateY(" + ((1 - sceneReveal) * 18).toFixed(2) + "px)";
     diagramPanel.querySelectorAll(".wave-caption, .wave-foot").forEach((element) => {
-      element.style.opacity = "1";
+      element.style.opacity = outroVisible ? "0" : sceneReveal.toFixed(4);
       element.style.transform = "none";
     });
   }
+
   setContentText("#wave-section .wave-caption-right", String(nextIndex + 1) + " / 03", 12);
   setContentText("#diagram-detail-left", scene.graphic_detail || scene.caption, 42);
   setContentText("#diagram-detail-right", scene.graphic_label || "THE EXPLANATION", 42);
+
   const endCard = document.getElementById("end-card");
   if (endCard) {
-    endCard.style.opacity = outroVisible ? "1" : "0";
+    endCard.style.opacity = outroReveal.toFixed(4);
+    endCard.style.transform = "translateY(" + ((1 - outroReveal) * 22).toFixed(2) + "px)";
     endCard.querySelectorAll(".end-name, .end-kicker, .end-subtitle, .end-rule").forEach((element) => {
-      element.style.opacity = "1";
+      element.style.opacity = outroReveal.toFixed(4);
     });
   }
+
   if (nextIndex !== lastSceneIndex) {
     renderDiagram(scene);
     lastSceneIndex = nextIndex;
@@ -327,25 +349,8 @@ const sequence = [
   ["#top-rule", { scaleX: [0, 1] }, { duration: 0.9, ease: "easeOut", at: 0.32 }],
   ["#haze-a", { x: [-34, 24, -8], y: [24, -12, 10], scale: [0.92, 1.08, 1] }, { duration: 10, ease: "linear", times: [0, 0.55, 1], at: 0 }],
   ["#haze-b", { x: [26, -24, 12], y: [-12, 18, -4], scale: [1.05, 0.94, 1.02] }, { duration: 10, ease: "linear", times: [0, 0.5, 1], at: 0 }],
-  ["#headline-one .eyebrow", { opacity: [0, 1], x: [-20, 0] }, { duration: 0.7, ease: "easeOut", at: 0.62 }],
-  ["#headline-one h1", { opacity: [1, 1], y: [18, 0], scale: [0.97, 1] }, { duration: 1.1, ease: "easeOut", at: 0 }],
-  ["#headline-one .headline-note", { opacity: [0, 1], y: [16, 0] }, { duration: 0.7, ease: "easeOut", at: 1.62 }],
-  ["#wave-section", { opacity: [0, 1], y: [34, 0] }, { duration: 0.9, ease: "easeOut", at: 1.72 }],
-  ["#wave-section .wave-caption", { opacity: [0, 1], x: [-18, 0] }, { duration: 0.6, ease: "easeOut", at: 2.02 }],
-  ["#wave-section .wave-foot", { opacity: [0, 1] }, { duration: 0.7, ease: "easeOut", at: 2.15 }],
   ["#orbit", { opacity: [0, 0.68, 0.42], scale: [0.82, 1.03, 1.1], rotate: [0, 18, 42] }, { duration: 8.2, ease: "linear", times: [0, 0.42, 1], at: 1.15 }],
   ["#orbit .orbit-arc", { opacity: [0, 1, 0.45], pathLength: [0, 1, 1] }, { duration: 4.2, ease: "easeOut", times: [0, 0.6, 1], at: 1.8 }],
-  ["#headline-one", { opacity: [1, 0] }, { duration: 0.55, ease: "easeIn", at: 3.22 }],
-  ["#headline-two .eyebrow", { opacity: [0, 1], x: [-20, 0] }, { duration: 0.6, ease: "easeOut", at: 3.55 }],
-  ["#headline-two h2", { opacity: [0, 1], y: [42, 0] }, { duration: 0.9, ease: "easeOut", at: 3.78 }],
-  ["#headline-two .headline-note", { opacity: [0, 1], y: [14, 0] }, { duration: 0.65, ease: "easeOut", at: 4.45 }],
-  ["#headline-two", { opacity: [1, 0] }, { duration: 0.55, ease: "easeIn", at: 6.28 }],
-  ["#headline-three .eyebrow", { opacity: [0, 1], x: [-18, 0] }, { duration: 0.6, ease: "easeOut", at: 6.58 }],
-  ["#headline-three h2", { opacity: [0, 1], y: [36, 0] }, { duration: 0.9, ease: "easeOut", at: 6.78 }],
-  ["#headline-three .headline-note", { opacity: [0, 1] }, { duration: 0.65, ease: "easeOut", at: 7.2 }],
-  ["#end-card", { opacity: [0, 1], y: [22, 0] }, { duration: 0.65, ease: "easeOut", at: 7.95 }],
-  ["#end-card .end-rule", { scaleX: [0, 1] }, { duration: 0.55, ease: "easeOut", at: 8.0 }],
-  ["#end-card .end-name", { opacity: [0, 1], y: [18, 0] }, { duration: 0.5, ease: "easeOut", at: 8.15 }]
 ];
 
 for (let index = 0; index < particleCount; index += 1) {
