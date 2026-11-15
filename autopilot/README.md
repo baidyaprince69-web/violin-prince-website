@@ -272,3 +272,24 @@ Artifacts are retained for 14 days. Keep the relevant successful run IDs until y
 - engine/tests/ — offline regression, model-contract, storyboard and FFmpeg render tests.
 - .github/workflows/violin-prince-autopilot.yml — staged GitHub Actions workflow.
 - .github/workflows/autopilot-checks.yml — offline code and workflow validation.
+
+### Optional Blender true-3D overlays — version 11
+
+The existing Python / Pillow / FFmpeg renderer now has an optional Blender backend for real procedural 3D geometry:
+
+- macro_3d scenes can receive a Blender-rendered vibrating-string / acoustic-wave overlay.
+- mechanism_3d scenes can receive a Blender-rendered stylised bridge / string-mechanism overlay.
+- Blender renders a transparent RGBA still with Cycles on CPU. The overlay is composited over the existing scene plate; Pillow retains captions and animated explainers, and FFmpeg retains camera motion, transitions, audio and final encoding.
+- This first integration renders one real 3D frame per eligible scene. It is not yet full frame-by-frame 3D animation, a photorealistic violin model, or a replacement for the existing FLUX scene plate.
+- The geometry is procedural and original. No external model packs, paid assets, GPU or Blender add-ons are downloaded.
+
+Blender is opt-in to protect the normal daily workflow from unexpected install time or CPU rendering cost:
+
+1. Open repository Settings → Secrets and variables → Actions → Variables.
+2. Add the repository variable BLENDER_RENDER_ENABLED with value true.
+3. The production workflow installs the Ubuntu Blender package only for full or render stages when that variable is exactly true.
+4. The render stops safely if Blender is enabled but the executable is unavailable or a scene fails validation. It does not silently claim that a 3D scene was rendered.
+
+When the variable is absent or false, the original renderer behaves as before and Blender is not installed. The standalone .github/workflows/blender-smoke.yml workflow installs Blender on a CPU runner and renders/composites a small real 3D scene so its runtime can be checked independently before enabling it for daily production.
+
+BLENDER_BIN can override the executable path. BLENDER_RENDER_TIMEOUT_SECONDS controls each scene render, bounded to 15–600 seconds. Initial renders use two CPU threads, six Cycles samples and a 540 × 960 transparent overlay, which is upscaled and composited at the existing 720 × 1280 output size.
