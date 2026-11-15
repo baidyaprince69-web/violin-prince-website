@@ -1,0 +1,41 @@
+name: Blender CPU render smoke test
+
+on:
+  pull_request:
+    paths:
+      - "autopilot/engine/blender_renderer.py"
+      - "autopilot/engine/blender_scene.py"
+      - "autopilot/engine/tests/test_blender_renderer.py"
+      - ".github/workflows/blender-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  blender-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Blender and report the runtime version
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y blender
+          blender --version
+
+      - name: Install the lightweight compositor dependency
+        run: python -m pip install --upgrade pip Pillow
+
+      - name: Render and composite a real procedural 3D scene
+        run: |
+          python autopilot/engine/blender_renderer.py \
+            --smoke-test \
+            --output-dir "$RUNNER_TEMP/violin-prince-blender-smoke"
