@@ -114,18 +114,62 @@ def add_area_light(name, location, energy, colour, size, target=(0.0, 0.0, 0.0))
     return light
 
 
+def action_fcurves(owner):
+    """Return F-curves across Blender's legacy and slotted Action APIs.
+
+    Blender 5.0 removed Action.fcurves. Newer Blender versions store curves in
+    an ActionChannelbag associated with the animated data-block's Action Slot.
+    """
+    animation = getattr(owner, "animation_data", None)
+    action = getattr(animation, "action", None) if animation else None
+    if action is None:
+        return ()
+
+    # Preserve compatibility with older Blender builds where this collection
+    # still exists. getattr avoids touching the removed property on Blender 5.
+    legacy_curves = getattr(action, "fcurves", None)
+    if legacy_curves is not None:
+        return tuple(legacy_curves)
+
+    slot = getattr(animation, "action_slot", None)
+    if slot is None:
+        return ()
+
+    # Blender 5.x exposes a supported helper for retrieving the channelbag.
+    try:
+        from bpy_extras import anim_utils
+        getter = getattr(anim_utils, "action_get_channelbag_for_slot", None)
+        if callable(getter):
+            channelbag = getter(action, slot)
+            if channelbag is not None:
+                return tuple(channelbag.fcurves)
+    except (AttributeError, ImportError, RuntimeError, TypeError):
+        pass
+
+    # Defensive fallback for Blender builds where the convenience helper is
+    # unavailable but the slotted Action data model is present.
+    curves = []
+    for layer in getattr(action, "layers", ()):
+        for strip in getattr(layer, "strips", ()):
+            try:
+                channelbag = strip.channelbag(slot)
+            except (AttributeError, RuntimeError, TypeError):
+                channelbag = None
+            if channelbag is not None:
+                curves.extend(tuple(channelbag.fcurves))
+    return tuple(curves)
+
+
 def animate_scalar(obj, data_path, frames_values, cycle=False):
     for frame, value in frames_values:
         setattr(obj, data_path, value)
         obj.keyframe_insert(data_path=data_path, frame=frame)
-    animation = obj.animation_data
-    if animation and animation.action:
-        for fcurve in animation.action.fcurves:
-            if fcurve.data_path == data_path:
-                for point in fcurve.keyframe_points:
-                    point.interpolation = "BEZIER"
-                if cycle:
-                    fcurve.modifiers.new("CYCLES")
+    for fcurve in action_fcurves(obj):
+        if fcurve.data_path == data_path:
+            for point in fcurve.keyframe_points:
+                point.interpolation = "BEZIER"
+            if cycle:
+                fcurve.modifiers.new("CYCLES")
 
 
 def animate_transform(obj, attribute, start, end, frame_start, frame_end):
@@ -535,12 +579,11 @@ def add_bow_for_imported_violin(bounds, mat_wood, mat_strings, frame_end, mat_eb
         frame = max(1, min(frame_end, int(round(1 + (frame_end - 1) * fraction))))
         rig.location = (x_shift, 0.0, z_shift)
         rig.keyframe_insert(data_path="location", frame=frame)
-    if rig.animation_data and rig.animation_data.action:
-        for curve in rig.animation_data.action.fcurves:
-            for point in curve.keyframe_points:
-                point.interpolation = "BEZIER"
-                point.handle_left_type = "AUTO"
-                point.handle_right_type = "AUTO"
+    for curve in action_fcurves(rig):
+        for point in curve.keyframe_points:
+            point.interpolation = "BEZIER"
+            point.handle_left_type = "AUTO"
+            point.handle_right_type = "AUTO"
     rig["animation"] = "One rig moves stick, horsehair, frog and tip together."
     return rig
 
