@@ -11,6 +11,7 @@ on:
       - "autopilot/engine/run.py"
       - "autopilot/engine/motion_hyperframes_renderer.py"
       - "autopilot/engine/tests/test_motion_hyperframes_renderer.py"
+      - "autopilot/engine/run_daily_plan.py"
       - "prototypes/hyperframes-motion/**"
   workflow_dispatch:
 

@@ -179,6 +179,7 @@ def render_full_track(
             "--content-json", str(context_path),
         ]),
         ("Prepare the Motion browser module", ["npm", "run", "prepare:motion"]),
+        ("Ensure the pinned HyperFrames browser", ["npx", "hyperframes", "browser", "ensure"]),
         ("Lint the HyperFrames composition", ["npm", "run", "lint"]),
         ("Validate the HyperFrames composition", ["npm", "run", "check"]),
     ]

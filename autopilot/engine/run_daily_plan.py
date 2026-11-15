@@ -29,6 +29,7 @@ from voiceover import synthesize_voiceover  # noqa: E402
 from publish_handoff import validate_publish_metadata, write_handoff_files  # noqa: E402
 from story_asset_resolver import resolve_story_asset, StoryAssetError  # noqa: E402
 from frame_by_plane_backgrounds import create_frame_by_plane_backgrounds  # noqa: E402
+from motion_hyperframes_renderer import is_motion_hyperframes_render_enabled  # noqa: E402
 
 
 def _normalise_quote(value: str) -> str:
@@ -335,6 +336,11 @@ def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list
 
 
 def run_daily_plan(plan_path: Path) -> int:
+    if is_motion_hyperframes_render_enabled():
+        raise engine.PipelineError(
+            "The ChatGPT daily-plan workflow creates a Shorts-specific handoff and uses its own short soundtrack. "
+            "Disable MOTION_HYPERFRAMES_RENDER_ENABLED for this route; use the staged full-track Render pipeline instead."
+        )
     plan_path = Path(plan_path)
     if not plan_path.is_file():
         raise engine.PipelineError(f"ChatGPT daily plan was not found: {plan_path}")
