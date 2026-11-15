@@ -21,6 +21,9 @@ def parse_args():
     raw = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", required=True)
+    parser.add_argument("--bow-model", help="Optional separately downloaded, licensed bow GLB/glTF.")
+    parser.add_argument("--strings-in-instrument", action="store_true",
+                        help="Use strings visibly integrated into the real violin mesh.")
     parser.add_argument("--report", required=True)
     parser.add_argument("--width", type=int, default=720)
     parser.add_argument("--height", type=int, default=1280)
@@ -182,7 +185,12 @@ def add_camera_motion_graphics(camera, frame_end, gold, teal, cut_frames, *, pro
     return {"progress_bar": progress, "transition_sweeps": sweeps}
 
 
-def import_and_normalise_model(model_path: Path):
+def import_and_normalise_model(
+    model_path: Path,
+    *,
+    bow_model_path: Path | None = None,
+    strings_in_instrument: bool = False,
+):
     if not model_path.is_file() or model_path.suffix.casefold() not in {".glb", ".gltf"}:
         raise RuntimeError("A real downloaded .glb/.gltf model is required.")
     before = set(bpy.context.scene.objects)
@@ -214,15 +222,28 @@ def import_and_normalise_model(model_path: Path):
         obj for obj in instrument_meshes
         if "string" in object_name_chain(obj).replace(" ", "")
     ]
+    bow_imported = []
+    if not source_bows and bow_model_path is not None:
+        separate_bow_path = Path(bow_model_path)
+        if not separate_bow_path.is_file() or separate_bow_path.suffix.casefold() not in {".glb", ".gltf"}:
+            raise RuntimeError("A separately downloaded real bow .glb/.gltf model is required.")
+        bow_before = set(bpy.context.scene.objects)
+        bow_result = bpy.ops.import_scene.gltf(filepath=str(separate_bow_path))
+        if "FINISHED" not in bow_result:
+            raise RuntimeError("Blender's glTF importer did not finish for the separate bow model.")
+        bow_imported = [obj for obj in bpy.context.scene.objects if obj not in bow_before]
+        source_bows = [obj for obj in bow_imported if obj.type == "MESH"]
+        if not source_bows:
+            raise RuntimeError("The separately downloaded bow model contains no real mesh geometry.")
     if not source_bows:
         raise RuntimeError(
-            "The selected violin model has no separately named bow mesh. "
-            "A procedural second bow is not permitted."
+            "The selected violin and bow assets contain no importable bow geometry. "
+            "A procedural bow substitute is not permitted."
         )
-    if not source_strings:
+    if not source_strings and not strings_in_instrument:
         raise RuntimeError(
-            "The selected violin model has no separately named string mesh. "
-            "Refusing to draw artificial strings over an unverified instrument."
+            "The selected violin has no separately named string mesh and the story plan "
+            "does not verify strings integrated into the downloaded instrument geometry."
         )
 
     bpy.context.view_layer.update()
@@ -272,6 +293,11 @@ def import_and_normalise_model(model_path: Path):
     root.empty_display_size = 0.15
     root["source_bow_meshes_rigged"] = len(source_bows)
     root["source_string_meshes"] = len(source_strings)
+    root["strings_embedded_in_instrument"] = bool(not source_strings and strings_in_instrument)
+    root["bow_geometry_source"] = (
+        "separate licensed imported bow GLB/glTF" if bow_imported
+        else "integrated imported bow meshes from the violin GLB"
+    )
     for obj in imported:
         if obj.parent not in imported_set:
             world = obj.matrix_world.copy()
@@ -281,7 +307,7 @@ def import_and_normalise_model(model_path: Path):
     root.matrix_world = transform
     bpy.context.view_layer.update()
 
-    # Preserve and pack the downloaded model's original PBR textures/materials.
+    # Keep imported instrument and bow textures available in the saved Blender project.
     for image in bpy.data.images:
         if image.source == "FILE" and not image.packed_file:
             try:
@@ -303,7 +329,7 @@ def import_and_normalise_model(model_path: Path):
         "max_z": max(p.z for p in transformed),
         "front_y": min(p.y for p in transformed),
     }
-    return root, instrument_meshes, imported, bounds, source_bows, source_strings
+    return root, instrument_meshes, imported + bow_imported, bounds, source_bows, source_strings
 
 
 def _principal_direction(points):
@@ -455,7 +481,11 @@ def build_scene(args):
                 "Proof mode is limited to one local segment of at most 125 frames; "
                 "a full 600-frame render is forbidden."
             )
-    root, meshes, imported, bounds, source_bows, source_strings = import_and_normalise_model(Path(args.model))
+    root, meshes, imported, bounds, source_bows, source_strings = import_and_normalise_model(
+        Path(args.model),
+        bow_model_path=Path(args.bow_model) if args.bow_model else None,
+        strings_in_instrument=bool(args.strings_in_instrument),
+    )
     body_width = bounds["max_x"] - bounds["min_x"]
     front_y = bounds["front_y"]
     frame_end = int(round(args.duration * args.fps))
@@ -746,6 +776,16 @@ def build_scene(args):
         "source_bow_meshes_rigged": len(source_bows),
         "visible_bow_mesh_count": len(source_bows),
         "source_string_meshes": source_string_count,
+        "strings_embedded_in_instrument": bool(args.strings_in_instrument and source_string_count == 0),
+        "string_representation": (
+            "integrated into the imported violin geometry"
+            if args.strings_in_instrument and source_string_count == 0
+            else "separate imported violin mesh nodes"
+        ),
+        "bow_geometry_source": (
+            "separate licensed imported bow GLB/glTF" if args.bow_model
+            else "integrated imported bow meshes from the violin GLB"
+        ),
         "animated_strings": 0,
         "resonance_rings": len(rings),
         "motion_graphics": {
