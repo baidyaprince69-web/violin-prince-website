@@ -61,12 +61,21 @@ jobs:
           root = Path("work/first-production")
           asset = json.loads((root / "asset-resolution.json").read_text(encoding="utf-8"))
           original = Path(asset["local_model_path"])
-          assert original.is_file(), "The authenticated download returned no real model file."
+          assert original.is_file(), "The authenticated download returned no real violin model file."
           assert original.suffix.lower() in {".glb", ".gltf"}
           assert asset.get("commercial_use_allowed") is True
           parts = asset.get("model_parts") or {}
-          assert parts.get("bow"), "The candidate has no imported bow mesh."
-          assert parts.get("strings"), "The candidate has no imported string mesh."
+          assert parts.get("strings") or asset.get("strings_in_combined_mesh"), (
+              "No verified violin string geometry was identified."
+          )
+
+          bow = asset.get("bow_model")
+          assert bow, "The actual separate bow model was not downloaded."
+          bow_original = Path(bow["local_model_path"])
+          assert bow_original.is_file(), "The authenticated download returned no real bow model file."
+          assert bow_original.suffix.lower() in {".glb", ".gltf"}
+          assert bow.get("commercial_use_allowed") is True
+          assert bow.get("is_downloadable") is True
 
           selected_dir = root / "assets" / "selected-model"
           shutil.copytree(original.parent, selected_dir, dirs_exist_ok=True)
@@ -75,16 +84,29 @@ jobs:
           if selected.suffix.lower() == ".glb":
               assert selected.read_bytes()[:4] == b"glTF"
 
+          bow_selected_dir = selected_dir / "bow"
+          shutil.copytree(bow_original.parent, bow_selected_dir, dirs_exist_ok=True)
+          bow_selected = bow_selected_dir / bow_original.name
+          assert bow_selected.is_file() and bow_selected.stat().st_size >= 4096
+          if bow_selected.suffix.lower() == ".glb":
+              assert bow_selected.read_bytes()[:4] == b"glTF"
+
           relative = "assets/selected-model/" + selected.name
+          bow_relative = "assets/selected-model/bow/" + bow_selected.name
           asset["local_model_path"] = relative
           asset["model_relative_path"] = relative
           asset["sha256"] = hashlib.sha256(selected.read_bytes()).hexdigest()
+          bow["local_model_path"] = bow_relative
+          bow["model_relative_path"] = bow_relative
+          bow["sha256"] = hashlib.sha256(bow_selected.read_bytes()).hexdigest()
+          asset["bow_model_relative_path"] = bow_relative
           asset["asset_selection_policy"] = (
-              "story-aware discovery; commercial-use licence gate; genuine bow and string "
-              "mesh nodes; official Sketchfab model download; no reference-image fallback"
+              "story-aware selection; CC0/CC-BY licensing; genuine downloaded violin plus "
+              "genuine separately downloaded bow meshes; one Blender bow rig; no placeholder model"
           )
           asset["manifest_path"] = "assets/asset-provenance.json"
           (root / "assets" / "model-path.txt").write_text(relative + "\n", encoding="utf-8")
+          (root / "assets" / "bow-model-path.txt").write_text(bow_relative + "\n", encoding="utf-8")
           (root / "assets" / "asset-provenance.json").write_text(
               json.dumps(asset, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
           )
@@ -96,9 +118,14 @@ jobs:
               "model": asset.get("model_name"),
               "creator": asset.get("creator"),
               "license": asset.get("license_label"),
-              "bow_mesh_nodes": len(parts["bow"]),
-              "string_mesh_nodes": len(parts["strings"]),
+              "bow_model": bow.get("model_name"),
+              "bow_creator": bow.get("creator"),
+              "bow_license": bow.get("license_label"),
+              "bow_mesh_nodes": len((bow.get("model_parts") or {}).get("mesh_nodes", [])),
+              "string_mesh_nodes": len(parts.get("strings", [])),
+              "strings_integrated_into_violin_geometry": asset.get("strings_in_combined_mesh") is True,
               "model_file": relative,
+              "bow_model_file": bow_relative,
               "sha256": asset["sha256"],
           }, ensure_ascii=False, indent=2))
           PY
@@ -224,8 +251,11 @@ jobs:
           mkdir -p work/proof-frames work/proof-reports
           MODEL_RELATIVE="$(cat work/first-production/assets/model-path.txt)"
           MODEL_PATH="work/first-production/$MODEL_RELATIVE"
+          BOW_MODEL_RELATIVE="$(cat work/first-production/assets/bow-model-path.txt)"
+          BOW_MODEL_PATH="work/first-production/$BOW_MODEL_RELATIVE"
           test -s "$MODEL_PATH"
-          blender --background --factory-startup             --python autopilot/engine/first_production_blender.py             --               --model "$MODEL_PATH"               --report work/proof-reports/proof-shot.json               --width 1080 --height 1920 --fps 25 --duration 4.6               --render-samples 64               --sample-index 0 --sample-count 115 --total-samples 115               --frames-dir work/proof-frames               --project-path work/Violin-Prince-Proof.blend               --proof-shot
+          test -s "$BOW_MODEL_PATH"
+          blender --background --factory-startup             --python autopilot/engine/first_production_blender.py             --               --model "$MODEL_PATH"               --bow-model "$BOW_MODEL_PATH"               --strings-in-instrument               --report work/proof-reports/proof-shot.json               --width 1080 --height 1920 --fps 25 --duration 4.6               --render-samples 64               --sample-index 0 --sample-count 115 --total-samples 115               --frames-dir work/proof-frames               --project-path work/Violin-Prince-Proof.blend               --proof-shot
           python - <<'PY'
           import json
           from pathlib import Path
@@ -239,7 +269,11 @@ jobs:
           assert report["bow_rig_count"] == 1
           assert report["source_bow_meshes_rigged"] >= 1
           assert report["visible_bow_mesh_count"] == report["source_bow_meshes_rigged"]
-          assert report["source_string_meshes"] >= 1
+          assert (
+              report["source_string_meshes"] >= 1
+              or report["strings_embedded_in_instrument"] is True
+          )
+          assert report["bow_geometry_source"] == "separate licensed imported bow GLB/glTF"
           assert report["motion_graphics"]["progress_bar"] is True
           frames = sorted(Path("work/proof-frames").glob("frame_*.png"))
           assert len(frames) == 115, f"Expected 115 proof frames, found {len(frames)}"
@@ -296,6 +330,10 @@ jobs:
               "model_name": asset.get("model_name"),
               "model_creator": asset.get("creator"),
               "model_license": asset.get("license_label"),
+              "strings_integrated_into_violin_geometry": asset.get("strings_in_combined_mesh") is True,
+              "bow_model_name": (asset.get("bow_model") or {}).get("model_name"),
+              "bow_creator": (asset.get("bow_model") or {}).get("creator"),
+              "bow_license": (asset.get("bow_model") or {}).get("license_label"),
               "narration_seconds": audio["narration"]["duration_seconds"],
               "music_seconds": audio["music"]["duration_seconds"],
               "music_and_voice_included_from_video_start": True,
@@ -332,8 +370,8 @@ jobs:
             echo "## Blender proof shot complete — full production still locked"
             echo
             echo "- Proof: 4.6 seconds, 115 Blender frames at native 1080×1920 / 25 FPS"
-            echo "- Model: downloaded from the story-aware model resolver, with real bow and string meshes"
-            echo "- Rig: one animated bow control rig"
+            echo "- Model: downloaded violin geometry with visible integrated strings, plus a separate licensed bow mesh"
+            echo "- Rig: one animated control rig over the imported bow mesh components"
             echo "- Layout: Violin Prince brand, story title, progress motion graphic and lower karaoke caption band"
             echo "- Audio: narration and violin music begin with the picture; the proof contains the opening 4.6 seconds"
             echo "- Full 600-frame render: NOT RUN"
