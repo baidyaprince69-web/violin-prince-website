@@ -8,31 +8,18 @@ on:
       - ".autopilot/prepare-request.json"
   workflow_dispatch:
     inputs:
-      stage:
-        description: "Run the complete Prepare → Visuals → Render pipeline, or choose one stage for recovery."
-        required: true
-        type: choice
-        default: full
-        options:
-          - full
-          - prepare
-          - visuals
-          - render
-      source_run_id:
-        description: "Optional for Prepare/Full research recovery; required for Visuals/Render to identify the previous stage run."
+      plan_path:
+        description: "ChatGPT-prepared production plan inside .autopilot/"
         required: false
         type: string
-      visual_feedback:
-        description: "Optional visual changes; used only when stage is Visuals."
-        required: false
-        type: string
+        default: ".autopilot/daily-production-plan.json"
 
 permissions:
   contents: write
   actions: read
 
 concurrency:
-  group: violin-prince-autopilot-staged
+  group: violin-prince-autopilot
   cancel-in-progress: false
 
 jobs:
@@ -41,103 +28,48 @@ jobs:
     timeout-minutes: 25
     env:
       RUN_ID: ${{ github.run_id }}
-      RUN_MODE: manual
-      PIPELINE_STAGE: ${{ inputs.stage || 'full' }}
-      VISUAL_FEEDBACK: ${{ inputs.visual_feedback }}
-      AUTOPILOT_API_URL: ${{ secrets.AUTOPILOT_API_URL }}
-      AUTOPILOT_JOB_TOKEN: ${{ secrets.AUTOPILOT_JOB_TOKEN }}
-      CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
-      CF_AI_TOKEN: ${{ secrets.CF_AI_TOKEN }}
-      YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
-      YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
-      YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
-      YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-      YOUTUBE_STATE_ENCRYPTION_KEY: ${{ secrets.YOUTUBE_STATE_ENCRYPTION_KEY }}
-      SEO_LEARNING_REPORT_PATH: work/seo-learning-data/seo-learning/latest.enc.json
       PUBLISH_ENABLED: "false"
     steps:
-      - name: Validate stage inputs
-        if: github.event_name != 'push'
-        shell: bash
-        env:
-          SELECTED_STAGE: ${{ inputs.stage || 'full' }}
-          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
-          AUTOPILOT_API_URL: ${{ secrets.AUTOPILOT_API_URL }}
-          AUTOPILOT_JOB_TOKEN: ${{ secrets.AUTOPILOT_JOB_TOKEN }}
-        run: |
-          if [[ -n "$AUTOPILOT_API_URL" && -z "$AUTOPILOT_JOB_TOKEN" ]]; then
-            echo "::error::AUTOPILOT_API_URL is set but AUTOPILOT_JOB_TOKEN is missing."
-            exit 1
-          fi
-          if [[ -n "$AUTOPILOT_API_URL" && ! "$AUTOPILOT_API_URL" =~ ^https:// ]]; then
-            echo "::error::AUTOPILOT_API_URL must use HTTPS."
-            exit 1
-          fi
-          if [[ "$SELECTED_STAGE" != "full" && "$SELECTED_STAGE" != "prepare" && "$SELECTED_STAGE" != "visuals" && "$SELECTED_STAGE" != "render" ]]; then
-            echo "::error::Unknown production stage."
-            exit 1
-          fi
-          if [[ -n "$SOURCE_RUN_ID" && ! "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]]; then
-            echo "::error::source_run_id must contain only the numeric GitHub Actions run ID."
-            exit 1
-          fi
-          if [[ "$SELECTED_STAGE" == "visuals" || "$SELECTED_STAGE" == "render" ]]; then
-            if [[ -z "$SOURCE_RUN_ID" ]]; then
-              echo "::error::Enter the earlier workflow Run ID in source_run_id."
-              exit 1
-            fi
-          fi
-
       - name: Check out the project
         uses: actions/checkout@v4
 
-      - name: Read ChatGPT daily production request
+      - name: Resolve and validate production plan
         id: daily_request
-        if: github.event_name == 'push'
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_PLAN_PATH: ${{ inputs.plan_path }}
         run: |
           python - <<'PY'
           import json
           import os
           from pathlib import Path
 
-          request_path = Path(".autopilot/prepare-request.json")
-          if not request_path.is_file():
-              raise SystemExit("The ChatGPT production trigger file is missing.")
-          request = json.loads(request_path.read_text(encoding="utf-8"))
-          if request.get("mode") != "chatgpt_daily_production":
-              raise SystemExit("Push-triggered production must use mode=chatgpt_daily_production.")
-          plan_path = str(request.get("plan_path") or ".autopilot/daily-production-plan.json")
-          if not plan_path.startswith(".autopilot/") or ".." in Path(plan_path).parts:
-              raise SystemExit("The daily plan must be inside the .autopilot directory.")
-          if not Path(plan_path).is_file():
-              raise SystemExit("The ChatGPT daily production plan does not exist.")
+          if os.environ["EVENT_NAME"] == "push":
+              request_path = Path(".autopilot/prepare-request.json")
+              if not request_path.is_file():
+                  raise SystemExit("The ChatGPT production request is missing.")
+              request = json.loads(request_path.read_text(encoding="utf-8"))
+              if request.get("mode") != "chatgpt_daily_production":
+                  raise SystemExit("Push-triggered production must use chatgpt_daily_production mode.")
+              plan_path = str(request.get("plan_path") or ".autopilot/daily-production-plan.json")
+          else:
+              plan_path = str(os.environ.get("INPUT_PLAN_PATH") or ".autopilot/daily-production-plan.json")
+
+          parts = Path(plan_path).parts
+          if not plan_path.startswith(".autopilot/") or ".." in parts:
+              raise SystemExit("The plan must be inside the .autopilot directory.")
+          plan = Path(plan_path)
+          if not plan.is_file():
+              raise SystemExit("The production plan does not exist: " + plan_path)
+          with plan.open("r", encoding="utf-8") as source:
+              payload = json.load(source)
+          if not isinstance(payload, dict):
+              raise SystemExit("The production plan must be a JSON object.")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write("plan_path=" + plan_path + "\n")
-          print("Validated ChatGPT daily production request: " + plan_path)
+          print("Validated GitHub-native production plan: " + plan_path)
           PY
-
-      - name: Check required Cloudflare AI secrets for photorealistic image generation
-        if: env.PIPELINE_STAGE != 'render'
-        shell: bash
-        run: |
-          missing=0
-          for name in CF_ACCOUNT_ID CF_AI_TOKEN; do
-            if [ -z "${!name}" ]; then
-              echo "::error::Missing required repository secret: $name"
-              missing=1
-            fi
-          done
-          if [ "$missing" -ne 0 ]; then exit 1; fi
-
-      - name: Restore the latest encrypted SEO learning snapshot
-        if: env.PIPELINE_STAGE == 'prepare'
-        uses: actions/checkout@v4
-        continue-on-error: true
-        with:
-          ref: seo-learning-data
-          path: work/seo-learning-data
-          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -146,110 +78,34 @@ jobs:
           cache: pip
           cache-dependency-path: autopilot/engine/requirements.txt
 
-      - name: Reuse research from an earlier failed run when requested
-        if: (env.PIPELINE_STAGE == 'prepare' || env.PIPELINE_STAGE == 'full') && (inputs.source_run_id != '' || steps.prepare_request.outputs.source_run_id != '')
-        uses: actions/download-artifact@v4
-        with:
-          name: violin-prince-run-${{ inputs.source_run_id || steps.prepare_request.outputs.source_run_id }}
-          path: work/reuse
-          run-id: ${{ inputs.source_run_id || steps.prepare_request.outputs.source_run_id }}
-          github-token: ${{ github.token }}
-          repository: ${{ github.repository }}
-
-
       - name: Cache Kokoro model weights
-        if: env.PIPELINE_STAGE == 'prepare' || env.PIPELINE_STAGE == 'full'
         uses: actions/cache@v4
         with:
           path: ~/.cache/huggingface
           key: kokoro-82m-v1-cache
 
       - name: Cache CC0 violin sample zones
-        if: env.PIPELINE_STAGE == 'prepare' || env.PIPELINE_STAGE == 'full'
         uses: actions/cache@v4
         with:
           path: ~/.cache/violin-prince/cc0-solo-violin-v1
           key: violin-prince-cc0-solo-violin-v1
 
-      - name: Restore production package, including any completed scene images
-        if: env.PIPELINE_STAGE == 'visuals' || env.PIPELINE_STAGE == 'render'
-        uses: actions/download-artifact@v4
-        with:
-          # The diagnostic artifact retains the complete work/package directory.
-          # This lets a later Visuals run resume images from a partial prior attempt.
-          name: violin-prince-run-${{ inputs.source_run_id }}
-          path: work
-          run-id: ${{ inputs.source_run_id }}
-          github-token: ${{ github.token }}
-          repository: ${{ github.repository }}
-
-      - name: Install preparation dependencies
-        if: env.PIPELINE_STAGE == 'prepare' || env.PIPELINE_STAGE == 'full'
-        run: |
-          python -m pip install --upgrade pip
-          pip install --index-url https://download.pytorch.org/whl/cpu torch
-          pip install -r autopilot/engine/requirements.txt
-
-      - name: Install visual generation dependencies
-        if: env.PIPELINE_STAGE == 'visuals' || env.PIPELINE_STAGE == 'full'
-        run: |
-          python -m pip install --upgrade pip
-          pip install "requests>=2.32,<3" "Pillow>=10.4,<12" "fonttools[woff]>=4.50,<5"
-
       - name: Install rendering dependencies
-        if: env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full'
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-dejavu-core
           python -m pip install --upgrade pip
-          pip install "requests>=2.32,<3" "Pillow>=10.4,<12"
+          pip install --index-url https://download.pytorch.org/whl/cpu torch
+          pip install -r autopilot/engine/requirements.txt
 
-      - name: Prepare research, story, narration and soundtrack
-        if: env.PIPELINE_STAGE == 'prepare'
-        run: python autopilot/engine/run.py --stage prepare
-
-      - name: Upload prepared story package
-        if: success() && (env.PIPELINE_STAGE == 'prepare')
-        uses: actions/upload-artifact@v4
-        with:
-          name: prepared-package
-          path: work/package/
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Generate visual scenes and storyboard
-        if: env.PIPELINE_STAGE == 'visuals'
-        run: python autopilot/engine/run.py --stage visuals
-
-      - name: Upload visual review package
-        if: success() && (env.PIPELINE_STAGE == 'visuals')
-        uses: actions/upload-artifact@v4
-        with:
-          name: visual-package
-          path: work/package/
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Render final MP4 from saved package (no AI calls)
-        if: env.PIPELINE_STAGE == 'render'
-        run: python autopilot/engine/run.py --stage render
-
-      - name: Run ChatGPT-prepared daily plan with photorealistic scene images
-        if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path != ''
+      - name: Produce the Short from the prepared plan
         env:
           RUN_ID: ${{ github.run_id }}
-          AUTOPILOT_API_URL: ""
-          AUTOPILOT_JOB_TOKEN: ""
           PUBLISH_ENABLED: "false"
         run: python autopilot/engine/run_daily_plan.py --plan "${{ steps.daily_request.outputs.plan_path }}"
 
-      - name: Run complete Prepare → Visuals → Render sequence
-        if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path == ''
-        run: python autopilot/engine/run.py --stage full
-
-      - name: Publish finished MP4 and publisher handoff as release assets
-        id: publish_asset
-        if: success() && env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path != ''
+      - name: Create release with video and publisher handoff
+        if: success()
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_RUN_ID: ${{ github.run_id }}
@@ -264,13 +120,12 @@ jobs:
           from pathlib import Path
 
           output = Path("work/output")
-          metadata = json.loads((output / "metadata.json").read_text(encoding="utf-8"))
           plan = json.loads(Path("work/package/creative_plan.json").read_text(encoding="utf-8"))
           title = str(plan.get("title") or "Violin Prince")[:90]
           notes = [
-              "Automatically rendered by the Violin Prince daily production engine.",
+              "Automatically rendered by the GitHub-native Violin Prince production engine.",
               "",
-              "This release contains the finished vertical MP4 for the connected publishing workflow.",
+              "This release contains the finished vertical MP4 and publisher handoff files.",
               "",
               "Research sources:",
           ]
@@ -282,9 +137,13 @@ jobs:
               handle.write("release_title=" + title.replace("\n", " ") + "\n")
           PY
           TAG="violin-prince-short-${RELEASE_RUN_ID}"
-          gh release create "$TAG" work/output/violin-prince-short.mp4 \
-            --title "Violin Prince — Daily Short ${RELEASE_RUN_ID}" \
-            --notes-file work/output/release-notes.md
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" work/output/violin-prince-short.mp4 --clobber
+          else
+            gh release create "$TAG" work/output/violin-prince-short.mp4 \
+              --title "Violin Prince — Daily Short ${RELEASE_RUN_ID}" \
+              --notes-file work/output/release-notes.md
+          fi
           python - <<'PY'
           import json
           import os
@@ -294,7 +153,7 @@ jobs:
           manifest_path = output / "publish-manifest.json"
           provenance_path = output / "asset-provenance.json"
           if not manifest_path.is_file() or not provenance_path.is_file():
-              raise SystemExit("Publisher handoff files are missing; refusing to publish an incomplete release.")
+              raise SystemExit("Publisher handoff files are missing; refusing to create an incomplete release.")
           manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
           manifest["run_id"] = os.environ["RELEASE_RUN_ID"]
           manifest["public_video_url"] = os.environ["ASSET_URL"]
@@ -308,19 +167,19 @@ jobs:
           gh release upload "$TAG" work/output/publish-manifest.json work/output/asset-provenance.json --clobber
 
       - name: Upload finished video
-        if: success() && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: cloud-video-preview-${{ github.run_id }}
+          name: violin-prince-short-${{ github.run_id }}
           path: work/output/violin-prince-short.mp4
           if-no-files-found: error
           retention-days: 14
 
-      - name: Preserve stage diagnostics
+      - name: Preserve production diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: violin-prince-run-${{ github.run_id }}
+          name: violin-prince-diagnostics-${{ github.run_id }}
           path: |
             work/package/
             work/output/
@@ -331,6 +190,5 @@ jobs:
             work/story_research.json
             work/creative_plan.json
             work/creative_plan_debug.json
-            work/analytics.json
           if-no-files-found: ignore
           retention-days: 14

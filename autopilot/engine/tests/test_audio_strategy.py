@@ -30,7 +30,7 @@ class AudioStrategyTests(unittest.TestCase):
             folder = Path(folder)
             recording = folder / "violin-performance.wav"
             self._write_pcm_wav(recording, 24)
-            with patch.object(pipeline, "API", ""), patch.dict(
+            with patch.dict(
                 os.environ, {"VIOLIN_RECORDING_PATH": str(recording)}
             ):
                 metadata, audio = pipeline.get_audio()
@@ -42,7 +42,7 @@ class AudioStrategyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             recording = Path(folder) / "short.wav"
             self._write_pcm_wav(recording, 6)
-            with patch.object(pipeline, "API", ""), patch.dict(
+            with patch.dict(
                 os.environ, {"VIOLIN_RECORDING_PATH": str(recording)}
             ):
                 with self.assertRaisesRegex(pipeline.PipelineError, "at least 24 seconds"):
@@ -54,7 +54,7 @@ class AudioStrategyTests(unittest.TestCase):
             original_work = pipeline.WORK
             pipeline.WORK = Path(folder) / "work"
             try:
-                with patch.object(pipeline, "API", ""), patch.object(
+                with patch.object(
                     violin_sampler, "create_sampled_violin_bed",
                     side_effect=RuntimeError("offline test: sample pack unavailable")
                 ), patch.dict(os.environ, {"VIOLIN_RECORDING_PATH": str(missing)}):

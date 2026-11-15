@@ -80,5 +80,5 @@ jobs:
             echo "- Stored data: AES-256-GCM encrypted SEO signals only"
             echo "- Plaintext channel analytics committed: no"
             echo "- Video uploads or publication: not attempted"
-            echo "- Cloudflare dependency: none for this workflow"
+            echo "- External visual-generation dependency: none for this workflow"
           } >> "$GITHUB_STEP_SUMMARY"
