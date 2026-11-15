@@ -1,6 +1,6 @@
 # Violin Prince — Motion + HyperFrames prototype
 
-A variable-duration vertical motion-graphics renderer. The supplied music file determines the exported video length; the ten-second animation is only the repeating visual motif, not the MP4 limit.
+A variable-duration vertical motion-graphics renderer. The supplied music file determines the exported video length; the authored Motion sequence is mapped once across the complete soundtrack and is not repeated as a ten-second loop.
 
 ## What this tests
 
@@ -8,14 +8,14 @@ A variable-duration vertical motion-graphics renderer. The supplied music file d
 - HyperFrames for frame-by-frame browser capture, source-audio playback and MP4 encoding.
 - 1080 × 1920 at 30 fps.
 - Full-track audio/video duration matching.
-- A cloud-render job using a 37.5-second fixture to prove the output exceeds ten seconds.
+- A cloud-render job using a 37.5-second fixture to prove the output exceeds ten seconds and the visual timeline advances between early and late checkpoints.
 - No Blender, AI video service, external media downloads or publishing credentials.
 
 ## Full-track duration
 
 The preparation step probes the supplied audio file with FFprobe, copies it to the local generated asset folder, and writes its exact duration into the HyperFrames composition. The same source is attached as a timed audio clip. HyperFrames uses the complete audio file when no shorter clip duration is set.
 
-The current 10-second typography/wave/orbit motif repeats across the music bed so the visual composition continues for the entire track. The progress line and duration label use the full track duration. The music is not cut off at ten seconds. This is the first full-track foundation; editorially varied story chapters, lyric/caption synchronization and optional real 3D violin shots are later visual layers, not duration restrictions.
+The authored ten-second Motion sequence is scaled to the exact audio duration and played once. HyperFrames seeks directly across that full timeline, so the same ten-second motif is not wrapped around the soundtrack. The progress line and duration label use the full track duration. This is an initial continuous motion-graphics timeline; richer chapter-specific visuals, lyric/caption synchronization and optional real 3D violin shots remain later visual upgrades.
 
 Supported input extensions: MP3, WAV, M4A, AAC, FLAC and OGG. Track length is limited to 20 minutes in this prototype to keep cloud render jobs bounded.
 
@@ -48,7 +48,7 @@ GitHub Actions generates a 37.5-second audio fixture, builds the composition fro
 
 The regular Autopilot renderer remains the default. Set the repository Actions variable **MOTION_HYPERFRAMES_RENDER_ENABLED=true** to select this full-track 2D/2.5D route for a Render or Full stage. The variable defaults to **false**; Node.js 22 and Motion/HyperFrames dependencies are installed only when this route is enabled.
 
-The selected uploaded/creator violin recording is passed from Autopilot's existing Render-stage audio selection into the composition. The composition also receives the already-approved plan title, hook, topic and up to three scene captions. The existing Prepare, Visuals and editorial approval stages still run. The full-track route requires real uploaded/creator audio, refuses generated fallback audio, and is limited to ten minutes in this initial integration. It is intended for the regular staged Render pipeline (or its standard Full run). The separate ChatGPT daily-plan route is deliberately excluded because it creates a Shorts-specific publisher handoff with a generated short soundtrack. The Motion route is mutually exclusive with **BLENDER_RENDER_ENABLED** for now; select Blender for the existing 3D scene route. Full-track output is blocked whenever **PUBLISH_ENABLED=true**, because the current publisher is designed for Shorts rather than full-length music videos. The bridge ensures the pinned HyperFrames Chrome browser before validation and rendering.
+The repository's existing CC0 sampled-violin generator (**autopilot/engine/violin_sampler.py**) creates the music source for this route. Its phrase arrangement can be rendered for a configurable duration (180 seconds by default, maximum ten minutes); no creator recording or external media-storage service is required. The generated track is passed into the Motion composition. The composition also receives the approved plan title, hook, topic and up to three scene captions. The Motion route is selected by default for manual staged Full/Render runs, skips legacy still-image generation, and does not invoke the remote asset API, object storage or publisher. The separate scheduled ChatGPT daily-plan route remains on its existing Blender-based Shorts/explainer path until it is migrated separately. Motion and Blender are mutually exclusive; Blender remains an optional 3D route. Publishing is blocked whenever **PUBLISH_ENABLED=true**. The bridge ensures the pinned HyperFrames Chrome browser before validation and rendering.
 
 The renderer writes into the normal Autopilot output, storage and reporting path. Its feature flag remains off by default, so ordinary production runs are unchanged.
 
@@ -62,7 +62,7 @@ The 2D route uses HTML/CSS/SVG and Motion in Chromium, then HyperFrames/FFmpeg f
 
 ## Motion module and deterministic rendering
 
-The HTML import map points to the pinned Motion ESM package and local browser dependencies under \`node_modules\`; the Motion implementation is not bundled into HyperFrames' scanned script. The timeline is paused and exposes a seek adapter to HyperFrames. The adapter maps full-track time onto the repeating visual cycle while keeping progress tied to the complete audio duration.
+The HTML import map points to the pinned Motion ESM package and local browser dependencies under \`node_modules\`; the Motion implementation is not bundled into HyperFrames' scanned script. The timeline is paused and exposes a seek adapter to HyperFrames. The adapter maps full-track time directly onto the once-through visual sequence while keeping progress tied to the complete audio duration.
 
 ## Safety and scope
 
