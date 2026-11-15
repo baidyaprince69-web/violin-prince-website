@@ -63,6 +63,36 @@ class BlenderRendererTests(unittest.TestCase):
                     {"visual_mode": "macro_3d"}, "unused.mp4", enabled=True
                 )
 
+    def test_performance_scene_requires_a_real_imported_model_file(self):
+        with patch.dict(os.environ, {}, clear=True), patch.object(
+            blender_renderer, "_find_blender"
+        ) as find_blender:
+            with self.assertRaisesRegex(
+                blender_renderer.BlenderRenderError, "verified downloaded"
+            ):
+                blender_renderer.render_scene_video(
+                    {"visual_mode": "cover_performance"},
+                    "unused.mp4",
+                    enabled=True,
+                )
+            find_blender.assert_not_called()
+
+    def test_performance_scene_rejects_non_gltf_asset_paths(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = Path(tmp) / "not-a-model.png"
+            image.write_bytes(b"not a model")
+            with patch.dict(
+                os.environ, {"BLENDER_VIOLIN_MODEL_PATH": str(image)}, clear=True
+            ):
+                with self.assertRaisesRegex(
+                    blender_renderer.BlenderRenderError, "must be a .gltf or .glb"
+                ):
+                    blender_renderer.render_scene_video(
+                        {"visual_mode": "cover_performance"},
+                        "unused.mp4",
+                        enabled=True,
+                    )
+
 
 if __name__ == "__main__":
     unittest.main()
