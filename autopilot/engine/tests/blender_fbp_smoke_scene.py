@@ -61,6 +61,7 @@ def main() -> None:
 
     config = json.loads(Path(args.config).read_text(encoding="utf-8"))
     config["output"] = args.output
+    config["smoke_still"] = True
     if tuple(bpy.app.version[:3]) != (5, 2, 4):
         raise RuntimeError("The smoke test requires Blender 5.2.4; found " + str(bpy.app.version_string))
 
@@ -69,7 +70,7 @@ def main() -> None:
     if not isinstance(report, dict) or int(report.get("layer_count", 0)) != 3:
         raise RuntimeError("The scene did not build and report all three native Frame By Plane layers.")
     print("FRAME_BY_PLANE_REPORT=" + json.dumps(report, ensure_ascii=False), flush=True)
-    print("BLENDER_FULL_FRAME_3D_RENDERED=" + str(Path(args.output).resolve()), flush=True)
+    print("BLENDER_FBP_SMOKE_STILL=" + str(Path(args.output).resolve()), flush=True)
 
 
 if __name__ == "__main__":
