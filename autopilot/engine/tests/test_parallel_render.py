@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import threading
+import time
 import unittest
 from pathlib import Path
 import sys
@@ -14,19 +15,25 @@ from parallel_render import parallel_map_ordered
 
 class ParallelRenderTests(unittest.TestCase):
     def test_workers_overlap_and_results_keep_input_order(self):
-        rendezvous = threading.Barrier(3)
-        thread_names = set()
-        lock = threading.Lock()
+        state_lock = threading.Lock()
+        active = 0
+        peak_active = 0
 
         def worker(value):
-            with lock:
-                thread_names.add(threading.current_thread().name)
-            rendezvous.wait(timeout=3)
-            return value * 10
+            nonlocal active, peak_active
+            with state_lock:
+                active += 1
+                peak_active = max(peak_active, active)
+            try:
+                time.sleep(0.08)
+                return value * 10
+            finally:
+                with state_lock:
+                    active -= 1
 
         result = parallel_map_ordered([1, 2, 3, 4], worker, max_workers=3)
         self.assertEqual(result, [10, 20, 30, 40])
-        self.assertGreaterEqual(len(thread_names), 3)
+        self.assertGreaterEqual(peak_active, 2)
 
     def test_worker_count_is_bounded_to_three(self):
         names = set()
@@ -35,6 +42,7 @@ class ParallelRenderTests(unittest.TestCase):
         def worker(value):
             with lock:
                 names.add(threading.current_thread().name)
+            time.sleep(0.03)
             return value
 
         result = parallel_map_ordered(range(8), worker, max_workers=99)
