@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 
 def parse_arguments():
@@ -345,6 +345,142 @@ def add_melody_path(mat_gold, mat_teal, frame_end):
     add_curve("Three-dimensional melody contour", points, mat_teal, bevel=0.018)
 
 
+
+def import_gltf_asset(filepath):
+    """Import and normalize a downloaded Sketchfab glTF/GLB violin asset."""
+    path = Path(filepath).expanduser().resolve()
+    if not path.is_file() or path.suffix.casefold() not in {".gltf", ".glb"}:
+        raise ValueError("The approved violin asset path must point to an existing .gltf or .glb file.")
+    importer = getattr(bpy.ops.import_scene, "gltf", None)
+    if importer is None:
+        raise RuntimeError("This Blender installation does not provide its glTF importer.")
+
+    before = set(bpy.context.scene.objects)
+    result = importer(filepath=str(path))
+    if "FINISHED" not in result:
+        raise RuntimeError("Blender's glTF importer did not finish successfully.")
+    imported = [obj for obj in bpy.context.scene.objects if obj not in before]
+    meshes = [obj for obj in imported if obj.type == "MESH"]
+    if not meshes:
+        raise RuntimeError("The downloaded asset contains no mesh geometry.")
+
+    bpy.context.view_layer.update()
+    corners = [
+        obj.matrix_world @ Vector(corner)
+        for obj in meshes
+        for corner in obj.bound_box
+    ]
+    minimum = Vector((
+        min(point.x for point in corners),
+        min(point.y for point in corners),
+        min(point.z for point in corners),
+    ))
+    maximum = Vector((
+        max(point.x for point in corners),
+        max(point.y for point in corners),
+        max(point.z for point in corners),
+    ))
+    center = (minimum + maximum) * 0.5
+    dimensions = maximum - minimum
+    dimension_values = [float(dimensions.x), float(dimensions.y), float(dimensions.z)]
+    length_axis = max(range(3), key=lambda axis: dimension_values[axis])
+    depth_axis = min(range(3), key=lambda axis: dimension_values[axis])
+    width_axis = next(axis for axis in range(3) if axis not in {length_axis, depth_axis})
+    if dimension_values[length_axis] <= 1e-6 or dimension_values[width_axis] <= 1e-6:
+        raise RuntimeError("The imported model has invalid or degenerate dimensions.")
+
+    # Re-orient the longest instrument axis vertically (Z), the thinnest axis
+    # into depth (Y), and the remaining axis across the body (X). Keep a proper
+    # right-handed transform; the camera can then be placed consistently.
+    permutation = [width_axis, depth_axis, length_axis]
+    inversions = sum(
+        1 for i in range(3) for j in range(i + 1, 3)
+        if permutation[i] > permutation[j]
+    )
+    depth_sign = -1.0 if inversions % 2 else 1.0
+    scale = 4.0 / dimension_values[length_axis]
+    transform = Matrix.Identity(4)
+    for row in range(3):
+        for column in range(3):
+            transform[row][column] = 0.0
+    transform[0][width_axis] = scale
+    transform[1][depth_axis] = depth_sign * scale
+    transform[2][length_axis] = scale
+    transform[0][3] = -center[width_axis] * scale
+    transform[1][3] = -center[depth_axis] * depth_sign * scale
+    transform[2][3] = -center[length_axis] * scale
+
+    root = bpy.data.objects.new("Imported Sketchfab violin asset root", None)
+    bpy.context.collection.objects.link(root)
+    root.empty_display_type = "PLAIN_AXES"
+    root.empty_display_size = 0.18
+
+    imported_set = set(imported)
+    top_level = [obj for obj in imported if obj.parent not in imported_set]
+    for obj in top_level:
+        world_matrix = obj.matrix_world.copy()
+        obj.parent = root
+        obj.matrix_parent_inverse = Matrix.Identity(4)
+        obj.matrix_basis = world_matrix
+    root.matrix_world = transform
+    root["source_asset"] = str(path)
+    root["normalization"] = "Longest axis vertical, thinnest axis front-to-back"
+    bpy.context.view_layer.update()
+
+    transformed_corners = [
+        obj.matrix_world @ Vector(corner)
+        for obj in meshes
+        for corner in obj.bound_box
+    ]
+    front_y = min(point.y for point in transformed_corners)
+    width = max(point.x for point in transformed_corners) - min(point.x for point in transformed_corners)
+    depth = max(point.y for point in transformed_corners) - front_y
+    bounds = {
+        "front_y": float(front_y),
+        "width": float(width),
+        "depth": float(depth),
+    }
+    return root, bounds
+
+
+def add_bow_for_imported_violin(bounds, mat_gold, mat_strings, frame_end):
+    """Add a separate animated bow aligned to the imported violin's strings."""
+    front_y = float(bounds["front_y"]) - 0.085
+    half_span = max(1.05, float(bounds["width"]) * 0.68)
+    bow = add_curve(
+        "Animated bow over imported violin",
+        [
+            (-half_span, front_y - 0.08, 0.05),
+            (-half_span * 0.5, front_y - 0.10, 0.025),
+            (0.0, front_y - 0.11, 0.0),
+            (half_span * 0.5, front_y - 0.10, -0.025),
+            (half_span, front_y - 0.08, -0.05),
+        ],
+        mat_gold, bevel=0.024,
+    )
+    hair = add_curve(
+        "Bow hair across imported violin strings",
+        [
+            (-half_span, front_y, 0.10),
+            (-half_span * 0.5, front_y, 0.075),
+            (0.0, front_y, 0.05),
+            (half_span * 0.5, front_y, 0.025),
+            (half_span, front_y, 0.0),
+        ],
+        mat_strings, bevel=0.007,
+    )
+    for obj in (bow, hair):
+        obj.keyframe_insert(data_path="location", frame=1)
+        obj.location.x = 0.42
+        obj.location.z = 0.08
+        obj.keyframe_insert(data_path="location", frame=max(2, frame_end // 2))
+        obj.location.x = -0.30
+        obj.location.z = -0.045
+        obj.keyframe_insert(data_path="location", frame=frame_end)
+        obj["animation"] = "Bow moves across the imported violin strings"
+    return bow, hair
+
+
 def build_scene(config):
     clear_scene()
     random.seed(int(config.get("seed", 1)))
@@ -410,7 +546,14 @@ def build_scene(config):
             )
 
     elif scene_type == "violin_performance":
-        add_violin(wood, gold, silver, dark, frame_end)
+        asset_path = str(config.get("model_asset_path") or "").strip()
+        if not asset_path:
+            raise RuntimeError(
+                "A real downloaded .gltf/.glb violin asset is required for cover_performance. "
+                "The procedural placeholder violin is deliberately disabled."
+            )
+        _asset_root, asset_bounds = import_gltf_asset(asset_path)
+        add_bow_for_imported_violin(asset_bounds, gold, silver, frame_end)
 
     # Suspended dust particles are true 3D objects with their own transforms.
     for index in range(18):
