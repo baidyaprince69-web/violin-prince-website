@@ -1,4 +1,5 @@
 """Offline tests for YouTube publisher metadata and asset provenance."""
+import json
 import sys
 import tempfile
 import unittest
