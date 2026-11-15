@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Run a ChatGPT-authored, source-checked daily plan with photorealistic scene generation.
+"""Run a ChatGPT-authored, source-checked daily plan with Blender and Frame By Plane.
 
-ChatGPT writes a compact editorial plan into the repository. This runner verifies
-publisher pages and the evidence quotes, synthesizes narration locally with Kokoro,
-generates full-colour photorealistic scene images with the existing FLUX image model,
-then uses the existing FFmpeg renderer. It never publishes; the ChatGPT daily operator schedules the
-finished public release asset through Metricool after the render succeeds.
+ChatGPT supplies the editorial plan, narration and scene direction. This runner
+verifies publisher evidence, synthesizes narration locally with Kokoro, creates
+three deterministic cinematic image layers per scene, and asks Blender 5.2.4
+plus Frame By Plane 8.0.1 to build a 2.5D background behind the licensed 3D hero.
+No AI image service or Cloudflare dependency is used in the daily Blender route.
+This script never publishes; it creates the quality-gated release handoff only.
 """
 from __future__ import annotations
 
@@ -27,6 +28,7 @@ import run as engine  # noqa: E402
 from voiceover import synthesize_voiceover  # noqa: E402
 from publish_handoff import validate_publish_metadata, write_handoff_files  # noqa: E402
 from story_asset_resolver import resolve_story_asset, StoryAssetError  # noqa: E402
+from frame_by_plane_backgrounds import create_frame_by_plane_backgrounds  # noqa: E402
 
 
 def _normalise_quote(value: str) -> str:
@@ -448,16 +450,58 @@ def run_daily_plan(plan_path: Path) -> int:
             scene["model_asset_path"] = model_path
             scene["model_asset_kind"] = asset_kind
             scene["model_asset_required"] = True
-        # The plan is rewritten after model selection so Render reads exactly the
-        # same story-to-model assignment that passed the licence and quality gates.
+
+        # Keep CC-BY attributions with the video metadata. Both the main
+        # instrument and any separately licensed bow must be credited.
+        credits = []
+        main_credit = model_asset.get("attribution")
+        if main_credit:
+            credits.append(str(main_credit).strip())
+        elif model_asset.get("source_url"):
+            credits.append(
+                f'{model_asset.get("model_name", "Violin model")} by '
+                f'{model_asset.get("creator", "unknown creator")} '
+                f'({model_asset.get("license_label", model_asset.get("license_code", "license listed on source page"))}): '
+                f'{model_asset.get("source_url")}'
+            )
+        bow_asset = model_asset.get("bow_model") or {}
+        if isinstance(bow_asset, dict) and bow_asset.get("source_url"):
+            credits.append(
+                f'{bow_asset.get("model_name", "Violin bow")} by '
+                f'{bow_asset.get("creator", "unknown creator")} '
+                f'({bow_asset.get("license_label", bow_asset.get("license_code", "license listed on source page"))}): '
+                f'{bow_asset.get("source_url")}'
+            )
+        if credits:
+            metadata = plan.setdefault("publish_metadata", {})
+            description = str(metadata.get("description") or "")
+            credit_block = "3D ASSET CREDITS:\n" + "\n".join(credits)
+            if credit_block not in description:
+                metadata["description"] = (description.rstrip() + "\n\n" + credit_block).strip()
+            validate_publish_metadata(plan)
+
+        # Generate per-scene background plates locally, then feed these image
+        # layers to the native Frame By Plane builder inside Blender. The real
+        # licensed violin model remains separate 3D geometry in front of them.
+        background_bundles = create_frame_by_plane_backgrounds(
+            plan,
+            engine.PACKAGE / "frame-by-plane",
+            size=(1080, 1920),
+        )
+        for scene, bundle in zip(plan["scenes"], background_bundles):
+            scene["frame_by_plane_manifest"] = bundle["manifest_path"]
+            scene["frame_by_plane_required"] = True
+            scene["frame_by_plane_layer_count"] = len(bundle["layers"])
+        plan["frame_by_plane_backgrounds"] = background_bundles
+
+        # Persist the same licensed asset and Frame By Plane layer mapping used
+        # by every render worker; no FLUX/Cloudflare still-image fallback exists.
         paths["plan"].write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
-        # Blender constructs and animates complete 3D scenes at render time.
-        # No FLUX stills are generated or used as scene backgrounds.
         for index in range(3):
             (engine.PACKAGE / f"scene-{index + 1}.jpg").unlink(missing_ok=True)
         print(
-            "BLENDER_MODE=full_frame_3d; FLUX scene-image generation skipped; "
-            "Blender will render every scene from its own camera.",
+            "BLENDER_MODE=3d_hero_plus_frame_by_plane_25d; "
+            "layers_per_scene=3; FLUX_and_Cloudflare_image_generation_skipped.",
             flush=True,
         )
     else:
@@ -485,6 +529,7 @@ def run_daily_plan(plan_path: Path) -> int:
         "asset": audio_asset,
         "performance_video": {"available": False, "source": "not_uploaded"},
         "model_asset": plan.get("model_asset", {}),
+        "frame_by_plane_backgrounds": plan.get("frame_by_plane_backgrounds", []),
         "topic": str(plan.get("topic") or ""),
         "title": str(plan.get("title") or "Violin Prince"),
         "prepared_at": datetime.now(timezone.utc).isoformat(),
