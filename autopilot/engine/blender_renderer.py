@@ -179,6 +179,17 @@ def render_scene_video(
         if Path(model_asset_path).suffix.casefold() not in {".gltf", ".glb"}:
             raise BlenderRenderError("The selected story asset must be a .gltf or .glb file.")
 
+    frame_by_plane_required = bool(
+        scene.get("frame_by_plane_required") if isinstance(scene, dict) else False
+    )
+    frame_by_plane_manifest = str(
+        (scene.get("frame_by_plane_manifest") if isinstance(scene, dict) else "") or ""
+    ).strip()
+    if frame_by_plane_required and not frame_by_plane_manifest:
+        raise BlenderRenderError("This daily scene requires a Frame By Plane background manifest.")
+    if frame_by_plane_manifest and not Path(frame_by_plane_manifest).is_file():
+        raise BlenderRenderError("The required Frame By Plane background manifest does not exist.")
+
     executable = _find_blender(blender_executable)
     if not executable:
         raise BlenderRenderError(
@@ -219,6 +230,8 @@ def render_scene_video(
             "model_asset_path": model_asset_path,
             "model_asset_kind": str(scene.get("model_asset_kind") or "generic"),
             "model_asset_required": model_asset_required,
+            "frame_by_plane_manifest": frame_by_plane_manifest,
+            "frame_by_plane_required": frame_by_plane_required,
         }
         config_path.write_text(json.dumps(config), encoding="utf-8")
         blender_process = _run(
@@ -253,6 +266,17 @@ def render_scene_video(
             "Output directory files=" + repr(nearby) + "; Blender diagnostics=" + diagnostic
         )
     media = _probe_video(destination, (width, height), duration)
+    frame_by_plane_report = None
+    for line in (blender_process.stdout or "").splitlines():
+        if line.startswith("FRAME_BY_PLANE_REPORT="):
+            try:
+                frame_by_plane_report = json.loads(line.split("=", 1)[1])
+            except json.JSONDecodeError as exc:
+                raise BlenderRenderError("Blender returned an invalid Frame By Plane report.") from exc
+    if frame_by_plane_required and not isinstance(frame_by_plane_report, dict):
+        raise BlenderRenderError(
+            "Blender rendered the scene but did not confirm that Frame By Plane built its required image layers."
+        )
     version_result = subprocess.run(
         [executable, "--version"], capture_output=True, text=True, timeout=20, check=False
     )
@@ -262,10 +286,11 @@ def render_scene_video(
         "scene_type": scene_type,
         "visual_mode": str(scene.get("visual_mode") or ""),
         "output_path": str(destination),
-        "renderer": "Blender Eevee CPU",
+        "renderer": "Blender Eevee CPU + Frame By Plane 2.5D background planes" if frame_by_plane_report else "Blender Eevee CPU",
         "blender_version": version_lines[0][:120] if version_lines else "unknown",
-        "rendered_as": "full-frame opaque 3D animation",
-        "no_image_plate": True,
+        "rendered_as": "Frame By Plane 2.5D image layers behind a full 3D hero scene" if frame_by_plane_report else "full-frame opaque 3D animation",
+        "frame_by_plane": frame_by_plane_report,
+        "no_image_plate": not bool(frame_by_plane_report),
         "no_transparent_overlay": True,
         "camera_animation": True,
         "object_animation": True,
