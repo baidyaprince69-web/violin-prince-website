@@ -206,9 +206,9 @@ body {
   background: linear-gradient(90deg, transparent, rgba(201, 173, 131, 0.45), transparent);
 }
 
-.headline-two { top: 950px; height: 390px; }
+.headline-two { top: 278px; height: 520px; }
 .headline-two h2 { font-size: 96px; line-height: 0.98; }
-.headline-three { top: 720px; height: 530px; }
+.headline-three { top: 278px; height: 520px; }
 .headline-three h2 { font-size: 105px; line-height: 0.91; }
 .headline-three .headline-note {
   max-width: 820px;
