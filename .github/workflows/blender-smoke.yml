@@ -56,7 +56,7 @@ jobs:
       - name: Resolve the exact Sketchfab violin asset
         id: asset
         env:
-          SKETCHFAB_ACCESS_TOKEN: \${{ secrets.SKETCHFAB_ACCESS_TOKEN }}
+          SKETCHFAB_ACCESS_TOKEN: ${{ secrets.SKETCHFAB_ACCESS_TOKEN }}
         run: |
           python autopilot/engine/asset_resolver.py \
             --model-url "$SKETCHFAB_MODEL_URL" \
@@ -70,14 +70,14 @@ jobs:
             echo
             echo "The Sketchfab resolver could not obtain an authorised, commercially suitable model file."
             echo "It saved the model metadata, licence and creator attribution, and any permitted preview reference."
-            echo "To render this exact mesh, add a valid authenticated Sketchfab access token as the repository secret \`SKETCHFAB_ACCESS_TOKEN\`."
+            echo "To render this exact mesh, add a valid authenticated Sketchfab access token as the repository secret `SKETCHFAB_ACCESS_TOKEN`."
             echo "No viewer scraping or procedural violin fallback is used."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Render the imported Sketchfab violin with cinematic camera movement
         if: steps.asset.outputs.downloaded == 'true'
         env:
-          BLENDER_VIOLIN_MODEL_PATH: \${{ steps.asset.outputs.model_path }}
+          BLENDER_VIOLIN_MODEL_PATH: ${{ steps.asset.outputs.model_path }}
         run: |
           python autopilot/engine/blender_renderer.py \
             --production-preview \
@@ -104,11 +104,11 @@ jobs:
         with:
           name: violin-prince-blender-model-and-preview
           path: |
-            \${{ runner.temp }}/violin-prince-blender-preview/assets/**
-            \${{ runner.temp }}/violin-prince-blender-preview/blender-full-3d-production-preview.mp4
-            \${{ runner.temp }}/violin-prince-blender-preview/blender-production-contact-sheet.jpg
-            \${{ runner.temp }}/violin-prince-blender-preview/blender-production-report.json
-            \${{ runner.temp }}/violin-prince-blender-preview/blender-scene-*.mp4
-            \${{ runner.temp }}/violin-prince-blender-preview/blender-scene-*-poster.png
+            ${{ runner.temp }}/violin-prince-blender-preview/assets/**
+            ${{ runner.temp }}/violin-prince-blender-preview/blender-full-3d-production-preview.mp4
+            ${{ runner.temp }}/violin-prince-blender-preview/blender-production-contact-sheet.jpg
+            ${{ runner.temp }}/violin-prince-blender-preview/blender-production-report.json
+            ${{ runner.temp }}/violin-prince-blender-preview/blender-scene-*.mp4
+            ${{ runner.temp }}/violin-prince-blender-preview/blender-scene-*-poster.png
           if-no-files-found: warn
           retention-days: 14
