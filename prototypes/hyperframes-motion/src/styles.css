@@ -423,10 +423,14 @@ body {
 .narration-caption {
   z-index: 10;
   position: absolute;
+  /* .clip sets inset: 0; reset its top edge so captions occupy only this lower lane. */
+  top: auto;
   left: 120px;
   right: 120px;
   bottom: 310px;
+  height: 146px;
   min-height: 146px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
