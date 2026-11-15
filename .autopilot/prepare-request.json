@@ -1,5 +1,5 @@
 {
   "mode": "chatgpt_daily_production",
   "plan_path": ".autopilot/daily-production-plan.json",
-  "reason": "Production verification after PR #51 merge: run the saved daily plan with Blender 5.2.4 and Frame By Plane 8.0.1; keep publishing disabled and leave every previously uploaded video untouched."
+  "reason": "Full production verification after PR #52 merge: run the saved daily plan using checksum-verified Blender 5.2.4 and Frame By Plane 8.0.1; keep PUBLISH_ENABLED=false, create a draft artifact only, and leave every previously uploaded video untouched."
 }
