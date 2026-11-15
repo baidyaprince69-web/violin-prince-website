@@ -860,7 +860,14 @@ def build_scene(config):
         scene.render.ffmpeg.gopsize = fps
         scene.render.filepath = str(Path(config["output"]).resolve().with_suffix(""))
         scene.frame_set(1)
-        bpy.ops.render.render(animation=True)
+        render_result = bpy.ops.render.render(animation=True)
+        if "FINISHED" not in render_result:
+            raise RuntimeError(
+                "Blender animation render operator did not finish: "
+                + repr(render_result)
+                + "; output_prefix="
+                + scene.render.filepath
+            )
     return frame_by_plane_report
 
 
