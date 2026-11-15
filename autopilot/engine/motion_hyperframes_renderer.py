@@ -10,7 +10,7 @@ from typing import Any
 
 SUPPORTED_AUDIO_SUFFIXES = {".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg"}
 DEFAULT_MAX_TRACK_SECONDS = 600.0
-RENDER_FILENAME = "violin-prince-motion-full-track.mp4"
+RENDER_FILENAME = "violin-prince-explainer.mp4"
 
 
 class MotionHyperFramesError(RuntimeError):
@@ -39,20 +39,66 @@ def _clean_text(value: Any, limit: int) -> str:
     return " ".join(value.split()).strip()[:limit]
 
 
-def build_content_context(plan: dict[str, Any] | None) -> dict[str, Any]:
-    """Pass already-approved Autopilot editorial text into the motion composition."""
+def build_content_context(
+    plan: dict[str, Any] | None,
+    narration_info: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Pass approved explainer scenes and Kokoro's native word timings to Motion."""
     plan = plan if isinstance(plan, dict) else {}
-    scenes = plan.get("scenes") if isinstance(plan.get("scenes"), list) else []
-    captions = [
-        _clean_text(scene.get("caption"), 72)
-        for scene in scenes[:3]
-        if isinstance(scene, dict)
-    ]
+    narration_info = narration_info if isinstance(narration_info, dict) else {}
+    raw_scenes = plan.get("scenes") if isinstance(plan.get("scenes"), list) else []
+    scenes = []
+    for scene in raw_scenes[:3]:
+        if not isinstance(scene, dict):
+            continue
+        raw_graphic = scene.get("graphic_data")
+        graphic = {}
+        if isinstance(raw_graphic, dict):
+            graphic = {
+                "type": _clean_text(raw_graphic.get("type"), 24),
+                "items": [
+                    {
+                        "label": _clean_text(item.get("label"), 38),
+                        "display": _clean_text(item.get("display"), 22),
+                        "value": item.get("value") if isinstance(item.get("value"), (int, float)) else None,
+                    }
+                    for item in raw_graphic.get("items", [])[:4]
+                    if isinstance(item, dict)
+                ],
+            }
+        scenes.append({
+            "caption": _clean_text(scene.get("caption"), 72),
+            "visual_mode": _clean_text(scene.get("visual_mode"), 32),
+            "graphic_label": _clean_text(scene.get("graphic_label"), 42),
+            "graphic_detail": _clean_text(scene.get("graphic_detail"), 110),
+            "graphic_data": graphic,
+        })
+    word_cues = []
+    for cue in narration_info.get("word_cues", [])[:200]:
+        if not isinstance(cue, dict):
+            continue
+        try:
+            start, end = float(cue.get("start")), float(cue.get("end"))
+        except (TypeError, ValueError):
+            continue
+        word = _clean_text(cue.get("text"), 32)
+        if word and start >= 0 and end > start:
+            word_cues.append({
+                "text": word,
+                "start": round(start, 4),
+                "end": round(end, 4),
+                "sentence_index": int(cue.get("sentence_index", 0) or 0),
+            })
     return {
         "title": _clean_text(plan.get("title"), 60),
-        "topic": _clean_text(plan.get("topic"), 64),
-        "hook": _clean_text(plan.get("hook"), 110),
-        "captions": captions,
+        "topic": _clean_text(plan.get("topic"), 90),
+        "hook": _clean_text(plan.get("hook"), 140),
+        "narration_script": _clean_text(plan.get("narration_script"), 1800),
+        "captions": [scene["caption"] for scene in scenes],
+        "scenes": scenes,
+        "narration_words": word_cues,
+        "narration_voice": _clean_text(narration_info.get("voice"), 32),
+        "narration_engine": _clean_text(narration_info.get("engine"), 32),
     }
 
 
@@ -208,15 +254,28 @@ def render_full_track(
     output_path: str | Path,
     work_dir: str | Path,
     plan: dict[str, Any] | None = None,
+    narration_bytes: bytes | None = None,
+    narration_info: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Render the complete approved audio asset with Motion + HyperFrames."""
+    """Render a Kokoro-narrated explainer, with optional quiet violin underneath."""
     if not isinstance(audio_bytes, (bytes, bytearray)) or len(audio_bytes) < 4096:
-        raise MotionHyperFramesError("The selected full-track audio asset is missing or unexpectedly small.")
-
+        raise MotionHyperFramesError("The selected optional violin background bed is missing or unexpectedly small.")
+    if not isinstance(narration_bytes, (bytes, bytearray)) or len(narration_bytes) < 4096:
+        raise MotionHyperFramesError("Kokoro narration audio is required; instrumental-only Motion output is blocked.")
+    narration_info = narration_info if isinstance(narration_info, dict) else {}
+    word_cues = narration_info.get("word_cues")
+    if (
+        narration_info.get("engine") != "Kokoro-82M"
+        or narration_info.get("voice") != "af_heart"
+        or narration_info.get("word_sync_status") != "passed"
+        or not isinstance(word_cues, list)
+        or not word_cues
+    ):
+        raise MotionHyperFramesError("A passed Kokoro-82M af_heart narration record with native word timings is required.")
     suffix = Path(str(audio_filename or "")).suffix.lower() or ".wav"
     if suffix not in SUPPORTED_AUDIO_SUFFIXES:
         raise MotionHyperFramesError(
-            "Motion + HyperFrames supports MP3, WAV, M4A, AAC, FLAC and OGG audio assets."
+            "Motion + HyperFrames supports MP3, WAV, M4A, AAC, FLAC and OGG background audio assets."
         )
 
     repo_root = Path(__file__).resolve().parents[2]
@@ -231,11 +290,36 @@ def render_full_track(
 
     workspace = Path(work_dir).resolve()
     workspace.mkdir(parents=True, exist_ok=True)
-    audio_path = workspace / ("source-audio" + suffix)
+    music_path = workspace / ("violin-background" + suffix)
+    narration_path = workspace / "kokoro-narration.wav"
+    audio_path = workspace / "narration-first-explainer-mix.wav"
     context_path = workspace / "content-context.json"
-    audio_path.write_bytes(bytes(audio_bytes))
+    music_path.write_bytes(bytes(audio_bytes))
+    narration_path.write_bytes(bytes(narration_bytes))
+    music_enabled = str(os.environ.get("MOTION_HYPERFRAMES_MUSIC_BED_ENABLED", "true")).strip().lower() in {"1", "true", "yes", "on"}
+    if music_enabled:
+        mix_filter = (
+            "[0:a]aresample=48000,aformat=sample_rates=48000:channel_layouts=stereo,volume=1.0[voice];"
+            "[1:a]aresample=48000,aformat=sample_rates=48000:channel_layouts=stereo,volume=0.10[music];"
+            "[music][voice]sidechaincompress=threshold=0.025:ratio=10:attack=40:release=450[ducked];"
+            "[voice][ducked]amix=inputs=2:duration=first:dropout_transition=0:normalize=0,"
+            "alimiter=limit=0.95[mix]"
+        )
+        _run_step(
+            "Mix Kokoro as the primary voice with a quiet ducked violin bed",
+            [
+                "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                "-i", str(narration_path), "-i", str(music_path),
+                "-filter_complex", mix_filter,
+                "-map", "[mix]", "-ar", "48000", "-ac", "2",
+                "-c:a", "pcm_s16le", str(audio_path),
+            ],
+            workspace, int(os.environ.get("MOTION_HYPERFRAMES_COMMAND_TIMEOUT_SECONDS", "3600")),
+        )
+    else:
+        shutil.copy2(narration_path, audio_path)
     context_path.write_text(
-        json.dumps(build_content_context(plan), ensure_ascii=False, indent=2) + "\n",
+        json.dumps(build_content_context(plan, narration_info), ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
 
@@ -318,9 +402,22 @@ def render_full_track(
         if seeking_report.is_file():
             shutil.copy2(seeking_report, destination.parent / "motion-seeking-report.json")
 
+        narration_duration = float(narration_info.get("duration_seconds") or 0)
+        if narration_duration <= 0 or abs(media["duration_seconds"] - narration_duration) > 0.30:
+            raise MotionHyperFramesError(
+                "Rendered explainer duration does not match the Kokoro narration duration."
+            )
         return {
             **media,
             "renderer": "motion_hyperframes",
+            "production_type": "narrated_explainer",
+            "primary_audio_source": "Kokoro-82M",
+            "narration_voice": "af_heart",
+            "narration_duration_seconds": narration_duration,
+            "narration_word_timing_count": len(word_cues),
+            "narration_word_sync_status": "passed",
+            "music_bed_enabled": music_enabled,
+            "music_bed_gain": 0.10 if music_enabled else 0.0,
             "full_track": True,
             "source_duration_seconds": expected_duration,
             "visual_sequence_duration_seconds": expected_duration,
