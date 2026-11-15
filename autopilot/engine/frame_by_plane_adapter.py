@@ -201,8 +201,16 @@ def verify_frame_by_plane(
     build_rig = getattr(builder, "build_fbp_rig", None)
     place_layers = getattr(builder, "fbp_layer_placement", None)
     if not callable(build_rig) or not callable(place_layers):
+        available_builder = sorted(
+            name for name in dir(builder)
+            if name.startswith(("build_", "fbp_", "camera_"))
+        )
         raise FrameByPlaneError(
-            "This Frame By Plane build does not expose its native layer builder and camera placement API."
+            "Frame By Plane native API mismatch: "
+            f"module={getattr(builder, '__file__', '<unknown>')}; "
+            f"build_fbp_rig={callable(build_rig)}; "
+            f"fbp_layer_placement={callable(place_layers)}; "
+            f"available={available_builder[:100]}"
         )
     required = {"context", "rig_name", "directory", "files_list", "location", "target_collection"}
     try:
