@@ -5072,7 +5072,7 @@ def prepare_motion_music_video_stage():
     paths = _package_paths()
     paths["audio"].write_bytes(audio)
     paths["plan"].write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
-    paths["research"].write_text("[]\\n", encoding="utf-8")
+    paths["research"].write_text("[]\n", encoding="utf-8")
     paths["quality_control"].write_text(json.dumps(quality, ensure_ascii=False, indent=2), encoding="utf-8")
     paths["metadata"].write_text(json.dumps({
         "schema_version": 4,
@@ -5093,12 +5093,12 @@ def prepare_motion_music_video_stage():
         },
     }, ensure_ascii=False, indent=2), encoding="utf-8")
     (PACKAGE / "review.txt").write_text(
-        "VIOLIN PRINCE — FULL-TRACK MUSIC VIDEO\\n"
-        f"Title: {title}\\n"
-        f"Music source: {asset.get('audio_source')}\\n"
-        f"Track length: {asset.get('duration_seconds')} seconds\\n"
-        "Visual route: Motion + HyperFrames 2D/2.5D composition\\n"
-        "Publishing: disabled\\n",
+        "VIOLIN PRINCE — FULL-TRACK MUSIC VIDEO\n"
+        f"Title: {title}\n"
+        f"Music source: {asset.get('audio_source')}\n"
+        f"Track length: {asset.get('duration_seconds')} seconds\n"
+        "Visual route: Motion + HyperFrames 2D/2.5D composition\n"
+        "Publishing: disabled\n",
         encoding="utf-8",
     )
     log(
