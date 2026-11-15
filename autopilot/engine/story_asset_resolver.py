@@ -7,6 +7,7 @@ Every selected file must pass licence, geometry-quality and archive validation.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import re
@@ -14,6 +15,7 @@ import struct
 import sys
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote_to_bytes, urlparse
 
 import requests
 
@@ -169,6 +171,59 @@ def inspect_named_model_parts(model_path: str | Path) -> dict[str, list[str]]:
     for index in range(len(nodes)):
         walk(index, [])
     return result
+
+
+def _model_package_size(model_path: str | Path) -> int:
+    """Count the glTF descriptor and every locally referenced mesh/texture file."""
+    path = Path(model_path).resolve()
+    if not path.is_file():
+        raise StoryAssetError("The downloaded model descriptor does not exist.")
+    total = path.stat().st_size
+    if path.suffix.casefold() == ".glb":
+        return total
+    if path.suffix.casefold() != ".gltf":
+        raise StoryAssetError("Only GLB and glTF model packages are supported.")
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise StoryAssetError("The downloaded glTF descriptor is invalid.") from exc
+
+    root = path.parent.resolve()
+    visited: set[Path] = set()
+    for section in ("buffers", "images"):
+        for item in document.get(section) or []:
+            if not isinstance(item, dict):
+                continue
+            uri = item.get("uri")
+            if not uri:
+                continue
+            uri = str(uri)
+            if uri.startswith("data:"):
+                try:
+                    header, encoded = uri.split(",", 1)
+                    if ";base64" in header.casefold():
+                        total += len(base64.b64decode(encoded, validate=True))
+                    else:
+                        total += len(unquote_to_bytes(encoded))
+                except (ValueError, base64.binascii.Error) as exc:
+                    raise StoryAssetError("The glTF contains an invalid embedded data URI.") from exc
+                continue
+            parsed = urlparse(uri)
+            if parsed.scheme or parsed.netloc:
+                raise StoryAssetError("The glTF references a remote external asset instead of a bundled file.")
+            relative = Path(parsed.path)
+            if relative.is_absolute() or ".." in relative.parts:
+                raise StoryAssetError("The glTF references a file outside its model package.")
+            target = (root / Path(unquote_to_bytes(parsed.path).decode("utf-8"))).resolve()
+            if root not in target.parents:
+                raise StoryAssetError("The glTF asset reference escapes its model package.")
+            if target in visited:
+                continue
+            if not target.is_file():
+                raise StoryAssetError("The glTF model package is missing a referenced mesh or texture: " + uri[:200])
+            visited.add(target)
+            total += target.stat().st_size
+    return total
 
 
 def _face_count(model: dict[str, Any]) -> int:
@@ -520,8 +575,8 @@ def resolve_story_asset(
             model_path = Path(str(record.get("local_model_path") or ""))
             if not model_path.is_file() or model_path.suffix.casefold() not in {".glb", ".gltf"}:
                 raise StoryAssetError("Official download did not produce a usable glTF/GLB model.")
-            if model_path.stat().st_size < 4096:
-                raise StoryAssetError("The downloaded 3D model is unexpectedly small.")
+            if _model_package_size(model_path) < 4096:
+                raise StoryAssetError("The downloaded 3D model package is unexpectedly small.")
             if model_path.suffix.casefold() == ".glb" and model_path.read_bytes()[:4] != b"glTF":
                 raise StoryAssetError("The GLB file header failed validation.")
             model_parts = inspect_named_model_parts(model_path)
@@ -565,8 +620,8 @@ def resolve_story_asset(
                         bow_path = Path(str(bow_record.get("local_model_path") or ""))
                         if not bow_path.is_file() or bow_path.suffix.casefold() not in {".glb", ".gltf"}:
                             raise StoryAssetError("The official bow download did not produce GLB/glTF geometry.")
-                        if bow_path.stat().st_size < 4096:
-                            raise StoryAssetError("The downloaded bow geometry is unexpectedly small.")
+                        if _model_package_size(bow_path) < 4096:
+                            raise StoryAssetError("The downloaded bow model package is unexpectedly small.")
                         bow_parts = inspect_named_model_parts(bow_path)
                         if not bow_parts.get("mesh_nodes"):
                             raise StoryAssetError("The downloaded bow contains no mesh nodes.")
