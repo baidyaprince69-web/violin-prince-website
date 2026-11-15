@@ -26,6 +26,7 @@ def parse_args():
     parser.add_argument("--height", type=int, default=1280)
     parser.add_argument("--fps", type=int, default=25)
     parser.add_argument("--duration", type=float, default=24.0)
+    parser.add_argument("--render-samples", type=int, default=96, help="Eevee temporal / Cycles sampling quality.")
     parser.add_argument("--sample-index", type=int, default=0,
                         help="Zero-based parallel render segment.")
     parser.add_argument("--sample-count", type=int, default=30,
@@ -113,6 +114,74 @@ def add_text_overlay(camera, text, x, y, start_frame, end_frame, material, *, si
     return obj
 
 
+def add_camera_line(camera, name, points, material, *, bevel=0.006, distance=6.0):
+    data = bpy.data.curves.new(name, "CURVE")
+    data.dimensions = "3D"
+    data.resolution_u = 12
+    data.bevel_depth = bevel
+    data.bevel_resolution = 3
+    spline = data.splines.new("POLY")
+    spline.points.add(len(points) - 1)
+    for point, coordinate in zip(spline.points, points):
+        point.co = (*coordinate, 1.0)
+    obj = bpy.data.objects.new(name, data)
+    bpy.context.collection.objects.link(obj)
+    obj.parent = camera
+    obj.location = (0.0, 0.0, -distance)
+    obj.data.materials.append(material)
+    return obj
+
+
+def add_camera_motion_graphics(camera, frame_end, gold, teal, cut_frames, *, proof=False):
+    """Create a fixed title-safe progress graphic and animated shot-transition wipes."""
+    distance = 6.0
+    vertical_span = distance * float(camera.data.sensor_height) / max(1.0, float(camera.data.lens))
+    horizontal_span = vertical_span * (9.0 / 16.0)
+    y = (0.775 - 0.5) * vertical_span
+    x_start = -horizontal_span * 0.82
+    width = horizontal_span * 1.64
+    progress = add_camera_line(
+        camera,
+        "Motion graphics | cinematic chapter progress",
+        ((0.0, 0.0, 0.0), (width, 0.0, 0.0)),
+        gold,
+        bevel=0.004,
+        distance=distance,
+    )
+    progress.location = (x_start, y, -distance)
+    progress.scale = (0.001, 1.0, 1.0)
+    progress.keyframe_insert(data_path="scale", frame=1)
+    progress.scale = (1.0, 1.0, 1.0)
+    progress.keyframe_insert(data_path="scale", frame=frame_end)
+    if progress.animation_data and progress.animation_data.action:
+        for curve in progress.animation_data.action.fcurves:
+            for point in curve.keyframe_points:
+                point.interpolation = "LINEAR"
+
+    sweeps = []
+    for cut_index, cut_frame in enumerate(cut_frames):
+        for layer, material in enumerate((teal, gold)):
+            offset_y = (layer - 0.5) * vertical_span * 0.055
+            sweep = add_camera_line(
+                camera,
+                f"Motion graphics | scene transition sweep {cut_index + 1}.{layer + 1}",
+                ((0.0, -vertical_span * 0.58, 0.0), (0.0, vertical_span * 0.58, 0.0)),
+                material,
+                bevel=0.009 if layer == 0 else 0.006,
+                distance=5.75,
+            )
+            sweep.location = (-horizontal_span * 1.55, offset_y, -5.75)
+            sweep.keyframe_insert(data_path="location", frame=max(1, cut_frame - 3))
+            sweep.location = (horizontal_span * 1.55, offset_y, -5.75)
+            sweep.keyframe_insert(data_path="location", frame=min(frame_end, cut_frame + 3))
+            if sweep.animation_data and sweep.animation_data.action:
+                for curve in sweep.animation_data.action.fcurves:
+                    for point in curve.keyframe_points:
+                        point.interpolation = "LINEAR"
+            sweeps.append(sweep)
+    return {"progress_bar": progress, "transition_sweeps": sweeps}
+
+
 def import_and_normalise_model(model_path: Path):
     if not model_path.is_file() or model_path.suffix.casefold() not in {".glb", ".gltf"}:
         raise RuntimeError("A real downloaded .glb/.gltf model is required.")
@@ -121,8 +190,8 @@ def import_and_normalise_model(model_path: Path):
     if "FINISHED" not in result:
         raise RuntimeError("Blender's glTF importer did not finish.")
     imported = [obj for obj in bpy.context.scene.objects if obj not in before]
-    meshes = [obj for obj in imported if obj.type == "MESH"]
-    if not meshes:
+    all_meshes = [obj for obj in imported if obj.type == "MESH"]
+    if not all_meshes:
         raise RuntimeError("The downloaded GLB/glTF did not contain mesh geometry.")
 
     def object_name_chain(obj):
@@ -134,20 +203,32 @@ def import_and_normalise_model(model_path: Path):
         return " ".join(names)
 
     bow_tokens = ("bow", "bowstick", "bowhair", "horsehair", "bowfrog")
-    source_bows = [obj for obj in meshes if any(token in object_name_chain(obj).replace(" ", "") for token in bow_tokens)]
-    for source_bow in source_bows:
-        source_bow.hide_render = True
-        source_bow.hide_set(True)
-    instrument_meshes = [obj for obj in meshes if obj not in source_bows]
+    source_bows = [
+        obj for obj in all_meshes
+        if any(token in object_name_chain(obj).replace(" ", "").replace("_", "") for token in bow_tokens)
+    ]
+    instrument_meshes = [obj for obj in all_meshes if obj not in source_bows]
     if not instrument_meshes:
-        raise RuntimeError("Every imported mesh was classified as a bow; no violin body remains.")
-    source_strings = [obj for obj in instrument_meshes if "string" in object_name_chain(obj)]
-    meshes = instrument_meshes
+        raise RuntimeError("The imported model contains a bow but no instrument body.")
+    source_strings = [
+        obj for obj in instrument_meshes
+        if "string" in object_name_chain(obj).replace(" ", "")
+    ]
+    if not source_bows:
+        raise RuntimeError(
+            "The selected violin model has no separately named bow mesh. "
+            "A procedural second bow is not permitted."
+        )
+    if not source_strings:
+        raise RuntimeError(
+            "The selected violin model has no separately named string mesh. "
+            "Refusing to draw artificial strings over an unverified instrument."
+        )
 
     bpy.context.view_layer.update()
     corners = [
         obj.matrix_world @ Vector(corner)
-        for obj in meshes
+        for obj in instrument_meshes
         for corner in obj.bound_box
     ]
     minimum = Vector((
@@ -165,7 +246,7 @@ def import_and_normalise_model(model_path: Path):
     if min(sizes) <= 1e-6:
         raise RuntimeError("The imported GLB has invalid dimensions.")
 
-    # Convert to upright violin layout: width=X, thickness=Y, instrument length=Z.
+    # Convert the actual instrument to upright layout: width=X, thickness=Y, length=Z.
     permutation = [width_axis, depth_axis, length_axis]
     inversions = sum(
         1 for i in range(3) for j in range(i + 1, 3)
@@ -185,11 +266,11 @@ def import_and_normalise_model(model_path: Path):
     transform[2][3] = -centre[length_axis] * scale
 
     imported_set = set(imported)
-    root = bpy.data.objects.new("Actual imported violin GLB — scene root", None)
+    root = bpy.data.objects.new("Actual imported instrument GLB — scene root", None)
     bpy.context.collection.objects.link(root)
     root.empty_display_type = "PLAIN_AXES"
     root.empty_display_size = 0.15
-    root["source_bow_meshes_hidden"] = len(source_bows)
+    root["source_bow_meshes_rigged"] = len(source_bows)
     root["source_string_meshes"] = len(source_strings)
     for obj in imported:
         if obj.parent not in imported_set:
@@ -200,7 +281,7 @@ def import_and_normalise_model(model_path: Path):
     root.matrix_world = transform
     bpy.context.view_layer.update()
 
-    # Keep the imported textures packed so the saved Blender project is portable.
+    # Preserve and pack the downloaded model's original PBR textures/materials.
     for image in bpy.data.images:
         if image.source == "FILE" and not image.packed_file:
             try:
@@ -210,7 +291,7 @@ def import_and_normalise_model(model_path: Path):
 
     transformed = [
         obj.matrix_world @ Vector(corner)
-        for obj in meshes
+        for obj in instrument_meshes
         for corner in obj.bound_box
     ]
     bounds = {
@@ -222,7 +303,111 @@ def import_and_normalise_model(model_path: Path):
         "max_z": max(p.z for p in transformed),
         "front_y": min(p.y for p in transformed),
     }
-    return root, meshes, imported, bounds
+    return root, instrument_meshes, imported, bounds, source_bows, source_strings
+
+
+def _principal_direction(points):
+    """Estimate the bow's long axis from its imported mesh bounding corners."""
+    if len(points) < 2:
+        raise RuntimeError("The imported bow geometry has insufficient bounds.")
+    centre = sum(points, Vector((0.0, 0.0, 0.0))) / float(len(points))
+    covariance = Matrix((
+        (0.0, 0.0, 0.0),
+        (0.0, 0.0, 0.0),
+        (0.0, 0.0, 0.0),
+    ))
+    for point in points:
+        delta = point - centre
+        for row in range(3):
+            for column in range(3):
+                covariance[row][column] += delta[row] * delta[column]
+    start_axis = max(range(3), key=lambda axis: covariance[axis][axis])
+    direction = Vector(tuple(1.0 if axis == start_axis else 0.0 for axis in range(3)))
+    for _ in range(48):
+        updated = Vector(tuple(
+            sum(covariance[row][column] * direction[column] for column in range(3))
+            for row in range(3)
+        ))
+        if updated.length <= 1e-10:
+            break
+        updated.normalize()
+        if min((updated - direction).length, (updated + direction).length) < 1e-8:
+            direction = updated
+            break
+        direction = updated
+    projections = [(point - centre).dot(direction) for point in points]
+    span = max(projections) - min(projections)
+    if span <= 1e-5:
+        raise RuntimeError("The imported bow does not have a valid longitudinal axis.")
+    return centre, direction.normalized(), span
+
+
+def make_bow_animation(source_bow_meshes, front_y, bounds, frame_end):
+    """Move the real downloaded bow parts under one Blender control rig."""
+    if not source_bow_meshes:
+        raise RuntimeError("A real imported bow mesh is required; no procedural bow is generated.")
+
+    bpy.context.view_layer.update()
+    bow_points = [
+        obj.matrix_world @ Vector(corner)
+        for obj in source_bow_meshes
+        for corner in obj.bound_box
+    ]
+    centre, long_axis, current_length = _principal_direction(bow_points)
+    instrument_length = float(bounds["max_z"] - bounds["min_z"])
+    target_length = instrument_length * 1.05
+    uniform_scale = target_length / current_length
+    rotation = long_axis.rotation_difference(Vector((1.0, 0.0, 0.0)))
+    bridge_z = float(bounds["min_z"]) * 0.12 + float(bounds["max_z"]) * 0.02
+    target_centre = Vector((0.0, front_y - 0.035, bridge_z))
+
+    # One root transforms the imported stick, hair, frog and tip together.
+    # No second bow geometry is created and no source bow mesh remains visible outside this rig.
+    bow_root = bpy.data.objects.new("BOW RIG — imported bow assembly control", None)
+    bpy.context.collection.objects.link(bow_root)
+    bow_root.empty_display_type = "PLAIN_AXES"
+    bow_root.empty_display_size = 0.22
+    bow_root.matrix_world = Matrix.Identity(4)
+    for component in source_bow_meshes:
+        world = component.matrix_world.copy()
+        component.parent = bow_root
+        component.matrix_parent_inverse = Matrix.Identity(4)
+        component.matrix_basis = world
+
+    delta = (
+        Matrix.Translation(target_centre)
+        @ rotation.to_matrix().to_4x4()
+        @ Matrix.Scale(uniform_scale, 4)
+        @ Matrix.Translation(-centre)
+    )
+    bow_root.matrix_world = delta
+    base_location = bow_root.location.copy()
+    bow_root["rig_type"] = "one control rig over imported Sketchfab bow mesh components"
+    bow_root["visible_bow_rig_count"] = 1
+    bow_root["source_bow_mesh_count"] = len(source_bow_meshes)
+    bow_root["contact_plane"] = "imported bow aligned across the imported string mesh near the bridge"
+    bow_root["source_meshes_preserved"] = True
+
+    stroke = min(0.16, instrument_length * 0.045)
+    poses = (
+        (0.00, 0.0, 0.0),
+        (0.25, stroke, 0.008),
+        (0.50, -stroke, -0.008),
+        (0.75, stroke * 0.82, 0.006),
+        (1.00, 0.0, 0.0),
+    )
+    for fraction, x_shift, z_shift in poses:
+        frame = max(1, min(frame_end, int(round(1 + (frame_end - 1) * fraction))))
+        bow_root.location = base_location + Vector((x_shift, 0.0, z_shift))
+        bow_root.keyframe_insert(data_path="location", frame=frame)
+    if bow_root.animation_data and bow_root.animation_data.action:
+        for curve in bow_root.animation_data.action.fcurves:
+            for point in curve.keyframe_points:
+                point.interpolation = "BEZIER"
+                point.handle_left_type = "AUTO"
+                point.handle_right_type = "AUTO"
+    bow_root["animation"] = "One imported bow slides in controlled reciprocal strokes across real violin strings."
+    return bow_root, list(source_bow_meshes)
 
 
 def make_bow_animation(front_y, body_width, bounds, frame_end, bow_wood, hair_mat, ebony_mat):
@@ -378,7 +563,15 @@ def build_scene(args):
             if item.users == 0:
                 datablocks.remove(item)
 
-    root, meshes, imported, bounds = import_and_normalise_model(Path(args.model))
+    if args.proof_shot:
+        if not 4.0 <= float(args.duration) <= 5.0:
+            raise RuntimeError("A proof shot must be between 4.0 and 5.0 seconds.")
+        if args.sample_index != 0 or args.sample_count != args.total_samples or args.total_samples > 125:
+            raise RuntimeError(
+                "Proof mode is limited to one local segment of at most 125 frames; "
+                "a full 600-frame render is forbidden."
+            )
+    root, meshes, imported, bounds, source_bows, source_strings = import_and_normalise_model(Path(args.model))
     body_width = bounds["max_x"] - bounds["min_x"]
     front_y = bounds["front_y"]
     frame_end = int(round(args.duration * args.fps))
@@ -434,9 +627,9 @@ def build_scene(args):
     world.node_tree.nodes["Background"].inputs["Strength"].default_value = 0.20
     scene.world = world
 
-    bow_root, bow_components = make_bow_animation(front_y, body_width, bounds, frame_end, bow_wood, white, ebony)
-    source_string_count = int(root.get("source_string_meshes", 0))
-    strings = make_vibrating_strings(front_y, body_width, bounds, frame_end, silver, source_string_count)
+    bow_root, bow_components = make_bow_animation(source_bows, front_y, bounds, frame_end)
+    source_string_count = len(source_strings)
+    strings = list(source_strings)
     rings = make_resonance_rings(front_y, frame_end, teal)
 
     # Animated cinematic camera: reveal, bridge macro, f-hole sweep, scroll detail, hero return.
@@ -527,14 +720,22 @@ def build_scene(args):
     add_text_overlay(camera, "Violin Prince", 0.075, 0.945, 1, frame_end, gold, size=0.022, distance=6.0)
     if args.proof_shot:
         add_text_overlay(camera, "HOW A VIOLIN MAKES SOUND", 0.075, 0.835, 1, frame_end, white, size=0.038, distance=6.0)
+        add_text_overlay(camera, "01 / 06", 0.925, 0.945, 1, frame_end, teal, size=0.018, distance=6.0, align="RIGHT")
     else:
-        for shot in shot_specs:
+        for shot_index, shot in enumerate(shot_specs, start=1):
             start_frame = at_fraction(shot["start"])
             end_frame = max(start_frame + 1, at_fraction(shot["end"]) - 1)
             add_text_overlay(
                 camera, shot["label"], 0.075, 0.835,
                 start_frame, end_frame, white, size=0.030, distance=6.0,
             )
+            add_text_overlay(
+                camera, f"{shot_index:02d} / 06", 0.925, 0.945,
+                start_frame, end_frame, teal, size=0.018, distance=6.0, align="RIGHT",
+            )
+    motion_graphics = add_camera_motion_graphics(
+        camera, frame_end, gold, teal, cut_end_frames, proof=bool(args.proof_shot)
+    )
 
     # Select the Eevee identifier exposed by this installed Blender build.
     # Blender 5.0 uses BLENDER_EEVEE; earlier 4.x builds used BLENDER_EEVEE_NEXT.
@@ -550,10 +751,23 @@ def build_scene(args):
         raise RuntimeError("This Blender build exposes no supported Eevee or Cycles render engine.")
     scene.render.engine = render_engine
     if hasattr(scene, "eevee") and hasattr(scene.eevee, "taa_render_samples"):
-        scene.eevee.taa_render_samples = 64
+        scene.eevee.taa_render_samples = max(32, min(int(args.render_samples), 256))
+    if hasattr(scene, "eevee"):
+        if hasattr(scene.eevee, "use_gtao"):
+            scene.eevee.use_gtao = True
+        if hasattr(scene.eevee, "gtao_distance"):
+            scene.eevee.gtao_distance = 3.0
+        if hasattr(scene.eevee, "gtao_factor"):
+            scene.eevee.gtao_factor = 1.35
+    for light_object in scene.objects:
+        if light_object.type == "LIGHT":
+            if hasattr(light_object.data, "use_shadow"):
+                light_object.data.use_shadow = True
+            if hasattr(light_object.data, "use_contact_shadow"):
+                light_object.data.use_contact_shadow = True
     if render_engine == "CYCLES":
         scene.cycles.device = "CPU"
-        scene.cycles.samples = 48
+        scene.cycles.samples = max(48, min(int(args.render_samples), 256))
     scene.render.threads_mode = "FIXED"
     scene.render.threads = max(1, min(os.cpu_count() or 2, 4))
     scene.render.resolution_x = args.width
@@ -565,6 +779,10 @@ def build_scene(args):
     scene.frame_step = 1
     scene.render.film_transparent = False
     scene.view_settings.view_transform = "AgX"
+    try:
+        scene.view_settings.look = "AgX - Medium High Contrast"
+    except (TypeError, ValueError):
+        pass
     scene.render.image_settings.file_format = "PNG"
     scene.render.image_settings.color_mode = "RGB"
     scene.render.use_file_extension = True
@@ -638,15 +856,22 @@ def build_scene(args):
         "storyboard_scenes": 1 if args.proof_shot else len(shot_specs),
         "proof_shot_only": bool(args.proof_shot),
         "native_resolution": [args.width, args.height],
-        "render_samples": 64 if render_engine != "CYCLES" else 48,
-        "actual_imported_mesh_count": len(meshes),
+        "render_samples": max(32, min(int(args.render_samples), 256)),
+        "actual_imported_mesh_count": len(meshes) + len(source_bows),
+        "instrument_mesh_count": len(meshes),
         "animated_bow": True,
         "bow_rig_count": 1,
         "bow_rig_components": len(bow_components),
-        "source_bow_meshes_hidden": int(root.get("source_bow_meshes_hidden", 0)),
+        "source_bow_meshes_rigged": len(source_bows),
+        "visible_bow_mesh_count": len(source_bows),
         "source_string_meshes": source_string_count,
-        "animated_strings": len(strings),
+        "animated_strings": 0,
         "resonance_rings": len(rings),
+        "motion_graphics": {
+            "progress_bar": True,
+            "transition_sweep_count": len(motion_graphics["transition_sweeps"]),
+            "caption_layer_reserved": "ASS word-synchronised captions in lower safe band",
+        },
         "3d_title_objects": 2 if args.proof_shot else 7,
         "blend_project": str(project_path) if args.sample_index == 0 else None,
         "samples": sample_records,
