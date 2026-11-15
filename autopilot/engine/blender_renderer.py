@@ -239,10 +239,10 @@ def _poster(video_path: Path, output_path: Path, timestamp: float) -> None:
         [
             "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
             "-ss", f"{timestamp:.3f}", "-i", str(video_path),
-            "-frames:v", "1", "-q:v", "2", str(output_path),
+            "-frames:v", "1", "-f", "image2", str(output_path),
         ],
         timeout=30,
-        label="Blender scene poster extraction",
+        label="Blender scene PNG poster extraction",
     )
     if not output_path.is_file() or output_path.stat().st_size < 1024:
         raise BlenderRenderError("Could not extract a verification frame from the Blender scene.")
@@ -290,7 +290,7 @@ def _production_preview(output_dir: Path, blender_executable: str | None = None,
         )
         if not report:
             raise BlenderRenderError("Blender preview unexpectedly skipped a scene.")
-        poster = output_dir / f"blender-scene-{index + 1}-poster.jpg"
+        poster = output_dir / f"blender-scene-{index + 1}-poster.png"
         _poster(clip, poster, 1.5)
         clips.append(clip)
         posters.append(poster)
