@@ -54,17 +54,23 @@ def build_content_context(
         raw_graphic = scene.get("graphic_data")
         graphic = {}
         if isinstance(raw_graphic, dict):
-            graphic = {
-                "type": _clean_text(raw_graphic.get("type"), 24),
-                "items": [
-                    {
+            graphic_items = []
+            for item in raw_graphic.get("items", [])[:4]:
+                if isinstance(item, str):
+                    graphic_items.append({
+                        "label": _clean_text(item, 38),
+                        "display": "",
+                        "value": None,
+                    })
+                elif isinstance(item, dict):
+                    graphic_items.append({
                         "label": _clean_text(item.get("label"), 38),
                         "display": _clean_text(item.get("display"), 22),
                         "value": item.get("value") if isinstance(item.get("value"), (int, float)) else None,
-                    }
-                    for item in raw_graphic.get("items", [])[:4]
-                    if isinstance(item, dict)
-                ],
+                    })
+            graphic = {
+                "type": _clean_text(raw_graphic.get("type"), 24),
+                "items": graphic_items,
             }
         scenes.append({
             "caption": _clean_text(scene.get("caption"), 72),
