@@ -54,7 +54,7 @@
     </section>
 
     <section id="headline-two" class="headline headline-two clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="5">
-      <p class="eyebrow"><span class="eyebrow-line"></span> ONE INSTRUMENT</p>
+      <p class="eyebrow" data-layout-ignore><span class="eyebrow-line"></span> ONE INSTRUMENT</p>
       <h2>INFINITE<br /><em>FEELING.</em></h2>
       <p class="headline-note">Every note carries a story of its own.</p>
     </section>
@@ -70,7 +70,7 @@
     <div id="particle-layer" class="particle-layer clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="1" aria-hidden="true"></div>
 
     <section id="headline-three" class="headline headline-three clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="6">
-      <p class="eyebrow"><span class="eyebrow-line"></span> CLOSE YOUR EYES</p>
+      <p class="eyebrow" data-layout-ignore><span class="eyebrow-line"></span> CLOSE YOUR EYES</p>
       <h2>FEEL<br />EVERY<br /><em>NOTE.</em></h2>
       <p class="headline-note">VIOLIN PRINCE — WHERE SOUND BECOMES SENTIMENT.</p>
     </section>
