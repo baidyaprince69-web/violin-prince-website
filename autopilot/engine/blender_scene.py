@@ -399,13 +399,14 @@ def add_melody_path(mat_gold, mat_teal, frame_end):
 
 
 
-def decimate_render_meshes(meshes, face_limit=70000, preserve_meshes=()):
+def decimate_render_meshes(meshes, face_limit=60000, preserve_meshes=()):
     """Reduce imported hero geometry in memory for CPU rendering.
 
     Separate string meshes and very small detail meshes are preserved. The
     downloaded GLTF/GLB file is never modified. Material assignments remain on
-    the evaluated mesh, and the ratio is shared across eligible parts so the
-    complete hero stays within a predictable geometry budget.
+    the evaluated mesh. Up to three bounded collapse passes compensate for
+    Blender's approximate face target while keeping the complete hero within
+    a predictable geometry budget.
     """
     valid_meshes = [
         obj for obj in meshes
@@ -420,17 +421,28 @@ def decimate_render_meshes(meshes, face_limit=70000, preserve_meshes=()):
     ]
     eligible_meshes = [obj for obj in valid_meshes if obj not in fixed_meshes]
     fixed_faces = sum(len(obj.data.polygons) for obj in fixed_meshes)
-    eligible_faces = sum(len(obj.data.polygons) for obj in eligible_meshes)
     budget = max(100, int(face_limit))
     eligible_budget = max(100, budget - fixed_faces)
-    ratio = model_decimation_ratio(eligible_faces, eligible_budget)
+    combined_ratio = 1.0
+    applied_passes = 0
+    decimated_names = set()
 
-    if ratio < 0.999 and eligible_meshes:
-        if bpy.context.object is not None and bpy.context.object.mode != "OBJECT":
-            bpy.ops.object.mode_set(mode="OBJECT")
+    if bpy.context.object is not None and bpy.context.object.mode != "OBJECT":
+        bpy.ops.object.mode_set(mode="OBJECT")
+
+    for pass_index in range(3):
+        eligible_faces = sum(len(obj.data.polygons) for obj in eligible_meshes)
+        ratio = model_decimation_ratio(eligible_faces, eligible_budget)
+        if ratio >= 0.999 or not eligible_meshes:
+            break
+        combined_ratio *= ratio
         for obj in eligible_meshes:
+            # Imported objects can share mesh datablocks. Make the render copy
+            # unique before applying modifiers so one part cannot mutate another.
+            if int(getattr(obj.data, "users", 1)) > 1:
+                obj.data = obj.data.copy()
             modifier = obj.modifiers.new(
-                name="Violin Prince CPU render geometry budget",
+                name=f"Violin Prince CPU geometry budget {pass_index + 1}",
                 type="DECIMATE",
             )
             modifier.decimate_type = "COLLAPSE"
@@ -448,24 +460,27 @@ def decimate_render_meshes(meshes, face_limit=70000, preserve_meshes=()):
                     "Could not apply the bounded Decimate modifier to imported model part "
                     + str(obj.name) + ": " + repr(result)
                 )
+            decimated_names.add(str(obj.name))
+        applied_passes += 1
 
     render_faces = sum(len(obj.data.polygons) for obj in valid_meshes)
     report = {
         "original_faces": int(original_faces),
         "render_faces": int(render_faces),
         "face_limit": int(budget),
-        "decimation_ratio": round(float(ratio), 6),
+        "decimation_ratio": round(float(combined_ratio), 6),
+        "passes": int(applied_passes),
         "preserved_faces": int(fixed_faces),
         "preserved_meshes": len(fixed_meshes),
-        "decimated_meshes": len(eligible_meshes) if ratio < 0.999 else 0,
+        "decimated_meshes": len(decimated_names),
     }
     if render_faces > budget * 1.35:
         raise RuntimeError(
-            "Imported violin remains above the CPU render geometry budget: "
+            "Imported violin remains above the CPU render geometry budget after "
+            + str(applied_passes) + " collapse passes: "
             + json.dumps(report, ensure_ascii=False)
         )
     return report
-
 
 def _run_geometry_budget_smoke(face_limit=700):
     """Exercise the same Blender Decimate path on a temporary high-poly mesh."""
@@ -483,7 +498,7 @@ def _run_geometry_budget_smoke(face_limit=700):
     return report
 
 
-def import_gltf_asset(filepath, face_limit=70000):
+def import_gltf_asset(filepath, face_limit=60000):
     """Import and normalize a downloaded Sketchfab glTF/GLB violin asset."""
     path = Path(filepath).expanduser().resolve()
     if not path.is_file() or path.suffix.casefold() not in {".gltf", ".glb"}:
@@ -719,7 +734,7 @@ def build_scene(config):
     if asset_path:
         model_root, asset_bounds = import_gltf_asset(
             asset_path,
-            face_limit=int(config.get("model_face_limit", 70000)),
+            face_limit=int(config.get("model_face_limit", 60000)),
         )
         model_root["story_asset_kind"] = asset_kind
         model_root.keyframe_insert(data_path="rotation_euler", frame=1)
