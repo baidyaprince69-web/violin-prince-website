@@ -55,6 +55,48 @@ def blender_threads_per_worker() -> int:
     return max(1, min(requested, 4))
 
 
+def _bounded_env_int(name: str, default: int, minimum: int, maximum: int) -> int:
+    try:
+        value = int(os.environ.get(name, str(default)))
+    except (TypeError, ValueError):
+        value = default
+    return max(minimum, min(value, maximum))
+
+
+def blender_render_resolution() -> tuple[int, int]:
+    """Return the bounded internal resolution used before final FFmpeg upscaling."""
+    width = _bounded_env_int("BLENDER_RENDER_WIDTH", 400, 160, 1920)
+    height = _bounded_env_int("BLENDER_RENDER_HEIGHT", 712, 284, 1920)
+    return (width - width % 2, height - height % 2)
+
+
+def blender_render_fps() -> int:
+    """Internal Blender frame rate; the final 720x1280 master is conformed to 25 fps."""
+    return _bounded_env_int("BLENDER_RENDER_FPS", 16, 12, 30)
+
+
+def blender_render_samples() -> int:
+    """Eevee temporal samples per frame for predictable CPU render cost."""
+    return _bounded_env_int("BLENDER_RENDER_SAMPLES", 4, 1, 32)
+
+
+def blender_model_face_limit() -> int:
+    """Maximum imported violin mesh face count used by the CPU scene renderer."""
+    return _bounded_env_int("BLENDER_MODEL_FACE_LIMIT", 70000, 10000, 500000)
+
+
+def model_decimation_ratio(face_count: int, face_limit: int) -> float:
+    """Return a safe collapse ratio that brings a mesh within its face budget."""
+    try:
+        faces = max(0, int(face_count))
+        limit = max(1, int(face_limit))
+    except (TypeError, ValueError):
+        raise ValueError("Model face count and face limit must be integers.")
+    if faces <= limit:
+        return 1.0
+    return max(0.01, min(1.0, limit / float(faces)))
+
+
 def _find_blender(executable: str | None = None) -> str | None:
     candidate = str(executable or os.environ.get("BLENDER_BIN") or "blender").strip()
     if not candidate:
@@ -221,8 +263,8 @@ def render_scene_video(
     *,
     enabled: bool | None = None,
     blender_executable: str | None = None,
-    resolution: tuple[int, int] = (720, 1280),
-    fps: int = 25,
+    resolution: tuple[int, int] = (400, 712),
+    fps: int = 16,
     timeout_seconds: int | None = None,
 ) -> dict[str, Any] | None:
     """Render one complete opaque animated 3D scene as an MP4 clip."""
@@ -300,7 +342,8 @@ def render_scene_video(
             "fps": fps,
             "duration_seconds": duration,
             "threads": threads_per_worker,
-            "samples": max(8, min(int(os.environ.get("BLENDER_RENDER_SAMPLES", "16")), 32)),
+            "samples": blender_render_samples(),
+            "model_face_limit": blender_model_face_limit(),
             "model_asset_path": model_asset_path,
             "model_asset_kind": str(scene.get("model_asset_kind") or "generic"),
             "model_asset_required": model_asset_required,
