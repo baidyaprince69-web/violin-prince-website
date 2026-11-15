@@ -115,7 +115,8 @@ const manifest = {
   container: probe.format?.format_name || null,
   composition_id: "vp-motion-dynamic",
   composition_duration_seconds: duration,
-  visual_cycle_seconds: Math.min(10, duration),
+  visual_sequence_duration_seconds: duration,
+  visual_sequence_repeats: false,
   audio_included: true
 };
 writeFileSync(
@@ -129,6 +130,7 @@ console.log(JSON.stringify({
   audio_file: manifest.audio_file,
   duration_seconds: duration,
   composition_duration_seconds: duration,
-  visual_cycle_seconds: manifest.visual_cycle_seconds,
+  visual_sequence_duration_seconds: manifest.visual_sequence_duration_seconds,
+  visual_sequence_repeats: manifest.visual_sequence_repeats,
   audio_asset: audioSource
 }, null, 2));
