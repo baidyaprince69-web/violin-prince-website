@@ -238,30 +238,51 @@ jobs:
           test -s "$RUNNER_TEMP/blender-5.2.4-linux-x64.tar.xz"
           test -d "$RUNNER_TEMP/violin-prince-blender-config"
           test -d "$RUNNER_TEMP/violin-prince-blender-scripts"
-          # The extension is installed into Blender's selected repository path,
-          # which may live outside BLENDER_USER_CONFIG. Find and bundle that
-          # repository directory as well as the preferences that enable it.
-          FBP_MANIFEST="$(find "$RUNNER_TEMP" -type f -path '*/frame_by_plane/blender_manifest.toml' -print -quit)"
-          test -n "$FBP_MANIFEST"
-          FBP_MODULE_DIR="$(dirname "$FBP_MANIFEST")"
-          FBP_REPO_DIR="$(dirname "$FBP_MODULE_DIR")"
-          FBP_REPO_REL="$(realpath --relative-to="$RUNNER_TEMP" "$FBP_REPO_DIR")"
-          echo "Bundling Frame By Plane repository directory: $FBP_REPO_REL"
-          # The setup action already verified Blender's compressed archive
-          # against the official SHA-256 list. Preserve it without expansion.
+          # Ask Blender for the enabled official repository's actual directory.
+          # In this build it can live outside BLENDER_USER_CONFIG, so preserve
+          # the exact directory and its absolute-root relationship.
+          "$RUNNER_TEMP/blender-5.2.4-linux-x64/blender" --background --python-expr \
+            "import bpy, os, pathlib; repo=next(r for r in bpy.context.preferences.extensions.repos if r.module=='blender_org'); pathlib.Path(os.environ['RUNNER_TEMP'], 'fbp-repo-directory.txt').write_text(bpy.path.abspath(repo.directory))"
+          FBP_REPO_DIR="$(cat "$RUNNER_TEMP/fbp-repo-directory.txt")"
+          test -f "$FBP_REPO_DIR/frame_by_plane/blender_manifest.toml"
+          case "$FBP_REPO_DIR" in
+            "$HOME"/*)
+              FBP_REPO_ROOT="home"
+              FBP_REPO_REL="${FBP_REPO_DIR#"$HOME"/}"
+              FBP_REPO_BASE="$HOME"
+              ;;
+            "$RUNNER_TEMP"/*)
+              FBP_REPO_ROOT="runner_temp"
+              FBP_REPO_REL="${FBP_REPO_DIR#"$RUNNER_TEMP"/}"
+              FBP_REPO_BASE="$RUNNER_TEMP"
+              ;;
+            *)
+              echo "::error::Unsupported Frame By Plane repository location: $FBP_REPO_DIR"
+              exit 1
+              ;;
+          esac
+          printf '%s\n' "$FBP_REPO_ROOT" > work/fbp-repo-root.txt
+          printf '%s\n' "$FBP_REPO_REL" > work/fbp-repo-rel.txt
+          echo "Bundling Frame By Plane repository directory: $FBP_REPO_ROOT/$FBP_REPO_REL"
+          # Blender's compressed archive was checksum-verified by the setup
+          # action. Keep it compressed, but also preserve the installed add-on.
           tar -cf work/blender-frame-by-plane-runtime.tar \
             -C "$RUNNER_TEMP" \
             blender-5.2.4-linux-x64.tar.xz \
             violin-prince-blender-config \
-            violin-prince-blender-scripts \
-            "$FBP_REPO_REL"
+            violin-prince-blender-scripts
+          tar -rf work/blender-frame-by-plane-runtime.tar \
+            -C "$FBP_REPO_BASE" "$FBP_REPO_REL"
           sha256sum work/blender-frame-by-plane-runtime.tar
 
       - name: Share the verified Blender runtime with all five workers
         uses: actions/upload-artifact@v4
         with:
           name: violin-prince-blender-runtime
-          path: work/blender-frame-by-plane-runtime.tar
+          path: |
+            work/blender-frame-by-plane-runtime.tar
+            work/fbp-repo-root.txt
+            work/fbp-repo-rel.txt
           compression-level: 0
           if-no-files-found: error
           retention-days: 7
@@ -318,7 +339,20 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          tar -xf work/blender-frame-by-plane-runtime.tar -C "$RUNNER_TEMP"
+          FBP_REPO_ROOT="$(cat work/fbp-repo-root.txt)"
+          FBP_REPO_REL="$(cat work/fbp-repo-rel.txt)"
+          tar -xf work/blender-frame-by-plane-runtime.tar -C "$RUNNER_TEMP" \
+            blender-5.2.4-linux-x64.tar.xz \
+            violin-prince-blender-config \
+            violin-prince-blender-scripts
+          if [ "$FBP_REPO_ROOT" = "home" ]; then
+            tar -xf work/blender-frame-by-plane-runtime.tar -C "$HOME" "$FBP_REPO_REL"
+          elif [ "$FBP_REPO_ROOT" = "runner_temp" ]; then
+            tar -xf work/blender-frame-by-plane-runtime.tar -C "$RUNNER_TEMP" "$FBP_REPO_REL"
+          else
+            echo "::error::Unknown Frame By Plane repo root '$FBP_REPO_ROOT'"
+            exit 1
+          fi
           tar -xf "$RUNNER_TEMP/blender-5.2.4-linux-x64.tar.xz" -C "$RUNNER_TEMP"
           BLENDER_DIR="$RUNNER_TEMP/blender-5.2.4-linux-x64"
           CONFIG_DIR="$RUNNER_TEMP/violin-prince-blender-config"
