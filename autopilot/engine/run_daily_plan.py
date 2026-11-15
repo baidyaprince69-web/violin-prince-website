@@ -437,7 +437,7 @@ def run_daily_plan(plan_path: Path) -> int:
         return result
     final_video = engine.OUT / "violin-prince-short.mp4"
     if blender_enabled:
-        images = [engine.OUT / f"blender-scene-{index + 1}-poster.jpg" for index in range(3)]
+        images = [engine.OUT / f"blender-scene-{index + 1}-poster.png" for index in range(3)]
         if not all(path.is_file() and path.stat().st_size > 1024 for path in images):
             raise engine.PipelineError("Blender scene poster frames are missing; cannot verify the rendered 3D scenes.")
         engine.make_storyboard_preview(plan, images, engine.OUT / "blender-storyboard-review.png")
