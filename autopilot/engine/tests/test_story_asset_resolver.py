@@ -140,7 +140,7 @@ class StoryAssetResolverTests(unittest.TestCase):
             session=session,
         )
         self.assertEqual(len(rows), 1)
-        args, kwargs = session.get.call_args
+        args, kwargs = session.get.call_args_list[0]
         self.assertTrue(args[0].endswith("/search"))
         self.assertEqual(kwargs["params"]["type"], "models")
         self.assertEqual(kwargs["params"]["downloadable"], "true")
