@@ -431,29 +431,51 @@ def build_scene(config):
     add_area_light("Cool teal fill", (-4.0, -2.5, 1.0), 520, (0.35, 0.75, 0.85), 4.0)
     add_area_light("Amber rim light", (0.0, 2.2, 4.5), 680, (1.0, 0.45, 0.17), 3.5)
 
-    camera_data = bpy.data.cameras.new("Animated Violin Prince camera")
-    camera = bpy.data.objects.new("Animated Violin Prince camera", camera_data)
+    camera_data = bpy.data.cameras.new("Animated Violin Prince cinema camera")
+    camera = bpy.data.objects.new("Animated Violin Prince cinema camera", camera_data)
     bpy.context.collection.objects.link(camera)
-    camera.location = (0.0, -10.8, 0.55)
-    camera_data.lens = 52.0
+    camera_data.lens = 48.0
     camera_data.sensor_fit = "VERTICAL"
     camera_data.dof.use_dof = True
-    camera_data.dof.focus_distance = 10.8
-    camera_data.dof.aperture_fstop = 8.0
-    target = Vector((0.0, 0.0, 0.0))
-    camera.rotation_euler = (target - camera.location).to_track_quat("-Z", "Y").to_euler()
+    camera_data.dof.aperture_fstop = 5.6
+
+    # A tracked focus object keeps the violin composed while the camera travels.
+    focus_target = bpy.data.objects.new("Animated camera focus target", None)
+    bpy.context.collection.objects.link(focus_target)
+    focus_target.empty_display_type = "SPHERE"
+    focus_target.empty_display_size = 0.12
+    focus_target.location = (0.0, -0.12, 0.55)
+    camera_data.dof.focus_object = focus_target
+
+    track = camera.constraints.new(type="TRACK_TO")
+    track.name = "Keep the violin in cinematic focus"
+    track.target = focus_target
+    track.track_axis = "-Z"
+    track.up_axis = "Y"
+
     scene = bpy.context.scene
     scene.camera = camera
-    camera.keyframe_insert(data_path="location", frame=1)
-    camera.location.x = 0.28
-    camera.location.y = -10.1
-    camera.location.z = 0.68
-    camera.keyframe_insert(data_path="location", frame=frame_end)
-    camera.rotation_euler = ((target - camera.location).to_track_quat("-Z", "Y").to_euler())
-    camera.keyframe_insert(data_path="rotation_euler", frame=frame_end)
-    camera.data.keyframe_insert(data_path="lens", frame=1)
-    camera.data.lens = 55.0
-    camera.data.keyframe_insert(data_path="lens", frame=frame_end)
+
+    # Five distinct animated camera beats: establish, left reveal, cross-front
+    # sweep, right-side orbit and a final controlled dolly-in. Both the camera
+    # and the aim point are keyframed in Blender; this is not post-render zoom.
+    camera_moves = [
+        (1, (-0.45, -12.4, 0.45), (0.0, -0.12, 0.48), 48.0),
+        (1 + frame_end // 4, (-1.75, -10.8, 1.05), (0.0, -0.12, 0.62), 52.0),
+        (1 + frame_end // 2, (0.95, -9.9, 1.15), (0.0, -0.12, 0.74), 55.0),
+        (1 + (3 * frame_end) // 4, (2.00, -10.7, 0.30), (0.0, -0.12, 0.45), 52.0),
+        (frame_end, (0.25, -9.0, 0.95), (0.0, -0.12, 0.72), 58.0),
+    ]
+    for frame, camera_position, aim_position, focal_length in camera_moves:
+        camera.location = camera_position
+        camera.keyframe_insert(data_path="location", frame=frame)
+        focus_target.location = aim_position
+        focus_target.keyframe_insert(data_path="location", frame=frame)
+        camera.data.lens = focal_length
+        camera.data.keyframe_insert(data_path="lens", frame=frame)
+
+    # Set the first frame explicitly after all camera keys are authored.
+    scene.frame_set(1)
 
     world = bpy.data.worlds.new("Violin Prince midnight atmosphere")
     world.use_nodes = True
