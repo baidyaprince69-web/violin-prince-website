@@ -22,7 +22,7 @@ def is_motion_hyperframes_render_enabled(value: str | None = None) -> bool:
     return str(raw).strip().lower() in {"1", "true", "yes", "on"}
 
 
-def select_renderer(motion_enabled: bool, *_unused_legacy_flags: Any) -> str:
+def select_renderer(motion_enabled: bool) -> str:
     """Select the sole supported production renderer: Motion + HyperFrames."""
     if not motion_enabled:
         raise MotionHyperFramesError(
