@@ -17,6 +17,11 @@
     window.process.env = window.process.env || {};
     window.process.env.NODE_ENV = "production";
   </script>
+  <script>
+    // Static registry bootstrap required by HyperFrames' HTML linter.
+    // The Motion runtime and seek adapter remain in src/motion-timeline.js.
+    window.__timelines = window.__timelines || {};
+  </script>
   <script type="module" src="./src/main.js"></script>
 </head>
 <body>
