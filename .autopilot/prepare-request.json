@@ -1,6 +1,6 @@
 {
   "mode": "chatgpt_daily_production",
   "plan_path": ".autopilot/daily-production-plan.json",
-  "reason": "Run the ChatGPT-authored, source-verified daily production plan exclusively through the 2D Motion + HyperFrames renderer. Build original layered SVG illustrations for the room-acoustics scene, DSP signal path, and violin musical payoff; synchronise each scene and captions to Kokoro af_heart word timings; export and QA a narration-backed vertical MP4. Do not install or invoke Blender, do not download 3D models, do not call Cloudflare or FLUX, and keep PUBLISH_ENABLED=false and YOUTUBE_PUBLISH_ENABLED=false. Do not alter existing YouTube uploads.",
-  "request_revision": "mandatory-2d-motion-hyperframes-illustrated-scenes"
+  "reason": "Run the ChatGPT-authored, source-verified daily production plan exclusively through the 2D Motion + HyperFrames renderer. Build original layered SVG illustrations for the room-acoustics scene, DSP signal path, and violin musical payoff; synchronise each scene and captions to Kokoro af_heart word timings; export and QA a narration-backed vertical MP4. Verify the Motion-specific output path and preserve the actual MP4, contact sheet and QA reports in the diagnostic artifact. Do not install or invoke Blender, do not download 3D models, do not call Cloudflare or FLUX, and keep PUBLISH_ENABLED=false and YOUTUBE_PUBLISH_ENABLED=false. Do not alter existing YouTube uploads.",
+  "request_revision": "mandatory-2d-motion-hyperframes-illustrated-scenes-mp4-artifact-verification"
 }
