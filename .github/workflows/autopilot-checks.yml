@@ -5,6 +5,7 @@ on:
     paths:
       - "autopilot/**"
       - ".github/workflows/violin-prince-autopilot.yml"
+      - "prototypes/hyperframes-motion/**"
       - ".github/workflows/deploy-autopilot-cloudflare.yml"
       - ".github/workflows/autopilot-checks.yml"
   pull_request:
