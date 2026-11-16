@@ -24,17 +24,17 @@
   ],
   "narrative_style": "documentary",
   "cover_payoff": "Use the separately licensed violin and bow geometry selected for this story. Animate a symbolic bow stroke across the strings and use a sampled violin phrase as illustrative accompaniment. Never present the sample as Prince's live performance. Show the correction signal path around monitor playback, not as a change to the recorded violin take.",
-  "narration_script": "Could your room change your violin mix? RoomTune now adjusts monitor signals to compensate for your room’s acoustics. The correction runs directly on the interface’s own onboard hardware DSP. That same processor also runs EQ, compression and reverb with no latency.",
+  "narration_script": "Could your room change your violin mix? Audient adds RoomTune monitor correction to its new iD interfaces. It measures your room and adjusts the signal reaching your monitors. Its onboard DSP also runs EQ, compression and reverb with no latency.",
   "narration_evidence": [
     {
       "sentence_number": 2,
       "source_id": "S001",
-      "quote": "this adjusts the signal sent to your monitors to compensate for your room’s acoustics"
+      "quote": "analogue mic preamps with onboard DSP, monitor correction and new tone-shaping tools."
     },
     {
       "sentence_number": 3,
       "source_id": "S002",
-      "quote": "It measures your room and adjusts the signal going to your monitors to compensate for its acoustics, with the correction stored on and run from the interface’s DSP"
+      "quote": "It measures your room and adjusts the signal going to your monitors to compensate for its acoustics"
     },
     {
       "sentence_number": 4,
