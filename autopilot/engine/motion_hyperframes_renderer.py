@@ -75,8 +75,13 @@ def build_content_context(
         sentence_index = scene.get("sentence_index", len(scenes))
         if isinstance(sentence_index, bool) or not isinstance(sentence_index, int) or sentence_index < 0:
             sentence_index = len(scenes)
+        sentence_fraction = scene.get("sentence_fraction", 0.0)
+        if isinstance(sentence_fraction, bool) or not isinstance(sentence_fraction, (int, float)):
+            sentence_fraction = 0.0
+        sentence_fraction = max(0.0, min(0.95, float(sentence_fraction)))
         scenes.append({
             "sentence_index": sentence_index,
+            "sentence_fraction": round(sentence_fraction, 4),
             "caption": _clean_text(scene.get("caption"), 72),
             "visual_mode": _clean_text(scene.get("visual_mode"), 32),
             "graphic_label": _clean_text(scene.get("graphic_label"), 42),

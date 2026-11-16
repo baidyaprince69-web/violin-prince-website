@@ -88,6 +88,7 @@ if (contentArgument && !contentArgument.startsWith("--")) {
     return {
       caption: cleanText(scene?.caption, 72),
       sentence_index: Number.isInteger(scene?.sentence_index) && scene.sentence_index >= 0 ? scene.sentence_index : 0,
+      sentence_fraction: Number.isFinite(Number(scene?.sentence_fraction)) ? Math.max(0, Math.min(0.95, Number(scene.sentence_fraction))) : 0,
       visual_mode: cleanText(scene?.visual_mode, 32),
       graphic_label: cleanText(scene?.graphic_label, 42),
       graphic_detail: cleanText(scene?.graphic_detail, 110),

@@ -60,7 +60,7 @@ class MotionHyperFramesRendererTests(unittest.TestCase):
                 {"caption": "A rising phrase"},
                 {"caption": "The bridge", "sentence_index": 2},
                 {"caption": "The next phrase", "sentence_index": 3},
-                {"caption": "The final note", "sentence_index": 4},
+                {"caption": "The final note", "sentence_index": 4, "sentence_fraction": 0.5},
                 {"caption": "Not included", "sentence_index": 5},
             ],
         }, {
@@ -73,6 +73,7 @@ class MotionHyperFramesRendererTests(unittest.TestCase):
         self.assertEqual(len(result["captions"]), 5)
         self.assertEqual(result["captions"][4], "The final note")
         self.assertEqual(result["scenes"][4]["sentence_index"], 4)
+        self.assertEqual(result["scenes"][4]["sentence_fraction"], 0.5)
         self.assertEqual(result["narration_engine"], "Kokoro-82M")
         self.assertEqual(result["narration_voice"], "af_heart")
         self.assertEqual(result["narration_words"][0]["text"], "A")

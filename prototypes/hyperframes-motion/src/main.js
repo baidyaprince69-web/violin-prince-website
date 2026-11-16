@@ -70,27 +70,49 @@ if (!sceneArt || !sceneKicker || !sceneTitle || !sceneDescription || !captionLin
   throw new Error("The portrait composition is missing a required scene or caption layer.");
 }
 
-function sceneIndexForSentence(sentenceIndex) {
+const sceneSentenceFractions = scenes.map((scene) => {
+  const fraction = Number(scene.sentence_fraction);
+  return Number.isFinite(fraction) ? Math.max(0, Math.min(0.95, fraction)) : 0;
+});
+
+function sceneStartTime(sceneIndex) {
+  const sentenceIndex = sceneSentenceIndices[sceneIndex] ?? 0;
+  const cues = narrationWords.filter((cue) =>
+    (Number(cue.sentence_index) || 0) === sentenceIndex
+  );
+  if (cues.length) {
+    const sentenceStart = Number(cues[0].start);
+    const sentenceEnd = Number(cues[cues.length - 1].end);
+    return sentenceStart + (sentenceEnd - sentenceStart) * sceneSentenceFractions[sceneIndex];
+  }
+  return DURATION * sceneIndex / scenes.length;
+}
+
+function sceneIndexForCue(cue, seconds) {
+  if (!narrationWords.length) {
+    let timedIndex = 0;
+    for (let index = 0; index < scenes.length; index += 1) {
+      if (seconds >= DURATION * index / scenes.length) timedIndex = index;
+    }
+    return timedIndex;
+  }
+  const sentenceIndex = Number(cue?.sentence_index || 0);
+  const cueStart = Number(cue?.start || 0);
   let active = 0;
-  for (let index = 0; index < sceneSentenceIndices.length; index += 1) {
-    if (sentenceIndex >= sceneSentenceIndices[index]) active = index;
+  for (let index = 0; index < scenes.length; index += 1) {
+    const sceneSentence = sceneSentenceIndices[index];
+    if (
+      sentenceIndex > sceneSentence ||
+      (sentenceIndex === sceneSentence && cueStart >= sceneStartTime(index))
+    ) active = index;
   }
   return active;
 }
 
 function sceneTimingRange(sceneIndex) {
-  const firstSentence = sceneSentenceIndices[sceneIndex] ?? 0;
-  const nextSentence = sceneSentenceIndices[sceneIndex + 1] ?? Number.POSITIVE_INFINITY;
-  const cues = narrationWords.filter((cue) => {
-    const sentence = Number(cue.sentence_index) || 0;
-    return sentence >= firstSentence && sentence < nextSentence;
-  });
-  if (cues.length) {
-    return { start: Number(cues[0].start), end: Number(cues[cues.length - 1].end) };
-  }
   return {
-    start: DURATION * sceneIndex / scenes.length,
-    end: DURATION * (sceneIndex + 1) / scenes.length
+    start: sceneStartTime(sceneIndex),
+    end: sceneIndex + 1 < scenes.length ? sceneStartTime(sceneIndex + 1) : DURATION
   };
 }
 
@@ -163,8 +185,7 @@ function syncScene(seconds) {
     if (Number(word.start) <= seconds) cue = word;
     else break;
   }
-  const sentenceIndex = Number(cue?.sentence_index || 0);
-  const nextIndex = Math.min(scenes.length - 1, sceneIndexForSentence(sentenceIndex));
+  const nextIndex = Math.min(scenes.length - 1, sceneIndexForCue(cue, seconds));
   const scene = scenes[nextIndex];
   const range = sceneTimingRange(nextIndex);
   const span = Math.max(0.8, range.end - range.start);

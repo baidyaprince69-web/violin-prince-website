@@ -107,10 +107,15 @@ jobs:
           expected = ["room_acoustics", "audio_interface", "roomtune_process", "dsp_stages", "violin_performance_2d"]
           actual = [scene.get("graphic_data", {}).get("type") for scene in scenes]
           indices = [scene.get("sentence_index") for scene in scenes]
-          if actual != expected or indices != [0, 1, 2, 3, 4]:
-              raise SystemExit("The saved daily plan must contain all five portrait scene types in narration order.")
-          if len(plan.get("narration_script", "").split(". ")) < 5:
-              raise SystemExit("The saved daily plan must carry the five-beat narration script.")
+          fractions = [scene.get("sentence_fraction", 0) for scene in scenes]
+          if actual != expected or indices != [0, 1, 2, 3, 3] or float(fractions[-1]) != 0.5:
+              raise SystemExit("The saved daily plan must contain five portrait scenes, with its violin payoff timed in the final sentence.")
+          import re
+          script = plan.get("narration_script", "")
+          sentence_parts = [part.strip() for part in re.split(r"(?<=[.!?])\s+", script.strip()) if part.strip()]
+          spoken_words = re.findall(r"\b[\w’'-]+\b", script)
+          if len(sentence_parts) != 4 or not 40 <= len(spoken_words) <= 44:
+              raise SystemExit("The saved daily plan must preserve the four-sentence, 40–44-word narration contract.")
           print("Saved RoomTune storyboard: five portrait scenes in sentence order.")
           PY
 
@@ -239,6 +244,7 @@ jobs:
                   },
                   {
                       "sentence_index": 4,
+                      "sentence_fraction": 0.5,
                       "caption": "HEAR THE VIOLIN. TRUST THE MIX.",
                       "graphic_label": "SCENE 05 · THE MUSICAL PAYOFF",
                       "graphic_detail": "A close-up illustrated violin performance brings the explanation back to music",
