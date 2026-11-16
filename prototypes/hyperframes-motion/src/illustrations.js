@@ -106,8 +106,14 @@ function buildSignalChain(svg) {
       svgNode("rect",{x:card.x+59,y:132,width:82,height:72,rx:8,fill:"#101b30",stroke:"#d8bd91","stroke-width":2},c);
       for(let pin=0;pin<4;pin+=1)svgNode("path",{d:`M${card.x+68+pin*18} 122 L${card.x+68+pin*18} 132 M${card.x+68+pin*18} 204 L${card.x+68+pin*18} 214`,stroke:"#d8bd91","stroke-width":3},c);
       svgNode("path",{d:`M${card.x+72} 178 Q${card.x+86} 145 ${card.x+100} 166 T${card.x+130} 151`,fill:"none",stroke:"#70cfc4","stroke-width":3},c);
-    } else addSpeaker(c,card.x+69,130,0.9);
-    svgText(c,card.x+100,258,card.label,30,"#f4f0e9",{"text-anchor":"middle"});
+    } else addSpeaker(c,card.x+45,130,0.9);
+    if(index===2){
+      // Keep the final card's large heading inside TikTok's stepped right-safe band.
+      svgText(c,card.x+65,252,"PLAY",30,"#f4f0e9",{"text-anchor":"middle"});
+      svgText(c,card.x+65,282,"BACK",30,"#f4f0e9",{"text-anchor":"middle"});
+    } else {
+      svgText(c,card.x+100,258,card.label,30,"#f4f0e9",{"text-anchor":"middle"});
+    }
     svgText(c,card.x+100,290,card.detail,18,"#b8c5d9",{"text-anchor":"middle","letter-spacing":0.3,"font-weight":500,"data-layout-ignore":"true"});
   });
   for(let i=0;i<cards.length-1;i+=1){

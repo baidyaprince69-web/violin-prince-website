@@ -175,7 +175,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 380px;
+  height: 300px;
   margin: 20px 0 12px;
   padding: 0;
   border: 0;
@@ -435,7 +435,7 @@ body {
   top: auto;
   left: 120px;
   right: 120px;
-  bottom: 390px;
+  bottom: 640px;
   height: 146px;
   min-height: 146px;
   box-sizing: border-box;
