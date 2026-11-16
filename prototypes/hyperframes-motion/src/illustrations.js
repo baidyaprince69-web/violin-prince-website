@@ -92,27 +92,27 @@ function buildSignalChain(svg) {
   const cards=[
     {x:48,label:"MEASURE",detail:"Room response",accent:"#70cfc4"},
     {x:320,label:"PROCESS",detail:"DSP correction",accent:"#d8bd91"},
-    {x:592,label:"PLAY BACK",detail:"Monitor output",accent:"#70cfc4"}
+    {x:570,label:"PLAY BACK",detail:"Monitor output",accent:"#70cfc4"}
   ];
   cards.forEach((card,index)=>{
     const c=svgNode("g",{class:"signal-card"},g);
     svgNode("rect",{x:card.x,y:68,width:cardWidth,height:236,rx:20,fill:"#111d33",stroke:card.accent,"stroke-opacity":0.7,"stroke-width":2},c);
     svgNode("rect",{x:card.x+12,y:80,width:cardWidth-24,height:212,rx:14,fill:"#1c2b46","fill-opacity":0.62,stroke:"#d7e2f4","stroke-opacity":0.08},c);
     if(index===0){
-      svgNode("rect",{x:card.x+81,y:133,width:38,height:54,rx:18,fill:"#d8bd91"},c);
-      svgNode("path",{d:`M${card.x+100} 187 L${card.x+100} 220 M${card.x+73} 220 L${card.x+127} 220`,stroke:"#d8bd91","stroke-width":4,"stroke-linecap":"round"},c);
-      svgNode("path",{d:`M${card.x+64} 160 Q${card.x+48} 188 ${card.x+65} 201 M${card.x+136} 160 Q${card.x+152} 188 ${card.x+135} 201`,fill:"none",stroke:"#70cfc4","stroke-width":3,"stroke-dasharray":"5 6"},c);
+      svgNode("rect",{x:card.x+81,y:103,width:38,height:54,rx:18,fill:"#d8bd91"},c);
+      svgNode("path",{d:`M${card.x+100} 157 L${card.x+100} 190 M${card.x+73} 190 L${card.x+127} 190`,stroke:"#d8bd91","stroke-width":4,"stroke-linecap":"round"},c);
+      svgNode("path",{d:`M${card.x+64} 130 Q${card.x+48} 158 ${card.x+65} 171 M${card.x+136} 130 Q${card.x+152} 158 ${card.x+135} 171`,fill:"none",stroke:"#70cfc4","stroke-width":3,"stroke-dasharray":"5 6"},c);
     } else if(index===1){
-      svgNode("rect",{x:card.x+59,y:132,width:82,height:72,rx:8,fill:"#101b30",stroke:"#d8bd91","stroke-width":2},c);
-      for(let pin=0;pin<4;pin+=1)svgNode("path",{d:`M${card.x+68+pin*18} 122 L${card.x+68+pin*18} 132 M${card.x+68+pin*18} 204 L${card.x+68+pin*18} 214`,stroke:"#d8bd91","stroke-width":3},c);
-      svgNode("path",{d:`M${card.x+72} 178 Q${card.x+86} 145 ${card.x+100} 166 T${card.x+130} 151`,fill:"none",stroke:"#70cfc4","stroke-width":3},c);
-    } else addSpeaker(c,card.x+45,130,0.9);
+      svgNode("rect",{x:card.x+59,y:102,width:82,height:72,rx:8,fill:"#101b30",stroke:"#d8bd91","stroke-width":2},c);
+      for(let pin=0;pin<4;pin+=1)svgNode("path",{d:`M${card.x+68+pin*18} 92 L${card.x+68+pin*18} 102 M${card.x+68+pin*18} 174 L${card.x+68+pin*18} 184`,stroke:"#d8bd91","stroke-width":3},c);
+      svgNode("path",{d:`M${card.x+72} 148 Q${card.x+86} 115 ${card.x+100} 136 T${card.x+130} 121`,fill:"none",stroke:"#70cfc4","stroke-width":3},c);
+    } else addSpeaker(c,card.x+45,100,0.9);
     if(index===2){
       // Keep the final card's large heading inside TikTok's stepped right-safe band.
-      svgText(c,card.x+65,252,"PLAY",30,"#f4f0e9",{"text-anchor":"middle"});
-      svgText(c,card.x+65,282,"BACK",30,"#f4f0e9",{"text-anchor":"middle"});
+      svgText(c,card.x+65,250,"PLAY",37,"#f4f0e9",{"text-anchor":"middle"});
+      svgText(c,card.x+65,289,"BACK",37,"#f4f0e9",{"text-anchor":"middle"});
     } else {
-      svgText(c,card.x+100,258,card.label,30,"#f4f0e9",{"text-anchor":"middle"});
+      svgText(c,card.x+100,258,card.label,37,"#f4f0e9",{"text-anchor":"middle"});
     }
     svgText(c,card.x+100,290,card.detail,18,"#b8c5d9",{"text-anchor":"middle","letter-spacing":0.3,"font-weight":500,"data-layout-ignore":"true"});
   });
