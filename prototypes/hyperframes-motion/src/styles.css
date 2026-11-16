@@ -54,7 +54,7 @@ body {
 
 .top-mark {
   z-index: 9;
-  inset: 245px 150px auto 150px;
+  inset: 350px 150px auto 150px;
   height: 50px;
   display: flex;
   align-items: center;
@@ -81,7 +81,7 @@ body {
 }
 .top-rule {
   z-index: 9;
-  inset: 305px 150px auto 150px;
+  inset: 410px 150px auto 150px;
   height: 2px;
   transform: scaleX(0);
   transform-origin: left center;
@@ -91,10 +91,10 @@ body {
 .scene-header {
   z-index: 7;
   position: absolute;
-  top: 330px;
+  top: 420px;
   left: 150px;
   right: 150px;
-  height: 260px;
+  height: 220px;
   opacity: 1;
   background: linear-gradient(180deg, rgba(7,11,23,0.94) 0%, rgba(7,11,23,0.82) 72%, rgba(7,11,23,0) 100%);
 }

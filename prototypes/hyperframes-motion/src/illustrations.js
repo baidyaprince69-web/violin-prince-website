@@ -112,7 +112,6 @@ function buildInterface(world) {
     const height = 24 + ((i * 31) % 82);
     node("rect", { x: 285 + i * 22, y: 1110 - height, width: 11, height, rx: 5, fill: i % 3 ? "#70cfc4" : "#d8bd91", class: "interface-meter", "data-meter-height": height }, screen);
   }
-  text(screen, 540, 1050, "ONBOARD DSP", 58, "#e8edf6", { "text-anchor": "middle" });
   const dsp = reveal(subject, 2, "interface-dsp");
   [
     { x: 250, label: "EQ" }, { x: 455, label: "COMP" }, { x: 660, label: "REVERB" }

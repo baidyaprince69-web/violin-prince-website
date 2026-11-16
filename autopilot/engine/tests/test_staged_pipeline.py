@@ -16,6 +16,10 @@ import run as pipeline
 
 
 class StagedPipelineTests(unittest.TestCase):
+    def setUp(self):
+        self.motion_env = patch.dict(os.environ, {"MOTION_HYPERFRAMES_RENDER_ENABLED": "false"})
+        self.motion_env.start()
+        self.addCleanup(self.motion_env.stop)
     def _write_package(self, folder, include_images=False):
         folder = Path(folder)
         folder.mkdir(parents=True, exist_ok=True)
@@ -116,6 +120,24 @@ class StagedPipelineTests(unittest.TestCase):
                 self.assertEqual(len(narration_info["subtitle_cues"]), 1)
                 self.assertTrue(paths["audio"].is_file())
                 self.assertEqual(len(images), 3)
+            finally:
+                pipeline.PACKAGE = original
+
+    def test_prepared_package_accepts_five_scenes_in_motion_mode(self):
+        with tempfile.TemporaryDirectory() as folder:
+            plan = self._write_package(folder, include_images=False)
+            plan["scenes"].extend([
+                {"caption": "The interface", "image_prompt": "A full-screen audio interface illustration", "visual_mode": "full_screen_2d"},
+                {"caption": "The processing", "image_prompt": "Three clear processing stages", "visual_mode": "full_screen_2d"},
+            ])
+            Path(folder, "creative_plan.json").write_text(json.dumps(plan), encoding="utf-8")
+            original = pipeline.PACKAGE
+            try:
+                pipeline.PACKAGE = Path(folder)
+                with patch.dict(os.environ, {"MOTION_HYPERFRAMES_RENDER_ENABLED": "true"}):
+                    loaded, metadata, narration_info, paths, images = pipeline._read_package(require_images=False)
+                self.assertEqual(len(loaded["scenes"]), 5)
+                self.assertEqual(len(images), 5)
             finally:
                 pipeline.PACKAGE = original
 

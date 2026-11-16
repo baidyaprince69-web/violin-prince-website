@@ -4721,7 +4721,7 @@ def _read_package(require_images=False):
     creative_issues = validate_creative_plan(plan)
     if creative_issues:
         raise PipelineError("Prepared package failed the Violin Prince creative-direction gate: " + " ".join(creative_issues))
-    motion_enabled = is_motion_hyperframes_render_enabled()
+    motion_enabled = str(os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "false")).strip().lower() in {"1", "true", "yes", "on"}
     expected_scene_count = 5 if motion_enabled else 3
     if not isinstance(plan.get("scenes"), list) or len(plan["scenes"]) != expected_scene_count:
         raise PipelineError(
