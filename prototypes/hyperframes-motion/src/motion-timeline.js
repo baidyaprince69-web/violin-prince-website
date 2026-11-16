@@ -4,8 +4,8 @@ const MOTION_REFERENCE_DURATION_SECONDS = 10;
 
 /**
  * Keep Motion's animation runtime outside the HyperFrames composition document.
- * HyperFrames owns frame capture and deterministically seeks this registered
- * adapter; Motion owns the visual animation interpolation.
+ * HyperFrames seeks this registered adapter for deterministic frame capture;
+ * Motion owns visual interpolation and interactive playback.
  */
 export function registerMotionTimeline({ root, sequence, duration, onSeek }) {
   const compositionId = root?.dataset?.compositionId;
@@ -35,9 +35,6 @@ export function registerMotionTimeline({ root, sequence, duration, onSeek }) {
     }
   ]);
 
-  const motionTimeline = animate(scaledSequence, { autoplay: false });
-  motionTimeline.pause();
-
   const progressFill = document.getElementById("progress-fill");
   const progressTime = document.querySelector("#bottom-progress .progress-time");
 
@@ -51,39 +48,79 @@ export function registerMotionTimeline({ root, sequence, duration, onSeek }) {
   if (progressTime) progressTime.textContent = formatTimestamp(durationSeconds);
 
   let lastTime = 0;
+  let suppressSeekUpdate = false;
 
-  function seek(seconds) {
-    const safeTime = Math.max(0, Math.min(durationSeconds, Number(seconds) || 0));
-    motionTimeline.time = safeTime;
+  function clampTime(seconds) {
+    return Math.max(0, Math.min(durationSeconds, Number(seconds) || 0));
+  }
 
+  function updateVisualState(seconds, notify = true) {
+    const safeTime = clampTime(seconds);
+    lastTime = safeTime;
     if (progressFill) {
       progressFill.style.transform = "scaleX(" + (safeTime / durationSeconds).toFixed(8) + ")";
     }
-    if (typeof onSeek === "function") onSeek(safeTime);
-    lastTime = safeTime;
+    if (notify && !suppressSeekUpdate && typeof onSeek === "function") {
+      onSeek(safeTime);
+    }
+  }
+
+  const motionTimeline = animate(scaledSequence, {
+    autoplay: false,
+    onUpdate(time) {
+      // Motion's own playhead keeps the scene and word captions in sync during
+      // preview playback; HyperFrames can still seek the same timeline directly.
+      updateVisualState(time);
+    }
+  });
+  motionTimeline.pause();
+  updateVisualState(0);
+
+  function seek(seconds, suppressEvents = false) {
+    const safeTime = clampTime(seconds);
+    suppressSeekUpdate = Boolean(suppressEvents);
+    try {
+      motionTimeline.time = safeTime;
+    } finally {
+      suppressSeekUpdate = false;
+    }
+    updateVisualState(safeTime, !suppressEvents);
+    return timelineAdapter;
   }
 
   const timelineAdapter = {
+    // HyperFrames direct-timeline contract.
+    duration() {
+      return durationSeconds;
+    },
+    time(seconds) {
+      if (typeof seconds === "number") return seek(seconds, false);
+      return lastTime;
+    },
+    seek,
+    play() {
+      motionTimeline.play();
+      return timelineAdapter;
+    },
     pause() {
       motionTimeline.pause();
       return timelineAdapter;
     },
-    totalTime(seconds) {
-      if (typeof seconds === "number") seek(seconds);
-      return lastTime;
-    },
-    time(seconds) {
-      if (typeof seconds === "number") {
-        seek(seconds);
+    timeScale(scaleValue) {
+      if (typeof scaleValue === "number" && Number.isFinite(scaleValue)) {
+        motionTimeline.speed = scaleValue;
         return timelineAdapter;
       }
+      return motionTimeline.speed;
+    },
+
+    // Compatibility methods retained for the pinned HyperFrames renderer.
+    totalTime(seconds) {
+      if (typeof seconds === "number") return seek(seconds, false);
       return lastTime;
     },
-    duration() {
-      return durationSeconds;
-    },
     progress(value) {
-      if (typeof value === "number") seek(value * durationSeconds);
+      if (typeof value === "number") return seek(value * durationSeconds, false);
       return lastTime / durationSeconds;
     },
     kill() {

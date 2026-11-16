@@ -23,7 +23,7 @@ That path does not call Cloudflare, Workers AI, R2, FLUX or a remote image servi
 
 - 1080 × 1920 vertical output at 30 fps.
 - Motion JavaScript provides seekable animation; HyperFrames handles frame capture and FFmpeg encoding.
-- The Motion runtime and its seek adapter live in the separate `src/motion-timeline.js` module. The composition HTML loads the controller as an external module; it does not embed Motion's animation clock or implementation. HyperFrames remains the frame clock and seeks the registered adapter deterministically.
+- The Motion runtime and its seek adapter live in the separate `src/motion-timeline.js` module. The composition HTML loads the controller as an external module; it does not embed Motion's animation clock or implementation. The adapter exposes HyperFrames' direct-timeline methods (`duration`, `time`, `seek`, `play`, and `pause`) while Motion supplies interpolation and playback callbacks. Render-time frame seeking remains deterministic.
 - The ten-second Motion reference sequence is scaled to the audio-derived composition duration. It is not a ten-second MP4 cap; the actual MP4 length is verified against the prepared narration-first audio mix.
 - Native SVG art is generated from the approved scene type and bounded story data; no stock image, external image API, or fabricated measurement is used. Illustrated signal curves are labelled as conceptual when they are not measured values.
 - Captions follow Kokoro's native word timestamps. Each active word is highlighted with nearby words for readable context.
