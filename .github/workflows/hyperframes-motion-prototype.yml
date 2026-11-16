@@ -89,6 +89,10 @@ jobs:
         run: |
           node --check src/main.js
           node --check src/illustrations.js
+          node --check src/motion-timeline.js
+          ! grep -Fq 'from "motion"' src/main.js
+          ! grep -Fq 'window.__timelines' src/main.js
+          grep -Fq 'from "motion"' src/motion-timeline.js
 
       - name: Generate a 37.5-second violin track with the repository's existing sampler
         working-directory: .

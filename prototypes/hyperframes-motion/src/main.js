@@ -1,7 +1,6 @@
-import { animate } from "motion";
+import { registerMotionTimeline } from "./motion-timeline.js";
 import { renderSceneIllustration, syncSceneIllustration } from "./illustrations.js";
 
-const ROOT_ID = "vp-motion-dynamic";
 const root = document.getElementById("root");
 
 if (!root) throw new Error("The HyperFrames composition root was not found.");
@@ -384,75 +383,12 @@ for (let index = 0; index < particleCount; index += 1) {
   ]);
 }
 
-// Motion supplies the seekable animation controls; HyperFrames owns the frame clock.
-// This compact adapter exposes the methods used by HyperFrames' timeline registry.
-const scaledSequence = sequence.map(([selector, properties, options]) => [
-  selector,
-  properties,
-  {
-    ...options,
-    duration: options.duration * TIMELINE_SCALE,
-    at: (options.at ?? 0) * TIMELINE_SCALE
+registerMotionTimeline({
+  root,
+  sequence,
+  duration: DURATION,
+  onSeek(seconds) {
+    syncScene(seconds);
+    syncNarrationCaption(seconds);
   }
-]);
-const motionTimeline = animate(scaledSequence, { autoplay: false });
-motionTimeline.pause();
-
-const progressFill = document.getElementById("progress-fill");
-const progressTime = document.querySelector("#bottom-progress .progress-time");
-
-function formatTimestamp(seconds) {
-  const totalSeconds = Math.max(0, Math.ceil(seconds));
-  const minutes = Math.floor(totalSeconds / 60);
-  const remainder = totalSeconds % 60;
-  return String(minutes).padStart(2, "0") + ":" + String(remainder).padStart(2, "0");
-}
-
-if (progressTime) progressTime.textContent = formatTimestamp(DURATION);
-
-let lastTime = 0;
-
-function seek(seconds) {
-  const safeTime = Math.max(0, Math.min(DURATION, Number(seconds) || 0));
-  // Seek directly on the complete, stretched composition timeline.
-  motionTimeline.time = safeTime;
-
-  if (progressFill) {
-    progressFill.style.transform = "scaleX(" + (safeTime / DURATION).toFixed(8) + ")";
-  }
-  syncScene(safeTime);
-  syncNarrationCaption(safeTime);
-  lastTime = safeTime;
-}
-
-const timelineAdapter = {
-  pause() {
-    motionTimeline.pause();
-    return timelineAdapter;
-  },
-  totalTime(seconds) {
-    if (typeof seconds === "number") seek(seconds);
-    return lastTime;
-  },
-  time(seconds) {
-    if (typeof seconds === "number") {
-      seek(seconds);
-      return timelineAdapter;
-    }
-    return lastTime;
-  },
-  duration() {
-    return DURATION;
-  },
-  progress(value) {
-    if (typeof value === "number") seek(value * DURATION);
-    return lastTime / DURATION;
-  },
-  kill() {
-    motionTimeline.stop();
-  }
-};
-
-window.__timelines = window.__timelines || {};
-window.__timelines[ROOT_ID] = timelineAdapter;
-window.__vpMotionAdapterReady = true;
+});
