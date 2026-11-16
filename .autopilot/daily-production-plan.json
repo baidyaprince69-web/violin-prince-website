@@ -24,7 +24,7 @@
   ],
   "narrative_style": "documentary",
   "cover_payoff": "Use an original, layered 2D violin illustration with a stylised performer, animated bow movement, visible drawn strings, musical-note accents and a warm waveform payoff. This is an illustrated music moment, not a live-performance recording or a 3D asset.",
-  "narration_script": "Your room can quietly mislead your mix. Audient's new iD interfaces combine console-style preamps with onboard DSP. RoomTune measures room acoustics and adjusts the signal sent to your monitors. EQ, compression and reverb shape tone, dynamics and space for your violin.",
+  "narration_script": "Your room can quietly mislead your mix. Audient's iD interfaces pair console-style preamps with onboard DSP. RoomTune measures room acoustics and corrects monitor playback. EQ, compression and reverb shape tone, dynamics and space. Now hear your violin through a clearer, trusted mix.",
   "narration_evidence": [
     {
       "sentence_number": 2,
@@ -158,7 +158,7 @@
     },
     {
       "scene_number": 5,
-      "sentence_index": 3,
+      "sentence_index": 4,
       "caption": "HEAR THE VIOLIN. TRUST THE MIX.",
       "image_prompt": "Full-screen close-up 2D illustrated violin performance. A large amber violin, visible strings and expressive bow dominate the portrait composition. Include a stylised performer, clearly moving bow, independent arm and instrument layers, musical-note accents and a glowing waveform. Cinematic push-in and richer antique-gold light for the musical payoff. Original illustration only.",
       "graphic_label": "SCENE 05 · THE MUSICAL PAYOFF",
@@ -172,8 +172,7 @@
             "display": "Illustrated performance"
           }
         ]
-      },
-      "sentence_fraction": 0.05
+      }
     }
   ],
   "performance_feedback": {

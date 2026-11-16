@@ -107,16 +107,15 @@ jobs:
           expected = ["room_acoustics", "audio_interface", "roomtune_process", "dsp_stages", "violin_performance_2d"]
           actual = [scene.get("graphic_data", {}).get("type") for scene in scenes]
           indices = [scene.get("sentence_index") for scene in scenes]
-          fractions = [scene.get("sentence_fraction", 0) for scene in scenes]
-          if actual != expected or indices != [0, 1, 2, 3, 3] or float(fractions[-1]) != 0.05:
-              raise SystemExit("The saved daily plan must contain five portrait scenes, with its violin payoff timed in the final sentence.")
+          if actual != expected or indices != [0, 1, 2, 3, 4]:
+              raise SystemExit("The saved daily plan must contain five portrait scenes, each mapped to its own narration sentence.")
           import re
           script = plan.get("narration_script", "")
           sentence_parts = [part.strip() for part in re.split(r"(?<=[.!?])\s+", script.strip()) if part.strip()]
           spoken_words = re.findall(r"\b[\w’'-]+\b", script)
-          if len(sentence_parts) != 4 or not 40 <= len(spoken_words) <= 44:
-              raise SystemExit("The saved daily plan must preserve the four-sentence, 40–44-word narration contract.")
-          print("Saved RoomTune storyboard: five portrait scenes in sentence order.")
+          if len(sentence_parts) != 5 or not 40 <= len(spoken_words) <= 44:
+              raise SystemExit("The Motion storyboard must preserve five narration sentences and the 40–44-word total.")
+          print("Saved RoomTune storyboard: five portrait scenes, one complete narration sentence per scene.")
           PY
 
       - name: Generate a 37.5-second violin track with the repository's existing sampler

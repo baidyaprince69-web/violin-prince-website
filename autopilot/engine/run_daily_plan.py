@@ -42,9 +42,13 @@ def validate_claim_evidence(
     sources: list[dict[str, Any]],
     sentences: list[str],
 ) -> list[dict[str, Any]]:
-    """Require one exact, publisher-page quote for each of narration sentences 2–4."""
-    if len(sentences) != 4:
-        raise engine.PipelineError("Daily narration must contain exactly four sentences.")
+    """Require exact publisher quotes for sourced claims; exclude the Motion music payoff."""
+    motion_enabled = engine.is_motion_hyperframes_render_enabled()
+    expected_sentences = 5 if motion_enabled else 4
+    if len(sentences) != expected_sentences:
+        raise engine.PipelineError(
+            "Daily narration must contain exactly " + str(expected_sentences) + " sentences."
+        )
 
     source_by_id = {
         str(item.get("source_id") or "").strip(): item
@@ -62,7 +66,7 @@ def validate_claim_evidence(
         source_id = str(item.get("source_id") or "").strip()
         quote = str(item.get("quote") or "").strip()
         if sentence_number not in (2, 3, 4):
-            raise engine.PipelineError("Narration evidence must map to sentence numbers 2, 3 and 4.")
+            raise engine.PipelineError("Narration evidence must map to sourced technical sentences 2, 3 and 4.")
         if sentence_number in checked:
             raise engine.PipelineError(f"Duplicate evidence supplied for narration sentence {sentence_number}.")
         source = source_by_id.get(source_id)
@@ -86,6 +90,8 @@ def validate_claim_evidence(
             "publisher_domain": str(source.get("publisher_domain") or ""),
         }
 
+    # Sentence five is the short musical payoff in Motion mode. It is not
+    # a factual assertion, so only technical sentences 2–4 need publisher quotes.
     expected = {2, 3, 4}
     if set(checked) != expected:
         missing = ", ".join(str(value) for value in sorted(expected - set(checked)))
@@ -274,7 +280,11 @@ def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list
     script = str(plan.get("narration_script") or "").strip()
     narration_issue = engine.narration_validation_error(script)
     if narration_issue:
-        raise engine.PipelineError("Narration failed its four-sentence/40–44-word check: " + narration_issue + ".")
+        expected_sentences = 5 if motion_enabled else 4
+        raise engine.PipelineError(
+            "Narration failed its " + str(expected_sentences) +
+            "-sentence/40–44-word check: " + narration_issue + "."
+        )
 
     sentences = engine.narration_sentences(script)
     plan["narration_evidence"] = validate_claim_evidence(

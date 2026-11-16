@@ -2321,16 +2321,19 @@ def _normalized_narration_claim_tokens(value):
 def validate_narration_against_sources(plan, verified_sources):
     """Require each factual narration sentence to match a verified article body."""
     sentences = narration_sentences(plan.get("narration_script", ""))
-    if len(sentences) != 4:
+    motion_enabled = os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "").strip().lower() == "true"
+    expected_sentences = 5 if motion_enabled else 4
+    if len(sentences) != expected_sentences:
         raise PipelineError(
-            "Story quality gate blocked: narration evidence check requires exactly four sentences."
+            "Story quality gate blocked: narration evidence check requires exactly "
+            + str(expected_sentences) + " sentences."
         )
 
     evidence_records = []
     issues = []
     for sentence_number, sentence in enumerate(sentences, start=1):
-        # The opening is a curiosity hook, not a factual assertion.
-        if sentence_number == 1:
+        # The opening is a curiosity hook. In Motion mode, sentence five is the music payoff.
+        if sentence_number == 1 or (motion_enabled and sentence_number == expected_sentences):
             continue
 
         claim_tokens = _normalized_narration_claim_tokens(sentence)
@@ -2988,8 +2991,10 @@ def narration_validation_error(script):
         return f"it has {total_words} spoken words; the required range is 40–44"
 
     sentences = narration_sentences(text_value)
-    if len(sentences) != 4:
-        return f"it has {len(sentences)} sentences; exactly 4 are required"
+    motion_enabled = os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "").strip().lower() == "true"
+    expected_sentences = 5 if motion_enabled else 4
+    if len(sentences) != expected_sentences:
+        return f"it has {len(sentences)} sentences; exactly {expected_sentences} are required"
 
     counts = [narration_word_count(sentence) for sentence in sentences]
     if not 5 <= counts[0] <= 8:
@@ -3017,62 +3022,45 @@ def narration_validation_error(script):
 
 
 def narration_sentence_budget(sentences, target_total=None):
-    """Allocate a feasible, per-sentence word range from the actual draft."""
-    values = [re.sub(r"\s+", " ", str(value or "")).strip() for value in list(sentences or [])[:4]]
-    values.extend([""] * (4 - len(values)))
-    limits = (8, 12, 12, 12)
-    floors = (5, 5, 5, 5)
+    """Allocate word ranges for legacy four-sentence or Motion five-sentence narration."""
+    motion_enabled = os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "").strip().lower() == "true"
+    sentence_count = 5 if motion_enabled else 4
+    values = [re.sub(r"\s+", " ", str(value or "")).strip() for value in list(sentences or [])[:sentence_count]]
+    values.extend([""] * (sentence_count - len(values)))
+    limits = (8,) + (12,) * (sentence_count - 1)
+    floors = (5,) * sentence_count
     actual_total = sum(narration_word_count(value) for value in values)
     if target_total is None:
         target_total = actual_total if 40 <= actual_total <= 44 else 42
     target_total = max(40, min(44, int(target_total)))
-
-    counts = [
-        min(limits[index], max(floors[index], narration_word_count(value)))
-        for index, value in enumerate(values)
-    ]
-    priority = (1, 2, 3, 0)
-
-    difference = target_total - sum(counts)
-    body_priority = (1, 2, 3)
+    counts = [min(limits[i], max(floors[i], narration_word_count(value))) for i, value in enumerate(values)]
+    body_priority = tuple(range(1, sentence_count))
     hook_priority = (0,)
+    difference = target_total - sum(counts)
     while difference > 0:
-        available = [index for index in body_priority if counts[index] < limits[index]]
-        if not available:
-            available = [index for index in hook_priority if counts[index] < limits[index]]
+        available = [i for i in body_priority if counts[i] < limits[i]] or [i for i in hook_priority if counts[i] < limits[i]]
         if not available:
             raise PipelineError("Narration word allocation cannot reach the required minimum.")
-        chosen = min(available, key=lambda index: (counts[index] / limits[index], body_priority.index(index) if index in body_priority else len(body_priority)))
+        chosen = min(available, key=lambda i: (counts[i] / limits[i], i))
         counts[chosen] += 1
         difference -= 1
-
     while difference < 0:
-        available = [index for index in body_priority if counts[index] > floors[index]]
-        if not available:
-            available = [index for index in hook_priority if counts[index] > floors[index]]
+        available = [i for i in body_priority if counts[i] > floors[i]] or [i for i in hook_priority if counts[i] > floors[i]]
         if not available:
             raise PipelineError("Narration word allocation cannot fit the required maximum.")
-        chosen = max(available, key=lambda index: (counts[index] / limits[index], -(body_priority.index(index) if index in body_priority else len(body_priority))))
+        chosen = max(available, key=lambda i: (counts[i] / limits[i], -i))
         counts[chosen] -= 1
         difference += 1
-
     maxima = list(counts)
     extra_capacity = 44 - target_total
     while extra_capacity > 0:
-        available = [index for index in body_priority if maxima[index] < limits[index]]
-        if not available:
-            available = [index for index in hook_priority if maxima[index] < limits[index]]
+        available = [i for i in body_priority if maxima[i] < limits[i]] or [i for i in hook_priority if maxima[i] < limits[i]]
         if not available:
             break
-        chosen = min(available, key=lambda index: (maxima[index] / limits[index], body_priority.index(index) if index in body_priority else len(body_priority)))
+        chosen = min(available, key=lambda i: (maxima[i] / limits[i], i))
         maxima[chosen] += 1
         extra_capacity -= 1
-
-    return [
-        {"min_words": counts[index], "max_words": maxima[index]}
-        for index in range(4)
-    ]
-
+    return [{"min_words": counts[i], "max_words": maxima[i]} for i in range(sentence_count)]
 
 def _sentence_needs_correction(sentence, index, budget):
     """Check one independently generated sentence against its own hard limits."""
@@ -3093,20 +3081,21 @@ def _sentence_needs_correction(sentence, index, budget):
 
 
 def _plan_sentence_fields(plan):
-    """Read the new four-field plan format, with a safe legacy-script fallback."""
+    """Read the configured four- or five-field narration plan."""
+    motion_enabled = os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "").strip().lower() == "true"
+    sentence_count = 5 if motion_enabled else 4
     raw = plan.get("narration_sentences")
     if isinstance(raw, dict):
-        values = [raw.get("sentence_" + str(index), "") for index in range(1, 5)]
+        values = [raw.get("sentence_" + str(index), "") for index in range(1, sentence_count + 1)]
     elif isinstance(raw, list):
         values = raw
     else:
         values = narration_sentences(plan.get("narration_script", ""))
     values = [re.sub(r"\s+", " ", str(value or "")).strip() for value in values]
-    if len(values) > 4:
-        values = values[:3] + [" ".join(values[3:])]
-    values.extend([""] * (4 - len(values)))
+    if len(values) > sentence_count:
+        values = values[:sentence_count - 1] + [" ".join(values[sentence_count - 1:])]
+    values.extend([""] * (sentence_count - len(values)))
     return values
-
 
 def _parse_narration_tool_response(result, expected_fields):
     """Extract word arrays from the forced structured narration function call."""
@@ -3208,12 +3197,13 @@ def compose_narration(
 ):
     """Repair narration length or selected sentences against verified article evidence."""
     sentences = _plan_sentence_fields(plan)
+    sentence_count = len(sentences)
     original_sentences = list(sentences)
     original_script = " ".join(value for value in sentences if value).strip()
     issue = narration_validation_error(original_script)
     forced_indices = sorted({
         int(index) for index in (force_sentence_indices or [])
-        if 0 <= int(index) < 4
+        if 0 <= int(index) < sentence_count
     })
     plan["narration_sentences"] = sentences
 
@@ -3305,7 +3295,7 @@ def compose_narration(
         # A global mismatch should normally resolve through the dynamic sentence budgets.
         # Keep this fallback limited to the body rather than rewriting a valid hook.
         if current_issue and not target_indices:
-            target_indices = [1, 2, 3]
+            target_indices = list(range(1, sentence_count))
 
         target_fields = ["sentence_" + str(index + 1) + "_words" for index in target_indices]
         required_word_counts = {
@@ -3316,7 +3306,7 @@ def compose_narration(
         for index in target_indices:
             field = "sentence_" + str(index + 1) + "_words"
             required_count = required_word_counts[field]
-            role = ("curiosity hook", "story context", "distinctive sourced detail", "narrative payoff")[index]
+            role = ("curiosity hook", "story context", "distinctive sourced detail", "technical explanation", "musical payoff")[index]
             properties[field] = {
                 "type": "array",
                 "description": (
@@ -3346,22 +3336,26 @@ def compose_narration(
         }
         locked = {
             "sentence_" + str(index + 1): sentences[index]
-            for index in range(4) if index not in target_indices
+            for index in range(sentence_count) if index not in target_indices
         }
         evidence_repair = evidence_sources is not None
         prompt = (
             "Correct only the requested sentence fields. Return each as an array of individual words. "
             "The array length is exact and is stated in the function schema; do not add or omit words. "
             "Python will join the words into sentences. Do not return or rewrite any locked sentence. "
-            "The complete narration must remain exactly four sentences and total 40–44 spoken words. "
+            "The complete narration must remain exactly " + str(sentence_count) + " sentences and total 40–44 spoken words. "
             "Use only facts stated in the supplied direct publisher article excerpts. Do not invent dates, "
             "statistics, quotes, names, motives, abilities, or outcomes. No padding, repeated ideas, generic "
             "filler, metaphor presented as fact, or unsupported claims. Do not personify AI as feeling, "
             "understanding, or having a soul unless an article explicitly establishes that. "
             + (
-                "This is an evidence-grounding repair: replace each requested claim with a concrete fact, "
-                "technical detail, or limitation explicitly supported by the verified articles. Sentence four "
-                "must deliver a factual payoff, not a poetic interpretation. "
+                (
+                    "This is an evidence-grounding repair: replace each requested technical claim with a concrete "
+                    "fact, technical detail, or limitation explicitly supported by the verified articles. "
+                    + ("Sentence five is a brief music-only payoff and must not add a factual claim. "
+                       if sentence_count == 5 else
+                       "Sentence four must deliver a factual payoff, not a poetic interpretation. ")
+                )
                 if evidence_repair else ""
             )
             + "Return the forced function call and nothing else."
@@ -3370,8 +3364,8 @@ def compose_narration(
             "Selected story: " + str(plan.get("topic", ""))[:300]
             + "\nTitle: " + str(plan.get("title", ""))[:220]
             + "\nHook concept: " + str(plan.get("hook", ""))[:220]
-            + "\nCurrent four sentence fields: " + json.dumps(
-                {"sentence_" + str(index + 1): sentences[index] for index in range(4)},
+            + "\nCurrent sentence fields: " + json.dumps(
+                {"sentence_" + str(index + 1): sentences[index] for index in range(sentence_count)},
                 ensure_ascii=False,
             )
             + "\nLocked sentence fields (must remain unchanged): "
@@ -3500,7 +3494,7 @@ def compose_narration(
     final_script = " ".join(sentences).strip()
     raise PipelineError(
         "Narration composer stopped safely after two targeted correction cycles. "
-        "The narration must contain 40–44 words, exactly four complete sentences, "
+        "The narration must contain 40–44 words, exactly " + str(sentence_count) + " complete sentences, "
         "a 5–8-word hook, and no sentence over 12 words. Final diagnostic: "
         + narration_validation_error(final_script)
     )
@@ -3799,8 +3793,12 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
     compose_narration(plan, compact)
 
     scenes = plan.get("scenes")
-    if not isinstance(scenes, list) or len(scenes) != 3:
-        raise PipelineError("Planner must provide exactly three scenes.")
+    expected_scene_count = 5 if os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "").strip().lower() == "true" else 3
+    if not isinstance(scenes, list) or len(scenes) != expected_scene_count:
+        raise PipelineError(
+            "Planner must provide exactly " + str(expected_scene_count) +
+            " scenes for the selected renderer."
+        )
     narration_script = str(plan.get("narration_script", "")).strip()
     final_narration_issue = narration_validation_error(narration_script)
     if final_narration_issue:
