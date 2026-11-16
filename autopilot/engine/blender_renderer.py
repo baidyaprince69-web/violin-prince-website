@@ -67,8 +67,8 @@ def _bounded_env_int(name: str, default: int, minimum: int, maximum: int) -> int
 
 def blender_render_resolution() -> tuple[int, int]:
     """Return the bounded internal resolution used before final FFmpeg upscaling."""
-    width = _bounded_env_int("BLENDER_RENDER_WIDTH", 400, 160, 1920)
-    height = _bounded_env_int("BLENDER_RENDER_HEIGHT", 712, 284, 1920)
+    width = _bounded_env_int("BLENDER_RENDER_WIDTH", 360, 160, 1920)
+    height = _bounded_env_int("BLENDER_RENDER_HEIGHT", 640, 284, 1920)
     return (width - width % 2, height - height % 2)
 
 
@@ -79,12 +79,12 @@ def blender_render_fps() -> int:
 
 def blender_render_samples() -> int:
     """Eevee temporal samples per frame for predictable CPU render cost."""
-    return _bounded_env_int("BLENDER_RENDER_SAMPLES", 4, 1, 32)
+    return _bounded_env_int("BLENDER_RENDER_SAMPLES", 2, 1, 32)
 
 
 def blender_model_face_limit() -> int:
     """Maximum imported violin mesh face count used by the CPU scene renderer."""
-    return _bounded_env_int("BLENDER_MODEL_FACE_LIMIT", 60000, 10000, 500000)
+    return _bounded_env_int("BLENDER_MODEL_FACE_LIMIT", 30000, 10000, 500000)
 
 
 def model_decimation_ratio(face_count: int, face_limit: int) -> float:
