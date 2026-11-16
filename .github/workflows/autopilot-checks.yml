@@ -84,9 +84,6 @@ jobs:
           files = [
               ".github/workflows/autopilot-checks.yml",
               ".github/workflows/hyperframes-motion-prototype.yml",
-              ".github/workflows/blender-smoke.yml",
-              ".github/workflows/blender-benchmark.yml",
-              ".github/workflows/first-production.yml",
               ".github/workflows/violin-prince-autopilot.yml",
               ".github/workflows/deploy-autopilot-cloudflare.yml",
               ".github/workflows/youtube-seo-learning.yml",
@@ -102,6 +99,5 @@ jobs:
       - name: Check production and deployment workflow files exist
         run: |
           test -s .github/workflows/violin-prince-autopilot.yml
-          test -s .github/workflows/blender-smoke.yml
           test -s .github/workflows/deploy-autopilot-cloudflare.yml
 
