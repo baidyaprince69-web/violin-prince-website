@@ -46,7 +46,7 @@ class MotionHyperFramesRendererTests(unittest.TestCase):
             "scenes": [
                 {
                     "caption": "The melody begins",
-                    "visual_mode": "macro_3d",
+                    "visual_mode": "macro_illustration",
                     "graphic_label": "THE QUESTION",
                     "graphic_detail": "The first important observation",
                     "graphic_data": {"type": "process_flow", "items": [{"label": "Bow", "display": "Bow"}, "Bridge moves"]},
