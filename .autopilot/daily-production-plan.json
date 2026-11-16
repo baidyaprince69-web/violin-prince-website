@@ -1,10 +1,10 @@
 {
   "story_type": "music_technology",
-  "core_claim": "Audient's new iD MK3 interfaces add RoomTune monitor room correction and onboard DSP.",
-  "topic": "How Audient's third-generation iD interfaces use RoomTune to measure room acoustics and adjust monitor playback, while onboard DSP handles input effects.",
+  "core_claim": "Audient's third-generation iD interfaces add RoomTune monitor correction and onboard DSP effects.",
+  "topic": "How Audient's third-generation iD interfaces measure room acoustics, adjust monitor playback, and run input effects through onboard DSP.",
   "title": "Can Your Room Trick Your Violin Mix?",
-  "hook": "Your room can quietly mislead your mix.",
-  "description": "Your room can colour what you hear while mixing. Audient's third-generation iD interfaces add RoomTune monitor correction, which measures room acoustics and adjusts the signal sent to your speakers. Their onboard DSP also runs EQ, compression and reverb without using your computer's CPU. This is monitor correction and input processing, not a change to the original violin recording.\n\nSources:\nMusicRadar: https://www.musicradar.com/music-tech/this-isnt-a-spec-refresh-its-a-completely-new-technology-platform-audient-launches-next-generation-of-id-audio-interfaces-with-onboard-dsp-and-built-in-monitor-correction\nMixdown: https://mixdownmag.com.au/news/room-correction-comes-to-every-model-in-audients-redesigned-id-range/",
+  "hook": "Could your room change your violin mix?",
+  "description": "Audient's third-generation iD interfaces add RoomTune monitor correction. The system measures room acoustics and adjusts the signal sent to studio monitors. The onboard DSP also runs EQ, compression and reverb on input signals without latency. This Short illustrates monitor correction and input processing, not a claim that the original violin recording is rewritten.",
   "hashtags": [
     "#Violin",
     "#MusicProduction",
@@ -23,18 +23,18 @@
     "Violin Prince"
   ],
   "narrative_style": "documentary",
-  "cover_payoff": "Use the separately licensed violin and bow geometry selected for this story. Blender should animate the bow rig across the instrument strings; use a short sample violin phrase as an illustrative audio layer, not as a claim of a live recording.",
-  "narration_script": "Your room can quietly mislead your mix. Audient's new interfaces combine console-style preamps with onboard digital processing. RoomTune measures room acoustics and adjusts the signal reaching your monitors. Its onboard DSP runs EQ, compression, and reverb without burdening your computer.",
+  "cover_payoff": "Use the separately licensed violin and bow geometry selected for this story. Animate a symbolic bow stroke across the strings and use a sampled violin phrase as illustrative accompaniment. Never present the sample as Prince's live performance. Show the correction signal path around monitor playback, not as a change to the recorded violin take.",
+  "narration_script": "Could your room change your violin mix? RoomTune now adjusts monitor signals to compensate for your room’s acoustics. The correction runs directly on the interface’s own onboard hardware DSP. That same processor also runs EQ, compression and reverb with no latency.",
   "narration_evidence": [
     {
       "sentence_number": 2,
       "source_id": "S001",
-      "quote": "analogue mic preamps with onboard DSP, monitor correction and new tone-shaping tools."
+      "quote": "this adjusts the signal sent to your monitors to compensate for your room’s acoustics"
     },
     {
       "sentence_number": 3,
       "source_id": "S002",
-      "quote": "It measures your room and adjusts the signal going to your monitors to compensate for its acoustics"
+      "quote": "It measures your room and adjusts the signal going to your monitors to compensate for its acoustics, with the correction stored on and run from the interface’s DSP"
     },
     {
       "sentence_number": 4,
@@ -61,17 +61,17 @@
   "timeline": [],
   "scenes": [
     {
-      "caption": "YOUR ROOM SHAPES WHAT YOU HEAR",
-      "image_prompt": "Premium physically accurate, high-detail 3D cinematic Blender full-frame 3D scene for a vertical music-technology explainer. A complete, believable amber-brown violin rests in a dark midnight mixing room, with a pair of studio monitors and subtle room surfaces visible around it. Show soft golden sound waves travelling from a speaker, reflecting from the room walls and returning toward a listening position. The reflections are an abstract visual metaphor, not measured data. Rich maple grain, glossy but natural varnish, ebony fingerboard, bridge and strings, realistic scale, deep teal shadows, controlled amber rim lighting, atmospheric depth, physically based materials. No text, numbers, logos, watermark, wireframe, outline illustration, incomplete instrument or fake person.",
-      "graphic_label": "YOUR ROOM SHAPES WHAT YOU HEAR",
-      "graphic_detail": "Room reflections can colour monitor playback",
+      "caption": "YOUR ROOM. YOUR SOUND.",
+      "image_prompt": "Original full-frame photorealistic 3D Blender scene, vertical 9:16, a complete amber-brown varnished violin with visible maple grain, bridge, strings and realistic bow in a midnight mixing room, two studio monitors at either side, soft golden sound waves reflecting from the room surfaces. Physically based wood and metal, rich highlights and shadows, dimensional depth, subtle teal and amber glow, fine illuminated dust and tiny star glints. No readable text, logos, watermark, wireframe, outline art, hollow violin or cartoon figures.",
+      "graphic_label": "THE HOOK",
+      "graphic_detail": "Room acoustics can shape monitor playback",
       "visual_mode": "macro_3d"
     },
     {
-      "caption": "MEASURE THE ROOM. ADJUST THE MONITORS.",
-      "image_prompt": "A clear physically accurate, high-detail 3D 3D scientific visualization in a dark acoustic studio. Show a calibrated reference microphone between two studio monitors, a soft golden test waveform travelling through the room, and a restrained abstract DSP stage guiding the monitor signal. Visualize the room response as a smooth conceptual curve with no numeric values, then show a more even conceptual curve after correction. Keep all curves clearly illustrative, not real measurements from a particular room. Cinematic midnight navy, antique gold and muted teal, realistic metal and glass, precise reflections, vertical 9:16 composition, no text, no brand marks, no watermark, no wireframe or cartoon style.",
-      "graphic_label": "ROOMTUNE MONITOR CORRECTION",
-      "graphic_detail": "DSP adjusts the signal sent to the monitors",
+      "caption": "MEASURE. CORRECT. LISTEN.",
+      "image_prompt": "Original full-frame photorealistic 3D Blender scientific scene in the same midnight studio. A calibrated reference microphone stands between two studio monitors; a golden test signal travels through the room into a compact DSP signal path and returns to the speakers. Show a smooth conceptual room-response curve before and after correction without numbers; make clear visually that the curve is illustrative, not a measurement from a real room. Premium metal and glass, dimensional reflections, cinematic teal shadows and amber rim lighting, vertical 9:16, no text, brand marks, watermark, wireframe or flat line-art.",
+      "graphic_label": "THE KEY DETAIL",
+      "graphic_detail": "RoomTune measures the room and adjusts monitor output",
       "visual_mode": "waveform",
       "graphic_data": {
         "type": "process_flow",
@@ -85,83 +85,20 @@
     },
     {
       "caption": "HEAR THE VIOLIN. TRUST THE MIX.",
-      "image_prompt": "A premium physically accurate, high-detail 3D 3D close performance-style composition centred on a fully formed amber-brown violin and a separate realistic bow contacting visible strings. Show detailed maple grain, fine transparent varnish, correct bridge, fingerboard, tailpiece and fittings. A warm golden waveform emerges from the instrument while the background transitions from subtle room reflections to a calmer, balanced listening space. No person or creator likeness is shown. Keep the violin and bow physically plausible, with cinematic studio lighting, realistic depth of field, restrained teal accents and a midnight navy environment. Vertical 9:16, no text, labels, logos or watermark, no incomplete shell, wireframe or outline illustration.",
-      "graphic_label": "THE MUSICAL PAYOFF",
-      "graphic_detail": "A sampled violin phrase makes the monitoring idea tangible",
+      "image_prompt": "Original full-frame photorealistic 3D Blender performance-style scene, vertical 9:16, centred on a complete richly coloured amber-brown violin with realistic maple grain, natural varnish, ebony fingerboard, bridge, tailpiece, fine strings and a separate believable bow with visible bow hair contacting the strings. Animate a symbolic bow movement; no human performer or creator likeness. A restrained golden waveform travels toward studio monitors, with a calm balanced listening-space glow. Cinematic midnight lighting, realistic depth of field, subtle teal accents and illuminated dust. No readable text, logo, watermark, wireframe, hollow shell or outline illustration.",
+      "graphic_label": "THE PAYOFF",
+      "graphic_detail": "Correction shapes monitor playback, not the original take",
       "visual_mode": "cover_performance"
     }
   ],
-  "asset_subject": "violin strings bow",
-  "asset_kind": "violin",
-  "model_query": "realistic violin with visible strings and bow",
   "performance_feedback": {
-    "sample_window": "2026-10-16 to 2026-11-15; Metricool video rows had unavailable engagement fields, supplemented by vidIQ latest Short uploads",
+    "sample_window": "2026-10-17 through 2026-11-16",
     "sample_count": 5,
-    "confidence": "low: only two of the five latest Shorts exceeded 100 views, and the available vidIQ list does not include average view duration",
+    "confidence": "Low: five recent Shorts had usable video-level analytics, but only two exceeded 100 views; the 2026-11-15 Short has views and likes but its AVD and video-level analytics have not populated.",
     "strengths_to_preserve": [
-      "Keep a clear violin-led musical payoff as a consistent channel identity element; the recent mixed-topic sample does not prove it is a performance driver."
+      "Keep violin-led audio and concise curiosity-led titles as the established channel identity; the current sample does not establish a repeatable performance winner."
     ],
-    "one_change_to_test": "Test a visually clear room-reflection versus corrected-monitor contrast in the opening two seconds, without presenting illustrative curves as measured data.",
-    "measurement_for_next_upload": "At 24 hours compare views, likes, comments, shares and average view duration where available; treat this as an exploratory test rather than a proven channel-wide rule."
-  },
-  "publish_metadata": {
-    "title": "Can Your Room Trick Your Violin Mix?",
-    "description": "Your room can colour what you hear while mixing. Audient's third-generation iD interfaces add RoomTune monitor correction, which measures room acoustics and adjusts the signal sent to your speakers. Their onboard DSP also runs EQ, compression and reverb without using your computer's CPU. This is monitor correction and input processing, not a change to the original violin recording.\n\nSources:\nMusicRadar: https://www.musicradar.com/music-tech/this-isnt-a-spec-refresh-its-a-completely-new-technology-platform-audient-launches-next-generation-of-id-audio-interfaces-with-onboard-dsp-and-built-in-monitor-correction\nMixdown: https://mixdownmag.com.au/news/room-correction-comes-to-every-model-in-audients-redesigned-id-range/",
-    "tags": [
-      "violin mix",
-      "room correction",
-      "RoomTune",
-      "audio interfaces",
-      "music production",
-      "audio engineering",
-      "monitoring",
-      "Violin Prince"
-    ],
-    "category_id": "10",
-    "default_language": "en",
-    "privacy_status": "public",
-    "made_for_kids": false
-  },
-  "visual_reference": {
-    "motion_profile": "animated_stills",
-    "visual_language": "hybrid",
-    "pacing": "dynamic",
-    "reference_summary": "Original Violin Prince music-technology explainer with a full-frame amber-brown violin, true 3D room acoustics metaphor, crisp DSP signal graphics, kinetic captions, dimensional cinematic studio lighting and a distinct musical payoff.",
-    "scene_guidance": [
-      {
-        "shot_type": "wide_hero",
-        "camera_move": "pan_left",
-        "transition_out": "wipe_right"
-      },
-      {
-        "shot_type": "mechanism_cutaway",
-        "camera_move": "pan_up",
-        "transition_out": "smooth_left"
-      },
-      {
-        "shot_type": "performance_close",
-        "camera_move": "pan_right",
-        "transition_out": "fade_through_black"
-      }
-    ]
-  },
-  "preferred_model_urls": [
-    "https://sketchfab.com/3d-models/violin-b45bce730d8a489c83ecc944f3725475"
-  ],
-  "preferred_bow_model_urls": [
-    "https://sketchfab.com/3d-models/violin-bow-af332828a42f4f8cbbe81bea3de0b00d"
-  ],
-  "strings_in_combined_mesh": true,
-  "asset_selection_note": "The selected model's published Sketchfab preview visibly shows the violin with strings running along the fingerboard. Its GLB node names do not identify a separate string object; treat the strings as visually integrated into the imported violin geometry. Keep the render blocked if the imported model preview does not visibly retain the strings.",
-  "frame_by_plane_direction": {
-    "mode": "Blender 3D hero + Frame By Plane 2.5D backgrounds",
-    "layers_per_scene": 3,
-    "order": [
-      "far atmosphere",
-      "studio environment",
-      "foreground depth"
-    ],
-    "no_chatgpt_generated_stills": true,
-    "no_cloudflare_image_generation": true
+    "one_change_to_test": "Open with a one-second violin phrase before narration and keep the first on-screen caption to three to five words; treat this as a test, not a proven pattern.",
+    "measurement_for_next_upload": "At 24 hours and seven days, compare views, engaged views, average view duration, likes per view, comments and shares. Use Studio retention or viewed-versus-swiped metrics only if connected Studio analytics actually returns them."
   }
 }
