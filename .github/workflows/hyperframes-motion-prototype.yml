@@ -190,34 +190,40 @@ jobs:
               "scenes": [
                   {
                       "caption": "YOUR ROOM SHAPES WHAT YOU HEAR",
-                      "graphic_label": "THE QUESTION",
-                      "graphic_detail": "Room reflections can colour monitor playback.",
+                      "graphic_label": "THE LISTENING ROOM",
+                      "graphic_detail": "Sound from the monitors interacts with the room",
                       "visual_mode": "waveform",
+                      "graphic_data": {
+                          "type": "room_acoustics",
+                          "items": [
+                              {"label": "STUDIO MONITORS", "display": "Sound source"},
+                              {"label": "LISTENING POINT", "display": "Room response"}
+                          ]
+                      },
                   },
                   {
                       "caption": "MEASURE THE ROOM. ADJUST THE MONITORS.",
-                      "graphic_label": "THE MECHANISM",
-                      "graphic_detail": "DSP adjusts the signal sent to the monitors.",
-                      "visual_mode": "process_flow",
+                      "graphic_label": "THE ROOMTUNE SIGNAL PATH",
+                      "graphic_detail": "Measure the room, process the signal, adjust playback",
+                      "visual_mode": "waveform",
                       "graphic_data": {
-                          "type": "process_flow",
+                          "type": "signal_chain",
                           "items": [
-                              "MEASURE THE ROOM",
-                              "APPLY DSP CORRECTION",
-                              "ADJUST MONITOR OUTPUT",
-                          ],
+                              {"label": "MEASURE", "display": "Room response"},
+                              {"label": "PROCESS", "display": "DSP correction"},
+                              {"label": "PLAY BACK", "display": "Monitor output"}
+                          ]
                       },
                   },
                   {
                       "caption": "HEAR THE VIOLIN. TRUST THE MIX.",
-                      "graphic_label": "THE TAKEAWAY",
-                      "graphic_detail": "A more dependable reference for listening decisions.",
-                      "visual_mode": "comparison",
+                      "graphic_label": "THE MUSICAL PAYOFF",
+                      "graphic_detail": "An illustrated violin moment brings the idea back to music",
+                      "visual_mode": "cover_performance",
                       "graphic_data": {
-                          "type": "comparison",
+                          "type": "violin_performance_2d",
                           "items": [
-                              {"label": "ROOM RESPONSE", "display": "Measured"},
-                              {"label": "MONITOR OUTPUT", "display": "Adjusted"}
+                              {"label": "VIOLIN", "display": "Illustrated performance"}
                           ]
                       },
                   },
@@ -257,6 +263,23 @@ jobs:
           test -s ../../work/output/motion-contact-sheet.jpg
           test -s ../../work/output/motion-seeking-report.json
           test -s ../../work/output/motion-render-report.json
+          test -s ../../work/output/motion-hyperframes-check.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          check = json.loads(Path("../../work/output/motion-hyperframes-check.json").read_text(encoding="utf-8"))
+          for section_name in ("layout", "craft"):
+              section = check.get(section_name, {})
+              errors = int(section.get("errorCount", 0))
+              warnings = int(section.get("warningCount", 0))
+              if errors or warnings:
+                  raise SystemExit(
+                      f"{section_name} QA must be warning-free; "
+                      f"found {errors} errors and {warnings} warnings."
+                  )
+          print("Safe-area layout and text-craft QA: passed with zero warnings.")
+          PY
 
       - name: Upload narrated explainer MP4, contact sheet and QA reports
         if: always()

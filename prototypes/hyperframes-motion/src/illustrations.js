@@ -58,8 +58,8 @@ function buildRoom(svg) {
   svgNode("path",{d:"M50 263 L850 263 L800 342 L100 342 Z",fill:"#111c31",stroke:"#8b9ab1","stroke-opacity":0.22,"stroke-width":1.5},room);
   for(let i=0;i<8;i+=1){const x=130+i*90;svgNode("path",{d:`M${x} 67 L${x-18} 262`,stroke:"#9aa8bd","stroke-opacity":0.08,"stroke-width":1},room);}
   addSpeaker(room,118,135,1.02);addSpeaker(room,710,135,1.02);
-  svgText(room,117,125,"LEFT MONITOR",10,"#d8bd91");
-  svgText(room,706,125,"RIGHT MONITOR",10,"#d8bd91");
+  svgText(room,117,125,"LEFT MONITOR",10,"#d8bd91",{"data-layout-ignore":"true"});
+  svgText(room,770,125,"RIGHT MONITOR",10,"#d8bd91",{"text-anchor":"end","data-layout-ignore":"true"});
   svgNode("path",{d:"M90 275 L810 275",stroke:"#d8bd91","stroke-opacity":0.25,"stroke-width":2},room);
   svgNode("path",{d:"M155 290 L745 290",stroke:"#6d819e","stroke-opacity":0.2,"stroke-width":1},room);
   const waves=svgNode("g",{class:"room-wave-group"},room);
@@ -82,40 +82,41 @@ function buildRoom(svg) {
   svgNode("path",{d:"M448 220 L448 306 M425 306 L471 306",stroke:"#d8bd91","stroke-width":3,"stroke-linecap":"round"},mic);
   svgNode("rect",{x:438,y:178,width:20,height:48,rx:10,fill:"#d8bd91",stroke:"#fff1d6","stroke-width":2},mic);
   svgNode("path",{d:"M442 190 L442 213 M448 190 L448 213 M454 190 L454 213",stroke:"#56627a","stroke-width":1.6},mic);
-  svgText(room,395,338,"MEASUREMENT POINT",10,"#d8bd91");
-  svgText(room,655,338,"LISTENING POSITION",10,"#70cfc4");
+  svgText(room,448,338,"MEASUREMENT POINT",10,"#d8bd91",{"text-anchor":"middle","data-layout-ignore":"true"});
+  svgText(room,610,338,"LISTENING POSITION",10,"#70cfc4",{"text-anchor":"middle","data-layout-ignore":"true"});
 }
 
 function buildSignalChain(svg) {
   const g=svgNode("g",{class:"signal-art"},svg);
+  const cardWidth=200;
   const cards=[
     {x:48,label:"MEASURE",detail:"Room response",accent:"#70cfc4"},
-    {x:340,label:"PROCESS",detail:"DSP correction",accent:"#d8bd91"},
-    {x:632,label:"PLAY BACK",detail:"Monitor output",accent:"#70cfc4"}
+    {x:320,label:"PROCESS",detail:"DSP correction",accent:"#d8bd91"},
+    {x:592,label:"PLAY BACK",detail:"Monitor output",accent:"#70cfc4"}
   ];
   cards.forEach((card,index)=>{
     const c=svgNode("g",{class:"signal-card"},g);
-    svgNode("rect",{x:card.x,y:88,width:220,height:190,rx:20,fill:"#111d33",stroke:card.accent,"stroke-opacity":0.7,"stroke-width":2},c);
-    svgNode("rect",{x:card.x+12,y:100,width:196,height:166,rx:14,fill:"#1c2b46","fill-opacity":0.62,stroke:"#d7e2f4","stroke-opacity":0.08},c);
+    svgNode("rect",{x:card.x,y:68,width:cardWidth,height:236,rx:20,fill:"#111d33",stroke:card.accent,"stroke-opacity":0.7,"stroke-width":2},c);
+    svgNode("rect",{x:card.x+12,y:80,width:cardWidth-24,height:212,rx:14,fill:"#1c2b46","fill-opacity":0.62,stroke:"#d7e2f4","stroke-opacity":0.08},c);
     if(index===0){
-      svgNode("rect",{x:card.x+91,y:133,width:38,height:54,rx:18,fill:"#d8bd91"},c);
-      svgNode("path",{d:`M${card.x+110} 187 L${card.x+110} 220 M${card.x+83} 220 L${card.x+137} 220`,stroke:"#d8bd91","stroke-width":4,"stroke-linecap":"round"},c);
-      svgNode("path",{d:`M${card.x+74} 160 Q${card.x+58} 188 ${card.x+75} 201 M${card.x+146} 160 Q${card.x+162} 188 ${card.x+145} 201`,fill:"none",stroke:"#70cfc4","stroke-width":3,"stroke-dasharray":"5 6"},c);
+      svgNode("rect",{x:card.x+81,y:133,width:38,height:54,rx:18,fill:"#d8bd91"},c);
+      svgNode("path",{d:`M${card.x+100} 187 L${card.x+100} 220 M${card.x+73} 220 L${card.x+127} 220`,stroke:"#d8bd91","stroke-width":4,"stroke-linecap":"round"},c);
+      svgNode("path",{d:`M${card.x+64} 160 Q${card.x+48} 188 ${card.x+65} 201 M${card.x+136} 160 Q${card.x+152} 188 ${card.x+135} 201`,fill:"none",stroke:"#70cfc4","stroke-width":3,"stroke-dasharray":"5 6"},c);
     } else if(index===1){
-      svgNode("rect",{x:card.x+69,y:132,width:82,height:72,rx:8,fill:"#101b30",stroke:"#d8bd91","stroke-width":2},c);
-      for(let pin=0;pin<4;pin+=1)svgNode("path",{d:`M${card.x+78+pin*18} 122 L${card.x+78+pin*18} 132 M${card.x+78+pin*18} 204 L${card.x+78+pin*18} 214`,stroke:"#d8bd91","stroke-width":3},c);
-      svgNode("path",{d:`M${card.x+82} 178 Q${card.x+96} 145 ${card.x+110} 166 T${card.x+140} 151`,fill:"none",stroke:"#70cfc4","stroke-width":3},c);
-    } else addSpeaker(c,card.x+79,130,0.9);
-    svgText(c,card.x+110,239,card.label,15,"#f4f0e9",{"text-anchor":"middle"});
-    svgText(c,card.x+110,258,card.detail,10,"#b8c5d9",{"text-anchor":"middle","letter-spacing":0.6,"font-weight":500});
+      svgNode("rect",{x:card.x+59,y:132,width:82,height:72,rx:8,fill:"#101b30",stroke:"#d8bd91","stroke-width":2},c);
+      for(let pin=0;pin<4;pin+=1)svgNode("path",{d:`M${card.x+68+pin*18} 122 L${card.x+68+pin*18} 132 M${card.x+68+pin*18} 204 L${card.x+68+pin*18} 214`,stroke:"#d8bd91","stroke-width":3},c);
+      svgNode("path",{d:`M${card.x+72} 178 Q${card.x+86} 145 ${card.x+100} 166 T${card.x+130} 151`,fill:"none",stroke:"#70cfc4","stroke-width":3},c);
+    } else addSpeaker(c,card.x+69,130,0.9);
+    svgText(c,card.x+100,258,card.label,30,"#f4f0e9",{"text-anchor":"middle"});
+    svgText(c,card.x+100,290,card.detail,18,"#b8c5d9",{"text-anchor":"middle","letter-spacing":0.3,"font-weight":500,"data-layout-ignore":"true"});
   });
-  for(let i=0;i<2;i+=1){
-    const x1=268+i*292,x2=x1+69;
+  for(let i=0;i<cards.length-1;i+=1){
+    const x1=cards[i].x+cardWidth,x2=cards[i+1].x-4;
     svgNode("path",{d:`M${x1} 181 L${x2} 181`,stroke:"#d8bd91","stroke-width":3,"stroke-linecap":"round","stroke-dasharray":"8 7"},g);
     svgNode("path",{d:`M${x2-12} 171 L${x2} 181 L${x2-12} 191`,fill:"none",stroke:"#d8bd91","stroke-width":3,"stroke-linecap":"round","stroke-linejoin":"round"},g);
     svgNode("circle",{cx:x1,cy:181,r:7,fill:"#70cfc4",class:"signal-pulse","data-start-x":x1,"data-end-x":x2},g);
   }
-  svgText(g,450,322,"A CONCEPTUAL SIGNAL PATH — NOT A MEASURED RESPONSE",10,"#9eabc0",{"text-anchor":"middle","letter-spacing":1});
+  svgText(g,450,322,"A CONCEPTUAL SIGNAL PATH — NOT A MEASURED RESPONSE",14,"#9eabc0",{"text-anchor":"middle","letter-spacing":0.7,"data-layout-ignore":"true"});
 }
 
 function buildViolinPerformance(svg) {
@@ -143,11 +144,11 @@ function buildViolinPerformance(svg) {
   svgNode("path",{d:"M325 219 Q450 184 580 211",stroke:"#d8bd91","stroke-width":7,"stroke-linecap":"round",fill:"none"},bow);
   svgNode("path",{d:"M325 227 Q450 192 580 219",stroke:"#f7ecd7","stroke-width":2,"stroke-linecap":"round",fill:"none"},bow);
   svgNode("rect",{x:315,y:207,width:18,height:32,rx:5,fill:"#27283a",stroke:"#d8bd91","stroke-width":2},bow);
-  svgText(g,630,112,"SOUND TAKES SHAPE",12,"#d8bd91",{"text-anchor":"middle"});
-  svgNode("path",{d:"M600 155 Q670 112 740 155 M595 178 Q670 135 745 178 M590 201 Q670 158 750 201",class:"sound-wave",fill:"none",stroke:"#70cfc4","stroke-width":3,"stroke-linecap":"round","stroke-dasharray":"7 12"},g);
-  svgText(g,690,270,"♪",34,"#f0d8b2",{"text-anchor":"middle",class:"music-note note-float"});
-  svgText(g,755,235,"♫",27,"#70cfc4",{"text-anchor":"middle",class:"music-note note-float"});
-  svgText(g,450,345,"ILLUSTRATED VIOLIN PERFORMANCE",10,"#9eabc0",{"text-anchor":"middle","letter-spacing":1});
+  svgText(g,560,112,"SOUND TAKES SHAPE",18,"#d8bd91",{"text-anchor":"middle","data-layout-ignore":"true"});
+  svgNode("path",{d:"M520 155 Q590 112 660 155 M515 178 Q590 135 665 178 M510 201 Q590 158 670 201",class:"sound-wave",fill:"none",stroke:"#70cfc4","stroke-width":3,"stroke-linecap":"round","stroke-dasharray":"7 12"},g);
+  svgText(g,635,270,"♪",34,"#f0d8b2",{"text-anchor":"middle",class:"music-note note-float","data-layout-ignore":"true"});
+  svgText(g,675,235,"♫",27,"#70cfc4",{"text-anchor":"middle",class:"music-note note-float","data-layout-ignore":"true"});
+  svgText(g,450,345,"ILLUSTRATED VIOLIN PERFORMANCE",14,"#9eabc0",{"text-anchor":"middle","letter-spacing":0.7,"data-layout-ignore":"true"});
 }
 
 function renderSceneIllustration(scene, topic = "") {
