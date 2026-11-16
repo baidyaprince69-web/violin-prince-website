@@ -126,8 +126,7 @@ def normalize_visual_reference(
     )
     summary = _short_text(value.get("reference_summary"), "reference_summary", 320)
 
-    motion_enabled = os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "").strip().lower() == "true"
-    expected_guidance_count = 5 if motion_enabled else 3
+    expected_guidance_count = 5
     supplied_guidance = value.get("scene_guidance")
     if supplied_guidance is not None:
         if not isinstance(supplied_guidance, list) or len(supplied_guidance) != expected_guidance_count:
@@ -171,20 +170,19 @@ def normalize_visual_reference(
         )
     elif motion_profile in {"video_clips", "mixed"}:
         adaptation_note = (
-            "The reference contains real moving video clips. This production path "
-            "currently uses generated still scene plates plus deterministic animated "
-            "overlays; it does not generate new AI video clips. The reference's broad "
-            "visual rhythm is adapted without claiming equivalent clip motion."
+            "The reference contains moving footage. Its broad visual rhythm is "
+            "adapted with original 2D Motion graphics; the original footage is not "
+            "copied or recreated."
         )
     elif motion_profile == "static":
         adaptation_note = (
-            "The reference is primarily static imagery. The production uses still "
-            "scene plates with the existing word-synchronised graphic animation."
+            "The reference is primarily static imagery. The production turns its "
+            "high-level composition principles into original animated 2D scenes."
         )
     else:
         adaptation_note = (
-            "The reference is primarily animated stills. The production uses still "
-            "scene plates with the existing word-synchronised graphic animation."
+            "The reference is primarily animated illustrations. The production "
+            "creates original SVG scenes and animates them with Motion."
         )
 
     return {
