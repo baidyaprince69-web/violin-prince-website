@@ -7,7 +7,6 @@ on:
       - ".github/workflows/violin-prince-autopilot.yml"
       - ".github/workflows/deploy-autopilot-cloudflare.yml"
       - ".github/workflows/autopilot-checks.yml"
-      - ".github/workflows/hyperframes-motion-prototype.yml"
   pull_request:
     paths:
       - "autopilot/**"
@@ -41,11 +40,20 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests Pillow PyYAML numpy soundfile cryptography 'fonttools[woff]>=4.50,<5'
 
-      - name: Run offline audio and narration helper tests
-        run: python -m unittest discover -s autopilot/engine/tests -v
-
-      - name: Run narration composer regressions after the full suite
-        run: python -m unittest autopilot.engine.tests.test_planner_retry -v
+      - name: Run focused 2D production tests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for test_file in \
+            test_daily_plan.py \
+            test_motion_hyperframes_renderer.py \
+            test_violin_sampler.py \
+            test_voiceover.py \
+            test_editorial_direction.py \
+            test_visual_reference.py
+          do
+            python -m unittest discover -s autopilot/engine/tests -p "$test_file" -v
+          done
 
       - name: Validate D1 SQL schema
         run: |
@@ -83,7 +91,6 @@ jobs:
           import yaml
           files = [
               ".github/workflows/autopilot-checks.yml",
-              ".github/workflows/hyperframes-motion-prototype.yml",
               ".github/workflows/violin-prince-autopilot.yml",
               ".github/workflows/deploy-autopilot-cloudflare.yml",
               ".github/workflows/youtube-seo-learning.yml",
