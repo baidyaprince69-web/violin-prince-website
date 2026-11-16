@@ -32,16 +32,10 @@ class MotionHyperFramesRendererTests(unittest.TestCase):
             with self.subTest(value=value):
                 self.assertFalse(is_motion_hyperframes_render_enabled(value))
 
-    def test_default_and_blender_renderer_selection_are_unchanged(self):
-        self.assertEqual(select_renderer(False, False), "standard")
-        self.assertEqual(select_renderer(False, True), "blender")
-
-    def test_motion_renderer_is_an_explicit_optional_route(self):
-        self.assertEqual(select_renderer(True, False), "motion_hyperframes")
-
-    def test_motion_and_blender_routes_cannot_be_enabled_together(self):
-        with self.assertRaisesRegex(MotionHyperFramesError, "cannot both be true"):
-            select_renderer(True, True)
+    def test_motion_hyperframes_is_the_only_supported_renderer(self):
+        self.assertEqual(select_renderer(True), "motion_hyperframes")
+        with self.assertRaisesRegex(MotionHyperFramesError, "only supported production renderer"):
+            select_renderer(False)
 
     def test_approved_editorial_content_is_passed_to_the_composition(self):
         result = build_content_context({
