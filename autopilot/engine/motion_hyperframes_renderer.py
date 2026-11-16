@@ -327,9 +327,9 @@ def render_full_track(
             f"apad=pad_dur={outro_hold_seconds:.3f},"
             f"atrim=duration={mixed_duration:.3f}"
         )
-        fade_filter = (
-            f"afade=t=out:st={narration_duration:.3f}:d={outro_hold_seconds:.3f},"
-        )
+        # Apply the fade after audio duration is normalized below, so the video timeline
+        # always includes the complete configured final-scene hold.
+        fade_filter = ""
     else:
         voice_tail_filter = "anull"
         fade_filter = ""
@@ -366,6 +366,39 @@ def render_full_track(
         )
     else:
         shutil.copy2(narration_path, audio_path)
+
+    if outro_hold_seconds > 0:
+        normalized_audio = audio_path.with_name("narration-first-explainer-final.wav")
+        _run_step(
+            "Guarantee the full final-scene hold in the audio-duration manifest",
+            [
+                "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                "-i", str(audio_path),
+                "-af",
+                f"apad=pad_dur={outro_hold_seconds:.3f},"
+                f"atrim=duration={mixed_duration:.3f},"
+                f"afade=t=out:st={narration_duration:.3f}:d={outro_hold_seconds:.3f}",
+                "-t", f"{mixed_duration:.3f}",
+                "-ar", "48000", "-ac", "2", "-c:a", "pcm_s16le",
+                str(normalized_audio),
+            ],
+            workspace, int(os.environ.get("MOTION_HYPERFRAMES_COMMAND_TIMEOUT_SECONDS", "3600")),
+        )
+        normalized_audio.replace(audio_path)
+        probe = subprocess.run(
+            [
+                "ffprobe", "-v", "error", "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1", str(audio_path),
+            ],
+            check=True, capture_output=True, text=True, timeout=30,
+        )
+        final_audio_duration = float(probe.stdout.strip())
+        if abs(final_audio_duration - mixed_duration) > 0.08:
+            raise MotionHyperFramesError(
+                f"Final audio is {final_audio_duration:.2f}s; expected exactly "
+                f"{mixed_duration:.2f}s including the final visual hold."
+            )
+
     content_context = build_content_context(plan, narration_info)
     context_path.write_text(
         json.dumps(content_context, ensure_ascii=False, indent=2) + "\n",

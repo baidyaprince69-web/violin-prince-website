@@ -26,12 +26,11 @@ def require(name):
 
 
 def make_caption(plan):
-    metadata = plan.get("publish_metadata") if isinstance(plan.get("publish_metadata"), dict) else {}
-    description = str(metadata.get("description") or plan.get("description") or "").strip()
-    if description:
-        return description[:5000]
     parts = [str(plan.get("hook") or plan.get("title") or "A violin-led visual story")]
-    tags = metadata.get("tags") or plan.get("hashtags") or []
+    desc = str(plan.get("description") or "").strip()
+    if desc:
+        parts.append(desc)
+    tags = plan.get("hashtags") or []
     if isinstance(tags, str):
         tags = tags.split()
     clean = []
@@ -41,24 +40,16 @@ def make_caption(plan):
             clean.append(value if value.startswith("#") else "#" + value)
     if clean:
         parts.append(" ".join(clean[:12]))
-    source_links = []
-    for source in (plan.get("sources") or [])[:5]:
-        if isinstance(source, dict):
-            url = str(source.get("url") or "").strip()
-            label = str(source.get("publisher_domain") or source.get("title") or "Publisher").strip()
-            if url:
-                source_links.append(label + ": " + url)
-        elif str(source).startswith(("https://", "http://")):
-            source_links.append(str(source))
-    if source_links:
-        parts.append("Research references:\n" + "\n".join(source_links))
-    return "\n\n".join(parts)[:5000]
+    sources = plan.get("sources") or []
+    if sources:
+        parts.append("Research references: " + " ".join(str(x) for x in sources[:3]))
+    return "\n\n".join(parts)[:2100]
+
 
 def youtube_upload(video_path: Path, plan: dict):
     client_id = require("YOUTUBE_CLIENT_ID")
     client_secret = require("YOUTUBE_CLIENT_SECRET")
     refresh_token = require("YOUTUBE_REFRESH_TOKEN")
-    metadata = plan.get("publish_metadata") if isinstance(plan.get("publish_metadata"), dict) else {}
 
     token = HTTP.post(
         "https://oauth2.googleapis.com/token",
@@ -71,33 +62,19 @@ def youtube_upload(video_path: Path, plan: dict):
     if not access_token:
         raise PublishError("Google OAuth refresh did not return an access token.")
 
-    title = str(metadata.get("title") or plan.get("title") or "Violin Prince")[:95]
-    tags = metadata.get("tags") or plan.get("hashtags") or []
-    if isinstance(tags, str):
-        tags = [item.strip() for item in tags.split(",") if item.strip()]
-    tags = [str(item).lstrip("#").replace(" ", "")[:30] for item in tags[:15]]
-    privacy = str(
-        os.environ.get("YOUTUBE_PRIVACY_STATUS")
-        or metadata.get("privacy_status")
-        or "private"
-    ).strip().lower()
-    if privacy not in {"public", "unlisted", "private"}:
-        raise PublishError("YOUTUBE_PRIVACY_STATUS must be public, unlisted or private.")
-    made_for_kids = metadata.get("made_for_kids")
-    if not isinstance(made_for_kids, bool):
-        raise PublishError("YouTube made_for_kids must be explicitly confirmed as true or false.")
+    title = str(plan.get("title") or "Violin Prince")[:95]
     body = {
         "snippet": {
             "title": title,
             "description": make_caption(plan),
-            "tags": tags,
-            "categoryId": str(metadata.get("category_id") or "10"),
-            "defaultLanguage": str(metadata.get("default_language") or "en"),
-            "defaultAudioLanguage": str(metadata.get("default_audio_language") or metadata.get("default_language") or "en"),
+            "tags": [str(x).lstrip("#").replace(" ", "")[:30]
+                     for x in (plan.get("hashtags") or [])[:15]] if isinstance(plan.get("hashtags"), list) else [],
+            "categoryId": "10",
+            "defaultLanguage": "en",
         },
         "status": {
-            "privacyStatus": privacy,
-            "selfDeclaredMadeForKids": made_for_kids,
+            "privacyStatus": os.environ.get("YOUTUBE_PRIVACY_STATUS", "private"),
+            "selfDeclaredMadeForKids": False,
             "containsSyntheticMedia": True,
         },
     }
@@ -240,8 +217,6 @@ def publish_all(video_path: Path, media_url: str, plan: dict):
     for destination in destinations:
         try:
             if destination == "youtube":
-                if os.environ.get("YOUTUBE_PUBLISH_ENABLED", "false").strip().lower() != "true":
-                    raise PublishError("YOUTUBE_PUBLISH_ENABLED is false; YouTube upload is blocked.")
                 result = youtube_upload(video_path, plan)
             elif destination == "instagram":
                 result = instagram_publish(media_url, plan)

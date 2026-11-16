@@ -27,6 +27,9 @@ const narrationWords = Array.isArray(contentConfig.narration_words)
       Number(cue.start) >= 0 && Number(cue.end) > Number(cue.start)
     )
   : [];
+const narrationEndSeconds = narrationWords.reduce(
+  (latest, cue) => Math.max(latest, Number(cue.end) || 0), 0
+);
 const narrationContextPresent = Boolean(contentConfig.narration_engine || contentConfig.narration_voice);
 const isNarratedExplainer =
   contentConfig.narration_engine === "Kokoro-82M" &&
@@ -153,6 +156,11 @@ function renderScene(scene, index) {
 }
 
 function syncNarrationCaption(seconds) {
+  if (narrationWords.length &&
+      seconds > narrationEndSeconds + 0.18) {
+    captionLine.replaceChildren();
+    return;
+  }
   let activeIndex = -1;
   for (let index = 0; index < narrationWords.length; index += 1) {
     const cue = narrationWords[index];
@@ -185,7 +193,11 @@ function syncScene(seconds) {
     if (Number(word.start) <= seconds) cue = word;
     else break;
   }
-  const nextIndex = Math.min(scenes.length - 1, sceneIndexForCue(cue, seconds));
+  const narrationFinished = narrationWords.length > 0 &&
+    seconds >= narrationEndSeconds - 0.02;
+  const nextIndex = narrationFinished
+    ? scenes.length - 1
+    : Math.min(scenes.length - 1, sceneIndexForCue(cue, seconds));
   const scene = scenes[nextIndex];
   const range = sceneTimingRange(nextIndex);
   const span = Math.max(0.8, range.end - range.start);

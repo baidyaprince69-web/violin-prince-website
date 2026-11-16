@@ -1,7 +1,7 @@
 {
   "story_type": "music_technology",
-  "core_claim": "Audient's new iD interfaces combine RoomTune monitor correction with onboard DSP input effects.",
-  "topic": "How Audient's redesigned iD interfaces combine RoomTune monitor correction with onboard DSP input effects, and why room acoustics matter when mixing violin.",
+  "core_claim": "Audient's new iD MK3 interfaces add RoomTune monitor room correction and onboard DSP.",
+  "topic": "How Audient's third-generation iD interfaces use RoomTune to measure room acoustics and adjust monitor playback, while onboard DSP handles input effects.",
   "title": "Can Your Room Trick Your Violin Mix?",
   "hook": "Your room can quietly mislead your mix.",
   "description": "Your room can colour what you hear while mixing. Audient's third-generation iD interfaces add RoomTune monitor correction, which measures room acoustics and adjusts the signal sent to your speakers. Their onboard DSP also runs EQ, compression and reverb without using your computer's CPU. This is monitor correction and input processing, not a change to the original violin recording.\n\nSources:\nMusicRadar: https://www.musicradar.com/music-tech/this-isnt-a-spec-refresh-its-a-completely-new-technology-platform-audient-launches-next-generation-of-id-audio-interfaces-with-onboard-dsp-and-built-in-monitor-correction\nMixdown: https://mixdownmag.com.au/news/room-correction-comes-to-every-model-in-audients-redesigned-id-range/",
@@ -23,8 +23,8 @@
     "Violin Prince"
   ],
   "narrative_style": "documentary",
-  "cover_payoff": "A short original Violin Prince violin phrase demonstrates the musical result of monitoring a more reliable, corrected signal.",
-  "narration_script": "Your room can quietly mislead your mix. Audient's new iD interfaces add preamps and onboard DSP. RoomTune measures the room and adjusts the signal going to your monitors. Input EQ, compression, and reverb shape tone, dynamics, and space while mixing.",
+  "cover_payoff": "Use an original, layered 2D violin illustration with a stylised performer, animated bow movement, visible drawn strings, musical-note accents and a warm waveform payoff. This is an illustrated music moment, not a live-performance recording or a 3D asset.",
+  "narration_script": "Your room can quietly mislead your mix. Audient's iD pairs preamps with onboard DSP. RoomTune measures acoustics and corrects monitor playback. EQ, compression and reverb shape tone, dynamics and space. Now hear your violin phrase return, with clearer, more balanced monitor sound.",
   "narration_evidence": [
     {
       "sentence_number": 2,
@@ -63,21 +63,21 @@
     {
       "scene_number": 1,
       "sentence_index": 0,
-      "caption": "A ROOM CAN MISLEAD YOUR MIX",
-      "image_prompt": "Portrait 3D violin listening room. A complete amber violin is the dominant hero subject, with two studio monitors, a listening position and visible direct and reflected sound waves travelling through a dark acoustic room. Strong layered depth, realistic wood and varnish, antique-gold reflections, midnight-navy environment, cinematic camera move from room scale towards the violin.",
-      "graphic_label": "THE LISTENING ROOM",
-      "graphic_detail": "Reflections change the sound reaching your monitors",
-      "visual_mode": "macro_3d",
+      "caption": "YOUR ROOM CAN MISLEAD YOUR MIX",
+      "image_prompt": "Full-screen portrait-native 2D vector listening room. Two large studio monitors, a clear listening position and an illustrated seated listener fill the vertical composition. Warm antique-gold sound waves travel directly to the listener and teal reflections bounce from the walls. Layered wall panels, deep perspective floor and camera push-in. Midnight navy and antique gold. Large, immediately recognisable objects.",
+      "graphic_label": "SCENE 01 · THE LISTENING ROOM",
+      "graphic_detail": "Direct and reflected sound change what reaches the listening position",
+      "visual_mode": "full_screen_2d",
       "graphic_data": {
         "type": "room_acoustics",
         "items": [
           {
-            "label": "DIRECT SOUND",
-            "display": "First arrival"
+            "label": "STUDIO MONITORS",
+            "display": "Sound source"
           },
           {
-            "label": "ROOM REFLECTIONS",
-            "display": "Later arrivals"
+            "label": "LISTENING POSITION",
+            "display": "Room response"
           }
         ]
       }
@@ -85,43 +85,91 @@
     {
       "scene_number": 2,
       "sentence_index": 1,
-      "caption": "ROOMTUNE MEASURES. DSP SHAPES THE SIGNAL",
-      "image_prompt": "Portrait 3D acoustic wave-field explanation anchored by a real amber violin. A large measurement pulse travels through a layered room response towards studio monitors; show a microphone and a clear before/after correction curve as dimensional objects, with the monitor signal visibly changing from uneven to balanced. Midnight navy, muted teal and antique gold; camera follows the travelling signal down the composition.",
-      "graphic_label": "ROOMTUNE + ONBOARD DSP",
-      "graphic_detail": "Measure room response, correct playback and shape input tone",
-      "visual_mode": "waveform",
+      "caption": "THE INTERFACE: PREAMPS + DSP",
+      "image_prompt": "Full-screen portrait-native 2D illustration of a premium audio interface as the central hero object. Make the chassis, preamp knobs, meters and onboard processing section large and individually legible. Reveal the preamp controls first, then the digital processing display. Midnight navy, antique gold and subtle teal lighting.",
+      "graphic_label": "SCENE 02 · THE AUDIO INTERFACE",
+      "graphic_detail": "Console-style preamps and onboard processing share one interface",
+      "visual_mode": "full_screen_2d",
       "graphic_data": {
-        "type": "roomtune_process",
+        "type": "audio_interface",
         "items": [
           {
-            "label": "MEASURE",
-            "display": "Capture room response"
+            "label": "PREAMPS",
+            "display": "Input stage"
           },
           {
-            "label": "CORRECT",
-            "display": "Adjust monitor signal"
-          },
-          {
-            "label": "SHAPE",
-            "display": "EQ · Compression · Reverb"
+            "label": "ONBOARD DSP",
+            "display": "Processing"
           }
         ]
       }
     },
     {
       "scene_number": 3,
+      "sentence_index": 2,
+      "caption": "ROOMTUNE: MEASURE → CORRECT",
+      "image_prompt": "Full-screen portrait-native 2D visual explanation of RoomTune. A large measurement microphone sits above a vertical sequence of three readable stages: Measure, Analyse and Correct. Animated teal measurement waves enter the process; a gold signal pulse travels down the chain; studio monitors receive the corrected output. Use large icons, labels and a cinematic camera push.",
+      "graphic_label": "SCENE 03 · ROOMTUNE",
+      "graphic_detail": "Measure the room, analyse its response, and correct monitor playback",
+      "visual_mode": "full_screen_2d",
+      "graphic_data": {
+        "type": "roomtune_process",
+        "items": [
+          {
+            "label": "MEASURE",
+            "display": "Capture"
+          },
+          {
+            "label": "ANALYSE",
+            "display": "Interpret"
+          },
+          {
+            "label": "CORRECT",
+            "display": "Adjust"
+          }
+        ]
+      }
+    },
+    {
+      "scene_number": 4,
       "sentence_index": 3,
-      "caption": "HEAR THE VIOLIN IN A TRUSTED MIX",
-      "image_prompt": "Portrait close-up 3D violin performance. A complete realistic amber violin, visible strings, fingerboard and bow dominate the frame, with an expressive bow stroke and subtle musical accents. Cinematic camera push towards the instrument, warm antique-gold rim light, deep midnight-navy background and teal sound accents. Keep the instrument large and unmistakably recognisable.",
-      "graphic_label": "THE MUSICAL PAYOFF",
-      "graphic_detail": "A violin phrase brings the mixing explanation back to music",
+      "caption": "EQ · COMPRESSION · REVERB",
+      "image_prompt": "Full-screen portrait-native 2D explainer with three large vertically stacked processing stages. Equalisation uses a clear tonal curve, compression uses a changing waveform, and reverb uses expanding echo arcs. Animate the audio signal travelling through each stage in order. The labels must be large and readable at phone size.",
+      "graphic_label": "SCENE 04 · ONBOARD DSP",
+      "graphic_detail": "Three processing stages shape tone, dynamics, and space",
+      "visual_mode": "full_screen_2d",
+      "graphic_data": {
+        "type": "dsp_stages",
+        "items": [
+          {
+            "label": "EQUALISATION",
+            "display": "Tone"
+          },
+          {
+            "label": "COMPRESSION",
+            "display": "Dynamics"
+          },
+          {
+            "label": "REVERB",
+            "display": "Space"
+          }
+        ]
+      }
+    },
+    {
+      "scene_number": 5,
+      "sentence_index": 4,
+      "caption": "HEAR THE VIOLIN. TRUST THE MIX.",
+      "image_prompt": "Full-screen close-up 2D illustrated violin performance. A large amber violin, visible strings and expressive bow dominate the portrait composition. Include a stylised performer, clearly moving bow, independent arm and instrument layers, musical-note accents and a glowing waveform. Cinematic push-in and richer antique-gold light for the musical payoff. Original illustration only.",
+      "graphic_label": "SCENE 05 · THE VIOLIN",
+      "graphic_detail": "A close-up violin performance closes the story.",
       "visual_mode": "cover_performance",
       "graphic_data": {
-        "type": "violin_performance_3d",
+        "type": "violin_performance_2d",
         "items": [
           {
             "label": "VIOLIN",
-            "display": "Full 3D performance"
+            "display": "Illustrated performance"
           }
         ]
       }
@@ -156,10 +204,10 @@
     "made_for_kids": false
   },
   "visual_reference": {
-    "motion_profile": "video_clips",
-    "visual_language": "cinematic_cgi",
+    "motion_profile": "portrait_narration_driven_2d",
+    "visual_language": "full_screen_2d_motion_graphics",
     "pacing": "dynamic",
-    "reference_summary": "Three full-frame 3D scenes with a real violin model: a listening room with reflected sound, a RoomTune measurement/correction wave field, and a close violin performance. Midnight-navy and antique-gold styling uses depth-separated Frame By Plane backgrounds, animated camera moves and a large physical violin hero.",
+    "reference_summary": "Five portrait-native 2D scenes: listening room and reflections; audio-interface hero; RoomTune measure/analyse/correct; EQ/compression/reverb; close-up violin payoff. Each uses original layered SVG artwork, camera movement, progressive reveals, contextual labels, and midnight-navy/antique-gold branding.",
     "scene_guidance": [
       {
         "shot_type": "wide_hero",
@@ -168,17 +216,24 @@
       },
       {
         "shot_type": "close_detail",
+        "camera_move": "pan_left",
+        "transition_out": "wipe_right"
+      },
+      {
+        "shot_type": "mechanism_cutaway",
         "camera_move": "pan_down",
         "transition_out": "smooth_left"
       },
       {
-        "shot_type": "performance_close",
+        "shot_type": "overhead",
         "camera_move": "pan_up",
+        "transition_out": "crossfade"
+      },
+      {
+        "shot_type": "performance_close",
+        "camera_move": "locked",
         "transition_out": "fade_through_black"
       }
     ]
-  },
-  "asset_kind": "violin",
-  "asset_subject": "Realistic full violin model with bow and strings",
-  "model_query": "realistic full violin with bow and strings"
+  }
 }

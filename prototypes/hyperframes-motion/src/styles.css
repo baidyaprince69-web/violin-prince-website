@@ -54,7 +54,7 @@ body {
 
 .top-mark {
   z-index: 9;
-  inset: 370px 150px auto 150px;
+  inset: 245px 150px auto 150px;
   height: 50px;
   display: flex;
   align-items: center;
@@ -81,7 +81,7 @@ body {
 }
 .top-rule {
   z-index: 9;
-  inset: 430px 150px auto 150px;
+  inset: 305px 150px auto 150px;
   height: 2px;
   transform: scaleX(0);
   transform-origin: left center;
@@ -90,9 +90,10 @@ body {
 
 .scene-header {
   z-index: 7;
-  top: 460px;
-  left: 190px;
-  right: 190px;
+  position: absolute;
+  top: 330px;
+  left: 150px;
+  right: 150px;
   height: 260px;
   opacity: 1;
   background: linear-gradient(180deg, rgba(7,11,23,0.94) 0%, rgba(7,11,23,0.82) 72%, rgba(7,11,23,0) 100%);
@@ -128,7 +129,8 @@ body {
   text-wrap: balance;
 }
 
-.scene-stage {
+ .scene-stage {
+  position: absolute;
   z-index: 3;
   inset: 0;
   overflow: hidden;
@@ -162,12 +164,13 @@ body {
   .scene-illustration * { animation: none !important; }
 }
 
-.narration-caption {
+ .narration-caption {
+  position: absolute;
   z-index: 10;
   top: auto;
   left: 105px;
   right: 105px;
-  bottom: 480px;
+  bottom: 650px;
   height: 90px;
   display: flex;
   flex-direction: column;
@@ -195,7 +198,7 @@ body {
 
 .bottom-progress {
   z-index: 10;
-  inset: auto 150px 190px 150px;
+  inset: auto 150px 150px 150px;
   height: 3px;
   display: flex;
   align-items: center;

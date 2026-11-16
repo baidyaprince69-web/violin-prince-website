@@ -98,7 +98,7 @@ function buildInterface(world) {
   node("rect", { x: 145, y: 555, width: 790, height: 800, rx: 38, fill: "#101b30", stroke: "#d8bd91", "stroke-width": 7 }, chassis);
   node("rect", { x: 174, y: 585, width: 732, height: 740, rx: 24, fill: "#1b2b45", stroke: "#7489a8", "stroke-opacity": 0.5, "stroke-width": 3 }, chassis);
   node("path", { d: "M205 950 L875 950", stroke: "#d8bd91", "stroke-opacity": 0.48, "stroke-width": 4 }, chassis);
-  text(chassis, 540, 665, "CONSOLE-STYLE PREAMPS", 45, "#d8bd91", { "text-anchor": "middle" });
+  text(chassis, 540, 665, "CONSOLE-STYLE PREAMPS", 52, "#d8bd91", { "text-anchor": "middle" });
   for (let i = 0; i < 4; i += 1) {
     const cx = 300 + i * 160;
     node("circle", { cx, cy: 785, r: 62, fill: "#0b1425", stroke: "#d8bd91", "stroke-width": 5 }, chassis);
@@ -112,13 +112,13 @@ function buildInterface(world) {
     const height = 24 + ((i * 31) % 82);
     node("rect", { x: 285 + i * 22, y: 1110 - height, width: 11, height, rx: 5, fill: i % 3 ? "#70cfc4" : "#d8bd91", class: "interface-meter", "data-meter-height": height }, screen);
   }
-  text(screen, 540, 1050, "ONBOARD DSP", 44, "#e8edf6", { "text-anchor": "middle" });
+  text(screen, 540, 1050, "ONBOARD DSP", 58, "#e8edf6", { "text-anchor": "middle" });
   const dsp = reveal(subject, 2, "interface-dsp");
   [
     { x: 250, label: "EQ" }, { x: 455, label: "COMP" }, { x: 660, label: "REVERB" }
   ].forEach((item) => {
     node("rect", { x: item.x, y: 1185, width: 170, height: 72, rx: 15, fill: "#0b1728", stroke: "#d8bd91", "stroke-width": 3 }, dsp);
-    text(dsp, item.x + 85, 1233, item.label, 44, "#d8bd91", { "text-anchor": "middle" });
+    text(dsp, item.x + 85, 1233, item.label, 56, "#d8bd91", { "text-anchor": "middle" });
   });
 }
 
@@ -134,14 +134,14 @@ function buildRoomTune(world) {
   });
   const process = reveal(subject, 1, "roomtune-steps");
   const steps = [
-    { y: 735, label: "1  MEASURE", detail: "Microphone captures the room response" },
-    { y: 915, label: "2  ANALYSE", detail: "The system identifies acoustic changes" },
-    { y: 1095, label: "3  CORRECT", detail: "Monitor playback is adjusted" }
+    { y: 735, label: "1  MEASURE", detail: "Capture the room response" },
+    { y: 915, label: "2  ANALYSE", detail: "Analyse the measurement" },
+    { y: 1095, label: "3  CORRECT", detail: "Adjust monitor playback" }
   ];
   steps.forEach((step, index) => {
     node("rect", { x: 145, y: step.y, width: 790, height: 155, rx: 24, fill: "#14243c", stroke: index === 1 ? "#d8bd91" : "#70cfc4", "stroke-width": 4 }, process);
-    text(process, 540, step.y + 62, step.label, 46, "#f3dfbb", { "text-anchor": "middle" });
-    text(process, 540, step.y + 112, step.detail, 44, "#c6d1e1", { "text-anchor": "middle", "font-weight": 500, "letter-spacing": 0.2 });
+    text(process, 540, step.y + 62, step.label, 58, "#f3dfbb", { "text-anchor": "middle" });
+    text(process, 540, step.y + 112, step.detail, 56, "#c6d1e1", { "text-anchor": "middle", "font-weight": 500, "letter-spacing": 0.2 });
     if (index < 2) {
       node("path", { d: "M540 " + (step.y + 158) + " L540 " + (step.y + 202) + " M525 " + (step.y + 188) + " L540 " + (step.y + 203) + " L555 " + (step.y + 188), fill: "none", stroke: "#d8bd91", "stroke-width": 6, "stroke-linecap": "round", "stroke-linejoin": "round" }, process);
     }
@@ -152,9 +152,9 @@ function buildRoomTune(world) {
 function buildDspStages(world) {
   const subject = node("g", { class: "scene-subject dsp-subject" }, world);
   const stages = [
-    { y: 550, label: "EQUALISATION", detail: "Shape the tonal balance", type: "eq" },
-    { y: 820, label: "COMPRESSION", detail: "Control changing dynamics", type: "compress" },
-    { y: 1090, label: "REVERB", detail: "Add a sense of space", type: "reverb" }
+    { y: 550, label: "EQUALISATION", detail: "Shape tone", type: "eq" },
+    { y: 820, label: "COMPRESSION", detail: "Control dynamics", type: "compress" },
+    { y: 1090, label: "REVERB", detail: "Add space", type: "reverb" }
   ];
   const stagesRoot = reveal(subject, 0, "dsp-stages");
   stages.forEach((stage, index) => {
@@ -170,8 +170,8 @@ function buildDspStages(world) {
         node("path", { d: "M" + (190 + i * 38) + " " + (stage.y + 82 + i * 18) + " Q" + (310 + i * 22) + " " + (stage.y + 10 + i * 18) + " " + (380 + i * 18) + " " + (stage.y + 130 + i * 18), fill: "none", stroke: i % 2 ? "#d8bd91" : "#70cfc4", "stroke-width": 5, "stroke-opacity": 0.8 - i * 0.12 }, card);
       }
     }
-    text(card, 455, stage.y + 108, stage.label, 46, "#f2e5d1");
-    text(card, 455, stage.y + 165, stage.detail, 44, "#bfcce0", { "font-weight": 500, "letter-spacing": 0.2 });
+    text(card, 455, stage.y + 108, stage.label, 58, "#f2e5d1");
+    text(card, 455, stage.y + 165, stage.detail, 56, "#bfcce0", { "font-weight": 500, "letter-spacing": 0.2 });
     for (let i = 0; i < 12; i += 1) {
       node("rect", { x: 455 + i * 34, y: stage.y + 205, width: 16, height: 10 + (i % 4) * 8, rx: 4, fill: i % 3 ? "#70cfc4" : "#d8bd91", class: "dsp-meter" }, card);
     }
@@ -239,11 +239,11 @@ function syncSceneIllustration(svg, seconds, progress = 0, sceneIndex = 0) {
   const p = Math.max(0, Math.min(1, Number(progress) || 0));
   const world = svg.querySelector(".scene-world");
   if (world) {
-    const scale = 0.64 + p * 0.01;
+    const scale = 0.50 + p * 0.005;
     const driftX = Math.sin(t * 0.28 + sceneIndex) * (sceneIndex === 4 ? 10 : 14);
     const driftY = -8 * p + Math.cos(t * 0.2) * 5;
-    const tx = 540 * (1 - scale) + driftX;
-    const ty = 960 * (1 - scale) + 90 + driftY;
+    const tx = 540 * (1 - scale) - 170 + driftX;
+    const ty = 960 * (1 - scale) - 320 + driftY;
     world.setAttribute("transform", "matrix(" + scale.toFixed(5) + " 0 0 " + scale.toFixed(5) + " " + tx.toFixed(2) + " " + ty.toFixed(2) + ")");
   }
   svg.querySelectorAll(".reveal-part").forEach((part) => {
@@ -280,7 +280,7 @@ function syncSceneIllustration(svg, seconds, progress = 0, sceneIndex = 0) {
   const violin = svg.querySelector(".illustrated-violin");
   if (violin) violin.setAttribute(
     "transform",
-    "translate(540 1110) rotate(" + (Math.sin(t * 1.1) * 1.8).toFixed(2) + ") scale(0.93) translate(-540 -1110)"
+    "translate(0 -50) translate(540 1110) rotate(" + (Math.sin(t * 1.1) * 1.8).toFixed(2) + ") scale(0.82) translate(-540 -1110)"
   );
   const performer = svg.querySelector(".performer-character");
   if (performer) performer.setAttribute("transform", "translate(0 -70)");

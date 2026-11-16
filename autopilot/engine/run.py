@@ -5261,23 +5261,15 @@ def render_stage():
             raise PipelineError("Motion explainer is missing its researched explanation script.")
         log("Kokoro narration is the primary audio. The sampled violin is retained only as a quiet, ducked background bed.")
     else:
-        prepared_sampled_bed = (
-            renderer == "blender"
-            and active_audio_asset.get("kind") == "generated_sampled_instrument"
-            and audio_source == "sampled_violin_cc0"
+        log("Rendering from saved research, script, narration and scene images. Private media is fetched only now.")
+        private_audio_asset, private_audio_bytes = get_audio(
+            prefer_creator_assets=True, allow_fallback=False
         )
-        if prepared_sampled_bed:
-            log("Using the prepared CC0 sampled-violin bed beneath the Kokoro narration in Blender scenes.")
-        else:
-            log("Rendering from saved research, script, narration and scene images. Private media is fetched only now.")
-            private_audio_asset, private_audio_bytes = get_audio(
-                prefer_creator_assets=True, allow_fallback=False
-            )
-            if private_audio_bytes:
-                audio = private_audio_bytes
-                active_audio_asset = private_audio_asset
-                audio_source = str(private_audio_asset.get("audio_source", "uploaded_recording"))
-                log("Using the rights-confirmed private audio asset for the final mix.")
+        if private_audio_bytes:
+            audio = private_audio_bytes
+            active_audio_asset = private_audio_asset
+            audio_source = str(private_audio_asset.get("audio_source", "uploaded_recording"))
+            log("Using the rights-confirmed private audio asset for the final mix.")
     performance_video_asset = metadata.get("performance_video") or {"available": False}
     if renderer == "motion_hyperframes" and performance_video_asset.get("available"):
         raise PipelineError(

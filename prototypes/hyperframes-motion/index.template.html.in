@@ -36,17 +36,17 @@
     </header>
     <div id="top-rule" class="top-rule clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="1"></div>
 
-    <section id="scene-header" class="scene-header clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="2">
+    <section id="scene-header" class="scene-header">
       <p id="scene-kicker">THE LISTENING ROOM</p>
       <h1 id="scene-title">YOUR ROOM CAN MISLEAD YOUR MIX</h1>
       <p id="scene-description">Sound from the monitors interacts with the room.</p>
     </section>
 
-    <section id="scene-stage" class="scene-stage clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="3" aria-label="Full-screen animated scene">
+    <section id="scene-stage" class="scene-stage" aria-label="Full-screen animated scene">
       <div id="diagram-items" class="scene-art"></div>
     </section>
 
-    <section id="narration-caption" class="narration-caption clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="4">
+    <section id="narration-caption" class="narration-caption">
       <div id="caption-line" aria-live="off"></div>
     </section>
 

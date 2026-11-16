@@ -507,16 +507,16 @@ def build_publish_manifest(
             for item in provenance.get("factual_provenance", {}).get("sources", [])
         ],
         "asset_provenance_file": "asset-provenance.json",
-        "publisher": "GitHub Actions direct YouTube publisher",
-        "publishing_enabled_in_github": str(os.environ.get("YOUTUBE_PUBLISH_ENABLED", "false")).strip().lower() == "true",
+        "publisher": "ChatGPT daily operator via Metricool",
+        "publishing_enabled_in_github": False,
         "publish_ready": not blockers,
         "publisher_preflight": {
             "status": "ready" if not blockers else "hold",
             "blockers": blockers,
             "warnings": metadata_check.get("warnings", []),
             "required_action": (
-                "Resolve every blocker before the GitHub Actions YouTube upload."
-                if blockers else "Metadata and production checks passed; the post-render YouTube step may proceed."
+                "Resolve every blocker before Metricool scheduling or any public upload."
+                if blockers else "Metadata and production checks passed; proceed through the configured publisher."
             ),
         },
     }
