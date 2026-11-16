@@ -13,26 +13,22 @@ from urllib.parse import urlparse
 
 
 VISUAL_LANGUAGES = {
-    "cinematic_cgi": (
-        "Sculptural photorealistic 3D-CGI depth, tactile instrument materials, "
-        "directional volumetric light and a clear foreground-to-background hierarchy."
+    "illustrated_2d": (
+        "Original full-screen 2D illustration, layered vector shapes, clean "
+        "diagrammatic composition, kinetic typography and purposeful movement."
     ),
-    "macro_documentary": (
-        "Naturalistic macro cinematography, believable optical perspective, "
-        "shallow depth of field and carefully observed physical details."
+    "macro_2d": (
+        "Close 2D illustrated framing, carefully drawn details and a strong "
+        "foreground-to-background hierarchy."
     ),
     "kinetic_graphics": (
-        "A dimensional explainer composition with clear geometric hierarchy, "
-        "purposeful graphic rhythm and negative space around the main subject."
+        "A clear 2D explainer composition with visual hierarchy, purposeful "
+        "graphic rhythm and negative space around the main subject."
     ),
     "full_screen_2d_motion_graphics": (
         "A full-screen portrait-native 2D motion-graphics world with original "
         "layered artwork, meaningful camera movement, contextual labels and "
         "progressive visual explanations."
-    ),
-    "hybrid": (
-        "Combine photorealistic instrument imagery with crisp dimensional "
-        "explanatory elements while keeping one coherent cinematic composition."
     ),
 }
 
@@ -64,8 +60,8 @@ PACE_TRANSITION_SECONDS = {
 }
 
 _DEFAULT_SHOT_BY_MODE = {
-    "macro_3d": "extreme_macro",
-    "mechanism_3d": "mechanism_cutaway",
+    "macro_illustration": "extreme_macro",
+    "mechanism_diagram": "mechanism_cutaway",
     "waveform": "close_detail",
     "melody_map": "overhead",
     "comparison": "split_wide",
@@ -120,7 +116,7 @@ def normalize_visual_reference(
         value.get("visual_language"),
         set(VISUAL_LANGUAGES),
         "visual_language",
-        "cinematic_cgi",
+        "illustrated_2d",
     )
     pacing = _enum(
         value.get("pacing"),
@@ -171,7 +167,7 @@ def normalize_visual_reference(
         adaptation_note = (
             "This route generates original full-screen portrait SVG scenes locally "
             "and animates them with Motion; HyperFrames renders deterministic frames "
-            "and the final MP4. Blender and AI image/video services are not required."
+            "and the final MP4. No 3D renderer or external image/video service is required."
         )
     elif motion_profile in {"video_clips", "mixed"}:
         adaptation_note = (
