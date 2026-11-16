@@ -85,6 +85,11 @@ jobs:
       - name: Install prototype dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Validate the native 2D illustration modules
+        run: |
+          node --check src/main.js
+          node --check src/illustrations.js
+
       - name: Generate a 37.5-second violin track with the repository's existing sampler
         working-directory: .
         run: |

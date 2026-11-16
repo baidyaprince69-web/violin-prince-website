@@ -1,6 +1,6 @@
 {
   "mode": "chatgpt_daily_production",
   "plan_path": ".autopilot/daily-production-plan.json",
-  "reason": "Run the ChatGPT-authored, source-verified daily production plan through the full Blender + Frame By Plane 3D route. Resolve and download the selected licensed violin mesh and separately licensed bow geometry, verify visible strings and bow mesh, animate the physical violin and bow in the explainer scenes, and produce the actual narration-backed MP4 with attribution and QA artifacts. Keep PUBLISH_ENABLED=false and YOUTUBE_PUBLISH_ENABLED=false. Do not touch or upload any previously published YouTube videos. No abstract smoke-test substitute or automatic Motion fallback is acceptable.",
-  "request_revision": "verified-real-violin-and-bow-3d-model-test"
+  "reason": "Run the ChatGPT-authored, source-verified daily production plan exclusively through the 2D Motion + HyperFrames renderer. Build original layered SVG illustrations for the room-acoustics scene, DSP signal path, and violin musical payoff; synchronise each scene and captions to Kokoro af_heart word timings; export and QA a narration-backed vertical MP4. Do not install or invoke Blender, do not download 3D models, do not call Cloudflare or FLUX, and keep PUBLISH_ENABLED=false and YOUTUBE_PUBLISH_ENABLED=false. Do not alter existing YouTube uploads.",
+  "request_revision": "mandatory-2d-motion-hyperframes-illustrated-scenes"
 }

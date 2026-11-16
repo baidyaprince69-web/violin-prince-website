@@ -339,10 +339,14 @@ def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list
 def run_daily_plan(plan_path: Path) -> int:
     motion_enabled = is_motion_hyperframes_render_enabled()
     blender_enabled = engine.is_blender_render_enabled()
-    if motion_enabled and blender_enabled:
+    if blender_enabled:
         raise engine.PipelineError(
-            "Motion + HyperFrames and Blender are mutually exclusive. "
-            "Disable Blender for the narrated Motion explainer."
+            "The production pipeline is now 2D-only. Blender and 3D model rendering are disabled."
+        )
+    if not motion_enabled:
+        raise engine.PipelineError(
+            "Motion + HyperFrames is mandatory for daily production. Enable the 2D renderer; "
+            "legacy still-image and Blender routes are not production fallbacks."
         )
     plan_path = Path(plan_path)
     if not plan_path.is_file():

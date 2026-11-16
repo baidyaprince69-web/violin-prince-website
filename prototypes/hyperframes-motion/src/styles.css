@@ -105,7 +105,7 @@ body {
   right: 180px;
   inset-block: auto;
 }
-.headline-one { top: 430px; height: 520px; }
+.headline-one { top: 390px; height: 340px; }
 .eyebrow {
   display: flex;
   align-items: center;
@@ -151,10 +151,10 @@ body {
 
 .wave-section {
   z-index: 5;
-  top: 848px;
-  left: 120px;
-  right: 340px;
-  height: 310px;
+  top: 760px;
+  left: 90px;
+  right: 90px;
+  height: 500px;
   opacity: 0;
 }
 .wave-caption, .wave-foot {
@@ -175,12 +175,11 @@ body {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 156px;
-  margin: 26px 0 18px;
-  padding: 0 10px;
-  border-top: 1px solid rgba(198, 211, 241, 0.12);
-  border-bottom: 1px solid rgba(198, 211, 241, 0.12);
-  background: linear-gradient(90deg, rgba(78, 103, 161, 0.03), rgba(201, 173, 131, 0.065), rgba(78, 103, 161, 0.03));
+  height: 380px;
+  margin: 20px 0 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 .wave-bar {
   display: block;
@@ -206,9 +205,9 @@ body {
   background: linear-gradient(90deg, transparent, rgba(201, 173, 131, 0.45), transparent);
 }
 
-.headline-two { top: 430px; height: 520px; }
+.headline-two { top: 390px; height: 340px; }
 .headline-two h2 { font-size: 70px; line-height: 1.02; }
-.headline-three { top: 430px; height: 520px; }
+.headline-three { top: 390px; height: 340px; }
 .headline-three h2 { font-size: 70px; line-height: 1.02; }
 .headline-three .headline-note {
   max-width: 680px;
@@ -436,7 +435,7 @@ body {
   top: auto;
   left: 120px;
   right: 120px;
-  bottom: 660px;
+  bottom: 300px;
   height: 146px;
   min-height: 146px;
   box-sizing: border-box;
@@ -477,4 +476,35 @@ body {
 .caption-word-active {
   color: #f6dfb7;
   text-shadow: 0 0 18px rgba(216, 189, 145, 0.3);
+}
+
+
+/* Original layered 2D illustrations: room, signal path and violin performance. */
+.diagram-items:has(.scene-illustration) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  overflow: visible;
+}
+.scene-illustration {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 22px 36px rgba(0,0,0,0.22));
+}
+.scene-illustration .sound-wave {
+  stroke-dasharray: 8 13;
+  will-change: stroke-dashoffset, opacity;
+}
+.scene-illustration .signal-card {
+  filter: drop-shadow(0 12px 16px rgba(0,0,0,0.22));
+}
+.scene-illustration .music-note {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 400;
+}
+@media (prefers-reduced-motion: reduce) {
+  .scene-illustration * { animation: none !important; }
 }

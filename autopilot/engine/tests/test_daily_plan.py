@@ -1,6 +1,7 @@
 """Offline tests for ChatGPT-prepared daily production evidence gates."""
 import sys
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 ENGINE_DIR = Path(__file__).resolve().parents[1]
@@ -64,6 +65,18 @@ class DailyPlanEvidenceTests(unittest.TestCase):
         ]
         with self.assertRaisesRegex(Exception, "unselected source"):
             daily.validate_claim_evidence(evidence, self.sources, self.sentences)
+
+    def test_daily_production_requires_motion_hyperframes(self):
+        with patch.object(daily, "is_motion_hyperframes_render_enabled", return_value=False), \
+             patch.object(daily.engine, "is_blender_render_enabled", return_value=False):
+            with self.assertRaisesRegex(daily.engine.PipelineError, "Motion \\+ HyperFrames is mandatory"):
+                daily.run_daily_plan(Path("missing-daily-plan.json"))
+
+    def test_daily_production_rejects_blender(self):
+        with patch.object(daily, "is_motion_hyperframes_render_enabled", return_value=True), \
+             patch.object(daily.engine, "is_blender_render_enabled", return_value=True):
+            with self.assertRaisesRegex(daily.engine.PipelineError, "2D-only"):
+                daily.run_daily_plan(Path("missing-daily-plan.json"))
 
 
 if __name__ == "__main__":

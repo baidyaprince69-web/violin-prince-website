@@ -23,7 +23,7 @@
     "Violin Prince"
   ],
   "narrative_style": "documentary",
-  "cover_payoff": "Use the separately licensed violin and bow geometry selected for this story. Blender should animate the bow rig across the instrument strings; use a short sample violin phrase as an illustrative audio layer, not as a claim of a live recording.",
+  "cover_payoff": "Use an original, layered 2D violin illustration with a stylised performer, animated bow movement, visible drawn strings, musical-note accents and a warm waveform payoff. This is an illustrated music moment, not a live-performance recording or a 3D asset.",
   "narration_script": "Your room can quietly mislead your mix. Audient's new interfaces combine console-style preamps with onboard digital processing. RoomTune measures room acoustics and adjusts the signal reaching your monitors. Its onboard DSP runs EQ, compression, and reverb without burdening your computer.",
   "narration_evidence": [
     {
@@ -62,38 +62,68 @@
   "scenes": [
     {
       "caption": "YOUR ROOM SHAPES WHAT YOU HEAR",
-      "image_prompt": "Premium physically accurate, high-detail 3D cinematic Blender full-frame 3D scene for a vertical music-technology explainer. A complete, believable amber-brown violin rests in a dark midnight mixing room, with a pair of studio monitors and subtle room surfaces visible around it. Show soft golden sound waves travelling from a speaker, reflecting from the room walls and returning toward a listening position. The reflections are an abstract visual metaphor, not measured data. Rich maple grain, glossy but natural varnish, ebony fingerboard, bridge and strings, realistic scale, deep teal shadows, controlled amber rim lighting, atmospheric depth, physically based materials. No text, numbers, logos, watermark, wireframe, outline illustration, incomplete instrument or fake person.",
-      "graphic_label": "YOUR ROOM SHAPES WHAT YOU HEAR",
-      "graphic_detail": "Room reflections can colour monitor playback",
-      "visual_mode": "macro_3d"
+      "image_prompt": "Original premium 2D vector illustration of a listening room: two studio monitors send warm gold sound-wave arcs toward an abstract listening character, while teal reflections return from the room walls. Use layered depth, a midnight-navy palette, restrained gold highlights, soft paper-like grain, clean silhouettes and smooth parallax. Entirely illustrated 2D artwork; no 3D models, photography, logos or invented measurement labels.",
+      "graphic_label": "THE LISTENING ROOM",
+      "graphic_detail": "Sound from the monitors interacts with the room",
+      "visual_mode": "waveform",
+      "graphic_data": {
+        "type": "room_acoustics",
+        "items": [
+          {
+            "label": "STUDIO MONITORS",
+            "display": "Sound source"
+          },
+          {
+            "label": "LISTENING POINT",
+            "display": "Room response"
+          }
+        ]
+      },
+      "scene_number": 1
     },
     {
       "caption": "MEASURE THE ROOM. ADJUST THE MONITORS.",
-      "image_prompt": "A clear physically accurate, high-detail 3D 3D scientific visualization in a dark acoustic studio. Show a calibrated reference microphone between two studio monitors, a soft golden test waveform travelling through the room, and a restrained abstract DSP stage guiding the monitor signal. Visualize the room response as a smooth conceptual curve with no numeric values, then show a more even conceptual curve after correction. Keep all curves clearly illustrative, not real measurements from a particular room. Cinematic midnight navy, antique gold and muted teal, realistic metal and glass, precise reflections, vertical 9:16 composition, no text, no brand marks, no watermark, no wireframe or cartoon style.",
-      "graphic_label": "ROOMTUNE MONITOR CORRECTION",
-      "graphic_detail": "DSP adjusts the signal sent to the monitors",
+      "image_prompt": "Original layered 2D technical illustration of a three-part signal path: a measurement microphone, a luminous DSP processor with an abstract EQ curve, and studio monitors. Connect the stages using animated gold signal lines and teal pulse points. Use crisp vector geometry, dimensional shadows, readable negative space and the Violin Prince midnight-navy and antique-gold visual identity. Entirely 2D; no 3D renders or numerical claims.",
+      "graphic_label": "THE ROOMTUNE SIGNAL PATH",
+      "graphic_detail": "Measure the room, process the signal, adjust playback",
       "visual_mode": "waveform",
       "graphic_data": {
-        "type": "process_flow",
-        "title": "ROOMTUNE SIGNAL PATH",
+        "type": "signal_chain",
         "items": [
-          "MEASURE THE ROOM",
-          "APPLY DSP CORRECTION",
-          "ADJUST MONITOR OUTPUT"
+          {
+            "label": "MEASURE",
+            "display": "Room response"
+          },
+          {
+            "label": "PROCESS",
+            "display": "DSP correction"
+          },
+          {
+            "label": "PLAY BACK",
+            "display": "Monitor output"
+          }
         ]
-      }
+      },
+      "scene_number": 2
     },
     {
       "caption": "HEAR THE VIOLIN. TRUST THE MIX.",
-      "image_prompt": "A premium physically accurate, high-detail 3D 3D close performance-style composition centred on a fully formed amber-brown violin and a separate realistic bow contacting visible strings. Show detailed maple grain, fine transparent varnish, correct bridge, fingerboard, tailpiece and fittings. A warm golden waveform emerges from the instrument while the background transitions from subtle room reflections to a calmer, balanced listening space. No person or creator likeness is shown. Keep the violin and bow physically plausible, with cinematic studio lighting, realistic depth of field, restrained teal accents and a midnight navy environment. Vertical 9:16, no text, labels, logos or watermark, no incomplete shell, wireframe or outline illustration.",
+      "image_prompt": "Original premium 2D illustrated violin performance: a graceful amber violin silhouette with clearly drawn strings, an expressive stylised musician, and a bow moving across the strings. Add floating musical-note motifs and a soft gold waveform. Use layered vector shapes, subtle parallax, clean expressive lines, deep navy shadows and warm antique-gold lighting. No realistic 3D model, no photography, no person likeness and no logos.",
       "graphic_label": "THE MUSICAL PAYOFF",
-      "graphic_detail": "A sampled violin phrase makes the monitoring idea tangible",
-      "visual_mode": "cover_performance"
+      "graphic_detail": "An illustrated violin moment brings the idea back to music",
+      "visual_mode": "cover_performance",
+      "graphic_data": {
+        "type": "violin_performance_2d",
+        "items": [
+          {
+            "label": "VIOLIN",
+            "display": "Illustrated performance"
+          }
+        ]
+      },
+      "scene_number": 3
     }
   ],
-  "asset_subject": "violin strings bow",
-  "asset_kind": "violin",
-  "model_query": "realistic violin with visible strings and bow",
   "performance_feedback": {
     "sample_window": "2026-10-16 to 2026-11-15; Metricool video rows had unavailable engagement fields, supplemented by vidIQ latest Short uploads",
     "sample_count": 5,
@@ -123,10 +153,10 @@
     "made_for_kids": false
   },
   "visual_reference": {
-    "motion_profile": "animated_stills",
-    "visual_language": "hybrid",
+    "motion_profile": "mixed",
+    "visual_language": "kinetic_graphics",
     "pacing": "dynamic",
-    "reference_summary": "Original Violin Prince music-technology explainer with a full-frame amber-brown violin, true 3D room acoustics metaphor, crisp DSP signal graphics, kinetic captions, dimensional cinematic studio lighting and a distinct musical payoff.",
+    "reference_summary": "An original Violin Prince illustrated 2D explainer: layered vector environments, an animated listening character, sound-wave motion, a clear DSP signal path, a stylised violin-and-bow performance illustration, kinetic captions and cinematic midnight-navy and antique-gold art direction.",
     "scene_guidance": [
       {
         "shot_type": "wide_hero",
@@ -144,24 +174,5 @@
         "transition_out": "fade_through_black"
       }
     ]
-  },
-  "preferred_model_urls": [
-    "https://sketchfab.com/3d-models/violin-b45bce730d8a489c83ecc944f3725475"
-  ],
-  "preferred_bow_model_urls": [
-    "https://sketchfab.com/3d-models/violin-bow-af332828a42f4f8cbbe81bea3de0b00d"
-  ],
-  "strings_in_combined_mesh": true,
-  "asset_selection_note": "The selected model's published Sketchfab preview visibly shows the violin with strings running along the fingerboard. Its GLB node names do not identify a separate string object; treat the strings as visually integrated into the imported violin geometry. Keep the render blocked if the imported model preview does not visibly retain the strings.",
-  "frame_by_plane_direction": {
-    "mode": "Blender 3D hero + Frame By Plane 2.5D backgrounds",
-    "layers_per_scene": 3,
-    "order": [
-      "far atmosphere",
-      "studio environment",
-      "foreground depth"
-    ],
-    "no_chatgpt_generated_stills": true,
-    "no_cloudflare_image_generation": true
   }
 }

@@ -1,4 +1,5 @@
 import { animate } from "motion";
+import { renderSceneIllustration, syncSceneIllustration } from "./illustrations.js";
 
 const ROOT_ID = "vp-motion-dynamic";
 const root = document.getElementById("root");
@@ -107,6 +108,12 @@ function renderDiagram(scene) {
   const kind = String(graphic.type || "").toLowerCase();
   const visualMode = String(scene?.visual_mode || "").toLowerCase();
   diagramItems.dataset.diagramKind = kind || visualMode || "explanation";
+
+  if (["room_acoustics", "signal_chain", "violin_performance_2d"].includes(kind)) {
+    const illustration = renderSceneIllustration(scene, contentConfig.topic);
+    diagramItems.replaceChildren(illustration);
+    return;
+  }
 
   if (!kind && visualMode === "waveform") {
     // Decorative signal bars, not measured audio data.
@@ -225,6 +232,8 @@ function syncDiagramMotion(seconds, sceneIndex) {
       bar.style.transform = "scaleY(" + reveal.toFixed(4) + ")";
     }
   });
+  const illustration = diagramItems.querySelector(".scene-illustration");
+  if (illustration) syncSceneIllustration(illustration, seconds, progress);
 }
 
 function sceneIndexForSentence(sentenceIndex) {

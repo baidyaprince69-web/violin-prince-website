@@ -1,4 +1,4 @@
-"""Tests for the optional full-track Motion + HyperFrames route."""
+"""Tests for the full-track 2D Motion + HyperFrames route."""
 import os
 import sys
 import unittest
@@ -75,6 +75,34 @@ class MotionHyperFramesRendererTests(unittest.TestCase):
         self.assertEqual(result["narration_words"][0]["text"], "A")
         self.assertEqual(result["scenes"][0]["graphic_data"]["items"][0]["label"], "Bow")
         self.assertEqual(result["scenes"][0]["graphic_data"]["items"][1]["label"], "Bridge moves")
+
+    def test_illustrated_2d_scene_types_are_preserved_for_svg_renderer(self):
+        result = build_content_context({
+            "title": "Illustrated room correction",
+            "scenes": [
+                {"caption": "The room", "visual_mode": "waveform", "graphic_data": {"type": "room_acoustics", "items": ["Monitors", "Listener"]}},
+                {"caption": "The signal", "visual_mode": "waveform", "graphic_data": {"type": "signal_chain", "items": ["Measure", "Process", "Playback"]}},
+                {"caption": "The musical payoff", "visual_mode": "cover_performance", "graphic_data": {"type": "violin_performance_2d", "items": ["Illustrated violin"]}},
+            ],
+        })
+        self.assertEqual(
+            [scene["graphic_data"]["type"] for scene in result["scenes"]],
+            ["room_acoustics", "signal_chain", "violin_performance_2d"],
+        )
+
+    def test_illustrated_2d_scene_types_are_preserved_for_svg_renderer(self):
+        result = build_content_context({
+            "title": "Illustrated room correction",
+            "scenes": [
+                {"caption": "The room", "visual_mode": "waveform", "graphic_data": {"type": "room_acoustics", "items": ["Monitors", "Listener"]}},
+                {"caption": "The signal", "visual_mode": "waveform", "graphic_data": {"type": "signal_chain", "items": ["Measure", "Process", "Playback"]}},
+                {"caption": "The musical payoff", "visual_mode": "cover_performance", "graphic_data": {"type": "violin_performance_2d", "items": ["Illustrated violin"]}},
+            ],
+        })
+        self.assertEqual(
+            [scene["graphic_data"]["type"] for scene in result["scenes"]],
+            ["room_acoustics", "signal_chain", "violin_performance_2d"],
+        )
 
     def test_renderer_refuses_instrumental_only_audio(self):
         with self.assertRaisesRegex(MotionHyperFramesError, "Kokoro narration audio is required"):
