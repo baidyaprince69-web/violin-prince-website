@@ -213,6 +213,7 @@ def validate_story_coherence(
 
 def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Re-fetch sources and enforce the existing editorial, evidence and freshness gates."""
+    motion_enabled = is_motion_hyperframes_render_enabled()
     if not isinstance(plan, dict):
         raise engine.PipelineError("The daily production plan must be a JSON object.")
 

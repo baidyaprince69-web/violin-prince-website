@@ -77,6 +77,7 @@ body {
   color: #d8bd91;
   font-size: 28px;
   letter-spacing: 0.16em;
+  margin-right: 65px;
 }
 .top-rule {
   z-index: 9;
@@ -90,22 +91,22 @@ body {
 .scene-header {
   z-index: 7;
   top: 460px;
-  left: 150px;
-  right: 150px;
-  height: 250px;
+  left: 190px;
+  right: 190px;
+  height: 280px;
   opacity: 1;
   background: linear-gradient(180deg, rgba(7,11,23,0.94) 0%, rgba(7,11,23,0.82) 72%, rgba(7,11,23,0) 100%);
 }
 #scene-kicker {
   margin: 0 0 14px;
   color: #d8bd91;
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 700;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.15em;
   line-height: 1.2;
 }
 #scene-title {
-  max-width: 780px;
+  max-width: 700px;
   margin: 0;
   color: #f5f1e9;
   font-family: Georgia, "Times New Roman", serif;
@@ -117,12 +118,12 @@ body {
   text-shadow: 0 12px 44px rgba(0,0,0,0.28);
 }
 #scene-description {
-  max-width: 780px;
+  max-width: 700px;
   margin: 10px 0 0;
   color: rgba(225, 231, 242, 0.78);
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 400;
-  line-height: 1.35;
+  line-height: 1.25;
   letter-spacing: 0.015em;
   text-wrap: balance;
 }
@@ -166,8 +167,8 @@ body {
   top: auto;
   left: 105px;
   right: 105px;
-  bottom: 660px;
-  height: 100px;
+  bottom: 260px;
+  height: 90px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -180,7 +181,7 @@ body {
 #caption-line {
   min-height: 40px;
   color: rgba(245, 241, 233, 0.94);
-  font-size: 34px;
+  font-size: 32px;
   font-weight: 500;
   line-height: 1.2;
   letter-spacing: 0.005em;
@@ -194,7 +195,7 @@ body {
 
 .bottom-progress {
   z-index: 10;
-  inset: auto 150px 400px 150px;
+  inset: auto 150px 190px 150px;
   height: 3px;
   display: flex;
   align-items: center;

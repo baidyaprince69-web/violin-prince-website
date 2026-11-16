@@ -134,13 +134,13 @@ function buildRoomTune(world) {
     const left = 410 - i * 45, right = 670 + i * 45, top = 545 - i * 45, rise = 365 - i * 48;
     node("path", { d: "M" + left + " " + top + " Q540 " + rise + " " + right + " " + top, fill: "none", stroke: "#70cfc4", "stroke-width": 5, "stroke-dasharray": "12 18", class: "sound-wave", "stroke-opacity": 0.75 }, mic);
   });
+  const process = reveal(subject, 1, "roomtune-steps");
   const steps = [
     { y: 735, label: "1  MEASURE", detail: "Microphone captures the room response" },
     { y: 915, label: "2  ANALYSE", detail: "The system identifies acoustic changes" },
     { y: 1095, label: "3  CORRECT", detail: "Monitor playback is adjusted" }
   ];
   steps.forEach((step, index) => {
-    const process = reveal(subject, index + 1, "roomtune-step roomtune-step-" + index);
     node("rect", { x: 145, y: step.y, width: 790, height: 155, rx: 24, fill: "#14243c", stroke: index === 1 ? "#d8bd91" : "#70cfc4", "stroke-width": 4 }, process);
     text(process, 540, step.y + 62, step.label, 39, "#f3dfbb", { "text-anchor": "middle" });
     text(process, 540, step.y + 112, step.detail, 28, "#c6d1e1", { "text-anchor": "middle", "font-weight": 500, "letter-spacing": 0.2 });
@@ -148,6 +148,7 @@ function buildRoomTune(world) {
       node("path", { d: "M540 " + (step.y + 158) + " L540 " + (step.y + 202) + " M525 " + (step.y + 188) + " L540 " + (step.y + 203) + " L555 " + (step.y + 188), fill: "none", stroke: "#d8bd91", "stroke-width": 6, "stroke-linecap": "round", "stroke-linejoin": "round" }, process);
     }
   });
+  const pulse = node("circle", { class: "roomtune-pulse", cx: 540, cy: 815, r: 12, fill: "#f3dfbb", stroke: "#70cfc4", "stroke-width": 5 }, process);
 }
 
 function buildDspStages(world) {
@@ -201,7 +202,6 @@ function buildViolin(world) {
   node("path", { d: "M180 1140 Q530 980 920 1130", fill: "none", stroke: "#fff0d1", "stroke-width": 4, "stroke-linecap": "round" }, bow);
   const notes = reveal(subject, 3, "violin-accents");
   node("path", { d: "M760 760 Q900 650 1010 750 M785 820 Q920 710 1035 810 M800 880 Q930 780 1060 880", fill: "none", stroke: "#70cfc4", "stroke-width": 6, "stroke-linecap": "round", "stroke-dasharray": "12 18", class: "sound-wave" }, notes);
-  text(notes, 835, 650, "MUSIC", 38, "#d8bd91", { "text-anchor": "middle" });
 }
 
 const BUILDERS = {
@@ -240,11 +240,11 @@ function syncSceneIllustration(svg, seconds, progress = 0, sceneIndex = 0) {
   const p = Math.max(0, Math.min(1, Number(progress) || 0));
   const world = svg.querySelector(".scene-world");
   if (world) {
-    const scale = 1.015 + p * 0.065;
-    const driftX = Math.sin(t * 0.32 + sceneIndex) * (sceneIndex === 4 ? 14 : 22);
-    const driftY = -18 * p + Math.cos(t * 0.24) * 8;
+    const scale = 0.78 + p * 0.02;
+    const driftX = Math.sin(t * 0.28 + sceneIndex) * (sceneIndex === 4 ? 10 : 14);
+    const driftY = -8 * p + Math.cos(t * 0.2) * 5;
     const tx = 540 * (1 - scale) + driftX;
-    const ty = 960 * (1 - scale) + 180 + driftY;
+    const ty = 960 * (1 - scale) + 155 + driftY;
     world.setAttribute("transform", "matrix(" + scale.toFixed(5) + " 0 0 " + scale.toFixed(5) + " " + tx.toFixed(2) + " " + ty.toFixed(2) + ")");
   }
   svg.querySelectorAll(".reveal-part").forEach((part) => {
@@ -257,6 +257,12 @@ function syncSceneIllustration(svg, seconds, progress = 0, sceneIndex = 0) {
     path.setAttribute("stroke-dashoffset", String(-((t * 34 + index * 27) % 360)));
     path.setAttribute("opacity", String(0.56 + 0.34 * Math.sin(t * 1.8 + index)));
   });
+  const roomtunePulse = svg.querySelector(".roomtune-pulse");
+  if (roomtunePulse) {
+    const phase = (t * 0.72) % 1;
+    roomtunePulse.setAttribute("cy", String(815 + phase * 380));
+    roomtunePulse.setAttribute("opacity", String(0.72 + 0.28 * Math.sin(t * 4)));
+  }
   const listener = svg.querySelector(".listener-character");
   if (listener) listener.setAttribute("transform", "translate(0 " + (Math.sin(t * 1.35) * 8).toFixed(2) + ")");
   svg.querySelectorAll(".interface-knob").forEach((knob, index) => {

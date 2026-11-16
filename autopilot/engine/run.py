@@ -2821,9 +2821,10 @@ def build_story_quality_report(plan, selected_sources, date_check, as_of=None):
         is_direct_publisher_article(item) and item.get("article_page_verified") is True
         for item in selected_sources
     )
-    expected_claim_sentences = max(
-        0, len(narration_sentences(plan.get("narration_script", ""))) - 1
-    )
+    quality_sentences = narration_sentences(plan.get("narration_script", ""))
+    motion_enabled = os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "").strip().lower() == "true"
+    non_claim_beats = 2 if motion_enabled else 1
+    expected_claim_sentences = max(0, len(quality_sentences) - non_claim_beats)
     narration_evidence = plan.get("narration_evidence", [])
     narration_evidence_passed = (
         isinstance(narration_evidence, list)

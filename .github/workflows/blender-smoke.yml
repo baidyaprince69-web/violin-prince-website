@@ -1,4 +1,4 @@
-name: Legacy Blender adapter checks (offline only)
+name: Legacy 3D adapter compatibility tests (offline; no Blender runtime)
 
 on:
   push:
@@ -55,7 +55,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install requests Pillow
-      - name: Compile Blender adapters and run offline tests
+      - name: Compile legacy 3D adapter code and run offline tests
         run: |
           python -m py_compile autopilot/engine/asset_resolver.py autopilot/engine/story_asset_resolver.py autopilot/engine/blender_reference.py autopilot/engine/blender_renderer.py autopilot/engine/blender_scene.py autopilot/engine/first_production_blender.py autopilot/engine/voiceover.py
           python -m unittest autopilot.engine.tests.test_asset_resolver autopilot.engine.tests.test_story_asset_resolver autopilot.engine.tests.test_blender_renderer autopilot.engine.tests.test_voiceover -v

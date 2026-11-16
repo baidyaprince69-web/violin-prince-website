@@ -78,6 +78,35 @@ class DailyPlanEvidenceTests(unittest.TestCase):
             checked = daily.validate_claim_evidence(evidence, self.sources, five_sentences)
         self.assertEqual([item["sentence_number"] for item in checked], [2, 3, 4])
 
+    def test_motion_quality_report_excludes_music_payoff_from_claim_evidence_count(self):
+        plan = {
+            "narration_script": (
+                "Your room can quietly mislead your mix. "
+                "Audient's iD pairs preamps with onboard DSP. "
+                "RoomTune measures acoustics and corrects monitor playback. "
+                "EQ, compression and reverb shape tone, dynamics and space. "
+                "Now hear your violin phrase return with clearer monitor sound."
+            ),
+            "narration_evidence": [
+                {"sentence_number": 2, "source_id": "S001"},
+                {"sentence_number": 3, "source_id": "S002"},
+                {"sentence_number": 4, "source_id": "S002"},
+            ],
+            "timeline": [],
+            "timeline_evidence": [],
+        }
+        sources = [
+            {"source_id": "S001", "publisher_domain": "musicradar.com", "url": "https://musicradar.com/article", "article_page_verified": True},
+            {"source_id": "S002", "publisher_domain": "mixdownmag.com.au", "url": "https://mixdownmag.com.au/article", "article_page_verified": True},
+        ]
+        with patch.dict(os.environ, {"MOTION_HYPERFRAMES_RENDER_ENABLED": "true"}), \
+             patch.object(daily.engine, "is_direct_publisher_article", return_value=True), \
+             patch.object(daily.engine, "article_freshness", return_value={"freshness_status": "acceptable", "age_hours": 48}):
+            report = daily.engine.build_story_quality_report(plan, sources, {"status": "passed"})
+        self.assertEqual(report["narration_claim_sentence_count"], 3)
+        self.assertEqual(report["narration_evidence_status"], "passed")
+        self.assertEqual(report["status"], "passed")
+
     def test_rejects_quote_not_present_in_article_body(self):
         evidence = [
             {"sentence_number": 2, "source_id": "S001", "quote": "The violin bridge creates an entirely different sound with this mechanism."},

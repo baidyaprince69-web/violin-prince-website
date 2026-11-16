@@ -315,7 +315,7 @@ def render_full_track(
     if narration_duration <= 0:
         raise MotionHyperFramesError("Kokoro narration duration is missing or invalid.")
     try:
-        outro_hold_seconds = float(os.environ.get("MOTION_HYPERFRAMES_OUTRO_HOLD_SECONDS", "1.0"))
+        outro_hold_seconds = float(os.environ.get("MOTION_HYPERFRAMES_OUTRO_HOLD_SECONDS", "3.0"))
     except (TypeError, ValueError) as exc:
         raise MotionHyperFramesError("MOTION_HYPERFRAMES_OUTRO_HOLD_SECONDS must be numeric.") from exc
     if not 0 <= outro_hold_seconds <= 3.0:
