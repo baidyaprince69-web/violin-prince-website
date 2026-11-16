@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 240
     env:
-      RUN_ID: \${{ github.run_id }}
+      RUN_ID: ${{ github.run_id }}
       MOTION_HYPERFRAMES_RENDER_ENABLED: "true"
       MOTION_HYPERFRAMES_OUTRO_HOLD_SECONDS: "3.0"
       MOTION_HYPERFRAMES_MUSIC_BED_ENABLED: "true"
@@ -45,7 +45,7 @@ jobs:
         id: plan
         shell: bash
         env:
-          REQUESTED_PLAN: \${{ inputs.plan_path || '.autopilot/daily-production-plan.json' }}
+          REQUESTED_PLAN: ${{ inputs.plan_path || '.autopilot/daily-production-plan.json' }}
         run: |
           python - <<'PY'
           import os
@@ -95,13 +95,13 @@ jobs:
         run: npm install --no-audit --no-fund
 
       - name: Render the ChatGPT plan with Kokoro and 2D Motion
-        run: python autopilot/engine/run_daily_plan.py --plan "\${{ steps.plan.outputs.path }}"
+        run: python autopilot/engine/run_daily_plan.py --plan "${{ steps.plan.outputs.path }}"
 
       - name: Upload the rendered explainer and review files
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: violin-prince-2d-explainer-\${{ github.run_id }}
+          name: violin-prince-2d-explainer-${{ github.run_id }}
           path: |
             work/output/
             work/package/
