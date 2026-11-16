@@ -311,23 +311,56 @@ def render_full_track(
     context_path = workspace / "content-context.json"
     music_path.write_bytes(bytes(audio_bytes))
     narration_path.write_bytes(bytes(narration_bytes))
+    narration_duration = float(narration_info.get("duration_seconds") or 0)
+    if narration_duration <= 0:
+        raise MotionHyperFramesError("Kokoro narration duration is missing or invalid.")
+    try:
+        outro_hold_seconds = float(os.environ.get("MOTION_HYPERFRAMES_OUTRO_HOLD_SECONDS", "1.0"))
+    except (TypeError, ValueError) as exc:
+        raise MotionHyperFramesError("MOTION_HYPERFRAMES_OUTRO_HOLD_SECONDS must be numeric.") from exc
+    if not 0 <= outro_hold_seconds <= 3.0:
+        raise MotionHyperFramesError("The final visual hold must be between 0 and 3 seconds.")
+    mixed_duration = narration_duration + outro_hold_seconds
     music_enabled = str(os.environ.get("MOTION_HYPERFRAMES_MUSIC_BED_ENABLED", "true")).strip().lower() in {"1", "true", "yes", "on"}
+    if outro_hold_seconds > 0:
+        voice_tail_filter = (
+            f"apad=pad_dur={outro_hold_seconds:.3f},"
+            f"atrim=duration={mixed_duration:.3f}"
+        )
+        fade_filter = (
+            f"afade=t=out:st={narration_duration:.3f}:d={outro_hold_seconds:.3f},"
+        )
+    else:
+        voice_tail_filter = "anull"
+        fade_filter = ""
     if music_enabled:
         mix_filter = (
-            "[0:a]aresample=48000,aformat=sample_rates=48000:channel_layouts=stereo,volume=1.0[voice];"
+            "[0:a]aresample=48000,aformat=sample_rates=48000:channel_layouts=stereo,"
+            "volume=1.0," + voice_tail_filter + "[voice];"
             "[1:a]aresample=48000,aformat=sample_rates=48000:channel_layouts=stereo,volume=0.10[music];"
             "[music][voice]sidechaincompress=threshold=0.025:ratio=10:attack=40:release=450[ducked];"
             "[voice][ducked]amix=inputs=2:duration=first:dropout_transition=0:normalize=0,"
-            "alimiter=limit=0.95[mix]"
+            + fade_filter + "alimiter=limit=0.95[mix]"
         )
         _run_step(
-            "Mix Kokoro as the primary voice with a quiet ducked violin bed",
+            "Mix Kokoro as the primary voice with a quiet ducked violin bed and final visual hold",
             [
                 "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
                 "-i", str(narration_path), "-i", str(music_path),
                 "-filter_complex", mix_filter,
                 "-map", "[mix]", "-ar", "48000", "-ac", "2",
                 "-c:a", "pcm_s16le", str(audio_path),
+            ],
+            workspace, int(os.environ.get("MOTION_HYPERFRAMES_COMMAND_TIMEOUT_SECONDS", "3600")),
+        )
+    elif outro_hold_seconds > 0:
+        _run_step(
+            "Add a brief silent tail for the final portrait-scene hold",
+            [
+                "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                "-i", str(narration_path), "-af",
+                voice_tail_filter + "," + fade_filter.rstrip(","),
+                "-ar", "48000", "-ac", "2", "-c:a", "pcm_s16le", str(audio_path),
             ],
             workspace, int(os.environ.get("MOTION_HYPERFRAMES_COMMAND_TIMEOUT_SECONDS", "3600")),
         )
@@ -427,10 +460,9 @@ def render_full_track(
         if seeking_report.is_file():
             shutil.copy2(seeking_report, destination.parent / "motion-seeking-report.json")
 
-        narration_duration = float(narration_info.get("duration_seconds") or 0)
-        if narration_duration <= 0 or abs(media["duration_seconds"] - narration_duration) > 0.30:
+        if abs(media["duration_seconds"] - narration_duration - outro_hold_seconds) > 0.30:
             raise MotionHyperFramesError(
-                "Rendered explainer duration does not match the Kokoro narration duration."
+                "Rendered explainer duration does not match the Kokoro narration plus the configured final-scene hold."
             )
         return {
             **media,
@@ -439,6 +471,7 @@ def render_full_track(
             "primary_audio_source": "Kokoro-82M",
             "narration_voice": "af_heart",
             "narration_duration_seconds": narration_duration,
+            "outro_hold_seconds": outro_hold_seconds,
             "narration_word_timing_count": len(word_cues),
             "narration_word_sync_status": "passed",
             "music_bed_enabled": music_enabled,
