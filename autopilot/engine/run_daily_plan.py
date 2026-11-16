@@ -1,709 +1,244 @@
 #!/usr/bin/env python3
-"""Render a ChatGPT-authored, source-verified Violin Prince explainer plan.
+"""Produce a ChatGPT-planned Violin Prince explainer with Kokoro and 2D Motion.
 
-The plan supplies the topic, evidence-backed script, citations and scene direction.
-This runner re-fetches and verifies publisher evidence, synthesizes Kokoro-82M
-af_heart narration with native word timings, and can send the package to either
-the default Motion + HyperFrames 2D/2.5D explainer renderer or the explicit
-optional Blender + Frame By Plane route. The Motion path builds its scene
-diagrams and word-synchronised captions locally without Cloudflare or FLUX.
-Publishing is always disabled here; finished MP4s are QA-gated artifacts.
+This production entry point deliberately has no source-research, publisher-quote,
+date-verification, 3D asset discovery, Blender, or Frame By Plane dependency.
+The supplied creative plan is rendered directly with the native Motion +
+HyperFrames pipeline. Kokoro's native word timings are retained for captions.
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-
-from PIL import Image
 
 ENGINE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(ENGINE_DIR))
 
-import run as engine  # noqa: E402
+from motion_hyperframes_renderer import (  # noqa: E402
+    MotionHyperFramesError,
+    render_full_track,
+)
+from violin_sampler import create_sampled_violin_bed  # noqa: E402
 from voiceover import synthesize_voiceover  # noqa: E402
-from publish_handoff import validate_publish_metadata, write_handoff_files  # noqa: E402
-from story_asset_resolver import resolve_story_asset, StoryAssetError  # noqa: E402
-from frame_by_plane_backgrounds import create_frame_by_plane_backgrounds  # noqa: E402
-from motion_hyperframes_renderer import is_motion_hyperframes_render_enabled  # noqa: E402
 
 
-def _normalise_quote(value: str) -> str:
-    return re.sub(r"\s+", " ", str(value or "")).strip().casefold()
+def normalize_production_plan(value: Any) -> dict[str, Any]:
+    """Check only the fields required to create a five-scene 2D explainer."""
+    if not isinstance(value, dict):
+        raise ValueError("The production plan must be a JSON object.")
 
+    plan = dict(value)
+    plan["title"] = str(plan.get("title") or "Violin Prince").strip()[:90]
+    plan["topic"] = str(plan.get("topic") or plan["title"]).strip()[:220]
+    plan["hook"] = str(plan.get("hook") or plan["title"]).strip()[:220]
+    plan["narration_script"] = re.sub(
+        r"\s+", " ", str(plan.get("narration_script") or "")
+    ).strip()
+    if not plan["narration_script"]:
+        raise ValueError("The ChatGPT plan must contain narration_script.")
 
-def validate_claim_evidence(
-    evidence: list[dict[str, Any]],
-    sources: list[dict[str, Any]],
-    sentences: list[str],
-) -> list[dict[str, Any]]:
-    """Require exact publisher quotes for sourced claims; exclude the Motion music payoff."""
-    motion_enabled = is_motion_hyperframes_render_enabled()
-    expected_sentences = 5 if motion_enabled else 4
-    if len(sentences) != expected_sentences:
-        raise engine.PipelineError(
-            "Daily narration must contain exactly " + str(expected_sentences) + " sentences."
-        )
-
-    source_by_id = {
-        str(item.get("source_id") or "").strip(): item
-        for item in sources
-        if str(item.get("source_id") or "").strip()
-    }
-    checked: dict[int, dict[str, Any]] = {}
-    for item in evidence if isinstance(evidence, list) else []:
-        if not isinstance(item, dict):
-            continue
-        try:
-            sentence_number = int(item.get("sentence_number"))
-        except (TypeError, ValueError):
-            continue
-        source_id = str(item.get("source_id") or "").strip()
-        quote = str(item.get("quote") or "").strip()
-        if sentence_number not in (2, 3, 4):
-            raise engine.PipelineError("Narration evidence must map to sourced technical sentences 2, 3 and 4.")
-        if sentence_number in checked:
-            raise engine.PipelineError(f"Duplicate evidence supplied for narration sentence {sentence_number}.")
-        source = source_by_id.get(source_id)
-        if not source:
-            raise engine.PipelineError(
-                f"Narration sentence {sentence_number} cites an unselected source: {source_id or '[missing]' }."
-            )
-        if len(quote) < 28:
-            raise engine.PipelineError(
-                f"The evidence quote for narration sentence {sentence_number} is too short to verify."
-            )
-        article_text = _normalise_quote(source.get("evidence_text") or "")
-        if _normalise_quote(quote) not in article_text:
-            raise engine.PipelineError(
-                f"The quote for narration sentence {sentence_number} does not appear in its verified publisher article."
-            )
-        checked[sentence_number] = {
-            "sentence_number": sentence_number,
-            "source_id": source_id,
-            "quote": quote[:700],
-            "publisher_domain": str(source.get("publisher_domain") or ""),
-        }
-
-    # Sentence five is the short musical payoff in Motion mode. It is not
-    # a factual assertion, so only technical sentences 2–4 need publisher quotes.
-    expected = {2, 3, 4}
-    if set(checked) != expected:
-        missing = ", ".join(str(value) for value in sorted(expected - set(checked)))
-        raise engine.PipelineError("Missing exact publisher evidence for narration sentence(s): " + missing + ".")
-    return [checked[number] for number in (2, 3, 4)]
-
-
-
-_STORY_COHERENCE_STOP_WORDS = {
-    "a", "an", "and", "are", "as", "at", "by", "can", "does", "for", "from",
-    "how", "in", "into", "is", "it", "its", "of", "on", "or", "that", "the",
-    "their", "this", "to", "what", "when", "why", "with", "within",
-}
-_STORY_COHERENCE_ALIASES = {
-    "shape": "arch",
-    "curve": "arch",
-    "arching": "arch",
-    "arches": "arch",
-    "resonances": "resonance",
-    "frequencies": "frequency",
-    "violins": "violin",
-    "bodies": "body",
-}
-
-
-def _story_coherence_terms(value: str) -> set[str]:
-    """Reduce a short story claim to meaningful, conservative topic anchors."""
-    tokens = re.findall(r"[a-z0-9]+", str(value or "").casefold())
-    terms = set()
-    for token in tokens:
-        token = _STORY_COHERENCE_ALIASES.get(token, token)
-        if token in _STORY_COHERENCE_STOP_WORDS or len(token) < 3:
-            continue
-        if token.endswith("s") and len(token) > 4:
-            token = token[:-1]
-        terms.add(token)
-    return terms
-
-
-def validate_story_coherence(
-    plan: dict[str, Any],
-    verified_sources: list[dict[str, Any]],
-    evidence_records: list[dict[str, Any]],
-) -> dict[str, Any]:
-    """Ensure every cited publisher supports the same title/core claim.
-
-    Exact quotes alone are not enough: two unrelated, accurately quoted studies
-    must not be stitched together as though they were one music fact.
-    """
-    focus = str(plan.get("core_claim") or plan.get("title") or "").strip()
-    focus_terms = _story_coherence_terms(focus)
-    if len(focus_terms) < 2:
-        raise engine.PipelineError(
-            "Story-coherence gate needs a specific core_claim or descriptive title."
-        )
-
-    source_by_id = {
-        str(item.get("source_id") or ""): item
-        for item in verified_sources if isinstance(item, dict)
-    }
-    cited_ids = {
-        str(item.get("source_id") or "")
-        for item in evidence_records if isinstance(item, dict)
-    }
-    selected_ids = set(source_by_id)
-    if selected_ids != cited_ids:
-        unused = sorted(selected_ids - cited_ids)
-        unknown = sorted(cited_ids - selected_ids)
-        details = []
-        if unused:
-            details.append("uncited selected sources: " + ", ".join(unused))
-        if unknown:
-            details.append("unselected cited sources: " + ", ".join(unknown))
-        raise engine.PipelineError(
-            "Story-coherence gate requires the evidence source IDs to exactly match the selected sources ("
-            + "; ".join(details) + ")."
-        )
-    if len(cited_ids) < 2:
-        raise engine.PipelineError(
-            "Story-coherence gate requires at least two cited independent publisher articles."
-        )
-
-    minimum_overlap = 2 if len(focus_terms) >= 3 else 1
-    checked = []
-    for source_id in sorted(cited_ids):
-        source = source_by_id.get(source_id)
-        if source is None:
-            raise engine.PipelineError(
-                f"Story-coherence gate found an evidence record without source {source_id}."
-            )
-        source_text = " ".join((
-            str(source.get("title") or ""),
-            str(source.get("evidence_text") or ""),
-        ))
-        source_terms = _story_coherence_terms(source_text)
-        overlap = sorted(focus_terms.intersection(source_terms))
-        if len(overlap) < minimum_overlap:
-            title = str(source.get("title") or source_id)[:120]
-            raise engine.PipelineError(
-                "Story-coherence gate blocked an unrelated source: "
-                + source_id + " (" + title + "). The article does not substantiate "
-                "the same core claim as '" + focus[:120] + "'. "
-                "Use two publishers covering one shared music fact; do not combine separate studies."
-            )
-        checked.append({
-            "source_id": source_id,
-            "matching_topic_terms": overlap,
-            "minimum_overlap": minimum_overlap,
-        })
-
-    return {
-        "status": "passed",
-        "core_claim": focus[:240],
-        "topic_terms": sorted(focus_terms),
-        "cited_sources": checked,
-        "rule": "Each cited article must independently match the same core claim; unrelated studies are rejected.",
-    }
-
-
-def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """Re-fetch sources and enforce the existing editorial, evidence and freshness gates."""
-    motion_enabled = is_motion_hyperframes_render_enabled()
-    if not isinstance(plan, dict):
-        raise engine.PipelineError("The daily production plan must be a JSON object.")
-
-    raw_sources = plan.get("sources")
-    if not isinstance(raw_sources, list) or len(raw_sources) < 2:
-        raise engine.PipelineError("The daily plan must provide at least two direct publisher article URLs.")
-
-    sources: list[dict[str, Any]] = []
-    seen_ids: set[str] = set()
-    for index, raw in enumerate(raw_sources, start=1):
-        if not isinstance(raw, dict):
-            raise engine.PipelineError("Every source must be an object containing a publisher article URL.")
-        source = dict(raw)
-        source_id = str(source.get("source_id") or f"S{index:03d}").strip()
-        url = str(source.get("url") or "").strip()
-        if not url.startswith(("https://", "http://")):
-            raise engine.PipelineError(f"Source {source_id} does not contain an HTTP(S) article URL.")
-        if source_id in seen_ids:
-            raise engine.PipelineError("Source IDs must be unique.")
-        seen_ids.add(source_id)
-        source["source_id"] = source_id
-        sources.append(source)
-
-    # This fetches the publisher pages again. Headlines, RSS snippets and search
-    # results do not qualify as evidence; the article body and date are re-checked.
-    enriched = engine.enrich_source_evidence(sources)
-    verified = [
-        item for item in enriched
-        if isinstance(item, dict)
-        and item.get("article_page_verified") is True
-        and engine.is_direct_publisher_article(item)
-    ]
-    if len(verified) < 2:
-        diagnostics = []
-        for item in enriched:
-            if not isinstance(item, dict):
-                continue
-            diagnostics.append({
-                "source_id": str(item.get("source_id") or ""),
-                "publisher_domain": str(item.get("publisher_domain") or ""),
-                "url": str(item.get("url") or ""),
-                "article_page_verified": item.get("article_page_verified"),
-                "article_page_kind": str(item.get("article_page_kind") or ""),
-                "resolution_status": str(item.get("publisher_resolution_status") or ""),
-                "resolution_error": str(item.get("publisher_resolution_error") or "")[:220],
-                "published_at_utc": str(item.get("published_at_utc") or ""),
-                "date": str(item.get("date") or ""),
-                "evidence_characters": len(str(item.get("evidence_text") or "")),
-            })
-        raise engine.PipelineError(
-            "Fewer than two readable, date-verifiable direct publisher articles passed the source checks. "
-            "Per-source diagnostics: " + json.dumps(diagnostics, ensure_ascii=False)[:1800]
-        )
-
-    families = {
-        engine.publisher_family_domain(
-            item.get("publisher_domain") or item.get("url", "")
-        )
-        for item in verified
-    }
-    families.discard("")
-    if len(families) < 2:
-        raise engine.PipelineError("The selected articles are not from two independent publisher families.")
-
-    script = str(plan.get("narration_script") or "").strip()
-    narration_issue = engine.narration_validation_error(script)
-    if narration_issue:
-        expected_sentences = 5 if motion_enabled else 4
-        raise engine.PipelineError(
-            "Narration failed its " + str(expected_sentences) +
-            "-sentence/40–44-word check: " + narration_issue + "."
-        )
-
-    sentences = engine.narration_sentences(script)
-    plan["narration_evidence"] = validate_claim_evidence(
-        plan.get("narration_evidence") or [], verified, sentences
-    )
-    plan["story_coherence"] = validate_story_coherence(
-        plan, verified, plan["narration_evidence"]
-    )
-
-    plan["sources"] = verified
-    plan["source_group"] = {
-        "group_id": "CHATGPT_DAILY_VERIFIED",
-        "topic_hint": str(plan.get("topic") or plan.get("title") or "")[:220],
-        "publisher_families": sorted(families),
-        "independent_publisher_count": len(families),
-        "source_ids": [str(item["source_id"]) for item in verified],
-        "verified_source_ids": [str(item["source_id"]) for item in verified],
-    }
-
-    date_check = engine.validate_story_dates(plan, as_of=datetime.now(timezone.utc).date())
-    if date_check.get("status") != "passed":
-        raise engine.PipelineError(
-            "Story date validation blocked the daily plan: " + " ".join(date_check.get("issues", []))
-        )
-
-    quality = engine.build_story_quality_report(plan, verified, date_check, as_of=datetime.now(timezone.utc))
-    quality["human_review_required"] = False
-    quality["human_review_status"] = "automated_source_date_freshness_and_channel_fit_checks"
-    if quality.get("status") != "passed":
-        raise engine.PipelineError(
-            "Evidence/date/freshness gate blocked production. Check source dates and exact narration quotes."
-        )
-    plan["quality_control"] = quality
-    plan["date_check"] = date_check
-
-    creative_issues = engine.validate_creative_plan(plan)
-    if creative_issues:
-        raise engine.PipelineError("Violin Prince creative-direction gate blocked production: " + " ".join(creative_issues))
-
-    plan["channel_fit"] = engine.channel_fit_report(plan)
-    plan["channel_fit"]["status"] = "passed"
-    try:
-        plan["visual_reference"] = engine.normalize_visual_reference(
-            plan.get("visual_reference"), plan.get("scenes")
-        )
-    except (TypeError, ValueError) as exc:
-        raise engine.PipelineError("Visual reference analysis is invalid: " + str(exc)) from exc
-    plan["narrative_style"] = str(plan.get("narrative_style") or "documentary").lower()
-    if plan["narrative_style"] not in ("documentary", "cinematic_story"):
-        plan["narrative_style"] = "documentary"
+    scenes = plan.get("scenes")
+    if not isinstance(scenes, list) or len(scenes) != 5:
+        raise ValueError("The Motion explainer requires exactly five 2D scenes.")
 
     labels = (
-        "THE LISTENING ROOM",
-        "THE AUDIO INTERFACE",
-        "ROOMTUNE CORRECTION",
-        "ONBOARD DSP",
+        "THE HOOK",
+        "THE BIG IDEA",
+        "HOW IT WORKS",
+        "THE DETAIL",
         "THE MUSICAL PAYOFF",
     )
-    beats = engine.narration_sentences(script)
-    for index, scene in enumerate(plan["scenes"]):
-        scene["graphic_label"] = str(scene.get("graphic_label") or labels[index])[:32]
-        scene["graphic_detail"] = str(
-            scene.get("graphic_detail") or beats[min(index, len(beats) - 1)]
-        )[:88]
-    return plan, verified
+    normalized_scenes = []
+    for index, scene in enumerate(scenes):
+        if not isinstance(scene, dict):
+            raise ValueError(f"Scene {index + 1} must be a JSON object.")
+        item = dict(scene)
+        item["caption"] = str(item.get("caption") or labels[index]).strip()[:72]
+        item["graphic_label"] = str(
+            item.get("graphic_label") or labels[index]
+        ).strip()[:42]
+        item["graphic_detail"] = str(
+            item.get("graphic_detail")
+            or item.get("caption")
+            or plan["topic"]
+        ).strip()[:110]
+        normalized_scenes.append(item)
+    plan["scenes"] = normalized_scenes
+
+    # Do not carry the old source-audit and 3D asset fields into the new run.
+    for key in (
+        "sources",
+        "source_group",
+        "narration_evidence",
+        "story_coherence",
+        "date_check",
+        "quality_control",
+        "verified_sources",
+        "model_asset",
+        "asset_subject",
+        "model_query",
+        "frame_by_plane_backgrounds",
+    ):
+        plan.pop(key, None)
+
+    return plan
 
 
 def run_daily_plan(plan_path: Path) -> int:
-    motion_enabled = is_motion_hyperframes_render_enabled()
-    blender_enabled = engine.is_blender_render_enabled()
-    if blender_enabled:
-        raise engine.PipelineError(
-            "The production pipeline is now 2D-only. Blender and 3D model rendering are disabled."
-        )
-    if not motion_enabled:
-        raise engine.PipelineError(
-            "Motion + HyperFrames is mandatory for daily production. Enable the 2D renderer; "
-            "legacy still-image and Blender routes are not production fallbacks."
-        )
+    os.environ["MOTION_HYPERFRAMES_RENDER_ENABLED"] = "true"
+    os.environ["BLENDER_RENDER_ENABLED"] = "false"
+    os.environ["PUBLISH_ENABLED"] = "false"
+    os.environ["YOUTUBE_PUBLISH_ENABLED"] = "false"
+
     plan_path = Path(plan_path)
     if not plan_path.is_file():
-        raise engine.PipelineError(f"ChatGPT daily plan was not found: {plan_path}")
+        raise FileNotFoundError(f"ChatGPT production plan was not found: {plan_path}")
     try:
-        plan = json.loads(plan_path.read_text(encoding="utf-8"))
+        raw_plan = json.loads(plan_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        raise engine.PipelineError("ChatGPT daily plan is not readable JSON.") from exc
+        raise ValueError("ChatGPT production plan is not readable JSON.") from exc
 
-    plan, verified_sources = validate_and_enrich_plan(plan)
-    try:
-        metadata_check = validate_publish_metadata(plan)
-    except (TypeError, ValueError) as exc:
-        raise engine.PipelineError("YouTube publisher preflight blocked the plan: " + str(exc)) from exc
-    # Store the normalized metadata in the saved plan so every downstream handoff
-    # reads the exact same title, description, tags, language and privacy setting.
-    plan["publish_metadata"] = dict(metadata_check["value"])
-    engine.WORK.mkdir(parents=True, exist_ok=True)
-    engine.OUT.mkdir(parents=True, exist_ok=True)
-    paths = engine._package_paths()
-
-    # The daily ChatGPT mode is deliberately independent from the optional
-    # Cloudflare Worker, R2 bucket, and all direct-publishing credentials.
-    engine.API = ""
-    engine.JOB_TOKEN = ""
-    os.environ["AUTOPILOT_API_URL"] = ""
-    os.environ["AUTOPILOT_JOB_TOKEN"] = ""
-    os.environ["PUBLISH_ENABLED"] = "false"
-
-    audio_asset, audio_bytes = engine.get_audio(prefer_creator_assets=False)
-    if not audio_bytes or len(audio_bytes) < 4096:
-        raise engine.PipelineError("The free CC0/ambient violin soundtrack could not be prepared.")
-    paths["audio"].write_bytes(audio_bytes)
+    plan = normalize_production_plan(raw_plan)
+    root = Path.cwd()
+    work = root / "work"
+    package = work / "package"
+    output = work / "output"
+    package.mkdir(parents=True, exist_ok=True)
+    output.mkdir(parents=True, exist_ok=True)
 
     narration_path, narration_info = synthesize_voiceover(
-        plan["narration_script"], engine.OUT / "narration.wav"
+        plan["narration_script"], output / "narration.wav"
     )
-    paths["narration"].write_bytes(narration_path.read_bytes())
-    paths["plan"].write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
-    paths["research"].write_text(
-        json.dumps(verified_sources, ensure_ascii=False, indent=2), encoding="utf-8"
+    narration_duration = float(narration_info.get("duration_seconds") or 0)
+    if narration_duration <= 0:
+        raise ValueError("Kokoro did not return a valid narration duration.")
+
+    try:
+        outro_hold = float(os.environ.get("MOTION_HYPERFRAMES_OUTRO_HOLD_SECONDS", "3"))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("MOTION_HYPERFRAMES_OUTRO_HOLD_SECONDS must be numeric.") from exc
+    if not 0 <= outro_hold <= 3:
+        raise ValueError("The final scene hold must be between 0 and 3 seconds.")
+
+    soundtrack_path, soundtrack_info = create_sampled_violin_bed(
+        package / "soundtrack.wav",
+        seed_text=plan["topic"] + " " + plan["title"],
+        duration_seconds=max(24.0, narration_duration + outro_hold),
     )
-    paths["quality_control"].write_text(
-        json.dumps(plan["quality_control"], ensure_ascii=False, indent=2), encoding="utf-8"
+    soundtrack_bytes = soundtrack_path.read_bytes()
+    narration_bytes = narration_path.read_bytes()
+
+    plan_file = package / "creative_plan.json"
+    plan_file.write_text(
+        json.dumps(plan, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (package / "narration.json").write_text(
+        json.dumps(narration_info, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (package / "soundtrack.json").write_text(
+        json.dumps(soundtrack_info, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
     )
 
-    images = []
-    model_asset = None
-    if blender_enabled:
-        # One real model is selected for this story and shared across its shots,
-        # so a different topic naturally receives a different physical subject.
-        try:
-            model_asset = resolve_story_asset(
-                plan,
-                engine.WORK / "story-assets",
-                access_token=os.environ.get("SKETCHFAB_ACCESS_TOKEN"),
-            )
-        except StoryAssetError as exc:
-            # Keep the detailed resolver diagnostic in the run log. The top-level
-            # resolver exception includes a large JSON payload which GitHub's
-            # shortened error lines can truncate before the actual download reason.
-            diagnostic_path = engine.WORK / "story-assets" / "asset-resolution-diagnostic.json"
-            diagnostic = {}
-            try:
-                if diagnostic_path.is_file():
-                    diagnostic = json.loads(diagnostic_path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                diagnostic = {}
-            base_message = str(exc).split("Diagnostic:", 1)[0].strip()
-            failure_details = []
-            for failure in (diagnostic.get("attempted") or [])[:3]:
-                if not isinstance(failure, dict):
-                    continue
-                model_name = str(failure.get("model_name") or failure.get("model_uid") or "Selected model")
-                detail = str(failure.get("error") or "").strip()
-                if detail:
-                    failure_details.append(model_name + ": " + detail[:260])
-            if not failure_details:
-                for failure in (diagnostic.get("preferred_model_errors") or [])[:2]:
-                    if isinstance(failure, dict):
-                        detail = str(failure.get("error") or "").strip()
-                        if detail:
-                            failure_details.append("Preferred model metadata: " + detail[:260])
-            if not failure_details:
-                failure_details.append("No per-model download detail was written by the resolver.")
-            detail_text = " Download detail: " + " | ".join(failure_details)
-            raise engine.PipelineError(
-                "Story-specific 3D model gate blocked production: "
-                + base_message + detail_text
-            ) from exc
-        model_path = str(model_asset.get("local_model_path") or "")
-        if not model_path:
-            raise engine.PipelineError("Story asset resolver returned no actual 3D model path.")
-        query = str(model_asset.get("selection_query") or "")
-        subject_text = " ".join((
-            str(plan.get("asset_subject") or ""),
-            str(plan.get("model_query") or ""),
-            query,
-        )).casefold()
-        asset_kind = str(plan.get("asset_kind") or ("violin" if "violin" in subject_text else "generic")).casefold()
-        plan["model_asset"] = {
-            key: model_asset.get(key)
-            for key in (
-                "provider", "model_uid", "model_name", "source_url", "creator",
-                "license_code", "license_label", "license_url", "attribution",
-                "selection_query", "selection_score", "face_count", "vertex_count",
-                "pbr_type", "local_model_path", "manifest_path", "sha256",
-                "model_parts", "bow_rig_required",
-            )
-            if model_asset.get(key) is not None
-        }
-        for scene in plan["scenes"]:
-            scene["model_asset_path"] = model_path
-            scene["model_asset_kind"] = asset_kind
-            scene["model_asset_required"] = True
-
-        # Keep CC-BY attributions with the video metadata. Both the main
-        # instrument and any separately licensed bow must be credited.
-        credits = []
-        main_credit = model_asset.get("attribution")
-        if main_credit:
-            credits.append(str(main_credit).strip())
-        elif model_asset.get("source_url"):
-            credits.append(
-                f'{model_asset.get("model_name", "Violin model")} by '
-                f'{model_asset.get("creator", "unknown creator")} '
-                f'({model_asset.get("license_label", model_asset.get("license_code", "license listed on source page"))}): '
-                f'{model_asset.get("source_url")}'
-            )
-        bow_asset = model_asset.get("bow_model") or {}
-        if isinstance(bow_asset, dict) and bow_asset.get("source_url"):
-            credits.append(
-                f'{bow_asset.get("model_name", "Violin bow")} by '
-                f'{bow_asset.get("creator", "unknown creator")} '
-                f'({bow_asset.get("license_label", bow_asset.get("license_code", "license listed on source page"))}): '
-                f'{bow_asset.get("source_url")}'
-            )
-        if credits:
-            metadata = plan.setdefault("publish_metadata", {})
-            description = str(metadata.get("description") or "")
-            credit_block = "3D ASSET CREDITS:\n" + "\n".join(credits)
-            if credit_block not in description:
-                metadata["description"] = (description.rstrip() + "\n\n" + credit_block).strip()
-            validate_publish_metadata(plan)
-
-        # Generate per-scene background plates locally, then feed these image
-        # layers to the native Frame By Plane builder inside Blender. The real
-        # licensed violin model remains separate 3D geometry in front of them.
-        background_bundles = create_frame_by_plane_backgrounds(
-            plan,
-            engine.PACKAGE / "frame-by-plane",
-            size=(1080, 1920),
-        )
-        for scene, bundle in zip(plan["scenes"], background_bundles):
-            scene["frame_by_plane_manifest"] = bundle["manifest_path"]
-            scene["frame_by_plane_required"] = True
-            scene["frame_by_plane_layer_count"] = len(bundle["layers"])
-        plan["frame_by_plane_backgrounds"] = background_bundles
-
-        # Persist the same licensed asset and Frame By Plane layer mapping used
-        # by every render worker; no FLUX/Cloudflare still-image fallback exists.
-        paths["plan"].write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
-        for index in range(3):
-            (engine.PACKAGE / f"scene-{index + 1}.jpg").unlink(missing_ok=True)
-        print(
-            "BLENDER_MODE=3d_hero_plus_frame_by_plane_25d; "
-            "layers_per_scene=3; FLUX_and_Cloudflare_image_generation_skipped.",
-            flush=True,
-        )
-    elif motion_enabled:
-        # The ChatGPT plan already contains the researched script, evidence and
-        # scene-specific visual directions. Motion constructs the explanatory
-        # diagrams and typography locally; do not invoke FLUX, Cloudflare or Blender.
-        images = []
-        for index in range(5):
-            (engine.PACKAGE / f"scene-{index + 1}.jpg").unlink(missing_ok=True)
-        print(
-            "MOTION_EXPLAINER=enabled; Kokoro narration is primary; "
-            "scene-specific diagrams and word-synchronised captions are rendered locally.",
-            flush=True,
-        )
-    else:
-        # Preserve the legacy still-image path only for runs which explicitly
-        # choose neither Motion nor Blender.
-        if not engine.CF_ACCOUNT or not engine.CF_TOKEN:
-            raise engine.PipelineError(
-                "The legacy FLUX still-image route requires CF_ACCOUNT_ID and CF_AI_TOKEN. "
-                "Use Motion + HyperFrames or explicitly enable the optional Blender route instead."
-            )
-        for index, scene in enumerate(plan["scenes"]):
-            image_path = engine.PACKAGE / f"scene-{index + 1}.jpg"
-            prompt = engine._scene_visual_prompt(scene, index=index, plan=plan)
-            generated_image = engine.make_image(prompt, index)
-            image_path.write_bytes(generated_image.read_bytes())
-            with Image.open(image_path) as image_check:
-                if image_check.width < 512 or image_check.height < 512:
-                    raise engine.PipelineError(f"Generated scene image {index + 1} is unexpectedly small.")
-                image_check.verify()
-            images.append(image_path)
-
-    metadata = {
-        "schema_version": 4,
-        "production_type": "narrated_explainer" if motion_enabled else "daily_plan_short",
-        "visual_renderer": "motion_hyperframes_narrated_explainer" if motion_enabled else (
-            "blender_full_frame_3d" if blender_enabled else "legacy_still_image"
-        ),
-        "prepared_run_id": engine.RUN_ID,
-        "narration_info": narration_info,
-        "asset": audio_asset,
-        "performance_video": {"available": False, "source": "not_uploaded"},
-        "model_asset": plan.get("model_asset", {}),
-        "frame_by_plane_backgrounds": plan.get("frame_by_plane_backgrounds", []),
-        "topic": str(plan.get("topic") or ""),
-        "title": str(plan.get("title") or "Violin Prince"),
-        "prepared_at": datetime.now(timezone.utc).isoformat(),
-        "stage": "visuals_ready",
-        "visuals_run_id": engine.RUN_ID,
-        "story_review": {
-            "status": "approved_by_automated_quality_gates",
-            "approved": True,
-            "approved_at": datetime.now(timezone.utc).isoformat(),
-            "approval_method": "verified_publisher_evidence_date_freshness_and_channel_fit",
-        },
-    }
-    paths["metadata"].write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
-    engine._write_review_text(plan, engine.PACKAGE / "review.txt", {"available": False})
-    if not blender_enabled and not motion_enabled:
-        engine.make_storyboard_preview(plan, images, engine.PACKAGE / "storyboard-preview.png")
-
-    # Blender renders complete scene clips when explicitly enabled. Motion builds
-    # its own diagrams and synchronized caption layers without still-image assets.
-    result = engine.render_stage()
-    if result != 0:
-        return result
-    if motion_enabled:
-        final_video = engine.OUT / "violin-prince-explainer.mp4"
-        if not final_video.is_file() or final_video.stat().st_size < 4096:
-            raise engine.PipelineError("Motion completed without a valid narrated explainer MP4.")
-        output_metadata_path = engine.OUT / "metadata.json"
-        try:
-            output_metadata = json.loads(output_metadata_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            raise engine.PipelineError("Motion output metadata is missing or invalid.") from exc
-        video_quality = output_metadata.get("video_quality") or {}
-        narration = output_metadata.get("narration") or {}
-        if (
-            output_metadata.get("render_engine") != "motion_hyperframes"
-            or narration.get("engine") != "Kokoro-82M"
-            or narration.get("voice") != "af_heart"
-            or narration.get("word_sync_status") != "passed"
-            or video_quality.get("primary_audio_source") != "Kokoro-82M"
-            or video_quality.get("narration_word_sync_status") != "passed"
-            or output_metadata.get("publishing_status") != "rendered"
-        ):
-            raise engine.PipelineError("Rendered MP4 failed the Kokoro narration, word-sync or publishing-disabled checks.")
-        print(
-            "DAILY_PRODUCTION_RESULT=" + json.dumps({
-                "status": "rendered",
-                "run_id": engine.RUN_ID,
-                "video": str(final_video),
-                "primary_audio_source": "Kokoro-82M af_heart",
-                "word_timing_count": video_quality.get("narration_word_timing_count"),
-                "music_bed_enabled": video_quality.get("music_bed_enabled"),
-                "publishing": "disabled",
-            }, ensure_ascii=False),
-            flush=True,
-        )
-        return 0
-
-    final_video = engine.OUT / "violin-prince-short.mp4"
-    if blender_enabled:
-        images = [engine.OUT / f"blender-scene-{index + 1}-poster.png" for index in range(3)]
-        if not all(path.is_file() and path.stat().st_size > 1024 for path in images):
-            raise engine.PipelineError("Blender scene poster frames are missing; cannot verify the rendered 3D scenes.")
-        engine.make_storyboard_preview(plan, images, engine.OUT / "blender-storyboard-review.png")
-    video_quality = engine.validate_final_video(final_video)
-    if blender_enabled:
-        render_report = json.loads((engine.OUT / "quality_report.json").read_text(encoding="utf-8"))
-        video_quality["blender_rendering"] = render_report.get("blender_rendering", {})
-    manifest, _provenance = write_handoff_files(
-        engine.OUT,
+    final_video = output / "violin-prince-explainer.mp4"
+    video_quality = render_full_track(
+        audio_bytes=soundtrack_bytes,
+        audio_filename=soundtrack_path.name,
+        output_path=final_video,
+        work_dir=work / "motion-render-work",
         plan=plan,
-        verified_sources=verified_sources,
-        audio_asset=audio_asset,
-        audio_path=paths["audio"],
+        narration_bytes=narration_bytes,
         narration_info=narration_info,
-        narration_path=engine.OUT / "narration.wav",
-        image_paths=images,
-        final_video_path=final_video,
-        video_quality=video_quality,
-        run_id=engine.RUN_ID,
+    )
+    if not final_video.is_file() or final_video.stat().st_size < 4096:
+        raise MotionHyperFramesError(
+            "Motion + HyperFrames did not preserve a valid explainer MP4."
+        )
+
+    digest = hashlib.sha256(final_video.read_bytes()).hexdigest()
+    metadata = {
+        "schema_version": 1,
+        "status": "rendered",
+        "render_engine": "motion_hyperframes",
+        "production_type": "narrated_explainer",
+        "title": plan["title"],
+        "topic": plan["topic"],
+        "narration": {
+            "engine": narration_info.get("engine"),
+            "voice": narration_info.get("voice"),
+            "duration_seconds": narration_duration,
+            "word_sync_status": narration_info.get("word_sync_status"),
+            "word_timing_count": narration_info.get("word_timing_count"),
+        },
+        "video_quality": video_quality,
+        "final_video": {
+            "filename": final_video.name,
+            "size_bytes": final_video.stat().st_size,
+            "sha256": digest,
+        },
+        "publishing_status": "rendered",
+        "publishing_enabled": False,
+        "source_research": "not part of this production path",
+        "three_dimensional_assets": "not used",
+    }
+    (output / "metadata.json").write_text(
+        json.dumps(metadata, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
     )
     print(
-        "PUBLISHER_PREFLIGHT="
-        + json.dumps(manifest.get("publisher_preflight", {}), ensure_ascii=False),
+        "DAILY_PRODUCTION_RESULT="
+        + json.dumps(
+            {
+                "status": "rendered",
+                "video": str(final_video),
+                "renderer": "motion_hyperframes",
+                "duration_seconds": video_quality.get("duration_seconds"),
+                "narration_engine": narration_info.get("engine"),
+                "word_timing_count": narration_info.get("word_timing_count"),
+                "sha256": digest,
+                "publishing": "disabled",
+            },
+            ensure_ascii=False,
+        ),
         flush=True,
     )
     return 0
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Render one ChatGPT-prepared Violin Prince daily plan.")
-    parser.add_argument("--plan", required=True, help="Path to the ChatGPT-authored JSON plan.")
+    parser = argparse.ArgumentParser(
+        description="Render one ChatGPT-authored Violin Prince 2D explainer."
+    )
+    parser.add_argument(
+        "--plan",
+        required=True,
+        help="Path to the ChatGPT-authored JSON production plan.",
+    )
     args = parser.parse_args()
     try:
         result = run_daily_plan(Path(args.plan))
-        if result != 0:
-            return result
-        if is_motion_hyperframes_render_enabled():
-            final = engine.OUT / "violin-prince-explainer.mp4"
-            if not final.is_file() or final.stat().st_size < 4096:
-                raise engine.PipelineError(
-                    "Motion completed without preserving its validated narrated explainer MP4."
-                )
-            print("DAILY_PRODUCTION_FINAL_CHECK=" + json.dumps({
-                "status": "rendered",
-                "run_id": engine.RUN_ID,
-                "video": str(final),
-                "renderer": "motion_hyperframes",
-                "publishing": "disabled",
-            }, ensure_ascii=False), flush=True)
-            return 0
-        final = engine.OUT / "violin-prince-short.mp4"
-        quality = engine.validate_final_video(final)
-        publish_manifest = json.loads((engine.OUT / "publish-manifest.json").read_text(encoding="utf-8"))
-        print("DAILY_PRODUCTION_RESULT=" + json.dumps({
-            "status": "rendered",
-            "run_id": engine.RUN_ID,
-            "video": str(final),
-            "quality": quality,
-            "publish_manifest": str(engine.OUT / "publish-manifest.json"),
-            "asset_provenance": str(engine.OUT / "asset-provenance.json"),
-            "publish_ready": publish_manifest.get("publish_ready", False),
-            "publisher_preflight": publish_manifest.get("publisher_preflight", {}),
-            "publishing": "deferred_to_ChatGPT_Metricool_operator",
-        }, ensure_ascii=False), flush=True)
-        return 0
+        final_video = Path("work/output/violin-prince-explainer.mp4")
+        if result == 0 and (
+            not final_video.is_file() or final_video.stat().st_size < 4096
+        ):
+            raise MotionHyperFramesError(
+                "Final verification could not find the rendered explainer MP4."
+            )
+        return result
     except Exception as exc:
-        print("Daily production stopped safely: " + str(exc)[:900], file=sys.stderr, flush=True)
-        engine.report("failed", str(exc))
+        print(
+            "2D production stopped: " + str(exc)[:900],
+            file=sys.stderr,
+            flush=True,
+        )
         return 1
 
 
