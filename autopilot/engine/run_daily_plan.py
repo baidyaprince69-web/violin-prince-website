@@ -655,6 +655,20 @@ def main() -> int:
         result = run_daily_plan(Path(args.plan))
         if result != 0:
             return result
+        if is_motion_hyperframes_render_enabled():
+            final = engine.OUT / "violin-prince-explainer.mp4"
+            if not final.is_file() or final.stat().st_size < 4096:
+                raise engine.PipelineError(
+                    "Motion completed without preserving its validated narrated explainer MP4."
+                )
+            print("DAILY_PRODUCTION_FINAL_CHECK=" + json.dumps({
+                "status": "rendered",
+                "run_id": engine.RUN_ID,
+                "video": str(final),
+                "renderer": "motion_hyperframes",
+                "publishing": "disabled",
+            }, ensure_ascii=False), flush=True)
+            return 0
         final = engine.OUT / "violin-prince-short.mp4"
         quality = engine.validate_final_video(final)
         publish_manifest = json.loads((engine.OUT / "publish-manifest.json").read_text(encoding="utf-8"))

@@ -427,7 +427,6 @@ jobs:
             work/story-assets/asset-resolution-diagnostic.json
             !work/output/scene-3.mp4
             !work/output/violin-prince-short.mp4
-            !work/output/violin-prince-explainer.mp4
             work/research.json
             work/story_candidates.json
             work/story_research.json

@@ -1,5 +1,6 @@
 """Offline tests for ChatGPT-prepared daily production evidence gates."""
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 from pathlib import Path
@@ -77,6 +78,18 @@ class DailyPlanEvidenceTests(unittest.TestCase):
              patch.object(daily.engine, "is_blender_render_enabled", return_value=True):
             with self.assertRaisesRegex(daily.engine.PipelineError, "2D-only"):
                 daily.run_daily_plan(Path("missing-daily-plan.json"))
+
+    def test_main_accepts_validated_motion_explainer_filename(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            (output / "violin-prince-explainer.mp4").write_bytes(b"valid-motion-mp4" * 512)
+            with patch.object(daily, "run_daily_plan", return_value=0), \
+                 patch.object(daily, "is_motion_hyperframes_render_enabled", return_value=True), \
+                 patch.object(daily.engine, "OUT", output), \
+                 patch.object(daily.engine, "validate_final_video") as legacy_validator, \
+                 patch.object(sys, "argv", ["run_daily_plan.py", "--plan", "plan.json"]):
+                self.assertEqual(daily.main(), 0)
+                legacy_validator.assert_not_called()
 
 
 if __name__ == "__main__":
