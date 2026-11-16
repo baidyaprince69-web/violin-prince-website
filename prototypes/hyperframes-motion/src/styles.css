@@ -93,7 +93,7 @@ body {
   top: 460px;
   left: 190px;
   right: 190px;
-  height: 280px;
+  height: 260px;
   opacity: 1;
   background: linear-gradient(180deg, rgba(7,11,23,0.94) 0%, rgba(7,11,23,0.82) 72%, rgba(7,11,23,0) 100%);
 }
@@ -110,7 +110,7 @@ body {
   margin: 0;
   color: #f5f1e9;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 64px;
+  font-size: 60px;
   font-weight: 400;
   letter-spacing: -0.045em;
   line-height: 0.98;
@@ -167,7 +167,7 @@ body {
   top: auto;
   left: 105px;
   right: 105px;
-  bottom: 260px;
+  bottom: 480px;
   height: 90px;
   display: flex;
   flex-direction: column;

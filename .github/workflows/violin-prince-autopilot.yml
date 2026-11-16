@@ -63,6 +63,7 @@ jobs:
       YOUTUBE_STATE_ENCRYPTION_KEY: ${{ secrets.YOUTUBE_STATE_ENCRYPTION_KEY }}
       SEO_LEARNING_REPORT_PATH: work/seo-learning-data/seo-learning/latest.enc.json
       PUBLISH_ENABLED: "false"
+      MOTION_HYPERFRAMES_OUTRO_HOLD_SECONDS: "3.0"
       YOUTUBE_PUBLISH_ENABLED: "false"
       # Production is intentionally 2D-only. Motion + HyperFrames is mandatory;
       # Blender and the software-GL 3D route are disabled for all production runs.

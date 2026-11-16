@@ -29,6 +29,7 @@ jobs:
     timeout-minutes: 35
     env:
       PUBLISH_ENABLED: "false"
+      MOTION_HYPERFRAMES_OUTRO_HOLD_SECONDS: "3.0"
       YOUTUBE_PUBLISH_ENABLED: "false"
       CI: "true"
       HYPERFRAMES_NO_TELEMETRY: "1"
