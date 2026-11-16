@@ -54,7 +54,7 @@ body {
 
 .top-mark {
   z-index: 9;
-  inset: 150px 116px auto 116px;
+  inset: 245px 150px auto 150px;
   height: 50px;
   display: flex;
   align-items: center;
@@ -75,12 +75,12 @@ body {
 .scene-counter {
   margin-left: auto;
   color: #d8bd91;
-  font-size: 22px;
+  font-size: 28px;
   letter-spacing: 0.16em;
 }
 .top-rule {
   z-index: 9;
-  inset: 218px 116px auto 116px;
+  inset: 305px 150px auto 150px;
   height: 2px;
   transform: scaleX(0);
   transform-origin: left center;
@@ -89,26 +89,27 @@ body {
 
 .scene-header {
   z-index: 7;
-  top: 260px;
-  left: 112px;
-  right: 112px;
-  height: 250px;
+  top: 330px;
+  left: 150px;
+  right: 150px;
+  height: 300px;
   opacity: 1;
+  background: linear-gradient(90deg, rgba(7,11,23,0.88) 0%, rgba(7,11,23,0.72) 78%, rgba(7,11,23,0) 100%);
 }
 #scene-kicker {
   margin: 0 0 22px;
   color: #d8bd91;
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 700;
   letter-spacing: 0.2em;
   line-height: 1.2;
 }
 #scene-title {
-  max-width: 900px;
+  max-width: 780px;
   margin: 0;
   color: #f5f1e9;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 78px;
+  font-size: 72px;
   font-weight: 400;
   letter-spacing: -0.045em;
   line-height: 0.98;
@@ -116,7 +117,7 @@ body {
   text-shadow: 0 12px 44px rgba(0,0,0,0.28);
 }
 #scene-description {
-  max-width: 850px;
+  max-width: 780px;
   margin: 17px 0 0;
   color: rgba(225, 231, 242, 0.78);
   font-size: 28px;
@@ -165,8 +166,8 @@ body {
   top: auto;
   left: 105px;
   right: 105px;
-  bottom: 260px;
-  height: 104px;
+  bottom: 520px;
+  height: 100px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -176,17 +177,10 @@ body {
   background: linear-gradient(90deg, transparent, rgba(8,14,28,0.84) 12%, rgba(8,14,28,0.84) 88%, transparent);
   text-align: center;
 }
-#caption-kicker {
-  margin: 0;
-  color: rgba(216,189,145,0.88);
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-}
 #caption-line {
   min-height: 40px;
   color: rgba(245, 241, 233, 0.94);
-  font-size: 33px;
+  font-size: 34px;
   font-weight: 500;
   line-height: 1.2;
   letter-spacing: 0.005em;
@@ -200,13 +194,14 @@ body {
 
 .bottom-progress {
   z-index: 10;
-  inset: auto 110px 155px 110px;
-  height: 28px;
+  inset: auto 150px 450px 150px;
+  height: 3px;
   display: flex;
   align-items: center;
   gap: 18px;
 }
 .progress-label, .progress-time {
+  display: none;
   color: rgba(216,222,239,0.68);
   font-size: 17px;
   font-weight: 700;

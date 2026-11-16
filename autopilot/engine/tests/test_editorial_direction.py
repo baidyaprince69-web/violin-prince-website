@@ -1,5 +1,7 @@
 """Offline tests for the approved music-facts editorial direction."""
+import os
 import sys
+from unittest.mock import patch
 import tempfile
 import unittest
 from pathlib import Path
@@ -42,10 +44,29 @@ class CreativeDirectionTests(unittest.TestCase):
         self.assertIn("curiosity-driven music channel", CHANNEL_BRIEF)
         self.assertIn("violin_physics", STORY_TYPES)
         self.assertIn("cover_performance", VISUAL_MODES)
+        self.assertIn("full_screen_2d", VISUAL_MODES)
 
     def test_valid_music_facts_plan_passes(self):
-        self.assertEqual(validate_creative_plan(valid_plan()), [])
-        self.assertEqual(channel_fit_report(valid_plan())["status"], "passed")
+        with patch.dict(os.environ, {"MOTION_HYPERFRAMES_RENDER_ENABLED": "false"}):
+            self.assertEqual(validate_creative_plan(valid_plan()), [])
+            self.assertEqual(channel_fit_report(valid_plan())["status"], "passed")
+
+    def test_portrait_motion_format_accepts_five_full_screen_scenes(self):
+        plan = valid_plan()
+        plan["scenes"] = [
+            {"caption": "The listening room", "image_prompt": "Room and monitors", "visual_mode": "full_screen_2d"},
+            {"caption": "The interface", "image_prompt": "Audio interface hero", "visual_mode": "full_screen_2d"},
+            {"caption": "Measure and correct", "image_prompt": "RoomTune process", "visual_mode": "full_screen_2d"},
+            {"caption": "Three DSP stages", "image_prompt": "EQ compression reverb", "visual_mode": "full_screen_2d"},
+            {"caption": "The violin payoff", "image_prompt": "Violin close-up", "visual_mode": "cover_performance"},
+        ]
+        with patch.dict(os.environ, {"MOTION_HYPERFRAMES_RENDER_ENABLED": "true"}):
+            self.assertEqual(validate_creative_plan(plan), [])
+
+    def test_portrait_motion_format_rejects_three_scene_legacy_plan(self):
+        with patch.dict(os.environ, {"MOTION_HYPERFRAMES_RENDER_ENABLED": "true"}):
+            issues = validate_creative_plan(valid_plan())
+        self.assertTrue(any("exactly five visual story beats" in item for item in issues))
 
     def test_individual_musician_biography_is_rejected(self):
         plan = valid_plan()
@@ -74,7 +95,9 @@ class CreativeDirectionTests(unittest.TestCase):
     def test_unknown_visual_mode_is_rejected(self):
         plan = valid_plan()
         plan["scenes"][1]["visual_mode"] = "celebrity_portrait"
-        self.assertTrue(any("visual_mode" in item for item in validate_creative_plan(plan)))
+        with patch.dict(os.environ, {"MOTION_HYPERFRAMES_RENDER_ENABLED": "false"}):
+            issues = validate_creative_plan(plan)
+        self.assertTrue(any("visual_mode" in item for item in issues))
 
     def test_visual_modes_render_distinct_explainer_diagrams(self):
         def test_font(size, *args, **kwargs):

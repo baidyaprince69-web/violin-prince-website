@@ -108,7 +108,7 @@ jobs:
           actual = [scene.get("graphic_data", {}).get("type") for scene in scenes]
           indices = [scene.get("sentence_index") for scene in scenes]
           fractions = [scene.get("sentence_fraction", 0) for scene in scenes]
-          if actual != expected or indices != [0, 1, 2, 3, 3] or float(fractions[-1]) != 0.5:
+          if actual != expected or indices != [0, 1, 2, 3, 3] or float(fractions[-1]) != 0.05:
               raise SystemExit("The saved daily plan must contain five portrait scenes, with its violin payoff timed in the final sentence.")
           import re
           script = plan.get("narration_script", "")

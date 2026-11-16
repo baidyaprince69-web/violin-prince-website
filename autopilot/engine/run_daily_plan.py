@@ -326,7 +326,13 @@ def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list
     if plan["narrative_style"] not in ("documentary", "cinematic_story"):
         plan["narrative_style"] = "documentary"
 
-    labels = ("THE HOOK", "THE KEY DETAIL", "THE PAYOFF")
+    labels = (
+        "THE LISTENING ROOM",
+        "THE AUDIO INTERFACE",
+        "ROOMTUNE CORRECTION",
+        "ONBOARD DSP",
+        "THE MUSICAL PAYOFF",
+    )
     beats = engine.narration_sentences(script)
     for index, scene in enumerate(plan["scenes"]):
         scene["graphic_label"] = str(scene.get("graphic_label") or labels[index])[:32]
@@ -521,7 +527,7 @@ def run_daily_plan(plan_path: Path) -> int:
         # scene-specific visual directions. Motion constructs the explanatory
         # diagrams and typography locally; do not invoke FLUX, Cloudflare or Blender.
         images = []
-        for index in range(3):
+        for index in range(5):
             (engine.PACKAGE / f"scene-{index + 1}.jpg").unlink(missing_ok=True)
         print(
             "MOTION_EXPLAINER=enabled; Kokoro narration is primary; "

@@ -37,7 +37,7 @@ function defs(svg) {
 
 function background(svg, accent) {
   node("rect", { x: 0, y: 0, width: 1080, height: 1920, fill: "url(#vp-full-bg)" }, svg);
-  node("circle", { cx: 540, cy: 1010, r: 570, fill: accent, "fill-opacity": 0.05 }, svg);
+  node("circle", { cx: 540, cy: 1010, r: 500, fill: accent, "fill-opacity": 0.05 }, svg);
   node("path", { d: "M0 500 Q540 390 1080 500 M0 1450 Q540 1550 1080 1450", fill: "none", stroke: "#d8bd91", "stroke-opacity": 0.1, "stroke-width": 2 }, svg);
   for (let i = 0; i < 18; i += 1) {
     const x = (i * 173 + 61) % 1040 + 20;
@@ -70,8 +70,6 @@ function buildRoom(world) {
   }
   speaker(reveal(subject, 0), 115, 785, 1.12);
   speaker(reveal(subject, 0), 815, 785, 1.12);
-  text(subject, 190, 750, "STUDIO MONITORS", 30, "#d8bd91", { "text-anchor": "middle" });
-  text(subject, 890, 750, "STUDIO MONITORS", 30, "#d8bd91", { "text-anchor": "middle" });
   const reflections = reveal(subject, 1, "room-reflections");
   [
     "M280 905 C350 700 465 720 510 920",
@@ -93,41 +91,37 @@ function buildRoom(world) {
   node("path", { d: "M415 1410 L385 1500 M665 1410 L695 1500", stroke: "#0b1425", "stroke-width": 48, "stroke-linecap": "round" }, listener);
   const desk = reveal(subject, 2);
   node("path", { d: "M180 1435 L900 1435 L860 1490 L220 1490 Z", fill: "#654b37", stroke: "#d8bd91", "stroke-width": 4 }, desk);
-  text(subject, 540, 650, "THE LISTENING ROOM", 38, "#d8bd91", { "text-anchor": "middle" });
-  text(subject, 540, 1370, "REFLECTED SOUND CHANGES WHAT YOU HEAR", 28, "#8de6d7", { "text-anchor": "middle" });
 }
 
 function buildInterface(world) {
   const subject = node("g", { class: "scene-subject interface-subject" }, world);
   node("path", { d: "M540 520 L540 620 M540 1415 L540 1510", stroke: "#d8bd91", "stroke-opacity": 0.42, "stroke-width": 5, "stroke-dasharray": "10 18" }, subject);
   const chassis = reveal(subject, 0, "interface-chassis");
-  node("rect", { x: 145, y: 585, width: 790, height: 865, rx: 38, fill: "#101b30", stroke: "#d8bd91", "stroke-width": 7 }, chassis);
-  node("rect", { x: 174, y: 615, width: 732, height: 805, rx: 24, fill: "#1b2b45", stroke: "#7489a8", "stroke-opacity": 0.5, "stroke-width": 3 }, chassis);
-  node("path", { d: "M205 1005 L875 1005", stroke: "#d8bd91", "stroke-opacity": 0.48, "stroke-width": 4 }, chassis);
-  text(chassis, 540, 690, "CONSOLE-STYLE PREAMPS", 38, "#d8bd91", { "text-anchor": "middle" });
+  node("rect", { x: 145, y: 555, width: 790, height: 800, rx: 38, fill: "#101b30", stroke: "#d8bd91", "stroke-width": 7 }, chassis);
+  node("rect", { x: 174, y: 585, width: 732, height: 740, rx: 24, fill: "#1b2b45", stroke: "#7489a8", "stroke-opacity": 0.5, "stroke-width": 3 }, chassis);
+  node("path", { d: "M205 950 L875 950", stroke: "#d8bd91", "stroke-opacity": 0.48, "stroke-width": 4 }, chassis);
+  text(chassis, 540, 665, "CONSOLE-STYLE PREAMPS", 38, "#d8bd91", { "text-anchor": "middle" });
   for (let i = 0; i < 4; i += 1) {
     const cx = 300 + i * 160;
-    node("circle", { cx, cy: 835, r: 62, fill: "#0b1425", stroke: "#d8bd91", "stroke-width": 5 }, chassis);
-    node("circle", { cx, cy: 835, r: 42, fill: "#263c5d", stroke: "#7188ad", "stroke-width": 3 }, chassis);
-    node("path", { d: "M" + cx + " 835 L" + (cx + 30) + " 805", stroke: "#f2d9b2", "stroke-width": 8, "stroke-linecap": "round", class: "interface-knob", "data-knob-index": i }, chassis);
-    node("circle", { cx, cy: 835, r: 8, fill: "#70cfc4" }, chassis);
+    node("circle", { cx, cy: 785, r: 62, fill: "#0b1425", stroke: "#d8bd91", "stroke-width": 5 }, chassis);
+    node("circle", { cx, cy: 785, r: 42, fill: "#263c5d", stroke: "#7188ad", "stroke-width": 3 }, chassis);
+    node("path", { d: "M" + cx + " 785 L" + (cx + 30) + " 755", stroke: "#f2d9b2", "stroke-width": 8, "stroke-linecap": "round", class: "interface-knob", "data-knob-index": i }, chassis);
+    node("circle", { cx, cy: 785, r: 8, fill: "#70cfc4" }, chassis);
   }
   const screen = reveal(subject, 1, "interface-screen");
-  node("rect", { x: 255, y: 1085, width: 570, height: 155, rx: 16, fill: "#081321", stroke: "#70cfc4", "stroke-width": 4 }, screen);
+  node("rect", { x: 255, y: 1000, width: 570, height: 125, rx: 16, fill: "#081321", stroke: "#70cfc4", "stroke-width": 4 }, screen);
   for (let i = 0; i < 24; i += 1) {
-    const height = 24 + ((i * 31) % 92);
-    node("rect", { x: 285 + i * 22, y: 1210 - height, width: 11, height, rx: 5, fill: i % 3 ? "#70cfc4" : "#d8bd91", class: "interface-meter", "data-meter-height": height }, screen);
+    const height = 24 + ((i * 31) % 82);
+    node("rect", { x: 285 + i * 22, y: 1110 - height, width: 11, height, rx: 5, fill: i % 3 ? "#70cfc4" : "#d8bd91", class: "interface-meter", "data-meter-height": height }, screen);
   }
-  text(screen, 540, 1150, "ONBOARD DIGITAL PROCESSING", 29, "#e8edf6", { "text-anchor": "middle" });
+  text(screen, 540, 1050, "ONBOARD DIGITAL PROCESSING", 29, "#e8edf6", { "text-anchor": "middle" });
   const dsp = reveal(subject, 2, "interface-dsp");
   [
     { x: 250, label: "EQ" }, { x: 455, label: "COMP" }, { x: 660, label: "REVERB" }
   ].forEach((item) => {
-    node("rect", { x: item.x, y: 1285, width: 170, height: 82, rx: 15, fill: "#0b1728", stroke: "#d8bd91", "stroke-width": 3 }, dsp);
-    text(dsp, item.x + 85, 1340, item.label, 31, "#d8bd91", { "text-anchor": "middle" });
+    node("rect", { x: item.x, y: 1185, width: 170, height: 72, rx: 15, fill: "#0b1728", stroke: "#d8bd91", "stroke-width": 3 }, dsp);
+    text(dsp, item.x + 85, 1233, item.label, 31, "#d8bd91", { "text-anchor": "middle" });
   });
-  text(subject, 540, 520, "AUDIO INTERFACE", 42, "#f4e8d3", { "text-anchor": "middle" });
-  text(subject, 540, 1495, "PREAMP INPUT  →  DSP  →  MONITOR OUTPUT", 27, "#8de6d7", { "text-anchor": "middle" });
 }
 
 function buildRoomTune(world) {
@@ -141,36 +135,32 @@ function buildRoomTune(world) {
     node("path", { d: "M" + left + " " + top + " Q540 " + rise + " " + right + " " + top, fill: "none", stroke: "#70cfc4", "stroke-width": 5, "stroke-dasharray": "12 18", class: "sound-wave", "stroke-opacity": 0.75 }, mic);
   });
   const steps = [
-    { y: 855, label: "1  MEASURE", detail: "Microphone captures the room response" },
-    { y: 1065, label: "2  ANALYSE", detail: "The system identifies acoustic changes" },
-    { y: 1275, label: "3  CORRECT", detail: "Monitor playback is adjusted" }
+    { y: 735, label: "1  MEASURE", detail: "Microphone captures the room response" },
+    { y: 915, label: "2  ANALYSE", detail: "The system identifies acoustic changes" },
+    { y: 1095, label: "3  CORRECT", detail: "Monitor playback is adjusted" }
   ];
   steps.forEach((step, index) => {
     const process = reveal(subject, index + 1, "roomtune-step roomtune-step-" + index);
     node("rect", { x: 145, y: step.y, width: 790, height: 155, rx: 24, fill: "#14243c", stroke: index === 1 ? "#d8bd91" : "#70cfc4", "stroke-width": 4 }, process);
     text(process, 540, step.y + 62, step.label, 39, "#f3dfbb", { "text-anchor": "middle" });
-    text(process, 540, step.y + 112, step.detail, 24, "#c6d1e1", { "text-anchor": "middle", "font-weight": 500, "letter-spacing": 0.2 });
+    text(process, 540, step.y + 112, step.detail, 28, "#c6d1e1", { "text-anchor": "middle", "font-weight": 500, "letter-spacing": 0.2 });
     if (index < 2) {
       node("path", { d: "M540 " + (step.y + 158) + " L540 " + (step.y + 202) + " M525 " + (step.y + 188) + " L540 " + (step.y + 203) + " L555 " + (step.y + 188), fill: "none", stroke: "#d8bd91", "stroke-width": 6, "stroke-linecap": "round", "stroke-linejoin": "round" }, process);
     }
   });
-  const output = reveal(subject, 4, "roomtune-output");
-  speaker(output, 195, 1415, 0.38);
-  speaker(output, 730, 1415, 0.38);
-  text(output, 540, 1515, "CORRECTED MONITOR SIGNAL", 25, "#8de6d7", { "text-anchor": "middle" });
 }
 
 function buildDspStages(world) {
   const subject = node("g", { class: "scene-subject dsp-subject" }, world);
   const stages = [
-    { y: 535, label: "EQUALISATION", detail: "Shape the tonal balance", type: "eq" },
-    { y: 855, label: "COMPRESSION", detail: "Control changing dynamics", type: "compress" },
-    { y: 1175, label: "REVERB", detail: "Add a sense of space", type: "reverb" }
+    { y: 550, label: "EQUALISATION", detail: "Shape the tonal balance", type: "eq" },
+    { y: 820, label: "COMPRESSION", detail: "Control changing dynamics", type: "compress" },
+    { y: 1090, label: "REVERB", detail: "Add a sense of space", type: "reverb" }
   ];
   stages.forEach((stage, index) => {
     const card = reveal(subject, index, "dsp-stage dsp-" + stage.type);
-    node("rect", { x: 125, y: stage.y, width: 830, height: 260, rx: 30, fill: "#14233b", stroke: index === 1 ? "#d8bd91" : "#70cfc4", "stroke-width": 4 }, card);
-    node("rect", { x: 155, y: stage.y + 28, width: 250, height: 204, rx: 20, fill: "#0b1425", stroke: "#526985", "stroke-width": 2 }, card);
+    node("rect", { x: 125, y: stage.y, width: 830, height: 220, rx: 30, fill: "#14233b", stroke: index === 1 ? "#d8bd91" : "#70cfc4", "stroke-width": 4 }, card);
+    node("rect", { x: 155, y: stage.y + 28, width: 250, height: 184, rx: 20, fill: "#0b1425", stroke: "#526985", "stroke-width": 2 }, card);
     if (stage.type === "eq") {
       node("path", { d: "M180 " + (stage.y + 178) + " Q225 " + (stage.y + 176) + " 260 " + (stage.y + 105) + " T380 " + (stage.y + 65), fill: "none", stroke: "#8de6d7", "stroke-width": 9, "stroke-linecap": "round" }, card);
     } else if (stage.type === "compress") {
@@ -186,7 +176,6 @@ function buildDspStages(world) {
       node("rect", { x: 455 + i * 34, y: stage.y + 205, width: 16, height: 10 + (i % 4) * 8, rx: 4, fill: i % 3 ? "#70cfc4" : "#d8bd91", class: "dsp-meter" }, card);
     }
   });
-  text(subject, 540, 1490, "SIGNAL FLOWS THROUGH EACH PROCESSING STAGE", 26, "#d8bd91", { "text-anchor": "middle" });
 }
 
 function buildViolin(world) {
@@ -213,7 +202,6 @@ function buildViolin(world) {
   const notes = reveal(subject, 3, "violin-accents");
   node("path", { d: "M760 760 Q900 650 1010 750 M785 820 Q920 710 1035 810 M800 880 Q930 780 1060 880", fill: "none", stroke: "#70cfc4", "stroke-width": 6, "stroke-linecap": "round", "stroke-dasharray": "12 18", class: "sound-wave" }, notes);
   text(notes, 835, 650, "MUSIC", 38, "#d8bd91", { "text-anchor": "middle" });
-  text(subject, 540, 1535, "THE VIOLIN. THE PERFORMANCE. THE PAYOFF.", 27, "#d8bd91", { "text-anchor": "middle" });
 }
 
 const BUILDERS = {
@@ -273,12 +261,12 @@ function syncSceneIllustration(svg, seconds, progress = 0, sceneIndex = 0) {
   if (listener) listener.setAttribute("transform", "translate(0 " + (Math.sin(t * 1.35) * 8).toFixed(2) + ")");
   svg.querySelectorAll(".interface-knob").forEach((knob, index) => {
     const angle = -38 + ((t * 12 + index * 28) % 76);
-    knob.setAttribute("transform", "rotate(" + angle.toFixed(2) + " " + (300 + index * 160) + " 835)");
+    knob.setAttribute("transform", "rotate(" + angle.toFixed(2) + " " + (300 + index * 160) + " 785)");
   });
   svg.querySelectorAll(".interface-meter").forEach((meter, index) => {
-    const height = 20 + 75 * (0.5 + 0.5 * Math.sin(t * 5 + index * 0.7));
+    const height = 20 + 68 * (0.5 + 0.5 * Math.sin(t * 5 + index * 0.7));
     meter.setAttribute("height", String(height));
-    meter.setAttribute("y", String(1210 - height));
+    meter.setAttribute("y", String(1120 - height));
   });
   const bow = svg.querySelector(".bow-rig");
   if (bow) bow.setAttribute("transform", "translate(0 " + (Math.sin(t * 5.2) * 26).toFixed(2) + ") rotate(" + (Math.sin(t * 5.2) * 3.6).toFixed(2) + " 540 1080)");

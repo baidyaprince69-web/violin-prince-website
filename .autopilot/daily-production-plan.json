@@ -173,7 +173,7 @@
           }
         ]
       },
-      "sentence_fraction": 0.5
+      "sentence_fraction": 0.05
     }
   ],
   "performance_feedback": {
@@ -208,32 +208,32 @@
     "motion_profile": "portrait_narration_driven_2d",
     "visual_language": "full_screen_2d_motion_graphics",
     "pacing": "dynamic",
-    "reference_summary": "Five full-screen portrait-native original 2D scenes: a listening room with visible sound reflections, an audio interface hero, a vertically staged RoomTune measurement/correction sequence, three large DSP effects, and a close-up illustrated violin performance. Every scene uses layered artwork, meaningful camera movement, large contextual labels, narration-synchronised progressive reveals, and the Violin Prince midnight-navy and antique-gold identity.",
+    "reference_summary": "Five portrait-native 2D scenes: listening room and reflections; audio-interface hero; RoomTune measure/analyse/correct; EQ/compression/reverb; close-up violin payoff. Each uses original layered SVG artwork, camera movement, progressive reveals, contextual labels, and midnight-navy/antique-gold branding.",
     "scene_guidance": [
       {
-        "shot_type": "full_screen_room_hero",
-        "camera_move": "slow_push_in",
-        "transition_out": "sound_wave_wipe"
+        "shot_type": "wide_hero",
+        "camera_move": "pan_right",
+        "transition_out": "wipe_left"
       },
       {
-        "shot_type": "audio_interface_hero",
-        "camera_move": "push_in_then_reframe",
-        "transition_out": "gold_line_wipe"
+        "shot_type": "close_detail",
+        "camera_move": "pan_left",
+        "transition_out": "wipe_right"
       },
       {
-        "shot_type": "vertical_process_explainer",
-        "camera_move": "pan_down_follow_signal",
-        "transition_out": "signal_pulse_wipe"
+        "shot_type": "mechanism_cutaway",
+        "camera_move": "pan_down",
+        "transition_out": "smooth_left"
       },
       {
-        "shot_type": "stacked_dsp_stages",
-        "camera_move": "progressive_vertical_pan",
-        "transition_out": "echo_dissolve"
+        "shot_type": "overhead",
+        "camera_move": "pan_up",
+        "transition_out": "crossfade"
       },
       {
-        "shot_type": "violin_performance_close_up",
-        "camera_move": "cinematic_push_in",
-        "transition_out": "warm_fade"
+        "shot_type": "performance_close",
+        "camera_move": "locked",
+        "transition_out": "fade_through_black"
       }
     ]
   }

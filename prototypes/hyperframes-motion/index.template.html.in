@@ -47,7 +47,6 @@
     </section>
 
     <section id="narration-caption" class="narration-caption clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="4">
-      <p id="caption-kicker">KOKORO · WORD-SYNCHRONISED EXPLANATION</p>
       <div id="caption-line" aria-live="off"></div>
     </section>
 

@@ -6,17 +6,19 @@ visual production proceeds; there is no repeated workflow approval checkbox.
 """
 from __future__ import annotations
 
+import os
 import re
 from typing import Any
 
-CREATIVE_DIRECTION_VERSION = "music-facts-cinematic-v1"
+CREATIVE_DIRECTION_VERSION = "music-facts-portrait-motion-v2"
 
 CHANNEL_BRIEF = (
     "Violin Prince is a curiosity-driven music channel: real facts about the "
     "violin, instruments, acoustics, sound, melody, harmony, rhythm, song "
     "structure, music production and original violin covers, explained through "
-    "cinematic 3D-CGI imagery, animated diagrams, kinetic typography, sound "
-    "design and the creator's own violin performance."
+    "full-screen portrait-native 2D motion graphics, layered original SVG "
+    "illustrations, camera movement, animated diagrams, kinetic typography, "
+    "sound design and the creator's own violin performance."
 )
 
 STORY_TYPES = {
@@ -34,6 +36,7 @@ VISUAL_MODES = {
     "macro_3d",
     "mechanism_3d",
     "waveform",
+    "full_screen_2d",
     "melody_map",
     "comparison",
     "cover_performance",
@@ -69,6 +72,11 @@ VISUAL_MODE_PROMPTS = {
     "waveform": (
         "Show sound as dimensional acoustic ribbons, travelling wavefronts and "
         "glowing particles, grounded in the stated physical explanation."
+    ),
+    "full_screen_2d": (
+        "Build an original, layered 2D motion-graphics world that fills a vertical "
+        "9:16 frame; animate the main subject, foreground/background separation, "
+        "context labels and camera movement in sync with the narration."
     ),
     "melody_map": (
         "Turn the melody idea into an original animated visual map of pitch contour, "
@@ -130,8 +138,13 @@ def validate_creative_plan(plan: dict[str, Any]) -> list[str]:
         )
 
     scenes = plan.get("scenes")
-    if not isinstance(scenes, list) or len(scenes) != 3:
-        issues.append("The approved format requires exactly three visual story beats.")
+    motion_enabled = os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "").strip().lower() == "true"
+    expected_scene_count = 5 if motion_enabled else 3
+    if not isinstance(scenes, list) or len(scenes) != expected_scene_count:
+        if motion_enabled:
+            issues.append("The portrait-native Motion format requires exactly five visual story beats.")
+        else:
+            issues.append("The approved legacy format requires exactly three visual story beats.")
         return issues
 
     modes = []
@@ -153,11 +166,12 @@ def validate_creative_plan(plan: dict[str, Any]) -> list[str]:
             issues.append(f"Scene {index} needs a specific visual prompt.")
 
     if len(set(modes)) < 2:
-        issues.append("The three scenes need at least two distinct visual modes.")
+        issues.append("The story scenes need at least two distinct visual modes.")
     if scenes and isinstance(scenes[-1], dict):
+        payoff_scene_number = expected_scene_count
         if str(scenes[-1].get("visual_mode") or "").strip().casefold() != "cover_performance":
             issues.append(
-                "Scene 3 must deliver the musical payoff through a cover_performance insert."
+                f"Scene {payoff_scene_number} must deliver the musical payoff through a cover_performance insert."
             )
 
     return issues
