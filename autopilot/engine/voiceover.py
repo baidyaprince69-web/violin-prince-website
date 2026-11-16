@@ -166,10 +166,6 @@ def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict
     narration = re.sub(r"\s+", " ", str(text or "")).strip()
     if not narration:
         raise ValueError("Narration script is empty.")
-    word_count = len(re.findall(r"\b[\w’'-]+\b", narration))
-    if not 30 <= word_count <= 60:
-        raise ValueError("Narration must contain 30–60 spoken words.")
-
     sentences = split_sentences(narration)
     if not sentences:
         raise ValueError("Narration did not contain a speakable sentence.")
