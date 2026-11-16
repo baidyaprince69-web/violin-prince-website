@@ -244,13 +244,13 @@ function syncSceneIllustration(svg, seconds, progress = 0, sceneIndex = 0) {
     const driftX = Math.sin(t * 0.32 + sceneIndex) * (sceneIndex === 4 ? 14 : 22);
     const driftY = -18 * p + Math.cos(t * 0.24) * 8;
     const tx = 540 * (1 - scale) + driftX;
-    const ty = 960 * (1 - scale) + driftY;
+    const ty = 960 * (1 - scale) + 180 + driftY;
     world.setAttribute("transform", "matrix(" + scale.toFixed(5) + " 0 0 " + scale.toFixed(5) + " " + tx.toFixed(2) + " " + ty.toFixed(2) + ")");
   }
   svg.querySelectorAll(".reveal-part").forEach((part) => {
     const order = Number(part.getAttribute("data-reveal-order") || 0);
     const revealValue = Math.max(0, Math.min(1, (p - order * 0.23) / 0.18));
-    part.setAttribute("opacity", revealValue.toFixed(4));
+    part.style.opacity = revealValue.toFixed(4);
     part.setAttribute("transform", "translate(0 " + ((1 - revealValue) * 26).toFixed(2) + ")");
   });
   svg.querySelectorAll(".sound-wave").forEach((path, index) => {

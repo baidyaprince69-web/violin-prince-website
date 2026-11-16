@@ -152,7 +152,7 @@ class VisualReferenceTests(unittest.TestCase):
                 self.scenes,
             )
         self.assertTrue(issues)
-        self.assertIn("exactly three", issues[0])
+        self.assertIn("exactly 3", issues[0])
 
     def test_daily_scene_prompts_stay_within_provider_budget_and_keep_violin_identity(self):
         scenes = [

@@ -43,7 +43,7 @@ def validate_claim_evidence(
     sentences: list[str],
 ) -> list[dict[str, Any]]:
     """Require exact publisher quotes for sourced claims; exclude the Motion music payoff."""
-    motion_enabled = engine.is_motion_hyperframes_render_enabled()
+    motion_enabled = is_motion_hyperframes_render_enabled()
     expected_sentences = 5 if motion_enabled else 4
     if len(sentences) != expected_sentences:
         raise engine.PipelineError(
