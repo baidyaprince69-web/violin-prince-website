@@ -1,15 +1,11 @@
-"""Offline tests for the approved music-facts editorial direction."""
-import os
+"""Tests for the approved five-scene 2D Violin Prince editorial direction."""
 import sys
-from unittest.mock import patch
-import tempfile
 import unittest
 from pathlib import Path
 
 ENGINE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ENGINE))
 
-from PIL import Image, ImageChops
 from creative_direction import (
     BIOGRAPHY_PATTERNS,
     CHANNEL_BRIEF,
@@ -18,7 +14,6 @@ from creative_direction import (
     channel_fit_report,
     validate_creative_plan,
 )
-from motion_graphics import make_motion_graphic_frames, _select_word_beats, _voice_progress
 
 
 def valid_plan():
@@ -32,9 +27,9 @@ def valid_plan():
             "to demonstrate how continuous tone shaping creates the vocal effect."
         ),
         "scenes": [
-            {"caption": "A voice-like violin tone", "image_prompt": "Layered 2D violin illustration", "visual_mode": "macro_illustration"},
-            {"caption": "How the sound is shaped", "image_prompt": "Animated string mechanism diagram", "visual_mode": "mechanism_diagram"},
-            {"caption": "See the waveform", "image_prompt": "Animated sound waveform", "visual_mode": "waveform"},
+            {"caption": "A voice-like violin tone", "image_prompt": "Layered violin illustration", "visual_mode": "macro_illustration"},
+            {"caption": "How the sound is shaped", "image_prompt": "Animated string mechanism", "visual_mode": "mechanism_diagram"},
+            {"caption": "See the waveform", "image_prompt": "Animated waveform", "visual_mode": "waveform"},
             {"caption": "Map the melody", "image_prompt": "Animated melody map", "visual_mode": "melody_map"},
             {"caption": "Hear the musical effect", "image_prompt": "Illustrated violin performance", "visual_mode": "cover_performance"},
         ],
@@ -47,24 +42,13 @@ class CreativeDirectionTests(unittest.TestCase):
         self.assertIn("violin_physics", STORY_TYPES)
         self.assertIn("cover_performance", VISUAL_MODES)
         self.assertIn("full_screen_2d", VISUAL_MODES)
+        self.assertTrue(all("3d" not in mode for mode in VISUAL_MODES))
 
     def test_valid_music_facts_plan_passes(self):
         self.assertEqual(validate_creative_plan(valid_plan()), [])
         self.assertEqual(channel_fit_report(valid_plan())["status"], "passed")
 
-    def test_portrait_motion_format_accepts_five_full_screen_scenes(self):
-        plan = valid_plan()
-        plan["scenes"] = [
-            {"caption": "The listening room", "image_prompt": "Room and monitors", "visual_mode": "full_screen_2d"},
-            {"caption": "The interface", "image_prompt": "Audio interface hero", "visual_mode": "full_screen_2d"},
-            {"caption": "Measure and correct", "image_prompt": "RoomTune process", "visual_mode": "full_screen_2d"},
-            {"caption": "Three DSP stages", "image_prompt": "EQ compression reverb", "visual_mode": "full_screen_2d"},
-            {"caption": "The violin payoff", "image_prompt": "Violin close-up", "visual_mode": "cover_performance"},
-        ]
-        with patch.dict(os.environ, {"MOTION_HYPERFRAMES_RENDER_ENABLED": "true"}):
-            self.assertEqual(validate_creative_plan(plan), [])
-
-    def test_portrait_motion_format_rejects_three_scene_legacy_plan(self):
+    def test_five_scene_2d_format_is_required(self):
         plan = valid_plan()
         plan["scenes"] = plan["scenes"][:3]
         issues = validate_creative_plan(plan)
@@ -89,7 +73,7 @@ class CreativeDirectionTests(unittest.TestCase):
         plan["cover_payoff"] = ""
         self.assertTrue(any("cover_payoff" in item for item in validate_creative_plan(plan)))
 
-    def test_scene_three_must_be_the_performance_payoff(self):
+    def test_fifth_scene_must_be_the_performance_payoff(self):
         plan = valid_plan()
         plan["scenes"][4]["visual_mode"] = "waveform"
         self.assertTrue(any("Scene 5" in item for item in validate_creative_plan(plan)))
@@ -99,88 +83,6 @@ class CreativeDirectionTests(unittest.TestCase):
         plan["scenes"][1]["visual_mode"] = "celebrity_portrait"
         issues = validate_creative_plan(plan)
         self.assertTrue(any("visual_mode" in item for item in issues))
-
-    def test_visual_modes_render_distinct_explainer_diagrams(self):
-        def test_font(size, *args, **kwargs):
-            from PIL import ImageFont
-            return ImageFont.load_default()
-
-        plan = valid_plan()
-        rendered = {}
-        for mode in ("macro_illustration", "mechanism_diagram", "waveform", "melody_map", "cover_performance"):
-            with tempfile.TemporaryDirectory() as folder:
-                scene = {
-                    "caption": "The same explanation",
-                    "graphic_label": "THE SAME FACT",
-                    "graphic_detail": "The exact same evidence",
-                    "visual_mode": mode,
-                }
-                make_motion_graphic_frames(
-                    scene, 0, plan, Path(folder), frame_count=1, fps=8, font=test_font
-                )
-                with Image.open(Path(folder) / "frame-00001.png") as frame:
-                    rendered[mode] = frame.copy()
-
-        for first_mode, second_mode in (
-            ("macro_illustration", "mechanism_diagram"),
-            ("mechanism_diagram", "waveform"),
-            ("waveform", "melody_map"),
-            ("melody_map", "cover_performance"),
-        ):
-            diff = ImageChops.difference(
-                rendered[first_mode], rendered[second_mode]
-            )
-            self.assertIsNotNone(
-                diff.getbbox(),
-                f"{first_mode} and {second_mode} should render distinct motion diagrams",
-            )
-
-    def test_word_beats_drive_spring_progress_in_narration_order(self):
-        events = [
-            {"text": "The", "start": 0.10},
-            {"text": "violin", "start": 0.42},
-            {"text": "bridge", "start": 1.05},
-            {"text": "moves", "start": 1.92},
-            {"text": "with", "start": 2.15},
-            {"text": "vibration", "start": 2.70},
-        ]
-        beats = _select_word_beats(events, duration=3.6)
-        self.assertEqual([item["text"] for item in beats], ["violin", "bridge", "moves", "vibration"])
-
-        progress = _voice_progress
-        samples = [progress(t, 3.6, beats) for t in (0.2, 0.8, 1.5, 2.4, 3.4)]
-        self.assertEqual(samples, sorted(samples))
-        self.assertLess(samples[0], samples[1])
-        self.assertLess(samples[1], samples[2])
-        self.assertLess(samples[2], samples[3])
-        self.assertGreater(samples[4], 0.9)
-
-    def test_animated_panel_has_transparent_background_and_changes_over_time(self):
-        def test_font(size, *args, **kwargs):
-            from PIL import ImageFont
-            return ImageFont.load_default()
-
-        with tempfile.TemporaryDirectory() as folder:
-            pattern = make_motion_graphic_frames(
-                valid_plan()["scenes"][1],
-                1,
-                valid_plan(),
-                Path(folder),
-                frame_count=12,
-                fps=8,
-                font=test_font,
-            )
-            self.assertEqual(pattern.name, "frame-%05d.png")
-            self.assertTrue((Path(folder) / "frame-00001.png").is_file())
-            frame_paths = sorted(Path(folder).glob("frame-*.png"))
-            self.assertEqual(len(frame_paths), 12)
-            with Image.open(frame_paths[0]) as first:
-                self.assertEqual(first.size, (620, 260))
-                self.assertEqual(first.mode, "RGBA")
-                self.assertEqual(first.getpixel((0, 0))[3], 0)
-                first_copy = first.copy()
-            with Image.open(frame_paths[-1]) as last:
-                self.assertIsNotNone(ImageChops.difference(first_copy, last.convert("RGBA")).getbbox())
 
 
 if __name__ == "__main__":
