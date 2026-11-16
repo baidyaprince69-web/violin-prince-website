@@ -92,7 +92,6 @@ def normalize_production_plan(value: Any) -> dict[str, Any]:
 
 def run_daily_plan(plan_path: Path) -> int:
     os.environ["MOTION_HYPERFRAMES_RENDER_ENABLED"] = "true"
-    os.environ["BLENDER_RENDER_ENABLED"] = "false"
     os.environ["PUBLISH_ENABLED"] = "false"
     os.environ["YOUTUBE_PUBLISH_ENABLED"] = "false"
 
