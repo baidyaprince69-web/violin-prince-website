@@ -4721,8 +4721,13 @@ def _read_package(require_images=False):
     creative_issues = validate_creative_plan(plan)
     if creative_issues:
         raise PipelineError("Prepared package failed the Violin Prince creative-direction gate: " + " ".join(creative_issues))
-    if not isinstance(plan.get("scenes"), list) or len(plan["scenes"]) != 3:
-        raise PipelineError("Prepared package must contain exactly three planned scenes.")
+    motion_enabled = is_motion_hyperframes_render_enabled()
+    expected_scene_count = 5 if motion_enabled else 3
+    if not isinstance(plan.get("scenes"), list) or len(plan["scenes"]) != expected_scene_count:
+        raise PipelineError(
+            "Prepared package must contain exactly " + str(expected_scene_count) +
+            " planned scenes for the selected renderer."
+        )
     if motion_music_video:
         asset = metadata.get("asset") if isinstance(metadata.get("asset"), dict) else {}
         if (
@@ -4783,7 +4788,7 @@ def _read_package(require_images=False):
     review = metadata.get("story_review") or {}
     if require_images and review.get("approved") is not True:
         raise PipelineError("Render blocked: automated editorial quality gates did not clear this story before Visuals.")
-    image_paths = [PACKAGE / f"scene-{index + 1}.jpg" for index in range(3)]
+    image_paths = [PACKAGE / f"scene-{index + 1}.jpg" for index in range(expected_scene_count)]
     if require_images:
         for path in image_paths:
             if not path.is_file():
