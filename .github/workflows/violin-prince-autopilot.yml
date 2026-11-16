@@ -8,6 +8,7 @@ on:
     paths:
       - ".autopilot/daily-production-plan.json"
       - ".github/workflows/violin-prince-autopilot.yml"
+      - "prototypes/hyperframes-motion/**"
   workflow_dispatch:
     inputs:
       plan_path:
