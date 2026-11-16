@@ -22,15 +22,13 @@ def is_motion_hyperframes_render_enabled(value: str | None = None) -> bool:
     return str(raw).strip().lower() in {"1", "true", "yes", "on"}
 
 
-def select_renderer(motion_enabled: bool, blender_enabled: bool) -> str:
-    if motion_enabled and blender_enabled:
+def select_renderer(motion_enabled: bool, *_unused_legacy_flags: Any) -> str:
+    """Select the sole supported production renderer: Motion + HyperFrames."""
+    if not motion_enabled:
         raise MotionHyperFramesError(
-            "MOTION_HYPERFRAMES_RENDER_ENABLED and BLENDER_RENDER_ENABLED cannot both be true. "
-            "Choose the full-track 2D/2.5D route or the existing Blender 3D route."
+            "Motion + HyperFrames is the only supported production renderer."
         )
-    if motion_enabled:
-        return "motion_hyperframes"
-    return "blender" if blender_enabled else "standard"
+    return "motion_hyperframes"
 
 
 def _clean_text(value: Any, limit: int) -> str:
