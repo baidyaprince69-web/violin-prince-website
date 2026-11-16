@@ -48,7 +48,7 @@ def build_content_context(
     narration_info = narration_info if isinstance(narration_info, dict) else {}
     raw_scenes = plan.get("scenes") if isinstance(plan.get("scenes"), list) else []
     scenes = []
-    for scene in raw_scenes[:3]:
+    for scene in raw_scenes[:5]:
         if not isinstance(scene, dict):
             continue
         raw_graphic = scene.get("graphic_data")
@@ -72,7 +72,11 @@ def build_content_context(
                 "type": _clean_text(raw_graphic.get("type"), 24),
                 "items": graphic_items,
             }
+        sentence_index = scene.get("sentence_index", len(scenes))
+        if isinstance(sentence_index, bool) or not isinstance(sentence_index, int) or sentence_index < 0:
+            sentence_index = len(scenes)
         scenes.append({
+            "sentence_index": sentence_index,
             "caption": _clean_text(scene.get("caption"), 72),
             "visual_mode": _clean_text(scene.get("visual_mode"), 32),
             "graphic_label": _clean_text(scene.get("graphic_label"), 42),
@@ -324,8 +328,9 @@ def render_full_track(
         )
     else:
         shutil.copy2(narration_path, audio_path)
+    content_context = build_content_context(plan, narration_info)
     context_path.write_text(
-        json.dumps(build_content_context(plan, narration_info), ensure_ascii=False, indent=2) + "\n",
+        json.dumps(content_context, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
 
@@ -382,11 +387,18 @@ def render_full_track(
                   project_root, timeout_seconds)
         _run_step("Render the complete audio track", ["npm", "run", "render"],
                   project_root, timeout_seconds)
-        contact_sheet = output_dir / "contact-sheet.jpg"
-        _run_step("Create the contact sheet", [
+        contact_sheet = output_dir / "phone-preview-contact-sheet.jpg"
+        _run_step("Create five portrait phone-size scene previews", [
             "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
-            "-i", str(expected_mp4), "-vf", "fps=1/6,scale=270:480,tile=3x2",
+            "-i", str(expected_mp4), "-vf", "fps=1/4,scale=360:640,tile=2x3",
             "-frames:v", "1", str(contact_sheet),
+        ], project_root, timeout_seconds)
+        phone_preview = output_dir / "motion-phone-preview.jpg"
+        preview_time = min(1.0, max(0.0, expected_duration / 3.0))
+        _run_step("Render a single-frame 360x640 phone preview", [
+            "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+            "-ss", f"{preview_time:.3f}", "-i", str(expected_mp4),
+            "-vf", "scale=360:640", "-frames:v", "1", str(phone_preview),
         ], project_root, timeout_seconds)
         _run_step("Verify the full-track MP4", ["npm", "run", "verify"],
                   project_root, timeout_seconds)
@@ -404,6 +416,8 @@ def render_full_track(
         shutil.copy2(expected_mp4, destination)
         if contact_sheet.is_file():
             shutil.copy2(contact_sheet, destination.parent / "motion-contact-sheet.jpg")
+        if phone_preview.is_file():
+            shutil.copy2(phone_preview, destination.parent / "motion-phone-preview.jpg")
         seeking_report = output_dir / "seeking-check" / "seeking-report.json"
         if seeking_report.is_file():
             shutil.copy2(seeking_report, destination.parent / "motion-seeking-report.json")
@@ -429,6 +443,10 @@ def render_full_track(
             "visual_sequence_duration_seconds": expected_duration,
             "visual_sequence_repeats": False,
             "content_context_used": True,
+            "storyboard_scene_count": len(content_context.get("scenes", [])),
+            "phone_preview_size": "360x640",
+            "phone_preview_contact_sheet": "motion-contact-sheet.jpg",
+            "phone_preview_frame": "motion-phone-preview.jpg",
             "hyperframes_check_ok": check_report.get("ok") is True,
         }
     finally:

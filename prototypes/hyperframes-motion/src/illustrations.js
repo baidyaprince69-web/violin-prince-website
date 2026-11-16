@@ -1,198 +1,294 @@
 const SVG_NS = "http://www.w3.org/2000/svg";
 
-function svgNode(tag, attributes = {}, parent = null) {
-  const node = document.createElementNS(SVG_NS, tag);
-  for (const [key, value] of Object.entries(attributes)) {
-    if (value !== undefined && value !== null) node.setAttribute(key, String(value));
+function node(tag, attrs = {}, parent = null) {
+  const el = document.createElementNS(SVG_NS, tag);
+  for (const [key, value] of Object.entries(attrs)) {
+    if (value !== undefined && value !== null) el.setAttribute(key, String(value));
   }
-  if (parent) parent.appendChild(node);
-  return node;
+  if (parent) parent.appendChild(el);
+  return el;
 }
 
-function svgText(parent, x, y, value, size = 15, color = "#e8edf6", extra = {}) {
-  const node = svgNode("text", {
-    x, y, fill: color, "font-size": size, "font-family": "Arial, Helvetica, sans-serif",
-    "font-weight": 700, "letter-spacing": 1.4, ...extra
+function text(parent, x, y, value, size = 32, color = "#e8edf6", extra = {}) {
+  const el = node("text", {
+    x, y, fill: color, "font-size": size,
+    "font-family": "Arial, Helvetica, sans-serif",
+    "font-weight": 700, "letter-spacing": 1.1, ...extra
   }, parent);
-  node.textContent = String(value || "");
-  return node;
+  el.textContent = String(value || "");
+  return el;
 }
 
-function addDefs(svg) {
-  const defs = svgNode("defs", {}, svg);
-  const bg = svgNode("linearGradient", {id:"vp-scene-bg",x1:"0",y1:"0",x2:"1",y2:"1"}, defs);
-  svgNode("stop", {offset:"0%","stop-color":"#17243d"}, bg);
-  svgNode("stop", {offset:"100%","stop-color":"#080d1b"}, bg);
-  const gold = svgNode("linearGradient", {id:"vp-scene-gold",x1:"0",y1:"0",x2:"1",y2:"1"}, defs);
-  svgNode("stop", {offset:"0%","stop-color":"#f6dfb7"}, gold);
-  svgNode("stop", {offset:"100%","stop-color":"#b9894f"}, gold);
-  const teal = svgNode("linearGradient", {id:"vp-scene-teal",x1:"0",y1:"0",x2:"1",y2:"0"}, defs);
-  svgNode("stop", {offset:"0%","stop-color":"#5ad0c3","stop-opacity":"0.18"}, teal);
-  svgNode("stop", {offset:"100%","stop-color":"#5ad0c3","stop-opacity":"0.92"}, teal);
-  const glow = svgNode("filter", {id:"vp-scene-glow",x:"-60%",y:"-60%",width:"220%",height:"220%"}, defs);
-  svgNode("feGaussianBlur", {stdDeviation:"5",result:"blur"}, glow);
-  const merge = svgNode("feMerge", {}, glow);
-  svgNode("feMergeNode", {in:"blur"}, merge);
-  svgNode("feMergeNode", {in:"SourceGraphic"}, merge);
+function defs(svg) {
+  const d = node("defs", {}, svg);
+  const bg = node("linearGradient", { id: "vp-full-bg", x1: "0", y1: "0", x2: "1", y2: "1" }, d);
+  node("stop", { offset: "0%", "stop-color": "#17243e" }, bg);
+  node("stop", { offset: "52%", "stop-color": "#0c1429" }, bg);
+  node("stop", { offset: "100%", "stop-color": "#070b17" }, bg);
+  const gold = node("linearGradient", { id: "vp-full-gold", x1: "0", y1: "0", x2: "1", y2: "1" }, d);
+  node("stop", { offset: "0%", "stop-color": "#f5dfb9" }, gold);
+  node("stop", { offset: "100%", "stop-color": "#ac7540" }, gold);
+  const glow = node("filter", { id: "vp-full-glow", x: "-70%", y: "-70%", width: "240%", height: "240%" }, d);
+  node("feGaussianBlur", { stdDeviation: "10", result: "blur" }, glow);
+  const merge = node("feMerge", {}, glow);
+  node("feMergeNode", { in: "blur" }, merge);
+  node("feMergeNode", { in: "SourceGraphic" }, merge);
 }
 
-function addPanel(svg) {
-  svgNode("rect", {x:9,y:8,width:882,height:364,rx:28,fill:"url(#vp-scene-bg)",stroke:"rgba(214,190,151,0.34)","stroke-width":1.5}, svg);
-  svgNode("path", {d:"M30 305 C180 270 260 340 420 305 S690 270 870 310",fill:"none",stroke:"rgba(112,151,190,0.16)","stroke-width":1}, svg);
-  for(let i=0;i<7;i+=1) svgNode("circle",{cx:70+i*128,cy:35+(i%2)*18,r:2+(i%3),fill:i%2?"#70cfc4":"#d8bd91","fill-opacity":0.25+(i%3)*0.08},svg);
+function background(svg, accent) {
+  node("rect", { x: 0, y: 0, width: 1080, height: 1920, fill: "url(#vp-full-bg)" }, svg);
+  node("circle", { cx: 540, cy: 1010, r: 570, fill: accent, "fill-opacity": 0.05 }, svg);
+  node("path", { d: "M0 500 Q540 390 1080 500 M0 1450 Q540 1550 1080 1450", fill: "none", stroke: "#d8bd91", "stroke-opacity": 0.1, "stroke-width": 2 }, svg);
+  for (let i = 0; i < 18; i += 1) {
+    const x = (i * 173 + 61) % 1040 + 20;
+    const y = (i * 227 + 560) % 840 + 500;
+    node("circle", { cx: x, cy: y, r: 2 + (i % 3), fill: i % 2 ? "#70cfc4" : "#d8bd91", "fill-opacity": 0.22 }, svg);
+  }
 }
 
-function addSpeaker(parent,x,y,scale=1) {
-  const g=svgNode("g",{transform:`translate(${x} ${y}) scale(${scale})`},parent);
-  svgNode("rect",{x:0,y:0,width:66,height:112,rx:10,fill:"#111b30",stroke:"#d8bd91","stroke-opacity":0.72,"stroke-width":2},g);
-  svgNode("rect",{x:7,y:8,width:52,height:96,rx:7,fill:"#24314b",stroke:"#6b7e9a","stroke-opacity":0.65},g);
-  svgNode("circle",{cx:33,cy:38,r:11,fill:"#111b30",stroke:"#d8bd91","stroke-width":2},g);
-  svgNode("circle",{cx:33,cy:77,r:20,fill:"#0b1325",stroke:"#70cfc4","stroke-opacity":0.75,"stroke-width":2},g);
-  svgNode("circle",{cx:33,cy:77,r:8,fill:"#b9894f","fill-opacity":0.65},g);
+function speaker(parent, x, y, scale = 1) {
+  const g = node("g", { class: "room-monitor", transform: "translate(" + x + " " + y + ") scale(" + scale + ")" }, parent);
+  node("rect", { x: 0, y: 0, width: 150, height: 280, rx: 20, fill: "#101a2c", stroke: "#d8bd91", "stroke-width": 4 }, g);
+  node("rect", { x: 13, y: 13, width: 124, height: 254, rx: 14, fill: "#243653", stroke: "#8397b8", "stroke-opacity": 0.6, "stroke-width": 2 }, g);
+  node("circle", { cx: 75, cy: 78, r: 30, fill: "#0b1324", stroke: "#d8bd91", "stroke-width": 4 }, g);
+  node("circle", { cx: 75, cy: 190, r: 54, fill: "#0b1324", stroke: "#70cfc4", "stroke-width": 4 }, g);
+  node("circle", { cx: 75, cy: 190, r: 24, fill: "url(#vp-full-gold)" }, g);
   return g;
 }
 
-function buildRoom(svg) {
-  const room=svgNode("g",{class:"room-art"},svg);
-  svgNode("path",{d:"M78 65 L822 65 L850 263 L50 263 Z",fill:"#192944",stroke:"#72839e","stroke-opacity":0.38,"stroke-width":2},room);
-  svgNode("path",{d:"M50 263 L850 263 L800 342 L100 342 Z",fill:"#111c31",stroke:"#8b9ab1","stroke-opacity":0.22,"stroke-width":1.5},room);
-  for(let i=0;i<8;i+=1){const x=130+i*90;svgNode("path",{d:`M${x} 67 L${x-18} 262`,stroke:"#9aa8bd","stroke-opacity":0.08,"stroke-width":1},room);}
-  addSpeaker(room,118,135,1.02);addSpeaker(room,710,135,1.02);
-  svgText(room,117,125,"LEFT MONITOR",10,"#d8bd91",{"data-layout-ignore":"true"});
-  svgText(room,770,125,"RIGHT MONITOR",10,"#d8bd91",{"text-anchor":"end","data-layout-ignore":"true"});
-  svgNode("path",{d:"M90 275 L810 275",stroke:"#d8bd91","stroke-opacity":0.25,"stroke-width":2},room);
-  svgNode("path",{d:"M155 290 L745 290",stroke:"#6d819e","stroke-opacity":0.2,"stroke-width":1},room);
-  const waves=svgNode("g",{class:"room-wave-group"},room);
-  [
-    "M188 186 C250 125 330 130 390 190",
-    "M188 186 C270 95 365 100 435 190",
-    "M710 186 C650 125 570 130 510 190",
-    "M710 186 C630 95 535 100 465 190",
-    "M250 208 C330 260 570 260 650 208"
-  ].forEach((d,i)=>svgNode("path",{d,class:"sound-wave",fill:"none",stroke:i%2?"#70cfc4":"#d8bd91","stroke-width":i===4?2:2.4,"stroke-linecap":"round","stroke-dasharray":"8 13","stroke-opacity":0.68},waves));
-  const person=svgNode("g",{class:"listener-character"},room);
-  svgNode("circle",{cx:585,cy:155,r:24,fill:"#b9894f",stroke:"#f0d9b0","stroke-width":2},person);
-  svgNode("path",{d:"M563 151 Q565 119 595 128 Q607 137 609 155 Q594 144 581 145 Z",fill:"#111827"},person);
-  svgNode("path",{d:"M565 188 Q586 173 608 190 L628 267 L549 267 Z",fill:"#314766",stroke:"#8da3c6","stroke-width":2},person);
-  svgNode("path",{d:"M566 211 Q530 218 503 244 L493 252",fill:"none",stroke:"#d9b88c","stroke-width":13,"stroke-linecap":"round"},person);
-  svgNode("path",{d:"M594 210 Q632 218 651 243",fill:"none",stroke:"#d9b88c","stroke-width":12,"stroke-linecap":"round"},person);
-  svgNode("path",{d:"M562 264 L550 321 M613 264 L627 321",fill:"none",stroke:"#101a2b","stroke-width":16,"stroke-linecap":"round"},person);
-  svgNode("path",{d:"M533 324 L568 324 M610 324 L645 324",fill:"none",stroke:"#b9894f","stroke-width":8,"stroke-linecap":"round"},person);
-  const mic=svgNode("g",{class:"microphone"},room);
-  svgNode("path",{d:"M448 220 L448 306 M425 306 L471 306",stroke:"#d8bd91","stroke-width":3,"stroke-linecap":"round"},mic);
-  svgNode("rect",{x:438,y:178,width:20,height:48,rx:10,fill:"#d8bd91",stroke:"#fff1d6","stroke-width":2},mic);
-  svgNode("path",{d:"M442 190 L442 213 M448 190 L448 213 M454 190 L454 213",stroke:"#56627a","stroke-width":1.6},mic);
-  svgText(room,448,338,"MEASUREMENT POINT",10,"#d8bd91",{"text-anchor":"middle","data-layout-ignore":"true"});
-  svgText(room,610,338,"LISTENING POSITION",10,"#70cfc4",{"text-anchor":"middle","data-layout-ignore":"true"});
+function reveal(parent, order, extra = "") {
+  return node("g", { class: ("reveal-part " + extra).trim(), "data-reveal-order": order }, parent);
 }
 
-function buildSignalChain(svg) {
-  const g=svgNode("g",{class:"signal-art"},svg);
-  const cardWidth=200;
-  const cards=[
-    {x:48,label:"MEASURE",detail:"Room response",accent:"#70cfc4"},
-    {x:320,label:"PROCESS",detail:"DSP correction",accent:"#d8bd91"},
-    {x:570,label:"PLAY BACK",detail:"Monitor output",accent:"#70cfc4"}
-  ];
-  cards.forEach((card,index)=>{
-    const c=svgNode("g",{class:"signal-card"},g);
-    svgNode("rect",{x:card.x,y:68,width:cardWidth,height:236,rx:20,fill:"#111d33",stroke:card.accent,"stroke-opacity":0.7,"stroke-width":2},c);
-    svgNode("rect",{x:card.x+12,y:80,width:cardWidth-24,height:212,rx:14,fill:"#1c2b46","fill-opacity":0.62,stroke:"#d7e2f4","stroke-opacity":0.08},c);
-    if(index===0){
-      svgNode("rect",{x:card.x+81,y:103,width:38,height:54,rx:18,fill:"#d8bd91"},c);
-      svgNode("path",{d:`M${card.x+100} 157 L${card.x+100} 190 M${card.x+73} 190 L${card.x+127} 190`,stroke:"#d8bd91","stroke-width":4,"stroke-linecap":"round"},c);
-      svgNode("path",{d:`M${card.x+64} 130 Q${card.x+48} 158 ${card.x+65} 171 M${card.x+136} 130 Q${card.x+152} 158 ${card.x+135} 171`,fill:"none",stroke:"#70cfc4","stroke-width":3,"stroke-dasharray":"5 6"},c);
-    } else if(index===1){
-      svgNode("rect",{x:card.x+59,y:102,width:82,height:72,rx:8,fill:"#101b30",stroke:"#d8bd91","stroke-width":2},c);
-      for(let pin=0;pin<4;pin+=1)svgNode("path",{d:`M${card.x+68+pin*18} 92 L${card.x+68+pin*18} 102 M${card.x+68+pin*18} 174 L${card.x+68+pin*18} 184`,stroke:"#d8bd91","stroke-width":3},c);
-      svgNode("path",{d:`M${card.x+72} 148 Q${card.x+86} 115 ${card.x+100} 136 T${card.x+130} 121`,fill:"none",stroke:"#70cfc4","stroke-width":3},c);
-    } else addSpeaker(c,card.x+45,100,0.9);
-    if(index===2){
-      // Keep the final card's large heading inside TikTok's stepped right-safe band.
-      svgText(c,card.x+65,250,"PLAY",37,"#f4f0e9",{"text-anchor":"middle"});
-      svgText(c,card.x+65,289,"BACK",37,"#f4f0e9",{"text-anchor":"middle"});
-    } else {
-      svgText(c,card.x+100,258,card.label,37,"#f4f0e9",{"text-anchor":"middle"});
-    }
-    svgText(c,card.x+100,290,card.detail,18,"#b8c5d9",{"text-anchor":"middle","letter-spacing":0.3,"font-weight":500,"data-layout-ignore":"true"});
-  });
-  for(let i=0;i<cards.length-1;i+=1){
-    const x1=cards[i].x+cardWidth,x2=cards[i+1].x-4;
-    svgNode("path",{d:`M${x1} 181 L${x2} 181`,stroke:"#d8bd91","stroke-width":3,"stroke-linecap":"round","stroke-dasharray":"8 7"},g);
-    svgNode("path",{d:`M${x2-12} 171 L${x2} 181 L${x2-12} 191`,fill:"none",stroke:"#d8bd91","stroke-width":3,"stroke-linecap":"round","stroke-linejoin":"round"},g);
-    svgNode("circle",{cx:x1,cy:181,r:7,fill:"#70cfc4",class:"signal-pulse","data-start-x":x1,"data-end-x":x2},g);
+function buildRoom(world) {
+  const subject = node("g", { class: "scene-subject room-subject" }, world);
+  node("path", { d: "M70 530 L1010 530 L1010 1125 L70 1125 Z", fill: "#182944", stroke: "#7388a8", "stroke-opacity": 0.5, "stroke-width": 4 }, subject);
+  node("path", { d: "M70 1125 L1010 1125 L1080 1510 L0 1510 Z", fill: "#0d1729", stroke: "#8796ad", "stroke-opacity": 0.24, "stroke-width": 3 }, subject);
+  for (let i = 0; i < 9; i += 1) {
+    const x = 130 + i * 102;
+    node("path", { d: "M" + x + " 545 L" + (x - 24) + " 1115", stroke: "#9baac0", "stroke-opacity": 0.11, "stroke-width": 12 }, subject);
   }
-  svgText(g,450,322,"A CONCEPTUAL SIGNAL PATH — NOT A MEASURED RESPONSE",14,"#9eabc0",{"text-anchor":"middle","letter-spacing":0.7,"data-layout-ignore":"true"});
+  speaker(reveal(subject, 0), 115, 785, 1.12);
+  speaker(reveal(subject, 0), 815, 785, 1.12);
+  text(subject, 190, 750, "STUDIO MONITORS", 30, "#d8bd91", { "text-anchor": "middle" });
+  text(subject, 890, 750, "STUDIO MONITORS", 30, "#d8bd91", { "text-anchor": "middle" });
+  const reflections = reveal(subject, 1, "room-reflections");
+  [
+    "M280 905 C350 700 465 720 510 920",
+    "M280 905 C365 600 510 620 560 920",
+    "M800 905 C730 700 615 720 570 920",
+    "M800 905 C715 600 570 620 520 920",
+    "M210 1090 C370 1280 710 1280 870 1090",
+    "M160 1150 C370 1400 710 1400 920 1150"
+  ].forEach((d, i) => node("path", {
+    d, class: "sound-wave", fill: "none", stroke: i % 2 ? "#70cfc4" : "#d8bd91",
+    "stroke-width": i > 3 ? 5 : 7, "stroke-linecap": "round",
+    "stroke-dasharray": "18 22", "stroke-opacity": 0.82
+  }, reflections));
+  const listener = reveal(subject, 1, "listener-character");
+  node("path", { d: "M390 1160 Q390 970 540 955 Q690 970 690 1160 L740 1425 L340 1425 Z", fill: "#17243c", stroke: "#8da3c6", "stroke-width": 5 }, listener);
+  node("circle", { cx: 540, cy: 865, r: 78, fill: "#bd9161", stroke: "#f4d9b2", "stroke-width": 4 }, listener);
+  node("path", { d: "M463 866 Q455 760 545 760 Q632 765 620 885 Q580 830 520 838 Q495 845 463 866 Z", fill: "#0a1120" }, listener);
+  node("path", { d: "M418 1070 Q325 1100 285 1215 L320 1250 Q400 1195 474 1180 M660 1070 Q755 1100 795 1215 L760 1250 Q680 1195 606 1180", fill: "none", stroke: "#bd9161", "stroke-width": 38, "stroke-linecap": "round" }, listener);
+  node("path", { d: "M415 1410 L385 1500 M665 1410 L695 1500", stroke: "#0b1425", "stroke-width": 48, "stroke-linecap": "round" }, listener);
+  const desk = reveal(subject, 2);
+  node("path", { d: "M180 1435 L900 1435 L860 1490 L220 1490 Z", fill: "#654b37", stroke: "#d8bd91", "stroke-width": 4 }, desk);
+  text(subject, 540, 650, "THE LISTENING ROOM", 38, "#d8bd91", { "text-anchor": "middle" });
+  text(subject, 540, 1370, "REFLECTED SOUND CHANGES WHAT YOU HEAR", 28, "#8de6d7", { "text-anchor": "middle" });
 }
 
-function buildViolinPerformance(svg) {
-  const g=svgNode("g",{class:"violin-performance"},svg);
-  const performer=svgNode("g",{class:"performer-character"},g);
-  svgNode("circle",{cx:184,cy:145,r:33,fill:"#c89b67",stroke:"#f2d9b2","stroke-width":2},performer);
-  svgNode("path",{d:"M151 142 Q151 98 188 105 Q214 111 218 146 Q196 128 176 132 Z",fill:"#111827"},performer);
-  svgNode("path",{d:"M173 181 Q208 167 238 196 L254 306 L120 306 L137 207 Z",fill:"#304463",stroke:"#8da3c6","stroke-width":2},performer);
-  svgNode("path",{d:"M229 202 Q270 189 319 207 L375 191",fill:"none",stroke:"#c89b67","stroke-width":18,"stroke-linecap":"round",class:"performer-arm"},performer);
-  svgNode("path",{d:"M153 214 Q123 235 110 274",fill:"none",stroke:"#c89b67","stroke-width":17,"stroke-linecap":"round"},performer);
-
-  const violin=svgNode("g",{class:"illustrated-violin"},g);
-  svgNode("path",{d:"M451 47 L475 47 L470 164 L456 178 L444 164 Z",fill:"#a66d3f",stroke:"#f0d4a6","stroke-width":2},violin);
-  svgNode("circle",{cx:463,cy:40,r:15,fill:"#a66d3f",stroke:"#f0d4a6","stroke-width":3},violin);
-  svgNode("path",{d:"M453 70 L473 70 L466 244 L450 244 Z",fill:"#172035",stroke:"#d8bd91","stroke-width":1.5},violin);
-  svgNode("path",{d:"M450 132 C419 113 388 130 390 164 C362 181 368 222 397 242 C403 270 430 292 462 310 C494 292 521 270 527 242 C556 222 562 181 534 164 C536 130 505 113 474 132 L462 154 Z",fill:"url(#vp-scene-gold)",stroke:"#f8e4c1","stroke-width":3},violin);
-  svgNode("path",{d:"M410 168 Q430 158 450 172 L450 229 Q429 241 410 223 M514 168 Q494 158 474 172 L474 229 Q495 241 514 223",fill:"none",stroke:"#7c4e2e","stroke-width":5},violin);
-  svgNode("path",{d:"M430 183 C418 194 440 201 428 218 M492 183 C504 194 482 201 494 218",fill:"none",stroke:"#633d29","stroke-width":5,"stroke-linecap":"round"},violin);
-  svgNode("path",{d:"M448 205 L476 205 L472 221 L452 221 Z",fill:"#e7d1a9",stroke:"#8d633d","stroke-width":2},violin);
-  svgNode("path",{d:"M454 227 L470 227 L482 282 L442 282 Z",fill:"#74492e",stroke:"#d6b58a","stroke-width":2},violin);
-  for(let i=0;i<4;i+=1)svgNode("path",{d:`M${454+i*5} 55 L${450+i*5} 285`,stroke:i===1?"#fff0d1":"#594a40","stroke-width":i===1?1.8:1.2,"stroke-opacity":0.92},violin);
-  svgNode("path",{d:"M445 288 Q462 300 479 288",fill:"none",stroke:"#f0d8b2","stroke-width":3},violin);
-
-  const bow=svgNode("g",{class:"bow-rig"},g);
-  svgNode("path",{d:"M325 219 Q450 184 580 211",stroke:"#d8bd91","stroke-width":7,"stroke-linecap":"round",fill:"none"},bow);
-  svgNode("path",{d:"M325 227 Q450 192 580 219",stroke:"#f7ecd7","stroke-width":2,"stroke-linecap":"round",fill:"none"},bow);
-  svgNode("rect",{x:315,y:207,width:18,height:32,rx:5,fill:"#27283a",stroke:"#d8bd91","stroke-width":2},bow);
-  svgText(g,560,112,"SOUND TAKES SHAPE",18,"#d8bd91",{"text-anchor":"middle","data-layout-ignore":"true"});
-  svgNode("path",{d:"M520 155 Q590 112 660 155 M515 178 Q590 135 665 178 M510 201 Q590 158 670 201",class:"sound-wave",fill:"none",stroke:"#70cfc4","stroke-width":3,"stroke-linecap":"round","stroke-dasharray":"7 12"},g);
-  svgText(g,635,270,"♪",34,"#f0d8b2",{"text-anchor":"middle",class:"music-note note-float","data-layout-ignore":"true"});
-  svgText(g,675,235,"♫",27,"#70cfc4",{"text-anchor":"middle",class:"music-note note-float","data-layout-ignore":"true"});
-  svgText(g,450,345,"ILLUSTRATED VIOLIN PERFORMANCE",14,"#9eabc0",{"text-anchor":"middle","letter-spacing":0.7,"data-layout-ignore":"true"});
+function buildInterface(world) {
+  const subject = node("g", { class: "scene-subject interface-subject" }, world);
+  node("path", { d: "M540 520 L540 620 M540 1415 L540 1510", stroke: "#d8bd91", "stroke-opacity": 0.42, "stroke-width": 5, "stroke-dasharray": "10 18" }, subject);
+  const chassis = reveal(subject, 0, "interface-chassis");
+  node("rect", { x: 145, y: 585, width: 790, height: 865, rx: 38, fill: "#101b30", stroke: "#d8bd91", "stroke-width": 7 }, chassis);
+  node("rect", { x: 174, y: 615, width: 732, height: 805, rx: 24, fill: "#1b2b45", stroke: "#7489a8", "stroke-opacity": 0.5, "stroke-width": 3 }, chassis);
+  node("path", { d: "M205 1005 L875 1005", stroke: "#d8bd91", "stroke-opacity": 0.48, "stroke-width": 4 }, chassis);
+  text(chassis, 540, 690, "CONSOLE-STYLE PREAMPS", 38, "#d8bd91", { "text-anchor": "middle" });
+  for (let i = 0; i < 4; i += 1) {
+    const cx = 300 + i * 160;
+    node("circle", { cx, cy: 835, r: 62, fill: "#0b1425", stroke: "#d8bd91", "stroke-width": 5 }, chassis);
+    node("circle", { cx, cy: 835, r: 42, fill: "#263c5d", stroke: "#7188ad", "stroke-width": 3 }, chassis);
+    node("path", { d: "M" + cx + " 835 L" + (cx + 30) + " 805", stroke: "#f2d9b2", "stroke-width": 8, "stroke-linecap": "round", class: "interface-knob", "data-knob-index": i }, chassis);
+    node("circle", { cx, cy: 835, r: 8, fill: "#70cfc4" }, chassis);
+  }
+  const screen = reveal(subject, 1, "interface-screen");
+  node("rect", { x: 255, y: 1085, width: 570, height: 155, rx: 16, fill: "#081321", stroke: "#70cfc4", "stroke-width": 4 }, screen);
+  for (let i = 0; i < 24; i += 1) {
+    const height = 24 + ((i * 31) % 92);
+    node("rect", { x: 285 + i * 22, y: 1210 - height, width: 11, height, rx: 5, fill: i % 3 ? "#70cfc4" : "#d8bd91", class: "interface-meter", "data-meter-height": height }, screen);
+  }
+  text(screen, 540, 1150, "ONBOARD DIGITAL PROCESSING", 29, "#e8edf6", { "text-anchor": "middle" });
+  const dsp = reveal(subject, 2, "interface-dsp");
+  [
+    { x: 250, label: "EQ" }, { x: 455, label: "COMP" }, { x: 660, label: "REVERB" }
+  ].forEach((item) => {
+    node("rect", { x: item.x, y: 1285, width: 170, height: 82, rx: 15, fill: "#0b1728", stroke: "#d8bd91", "stroke-width": 3 }, dsp);
+    text(dsp, item.x + 85, 1340, item.label, 31, "#d8bd91", { "text-anchor": "middle" });
+  });
+  text(subject, 540, 520, "AUDIO INTERFACE", 42, "#f4e8d3", { "text-anchor": "middle" });
+  text(subject, 540, 1495, "PREAMP INPUT  →  DSP  →  MONITOR OUTPUT", 27, "#8de6d7", { "text-anchor": "middle" });
 }
+
+function buildRoomTune(world) {
+  const subject = node("g", { class: "scene-subject roomtune-subject" }, world);
+  const mic = reveal(subject, 0, "measurement-mic");
+  node("path", { d: "M540 580 L540 800 M475 800 L605 800", stroke: "#d8bd91", "stroke-width": 10, "stroke-linecap": "round" }, mic);
+  node("rect", { x: 495, y: 485, width: 90, height: 145, rx: 44, fill: "url(#vp-full-gold)", stroke: "#fff0d1", "stroke-width": 5 }, mic);
+  node("path", { d: "M516 515 L516 600 M540 515 L540 600 M564 515 L564 600", stroke: "#5f6270", "stroke-width": 5 }, mic);
+  [0, 1, 2].forEach((i) => {
+    const left = 410 - i * 45, right = 670 + i * 45, top = 545 - i * 45, rise = 365 - i * 48;
+    node("path", { d: "M" + left + " " + top + " Q540 " + rise + " " + right + " " + top, fill: "none", stroke: "#70cfc4", "stroke-width": 5, "stroke-dasharray": "12 18", class: "sound-wave", "stroke-opacity": 0.75 }, mic);
+  });
+  const steps = [
+    { y: 855, label: "1  MEASURE", detail: "Microphone captures the room response" },
+    { y: 1065, label: "2  ANALYSE", detail: "The system identifies acoustic changes" },
+    { y: 1275, label: "3  CORRECT", detail: "Monitor playback is adjusted" }
+  ];
+  steps.forEach((step, index) => {
+    const process = reveal(subject, index + 1, "roomtune-step roomtune-step-" + index);
+    node("rect", { x: 145, y: step.y, width: 790, height: 155, rx: 24, fill: "#14243c", stroke: index === 1 ? "#d8bd91" : "#70cfc4", "stroke-width": 4 }, process);
+    text(process, 540, step.y + 62, step.label, 39, "#f3dfbb", { "text-anchor": "middle" });
+    text(process, 540, step.y + 112, step.detail, 24, "#c6d1e1", { "text-anchor": "middle", "font-weight": 500, "letter-spacing": 0.2 });
+    if (index < 2) {
+      node("path", { d: "M540 " + (step.y + 158) + " L540 " + (step.y + 202) + " M525 " + (step.y + 188) + " L540 " + (step.y + 203) + " L555 " + (step.y + 188), fill: "none", stroke: "#d8bd91", "stroke-width": 6, "stroke-linecap": "round", "stroke-linejoin": "round" }, process);
+    }
+  });
+  const output = reveal(subject, 4, "roomtune-output");
+  speaker(output, 195, 1415, 0.38);
+  speaker(output, 730, 1415, 0.38);
+  text(output, 540, 1515, "CORRECTED MONITOR SIGNAL", 25, "#8de6d7", { "text-anchor": "middle" });
+}
+
+function buildDspStages(world) {
+  const subject = node("g", { class: "scene-subject dsp-subject" }, world);
+  const stages = [
+    { y: 535, label: "EQUALISATION", detail: "Shape the tonal balance", type: "eq" },
+    { y: 855, label: "COMPRESSION", detail: "Control changing dynamics", type: "compress" },
+    { y: 1175, label: "REVERB", detail: "Add a sense of space", type: "reverb" }
+  ];
+  stages.forEach((stage, index) => {
+    const card = reveal(subject, index, "dsp-stage dsp-" + stage.type);
+    node("rect", { x: 125, y: stage.y, width: 830, height: 260, rx: 30, fill: "#14233b", stroke: index === 1 ? "#d8bd91" : "#70cfc4", "stroke-width": 4 }, card);
+    node("rect", { x: 155, y: stage.y + 28, width: 250, height: 204, rx: 20, fill: "#0b1425", stroke: "#526985", "stroke-width": 2 }, card);
+    if (stage.type === "eq") {
+      node("path", { d: "M180 " + (stage.y + 178) + " Q225 " + (stage.y + 176) + " 260 " + (stage.y + 105) + " T380 " + (stage.y + 65), fill: "none", stroke: "#8de6d7", "stroke-width": 9, "stroke-linecap": "round" }, card);
+    } else if (stage.type === "compress") {
+      node("path", { d: "M180 " + (stage.y + 130) + " L210 " + (stage.y + 60) + " L240 " + (stage.y + 195) + " L270 " + (stage.y + 90) + " L300 " + (stage.y + 165) + " L330 " + (stage.y + 110) + " L380 " + (stage.y + 130), fill: "none", stroke: "#8de6d7", "stroke-width": 8, "stroke-linejoin": "round" }, card);
+    } else {
+      for (let i = 0; i < 4; i += 1) {
+        node("path", { d: "M" + (190 + i * 38) + " " + (stage.y + 82 + i * 18) + " Q" + (310 + i * 22) + " " + (stage.y + 10 + i * 18) + " " + (380 + i * 18) + " " + (stage.y + 130 + i * 18), fill: "none", stroke: i % 2 ? "#d8bd91" : "#70cfc4", "stroke-width": 5, "stroke-opacity": 0.8 - i * 0.12 }, card);
+      }
+    }
+    text(card, 455, stage.y + 108, stage.label, 42, "#f2e5d1");
+    text(card, 455, stage.y + 165, stage.detail, 28, "#bfcce0", { "font-weight": 500, "letter-spacing": 0.2 });
+    for (let i = 0; i < 12; i += 1) {
+      node("rect", { x: 455 + i * 34, y: stage.y + 205, width: 16, height: 10 + (i % 4) * 8, rx: 4, fill: i % 3 ? "#70cfc4" : "#d8bd91", class: "dsp-meter" }, card);
+    }
+  });
+  text(subject, 540, 1490, "SIGNAL FLOWS THROUGH EACH PROCESSING STAGE", 26, "#d8bd91", { "text-anchor": "middle" });
+}
+
+function buildViolin(world) {
+  const subject = node("g", { class: "scene-subject violin-subject" }, world);
+  const performer = reveal(subject, 0, "performer-character");
+  node("path", { d: "M0 1200 Q140 900 360 980 L485 1510 L0 1510 Z", fill: "#1c2c47", stroke: "#8da3c6", "stroke-width": 5 }, performer);
+  node("circle", { cx: 185, cy: 850, r: 92, fill: "#c89b67", stroke: "#f2d9b2", "stroke-width": 5 }, performer);
+  node("path", { d: "M95 850 Q95 700 210 725 Q285 755 270 880 Q210 805 150 830 Z", fill: "#0a1120" }, performer);
+  node("path", { d: "M285 1050 Q410 1010 485 1130", fill: "none", stroke: "#c89b67", "stroke-width": 48, "stroke-linecap": "round", class: "performer-arm" }, performer);
+  const instrument = reveal(subject, 1, "illustrated-violin");
+  node("path", { d: "M520 585 L560 585 L548 925 L530 960 L510 925 Z", fill: "#995d35", stroke: "#f0d4a6", "stroke-width": 5 }, instrument);
+  node("circle", { cx: 540, cy: 560, r: 42, fill: "#995d35", stroke: "#f0d4a6", "stroke-width": 5 }, instrument);
+  node("path", { d: "M520 650 L560 650 L550 1015 L530 1015 Z", fill: "#182238", stroke: "#d8bd91", "stroke-width": 3 }, instrument);
+  node("path", { d: "M536 920 C440 845 345 895 355 1015 C285 1090 320 1235 405 1280 C425 1370 485 1440 540 1480 C595 1440 655 1370 675 1280 C760 1235 795 1090 725 1015 C735 895 640 845 544 920 Z", fill: "url(#vp-full-gold)", stroke: "#ffe5bd", "stroke-width": 7 }, instrument);
+  node("path", { d: "M390 1045 Q450 1005 505 1050 L505 1245 Q445 1280 390 1225 M690 1045 Q630 1005 575 1050 L575 1245 Q635 1280 690 1225", fill: "none", stroke: "#70472c", "stroke-width": 12 }, instrument);
+  node("path", { d: "M535 1105 L545 1105 M535 1180 L545 1180", stroke: "#493a32", "stroke-width": 9 }, instrument);
+  node("path", { d: "M520 1260 L560 1260 L580 1400 L500 1400 Z", fill: "#754a2e", stroke: "#d8bd91", "stroke-width": 4 }, instrument);
+  for (let i = 0; i < 4; i += 1) {
+    node("path", { d: "M" + (526 + i * 9) + " 595 L" + (520 + i * 9) + " 1380", stroke: i === 1 ? "#fff3d9" : "#5b5046", "stroke-width": i === 1 ? 4 : 3, "stroke-opacity": 0.95 }, instrument);
+  }
+  const bow = reveal(subject, 2, "bow-rig");
+  node("path", { d: "M180 1120 Q530 960 920 1110", fill: "none", stroke: "#d8bd91", "stroke-width": 15, "stroke-linecap": "round" }, bow);
+  node("path", { d: "M180 1140 Q530 980 920 1130", fill: "none", stroke: "#fff0d1", "stroke-width": 4, "stroke-linecap": "round" }, bow);
+  const notes = reveal(subject, 3, "violin-accents");
+  node("path", { d: "M760 760 Q900 650 1010 750 M785 820 Q920 710 1035 810 M800 880 Q930 780 1060 880", fill: "none", stroke: "#70cfc4", "stroke-width": 6, "stroke-linecap": "round", "stroke-dasharray": "12 18", class: "sound-wave" }, notes);
+  text(notes, 835, 650, "MUSIC", 38, "#d8bd91", { "text-anchor": "middle" });
+  text(subject, 540, 1535, "THE VIOLIN. THE PERFORMANCE. THE PAYOFF.", 27, "#d8bd91", { "text-anchor": "middle" });
+}
+
+const BUILDERS = {
+  room_acoustics: buildRoom,
+  audio_interface: buildInterface,
+  roomtune_process: buildRoomTune,
+  dsp_stages: buildDspStages,
+  violin_performance_2d: buildViolin,
+  signal_chain: buildRoomTune
+};
 
 function renderSceneIllustration(scene, topic = "") {
-  const type=String(scene?.graphic_data?.type || "").toLowerCase();
-  const caption=String(scene?.caption || topic || "Illustrated explanation");
-  const svg=svgNode("svg",{viewBox:"0 0 900 380",preserveAspectRatio:"xMidYMid meet",class:"scene-illustration","role":"img","aria-label":caption});
-  addDefs(svg);addPanel(svg);
-  if(type==="room_acoustics")buildRoom(svg);
-  else if(type==="signal_chain")buildSignalChain(svg);
-  else if(type==="violin_performance_2d")buildViolinPerformance(svg);
-  else svgText(svg,450,195,caption,22,"#e8edf6",{"text-anchor":"middle"});
+  const type = String(scene?.graphic_data?.type || "").toLowerCase();
+  const caption = String(scene?.caption || topic || "Illustrated explanation");
+  const svg = node("svg", {
+    viewBox: "0 0 1080 1920", preserveAspectRatio: "xMidYMid slice",
+    class: "scene-illustration", role: "img", "aria-label": caption,
+    "data-scene-type": type
+  });
+  defs(svg);
+  background(svg, type === "violin_performance_2d" ? "#bd9161" : "#70cfc4");
+  const world = node("g", { class: "scene-world" }, svg);
+  const builder = BUILDERS[type];
+  if (builder) builder(world);
+  else {
+    const subject = node("g", { class: "scene-subject" }, world);
+    text(subject, 540, 1050, caption || topic, 48, "#e8edf6", { "text-anchor": "middle" });
+    text(subject, 540, 1150, "VISUAL EXPLANATION", 30, "#d8bd91", { "text-anchor": "middle" });
+  }
   return svg;
 }
 
-function syncSceneIllustration(svg, seconds, progress=0) {
-  if(!svg)return;
-  const t=Math.max(0,Number(seconds)||0),waveOffset=(t*42)%260;
-  svg.querySelectorAll(".sound-wave").forEach((path,index)=>{
-    path.setAttribute("stroke-dashoffset",String(-waveOffset*(index%2?-1:1)));
-    path.setAttribute("opacity",String(0.42+0.34*(0.5+0.5*Math.sin(t*2.1+index*0.8))));
+function syncSceneIllustration(svg, seconds, progress = 0, sceneIndex = 0) {
+  if (!svg) return;
+  const t = Math.max(0, Number(seconds) || 0);
+  const p = Math.max(0, Math.min(1, Number(progress) || 0));
+  const world = svg.querySelector(".scene-world");
+  if (world) {
+    const scale = 1.015 + p * 0.065;
+    const driftX = Math.sin(t * 0.32 + sceneIndex) * (sceneIndex === 4 ? 14 : 22);
+    const driftY = -18 * p + Math.cos(t * 0.24) * 8;
+    const tx = 540 * (1 - scale) + driftX;
+    const ty = 960 * (1 - scale) + driftY;
+    world.setAttribute("transform", "matrix(" + scale.toFixed(5) + " 0 0 " + scale.toFixed(5) + " " + tx.toFixed(2) + " " + ty.toFixed(2) + ")");
+  }
+  svg.querySelectorAll(".reveal-part").forEach((part) => {
+    const order = Number(part.getAttribute("data-reveal-order") || 0);
+    const revealValue = Math.max(0, Math.min(1, (p - order * 0.23) / 0.18));
+    part.setAttribute("opacity", revealValue.toFixed(4));
+    part.setAttribute("transform", "translate(0 " + ((1 - revealValue) * 26).toFixed(2) + ")");
   });
-  const person=svg.querySelector(".listener-character");
-  if(person)person.setAttribute("transform",`translate(0 ${Math.sin(t*1.7)*2.2})`);
-  const bow=svg.querySelector(".bow-rig");
-  if(bow)bow.setAttribute("transform",`translate(0 ${Math.sin(t*2.8)*10}) rotate(${Math.sin(t*2.8)*1.2} 450 215)`);
-  const arm=svg.querySelector(".performer-arm");
-  if(arm)arm.setAttribute("transform",`rotate(${Math.sin(t*2.8)*2.8} 270 206)`);
-  const violin=svg.querySelector(".illustrated-violin");
-  if(violin)violin.setAttribute("transform",`rotate(${Math.sin(t*0.8)*1.1} 460 210)`);
-  svg.querySelectorAll(".signal-pulse").forEach((pulse,index)=>{
-    const start=Number(pulse.getAttribute("data-start-x")||0),end=Number(pulse.getAttribute("data-end-x")||0);
-    const local=(progress*1.8+index*0.42)%1;
-    pulse.setAttribute("cx",String(start+(end-start)*local));
-    pulse.setAttribute("opacity",String(0.45+0.5*Math.sin(local*Math.PI)));
+  svg.querySelectorAll(".sound-wave").forEach((path, index) => {
+    path.setAttribute("stroke-dashoffset", String(-((t * 34 + index * 27) % 360)));
+    path.setAttribute("opacity", String(0.56 + 0.34 * Math.sin(t * 1.8 + index)));
   });
-  svg.querySelectorAll(".note-float").forEach((note,index)=>{
-    note.setAttribute("transform",`translate(0 ${-((t*22+index*22)%42)})`);
-    note.setAttribute("opacity",String(0.55+0.4*Math.sin(t*1.8+index)));
+  const listener = svg.querySelector(".listener-character");
+  if (listener) listener.setAttribute("transform", "translate(0 " + (Math.sin(t * 1.35) * 8).toFixed(2) + ")");
+  svg.querySelectorAll(".interface-knob").forEach((knob, index) => {
+    const angle = -38 + ((t * 12 + index * 28) % 76);
+    knob.setAttribute("transform", "rotate(" + angle.toFixed(2) + " " + (300 + index * 160) + " 835)");
+  });
+  svg.querySelectorAll(".interface-meter").forEach((meter, index) => {
+    const height = 20 + 75 * (0.5 + 0.5 * Math.sin(t * 5 + index * 0.7));
+    meter.setAttribute("height", String(height));
+    meter.setAttribute("y", String(1210 - height));
+  });
+  const bow = svg.querySelector(".bow-rig");
+  if (bow) bow.setAttribute("transform", "translate(0 " + (Math.sin(t * 5.2) * 26).toFixed(2) + ") rotate(" + (Math.sin(t * 5.2) * 3.6).toFixed(2) + " 540 1080)");
+  const arm = svg.querySelector(".performer-arm");
+  if (arm) arm.setAttribute("transform", "rotate(" + (Math.sin(t * 5.2) * 4.4).toFixed(2) + " 360 1080)");
+  const violin = svg.querySelector(".illustrated-violin");
+  if (violin) violin.setAttribute("transform", "rotate(" + (Math.sin(t * 1.1) * 1.8).toFixed(2) + " 540 1110)");
+  svg.querySelectorAll(".dsp-meter").forEach((bar, index) => {
+    const height = 10 + 30 * (0.5 + 0.5 * Math.sin(t * 4.4 + index));
+    bar.setAttribute("height", String(height));
   });
 }
 

@@ -82,11 +82,12 @@ if (contentArgument && !contentArgument.startsWith("--")) {
   const cleanText = (value, limit) => typeof value === "string"
     ? value.replace(/\s+/g, " ").trim().slice(0, limit)
     : "";
-  const scenes = Array.isArray(rawContent.scenes) ? rawContent.scenes.slice(0, 3) : [];
+  const scenes = Array.isArray(rawContent.scenes) ? rawContent.scenes.slice(0, 5) : [];
   const safeScenes = scenes.map((scene) => {
     const graphic = scene && typeof scene.graphic_data === "object" ? scene.graphic_data : {};
     return {
       caption: cleanText(scene?.caption, 72),
+      sentence_index: Number.isInteger(scene?.sentence_index) && scene.sentence_index >= 0 ? scene.sentence_index : 0,
       visual_mode: cleanText(scene?.visual_mode, 32),
       graphic_label: cleanText(scene?.graphic_label, 42),
       graphic_detail: cleanText(scene?.graphic_detail, 110),
@@ -119,7 +120,7 @@ if (contentArgument && !contentArgument.startsWith("--")) {
     narration_engine: cleanText(rawContent.narration_engine, 32),
     narration_voice: cleanText(rawContent.narration_voice, 32),
     captions: Array.isArray(rawContent.captions)
-      ? rawContent.captions.slice(0, 3).map((value) => cleanText(value, 72))
+      ? rawContent.captions.slice(0, 5).map((value) => cleanText(value, 72))
       : safeScenes.map((scene) => scene.caption),
     scenes: safeScenes,
     narration_words: narrationWords

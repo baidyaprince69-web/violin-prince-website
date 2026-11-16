@@ -4,22 +4,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=1080, height=1920, initial-scale=1" />
   <meta name="color-scheme" content="dark" />
-  <title>Violin Prince — Motion Graphics</title>
+  <title>Violin Prince — Portrait Motion Explainer</title>
   <script id="vp-content-config" type="application/json">__CONTENT_JSON__</script>
   <link rel="stylesheet" href="./src/styles.css" />
   <script type="importmap" id="motion-importmap">
     {"imports":{"motion":"./node_modules/motion/dist/es/index.mjs","framer-motion/dom":"./node_modules/framer-motion/dist/es/dom.mjs","motion-dom":"./node_modules/motion-dom/dist/es/index.mjs","motion-utils":"./node_modules/motion-utils/dist/es/index.mjs"}}
   </script>
   <script>
-    // Motion's unbundled ESM expects NODE_ENV to exist; provide only that
-    // build-time flag without bundling or vendoring the Motion implementation.
     window.process = window.process || {};
     window.process.env = window.process.env || {};
     window.process.env.NODE_ENV = "production";
   </script>
   <script>
     // Static registry bootstrap required by HyperFrames' HTML linter.
-    // The Motion runtime and seek adapter remain in src/motion-timeline.js.
+    // Motion's runtime and direct-timeline adapter remain external modules.
     window.__timelines = window.__timelines || {};
   </script>
   <script type="module" src="./src/main.js"></script>
@@ -29,77 +27,36 @@
     data-duration="__DURATION_SECONDS__" data-width="1080" data-height="1920" data-fps="30">
     <div id="haze-a" class="haze haze-a clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="0"></div>
     <div id="haze-b" class="haze haze-b clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="0"></div>
-    <div id="star-field" class="star-field clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="0"></div>
     <div id="grain" class="grain clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="0"></div>
 
-    <header id="top-mark" class="top-mark clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="2">
+    <header id="top-mark" class="top-mark clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="1">
       <span class="mark-dot"></span>
       <span>VIOLIN PRINCE</span>
-      <span class="top-index" data-layout-ignore>RESEARCH / EXPLAINED / ANIMATED</span>
+      <span id="scene-counter" class="scene-counter">01 / 05</span>
     </header>
-    <div id="top-rule" class="top-rule clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="2"></div>
+    <div id="top-rule" class="top-rule clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="1"></div>
 
-    <section id="headline-one" class="headline headline-one clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="3">
-      <p class="eyebrow" data-layout-ignore><span class="eyebrow-line"></span> THE QUESTION</p>
-      <h1 id="explainer-title">A MUSIC FACT, EXPLAINED.</h1>
-      <p class="headline-note">A researched explanation, spoken by Kokoro and shown through motion.</p>
+    <section id="scene-header" class="scene-header clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="2">
+      <p id="scene-kicker">THE LISTENING ROOM</p>
+      <h1 id="scene-title">YOUR ROOM CAN MISLEAD YOUR MIX</h1>
+      <p id="scene-description">Sound from the monitors interacts with the room.</p>
     </section>
 
-    <section id="wave-section" class="wave-section clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="4">
-      <div class="wave-caption">
-        <span data-layout-ignore>THE LANGUAGE OF STRINGS</span>
-        <span class="wave-caption-right" data-layout-ignore>01 / 03</span>
-      </div>
-      <div id="waveform" class="waveform" aria-hidden="true">
-        <div id="diagram-items" class="diagram-items"></div>
-      </div>
-      <div class="wave-foot">
-        <span id="diagram-detail-left" data-layout-ignore>THE MECHANISM</span>
-        <span class="wave-foot-line" data-layout-ignore></span>
-        <span id="diagram-detail-right" data-layout-ignore>STEP BY STEP</span>
-      </div>
+    <section id="scene-stage" class="scene-stage clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="3" aria-label="Full-screen animated scene">
+      <div id="diagram-items" class="scene-art"></div>
     </section>
 
-    <section id="headline-two" class="headline headline-two clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="5">
-      <p class="eyebrow" data-layout-ignore><span class="eyebrow-line"></span> THE EXPLANATION</p>
-      <h2 id="scene-two-title">THE KEY MECHANISM</h2>
-      <p class="headline-note">The important detail, visualised clearly.</p>
-    </section>
-
-    <div id="orbit" class="orbit clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="1" aria-hidden="true">
-      <svg viewBox="0 0 600 600" role="presentation">
-        <circle class="orbit-ring orbit-ring-one" cx="300" cy="300" r="245"></circle>
-        <circle class="orbit-ring orbit-ring-two" cx="300" cy="300" r="190"></circle>
-        <circle class="orbit-ring orbit-ring-three" cx="300" cy="300" r="132"></circle>
-        <path class="orbit-arc" d="M300 55 A245 245 0 0 1 529 213"></path>
-      </svg>
-    </div>
-    <div id="particle-layer" class="particle-layer clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="1" aria-hidden="true"></div>
-
-    <section id="headline-three" class="headline headline-three clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="6">
-      <p class="eyebrow" data-layout-ignore><span class="eyebrow-line"></span> THE TAKEAWAY</p>
-      <h2 id="scene-three-title">WHAT THIS MEANS</h2>
-      <p class="headline-note">A clear final takeaway from the researched explanation.</p>
-    </section>
-
-    <footer id="end-card" class="end-card clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="7">
-      <div class="end-rule"></div>
-      <p class="end-kicker" data-layout-ignore>AN ORIGINAL VISUAL IDENTITY</p>
-      <div class="end-name">VIOLIN<br /><span>PRINCE</span></div>
-      <p class="end-subtitle" data-layout-ignore>LET THE MUSIC STAY WITH YOU.</p>
-    </footer>
-
-    <section id="narration-caption" class="narration-caption clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="10">
-      <p id="caption-kicker" data-layout-ignore>KOKORO · WORD-SYNCHRONISED EXPLANATION</p>
+    <section id="narration-caption" class="narration-caption clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="4">
+      <p id="caption-kicker">KOKORO · WORD-SYNCHRONISED EXPLANATION</p>
       <div id="caption-line" aria-live="off"></div>
     </section>
 
-    <div id="bottom-progress" class="bottom-progress clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="8">
-      <span class="progress-label" data-layout-ignore>EXPLAINER TIMELINE</span>
+    <div id="bottom-progress" class="bottom-progress clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="5">
+      <span class="progress-label">THE EXPLANATION</span>
       <span class="progress-track"><span id="progress-fill"></span></span>
-      <span class="progress-time" data-layout-ignore>00:10</span>
+      <span id="progress-time" class="progress-time">00:20</span>
     </div>
-    <audio id="narration-mix" src="__AUDIO_SOURCE__" data-start="0" data-track-index="9" preload="auto"></audio>
+    <audio id="narration-mix" src="__AUDIO_SOURCE__" data-start="0" data-track-index="6" preload="auto"></audio>
   </main>
 </body>
 </html>

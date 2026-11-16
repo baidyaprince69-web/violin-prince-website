@@ -95,6 +95,25 @@ jobs:
           grep -Fq 'from "motion"' src/motion-timeline.js
           grep -Fq 'window.__timelines = window.__timelines || {}' index.template.html.in
 
+      - name: Validate the saved five-scene production storyboard
+        working-directory: .
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          plan = json.loads(Path(".autopilot/daily-production-plan.json").read_text(encoding="utf-8"))
+          scenes = plan.get("scenes", [])
+          expected = ["room_acoustics", "audio_interface", "roomtune_process", "dsp_stages", "violin_performance_2d"]
+          actual = [scene.get("graphic_data", {}).get("type") for scene in scenes]
+          indices = [scene.get("sentence_index") for scene in scenes]
+          if actual != expected or indices != [0, 1, 2, 3, 4]:
+              raise SystemExit("The saved daily plan must contain all five portrait scene types in narration order.")
+          if len(plan.get("narration_script", "").split(". ")) < 5:
+              raise SystemExit("The saved daily plan must carry the five-beat narration script.")
+          print("Saved RoomTune storyboard: five portrait scenes in sentence order.")
+          PY
+
       - name: Generate a 37.5-second violin track with the repository's existing sampler
         working-directory: .
         run: |
@@ -135,9 +154,10 @@ jobs:
 
           script = (
               "Your room can quietly mislead your mix. "
-              "Audient's new interfaces combine console-style preamps with onboard digital processing. "
-              "RoomTune measures room acoustics and adjusts the signal reaching your monitors. "
-              "Its onboard DSP runs EQ, compression, and reverb without burdening your computer."
+              "The audio interface combines console-style preamps with onboard digital processing. "
+              "RoomTune sends a measurement signal through the room, analyses the response, and corrects monitor playback. "
+              "The onboard DSP handles equalisation, compression, and reverb before the sound reaches your monitors. "
+              "With the room corrected and processing under control, you can focus on the violin and trust what you hear."
           )
           output = Path("prototypes/hyperframes-motion/output")
           output.mkdir(parents=True, exist_ok=True)
@@ -183,49 +203,47 @@ jobs:
               "hook": "Your room can quietly mislead your mix.",
               "narration_script": (
                   "Your room can quietly mislead your mix. "
-                  "Audient's new interfaces combine console-style preamps with onboard digital processing. "
-                  "RoomTune measures room acoustics and adjusts the signal reaching your monitors. "
-                  "Its onboard DSP runs EQ, compression, and reverb without burdening your computer."
+                  "The audio interface combines console-style preamps with onboard digital processing. "
+                  "RoomTune sends a measurement signal through the room, analyses the response, and corrects monitor playback. "
+                  "The onboard DSP handles equalisation, compression, and reverb before the sound reaches your monitors. "
+                  "With the room corrected and processing under control, you can focus on the violin and trust what you hear."
               ),
               "scenes": [
                   {
-                      "caption": "YOUR ROOM SHAPES WHAT YOU HEAR",
-                      "graphic_label": "THE LISTENING ROOM",
-                      "graphic_detail": "Sound from the monitors interacts with the room",
-                      "visual_mode": "waveform",
-                      "graphic_data": {
-                          "type": "room_acoustics",
-                          "items": [
-                              {"label": "STUDIO MONITORS", "display": "Sound source"},
-                              {"label": "LISTENING POINT", "display": "Room response"}
-                          ]
-                      },
+                      "sentence_index": 0,
+                      "caption": "YOUR ROOM CAN MISLEAD YOUR MIX",
+                      "graphic_label": "SCENE 01 · THE LISTENING ROOM",
+                      "graphic_detail": "Direct and reflected sound change what reaches the listening position",
+                      "graphic_data": {"type": "room_acoustics", "items": []},
                   },
                   {
-                      "caption": "MEASURE THE ROOM. ADJUST THE MONITORS.",
-                      "graphic_label": "THE ROOMTUNE SIGNAL PATH",
-                      "graphic_detail": "Measure the room, process the signal, adjust playback",
-                      "visual_mode": "waveform",
-                      "graphic_data": {
-                          "type": "signal_chain",
-                          "items": [
-                              {"label": "MEASURE", "display": "Room response"},
-                              {"label": "PROCESS", "display": "DSP correction"},
-                              {"label": "PLAY BACK", "display": "Monitor output"}
-                          ]
-                      },
+                      "sentence_index": 1,
+                      "caption": "THE INTERFACE: PREAMPS + DSP",
+                      "graphic_label": "SCENE 02 · THE AUDIO INTERFACE",
+                      "graphic_detail": "Console-style preamps and onboard processing share one interface",
+                      "graphic_data": {"type": "audio_interface", "items": []},
                   },
                   {
+                      "sentence_index": 2,
+                      "caption": "ROOMTUNE: MEASURE → CORRECT",
+                      "graphic_label": "SCENE 03 · ROOMTUNE",
+                      "graphic_detail": "Measure the room, analyse its response, and correct monitor playback",
+                      "graphic_data": {"type": "roomtune_process", "items": []},
+                  },
+                  {
+                      "sentence_index": 3,
+                      "caption": "EQ · COMPRESSION · REVERB",
+                      "graphic_label": "SCENE 04 · ONBOARD DSP",
+                      "graphic_detail": "Three processing stages shape tone, dynamics, and space",
+                      "graphic_data": {"type": "dsp_stages", "items": []},
+                  },
+                  {
+                      "sentence_index": 4,
                       "caption": "HEAR THE VIOLIN. TRUST THE MIX.",
-                      "graphic_label": "THE MUSICAL PAYOFF",
-                      "graphic_detail": "An illustrated violin moment brings the idea back to music",
+                      "graphic_label": "SCENE 05 · THE MUSICAL PAYOFF",
+                      "graphic_detail": "A close-up illustrated violin performance brings the explanation back to music",
                       "visual_mode": "cover_performance",
-                      "graphic_data": {
-                          "type": "violin_performance_2d",
-                          "items": [
-                              {"label": "VIOLIN", "display": "Illustrated performance"}
-                          ]
-                      },
+                      "graphic_data": {"type": "violin_performance_2d", "items": []},
                   },
               ],
           }
@@ -261,6 +279,7 @@ jobs:
         run: |
           test -s ../../work/output/violin-prince-explainer.mp4
           test -s ../../work/output/motion-contact-sheet.jpg
+          test -s ../../work/output/motion-phone-preview.jpg
           test -s ../../work/output/motion-seeking-report.json
           test -s ../../work/output/motion-render-report.json
           test -s ../../work/output/motion-hyperframes-check.json
@@ -269,6 +288,11 @@ jobs:
           from pathlib import Path
 
           check = json.loads(Path("../../work/output/motion-hyperframes-check.json").read_text(encoding="utf-8"))
+          report = json.loads(Path("../../work/output/motion-render-report.json").read_text(encoding="utf-8"))
+          if int(report.get("storyboard_scene_count", 0)) != 5:
+              raise SystemExit("The portrait storyboard must render all five narration-driven scenes.")
+          if report.get("phone_preview_size") != "360x640":
+              raise SystemExit("The phone preview must be generated at exactly 360x640.")
           for section_name in ("layout", "craft"):
               section = check.get(section_name, {})
               errors = int(section.get("errorCount", 0))
@@ -289,6 +313,7 @@ jobs:
           path: |
             work/output/violin-prince-explainer.mp4
             work/output/motion-contact-sheet.jpg
+            work/output/motion-phone-preview.jpg
             work/output/motion-seeking-report.json
             work/output/motion-render-report.json
             work/output/motion-hyperframes-check.json
@@ -313,6 +338,8 @@ jobs:
           print("- Source audio duration: " + str(report["source_duration_seconds"]) + " seconds")
           print("- Exported MP4 duration: " + str(report["duration_seconds"]) + " seconds")
           print("- Format: " + str(report["width"]) + "x" + str(report["height"]) + " at " + str(report["fps"]) + " fps")
+          print("- Portrait storyboard scenes: " + str(report.get("storyboard_scene_count", 0)))
+          print("- Phone review: 360x640 contact sheet and frame generated")
           print("- Audio included: " + str(report["audio_included"]))
           PY
             else

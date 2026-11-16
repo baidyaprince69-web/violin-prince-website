@@ -24,7 +24,7 @@
   ],
   "narrative_style": "documentary",
   "cover_payoff": "Use an original, layered 2D violin illustration with a stylised performer, animated bow movement, visible drawn strings, musical-note accents and a warm waveform payoff. This is an illustrated music moment, not a live-performance recording or a 3D asset.",
-  "narration_script": "Your room can quietly mislead your mix. Audient's new interfaces combine console-style preamps with onboard digital processing. RoomTune measures room acoustics and adjusts the signal reaching your monitors. Its onboard DSP runs EQ, compression, and reverb without burdening your computer.",
+  "narration_script": "Your room can quietly mislead your mix. Audient's new iD interfaces combine console-style preamps with onboard digital processing. RoomTune measures the room and adjusts the signal going to your monitors. The onboard DSP handles EQ, compression, and reverb on the inputs without burdening your computer. With a more reliable monitor picture, you can focus on shaping a violin mix.",
   "narration_evidence": [
     {
       "sentence_number": 2,
@@ -61,11 +61,13 @@
   "timeline": [],
   "scenes": [
     {
-      "caption": "YOUR ROOM SHAPES WHAT YOU HEAR",
-      "image_prompt": "Original premium 2D vector illustration of a listening room: two studio monitors send warm gold sound-wave arcs toward an abstract listening character, while teal reflections return from the room walls. Use layered depth, a midnight-navy palette, restrained gold highlights, soft paper-like grain, clean silhouettes and smooth parallax. Entirely illustrated 2D artwork; no 3D models, photography, logos or invented measurement labels.",
-      "graphic_label": "THE LISTENING ROOM",
-      "graphic_detail": "Sound from the monitors interacts with the room",
-      "visual_mode": "waveform",
+      "scene_number": 1,
+      "sentence_index": 0,
+      "caption": "YOUR ROOM CAN MISLEAD YOUR MIX",
+      "image_prompt": "Full-screen portrait-native 2D vector listening room. Two large studio monitors, a clear listening position and an illustrated seated listener fill the vertical composition. Warm antique-gold sound waves travel directly to the listener and teal reflections bounce from the walls. Layered wall panels, deep perspective floor and camera push-in. Midnight navy and antique gold. Large, immediately recognisable objects.",
+      "graphic_label": "SCENE 01 · THE LISTENING ROOM",
+      "graphic_detail": "Direct and reflected sound change what reaches the listening position",
+      "visual_mode": "full_screen_2d",
       "graphic_data": {
         "type": "room_acoustics",
         "items": [
@@ -74,43 +76,93 @@
             "display": "Sound source"
           },
           {
-            "label": "LISTENING POINT",
+            "label": "LISTENING POSITION",
             "display": "Room response"
           }
         ]
-      },
-      "scene_number": 1
+      }
     },
     {
-      "caption": "MEASURE THE ROOM. ADJUST THE MONITORS.",
-      "image_prompt": "Original layered 2D technical illustration of a three-part signal path: a measurement microphone, a luminous DSP processor with an abstract EQ curve, and studio monitors. Connect the stages using animated gold signal lines and teal pulse points. Use crisp vector geometry, dimensional shadows, readable negative space and the Violin Prince midnight-navy and antique-gold visual identity. Entirely 2D; no 3D renders or numerical claims.",
-      "graphic_label": "THE ROOMTUNE SIGNAL PATH",
-      "graphic_detail": "Measure the room, process the signal, adjust playback",
-      "visual_mode": "waveform",
+      "scene_number": 2,
+      "sentence_index": 1,
+      "caption": "THE INTERFACE: PREAMPS + DSP",
+      "image_prompt": "Full-screen portrait-native 2D illustration of a premium audio interface as the central hero object. Make the chassis, preamp knobs, meters and onboard processing section large and individually legible. Reveal the preamp controls first, then the digital processing display. Midnight navy, antique gold and subtle teal lighting.",
+      "graphic_label": "SCENE 02 · THE AUDIO INTERFACE",
+      "graphic_detail": "Console-style preamps and onboard processing share one interface",
+      "visual_mode": "full_screen_2d",
       "graphic_data": {
-        "type": "signal_chain",
+        "type": "audio_interface",
+        "items": [
+          {
+            "label": "PREAMPS",
+            "display": "Input stage"
+          },
+          {
+            "label": "ONBOARD DSP",
+            "display": "Processing"
+          }
+        ]
+      }
+    },
+    {
+      "scene_number": 3,
+      "sentence_index": 2,
+      "caption": "ROOMTUNE: MEASURE → CORRECT",
+      "image_prompt": "Full-screen portrait-native 2D visual explanation of RoomTune. A large measurement microphone sits above a vertical sequence of three readable stages: Measure, Analyse and Correct. Animated teal measurement waves enter the process; a gold signal pulse travels down the chain; studio monitors receive the corrected output. Use large icons, labels and a cinematic camera push.",
+      "graphic_label": "SCENE 03 · ROOMTUNE",
+      "graphic_detail": "Measure the room, analyse its response, and correct monitor playback",
+      "visual_mode": "full_screen_2d",
+      "graphic_data": {
+        "type": "roomtune_process",
         "items": [
           {
             "label": "MEASURE",
-            "display": "Room response"
+            "display": "Capture"
           },
           {
-            "label": "PROCESS",
-            "display": "DSP correction"
+            "label": "ANALYSE",
+            "display": "Interpret"
           },
           {
-            "label": "PLAY BACK",
-            "display": "Monitor output"
+            "label": "CORRECT",
+            "display": "Adjust"
           }
         ]
-      },
-      "scene_number": 2
+      }
     },
     {
+      "scene_number": 4,
+      "sentence_index": 3,
+      "caption": "EQ · COMPRESSION · REVERB",
+      "image_prompt": "Full-screen portrait-native 2D explainer with three large vertically stacked processing stages. Equalisation uses a clear tonal curve, compression uses a changing waveform, and reverb uses expanding echo arcs. Animate the audio signal travelling through each stage in order. The labels must be large and readable at phone size.",
+      "graphic_label": "SCENE 04 · ONBOARD DSP",
+      "graphic_detail": "Three processing stages shape tone, dynamics, and space",
+      "visual_mode": "full_screen_2d",
+      "graphic_data": {
+        "type": "dsp_stages",
+        "items": [
+          {
+            "label": "EQUALISATION",
+            "display": "Tone"
+          },
+          {
+            "label": "COMPRESSION",
+            "display": "Dynamics"
+          },
+          {
+            "label": "REVERB",
+            "display": "Space"
+          }
+        ]
+      }
+    },
+    {
+      "scene_number": 5,
+      "sentence_index": 4,
       "caption": "HEAR THE VIOLIN. TRUST THE MIX.",
-      "image_prompt": "Original premium 2D illustrated violin performance: a graceful amber violin silhouette with clearly drawn strings, an expressive stylised musician, and a bow moving across the strings. Add floating musical-note motifs and a soft gold waveform. Use layered vector shapes, subtle parallax, clean expressive lines, deep navy shadows and warm antique-gold lighting. No realistic 3D model, no photography, no person likeness and no logos.",
-      "graphic_label": "THE MUSICAL PAYOFF",
-      "graphic_detail": "An illustrated violin moment brings the idea back to music",
+      "image_prompt": "Full-screen close-up 2D illustrated violin performance. A large amber violin, visible strings and expressive bow dominate the portrait composition. Include a stylised performer, clearly moving bow, independent arm and instrument layers, musical-note accents and a glowing waveform. Cinematic push-in and richer antique-gold light for the musical payoff. Original illustration only.",
+      "graphic_label": "SCENE 05 · THE MUSICAL PAYOFF",
+      "graphic_detail": "A close-up violin moment brings the explanation back to music",
       "visual_mode": "cover_performance",
       "graphic_data": {
         "type": "violin_performance_2d",
@@ -120,8 +172,7 @@
             "display": "Illustrated performance"
           }
         ]
-      },
-      "scene_number": 3
+      }
     }
   ],
   "performance_feedback": {
@@ -153,25 +204,35 @@
     "made_for_kids": false
   },
   "visual_reference": {
-    "motion_profile": "mixed",
-    "visual_language": "kinetic_graphics",
+    "motion_profile": "portrait_narration_driven_2d",
+    "visual_language": "full_screen_2d_motion_graphics",
     "pacing": "dynamic",
-    "reference_summary": "An original Violin Prince illustrated 2D explainer: layered vector environments, an animated listening character, sound-wave motion, a clear DSP signal path, a stylised violin-and-bow performance illustration, kinetic captions and cinematic midnight-navy and antique-gold art direction.",
+    "reference_summary": "Five full-screen portrait-native original 2D scenes: a listening room with visible sound reflections, an audio interface hero, a vertically staged RoomTune measurement/correction sequence, three large DSP effects, and a close-up illustrated violin performance. Every scene uses layered artwork, meaningful camera movement, large contextual labels, narration-synchronised progressive reveals, and the Violin Prince midnight-navy and antique-gold identity.",
     "scene_guidance": [
       {
-        "shot_type": "wide_hero",
-        "camera_move": "pan_left",
-        "transition_out": "wipe_right"
+        "shot_type": "full_screen_room_hero",
+        "camera_move": "slow_push_in",
+        "transition_out": "sound_wave_wipe"
       },
       {
-        "shot_type": "mechanism_cutaway",
-        "camera_move": "pan_up",
-        "transition_out": "smooth_left"
+        "shot_type": "audio_interface_hero",
+        "camera_move": "push_in_then_reframe",
+        "transition_out": "gold_line_wipe"
       },
       {
-        "shot_type": "performance_close",
-        "camera_move": "pan_right",
-        "transition_out": "fade_through_black"
+        "shot_type": "vertical_process_explainer",
+        "camera_move": "pan_down_follow_signal",
+        "transition_out": "signal_pulse_wipe"
+      },
+      {
+        "shot_type": "stacked_dsp_stages",
+        "camera_move": "progressive_vertical_pan",
+        "transition_out": "echo_dissolve"
+      },
+      {
+        "shot_type": "violin_performance_close_up",
+        "camera_move": "cinematic_push_in",
+        "transition_out": "warm_fade"
       }
     ]
   }
