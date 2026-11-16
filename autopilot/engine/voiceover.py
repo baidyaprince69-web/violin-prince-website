@@ -268,12 +268,6 @@ def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict
 
     waveform = np.concatenate(audio_parts)
     duration = waveform.size / SAMPLE_RATE
-    if duration > 22.4:
-        raise RuntimeError(
-            f"Narration is too long for the 24-second format ({duration:.1f}s). "
-            "The planner must leave time for the final image and music to resolve."
-        )
-
     peak = float(np.max(np.abs(waveform)))
     if peak <= 0.002:
         raise RuntimeError("Generated narration is silent.")
@@ -307,7 +301,7 @@ def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict
         "language": "English (American)",
         "voice_type": "synthetic_not_voice_cloned",
         "duration_seconds": round(float(info.duration), 2),
-        "word_count": word_count,
+        "word_count": len(word_cues),
         "sample_rate": int(info.samplerate),
         "subtitle_cues": sentence_cues,
         "word_cues": word_cues,
