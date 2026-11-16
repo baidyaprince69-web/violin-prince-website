@@ -33,8 +33,8 @@ STORY_TYPES = {
 }
 
 VISUAL_MODES = {
-    "macro_3d",
-    "mechanism_3d",
+    "macro_illustration",
+    "mechanism_diagram",
     "waveform",
     "full_screen_2d",
     "melody_map",
@@ -61,16 +61,16 @@ BIOGRAPHY_PATTERNS = (
 )
 
 VISUAL_MODE_PROMPTS = {
-    "macro_3d": (
-        "Build the hook around a photorealistic 3D CGI macro view of the real "
-        "musical object, with physically based wood, varnish, metal and string materials."
+    "macro_illustration": (
+        "Create a close 2D illustrated view of the musical object with crisp contours, "
+        "layered colour, clear labels and a strong visual focal point."
     ),
-    "mechanism_3d": (
-        "Show the real physical mechanism as an elegant 3D scientific cutaway or "
-        "exploded view; preserve believable scale and component relationships."
+    "mechanism_diagram": (
+        "Explain the mechanism with an original 2D cutaway-style diagram, "
+        "simple component shapes, arrows and readable visual hierarchy."
     ),
     "waveform": (
-        "Show sound as dimensional acoustic ribbons, travelling wavefronts and "
+        "Show sound as animated 2D acoustic ribbons, travelling wavefronts and "
         "glowing particles, grounded in the stated physical explanation."
     ),
     "full_screen_2d": (
@@ -83,11 +83,11 @@ VISUAL_MODE_PROMPTS = {
         "rhythm and note movement; do not reproduce copyrighted notation or lyrics."
     ),
     "comparison": (
-        "Create a clear cinematic side-by-side comparison of the two stated musical "
+        "Create a clear 2D side-by-side comparison of the two stated musical "
         "ideas, using matching camera, scale and lighting."
     ),
     "cover_performance": (
-        "Create a performance-payoff composition centred on a violin, bow and "
+        "Create an illustrated 2D performance-payoff composition centred on a violin, bow and "
         "musician's hands, with no identifiable face; leave clean space for the "
         "creator's real violin performance insert."
     ),
