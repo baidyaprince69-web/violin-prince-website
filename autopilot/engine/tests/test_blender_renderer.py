@@ -42,10 +42,10 @@ class BlenderRendererTests(unittest.TestCase):
 
     def test_cpu_render_defaults_use_bounded_internal_quality(self):
         with patch.dict(os.environ, {}, clear=True):
-            self.assertEqual(blender_renderer.blender_render_resolution(), (400, 712))
+            self.assertEqual(blender_renderer.blender_render_resolution(), (360, 640))
             self.assertEqual(blender_renderer.blender_render_fps(), 16)
-            self.assertEqual(blender_renderer.blender_render_samples(), 4)
-            self.assertEqual(blender_renderer.blender_model_face_limit(), 60000)
+            self.assertEqual(blender_renderer.blender_render_samples(), 2)
+            self.assertEqual(blender_renderer.blender_model_face_limit(), 30000)
 
     def test_cpu_render_settings_allow_safe_overrides_and_clamping(self):
         with patch.dict(os.environ, {
@@ -61,10 +61,10 @@ class BlenderRendererTests(unittest.TestCase):
             self.assertEqual(blender_renderer.blender_model_face_limit(), 500000)
 
     def test_model_decimation_ratio_respects_face_budget(self):
-        self.assertEqual(blender_renderer.model_decimation_ratio(40000, 60000), 1.0)
+        self.assertEqual(blender_renderer.model_decimation_ratio(20000, 30000), 1.0)
         self.assertAlmostEqual(
-            blender_renderer.model_decimation_ratio(658580, 60000),
-            60000 / 658580,
+            blender_renderer.model_decimation_ratio(658580, 30000),
+            30000 / 658580,
             places=6,
         )
 
