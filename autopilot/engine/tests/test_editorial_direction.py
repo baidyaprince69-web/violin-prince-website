@@ -32,9 +32,11 @@ def valid_plan():
             "to demonstrate how continuous tone shaping creates the vocal effect."
         ),
         "scenes": [
-            {"caption": "A voice-like violin tone", "image_prompt": "3D violin macro", "visual_mode": "macro_3d"},
-            {"caption": "How the sound is shaped", "image_prompt": "3D bow and string mechanism", "visual_mode": "mechanism_3d"},
-            {"caption": "Hear the musical effect", "image_prompt": "Violin performance close-up", "visual_mode": "cover_performance"},
+            {"caption": "A voice-like violin tone", "image_prompt": "Layered 2D violin illustration", "visual_mode": "macro_illustration"},
+            {"caption": "How the sound is shaped", "image_prompt": "Animated string mechanism diagram", "visual_mode": "mechanism_diagram"},
+            {"caption": "See the waveform", "image_prompt": "Animated sound waveform", "visual_mode": "waveform"},
+            {"caption": "Map the melody", "image_prompt": "Animated melody map", "visual_mode": "melody_map"},
+            {"caption": "Hear the musical effect", "image_prompt": "Illustrated violin performance", "visual_mode": "cover_performance"},
         ],
     }
 
@@ -47,9 +49,8 @@ class CreativeDirectionTests(unittest.TestCase):
         self.assertIn("full_screen_2d", VISUAL_MODES)
 
     def test_valid_music_facts_plan_passes(self):
-        with patch.dict(os.environ, {"MOTION_HYPERFRAMES_RENDER_ENABLED": "false"}):
-            self.assertEqual(validate_creative_plan(valid_plan()), [])
-            self.assertEqual(channel_fit_report(valid_plan())["status"], "passed")
+        self.assertEqual(validate_creative_plan(valid_plan()), [])
+        self.assertEqual(channel_fit_report(valid_plan())["status"], "passed")
 
     def test_portrait_motion_format_accepts_five_full_screen_scenes(self):
         plan = valid_plan()
@@ -64,8 +65,9 @@ class CreativeDirectionTests(unittest.TestCase):
             self.assertEqual(validate_creative_plan(plan), [])
 
     def test_portrait_motion_format_rejects_three_scene_legacy_plan(self):
-        with patch.dict(os.environ, {"MOTION_HYPERFRAMES_RENDER_ENABLED": "true"}):
-            issues = validate_creative_plan(valid_plan())
+        plan = valid_plan()
+        plan["scenes"] = plan["scenes"][:3]
+        issues = validate_creative_plan(plan)
         self.assertTrue(any("exactly five visual story beats" in item for item in issues))
 
     def test_individual_musician_biography_is_rejected(self):
@@ -89,14 +91,13 @@ class CreativeDirectionTests(unittest.TestCase):
 
     def test_scene_three_must_be_the_performance_payoff(self):
         plan = valid_plan()
-        plan["scenes"][2]["visual_mode"] = "waveform"
-        self.assertTrue(any("Scene 3" in item for item in validate_creative_plan(plan)))
+        plan["scenes"][4]["visual_mode"] = "waveform"
+        self.assertTrue(any("Scene 5" in item for item in validate_creative_plan(plan)))
 
     def test_unknown_visual_mode_is_rejected(self):
         plan = valid_plan()
         plan["scenes"][1]["visual_mode"] = "celebrity_portrait"
-        with patch.dict(os.environ, {"MOTION_HYPERFRAMES_RENDER_ENABLED": "false"}):
-            issues = validate_creative_plan(plan)
+        issues = validate_creative_plan(plan)
         self.assertTrue(any("visual_mode" in item for item in issues))
 
     def test_visual_modes_render_distinct_explainer_diagrams(self):
@@ -106,7 +107,7 @@ class CreativeDirectionTests(unittest.TestCase):
 
         plan = valid_plan()
         rendered = {}
-        for mode in ("macro_3d", "mechanism_3d", "melody_map", "comparison", "cover_performance"):
+        for mode in ("macro_illustration", "mechanism_diagram", "waveform", "melody_map", "cover_performance"):
             with tempfile.TemporaryDirectory() as folder:
                 scene = {
                     "caption": "The same explanation",
@@ -121,10 +122,10 @@ class CreativeDirectionTests(unittest.TestCase):
                     rendered[mode] = frame.copy()
 
         for first_mode, second_mode in (
-            ("macro_3d", "mechanism_3d"),
-            ("mechanism_3d", "melody_map"),
-            ("melody_map", "comparison"),
-            ("comparison", "cover_performance"),
+            ("macro_illustration", "mechanism_diagram"),
+            ("mechanism_diagram", "waveform"),
+            ("waveform", "melody_map"),
+            ("melody_map", "cover_performance"),
         ):
             diff = ImageChops.difference(
                 rendered[first_mode], rendered[second_mode]
