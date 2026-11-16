@@ -1,14 +1,11 @@
-"""Unit tests for optional reference-informed visual direction."""
-import os
+"""Tests for 2D-only visual-reference direction."""
 import sys
-from unittest.mock import patch
 import unittest
 from pathlib import Path
 
 ENGINE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ENGINE))
 
-import run as pipeline
 from visual_reference import (
     normalize_visual_reference,
     scene_camera_move,
@@ -19,193 +16,98 @@ from visual_reference import (
 )
 
 
+def scenes():
+    return [
+        {"visual_mode": "macro_illustration"},
+        {"visual_mode": "mechanism_diagram"},
+        {"visual_mode": "waveform"},
+        {"visual_mode": "melody_map"},
+        {"visual_mode": "cover_performance"},
+    ]
+
+
 class VisualReferenceTests(unittest.TestCase):
-    def setUp(self):
-        self.scenes = [
-            {"visual_mode": "macro_3d"},
-            {"visual_mode": "mechanism_3d"},
-            {"visual_mode": "cover_performance"},
-        ]
-
-    def test_portrait_motion_reference_accepts_five_scene_choreography(self):
-        scenes = [
-            {"visual_mode": "full_screen_2d"},
-            {"visual_mode": "full_screen_2d"},
-            {"visual_mode": "full_screen_2d"},
-            {"visual_mode": "full_screen_2d"},
-            {"visual_mode": "cover_performance"},
-        ]
-        with patch.dict(os.environ, {"MOTION_HYPERFRAMES_RENDER_ENABLED": "true"}):
-            profile = normalize_visual_reference(
-                {
-                    "motion_profile": "portrait_narration_driven_2d",
-                    "visual_language": "full_screen_2d_motion_graphics",
-                    "reference_summary": "Five portrait scenes with original layered art, camera moves and narration-led reveals.",
-                    "scene_guidance": [
-                        {"shot_type": "wide_hero", "camera_move": "pan_right", "transition_out": "wipe_left"},
-                        {"shot_type": "close_detail", "camera_move": "pan_left", "transition_out": "wipe_right"},
-                        {"shot_type": "mechanism_cutaway", "camera_move": "pan_down", "transition_out": "smooth_left"},
-                        {"shot_type": "overhead", "camera_move": "pan_up", "transition_out": "crossfade"},
-                        {"shot_type": "performance_close", "camera_move": "locked", "transition_out": "fade_through_black"},
-                    ],
-                },
-                scenes,
-            )
-        self.assertEqual(len(profile["scene_guidance"]), 5)
-        self.assertIn("original full-screen portrait SVG scenes", profile["adaptation_note"])
-
-    def test_missing_reference_keeps_existing_default_path(self):
-        self.assertIsNone(normalize_visual_reference(None, self.scenes))
+    def test_missing_reference_keeps_safe_2d_defaults(self):
+        self.assertIsNone(normalize_visual_reference(None, scenes()))
         self.assertEqual(scene_camera_move({}, 0), "locked")
         self.assertEqual(scene_transition({}, 0), "fade")
         self.assertAlmostEqual(transition_duration({}), 0.35)
         self.assertEqual(scene_visual_prompt_suffix({}, 0), "")
 
-    def test_normalizes_reference_style_and_scene_choreography(self):
+    def test_normalizes_five_scene_2d_choreography(self):
         profile = normalize_visual_reference(
             {
                 "source_url": "https://www.youtube.com/shorts/example",
-                "reference_summary": "Fast macro reveals with graphic transitions.",
-                "motion_profile": "animated_stills",
-                "visual_language": "cinematic_cgi",
+                "reference_summary": "Layered 2D illustrations, fast graphic transitions and clear typography.",
+                "motion_profile": "portrait_narration_driven_2d",
+                "visual_language": "illustrated_2d",
                 "pacing": "dynamic",
                 "scene_guidance": [
-                    {
-                        "shot_type": "extreme_macro",
-                        "camera_move": "pan_left",
-                        "transition_out": "wipe_left",
-                    },
-                    {
-                        "shot_type": "mechanism_cutaway",
-                        "camera_move": "pan_up",
-                        "transition_out": "smooth_left",
-                    },
-                    {
-                        "shot_type": "performance_close",
-                        "camera_move": "locked",
-                        "transition_out": "crossfade",
-                    },
+                    {"shot_type": "extreme_macro", "camera_move": "pan_left", "transition_out": "wipe_left"},
+                    {"shot_type": "mechanism_cutaway", "camera_move": "pan_up", "transition_out": "smooth_left"},
+                    {"shot_type": "close_detail", "camera_move": "pan_right", "transition_out": "wipe_right"},
+                    {"shot_type": "overhead", "camera_move": "pan_down", "transition_out": "crossfade"},
+                    {"shot_type": "performance_close", "camera_move": "locked", "transition_out": "fade_through_black"},
                 ],
             },
-            self.scenes,
+            scenes(),
         )
         plan = {"visual_reference": profile}
-
-        self.assertEqual(profile["schema_version"], 1)
-        self.assertEqual(profile["visual_language"], "cinematic_cgi")
-        self.assertEqual(profile["motion_profile"], "animated_stills")
+        self.assertEqual(profile["visual_language"], "illustrated_2d")
+        self.assertEqual(len(profile["scene_guidance"]), 5)
+        self.assertIn("original full-screen portrait SVG scenes", profile["adaptation_note"])
+        self.assertIn("No 3D renderer", profile["adaptation_note"])
         self.assertEqual(scene_camera_move(plan, 0), "pan_left")
         self.assertEqual(scene_camera_move(plan, 1), "pan_up")
         self.assertEqual(scene_transition(plan, 0), "wipeleft")
         self.assertEqual(scene_transition(plan, 1), "smoothleft")
         self.assertAlmostEqual(transition_duration(plan), 0.27)
-
         suffix = scene_visual_prompt_suffix(plan, 0)
         self.assertIn("Reference-informed treatment", suffix)
         self.assertIn("Extreme macro framing", suffix)
         self.assertIn("do not reproduce exact frames", suffix)
 
-    def test_scene_shot_defaults_follow_existing_visual_modes(self):
-        profile = normalize_visual_reference(
-            {"visual_language": "hybrid"},
-            self.scenes,
-        )
-        guidance = profile["scene_guidance"]
+    def test_default_shots_follow_2d_scene_modes(self):
+        profile = normalize_visual_reference({"visual_language": "kinetic_graphics"}, scenes())
         self.assertEqual(
-            [item["shot_type"] for item in guidance],
-            ["extreme_macro", "mechanism_cutaway", "performance_close"],
+            [item["shot_type"] for item in profile["scene_guidance"]],
+            ["extreme_macro", "mechanism_cutaway", "close_detail", "overhead", "performance_close"],
         )
-        self.assertTrue(all(item["camera_move"] == "locked" for item in guidance))
-        self.assertTrue(all(item["transition_out"] == "crossfade" for item in guidance))
+        self.assertTrue(all(item["camera_move"] == "locked" for item in profile["scene_guidance"]))
+        self.assertTrue(all(item["transition_out"] == "crossfade" for item in profile["scene_guidance"]))
 
-    def test_video_clip_reference_is_honestly_adapted_not_misrepresented(self):
-        profile = normalize_visual_reference(
-            {"motion_profile": "video_clips"},
-            self.scenes,
-        )
-        self.assertIn("does not generate new AI video clips", profile["adaptation_note"])
-        self.assertIn("animated overlays", profile["adaptation_note"])
+    def test_video_reference_is_adapted_not_recreated(self):
+        profile = normalize_visual_reference({"motion_profile": "video_clips"}, scenes())
+        self.assertIn("original 2D Motion graphics", profile["adaptation_note"])
+        self.assertIn("not copied or recreated", profile["adaptation_note"])
 
     def test_rejects_non_https_reference_urls(self):
-        issues = validate_visual_reference(
-            {"source_url": "javascript:alert(1)"},
-            self.scenes,
-        )
+        issues = validate_visual_reference({"source_url": "javascript:alert(1)"}, scenes())
         self.assertTrue(issues)
         self.assertIn("safe HTTPS", issues[0])
 
     def test_rejects_unknown_visual_controls(self):
         issues = validate_visual_reference(
-            {
-                "pacing": "hyperfast",
-                "scene_guidance": [{}, {}, {}],
-            },
-            self.scenes,
+            {"pacing": "hyperfast", "scene_guidance": [{}, {}, {}, {}, {}]},
+            scenes(),
         )
         self.assertTrue(issues)
         self.assertIn("pacing", issues[0])
 
     def test_rejects_incomplete_scene_guidance(self):
-        with patch.dict(os.environ, {"MOTION_HYPERFRAMES_RENDER_ENABLED": "false"}):
-            issues = validate_visual_reference(
-                {"scene_guidance": [{"shot_type": "macro"}]},
-                self.scenes,
-            )
-        self.assertTrue(issues)
-        self.assertIn("exactly 3", issues[0])
-
-    def test_daily_scene_prompts_stay_within_provider_budget_and_keep_violin_identity(self):
-        scenes = [
-            {
-                "visual_mode": mode,
-                "image_prompt": (
-                    "Create a premium photorealistic cinematic scene with detailed amber violin "
-                    "materials, rich lighting, realistic acoustic waveforms and layered depth. "
-                ) * 12,
-            }
-            for mode in ("macro_3d", "waveform", "cover_performance")
-        ]
-        profile = normalize_visual_reference(
-            {
-                "visual_language": "hybrid",
-                "motion_profile": "animated_stills",
-                "scene_guidance": [{}, {}, {}],
-            },
-            scenes,
+        issues = validate_visual_reference(
+            {"scene_guidance": [{"shot_type": "macro"}]},
+            scenes(),
         )
-        plan = {
-            "topic": "A research prototype expands dynamic range in digital audio",
-            "cover_payoff": "A short original violin phrase illustrates the audio result.",
-            "visual_reference": profile,
-        }
+        self.assertTrue(issues)
+        self.assertIn("exactly 5", issues[0])
 
-        for index, scene in enumerate(scenes):
-            prompt = pipeline._scene_visual_prompt(
-                scene,
-                feedback="keep the lighting cinematic and the composition uncluttered " * 20,
-                index=index,
-                plan=plan,
-            )
-            self.assertLessEqual(len(prompt), 1800)
-            self.assertIn("solid, opaque amber-brown violin", prompt)
-            self.assertIn("Portrait 9:16 composition", prompt)
-            self.assertIn("Story subject:", prompt)
-            self.assertGreater(len(prompt), 900)
-
-    def test_reference_camera_moves_are_deterministic_pans_not_zoompan(self):
-        locked = pipeline.camera_motion_filter(200, 0)
-        left = pipeline.camera_motion_filter(200, 0, "pan_left", 8.0)
-        right = pipeline.camera_motion_filter(200, 1, "pan_right", 8.0)
-        self.assertEqual(locked, f"fps={pipeline.FPS},setsar=1")
-        self.assertIn("scale=792:1352", left)
-        self.assertIn("crop=720:1280", left)
-        self.assertIn("cos(PI*t/8.000000)", left)
-        self.assertNotEqual(left, right)
-        self.assertNotIn("zoompan", left)
-
-    def test_unknown_camera_move_is_blocked(self):
-        with self.assertRaisesRegex(Exception, "Unsupported reference camera move"):
-            pipeline.camera_motion_filter(100, 0, "orbit", 8.0)
+    def test_no_3d_visual_languages_or_scene_modes_are_exposed(self):
+        from visual_reference import VISUAL_LANGUAGES, _DEFAULT_SHOT_BY_MODE
+        self.assertTrue(all("3d" not in value.casefold() for value in VISUAL_LANGUAGES))
+        self.assertTrue(all("3d" not in value.casefold() for value in _DEFAULT_SHOT_BY_MODE))
+        self.assertIn("illustrated_2d", VISUAL_LANGUAGES)
+        self.assertIn("macro_illustration", _DEFAULT_SHOT_BY_MODE)
 
 
 if __name__ == "__main__":
