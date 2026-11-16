@@ -159,10 +159,10 @@ jobs:
 
           script = (
               "Your room can quietly mislead your mix. "
-              "The audio interface combines console-style preamps with onboard digital processing. "
-              "RoomTune sends a measurement signal through the room, analyses the response, and corrects monitor playback. "
-              "The onboard DSP handles equalisation, compression, and reverb before the sound reaches your monitors. "
-              "With the room corrected and processing under control, you can focus on the violin and trust what you hear."
+              "A modern audio interface pairs preamps with onboard DSP. "
+              "RoomTune measures room acoustics and corrects monitor playback. "
+              "EQ, compression and reverb shape tone, dynamics and space. "
+              "Now hear the violin through a clearer, more reliable mix."
           )
           output = Path("prototypes/hyperframes-motion/output")
           output.mkdir(parents=True, exist_ok=True)
@@ -208,10 +208,10 @@ jobs:
               "hook": "Your room can quietly mislead your mix.",
               "narration_script": (
                   "Your room can quietly mislead your mix. "
-                  "The audio interface combines console-style preamps with onboard digital processing. "
-                  "RoomTune sends a measurement signal through the room, analyses the response, and corrects monitor playback. "
-                  "The onboard DSP handles equalisation, compression, and reverb before the sound reaches your monitors. "
-                  "With the room corrected and processing under control, you can focus on the violin and trust what you hear."
+                  "A modern audio interface pairs preamps with onboard DSP. "
+                  "RoomTune measures room acoustics and corrects monitor playback. "
+                  "EQ, compression and reverb shape tone, dynamics and space. "
+                  "Now hear the violin through a clearer, more reliable mix."
               ),
               "scenes": [
                   {
