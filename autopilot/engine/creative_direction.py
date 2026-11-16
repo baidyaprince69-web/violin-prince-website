@@ -138,13 +138,9 @@ def validate_creative_plan(plan: dict[str, Any]) -> list[str]:
         )
 
     scenes = plan.get("scenes")
-    motion_enabled = os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "").strip().lower() == "true"
-    expected_scene_count = 5 if motion_enabled else 3
+    expected_scene_count = 5
     if not isinstance(scenes, list) or len(scenes) != expected_scene_count:
-        if motion_enabled:
-            issues.append("The portrait-native Motion format requires exactly five visual story beats.")
-        else:
-            issues.append("The approved legacy format requires exactly three visual story beats.")
+        issues.append("The 2D Motion format requires exactly five visual story beats.")
         return issues
 
     modes = []
