@@ -62,14 +62,21 @@ jobs:
       YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
       YOUTUBE_STATE_ENCRYPTION_KEY: ${{ secrets.YOUTUBE_STATE_ENCRYPTION_KEY }}
       SEO_LEARNING_REPORT_PATH: work/seo-learning-data/seo-learning/latest.enc.json
-      PUBLISH_ENABLED: "false"
-      MOTION_HYPERFRAMES_OUTRO_HOLD_SECONDS: "3.0"
-      YOUTUBE_PUBLISH_ENABLED: "false"
-      # Production is intentionally 2D-only. Motion + HyperFrames is mandatory;
-      # Blender and the software-GL 3D route are disabled for all production runs.
-      BLENDER_RENDER_ENABLED: "false"
-      MOTION_HYPERFRAMES_RENDER_ENABLED: "true"
-      MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS: ${{ vars.MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS || '24' }}
+      SKETCHFAB_ACCESS_TOKEN: ${{ secrets.SKETCHFAB_ACCESS_TOKEN }}
+      PUBLISH_ENABLED: "true"
+      YOUTUBE_PUBLISH_ENABLED: "true"
+      PUBLISH_DESTINATIONS: "youtube"
+      YOUTUBE_PRIVACY_STATUS: "public"
+      # The production renderer is Blender Eevee + official Frame By Plane.
+      # Motion + HyperFrames remains a separate, opt-in 2D workflow.
+      BLENDER_RENDER_ENABLED: "true"
+      MOTION_HYPERFRAMES_RENDER_ENABLED: "false"
+      BLENDER_RENDER_WIDTH: "540"
+      BLENDER_RENDER_HEIGHT: "960"
+      BLENDER_RENDER_FPS: "18"
+      BLENDER_RENDER_WORKERS: "2"
+      BLENDER_THREADS_PER_WORKER: "1"
+      BLENDER_RENDER_SAMPLES: "4"
     steps:
       - name: Validate stage inputs
         if: github.event_name != 'push'
@@ -105,6 +112,30 @@ jobs:
 
       - name: Check out the project
         uses: actions/checkout@v4
+
+      - name: Verify required Blender model and YouTube credentials
+        if: env.PIPELINE_STAGE == 'full' && env.BLENDER_RENDER_ENABLED == 'true'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ -n "$SKETCHFAB_ACCESS_TOKEN" ]] || {
+            echo "::error::Add the licensed-model credential as the repository Actions secret SKETCHFAB_ACCESS_TOKEN."
+            exit 1
+          }
+          for name in YOUTUBE_CLIENT_ID YOUTUBE_CLIENT_SECRET YOUTUBE_REFRESH_TOKEN; do
+            [[ -n "${!name:-}" ]] || {
+              echo "::error::Missing required YouTube secret: $name"
+              exit 1
+            }
+          done
+          [[ "$PUBLISH_ENABLED" == "true" && "$YOUTUBE_PUBLISH_ENABLED" == "true" ]] || {
+            echo "::error::Release and YouTube publishing must both be explicitly enabled for this production build."
+            exit 1
+          }
+          [[ "$YOUTUBE_PRIVACY_STATUS" == "public" ]] || {
+            echo "::error::The authorized YouTube privacy state must match the saved public-upload metadata."
+            exit 1
+          }
 
       - name: Read ChatGPT daily production request
         id: daily_request
@@ -178,6 +209,16 @@ jobs:
             fi
           done
           if [ "$missing" -ne 0 ]; then exit 1; fi
+
+      - name: Install pinned Blender 5.2.4 and Frame By Plane 8.0.1
+        id: setup_blender
+        if: env.BLENDER_RENDER_ENABLED == 'true' && (env.PIPELINE_STAGE == 'full' || env.PIPELINE_STAGE == 'render')
+        uses: ./.github/actions/setup-blender-frame-by-plane
+
+      - name: Export the verified Blender executable path
+        if: env.BLENDER_RENDER_ENABLED == 'true' && (env.PIPELINE_STAGE == 'full' || env.PIPELINE_STAGE == 'render')
+        shell: bash
+        run: echo "BLENDER_BIN=${{ steps.setup_blender.outputs.blender-path }}" >> "$GITHUB_ENV"
 
       - name: Restore the latest encrypted SEO learning snapshot
         if: env.PIPELINE_STAGE == 'prepare'
@@ -294,24 +335,26 @@ jobs:
         if: env.PIPELINE_STAGE == 'render'
         run: python autopilot/engine/run.py --stage render
 
-      - name: Run ChatGPT-prepared narrated explainer with Kokoro + Motion
+      - name: Run ChatGPT-prepared explainer with Blender Eevee + Frame By Plane
         if: env.PIPELINE_STAGE == 'full' && steps.manual_motion_request.outputs.plan_path != ''
         env:
           RUN_ID: ${{ github.run_id }}
           AUTOPILOT_API_URL: ""
           AUTOPILOT_JOB_TOKEN: ""
           PUBLISH_ENABLED: "false"
-          MOTION_HYPERFRAMES_RENDER_ENABLED: "true"
-          BLENDER_RENDER_ENABLED: "false"
+          BLENDER_RENDER_ENABLED: "true"
+          MOTION_HYPERFRAMES_RENDER_ENABLED: "false"
         run: python autopilot/engine/run_daily_plan.py --plan "${{ steps.manual_motion_request.outputs.plan_path }}"
 
-      - name: Run ChatGPT-prepared explainer with mandatory 2D Motion + HyperFrames
+      - name: Run ChatGPT-prepared full 3D explainer with Blender Eevee + Frame By Plane
         if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path != ''
         env:
           RUN_ID: ${{ github.run_id }}
           AUTOPILOT_API_URL: ""
           AUTOPILOT_JOB_TOKEN: ""
           PUBLISH_ENABLED: "false"
+          BLENDER_RENDER_ENABLED: "true"
+          MOTION_HYPERFRAMES_RENDER_ENABLED: "false"
         run: python autopilot/engine/run_daily_plan.py --plan "${{ steps.daily_request.outputs.plan_path }}"
 
       - name: Run complete Prepare → Visuals → Render sequence
@@ -320,7 +363,7 @@ jobs:
 
       - name: Publish finished MP4 and publisher handoff as release assets
         id: publish_asset
-        if: success() && env.PUBLISH_ENABLED == 'true' && env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path != ''
+        if: success() && env.PUBLISH_ENABLED == 'true' && env.PIPELINE_STAGE == 'full' && (steps.daily_request.outputs.plan_path != '' || steps.manual_motion_request.outputs.plan_path != '')
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_RUN_ID: ${{ github.run_id }}
@@ -405,16 +448,110 @@ jobs:
           PY
           gh release upload "$TAG" work/output/publish-manifest.json work/output/asset-provenance.json --clobber
 
-      - name: Upload finished video
-        if: success() && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')
+      - name: Publish final MP4 to YouTube
+        id: youtube_publish
+        if: success() && env.PIPELINE_STAGE == 'full' && env.PUBLISH_ENABLED == 'true' && env.YOUTUBE_PUBLISH_ENABLED == 'true' && (steps.daily_request.outputs.plan_path != '' || steps.manual_motion_request.outputs.plan_path != '') && steps.publish_asset.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_RUN_ID: ${{ github.run_id }}
+          PYTHONPATH: autopilot/engine
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          from publisher import publish_all
+
+          output = Path("work/output")
+          video = output / "violin-prince-short.mp4"
+          manifest_path = output / "publish-manifest.json"
+          provenance_path = output / "asset-provenance.json"
+          quality_path = output / "quality_report.json"
+          plan_path = Path("work/package/creative_plan.json")
+          required = (video, manifest_path, provenance_path, quality_path, plan_path)
+          missing = [str(path) for path in required if not path.is_file()]
+          if missing:
+              raise SystemExit("YouTube upload blocked; required final build files are missing: " + ", ".join(missing))
+          if video.stat().st_size < 4096:
+              raise SystemExit("YouTube upload blocked; final MP4 is unexpectedly small.")
+
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+          quality = json.loads(quality_path.read_text(encoding="utf-8"))
+          plan = json.loads(plan_path.read_text(encoding="utf-8"))
+          metadata = plan.get("publish_metadata") or {}
+          preflight = manifest.get("publisher_preflight") or {}
+          if manifest.get("status") != "rendered" or manifest.get("publish_ready") is not True:
+              raise SystemExit("YouTube upload blocked; publisher manifest is not ready.")
+          if preflight.get("status") != "ready" or preflight.get("blockers"):
+              raise SystemExit("YouTube upload blocked by publisher preflight: " + json.dumps(preflight.get("blockers") or []))
+          if metadata.get("privacy_status") != "public" or os.environ.get("YOUTUBE_PRIVACY_STATUS") != "public":
+              raise SystemExit("YouTube upload blocked; the validated metadata and authorized privacy state are not both public.")
+          if not isinstance(metadata.get("made_for_kids"), bool):
+              raise SystemExit("YouTube upload blocked; made_for_kids must be confirmed.")
+          blender_report = quality.get("blender_rendering") or {}
+          if blender_report.get("enabled") is not True or len(blender_report.get("scenes") or []) != 3:
+              raise SystemExit("YouTube upload blocked; the final MP4 was not verified as a three-scene Blender render.")
+          factual = provenance.get("factual_provenance") or {}
+          if factual.get("status") != "passed" or int(factual.get("independent_publisher_count") or 0) < 2:
+              raise SystemExit("YouTube upload blocked; two independent publisher sources are not verified.")
+          final_video = (provenance.get("assets") or {}).get("final_video") or {}
+          digest = hashlib.sha256(video.read_bytes()).hexdigest()
+          if final_video.get("sha256") != digest:
+              raise SystemExit("YouTube upload blocked; final MP4 SHA-256 does not match its provenance.")
+          if not 20 <= float(manifest.get("duration_seconds") or 0) <= 25:
+              raise SystemExit("YouTube upload blocked; final MP4 duration is outside the 20–25 second contract.")
+
+          result = publish_all(video, "", plan)
+          if result.get("all_succeeded") is not True or not result.get("results"):
+              raise SystemExit("YouTube upload failed: " + json.dumps(result, ensure_ascii=False))
+          youtube = next((item for item in result["results"] if item.get("platform") == "youtube" and item.get("ok")), None)
+          if not youtube:
+              raise SystemExit("YouTube did not confirm a video ID.")
+          manifest["publisher"] = "GitHub Actions direct YouTube upload"
+          manifest["publishing_enabled_in_github"] = True
+          manifest["youtube_upload"] = {
+              "status": "published",
+              "video_id": youtube["id"],
+              "url": youtube["url"],
+              "privacy_status": "public",
+              "uploaded_at_utc": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+          }
+          manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+          Path("work/output/youtube-publish-result.json").write_text(
+              json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
+          )
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write("## YouTube publication confirmed\n\n")
+              summary.write("- URL: " + youtube["url"] + "\n")
+              summary.write("- Privacy: public\n")
+              summary.write("- Final Blender MP4 SHA-256: " + digest + "\n")
+          print("YOUTUBE_PUBLISHED_URL=" + youtube["url"])
+          PY
+          TAG="violin-prince-short-${RELEASE_RUN_ID}"
+          gh release upload "$TAG" work/output/publish-manifest.json --clobber
+
+      - name: Upload final MP4, Blender storyboard and publisher results
+        if: always() && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')
         uses: actions/upload-artifact@v4
         with:
-          name: cloud-video-preview-${{ github.run_id }}
+          name: violin-prince-final-production-${{ github.run_id }}
           path: |
             work/output/violin-prince-short.mp4
-            work/output/violin-prince-full-track.mp4
-            work/output/violin-prince-explainer.mp4
-          if-no-files-found: error
+            work/output/quality_report.json
+            work/output/visual-contact-sheet.png
+            work/output/blender-storyboard-review.png
+            work/output/blender-scene-1-poster.png
+            work/output/blender-scene-2-poster.png
+            work/output/blender-scene-3-poster.png
+            work/output/publish-manifest.json
+            work/output/asset-provenance.json
+            work/output/youtube-publish-result.json
+          if-no-files-found: ignore
           retention-days: 14
 
       - name: Preserve stage diagnostics
