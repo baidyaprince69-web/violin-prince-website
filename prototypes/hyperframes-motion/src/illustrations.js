@@ -98,7 +98,7 @@ function buildInterface(world) {
   node("rect", { x: 145, y: 555, width: 790, height: 800, rx: 38, fill: "#101b30", stroke: "#d8bd91", "stroke-width": 7 }, chassis);
   node("rect", { x: 174, y: 585, width: 732, height: 740, rx: 24, fill: "#1b2b45", stroke: "#7489a8", "stroke-opacity": 0.5, "stroke-width": 3 }, chassis);
   node("path", { d: "M205 950 L875 950", stroke: "#d8bd91", "stroke-opacity": 0.48, "stroke-width": 4 }, chassis);
-  text(chassis, 540, 665, "CONSOLE-STYLE PREAMPS", 52, "#d8bd91", { "text-anchor": "middle" });
+  text(chassis, 540, 665, "PREAMPS + DSP", 56, "#d8bd91", { "text-anchor": "middle" });
   for (let i = 0; i < 4; i += 1) {
     const cx = 300 + i * 160;
     node("circle", { cx, cy: 785, r: 62, fill: "#0b1425", stroke: "#d8bd91", "stroke-width": 5 }, chassis);
@@ -107,17 +107,17 @@ function buildInterface(world) {
     node("circle", { cx, cy: 785, r: 8, fill: "#70cfc4" }, chassis);
   }
   const screen = reveal(subject, 1, "interface-screen");
-  node("rect", { x: 255, y: 1000, width: 570, height: 125, rx: 16, fill: "#081321", stroke: "#70cfc4", "stroke-width": 4 }, screen);
+  node("rect", { x: 255, y: 900, width: 570, height: 125, rx: 16, fill: "#081321", stroke: "#70cfc4", "stroke-width": 4 }, screen);
   for (let i = 0; i < 24; i += 1) {
     const height = 24 + ((i * 31) % 82);
-    node("rect", { x: 285 + i * 22, y: 1110 - height, width: 11, height, rx: 5, fill: i % 3 ? "#70cfc4" : "#d8bd91", class: "interface-meter", "data-meter-height": height }, screen);
+    node("rect", { x: 285 + i * 22, y: 1010 - height, width: 11, height, rx: 5, fill: i % 3 ? "#70cfc4" : "#d8bd91", class: "interface-meter", "data-meter-height": height }, screen);
   }
   const dsp = reveal(subject, 2, "interface-dsp");
   [
-    { x: 250, label: "EQ" }, { x: 455, label: "COMP" }, { x: 660, label: "REVERB" }
+    { x: 220, label: "EQ" }, { x: 420, label: "COMP" }, { x: 620, label: "SPACE" }
   ].forEach((item) => {
-    node("rect", { x: item.x, y: 1185, width: 170, height: 72, rx: 15, fill: "#0b1728", stroke: "#d8bd91", "stroke-width": 3 }, dsp);
-    text(dsp, item.x + 85, 1233, item.label, 56, "#d8bd91", { "text-anchor": "middle" });
+    node("rect", { x: item.x, y: 1055, width: 160, height: 72, rx: 15, fill: "#0b1728", stroke: "#d8bd91", "stroke-width": 3 }, dsp);
+    text(dsp, item.x + 80, 1103, item.label, 52, "#d8bd91", { "text-anchor": "middle" });
   });
 }
 
@@ -133,9 +133,9 @@ function buildRoomTune(world) {
   });
   const process = reveal(subject, 1, "roomtune-steps");
   const steps = [
-    { y: 735, label: "1  MEASURE", detail: "Capture the room response" },
-    { y: 915, label: "2  ANALYSE", detail: "Analyse the measurement" },
-    { y: 1095, label: "3  CORRECT", detail: "Adjust monitor playback" }
+    { y: 735, label: "1  MEASURE", detail: "Room response" },
+    { y: 915, label: "2  ANALYSE", detail: "Analyse response" },
+    { y: 1095, label: "3  CORRECT", detail: "Adjust monitors" }
   ];
   steps.forEach((step, index) => {
     node("rect", { x: 145, y: step.y, width: 790, height: 155, rx: 24, fill: "#14243c", stroke: index === 1 ? "#d8bd91" : "#70cfc4", "stroke-width": 4 }, process);
@@ -151,9 +151,9 @@ function buildRoomTune(world) {
 function buildDspStages(world) {
   const subject = node("g", { class: "scene-subject dsp-subject" }, world);
   const stages = [
-    { y: 550, label: "EQUALISATION", detail: "Shape tone", type: "eq" },
-    { y: 820, label: "COMPRESSION", detail: "Control dynamics", type: "compress" },
-    { y: 1090, label: "REVERB", detail: "Add space", type: "reverb" }
+    { y: 500, label: "TONE / EQ", detail: "Shape tone", type: "eq" },
+    { y: 750, label: "DYNAMICS", detail: "Level control", type: "compress" },
+    { y: 1000, label: "SPACE", detail: "Add space", type: "reverb" }
   ];
   const stagesRoot = reveal(subject, 0, "dsp-stages");
   stages.forEach((stage, index) => {
