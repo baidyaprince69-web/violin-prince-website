@@ -1,0 +1,8 @@
+{
+  "mode": "manual_narrated_explainer",
+  "plan_path": ".autopilot/daily-production-plan.json",
+  "music_duration_seconds": 24,
+  "request": "Use the ChatGPT-authored, research-backed daily production plan exactly as saved. Re-fetch and verify its independent publisher articles and sentence evidence. Preserve the five-sentence narration script exactly as saved: five short complete sentences and 40–44 words total (currently 42); do not expand or regenerate it. Synthesize Kokoro-82M af_heart narration with native word-level timings. Render all five full-screen portrait-native scenes through Motion + HyperFrames: listening room and reflected sound, audio-interface hero, RoomTune measure/analyse/correct, EQ/compression/reverb, and close-up illustrated violin. Map each scene to its own complete narration sentence. Use full-canvas layered SVG, meaningful camera movement, progressive reveals, large contextual labels, and readable phone-safe captions. Measure each SVG subject footprint, check layout/craft/safe zones, render a 360x640 phone preview and scene contact sheet, and verify MP4 audio, duration and seeking. Upload the video, phone preview and QA reports as GitHub Actions artifacts for manual review only. Do not publish to YouTube or release. Keep PUBLISH_ENABLED=false and YOUTUBE_PUBLISH_ENABLED=false. Do not invoke Cloudflare, FLUX or Blender.",
+  "trigger_marker": "[manual-motion-production]",
+  "request_revision": "five-scene-portrait-native-motion-render-review-4"
+}

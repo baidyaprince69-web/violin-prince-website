@@ -23,8 +23,8 @@
     "Violin Prince"
   ],
   "narrative_style": "documentary",
-  "cover_payoff": "Use the separately licensed violin and bow geometry selected for this story. Blender should animate the bow rig across the instrument strings; use a short sample violin phrase as an illustrative audio layer, not as a claim of a live recording.",
-  "narration_script": "Your room can quietly mislead your mix. Audient's new interfaces combine console-style preamps with onboard digital processing. RoomTune measures room acoustics and adjusts the signal reaching your monitors. Its onboard DSP runs EQ, compression, and reverb without burdening your computer.",
+  "cover_payoff": "Use an original, layered 2D violin illustration with a stylised performer, animated bow movement, visible drawn strings, musical-note accents and a warm waveform payoff. This is an illustrated music moment, not a live-performance recording or a 3D asset.",
+  "narration_script": "Your room can quietly mislead your mix. Audient's iD interfaces pair console-style preamps with onboard DSP. RoomTune measures room acoustics and corrects monitor playback. EQ, compression and reverb shape tone, dynamics and space. Now hear your violin through a clearer, trusted mix.",
   "narration_evidence": [
     {
       "sentence_number": 2,
@@ -61,39 +61,120 @@
   "timeline": [],
   "scenes": [
     {
-      "caption": "YOUR ROOM SHAPES WHAT YOU HEAR",
-      "image_prompt": "Premium physically accurate, high-detail 3D cinematic Blender full-frame 3D scene for a vertical music-technology explainer. A complete, believable amber-brown violin rests in a dark midnight mixing room, with a pair of studio monitors and subtle room surfaces visible around it. Show soft golden sound waves travelling from a speaker, reflecting from the room walls and returning toward a listening position. The reflections are an abstract visual metaphor, not measured data. Rich maple grain, glossy but natural varnish, ebony fingerboard, bridge and strings, realistic scale, deep teal shadows, controlled amber rim lighting, atmospheric depth, physically based materials. No text, numbers, logos, watermark, wireframe, outline illustration, incomplete instrument or fake person.",
-      "graphic_label": "YOUR ROOM SHAPES WHAT YOU HEAR",
-      "graphic_detail": "Room reflections can colour monitor playback",
-      "visual_mode": "macro_3d"
-    },
-    {
-      "caption": "MEASURE THE ROOM. ADJUST THE MONITORS.",
-      "image_prompt": "A clear physically accurate, high-detail 3D 3D scientific visualization in a dark acoustic studio. Show a calibrated reference microphone between two studio monitors, a soft golden test waveform travelling through the room, and a restrained abstract DSP stage guiding the monitor signal. Visualize the room response as a smooth conceptual curve with no numeric values, then show a more even conceptual curve after correction. Keep all curves clearly illustrative, not real measurements from a particular room. Cinematic midnight navy, antique gold and muted teal, realistic metal and glass, precise reflections, vertical 9:16 composition, no text, no brand marks, no watermark, no wireframe or cartoon style.",
-      "graphic_label": "ROOMTUNE MONITOR CORRECTION",
-      "graphic_detail": "DSP adjusts the signal sent to the monitors",
-      "visual_mode": "waveform",
+      "scene_number": 1,
+      "sentence_index": 0,
+      "caption": "YOUR ROOM CAN MISLEAD YOUR MIX",
+      "image_prompt": "Full-screen portrait-native 2D vector listening room. Two large studio monitors, a clear listening position and an illustrated seated listener fill the vertical composition. Warm antique-gold sound waves travel directly to the listener and teal reflections bounce from the walls. Layered wall panels, deep perspective floor and camera push-in. Midnight navy and antique gold. Large, immediately recognisable objects.",
+      "graphic_label": "SCENE 01 · THE LISTENING ROOM",
+      "graphic_detail": "Direct and reflected sound change what reaches the listening position",
+      "visual_mode": "full_screen_2d",
       "graphic_data": {
-        "type": "process_flow",
-        "title": "ROOMTUNE SIGNAL PATH",
+        "type": "room_acoustics",
         "items": [
-          "MEASURE THE ROOM",
-          "APPLY DSP CORRECTION",
-          "ADJUST MONITOR OUTPUT"
+          {
+            "label": "STUDIO MONITORS",
+            "display": "Sound source"
+          },
+          {
+            "label": "LISTENING POSITION",
+            "display": "Room response"
+          }
         ]
       }
     },
     {
+      "scene_number": 2,
+      "sentence_index": 1,
+      "caption": "THE INTERFACE: PREAMPS + DSP",
+      "image_prompt": "Full-screen portrait-native 2D illustration of a premium audio interface as the central hero object. Make the chassis, preamp knobs, meters and onboard processing section large and individually legible. Reveal the preamp controls first, then the digital processing display. Midnight navy, antique gold and subtle teal lighting.",
+      "graphic_label": "SCENE 02 · THE AUDIO INTERFACE",
+      "graphic_detail": "Console-style preamps and onboard processing share one interface",
+      "visual_mode": "full_screen_2d",
+      "graphic_data": {
+        "type": "audio_interface",
+        "items": [
+          {
+            "label": "PREAMPS",
+            "display": "Input stage"
+          },
+          {
+            "label": "ONBOARD DSP",
+            "display": "Processing"
+          }
+        ]
+      }
+    },
+    {
+      "scene_number": 3,
+      "sentence_index": 2,
+      "caption": "ROOMTUNE: MEASURE → CORRECT",
+      "image_prompt": "Full-screen portrait-native 2D visual explanation of RoomTune. A large measurement microphone sits above a vertical sequence of three readable stages: Measure, Analyse and Correct. Animated teal measurement waves enter the process; a gold signal pulse travels down the chain; studio monitors receive the corrected output. Use large icons, labels and a cinematic camera push.",
+      "graphic_label": "SCENE 03 · ROOMTUNE",
+      "graphic_detail": "Measure the room, analyse its response, and correct monitor playback",
+      "visual_mode": "full_screen_2d",
+      "graphic_data": {
+        "type": "roomtune_process",
+        "items": [
+          {
+            "label": "MEASURE",
+            "display": "Capture"
+          },
+          {
+            "label": "ANALYSE",
+            "display": "Interpret"
+          },
+          {
+            "label": "CORRECT",
+            "display": "Adjust"
+          }
+        ]
+      }
+    },
+    {
+      "scene_number": 4,
+      "sentence_index": 3,
+      "caption": "EQ · COMPRESSION · REVERB",
+      "image_prompt": "Full-screen portrait-native 2D explainer with three large vertically stacked processing stages. Equalisation uses a clear tonal curve, compression uses a changing waveform, and reverb uses expanding echo arcs. Animate the audio signal travelling through each stage in order. The labels must be large and readable at phone size.",
+      "graphic_label": "SCENE 04 · ONBOARD DSP",
+      "graphic_detail": "Three processing stages shape tone, dynamics, and space",
+      "visual_mode": "full_screen_2d",
+      "graphic_data": {
+        "type": "dsp_stages",
+        "items": [
+          {
+            "label": "EQUALISATION",
+            "display": "Tone"
+          },
+          {
+            "label": "COMPRESSION",
+            "display": "Dynamics"
+          },
+          {
+            "label": "REVERB",
+            "display": "Space"
+          }
+        ]
+      }
+    },
+    {
+      "scene_number": 5,
+      "sentence_index": 4,
       "caption": "HEAR THE VIOLIN. TRUST THE MIX.",
-      "image_prompt": "A premium physically accurate, high-detail 3D 3D close performance-style composition centred on a fully formed amber-brown violin and a separate realistic bow contacting visible strings. Show detailed maple grain, fine transparent varnish, correct bridge, fingerboard, tailpiece and fittings. A warm golden waveform emerges from the instrument while the background transitions from subtle room reflections to a calmer, balanced listening space. No person or creator likeness is shown. Keep the violin and bow physically plausible, with cinematic studio lighting, realistic depth of field, restrained teal accents and a midnight navy environment. Vertical 9:16, no text, labels, logos or watermark, no incomplete shell, wireframe or outline illustration.",
-      "graphic_label": "THE MUSICAL PAYOFF",
-      "graphic_detail": "A sampled violin phrase makes the monitoring idea tangible",
-      "visual_mode": "cover_performance"
+      "image_prompt": "Full-screen close-up 2D illustrated violin performance. A large amber violin, visible strings and expressive bow dominate the portrait composition. Include a stylised performer, clearly moving bow, independent arm and instrument layers, musical-note accents and a glowing waveform. Cinematic push-in and richer antique-gold light for the musical payoff. Original illustration only.",
+      "graphic_label": "SCENE 05 · THE MUSICAL PAYOFF",
+      "graphic_detail": "A close-up violin moment brings the explanation back to music",
+      "visual_mode": "cover_performance",
+      "graphic_data": {
+        "type": "violin_performance_2d",
+        "items": [
+          {
+            "label": "VIOLIN",
+            "display": "Illustrated performance"
+          }
+        ]
+      }
     }
   ],
-  "asset_subject": "violin strings bow",
-  "asset_kind": "violin",
-  "model_query": "realistic violin with visible strings and bow",
   "performance_feedback": {
     "sample_window": "2026-10-16 to 2026-11-15; Metricool video rows had unavailable engagement fields, supplemented by vidIQ latest Short uploads",
     "sample_count": 5,
@@ -123,45 +204,36 @@
     "made_for_kids": false
   },
   "visual_reference": {
-    "motion_profile": "animated_stills",
-    "visual_language": "hybrid",
+    "motion_profile": "portrait_narration_driven_2d",
+    "visual_language": "full_screen_2d_motion_graphics",
     "pacing": "dynamic",
-    "reference_summary": "Original Violin Prince music-technology explainer with a full-frame amber-brown violin, true 3D room acoustics metaphor, crisp DSP signal graphics, kinetic captions, dimensional cinematic studio lighting and a distinct musical payoff.",
+    "reference_summary": "Five portrait-native 2D scenes: listening room and reflections; audio-interface hero; RoomTune measure/analyse/correct; EQ/compression/reverb; close-up violin payoff. Each uses original layered SVG artwork, camera movement, progressive reveals, contextual labels, and midnight-navy/antique-gold branding.",
     "scene_guidance": [
       {
         "shot_type": "wide_hero",
+        "camera_move": "pan_right",
+        "transition_out": "wipe_left"
+      },
+      {
+        "shot_type": "close_detail",
         "camera_move": "pan_left",
         "transition_out": "wipe_right"
       },
       {
         "shot_type": "mechanism_cutaway",
-        "camera_move": "pan_up",
+        "camera_move": "pan_down",
         "transition_out": "smooth_left"
       },
       {
+        "shot_type": "overhead",
+        "camera_move": "pan_up",
+        "transition_out": "crossfade"
+      },
+      {
         "shot_type": "performance_close",
-        "camera_move": "pan_right",
+        "camera_move": "locked",
         "transition_out": "fade_through_black"
       }
     ]
-  },
-  "preferred_model_urls": [
-    "https://sketchfab.com/3d-models/violin-b45bce730d8a489c83ecc944f3725475"
-  ],
-  "preferred_bow_model_urls": [
-    "https://sketchfab.com/3d-models/violin-bow-af332828a42f4f8cbbe81bea3de0b00d"
-  ],
-  "strings_in_combined_mesh": true,
-  "asset_selection_note": "The selected model's published Sketchfab preview visibly shows the violin with strings running along the fingerboard. Its GLB node names do not identify a separate string object; treat the strings as visually integrated into the imported violin geometry. Keep the render blocked if the imported model preview does not visibly retain the strings.",
-  "frame_by_plane_direction": {
-    "mode": "Blender 3D hero + Frame By Plane 2.5D backgrounds",
-    "layers_per_scene": 3,
-    "order": [
-      "far atmosphere",
-      "studio environment",
-      "foreground depth"
-    ],
-    "no_chatgpt_generated_stills": true,
-    "no_cloudflare_image_generation": true
   }
 }

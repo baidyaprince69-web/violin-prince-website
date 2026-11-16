@@ -1,11 +1,16 @@
 name: Violin Prince Autopilot
 
 on:
+  # Daily local-time start: 00:30 UTC = 06:00 Asia/Kolkata.
+  schedule:
+    - cron: "30 0 * * *"
   push:
     branches:
       - main
+      - prototype/motion-hyperframes-2026-11-15
     paths:
       - ".autopilot/prepare-request.json"
+      - ".autopilot/manual-motion-production-request.json"
   workflow_dispatch:
     inputs:
       stage:
@@ -33,10 +38,13 @@ permissions:
 
 concurrency:
   group: violin-prince-autopilot-staged
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   produce:
+    # A manual request committed on the prototype branch must not replay when
+    # that request file is later merged into main.
+    if: ${{ !(github.event_name == 'push' && github.ref_name == 'main' && (contains(toJSON(github.event.commits.*.added), '.autopilot/manual-motion-production-request.json') || contains(toJSON(github.event.commits.*.modified), '.autopilot/manual-motion-production-request.json'))) }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -48,7 +56,6 @@ jobs:
       AUTOPILOT_JOB_TOKEN: ${{ secrets.AUTOPILOT_JOB_TOKEN }}
       CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
       CF_AI_TOKEN: ${{ secrets.CF_AI_TOKEN }}
-      SKETCHFAB_ACCESS_TOKEN: ${{ secrets.SKETCHFAB_ACCESS_TOKEN }}
       YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
       YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
       YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
@@ -56,21 +63,12 @@ jobs:
       YOUTUBE_STATE_ENCRYPTION_KEY: ${{ secrets.YOUTUBE_STATE_ENCRYPTION_KEY }}
       SEO_LEARNING_REPORT_PATH: work/seo-learning-data/seo-learning/latest.enc.json
       PUBLISH_ENABLED: "false"
-      BLENDER_RENDER_ENABLED: ${{ github.event_name == 'push' && 'true' || vars.BLENDER_RENDER_ENABLED || 'false' }}
-      BLENDER_RENDER_WORKERS: "3"
-      BLENDER_THREADS_PER_WORKER: "1"
-      BLENDER_RENDER_WIDTH: "400"
-      BLENDER_RENDER_HEIGHT: "712"
-      BLENDER_RENDER_FPS: "16"
-      BLENDER_RENDER_SAMPLES: "4"
-      BLENDER_MODEL_FACE_LIMIT: "60000"
-      BLENDER_RENDER_TIMEOUT_SECONDS: "900"
-      BLENDER_RENDER_DIAGNOSTICS: "1"
-      BLENDER_RENDER_PREFLIGHT_ENABLED: "true"
-      BLENDER_RENDER_PREFLIGHT_RESERVE_SECONDS: "30"
-      EGL_PLATFORM: surfaceless
-      LIBGL_ALWAYS_SOFTWARE: "1"
-      MESA_LOADER_DRIVER_OVERRIDE: llvmpipe
+      YOUTUBE_PUBLISH_ENABLED: "false"
+      # Production is intentionally 2D-only. Motion + HyperFrames is mandatory;
+      # Blender and the software-GL 3D route are disabled for all production runs.
+      BLENDER_RENDER_ENABLED: "false"
+      MOTION_HYPERFRAMES_RENDER_ENABLED: "true"
+      MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS: ${{ vars.MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS || '24' }}
     steps:
       - name: Validate stage inputs
         if: github.event_name != 'push'
@@ -109,7 +107,7 @@ jobs:
 
       - name: Read ChatGPT daily production request
         id: daily_request
-        if: github.event_name == 'push'
+        if: github.event_name == 'schedule' || (github.event_name == 'push' && !contains(github.event.head_commit.message, '[manual-motion-production]')) || (github.event_name == 'workflow_dispatch' && inputs.stage == 'full')
         shell: bash
         run: |
           python - <<'PY'
@@ -133,19 +131,42 @@ jobs:
           print("Validated ChatGPT daily production request: " + plan_path)
           PY
 
-      - name: Require licensed Sketchfab access for the Cloudflare-independent daily route
-        if: github.event_name == 'push'
+      - name: Validate manual narrated-explainer request
+        id: manual_motion_request
+        if: github.event_name == 'push' && contains(github.event.head_commit.message, '[manual-motion-production]')
         shell: bash
-        env:
-          MODEL_TOKEN: ${{ secrets.SKETCHFAB_ACCESS_TOKEN }}
         run: |
-          if [ -z "$MODEL_TOKEN" ]; then
-            echo "::error::SKETCHFAB_ACCESS_TOKEN is required to download a licensed story-specific 3D model. No placeholder model or Cloudflare image fallback will be used."
-            exit 1
-          fi
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
 
-      - name: Check Cloudflare secrets only for the legacy manual image route
-        if: github.event_name == 'workflow_dispatch' && env.PIPELINE_STAGE != 'render' && env.BLENDER_RENDER_ENABLED != 'true'
+          request_path = Path(".autopilot/manual-motion-production-request.json")
+          if not request_path.is_file():
+              raise SystemExit("Manual narrated-explainer request is missing.")
+          request = json.loads(request_path.read_text(encoding="utf-8"))
+          if request.get("mode") != "manual_narrated_explainer":
+              raise SystemExit("Manual request mode must be manual_narrated_explainer.")
+          plan_path = str(request.get("plan_path") or ".autopilot/daily-production-plan.json")
+          if not plan_path.startswith(".autopilot/") or ".." in Path(plan_path).parts:
+              raise SystemExit("The explainer plan must remain inside the .autopilot directory.")
+          if not Path(plan_path).is_file():
+              raise SystemExit("The ChatGPT-authored research and explanation plan is missing.")
+          duration = float(request.get("music_duration_seconds", 24))
+          if not 1 <= duration <= 120:
+              raise SystemExit("Optional violin background-bed source duration must be between 1 and 120 seconds.")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
+              env.write(f"MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS={duration:g}\n")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write("plan_path=" + plan_path + "\n")
+          print("Validated ChatGPT-authored explainer plan: " + plan_path)
+          print("Selected evidence validation, Kokoro-82M af_heart narration and Motion + HyperFrames.")
+          print("CC0 violin is an optional quiet background bed, not the primary audio.")
+          print("Cloudflare and Blender are skipped; publishing remains disabled.")
+          PY
+
+      - name: Check legacy image-route credentials only when Motion is not selected
+        if: github.event_name == 'workflow_dispatch' && env.PIPELINE_STAGE != 'render' && env.BLENDER_RENDER_ENABLED != 'true' && env.MOTION_HYPERFRAMES_RENDER_ENABLED != 'true'
         shell: bash
         run: |
           missing=0
@@ -231,10 +252,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install "requests>=2.32,<3" "Pillow>=10.4,<12"
 
-      - name: Install pinned Blender 5.2.4 and Frame By Plane 8.0.1
-        if: env.BLENDER_RENDER_ENABLED == 'true' && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')
-        timeout-minutes: 30
-        uses: ./.github/actions/setup-blender-frame-by-plane
+      - name: Set up Node.js for Motion + HyperFrames
+        if: env.MOTION_HYPERFRAMES_RENDER_ENABLED == 'true' && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pinned Motion + HyperFrames dependencies
+        if: env.MOTION_HYPERFRAMES_RENDER_ENABLED == 'true' && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')
+        working-directory: prototypes/hyperframes-motion
+        run: npm install --no-audit --no-fund
 
       - name: Prepare research, story, narration and soundtrack
         if: env.PIPELINE_STAGE == 'prepare'
@@ -266,7 +293,18 @@ jobs:
         if: env.PIPELINE_STAGE == 'render'
         run: python autopilot/engine/run.py --stage render
 
-      - name: Run ChatGPT-prepared daily plan with Blender + Frame By Plane 2.5D scenes
+      - name: Run ChatGPT-prepared narrated explainer with Kokoro + Motion
+        if: env.PIPELINE_STAGE == 'full' && steps.manual_motion_request.outputs.plan_path != ''
+        env:
+          RUN_ID: ${{ github.run_id }}
+          AUTOPILOT_API_URL: ""
+          AUTOPILOT_JOB_TOKEN: ""
+          PUBLISH_ENABLED: "false"
+          MOTION_HYPERFRAMES_RENDER_ENABLED: "true"
+          BLENDER_RENDER_ENABLED: "false"
+        run: python autopilot/engine/run_daily_plan.py --plan "${{ steps.manual_motion_request.outputs.plan_path }}"
+
+      - name: Run ChatGPT-prepared explainer with mandatory 2D Motion + HyperFrames
         if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path != ''
         env:
           RUN_ID: ${{ github.run_id }}
@@ -276,7 +314,7 @@ jobs:
         run: python autopilot/engine/run_daily_plan.py --plan "${{ steps.daily_request.outputs.plan_path }}"
 
       - name: Run complete Prepare → Visuals → Render sequence
-        if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path == ''
+        if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path == '' && steps.manual_motion_request.outputs.plan_path == ''
         run: python autopilot/engine/run.py --stage full
 
       - name: Publish finished MP4 and publisher handoff as release assets
@@ -371,7 +409,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cloud-video-preview-${{ github.run_id }}
-          path: work/output/violin-prince-short.mp4
+          path: |
+            work/output/violin-prince-short.mp4
+            work/output/violin-prince-full-track.mp4
+            work/output/violin-prince-explainer.mp4
           if-no-files-found: error
           retention-days: 14
 

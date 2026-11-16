@@ -1,0 +1,7 @@
+node_modules/
+dist/
+output/
+renders/
+.hyperframes/
+/index.html
+/assets/music-bed.*

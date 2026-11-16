@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1080, height=1920, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>Violin Prince — Portrait Motion Explainer</title>
+  <script id="vp-content-config" type="application/json">__CONTENT_JSON__</script>
+  <link rel="stylesheet" href="./src/styles.css" />
+  <script type="importmap" id="motion-importmap">
+    {"imports":{"motion":"./node_modules/motion/dist/es/index.mjs","framer-motion/dom":"./node_modules/framer-motion/dist/es/dom.mjs","motion-dom":"./node_modules/motion-dom/dist/es/index.mjs","motion-utils":"./node_modules/motion-utils/dist/es/index.mjs"}}
+  </script>
+  <script>
+    window.process = window.process || {};
+    window.process.env = window.process.env || {};
+    window.process.env.NODE_ENV = "production";
+  </script>
+  <script>
+    // Static registry bootstrap required by HyperFrames' HTML linter.
+    // Motion's runtime and direct-timeline adapter remain external modules.
+    window.__timelines = window.__timelines || {};
+  </script>
+  <script type="module" src="./src/main.js"></script>
+</head>
+<body>
+  <main id="root" data-composition-id="vp-motion-dynamic" data-start="0"
+    data-duration="__DURATION_SECONDS__" data-width="1080" data-height="1920" data-fps="30">
+    <div id="haze-a" class="haze haze-a clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="0"></div>
+    <div id="haze-b" class="haze haze-b clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="0"></div>
+    <div id="grain" class="grain clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="0"></div>
+
+    <header id="top-mark" class="top-mark clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="1">
+      <span class="mark-dot"></span>
+      <span>VIOLIN PRINCE</span>
+      <span id="scene-counter" class="scene-counter">01 / 05</span>
+    </header>
+    <div id="top-rule" class="top-rule clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="1"></div>
+
+    <section id="scene-header" class="scene-header clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="2">
+      <p id="scene-kicker">THE LISTENING ROOM</p>
+      <h1 id="scene-title">YOUR ROOM CAN MISLEAD YOUR MIX</h1>
+      <p id="scene-description">Sound from the monitors interacts with the room.</p>
+    </section>
+
+    <section id="scene-stage" class="scene-stage clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="3" aria-label="Full-screen animated scene">
+      <div id="diagram-items" class="scene-art"></div>
+    </section>
+
+    <section id="narration-caption" class="narration-caption clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="4">
+      <div id="caption-line" aria-live="off"></div>
+    </section>
+
+    <div id="bottom-progress" class="bottom-progress clip" data-start="0" data-duration="__DURATION_SECONDS__" data-track-index="5">
+      <span class="progress-label">THE EXPLANATION</span>
+      <span class="progress-track"><span id="progress-fill"></span></span>
+      <span id="progress-time" class="progress-time">00:20</span>
+    </div>
+    <audio id="narration-mix" src="__AUDIO_SOURCE__" data-start="0" data-track-index="6" preload="auto"></audio>
+  </main>
+</body>
+</html>

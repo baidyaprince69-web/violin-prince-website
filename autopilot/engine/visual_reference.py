@@ -7,6 +7,7 @@ and deterministic so an optional reference cannot silently change the renderer.
 """
 from __future__ import annotations
 
+import os
 from typing import Any
 from urllib.parse import urlparse
 
@@ -23,6 +24,11 @@ VISUAL_LANGUAGES = {
     "kinetic_graphics": (
         "A dimensional explainer composition with clear geometric hierarchy, "
         "purposeful graphic rhythm and negative space around the main subject."
+    ),
+    "full_screen_2d_motion_graphics": (
+        "A full-screen portrait-native 2D motion-graphics world with original "
+        "layered artwork, meaningful camera movement, contextual labels and "
+        "progressive visual explanations."
     ),
     "hybrid": (
         "Combine photorealistic instrument imagery with crisp dimensional "
@@ -64,6 +70,7 @@ _DEFAULT_SHOT_BY_MODE = {
     "melody_map": "overhead",
     "comparison": "split_wide",
     "cover_performance": "performance_close",
+    "full_screen_2d": "wide_hero",
 }
 
 
@@ -105,7 +112,7 @@ def normalize_visual_reference(
 
     motion_profile = _enum(
         value.get("motion_profile"),
-        {"video_clips", "animated_stills", "mixed", "static"},
+        {"video_clips", "animated_stills", "mixed", "static", "portrait_narration_driven_2d"},
         "motion_profile",
         "animated_stills",
     )
@@ -123,16 +130,20 @@ def normalize_visual_reference(
     )
     summary = _short_text(value.get("reference_summary"), "reference_summary", 320)
 
+    motion_enabled = os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "").strip().lower() == "true"
+    expected_guidance_count = 5 if motion_enabled else 3
     supplied_guidance = value.get("scene_guidance")
     if supplied_guidance is not None:
-        if not isinstance(supplied_guidance, list) or len(supplied_guidance) != 3:
-            raise ValueError("visual_reference.scene_guidance must contain exactly three scene objects.")
+        if not isinstance(supplied_guidance, list) or len(supplied_guidance) != expected_guidance_count:
+            raise ValueError(
+                f"visual_reference.scene_guidance must contain exactly {expected_guidance_count} scene objects."
+            )
     else:
-        supplied_guidance = [{}, {}, {}]
+        supplied_guidance = [{} for _ in range(expected_guidance_count)]
 
     scene_list = scenes if isinstance(scenes, list) else []
     normalized_guidance: list[dict[str, str]] = []
-    for index in range(3):
+    for index in range(expected_guidance_count):
         supplied = supplied_guidance[index]
         if not isinstance(supplied, dict):
             raise ValueError(f"visual_reference.scene_guidance[{index}] must be an object.")
@@ -156,7 +167,13 @@ def normalize_visual_reference(
         })
 
     adaptation_note = ""
-    if motion_profile in {"video_clips", "mixed"}:
+    if motion_profile == "portrait_narration_driven_2d":
+        adaptation_note = (
+            "This route generates original full-screen portrait SVG scenes locally "
+            "and animates them with Motion; HyperFrames renders deterministic frames "
+            "and the final MP4. Blender and AI image/video services are not required."
+        )
+    elif motion_profile in {"video_clips", "mixed"}:
         adaptation_note = (
             "The reference contains real moving video clips. This production path "
             "currently uses generated still scene plates plus deterministic animated "

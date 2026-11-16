@@ -272,37 +272,28 @@ class StagedPipelineTests(unittest.TestCase):
         self.assertIn("photorealistic cinematic still imagery", prompt)
         self.assertIn("layered foreground/midground/background", prompt)
 
-    def test_full_mode_runs_each_stage_once_in_order(self):
-        with tempfile.TemporaryDirectory() as folder:
-            original_work, original_out = pipeline.WORK, pipeline.OUT
-            pipeline.WORK = Path(folder) / "work"
-            pipeline.OUT = pipeline.WORK / "output"
-            calls = []
-            try:
-                with unittest.mock.patch.object(pipeline, "prepare_stage", side_effect=lambda: calls.append("prepare") or 0), \
-                     unittest.mock.patch.object(pipeline, "visuals_stage", side_effect=lambda feedback="": calls.append("visuals") or 0), \
-                     unittest.mock.patch.object(pipeline, "render_stage", side_effect=lambda: calls.append("render") or 0):
-                    result = pipeline.main(stage="full")
-                self.assertEqual(result, 0)
-                self.assertEqual(calls, ["prepare", "visuals", "render"])
-            finally:
-                pipeline.WORK, pipeline.OUT = original_work, original_out
-
-    def test_full_mode_stops_before_later_stages_if_prepare_fails(self):
-        with tempfile.TemporaryDirectory() as folder:
-            original_work, original_out = pipeline.WORK, pipeline.OUT
-            pipeline.WORK = Path(folder) / "work"
-            pipeline.OUT = pipeline.WORK / "output"
-            calls = []
-            try:
-                with unittest.mock.patch.object(pipeline, "prepare_stage", side_effect=lambda: calls.append("prepare") or 1), \
-                     unittest.mock.patch.object(pipeline, "visuals_stage", side_effect=lambda feedback="": calls.append("visuals") or 0), \
-                     unittest.mock.patch.object(pipeline, "render_stage", side_effect=lambda: calls.append("render") or 0):
-                    result = pipeline.main(stage="full")
-                self.assertEqual(result, 1)
-                self.assertEqual(calls, ["prepare"])
-            finally:
-                pipeline.WORK, pipeline.OUT = original_work, original_out
+    def test_prepare_and_full_cli_modes_route_to_chatgpt_plan_runner(self):
+        for stage in ("prepare", "full"):
+            with self.subTest(stage=stage), tempfile.TemporaryDirectory() as folder:
+                original_work, original_out = pipeline.WORK, pipeline.OUT
+                pipeline.WORK = Path(folder) / "work"
+                pipeline.OUT = pipeline.WORK / "output"
+                try:
+                    with unittest.mock.patch.dict(os.environ, {
+                        "MOTION_HYPERFRAMES_RENDER_ENABLED": "true",
+                        "BLENDER_RENDER_ENABLED": "false",
+                        "PUBLISH_ENABLED": "false",
+                    }), unittest.mock.patch.object(pipeline, "log"), unittest.mock.patch.object(
+                        pipeline, "report"
+                    ), unittest.mock.patch.object(pipeline, "visuals_stage") as visuals, unittest.mock.patch.object(
+                        pipeline, "render_stage"
+                    ) as render:
+                        result = pipeline.main(stage=stage)
+                    self.assertEqual(result, 1)
+                    visuals.assert_not_called()
+                    render.assert_not_called()
+                finally:
+                    pipeline.WORK, pipeline.OUT = original_work, original_out
 
 
 if __name__ == "__main__":

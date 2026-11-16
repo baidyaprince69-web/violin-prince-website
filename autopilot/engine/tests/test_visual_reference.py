@@ -1,5 +1,7 @@
 """Unit tests for optional reference-informed visual direction."""
+import os
 import sys
+from unittest.mock import patch
 import unittest
 from pathlib import Path
 
@@ -24,6 +26,33 @@ class VisualReferenceTests(unittest.TestCase):
             {"visual_mode": "mechanism_3d"},
             {"visual_mode": "cover_performance"},
         ]
+
+    def test_portrait_motion_reference_accepts_five_scene_choreography(self):
+        scenes = [
+            {"visual_mode": "full_screen_2d"},
+            {"visual_mode": "full_screen_2d"},
+            {"visual_mode": "full_screen_2d"},
+            {"visual_mode": "full_screen_2d"},
+            {"visual_mode": "cover_performance"},
+        ]
+        with patch.dict(os.environ, {"MOTION_HYPERFRAMES_RENDER_ENABLED": "true"}):
+            profile = normalize_visual_reference(
+                {
+                    "motion_profile": "portrait_narration_driven_2d",
+                    "visual_language": "full_screen_2d_motion_graphics",
+                    "reference_summary": "Five portrait scenes with original layered art, camera moves and narration-led reveals.",
+                    "scene_guidance": [
+                        {"shot_type": "wide_hero", "camera_move": "pan_right", "transition_out": "wipe_left"},
+                        {"shot_type": "close_detail", "camera_move": "pan_left", "transition_out": "wipe_right"},
+                        {"shot_type": "mechanism_cutaway", "camera_move": "pan_down", "transition_out": "smooth_left"},
+                        {"shot_type": "overhead", "camera_move": "pan_up", "transition_out": "crossfade"},
+                        {"shot_type": "performance_close", "camera_move": "locked", "transition_out": "fade_through_black"},
+                    ],
+                },
+                scenes,
+            )
+        self.assertEqual(len(profile["scene_guidance"]), 5)
+        self.assertIn("original full-screen portrait SVG scenes", profile["adaptation_note"])
 
     def test_missing_reference_keeps_existing_default_path(self):
         self.assertIsNone(normalize_visual_reference(None, self.scenes))
@@ -117,10 +146,11 @@ class VisualReferenceTests(unittest.TestCase):
         self.assertIn("pacing", issues[0])
 
     def test_rejects_incomplete_scene_guidance(self):
-        issues = validate_visual_reference(
-            {"scene_guidance": [{"shot_type": "macro"}]},
-            self.scenes,
-        )
+        with patch.dict(os.environ, {"MOTION_HYPERFRAMES_RENDER_ENABLED": "false"}):
+            issues = validate_visual_reference(
+                {"scene_guidance": [{"shot_type": "macro"}]},
+                self.scenes,
+            )
         self.assertTrue(issues)
         self.assertIn("exactly three", issues[0])
 

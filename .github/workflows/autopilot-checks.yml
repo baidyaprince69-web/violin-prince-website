@@ -7,6 +7,7 @@ on:
       - ".github/workflows/violin-prince-autopilot.yml"
       - ".github/workflows/deploy-autopilot-cloudflare.yml"
       - ".github/workflows/autopilot-checks.yml"
+      - ".github/workflows/hyperframes-motion-prototype.yml"
   pull_request:
     paths:
       - "autopilot/**"
@@ -82,6 +83,7 @@ jobs:
           import yaml
           files = [
               ".github/workflows/autopilot-checks.yml",
+              ".github/workflows/hyperframes-motion-prototype.yml",
               ".github/workflows/blender-smoke.yml",
               ".github/workflows/blender-benchmark.yml",
               ".github/workflows/first-production.yml",

@@ -50,6 +50,14 @@ except ImportError:  # Direct script execution from the engine directory.
 
 API = os.environ.get("AUTOPILOT_API_URL", "").rstrip("/")
 JOB_TOKEN = os.environ.get("AUTOPILOT_JOB_TOKEN", "")
+# The Motion full-track production is intentionally self-contained: it uses the
+# repository's sampled-violin generator and GitHub Actions artifacts, not the
+# legacy remote asset API or external object storage.
+if str(os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "false")).strip().lower() in {"1", "true", "yes", "on"}:
+    API = ""
+    JOB_TOKEN = ""
+    os.environ["AUTOPILOT_API_URL"] = ""
+    os.environ["AUTOPILOT_JOB_TOKEN"] = ""
 CF_ACCOUNT = os.environ.get("CF_ACCOUNT_ID", "")
 CF_TOKEN = os.environ.get("CF_AI_TOKEN", "")
 RUN_ID = os.environ.get("RUN_ID", str(uuid.uuid4()))
@@ -194,18 +202,25 @@ def get_audio(prefer_creator_assets=True, allow_fallback=True):
     if not allow_fallback:
         return {"filename": "", "audio_source": "none", "kind": "none"}, b""
 
-    # Use a small, checksum-verified CC0 multisample pack to render a new violin
-    # phrase. Network or sample-render failures fall back quietly instead of
-    # failing Prepare or introducing a paid service.
+    # Motion explainers use only a short quiet background bed. The explanation
+    # length is determined by Kokoro narration, never by an instrumental track.
     day_seed = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    motion_enabled = str(os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "false")).strip().lower() in {"1", "true", "yes", "on"}
+    music_duration = (
+        float(os.environ.get("MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS", "24"))
+        if motion_enabled else 24.0
+    )
     try:
         from violin_sampler import create_sampled_violin_bed
         audio_path = WORK / "sampled-violin-background.wav"
         audio_path, sample_info = create_sampled_violin_bed(
-            audio_path, seed_text=day_seed + ":" + RUN_ID
+            audio_path,
+            seed_text=day_seed + ":" + RUN_ID,
+            duration_seconds=music_duration,
         )
         log(
-            "Rendered a 24-second solo-violin bed from the CC0 sample pack "
+            f"Rendered a {sample_info.get('duration_seconds', music_duration):.2f}-second "
+            "solo-violin arrangement from the repository's CC0 sample pack "
             f"({sample_info.get('zones_used', 0)} sample zones)."
         )
         return {
@@ -214,6 +229,12 @@ def get_audio(prefer_creator_assets=True, allow_fallback=True):
             "kind": "generated_sampled_instrument",
         }, audio_path.read_bytes()
     except Exception as exc:
+        if motion_enabled:
+            raise PipelineError(
+                "The full-track Motion route requires the existing CC0 sampled-violin "
+                "generator. It failed, so the run will stop instead of substituting ambient audio: "
+                + str(exc)[:400]
+            ) from exc
         log("CC0 sampled violin unavailable; using the quiet ambient fallback: " + str(exc)[:220])
 
     from synth_audio import create_ambient_fallback
@@ -2300,16 +2321,19 @@ def _normalized_narration_claim_tokens(value):
 def validate_narration_against_sources(plan, verified_sources):
     """Require each factual narration sentence to match a verified article body."""
     sentences = narration_sentences(plan.get("narration_script", ""))
-    if len(sentences) != 4:
+    motion_enabled = os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "").strip().lower() == "true"
+    expected_sentences = 5 if motion_enabled else 4
+    if len(sentences) != expected_sentences:
         raise PipelineError(
-            "Story quality gate blocked: narration evidence check requires exactly four sentences."
+            "Story quality gate blocked: narration evidence check requires exactly "
+            + str(expected_sentences) + " sentences."
         )
 
     evidence_records = []
     issues = []
     for sentence_number, sentence in enumerate(sentences, start=1):
-        # The opening is a curiosity hook, not a factual assertion.
-        if sentence_number == 1:
+        # The opening is a curiosity hook. In Motion mode, sentence five is the music payoff.
+        if sentence_number == 1 or (motion_enabled and sentence_number == expected_sentences):
             continue
 
         claim_tokens = _normalized_narration_claim_tokens(sentence)
@@ -2967,8 +2991,10 @@ def narration_validation_error(script):
         return f"it has {total_words} spoken words; the required range is 40–44"
 
     sentences = narration_sentences(text_value)
-    if len(sentences) != 4:
-        return f"it has {len(sentences)} sentences; exactly 4 are required"
+    motion_enabled = os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "").strip().lower() == "true"
+    expected_sentences = 5 if motion_enabled else 4
+    if len(sentences) != expected_sentences:
+        return f"it has {len(sentences)} sentences; exactly {expected_sentences} are required"
 
     counts = [narration_word_count(sentence) for sentence in sentences]
     if not 5 <= counts[0] <= 8:
@@ -2996,62 +3022,45 @@ def narration_validation_error(script):
 
 
 def narration_sentence_budget(sentences, target_total=None):
-    """Allocate a feasible, per-sentence word range from the actual draft."""
-    values = [re.sub(r"\s+", " ", str(value or "")).strip() for value in list(sentences or [])[:4]]
-    values.extend([""] * (4 - len(values)))
-    limits = (8, 12, 12, 12)
-    floors = (5, 5, 5, 5)
+    """Allocate word ranges for legacy four-sentence or Motion five-sentence narration."""
+    motion_enabled = os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "").strip().lower() == "true"
+    sentence_count = 5 if motion_enabled else 4
+    values = [re.sub(r"\s+", " ", str(value or "")).strip() for value in list(sentences or [])[:sentence_count]]
+    values.extend([""] * (sentence_count - len(values)))
+    limits = (8,) + (12,) * (sentence_count - 1)
+    floors = (5,) * sentence_count
     actual_total = sum(narration_word_count(value) for value in values)
     if target_total is None:
         target_total = actual_total if 40 <= actual_total <= 44 else 42
     target_total = max(40, min(44, int(target_total)))
-
-    counts = [
-        min(limits[index], max(floors[index], narration_word_count(value)))
-        for index, value in enumerate(values)
-    ]
-    priority = (1, 2, 3, 0)
-
-    difference = target_total - sum(counts)
-    body_priority = (1, 2, 3)
+    counts = [min(limits[i], max(floors[i], narration_word_count(value))) for i, value in enumerate(values)]
+    body_priority = tuple(range(1, sentence_count))
     hook_priority = (0,)
+    difference = target_total - sum(counts)
     while difference > 0:
-        available = [index for index in body_priority if counts[index] < limits[index]]
-        if not available:
-            available = [index for index in hook_priority if counts[index] < limits[index]]
+        available = [i for i in body_priority if counts[i] < limits[i]] or [i for i in hook_priority if counts[i] < limits[i]]
         if not available:
             raise PipelineError("Narration word allocation cannot reach the required minimum.")
-        chosen = min(available, key=lambda index: (counts[index] / limits[index], body_priority.index(index) if index in body_priority else len(body_priority)))
+        chosen = min(available, key=lambda i: (counts[i] / limits[i], i))
         counts[chosen] += 1
         difference -= 1
-
     while difference < 0:
-        available = [index for index in body_priority if counts[index] > floors[index]]
-        if not available:
-            available = [index for index in hook_priority if counts[index] > floors[index]]
+        available = [i for i in body_priority if counts[i] > floors[i]] or [i for i in hook_priority if counts[i] > floors[i]]
         if not available:
             raise PipelineError("Narration word allocation cannot fit the required maximum.")
-        chosen = max(available, key=lambda index: (counts[index] / limits[index], -(body_priority.index(index) if index in body_priority else len(body_priority))))
+        chosen = max(available, key=lambda i: (counts[i] / limits[i], -i))
         counts[chosen] -= 1
         difference += 1
-
     maxima = list(counts)
     extra_capacity = 44 - target_total
     while extra_capacity > 0:
-        available = [index for index in body_priority if maxima[index] < limits[index]]
-        if not available:
-            available = [index for index in hook_priority if maxima[index] < limits[index]]
+        available = [i for i in body_priority if maxima[i] < limits[i]] or [i for i in hook_priority if maxima[i] < limits[i]]
         if not available:
             break
-        chosen = min(available, key=lambda index: (maxima[index] / limits[index], body_priority.index(index) if index in body_priority else len(body_priority)))
+        chosen = min(available, key=lambda i: (maxima[i] / limits[i], i))
         maxima[chosen] += 1
         extra_capacity -= 1
-
-    return [
-        {"min_words": counts[index], "max_words": maxima[index]}
-        for index in range(4)
-    ]
-
+    return [{"min_words": counts[i], "max_words": maxima[i]} for i in range(sentence_count)]
 
 def _sentence_needs_correction(sentence, index, budget):
     """Check one independently generated sentence against its own hard limits."""
@@ -3072,20 +3081,21 @@ def _sentence_needs_correction(sentence, index, budget):
 
 
 def _plan_sentence_fields(plan):
-    """Read the new four-field plan format, with a safe legacy-script fallback."""
+    """Read the configured four- or five-field narration plan."""
+    motion_enabled = os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "").strip().lower() == "true"
+    sentence_count = 5 if motion_enabled else 4
     raw = plan.get("narration_sentences")
     if isinstance(raw, dict):
-        values = [raw.get("sentence_" + str(index), "") for index in range(1, 5)]
+        values = [raw.get("sentence_" + str(index), "") for index in range(1, sentence_count + 1)]
     elif isinstance(raw, list):
         values = raw
     else:
         values = narration_sentences(plan.get("narration_script", ""))
     values = [re.sub(r"\s+", " ", str(value or "")).strip() for value in values]
-    if len(values) > 4:
-        values = values[:3] + [" ".join(values[3:])]
-    values.extend([""] * (4 - len(values)))
+    if len(values) > sentence_count:
+        values = values[:sentence_count - 1] + [" ".join(values[sentence_count - 1:])]
+    values.extend([""] * (sentence_count - len(values)))
     return values
-
 
 def _parse_narration_tool_response(result, expected_fields):
     """Extract word arrays from the forced structured narration function call."""
@@ -3187,12 +3197,13 @@ def compose_narration(
 ):
     """Repair narration length or selected sentences against verified article evidence."""
     sentences = _plan_sentence_fields(plan)
+    sentence_count = len(sentences)
     original_sentences = list(sentences)
     original_script = " ".join(value for value in sentences if value).strip()
     issue = narration_validation_error(original_script)
     forced_indices = sorted({
         int(index) for index in (force_sentence_indices or [])
-        if 0 <= int(index) < 4
+        if 0 <= int(index) < sentence_count
     })
     plan["narration_sentences"] = sentences
 
@@ -3284,7 +3295,7 @@ def compose_narration(
         # A global mismatch should normally resolve through the dynamic sentence budgets.
         # Keep this fallback limited to the body rather than rewriting a valid hook.
         if current_issue and not target_indices:
-            target_indices = [1, 2, 3]
+            target_indices = list(range(1, sentence_count))
 
         target_fields = ["sentence_" + str(index + 1) + "_words" for index in target_indices]
         required_word_counts = {
@@ -3295,7 +3306,7 @@ def compose_narration(
         for index in target_indices:
             field = "sentence_" + str(index + 1) + "_words"
             required_count = required_word_counts[field]
-            role = ("curiosity hook", "story context", "distinctive sourced detail", "narrative payoff")[index]
+            role = ("curiosity hook", "story context", "distinctive sourced detail", "technical explanation", "musical payoff")[index]
             properties[field] = {
                 "type": "array",
                 "description": (
@@ -3325,22 +3336,26 @@ def compose_narration(
         }
         locked = {
             "sentence_" + str(index + 1): sentences[index]
-            for index in range(4) if index not in target_indices
+            for index in range(sentence_count) if index not in target_indices
         }
         evidence_repair = evidence_sources is not None
         prompt = (
             "Correct only the requested sentence fields. Return each as an array of individual words. "
             "The array length is exact and is stated in the function schema; do not add or omit words. "
             "Python will join the words into sentences. Do not return or rewrite any locked sentence. "
-            "The complete narration must remain exactly four sentences and total 40–44 spoken words. "
+            "The complete narration must remain exactly " + str(sentence_count) + " sentences and total 40–44 spoken words. "
             "Use only facts stated in the supplied direct publisher article excerpts. Do not invent dates, "
             "statistics, quotes, names, motives, abilities, or outcomes. No padding, repeated ideas, generic "
             "filler, metaphor presented as fact, or unsupported claims. Do not personify AI as feeling, "
             "understanding, or having a soul unless an article explicitly establishes that. "
             + (
-                "This is an evidence-grounding repair: replace each requested claim with a concrete fact, "
-                "technical detail, or limitation explicitly supported by the verified articles. Sentence four "
-                "must deliver a factual payoff, not a poetic interpretation. "
+                (
+                    "This is an evidence-grounding repair: replace each requested technical claim with a concrete "
+                    "fact, technical detail, or limitation explicitly supported by the verified articles. "
+                    + ("Sentence five is a brief music-only payoff and must not add a factual claim. "
+                       if sentence_count == 5 else
+                       "Sentence four must deliver a factual payoff, not a poetic interpretation. ")
+                )
                 if evidence_repair else ""
             )
             + "Return the forced function call and nothing else."
@@ -3349,8 +3364,8 @@ def compose_narration(
             "Selected story: " + str(plan.get("topic", ""))[:300]
             + "\nTitle: " + str(plan.get("title", ""))[:220]
             + "\nHook concept: " + str(plan.get("hook", ""))[:220]
-            + "\nCurrent four sentence fields: " + json.dumps(
-                {"sentence_" + str(index + 1): sentences[index] for index in range(4)},
+            + "\nCurrent sentence fields: " + json.dumps(
+                {"sentence_" + str(index + 1): sentences[index] for index in range(sentence_count)},
                 ensure_ascii=False,
             )
             + "\nLocked sentence fields (must remain unchanged): "
@@ -3479,7 +3494,7 @@ def compose_narration(
     final_script = " ".join(sentences).strip()
     raise PipelineError(
         "Narration composer stopped safely after two targeted correction cycles. "
-        "The narration must contain 40–44 words, exactly four complete sentences, "
+        "The narration must contain 40–44 words, exactly " + str(sentence_count) + " complete sentences, "
         "a 5–8-word hook, and no sentence over 12 words. Final diagnostic: "
         + narration_validation_error(final_script)
     )
@@ -3778,8 +3793,12 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
     compose_narration(plan, compact)
 
     scenes = plan.get("scenes")
-    if not isinstance(scenes, list) or len(scenes) != 3:
-        raise PipelineError("Planner must provide exactly three scenes.")
+    expected_scene_count = 5 if os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "").strip().lower() == "true" else 3
+    if not isinstance(scenes, list) or len(scenes) != expected_scene_count:
+        raise PipelineError(
+            "Planner must provide exactly " + str(expected_scene_count) +
+            " scenes for the selected renderer."
+        )
     narration_script = str(plan.get("narration_script", "")).strip()
     final_narration_issue = narration_validation_error(narration_script)
     if final_narration_issue:
@@ -4672,16 +4691,26 @@ def _package_paths():
 
 def _read_package(require_images=False):
     paths = _package_paths()
-    for key in ("plan", "metadata", "audio", "narration", "quality_control"):
+    try:
+        metadata = json.loads(paths["metadata"].read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise PipelineError("Prepared package contains invalid stage metadata.") from exc
+    motion_music_video = metadata.get("production_type") == "motion_music_video"
+    if motion_music_video:
+        raise PipelineError(
+            "This saved package is from the retired music-only route and has no Kokoro explanation. "
+            "Run a fresh Prepare stage to create a narrated explainer."
+        )
+    required = ("plan", "metadata", "audio", "quality_control", "narration")
+    for key in required:
         if not paths[key].is_file():
             raise PipelineError(f"Prepared package is missing {paths[key].name}. Download the correct earlier stage artifact.")
     try:
         plan = json.loads(paths["plan"].read_text(encoding="utf-8"))
-        metadata = json.loads(paths["metadata"].read_text(encoding="utf-8"))
         quality = json.loads(paths["quality_control"].read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise PipelineError("Prepared package contains invalid JSON metadata.") from exc
-    narration_info = metadata.get("narration_info")
+    narration_info = metadata.get("narration_info") or {}
     try:
         plan["visual_reference"] = normalize_visual_reference(
             plan.get("visual_reference"), plan.get("scenes")
@@ -4693,50 +4722,63 @@ def _read_package(require_images=False):
         raise PipelineError("Prepared package failed the Violin Prince creative-direction gate: " + " ".join(creative_issues))
     if not isinstance(plan.get("scenes"), list) or len(plan["scenes"]) != 3:
         raise PipelineError("Prepared package must contain exactly three planned scenes.")
-    if not isinstance(narration_info, dict) or not narration_info.get("subtitle_cues"):
-        raise PipelineError("Prepared package is missing narration subtitle timings.")
-    if (
-        quality.get("status") != "passed"
-        or quality.get("date_check", {}).get("status") != "passed"
-        or quality.get("freshness", {}).get("status") != "passed"
-    ):
-        raise PipelineError("Story quality-control, date or seven-day freshness report is not passed; Visuals and Render are blocked.")
-    sources = plan.get("sources", [])
-    domains = {
-        str(source.get("publisher_domain") or urlparse(source.get("url", "")).netloc).lower().removeprefix("www.")
-        for source in sources if isinstance(source, dict) and is_direct_publisher_article(source)
-    }
-    direct_count = sum(
-        1 for source in sources
-        if isinstance(source, dict)
-        and is_direct_publisher_article(source)
-        and source.get("article_page_verified") is True
-    )
-    if direct_count < 2 or len(domains) < 2:
-        raise PipelineError("Prepared story must retain at least two direct publisher articles from independent domains.")
-    source_group = plan.get("source_group") or {}
-    allowed_ids = {str(value) for value in source_group.get("source_ids", [])}
-    verified_ids = {str(value) for value in source_group.get("verified_source_ids", [])}
-    actual_ids = {str(source.get("source_id") or "") for source in sources if isinstance(source, dict)}
-    if not allowed_ids or not verified_ids or not verified_ids.issubset(allowed_ids) or actual_ids != verified_ids:
-        raise PipelineError("Prepared story citations do not match the exact verified source group.")
-    freshness_sources = quality.get("freshness", {}).get("verified_sources", [])
-    freshness_ids = {
-        str(item.get("source_id") or "") for item in freshness_sources if isinstance(item, dict)
-    }
-    if (
-        len(freshness_sources) < 2
-        or len(freshness_ids) != len(freshness_sources)
-        or freshness_ids != verified_ids
-        or any(
-            not isinstance(item, dict)
-            or item.get("freshness_status") not in ("preferred", "acceptable")
-            or item.get("age_hours") is None
-            or float(item.get("age_hours")) > FRESHNESS_MAX_AGE_HOURS
-            for item in freshness_sources
+    if motion_music_video:
+        asset = metadata.get("asset") if isinstance(metadata.get("asset"), dict) else {}
+        if (
+            quality.get("status") != "passed"
+            or quality.get("production_type") != "motion_music_video"
+            or asset.get("audio_source") != "sampled_violin_cc0"
+            or asset.get("kind") != "generated_sampled_instrument"
+        ):
+            raise PipelineError(
+                "Motion music-video package must contain a passed local-quality report "
+                "and the repository's generated CC0 sampled-violin track."
+            )
+    else:
+        if not isinstance(narration_info, dict) or not narration_info.get("subtitle_cues"):
+            raise PipelineError("Prepared package is missing narration subtitle timings.")
+        if (
+            quality.get("status") != "passed"
+            or quality.get("date_check", {}).get("status") != "passed"
+            or quality.get("freshness", {}).get("status") != "passed"
+        ):
+            raise PipelineError("Story quality-control, date or seven-day freshness report is not passed; Visuals and Render are blocked.")
+        sources = plan.get("sources", [])
+        domains = {
+            str(source.get("publisher_domain") or urlparse(source.get("url", "")).netloc).lower().removeprefix("www.")
+            for source in sources if isinstance(source, dict) and is_direct_publisher_article(source)
+        }
+        direct_count = sum(
+            1 for source in sources
+            if isinstance(source, dict)
+            and is_direct_publisher_article(source)
+            and source.get("article_page_verified") is True
         )
-    ):
-        raise PipelineError("Prepared story does not have two dated publisher articles within the seven-day window.")
+        if direct_count < 2 or len(domains) < 2:
+            raise PipelineError("Prepared story must retain at least two direct publisher articles from independent domains.")
+        source_group = plan.get("source_group") or {}
+        allowed_ids = {str(value) for value in source_group.get("source_ids", [])}
+        verified_ids = {str(value) for value in source_group.get("verified_source_ids", [])}
+        actual_ids = {str(source.get("source_id") or "") for source in sources if isinstance(source, dict)}
+        if not allowed_ids or not verified_ids or not verified_ids.issubset(allowed_ids) or actual_ids != verified_ids:
+            raise PipelineError("Prepared story citations do not match the exact verified source group.")
+        freshness_sources = quality.get("freshness", {}).get("verified_sources", [])
+        freshness_ids = {
+            str(item.get("source_id") or "") for item in freshness_sources if isinstance(item, dict)
+        }
+        if (
+            len(freshness_sources) < 2
+            or len(freshness_ids) != len(freshness_sources)
+            or freshness_ids != verified_ids
+            or any(
+                not isinstance(item, dict)
+                or item.get("freshness_status") not in ("preferred", "acceptable")
+                or item.get("age_hours") is None
+                or float(item.get("age_hours")) > FRESHNESS_MAX_AGE_HOURS
+                for item in freshness_sources
+            )
+        ):
+            raise PipelineError("Prepared story does not have two dated publisher articles within the seven-day window.")
     review = metadata.get("story_review") or {}
     if require_images and review.get("approved") is not True:
         raise PipelineError("Render blocked: automated editorial quality gates did not clear this story before Visuals.")
@@ -5079,11 +5121,24 @@ def prepare_stage():
     return 0
 
 
+
+def prepare_motion_music_video_stage():
+    """Retired: instrumental-only Motion output is not the Violin Prince explainer product."""
+    raise PipelineError(
+        "The instrumental-only Motion music-video route is retired. "
+        "Use the ChatGPT-authored, source-verified plan with Kokoro narration "
+        "through autopilot/engine/run_daily_plan.py."
+    )
+
+
 def visuals_stage(feedback=""):
-    """Prepare either FLUX stills or the plan for complete Blender 3D scene rendering."""
+    """Prepare the selected visual route without invoking an unrelated renderer."""
     blender_enabled = is_blender_render_enabled()
-    if not blender_enabled and (not CF_ACCOUNT or not CF_TOKEN):
-        raise PipelineError("CF_ACCOUNT_ID and CF_AI_TOKEN are required for the Visuals stage.")
+    motion_enabled = str(os.environ.get("MOTION_HYPERFRAMES_RENDER_ENABLED", "false")).strip().lower() in {"1", "true", "yes", "on"}
+    if motion_enabled and blender_enabled:
+        raise PipelineError("Motion + HyperFrames and Blender cannot both be enabled for the same production.")
+    if not blender_enabled and not motion_enabled and (not CF_ACCOUNT or not CF_TOKEN):
+        raise PipelineError("CF_ACCOUNT_ID and CF_AI_TOKEN are required for the legacy image-visuals route.")
     plan, metadata, _narration_info, paths, image_paths = _read_package(require_images=False)
     creative_issues = validate_creative_plan(plan)
     if creative_issues:
@@ -5102,7 +5157,16 @@ def visuals_stage(feedback=""):
             "approval_method": "automated_source_date_freshness_and_channel_fit_checks",
         })
     paths["metadata"].write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
-    if blender_enabled:
+    if motion_enabled:
+        # Motion + HyperFrames owns its animated composition. It does not consume
+        # the legacy three FLUX stills, so do not require or generate them here.
+        for image_path in image_paths:
+            image_path.unlink(missing_ok=True)
+        storyboard = None
+        metadata["visual_renderer"] = "motion_hyperframes_narrated_explainer"
+        metadata["visuals_description"] = "Motion + HyperFrames animates the approved research-backed scenes and synchronises visible captions to Kokoro word timings."
+        log("Motion + HyperFrames selected: building animated explainer scenes from the approved research and narration package; no unrelated still-image route is used.")
+    elif blender_enabled:
         # A Blender 3D production has no generated still-image plates. The scene
         # templates, objects, lighting, camera and animation are all built and
         # rendered by Blender during the Render stage.
@@ -5148,7 +5212,18 @@ def visuals_stage(feedback=""):
 def render_stage():
     """Assemble a quality-gated visual package without calling any AI service."""
     blender_enabled = is_blender_render_enabled()
-    plan, metadata, narration_info, paths, image_paths = _read_package(require_images=not blender_enabled)
+    try:
+        from .motion_hyperframes_renderer import (
+            is_motion_hyperframes_render_enabled, render_full_track, select_renderer,
+        )
+    except ImportError:  # Direct script execution from the engine directory.
+        from motion_hyperframes_renderer import (
+            is_motion_hyperframes_render_enabled, render_full_track, select_renderer,
+        )
+    renderer = select_renderer(is_motion_hyperframes_render_enabled(), blender_enabled)
+    plan, metadata, narration_info, paths, image_paths = _read_package(
+        require_images=renderer == "standard"
+    )
     if metadata.get("story_review", {}).get("approved") is not True:
         raise PipelineError("Render blocked: automated editorial quality gates did not approve this story.")
     topic = str(plan.get("topic", ""))
@@ -5156,18 +5231,50 @@ def render_stage():
     audio = paths["audio"].read_bytes()
     if len(audio) < 4096:
         raise PipelineError("Prepared soundtrack is missing or unexpectedly small.")
-    log("Rendering from saved research, script, narration and scene images. Private media is fetched only now.")
     active_audio_asset = metadata.get("asset", {})
     audio_source = str(active_audio_asset.get("audio_source", "generated_ambient_fallback"))
-    private_audio_asset, private_audio_bytes = get_audio(
-        prefer_creator_assets=True, allow_fallback=False
-    )
-    if private_audio_bytes:
-        audio = private_audio_bytes
-        active_audio_asset = private_audio_asset
-        audio_source = str(private_audio_asset.get("audio_source", "uploaded_recording"))
-        log("Using the rights-confirmed private audio asset for the final mix.")
+    if renderer == "motion_hyperframes":
+        # The researched explainer package must contain Kokoro speech and exact
+        # model-native word timings. The sampled violin is only an optional bed.
+        if active_audio_asset.get("kind") != "generated_sampled_instrument" or audio_source != "sampled_violin_cc0":
+            raise PipelineError(
+                "Motion explainer requires the repository's verified CC0 sampled-violin bed. "
+                "Re-run Prepare with the Motion renderer enabled."
+            )
+        if not paths["narration"].is_file():
+            raise PipelineError("Motion explainer package is missing Kokoro narration.wav.")
+        if (
+            not isinstance(narration_info, dict)
+            or narration_info.get("engine") != "Kokoro-82M"
+            or narration_info.get("voice") != "af_heart"
+            or narration_info.get("word_sync_status") != "passed"
+            or not narration_info.get("word_cues")
+        ):
+            raise PipelineError(
+                "Motion explainer requires Kokoro-82M af_heart speech and passed native word timings."
+            )
+        narration_bytes = paths["narration"].read_bytes()
+        if len(narration_bytes) < 4096:
+            raise PipelineError("Kokoro narration.wav is missing or unexpectedly small.")
+        if not str(plan.get("narration_script") or "").strip():
+            raise PipelineError("Motion explainer is missing its researched explanation script.")
+        log("Kokoro narration is the primary audio. The sampled violin is retained only as a quiet, ducked background bed.")
+    else:
+        log("Rendering from saved research, script, narration and scene images. Private media is fetched only now.")
+        private_audio_asset, private_audio_bytes = get_audio(
+            prefer_creator_assets=True, allow_fallback=False
+        )
+        if private_audio_bytes:
+            audio = private_audio_bytes
+            active_audio_asset = private_audio_asset
+            audio_source = str(private_audio_asset.get("audio_source", "uploaded_recording"))
+            log("Using the rights-confirmed private audio asset for the final mix.")
     performance_video_asset = metadata.get("performance_video") or {"available": False}
+    if renderer == "motion_hyperframes" and performance_video_asset.get("available"):
+        raise PipelineError(
+            "Motion + HyperFrames currently renders the approved music track with 2D/2.5D graphics. "
+            "Use the existing Blender route when this package includes a creator performance video or genuine 3D scene shots."
+        )
     performance_video_path = None
     if performance_video_asset.get("available"):
         fetched_video_asset, video_bytes = get_creator_performance_video(
@@ -5182,14 +5289,38 @@ def render_stage():
         performance_video_path.write_bytes(video_bytes)
     if not audio_source:
         audio_source = "generated_ambient_fallback"
-    path, video_quality = render(
-        plan, audio, paths["narration"], narration_info,
-        image_paths=image_paths, audio_source=audio_source,
-        performance_video_path=performance_video_path,
-    )
-    stored = upload(path)
-    from publisher import publish_all
-    publish_result = publish_all(path, stored.get("media_url", ""), plan)
+    if renderer == "motion_hyperframes":
+        if str(os.environ.get("PUBLISH_ENABLED", "false")).strip().lower() in {"1", "true", "yes", "on"}:
+            raise PipelineError(
+                "Motion explainer publishing is disabled during this integration. "
+                "Keep PUBLISH_ENABLED=false until the explainer output and publisher contract are approved."
+            )
+        log("Rendering a Kokoro-narrated explainer with the CC0 violin bed mixed quietly underneath.")
+        path = OUT / "violin-prince-explainer.mp4"
+        video_quality = render_full_track(
+            audio_bytes=audio,
+            audio_filename=str(active_audio_asset.get("filename") or paths["audio"].name),
+            narration_bytes=paths["narration"].read_bytes(),
+            narration_info=narration_info,
+            output_path=path,
+            work_dir=WORK / "motion-hyperframes",
+            plan=plan,
+        )
+    else:
+        path, video_quality = render(
+            plan, audio, paths["narration"], narration_info,
+            image_paths=image_paths, audio_source=audio_source,
+            performance_video_path=performance_video_path,
+        )
+    if renderer == "motion_hyperframes":
+        # Full-track music-video output is a GitHub Actions artifact only.
+        # Do not call the legacy remote-media upload or publishing route.
+        stored = {"object_key": "", "media_url": ""}
+        publish_result = {"results": [], "all_succeeded": False, "disabled": True}
+    else:
+        stored = upload(path)
+        from publisher import publish_all
+        publish_result = publish_all(path, stored.get("media_url", ""), plan)
     has_publication = bool(publish_result.get("results"))
     final_status = "published" if has_publication and publish_result.get("all_succeeded") else (
         "partially_published" if has_publication else "rendered"
@@ -5211,10 +5342,11 @@ def render_stage():
             if key in ("id", "filename", "size_bytes", "content_type", "available", "source")
         },
         "audio_source": audio_source,
+        "render_engine": renderer,
         "audio_license": active_audio_asset.get("license", ""),
         "audio_source_library": active_audio_asset.get("source_library", ""),
         "audio_attribution": active_audio_asset.get("attribution", ""),
-        "duration_seconds": 24, "format": "9:16",
+        "duration_seconds": round(float(video_quality.get("duration_seconds", 24)), 3), "format": "9:16",
         "publishing_status": final_status, "publish_results": publish_result,
         "output_key": stored.get("object_key"), "prepared_run_id": metadata.get("prepared_run_id"),
         "visuals_run_id": metadata.get("visuals_run_id"),
@@ -5239,6 +5371,12 @@ def main(stage="full", visual_feedback=""):
     WORK.mkdir(exist_ok=True)
     OUT.mkdir(exist_ok=True)
     try:
+        if is_motion_hyperframes_render_enabled() and stage in ("prepare", "full"):
+            raise PipelineError(
+                "Motion explainer preparation must use the ChatGPT-authored, source-verified plan "
+                "through autopilot/engine/run_daily_plan.py. This CLI must not invoke the legacy "
+                "Workers AI planner or create an instrumental-only package."
+            )
         if stage == "prepare":
             return prepare_stage()
         if stage == "visuals":
@@ -5246,8 +5384,6 @@ def main(stage="full", visual_feedback=""):
         if stage == "render":
             return render_stage()
         if stage == "full":
-            # One-click mode: keep each successful intermediate package before
-            # continuing, so later failures never force the earlier stages to repeat.
             if prepare_stage() != 0:
                 return 1
             if visuals_stage(visual_feedback) != 0:

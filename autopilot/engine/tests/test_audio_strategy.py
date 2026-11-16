@@ -48,6 +48,41 @@ class AudioStrategyTests(unittest.TestCase):
                 with self.assertRaisesRegex(pipeline.PipelineError, "at least 24 seconds"):
                     pipeline.get_audio()
 
+    def test_motion_route_requests_a_full_length_track_from_the_existing_sampler(self):
+        with tempfile.TemporaryDirectory() as folder:
+            work_dir = Path(folder) / "work"
+            original_work = pipeline.WORK
+            pipeline.WORK = work_dir
+            calls = {}
+
+            def fake_sampled_violin(output_path, seed_text="", duration_seconds=24):
+                output_path = Path(output_path)
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_bytes(b"sampled-violin-audio" * 300)
+                calls["duration_seconds"] = duration_seconds
+                return output_path, {
+                    "audio_source": "sampled_violin_cc0",
+                    "duration_seconds": duration_seconds,
+                    "zones_used": 6,
+                    "license": "CC0-1.0",
+                }
+
+            try:
+                with patch.object(pipeline, "API", ""), patch.object(
+                    violin_sampler, "create_sampled_violin_bed", side_effect=fake_sampled_violin
+                ), patch.dict(os.environ, {
+                    "MOTION_HYPERFRAMES_RENDER_ENABLED": "true",
+                    "MOTION_HYPERFRAMES_MUSIC_DURATION_SECONDS": "48",
+                }):
+                    metadata, audio = pipeline.get_audio(prefer_creator_assets=False)
+                self.assertEqual(calls["duration_seconds"], 48.0)
+                self.assertEqual(metadata["audio_source"], "sampled_violin_cc0")
+                self.assertEqual(metadata["kind"], "generated_sampled_instrument")
+                self.assertEqual(metadata["duration_seconds"], 48)
+                self.assertGreater(len(audio), 4096)
+            finally:
+                pipeline.WORK = original_work
+
     def test_missing_recording_uses_non_violin_ambient_fallback(self):
         with tempfile.TemporaryDirectory() as folder:
             missing = Path(folder) / "not-present.wav"

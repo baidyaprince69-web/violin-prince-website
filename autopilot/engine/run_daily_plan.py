@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Run a ChatGPT-authored, source-checked daily plan with Blender and Frame By Plane.
+"""Render a ChatGPT-authored, source-verified Violin Prince explainer plan.
 
-ChatGPT supplies the editorial plan, narration and scene direction. This runner
-verifies publisher evidence, synthesizes narration locally with Kokoro, creates
-three deterministic cinematic image layers per scene, and asks Blender 5.2.4
-plus Frame By Plane 8.0.1 to build a 2.5D background behind the licensed 3D hero.
-No AI image service or Cloudflare dependency is used in the daily Blender route.
-This script never publishes; it creates the quality-gated release handoff only.
+The plan supplies the topic, evidence-backed script, citations and scene direction.
+This runner re-fetches and verifies publisher evidence, synthesizes Kokoro-82M
+af_heart narration with native word timings, and can send the package to either
+the default Motion + HyperFrames 2D/2.5D explainer renderer or the explicit
+optional Blender + Frame By Plane route. The Motion path builds its scene
+diagrams and word-synchronised captions locally without Cloudflare or FLUX.
+Publishing is always disabled here; finished MP4s are QA-gated artifacts.
 """
 from __future__ import annotations
 
@@ -29,6 +30,7 @@ from voiceover import synthesize_voiceover  # noqa: E402
 from publish_handoff import validate_publish_metadata, write_handoff_files  # noqa: E402
 from story_asset_resolver import resolve_story_asset, StoryAssetError  # noqa: E402
 from frame_by_plane_backgrounds import create_frame_by_plane_backgrounds  # noqa: E402
+from motion_hyperframes_renderer import is_motion_hyperframes_render_enabled  # noqa: E402
 
 
 def _normalise_quote(value: str) -> str:
@@ -40,9 +42,13 @@ def validate_claim_evidence(
     sources: list[dict[str, Any]],
     sentences: list[str],
 ) -> list[dict[str, Any]]:
-    """Require one exact, publisher-page quote for each of narration sentences 2–4."""
-    if len(sentences) != 4:
-        raise engine.PipelineError("Daily narration must contain exactly four sentences.")
+    """Require exact publisher quotes for sourced claims; exclude the Motion music payoff."""
+    motion_enabled = engine.is_motion_hyperframes_render_enabled()
+    expected_sentences = 5 if motion_enabled else 4
+    if len(sentences) != expected_sentences:
+        raise engine.PipelineError(
+            "Daily narration must contain exactly " + str(expected_sentences) + " sentences."
+        )
 
     source_by_id = {
         str(item.get("source_id") or "").strip(): item
@@ -60,7 +66,7 @@ def validate_claim_evidence(
         source_id = str(item.get("source_id") or "").strip()
         quote = str(item.get("quote") or "").strip()
         if sentence_number not in (2, 3, 4):
-            raise engine.PipelineError("Narration evidence must map to sentence numbers 2, 3 and 4.")
+            raise engine.PipelineError("Narration evidence must map to sourced technical sentences 2, 3 and 4.")
         if sentence_number in checked:
             raise engine.PipelineError(f"Duplicate evidence supplied for narration sentence {sentence_number}.")
         source = source_by_id.get(source_id)
@@ -84,6 +90,8 @@ def validate_claim_evidence(
             "publisher_domain": str(source.get("publisher_domain") or ""),
         }
 
+    # Sentence five is the short musical payoff in Motion mode. It is not
+    # a factual assertion, so only technical sentences 2–4 need publisher quotes.
     expected = {2, 3, 4}
     if set(checked) != expected:
         missing = ", ".join(str(value) for value in sorted(expected - set(checked)))
@@ -272,7 +280,11 @@ def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list
     script = str(plan.get("narration_script") or "").strip()
     narration_issue = engine.narration_validation_error(script)
     if narration_issue:
-        raise engine.PipelineError("Narration failed its four-sentence/40–44-word check: " + narration_issue + ".")
+        expected_sentences = 5 if motion_enabled else 4
+        raise engine.PipelineError(
+            "Narration failed its " + str(expected_sentences) +
+            "-sentence/40–44-word check: " + narration_issue + "."
+        )
 
     sentences = engine.narration_sentences(script)
     plan["narration_evidence"] = validate_claim_evidence(
@@ -324,7 +336,13 @@ def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list
     if plan["narrative_style"] not in ("documentary", "cinematic_story"):
         plan["narrative_style"] = "documentary"
 
-    labels = ("THE HOOK", "THE KEY DETAIL", "THE PAYOFF")
+    labels = (
+        "THE LISTENING ROOM",
+        "THE AUDIO INTERFACE",
+        "ROOMTUNE CORRECTION",
+        "ONBOARD DSP",
+        "THE MUSICAL PAYOFF",
+    )
     beats = engine.narration_sentences(script)
     for index, scene in enumerate(plan["scenes"]):
         scene["graphic_label"] = str(scene.get("graphic_label") or labels[index])[:32]
@@ -335,6 +353,17 @@ def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list
 
 
 def run_daily_plan(plan_path: Path) -> int:
+    motion_enabled = is_motion_hyperframes_render_enabled()
+    blender_enabled = engine.is_blender_render_enabled()
+    if blender_enabled:
+        raise engine.PipelineError(
+            "The production pipeline is now 2D-only. Blender and 3D model rendering are disabled."
+        )
+    if not motion_enabled:
+        raise engine.PipelineError(
+            "Motion + HyperFrames is mandatory for daily production. Enable the 2D renderer; "
+            "legacy still-image and Blender routes are not production fallbacks."
+        )
     plan_path = Path(plan_path)
     if not plan_path.is_file():
         raise engine.PipelineError(f"ChatGPT daily plan was not found: {plan_path}")
@@ -380,7 +409,6 @@ def run_daily_plan(plan_path: Path) -> int:
         json.dumps(plan["quality_control"], ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
-    blender_enabled = engine.is_blender_render_enabled()
     images = []
     model_asset = None
     if blender_enabled:
@@ -504,12 +532,25 @@ def run_daily_plan(plan_path: Path) -> int:
             "layers_per_scene=3; FLUX_and_Cloudflare_image_generation_skipped.",
             flush=True,
         )
+    elif motion_enabled:
+        # The ChatGPT plan already contains the researched script, evidence and
+        # scene-specific visual directions. Motion constructs the explanatory
+        # diagrams and typography locally; do not invoke FLUX, Cloudflare or Blender.
+        images = []
+        for index in range(5):
+            (engine.PACKAGE / f"scene-{index + 1}.jpg").unlink(missing_ok=True)
+        print(
+            "MOTION_EXPLAINER=enabled; Kokoro narration is primary; "
+            "scene-specific diagrams and word-synchronised captions are rendered locally.",
+            flush=True,
+        )
     else:
-        # Existing still-image pipeline remains available when Blender is disabled.
+        # Preserve the legacy still-image path only for runs which explicitly
+        # choose neither Motion nor Blender.
         if not engine.CF_ACCOUNT or not engine.CF_TOKEN:
             raise engine.PipelineError(
                 "The legacy FLUX still-image route requires CF_ACCOUNT_ID and CF_AI_TOKEN. "
-                "The daily Blender + Frame By Plane route does not use this fallback."
+                "Use Motion + HyperFrames or explicitly enable the optional Blender route instead."
             )
         for index, scene in enumerate(plan["scenes"]):
             image_path = engine.PACKAGE / f"scene-{index + 1}.jpg"
@@ -523,7 +564,11 @@ def run_daily_plan(plan_path: Path) -> int:
             images.append(image_path)
 
     metadata = {
-        "schema_version": 3,
+        "schema_version": 4,
+        "production_type": "narrated_explainer" if motion_enabled else "daily_plan_short",
+        "visual_renderer": "motion_hyperframes_narrated_explainer" if motion_enabled else (
+            "blender_full_frame_3d" if blender_enabled else "legacy_still_image"
+        ),
         "prepared_run_id": engine.RUN_ID,
         "narration_info": narration_info,
         "asset": audio_asset,
@@ -544,14 +589,49 @@ def run_daily_plan(plan_path: Path) -> int:
     }
     paths["metadata"].write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
     engine._write_review_text(plan, engine.PACKAGE / "review.txt", {"available": False})
-    if not blender_enabled:
+    if not blender_enabled and not motion_enabled:
         engine.make_storyboard_preview(plan, images, engine.PACKAGE / "storyboard-preview.png")
 
-    # Blender renders complete scene clips when enabled; otherwise the existing
-    # still-image/Pillow/FFmpeg route remains unchanged.
+    # Blender renders complete scene clips when explicitly enabled. Motion builds
+    # its own diagrams and synchronized caption layers without still-image assets.
     result = engine.render_stage()
     if result != 0:
         return result
+    if motion_enabled:
+        final_video = engine.OUT / "violin-prince-explainer.mp4"
+        if not final_video.is_file() or final_video.stat().st_size < 4096:
+            raise engine.PipelineError("Motion completed without a valid narrated explainer MP4.")
+        output_metadata_path = engine.OUT / "metadata.json"
+        try:
+            output_metadata = json.loads(output_metadata_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise engine.PipelineError("Motion output metadata is missing or invalid.") from exc
+        video_quality = output_metadata.get("video_quality") or {}
+        narration = output_metadata.get("narration") or {}
+        if (
+            output_metadata.get("render_engine") != "motion_hyperframes"
+            or narration.get("engine") != "Kokoro-82M"
+            or narration.get("voice") != "af_heart"
+            or narration.get("word_sync_status") != "passed"
+            or video_quality.get("primary_audio_source") != "Kokoro-82M"
+            or video_quality.get("narration_word_sync_status") != "passed"
+            or output_metadata.get("publishing_status") != "rendered"
+        ):
+            raise engine.PipelineError("Rendered MP4 failed the Kokoro narration, word-sync or publishing-disabled checks.")
+        print(
+            "DAILY_PRODUCTION_RESULT=" + json.dumps({
+                "status": "rendered",
+                "run_id": engine.RUN_ID,
+                "video": str(final_video),
+                "primary_audio_source": "Kokoro-82M af_heart",
+                "word_timing_count": video_quality.get("narration_word_timing_count"),
+                "music_bed_enabled": video_quality.get("music_bed_enabled"),
+                "publishing": "disabled",
+            }, ensure_ascii=False),
+            flush=True,
+        )
+        return 0
+
     final_video = engine.OUT / "violin-prince-short.mp4"
     if blender_enabled:
         images = [engine.OUT / f"blender-scene-{index + 1}-poster.png" for index in range(3)]
@@ -591,6 +671,20 @@ def main() -> int:
         result = run_daily_plan(Path(args.plan))
         if result != 0:
             return result
+        if is_motion_hyperframes_render_enabled():
+            final = engine.OUT / "violin-prince-explainer.mp4"
+            if not final.is_file() or final.stat().st_size < 4096:
+                raise engine.PipelineError(
+                    "Motion completed without preserving its validated narrated explainer MP4."
+                )
+            print("DAILY_PRODUCTION_FINAL_CHECK=" + json.dumps({
+                "status": "rendered",
+                "run_id": engine.RUN_ID,
+                "video": str(final),
+                "renderer": "motion_hyperframes",
+                "publishing": "disabled",
+            }, ensure_ascii=False), flush=True)
+            return 0
         final = engine.OUT / "violin-prince-short.mp4"
         quality = engine.validate_final_video(final)
         publish_manifest = json.loads((engine.OUT / "publish-manifest.json").read_text(encoding="utf-8"))
