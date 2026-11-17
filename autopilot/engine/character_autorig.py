@@ -561,6 +561,21 @@ def _face_plate(
     plate.save(destination, format="PNG", optimize=True)
 
 
+def _save_pose_plate(source_path: Path, destination: Path) -> None:
+    """Remove the near-white studio background from a full-body pose reference."""
+    with Image.open(source_path) as opened:
+        image = opened.convert("RGB")
+    rgb = np.asarray(image, dtype=np.uint8)
+    minimum = rgb.min(axis=2).astype(np.float32)
+    spread = rgb.max(axis=2).astype(np.float32) - minimum
+    whiteness = np.clip((minimum - 232.0) / 20.0, 0.0, 1.0)
+    neutral = np.clip(1.0 - spread / 32.0, 0.0, 1.0)
+    alpha = np.clip(255.0 * (1.0 - whiteness * neutral), 0, 255).astype(np.uint8)
+    plate = Image.fromarray(np.dstack((rgb, alpha)), mode="RGBA")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    plate.save(destination, format="PNG", optimize=True)
+
+
 def create_character_bundle(
     source_path: str | Path,
     reference_dir: str | Path,
@@ -631,6 +646,11 @@ def create_character_bundle(
         name: filename for name, filename in POSE_FILES.items()
         if (reference_dir / filename).is_file()
     }
+    pose_assets = {}
+    for name, filename in reference_poses.items():
+        plate_name = f"pose-{name}.png"
+        _save_pose_plate(reference_dir / filename, output_dir / plate_name)
+        pose_assets[name] = {"src": plate_name}
     character = {
         "id": character_id,
         "name": "Violin Prince presenter",
@@ -642,6 +662,7 @@ def create_character_bundle(
         "gestures": {},
         "scene_actions": {},
         "reference_poses": reference_poses,
+        "pose_assets": pose_assets,
     }
     (output_dir / "character.json").write_text(
         json.dumps(character, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
@@ -653,6 +674,7 @@ def create_character_bundle(
         "layer_count": len(layers),
         "expression_count": len(expressions),
         "pose_reference_count": len(reference_poses),
+        "pose_asset_count": len(pose_assets),
         "joint_count": len(joints),
     })
     (output_dir / "separation-report.json").write_text(
