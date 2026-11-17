@@ -8,6 +8,7 @@ from character_autorig import (
     AutoRigError,
     ManualReviewRequired,
     _repair_hidden_area,
+    _dark_garment_underlap,
     _recover_hand_fingers_from_skin,
     _save_pose_plate,
     _face_region_from_head,
@@ -122,6 +123,32 @@ class CharacterAutoRigTests(unittest.TestCase):
         self.assertGreater(added, 0)
         self.assertTrue(recovered[150, 50], "distal fingertip must be included")
         self.assertFalse(recovered[10, 10], "unrelated white background must stay transparent")
+
+    def test_joint_underlap_only_uses_dark_sleeve_pixels_not_skin(self):
+        width, height = 40, 40
+        image = Image.new("RGB", (width, height), (255, 255, 255))
+        pixels = image.load()
+        parent = np.zeros((height, width), dtype=bool)
+        child = np.zeros((height, width), dtype=bool)
+        allowed = np.ones((height, width), dtype=bool)
+
+        parent[15:25, 5:11] = True
+        child[11:29, 15:29] = True
+        # Dark sleeve/cuff material forms the safe hidden overlap.
+        for y in range(15, 25):
+            for x in range(11, 15):
+                pixels[x, y] = (35, 39, 45)
+        # Skin tones belong only to the rotating hand and must not be copied
+        # into the stationary forearm underlap.
+        for y in range(11, 29):
+            for x in range(15, 29):
+                pixels[x, y] = (205, 140, 100)
+
+        overlap = _dark_garment_underlap(
+            image, child, parent, allowed, radius=5
+        )
+        self.assertTrue(np.any(overlap[15:25, 11:15]))
+        self.assertFalse(np.any(overlap[11:29, 15:29]))
 
     def test_large_hidden_area_fails_closed_without_lama(self):
         image = Image.new("RGB", (80, 80), (100, 100, 100))
