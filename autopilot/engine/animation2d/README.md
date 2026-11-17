@@ -43,6 +43,7 @@ Then build and lint it with the pinned Motion + HyperFrames dependencies from au
 - Nine transparent PNG layers: torso, head, face, upper arms, forearms and hands.
 - Seven normalised joint anchors: neck, shoulders, elbows and wrists.
 - Separate neutral, blink, speaking, smiling, shocked and sad face plates when all references exist.
+- Transparent full-body pose plates for resting hands, one arm raised, two-hand explaining, open palms, point left and point right. Scenes can select a pose plate while retaining the separated rig for blink and other subtle motion.
 - separation-preview.png, character.json and separation-report.json.
 - A separate Motion + HyperFrames character-rig-preview.mp4 from the manual test workflow.
 
@@ -52,7 +53,7 @@ Then build and lint it with the pinned Motion + HyperFrames dependencies from au
 - The models do not provide a dedicated hand class. The first implementation estimates the wrist/hand boundary from the distal lower-arm mask. Check finger silhouettes and wrist seams before accepting the rig.
 - Small shoulder overlaps are repaired by local neighbour propagation. Larger hidden areas use the optional LaMa backend. If LaMa is unavailable or reconstruction fails, the pipeline stops for manual review rather than fabricating pixels.
 - Face-expression plates are re-segmented and aligned to the master face bounding box. Review glasses, hairline, mouth and eye alignment.
-- The pose references are retained as visual guides; they are not used as a substitute for the master character layers.
+- Full-body pose plates use the supplied authored pose references with a near-white background removed. Use these for large gesture changes; continue to use the separated master layers for smaller articulated movement and expression changes.
 - A successful MP4 proves that the candidate rig can be rendered. It does not prove perfect segmentation or final production readiness.
 
 ## Existing character contract
