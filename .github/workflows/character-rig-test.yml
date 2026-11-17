@@ -78,11 +78,11 @@ jobs:
 
       - name: Lint the composition
         working-directory: work/character-rig-test/composition
-        run: "$GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes" lint
+        run: $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes lint
 
       - name: Render isolated rig preview (not production)
         working-directory: work/character-rig-test/composition
-        run: "$GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes" render --output ../character-rig-preview.mp4 --fps 25 --quality standard
+        run: $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes render --output ../character-rig-preview.mp4 --fps 25 --quality standard
 
       - name: Preserve rig evidence
         if: always()
