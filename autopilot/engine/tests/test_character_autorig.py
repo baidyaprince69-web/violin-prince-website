@@ -8,6 +8,7 @@ from character_autorig import (
     AutoRigError,
     ManualReviewRequired,
     _repair_hidden_area,
+    _save_pose_plate,
     separate_from_parsing,
 )
 
@@ -78,6 +79,25 @@ class CharacterAutoRigTests(unittest.TestCase):
         self.assertEqual(method, "local_neighbour_propagation")
         self.assertGreater(ratio, 0)
         self.assertEqual(result.getpixel((9, 9)), (120, 80, 60))
+
+    def test_pose_reference_plate_removes_near_white_background(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "pose.jpg"
+            output = Path(folder) / "pose.png"
+            image = Image.new("RGB", (80, 60), (255, 255, 255))
+            for y in range(10, 50):
+                for x in range(20, 60):
+                    image.putpixel((x, y), (30, 40, 50))
+            image.save(source, quality=95)
+            _save_pose_plate(source, output)
+            with Image.open(output) as result:
+                self.assertEqual(result.mode, "RGBA")
+                self.assertEqual(result.size, (80, 60))
+                self.assertEqual(result.getpixel((0, 0))[3], 0)
+                self.assertGreater(result.getpixel((35, 25))[3], 240)
 
     def test_parser_maps_must_match_master_canvas(self):
         body, body_conf, detail, detail_conf = self.synthetic_maps()
