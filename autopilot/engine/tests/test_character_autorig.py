@@ -16,6 +16,7 @@ from character_autorig import (
     _recover_hand_fingers_from_skin,
     _save_pose_plate,
     _face_region_from_head,
+    _face_expression_crop_box,
     _face_plate,
     separate_from_parsing,
 )
@@ -255,6 +256,43 @@ class CharacterAutoRigTests(unittest.TestCase):
                 self.assertEqual(plate.getpixel((0, 0))[3], 0)
                 self.assertEqual(plate.getpixel((40, 30))[3], 255)
                 self.assertEqual(plate.getpixel((40, 4))[3], 0)
+
+    def test_expression_crop_matches_face_layer_aspect_and_includes_forehead(self):
+        x0, y0, x1, y1 = _face_expression_crop_box((1644, 1096), (300, 286))
+        self.assertAlmostEqual((x1 - x0) / (y1 - y0), 300 / 286, delta=0.005)
+        self.assertLess(x0, round(1644 * 0.39))
+        self.assertGreater(x1, round(1644 * 0.61))
+        self.assertLess(y0, round(1096 * 0.33))
+        self.assertLess(y1, round(1096 * 0.72))
+
+    def test_face_plate_removes_edge_white_backdrop_and_keeps_enclosed_highlights(self):
+        import tempfile
+        from pathlib import Path
+        from PIL import ImageDraw
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = root / "expression.png"
+            output = root / "expression-clean.png"
+            image = Image.new("RGB", (400, 300), (255, 255, 255))
+            draw = ImageDraw.Draw(image)
+            # A face silhouette fills the wider crop, with a small white eye
+            # highlight fully enclosed by skin so backdrop removal must retain it.
+            draw.ellipse((120, 65, 280, 181), fill=(188, 125, 92))
+            draw.ellipse((194, 117, 206, 129), fill=(250, 250, 250))
+            image.save(source)
+            alpha = np.full((60, 80), 255, dtype=np.uint8)
+            _face_plate(source, (80, 60), output, alpha_mask=alpha)
+            with Image.open(output) as plate:
+                self.assertEqual(plate.getpixel((2, 30))[3], 0,
+                    "border-connected white backdrop must not leak into the face plate")
+                self.assertGreater(plate.getpixel((40, 20))[3], 245,
+                    "the illustrated face interior must remain opaque")
+                highlight = plate.getpixel((40, 30))
+                self.assertGreater(highlight[3], 245,
+                    "enclosed white eye details must remain opaque")
+                self.assertGreater(min(highlight[:3]), 220,
+                    "the enclosed white eye highlight must retain its colour")
 
     def test_pose_reference_plate_removes_near_white_background(self):
         import tempfile
