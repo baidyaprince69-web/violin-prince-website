@@ -604,8 +604,8 @@ def separate_from_parsing(
         # child segments rotate independently.
         joint_reference_masks[f"{side}_elbow"] = (upper.copy(), forearm.copy())
         joint_reference_masks[f"{side}_wrist"] = (forearm.copy(), hand.copy())
-        elbow_underlap = _morph(forearm, 12, "dilate") & sides[side]
-        wrist_underlap = _morph(hand, 16, "dilate") & sides[side]
+        elbow_underlap = _morph(forearm, 12, "dilate") & sides[side] & ~upper
+        wrist_underlap = _morph(hand, 16, "dilate") & sides[side] & ~forearm
         upper = upper | elbow_underlap
         forearm = forearm | wrist_underlap
         joint_overlap_pixels[f"{side}_elbow"] = int(elbow_underlap.sum())
