@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { compileMotionTracks } from "../src/motion-build.mjs";
 
 const character = {
@@ -51,4 +52,29 @@ test("two-arm explanation animates both independently separated upper arms", () 
   const targets = new Set(tracksFor("two-arm-test").map(track => track.target));
   assert.ok(targets.has("two-arm-test-violin-prince-part-left_upper_arm"));
   assert.ok(targets.has("two-arm-test-violin-prince-part-right_upper_arm"));
+});
+
+
+test("generated rig project wires real scene actions into frame-seekable motion tracks", {
+  skip: !process.env.VP_RIG_PROJECT
+}, () => {
+  const project = JSON.parse(readFileSync(process.env.VP_RIG_PROJECT, "utf8"));
+  const tracks = compileMotionTracks(project, { fps: project.fps || 25 });
+  const rotating = tracks.filter(track => track.property === "rotate");
+  const target = (scene, role) => scene + "-violin-prince-part-" + role;
+  const hasChangingTrack = id => rotating.some(track =>
+    track.target === id && track.values.some(value => value !== track.values[0])
+  );
+
+  assert.ok(hasChangingTrack(target("scene-head-turn", "head")),
+    "head-turn scene must animate the separated head layer");
+  assert.ok(hasChangingTrack(target("scene-head-turn", "torso")),
+    "head-turn scene must counterbalance the torso");
+  assert.ok(hasChangingTrack(target("scene-wave", "right_upper_arm")),
+    "wave scene must animate the right upper arm");
+  assert.ok(hasChangingTrack(target("scene-wave", "right_forearm")),
+    "wave scene must animate the right forearm independently");
+  assert.ok(hasChangingTrack(target("scene-explain", "left_upper_arm")));
+  assert.ok(hasChangingTrack(target("scene-explain", "right_upper_arm")));
+  assert.ok(hasChangingTrack(target("scene-body", "torso")));
 });
