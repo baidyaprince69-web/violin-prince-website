@@ -1,6 +1,6 @@
 const corsHeaders = {
   "Access-Control-Allow-Origin": "https://baidyaprince69-web.github.io",
-  "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+  "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
   "Access-Control-Allow-Headers": "Authorization,Content-Type,X-Filename,X-Rights-Confirmed,X-File-Size",
   "Access-Control-Max-Age": "86400"
 };
@@ -80,6 +80,30 @@ async function cleanupOldRenders(env) {
     if (removed) await event(env, "Storage cleanup removed " + removed + " render(s) older than 30 days.");
   } catch (error) {
     await event(env, "Storage cleanup failed: " + (error && error.message ? error.message : error), "warning");
+  }
+}
+
+async function cleanupOldVoicePackages(env) {
+  // R2 stores ciphertext only. Retain it for at most 30 days; the owner's
+  // encrypted Google Drive copy remains the durable recovery backup.
+  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  let cursor;
+  let removed = 0;
+  try {
+    do {
+      const page = await env.MEDIA.list({ prefix: "voice-packages/", limit: 1000, cursor });
+      const expired = (page.objects || [])
+        .filter((object) => object.uploaded && object.uploaded.getTime() < cutoff)
+        .map((object) => object.key);
+      if (expired.length) {
+        await env.MEDIA.delete(expired);
+        removed += expired.length;
+      }
+      cursor = page.truncated ? page.cursor : undefined;
+    } while (cursor);
+    if (removed) await event(env, "Encrypted voice-package cleanup removed " + removed + " expired package(s).");
+  } catch (error) {
+    await event(env, "Encrypted voice-package cleanup failed: " + (error && error.message ? error.message : error), "warning");
   }
 }
 
@@ -242,6 +266,87 @@ async function handleApi(request, env) {
     return json({ ok: true, id: id, filename: filename, size_bytes: size });
   }
 
+  if (path === "/api/voice-packages" && request.method === "POST") {
+    const filename = safeName(request.headers.get("X-Filename"));
+    if (!/\.vprvoice$/i.test(filename)) {
+      return json({ error: "Only an encrypted .vprvoice package is accepted." }, 400);
+    }
+    const expectedSize = Number(request.headers.get("X-File-Size") || "");
+    const maxBytes = 50 * 1024 * 1024;
+    if (!Number.isSafeInteger(expectedSize) || expectedSize < 72) {
+      return json({ error: "The encrypted voice package size is missing or invalid." }, 400);
+    }
+    if (expectedSize > maxBytes) {
+      return json({ error: "The encrypted voice package exceeds the 50 MB limit." }, 413);
+    }
+    const contentLength = request.headers.get("Content-Length");
+    if (contentLength && (!/^\d+$/.test(contentLength) || Number(contentLength) !== expectedSize)) {
+      return json({ error: "The upload size headers do not match." }, 400);
+    }
+    if (!request.body) return json({ error: "The encrypted package body is missing." }, 400);
+
+    // Read into one bounded buffer. The browser supplies the expected size;
+    // this loop enforces it against the actual stream before writing to R2.
+    const bytes = new Uint8Array(expectedSize);
+    const reader = request.body.getReader();
+    let offset = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (offset + value.byteLength > expectedSize) {
+          await reader.cancel("Upload exceeded declared size.");
+          bytes.fill(0);
+          return json({ error: "The uploaded package is larger than its declared size." }, 400);
+        }
+        bytes.set(value, offset);
+        offset += value.byteLength;
+      }
+    } catch {
+      bytes.fill(0);
+      return json({ error: "The encrypted package upload could not be read completely." }, 400);
+    } finally {
+      try { reader.releaseLock(); } catch { /* Stream already released. */ }
+    }
+    if (offset !== expectedSize) {
+      bytes.fill(0);
+      return json({ error: "The uploaded package is shorter than its declared size." }, 400);
+    }
+
+    const magic = new TextDecoder().decode(bytes.subarray(0, 8));
+    const iterations = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(36, false);
+    if (magic !== "VPRVOICE" || iterations !== 600000) {
+      bytes.fill(0);
+      return json({ error: "This is not a supported encrypted Violin Prince voice package." }, 400);
+    }
+
+    const id = crypto.randomUUID();
+    const key = "voice-packages/" + id + ".vprvoice";
+    try {
+      await env.MEDIA.put(key, bytes, {
+        httpMetadata: { contentType: "application/octet-stream" },
+        customMetadata: { category: "encrypted-voice-package", packageVersion: "1" }
+      });
+    } finally {
+      // Clear the temporary plaintext-in-memory buffer. The bytes are still
+      // ciphertext; this route never receives or derives the passphrase.
+      bytes.fill(0);
+    }
+    return json({ ok: true, package_id: id, size_bytes: expectedSize }, 201);
+  }
+
+  const voicePackageDelete = path.match(/^\/api\/voice-packages\/([0-9a-f-]{36})$/i);
+  if (voicePackageDelete && request.method === "DELETE") {
+    const id = voicePackageDelete[1];
+    const key = "voice-packages/" + id + ".vprvoice";
+    const object = await env.MEDIA.get(key);
+    if (!object || object.customMetadata?.category !== "encrypted-voice-package") {
+      return json({ error: "voice_package_not_found" }, 404);
+    }
+    await env.MEDIA.delete(key);
+    return json({ ok: true, deleted: true });
+  }
+
   if (path === "/api/trigger" && request.method === "POST") {
     const result = await dispatchWorkflow(env, "manual");
     return json(result, result.ok ? 202 : 409);
@@ -328,6 +433,24 @@ async function handleApi(request, env) {
         "Content-Type": asset.content_type,
         "Content-Disposition": 'attachment; filename="' + safeName(asset.filename) + '"',
         "Cache-Control": "private, no-store"
+      }
+    });
+  }
+
+  const voicePackageFetch = path.match(/^\/internal\/voice-packages\/([0-9a-f-]{36})$/i);
+  if (voicePackageFetch && request.method === "GET") {
+    const id = voicePackageFetch[1];
+    const key = "voice-packages/" + id + ".vprvoice";
+    const object = await env.MEDIA.get(key);
+    if (!object || object.customMetadata?.category !== "encrypted-voice-package") {
+      return json({ error: "voice_package_not_found" }, 404);
+    }
+    return new Response(object.body, {
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "Content-Disposition": 'attachment; filename="violin-prince-voice.vprvoice"',
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff"
       }
     });
   }
@@ -424,7 +547,8 @@ export default {
   async scheduled(controller, env, ctx) {
     ctx.waitUntil(Promise.all([
       dispatchWorkflow(env, "scheduled"),
-      cleanupOldRenders(env)
+      cleanupOldRenders(env),
+      cleanupOldVoicePackages(env)
     ]));
   }
 };
