@@ -77,7 +77,9 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       "height:" + (Number(expression.height ?? face.height ?? 1) * layout.scale) + "px",
       "z-index:999"
     ].join(";");
-    const initial = poseIsActive && selectedPose !== "resting_hands"
+    // Full-body pose plates already contain their own face. Never layer
+    // the master-face expression crop over a complete pose illustration.
+    const initial = poseIsActive
       ? "opacity:0;"
       : (name === "neutral" ? "opacity:1;" : "opacity:0;");
     const expressionId = scene.id + "-" + character.id + "-expression-" + name;

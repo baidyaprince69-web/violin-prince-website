@@ -68,8 +68,10 @@ def build_rig_preview_project(bundle_dir: str | Path, output_dir: str | Path) ->
         }
 
     scene_actions = {
-        "scene-neutral": {"pose_asset": "resting_hands", "expression": "neutral", "duration": 1.2},
-        "scene-blink": {"pose_asset": "resting_hands", "expression": "blink", "duration": 1.0},
+        # Keep the first two scenes on the separated body-part rig so the
+        # neutral and blink plates are aligned to the master character face.
+        "scene-neutral": {"expression": "neutral", "duration": 1.2},
+        "scene-blink": {"expression": "blink", "duration": 1.0},
         "scene-wave": {"pose_asset": "one_arm_raised", "expression": "neutral", "duration": 1.25},
         "scene-explain": {"pose_asset": "explaining_two_hands", "expression": "speaking", "duration": 1.25},
         "scene-left": {"pose_asset": "point_left", "expression": "neutral", "duration": 1.2},
