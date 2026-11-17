@@ -54,7 +54,9 @@ jobs:
       YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
       YOUTUBE_STATE_ENCRYPTION_KEY: ${{ secrets.YOUTUBE_STATE_ENCRYPTION_KEY }}
       SEO_LEARNING_REPORT_PATH: work/seo-learning-data/seo-learning/latest.enc.json
-      PUBLISH_ENABLED: "false"
+      # Enables the gated public GitHub Release handoff for validated daily Shorts.
+      # YouTube upload remains a separate Metricool/operator action.
+      PUBLISH_ENABLED: "true"
     steps:
       - name: Validate stage inputs
         if: github.event_name != 'push'
