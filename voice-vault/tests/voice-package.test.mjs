@@ -120,4 +120,7 @@ test("source keeps tokens in memory and only sends encrypted package bytes to Dr
   assert.ok(app.includes("loadGoogleIdentity().then(() =>"));
   assert.ok(app.includes("function connectGoogleDrive()"));
   assert.ok(!app.includes("async function connectGoogleDrive()"));
+  const html = await fs.readFile(new URL("../index.html", import.meta.url), "utf8");
+  assert.ok(html.includes('id="use-sample-text"'));
+  assert.ok(app.includes('$("use-sample-text").addEventListener("click"'));
 });
