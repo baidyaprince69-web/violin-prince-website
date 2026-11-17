@@ -63,6 +63,9 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       '" style="' + style + '">';
   }).join("");
 
+  const selectedPose = String(action.pose_asset || "").toLowerCase();
+  const poseIsActive = Boolean(selectedPose && character.pose_assets &&
+    Object.prototype.hasOwnProperty.call(character.pose_assets, selectedPose));
   const face = (character.layers || []).find((layer) => layer.role === "face") || {};
   const expressions = Object.entries(character.expressions || {}).map(([name, expression]) => {
     const style = [
@@ -72,7 +75,9 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       "height:" + Number(expression.height ?? face.height ?? 1) + "px",
       "z-index:999"
     ].join(";");
-    const initial = name === "neutral" ? "opacity:1;" : "opacity:0;";
+    const initial = poseIsActive && selectedPose !== "resting_hands"
+      ? "opacity:0;"
+      : (name === "neutral" ? "opacity:1;" : "opacity:0;");
     const expressionId = scene.id + "-" + character.id + "-expression-" + name;
     return '<img class="rig-expression" id="' + escapeHtml(expressionId) +
       '" data-expression="' + escapeHtml(name) +
@@ -80,7 +85,6 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       '" style="' + style + ";" + initial + '">';
   }).join("");
 
-  const selectedPose = String(action.pose_asset || "").toLowerCase();
   const poseAssets = Object.entries(character.pose_assets || {}).map(([name, pose]) => {
     const style = [
       "left:0px", "top:0px",
@@ -96,9 +100,6 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       '" alt="" draggable="false" src="' + escapeHtml(pose.src) +
       '" style="' + style + '">';
   }).join("");
-  const poseIsActive = Boolean(selectedPose && character.pose_assets &&
-    Object.prototype.hasOwnProperty.call(character.pose_assets, selectedPose));
-
   return '<div class="clip character-rig" id="' + escapeHtml(scene.id + "-" + character.id) +
     '" data-pose-active="' + (poseIsActive ? "true" : "false") +
     '" data-pose-name="' + escapeHtml(poseIsActive ? selectedPose : "") +
