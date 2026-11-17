@@ -14,7 +14,7 @@ Move an already-encrypted Violin Prince Voice Vault package from the owner's bro
 4. The Worker accepts the encrypted bytes and returns an opaque UUID package ID.
 5. The package ID is held in this browser tab's session storage so the owner can later identify/delete the stored copy.
 
-The dashboard never asks for or reads the encryption passphrase. Do not upload the original recording, prepared WAV, transcript, or an unencrypted file.
+The dashboard never asks for or reads the encryption passphrase. Do not upload the original recording, prepared WAV, transcript, or an unencrypted file. Before the first upload, verify in Cloudflare R2 bucket settings that Public Development URL access is disabled and no custom domain is enabled. Cloudflare says R2 buckets are private by default, but r2.dev and custom-domain exposure can be enabled separately.
 
 ## Worker API
 
