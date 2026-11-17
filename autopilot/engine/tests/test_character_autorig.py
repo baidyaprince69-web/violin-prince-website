@@ -91,10 +91,14 @@ class CharacterAutoRigTests(unittest.TestCase):
             for y in range(10, 50):
                 for x in range(20, 60):
                     image.putpixel((x, y), (30, 40, 50))
-            # Tiny black JPEG speck in the studio background should be removed.
+            # Tiny black JPEG speck in the backdrop should be removed by the
+            # closing pass, while an enclosed white eye/highlight stays opaque.
             for y in range(3, 6):
                 for x in range(3, 6):
                     image.putpixel((x, y), (0, 0, 0))
+            for y in range(25, 30):
+                for x in range(35, 40):
+                    image.putpixel((x, y), (255, 255, 255))
             image.save(source, quality=95)
             _save_pose_plate(source, output)
             with Image.open(output) as result:
@@ -103,6 +107,7 @@ class CharacterAutoRigTests(unittest.TestCase):
                 self.assertEqual(result.getpixel((0, 0))[3], 0)
                 self.assertEqual(result.getpixel((4, 4))[3], 0)
                 self.assertGreater(result.getpixel((35, 25))[3], 240)
+                self.assertGreater(result.getpixel((37, 27))[3], 240)
 
     def test_parser_maps_must_match_master_canvas(self):
         body, body_conf, detail, detail_conf = self.synthetic_maps()
