@@ -7,6 +7,7 @@ on:
   push:
     branches:
       - baidyaprince69-web-patch-1
+      - feature/character-articulated-rig-validation
     paths:
       - .github/workflows/character-rig-test.yml
       - autopilot/engine/character_autorig.py
@@ -22,6 +23,7 @@ on:
       - autopilot/engine/animation2d/src/contract.mjs
       - autopilot/engine/animation2d/src/motion-build.mjs
       - autopilot/engine/animation2d/test/character-layout.test.mjs
+      - autopilot/engine/animation2d/test/articulated-rig.test.mjs
       - autopilot/engine/tests/test_character_autorig.py
       - autopilot/engine/tests/test_character_rig.py
       - autopilot/engine/tests/test_daily_plan.py
@@ -74,6 +76,12 @@ jobs:
         if: inputs.use_lama
         run: pip install -r autopilot/engine/requirements-character-lama.txt
 
+      - name: Run offline character separation and rig contract tests
+        working-directory: autopilot/engine
+        run: |
+          python -m unittest discover -s tests -p 'test_character_autorig.py'
+          python -m unittest discover -s tests -p 'test_character_rig.py'
+
       - name: Separate the master character and build transparent layers
         run: |
           python autopilot/engine/character_autorig.py \
@@ -99,6 +107,10 @@ jobs:
       - name: Install Motion and HyperFrames
         working-directory: autopilot/engine/animation2d
         run: npm install --no-audit --no-fund
+
+      - name: Run animation and articulated-rig regression tests
+        working-directory: autopilot/engine/animation2d
+        run: VP_RIG_PROJECT=../../../work/character-rig-test/project.json npm test
 
       - name: Build and lint the character composition
         working-directory: autopilot/engine/animation2d
@@ -141,7 +153,7 @@ jobs:
         run: $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes render --output ../character-rig-portrait-preview.mp4 --fps 25 --quality standard
 
       - name: Save the tested rig bundle for the main animation pipeline
-        if: success() && github.ref_name == 'baidyaprince69-web-patch-1'
+        if: success() && (github.ref_name == 'baidyaprince69-web-patch-1' || github.ref_name == 'feature/character-articulated-rig-validation')
         shell: bash
         run: |
           set -euo pipefail
@@ -155,6 +167,32 @@ jobs:
           DEST="autopilot/engine/assets/characters/violin-prince-rig"
           mkdir -p "$DEST"
           cp -R work/character-autorig/violin-prince/. "$DEST/"
+          python - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, str(Path("autopilot/engine").resolve()))
+          from character_rig import validate_character_spec
+
+          bundle = Path("autopilot/engine/assets/characters/violin-prince-rig").resolve()
+          spec = json.loads((bundle / "character.json").read_text(encoding="utf-8"))
+          report = json.loads((bundle / "separation-report.json").read_text(encoding="utf-8"))
+          if report.get("status") != "candidate_ready_for_visual_review":
+              raise SystemExit("Refusing to save a rig bundle without candidate-ready status.")
+          validate_character_spec(spec)
+          for section in ("layers",):
+              for item in spec.get(section, []):
+                  candidate = (bundle / item["src"]).resolve()
+                  if bundle not in candidate.parents or not candidate.is_file():
+                      raise SystemExit(f"Missing or unsafe character asset: {item['src']}")
+          for section in ("expressions", "pose_assets"):
+              for item in spec.get(section, {}).values():
+                  candidate = (bundle / item["src"]).resolve()
+                  if bundle not in candidate.parents or not candidate.is_file():
+                      raise SystemExit(f"Missing or unsafe character asset: {item['src']}")
+          print("Saved bundle passed character-spec and asset-file validation.")
+          PY
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "$DEST"

@@ -7,8 +7,39 @@
   },
   "side_convention": "left and right refer to the viewer's screen sides",
   "arm_side_source": "pascal_coarse_screen_split",
-  "hand_split": "distal 28% of each lower-arm mask; not a dedicated hand detector",
+  "hand_split": "distal lower-arm split with connected warm-skin finger recovery; not a dedicated hand detector",
   "hand_split_fraction": 0.72,
+  "face_edge_blend": {
+    "method": "soft_alpha_over_original_head_underlap",
+    "head_underlap_radius_px": 3,
+    "alpha_gaussian_blur_px": 1.2,
+    "head_and_face_overlap_pixels": 3082,
+    "visual_review_required": true
+  },
+  "hand_finger_recovery": {
+    "method": "bounded_skin_colour_component_growth",
+    "pixels_added": {
+      "left": 18216,
+      "right": 18385
+    },
+    "visual_review_required": true
+  },
+  "joint_underlap": {
+    "method": "child-overlap-covered-by-parent-layer",
+    "elbow_radius_px": 24,
+    "wrist_radius_px": 20,
+    "wrist_patch": "localized_around_joint_anchor_only",
+    "elbow_pixel_filter": "dark_sleeve_or_cuff_only",
+    "elbow_maximum_source_channel_value": 145,
+    "overlap_pixels": {
+      "left_elbow": 1013,
+      "left_wrist": 1259,
+      "right_elbow": 1084,
+      "right_wrist": 808
+    },
+    "joint_anchors_use_unexpanded_masks": true,
+    "visual_review_required": true
+  },
   "hidden_area_reconstruction": {
     "method": "local_neighbour_propagation",
     "pixels_reconstructed": 4937,
@@ -28,7 +59,7 @@
   "needs_visual_review": true,
   "review_reasons": [
     "SCHP was trained on real-person parsing datasets; illustration styles can reduce accuracy.",
-    "Hands are estimated from the distal lower-arm region, not detected as a separate semantic class.",
+    "Hand masks combine a distal lower-arm split with bounded skin-colour finger recovery; there is no dedicated semantic hand class.",
     "Review layer edges, hand/finger completeness, joint seams and reconstructed torso pixels.",
     "ATR did not resolve both arm-side labels; side masks were derived from the coarse Pascal arm segmentation."
   ],

@@ -6,7 +6,10 @@ for (const track of tracks) {
   if (!track || typeof track.target !== "string" || typeof track.property !== "string") continue;
   const element = document.getElementById(track.target);
   if (!element || !Array.isArray(track.values) || track.values.length < 2) continue;
-  const keyframes = track.values.map(value => ({ [track.property]: value }));
+  const keyframes = track.values.map((value, index) => ({
+    [track.property]: value,
+    ...(Array.isArray(track.offsets) ? { offset: track.offsets[index] } : {})
+  }));
   const animation = element.animate(keyframes, {
     duration: Math.max(1, Number(track.duration) * 1000),
     delay: Math.max(0, Number(track.start) * 1000),

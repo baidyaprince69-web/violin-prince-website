@@ -8,6 +8,12 @@ from character_autorig import (
     AutoRigError,
     ManualReviewRequired,
     _repair_hidden_area,
+    _close_small_mask_holes,
+    _soft_alpha_from_mask,
+    _morph,
+    _dark_garment_underlap,
+    _joint_disk,
+    _recover_hand_fingers_from_skin,
     _save_pose_plate,
     _face_region_from_head,
     _face_plate,
@@ -44,8 +50,42 @@ class CharacterAutoRigTests(unittest.TestCase):
         self.assertEqual(len(masks), 9)
         self.assertEqual(len(joints), 7)
         self.assertEqual(repaired.size, image.size)
+        face_interior = _morph(masks["face"], 3, "erode")
+        face_perimeter_ring = masks["face"] & ~face_interior
+        face_overlap_mask = masks["head"] & masks["face"]
+        face_overlap = int(face_overlap_mask.sum())
+        self.assertGreater(face_overlap, 0, "head shell must underlap the feathered face edge")
+        self.assertLessEqual(
+            face_overlap,
+            int(face_perimeter_ring.sum()),
+            "head/face overlap must stay inside the eroded face perimeter ring",
+        )
+        self.assertEqual(
+            int((masks["head"] & face_interior).sum()),
+            0,
+            "original facial pixels must remain excluded from the centre of the face plate",
+        )
+        self.assertGreater(report["face_edge_blend"]["alpha_gaussian_blur_px"], 0)
         for role, region in masks.items():
             self.assertGreater(int(region.sum()), 20, role)
+        for side in ("left", "right"):
+            self.assertGreater(
+                int((masks[f"{side}_upper_arm"] & masks[f"{side}_forearm"]).sum()),
+                0,
+                f"{side} elbow layers must overlap under the child segment",
+            )
+            self.assertGreater(
+                int((masks[f"{side}_forearm"] & masks[f"{side}_hand"]).sum()),
+                0,
+                f"{side} wrist layers must overlap under the hand",
+            )
+        self.assertTrue(report["joint_underlap"]["joint_anchors_use_unexpanded_masks"])
+        self.assertEqual(report["joint_underlap"]["wrist_patch"], "localized_around_joint_anchor_only")
+        self.assertLess(
+            max(report["joint_underlap"]["overlap_pixels"].values()),
+            2500,
+            "joint underlap must stay local rather than copying whole hand/arm regions",
+        )
         for point in joints.values():
             self.assertTrue(0 <= point["x"] <= 1)
             self.assertTrue(0 <= point["y"] <= 1)
@@ -64,6 +104,106 @@ class CharacterAutoRigTests(unittest.TestCase):
         self.assertEqual(report["arm_side_source"], "pascal_coarse_screen_split")
         self.assertGreater(masks["left_hand"].sum(), 20)
         self.assertGreater(masks["right_hand"].sum(), 20)
+
+    def test_skin_connected_fingers_are_recovered_into_hand_layer(self):
+        width, height = 160, 112
+        image = Image.new("RGB", (width, height), (30, 30, 36))
+        pixels = image.load()
+        hand = np.zeros((height, width), dtype=bool)
+        upper = np.zeros((height, width), dtype=bool)
+
+        # Semantic parser hand seed is only the palm. Warm skin pixels that
+        # continue past it represent fingers omitted from the coarse arm class.
+        hand[43:59, 18:32] = True
+        upper[39:53, 35:58] = True
+        for y in range(43, 59):
+            for x in range(5, 33):
+                pixels[x, y] = (205, 140, 100)
+        # A second finger-like extension separated by a narrow antialias gap.
+        for y in range(55, 60):
+            for x in range(8, 19):
+                pixels[x, y] = (198, 132, 94)
+
+        recovered, added = _recover_hand_fingers_from_skin(image, hand, upper)
+        self.assertGreater(added, 0)
+        self.assertTrue(np.any(recovered[45:52, 5:18]))
+        self.assertTrue(np.any(recovered[55:60, 8:18]))
+        # Neutral background must not be pulled into the hand.
+        self.assertFalse(np.any(recovered[:, 120:]))
+
+    def test_hand_recovery_window_reaches_fingertips_beyond_small_mask_bbox(self):
+        width, height = 260, 200
+        image = Image.new("RGB", (width, height), (255, 255, 255))
+        pixels = image.load()
+        hand = np.zeros((height, width), dtype=bool)
+        upper = np.zeros((height, width), dtype=bool)
+
+        hand[45:185, 90:230] = True
+        upper[30:100, 200:245] = True
+        # The far fingertip lies beyond the old 24%-of-hand search padding.
+        for y in range(45, 186):
+            for x in range(48, 231):
+                pixels[x, y] = (205, 140, 100)
+
+        recovered, added = _recover_hand_fingers_from_skin(image, hand, upper)
+        self.assertGreater(added, 0)
+        self.assertTrue(recovered[150, 50], "distal fingertip must be included")
+        self.assertFalse(recovered[10, 10], "unrelated white background must stay transparent")
+
+    def test_joint_disk_stays_bounded_around_pivot(self):
+        disk = _joint_disk((80, 100), (50, 40), radius=12)
+        self.assertTrue(disk[40, 50])
+        self.assertTrue(disk[40, 61])
+        self.assertFalse(disk[40, 63])
+        self.assertFalse(disk[10, 50])
+
+    def test_joint_underlap_only_uses_dark_sleeve_pixels_not_skin(self):
+        width, height = 40, 40
+        image = Image.new("RGB", (width, height), (255, 255, 255))
+        pixels = image.load()
+        parent = np.zeros((height, width), dtype=bool)
+        child = np.zeros((height, width), dtype=bool)
+        allowed = np.ones((height, width), dtype=bool)
+
+        parent[15:25, 5:11] = True
+        child[11:29, 15:29] = True
+        # Dark sleeve/cuff material forms the safe hidden overlap.
+        for y in range(15, 25):
+            for x in range(11, 15):
+                pixels[x, y] = (35, 39, 45)
+        # Skin tones belong only to the rotating hand and must not be copied
+        # into the stationary forearm underlap.
+        for y in range(11, 29):
+            for x in range(15, 29):
+                pixels[x, y] = (205, 140, 100)
+
+        overlap = _dark_garment_underlap(
+            image, child, parent, allowed, radius=5
+        )
+        self.assertTrue(np.any(overlap[15:25, 11:15]))
+        self.assertFalse(np.any(overlap[11:29, 15:29]))
+
+    def test_soft_face_alpha_feathers_the_edge_but_keeps_the_interior_opaque(self):
+        mask = np.zeros((40, 40), dtype=bool)
+        mask[10:30, 10:30] = True
+        alpha = _soft_alpha_from_mask(mask, blur_radius=1.2)
+        self.assertEqual(alpha.shape, mask.shape)
+        self.assertEqual(int(alpha[20, 20]), 255)
+        self.assertGreater(int(alpha[9, 20]), 0)
+        self.assertLess(int(alpha[9, 20]), 255)
+        self.assertEqual(int(alpha[0, 0]), 0)
+
+    def test_head_neck_mask_closes_small_alpha_pinholes(self):
+        neck = np.zeros((40, 60), dtype=bool)
+        neck[5:35, 10:50] = True
+        neck[15, 24] = False
+        neck[20:22, 37] = False
+
+        closed = _close_small_mask_holes(neck, size=5)
+        self.assertTrue(closed[15, 24])
+        self.assertTrue(closed[20, 37])
+        self.assertFalse(closed[2, 2])
+        self.assertFalse(closed[38, 58])
 
     def test_large_hidden_area_fails_closed_without_lama(self):
         image = Image.new("RGB", (80, 80), (100, 100, 100))

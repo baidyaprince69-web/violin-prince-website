@@ -33,6 +33,7 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
   ].join(";");
   const jointForRole = {
     head: "neck",
+    face: "neck",
     left_upper_arm: "left_shoulder",
     left_forearm: "left_elbow",
     left_hand: "left_wrist",
@@ -54,7 +55,7 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       "top:" + (layout.offsetY + Number(layer.y) * layout.scale) + "px",
       "width:" + (Number(layer.width) * layout.scale) + "px",
       "height:" + (Number(layer.height) * layout.scale) + "px",
-      "transform-origin:" + pivotX + "% " + pivotY + "%",
+      "transform-origin:0 0",
       "z-index:" + Number(layer.z_index ?? 1)
     ].join(";");
     const partId = scene.id + "-" + character.id + "-part-" + layer.id;
@@ -70,11 +71,23 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
     Object.prototype.hasOwnProperty.call(character.pose_assets, selectedPose));
   const face = (character.layers || []).find((layer) => layer.role === "face") || {};
   const expressions = Object.entries(character.expressions || {}).map(([name, expression]) => {
+    const neck = (character.joints || {}).neck;
+    const expressionX = Number(expression.x ?? face.x ?? 0);
+    const expressionY = Number(expression.y ?? face.y ?? 0);
+    const expressionWidth = Number(expression.width ?? face.width ?? 1);
+    const expressionHeight = Number(expression.height ?? face.height ?? 1);
+    const pivotX = neck
+      ? ((Number(neck.x) * layout.sourceWidth - expressionX) / expressionWidth) * 100
+      : 50;
+    const pivotY = neck
+      ? ((Number(neck.y) * layout.sourceHeight - expressionY) / expressionHeight) * 100
+      : 50;
     const style = [
-      "left:" + (layout.offsetX + Number(expression.x ?? face.x ?? 0) * layout.scale) + "px",
-      "top:" + (layout.offsetY + Number(expression.y ?? face.y ?? 0) * layout.scale) + "px",
-      "width:" + (Number(expression.width ?? face.width ?? 1) * layout.scale) + "px",
-      "height:" + (Number(expression.height ?? face.height ?? 1) * layout.scale) + "px",
+      "left:" + (layout.offsetX + expressionX * layout.scale) + "px",
+      "top:" + (layout.offsetY + expressionY * layout.scale) + "px",
+      "width:" + (expressionWidth * layout.scale) + "px",
+      "height:" + (expressionHeight * layout.scale) + "px",
+      "transform-origin:0 0",
       "z-index:999"
     ].join(";");
     // Full-body pose plates already contain their own face. Never layer
@@ -173,6 +186,8 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.scene-caption{bottom:18%;font:500 27px/1.35 system-ui,sans-serif;max-width:86%;color:#e6edf4;z-index:21}' +
   '.character-rig{position:absolute;width:100%;height:100%;opacity:0;transform-origin:center center}' +
   '.rig-part,.rig-expression,.rig-pose{position:absolute;object-fit:contain;max-width:none;pointer-events:none}' +
+  // Expression plates replace the base face crop; showing both creates a ghosted double face.
+  '.rig-part[data-role="face"]{opacity:0}' +
   '.character-rig[data-pose-active="true"] .rig-part{opacity:0}' +
   '.character-rig[data-pose-active="true"]:not([data-pose-name="resting_hands"]) .rig-expression{opacity:0}' +
   '</style></head><body><div id="root" data-composition-id="root" data-start="0"' +

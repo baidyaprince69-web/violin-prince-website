@@ -172,6 +172,25 @@ def _clean_segmentation_specks(mask: np.ndarray, size: int = 9) -> np.ndarray:
     return np.asarray(image, dtype=np.uint8) > 0
 
 
+def _soft_alpha_from_mask(mask: np.ndarray, blur_radius: float = 1.2) -> np.ndarray:
+    """Create an antialiased alpha edge for a face plate that overlaps its head shell."""
+    if not np.isfinite(blur_radius) or blur_radius < 0:
+        raise ValueError("Alpha blur radius must be a finite non-negative value.")
+    alpha = Image.fromarray(np.asarray(mask, dtype=np.uint8) * 255, mode="L")
+    if blur_radius:
+        alpha = alpha.filter(ImageFilter.GaussianBlur(float(blur_radius)))
+    return np.asarray(alpha, dtype=np.uint8)
+
+
+def _close_small_mask_holes(mask: np.ndarray, size: int = 5) -> np.ndarray:
+    """Close tiny interior alpha gaps without changing the outer silhouette much."""
+    if size < 3 or size % 2 == 0:
+        raise ValueError("Mask closing size must be an odd integer >= 3.")
+    image = Image.fromarray(np.asarray(mask, dtype=np.uint8) * 255, mode="L")
+    image = image.filter(ImageFilter.MaxFilter(size)).filter(ImageFilter.MinFilter(size))
+    return np.asarray(image, dtype=np.uint8) > 0
+
+
 def _remove_edge_connected_near_white(
     image: Image.Image,
     masks: dict[str, np.ndarray],
@@ -339,6 +358,145 @@ def _split_arm(
     return upper, forearm, hand
 
 
+def _dilate3(mask: np.ndarray) -> np.ndarray:
+    """Fast 8-connected one-pixel binary dilation for local mask growth."""
+    padded = np.pad(np.asarray(mask, dtype=bool), 1, constant_values=False)
+    height, width = mask.shape
+    grown = np.zeros((height, width), dtype=bool)
+    for dy in range(3):
+        for dx in range(3):
+            grown |= padded[dy:dy + height, dx:dx + width]
+    return grown
+
+
+def _recover_hand_fingers_from_skin(
+    image: Image.Image,
+    hand: np.ndarray,
+    upper: np.ndarray,
+    *,
+    distal_floor_fraction: float = 0.52,
+) -> tuple[np.ndarray, int]:
+    """Recover illustrated finger regions omitted by coarse human-parsing labels.
+
+    SCHP's coarse lower-arm class often captures a cartoon palm but excludes
+    thin, outlined fingers. Within a tightly bounded distal-hand window, warm
+    skin-colour pixels connected to the model's hand seed are grown into the
+    hand layer. This is a conservative supplement, not a standalone detector.
+    """
+    if image.size != (hand.shape[1], hand.shape[0]) or hand.shape != upper.shape:
+        raise AutoRigError("Hand recovery masks must match the master image canvas.")
+
+    ux, uy = _centroid(upper)
+    hy, hx = np.where(hand)
+    if len(hx) < 20:
+        raise ManualReviewRequired("The semantic hand seed is too small for skin-assisted recovery.")
+    dx = hx.astype(np.float32) - ux
+    dy = hy.astype(np.float32) - uy
+    seed_far = int(np.argmax(dx * dx + dy * dy))
+    axis = np.asarray([dx[seed_far], dy[seed_far]], dtype=np.float32)
+    norm = float(np.linalg.norm(axis))
+    if norm < 5:
+        raise ManualReviewRequired("The hand direction is too ambiguous for finger recovery.")
+    axis /= norm
+
+    # Use the complete forearm+hand silhouette to estimate the hand's distal
+    # interval, while keeping the search window close to the semantic hand.
+    ey, ex = np.where(hand | _morph(upper, 2, "dilate"))
+    if len(ex) < 40:
+        return hand, 0
+    all_dx = ex.astype(np.float32) - ux
+    all_dy = ey.astype(np.float32) - uy
+    projections = all_dx * axis[0] + all_dy * axis[1]
+    low, high = float(np.percentile(projections, 2)), float(np.percentile(projections, 98))
+    if high - low < 12:
+        return hand, 0
+
+    x0, y0, x1, y1 = _bbox(hand)
+    pad = max(36, min(180, int(max(x1 - x0, y1 - y0) * 0.45)))
+    rx0, ry0 = max(0, x0 - pad), max(0, y0 - pad)
+    rx1, ry1 = min(image.width, x1 + pad), min(image.height, y1 + pad)
+    rgb = np.asarray(image.convert("RGB"), dtype=np.uint8)[ry0:ry1, rx0:rx1]
+    red, green, blue = (rgb[..., index].astype(np.int16) for index in range(3))
+
+    # Broad warm-skin chroma limits tolerate shaded illustrated fingers while
+    # excluding the neutral near-white backdrop and most dark jacket pixels.
+    skin = (
+        (red >= 88) & (red <= 250) &
+        (green >= 42) &
+        (red - green >= 22) &
+        (green - blue >= 8) &
+        (red - blue >= 38)
+    )
+    yy, xx = np.mgrid[ry0:ry1, rx0:rx1]
+    projected = (xx - ux) * axis[0] + (yy - uy) * axis[1]
+    distal_floor = low + float(distal_floor_fraction) * (high - low)
+    allowed = skin & (projected >= distal_floor)
+
+    # Close only tiny antialiasing gaps between a palm seed and its fingers.
+    allowed = _morph(allowed, 2, "dilate")
+    allowed = _morph(allowed, 2, "erode")
+    seed = hand[ry0:ry1, rx0:rx1].copy()
+    grown = seed.copy()
+    # Morphological reconstruction keeps only skin components connected to
+    # the semantic hand. The bounded window makes this deterministic and cheap.
+    for _ in range(max(24, min(320, int(high - low) + 8))):
+        next_grown = grown | (allowed & _dilate3(grown))
+        if np.array_equal(next_grown, grown):
+            break
+        grown = next_grown
+
+    # Expand by one pixel to retain the dark outline around the recovered
+    # fingers. Border flood-fill later removes any near-white background fringe.
+    recovered = _morph(grown, 1, "dilate")
+    result = hand.copy()
+    result[ry0:ry1, rx0:rx1] |= recovered
+    added = int(np.count_nonzero(result & ~hand))
+    return result, added
+
+
+def _joint_disk(
+    shape: tuple[int, int],
+    point: tuple[float, float],
+    *,
+    radius: int,
+) -> np.ndarray:
+    """A bounded circular overlap zone centred on an authored joint anchor."""
+    if radius < 1:
+        raise ValueError("Joint patch radius must be at least one pixel.")
+    height, width = shape
+    yy, xx = np.ogrid[:height, :width]
+    px, py = point
+    return (xx - float(px)) ** 2 + (yy - float(py)) ** 2 <= int(radius) ** 2
+
+
+def _dark_garment_underlap(
+    image: Image.Image,
+    child: np.ndarray,
+    parent: np.ndarray,
+    allowed: np.ndarray,
+    *,
+    radius: int,
+    maximum_channel_value: int = 145,
+) -> np.ndarray:
+    """Select dark sleeve pixels for a parent layer to hide beneath a child.
+
+    Skin pixels must never be copied into the stationary parent layer: doing
+    so would leave a duplicate palm when the hand rotates around the wrist.
+    """
+    if radius < 1:
+        raise ValueError("Joint underlap radius must be at least one pixel.")
+    if image.size != (child.shape[1], child.shape[0]) or child.shape != parent.shape or child.shape != allowed.shape:
+        raise AutoRigError("Joint underlap inputs must match the master image canvas.")
+    rgb = np.asarray(image.convert("RGB"), dtype=np.uint8)
+    dark_garment = rgb.max(axis=2) <= int(maximum_channel_value)
+    return (
+        _morph(child, radius, "dilate")
+        & np.asarray(allowed, dtype=bool)
+        & ~np.asarray(parent, dtype=bool)
+        & dark_garment
+    )
+
+
 def _joint_between(first: np.ndarray, second: np.ndarray) -> tuple[float, float]:
     seam = _morph(first, 4, "dilate") & _morph(second, 4, "dilate")
     if seam.any():
@@ -415,13 +573,24 @@ def _repair_hidden_area(
 
 
 def _save_layer(
-    image: Image.Image, mask: np.ndarray, destination: Path, *, padding: int = 8
+    image: Image.Image,
+    mask: np.ndarray,
+    destination: Path,
+    *,
+    padding: int = 8,
+    alpha_mask: np.ndarray | None = None,
 ) -> dict[str, Any]:
     x0, y0, x1, y1 = _bbox(mask)
     x0, y0 = max(0, x0 - padding), max(0, y0 - padding)
     x1, y1 = min(image.width, x1 + padding), min(image.height, y1 + padding)
     crop = image.convert("RGB").crop((x0, y0, x1, y1)).convert("RGBA")
-    alpha = Image.fromarray(mask[y0:y1, x0:x1].astype(np.uint8) * 255, mode="L")
+    if alpha_mask is None:
+        alpha_values = np.asarray(mask, dtype=np.uint8) * 255
+    else:
+        alpha_values = np.asarray(alpha_mask, dtype=np.uint8)
+        if alpha_values.shape != mask.shape:
+            raise AutoRigError("Layer alpha mask must match the master image canvas.")
+    alpha = Image.fromarray(alpha_values[y0:y1, x0:x1], mode="L")
     crop.putalpha(alpha)
     destination.parent.mkdir(parents=True, exist_ok=True)
     crop.save(destination, format="PNG", optimize=True)
@@ -479,8 +648,22 @@ def separate_from_parsing(
     # Use the independent Pascal head silhouette and a bounded facial region
     # inside that silhouette instead of trusting the ATR face class.
     hair = _clean_segmentation_specks(_mask(detail_labels, 2), size=9)
-    head = _clean_segmentation_specks(head_coarse | hair, size=9)
-    face = _face_region_from_head(head)
+    head_full = _clean_segmentation_specks(head_coarse | hair, size=9)
+    face = _face_region_from_head(head_full)
+    # Retain only a narrow original-pixel ring beneath the face plate. The
+    # expression alpha is feathered over this underlap, avoiding a hard oval
+    # seam while keeping the facial interior fully separated from head.png.
+    face_interior = _morph(face, 3, "erode")
+    head = head_full & ~face_interior
+    # The head shell includes the short neck area below the face opening. SCHP
+    # sometimes leaves tiny pinholes there; close only this lower neck strip,
+    # and constrain any fill to the dilated original head silhouette.
+    _, _, _, face_bottom = _bbox(face)
+    neck_zone = np.zeros_like(head, dtype=bool)
+    neck_zone[max(0, face_bottom):] = True
+    closed_neck = _close_small_mask_holes(head & neck_zone, size=5)
+    allowed_neck = _morph(head_full, 1, "dilate") & ~torso & neck_zone
+    head = (head & ~neck_zone) | (closed_neck & allowed_neck)
     if int(torso.sum()) < 100 or int(head.sum()) < 100 or int(face.sum()) < 40:
         raise ManualReviewRequired(
             "The parsers could not identify a reliable head, face and torso. "
@@ -490,10 +673,49 @@ def separate_from_parsing(
     coarse_arms = upper_all | lower_all
     sides, arm_side_source = _screen_side_masks(detail_labels, coarse_arms, torso)
     masks: dict[str, np.ndarray] = {"torso": torso, "head": head, "face": face}
+    hand_recovery_pixels: dict[str, int] = {}
+    joint_reference_masks: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+    joint_centers: dict[str, dict[str, tuple[float, float]]] = {}
+    joint_overlap_pixels: dict[str, int] = {}
     for side in ("left", "right"):
         upper, forearm, hand = _split_arm(
             sides[side], upper_all, lower_all, side, hand_fraction=hand_fraction
         )
+        hand, recovered_pixels = _recover_hand_fingers_from_skin(image, hand, upper)
+        hand_recovery_pixels[side] = recovered_pixels
+        forearm &= ~hand
+
+        # Preserve the unexpanded boundaries for stable joint anchors. The
+        # rendered layers receive hidden underlaps: upper arm sits behind the
+        # forearm at the elbow, and forearm sits behind the hand at the wrist.
+        # This prevents dark composition background from showing through when
+        # child segments rotate independently.
+        joint_reference_masks[f"{side}_elbow"] = (upper.copy(), forearm.copy())
+        joint_reference_masks[f"{side}_wrist"] = (forearm.copy(), hand.copy())
+        elbow_point = _joint_between(upper, forearm)
+        wrist_point = _joint_between(forearm, hand)
+        joint_centers[side] = {"elbow": elbow_point, "wrist": wrist_point}
+        elbow_zone = _joint_disk(upper.shape, elbow_point, radius=24)
+        wrist_zone = _joint_disk(hand.shape, wrist_point, radius=20)
+        elbow_underlap = (
+            _dark_garment_underlap(
+                image, forearm, upper, sides[side], radius=8
+            )
+            & elbow_zone
+        )
+        # Wrist underlap is confined to a small patch around the pivot. This
+        # bridges the rotating joint but cannot leave a second stationary palm.
+        wrist_underlap = (
+            _morph(hand, 8, "dilate")
+            & sides[side]
+            & ~forearm
+            & wrist_zone
+        )
+        upper = upper | elbow_underlap
+        forearm = forearm | wrist_underlap
+        joint_overlap_pixels[f"{side}_elbow"] = int(elbow_underlap.sum())
+        joint_overlap_pixels[f"{side}_wrist"] = int(wrist_underlap.sum())
+
         masks[f"{side}_upper_arm"] = upper
         masks[f"{side}_forearm"] = forearm
         masks[f"{side}_hand"] = hand
@@ -527,11 +749,13 @@ def separate_from_parsing(
         joints[f"{side}_shoulder"] = _normalise_joint(
             _joint_between(masks["torso"], masks[f"{side}_upper_arm"]), image.width, image.height
         )
+        elbow_reference = joint_reference_masks[f"{side}_elbow"]
+        wrist_reference = joint_reference_masks[f"{side}_wrist"]
         joints[f"{side}_elbow"] = _normalise_joint(
-            _joint_between(masks[f"{side}_upper_arm"], masks[f"{side}_forearm"]), image.width, image.height
+            _joint_between(*elbow_reference), image.width, image.height
         )
         joints[f"{side}_wrist"] = _normalise_joint(
-            _joint_between(masks[f"{side}_forearm"], masks[f"{side}_hand"]), image.width, image.height
+            _joint_between(*wrist_reference), image.width, image.height
         )
 
     body_pixels = torso | head_coarse | upper_all | lower_all
@@ -557,8 +781,31 @@ def separate_from_parsing(
         },
         "side_convention": "left and right refer to the viewer's screen sides",
         "arm_side_source": arm_side_source,
-        "hand_split": "distal 28% of each lower-arm mask; not a dedicated hand detector",
+        "hand_split": "distal lower-arm split with connected warm-skin finger recovery; not a dedicated hand detector",
         "hand_split_fraction": float(hand_fraction),
+        "face_edge_blend": {
+            "method": "soft_alpha_over_original_head_underlap",
+            "head_underlap_radius_px": 3,
+            "alpha_gaussian_blur_px": 1.2,
+            "head_and_face_overlap_pixels": int((masks["head"] & masks["face"]).sum()),
+            "visual_review_required": True,
+        },
+        "hand_finger_recovery": {
+            "method": "bounded_skin_colour_component_growth",
+            "pixels_added": hand_recovery_pixels,
+            "visual_review_required": True,
+        },
+        "joint_underlap": {
+            "method": "child-overlap-covered-by-parent-layer",
+            "elbow_radius_px": 24,
+            "wrist_radius_px": 20,
+            "wrist_patch": "localized_around_joint_anchor_only",
+            "elbow_pixel_filter": "dark_sleeve_or_cuff_only",
+            "elbow_maximum_source_channel_value": 145,
+            "overlap_pixels": joint_overlap_pixels,
+            "joint_anchors_use_unexpanded_masks": True,
+            "visual_review_required": True,
+        },
         "hidden_area_reconstruction": {
             "method": repair_method,
             "pixels_reconstructed": int(hidden.sum()),
@@ -573,7 +820,7 @@ def separate_from_parsing(
         "needs_visual_review": True,
         "review_reasons": [
             "SCHP was trained on real-person parsing datasets; illustration styles can reduce accuracy.",
-            "Hands are estimated from the distal lower-arm region, not detected as a separate semantic class.",
+            "Hand masks combine a distal lower-arm split with bounded skin-colour finger recovery; there is no dedicated semantic hand class.",
             "Review layer edges, hand/finger completeness, joint seams and reconstructed torso pixels.",
         ] + ([
             "ATR did not resolve both arm-side labels; side masks were derived from the coarse Pascal arm segmentation."
@@ -607,10 +854,14 @@ def _face_plate(
         target_size,
         Image.Resampling.LANCZOS,
     ).convert("RGBA")
-    alpha = np.asarray(alpha_mask, dtype=bool)
+    alpha = np.asarray(alpha_mask)
     if alpha.shape != (target_size[1], target_size[0]):
         raise AutoRigError("Expression alpha mask must match the master face layer dimensions.")
-    crop.putalpha(Image.fromarray(alpha.astype(np.uint8) * 255, mode="L"))
+    if alpha.dtype == np.bool_:
+        alpha = alpha.astype(np.uint8) * 255
+    else:
+        alpha = np.clip(alpha, 0, 255).astype(np.uint8)
+    crop.putalpha(Image.fromarray(alpha, mode="L"))
     destination.parent.mkdir(parents=True, exist_ok=True)
     crop.save(destination, format="PNG", optimize=True)
 
@@ -696,13 +947,19 @@ def create_character_bundle(
     )
 
     layers = []
+    face_alpha_full = _soft_alpha_from_mask(masks["face"], blur_radius=1.2)
     ordered_roles = (
         "torso", "left_upper_arm", "right_upper_arm",
         "left_forearm", "right_forearm", "left_hand", "right_hand", "head", "face",
     )
     for role in ordered_roles:
         layer_source = repaired_torso if role == "torso" else image
-        geometry = _save_layer(layer_source, masks[role], output_dir / f"{role}.png")
+        geometry = _save_layer(
+            layer_source,
+            masks[role],
+            output_dir / f"{role}.png",
+            alpha_mask=face_alpha_full if role == "face" else None,
+        )
         joint_name = JOINT_FOR_ROLE.get(role)
         pivot_x = pivot_y = 0.5
         if joint_name:
@@ -727,7 +984,7 @@ def create_character_bundle(
     expressions = {}
     face_x, face_y = int(face_layer["x"]), int(face_layer["y"])
     face_width, face_height = int(face_layer["width"]), int(face_layer["height"])
-    face_alpha = masks["face"][
+    face_alpha = face_alpha_full[
         face_y:face_y + face_height,
         face_x:face_x + face_width,
     ]
