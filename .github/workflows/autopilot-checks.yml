@@ -88,6 +88,7 @@ jobs:
               ".github/workflows/deploy-autopilot-cloudflare.yml",
               ".github/workflows/youtube-seo-learning.yml",
               ".github/workflows/youtube-seo-discover-verification.yml",
+              ".github/workflows/character-rig-test.yml",
           ]
           for name in files:
               parsed = yaml.safe_load(Path(name).read_text(encoding="utf-8"))
@@ -104,6 +105,8 @@ jobs:
           test -s autopilot/engine/animation2d/build.mjs
           test -s autopilot/engine/hyperframes_pipeline.py
           test -s autopilot/engine/character_rig.py
+          test -s autopilot/engine/character_autorig.py
+          test -s autopilot/engine/character_rig_test.py
 
 
       - name: Set up Node.js 22
