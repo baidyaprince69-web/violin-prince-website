@@ -103,7 +103,7 @@ class DailyPlanEvidenceTests(unittest.TestCase):
             copied = result["characters"][0]
             self.assertTrue(Path(copied["layers"][0]["src"]).is_file())
             self.assertTrue(Path(copied["expressions"]["speaking"]["src"]).is_file())
-            self.assertTrue(Path(copied["pose_assets"]["point_left"]["src"]).is_file() if "point_left" in copied["pose_assets"] else True)
+            self.assertTrue(Path(copied["pose_assets"]["open_palms"]["src"]).is_file())
 
     def test_presenter_opt_in_preserves_explicit_scene_action(self):
         import json
