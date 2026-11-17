@@ -117,5 +117,6 @@ test("source keeps tokens in memory and only sends encrypted package bytes to Dr
   assert.ok(start >= 0 && end > start);
   const uploadFunction = app.slice(start, end);
   assert.match(uploadFunction, /encryptedBytes/);
-  assert.doesNotMatch(uploadFunction, /originalBytes|wavBytes|transcript/);\n  assert.match(app, /info\\?\\.shared !== false/);
+  assert.doesNotMatch(uploadFunction, /originalBytes|wavBytes|transcript/);
+  assert.match(app, /info\?\.shared !== false/);
 });
