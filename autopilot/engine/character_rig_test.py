@@ -90,6 +90,8 @@ def build_rig_preview_project(bundle_dir: str | Path, output_dir: str | Path) ->
             "keyframes": {"torso": {"rotate": [0, -3, 3, 0]}},
         },
     }
+    staged["scene_actions"] = scene_actions
+
     titles = [
         ("scene-neutral", "Neutral rig", "Nine independently separated character layers"),
         ("scene-blink", "Blink expression", "Expression overlay on the separated face layer"),
