@@ -1,5 +1,6 @@
 import { spring } from "motion";
 import { gestureKeyframes } from "./contract.mjs";
+import { fitCharacterToCanvas } from "./character-layout.mjs";
 
 export function sampleMotionSpring(from, to, fps = 25, maxMs = 1400) {
   const frameRate = Math.max(1, Number(fps) || 25);
