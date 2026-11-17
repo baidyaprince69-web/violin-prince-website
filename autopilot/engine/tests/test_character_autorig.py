@@ -47,6 +47,11 @@ class CharacterAutoRigTests(unittest.TestCase):
         self.assertEqual(len(masks), 9)
         self.assertEqual(len(joints), 7)
         self.assertEqual(repaired.size, image.size)
+        self.assertEqual(
+            int((masks["head"] & masks["face"]).sum()),
+            0,
+            "head and face must be separate so expression overlays cannot double the facial artwork",
+        )
         for role, region in masks.items():
             self.assertGreater(int(region.sum()), 20, role)
         for side in ("left", "right"):
