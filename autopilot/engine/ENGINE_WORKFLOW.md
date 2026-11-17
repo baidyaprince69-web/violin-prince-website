@@ -153,7 +153,7 @@ Scene plans must map narration sentences to scenes explicitly and completely. Mi
 3. Analyse BPM, beats, downbeats and onsets when available.
 4. Generate the solo-violin phrase from the checksum-verified CC0 sample path when no creator recording is supplied and that route is enabled.
 5. Use the ambient fallback only when the sample-instrument route is unavailable.
-6. Synthesise the narration using Kokoro.
+6. Synthesise narration only through the creator's tested and approved own-voice provider. **Current status: blocked by the fail-closed own-voice gate; no substitute narrator is allowed.**
 7. Align narration timing with the scene plan.
 8. Mix narration, music and any permitted creator-performance audio during final finishing.
 

@@ -7,10 +7,23 @@ from pathlib import Path
 ENGINE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ENGINE))
 
-from voiceover import write_karaoke_ass
+from voiceover import OwnVoiceRequiredError, synthesize_voiceover, write_karaoke_ass
 
 
 class KaraokeCaptionTests(unittest.TestCase):
+    def test_production_narration_fails_closed_without_approved_own_voice(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder) / "must-not-be-created.wav"
+            with self.assertRaisesRegex(
+                OwnVoiceRequiredError,
+                "own-voice model has not passed voice testing and approval",
+            ):
+                synthesize_voiceover(
+                    "This narration must never be rendered by a fallback voice.",
+                    output,
+                )
+            self.assertFalse(output.exists())
+
     def sample_cues(self):
         return [
             {"text": "The", "start": 0.00, "end": 0.22, "sentence_index": 0},
