@@ -264,6 +264,7 @@ Artifacts are retained for 14 days. Keep the relevant successful run IDs until y
 ## Repository files
 
 - engine/run.py — legacy research/planning and the shared staged render engine.
+- engine/ENGINE_WORKFLOW.md — canonical end-to-end production workflow, component map, current implementation status, quality gates, publishing/analytics boundaries and future development rules.
 - engine/run_daily_plan.py — source-verifies ChatGPT-authored daily plans, stages illustration/character assets and invokes Motion + HyperFrames.
 - engine/hyperframes_pipeline.py — builds the seekable HTML scene project, renders with HyperFrames and finishes with the existing FFmpeg audio/caption/QA stages.
 - engine/character_rig.py and engine/illustration_asset_factory.py — validate and stage separated character art layers, joints, hands, poses and expressions.
