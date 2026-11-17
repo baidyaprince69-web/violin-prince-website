@@ -78,6 +78,39 @@ class CharacterRigContractTests(unittest.TestCase):
             self.assertTrue(all(Path(expression["src"]).is_file() for expression in staged[0]["expressions"].values()))
             self.assertTrue((destination_root / "manifest.json").is_file())
 
+    def test_pose_assets_are_validated_and_staged_for_the_daily_pipeline(self):
+        import tempfile
+        from pathlib import Path
+        from PIL import Image
+        from illustration_asset_factory import prepare_character_assets
+
+        with tempfile.TemporaryDirectory() as folder:
+            source_root = Path(folder) / "source"
+            destination_root = Path(folder) / "staged"
+            source_root.mkdir()
+            character = self.valid_character()
+            character["pose_assets"] = {"point_left": {"src": "pose-point-left.png"}}
+            for layer in character["layers"]:
+                Image.new("RGBA", (32, 32), (180, 120, 60, 255)).save(source_root / layer["src"])
+            for name in ("neutral.png", "curious.png", "pose-point-left.png"):
+                Image.new("RGBA", (32, 32), (200, 160, 130, 255)).save(source_root / name)
+
+            staged = prepare_character_assets(
+                {"characters": [character]},
+                source_root=source_root,
+                destination_root=destination_root,
+            )
+            self.assertIn("point_left", staged[0]["pose_assets"])
+            pose_path = Path(staged[0]["pose_assets"]["point_left"]["src"])
+            self.assertTrue(pose_path.is_file())
+            self.assertEqual(pose_path.name, "pose-point_left.png")
+
+    def test_rejects_empty_pose_asset_sources(self):
+        character = self.valid_character()
+        character["pose_assets"] = {"wave": {"src": " "}}
+        with self.assertRaisesRegex(CharacterRigError, "has no image source"):
+            validate_character_spec(character)
+
     def test_illustration_factory_fails_closed_when_a_layer_image_is_missing(self):
         import tempfile
         from pathlib import Path
