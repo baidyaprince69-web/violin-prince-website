@@ -91,12 +91,17 @@ class CharacterAutoRigTests(unittest.TestCase):
             for y in range(10, 50):
                 for x in range(20, 60):
                     image.putpixel((x, y), (30, 40, 50))
+            # Tiny black JPEG speck in the studio background should be removed.
+            for y in range(3, 6):
+                for x in range(3, 6):
+                    image.putpixel((x, y), (0, 0, 0))
             image.save(source, quality=95)
             _save_pose_plate(source, output)
             with Image.open(output) as result:
                 self.assertEqual(result.mode, "RGBA")
                 self.assertEqual(result.size, (80, 60))
                 self.assertEqual(result.getpixel((0, 0))[3], 0)
+                self.assertEqual(result.getpixel((4, 4))[3], 0)
                 self.assertGreater(result.getpixel((35, 25))[3], 240)
 
     def test_parser_maps_must_match_master_canvas(self):
