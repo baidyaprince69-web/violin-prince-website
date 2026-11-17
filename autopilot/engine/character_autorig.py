@@ -227,28 +227,30 @@ def _bbox(mask: np.ndarray) -> tuple[int, int, int, int]:
 
 
 def _face_region_from_head(head_mask: np.ndarray) -> np.ndarray:
-    """Create a bounded facial plate region inside the parsed head silhouette."""
+    """Create a smooth oval face plate inside the parsed head silhouette."""
     x0, y0, x1, y1 = _bbox(head_mask)
     width, height = x1 - x0, y1 - y0
     fx0, fx1 = x0 + round(width * 0.10), x0 + round(width * 0.90)
-    fy0, fy1 = y0 + round(height * 0.38), y0 + round(height * 0.90)
-    face = Image.new("L", (head_mask.shape[1], head_mask.shape[0]), 0)
-    from PIL import ImageDraw
+    fy0, fy1 = y0 + round(height * 0.34), y0 + round(height * 0.87)
+
+    # Draw at 4x resolution so the alpha edge is smooth rather than a hard
+    # polygon. The ellipse keeps the face plate away from hair and neck pixels.
+    scale = 4
+    face = Image.new(
+        "L",
+        (head_mask.shape[1] * scale, head_mask.shape[0] * scale),
+        0,
+    )
     draw = ImageDraw.Draw(face)
-    # Rounded jaw silhouette; eyes, glasses, nose and mouth remain inside.
-    points = [
-        (fx0 + round((fx1 - fx0) * 0.18), fy0),
-        (fx0 + round((fx1 - fx0) * 0.82), fy0),
-        (fx1, fy0 + round((fy1 - fy0) * 0.22)),
-        (fx0 + round((fx1 - fx0) * 0.92), fy0 + round((fy1 - fy0) * 0.72)),
-        (fx0 + round((fx1 - fx0) * 0.72), fy1 - 2),
-        ((fx0 + fx1) // 2, fy1),
-        (fx0 + round((fx1 - fx0) * 0.28), fy1 - 2),
-        (fx0 + round((fx1 - fx0) * 0.08), fy0 + round((fy1 - fy0) * 0.72)),
-        (fx0, fy0 + round((fy1 - fy0) * 0.22)),
-    ]
-    draw.polygon(points, fill=255)
-    region = np.asarray(face, dtype=np.uint8) > 0
+    draw.ellipse(
+        (fx0 * scale, fy0 * scale, (fx1 - 1) * scale, (fy1 - 1) * scale),
+        fill=255,
+    )
+    face = face.resize(
+        (head_mask.shape[1], head_mask.shape[0]),
+        Image.Resampling.LANCZOS,
+    )
+    region = np.asarray(face, dtype=np.uint8) > 127
     region &= np.asarray(head_mask, dtype=bool)
     if int(region.sum()) < 100:
         raise ManualReviewRequired("Could not derive a stable face region inside the head mask.")
@@ -580,43 +582,36 @@ def separate_from_parsing(
 
 
 def _face_plate(
-    path: Path, parser: SCHPOnnxParser, target_size: tuple[int, int], destination: Path
+    path: Path,
+    target_size: tuple[int, int],
+    destination: Path,
+    *,
+    alpha_mask: np.ndarray,
 ) -> None:
-    """Build an aligned face/head plate from the supplied matching expression art.
+    """Fit an authored expression to the exact master-face alpha silhouette.
 
-    The references are clean character portraits on a near-white background.
-    SCHP's face labels are not reliable for this cartoon style, so use the
-    reference crop itself and remove only the near-white background. The crop
-    stops below the chin rather than including the jacket/torso.
+    The supplied expressions share the same portrait framing as the master
+    reference. A centre crop from forehead to chin is resized to the master
+    face-layer geometry, then clipped to the same smooth alpha mask. This
+    avoids rectangular backgrounds and changing face boundaries between poses.
     """
-    del parser  # Expression references are authored face plates, not model inputs.
     with Image.open(path) as opened:
         image = opened.convert("RGB")
-    rgb = np.asarray(image, dtype=np.uint8)
-    height, width = rgb.shape[:2]
-    # The source references are aligned portrait sheets. Crop the facial area
-    # from forehead to chin, excluding the hair mass and jacket/shoulders so the
-    # expression plate cannot create a second hair cap or cover the torso.
-    x0 = int(width * 0.36)
-    x1 = int(width * 0.64)
-    y0 = int(height * 0.30)
-    y1 = int(height * 0.68)
+    width, height = image.size
+    x0, x1 = int(width * 0.39), int(width * 0.61)
+    y0, y1 = int(height * 0.33), int(height * 0.72)
     if x1 <= x0 or y1 <= y0:
         raise ManualReviewRequired(f"Invalid facial crop geometry for {path.name}.")
-    crop = rgb[y0:y1, x0:x1].copy()
-
-    # Anti-aliased white/grey studio background becomes transparent; character
-    # pixels remain opaque. A short soft transition avoids a bright halo.
-    crop_min = crop.min(axis=2).astype(np.float32)
-    crop_spread = crop.max(axis=2).astype(np.float32) - crop_min
-    whiteness = np.clip((crop_min - 232.0) / 20.0, 0.0, 1.0)
-    neutral = np.clip(1.0 - crop_spread / 32.0, 0.0, 1.0)
-    background_strength = whiteness * neutral
-    alpha = np.clip(255.0 * (1.0 - background_strength), 0, 255).astype(np.uint8)
-    plate = Image.fromarray(np.dstack((crop, alpha)), mode="RGBA")
-    plate = plate.resize(target_size, Image.Resampling.LANCZOS)
+    crop = image.crop((x0, y0, x1, y1)).resize(
+        target_size,
+        Image.Resampling.LANCZOS,
+    ).convert("RGBA")
+    alpha = np.asarray(alpha_mask, dtype=bool)
+    if alpha.shape != (target_size[1], target_size[0]):
+        raise AutoRigError("Expression alpha mask must match the master face layer dimensions.")
+    crop.putalpha(Image.fromarray(alpha.astype(np.uint8) * 255, mode="L"))
     destination.parent.mkdir(parents=True, exist_ok=True)
-    plate.save(destination, format="PNG", optimize=True)
+    crop.save(destination, format="PNG", optimize=True)
 
 
 def _save_pose_plate(source_path: Path, destination: Path) -> None:
@@ -713,12 +708,26 @@ def create_character_bundle(
     if "neutral" not in expression_paths:
         raise AutoRigError("face-neutral.jpg is required in the reference directory.")
     expressions = {}
+    face_x, face_y = int(face_layer["x"]), int(face_layer["y"])
+    face_width, face_height = int(face_layer["width"]), int(face_layer["height"])
+    face_alpha = masks["face"][
+        face_y:face_y + face_height,
+        face_x:face_x + face_width,
+    ]
     for name, path in expression_paths.items():
         plate_name = f"expression-{name}.png"
-        _face_plate(
-            path, detail_parser, (face_layer["width"], face_layer["height"]),
-            output_dir / plate_name,
-        )
+        destination = output_dir / plate_name
+        if name == "neutral":
+            # The neutral plate must be pixel-identical to the extracted
+            # master face. Re-cropping another portrait introduces drift.
+            shutil.copy2(output_dir / "face.png", destination)
+        else:
+            _face_plate(
+                path,
+                (face_width, face_height),
+                destination,
+                alpha_mask=face_alpha,
+            )
         expressions[name] = {"src": plate_name}
 
     reference_poses = {
