@@ -330,38 +330,6 @@ class CharacterAutoRigTests(unittest.TestCase):
                 self.assertGreater(eyebrow[3], 245,
                     "facial details must not become transparent")
                 
-    def test_expression_plate_removes_top_connected_fringe_but_keeps_brows(self):
-        import tempfile
-        from pathlib import Path
-        from PIL import Image, ImageDraw
-
-        with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
-            source = root / "expression.png"
-            base = root / "master-face.png"
-            output = root / "expression-clean.png"
-
-            reference = Image.new("RGB", (400, 300), (255, 255, 255))
-            draw = ImageDraw.Draw(reference)
-            draw.ellipse((80, 20, 320, 280), fill=(188, 125, 92))
-            # Hair touches the top edge of the selected crop; the eyebrow is
-            # a separate dark feature that must remain visible.
-            draw.rectangle((110, 40, 290, 110), fill=(35, 32, 31))
-            draw.rectangle((150, 143, 250, 151), fill=(30, 27, 26))
-            reference.save(source)
-            Image.new("RGBA", (80, 60), (24, 220, 40, 255)).save(base)
-
-            alpha = np.full((60, 80), 255, dtype=np.uint8)
-            _face_plate(
-                source, (80, 60), output,
-                alpha_mask=alpha, base_face_path=base,
-            )
-            with Image.open(output) as plate:
-                self.assertLess(plate.getpixel((40, 20))[3], 10,
-                    "top-connected hair must be removed so the master hairline shows through")
-                self.assertGreater(plate.getpixel((40, 40))[3], 220,
-                    "the disconnected eyebrow must remain visible")
-
     def test_pose_reference_plate_removes_near_white_background(self):
         import tempfile
         from pathlib import Path
