@@ -160,13 +160,6 @@ jobs:
           repository: ${{ github.repository }}
 
 
-      - name: Cache Kokoro model weights
-        if: env.PIPELINE_STAGE == 'prepare' || env.PIPELINE_STAGE == 'full'
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/huggingface
-          key: kokoro-82m-v1-cache
-
       - name: Cache CC0 violin sample zones
         if: env.PIPELINE_STAGE == 'prepare' || env.PIPELINE_STAGE == 'full'
         uses: actions/cache@v4
