@@ -76,6 +76,12 @@ jobs:
         if: inputs.use_lama
         run: pip install -r autopilot/engine/requirements-character-lama.txt
 
+      - name: Run offline character separation and rig contract tests
+        working-directory: autopilot/engine
+        run: |
+          python -m unittest discover -s tests -p 'test_character_autorig.py'
+          python -m unittest discover -s tests -p 'test_character_rig.py'
+
       - name: Separate the master character and build transparent layers
         run: |
           python autopilot/engine/character_autorig.py \
