@@ -2,15 +2,24 @@ name: Character Auto-Rig Test
 # Final proof: edge-connected backdrop removal, clean pose plates, no duplicate faces, and persist only after a successful render.
 
 on:
-  # Allow this isolated proof to run on the existing PR branch before it is merged.
-  # The job runs only for the one explicitly tagged trigger commit.
+  # Run the isolated character proof for changes that affect rig generation,
+  # the Motion renderer, pose/expression staging, or the corresponding tests.
   push:
     branches:
       - baidyaprince69-web-patch-1
     paths:
       - .github/workflows/character-rig-test.yml
       - autopilot/engine/character_autorig.py
+      - autopilot/engine/character_rig.py
+      - autopilot/engine/character_rig_test.py
+      - autopilot/engine/illustration_asset_factory.py
+      - autopilot/engine/hyperframes_pipeline.py
+      - autopilot/engine/animation2d/build.mjs
+      - autopilot/engine/animation2d/src/contract.mjs
+      - autopilot/engine/animation2d/src/motion-build.mjs
       - autopilot/engine/tests/test_character_autorig.py
+      - autopilot/engine/tests/test_character_rig.py
+      - autopilot/engine/tests/test_daily_plan.py
   workflow_dispatch:
     inputs:
       source_image:
@@ -34,7 +43,7 @@ permissions:
 
 jobs:
   character-rig-test:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[character-rig-test]')
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
