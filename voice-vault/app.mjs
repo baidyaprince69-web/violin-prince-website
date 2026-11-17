@@ -459,6 +459,12 @@ $("transcript").addEventListener("input", () => {
   $("transcript-count").textContent = $("transcript").value.length + " characters";
   updateSaveState();
 });
+$("use-sample-text").addEventListener("click", () => {
+  $("transcript").value = $("sample-text").textContent.trim();
+  $("transcript-count").textContent = $("transcript").value.length + " characters";
+  $("transcript").focus();
+  updateSaveState();
+});
 for (const id of ["passphrase", "passphrase-confirm", "acknowledge-encryption"]) {
   $(id).addEventListener(id === "acknowledge-encryption" ? "change" : "input", updateSaveState);
 }
