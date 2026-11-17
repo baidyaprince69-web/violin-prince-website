@@ -8,6 +8,8 @@ on:
       - baidyaprince69-web-patch-1
     paths:
       - .github/workflows/character-rig-test.yml
+      - autopilot/engine/character_autorig.py
+      - autopilot/engine/tests/test_character_autorig.py
   workflow_dispatch:
     inputs:
       source_image:
