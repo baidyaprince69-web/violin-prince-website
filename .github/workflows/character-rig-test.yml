@@ -30,7 +30,7 @@ on:
         default: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   character-rig-test:
@@ -105,6 +105,24 @@ jobs:
       - name: Render isolated rig preview (not production)
         working-directory: work/character-rig-test/composition
         run: $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes render --output ../character-rig-preview.mp4 --fps 25 --quality standard
+
+      - name: Save the tested rig bundle for the main animation pipeline
+        if: success() && github.ref_name == 'baidyaprince69-web-patch-1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEST="autopilot/engine/assets/characters/violin-prince-rig"
+          mkdir -p "$DEST"
+          cp -R work/character-autorig/violin-prince/. "$DEST/"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$DEST"
+          if git diff --cached --quiet; then
+            echo "The saved character rig bundle is already up to date."
+          else
+            git commit -m "Save tested Violin Prince rig bundle for daily animation"
+            git push origin "HEAD:\${GITHUB_REF_NAME}"
+          fi
 
       - name: Preserve rig evidence
         if: always()
