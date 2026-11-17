@@ -16,7 +16,9 @@ from character_autorig import (
     _recover_hand_fingers_from_skin,
     _save_pose_plate,
     _face_region_from_head,
+    _face_expression_crop_box,
     _face_plate,
+    _register_expression_to_neutral,
     separate_from_parsing,
 )
 
@@ -255,6 +257,99 @@ class CharacterAutoRigTests(unittest.TestCase):
                 self.assertEqual(plate.getpixel((0, 0))[3], 0)
                 self.assertEqual(plate.getpixel((40, 30))[3], 255)
                 self.assertEqual(plate.getpixel((40, 4))[3], 0)
+
+    def test_expression_crop_matches_face_layer_aspect_and_includes_forehead(self):
+        x0, y0, x1, y1 = _face_expression_crop_box((1644, 1096), (300, 286))
+        self.assertAlmostEqual((x1 - x0) / (y1 - y0), 300 / 286, delta=0.005)
+        self.assertLess(x0, round(1644 * 0.39))
+        self.assertGreater(x1, round(1644 * 0.61))
+        self.assertLess(y0, round(1096 * 0.33))
+        self.assertLess(y1, round(1096 * 0.72))
+
+    def test_face_plate_removes_edge_white_backdrop_and_keeps_enclosed_highlights(self):
+        import tempfile
+        from pathlib import Path
+        from PIL import ImageDraw
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = root / "expression.png"
+            output = root / "expression-clean.png"
+            image = Image.new("RGB", (400, 300), (255, 255, 255))
+            draw = ImageDraw.Draw(image)
+            # A face silhouette fills the wider crop, with a small white eye
+            # highlight fully enclosed by skin so backdrop removal must retain it.
+            draw.ellipse((120, 65, 280, 181), fill=(188, 125, 92))
+            draw.ellipse((194, 117, 206, 129), fill=(250, 250, 250))
+            image.save(source)
+            alpha = np.full((60, 80), 255, dtype=np.uint8)
+            _face_plate(source, (80, 60), output, alpha_mask=alpha)
+            with Image.open(output) as plate:
+                self.assertEqual(plate.getpixel((2, 30))[3], 0,
+                    "border-connected white backdrop must not leak into the face plate")
+                self.assertGreater(plate.getpixel((40, 20))[3], 245,
+                    "the illustrated face interior must remain opaque")
+                highlight = plate.getpixel((40, 30))
+                self.assertGreater(highlight[3], 245,
+                    "enclosed white eye details must remain opaque")
+                self.assertGreater(min(highlight[:3]), 220,
+                    "the enclosed white eye highlight must retain its colour")
+
+    def test_expression_registration_recovers_translation_and_preserves_neutral_alpha(self):
+        from PIL import Image, ImageDraw
+
+        width, height = 100, 80
+        neutral = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(neutral)
+        skin = (206, 150, 116, 255)
+        dark = (35, 30, 29, 255)
+        white = (248, 242, 225, 255)
+        iris = (64, 43, 32, 255)
+        draw.ellipse((3, 1, width - 3, height - 1), fill=skin, outline=dark, width=2)
+        draw.pieslice((2, -18, width - 2, 34), 180, 360, fill=dark)
+        for center_x in (width * 0.32, width * 0.68):
+            center_y = height * 0.43
+            draw.arc((center_x - 18, center_y - 14, center_x + 18, center_y + 8),
+                     190, 350, fill=dark, width=4)
+            draw.ellipse((center_x - 17, center_y - 6, center_x + 17, center_y + 15),
+                         outline=dark, width=2)
+            draw.ellipse((center_x - 8, center_y - 1, center_x + 8, center_y + 10),
+                         fill=white, outline=dark, width=1)
+            draw.ellipse((center_x - 3, center_y + 1, center_x + 4, center_y + 9),
+                         fill=iris)
+            draw.ellipse((center_x - 1, center_y + 2, center_x + 1, center_y + 4),
+                         fill=white)
+        draw.line((width * 0.5, height * 0.4, width * 0.48, height * 0.62,
+                   width * 0.55, height * 0.65), fill=dark, width=2)
+        draw.arc((width * 0.34, height * 0.65, width * 0.68, height * 0.87),
+                 5, 170, fill=dark, width=3)
+        draw.arc((width * 0.37, height * 0.68, width * 0.65, height * 0.82),
+                 5, 170, fill=(115, 65, 50, 255), width=2)
+        for x, y in ((18, 45), (23, 49), (30, 55), (70, 50), (76, 54),
+                     (60, 61), (45, 30), (56, 37)):
+            draw.ellipse((x - 1, y - 1, x + 1, y + 1), fill=(160, 104, 79, 255))
+
+        # Move the source six pixels left and twelve down; the estimated
+        # source-to-neutral transform must recover (+6, -12).
+        shifted = neutral.transform(
+            neutral.size,
+            Image.Transform.AFFINE,
+            (1, 0, 6, 0, 1, -12),
+            resample=Image.Resampling.BICUBIC,
+            fillcolor=(0, 0, 0, 0),
+        )
+        aligned, metrics = _register_expression_to_neutral(shifted, neutral)
+        self.assertAlmostEqual(metrics["translate_x"], 6.0, delta=0.75)
+        self.assertAlmostEqual(metrics["translate_y"], -12.0, delta=0.75)
+        self.assertGreater(metrics["inliers"], 20)
+        self.assertLess(metrics["median_error_px"], 1.0)
+        self.assertEqual(aligned.getchannel("A").tobytes(), neutral.getchannel("A").tobytes())
+
+    def test_expression_registration_fails_closed_without_landmarks(self):
+        flat = Image.new("RGBA", (100, 80), (180, 120, 90, 255))
+        with self.assertRaisesRegex(ManualReviewRequired, "facial landmarks|reliable facial matches"):
+            _register_expression_to_neutral(flat, flat)
+
 
     def test_pose_reference_plate_removes_near_white_background(self):
         import tempfile

@@ -829,31 +829,208 @@ def separate_from_parsing(
     return masks, repaired, report, joints
 
 
+def _face_expression_crop_box(
+    image_size: tuple[int, int],
+    target_size: tuple[int, int],
+) -> tuple[int, int, int, int]:
+    """Return a forehead-to-chin crop whose aspect ratio matches the face layer."""
+    width, height = (int(value) for value in image_size)
+    target_width, target_height = (int(value) for value in target_size)
+    if min(width, height, target_width, target_height) <= 0:
+        raise AutoRigError("Expression image and target face dimensions must be positive.")
+    crop_height = int(round(height * 0.44))
+    crop_width = int(round(crop_height * target_width / target_height))
+    if crop_width > width or crop_height > height:
+        raise ManualReviewRequired("The expression reference is too small for a face crop.")
+    x0 = int(round((width - crop_width) / 2))
+    y0 = int(round(height * 0.19))
+    x1, y1 = x0 + crop_width, y0 + crop_height
+    if x1 > width or y1 > height:
+        raise ManualReviewRequired("The expression reference does not contain the expected face framing.")
+    return x0, y0, x1, y1
+
+
+
+def _register_expression_to_neutral(
+    expression: Image.Image,
+    neutral_face: Image.Image,
+) -> tuple[Image.Image, dict[str, float | int]]:
+    """Align an alternate face to the neutral plate using ORB features and RANSAC.
+
+    Only a constrained similarity transform (translation, uniform scale and
+    rotation) is permitted. Ambiguous or implausible alignments fail closed and
+    require review rather than producing a misregistered expression.
+    """
+    try:
+        import cv2
+    except ImportError as exc:
+        raise ManualReviewRequired(
+            "Expression registration requires opencv-python-headless; install "
+            "autopilot/engine/requirements-character.txt."
+        ) from exc
+
+    source_image = expression.convert("RGBA")
+    target_image = neutral_face.convert("RGBA")
+    if source_image.size != target_image.size:
+        raise AutoRigError("Expression and neutral face plates must have identical dimensions.")
+
+    width, height = target_image.size
+    source_rgba = np.asarray(source_image, dtype=np.uint8)
+    target_rgba = np.asarray(target_image, dtype=np.uint8)
+
+    def composite_on_white(rgba: np.ndarray) -> np.ndarray:
+        alpha = rgba[:, :, 3:4].astype(np.float32) / 255.0
+        return np.clip(
+            rgba[:, :, :3].astype(np.float32) * alpha + 255.0 * (1.0 - alpha),
+            0, 255,
+        ).astype(np.uint8)
+
+    source_rgb = composite_on_white(source_rgba)
+    target_rgb = composite_on_white(target_rgba)
+    source_gray = cv2.cvtColor(source_rgb, cv2.COLOR_RGB2GRAY)
+    target_gray = cv2.cvtColor(target_rgb, cv2.COLOR_RGB2GRAY)
+    source_mask = np.where(source_rgba[:, :, 3] > 48, 255, 0).astype(np.uint8)
+    target_mask = np.where(target_rgba[:, :, 3] > 48, 255, 0).astype(np.uint8)
+
+    detector = cv2.ORB_create(
+        nfeatures=2500,
+        scaleFactor=1.2,
+        nlevels=8,
+        edgeThreshold=12,
+        patchSize=31,
+        fastThreshold=7,
+    )
+    source_keypoints, source_descriptors = detector.detectAndCompute(source_gray, source_mask)
+    target_keypoints, target_descriptors = detector.detectAndCompute(target_gray, target_mask)
+    if source_descriptors is None or target_descriptors is None:
+        raise ManualReviewRequired("Could not find enough facial landmarks to register this expression.")
+
+    try:
+        candidate_pairs = cv2.BFMatcher(cv2.NORM_HAMMING).knnMatch(
+            source_descriptors, target_descriptors, k=2
+        )
+    except cv2.error as exc:
+        raise ManualReviewRequired(f"Expression landmark matching failed: {exc}") from exc
+    good_matches = [
+        first
+        for pair in candidate_pairs if len(pair) >= 2
+        for first, second in [pair]
+        if first.distance < 0.75 * second.distance
+    ]
+    if len(good_matches) < 12:
+        raise ManualReviewRequired(
+            f"Only {len(good_matches)} reliable facial matches were found; at least 12 are required."
+        )
+
+    source_points = np.float32(
+        [source_keypoints[item.queryIdx].pt for item in good_matches]
+    ).reshape(-1, 1, 2)
+    target_points = np.float32(
+        [target_keypoints[item.trainIdx].pt for item in good_matches]
+    ).reshape(-1, 1, 2)
+    try:
+        transform, inlier_mask = cv2.estimateAffinePartial2D(
+            source_points,
+            target_points,
+            method=cv2.RANSAC,
+            ransacReprojThreshold=3.0,
+            maxIters=5000,
+            confidence=0.99,
+            refineIters=20,
+        )
+    except cv2.error as exc:
+        raise ManualReviewRequired(f"Expression alignment estimation failed: {exc}") from exc
+    if transform is None or inlier_mask is None:
+        raise ManualReviewRequired("Facial landmarks did not produce a stable alignment transform.")
+
+    inliers = inlier_mask.reshape(-1).astype(bool)
+    inlier_count = int(inliers.sum())
+    inlier_ratio = inlier_count / max(1, len(good_matches))
+    if inlier_count < 15 or inlier_ratio < 0.25:
+        raise ManualReviewRequired(
+            f"Expression alignment is ambiguous ({inlier_count} inliers, "
+            f"{inlier_ratio:.0%} inlier ratio)."
+        )
+
+    scale = float(np.hypot(transform[0, 0], transform[1, 0]))
+    rotation = float(np.degrees(np.arctan2(transform[1, 0], transform[0, 0])))
+    translate_x = float(transform[0, 2])
+    translate_y = float(transform[1, 2])
+    projected = cv2.transform(source_points, transform).reshape(-1, 2)
+    observed = target_points.reshape(-1, 2)
+    errors = np.linalg.norm(projected[inliers] - observed[inliers], axis=1)
+    median_error = float(np.median(errors)) if len(errors) else float("inf")
+
+    if not 0.80 <= scale <= 1.20:
+        raise ManualReviewRequired(f"Expression scale correction is implausible ({scale:.3f}).")
+    if abs(rotation) > 12.0:
+        raise ManualReviewRequired(f"Expression rotation correction is implausible ({rotation:.1f} degrees).")
+    if abs(translate_x) > width * 0.35 or abs(translate_y) > height * 0.35:
+        raise ManualReviewRequired(
+            f"Expression translation is too large ({translate_x:.1f}, {translate_y:.1f} pixels)."
+        )
+    if median_error > 4.0:
+        raise ManualReviewRequired(
+            f"Expression landmarks remain misaligned (median error {median_error:.2f} pixels)."
+        )
+
+    warped_rgb = cv2.warpAffine(
+        source_rgb, transform, (width, height),
+        flags=cv2.INTER_LANCZOS4,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=(255, 255, 255),
+    )
+    warped_alpha = cv2.warpAffine(
+        source_rgba[:, :, 3], transform, (width, height),
+        flags=cv2.INTER_LINEAR,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=0,
+    )
+    warped_expression = Image.fromarray(
+        np.dstack((warped_rgb, warped_alpha)).astype(np.uint8), mode="RGBA"
+    )
+    aligned = Image.alpha_composite(target_image, warped_expression)
+
+    # Use the master neutral face as the backing plate, and preserve its exact
+    # alpha silhouette so no alternate expression can introduce a new fringe.
+    aligned_pixels = np.asarray(aligned, dtype=np.uint8).copy()
+    aligned_pixels[:, :, 3] = target_rgba[:, :, 3]
+    aligned = Image.fromarray(aligned_pixels, mode="RGBA")
+    metrics: dict[str, float | int] = {
+        "matches": len(good_matches),
+        "inliers": inlier_count,
+        "inlier_ratio": round(inlier_ratio, 4),
+        "scale": round(scale, 5),
+        "rotation_degrees": round(rotation, 4),
+        "translate_x": round(translate_x, 2),
+        "translate_y": round(translate_y, 2),
+        "median_error_px": round(median_error, 3),
+    }
+    return aligned, metrics
+
+
 def _face_plate(
     path: Path,
     target_size: tuple[int, int],
     destination: Path,
     *,
     alpha_mask: np.ndarray,
-) -> None:
-    """Fit an authored expression to the exact master-face alpha silhouette.
-
-    The supplied expressions share the same portrait framing as the master
-    reference. A centre crop from forehead to chin is resized to the master
-    face-layer geometry, then clipped to the same smooth alpha mask. This
-    avoids rectangular backgrounds and changing face boundaries between poses.
-    """
+    base_face_path: Path | None = None,
+) -> dict[str, float | int] | None:
+    """Clean an expression reference and register it to the neutral face plate."""
     with Image.open(path) as opened:
         image = opened.convert("RGB")
-    width, height = image.size
-    x0, x1 = int(width * 0.39), int(width * 0.61)
-    y0, y1 = int(height * 0.33), int(height * 0.72)
-    if x1 <= x0 or y1 <= y0:
-        raise ManualReviewRequired(f"Invalid facial crop geometry for {path.name}.")
-    crop = image.crop((x0, y0, x1, y1)).resize(
-        target_size,
-        Image.Resampling.LANCZOS,
-    ).convert("RGBA")
+    x0, y0, x1, y1 = _face_expression_crop_box(image.size, target_size)
+    crop = image.crop((x0, y0, x1, y1))
+    foreground, _ = _remove_edge_connected_near_white(
+        crop,
+        {"expression": np.ones((crop.height, crop.width), dtype=bool)},
+    )
+    crop_alpha = _soft_alpha_from_mask(foreground["expression"], blur_radius=0.8)
+    crop_rgba = crop.convert("RGBA")
+    crop_rgba.putalpha(Image.fromarray(crop_alpha, mode="L"))
+    crop_rgba = crop_rgba.resize(target_size, Image.Resampling.LANCZOS)
+
     alpha = np.asarray(alpha_mask)
     if alpha.shape != (target_size[1], target_size[0]):
         raise AutoRigError("Expression alpha mask must match the master face layer dimensions.")
@@ -861,9 +1038,23 @@ def _face_plate(
         alpha = alpha.astype(np.uint8) * 255
     else:
         alpha = np.clip(alpha, 0, 255).astype(np.uint8)
-    crop.putalpha(Image.fromarray(alpha, mode="L"))
+    expression_alpha = np.asarray(crop_rgba.getchannel("A"), dtype=np.uint16)
+    combined_alpha = (expression_alpha * alpha.astype(np.uint16) + 127) // 255
+    crop_pixels = np.asarray(crop_rgba, dtype=np.uint8).copy()
+    crop_pixels[:, :, 3] = combined_alpha.astype(np.uint8)
+    expression_plate = Image.fromarray(crop_pixels, mode="RGBA")
+
+    metrics = None
+    if base_face_path is not None:
+        with Image.open(base_face_path) as opened_base:
+            base_face = opened_base.convert("RGBA")
+        if base_face.size != target_size:
+            raise AutoRigError("Master face plate must match the expression target dimensions.")
+        expression_plate, metrics = _register_expression_to_neutral(expression_plate, base_face)
+
     destination.parent.mkdir(parents=True, exist_ok=True)
-    crop.save(destination, format="PNG", optimize=True)
+    expression_plate.save(destination, format="PNG", optimize=True)
+    return metrics
 
 
 def _save_pose_plate(source_path: Path, destination: Path) -> None:
@@ -982,6 +1173,7 @@ def create_character_bundle(
     if "neutral" not in expression_paths:
         raise AutoRigError("face-neutral.jpg is required in the reference directory.")
     expressions = {}
+    registration_reports: dict[str, dict[str, float | int]] = {}
     face_x, face_y = int(face_layer["x"]), int(face_layer["y"])
     face_width, face_height = int(face_layer["width"]), int(face_layer["height"])
     face_alpha = face_alpha_full[
@@ -996,12 +1188,15 @@ def create_character_bundle(
             # master face. Re-cropping another portrait introduces drift.
             shutil.copy2(output_dir / "face.png", destination)
         else:
-            _face_plate(
+            registration = _face_plate(
                 path,
                 (face_width, face_height),
                 destination,
                 alpha_mask=face_alpha,
+                base_face_path=output_dir / "face.png",
             )
+            if registration is not None:
+                registration_reports[name] = registration
         expressions[name] = {"src": plate_name}
 
     reference_poses = {
@@ -1038,6 +1233,7 @@ def create_character_bundle(
         "pose_reference_count": len(reference_poses),
         "pose_asset_count": len(pose_assets),
         "joint_count": len(joints),
+        "expression_registration": registration_reports,
     })
     (output_dir / "separation-report.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
