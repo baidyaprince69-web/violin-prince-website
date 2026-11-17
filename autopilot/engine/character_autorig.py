@@ -850,6 +850,26 @@ def _face_expression_crop_box(
     return x0, y0, x1, y1
 
 
+
+def _remove_top_connected_dark_foreground(
+    image: Image.Image,
+    foreground: np.ndarray,
+) -> np.ndarray:
+    """Remove dark hair touching the crop's top edge, but retain enclosed facial details."""
+    rgb = np.asarray(image.convert("RGB"), dtype=np.uint8)
+    maximum = rgb.max(axis=2)
+    dark = maximum <= 118
+    dark_image = Image.fromarray(dark.astype(np.uint8) * 255, mode="L")
+    # Close tiny highlight gaps in illustrated hair before finding components
+    # connected to the top crop edge. Brows, glasses and moustache remain
+    # disconnected from this edge and are therefore preserved.
+    dark_image = dark_image.filter(ImageFilter.MaxFilter(3)).filter(ImageFilter.MinFilter(3))
+    for x in range(dark_image.width):
+        if dark_image.getpixel((x, 0)) == 255:
+            ImageDraw.floodfill(dark_image, (x, 0), 128, thresh=0)
+    top_connected_hair = np.asarray(dark_image, dtype=np.uint8) == 128
+    return foreground & ~top_connected_hair
+
 def _face_plate(
     path: Path,
     target_size: tuple[int, int],
@@ -874,7 +894,10 @@ def _face_plate(
         crop,
         {"expression": np.ones((crop.height, crop.width), dtype=bool)},
     )
-    crop_alpha = _soft_alpha_from_mask(foreground["expression"], blur_radius=0.8)
+    clean_foreground = _remove_top_connected_dark_foreground(
+        crop, foreground["expression"]
+    )
+    crop_alpha = _soft_alpha_from_mask(clean_foreground, blur_radius=0.8)
     crop_rgba = crop.convert("RGBA")
     crop_rgba.putalpha(Image.fromarray(crop_alpha, mode="L"))
     crop_rgba = crop_rgba.resize(target_size, Image.Resampling.LANCZOS)
