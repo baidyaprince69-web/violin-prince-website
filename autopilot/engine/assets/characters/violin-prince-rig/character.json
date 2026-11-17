@@ -12,9 +12,9 @@
       "src": "torso.png",
       "x": 683,
       "y": 430,
-      "width": 655,
+      "width": 651,
       "height": 674,
-      "pixel_area": 340470,
+      "pixel_area": 337642,
       "pivot_x": 0.5,
       "pivot_y": 0.5,
       "z_index": 10
@@ -24,12 +24,12 @@
       "role": "left_upper_arm",
       "src": "left_upper_arm.png",
       "x": 464,
-      "y": 525,
+      "y": 527,
       "width": 290,
-      "height": 358,
-      "pixel_area": 47040,
-      "pivot_x": 0.903039,
-      "pivot_y": 0.361976,
+      "height": 356,
+      "pixel_area": 45199,
+      "pivot_x": 0.903698,
+      "pivot_y": 0.359919,
       "z_index": 20
     },
     {
@@ -40,9 +40,9 @@
       "y": 535,
       "width": 314,
       "height": 346,
-      "pixel_area": 48449,
-      "pivot_x": 0.102392,
-      "pivot_y": 0.361004,
+      "pixel_area": 46788,
+      "pivot_x": 0.100432,
+      "pivot_y": 0.362865,
       "z_index": 21
     },
     {
@@ -50,12 +50,12 @@
       "role": "left_forearm",
       "src": "left_forearm.png",
       "x": 246,
-      "y": 770,
+      "y": 772,
       "width": 381,
-      "height": 247,
-      "pixel_area": 44497,
-      "pivot_x": 0.791458,
-      "pivot_y": 0.216415,
+      "height": 245,
+      "pixel_area": 43700,
+      "pivot_x": 0.793057,
+      "pivot_y": 0.211617,
       "z_index": 30
     },
     {
@@ -64,10 +64,10 @@
       "src": "right_forearm.png",
       "x": 1385,
       "y": 777,
-      "width": 339,
+      "width": 337,
       "height": 225,
-      "pixel_area": 37888,
-      "pivot_x": 0.261381,
+      "pixel_area": 37380,
+      "pivot_x": 0.262933,
       "pivot_y": 0.21826,
       "z_index": 31
     },
@@ -75,12 +75,12 @@
       "id": "left_hand",
       "role": "left_hand",
       "src": "left_hand.png",
-      "x": 71,
+      "x": 75,
       "y": 844,
-      "width": 269,
+      "width": 265,
       "height": 186,
-      "pixel_area": 16891,
-      "pivot_x": 0.823422,
+      "pixel_area": 16681,
+      "pivot_x": 0.820757,
       "pivot_y": 0.473117,
       "z_index": 40
     },
@@ -92,22 +92,22 @@
       "y": 842,
       "width": 173,
       "height": 171,
-      "pixel_area": 14920,
-      "pivot_x": 0.224445,
-      "pivot_y": 0.493153,
+      "pixel_area": 14800,
+      "pivot_x": 0.218869,
+      "pivot_y": 0.505054,
       "z_index": 41
     },
     {
       "id": "head",
       "role": "head",
       "src": "head.png",
-      "x": 802,
-      "y": 14,
-      "width": 377,
-      "height": 531,
-      "pixel_area": 134486,
-      "pivot_x": 0.533795,
-      "pivot_y": 0.913704,
+      "x": 809,
+      "y": 19,
+      "width": 361,
+      "height": 526,
+      "pixel_area": 126528,
+      "pivot_x": 0.538063,
+      "pivot_y": 0.912884,
       "z_index": 50
     },
     {
@@ -118,7 +118,7 @@
       "y": 210,
       "width": 306,
       "height": 285,
-      "pixel_area": 61090,
+      "pixel_area": 60693,
       "pivot_x": 0.5,
       "pivot_y": 0.5,
       "z_index": 60
@@ -130,28 +130,28 @@
       "y": 0.452563
     },
     "left_shoulder": {
-      "x": 0.357401,
-      "y": 0.593461
+      "x": 0.357495,
+      "y": 0.593954
     },
     "left_elbow": {
-      "x": 0.269594,
-      "y": 0.746559
+      "x": 0.269894,
+      "y": 0.746914
     },
     "left_wrist": {
       "x": 0.144018,
       "y": 0.844968
     },
     "right_shoulder": {
-      "x": 0.63326,
-      "y": 0.598284
+      "x": 0.632957,
+      "y": 0.598868
     },
     "right_elbow": {
       "x": 0.725558,
       "y": 0.748965
     },
     "right_wrist": {
-      "x": 0.829064,
-      "y": 0.839827
+      "x": 0.828589,
+      "y": 0.841672
     }
   },
   "expressions": {

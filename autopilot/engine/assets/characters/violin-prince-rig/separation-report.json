@@ -11,14 +11,19 @@
   "hand_split_fraction": 0.72,
   "hidden_area_reconstruction": {
     "method": "local_neighbour_propagation",
-    "pixels_reconstructed": 5052,
-    "fraction_of_source": 0.002252
+    "pixels_reconstructed": 4942,
+    "fraction_of_source": 0.002203
   },
   "mean_confidence": {
-    "body_mean": 0.9783,
-    "face_mean": 0.9757,
+    "body_mean": 0.979,
+    "face_mean": 0.9775,
     "left_arm_mean": 0.9698,
     "right_arm_mean": 0.9638
+  },
+  "edge_connected_background_removal": {
+    "method": "near_white_border_flood_fill",
+    "background_fraction": 0.687341,
+    "preserves_enclosed_white_details": true
   },
   "needs_visual_review": true,
   "review_reasons": [
