@@ -1,0 +1,24 @@
+{
+  "title": "Violin Prince 2D Engine Validation",
+  "width": 720,
+  "height": 1280,
+  "fps": 25,
+  "duration_seconds": 4,
+  "scenes": [
+    {
+      "id": "scene-1",
+      "start": 0,
+      "duration": 2.2,
+      "caption": "Illustration and scene composition",
+      "background_color": "#101b2b"
+    },
+    {
+      "id": "scene-2",
+      "start": 1.8,
+      "duration": 2.2,
+      "caption": "Motion and frame-accurate rendering",
+      "background_color": "#182b32"
+    }
+  ],
+  "characters": []
+}
