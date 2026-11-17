@@ -8,6 +8,7 @@ from character_autorig import (
     AutoRigError,
     ManualReviewRequired,
     _repair_hidden_area,
+    _recover_hand_fingers_from_skin,
     _save_pose_plate,
     _face_region_from_head,
     _face_plate,
@@ -64,6 +65,32 @@ class CharacterAutoRigTests(unittest.TestCase):
         self.assertEqual(report["arm_side_source"], "pascal_coarse_screen_split")
         self.assertGreater(masks["left_hand"].sum(), 20)
         self.assertGreater(masks["right_hand"].sum(), 20)
+
+    def test_skin_connected_fingers_are_recovered_into_hand_layer(self):
+        width, height = 160, 112
+        image = Image.new("RGB", (width, height), (30, 30, 36))
+        pixels = image.load()
+        hand = np.zeros((height, width), dtype=bool)
+        upper = np.zeros((height, width), dtype=bool)
+
+        # Semantic parser hand seed is only the palm. Warm skin pixels that
+        # continue past it represent fingers omitted from the coarse arm class.
+        hand[43:59, 18:32] = True
+        upper[39:53, 35:58] = True
+        for y in range(43, 59):
+            for x in range(5, 33):
+                pixels[x, y] = (205, 140, 100)
+        # A second finger-like extension separated by a narrow antialias gap.
+        for y in range(55, 60):
+            for x in range(8, 19):
+                pixels[x, y] = (198, 132, 94)
+
+        recovered, added = _recover_hand_fingers_from_skin(image, hand, upper)
+        self.assertGreater(added, 0)
+        self.assertTrue(np.any(recovered[45:52, 5:18]))
+        self.assertTrue(np.any(recovered[55:60, 8:18]))
+        # Neutral background must not be pulled into the hand.
+        self.assertFalse(np.any(recovered[:, 120:]))
 
     def test_large_hidden_area_fails_closed_without_lama(self):
         image = Image.new("RGB", (80, 80), (100, 100, 100))
