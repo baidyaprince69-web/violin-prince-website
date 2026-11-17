@@ -135,8 +135,9 @@ Current daily creative contract:
 - Vertical 720 × 1280 output.
 - Three illustrated scenes as the normal daily format.
 - Four-sentence, approximately 40–44-word English narration.
-- Kokoro-82M synthetic narration on the cloud runner.
-- Scene timing derived from measured narration beats and Kokoro-native token start/end timestamps.
+- Production narration is locked until a tested and user-approved clone of the creator's own voice is available.
+- No synthetic, preset, generic, or third-party voice fallback is permitted.
+- The voiceover module may provide caption helpers, but narration generation must stop while the own-voice gate is locked.
 - Word-synchronised karaoke captions.
 - The final scene is the musical/violin payoff and should explain how the violin phrase demonstrates the story's idea.
 
@@ -387,7 +388,7 @@ For rig/character changes, the actual rig preview and visual review are mandator
 | `autopilot/engine/run.py` | Legacy staged Prepare / Visuals / Render workflow |
 | `autopilot/engine/run_daily_plan.py` | Validates and executes ChatGPT-authored daily plans |
 | `autopilot/engine/creative_direction.py` | Standing channel and creative direction |
-| `autopilot/engine/voiceover.py` | Kokoro narration and word/sentence timing |
+| `autopilot/engine/voiceover.py` | Fail-closed own-voice narration gate and caption helpers; provider integration pending |
 | `autopilot/engine/violin_sampler.py` | CC0 sampled violin phrase generation |
 | `autopilot/engine/audio_analysis.py` | Beat, onset and timing analysis |
 | `autopilot/engine/illustration_asset_factory.py` | Character asset staging and validation |
@@ -432,4 +433,18 @@ No plaintext voice recording, normalized WAV, transcript, passphrase, OAuth toke
 
 **Enrollment route after deployment:** `https://baidyaprince69-web.github.io/violin-prince-website/voice-vault/`
 
-This is an enrollment UI, not a running voice-cloning system. The production `voiceover.py` remains on its current narrator until the user has enrolled a recording, Qwen3-TTS and GPT-SoVITS have each been tested with the user's voice, hosting/quota/licence and alignment are validated, and the user approves the production switch. The approved identity remains the user's own voice across both providers. If neither provider can produce acceptable narration in that identity, stop the production run; never substitute Kokoro, a preset speaker, or another person's voice.
+This is an enrollment UI, not a running voice-cloning system. The production `voiceover.py` now fails closed: narration cannot be generated until Qwen3-TTS and GPT-SoVITS have each been tested with the creator's own voice, hosting/quota/licence and alignment are validated, and the creator approves a production provider. The approved identity must remain the creator's own voice. If neither provider can produce acceptable narration, keep production stopped; never substitute Kokoro, a preset speaker, or another person's voice.
+
+
+## Addendum — encrypted voice package handoff to private R2 (2026-11-18)
+
+**Implementation status:** dashboard and Worker routes are on the isolated feature branch for review. They are not live until merged and the Cloudflare deployment workflow succeeds.
+
+- The dashboard accepts only the encrypted `.vprvoice` package. It checks the public package header but never decrypts it and never asks for the passphrase.
+- `POST /api/voice-packages` requires the existing dashboard bearer token and accepts only a `.vprvoice` file up to 50 MB. The Worker checks the package magic and PBKDF2 iteration header, then stores the ciphertext in the existing private R2 bucket under a random opaque ID. It does not add the package to D1 or produce a public/signed URL.
+- `GET /internal/voice-packages/{package_id}` requires the internal job bearer token and streams the encrypted bytes with `Cache-Control: private, no-store`. `DELETE /api/voice-packages/{package_id}` requires the dashboard bearer token.
+- A scheduled cleanup removes copied encrypted voice packages from R2 after 30 days. The owner's encrypted Google Drive copy remains the durable backup.
+- This is only a ciphertext handoff. No decryption, model inference, voice sample generation, or private GitHub Actions test-runner integration is included yet.
+- The public website repository contains implementation code only. It must never contain the encrypted package, raw recording, normalized WAV, transcript, passphrase, OAuth token, voice embedding, or generated voice sample.
+
+The separate private GitHub Actions repository and the approved secret-input process must be established before a real Qwen voice-cloning test. The passphrase remains in the creator's Notepad unless the creator independently chooses to enter it into an approved GitHub Actions secret after reviewing the data-processing arrangement with a parent or guardian. Never use a workflow input or log for the passphrase.
