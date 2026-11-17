@@ -9,6 +9,7 @@ from character_autorig import (
     ManualReviewRequired,
     _repair_hidden_area,
     _dark_garment_underlap,
+    _joint_disk,
     _recover_hand_fingers_from_skin,
     _save_pose_plate,
     _face_region_from_head,
@@ -60,6 +61,12 @@ class CharacterAutoRigTests(unittest.TestCase):
                 f"{side} wrist layers must overlap under the hand",
             )
         self.assertTrue(report["joint_underlap"]["joint_anchors_use_unexpanded_masks"])
+        self.assertEqual(report["joint_underlap"]["wrist_patch"], "localized_around_joint_anchor_only")
+        self.assertLess(
+            max(report["joint_underlap"]["overlap_pixels"].values()),
+            2500,
+            "joint underlap must stay local rather than copying whole hand/arm regions",
+        )
         for point in joints.values():
             self.assertTrue(0 <= point["x"] <= 1)
             self.assertTrue(0 <= point["y"] <= 1)
@@ -123,6 +130,13 @@ class CharacterAutoRigTests(unittest.TestCase):
         self.assertGreater(added, 0)
         self.assertTrue(recovered[150, 50], "distal fingertip must be included")
         self.assertFalse(recovered[10, 10], "unrelated white background must stay transparent")
+
+    def test_joint_disk_stays_bounded_around_pivot(self):
+        disk = _joint_disk((80, 100), (50, 40), radius=12)
+        self.assertTrue(disk[40, 50])
+        self.assertTrue(disk[40, 61])
+        self.assertFalse(disk[40, 63])
+        self.assertFalse(disk[10, 50])
 
     def test_joint_underlap_only_uses_dark_sleeve_pixels_not_skin(self):
         width, height = 40, 40
