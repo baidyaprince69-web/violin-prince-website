@@ -133,17 +133,52 @@ def apply_scene_operations(
 
     sentences = split_narration_sentences(narration_script or result.get("narration_script", ""))
     sentence_count = len(sentences)
-    if sentence_count < minimum_scenes:
-        raise ScenePlanError("There are too few verified narration sentences for the requested scene count.")
+    if sentence_count < 1:
+        raise ScenePlanError("The scene plan has no verified narration sentences to map.")
 
-    # Older three-scene plans receive a deterministic mapping once. Existing
-    # explicit mappings are kept, including across reorder operations.
+    operations = result.get("scene_operations", [])
+    has_operations = isinstance(operations, list) and bool(operations)
+    has_explicit_mapping = any(
+        scene.get("narration_sentence_indexes") is not None for scene in scenes
+    )
+    legacy_unmapped_plan = not has_operations and not has_explicit_mapping
+
+    # Older plans may contain more visual scenes than spoken sentences. Keep
+    # backwards compatibility by assigning the available sentences in order
+    # and explicitly marking the remaining legacy visual-only scenes as music
+    # only. New plans/edits must state music_only and narration indexes.
     if all(scene.get("narration_sentence_indexes") is None for scene in scenes):
-        partitions = _partition_sentence_indexes(len(scenes), sentence_count)
-        for scene, indexes in zip(scenes, partitions):
+        narrated_scenes = [scene for scene in scenes if scene.get("music_only") is not True]
+        if len(narrated_scenes) > sentence_count:
+            if not legacy_unmapped_plan:
+                raise ScenePlanError(
+                    "Every non-music-only scene needs a narration sentence mapping."
+                )
+            for scene in narrated_scenes[sentence_count:]:
+                scene["music_only"] = True
+                scene["narration_sentence_indexes"] = []
+            narrated_scenes = narrated_scenes[:sentence_count]
+        if not narrated_scenes:
+            raise ScenePlanError("At least one scene must map the approved narration.")
+        partitions = _partition_sentence_indexes(len(narrated_scenes), sentence_count)
+        for scene, indexes in zip(narrated_scenes, partitions):
             scene["narration_sentence_indexes"] = indexes
+        for scene in scenes:
+            if scene.get("music_only") is True:
+                scene.setdefault("narration_sentence_indexes", [])
     elif any(scene.get("narration_sentence_indexes") is None for scene in scenes):
-        missing_scenes = [scene for scene in scenes if scene.get("narration_sentence_indexes") is None]
+        missing_scenes = [
+            scene for scene in scenes
+            if scene.get("narration_sentence_indexes") is None
+            and scene.get("music_only") is not True
+        ]
+        music_only_scenes = [
+            scene for scene in scenes
+            if scene.get("narration_sentence_indexes") is None
+            and scene.get("music_only") is True
+        ]
+        for scene in music_only_scenes:
+            scene["narration_sentence_indexes"] = []
         already = {
             value
             for scene in scenes
@@ -151,9 +186,14 @@ def apply_scene_operations(
             if isinstance(value, int) and not isinstance(value, bool)
         }
         free = [value for value in range(sentence_count) if value not in already]
-        partitions = _partition_sentence_indexes(len(missing_scenes), len(free))
-        for scene, partition in zip(missing_scenes, partitions):
-            scene["narration_sentence_indexes"] = [free[index] for index in partition]
+        if len(missing_scenes) > len(free):
+            raise ScenePlanError(
+                "Some scenes have neither a narration assignment nor an explicit music_only flag."
+            )
+        if missing_scenes:
+            partitions = _partition_sentence_indexes(len(missing_scenes), len(free))
+            for scene, partition in zip(missing_scenes, partitions):
+                scene["narration_sentence_indexes"] = [free[index] for index in partition]
 
     operations = result.pop("scene_operations", [])
     if operations is None:

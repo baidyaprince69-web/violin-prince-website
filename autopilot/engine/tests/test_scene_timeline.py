@@ -29,6 +29,36 @@ class SceneTimelineTests(unittest.TestCase):
         mapped = [value for scene in first["scenes"] for value in scene["narration_sentence_indexes"]]
         self.assertEqual(sorted(mapped), [0, 1, 2, 3])
 
+    def test_legacy_one_sentence_plan_marks_unspoken_scenes_music_only(self):
+        plan = {
+            "narration_script": "A single verified sentence.",
+            "scenes": [
+                {"title": "One", "caption": "One", "image_prompt": "First scene"},
+                {"title": "Two", "caption": "Two", "image_prompt": "Second scene"},
+                {"title": "Three", "caption": "Three", "image_prompt": "Third scene"},
+            ],
+        }
+        prepared = apply_scene_operations(plan)
+        self.assertEqual(prepared["scenes"][0]["narration_sentence_indexes"], [0])
+        self.assertTrue(prepared["scenes"][1]["music_only"])
+        self.assertTrue(prepared["scenes"][2]["music_only"])
+        self.assertEqual(prepared["scenes"][1]["narration_sentence_indexes"], [])
+        self.assertEqual(prepared["scenes"][2]["narration_sentence_indexes"], [])
+
+    def test_new_explicit_plan_cannot_omit_music_only_flags(self):
+        plan = {
+            "narration_script": "First sentence. Second sentence.",
+            "scenes": [
+                {"id": "one", "title": "One", "caption": "One", "image_prompt": "First scene",
+                 "narration_sentence_indexes": [0]},
+                {"id": "two", "title": "Two", "caption": "Two", "image_prompt": "Second scene",
+                 "narration_sentence_indexes": [1]},
+                {"id": "three", "title": "Three", "caption": "Three", "image_prompt": "Third scene"},
+            ],
+        }
+        with self.assertRaises(ScenePlanError):
+            apply_scene_operations(plan)
+
     def test_insert_music_only_scene_and_reorder_keep_ids_stable(self):
         prepared = apply_scene_operations(self.plan)
         ids = [scene["id"] for scene in prepared["scenes"]]

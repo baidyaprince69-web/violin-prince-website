@@ -159,7 +159,7 @@ def validate_creative_plan(plan: dict[str, Any]) -> list[str]:
     if scenes and isinstance(scenes[-1], dict):
         if str(scenes[-1].get("visual_mode") or "").strip().casefold() != "cover_performance":
             issues.append(
-                "The final scene must deliver the musical payoff through a cover_performance insert."
+                f"Scene {len(scenes)} must deliver the musical payoff through a cover_performance insert."
             )
 
     return issues

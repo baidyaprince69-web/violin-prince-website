@@ -132,8 +132,16 @@ def normalize_visual_reference(
         supplied_guidance = []
     if not isinstance(supplied_guidance, list) or len(supplied_guidance) > 4:
         raise ValueError("visual_reference.scene_guidance must be an array of at most four scene objects.")
-    # Scene insertions/deletions preserve any available per-position guidance,
-    # pad new scenes with safe defaults, and discard guidance for deleted scenes.
+    allowed_guidance_lengths = {scene_count}
+    if scene_count in (2, 4):
+        allowed_guidance_lengths.add(3)
+    if supplied_guidance and len(supplied_guidance) not in allowed_guidance_lengths:
+        expected = "exactly three" if scene_count == 3 else f"exactly {scene_count}"
+        if scene_count in (2, 4):
+            expected += " or three legacy entries"
+        raise ValueError(f"visual_reference.scene_guidance must contain {expected} scene objects.")
+    # A three-scene reference can be adapted when one scene is inserted or
+    # deleted. New scenes receive safe defaults; deleted guidance is discarded.
     supplied_guidance = list(supplied_guidance[:scene_count])
     supplied_guidance.extend({} for _ in range(scene_count - len(supplied_guidance)))
 

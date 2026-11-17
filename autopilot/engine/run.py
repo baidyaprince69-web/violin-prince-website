@@ -4324,9 +4324,19 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         probe_creator_performance_video(performance_video_path)
         if performance_video_path and performance_video_path.is_file() else None
     )
-    from scene_timeline import build_scene_timeline
+    from scene_timeline import apply_scene_operations, build_scene_timeline, ScenePlanError
     from audio_analysis import analyse_audio_file
     from scene_checkpoints import scene_fingerprint, load_valid_checkpoint, save_checkpoint, retry_transient
+    narration_script = str(plan.get("narration_script") or "")
+    if not narration_script:
+        narration_script = " ".join(
+            str(cue.get("text") or "") for cue in narration_info.get("subtitle_cues", [])
+            if isinstance(cue, dict)
+        )
+    try:
+        plan = apply_scene_operations(plan, narration_script, minimum_scenes=2, maximum_scenes=4)
+    except ScenePlanError as exc:
+        raise PipelineError("Render scene/narration contract is invalid: " + str(exc)) from exc
     clips = []
     transition_seconds = transition_duration(plan)
     beat_analysis = analyse_audio_file(
@@ -4810,8 +4820,8 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         "SHOT 2 — MECHANISM: close scientific view of the physical or musical detail.",
         "SHOT 3 — PERFORMANCE PAYOFF: cinematic violin-and-bow view with space for a real take.",
     )
-    scene_count = len((plan or {}).get("scenes") or [])
-    role_index = 0 if index == 0 else 2 if index == scene_count - 1 and scene_count > 1 else 1
+    scene_count = len((plan or {}).get("scenes") or []) or 3
+    role_index = 0 if index <= 0 else 2 if index >= scene_count - 1 else 1
     subject = str((plan or {}).get("topic") or (plan or {}).get("title") or "the music fact")[:80]
     mode = str(scene.get("visual_mode") or ("macro_illustration" if index == 0 else "cover_performance" if index == scene_count - 1 else "waveform")).strip().casefold()
     mode_direction = VISUAL_MODE_PROMPTS.get(mode, VISUAL_MODE_PROMPTS["waveform"])
@@ -4872,10 +4882,10 @@ def make_storyboard_preview(plan, image_paths, target):
     target = Path(target)
     target.parent.mkdir(parents=True, exist_ok=True)
     tile_width, tile_height = 360, 640
-    columns = 2
+    columns = 3 if len(scenes) <= 3 else 2
     rows = (len(scenes) + columns - 1) // columns
     row_step = 760
-    canvas_height = 150 + rows * row_step + 90
+    canvas_height = 900 if rows == 1 else 150 + rows * row_step + 90
     canvas = Image.new("RGB", (1280, canvas_height), (12, 16, 24))
     draw = ImageDraw.Draw(canvas)
     draw.text((44, 30), "VIOLIN PRINCE  /  STORYBOARD REVIEW",
@@ -4885,7 +4895,8 @@ def make_storyboard_preview(plan, image_paths, target):
     for index, (scene, image_path) in enumerate(zip(scenes, image_paths)):
         row, column = divmod(index, columns)
         row_count = min(columns, len(scenes) - row * columns)
-        left = (1280 - (row_count * tile_width + (row_count - 1) * 64)) // 2 + column * (tile_width + 64)
+        gap = 56
+        left = (1280 - (row_count * tile_width + (row_count - 1) * gap)) // 2 + column * (tile_width + gap)
         top = 150 + row * row_step
         with Image.open(image_path) as source:
             tile = ImageOps.fit(
