@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080d18">
+  <meta name="description" content="Privately record and encrypt your own voice reference for Violin Prince Autopilot.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com; style-src 'self'; connect-src 'self' https://www.googleapis.com https://oauth2.googleapis.com https://accounts.google.com; frame-src https://accounts.google.com; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'; upgrade-insecure-requests">
+  <title>Private Voice Vault · Violin Prince</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.mjs"></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="../" aria-label="Violin Prince home"><span class="brand-mark">VP</span><span>VIOLIN PRINCE</span></a>
+      <span class="private-label"><span class="status-dot"></span> PRIVATE VOICE VAULT</span>
+    </header>
+
+    <section class="hero">
+      <p class="eyebrow">VOICE ENROLLMENT · ONE IDENTITY</p>
+      <h1>Your voice.<br><span>Kept private.</span></h1>
+      <p class="intro">Record a clean reference in your own voice. The browser prepares a model-ready WAV and encrypts it before sending the package to your Google Drive.</p>
+      <div class="identity-note"><span class="shield">◆</span><div><strong>Only your voice profile is accepted.</strong><p>No preset narrator or substitute speaker is selected by this page.</p></div></div>
+    </section>
+
+    <section class="panel" aria-labelledby="record-heading">
+      <div class="section-head"><div><p class="step">STEP 01</p><h2 id="record-heading">Record your reference</h2></div><span class="section-icon">01</span></div>
+      <p class="helper">Use a quiet room and speak naturally, at a steady distance from your microphone. Aim for 30–60 seconds. You may read the optional reference passage below, or use your own words and enter their exact transcript.</p>
+      <div class="script-card">
+        <div class="script-card-head"><span>OPTIONAL REFERENCE READING · ABOUT 35 SECONDS</span><button id="use-sample-text" class="script-use" type="button">Use this transcript</button></div>
+        <p id="sample-text">Hello, this is my natural speaking voice, recorded for my own Violin Prince videos. I am speaking at a comfortable pace, just as I would when explaining something to a listener. Some words are soft, while others need a little more energy. I will keep my pronunciation clear and let each sentence flow naturally. Music, sound, rhythm, and expression are important to me, and I enjoy sharing what I learn. This short sample represents my usual speaking voice, not a character or an imitation.</p>
+      </div>
+      <div class="record-controls">
+        <button id="start-recording" class="button primary" type="button"><span class="button-symbol">●</span> Start microphone</button>
+        <button id="stop-recording" class="button secondary" type="button" disabled>Stop recording</button>
+        <span id="recording-clock" class="clock" aria-live="polite">00:00</span>
+      </div>
+      <div class="or-divider"><span>OR</span></div>
+      <label class="file-picker" for="audio-file"><span class="file-symbol">↑</span><span><strong>Choose an existing audio recording</strong><small>WAV, MP3, M4A, WebM or OGG · up to 20 MB</small></span><input id="audio-file" type="file" accept="audio/*,.wav,.mp3,.m4a,.webm,.ogg"></label>
+      <div id="recording-status" class="status-message" role="status" aria-live="polite">No recording selected. Your microphone audio stays in this browser until you press Save encrypted recording.</div>
+      <div id="preview-wrap" class="preview-wrap" hidden><div class="preview-title"><strong>Local preview</strong><span id="recording-details"></span></div><audio id="audio-preview" controls preload="metadata"></audio></div>
+    </section>
+
+    <section class="panel" aria-labelledby="transcript-heading">
+      <div class="section-head"><div><p class="step">STEP 02</p><h2 id="transcript-heading">Exact transcript</h2></div><span class="section-icon">02</span></div>
+      <p class="helper">Type exactly what you said in the recording. This text is encrypted together with both audio files. It is not sent separately.</p>
+      <label class="field-label" for="transcript">Words spoken in your recording</label>
+      <textarea id="transcript" rows="5" maxlength="12000" placeholder="Type the exact words you spoke. Include the complete sentences and punctuation."></textarea>
+      <div class="field-foot"><span>At least 20 characters</span><span id="transcript-count">0 characters</span></div>
+    </section>
+
+    <section class="panel" aria-labelledby="privacy-heading">
+      <div class="section-head"><div><p class="step">STEP 03</p><h2 id="privacy-heading">Encrypt and save privately</h2></div><span class="section-icon">03</span></div>
+      <div class="privacy-grid">
+        <div class="privacy-item"><span>01</span><div><strong>Encrypted in your browser</strong><p>AES-256-GCM encryption runs before any upload. Google Drive receives ciphertext, not your playable audio.</p></div></div>
+        <div class="privacy-item"><span>02</span><div><strong>Your Google Drive</strong><p>The encrypted package is saved in a private “Violin Prince Voice Vault” folder owned by your Google account.</p></div></div>
+        <div class="privacy-item"><span>03</span><div><strong>No public sharing</strong><p>This page does not create public links or add Drive sharing permissions. Your existing Drive folder-sharing settings still apply.</p></div></div>
+        <div class="privacy-item"><span>04</span><div><strong>No GitHub audio files</strong><p>Raw audio, prepared WAV, transcript and encryption passphrase are not committed to GitHub or uploaded as workflow artifacts.</p></div></div>
+      </div>
+      <div class="drive-row"><div><strong>Google Drive connection</strong><p id="drive-status">Not connected. Connect your Google account to save the encrypted package.</p></div><button id="connect-drive" class="button secondary" type="button">Connect Google Drive</button></div>
+      <div class="password-grid">
+        <label class="password-field"><span class="field-label">Encryption passphrase</span><input id="passphrase" type="password" minlength="12" autocomplete="new-password" placeholder="At least 12 characters"></label>
+        <label class="password-field"><span class="field-label">Confirm passphrase</span><input id="passphrase-confirm" type="password" minlength="12" autocomplete="new-password" placeholder="Enter it again"></label>
+      </div>
+      <label class="acknowledge"><input id="acknowledge-encryption" type="checkbox"><span>I understand that the page cannot recover a forgotten passphrase. I will keep it somewhere private and safe.</span></label>
+      <button id="save-recording" class="button primary wide" type="button" disabled>Encrypt and save to my Google Drive</button>
+      <div id="upload-status" class="status-message" role="status" aria-live="polite">Your recording has not been uploaded.</div>
+      <a id="drive-folder-link" class="folder-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Open my private Voice Vault folder ↗</a>
+    </section>
+
+    <section class="panel restore-panel" aria-labelledby="restore-heading">
+      <div class="section-head"><div><p class="step">OPTIONAL · RECOVERY</p><h2 id="restore-heading">Unlock a saved package</h2></div><span class="section-icon">↗</span></div>
+      <p class="helper">Later, download your encrypted <code>.vprvoice</code> file from Google Drive and use this section to decrypt it locally. The original recording, prepared WAV and transcript can be downloaded separately.</p>
+      <label class="file-picker compact" for="vault-file"><span class="file-symbol">↓</span><span><strong>Choose an encrypted voice package</strong><small>.vprvoice file · remains in this browser</small></span><input id="vault-file" type="file" accept=".vprvoice,application/octet-stream"></label>
+      <label class="password-field restore-password"><span class="field-label">Vault passphrase</span><input id="restore-passphrase" type="password" autocomplete="off" placeholder="Enter the passphrase used when saving"></label>
+      <button id="unlock-package" class="button secondary wide" type="button" disabled>Unlock and download my audio</button>
+      <div id="restore-status" class="status-message" role="status" aria-live="polite"></div>
+    </section>
+
+    <footer class="footer"><span>VIOLIN PRINCE · PRIVATE VOICE ENROLLMENT</span><span>Audio is not sent until you choose to save it.</span></footer>
+  </main>
+</body>
+</html>
