@@ -435,6 +435,34 @@ def _recover_hand_fingers_from_skin(
     return result, added
 
 
+def _dark_garment_underlap(
+    image: Image.Image,
+    child: np.ndarray,
+    parent: np.ndarray,
+    allowed: np.ndarray,
+    *,
+    radius: int,
+    maximum_channel_value: int = 145,
+) -> np.ndarray:
+    """Select dark sleeve pixels for a parent layer to hide beneath a child.
+
+    Skin pixels must never be copied into the stationary parent layer: doing
+    so would leave a duplicate palm when the hand rotates around the wrist.
+    """
+    if radius < 1:
+        raise ValueError("Joint underlap radius must be at least one pixel.")
+    if image.size != (child.shape[1], child.shape[0]) or child.shape != parent.shape or child.shape != allowed.shape:
+        raise AutoRigError("Joint underlap inputs must match the master image canvas.")
+    rgb = np.asarray(image.convert("RGB"), dtype=np.uint8)
+    dark_garment = rgb.max(axis=2) <= int(maximum_channel_value)
+    return (
+        _morph(child, radius, "dilate")
+        & np.asarray(allowed, dtype=bool)
+        & ~np.asarray(parent, dtype=bool)
+        & dark_garment
+    )
+
+
 def _joint_between(first: np.ndarray, second: np.ndarray) -> tuple[float, float]:
     seam = _morph(first, 4, "dilate") & _morph(second, 4, "dilate")
     if seam.any():
@@ -604,8 +632,12 @@ def separate_from_parsing(
         # child segments rotate independently.
         joint_reference_masks[f"{side}_elbow"] = (upper.copy(), forearm.copy())
         joint_reference_masks[f"{side}_wrist"] = (forearm.copy(), hand.copy())
-        elbow_underlap = _morph(forearm, 12, "dilate") & sides[side] & ~upper
-        wrist_underlap = _morph(hand, 16, "dilate") & sides[side] & ~forearm
+        elbow_underlap = _dark_garment_underlap(
+            image, forearm, upper, sides[side], radius=12
+        )
+        wrist_underlap = _dark_garment_underlap(
+            image, hand, forearm, sides[side], radius=10
+        )
         upper = upper | elbow_underlap
         forearm = forearm | wrist_underlap
         joint_overlap_pixels[f"{side}_elbow"] = int(elbow_underlap.sum())
@@ -686,7 +718,9 @@ def separate_from_parsing(
         "joint_underlap": {
             "method": "child-overlap-covered-by-parent-layer",
             "elbow_radius_px": 12,
-            "wrist_radius_px": 16,
+            "wrist_radius_px": 10,
+            "pixel_filter": "dark_sleeve_or_cuff_only",
+            "maximum_source_channel_value": 145,
             "overlap_pixels": joint_overlap_pixels,
             "joint_anchors_use_unexpanded_masks": True,
             "visual_review_required": True,
