@@ -119,6 +119,17 @@ class SceneTimelineTests(unittest.TestCase):
             ]
         self.assertEqual(paths, ["scene-3.jpg", "scene-1.jpg", "scene-2.jpg"])
 
+    def test_missing_legacy_asset_keeps_legacy_destination_for_visuals_stage(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as temporary:
+            plan = apply_scene_operations(self.plan)
+            scene = plan["scenes"][0]
+            path = scene_asset_path(temporary, scene, 0)
+        self.assertEqual(path.name, "scene-1.jpg")
+        self.assertFalse(path.exists())
+
     def test_visual_prompt_update_invalidates_existing_legacy_art(self):
         import tempfile
         from pathlib import Path

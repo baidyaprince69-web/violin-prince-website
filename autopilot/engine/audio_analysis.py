@@ -124,7 +124,7 @@ def analyse_audio_file(
             "duration_seconds": round(duration, 4),
             "sample_rate": int(sample_rate),
             "bpm": round(bpm, 3),
-            "confidence": 0.85,
+            "confidence": 1.0,
             "beat_times": [round(float(value), 4) for value in beats],
             "downbeats": [round(float(value), 4) for value in beats[::4]],
             "onsets": [],

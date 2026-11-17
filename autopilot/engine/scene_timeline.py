@@ -66,6 +66,7 @@ def _normalise_scene_ids(
         if not isinstance(scene, dict):
             raise ScenePlanError(f"Scene {index + 1} must be an object.")
         raw = str(scene.get("id") or "").strip().casefold()
+        scene.setdefault("_original_scene_index", index)
         if not raw and assign_legacy_asset_names:
             scene.setdefault("_legacy_asset_filename", f"scene-{index + 1}.jpg")
         scene_id = raw or _stable_scene_id(scene, index)
@@ -435,8 +436,13 @@ def scene_asset_path(
     if stable.is_file():
         return stable
     legacy_name = str(scene.get("_legacy_asset_filename") or "")
+    if not legacy_name and allow_legacy:
+        original_index = scene.get("_original_scene_index")
+        if isinstance(original_index, int) and not isinstance(original_index, bool) and original_index >= 0:
+            legacy_name = f"scene-{original_index + 1}.jpg"
     if allow_legacy and legacy_name and Path(legacy_name).name == legacy_name:
-        legacy = root / legacy_name
-        if legacy.is_file():
-            return legacy
+        # Return the mapped path even when it has not been generated yet. The
+        # Visuals stage uses this path as the destination for missing assets,
+        # and error messages preserve the legacy filename expected by operators.
+        return root / legacy_name
     return stable
