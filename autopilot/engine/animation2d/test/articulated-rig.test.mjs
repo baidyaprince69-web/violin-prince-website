@@ -66,6 +66,20 @@ test("generated rig project wires real scene actions into frame-seekable motion 
 }, () => {
   const project = JSON.parse(readFileSync(process.env.VP_RIG_PROJECT, "utf8"));
   const tracks = compileMotionTracks(project, { fps: project.fps || 25 });
+  for (let index = 1; index < project.scenes.length; index += 1) {
+    const previous = project.scenes[index - 1];
+    const current = project.scenes[index];
+    assert.ok(
+      Number(previous.start) + Number(previous.duration) <= Number(current.start) + 1e-6,
+      "demonstration scenes must not overlap their title/caption windows"
+    );
+  }
+  assert.ok(
+    Number(project.duration_seconds) >= Math.max(...project.scenes.map(scene =>
+      Number(scene.start) + Number(scene.duration)
+    )),
+    "project duration must contain every rig scene"
+  );
   const rotating = tracks.filter(track => track.property === "rotate");
   const target = (scene, role) => scene + "-violin-prince-part-" + role;
   const hasChangingTrack = id => rotating.some(track =>
