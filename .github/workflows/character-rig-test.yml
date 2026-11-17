@@ -12,11 +12,15 @@ on:
       - autopilot/engine/character_autorig.py
       - autopilot/engine/character_rig.py
       - autopilot/engine/character_rig_test.py
+      - autopilot/engine/character_daily_integration_test.py
       - autopilot/engine/illustration_asset_factory.py
       - autopilot/engine/hyperframes_pipeline.py
+      - autopilot/engine/run_daily_plan.py
       - autopilot/engine/animation2d/build.mjs
+      - autopilot/engine/animation2d/src/character-layout.mjs
       - autopilot/engine/animation2d/src/contract.mjs
       - autopilot/engine/animation2d/src/motion-build.mjs
+      - autopilot/engine/animation2d/test/character-layout.test.mjs
       - autopilot/engine/tests/test_character_autorig.py
       - autopilot/engine/tests/test_character_rig.py
       - autopilot/engine/tests/test_daily_plan.py
@@ -82,6 +86,9 @@ jobs:
           python autopilot/engine/character_rig_test.py \
             --bundle work/character-autorig/violin-prince \
             --output work/character-rig-test
+          python autopilot/engine/character_daily_integration_test.py \
+            work/character-autorig/violin-prince \
+            work/character-rig-test/daily-integration
 
       - name: Set up Node.js 22
         uses: actions/setup-node@v4
@@ -114,6 +121,23 @@ jobs:
       - name: Render isolated rig preview (not production)
         working-directory: work/character-rig-test/composition
         run: $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes render --output ../character-rig-preview.mp4 --fps 25 --quality standard
+
+      - name: Build the real daily-pipeline portrait composition
+        working-directory: autopilot/engine/animation2d
+        run: |
+          node build.mjs --project ../../../work/character-rig-test/daily-integration/project.json \
+            --out-dir ../../../work/character-rig-test/daily-integration/composition
+          mkdir -p ../../../work/character-rig-test/daily-integration/composition/assets/characters
+          cp -R ../../../work/character-rig-test/daily-integration/assets/characters/violin-prince \
+            ../../../work/character-rig-test/daily-integration/composition/assets/characters/
+
+      - name: Lint the daily-pipeline portrait composition
+        working-directory: work/character-rig-test/daily-integration/composition
+        run: $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes lint
+
+      - name: Render daily-pipeline portrait integration proof (not production)
+        working-directory: work/character-rig-test/daily-integration/composition
+        run: $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes render --output ../character-rig-portrait-preview.mp4 --fps 25 --quality standard
 
       - name: Save the tested rig bundle for the main animation pipeline
         if: success() && github.ref_name == 'baidyaprince69-web-patch-1'
