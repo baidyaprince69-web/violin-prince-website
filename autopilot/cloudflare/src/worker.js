@@ -296,12 +296,14 @@ async function handleApi(request, env) {
         if (done) break;
         if (offset + value.byteLength > expectedSize) {
           await reader.cancel("Upload exceeded declared size.");
+          bytes.fill(0);
           return json({ error: "The uploaded package is larger than its declared size." }, 400);
         }
         bytes.set(value, offset);
         offset += value.byteLength;
       }
     } catch {
+      bytes.fill(0);
       return json({ error: "The encrypted package upload could not be read completely." }, 400);
     } finally {
       try { reader.releaseLock(); } catch { /* Stream already released. */ }
