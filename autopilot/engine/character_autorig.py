@@ -178,6 +178,35 @@ def _bbox(mask: np.ndarray) -> tuple[int, int, int, int]:
     return int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1
 
 
+def _face_region_from_head(head_mask: np.ndarray) -> np.ndarray:
+    """Create a bounded facial plate region inside the parsed head silhouette."""
+    x0, y0, x1, y1 = _bbox(head_mask)
+    width, height = x1 - x0, y1 - y0
+    fx0, fx1 = x0 + round(width * 0.10), x0 + round(width * 0.90)
+    fy0, fy1 = y0 + round(height * 0.38), y0 + round(height * 0.90)
+    face = Image.new("L", (head_mask.shape[1], head_mask.shape[0]), 0)
+    from PIL import ImageDraw
+    draw = ImageDraw.Draw(face)
+    # Rounded jaw silhouette; eyes, glasses, nose and mouth remain inside.
+    points = [
+        (fx0 + round((fx1 - fx0) * 0.18), fy0),
+        (fx0 + round((fx1 - fx0) * 0.82), fy0),
+        (fx1, fy0 + round((fy1 - fy0) * 0.22)),
+        (fx0 + round((fx1 - fx0) * 0.92), fy0 + round((fy1 - fy0) * 0.72)),
+        (fx0 + round((fx1 - fx0) * 0.72), fy1 - 2),
+        ((fx0 + fx1) // 2, fy1),
+        (fx0 + round((fx1 - fx0) * 0.28), fy1 - 2),
+        (fx0 + round((fx1 - fx0) * 0.08), fy0 + round((fy1 - fy0) * 0.72)),
+        (fx0, fy0 + round((fy1 - fy0) * 0.22)),
+    ]
+    draw.polygon(points, fill=255)
+    region = np.asarray(face, dtype=np.uint8) > 0
+    region &= np.asarray(head_mask, dtype=bool)
+    if int(region.sum()) < 100:
+        raise ManualReviewRequired("Could not derive a stable face region inside the head mask.")
+    return region
+
+
 def _centroid(mask: np.ndarray) -> tuple[float, float]:
     ys, xs = np.where(mask)
     if len(xs) == 0:
@@ -395,12 +424,12 @@ def separate_from_parsing(
     head_coarse = _mask(body_labels, 1)
     upper_all = _mask(body_labels, 3)
     lower_all = _mask(body_labels, 4)
-    # ATR label 11 is the face class; label 3 is sunglasses and must not be
-    # unioned into the whole face plate. Cartoon parser specks are removed before
-    # bounding boxes are generated so a few stray pixels cannot stretch the plate.
-    face = _clean_segmentation_specks(_mask(detail_labels, 11), size=9)
+    # ATR face-class masks can include hair/neck on cartoon illustrations.
+    # Use the independent Pascal head silhouette and a bounded facial region
+    # inside that silhouette instead of trusting the ATR face class.
     hair = _clean_segmentation_specks(_mask(detail_labels, 2), size=9)
-    head = _clean_segmentation_specks(head_coarse | hair | face, size=9)
+    head = _clean_segmentation_specks(head_coarse | hair, size=9)
+    face = _face_region_from_head(head)
     if int(torso.sum()) < 100 or int(head.sum()) < 100 or int(face.sum()) < 40:
         raise ManualReviewRequired(
             "The parsers could not identify a reliable head, face and torso. "
@@ -510,9 +539,9 @@ def _face_plate(
     # The source references are aligned portrait sheets. Crop the facial area
     # from forehead to chin, excluding the hair mass and jacket/shoulders so the
     # expression plate cannot create a second hair cap or cover the torso.
-    x0 = int(width * 0.365)
-    x1 = int(width * 0.635)
-    y0 = int(height * 0.22)
+    x0 = int(width * 0.36)
+    x1 = int(width * 0.64)
+    y0 = int(height * 0.30)
     y1 = int(height * 0.68)
     if x1 <= x0 or y1 <= y0:
         raise ManualReviewRequired(f"Invalid facial crop geometry for {path.name}.")
