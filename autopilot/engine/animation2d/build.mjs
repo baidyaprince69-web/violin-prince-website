@@ -186,6 +186,8 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.scene-caption{bottom:18%;font:500 27px/1.35 system-ui,sans-serif;max-width:86%;color:#e6edf4;z-index:21}' +
   '.character-rig{position:absolute;width:100%;height:100%;opacity:0;transform-origin:center center}' +
   '.rig-part,.rig-expression,.rig-pose{position:absolute;object-fit:contain;max-width:none;pointer-events:none}' +
+  // Expression plates replace the base face crop; showing both creates a ghosted double face.
+  '.rig-part[data-role="face"]{opacity:0}' +
   '.character-rig[data-pose-active="true"] .rig-part{opacity:0}' +
   '.character-rig[data-pose-active="true"]:not([data-pose-name="resting_hands"]) .rig-expression{opacity:0}' +
   '</style></head><body><div id="root" data-composition-id="root" data-start="0"' +
