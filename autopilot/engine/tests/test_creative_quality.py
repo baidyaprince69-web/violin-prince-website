@@ -95,7 +95,7 @@ class CreativeQualityTests(unittest.TestCase):
             self.assertIn("deep midnight navy", prompt)
             self.assertIn("high-detail 2D editorial illustration", prompt)
             self.assertIn("physically believable violin construction", prompt)
-            self.assertIn("visible natural wood grain", prompt)
+            self.assertIn("painted natural wood grain", prompt)
             self.assertIn("This is original art direction", prompt)
             self.assertIn("Portrait 9:16 composition", prompt)
             self.assertLessEqual(len(prompt), 1800)
