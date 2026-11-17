@@ -1,5 +1,5 @@
 name: Character Auto-Rig Test
-# Current proof target: generated separated layers plus authored transparent pose plates.
+# Current proof target: generated separated layers plus authored transparent pose plates; no duplicate face overlays.
 
 on:
   # Allow this isolated proof to run on the existing PR branch before it is merged.
