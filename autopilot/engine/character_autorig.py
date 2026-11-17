@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from PIL import Image, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter
 
 PASCAL_MODEL = ("pirocheto/schp-pascal-7", "onnx/schp-pascal-7-int8-static.onnx")
 ATR_MODEL = ("pirocheto/schp-atr-18", "onnx/schp-atr-18-int8-static.onnx")
@@ -562,22 +562,36 @@ def _face_plate(
 
 
 def _save_pose_plate(source_path: Path, destination: Path) -> None:
-    """Remove the near-white studio background from a full-body pose reference."""
+    """Remove the edge-connected near-white studio backdrop from a pose reference."""
     with Image.open(source_path) as opened:
         image = opened.convert("RGB")
     rgb = np.asarray(image, dtype=np.uint8)
-    minimum = rgb.min(axis=2).astype(np.float32)
-    spread = rgb.max(axis=2).astype(np.float32) - minimum
-    whiteness = np.clip((minimum - 232.0) / 20.0, 0.0, 1.0)
-    neutral = np.clip(1.0 - spread / 32.0, 0.0, 1.0)
-    background = Image.fromarray(
-        np.clip(255.0 * whiteness * neutral, 0, 255).astype(np.uint8), mode="L"
-    )
-    # JPEG compression can leave isolated dark flecks in an otherwise white
-    # studio background. A small median filter removes those specks without
-    # eroding the thick illustrated character outlines.
-    background = background.filter(ImageFilter.MedianFilter(7))
-    alpha = 255 - np.asarray(background, dtype=np.uint8)
+    height, width = rgb.shape[:2]
+    minimum = rgb.min(axis=2).astype(np.int16)
+    spread = rgb.max(axis=2).astype(np.int16) - minimum
+
+    # Start with light, near-neutral pixels. JPEG noise can turn parts of a
+    # plain white backdrop into grey flecks, so close small holes in this mask
+    # before finding the component that touches the image border.
+    candidate = (minimum >= 198) & (spread <= 76)
+    candidate_image = Image.fromarray(candidate.astype(np.uint8) * 255, mode="L")
+    candidate_image = candidate_image.filter(ImageFilter.MaxFilter(13))
+    candidate_image = candidate_image.filter(ImageFilter.MinFilter(13))
+
+    # A one-pixel white frame connects every background region that touches
+    # any side of the source image. Flood only that connected component; white
+    # details enclosed by the illustrated character remain opaque.
+    padded = Image.new("L", (width + 2, height + 2), 255)
+    padded.paste(candidate_image, (1, 1))
+    ImageDraw.floodfill(padded, (0, 0), 128, thresh=0)
+    background = np.asarray(padded, dtype=np.uint8)[1:-1, 1:-1] == 128
+
+    # Expand the backdrop mask by one pixel to remove the bright JPEG fringe
+    # around outlines while preserving the line art itself.
+    background_image = Image.fromarray(background.astype(np.uint8) * 255, mode="L")
+    background_image = background_image.filter(ImageFilter.MaxFilter(3))
+    alpha = 255 - np.asarray(background_image, dtype=np.uint8)
+
     plate = Image.fromarray(np.dstack((rgb, alpha)), mode="RGBA")
     destination.parent.mkdir(parents=True, exist_ok=True)
     plate.save(destination, format="PNG", optimize=True)
