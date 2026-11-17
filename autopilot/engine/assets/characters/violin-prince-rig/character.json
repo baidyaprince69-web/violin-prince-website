@@ -27,7 +27,7 @@
       "y": 525,
       "width": 286,
       "height": 358,
-      "pixel_area": 46042,
+      "pixel_area": 47055,
       "pivot_x": 0.909395,
       "pivot_y": 0.363125,
       "z_index": 20
@@ -40,7 +40,7 @@
       "y": 533,
       "width": 310,
       "height": 350,
-      "pixel_area": 46833,
+      "pixel_area": 47917,
       "pivot_x": 0.100208,
       "pivot_y": 0.364322,
       "z_index": 21
@@ -49,12 +49,12 @@
       "id": "left_forearm",
       "role": "left_forearm",
       "src": "left_forearm.png",
-      "x": 216,
+      "x": 225,
       "y": 770,
-      "width": 411,
+      "width": 402,
       "height": 247,
-      "pixel_area": 47450,
-      "pivot_x": 0.807016,
+      "pixel_area": 40101,
+      "pivot_x": 0.802695,
       "pivot_y": 0.223953,
       "z_index": 30
     },
@@ -64,10 +64,10 @@
       "src": "right_forearm.png",
       "x": 1389,
       "y": 775,
-      "width": 341,
+      "width": 340,
       "height": 227,
-      "pixel_area": 38196,
-      "pivot_x": 0.246856,
+      "pixel_area": 38343,
+      "pivot_x": 0.247582,
       "pivot_y": 0.223247,
       "z_index": 31
     },
@@ -75,26 +75,26 @@
       "id": "left_hand",
       "role": "left_hand",
       "src": "left_hand.png",
-      "x": 75,
-      "y": 839,
-      "width": 237,
-      "height": 223,
-      "pixel_area": 15684,
-      "pivot_x": 0.795761,
-      "pivot_y": 0.394193,
+      "x": 66,
+      "y": 813,
+      "width": 292,
+      "height": 280,
+      "pixel_area": 33816,
+      "pivot_x": 0.844616,
+      "pivot_y": 0.389864,
       "z_index": 40
     },
     {
       "id": "right_hand",
       "role": "right_hand",
       "src": "right_hand.png",
-      "x": 1650,
-      "y": 814,
-      "width": 203,
-      "height": 205,
-      "pixel_area": 16694,
-      "pivot_x": 0.194979,
-      "pivot_y": 0.566246,
+      "x": 1649,
+      "y": 806,
+      "width": 289,
+      "height": 283,
+      "pixel_area": 34945,
+      "pivot_x": 0.131254,
+      "pivot_y": 0.422233,
       "z_index": 41
     },
     {
@@ -105,7 +105,7 @@
       "y": 19,
       "width": 361,
       "height": 522,
-      "pixel_area": 125522,
+      "pixel_area": 71140,
       "pivot_x": 0.544477,
       "pivot_y": 0.913621,
       "z_index": 50
@@ -138,8 +138,8 @@
       "y": 0.748247
     },
     "left_wrist": {
-      "x": 0.129786,
-      "y": 0.840349
+      "x": 0.153928,
+      "y": 0.836049
     },
     "right_shoulder": {
       "x": 0.632725,
@@ -150,8 +150,8 @@
       "y": 0.748574
     },
     "right_wrist": {
-      "x": 0.831896,
-      "y": 0.843228
+      "x": 0.830592,
+      "y": 0.839068
     }
   },
   "expressions": {
