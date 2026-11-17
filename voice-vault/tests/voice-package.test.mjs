@@ -117,4 +117,7 @@ test("source keeps tokens in memory and only sends encrypted package bytes to Dr
   assert.match(uploadFunction, /encryptedBytes/);
   assert.doesNotMatch(uploadFunction, /originalBytes|wavBytes|transcript/);
   assert.match(app, /info\?\.shared !== false/);
+  assert.ok(app.includes("loadGoogleIdentity().then(() =>"));
+  assert.ok(app.includes("function connectGoogleDrive()"));
+  assert.ok(!app.includes("async function connectGoogleDrive()"));
 });
