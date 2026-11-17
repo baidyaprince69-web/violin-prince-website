@@ -67,26 +67,39 @@ def build_rig_preview_project(bundle_dir: str | Path, output_dir: str | Path) ->
             "src": target.relative_to(output_dir).as_posix(),
         }
 
+    # These actions deliberately animate the separated image layers through
+    # their joint pivots. Pose plates remain reference assets, but are not used
+    # for these articulation tests.
     scene_actions = {
-        # Keep the first two scenes on the separated body-part rig so the
-        # neutral and blink plates are aligned to the master character face.
         "scene-neutral": {"expression": "neutral", "duration": 1.2},
         "scene-blink": {"expression": "blink", "duration": 1.0},
-        "scene-wave": {"pose_asset": "one_arm_raised", "expression": "neutral", "duration": 1.25},
-        "scene-explain": {"pose_asset": "explaining_two_hands", "expression": "speaking", "duration": 1.25},
-        "scene-left": {"pose_asset": "point_left", "expression": "neutral", "duration": 1.2},
-        "scene-right": {"pose_asset": "point_right", "expression": "neutral", "duration": 1.2},
-        "scene-palms": {"pose_asset": "open_palms", "expression": "smile", "duration": 1.2},
+        "scene-head-turn": {
+            "expression": "neutral", "duration": 1.3,
+            "keyframes": {
+                "head": {"rotate": [0, -10, 9, 0]},
+                "torso": {"rotate": [0, -1.5, 1.5, 0]},
+            },
+        },
+        "scene-wave": {"gesture": "wave", "expression": "neutral", "duration": 1.35},
+        "scene-explain": {"gesture": "explain", "expression": "speaking", "duration": 1.35},
+        "scene-left": {"gesture": "point_left", "expression": "neutral", "duration": 1.2},
+        "scene-right": {"gesture": "point_right", "expression": "neutral", "duration": 1.2},
+        "scene-palms": {"gesture": "open_palms", "expression": "smile", "duration": 1.2},
+        "scene-body": {
+            "expression": "neutral", "duration": 1.3,
+            "keyframes": {"torso": {"rotate": [0, -3, 3, 0]}},
+        },
     }
-    staged["scene_actions"] = scene_actions
     titles = [
-        ("scene-neutral", "Neutral rig", "Separate character layers and joint anchors"),
-        ("scene-blink", "Blink expression", "Facial expression reference alignment"),
-        ("scene-wave", "Wave gesture", "Shoulder, elbow and wrist articulation"),
-        ("scene-explain", "Explain gesture", "Two-arm movement and speaking face"),
-        ("scene-left", "Point left", "Independent arm and hand movement"),
-        ("scene-right", "Point right", "Independent arm and hand movement"),
-        ("scene-palms", "Open palms", "Both hands move into a presenting gesture"),
+        ("scene-neutral", "Neutral rig", "Nine independently separated character layers"),
+        ("scene-blink", "Blink expression", "Expression overlay on the separated face layer"),
+        ("scene-head-turn", "Head rotation", "Head rotates around the neck joint while the torso counterbalances"),
+        ("scene-wave", "Arm wave", "Upper arm and forearm rotate independently at shoulder and elbow pivots"),
+        ("scene-explain", "Two-arm gesture", "Both upper arms articulate on the separated rig"),
+        ("scene-left", "Left point", "Left arm chain and hand rotate on their joint pivots"),
+        ("scene-right", "Right point", "Right arm chain and hand rotate on their joint pivots"),
+        ("scene-palms", "Open palms", "Both arm chains move into a presenting gesture"),
+        ("scene-body", "Body articulation", "Torso rotates around its body pivot"),
     ]
     scenes = []
     for index, (scene_id, title, caption) in enumerate(titles):
@@ -103,13 +116,19 @@ def build_rig_preview_project(bundle_dir: str | Path, output_dir: str | Path) ->
         "width": int(character["canvas"]["width"]),
         "height": int(character["canvas"]["height"]),
         "fps": 25,
-        "duration_seconds": 8.2,
+        "duration_seconds": 10.0,
         "scenes": scenes,
         "characters": [staged],
         "diagnostics": {
             "kind": "isolated_character_rig_test",
             "separation_status": report["status"],
             "visual_review_required": True,
+            "articulation_tests": [
+                "neck_pivot_head_rotation",
+                "shoulder_elbow_wrist_arm_movement",
+                "torso_body_pivot_rotation",
+            ],
+            "pose_plates_used_for_articulation": False,
             "publishing": "disabled",
         },
     }
@@ -117,7 +136,9 @@ def build_rig_preview_project(bundle_dir: str | Path, output_dir: str | Path) ->
     project_path = output_dir / "project.json"
     project_path.write_text(json.dumps(project, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     (output_dir / "README.txt").write_text(
-        "Isolated character-rig preview only. This is not a production video.\n"
+        "Isolated articulated character-rig proof only. This is not a production video.\n"
+        "Head, arm chains and torso are animated from separated layers and joint pivots.\n"
+        "Pose plates are references only and are not used to fake articulation.\n"
         "Review separation-preview.png and separation-report.json before accepting the rig.\n"
         "No publishing or YouTube actions are performed.\n",
         encoding="utf-8",
