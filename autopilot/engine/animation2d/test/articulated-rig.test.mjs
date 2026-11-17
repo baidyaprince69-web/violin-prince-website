@@ -5,16 +5,30 @@ import { compileMotionTracks } from "../src/motion-build.mjs";
 
 const character = {
   id: "violin-prince",
+  canvas: { width: 100, height: 100 },
   layers: [
-    { id: "torso", role: "torso" },
-    { id: "head", role: "head" },
-    { id: "left_upper_arm", role: "left_upper_arm" },
-    { id: "left_forearm", role: "left_forearm" },
-    { id: "left_hand", role: "left_hand" },
-    { id: "right_upper_arm", role: "right_upper_arm" },
-    { id: "right_forearm", role: "right_forearm" },
-    { id: "right_hand", role: "right_hand" }
+    { id: "torso", role: "torso", x: 20, y: 20, width: 60, height: 70, pivot_x: 0.5, pivot_y: 0.5 },
+    { id: "head", role: "head", x: 40, y: 5, width: 20, height: 45 },
+    { id: "face", role: "face", x: 42, y: 20, width: 16, height: 18 },
+    { id: "left_upper_arm", role: "left_upper_arm", x: 20, y: 45, width: 20, height: 30 },
+    { id: "left_forearm", role: "left_forearm", x: 5, y: 65, width: 25, height: 20 },
+    { id: "left_hand", role: "left_hand", x: 0, y: 80, width: 16, height: 16 },
+    { id: "right_upper_arm", role: "right_upper_arm", x: 60, y: 45, width: 20, height: 30 },
+    { id: "right_forearm", role: "right_forearm", x: 70, y: 65, width: 25, height: 20 },
+    { id: "right_hand", role: "right_hand", x: 84, y: 80, width: 16, height: 16 }
   ],
+  joints: {
+    neck: { x: 0.5, y: 0.45 },
+    left_shoulder: { x: 0.35, y: 0.55 },
+    left_elbow: { x: 0.25, y: 0.75 },
+    left_wrist: { x: 0.12, y: 0.85 },
+    right_shoulder: { x: 0.65, y: 0.55 },
+    right_elbow: { x: 0.75, y: 0.75 },
+    right_wrist: { x: 0.88, y: 0.85 }
+  },
+  expressions: {
+    neutral: { src: "neutral.png", x: 42, y: 20, width: 16, height: 18 }
+  },
   scene_actions: {
     "head-test": {
       keyframes: {
@@ -38,16 +52,43 @@ test("selected expression plate replaces the static base face cut-out", () => {
 function tracksFor(sceneId) {
   return compileMotionTracks({
     fps: 25,
+    width: 100,
+    height: 100,
     scenes: [{ id: sceneId, start: 0, duration: 1.5 }],
     characters: [character]
-  }).filter(track => track.property === "rotate");
+  }).filter(track => track.property === "transform");
+}
+
+function parseMatrix(value) {
+  const match = /^matrix\\(([^)]+)\\)$/.exec(String(value));
+  assert.ok(match, "articulated layer must use a CSS matrix transform");
+  return match[1].split(",").map(Number);
+}
+
+function transformPoint(matrix, point) {
+  const [a, b, c, d, e, f] = matrix;
+  return {
+    x: a * point.x + c * point.y + e,
+    y: b * point.x + d * point.y + f
+  };
+}
+
+function globalMatrix(track, layer, index) {
+  const [a, b, c, d, e, f] = parseMatrix(track.values[index]);
+  const x = Number(layer.x);
+  const y = Number(layer.y);
+  return [
+    a, b, c, d,
+    x + e - a * x - c * y,
+    y + f - b * x - d * y
+  ];
 }
 
 test("head rotation and torso counterbalance target independent rig layers", () => {
   const tracks = tracksFor("head-test");
   assert.ok(tracks.some(track => track.target === "head-test-violin-prince-part-head"));
   assert.ok(tracks.some(track => track.target === "head-test-violin-prince-part-torso"));
-  assert.ok(tracks.every(track => track.values.every(value => String(value).endsWith("deg"))));
+  assert.ok(tracks.every(track => track.values.every(value => String(value).startsWith("matrix("))));
 });
 
 test("wave gesture rotates the upper arm and forearm on separate pivots", () => {
@@ -56,6 +97,33 @@ test("wave gesture rotates the upper arm and forearm on separate pivots", () => 
   assert.ok(targets.has("wave-test-violin-prince-part-right_forearm"));
   assert.ok(targets.has("wave-test-violin-prince-part-right_hand"),
     "wave must articulate the wrist/hand independently");
+});
+
+test("forearms and hands follow their parent arm pivots without separating", () => {
+  const tracks = tracksFor("wave-test");
+  const byTarget = new Map(tracks.map(track => [track.target, track]));
+  const roleTrack = role => byTarget.get("wave-test-violin-prince-part-" + role);
+  const upper = roleTrack("right_upper_arm");
+  const forearm = roleTrack("right_forearm");
+  const hand = roleTrack("right_hand");
+  assert.ok(upper && forearm && hand);
+
+  const frameIndex = Math.floor(upper.values.length * 0.55);
+  const upperLayer = character.layers.find(layer => layer.role === "right_upper_arm");
+  const forearmLayer = character.layers.find(layer => layer.role === "right_forearm");
+  const handLayer = character.layers.find(layer => layer.role === "right_hand");
+  const elbow = { x: character.joints.right_elbow.x * 100, y: character.joints.right_elbow.y * 100 };
+  const wrist = { x: character.joints.right_wrist.x * 100, y: character.joints.right_wrist.y * 100 };
+
+  const elbowFromUpper = transformPoint(globalMatrix(upper, upperLayer, frameIndex), elbow);
+  const elbowFromForearm = transformPoint(globalMatrix(forearm, forearmLayer, frameIndex), elbow);
+  const wristFromForearm = transformPoint(globalMatrix(forearm, forearmLayer, frameIndex), wrist);
+  const wristFromHand = transformPoint(globalMatrix(hand, handLayer, frameIndex), wrist);
+
+  assert.ok(Math.hypot(elbowFromUpper.x - elbowFromForearm.x, elbowFromUpper.y - elbowFromForearm.y) < 0.02,
+    "elbow pivot must remain connected after the upper arm rotates");
+  assert.ok(Math.hypot(wristFromForearm.x - wristFromHand.x, wristFromForearm.y - wristFromHand.y) < 0.02,
+    "wrist pivot must follow the forearm without a detached hand");
 });
 
 test("two-arm explanation animates both independently separated upper arms", () => {
@@ -88,9 +156,9 @@ test("generated rig project wires real scene actions into frame-seekable motion 
     )),
     "project duration must contain every rig scene"
   );
-  const rotating = tracks.filter(track => track.property === "rotate");
+  const articulated = tracks.filter(track => track.property === "transform");
   const target = (scene, role) => scene + "-violin-prince-part-" + role;
-  const hasChangingTrack = id => rotating.some(track =>
+  const hasChangingTrack = id => articulated.some(track =>
     track.target === id && track.values.some(value => value !== track.values[0])
   );
 
