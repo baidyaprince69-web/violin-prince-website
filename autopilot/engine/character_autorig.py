@@ -355,7 +355,7 @@ def _recover_hand_fingers_from_skin(
     hand: np.ndarray,
     upper: np.ndarray,
     *,
-    distal_floor_fraction: float = 0.60,
+    distal_floor_fraction: float = 0.52,
 ) -> tuple[np.ndarray, int]:
     """Recover illustrated finger regions omitted by coarse human-parsing labels.
 
@@ -393,7 +393,7 @@ def _recover_hand_fingers_from_skin(
         return hand, 0
 
     x0, y0, x1, y1 = _bbox(hand)
-    pad = max(28, min(120, int(max(x1 - x0, y1 - y0) * 0.24)))
+    pad = max(36, min(180, int(max(x1 - x0, y1 - y0) * 0.45)))
     rx0, ry0 = max(0, x0 - pad), max(0, y0 - pad)
     rx1, ry1 = min(image.width, x1 + pad), min(image.height, y1 + pad)
     rgb = np.asarray(image.convert("RGB"), dtype=np.uint8)[ry0:ry1, rx0:rx1]
