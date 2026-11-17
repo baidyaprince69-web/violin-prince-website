@@ -9,14 +9,14 @@ from __future__ import annotations
 import re
 from typing import Any
 
-CREATIVE_DIRECTION_VERSION = "music-facts-cinematic-v1"
+CREATIVE_DIRECTION_VERSION = "music-facts-illustrated-2d-v2"
 
 CHANNEL_BRIEF = (
     "Violin Prince is a curiosity-driven music channel: real facts about the "
     "violin, instruments, acoustics, sound, melody, harmony, rhythm, song "
     "structure, music production and original violin covers, explained through "
-    "cinematic 3D-CGI imagery, animated diagrams, kinetic typography, sound "
-    "design and the creator's own violin performance."
+    "high-detail 2D editorial illustration, animated diagrams, character "
+    "performance, kinetic typography, sound design and the creator's own violin performance."
 )
 
 STORY_TYPES = {
@@ -31,8 +31,8 @@ STORY_TYPES = {
 }
 
 VISUAL_MODES = {
-    "macro_3d",
-    "mechanism_3d",
+    "macro_illustration",
+    "mechanism_illustration",
     "waveform",
     "melody_map",
     "comparison",
@@ -58,30 +58,32 @@ BIOGRAPHY_PATTERNS = (
 )
 
 VISUAL_MODE_PROMPTS = {
-    "macro_3d": (
-        "Build the hook around a photorealistic 3D CGI macro view of the real "
-        "musical object, with physically based wood, varnish, metal and string materials."
+    "macro_illustration": (
+        "Create a highly detailed 2D editorial macro illustration of the real musical "
+        "object. Use precise contour drawing, painted wood grain, layered tonal shading "
+        "and a clear silhouette rather than a photographic or CGI render."
     ),
-    "mechanism_3d": (
-        "Show the real physical mechanism as an elegant 3D scientific cutaway or "
-        "exploded view; preserve believable scale and component relationships."
+    "mechanism_illustration": (
+        "Show the real physical mechanism as a carefully researched 2D technical "
+        "cutaway or exploded illustration. Separate the parts clearly and preserve "
+        "believable scale and component relationships."
     ),
     "waveform": (
-        "Show sound as dimensional acoustic ribbons, travelling wavefronts and "
-        "glowing particles, grounded in the stated physical explanation."
+        "Show sound through elegant 2D acoustic ribbons, travelling wavefronts and "
+        "painted particles, grounded in the stated physical explanation."
     ),
     "melody_map": (
-        "Turn the melody idea into an original animated visual map of pitch contour, "
+        "Turn the melody idea into an original animated 2D map of pitch contour, "
         "rhythm and note movement; do not reproduce copyrighted notation or lyrics."
     ),
     "comparison": (
-        "Create a clear cinematic side-by-side comparison of the two stated musical "
-        "ideas, using matching camera, scale and lighting."
+        "Create a clear 2D editorial side-by-side comparison of the two stated musical "
+        "ideas, using matching scale, visual weight and lighting."
     ),
     "cover_performance": (
-        "Create a performance-payoff composition centred on a violin, bow and "
-        "musician's hands, with no identifiable face; leave clean space for the "
-        "creator's real violin performance insert."
+        "Create a detailed 2D performance-payoff illustration centred on a violin, "
+        "bow and expressive playing hands. Do not depict an identifiable person or "
+        "claim that a generated illustration is the creator's live recording."
     ),
 }
 

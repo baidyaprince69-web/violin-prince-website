@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Run a ChatGPT-authored, source-checked daily plan with Blender and Frame By Plane.
+"""Run a ChatGPT-authored, source-checked daily plan through the 2D engine.
 
-ChatGPT supplies the editorial plan, narration and scene direction. This runner
-verifies publisher evidence, synthesizes narration locally with Kokoro, creates
-three deterministic cinematic image layers per scene, and asks Blender 5.2.4
-plus Frame By Plane 8.0.1 to build a 2.5D background behind the licensed 3D hero.
-No AI image service or Cloudflare dependency is used in the daily Blender route.
+ChatGPT supplies the story, narration and scene direction. This runner verifies
+publisher evidence, creates scene illustrations, stages original character art,
+animates through Motion and renders frame-accurate scenes through HyperFrames.
+Existing FFmpeg finishing and quality assurance remain in place.
 This script never publishes; it creates the quality-gated release handoff only.
 """
 from __future__ import annotations
@@ -27,8 +26,8 @@ sys.path.insert(0, str(ENGINE_DIR))
 import run as engine  # noqa: E402
 from voiceover import synthesize_voiceover  # noqa: E402
 from publish_handoff import validate_publish_metadata, write_handoff_files  # noqa: E402
-from story_asset_resolver import resolve_story_asset, StoryAssetError  # noqa: E402
-from frame_by_plane_backgrounds import create_frame_by_plane_backgrounds  # noqa: E402
+from illustration_asset_factory import prepare_character_assets  # noqa: E402
+from hyperframes_pipeline import render_daily_plan  # noqa: E402
 
 
 def _normalise_quote(value: str) -> str:
@@ -348,20 +347,22 @@ def run_daily_plan(plan_path: Path) -> int:
         metadata_check = validate_publish_metadata(plan)
     except (TypeError, ValueError) as exc:
         raise engine.PipelineError("YouTube publisher preflight blocked the plan: " + str(exc)) from exc
-    # Store the normalized metadata in the saved plan so every downstream handoff
-    # reads the exact same title, description, tags, language and privacy setting.
     plan["publish_metadata"] = dict(metadata_check["value"])
     engine.WORK.mkdir(parents=True, exist_ok=True)
     engine.OUT.mkdir(parents=True, exist_ok=True)
     paths = engine._package_paths()
 
-    # The daily ChatGPT mode is deliberately independent from the optional
-    # Cloudflare Worker, R2 bucket, and all direct-publishing credentials.
+    # ChatGPT is the trigger and story/scene director; direct publishing stays off.
     engine.API = ""
     engine.JOB_TOKEN = ""
     os.environ["AUTOPILOT_API_URL"] = ""
     os.environ["AUTOPILOT_JOB_TOKEN"] = ""
     os.environ["PUBLISH_ENABLED"] = "false"
+
+    if not engine.CF_ACCOUNT or not engine.CF_TOKEN:
+        raise engine.PipelineError(
+            "CF_ACCOUNT_ID and CF_AI_TOKEN are required for original scene illustrations."
+        )
 
     audio_asset, audio_bytes = engine.get_audio(prefer_creator_assets=False)
     if not audio_bytes or len(audio_bytes) < 4096:
@@ -372,7 +373,9 @@ def run_daily_plan(plan_path: Path) -> int:
         plan["narration_script"], engine.OUT / "narration.wav"
     )
     paths["narration"].write_bytes(narration_path.read_bytes())
-    paths["plan"].write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
+    paths["plan"].write_text(
+        json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     paths["research"].write_text(
         json.dumps(verified_sources, ensure_ascii=False, indent=2), encoding="utf-8"
     )
@@ -380,160 +383,59 @@ def run_daily_plan(plan_path: Path) -> int:
         json.dumps(plan["quality_control"], ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
-    blender_enabled = engine.is_blender_render_enabled()
     images = []
-    model_asset = None
-    if blender_enabled:
-        # One real model is selected for this story and shared across its shots,
-        # so a different topic naturally receives a different physical subject.
-        try:
-            model_asset = resolve_story_asset(
-                plan,
-                engine.WORK / "story-assets",
-                access_token=os.environ.get("SKETCHFAB_ACCESS_TOKEN"),
-            )
-        except StoryAssetError as exc:
-            # Keep the detailed resolver diagnostic in the run log. The top-level
-            # resolver exception includes a large JSON payload which GitHub's
-            # shortened error lines can truncate before the actual download reason.
-            diagnostic_path = engine.WORK / "story-assets" / "asset-resolution-diagnostic.json"
-            diagnostic = {}
+    for index, scene in enumerate(plan["scenes"]):
+        image_path = engine.PACKAGE / f"scene-{index + 1}.jpg"
+        image_path.parent.mkdir(parents=True, exist_ok=True)
+        if image_path.is_file():
             try:
-                if diagnostic_path.is_file():
-                    diagnostic = json.loads(diagnostic_path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                diagnostic = {}
-            base_message = str(exc).split("Diagnostic:", 1)[0].strip()
-            failure_details = []
-            for failure in (diagnostic.get("attempted") or [])[:3]:
-                if not isinstance(failure, dict):
-                    continue
-                model_name = str(failure.get("model_name") or failure.get("model_uid") or "Selected model")
-                detail = str(failure.get("error") or "").strip()
-                if detail:
-                    failure_details.append(model_name + ": " + detail[:260])
-            if not failure_details:
-                for failure in (diagnostic.get("preferred_model_errors") or [])[:2]:
-                    if isinstance(failure, dict):
-                        detail = str(failure.get("error") or "").strip()
-                        if detail:
-                            failure_details.append("Preferred model metadata: " + detail[:260])
-            if not failure_details:
-                failure_details.append("No per-model download detail was written by the resolver.")
-            detail_text = " Download detail: " + " | ".join(failure_details)
-            raise engine.PipelineError(
-                "Story-specific 3D model gate blocked production: "
-                + base_message + detail_text
-            ) from exc
-        model_path = str(model_asset.get("local_model_path") or "")
-        if not model_path:
-            raise engine.PipelineError("Story asset resolver returned no actual 3D model path.")
-        query = str(model_asset.get("selection_query") or "")
-        subject_text = " ".join((
-            str(plan.get("asset_subject") or ""),
-            str(plan.get("model_query") or ""),
-            query,
-        )).casefold()
-        asset_kind = str(plan.get("asset_kind") or ("violin" if "violin" in subject_text else "generic")).casefold()
-        plan["model_asset"] = {
-            key: model_asset.get(key)
-            for key in (
-                "provider", "model_uid", "model_name", "source_url", "creator",
-                "license_code", "license_label", "license_url", "attribution",
-                "selection_query", "selection_score", "face_count", "vertex_count",
-                "pbr_type", "local_model_path", "manifest_path", "sha256",
-                "model_parts", "bow_rig_required",
-            )
-            if model_asset.get(key) is not None
-        }
-        for scene in plan["scenes"]:
-            scene["model_asset_path"] = model_path
-            scene["model_asset_kind"] = asset_kind
-            scene["model_asset_required"] = True
+                with Image.open(image_path) as existing:
+                    existing.verify()
+                images.append(image_path)
+                continue
+            except Exception:
+                image_path.unlink(missing_ok=True)
 
-        # Keep CC-BY attributions with the video metadata. Both the main
-        # instrument and any separately licensed bow must be credited.
-        credits = []
-        main_credit = model_asset.get("attribution")
-        if main_credit:
-            credits.append(str(main_credit).strip())
-        elif model_asset.get("source_url"):
-            credits.append(
-                f'{model_asset.get("model_name", "Violin model")} by '
-                f'{model_asset.get("creator", "unknown creator")} '
-                f'({model_asset.get("license_label", model_asset.get("license_code", "license listed on source page"))}): '
-                f'{model_asset.get("source_url")}'
-            )
-        bow_asset = model_asset.get("bow_model") or {}
-        if isinstance(bow_asset, dict) and bow_asset.get("source_url"):
-            credits.append(
-                f'{bow_asset.get("model_name", "Violin bow")} by '
-                f'{bow_asset.get("creator", "unknown creator")} '
-                f'({bow_asset.get("license_label", bow_asset.get("license_code", "license listed on source page"))}): '
-                f'{bow_asset.get("source_url")}'
-            )
-        if credits:
-            metadata = plan.setdefault("publish_metadata", {})
-            description = str(metadata.get("description") or "")
-            credit_block = "3D ASSET CREDITS:\n" + "\n".join(credits)
-            if credit_block not in description:
-                metadata["description"] = (description.rstrip() + "\n\n" + credit_block).strip()
-            validate_publish_metadata(plan)
-
-        # Generate per-scene background plates locally, then feed these image
-        # layers to the native Frame By Plane builder inside Blender. The real
-        # licensed violin model remains separate 3D geometry in front of them.
-        background_bundles = create_frame_by_plane_backgrounds(
-            plan,
-            engine.PACKAGE / "frame-by-plane",
-            size=(1080, 1920),
-        )
-        for scene, bundle in zip(plan["scenes"], background_bundles):
-            scene["frame_by_plane_manifest"] = bundle["manifest_path"]
-            scene["frame_by_plane_required"] = True
-            scene["frame_by_plane_layer_count"] = len(bundle["layers"])
-        plan["frame_by_plane_backgrounds"] = background_bundles
-
-        # Persist the same licensed asset and Frame By Plane layer mapping used
-        # by every render worker; no FLUX/Cloudflare still-image fallback exists.
-        paths["plan"].write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
-        for index in range(3):
-            (engine.PACKAGE / f"scene-{index + 1}.jpg").unlink(missing_ok=True)
-        print(
-            "BLENDER_MODE=3d_hero_plus_frame_by_plane_25d; "
-            "layers_per_scene=3; FLUX_and_Cloudflare_image_generation_skipped.",
-            flush=True,
-        )
-    else:
-        # Existing still-image pipeline remains available when Blender is disabled.
-        if not engine.CF_ACCOUNT or not engine.CF_TOKEN:
-            raise engine.PipelineError(
-                "The legacy FLUX still-image route requires CF_ACCOUNT_ID and CF_AI_TOKEN. "
-                "The daily Blender + Frame By Plane route does not use this fallback."
-            )
-        for index, scene in enumerate(plan["scenes"]):
-            image_path = engine.PACKAGE / f"scene-{index + 1}.jpg"
-            prompt = engine._scene_visual_prompt(scene, index=index, plan=plan)
+        prompt = engine._scene_visual_prompt(scene, index=index, plan=plan)
+        try:
             generated_image = engine.make_image(prompt, index)
-            image_path.write_bytes(generated_image.read_bytes())
+        except (engine.requests.Timeout, engine.requests.ConnectionError):
+            engine.log(f"Temporary connection issue for scene {index + 1}; retrying once.")
+            engine.time.sleep(2)
+            generated_image = engine.make_image(prompt, index)
+        image_path.write_bytes(generated_image.read_bytes())
+        try:
             with Image.open(image_path) as image_check:
                 if image_check.width < 512 or image_check.height < 512:
-                    raise engine.PipelineError(f"Generated scene image {index + 1} is unexpectedly small.")
+                    raise engine.PipelineError(
+                        f"Generated scene illustration {index + 1} is unexpectedly small."
+                    )
                 image_check.verify()
-            images.append(image_path)
+        except engine.PipelineError:
+            raise
+        except Exception as exc:
+            raise engine.PipelineError(
+                f"Generated scene illustration {index + 1} failed image validation."
+            ) from exc
+        images.append(image_path)
 
+    character_assets = prepare_character_assets(
+        plan,
+        source_root=engine.PACKAGE,
+        destination_root=engine.WORK / "character-assets",
+    )
     metadata = {
-        "schema_version": 3,
+        "schema_version": 4,
         "prepared_run_id": engine.RUN_ID,
         "narration_info": narration_info,
         "asset": audio_asset,
         "performance_video": {"available": False, "source": "not_uploaded"},
-        "model_asset": plan.get("model_asset", {}),
-        "frame_by_plane_backgrounds": plan.get("frame_by_plane_backgrounds", []),
         "topic": str(plan.get("topic") or ""),
         "title": str(plan.get("title") or "Violin Prince"),
         "prepared_at": datetime.now(timezone.utc).isoformat(),
-        "stage": "visuals_ready",
+        "stage": "illustrations_and_character_assets_ready",
+        "visual_engine": "Motion + HyperFrames 2D",
+        "character_count": len(character_assets),
         "visuals_run_id": engine.RUN_ID,
         "story_review": {
             "status": "approved_by_automated_quality_gates",
@@ -542,26 +444,20 @@ def run_daily_plan(plan_path: Path) -> int:
             "approval_method": "verified_publisher_evidence_date_freshness_and_channel_fit",
         },
     }
-    paths["metadata"].write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+    paths["metadata"].write_text(
+        json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     engine._write_review_text(plan, engine.PACKAGE / "review.txt", {"available": False})
-    if not blender_enabled:
-        engine.make_storyboard_preview(plan, images, engine.PACKAGE / "storyboard-preview.png")
+    engine.make_storyboard_preview(
+        plan, images, engine.PACKAGE / "storyboard-preview.png"
+    )
 
-    # Blender renders complete scene clips when enabled; otherwise the existing
-    # still-image/Pillow/FFmpeg route remains unchanged.
-    result = engine.render_stage()
-    if result != 0:
-        return result
+    audio_path = engine.WORK / "approved-audio"
+    audio_path.write_bytes(audio_bytes)
+    video_quality = render_daily_plan(
+        engine, plan, images, audio_path, narration_path, narration_info, character_assets
+    )
     final_video = engine.OUT / "violin-prince-short.mp4"
-    if blender_enabled:
-        images = [engine.OUT / f"blender-scene-{index + 1}-poster.png" for index in range(3)]
-        if not all(path.is_file() and path.stat().st_size > 1024 for path in images):
-            raise engine.PipelineError("Blender scene poster frames are missing; cannot verify the rendered 3D scenes.")
-        engine.make_storyboard_preview(plan, images, engine.OUT / "blender-storyboard-review.png")
-    video_quality = engine.validate_final_video(final_video)
-    if blender_enabled:
-        render_report = json.loads((engine.OUT / "quality_report.json").read_text(encoding="utf-8"))
-        video_quality["blender_rendering"] = render_report.get("blender_rendering", {})
     manifest, _provenance = write_handoff_files(
         engine.OUT,
         plan=plan,

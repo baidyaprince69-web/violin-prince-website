@@ -6,8 +6,8 @@ A cloud-first short-video production pipeline. GitHub-hosted runners do the prod
 
 ChatGPT is the only daily scheduler. Its existing daily automation prepares one sourced production plan, writes `.autopilot/daily-production-plan.json` to `main`, then updates `.autopilot/prepare-request.json` to trigger this workflow. The GitHub Actions runner produces the MP4 and creates a public GitHub Release asset. ChatGPT then reads that release and schedules the YouTube Short through the connected Metricool brand with automatic publishing enabled.
 
-- The daily route re-fetches publisher article pages, verifies exact narration evidence quotes and dates, synthesizes narration with Kokoro, generates three full-colour photorealistic scene images through the existing Cloudflare Workers AI FLUX.1-schnell image model, and uses the existing FFmpeg renderer and media QA.
-- The daily route uses the same image-generation path as the earlier Visuals stage. It does not use a paid video-generation service; if FLUX image generation is unavailable or quota-limited, the run stops instead of falling back to stick figures, outline drawings or placeholder illustrations.
+- The daily route re-fetches publisher article pages, verifies exact narration evidence quotes and dates, synthesizes narration with Kokoro, generates three original scene illustrations through Cloudflare Workers AI, renders animated HTML scenes with Motion + HyperFrames, then uses the existing FFmpeg finishing and media QA.
+- The daily route uses Cloudflare image generation for scene plates. It does not use a video-generation service; if image generation is unavailable or quota-limited, the run stops rather than producing placeholder illustrations.
 - The final scene is a symbolic violin-performance visual unless a permitted creator recording is deliberately added; generated/sample violin audio must never be described as a live recording by the creator.
 - The daily route keeps direct publishing disabled in GitHub. ChatGPT schedules the public release asset through Metricool after the YouTube audience setting has been confirmed. vidIQ remains available for channel research/optimisation; its draft publishing flow requires the user to approve each exact draft.
 - The GitHub cron schedule has been removed. Do not add a second GitHub or Cloudflare scheduler; ChatGPT is the daily operator.
@@ -19,18 +19,18 @@ The standing creative direction is **Violin Prince = music facts + cinematic vis
 
 The editorial gate accepts only these story categories: violin physics, instrument design, sound and perception, melody and composition, song anatomy, music production, music technology, and violin-cover breakdowns. It rejects individual-musician biographies, career profiles, competition-result stories and celebrity profiles as the main subject. If the evidence pool only contains those topics, Prepare should stop rather than force an unsuitable story.
 
-The current cloud-first visual implementation is an incremental upgrade, with an important limitation stated plainly:
+The daily cloud-first visual implementation is an illustrated 2D pipeline. Its character rig accepts original separated artwork; it does not claim to generate a complete layered character automatically from one portrait.
 
 - 24-second vertical video, 720 × 1280.
-- Three original AI-generated scene plates prompted for an original photorealistic 3D-CGI look, consistent materials, lighting and the midnight-navy / muted-teal / antique-gold palette.
-- Restrained photo-first motion, smooth crossfades, word-synchronised karaoke captions, and deterministic per-frame animated explainer panels rendered with Pillow and composited by FFmpeg. A restrained full-frame layer adds drifting illuminated dust, tiny star glints and soft teal/amber gradient glow. Simple coloured stick figures or hand/arm characters are used selectively only when they clarify a real action; they are never the default visual for every scene.
-- Structured visual modes: 3D macro object, mechanism/cutaway, waveform, melody map, comparison, and cover-performance payoff.
+- Three original AI-generated scene illustrations in a detailed 2D editorial style, with precise linework, painted materials, layered shading and the midnight-navy / muted-teal / antique-gold palette.
+- Motion-driven scene entrances, spring movement, crossfades, character poses and gestures, expression-layer animation, plus word-synchronised karaoke captions. HyperFrames captures the composition at exact frame times; FFmpeg performs the final audio/caption finishing and QA. The separate legacy manual recovery path retains its frame-by-frame Pillow explainer renderer.
+- Structured visual modes: illustrated macro detail, illustrated mechanism cutaway, waveform, melody map, comparison, and cover-performance payoff.
 - Scene 3 is planned as the musical payoff and must include a `cover_payoff` explaining how an original Violin Prince violin phrase demonstrates the fact.
 - Four-sentence, 40–44-word English narration generated by Kokoro-82M on the cloud runner.
 - A creator-recorded violin take when supplied. Otherwise, the existing CC0 sampled-violin path remains available, with the existing ambient fallback if sample retrieval fails.
 - Scene timing follows measured narration beats. Kokoro-native token timestamps drive each spoken-word highlight; rendering stops if word timings are missing or invalid. FFmpeg validates the final picture and audio.
 
-**This is not yet full 3D character/object animation or image-to-video generation.** The scene plates have a 3D-CGI visual treatment, while motion comes from restrained overlays and scene-specific diagrams. Photo plates no longer receive a compulsory repetitive push-in. A later milestone can add a true headless 3D renderer only after a small benchmark proves that it fits GitHub-hosted runner time, memory and licensing constraints.
+**This is a 2D illustrated animation pipeline, not a 3D renderer or image-to-video model.** The scene plates are AI-generated illustrations; a character can be animated only when its separate original body, face, arms, hands, joint anchors and expression assets are present. The rig validator rejects missing parts rather than replacing them with geometric placeholders.
 
 ### Render quality correction — version 6
 
@@ -41,9 +41,9 @@ The current cloud-first visual implementation is an incremental upgrade, with an
 - The final type system uses **DM Serif Display** for editorial headlines and **DM Sans** for labels, supporting copy and word-synchronised captions. The WOFF2 assets are bundled with their original SIL Open Font License 1.1 notices in `engine/assets/fonts/`; fontTools creates local TTF working copies for Pillow and FFmpeg/libass. No remote font request is needed while rendering.
 - The previous video was technically encoded but was not visually quality-approved. A frame/contact-sheet review is required for the first render after this correction before treating the new style as accepted.
 
-### Motion system correction — version 7
+### Preserved legacy manual renderer — Pillow motion system version 7
 
-The motion system now borrows craft principles from the reviewed motion-graphics repositories while retaining the existing cloud-first Python / Pillow / FFmpeg stack:
+The legacy manual recovery renderer retains the established Pillow frame-by-frame animation system. The ChatGPT daily route instead uses Motion for JavaScript and HyperFrames for seekable, frame-accurate scene rendering:
 
 - **Speech-led choreography:** scene-local Kokoro word timestamps drive the motion panel's visual progress, focus marker, restrained beat pulse, and staggered label/headline/detail reveals. Changes follow spoken content words, not an arbitrary linear timer or music beat.
 - **Deterministic spring animation:** every panel frame is derived from its local time using closed-form damped spring responses. The same frame can be regenerated independently; no CSS transition state, timers, Chromium capture, GPU, or paid video service is required.
@@ -51,17 +51,17 @@ The motion system now borrows craft principles from the reviewed motion-graphics
 - **Encoded-output verification:** after FFmpeg finishes, ffprobe must confirm H.264, 720 × 1280, approximately 25 fps, the 24-second duration contract, and a valid audio stream. The renderer also freezes six moments from the actual encoded MP4 into `visual-contact-sheet.png`; this sheet is kept with the render artifacts for inspection.
 - **No invented data:** diagrams remain explanatory and source-grounded. Illustrative geometry is not presented as measured instrument data.
 
-The ideas adopted are the pure-time closed-form spring tracks and word-timed morphs from [Barty-Bart's motion-broll skill](https://github.com/Barty-Bart/motion-graphics/tree/main/skills/motion-broll), plus the freeze-frame, contact-sheet and ffprobe verification loop from [iart-ai/motion-skills](https://github.com/iart-ai/motion-skills/tree/master/tools/verify). The [GitHub motion-graphics topic](https://github.com/topics/motion-graphics) was used as a discovery catalogue; [HyperFrames](https://github.com/heygen-com/hyperframes) was reviewed as a larger HTML-to-video framework, but is not added as a runtime dependency. The talking-head-only object-separation workflow, high-energy product-promo templates, browser-based 4× motion-blur renderer, and large sound-effects bundle are not adopted: they add local/GPU/browser or editing overhead and do not fit this photo-first music-explainer pipeline.
+The legacy Pillow renderer retains the pure-time spring tracks and word-timed graphics. The daily renderer uses [Motion](https://github.com/motiondivision/motion) for JavaScript animation and [HyperFrames](https://github.com/heygen-com/hyperframes) as its installed HTML-to-video frame renderer. Both routes retain contact-sheet inspection and ffprobe validation. The talking-head-only object-separation workflow, high-energy product-promo templates, browser-based 4× motion-blur renderer, and large sound-effects bundle are not adopted: they add local/GPU/browser or editing overhead and do not fit this photo-first music-explainer pipeline.
 
 A generated contact sheet is a review aid, not automatic creative approval. The first production MP4 using this version still requires a real frame/contact-sheet review before its visual style is accepted.
 
-### Reference-informed visual direction — version 8
+### Reference-informed 2D visual direction — version 8
 
 OpenMontage's most useful idea for this engine is its **reference-video analysis contract**: understand a reference's pacing, shot types, visual language and whether it uses moving clips or animated stills before deciding how to reproduce its broad craft. We are adopting that idea without installing OpenMontage, Remotion, yt-dlp, PySceneDetect, WhisperX, or another provider stack.
 
 ChatGPT may add an optional `visual_reference` object to the daily production JSON after it has actually reviewed a supplied reference. The engine validates the brief and maps it into the three existing scenes:
 
-- `visual_language`: `cinematic_cgi`, `macro_documentary`, `kinetic_graphics`, or `hybrid`.
+- `visual_language`: `illustrated_editorial`, `macro_documentary`, `kinetic_graphics`, or `hybrid`.
 - `pacing`: `rapid`, `dynamic`, `steady`, or `slow`; this selects a short, bounded transition duration.
 - `motion_profile`: `video_clips`, `animated_stills`, `mixed`, or `static`; this is used for honest capability reporting, not to invent a video-generation provider.
 - Three `scene_guidance` entries specify a shot type, an optional small pan (`locked`, `pan_left`, `pan_right`, `pan_up`, `pan_down`), and the outgoing transition (`crossfade`, `wipe_left`, `wipe_right`, `smooth_left`, `fade_through_black`).
@@ -74,7 +74,7 @@ Example shape:
     "source_url": "https://www.youtube.com/shorts/REFERENCE_ID",
     "reference_summary": "Fast macro reveals and dimensional explainer graphics",
     "motion_profile": "animated_stills",
-    "visual_language": "cinematic_cgi",
+    "visual_language": "illustrated_editorial",
     "pacing": "dynamic",
     "scene_guidance": [
       {"shot_type": "extreme_macro", "camera_move": "pan_left", "transition_out": "wipe_left"},
@@ -85,7 +85,7 @@ Example shape:
 }
 ```
 
-If the reference uses real video clips (`video_clips` or `mixed`), the render report records that limitation: this engine still produces FLUX scene images plus deterministic animated overlays, not new AI video clips. The system adapts only high-level craft, never exact frames, text, logos, music, assets or another creator's identity. If no reference analysis is supplied, the existing Violin Prince visual direction and stable framing remain unchanged.
+If the reference uses real video clips (`video_clips` or `mixed`), the render report records that limitation: this engine produces FLUX scene illustrations animated by Motion and captured by HyperFrames, not new AI video clips. The system adapts only high-level craft, never exact frames, text, logos, music, assets or another creator's identity. If no reference analysis is supplied, the existing Violin Prince visual direction and stable framing remain unchanged.
 
 This adds no runtime dependency, paid provider, extra API call or new scheduler. ChatGPT remains the daily operator; GitHub Actions remains the cloud production worker; publishing stays outside the render workflow.
 
@@ -117,7 +117,7 @@ The ChatGPT production plan can provide the publishing fields under `publish_met
 
 The boolean above is an example only; the daily operator must use the channel's actually confirmed audience classification. Existing evidence-first research and the separate encrypted YouTube SEO learning workflow remain in place.
 
-### Source-backed motion graphics and story coherence — version 10
+### Legacy source-backed Pillow motion graphics and story coherence — version 10
 
 The renderer now accepts optional structured graphic data per scene and turns it into animated explanatory graphics, driven by the existing narration-word timing:
 
@@ -129,7 +129,7 @@ The chart and process-flow stages use deterministic spring easing, colour-coded 
 
 A second new gate checks **story coherence**, not just quote existence. Each publisher article cited by narration must independently share enough subject anchors with the same core claim (or the descriptive video title when no core claim is supplied). The run stops when a cited source is unrelated, even if its quote is exact and the publisher page is valid. This is a conservative deterministic relevance check, not a semantic fact checker; all source pages and exact quotes still have to pass the existing checks.
 
-This remains the current free-first render architecture: FLUX creates three still image plates; Pillow creates deterministic motion-graphics overlays; FFmpeg composites and encodes the result. It does not claim to create AI-generated moving footage or full 3D object animation.
+The legacy manual recovery route keeps FLUX still-image plates, Pillow frame-by-frame motion-graphics overlays and FFmpeg compositing. The daily ChatGPT route uses the same still illustration plates with Motion animations, HyperFrames frame-accurate scene capture and the existing FFmpeg finishing/QA. Neither route claims to generate AI video footage.
 
 ## Research basis and implementation choices
 
@@ -139,12 +139,11 @@ The current design borrows production patterns rather than another creator's ide
 - [Explainer Studio](https://github.com/pramodthe/explainer-studio) (MIT): structured scene templates and audio-first timing.
 - [marketing-videos](https://github.com/sub-level/marketing-videos) (MIT): separate code-generated graphics from optional footage, use design tokens and verify final renders.
 - [paper2video](https://github.com/edwardyen724-g/paper2video) (Apache-2.0): research-to-script-to-scene orchestration and Manim as a specialist educational-animation option. Its LLM-generated Python execution model is not copied.
-- [anim-studio](https://github.com/DvaitAI-tech/anim-studio) (MIT): headless Blender shot pipeline as a future benchmark, not a required dependency in this CPU-first runner.
 - [aliberson/openmontage](https://github.com/aliberson/openmontage) (AGPL-3.0): reference-video analysis, motion-type classification, structured scene direction and capability reporting. Only the high-level reference-analysis pattern is adopted; no OpenMontage source code, provider integrations or Remotion runtime are copied or installed.
 - [darkzOGx/youtube-automation-agent](https://github.com/darkzOGx/youtube-automation-agent) (MIT): verified production readiness, durable generation recovery, claim/media provenance, upload metadata validation and fail-closed publishing. We selectively adopt metadata/provenance handoff safeguards; its local Node/Chromium dashboard, local scheduler, paid-provider catalogue and direct YouTube/social publishers are not installed or substituted for ChatGPT + Metricool.
 - [iart-ai/motion-skills](https://github.com/iart-ai/motion-skills) (MIT) and [Barty-Bart/motion-graphics](https://github.com/Barty-Bart/motion-graphics) (MIT): deterministic animation principles, speech-aware choreography, freeze-frame review, contact sheets and encoded-video probing; the relevant craft patterns are already represented in motion system version 7.
 
-The first implementation keeps the current Python / Pillow / FFmpeg / GitHub Actions stack. It does not download or copy any of those repositories' implementation code or third-party assets. Review each repository and its asset licenses independently before adopting any future components.
+The daily implementation uses the separate Motion + HyperFrames 2D engine; the existing Python / Pillow / FFmpeg manual recovery route remains preserved. No repository implementation code or third-party assets are copied into the project.
 
 Other candidates reviewed but not added to the daily engine:
 
@@ -246,7 +245,7 @@ Artifacts are retained for 14 days. Keep the relevant successful run IDs until y
 - The Cloudflare deploy workflow requires repository secrets `CF_DEPLOY_TOKEN`, `CF_ACCOUNT_ID`, `DASHBOARD_TOKEN`, `AUTOPILOT_JOB_TOKEN` and `GH_DISPATCH_TOKEN`. Do not paste their values into source code or chat.
 - **Cloudflare Workers AI** is used in Prepare, Visuals and ChatGPT daily scene-image generation. The daily route uses FLUX.1-schnell for still images; the GitHub runner handles narration, motion graphics and FFmpeg rendering. The workflow stops on permission, quota or rate-limit errors; it has no paid fallback.
 - **Kokoro-82M** creates the synthetic narration on a CPU runner. Model weights are Apache-2.0.
-- **Pillow and FFmpeg** create the storyboard, camera movement, animated overlays, subtitles and MP4.
+- **Motion + HyperFrames** animate and render the daily composition frame-by-frame. **Pillow** remains in the legacy manual renderer; **FFmpeg** performs final audio mixing, captions, MP4 encoding and QA.
 - Cloudflare Worker, D1 and private R2 are used for the dashboard and private media library. GitHub Actions fetches uploaded media only during Render; raw uploaded media files are not attached to the downloadable package/diagnostic artifacts.
 - GitHub Actions keeps direct publishing disabled (`PUBLISH_ENABLED=false`); ChatGPT hands a successful public release asset to Metricool for YouTube scheduling.
 - There is no GitHub cron schedule. The separate ChatGPT daily automation owns the schedule and triggers this workflow by updating the request file.
@@ -254,9 +253,9 @@ Artifacts are retained for 14 days. Keep the relevant successful run IDs until y
 
 ## Creative and editorial limits
 
-- Scenes 1–2 currently use generated still-image plates with camera movement and animated explainer overlays. Scene 3 can use the creator's real uploaded performance footage. This is not yet full 3D object/character animation or AI-generated motion footage.
+- Scene illustrations are generated as still 2D artwork and animated with Motion. When separate original character layers are supplied, the rig connects joints, hands, poses, gestures and facial-expression images. The factory validates/stages these parts; it does not yet split one portrait into those layers automatically.
 - Synthetic narration. When no custom music bed is uploaded, the system uses real recorded violin multisamples arranged into a fresh phrase; it is not a live performance or text-to-music AI model. Ambient fallback is used only if sample retrieval fails.
-- The image prompts use a consistent cinematic CGI art direction, with a shared brand palette, layered depth and distinct scene roles.
+- The image prompts use a consistent illustrated visual direction, shared palette, layered depth and distinct scene roles.
 - Visual-stage connection timeouts receive one bounded retry. Permission/quota/rate-limit errors stop clearly; no paid fallback is used.
 - Automated tests validate narration length, scene timing, art-direction consistency, subtitle formatting, partial visual recovery behavior, creator-performance insertion and final FFmpeg rendering.
 - The planner should only use supplied research, avoid unsupported claims and choose a family-friendly topic. If a story cannot be sourced, it should stop rather than invent details.
@@ -265,7 +264,10 @@ Artifacts are retained for 14 days. Keep the relevant successful run IDs until y
 ## Repository files
 
 - engine/run.py — legacy research/planning and the shared staged render engine.
-- engine/run_daily_plan.py — source-verifies and renders ChatGPT-authored daily plans without Cloudflare.
+- engine/run_daily_plan.py — source-verifies ChatGPT-authored daily plans, stages illustration/character assets and invokes Motion + HyperFrames.
+- engine/hyperframes_pipeline.py — builds the seekable HTML scene project, renders with HyperFrames and finishes with the existing FFmpeg audio/caption/QA stages.
+- engine/character_rig.py and engine/illustration_asset_factory.py — validate and stage separated character art layers, joints, hands, poses and expressions.
+- engine/animation2d/ — isolated JavaScript project containing Motion, the HyperFrames composition builder, and frame/keyframe tests.
 - engine/voiceover.py — synthetic narration and sentence timing.
 - engine/violin_sampler.py — checksum-verified CC0 sample download and solo-violin phrase rendering.
 - engine/synth_audio.py — quiet ambient fallback used only if the recording and sample-instrument paths are unavailable.
@@ -273,55 +275,29 @@ Artifacts are retained for 14 days. Keep the relevant successful run IDs until y
 - .github/workflows/violin-prince-autopilot.yml — staged GitHub Actions workflow.
 - .github/workflows/autopilot-checks.yml — offline code and workflow validation.
 
-### Blender full-frame animated 3D production — version 13
+## ChatGPT-triggered 2D illustrated production architecture
 
-**Correction:** the earlier transparent-overlay prototype is superseded and is not used. When Blender mode is enabled, Blender is the primary scene renderer:
+The ChatGPT request file remains the only daily trigger. The main workflow now follows this order:
 
-- Blender builds and renders each full scene from its own 3D camera. The scene output is an opaque MP4, not an RGBA pass, not a layer over a FLUX image, and not a still with post-render camera movement.
-- Existing visual modes map to procedural Blender scenes: vibrating strings, bridge/mechanism cutaway, acoustic wave field, 3D melody path, side-by-side mechanism comparison, and a solid amber violin with an animated bow.
-- The strings use animated mesh shape keys; the camera moves; objects, rings, particles and the bow animate; materials, floor/background, depth, shadows and lighting are rendered in Blender.
-- Pillow still-image cards and explainer panels are bypassed in Blender mode. FFmpeg only joins the full-frame Blender scene clips, then handles narration, soundtrack, captions/subtitles and final encoding/QA.
-- The creator's existing 720 × 1280 / 25 fps output contract remains. The current review preview renders one three-second violin-performance scene at 360 × 640 / 18 fps, with five keyframed Blender camera beats: establish, left three-quarter reveal, front sweep, right-side orbit and closing dolly-in. The workflow uploads the MP4, scene clip, midpoint PNG, contact sheet and machine-readable report as a GitHub Actions artifact.
-- This is procedural 3D geometry and animation, not yet a photorealistic scanned violin model or motion-captured human performer. No external models, paid assets, GPU or add-ons are downloaded.
+1. **ChatGPT Trigger** — `.autopilot/prepare-request.json` points to the current source-checked daily plan.
+2. **AI Story & Scene Director** — the daily runner verifies publisher evidence, narration, scene order, and channel fit.
+3. **Illustration & Character Asset Factory** — Cloudflare Workers AI creates each scene's illustration plate. The character asset factory validates and stages separate original character artwork.
+4. **Character Rig** — torso, head, face, left/right upper arms, forearms and hands are separate layers. Normalised neck/shoulder/elbow/wrist joints provide pivot anchors. The plan can select poses, gestures and facial-expression artwork for each scene.
+5. **Motion** — Motion for JavaScript generates deterministic spring-sampled keyframes for movement, gestures, entrances, transitions and expression changes. Animations are paused and seekable.
+6. **HyperFrames** — the HTML composition is linted and rendered frame-by-frame with a fixed FPS and timeline. Motion's Web Animations are driven by HyperFrames' seek-based WAAPI adapter.
+7. **Previews and MP4 output** — the workflow creates a storyboard preview and a final visual contact sheet, alongside the rendered MP4.
+8. **Existing FFmpeg finishing and QA** — FFmpeg mixes narration/music, burns word-timed captions, encodes the final MP4, and ffprobe validates the media contract.
 
-Blender remains opt-in so the established daily engine is not changed without a visual approval:
+### Character artwork requirements
 
-1. Open repository Settings → Secrets and variables → Actions → Variables.
-2. Add repository variable BLENDER_RENDER_ENABLED with value true.
-3. The production workflow installs Blender only for full/render stages when that variable is exactly true. FLUX image credentials are not required in full Blender mode.
-4. If Blender is enabled and a scene cannot render or validate, the production fails closed; it must not silently return to still-image or overlay rendering.
+A detailed rig is not fabricated from generic circles or stick figures. A character plan must provide separate original image assets for the torso, head, face, both upper arms, forearms and hands; normalised joint anchors; and a neutral expression plus at least one alternate face expression. Each part needs its own position, size and pivot. Incomplete assets stop the character-rig stage instead of generating a misleading substitute.
 
-When the variable is absent or false, the current Python / Pillow / FFmpeg still-image workflow remains unchanged and Blender is not installed. The .github/workflows/blender-smoke.yml workflow is now a full-scene production preview: it installs Blender and FFmpeg, renders one cinematic animated violin scene and uploads the MP4, contact sheet, per-scene clips/posters and render report.
+The current asset factory stages and validates those separated illustration files; it does not yet turn a single character portrait into perfectly separated cut-out parts. Scene illustration plates are generated automatically, while character-part artwork must be supplied as separate files in the ChatGPT plan package.
 
-BLENDER_BIN can override the executable. BLENDER_RENDER_TIMEOUT_SECONDS controls each production scene, bounded to 30–900 seconds. The full production renderer uses Blender Eevee on CPU, fixed two-thread execution, and FFmpeg for final assembly.
+### Frame-by-frame preservation
 
-## Licensed Blender model assets
+The existing `motion_graphics.py` Pillow renderer and its frame-by-frame animation tests are retained for the legacy manual recovery route. The ChatGPT daily route uses the isolated Motion + HyperFrames renderer.
 
-The Blender performance scene no longer accepts the old procedural violin placeholder. It requires an imported `.gltf` or `.glb` model.
+### Safety and production gates
 
-The Blender preview workflow resolves the configured Sketchfab model URL before rendering:
-
-1. Read the public model metadata and record its creator, source URL, download availability and licence.
-2. Permit automatic downloads only for the initial commercial-use allowlist (CC0 and CC Attribution). NonCommercial, NoDerivatives, Editorial and unrecognized licences are not used in monetized Violin Prince videos.
-3. If the asset is downloadable and a valid authenticated Sketchfab access token is present, request the glTF archive through the official Sketchfab Download API, validate the ZIP paths and size, extract it, and import the actual geometry into Blender.
-4. If downloading is unavailable, preserve the attribution/licence manifest and, only where the licence permits commercial use, save a provider thumbnail as a modelling reference. This reference-only result does not run the Blender performance render and is never presented as a finished 3D model.
-
-To enable the authenticated download, add a valid Sketchfab OAuth access token as the repository Actions secret `SKETCHFAB_ACCESS_TOKEN`. Do not put the token in source files, workflow variables, commits, issue comments or ChatGPT messages. Tokens can expire; update the secret when Sketchfab requires re-authentication.
-
-The render report and artifact retain `asset-provenance.json` so the model's creator and licence remain traceable. No scraping of the Sketchfab viewer, direct media URL guessing, licence bypass, or silent procedural fallback is permitted.
-
-
-## First production review run
-
-The one-off first production job renders a full 24-second Blender film from an imported licensed violin GLB, creates Kokoro narration and a new CC0 sampled-violin backing phrase, then exports a review-only MP4 and editable project bundle. The review job is gated by the `[run-first-production]` marker in draft PR #48. It does not publish or schedule YouTube uploads.
-
-
-The Linux Blender runner installs the distribution-matched `python3-numpy` package because Blender's GLTF importer imports NumPy from Blender's embedded Python runtime. The workflow verifies NumPy from inside Blender before attempting mesh import; a missing dependency must stop the render.
-
-
-The first-production job copies the resolved `.glb` and its `asset-provenance.json` into `work/first-production/assets` before rendering. Both the video export and Blender project bundle use this staged copy, and GitHub Actions step outputs are newline-delimited so the model path is passed intact.
-
-
-## Efficient first-production rendering
-
-The first review film is rendered from all 600 native Blender timeline frames (24 seconds at 25 FPS), with no optical-flow frame interpolation. Twenty parallel GitHub-hosted Blender workers each render 30 frames. Twenty is the standard-runner concurrency ceiling on the Free plan, so the workflow uses the maximum documented parallelism while keeping each worker's 30-frame slice within the existing job timeout. Narration and audio are generated before the Blender matrix begins, leaving the full runner pool available for the 20 render jobs. The final verification checks that every timeline frame from 1 through 600 is present exactly once and that the MP4 contains 600 frames at 25 FPS. The editable Blender scene and imported violin asset are included in the review bundle; intermediate PNG frames remain temporary workflow artifacts rather than being duplicated inside the downloadable ZIP.
+The GitHub workflow's `PUBLISH_ENABLED` setting remains `false`. The code-check workflow tests the rig contract, Motion spring sampling and HyperFrames HTML linting, but it does not run a full video production or publish a video.

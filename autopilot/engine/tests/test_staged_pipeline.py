@@ -64,7 +64,7 @@ class StagedPipelineTests(unittest.TestCase):
                 },
             },
             "scenes": [
-                {"caption": "The opening scene", "image_prompt": "A macro view of a violin string", "visual_mode": "macro_3d"},
+                {"caption": "The opening scene", "image_prompt": "A macro view of a violin string", "visual_mode": "macro_illustration"},
                 {"caption": "The middle detail", "image_prompt": "A waveform showing vibration", "visual_mode": "waveform"},
                 {"caption": "The final reveal", "image_prompt": "A violin performance close-up", "visual_mode": "cover_performance"},
             ],
@@ -269,7 +269,7 @@ class StagedPipelineTests(unittest.TestCase):
         self.assertIn("A lighthouse at dawn", prompt)
         self.assertIn("additional visual direction: " + feedback, prompt)
         self.assertIn("no watermark", prompt)
-        self.assertIn("photorealistic cinematic still imagery", prompt)
+        self.assertIn("high-detail 2D editorial illustration", prompt)
         self.assertIn("layered foreground/midground/background", prompt)
 
     def test_full_mode_runs_each_stage_once_in_order(self):

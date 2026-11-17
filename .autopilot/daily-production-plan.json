@@ -23,7 +23,7 @@
     "Violin Prince"
   ],
   "narrative_style": "documentary",
-  "cover_payoff": "Use the separately licensed violin and bow geometry selected for this story. Animate a symbolic bow stroke across the strings and use a sampled violin phrase as illustrative accompaniment. Never present the sample as Prince's live performance. Show the correction signal path around monitor playback, not as a change to the recorded violin take.",
+  "cover_payoff": "Use an original 2D editorial illustration of a complete violin and bow to demonstrate the monitoring signal path. Show the room-correction signal reaching the studio monitors, not rewriting the original recording. A sampled violin phrase is illustrative accompaniment and must never be presented as Prince's live performance.",
   "narration_script": "Could your room change your violin mix? Audient adds RoomTune monitor correction to its new iD interfaces. It measures your room and adjusts the signal reaching your monitors. Its onboard DSP also runs EQ, compression and reverb with no latency.",
   "narration_evidence": [
     {
@@ -62,14 +62,14 @@
   "scenes": [
     {
       "caption": "YOUR ROOM. YOUR SOUND.",
-      "image_prompt": "Original full-frame photorealistic 3D Blender scene, vertical 9:16, a complete amber-brown varnished violin with visible maple grain, bridge, strings and realistic bow in a midnight mixing room, two studio monitors at either side, soft golden sound waves reflecting from the room surfaces. Physically based wood and metal, rich highlights and shadows, dimensional depth, subtle teal and amber glow, fine illuminated dust and tiny star glints. No readable text, logos, watermark, wireframe, outline art, hollow violin or cartoon figures.",
+      "image_prompt": "Original high-detail 2D editorial illustration, vertical 9:16: a complete solid amber-brown violin with carefully painted maple grain, bridge, strings and a detailed bow in a midnight mixing room. Two studio monitors stand at either side; elegant antique-gold sound waves reflect from the room surfaces. Precise contour linework, layered hand-painted shading, subtle paper texture, strong foreground/midground/background separation, muted teal shadows and antique-gold accents. No readable text, logos or watermark. No CGI, 3D rendering, photorealistic photography or wireframes.",
       "graphic_label": "THE HOOK",
       "graphic_detail": "Room acoustics can shape monitor playback",
-      "visual_mode": "macro_3d"
+      "visual_mode": "macro_illustration"
     },
     {
       "caption": "MEASURE. CORRECT. LISTEN.",
-      "image_prompt": "Original full-frame photorealistic 3D Blender scientific scene in the same midnight studio. A calibrated reference microphone stands between two studio monitors; a golden test signal travels through the room into a compact DSP signal path and returns to the speakers. Show a smooth conceptual room-response curve before and after correction without numbers; make clear visually that the curve is illustrative, not a measurement from a real room. Premium metal and glass, dimensional reflections, cinematic teal shadows and amber rim lighting, vertical 9:16, no text, brand marks, watermark, wireframe or flat line-art.",
+      "image_prompt": "Original high-detail 2D technical editorial illustration, vertical 9:16, in the same midnight studio. A calibrated reference microphone stands between two studio monitors; an antique-gold test signal travels through the room into a compact illustrated DSP signal path and returns to the speakers. Show a smooth conceptual room-response curve before and after correction without numbers; make clear that the curve is illustrative, not a measurement from a real room. Clean cutaway drawing, careful linework, painted metal and glass textures, muted teal shadows and antique-gold highlights. No text, brand marks or watermark. No CGI, 3D rendering or photorealistic photography.",
       "graphic_label": "THE KEY DETAIL",
       "graphic_detail": "RoomTune measures the room and adjusts monitor output",
       "visual_mode": "waveform",
@@ -85,7 +85,7 @@
     },
     {
       "caption": "HEAR THE VIOLIN. TRUST THE MIX.",
-      "image_prompt": "Original full-frame photorealistic 3D Blender performance-style scene, vertical 9:16, centred on a complete richly coloured amber-brown violin with realistic maple grain, natural varnish, ebony fingerboard, bridge, tailpiece, fine strings and a separate believable bow with visible bow hair contacting the strings. Animate a symbolic bow movement; no human performer or creator likeness. A restrained golden waveform travels toward studio monitors, with a calm balanced listening-space glow. Cinematic midnight lighting, realistic depth of field, subtle teal accents and illuminated dust. No readable text, logo, watermark, wireframe, hollow shell or outline illustration.",
+      "image_prompt": "Original high-detail 2D performance illustration, vertical 9:16, centred on a complete amber-brown violin with painted maple grain, natural varnish, ebony fingerboard, bridge, tailpiece, fine strings and a detailed bow with visible bow hair contacting the strings. Show expressive illustrated playing hands only, without an identifiable face or creator likeness. A restrained golden waveform travels toward studio monitors, with a calm balanced listening-space glow. Premium hand-painted editorial style, precise linework, layered shading, paper texture, midnight-navy background, muted-teal accents and antique-gold highlights. No readable text, logos or watermark. No CGI, 3D rendering, photorealistic photography or wireframes.",
       "graphic_label": "THE PAYOFF",
       "graphic_detail": "Correction shapes monitor playback, not the original take",
       "visual_mode": "cover_performance"

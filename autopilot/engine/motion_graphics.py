@@ -1,8 +1,7 @@
-"""Deterministic animated visual-explainer panels for Violin Prince.
+"""Legacy frame-by-frame Pillow motion graphics for the manual recovery route.
 
-The panel is rendered frame-by-frame with Pillow and composited by FFmpeg.
-It adds original motion graphics without a paid video API, Blender install,
-or locally running software on the creator's computer.
+The ChatGPT daily route uses Motion and HyperFrames. This renderer remains
+preserved for the separate manual staged fallback and is tested independently.
 """
 from __future__ import annotations
 
@@ -22,8 +21,8 @@ def _curve_points(mode: str, phase: float, width: int, baseline: int) -> list[tu
     points = []
     for x in range(44, width - 30, 4):
         u = (x - 44) / max(1, width - 74)
-        if mode in {"mechanism_3d", "macro_3d"}:
-            amplitude = 11 if mode == "mechanism_3d" else 7
+        if mode in {"mechanism_illustration", "macro_illustration"}:
+            amplitude = 11 if mode == "mechanism_illustration" else 7
             y = baseline + math.sin((u * 4.0 * math.pi) - phase) * amplitude
         elif mode == "melody_map":
             y = baseline + math.sin(u * 2.0 * math.pi - phase) * 12 + math.sin(u * 5.0 * math.pi) * 3
@@ -65,7 +64,7 @@ def _draw_macro_string(draw: ImageDraw.ImageDraw, progress: float, phase: float,
 
 def _draw_mechanism_diagram(draw: ImageDraw.ImageDraw, progress: float, phase: float, width: int) -> None:
     """Animate a simplified bow/string/bridge interaction diagram."""
-    string_points = _curve_points("mechanism_3d", phase, width, 54)
+    string_points = _curve_points("mechanism_illustration", phase, width, 54)
     draw.line(string_points, fill=(74, 190, 185, 235), width=4, joint="curve")
     # The bridge is a symbolic cross-section, not a measured instrument blueprint.
     draw.polygon(
@@ -554,7 +553,7 @@ def make_motion_graphic_frames(
     duration = count / frame_rate
     mode = _clean(scene.get("visual_mode") or "waveform", 40).casefold()
     valid_modes = {
-        "macro_3d", "mechanism_3d", "waveform",
+        "macro_illustration", "mechanism_illustration", "waveform",
         "melody_map", "comparison", "cover_performance",
     }
     if mode not in valid_modes:
@@ -671,7 +670,7 @@ def make_motion_graphic_frames(
                 draw, left, right, top, bottom, progress, pulse, graphic_data,
                 font(10, "medium"), font(11, "medium")
             )
-        elif mode in {"macro_3d", "mechanism_3d"}:
+        elif mode in {"macro_illustration", "mechanism_illustration"}:
             for strand in range(3):
                 baseline = 62 + strand * 17
                 pts = []
@@ -691,7 +690,7 @@ def make_motion_graphic_frames(
                     width=2,
                 )
             draw.ellipse((marker_x-3, marker_y-3, marker_x+3, marker_y+3), fill=ivory)
-            if mode == "mechanism_3d":
+            if mode == "mechanism_illustration":
                 bridge_x = 465
                 draw.polygon(
                     [(bridge_x-10, 100), (bridge_x+10, 100),

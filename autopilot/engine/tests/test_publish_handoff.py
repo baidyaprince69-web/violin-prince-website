@@ -159,8 +159,8 @@ class AssetProvenanceTests(unittest.TestCase):
             "source_group": {"independent_publisher_count": 2},
             "quality_control": {"status": "passed"},
             "scenes": [
-                {"visual_mode": "macro_3d", "image_prompt": "A macro violin string."},
-                {"visual_mode": "mechanism_3d", "image_prompt": "A violin bridge cutaway."},
+                {"visual_mode": "macro_illustration", "image_prompt": "A macro violin string."},
+                {"visual_mode": "mechanism_illustration", "image_prompt": "A violin bridge cutaway."},
                 {"visual_mode": "cover_performance", "image_prompt": "Violin and bow."},
             ],
         }
@@ -309,36 +309,24 @@ class AssetProvenanceTests(unittest.TestCase):
         self.assertTrue(manifest["publish_ready"])
         self.assertEqual(len(provenance["assets"]["scene_images"]), 3)
 
-    def test_imported_sketchfab_model_credit_is_carried_to_publisher_description(self):
-        asset_dir = self.root / "model-assets"
-        asset_dir.mkdir()
-        manifest_path = asset_dir / "asset-provenance.json"
-        manifest_path.write_text(
-            json.dumps({
-                "resolution": "downloaded_model",
-                "provider": "Sketchfab",
-                "model_uid": "0162dea1b1044cd281c57af5e5fc2046",
-                "model_name": "Violin",
-                "creator": "Voldepreuss",
-                "license_label": "CC Attribution",
-                "license_url": "https://creativecommons.org/licenses/by/4.0/",
-                "source_url": "https://sketchfab.com/3d-models/violin-0162dea1b1044cd281c57af5e5fc2046",
-                "commercial_use_allowed": True,
-            }),
-            encoding="utf-8",
+    def test_scene_asset_provenance_records_illustration_and_2d_character_rig(self):
+        self.video_quality["character_count"] = 1
+        self.video_quality["character_rigging"] = (
+            "layered illustration rigs with joint anchors, hands, poses and expressions"
         )
-        self.video_quality["blender_rendering"] = {
-            "enabled": True,
-            "scenes": [{"asset_provenance_path": str(manifest_path)}],
-        }
-
         provenance = self._provenance()
-        models = provenance["assets"]["external_3d_models"]
-        self.assertEqual(len(models), 1)
-        self.assertEqual(models[0]["creator"], "Voldepreuss")
         self.assertEqual(
-            provenance["assets"]["scene_images"][0]["rights_status"],
-            "external_model_licence_and_creator_attribution_recorded",
+            provenance["assets"]["scene_images"][0]["origin"],
+            "ai_generated_image",
+        )
+        self.assertEqual(
+            provenance["assets"]["scene_images"][0]["provider"],
+            "Cloudflare Workers AI",
+        )
+        self.assertEqual(provenance["assets"]["character_rig"]["character_count"], 1)
+        self.assertIn(
+            "joint anchors, hands, poses and expressions",
+            provenance["assets"]["character_rig"]["description"],
         )
 
         check = validate_publish_metadata({
@@ -354,11 +342,9 @@ class AssetProvenanceTests(unittest.TestCase):
             provenance=provenance,
             run_id="test-run",
         )
-        self.assertIn("Voldepreuss", manifest["description"])
-        self.assertIn("CC Attribution", manifest["description"])
-        self.assertIn("https://sketchfab.com/3d-models/violin-", manifest["description"])
-        self.assertIn("https://creativecommons.org/licenses/by/4.0/", manifest["description"])
-        self.assertEqual(len(manifest["external_asset_credits"]), 1)
+        self.assertTrue(manifest["publish_ready"])
+        self.assertEqual(manifest["description"], "Verified source-led music explanation.")
+        self.assertEqual(manifest["external_asset_credits"], [])
 
     def test_unknown_soundtrack_license_blocks_publication(self):
         check = validate_publish_metadata({
