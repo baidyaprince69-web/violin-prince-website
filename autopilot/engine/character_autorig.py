@@ -172,6 +172,15 @@ def _clean_segmentation_specks(mask: np.ndarray, size: int = 9) -> np.ndarray:
     return np.asarray(image, dtype=np.uint8) > 0
 
 
+def _close_small_mask_holes(mask: np.ndarray, size: int = 5) -> np.ndarray:
+    """Close tiny interior alpha gaps without changing the outer silhouette much."""
+    if size < 3 or size % 2 == 0:
+        raise ValueError("Mask closing size must be an odd integer >= 3.")
+    image = Image.fromarray(np.asarray(mask, dtype=np.uint8) * 255, mode="L")
+    image = image.filter(ImageFilter.MaxFilter(size)).filter(ImageFilter.MinFilter(size))
+    return np.asarray(image, dtype=np.uint8) > 0
+
+
 def _remove_edge_connected_near_white(
     image: Image.Image,
     masks: dict[str, np.ndarray],
@@ -624,6 +633,15 @@ def separate_from_parsing(
     # a separate animated plate; retaining the original facial pixels in
     # head.png creates doubled eyes and mouth beneath alternate expressions.
     head = head_full & ~face
+    # The head shell includes the short neck area below the face opening. SCHP
+    # sometimes leaves tiny pinholes there; close only this lower neck strip,
+    # and constrain any fill to the dilated original head silhouette.
+    _, _, _, face_bottom = _bbox(face)
+    neck_zone = np.zeros_like(head, dtype=bool)
+    neck_zone[max(0, face_bottom):] = True
+    closed_neck = _close_small_mask_holes(head & neck_zone, size=5)
+    allowed_neck = _morph(head_full, 1, "dilate") & ~torso & neck_zone
+    head = (head & ~neck_zone) | (closed_neck & allowed_neck)
     if int(torso.sum()) < 100 or int(head.sum()) < 100 or int(face.sum()) < 40:
         raise ManualReviewRequired(
             "The parsers could not identify a reliable head, face and torso. "
