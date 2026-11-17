@@ -117,9 +117,9 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
       }
       const selectedExpression = String(action.expression || "neutral").toLowerCase();
       const activePoseAsset = String(action.pose_asset || "").toLowerCase();
-      // Full-body pose plates already contain their own face. Only animate
-      // separate expression overlays on the layered base rig/resting pose.
-      if (!activePoseAsset || activePoseAsset === "resting_hands") {
+      // Full-body pose plates already contain their own face. Animate
+      // expression overlays only while the separated body-part rig is active.
+      if (!activePoseAsset) {
         for (const name of Object.keys(character.expressions || {})) {
           addSpring(prefix + "-expression-" + name, "opacity",
             name === selectedExpression ? 0 : 1,

@@ -29,6 +29,11 @@ from voiceover import synthesize_voiceover  # noqa: E402
 from publish_handoff import validate_publish_metadata, write_handoff_files  # noqa: E402
 from illustration_asset_factory import prepare_character_assets  # noqa: E402
 from hyperframes_pipeline import render_daily_plan  # noqa: E402
+from character_presenter import (  # noqa: E402
+    PresenterIntegrationError,
+    attach_violin_prince_presenter,
+    enable_presenter_from_environment,
+)
 
 
 def _normalise_quote(value: str) -> str:
@@ -334,132 +339,6 @@ def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list
     return plan, verified
 
 
-def attach_violin_prince_presenter(
-    plan: dict[str, Any],
-    *,
-    package_dir: str | Path,
-    rig_bundle_dir: str | Path | None = None,
-) -> dict[str, Any]:
-    """Attach the tested repository rig to a plan only when explicitly requested.
-
-    Scene-level presenter_pose and presenter_expression fields select authored
-    pose and face plates. The prebuilt rig is copied into the package so the
-    existing asset factory can validate and stage every referenced file.
-    """
-    if plan.get("use_violin_prince_presenter") is not True:
-        return plan
-
-    bundle_dir = Path(rig_bundle_dir or (
-        ENGINE_DIR / "assets" / "characters" / "violin-prince-rig"
-    )).resolve()
-    spec_path = bundle_dir / "character.json"
-    if not spec_path.is_file():
-        raise engine.PipelineError(
-            "The Violin Prince presenter was requested, but the tested rig bundle "
-            "is missing. Run Character Auto-Rig Test and save its generated bundle first."
-        )
-    try:
-        character = json.loads(spec_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise engine.PipelineError("The saved Violin Prince character spec is unreadable.") from exc
-    if not isinstance(character, dict) or str(character.get("id") or "") != "violin-prince":
-        raise engine.PipelineError("The saved presenter bundle has an unexpected character id.")
-
-    package_dir = Path(package_dir).resolve()
-    character_dir = package_dir / "characters" / "violin-prince"
-    character_dir.mkdir(parents=True, exist_ok=True)
-
-    def stage_asset(value: str, label: str) -> str:
-        source_name = Path(str(value or "")).name
-        if not source_name:
-            raise engine.PipelineError(f"The saved presenter {label} asset has no filename.")
-        source = (bundle_dir / source_name).resolve()
-        if bundle_dir not in source.parents or not source.is_file():
-            raise engine.PipelineError(f"The saved presenter {label} asset is missing: {source_name}")
-        target = character_dir / source_name
-        shutil.copy2(source, target)
-        return str(target.resolve())
-
-    layers = character.get("layers")
-    expressions = character.get("expressions")
-    pose_assets = character.get("pose_assets")
-    if not isinstance(layers, list) or not isinstance(expressions, dict) or not isinstance(pose_assets, dict):
-        raise engine.PipelineError("The saved presenter bundle lacks layers, expressions or pose assets.")
-
-    for layer in layers:
-        if not isinstance(layer, dict):
-            raise engine.PipelineError("The saved presenter contains an invalid layer entry.")
-        layer["src"] = stage_asset(layer.get("src"), "layer")
-    for expression in expressions.values():
-        if not isinstance(expression, dict):
-            raise engine.PipelineError("The saved presenter contains an invalid expression entry.")
-        expression["src"] = stage_asset(expression.get("src"), "expression")
-    for pose in pose_assets.values():
-        if not isinstance(pose, dict):
-            raise engine.PipelineError("The saved presenter contains an invalid pose entry.")
-        pose["src"] = stage_asset(pose.get("src"), "pose")
-
-    characters = plan.get("characters") or []
-    if not isinstance(characters, list):
-        raise engine.PipelineError("The daily plan characters field must be an array.")
-    if any(
-        isinstance(item, dict) and str(item.get("id") or "") == "violin-prince"
-        for item in characters
-    ):
-        raise engine.PipelineError(
-            "The daily plan already contains a violin-prince character; remove the duplicate "
-            "or disable use_violin_prince_presenter."
-        )
-
-    default_poses = ("resting_hands", "explaining_two_hands", "open_palms")
-    available_poses = set(pose_assets)
-    available_expressions = set(expressions)
-    scenes = plan.get("scenes") or []
-    if not isinstance(scenes, list):
-        raise engine.PipelineError("The daily plan scenes field must be an array.")
-    for index, scene in enumerate(scenes):
-        if not isinstance(scene, dict):
-            continue
-        actions = scene.get("character_actions") or {}
-        if not isinstance(actions, dict):
-            raise engine.PipelineError(
-                f"Scene {index + 1} character_actions must be an object."
-            )
-        if "violin-prince" not in actions:
-            requested_pose = str(
-                scene.get("presenter_pose") or default_poses[index % len(default_poses)]
-            ).strip().casefold()
-            requested_expression = str(
-                scene.get("presenter_expression") or ("neutral" if index == 0 else "speaking")
-            ).strip().casefold()
-            pose_name = requested_pose if requested_pose in available_poses else "resting_hands"
-            expression_name = (
-                requested_expression if requested_expression in available_expressions else "neutral"
-            )
-            try:
-                action_duration = float(scene.get("duration") or 1.2)
-            except (TypeError, ValueError):
-                action_duration = 1.2
-            scene["character_actions"] = {
-                **actions,
-                "violin-prince": {
-                    "pose_asset": pose_name,
-                    "expression": expression_name,
-                    "duration": action_duration,
-                },
-            }
-
-    plan["characters"] = [*characters, character]
-    plan["presenter_integration"] = {
-        "enabled": True,
-        "character_id": "violin-prince",
-        "asset_bundle": "autopilot/engine/assets/characters/violin-prince-rig",
-        "pose_selection": "scene presenter_pose or a safe three-pose default cycle",
-        "expressions": "scene presenter_expression or neutral/speaking default",
-    }
-    return plan
-
-
 def run_daily_plan(plan_path: Path) -> int:
     plan_path = Path(plan_path)
     if not plan_path.is_file():
@@ -473,10 +352,14 @@ def run_daily_plan(plan_path: Path) -> int:
     engine.WORK.mkdir(parents=True, exist_ok=True)
     engine.OUT.mkdir(parents=True, exist_ok=True)
     paths = engine._package_paths()
-    plan = attach_violin_prince_presenter(
-        plan,
-        package_dir=engine.PACKAGE,
-    )
+    plan = enable_presenter_from_environment(plan)
+    try:
+        plan = attach_violin_prince_presenter(
+            plan,
+            package_dir=engine.PACKAGE,
+        )
+    except PresenterIntegrationError as exc:
+        raise engine.PipelineError(str(exc)) from exc
     try:
         metadata_check = validate_publish_metadata(plan)
     except (TypeError, ValueError) as exc:

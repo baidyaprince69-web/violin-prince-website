@@ -17,6 +17,7 @@ class CharacterRigContractTests(unittest.TestCase):
         ]
         return {
             "id": "guide",
+            "canvas": {"width": 320, "height": 240},
             "layers": [
                 {"id": role, "role": role, "src": role + ".png",
                  "x": 10, "y": 20, "width": 100, "height": 120}
@@ -72,6 +73,7 @@ class CharacterRigContractTests(unittest.TestCase):
             )
             self.assertEqual(len(staged), 1)
             self.assertEqual(len(staged[0]["layers"]), 9)
+            self.assertEqual(staged[0]["canvas"], {"width": 320, "height": 240})
             self.assertIn("neutral", staged[0]["expressions"])
             self.assertIn("curious", staged[0]["expressions"])
             self.assertTrue(all(Path(layer["src"]).is_file() for layer in staged[0]["layers"]))

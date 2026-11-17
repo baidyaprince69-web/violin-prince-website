@@ -2,6 +2,7 @@ import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { build as bundle } from "esbuild";
 import { compileMotionTracks } from "./src/motion-build.mjs";
+import { fitCharacterToCanvas } from "./src/character-layout.mjs";
 
 function parseArgs(argv) {
   const result = {};
@@ -22,6 +23,7 @@ function escapeHtml(value) {
 function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWidth, canvasHeight) {
   const action = (character.scene_actions || {})[scene.id] ||
     ((scene.character_actions || {})[character.id] || {});
+  const layout = fitCharacterToCanvas(character, canvasWidth, canvasHeight);
   if (Array.isArray(character.scene_ids) && !character.scene_ids.includes(scene.id)) return "";
   if (action.visible === false) return "";
   const wrapperStyle = [
@@ -42,16 +44,16 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
     const jointName = jointForRole[layer.role];
     const joint = jointName ? (character.joints || {})[jointName] : null;
     const pivotX = joint
-      ? ((Number(joint.x) * canvasWidth - Number(layer.x)) / Number(layer.width)) * 100
+      ? ((Number(joint.x) * layout.sourceWidth - Number(layer.x)) / Number(layer.width)) * 100
       : Number(layer.pivot_x ?? 0.5) * 100;
     const pivotY = joint
-      ? ((Number(joint.y) * canvasHeight - Number(layer.y)) / Number(layer.height)) * 100
+      ? ((Number(joint.y) * layout.sourceHeight - Number(layer.y)) / Number(layer.height)) * 100
       : Number(layer.pivot_y ?? 0.5) * 100;
     const style = [
-      "left:" + Number(layer.x) + "px",
-      "top:" + Number(layer.y) + "px",
-      "width:" + Number(layer.width) + "px",
-      "height:" + Number(layer.height) + "px",
+      "left:" + (layout.offsetX + Number(layer.x) * layout.scale) + "px",
+      "top:" + (layout.offsetY + Number(layer.y) * layout.scale) + "px",
+      "width:" + (Number(layer.width) * layout.scale) + "px",
+      "height:" + (Number(layer.height) * layout.scale) + "px",
       "transform-origin:" + pivotX + "% " + pivotY + "%",
       "z-index:" + Number(layer.z_index ?? 1)
     ].join(";");
@@ -69,13 +71,15 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
   const face = (character.layers || []).find((layer) => layer.role === "face") || {};
   const expressions = Object.entries(character.expressions || {}).map(([name, expression]) => {
     const style = [
-      "left:" + Number(expression.x ?? face.x ?? 0) + "px",
-      "top:" + Number(expression.y ?? face.y ?? 0) + "px",
-      "width:" + Number(expression.width ?? face.width ?? 1) + "px",
-      "height:" + Number(expression.height ?? face.height ?? 1) + "px",
+      "left:" + (layout.offsetX + Number(expression.x ?? face.x ?? 0) * layout.scale) + "px",
+      "top:" + (layout.offsetY + Number(expression.y ?? face.y ?? 0) * layout.scale) + "px",
+      "width:" + (Number(expression.width ?? face.width ?? 1) * layout.scale) + "px",
+      "height:" + (Number(expression.height ?? face.height ?? 1) * layout.scale) + "px",
       "z-index:999"
     ].join(";");
-    const initial = poseIsActive && selectedPose !== "resting_hands"
+    // Full-body pose plates already contain their own face. Never layer
+    // the master-face expression crop over a complete pose illustration.
+    const initial = poseIsActive
       ? "opacity:0;"
       : (name === "neutral" ? "opacity:1;" : "opacity:0;");
     const expressionId = scene.id + "-" + character.id + "-expression-" + name;

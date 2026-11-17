@@ -128,6 +128,7 @@ def prepare_character_assets(
         staged.append({
             "id": character_id,
             "name": str(character.get("name") or character_id),
+            "canvas": character.get("canvas"),
             "layers": layers,
             "joints": character["joints"],
             "expressions": expressions,
