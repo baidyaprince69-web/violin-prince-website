@@ -339,6 +339,102 @@ def _split_arm(
     return upper, forearm, hand
 
 
+def _dilate3(mask: np.ndarray) -> np.ndarray:
+    """Fast 8-connected one-pixel binary dilation for local mask growth."""
+    padded = np.pad(np.asarray(mask, dtype=bool), 1, constant_values=False)
+    height, width = mask.shape
+    grown = np.zeros((height, width), dtype=bool)
+    for dy in range(3):
+        for dx in range(3):
+            grown |= padded[dy:dy + height, dx:dx + width]
+    return grown
+
+
+def _recover_hand_fingers_from_skin(
+    image: Image.Image,
+    hand: np.ndarray,
+    upper: np.ndarray,
+    *,
+    distal_floor_fraction: float = 0.60,
+) -> tuple[np.ndarray, int]:
+    """Recover illustrated finger regions omitted by coarse human-parsing labels.
+
+    SCHP's coarse lower-arm class often captures a cartoon palm but excludes
+    thin, outlined fingers. Within a tightly bounded distal-hand window, warm
+    skin-colour pixels connected to the model's hand seed are grown into the
+    hand layer. This is a conservative supplement, not a standalone detector.
+    """
+    if image.size != (hand.shape[1], hand.shape[0]) or hand.shape != upper.shape:
+        raise AutoRigError("Hand recovery masks must match the master image canvas.")
+
+    ux, uy = _centroid(upper)
+    hy, hx = np.where(hand)
+    if len(hx) < 20:
+        raise ManualReviewRequired("The semantic hand seed is too small for skin-assisted recovery.")
+    dx = hx.astype(np.float32) - ux
+    dy = hy.astype(np.float32) - uy
+    seed_far = int(np.argmax(dx * dx + dy * dy))
+    axis = np.asarray([dx[seed_far], dy[seed_far]], dtype=np.float32)
+    norm = float(np.linalg.norm(axis))
+    if norm < 5:
+        raise ManualReviewRequired("The hand direction is too ambiguous for finger recovery.")
+    axis /= norm
+
+    # Use the complete forearm+hand silhouette to estimate the hand's distal
+    # interval, while keeping the search window close to the semantic hand.
+    ey, ex = np.where(hand | _morph(upper, 2, "dilate"))
+    if len(ex) < 40:
+        return hand, 0
+    all_dx = ex.astype(np.float32) - ux
+    all_dy = ey.astype(np.float32) - uy
+    projections = all_dx * axis[0] + all_dy * axis[1]
+    low, high = float(np.percentile(projections, 2)), float(np.percentile(projections, 98))
+    if high - low < 12:
+        return hand, 0
+
+    x0, y0, x1, y1 = _bbox(hand)
+    pad = max(28, min(120, int(max(x1 - x0, y1 - y0) * 0.24)))
+    rx0, ry0 = max(0, x0 - pad), max(0, y0 - pad)
+    rx1, ry1 = min(image.width, x1 + pad), min(image.height, y1 + pad)
+    rgb = np.asarray(image.convert("RGB"), dtype=np.uint8)[ry0:ry1, rx0:rx1]
+    red, green, blue = (rgb[..., index].astype(np.int16) for index in range(3))
+
+    # Broad warm-skin chroma limits tolerate shaded illustrated fingers while
+    # excluding the neutral near-white backdrop and most dark jacket pixels.
+    skin = (
+        (red >= 88) & (red <= 250) &
+        (green >= 42) &
+        (red - green >= 22) &
+        (green - blue >= 8) &
+        (red - blue >= 38)
+    )
+    yy, xx = np.mgrid[ry0:ry1, rx0:rx1]
+    projected = (xx - ux) * axis[0] + (yy - uy) * axis[1]
+    distal_floor = low + float(distal_floor_fraction) * (high - low)
+    allowed = skin & (projected >= distal_floor)
+
+    # Close only tiny antialiasing gaps between a palm seed and its fingers.
+    allowed = _morph(allowed, 2, "dilate")
+    allowed = _morph(allowed, 2, "erode")
+    seed = hand[ry0:ry1, rx0:rx1].copy()
+    grown = seed.copy()
+    # Morphological reconstruction keeps only skin components connected to
+    # the semantic hand. The bounded window makes this deterministic and cheap.
+    for _ in range(max(24, min(320, int(high - low) + 8))):
+        next_grown = grown | (allowed & _dilate3(grown))
+        if np.array_equal(next_grown, grown):
+            break
+        grown = next_grown
+
+    # Expand by one pixel to retain the dark outline around the recovered
+    # fingers. Border flood-fill later removes any near-white background fringe.
+    recovered = _morph(grown, 1, "dilate")
+    result = hand.copy()
+    result[ry0:ry1, rx0:rx1] |= recovered
+    added = int(np.count_nonzero(result & ~hand))
+    return result, added
+
+
 def _joint_between(first: np.ndarray, second: np.ndarray) -> tuple[float, float]:
     seam = _morph(first, 4, "dilate") & _morph(second, 4, "dilate")
     if seam.any():
@@ -490,10 +586,14 @@ def separate_from_parsing(
     coarse_arms = upper_all | lower_all
     sides, arm_side_source = _screen_side_masks(detail_labels, coarse_arms, torso)
     masks: dict[str, np.ndarray] = {"torso": torso, "head": head, "face": face}
+    hand_recovery_pixels: dict[str, int] = {}
     for side in ("left", "right"):
         upper, forearm, hand = _split_arm(
             sides[side], upper_all, lower_all, side, hand_fraction=hand_fraction
         )
+        hand, recovered_pixels = _recover_hand_fingers_from_skin(image, hand, upper)
+        hand_recovery_pixels[side] = recovered_pixels
+        forearm &= ~hand
         masks[f"{side}_upper_arm"] = upper
         masks[f"{side}_forearm"] = forearm
         masks[f"{side}_hand"] = hand
@@ -557,8 +657,13 @@ def separate_from_parsing(
         },
         "side_convention": "left and right refer to the viewer's screen sides",
         "arm_side_source": arm_side_source,
-        "hand_split": "distal 28% of each lower-arm mask; not a dedicated hand detector",
+        "hand_split": "distal lower-arm split with connected warm-skin finger recovery; not a dedicated hand detector",
         "hand_split_fraction": float(hand_fraction),
+        "hand_finger_recovery": {
+            "method": "bounded_skin_colour_component_growth",
+            "pixels_added": hand_recovery_pixels,
+            "visual_review_required": True,
+        },
         "hidden_area_reconstruction": {
             "method": repair_method,
             "pixels_reconstructed": int(hidden.sum()),
@@ -573,7 +678,7 @@ def separate_from_parsing(
         "needs_visual_review": True,
         "review_reasons": [
             "SCHP was trained on real-person parsing datasets; illustration styles can reduce accuracy.",
-            "Hands are estimated from the distal lower-arm region, not detected as a separate semantic class.",
+            "Hand masks combine a distal lower-arm split with bounded skin-colour finger recovery; there is no dedicated semantic hand class.",
             "Review layer edges, hand/finger completeness, joint seams and reconstructed torso pixels.",
         ] + ([
             "ATR did not resolve both arm-side labels; side masks were derived from the coarse Pascal arm segmentation."
