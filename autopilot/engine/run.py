@@ -25,7 +25,6 @@ try:
         normalize_visual_reference, scene_camera_move, scene_transition,
         scene_visual_prompt_suffix, transition_duration,
     )
-    from .parallel_render import parallel_map_ordered
 except ImportError:  # Direct script execution from the engine directory.
     from seo_intelligence import build_topic_queries, discover as seo_discover, load_profile as seo_load_profile
     from seo_intelligence.storage import load_learning_signals
@@ -38,7 +37,6 @@ except ImportError:  # Direct script execution from the engine directory.
         normalize_visual_reference, scene_camera_move, scene_transition,
         scene_visual_prompt_suffix, transition_duration,
     )
-    from parallel_render import parallel_map_ordered
 
 API = os.environ.get("AUTOPILOT_API_URL", "").rstrip("/")
 JOB_TOKEN = os.environ.get("AUTOPILOT_JOB_TOKEN", "")
@@ -4998,9 +4996,8 @@ def prepare_stage():
 
 
 def visuals_stage(feedback=""):
-    """Prepare either FLUX stills or the plan for complete Blender 3D scene rendering."""
-    blender_enabled = is_blender_render_enabled()
-    if not blender_enabled and (not CF_ACCOUNT or not CF_TOKEN):
+    """Generate approved scene illustrations for the Motion + HyperFrames 2D route."""
+    if not CF_ACCOUNT or not CF_TOKEN:
         raise PipelineError("CF_ACCOUNT_ID and CF_AI_TOKEN are required for the Visuals stage.")
     plan, metadata, _narration_info, paths, image_paths = _read_package(require_images=False)
     creative_issues = validate_creative_plan(plan)
@@ -5019,54 +5016,43 @@ def visuals_stage(feedback=""):
             "approved_at": datetime.now(timezone.utc).isoformat(),
             "approval_method": "automated_source_date_freshness_and_channel_fit_checks",
         })
-    paths["metadata"].write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
-    if blender_enabled:
-        # A Blender 3D production has no generated still-image plates. The scene
-        # templates, objects, lighting, camera and animation are all built and
-        # rendered by Blender during the Render stage.
-        for image_path in image_paths:
-            image_path.unlink(missing_ok=True)
-        storyboard = None
-        metadata["visual_renderer"] = "blender_full_frame_3d"
-        metadata["visuals_description"] = "Blender builds and animates full-frame opaque 3D scenes; no FLUX still plates or transparent 3D overlays."
-        log("Blender full-scene mode selected: skipped FLUX image generation; Render will build real animated 3D scenes.")
-    else:
-        for index, scene in enumerate(plan["scenes"]):
-            # Reuse valid images when recovering a partially completed visual stage.
-            if image_paths[index].is_file():
-                try:
-                    with Image.open(image_paths[index]) as existing:
-                        existing.verify()
-                    log(f"Reusing valid scene image {index + 1}/3 from an earlier attempt.")
-                    continue
-                except Exception:
-                    image_paths[index].unlink(missing_ok=True)
-
-            prompt = _scene_visual_prompt(scene, feedback, index=index, plan=plan)
+    paths["metadata"].write_text(
+        json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    for index, scene in enumerate(plan["scenes"]):
+        if image_paths[index].is_file():
             try:
-                generated = make_image(prompt, index)
-            except (requests.Timeout, requests.ConnectionError):
-                log(f"Temporary connection issue for scene {index + 1}; retrying once.")
-                time.sleep(2)
-                generated = make_image(prompt, index)
-            shutil.copy2(generated, image_paths[index])
-            log(f"Prepared scene image {index + 1}/3.")
-        storyboard = make_storyboard_preview(plan, image_paths, PACKAGE / "storyboard-preview.png")
+                with Image.open(image_paths[index]) as existing:
+                    existing.verify()
+                log(f"Reusing valid scene illustration {index + 1}/3 from an earlier attempt.")
+                continue
+            except Exception:
+                image_paths[index].unlink(missing_ok=True)
+
+        prompt = _scene_visual_prompt(scene, feedback, index=index, plan=plan)
+        try:
+            generated = make_image(prompt, index)
+        except (requests.Timeout, requests.ConnectionError):
+            log(f"Temporary connection issue for scene {index + 1}; retrying once.")
+            time.sleep(2)
+            generated = make_image(prompt, index)
+        shutil.copy2(generated, image_paths[index])
+        log(f"Prepared scene illustration {index + 1}/3.")
+
+    storyboard = make_storyboard_preview(plan, image_paths, PACKAGE / "storyboard-preview.png")
     metadata["stage"] = "visuals_ready"
-    metadata["visual_feedback"] = re.sub(r"\s+", " ", str(feedback or "")).strip()[:600]
+    metadata["visual_feedback"] = re.sub(r"\\s+", " ", str(feedback or "")).strip()[:600]
     metadata["visuals_run_id"] = RUN_ID
-    paths["metadata"].write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
-    if storyboard:
-        log("Storyboard preview created: " + str(storyboard))
-    else:
-        log("Blender storyboard is deferred until the rendered scene clips produce verification frames.")
+    paths["metadata"].write_text(
+        json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    log("Storyboard preview created: " + str(storyboard))
     return 0
 
 
 def render_stage():
     """Assemble a quality-gated visual package without calling any AI service."""
-    blender_enabled = is_blender_render_enabled()
-    plan, metadata, narration_info, paths, image_paths = _read_package(require_images=not blender_enabled)
+    plan, metadata, narration_info, paths, image_paths = _read_package(require_images=True)
     if metadata.get("story_review", {}).get("approved") is not True:
         raise PipelineError("Render blocked: automated editorial quality gates did not approve this story.")
     topic = str(plan.get("topic", ""))
