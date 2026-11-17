@@ -93,7 +93,7 @@ class CreativeQualityTests(unittest.TestCase):
         self.assertIn("SHOT 3 — PERFORMANCE PAYOFF", prompts[2])
         for prompt in prompts:
             self.assertIn("deep midnight navy", prompt)
-            self.assertIn("photorealistic cinematic still imagery", prompt)
+            self.assertIn("high-detail 2D editorial illustration", prompt)
             self.assertIn("physically believable violin construction", prompt)
             self.assertIn("visible natural wood grain", prompt)
             self.assertIn("This is original art direction", prompt)

@@ -142,6 +142,7 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.character-rig{position:absolute;width:100%;height:100%;opacity:0;transform-origin:center center}' +
   '.rig-part,.rig-expression{position:absolute;object-fit:contain;max-width:none;pointer-events:none}' +
   '</style></head><body><div id="root" data-composition-id="root" data-start="0"' +
+  ' data-duration="' + duration + '" data-fps="' + fps + '"' +
   ' data-width="' + width + '" data-height="' + height + '">' + markup +
   '</div><script>window.VP_PROJECT=' + JSON.stringify(project).replace(/</g, "\\u003c") +
   ';</script><script src="./dist/player.js"></script></body></html>';

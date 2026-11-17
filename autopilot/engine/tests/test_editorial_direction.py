@@ -30,8 +30,8 @@ def valid_plan():
             "to demonstrate how continuous tone shaping creates the vocal effect."
         ),
         "scenes": [
-            {"caption": "A voice-like violin tone", "image_prompt": "3D violin macro", "visual_mode": "macro_3d"},
-            {"caption": "How the sound is shaped", "image_prompt": "3D bow and string mechanism", "visual_mode": "mechanism_3d"},
+            {"caption": "A voice-like violin tone", "image_prompt": "3D violin macro", "visual_mode": "macro_illustration"},
+            {"caption": "How the sound is shaped", "image_prompt": "3D bow and string mechanism", "visual_mode": "mechanism_illustration"},
             {"caption": "Hear the musical effect", "image_prompt": "Violin performance close-up", "visual_mode": "cover_performance"},
         ],
     }
@@ -40,6 +40,8 @@ def valid_plan():
 class CreativeDirectionTests(unittest.TestCase):
     def test_approved_channel_format_is_machine_readable(self):
         self.assertIn("curiosity-driven music channel", CHANNEL_BRIEF)
+        self.assertIn("2D editorial illustration", CHANNEL_BRIEF)
+        self.assertNotIn("CGI", CHANNEL_BRIEF)
         self.assertIn("violin_physics", STORY_TYPES)
         self.assertIn("cover_performance", VISUAL_MODES)
 
@@ -83,7 +85,7 @@ class CreativeDirectionTests(unittest.TestCase):
 
         plan = valid_plan()
         rendered = {}
-        for mode in ("macro_3d", "mechanism_3d", "melody_map", "comparison", "cover_performance"):
+        for mode in ("macro_illustration", "mechanism_illustration", "melody_map", "comparison", "cover_performance"):
             with tempfile.TemporaryDirectory() as folder:
                 scene = {
                     "caption": "The same explanation",
@@ -98,8 +100,8 @@ class CreativeDirectionTests(unittest.TestCase):
                     rendered[mode] = frame.copy()
 
         for first_mode, second_mode in (
-            ("macro_3d", "mechanism_3d"),
-            ("mechanism_3d", "melody_map"),
+            ("macro_illustration", "mechanism_illustration"),
+            ("mechanism_illustration", "melody_map"),
             ("melody_map", "comparison"),
             ("comparison", "cover_performance"),
         ):

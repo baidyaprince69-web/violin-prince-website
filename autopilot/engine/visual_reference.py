@@ -12,21 +12,21 @@ from urllib.parse import urlparse
 
 
 VISUAL_LANGUAGES = {
-    "cinematic_cgi": (
-        "Sculptural photorealistic 3D-CGI depth, tactile instrument materials, "
-        "directional volumetric light and a clear foreground-to-background hierarchy."
+    "illustrated_editorial": (
+        "Highly detailed 2D editorial illustration, confident linework, painted material "
+        "texture, layered shading and a clear foreground-to-background hierarchy."
     ),
     "macro_documentary": (
-        "Naturalistic macro cinematography, believable optical perspective, "
-        "shallow depth of field and carefully observed physical details."
+        "Illustrated macro observation, carefully drawn physical details, tactile "
+        "painted surfaces and a focused close-up composition."
     ),
     "kinetic_graphics": (
-        "A dimensional explainer composition with clear geometric hierarchy, "
-        "purposeful graphic rhythm and negative space around the main subject."
+        "A 2D explainer composition with clear visual hierarchy, purposeful graphic "
+        "rhythm, animated labels and negative space around the main subject."
     ),
     "hybrid": (
-        "Combine photorealistic instrument imagery with crisp dimensional "
-        "explanatory elements while keeping one coherent cinematic composition."
+        "Combine richly painted 2D instrument illustrations with crisp explanatory "
+        "diagrams while keeping one coherent editorial composition."
     ),
 }
 
@@ -58,8 +58,8 @@ PACE_TRANSITION_SECONDS = {
 }
 
 _DEFAULT_SHOT_BY_MODE = {
-    "macro_3d": "extreme_macro",
-    "mechanism_3d": "mechanism_cutaway",
+    "macro_illustration": "extreme_macro",
+    "mechanism_illustration": "mechanism_cutaway",
     "waveform": "close_detail",
     "melody_map": "overhead",
     "comparison": "split_wide",
@@ -113,7 +113,7 @@ def normalize_visual_reference(
         value.get("visual_language"),
         set(VISUAL_LANGUAGES),
         "visual_language",
-        "cinematic_cgi",
+        "illustrated_editorial",
     )
     pacing = _enum(
         value.get("pacing"),
@@ -159,19 +159,19 @@ def normalize_visual_reference(
     if motion_profile in {"video_clips", "mixed"}:
         adaptation_note = (
             "The reference contains real moving video clips. This production path "
-            "currently uses generated still scene plates plus deterministic animated "
-            "overlays; it does not generate new AI video clips. The reference's broad "
-            "visual rhythm is adapted without claiming equivalent clip motion."
+            "uses generated 2D illustration plates with Motion-driven, frame-accurate "
+            "animation in HyperFrames; it does not generate new AI video footage. "
+            "The reference's broad visual rhythm is adapted without claiming equivalent clip motion."
         )
     elif motion_profile == "static":
         adaptation_note = (
-            "The reference is primarily static imagery. The production uses still "
-            "scene plates with the existing word-synchronised graphic animation."
+            "The reference is primarily static imagery. The production uses 2D "
+            "illustration plates with Motion-driven transitions and word-synchronised animation."
         )
     else:
         adaptation_note = (
-            "The reference is primarily animated stills. The production uses still "
-            "scene plates with the existing word-synchronised graphic animation."
+            "The reference is primarily animated stills. The production uses 2D "
+            "illustration plates animated by Motion and captured frame-accurately by HyperFrames."
         )
 
     return {

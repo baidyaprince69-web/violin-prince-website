@@ -20,8 +20,8 @@ from visual_reference import (
 class VisualReferenceTests(unittest.TestCase):
     def setUp(self):
         self.scenes = [
-            {"visual_mode": "macro_3d"},
-            {"visual_mode": "mechanism_3d"},
+            {"visual_mode": "macro_illustration"},
+            {"visual_mode": "mechanism_illustration"},
             {"visual_mode": "cover_performance"},
         ]
 
@@ -38,7 +38,7 @@ class VisualReferenceTests(unittest.TestCase):
                 "source_url": "https://www.youtube.com/shorts/example",
                 "reference_summary": "Fast macro reveals with graphic transitions.",
                 "motion_profile": "animated_stills",
-                "visual_language": "cinematic_cgi",
+                "visual_language": "illustrated_editorial",
                 "pacing": "dynamic",
                 "scene_guidance": [
                     {
@@ -63,7 +63,7 @@ class VisualReferenceTests(unittest.TestCase):
         plan = {"visual_reference": profile}
 
         self.assertEqual(profile["schema_version"], 1)
-        self.assertEqual(profile["visual_language"], "cinematic_cgi")
+        self.assertEqual(profile["visual_language"], "illustrated_editorial")
         self.assertEqual(profile["motion_profile"], "animated_stills")
         self.assertEqual(scene_camera_move(plan, 0), "pan_left")
         self.assertEqual(scene_camera_move(plan, 1), "pan_up")
@@ -94,8 +94,8 @@ class VisualReferenceTests(unittest.TestCase):
             {"motion_profile": "video_clips"},
             self.scenes,
         )
-        self.assertIn("does not generate new AI video clips", profile["adaptation_note"])
-        self.assertIn("animated overlays", profile["adaptation_note"])
+        self.assertIn("does not generate new AI video footage", profile["adaptation_note"])
+        self.assertIn("Motion-driven", profile["adaptation_note"])
 
     def test_rejects_non_https_reference_urls(self):
         issues = validate_visual_reference(
@@ -129,11 +129,11 @@ class VisualReferenceTests(unittest.TestCase):
             {
                 "visual_mode": mode,
                 "image_prompt": (
-                    "Create a premium photorealistic cinematic scene with detailed amber violin "
+                    "Create a premium high-detail 2D editorial illustration of an amber violin "
                     "materials, rich lighting, realistic acoustic waveforms and layered depth. "
                 ) * 12,
             }
-            for mode in ("macro_3d", "waveform", "cover_performance")
+            for mode in ("macro_illustration", "waveform", "cover_performance")
         ]
         profile = normalize_visual_reference(
             {
@@ -157,7 +157,7 @@ class VisualReferenceTests(unittest.TestCase):
                 plan=plan,
             )
             self.assertLessEqual(len(prompt), 1800)
-            self.assertIn("solid, opaque amber-brown violin", prompt)
+            self.assertIn("solid, opaque violin body", prompt)
             self.assertIn("Portrait 9:16 composition", prompt)
             self.assertIn("Story subject:", prompt)
             self.assertGreater(len(prompt), 900)

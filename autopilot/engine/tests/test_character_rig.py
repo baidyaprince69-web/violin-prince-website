@@ -49,6 +49,58 @@ class CharacterRigContractTests(unittest.TestCase):
         with self.assertRaisesRegex(CharacterRigError, "right_wrist"):
             validate_character_spec(character)
 
+    def test_illustration_factory_stages_all_parts_and_expression_assets(self):
+        import tempfile
+        from pathlib import Path
+        from PIL import Image
+        from illustration_asset_factory import prepare_character_assets
+
+        with tempfile.TemporaryDirectory() as folder:
+            source_root = Path(folder) / "source"
+            destination_root = Path(folder) / "staged"
+            source_root.mkdir()
+            character = self.valid_character()
+            for layer in character["layers"]:
+                Image.new("RGBA", (32, 32), (180, 120, 60, 255)).save(source_root / layer["src"])
+            Image.new("RGBA", (32, 32), (200, 160, 130, 255)).save(source_root / "neutral.png")
+            Image.new("RGBA", (32, 32), (200, 160, 130, 255)).save(source_root / "curious.png")
+
+            staged = prepare_character_assets(
+                {"characters": [character]},
+                source_root=source_root,
+                destination_root=destination_root,
+            )
+            self.assertEqual(len(staged), 1)
+            self.assertEqual(len(staged[0]["layers"]), 9)
+            self.assertIn("neutral", staged[0]["expressions"])
+            self.assertIn("curious", staged[0]["expressions"])
+            self.assertTrue(all(Path(layer["src"]).is_file() for layer in staged[0]["layers"]))
+            self.assertTrue(all(Path(expression["src"]).is_file() for expression in staged[0]["expressions"].values()))
+            self.assertTrue((destination_root / "manifest.json").is_file())
+
+    def test_illustration_factory_fails_closed_when_a_layer_image_is_missing(self):
+        import tempfile
+        from pathlib import Path
+        from PIL import Image
+        from illustration_asset_factory import IllustrationAssetError, prepare_character_assets
+
+        with tempfile.TemporaryDirectory() as folder:
+            source_root = Path(folder) / "source"
+            destination_root = Path(folder) / "staged"
+            source_root.mkdir()
+            character = self.valid_character()
+            for layer in character["layers"]:
+                if layer["role"] != "left_hand":
+                    Image.new("RGBA", (32, 32), (180, 120, 60, 255)).save(source_root / layer["src"])
+            Image.new("RGBA", (32, 32), (200, 160, 130, 255)).save(source_root / "neutral.png")
+            Image.new("RGBA", (32, 32), (200, 160, 130, 255)).save(source_root / "curious.png")
+            with self.assertRaises(IllustrationAssetError):
+                prepare_character_assets(
+                    {"characters": [character]},
+                    source_root=source_root,
+                    destination_root=destination_root,
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

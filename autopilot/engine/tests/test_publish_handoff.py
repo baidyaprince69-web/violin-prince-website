@@ -159,8 +159,8 @@ class AssetProvenanceTests(unittest.TestCase):
             "source_group": {"independent_publisher_count": 2},
             "quality_control": {"status": "passed"},
             "scenes": [
-                {"visual_mode": "macro_3d", "image_prompt": "A macro violin string."},
-                {"visual_mode": "mechanism_3d", "image_prompt": "A violin bridge cutaway."},
+                {"visual_mode": "macro_illustration", "image_prompt": "A macro violin string."},
+                {"visual_mode": "mechanism_illustration", "image_prompt": "A violin bridge cutaway."},
                 {"visual_mode": "cover_performance", "image_prompt": "Violin and bow."},
             ],
         }

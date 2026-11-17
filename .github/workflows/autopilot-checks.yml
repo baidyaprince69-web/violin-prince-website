@@ -2,6 +2,8 @@ name: Autopilot code checks
 
 on:
   push:
+    branches:
+      - main
     paths:
       - "autopilot/**"
       - ".github/workflows/violin-prince-autopilot.yml"

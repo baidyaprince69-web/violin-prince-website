@@ -23,7 +23,7 @@ class MotionGraphicsDataTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             pattern = make_motion_graphic_frames(
                 {
-                    "visual_mode": "macro_3d",
+                    "visual_mode": "macro_illustration",
                     "caption": "The measured detail",
                     "graphic_label": "THE KEY DETAIL",
                     "graphic_detail": "Source-backed scene explanation",
