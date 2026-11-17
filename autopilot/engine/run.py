@@ -4690,8 +4690,8 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
     brand_direction = (
         "Violin Prince identity: high-detail 2D editorial illustration with polished painted textures, "
         "precise contour linework and layered shading. Show a complete amber-brown violin with believable "
-        "construction, a solid, opaque violin body, painted natural wood grain, visible strings, bow hair "
-        "and metal fittings. Use overlap, tonal shading and illustrated depth rather than CGI or 3D rendering. "
+        "construction with physically believable violin construction, a solid, opaque violin body, painted natural wood grain, visible strings, bow hair "
+        "and metal fittings. Use layered foreground/midground/background, overlap, tonal shading and illustrated depth rather than CGI or 3D rendering. "
         "Never draw an empty shell, hollow outline, wireframe or transparent violin body. "
         "Palette: deep midnight navy, muted teal, antique gold, warm ivory and natural amber. Full colour. "
         "This is original art direction. No stock imagery, identifiable real people, logos, readable text or lyrics; "
