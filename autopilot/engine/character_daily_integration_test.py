@@ -11,7 +11,7 @@ ENGINE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(ENGINE_DIR))
 
 from illustration_asset_factory import prepare_character_assets  # noqa: E402
-from run_daily_plan import attach_violin_prince_presenter  # noqa: E402
+from character_presenter import attach_violin_prince_presenter  # noqa: E402
 
 
 def build_daily_portrait_project(
