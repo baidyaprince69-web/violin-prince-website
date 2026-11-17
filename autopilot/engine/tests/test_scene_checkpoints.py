@@ -49,6 +49,33 @@ class SceneCheckpointTests(unittest.TestCase):
             )
         self.assertNotEqual(first, second)
 
+    def test_scene_position_and_total_count_invalidate_position_dependent_rendering(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            image = root / "scene.png"
+            image.write_bytes(b"source-image")
+            scene = {"id": "scene-a", "caption": "A"}
+            first = scene_fingerprint(
+                scene,
+                image,
+                renderer_version="legacy-v1",
+                render_settings={"scene_index": 0, "total_scene_count": 3, "plan_title": "Title"},
+            )
+            reordered = scene_fingerprint(
+                scene,
+                image,
+                renderer_version="legacy-v1",
+                render_settings={"scene_index": 2, "total_scene_count": 3, "plan_title": "Title"},
+            )
+            inserted = scene_fingerprint(
+                scene,
+                image,
+                renderer_version="legacy-v1",
+                render_settings={"scene_index": 0, "total_scene_count": 4, "plan_title": "Title"},
+            )
+        self.assertNotEqual(first, reordered)
+        self.assertNotEqual(first, inserted)
+
     def test_retry_retries_only_transient_failures_with_bounded_backoff(self):
         calls = {"count": 0}
         sleeps = []
