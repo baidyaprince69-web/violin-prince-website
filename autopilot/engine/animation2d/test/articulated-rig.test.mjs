@@ -56,11 +56,11 @@ function tracksFor(sceneId) {
     height: 100,
     scenes: [{ id: sceneId, start: 0, duration: 1.5 }],
     characters: [character]
-  }).filter(track => track.property === "transform");
+  }).filter(track => track.property === "transform" && (track.target.includes("-part-") || track.target.includes("-expression-")));
 }
 
 function parseMatrix(value) {
-  const match = /^matrix\\(([^)]+)\\)$/.exec(String(value));
+  const match = /^matrix\(([^)]+)\)$/.exec(String(value));
   assert.ok(match, "articulated layer must use a CSS matrix transform");
   return match[1].split(",").map(Number);
 }
