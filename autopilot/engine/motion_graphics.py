@@ -1,7 +1,7 @@
 """Deterministic animated visual-explainer panels for Violin Prince.
 
 The panel is rendered frame-by-frame with Pillow and composited by FFmpeg.
-It adds original motion graphics without a paid video API, Blender install,
+It adds original motion graphics without a paid video API or external 3D renderer,
 or locally running software on the creator's computer.
 """
 from __future__ import annotations
