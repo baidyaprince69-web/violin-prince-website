@@ -1,0 +1,63 @@
+name: Private Voice Vault checks
+
+on:
+  push:
+    branches:
+      - feature/private-voice-vault-2026-11-18
+    paths:
+      - "voice-vault/**"
+      - "autopilot/engine/VOICE_ENROLLMENT.md"
+      - "autopilot/engine/ENGINE_WORKFLOW.md"
+      - ".github/workflows/voice-vault-checks.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "voice-vault/**"
+      - "autopilot/engine/VOICE_ENROLLMENT.md"
+      - "autopilot/engine/ENGINE_WORKFLOW.md"
+      - ".github/workflows/voice-vault-checks.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  private-enrollment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the feature
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Check JavaScript syntax
+        run: |
+          node --check voice-vault/app.mjs
+          node --check voice-vault/config.mjs
+          node --check voice-vault/voice-package.mjs
+
+      - name: Test encryption, package integrity and privacy contracts
+        run: node --test voice-vault/tests/voice-package.test.mjs
+
+      - name: Verify enrollment page contains no inline scripts or remote upload endpoints
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          html = Path("voice-vault/index.html").read_text(encoding="utf-8")
+          app = Path("voice-vault/app.mjs").read_text(encoding="utf-8")
+          if '<script type="module" src="./app.mjs"></script>' not in html:
+              raise SystemExit("External module entry point is missing.")
+          if '<script>' in html or ' onload=' in html or ' onclick=' in html:
+              raise SystemExit("Inline script/event handler is not permitted.")
+          if "https://www.googleapis.com/upload/drive/v3/files" not in app:
+              raise SystemExit("Google Drive upload API not found.")
+          if "createVoicePackage" not in app or "encryptedBytes" not in app:
+              raise SystemExit("Client-side encryption is not wired to upload.")
+          if "localStorage" in app or "sessionStorage" in app or "indexedDB" in app:
+              raise SystemExit("Voice enrollment must not persist tokens or raw audio in browser storage.")
+          print("Private Voice Vault static security contract: OK")
+          PY
