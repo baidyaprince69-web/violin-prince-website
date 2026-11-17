@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 from pathlib import Path
 from typing import Any
@@ -9,6 +10,21 @@ from typing import Any
 
 class PresenterIntegrationError(RuntimeError):
     """Raised when an explicitly requested presenter cannot be staged."""
+
+
+def enable_presenter_from_environment(
+    plan: dict[str, Any],
+    value: str | None = None,
+) -> dict[str, Any]:
+    """Apply the daily workflow's explicit presenter-enable switch.
+
+    An explicit plan-level true value remains valid. The environment setting
+    enables the presenter for every daily plan only when the workflow opts in.
+    """
+    setting = os.environ.get("VIOLIN_PRINCE_PRESENTER_ENABLED", "false") if value is None else value
+    if str(setting).strip().casefold() in {"1", "true", "yes", "on"}:
+        plan["use_violin_prince_presenter"] = True
+    return plan
 
 
 def attach_violin_prince_presenter(

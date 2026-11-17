@@ -57,6 +57,7 @@ jobs:
       # Enables the gated public GitHub Release handoff for validated daily Shorts.
       # YouTube upload remains a separate Metricool/operator action.
       PUBLISH_ENABLED: "true"
+      VIOLIN_PRINCE_PRESENTER_ENABLED: "true"
     steps:
       - name: Validate stage inputs
         if: github.event_name != 'push'

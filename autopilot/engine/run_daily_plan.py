@@ -32,6 +32,7 @@ from hyperframes_pipeline import render_daily_plan  # noqa: E402
 from character_presenter import (  # noqa: E402
     PresenterIntegrationError,
     attach_violin_prince_presenter,
+    enable_presenter_from_environment,
 )
 
 
@@ -351,6 +352,7 @@ def run_daily_plan(plan_path: Path) -> int:
     engine.WORK.mkdir(parents=True, exist_ok=True)
     engine.OUT.mkdir(parents=True, exist_ok=True)
     paths = engine._package_paths()
+    plan = enable_presenter_from_environment(plan)
     try:
         plan = attach_violin_prince_presenter(
             plan,

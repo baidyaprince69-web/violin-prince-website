@@ -30,6 +30,16 @@ class DailyPlanEvidenceTests(unittest.TestCase):
             "That resonance shapes the sound heard in the room.",
         ]
 
+    def test_presenter_workflow_flag_enables_daily_plans(self):
+        plan = {"scenes": []}
+        result = daily.enable_presenter_from_environment(plan, "true")
+        self.assertIs(result["use_violin_prince_presenter"], True)
+
+    def test_presenter_workflow_flag_stays_off_when_not_enabled(self):
+        plan = {"scenes": []}
+        result = daily.enable_presenter_from_environment(plan, "false")
+        self.assertNotIn("use_violin_prince_presenter", result)
+
     def test_exact_article_quotes_cover_each_body_sentence(self):
         evidence = [
             {"sentence_number": 2, "source_id": "S001", "quote": "Researchers measured the violin string vibration at several frequencies in a controlled acoustic experiment."},
