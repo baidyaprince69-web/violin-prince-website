@@ -56,14 +56,25 @@ def build_rig_preview_project(bundle_dir: str | Path, output_dir: str | Path) ->
             "width": face_layer["width"], "height": face_layer["height"],
         }
 
+    staged["pose_assets"] = {}
+    for name, pose in character.get("pose_assets", {}).items():
+        source = bundle_dir / pose["src"]
+        if not source.is_file():
+            raise RigPreviewError(f"Missing pose image: {source.name}")
+        target = asset_dir / source.name
+        shutil.copy2(source, target)
+        staged["pose_assets"][name] = {
+            "src": target.relative_to(output_dir).as_posix(),
+        }
+
     scene_actions = {
-        "scene-neutral": {"expression": "neutral", "duration": 1.2},
-        "scene-blink": {"expression": "blink", "duration": 1.0},
-        "scene-wave": {"gesture": "wave", "expression": "smile", "duration": 1.25},
-        "scene-explain": {"gesture": "explain", "expression": "speaking", "duration": 1.25},
-        "scene-left": {"gesture": "point_left", "expression": "neutral", "duration": 1.2},
-        "scene-right": {"gesture": "point_right", "expression": "neutral", "duration": 1.2},
-        "scene-palms": {"gesture": "open_palms", "expression": "smile", "duration": 1.2},
+        "scene-neutral": {"pose_asset": "resting_hands", "expression": "neutral", "duration": 1.2},
+        "scene-blink": {"pose_asset": "resting_hands", "expression": "blink", "duration": 1.0},
+        "scene-wave": {"pose_asset": "one_arm_raised", "expression": "neutral", "duration": 1.25},
+        "scene-explain": {"pose_asset": "explaining_two_hands", "expression": "speaking", "duration": 1.25},
+        "scene-left": {"pose_asset": "point_left", "expression": "neutral", "duration": 1.2},
+        "scene-right": {"pose_asset": "point_right", "expression": "neutral", "duration": 1.2},
+        "scene-palms": {"pose_asset": "open_palms", "expression": "smile", "duration": 1.2},
     }
     staged["scene_actions"] = scene_actions
     titles = [
