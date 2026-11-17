@@ -24,6 +24,7 @@ def build_rig_preview_project(bundle_dir: str | Path, output_dir: str | Path) ->
         raise RigPreviewError("The bundle must include character.json and separation-report.json.")
 
     from character_rig import validate_character_spec
+    from character_visual_validation import verify_character_visuals
     character = json.loads(spec_path.read_text(encoding="utf-8"))
     report = json.loads(report_path.read_text(encoding="utf-8"))
     if report.get("status") != "candidate_ready_for_visual_review":
@@ -32,6 +33,17 @@ def build_rig_preview_project(bundle_dir: str | Path, output_dir: str | Path) ->
         character = validate_character_spec(character)
     except Exception as exc:
         raise RigPreviewError(f"The generated character spec failed rig validation: {exc}") from exc
+
+    diagnostics = verify_character_visuals(character, bundle_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "character-visual-diagnostics.json").write_text(
+        json.dumps(diagnostics, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    if diagnostics.get("status") == "failed":
+        raise RigPreviewError(
+            "Character raster diagnostics failed: " + "; ".join(diagnostics.get("errors", []))
+        )
 
     asset_dir = output_dir / "assets" / "characters" / character["id"]
     asset_dir.mkdir(parents=True, exist_ok=True)

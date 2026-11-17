@@ -124,15 +124,21 @@ def normalize_visual_reference(
     summary = _short_text(value.get("reference_summary"), "reference_summary", 320)
 
     supplied_guidance = value.get("scene_guidance")
-    if supplied_guidance is not None:
-        if not isinstance(supplied_guidance, list) or len(supplied_guidance) != 3:
-            raise ValueError("visual_reference.scene_guidance must contain exactly three scene objects.")
-    else:
-        supplied_guidance = [{}, {}, {}]
-
     scene_list = scenes if isinstance(scenes, list) else []
+    scene_count = len(scene_list) if scene_list else 3
+    if not 2 <= scene_count <= 4:
+        raise ValueError("visual_reference requires between two and four planned scenes.")
+    if supplied_guidance is None:
+        supplied_guidance = []
+    if not isinstance(supplied_guidance, list) or len(supplied_guidance) > 4:
+        raise ValueError("visual_reference.scene_guidance must be an array of at most four scene objects.")
+    # Scene insertions/deletions preserve any available per-position guidance,
+    # pad new scenes with safe defaults, and discard guidance for deleted scenes.
+    supplied_guidance = list(supplied_guidance[:scene_count])
+    supplied_guidance.extend({} for _ in range(scene_count - len(supplied_guidance)))
+
     normalized_guidance: list[dict[str, str]] = []
-    for index in range(3):
+    for index in range(scene_count):
         supplied = supplied_guidance[index]
         if not isinstance(supplied, dict):
             raise ValueError(f"visual_reference.scene_guidance[{index}] must be an object.")

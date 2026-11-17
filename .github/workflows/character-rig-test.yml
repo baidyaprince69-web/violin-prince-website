@@ -12,6 +12,7 @@ on:
       - autopilot/engine/character_autorig.py
       - autopilot/engine/character_rig.py
       - autopilot/engine/character_rig_test.py
+      - autopilot/engine/character_visual_validation.py
       - autopilot/engine/character_daily_integration_test.py
       - autopilot/engine/character_presenter.py
       - autopilot/engine/illustration_asset_factory.py
@@ -73,6 +74,11 @@ jobs:
       - name: Install optional LaMa reconstruction backend
         if: inputs.use_lama
         run: pip install -r autopilot/engine/requirements-character-lama.txt
+
+      - name: Test raster-space layer, joint and occlusion diagnostics
+        env:
+          PYTHONPATH: autopilot/engine
+        run: python -m unittest autopilot.engine.tests.test_character_visual_validation -v
 
       - name: Separate the master character and build transparent layers
         run: |
