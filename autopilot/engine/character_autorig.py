@@ -435,6 +435,21 @@ def _recover_hand_fingers_from_skin(
     return result, added
 
 
+def _joint_disk(
+    shape: tuple[int, int],
+    point: tuple[float, float],
+    *,
+    radius: int,
+) -> np.ndarray:
+    """A bounded circular overlap zone centred on an authored joint anchor."""
+    if radius < 1:
+        raise ValueError("Joint patch radius must be at least one pixel.")
+    height, width = shape
+    yy, xx = np.ogrid[:height, :width]
+    px, py = point
+    return (xx - float(px)) ** 2 + (yy - float(py)) ** 2 <= int(radius) ** 2
+
+
 def _dark_garment_underlap(
     image: Image.Image,
     child: np.ndarray,
@@ -616,6 +631,7 @@ def separate_from_parsing(
     masks: dict[str, np.ndarray] = {"torso": torso, "head": head, "face": face}
     hand_recovery_pixels: dict[str, int] = {}
     joint_reference_masks: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+    joint_centers: dict[str, dict[str, tuple[float, float]]] = {}
     joint_overlap_pixels: dict[str, int] = {}
     for side in ("left", "right"):
         upper, forearm, hand = _split_arm(
@@ -632,11 +648,24 @@ def separate_from_parsing(
         # child segments rotate independently.
         joint_reference_masks[f"{side}_elbow"] = (upper.copy(), forearm.copy())
         joint_reference_masks[f"{side}_wrist"] = (forearm.copy(), hand.copy())
-        elbow_underlap = _dark_garment_underlap(
-            image, forearm, upper, sides[side], radius=12
+        elbow_point = _joint_between(upper, forearm)
+        wrist_point = _joint_between(forearm, hand)
+        joint_centers[side] = {"elbow": elbow_point, "wrist": wrist_point}
+        elbow_zone = _joint_disk(upper.shape, elbow_point, radius=24)
+        wrist_zone = _joint_disk(hand.shape, wrist_point, radius=20)
+        elbow_underlap = (
+            _dark_garment_underlap(
+                image, forearm, upper, sides[side], radius=8
+            )
+            & elbow_zone
         )
-        wrist_underlap = _dark_garment_underlap(
-            image, hand, forearm, sides[side], radius=10
+        # Wrist underlap is confined to a small patch around the pivot. This
+        # bridges the rotating joint but cannot leave a second stationary palm.
+        wrist_underlap = (
+            _morph(hand, 8, "dilate")
+            & sides[side]
+            & ~forearm
+            & wrist_zone
         )
         upper = upper | elbow_underlap
         forearm = forearm | wrist_underlap
@@ -717,10 +746,11 @@ def separate_from_parsing(
         },
         "joint_underlap": {
             "method": "child-overlap-covered-by-parent-layer",
-            "elbow_radius_px": 12,
-            "wrist_radius_px": 10,
-            "pixel_filter": "dark_sleeve_or_cuff_only",
-            "maximum_source_channel_value": 145,
+            "elbow_radius_px": 24,
+            "wrist_radius_px": 20,
+            "wrist_patch": "localized_around_joint_anchor_only",
+            "elbow_pixel_filter": "dark_sleeve_or_cuff_only",
+            "elbow_maximum_source_channel_value": 145,
             "overlap_pixels": joint_overlap_pixels,
             "joint_anchors_use_unexpanded_masks": True,
             "visual_review_required": True,
