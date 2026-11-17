@@ -856,8 +856,9 @@ def _face_plate(
     destination: Path,
     *,
     alpha_mask: np.ndarray,
+    base_face_path: Path | None = None,
 ) -> None:
-    """Register a full face crop, remove its white backdrop, and apply the master silhouette.
+    """Register an expression below the master hairline and apply the master silhouette.
 
     Expression references use the same centered portrait layout but can vary
     slightly in scale. Crop from forehead to chin using the destination face
@@ -889,7 +890,40 @@ def _face_plate(
     combined_alpha = (
         expression_alpha * alpha.astype(np.uint16) + 127
     ) // 255
-    crop_rgba.putalpha(Image.fromarray(combined_alpha.astype(np.uint8), mode="L"))
+
+    if base_face_path is not None:
+        # Expression references have a slightly different fringe from the
+        # master illustration. Keep the master face layer's upper hairline,
+        # then feather into the alternate eyes/mouth below it. This prevents
+        # a second curl band from appearing over the rig's original hairstyle.
+        with Image.open(base_face_path) as opened_base:
+            base_face = opened_base.convert("RGBA")
+        if base_face.size != target_size:
+            raise AutoRigError("Master face plate must match the expression target dimensions.")
+        height = target_size[1]
+        preserve_rows = int(round(height * 0.14))
+        feather_rows = max(1, int(round(height * 0.04)))
+        blend_end = min(height, preserve_rows + feather_rows)
+        expression_blend = np.full(height, 255, dtype=np.uint8)
+        expression_blend[:preserve_rows] = 0
+        if blend_end > preserve_rows:
+            expression_blend[preserve_rows:blend_end] = np.linspace(
+                0, 255, blend_end - preserve_rows, endpoint=True, dtype=np.uint8
+            )
+        blend_2d = expression_blend[:, None].astype(np.uint16)
+        expression_out_alpha = (
+            combined_alpha.astype(np.uint16) * blend_2d + 127
+        ) // 255
+        base_out_alpha = (
+            np.asarray(base_face.getchannel("A"), dtype=np.uint16)
+            * (255 - blend_2d) + 127
+        ) // 255
+        crop_rgba.putalpha(Image.fromarray(expression_out_alpha.astype(np.uint8), mode="L"))
+        base_face.putalpha(Image.fromarray(base_out_alpha.astype(np.uint8), mode="L"))
+        crop_rgba = Image.alpha_composite(base_face, crop_rgba)
+    else:
+        crop_rgba.putalpha(Image.fromarray(combined_alpha.astype(np.uint8), mode="L"))
+
     destination.parent.mkdir(parents=True, exist_ok=True)
     crop_rgba.save(destination, format="PNG", optimize=True)
 
@@ -1029,6 +1063,7 @@ def create_character_bundle(
                 (face_width, face_height),
                 destination,
                 alpha_mask=face_alpha,
+                base_face_path=output_dir / "face.png",
             )
         expressions[name] = {"src": plate_name}
 
