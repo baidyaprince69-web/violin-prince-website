@@ -8,6 +8,7 @@ from character_autorig import (
     AutoRigError,
     ManualReviewRequired,
     _repair_hidden_area,
+    _close_small_mask_holes,
     _dark_garment_underlap,
     _joint_disk,
     _recover_hand_fingers_from_skin,
@@ -168,6 +169,18 @@ class CharacterAutoRigTests(unittest.TestCase):
         )
         self.assertTrue(np.any(overlap[15:25, 11:15]))
         self.assertFalse(np.any(overlap[11:29, 15:29]))
+
+    def test_head_neck_mask_closes_small_alpha_pinholes(self):
+        neck = np.zeros((40, 60), dtype=bool)
+        neck[5:35, 10:50] = True
+        neck[15, 24] = False
+        neck[20:22, 37] = False
+
+        closed = _close_small_mask_holes(neck, size=5)
+        self.assertTrue(closed[15, 24])
+        self.assertTrue(closed[20, 37])
+        self.assertFalse(closed[2, 2])
+        self.assertFalse(closed[38, 58])
 
     def test_large_hidden_area_fails_closed_without_lama(self):
         image = Image.new("RGB", (80, 80), (100, 100, 100))
