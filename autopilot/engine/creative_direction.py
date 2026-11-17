@@ -132,8 +132,8 @@ def validate_creative_plan(plan: dict[str, Any]) -> list[str]:
         )
 
     scenes = plan.get("scenes")
-    if not isinstance(scenes, list) or len(scenes) != 3:
-        issues.append("The approved format requires exactly three visual story beats.")
+    if not isinstance(scenes, list) or not 2 <= len(scenes) <= 4:
+        issues.append("The approved format requires between two and four visual story beats.")
         return issues
 
     modes = []
@@ -155,11 +155,11 @@ def validate_creative_plan(plan: dict[str, Any]) -> list[str]:
             issues.append(f"Scene {index} needs a specific visual prompt.")
 
     if len(set(modes)) < 2:
-        issues.append("The three scenes need at least two distinct visual modes.")
+        issues.append("The scenes need at least two distinct visual modes.")
     if scenes and isinstance(scenes[-1], dict):
         if str(scenes[-1].get("visual_mode") or "").strip().casefold() != "cover_performance":
             issues.append(
-                "Scene 3 must deliver the musical payoff through a cover_performance insert."
+                f"Scene {len(scenes)} must deliver the musical payoff through a cover_performance insert."
             )
 
     return issues

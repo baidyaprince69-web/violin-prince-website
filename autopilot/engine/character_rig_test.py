@@ -24,6 +24,7 @@ def build_rig_preview_project(bundle_dir: str | Path, output_dir: str | Path) ->
         raise RigPreviewError("The bundle must include character.json and separation-report.json.")
 
     from character_rig import validate_character_spec
+    from character_visual_validation import verify_character_visuals
     character = json.loads(spec_path.read_text(encoding="utf-8"))
     report = json.loads(report_path.read_text(encoding="utf-8"))
     if report.get("status") != "candidate_ready_for_visual_review":
@@ -32,6 +33,20 @@ def build_rig_preview_project(bundle_dir: str | Path, output_dir: str | Path) ->
         character = validate_character_spec(character)
     except Exception as exc:
         raise RigPreviewError(f"The generated character spec failed rig validation: {exc}") from exc
+
+    # These diagnostics validate raster structure only. Warnings remain visible,
+    # and a clean report never substitutes for human artistic approval.
+    diagnostics = verify_character_visuals(character, bundle_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    diagnostics_path = output_dir / "character-visual-diagnostics.json"
+    diagnostics_path.write_text(
+        json.dumps(diagnostics, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    if diagnostics.get("status") == "failed":
+        raise RigPreviewError(
+            "Character raster diagnostics failed: " + "; ".join(diagnostics.get("errors", []))
+        )
 
     asset_dir = output_dir / "assets" / "characters" / character["id"]
     asset_dir.mkdir(parents=True, exist_ok=True)
@@ -131,6 +146,14 @@ def build_rig_preview_project(bundle_dir: str | Path, output_dir: str | Path) ->
                 "torso_body_pivot_rotation",
             ],
             "pose_plates_used_for_articulation": False,
+            "raster_diagnostics": {
+                "scope": "layer_raster_joint_alignment_and_occlusion_only",
+                "status": diagnostics.get("status"),
+                "report": diagnostics_path.name,
+                "errors": list(diagnostics.get("errors", [])),
+                "warnings": list(diagnostics.get("warnings", [])),
+                "visual_review_required": True,
+            },
             "publishing": "disabled",
         },
     }
@@ -142,6 +165,8 @@ def build_rig_preview_project(bundle_dir: str | Path, output_dir: str | Path) ->
         "Head, arm chains and torso are animated from separated layers and joint pivots.\n"
         "Pose plates are references only and are not used to fake articulation.\n"
         "Review separation-preview.png and separation-report.json before accepting the rig.\n"
+        "See character-visual-diagnostics.json for raster-only structural warnings and failures.\n"
+        "Raster diagnostics do not certify artistic quality; human visual review remains required.\n"
         "No publishing or YouTube actions are performed.\n",
         encoding="utf-8",
     )

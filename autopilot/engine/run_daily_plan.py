@@ -280,6 +280,12 @@ def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list
         raise engine.PipelineError("Narration failed its four-sentence/40–44-word check: " + narration_issue + ".")
 
     sentences = engine.narration_sentences(script)
+    from scene_timeline import apply_scene_operations, ScenePlanError
+    try:
+        plan = apply_scene_operations(plan, script, minimum_scenes=2, maximum_scenes=4)
+    except ScenePlanError as exc:
+        raise engine.PipelineError("Scene/narration contract blocked the plan: " + str(exc)) from exc
+    sentences = engine.narration_sentences(script)
     plan["narration_evidence"] = validate_claim_evidence(
         plan.get("narration_evidence") or [], verified, sentences
     )
@@ -332,9 +338,15 @@ def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list
     labels = ("THE HOOK", "THE KEY DETAIL", "THE PAYOFF")
     beats = engine.narration_sentences(script)
     for index, scene in enumerate(plan["scenes"]):
-        scene["graphic_label"] = str(scene.get("graphic_label") or labels[index])[:32]
+        default_label = labels[0] if index == 0 else labels[-1] if index == len(plan["scenes"]) - 1 else f"THE DETAIL {index}"
+        mapped_beats = [
+            beats[sentence_index]
+            for sentence_index in scene.get("narration_sentence_indexes", [])
+            if 0 <= sentence_index < len(beats)
+        ]
+        scene["graphic_label"] = str(scene.get("graphic_label") or default_label)[:32]
         scene["graphic_detail"] = str(
-            scene.get("graphic_detail") or beats[min(index, len(beats) - 1)]
+            scene.get("graphic_detail") or " ".join(mapped_beats) or scene.get("caption", "")
         )[:88]
     return plan, verified
 
@@ -381,6 +393,22 @@ def run_daily_plan(plan_path: Path) -> int:
     if not audio_bytes or len(audio_bytes) < 4096:
         raise engine.PipelineError("The free CC0/ambient violin soundtrack could not be prepared.")
     paths["audio"].write_bytes(audio_bytes)
+    from audio_analysis import analyse_audio_file
+    known_bpm = (
+        (audio_asset.get("bpm") or (audio_asset.get("metadata") or {}).get("bpm"))
+        if isinstance(audio_asset, dict) else None
+    )
+    beat_analysis = analyse_audio_file(
+        paths["audio"],
+        known_bpm=known_bpm,
+        known_beat_times=(audio_asset.get("beat_times") if isinstance(audio_asset, dict) else None),
+        known_downbeats=(audio_asset.get("downbeats") if isinstance(audio_asset, dict) else None),
+        known_onsets=(audio_asset.get("onsets") if isinstance(audio_asset, dict) else None),
+    )
+    (engine.PACKAGE / "music-analysis.json").write_text(
+        json.dumps(beat_analysis, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
     narration_path, narration_info = synthesize_voiceover(
         plan["narration_script"], engine.OUT / "narration.wav"
@@ -396,18 +424,23 @@ def run_daily_plan(plan_path: Path) -> int:
         json.dumps(plan["quality_control"], ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
+    from scene_timeline import scene_asset_path
+    from media_verification import verify_image_asset, verify_scene_assets
     images = []
     for index, scene in enumerate(plan["scenes"]):
-        image_path = engine.PACKAGE / f"scene-{index + 1}.jpg"
+        image_path = scene_asset_path(str(engine.PACKAGE), scene, index, allow_legacy=False)
         image_path.parent.mkdir(parents=True, exist_ok=True)
-        if image_path.is_file():
+        if image_path.is_file() and scene.get("_visual_asset_invalidated") is not True:
             try:
                 with Image.open(image_path) as existing:
                     existing.verify()
                 images.append(image_path)
+                scene.pop("_visual_asset_invalidated", None)
                 continue
             except Exception:
                 image_path.unlink(missing_ok=True)
+        elif image_path.is_file():
+            image_path.unlink(missing_ok=True)
 
         prompt = engine._scene_visual_prompt(scene, index=index, plan=plan)
         try:
@@ -417,20 +450,31 @@ def run_daily_plan(plan_path: Path) -> int:
             engine.time.sleep(2)
             generated_image = engine.make_image(prompt, index)
         image_path.write_bytes(generated_image.read_bytes())
-        try:
-            with Image.open(image_path) as image_check:
-                if image_check.width < 512 or image_check.height < 512:
-                    raise engine.PipelineError(
-                        f"Generated scene illustration {index + 1} is unexpectedly small."
-                    )
-                image_check.verify()
-        except engine.PipelineError:
-            raise
-        except Exception as exc:
+        image_report = verify_image_asset(image_path)
+        if image_report.get("status") == "failed":
             raise engine.PipelineError(
-                f"Generated scene illustration {index + 1} failed image validation."
-            ) from exc
+                f"Scene illustration {scene['id']} failed independent checks: "
+                + json.dumps(image_report.get("errors", []), ensure_ascii=False)
+            )
         images.append(image_path)
+        scene.pop("_visual_asset_invalidated", None)
+
+    paths["plan"].write_text(
+        json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    scene_media_report = verify_scene_assets(
+        plan["scenes"], images, total_seconds=24.0, narration_info=narration_info,
+        expected_narration_script=plan.get("narration_script"),
+    )
+    if scene_media_report.get("status") == "failed":
+        raise engine.PipelineError(
+            "Scene media verification failed: "
+            + json.dumps(scene_media_report.get("errors", []), ensure_ascii=False)
+        )
+    (engine.PACKAGE / "media-verification.json").write_text(
+        json.dumps(scene_media_report, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
     character_assets = prepare_character_assets(
         plan,
@@ -468,7 +512,8 @@ def run_daily_plan(plan_path: Path) -> int:
     audio_path = engine.WORK / "approved-audio"
     audio_path.write_bytes(audio_bytes)
     video_quality = render_daily_plan(
-        engine, plan, images, audio_path, narration_path, narration_info, character_assets
+        engine, plan, images, audio_path, narration_path, narration_info, character_assets,
+        beat_analysis=beat_analysis,
     )
     final_video = engine.OUT / "violin-prince-short.mp4"
     manifest, _provenance = write_handoff_files(
