@@ -851,14 +851,10 @@ def _face_expression_crop_box(
 
 
 
-def _remove_top_connected_dark_foreground(
-    image: Image.Image,
-    foreground: np.ndarray,
-) -> np.ndarray:
-    """Remove dark hair touching the crop's top edge, but retain enclosed facial details."""
+def _top_connected_dark_mask(image: Image.Image) -> np.ndarray:
+    """Find dark hair touching the crop's top edge without selecting separate facial details."""
     rgb = np.asarray(image.convert("RGB"), dtype=np.uint8)
-    maximum = rgb.max(axis=2)
-    dark = maximum <= 118
+    dark = rgb.max(axis=2) <= 118
     dark_image = Image.fromarray(dark.astype(np.uint8) * 255, mode="L")
     # Close tiny highlight gaps in illustrated hair before finding components
     # connected to the top crop edge. Brows, glasses and moustache remain
@@ -867,8 +863,7 @@ def _remove_top_connected_dark_foreground(
     for x in range(dark_image.width):
         if dark_image.getpixel((x, 0)) == 255:
             ImageDraw.floodfill(dark_image, (x, 0), 128, thresh=0)
-    top_connected_hair = np.asarray(dark_image, dtype=np.uint8) == 128
-    return foreground & ~top_connected_hair
+    return np.asarray(dark_image, dtype=np.uint8) == 128
 
 def _face_plate(
     path: Path,
@@ -894,10 +889,8 @@ def _face_plate(
         crop,
         {"expression": np.ones((crop.height, crop.width), dtype=bool)},
     )
-    clean_foreground = _remove_top_connected_dark_foreground(
-        crop, foreground["expression"]
-    )
-    crop_alpha = _soft_alpha_from_mask(clean_foreground, blur_radius=0.8)
+    top_connected_hair = _top_connected_dark_mask(crop)
+    crop_alpha = _soft_alpha_from_mask(foreground["expression"], blur_radius=0.8)
     crop_rgba = crop.convert("RGBA")
     crop_rgba.putalpha(Image.fromarray(crop_alpha, mode="L"))
     crop_rgba = crop_rgba.resize(target_size, Image.Resampling.LANCZOS)
@@ -915,37 +908,28 @@ def _face_plate(
     ) // 255
 
     if base_face_path is not None:
-        # Expression references have a slightly different fringe from the
-        # master illustration. Keep the master face layer's upper hairline,
-        # then feather into the alternate eyes/mouth below it. This prevents
-        # a second curl band from appearing over the rig's original hairstyle.
+        # Keep the expression plate opaque across the full face, but replace
+        # only the source-reference hair connected to the crop's top edge
+        # with the correctly aligned master hair pixels. This avoids both a
+        # duplicate fringe and transparent holes that reveal neutral brows.
         with Image.open(base_face_path) as opened_base:
-            base_face = opened_base.convert("RGBA")
+            base_face = opened_base.convert("RGB")
         if base_face.size != target_size:
             raise AutoRigError("Master face plate must match the expression target dimensions.")
-        height = target_size[1]
-        preserve_rows = int(round(height * 0.14))
-        feather_rows = max(1, int(round(height * 0.04)))
-        blend_end = min(height, preserve_rows + feather_rows)
-        expression_blend = np.full(height, 255, dtype=np.uint8)
-        expression_blend[:preserve_rows] = 0
-        if blend_end > preserve_rows:
-            expression_blend[preserve_rows:blend_end] = np.linspace(
-                0, 255, blend_end - preserve_rows, endpoint=True, dtype=np.uint8
-            )
-        blend_2d = expression_blend[:, None].astype(np.uint16)
-        expression_out_alpha = (
-            combined_alpha.astype(np.uint16) * blend_2d + 127
+        hair_mask = Image.fromarray(
+            top_connected_hair.astype(np.uint8) * 255, mode="L"
+        ).filter(ImageFilter.GaussianBlur(0.8)).resize(
+            target_size, Image.Resampling.LANCZOS
+        )
+        blend = np.asarray(hair_mask, dtype=np.uint16)[:, :, None]
+        expression_rgb = np.asarray(crop_rgba.convert("RGB"), dtype=np.uint16)
+        master_rgb = np.asarray(base_face, dtype=np.uint16)
+        blended_rgb = (
+            expression_rgb * (255 - blend) + master_rgb * blend + 127
         ) // 255
-        base_out_alpha = (
-            np.asarray(base_face.getchannel("A"), dtype=np.uint16)
-            * (255 - blend_2d) + 127
-        ) // 255
-        crop_rgba.putalpha(Image.fromarray(expression_out_alpha.astype(np.uint8), mode="L"))
-        base_face.putalpha(Image.fromarray(base_out_alpha.astype(np.uint8), mode="L"))
-        crop_rgba = Image.alpha_composite(base_face, crop_rgba)
-    else:
-        crop_rgba.putalpha(Image.fromarray(combined_alpha.astype(np.uint8), mode="L"))
+        crop_rgba = Image.fromarray(blended_rgb.astype(np.uint8), mode="RGB").convert("RGBA")
+
+    crop_rgba.putalpha(Image.fromarray(combined_alpha.astype(np.uint8), mode="L"))
 
     destination.parent.mkdir(parents=True, exist_ok=True)
     crop_rgba.save(destination, format="PNG", optimize=True)
