@@ -423,7 +423,7 @@ This file is the canonical workflow baseline; newer verified code and explicitly
 
 ## Addendum — private own-voice enrollment (2026-11-18)
 
-**Status:** Private browser enrollment UI and client-side encryption implemented on the isolated feature branch. Live HTTPS/OAuth/microphone/Drive integration testing is still required. The page is not live until the change is merged and GitHub Pages deploys it.
+**Status:** Private browser enrollment UI and client-side AES-GCM encryption are merged and deployed on GitHub Pages. The user confirmed that an encrypted `.vprvoice` package was saved to their private Google Drive and that the Drive privacy check passed. Qwen voice cloning has not yet used this package.
 
 The new `voice-vault/` page can record through the browser microphone or accept an existing audio recording. It retains the original input, derives a 24 kHz mono PCM16 WAV locally, and requires the exact spoken transcript. It packages the original recording, model-ready WAV, and transcript and encrypts them in the browser using AES-256-GCM with a passphrase-derived key (PBKDF2-SHA256, 600,000 iterations) before sending ciphertext to the owner's Google Drive.
 
@@ -431,7 +431,7 @@ Google OAuth requests only the `drive.file` scope. The short-lived access token 
 
 No plaintext voice recording, normalized WAV, transcript, passphrase, OAuth token, voice embedding, or model profile may be committed to GitHub or uploaded as an Actions artifact/release asset. Recovery decrypts locally in the browser; the passphrase cannot be recovered if lost.
 
-**Enrollment route after deployment:** `https://baidyaprince69-web.github.io/violin-prince-website/voice-vault/`
+**Deployed enrollment route:** `https://baidyaprince69-web.github.io/violin-prince-website/voice-vault/`
 
 This is an enrollment UI, not a running voice-cloning system. The production `voiceover.py` now fails closed: narration cannot be generated until Qwen3-TTS and GPT-SoVITS have each been tested with the creator's own voice, hosting/quota/licence and alignment are validated, and the creator approves a production provider. The approved identity must remain the creator's own voice. If neither provider can produce acceptable narration, keep production stopped; never substitute Kokoro, a preset speaker, or another person's voice.
 
