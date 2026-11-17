@@ -618,8 +618,12 @@ def separate_from_parsing(
     # Use the independent Pascal head silhouette and a bounded facial region
     # inside that silhouette instead of trusting the ATR face class.
     hair = _clean_segmentation_specks(_mask(detail_labels, 2), size=9)
-    head = _clean_segmentation_specks(head_coarse | hair, size=9)
-    face = _face_region_from_head(head)
+    head_full = _clean_segmentation_specks(head_coarse | hair, size=9)
+    face = _face_region_from_head(head_full)
+    # Keep the head layer limited to the hair/skull/side contour. The face is
+    # a separate animated plate; retaining the original facial pixels in
+    # head.png creates doubled eyes and mouth beneath alternate expressions.
+    head = head_full & ~face
     if int(torso.sum()) < 100 or int(head.sum()) < 100 or int(face.sum()) < 40:
         raise ManualReviewRequired(
             "The parsers could not identify a reliable head, face and torso. "
