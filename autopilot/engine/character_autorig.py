@@ -570,7 +570,14 @@ def _save_pose_plate(source_path: Path, destination: Path) -> None:
     spread = rgb.max(axis=2).astype(np.float32) - minimum
     whiteness = np.clip((minimum - 232.0) / 20.0, 0.0, 1.0)
     neutral = np.clip(1.0 - spread / 32.0, 0.0, 1.0)
-    alpha = np.clip(255.0 * (1.0 - whiteness * neutral), 0, 255).astype(np.uint8)
+    background = Image.fromarray(
+        np.clip(255.0 * whiteness * neutral, 0, 255).astype(np.uint8), mode="L"
+    )
+    # JPEG compression can leave isolated dark flecks in an otherwise white
+    # studio background. A small median filter removes those specks without
+    # eroding the thick illustrated character outlines.
+    background = background.filter(ImageFilter.MedianFilter(7))
+    alpha = 255 - np.asarray(background, dtype=np.uint8)
     plate = Image.fromarray(np.dstack((rgb, alpha)), mode="RGBA")
     destination.parent.mkdir(parents=True, exist_ok=True)
     plate.save(destination, format="PNG", optimize=True)
