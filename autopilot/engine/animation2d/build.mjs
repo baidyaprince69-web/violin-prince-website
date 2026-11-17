@@ -18,7 +18,7 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
-function renderCharacter(character, scene) {
+function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWidth, canvasHeight) {
   const action = (character.scene_actions || {})[scene.id] ||
     ((scene.character_actions || {})[character.id] || {});
   if (Array.isArray(character.scene_ids) && !character.scene_ids.includes(scene.id)) return "";
@@ -28,17 +28,34 @@ function renderCharacter(character, scene) {
     "top:" + Number(action.y ?? character.y ?? 0) + "px",
     "transform:scale(" + Number(action.scale ?? character.scale ?? 1) + ")"
   ].join(";");
+  const jointForRole = {
+    head: "neck",
+    left_upper_arm: "left_shoulder",
+    left_forearm: "left_elbow",
+    left_hand: "left_wrist",
+    right_upper_arm: "right_shoulder",
+    right_forearm: "right_elbow",
+    right_hand: "right_wrist"
+  };
   const layers = (character.layers || []).map((layer) => {
+    const jointName = jointForRole[layer.role];
+    const joint = jointName ? (character.joints || {})[jointName] : null;
+    const pivotX = joint
+      ? ((Number(joint.x) * canvasWidth - Number(layer.x)) / Number(layer.width)) * 100
+      : Number(layer.pivot_x ?? 0.5) * 100;
+    const pivotY = joint
+      ? ((Number(joint.y) * canvasHeight - Number(layer.y)) / Number(layer.height)) * 100
+      : Number(layer.pivot_y ?? 0.5) * 100;
     const style = [
       "left:" + Number(layer.x) + "px",
       "top:" + Number(layer.y) + "px",
       "width:" + Number(layer.width) + "px",
       "height:" + Number(layer.height) + "px",
-      "transform-origin:" + (Number(layer.pivot_x ?? 0.5) * 100) + "% " +
-        (Number(layer.pivot_y ?? 0.5) * 100) + "%",
+      "transform-origin:" + pivotX + "% " + pivotY + "%",
       "z-index:" + Number(layer.z_index ?? 1)
     ].join(";");
     return '<img class="rig-part" data-role="' + escapeHtml(layer.role) +
+      '" data-joint="' + escapeHtml(jointName || "") +
       '" alt="" draggable="false" src="' + escapeHtml(layer.src) +
       '" style="' + style + '">';
   }).join("");
@@ -60,7 +77,8 @@ function renderCharacter(character, scene) {
 
   return '<div class="clip character-rig" id="' + escapeHtml(scene.id + "-" + character.id) +
     '" data-start="' + Number(scene.start) + '" data-duration="' + Number(scene.duration) +
-    '" data-track-index="30" style="' + wrapperStyle + '">' + layers + expressions + '</div>';
+    '" data-track-index="' + (40 + sceneIndex * 100 + characterIndex) +
+    '" style="' + wrapperStyle + '">' + layers + expressions + '</div>';
 }
 
 const args = parseArgs(process.argv.slice(2));
@@ -79,7 +97,10 @@ if (!Number.isFinite(duration) || duration <= 0) {
 }
 
 mkdirSync(resolve(outputDir, "dist"), { recursive: true });
+const sceneIds = new Set();
 const markup = project.scenes.map((scene, index) => {
+  if (sceneIds.has(scene.id)) throw new Error("Scene ids must be unique: " + scene.id);
+  sceneIds.add(scene.id);
   const start = Number(scene.start) || 0;
   const sceneDuration = Number(scene.duration);
   if (!scene.id || !Number.isFinite(sceneDuration) || sceneDuration <= 0) {
@@ -96,13 +117,15 @@ const markup = project.scenes.map((scene, index) => {
       escapeHtml(scene.background_color || "#101b2b") + '"></div>';
   const title = '<div class="clip scene-title" id="' + escapeHtml(scene.id) +
     '-title" data-start="' + (start + 0.12) + '" data-duration="' +
-    Math.max(0.25, sceneDuration - 0.12) + '" data-track-index="10">' +
+    Math.max(0.25, sceneDuration - 0.12) + '" data-track-index="' + (10 + index * 3) + '">' +
     escapeHtml(scene.title || (index === 0 ? project.title : "")) + '</div>';
   const caption = '<div class="clip scene-caption" id="' + escapeHtml(scene.id) +
     '-caption" data-start="' + (start + 0.45) + '" data-duration="' +
-    Math.max(0.25, sceneDuration - 0.45) + '" data-track-index="11">' +
+    Math.max(0.25, sceneDuration - 0.45) + '" data-track-index="' + (11 + index * 3) + '">' +
     escapeHtml(scene.caption || "") + '</div>';
-  const characters = (project.characters || []).map((character) => renderCharacter(character, scene)).join("");
+  const characters = (project.characters || []).map((character, characterIndex) =>
+    renderCharacter(character, scene, index, characterIndex, width, height)
+  ).join("");
   return background + title + caption + characters;
 }).join("");
 

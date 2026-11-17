@@ -1,21 +1,45 @@
-import { animate } from "motion";
-import { clampTime, springKeyframes, gestureKeyframes } from "./contract.mjs";
+import { animate, spring } from "motion";
+import { gsap } from "gsap";
+import { gestureKeyframes } from "./contract.mjs";
 
 const project = window.VP_PROJECT || {};
 const frameRate = Math.max(1, Number(project.fps) || 25);
 const totalDuration = Math.max(0, Number(project.duration_seconds) || 0);
 const springAnimations = [];
 const keyframes = [];
-const activeAnimations = [];
 
 function pauseControl(control) {
   if (control && typeof control.pause === "function") control.pause();
   return control;
 }
 
-function addSpring(element, property, from, to, start, duration, options = {}) {
+function sampleMotionSpring(from, to, maxDurationSeconds) {
+  const generator = spring({
+    keyframes: [Number(from), Number(to)],
+    stiffness: 320,
+    damping: 26,
+    mass: 1
+  });
+  const stepMs = 1000 / frameRate;
+  const maxMs = Math.max(250, Math.min(4000, Number(maxDurationSeconds) * 1000));
+  const values = [];
+  for (let at = 0; at <= maxMs; at += stepMs) {
+    const state = generator.next(at);
+    if (!Number.isFinite(Number(state.value))) {
+      throw new Error("Motion returned a non-finite spring keyframe.");
+    }
+    values.push(Number(state.value));
+    if (state.done) break;
+  }
+  if (Math.abs(values[values.length - 1] - Number(to)) > 0.001) {
+    values.push(Number(to));
+  }
+  return values;
+}
+
+function addSpring(element, property, from, to, start, duration) {
   if (!element) return;
-  const samples = springKeyframes(from, to, frameRate, Math.max(250, duration * 1000));
+  const samples = sampleMotionSpring(from, to, Math.max(0.25, duration / 1000));
   const sampledDuration = samples.length / frameRate;
   const control = pauseControl(animate(element, {
     [property]: samples
@@ -26,6 +50,7 @@ function addSpring(element, property, from, to, start, duration, options = {}) {
     delay: Math.max(0, Number(start) || 0),
     fill: "both"
   }));
+  if (control && "time" in control) control.time = 0;
   springAnimations.push({ control, start, duration: sampledDuration, property });
   return control;
 }
@@ -109,8 +134,13 @@ for (const scene of project.scenes || []) {
   }
 }
 
-// HyperFrames discovers Motion's native Web Animations through its WAAPI adapter.
-// These animations are created paused, with fixed finite timing and deterministic keyframes.
+// HyperFrames uses a paused root GSAP timeline as its composition clock.
+// Motion generates visual keyframes; HyperFrames' WAAPI adapter seeks these
+// animations to the exact frame time, including sampled spring curves.
+const rootTimeline = gsap.timeline({ paused: true });
+rootTimeline.to({ compositionTime: 0 }, { compositionTime: 1, duration: totalDuration }, 0);
+window.__timelines = window.__timelines || {};
+window.__timelines.root = rootTimeline;
 window.__vpMotionDiagnostics = {
   keyframeAnimations: keyframes.length,
   springAnimations: springAnimations.length,
