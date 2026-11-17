@@ -416,3 +416,20 @@ When asked for the workflow or an implementation based on it:
 6. For implementation requests, follow the development workflow in Section 16 and update this document after material architecture changes.
 
 This file is the canonical workflow baseline; newer verified code and explicitly approved user decisions supersede outdated implementation-status statements, and should be reflected here in a new revision.
+
+
+---
+
+## Addendum — private own-voice enrollment (2026-11-18)
+
+**Status:** Private browser enrollment UI and client-side encryption implemented on the isolated feature branch. Live HTTPS/OAuth/microphone/Drive integration testing is still required. The page is not live until the change is merged and GitHub Pages deploys it.
+
+The new `voice-vault/` page can record through the browser microphone or accept an existing audio recording. It retains the original input, derives a 24 kHz mono PCM16 WAV locally, and requires the exact spoken transcript. It packages the original recording, model-ready WAV, and transcript and encrypts them in the browser using AES-256-GCM with a passphrase-derived key (PBKDF2-SHA256, 600,000 iterations) before sending ciphertext to the owner's Google Drive.
+
+Google OAuth requests only the `drive.file` scope. The short-lived access token remains in JavaScript memory. The page only reuses a folder created by this application and stops if Google reports that folder as shared. It creates no public sharing permissions. The Drive folder remains subject to the owner's Google Drive account and sharing settings.
+
+No plaintext voice recording, normalized WAV, transcript, passphrase, OAuth token, voice embedding, or model profile may be committed to GitHub or uploaded as an Actions artifact/release asset. Recovery decrypts locally in the browser; the passphrase cannot be recovered if lost.
+
+**Enrollment route after deployment:** `https://baidyaprince69-web.github.io/violin-prince-website/voice-vault/`
+
+This is an enrollment UI, not a running voice-cloning system. The production `voiceover.py` remains on its current narrator until the user has enrolled a recording, Qwen3-TTS and GPT-SoVITS have each been tested with the user's voice, hosting/quota/licence and alignment are validated, and the user approves the production switch. The approved identity remains the user's own voice across both providers. If neither provider can produce acceptable narration in that identity, stop the production run; never substitute Kokoro, a preset speaker, or another person's voice.
