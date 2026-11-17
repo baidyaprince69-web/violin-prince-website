@@ -25,7 +25,7 @@ ENGINE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(ENGINE_DIR))
 
 import run as engine  # noqa: E402
-from voiceover import synthesize_voiceover  # noqa: E402
+from voiceover import require_approved_own_voice, synthesize_voiceover  # noqa: E402
 from publish_handoff import validate_publish_metadata, write_handoff_files  # noqa: E402
 from illustration_asset_factory import prepare_character_assets  # noqa: E402
 from hyperframes_pipeline import render_daily_plan  # noqa: E402
@@ -352,6 +352,8 @@ def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list
 
 
 def run_daily_plan(plan_path: Path) -> int:
+    # Stop before plan validation, research fetches, soundtrack work or image generation.
+    require_approved_own_voice()
     plan_path = Path(plan_path)
     if not plan_path.is_file():
         raise engine.PipelineError(f"ChatGPT daily plan was not found: {plan_path}")
