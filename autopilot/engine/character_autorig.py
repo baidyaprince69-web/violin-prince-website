@@ -171,6 +171,54 @@ def _clean_segmentation_specks(mask: np.ndarray, size: int = 9) -> np.ndarray:
     return np.asarray(image, dtype=np.uint8) > 0
 
 
+def _remove_edge_connected_near_white(
+    image: Image.Image,
+    masks: dict[str, np.ndarray],
+    *,
+    minimum_brightness: int = 235,
+    maximum_spread: int = 30,
+) -> tuple[dict[str, np.ndarray], float]:
+    """Remove the white studio backdrop from each segmentation mask.
+
+    Only near-white pixels connected to the outer image border are removed.
+    White details enclosed by the character line art (eyes, highlights, palms)
+    remain in the foreground. This is particularly important for head/face
+    crops, where a few background pixels otherwise become a visible white tile.
+    """
+    rgb = np.asarray(image.convert("RGB"), dtype=np.uint8)
+    minimum = rgb.min(axis=2).astype(np.int16)
+    spread = rgb.max(axis=2).astype(np.int16) - minimum
+    candidate = (minimum >= int(minimum_brightness)) & (spread <= int(maximum_spread))
+
+    # Close small JPEG gaps in the light backdrop before tracing the component
+    # that touches the source border.
+    candidate_image = Image.fromarray(candidate.astype(np.uint8) * 255, mode="L")
+    candidate_image = candidate_image.filter(ImageFilter.MaxFilter(7))
+    candidate_image = candidate_image.filter(ImageFilter.MinFilter(7))
+
+    height, width = candidate.shape
+    padded = Image.new("L", (width + 2, height + 2), 255)
+    padded.paste(candidate_image, (1, 1))
+    ImageDraw.floodfill(padded, (0, 0), 128, thresh=0)
+    background = np.asarray(padded, dtype=np.uint8)[1:-1, 1:-1] == 128
+
+    # Remove the antialiased fringe next to the connected backdrop.
+    background_image = Image.fromarray(background.astype(np.uint8) * 255, mode="L")
+    background_image = background_image.filter(ImageFilter.MaxFilter(3))
+    background = np.asarray(background_image, dtype=np.uint8) > 0
+    foreground = ~background
+    cleaned = {
+        name: np.asarray(mask, dtype=bool) & foreground
+        for name, mask in masks.items()
+    }
+    for name, mask in cleaned.items():
+        if not mask.any():
+            raise ManualReviewRequired(
+                f"Background cleanup removed the entire {name} mask; manual review is required."
+            )
+    return cleaned, round(float(background.mean()), 6)
+
+
 def _bbox(mask: np.ndarray) -> tuple[int, int, int, int]:
     ys, xs = np.where(mask)
     if len(xs) == 0:
@@ -447,6 +495,11 @@ def separate_from_parsing(
         masks[f"{side}_forearm"] = forearm
         masks[f"{side}_hand"] = hand
 
+    masks, removed_background_ratio = _remove_edge_connected_near_white(image, masks)
+    torso = masks["torso"]
+    head = masks["head"]
+    face = masks["face"]
+
     arm_union = np.zeros_like(torso)
     for name, region in masks.items():
         if name.endswith(("upper_arm", "forearm", "hand")):
@@ -509,6 +562,11 @@ def separate_from_parsing(
             "fraction_of_source": round(hidden_ratio, 6),
         },
         "mean_confidence": confidence,
+        "edge_connected_background_removal": {
+            "method": "near_white_border_flood_fill",
+            "background_fraction": removed_background_ratio,
+            "preserves_enclosed_white_details": True,
+        },
         "needs_visual_review": True,
         "review_reasons": [
             "SCHP was trained on real-person parsing datasets; illustration styles can reduce accuracy.",
