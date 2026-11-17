@@ -48,6 +48,20 @@ class CharacterAutoRigTests(unittest.TestCase):
             self.assertTrue(0 <= point["y"] <= 1)
         self.assertTrue(report["needs_visual_review"])
 
+    def test_coarse_arm_side_fallback_when_atr_detects_only_one_side(self):
+        body, body_conf, detail, detail_conf = self.synthetic_maps()
+        detail[39:58, 102:142] = 0
+        image = Image.new("RGB", (160, 112), (30, 30, 36))
+        masks, _, report, joints = separate_from_parsing(
+            image, body, body_conf, detail, detail_conf,
+            hand_fraction=0.62, max_local_inpaint_ratio=0.12,
+        )
+        self.assertEqual(len(masks), 9)
+        self.assertEqual(len(joints), 7)
+        self.assertEqual(report["arm_side_source"], "pascal_coarse_screen_split")
+        self.assertGreater(masks["left_hand"].sum(), 20)
+        self.assertGreater(masks["right_hand"].sum(), 20)
+
     def test_large_hidden_area_fails_closed_without_lama(self):
         image = Image.new("RGB", (80, 80), (100, 100, 100))
         hole = np.zeros((80, 80), dtype=bool)
