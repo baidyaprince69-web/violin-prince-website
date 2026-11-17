@@ -7,10 +7,17 @@ from pathlib import Path
 ENGINE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ENGINE))
 
-from voiceover import OwnVoiceRequiredError, synthesize_voiceover, write_karaoke_ass
+from voiceover import OwnVoiceRequiredError, require_approved_own_voice, synthesize_voiceover, write_karaoke_ass
 
 
 class KaraokeCaptionTests(unittest.TestCase):
+    def test_global_production_gate_is_closed_without_approved_own_voice(self):
+        with self.assertRaisesRegex(
+            OwnVoiceRequiredError,
+            "research, visuals and rendering are stopped",
+        ):
+            require_approved_own_voice()
+
     def test_production_narration_fails_closed_without_approved_own_voice(self):
         with tempfile.TemporaryDirectory() as folder:
             output = Path(folder) / "must-not-be-created.wav"
