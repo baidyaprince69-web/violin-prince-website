@@ -440,7 +440,7 @@ This is an enrollment UI, not a running voice-cloning system. The production `vo
 
 **Implementation status:** dashboard and Worker routes are on the isolated feature branch for review. They are not live until merged and the Cloudflare deployment workflow succeeds.
 
-- The dashboard accepts only the encrypted `.vprvoice` package. It checks the public package header but never decrypts it and never asks for the passphrase.
+- The dashboard accepts only the encrypted `.vprvoice` package. It checks the public package header but never decrypts it and never asks for the passphrase. Before the first upload, verify that the R2 bucket's Public Development URL is disabled and no custom domain is enabled.
 - `POST /api/voice-packages` requires the existing dashboard bearer token and accepts only a `.vprvoice` file up to 50 MB. The Worker checks the package magic and PBKDF2 iteration header, then stores the ciphertext in the existing private R2 bucket under a random opaque ID. It does not add the package to D1 or produce a public/signed URL.
 - `GET /internal/voice-packages/{package_id}` requires the internal job bearer token and streams the encrypted bytes with `Cache-Control: private, no-store`. `DELETE /api/voice-packages/{package_id}` requires the dashboard bearer token.
 - A scheduled cleanup removes copied encrypted voice packages from R2 after 30 days. The owner's encrypted Google Drive copy remains the durable backup.
