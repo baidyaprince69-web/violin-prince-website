@@ -55,7 +55,7 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       "top:" + (layout.offsetY + Number(layer.y) * layout.scale) + "px",
       "width:" + (Number(layer.width) * layout.scale) + "px",
       "height:" + (Number(layer.height) * layout.scale) + "px",
-      "transform-origin:" + pivotX + "% " + pivotY + "%",
+      "transform-origin:0 0",
       "z-index:" + Number(layer.z_index ?? 1)
     ].join(";");
     const partId = scene.id + "-" + character.id + "-part-" + layer.id;
@@ -87,7 +87,7 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       "top:" + (layout.offsetY + expressionY * layout.scale) + "px",
       "width:" + (expressionWidth * layout.scale) + "px",
       "height:" + (expressionHeight * layout.scale) + "px",
-      "transform-origin:" + pivotX + "% " + pivotY + "%",
+      "transform-origin:0 0",
       "z-index:999"
     ].join(";");
     // Full-body pose plates already contain their own face. Never layer
