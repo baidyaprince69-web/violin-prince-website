@@ -23,9 +23,9 @@ concurrency:
 
 jobs:
   api-preflight:
-    name: Validate Qwen3-TTS Base API (no voice data)
+    name: Validate Qwen3-TTS package and CPU Base model (no voice data)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 60
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -43,3 +43,9 @@ jobs:
 
       - name: Check Qwen3-TTS Base voice-cloning API
         run: python .github/voice-tests/qwen3_api_preflight.py
+
+      - name: Load Qwen3-TTS 0.6B Base on the standard CPU runner
+        env:
+          HF_HUB_DISABLE_TELEMETRY: "1"
+          TOKENIZERS_PARALLELISM: "false"
+        run: python .github/voice-tests/qwen3_cpu_model_smoke.py
