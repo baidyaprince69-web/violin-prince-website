@@ -116,11 +116,16 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
         addKeyframes(partIdByRole.get(role), properties, actionStart, Number(action.duration) || 1);
       }
       const selectedExpression = String(action.expression || "neutral").toLowerCase();
-      for (const name of Object.keys(character.expressions || {})) {
-        addSpring(prefix + "-expression-" + name, "opacity",
-          name === selectedExpression ? 0 : 1,
-          name === selectedExpression ? 1 : 0,
-          actionStart, 140);
+      const activePoseAsset = String(action.pose_asset || "").toLowerCase();
+      // Full-body pose plates already contain their own face. Only animate
+      // separate expression overlays on the layered base rig/resting pose.
+      if (!activePoseAsset || activePoseAsset === "resting_hands") {
+        for (const name of Object.keys(character.expressions || {})) {
+          addSpring(prefix + "-expression-" + name, "opacity",
+            name === selectedExpression ? 0 : 1,
+            name === selectedExpression ? 1 : 0,
+            actionStart, 140);
+        }
       }
       const eyeTarget = partIdByRole.get("eyes");
       if (eyeTarget) {
