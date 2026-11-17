@@ -91,7 +91,7 @@ def render_daily_plan(
         staged_scenes.append({
             "id": f"scene-{index + 1}",
             "start": round(float(scene_start), 4),
-            "duration": round(float(scene_duration), 4),
+            "duration": round(float(scene_duration) + (2 * transition if index == 2 else 0), 4),
             "image": target.relative_to(project_dir).as_posix(),
             "caption": str(scene.get("caption") or ""),
             "title": str(scene.get("title") or ""),
