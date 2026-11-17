@@ -150,6 +150,20 @@ class OwnVoiceRequiredError(RuntimeError):
     """Raised while production narration is locked pending approved own-voice cloning."""
 
 
+def require_approved_own_voice() -> None:
+    """Stop every production stage until the creator's own voice is tested and approved.
+
+    This is intentionally hard-coded closed. A future provider integration must
+    replace this gate only after real voice tests, timing checks and explicit
+    creator approval. Environment variables or workflow inputs cannot unlock it.
+    """
+    raise OwnVoiceRequiredError(
+        "Production is locked: the creator's own-voice model has not passed "
+        "voice testing and approval. Research, visuals and rendering are stopped "
+        "to prevent wasted API calls or use of an unapproved narrator."
+    )
+
+
 def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict]:
     """Fail closed until a user-approved own-voice provider is integrated.
 
@@ -158,8 +172,4 @@ def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict
     timing data, and an explicit approval gate before this function can render.
     """
     del text, output_path
-    raise OwnVoiceRequiredError(
-        "Production narration is locked: the creator's own-voice model has not "
-        "passed voice testing and approval. No synthetic or preset narrator "
-        "fallback is permitted."
-    )
+    require_approved_own_voice()

@@ -127,7 +127,7 @@ The ChatGPT daily route validates the supplied plan's claims, evidence and story
 
 **Status: Implemented.**
 
-The plan defines a concise vertical explainer, scene order, scene titles/captions, visual modes, image prompts, visual guidance, narration-to-scene mapping and any character actions.
+The plan defines a concise vertical explainer, scene order, scene titles/captions, visual modes, image prompts, visual guidance, narration-to-scene mapping and any character actions. The production entry points now enforce the own-voice gate before research, soundtrack preparation, scene illustration, or rendering.
 
 Current daily creative contract:
 
@@ -143,7 +143,7 @@ Current daily creative contract:
 
 Scene plans must map narration sentences to scenes explicitly and completely. Missing/invalid word timing or incomplete narration blocks rendering rather than being silently guessed.
 
-**Outputs:** validated plan JSON, narration WAV, narration timing data, scene timeline and storyboard preview.
+**Outputs after own-voice approval:** validated plan JSON, own-voice narration WAV and timing data, scene timeline and storyboard preview. **Current state:** blocked before these outputs are created.
 
 ## 7. Audio and music preparation
 

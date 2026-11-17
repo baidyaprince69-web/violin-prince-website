@@ -5329,9 +5329,11 @@ def render_stage():
 
 
 def main(stage="full", visual_feedback=""):
-    WORK.mkdir(exist_ok=True)
-    OUT.mkdir(exist_ok=True)
     try:
+        from voiceover import require_approved_own_voice
+        require_approved_own_voice()
+        WORK.mkdir(exist_ok=True)
+        OUT.mkdir(exist_ok=True)
         if stage == "prepare":
             return prepare_stage()
         if stage == "visuals":

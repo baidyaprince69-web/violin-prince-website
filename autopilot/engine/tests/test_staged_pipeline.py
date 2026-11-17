@@ -272,7 +272,7 @@ class StagedPipelineTests(unittest.TestCase):
         self.assertIn("high-detail 2D editorial illustration", prompt)
         self.assertIn("layered foreground/midground/background", prompt)
 
-    def test_full_mode_runs_each_stage_once_in_order(self):
+    def test_full_mode_fails_closed_before_any_stage_when_own_voice_is_unapproved(self):
         with tempfile.TemporaryDirectory() as folder:
             original_work, original_out = pipeline.WORK, pipeline.OUT
             pipeline.WORK = Path(folder) / "work"
@@ -283,26 +283,29 @@ class StagedPipelineTests(unittest.TestCase):
                      unittest.mock.patch.object(pipeline, "visuals_stage", side_effect=lambda feedback="": calls.append("visuals") or 0), \
                      unittest.mock.patch.object(pipeline, "render_stage", side_effect=lambda: calls.append("render") or 0):
                     result = pipeline.main(stage="full")
-                self.assertEqual(result, 0)
-                self.assertEqual(calls, ["prepare", "visuals", "render"])
+                self.assertEqual(result, 1)
+                self.assertEqual(calls, [])
+                self.assertFalse(pipeline.WORK.exists())
             finally:
                 pipeline.WORK, pipeline.OUT = original_work, original_out
 
-    def test_full_mode_stops_before_later_stages_if_prepare_fails(self):
-        with tempfile.TemporaryDirectory() as folder:
-            original_work, original_out = pipeline.WORK, pipeline.OUT
-            pipeline.WORK = Path(folder) / "work"
-            pipeline.OUT = pipeline.WORK / "output"
-            calls = []
-            try:
-                with unittest.mock.patch.object(pipeline, "prepare_stage", side_effect=lambda: calls.append("prepare") or 1), \
-                     unittest.mock.patch.object(pipeline, "visuals_stage", side_effect=lambda feedback="": calls.append("visuals") or 0), \
-                     unittest.mock.patch.object(pipeline, "render_stage", side_effect=lambda: calls.append("render") or 0):
-                    result = pipeline.main(stage="full")
-                self.assertEqual(result, 1)
-                self.assertEqual(calls, ["prepare"])
-            finally:
-                pipeline.WORK, pipeline.OUT = original_work, original_out
+    def test_every_staged_mode_is_blocked_before_work_when_own_voice_is_unapproved(self):
+        for stage in ("prepare", "visuals", "render", "full"):
+            with self.subTest(stage=stage), tempfile.TemporaryDirectory() as folder:
+                original_work, original_out = pipeline.WORK, pipeline.OUT
+                pipeline.WORK = Path(folder) / "work"
+                pipeline.OUT = pipeline.WORK / "output"
+                calls = []
+                try:
+                    with unittest.mock.patch.object(pipeline, "prepare_stage", side_effect=lambda: calls.append("prepare") or 0), \
+                         unittest.mock.patch.object(pipeline, "visuals_stage", side_effect=lambda feedback="": calls.append("visuals") or 0), \
+                         unittest.mock.patch.object(pipeline, "render_stage", side_effect=lambda: calls.append("render") or 0):
+                        result = pipeline.main(stage=stage)
+                    self.assertEqual(result, 1)
+                    self.assertEqual(calls, [])
+                    self.assertFalse(pipeline.WORK.exists())
+                finally:
+                    pipeline.WORK, pipeline.OUT = original_work, original_out
 
 
 if __name__ == "__main__":
