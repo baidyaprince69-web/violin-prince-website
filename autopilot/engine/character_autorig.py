@@ -587,6 +587,8 @@ def separate_from_parsing(
     sides, arm_side_source = _screen_side_masks(detail_labels, coarse_arms, torso)
     masks: dict[str, np.ndarray] = {"torso": torso, "head": head, "face": face}
     hand_recovery_pixels: dict[str, int] = {}
+    joint_reference_masks: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+    joint_overlap_pixels: dict[str, int] = {}
     for side in ("left", "right"):
         upper, forearm, hand = _split_arm(
             sides[side], upper_all, lower_all, side, hand_fraction=hand_fraction
@@ -594,6 +596,21 @@ def separate_from_parsing(
         hand, recovered_pixels = _recover_hand_fingers_from_skin(image, hand, upper)
         hand_recovery_pixels[side] = recovered_pixels
         forearm &= ~hand
+
+        # Preserve the unexpanded boundaries for stable joint anchors. The
+        # rendered layers receive hidden underlaps: upper arm sits behind the
+        # forearm at the elbow, and forearm sits behind the hand at the wrist.
+        # This prevents dark composition background from showing through when
+        # child segments rotate independently.
+        joint_reference_masks[f"{side}_elbow"] = (upper.copy(), forearm.copy())
+        joint_reference_masks[f"{side}_wrist"] = (forearm.copy(), hand.copy())
+        elbow_underlap = _morph(forearm, 12, "dilate") & sides[side]
+        wrist_underlap = _morph(hand, 16, "dilate") & sides[side]
+        upper = upper | elbow_underlap
+        forearm = forearm | wrist_underlap
+        joint_overlap_pixels[f"{side}_elbow"] = int(elbow_underlap.sum())
+        joint_overlap_pixels[f"{side}_wrist"] = int(wrist_underlap.sum())
+
         masks[f"{side}_upper_arm"] = upper
         masks[f"{side}_forearm"] = forearm
         masks[f"{side}_hand"] = hand
@@ -627,11 +644,13 @@ def separate_from_parsing(
         joints[f"{side}_shoulder"] = _normalise_joint(
             _joint_between(masks["torso"], masks[f"{side}_upper_arm"]), image.width, image.height
         )
+        elbow_reference = joint_reference_masks[f"{side}_elbow"]
+        wrist_reference = joint_reference_masks[f"{side}_wrist"]
         joints[f"{side}_elbow"] = _normalise_joint(
-            _joint_between(masks[f"{side}_upper_arm"], masks[f"{side}_forearm"]), image.width, image.height
+            _joint_between(*elbow_reference), image.width, image.height
         )
         joints[f"{side}_wrist"] = _normalise_joint(
-            _joint_between(masks[f"{side}_forearm"], masks[f"{side}_hand"]), image.width, image.height
+            _joint_between(*wrist_reference), image.width, image.height
         )
 
     body_pixels = torso | head_coarse | upper_all | lower_all
@@ -662,6 +681,14 @@ def separate_from_parsing(
         "hand_finger_recovery": {
             "method": "bounded_skin_colour_component_growth",
             "pixels_added": hand_recovery_pixels,
+            "visual_review_required": True,
+        },
+        "joint_underlap": {
+            "method": "child-overlap-covered-by-parent-layer",
+            "elbow_radius_px": 12,
+            "wrist_radius_px": 16,
+            "overlap_pixels": joint_overlap_pixels,
+            "joint_anchors_use_unexpanded_masks": True,
             "visual_review_required": True,
         },
         "hidden_area_reconstruction": {
