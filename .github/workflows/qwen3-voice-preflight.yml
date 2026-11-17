@@ -28,13 +28,19 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: pip
+
+      - name: Install SoX runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes sox libsox-fmt-all
+          sox --version
 
       - name: Install pinned Qwen3-TTS package
         run: |
