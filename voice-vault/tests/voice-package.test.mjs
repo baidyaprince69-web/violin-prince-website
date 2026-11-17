@@ -1,6 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { webcrypto } from "node:crypto";
 import {
   createVoicePackage,
   openVoicePackage,
@@ -10,7 +9,6 @@ import {
   MAX_ORIGINAL_BYTES
 } from "../voice-package.mjs";
 
-globalThis.crypto = webcrypto;
 
 function fakeAudioBuffer(seconds = 10) {
   const length = seconds * VOICE_SAMPLE_RATE;
