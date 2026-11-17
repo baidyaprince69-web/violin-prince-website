@@ -10,11 +10,11 @@
       "id": "torso",
       "role": "torso",
       "src": "torso.png",
-      "x": 687,
-      "y": 428,
-      "width": 647,
-      "height": 676,
-      "pixel_area": 339214,
+      "x": 683,
+      "y": 430,
+      "width": 655,
+      "height": 674,
+      "pixel_area": 340470,
       "pivot_x": 0.5,
       "pivot_y": 0.5,
       "z_index": 10
@@ -23,13 +23,13 @@
       "id": "left_upper_arm",
       "role": "left_upper_arm",
       "src": "left_upper_arm.png",
-      "x": 468,
+      "x": 464,
       "y": 525,
-      "width": 286,
+      "width": 290,
       "height": 358,
-      "pixel_area": 47618,
-      "pivot_x": 0.909395,
-      "pivot_y": 0.363575,
+      "pixel_area": 47040,
+      "pivot_x": 0.903039,
+      "pivot_y": 0.361976,
       "z_index": 20
     },
     {
@@ -37,38 +37,38 @@
       "role": "right_upper_arm",
       "src": "right_upper_arm.png",
       "x": 1254,
-      "y": 533,
-      "width": 310,
-      "height": 350,
-      "pixel_area": 48231,
-      "pivot_x": 0.100942,
-      "pivot_y": 0.366201,
+      "y": 535,
+      "width": 314,
+      "height": 346,
+      "pixel_area": 48449,
+      "pivot_x": 0.102392,
+      "pivot_y": 0.361004,
       "z_index": 21
     },
     {
       "id": "left_forearm",
       "role": "left_forearm",
       "src": "left_forearm.png",
-      "x": 216,
+      "x": 246,
       "y": 770,
-      "width": 411,
+      "width": 381,
       "height": 247,
-      "pixel_area": 48187,
-      "pivot_x": 0.807016,
-      "pivot_y": 0.223953,
+      "pixel_area": 44497,
+      "pivot_x": 0.791458,
+      "pivot_y": 0.216415,
       "z_index": 30
     },
     {
       "id": "right_forearm",
       "role": "right_forearm",
       "src": "right_forearm.png",
-      "x": 1389,
-      "y": 775,
-      "width": 343,
-      "height": 227,
-      "pixel_area": 38776,
-      "pivot_x": 0.245416,
-      "pivot_y": 0.223247,
+      "x": 1385,
+      "y": 777,
+      "width": 339,
+      "height": 225,
+      "pixel_area": 37888,
+      "pivot_x": 0.261381,
+      "pivot_y": 0.21826,
       "z_index": 31
     },
     {
@@ -76,25 +76,25 @@
       "role": "left_hand",
       "src": "left_hand.png",
       "x": 71,
-      "y": 839,
-      "width": 241,
-      "height": 223,
-      "pixel_area": 15828,
-      "pivot_x": 0.799151,
-      "pivot_y": 0.394193,
+      "y": 844,
+      "width": 269,
+      "height": 186,
+      "pixel_area": 16891,
+      "pivot_x": 0.823422,
+      "pivot_y": 0.473117,
       "z_index": 40
     },
     {
       "id": "right_hand",
       "role": "right_hand",
       "src": "right_hand.png",
-      "x": 1650,
-      "y": 814,
-      "width": 203,
-      "height": 205,
-      "pixel_area": 16910,
-      "pivot_x": 0.199912,
-      "pivot_y": 0.556502,
+      "x": 1645,
+      "y": 842,
+      "width": 173,
+      "height": 171,
+      "pixel_area": 14920,
+      "pivot_x": 0.224445,
+      "pivot_y": 0.493153,
       "z_index": 41
     },
     {
@@ -103,11 +103,11 @@
       "src": "head.png",
       "x": 802,
       "y": 14,
-      "width": 373,
-      "height": 527,
-      "pixel_area": 132316,
-      "pivot_x": 0.545727,
-      "pivot_y": 0.91444,
+      "width": 377,
+      "height": 531,
+      "pixel_area": 134486,
+      "pivot_x": 0.533795,
+      "pivot_y": 0.913704,
       "z_index": 50
     },
     {
@@ -115,10 +115,10 @@
       "role": "face",
       "src": "face.png",
       "x": 838,
-      "y": 208,
-      "width": 302,
-      "height": 283,
-      "pixel_area": 59926,
+      "y": 210,
+      "width": 306,
+      "height": 285,
+      "pixel_area": 61090,
       "pivot_x": 0.5,
       "pivot_y": 0.5,
       "z_index": 60
@@ -126,32 +126,32 @@
   ],
   "joints": {
     "neck": {
-      "x": 0.495104,
-      "y": 0.449601
+      "x": 0.493964,
+      "y": 0.452563
     },
     "left_shoulder": {
-      "x": 0.358487,
-      "y": 0.59398
+      "x": 0.357401,
+      "y": 0.593461
     },
     "left_elbow": {
-      "x": 0.269662,
-      "y": 0.748247
+      "x": 0.269594,
+      "y": 0.746559
     },
     "left_wrist": {
-      "x": 0.129786,
-      "y": 0.840349
+      "x": 0.144018,
+      "y": 0.844968
     },
     "right_shoulder": {
-      "x": 0.632837,
-      "y": 0.599429
+      "x": 0.63326,
+      "y": 0.598284
     },
     "right_elbow": {
-      "x": 0.725346,
-      "y": 0.748574
+      "x": 0.725558,
+      "y": 0.748965
     },
     "right_wrist": {
-      "x": 0.832389,
-      "y": 0.841417
+      "x": 0.829064,
+      "y": 0.839827
     }
   },
   "expressions": {

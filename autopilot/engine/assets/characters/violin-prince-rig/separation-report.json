@@ -11,14 +11,14 @@
   "hand_split_fraction": 0.72,
   "hidden_area_reconstruction": {
     "method": "local_neighbour_propagation",
-    "pixels_reconstructed": 5024,
-    "fraction_of_source": 0.00224
+    "pixels_reconstructed": 5052,
+    "fraction_of_source": 0.002252
   },
   "mean_confidence": {
-    "body_mean": 0.9775,
-    "face_mean": 0.9591,
-    "left_arm_mean": 0.966,
-    "right_arm_mean": 0.9639
+    "body_mean": 0.9783,
+    "face_mean": 0.9757,
+    "left_arm_mean": 0.9698,
+    "right_arm_mean": 0.9638
   },
   "needs_visual_review": true,
   "review_reasons": [
