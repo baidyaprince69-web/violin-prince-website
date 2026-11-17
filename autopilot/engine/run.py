@@ -3769,8 +3769,8 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
     compose_narration(plan, compact)
 
     scenes = plan.get("scenes")
-    if not isinstance(scenes, list) or len(scenes) != 3:
-        raise PipelineError("Planner must provide exactly three scenes.")
+    if not isinstance(scenes, list) or not 2 <= len(scenes) <= 4:
+        raise PipelineError("Planner must provide between two and four scenes.")
     narration_script = str(plan.get("narration_script", "")).strip()
     final_narration_issue = narration_validation_error(narration_script)
     if final_narration_issue:
@@ -3943,7 +3943,7 @@ def font(size, weight="bold", family="sans"):
         raise ValueError("Unsupported DM Sans weight: " + str(weight))
     return ImageFont.truetype(paths[weight_key], size)
 
-def make_card(source, caption, index, title=""):
+def make_card(source, caption, index, title="", total_scenes=3):
     """Create a full-bleed vertical cinematic frame with restrained branding."""
     image = Image.open(source).convert("RGB")
     # Use a portrait crop with a centred safe area instead of a small square inset.
@@ -3999,7 +3999,7 @@ def make_card(source, caption, index, title=""):
     draw.line((34, 1190, W - 34, 1190), fill=(235, 202, 139, 115), width=1)
     draw.text((34, 1207), "ORIGINAL STORY • ORIGINAL SOUNDTRACK",
               font=font(12, "medium"), fill=(242, 230, 208, 235))
-    draw.text((W - 110, 1207), f"{index + 1:02d}/03",
+    draw.text((W - 110, 1207), f"{index + 1:02d}/{int(total_scenes):02d}",
               font=font(12, "medium"), fill=(242, 230, 208, 235))
 
     p = OUT / f"card-{index + 1}.png"
@@ -4430,7 +4430,10 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
             clips.append(cached_clip)
             reused_scene_count += 1
             continue
-        card = make_card(image, scene["caption"], i, plan.get("title", ""))
+        card = make_card(
+            image, scene["caption"], i, plan.get("title", ""),
+            total_scenes=len(plan["scenes"]),
+        )
         clip = OUT / f"scene-{scene_id}.mp4"
         frame_count = max(1, int(round(scene_seconds * FPS)))
         graphic_pattern = make_motion_graphic_frames(
