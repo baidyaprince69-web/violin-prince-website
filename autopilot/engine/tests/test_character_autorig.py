@@ -294,6 +294,37 @@ class CharacterAutoRigTests(unittest.TestCase):
                 self.assertGreater(min(highlight[:3]), 220,
                     "the enclosed white eye highlight must retain its colour")
 
+    def test_expression_plate_preserves_master_hairline_from_base_face(self):
+        import tempfile
+        from pathlib import Path
+        from PIL import Image, ImageDraw
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = root / "expression.png"
+            base = root / "master-face.png"
+            output = root / "expression-clean.png"
+
+            reference = Image.new("RGB", (400, 300), (255, 255, 255))
+            ImageDraw.Draw(reference).ellipse((80, 20, 320, 280), fill=(188, 125, 92))
+            reference.save(source)
+            Image.new("RGBA", (80, 60), (24, 220, 40, 255)).save(base)
+
+            alpha = np.full((60, 80), 255, dtype=np.uint8)
+            _face_plate(
+                source, (80, 60), output,
+                alpha_mask=alpha, base_face_path=base,
+            )
+            with Image.open(output) as plate:
+                top = plate.getpixel((40, 2))
+                lower = plate.getpixel((40, 55))
+                self.assertGreater(top[1], 200,
+                    "the master hairline area must come from the original face layer")
+                self.assertLess(top[0], 80)
+                self.assertGreater(lower[0], 150,
+                    "the lower expression region must come from the alternate expression")
+                self.assertLess(lower[1], 170)
+
     def test_pose_reference_plate_removes_near_white_background(self):
         import tempfile
         from pathlib import Path
