@@ -87,6 +87,10 @@ jobs:
         run: |
           node build.mjs --project ../../../work/character-rig-test/project.json \
             --out-dir ../../../work/character-rig-test/composition
+          # build.mjs writes the composition into a subfolder; copy its referenced media beside index.html.
+          mkdir -p ../../../work/character-rig-test/composition/assets/characters
+          cp -R ../../../work/character-rig-test/assets/characters/violin-prince \
+            ../../../work/character-rig-test/composition/assets/characters/
 
       - name: Lint the composition
         working-directory: work/character-rig-test/composition
