@@ -107,7 +107,7 @@ def build_rig_preview_project(bundle_dir: str | Path, output_dir: str | Path) ->
     for index, (scene_id, title, caption) in enumerate(titles):
         scenes.append({
             "id": scene_id,
-            "start": round(index * 1.12, 3),
+            "start": round(index * 1.35, 3),
             "duration": 1.35,
             "title": title,
             "caption": caption,
@@ -118,7 +118,7 @@ def build_rig_preview_project(bundle_dir: str | Path, output_dir: str | Path) ->
         "width": int(character["canvas"]["width"]),
         "height": int(character["canvas"]["height"]),
         "fps": 25,
-        "duration_seconds": 10.4,
+        "duration_seconds": 12.4,
         "scenes": scenes,
         "characters": [staged],
         "diagnostics": {
