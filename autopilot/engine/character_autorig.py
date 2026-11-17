@@ -829,6 +829,27 @@ def separate_from_parsing(
     return masks, repaired, report, joints
 
 
+def _face_expression_crop_box(
+    image_size: tuple[int, int],
+    target_size: tuple[int, int],
+) -> tuple[int, int, int, int]:
+    """Return a forehead-to-chin crop whose aspect ratio matches the face layer."""
+    width, height = (int(value) for value in image_size)
+    target_width, target_height = (int(value) for value in target_size)
+    if min(width, height, target_width, target_height) <= 0:
+        raise AutoRigError("Expression image and target face dimensions must be positive.")
+    crop_height = int(round(height * 0.44))
+    crop_width = int(round(crop_height * target_width / target_height))
+    if crop_width > width or crop_height > height:
+        raise ManualReviewRequired("The expression reference is too small for a face crop.")
+    x0 = int(round((width - crop_width) / 2))
+    y0 = int(round(height * 0.19))
+    x1, y1 = x0 + crop_width, y0 + crop_height
+    if x1 > width or y1 > height:
+        raise ManualReviewRequired("The expression reference does not contain the expected face framing.")
+    return x0, y0, x1, y1
+
+
 def _face_plate(
     path: Path,
     target_size: tuple[int, int],
@@ -836,24 +857,27 @@ def _face_plate(
     *,
     alpha_mask: np.ndarray,
 ) -> None:
-    """Fit an authored expression to the exact master-face alpha silhouette.
+    """Register a full face crop, remove its white backdrop, and apply the master silhouette.
 
-    The supplied expressions share the same portrait framing as the master
-    reference. A centre crop from forehead to chin is resized to the master
-    face-layer geometry, then clipped to the same smooth alpha mask. This
-    avoids rectangular backgrounds and changing face boundaries between poses.
+    Expression references use the same centered portrait layout but can vary
+    slightly in scale. Crop from forehead to chin using the destination face
+    aspect ratio instead of stretching a narrow eye-to-mouth strip. Remove only
+    near-white pixels connected to the crop border before resizing; enclosed
+    whites in eyes, glasses reflections, and teeth remain part of the artwork.
     """
     with Image.open(path) as opened:
         image = opened.convert("RGB")
-    width, height = image.size
-    x0, x1 = int(width * 0.39), int(width * 0.61)
-    y0, y1 = int(height * 0.33), int(height * 0.72)
-    if x1 <= x0 or y1 <= y0:
-        raise ManualReviewRequired(f"Invalid facial crop geometry for {path.name}.")
-    crop = image.crop((x0, y0, x1, y1)).resize(
-        target_size,
-        Image.Resampling.LANCZOS,
-    ).convert("RGBA")
+    x0, y0, x1, y1 = _face_expression_crop_box(image.size, target_size)
+    crop = image.crop((x0, y0, x1, y1))
+    foreground, _ = _remove_edge_connected_near_white(
+        crop,
+        {"expression": np.ones((crop.height, crop.width), dtype=bool)},
+    )
+    crop_alpha = _soft_alpha_from_mask(foreground["expression"], blur_radius=0.8)
+    crop_rgba = crop.convert("RGBA")
+    crop_rgba.putalpha(Image.fromarray(crop_alpha, mode="L"))
+    crop_rgba = crop_rgba.resize(target_size, Image.Resampling.LANCZOS)
+
     alpha = np.asarray(alpha_mask)
     if alpha.shape != (target_size[1], target_size[0]):
         raise AutoRigError("Expression alpha mask must match the master face layer dimensions.")
@@ -861,9 +885,13 @@ def _face_plate(
         alpha = alpha.astype(np.uint8) * 255
     else:
         alpha = np.clip(alpha, 0, 255).astype(np.uint8)
-    crop.putalpha(Image.fromarray(alpha, mode="L"))
+    expression_alpha = np.asarray(crop_rgba.getchannel("A"), dtype=np.uint16)
+    combined_alpha = (
+        expression_alpha * alpha.astype(np.uint16) + 127
+    ) // 255
+    crop_rgba.putalpha(Image.fromarray(combined_alpha.astype(np.uint8), mode="L"))
     destination.parent.mkdir(parents=True, exist_ok=True)
-    crop.save(destination, format="PNG", optimize=True)
+    crop_rgba.save(destination, format="PNG", optimize=True)
 
 
 def _save_pose_plate(source_path: Path, destination: Path) -> None:
