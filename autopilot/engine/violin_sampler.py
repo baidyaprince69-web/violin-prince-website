@@ -268,5 +268,15 @@ def create_sampled_violin_bed(
         "sample_rate": SAMPLE_RATE,
         "zones_used": len(chosen),
         "sample_bank_revision": SAMPLE_REVISION,
+        # This arrangement is generated at a fixed tempo with beat zero at the
+        # first sample. Preserve that exact map instead of estimating its BPM.
+        "bpm": BPM,
+        "beats_per_bar": 4,
+        "beat_times": [round(index * BEAT_SECONDS, 4) for index in range(32)],
+        "downbeats": [round(index * BEAT_SECONDS, 4) for index in range(0, 32, 4)],
+        "onsets": [
+            round(start_beat * BEAT_SECONDS, 4)
+            for _note, _velocity, start_beat, _duration in _events(seed_text)
+        ],
     }
     return target, info

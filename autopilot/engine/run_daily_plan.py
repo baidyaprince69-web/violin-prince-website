@@ -398,7 +398,13 @@ def run_daily_plan(plan_path: Path) -> int:
         (audio_asset.get("bpm") or (audio_asset.get("metadata") or {}).get("bpm"))
         if isinstance(audio_asset, dict) else None
     )
-    beat_analysis = analyse_audio_file(paths["audio"], known_bpm=known_bpm)
+    beat_analysis = analyse_audio_file(
+        paths["audio"],
+        known_bpm=known_bpm,
+        known_beat_times=(audio_asset.get("beat_times") if isinstance(audio_asset, dict) else None),
+        known_downbeats=(audio_asset.get("downbeats") if isinstance(audio_asset, dict) else None),
+        known_onsets=(audio_asset.get("onsets") if isinstance(audio_asset, dict) else None),
+    )
     (engine.PACKAGE / "music-analysis.json").write_text(
         json.dumps(beat_analysis, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",

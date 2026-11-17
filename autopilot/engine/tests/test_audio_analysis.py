@@ -32,6 +32,27 @@ class AudioAnalysisTests(unittest.TestCase):
         self.assertLessEqual(abs(result["bpm"] - 120), 3.0)
         self.assertGreaterEqual(len(result["beat_times"]), 10)
 
+    def test_declared_arrangement_map_is_preserved_without_tempo_reestimation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            audio = Path(temporary) / "arrangement.wav"
+            self._write_click_track(audio, bpm=120)
+            beats = [round(0.15 + index * 0.5, 4) for index in range(24)]
+            downbeats = beats[::4]
+            onsets = [0.15, 0.65, 1.15]
+            result = analyse_audio_file(
+                audio,
+                known_bpm=120,
+                known_beat_times=beats,
+                known_downbeats=downbeats,
+                known_onsets=onsets,
+            )
+        self.assertEqual(result["status"], "metadata_verified")
+        self.assertEqual(result["source"], "declared_bpm_and_arrangement_event_map")
+        self.assertEqual(result["beat_times"], beats)
+        self.assertEqual(result["downbeats"], downbeats)
+        self.assertEqual(result["onsets"], onsets)
+        self.assertEqual(result["confidence"], 1.0)
+
     def test_silence_returns_low_confidence_and_no_fake_beats(self):
         with tempfile.TemporaryDirectory() as temporary:
             audio = Path(temporary) / "silence.wav"

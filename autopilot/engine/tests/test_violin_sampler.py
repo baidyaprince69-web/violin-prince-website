@@ -49,6 +49,15 @@ class SampledViolinTests(unittest.TestCase):
             self.assertGreater(float(np.max(np.abs(audio))), 0.01)
             self.assertLessEqual(float(np.max(np.abs(audio))), 1.0)
 
+    def test_generated_violin_arrangement_exposes_exact_beat_map(self):
+        beat_times = [round(index * violin_sampler.BEAT_SECONDS, 4) for index in range(32)]
+        downbeats = [round(index * violin_sampler.BEAT_SECONDS, 4) for index in range(0, 32, 4)]
+        self.assertEqual(violin_sampler.BPM, 80)
+        self.assertEqual(len(beat_times), 32)
+        self.assertEqual(len(downbeats), 8)
+        self.assertAlmostEqual(beat_times[-1] + violin_sampler.BEAT_SECONDS, 24.0, places=4)
+        self.assertEqual(beat_times[0], 0.0)
+
     def test_unmapped_note_fails_clearly(self):
         with self.assertRaisesRegex(RuntimeError, "No violin sample zone covers"):
             violin_sampler._choose_zone([], 69, 80)

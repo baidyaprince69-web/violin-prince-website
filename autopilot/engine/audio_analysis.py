@@ -43,6 +43,9 @@ def analyse_audio_file(
     path: str | Path,
     *,
     known_bpm: float | None = None,
+    known_beat_times: list[float] | None = None,
+    known_downbeats: list[float] | None = None,
+    known_onsets: list[float] | None = None,
     minimum_bpm: float = 60.0,
     maximum_bpm: float = 200.0,
 ) -> dict[str, Any]:
@@ -105,6 +108,40 @@ def analyse_audio_file(
 
     if bpm is not None:
         period = 60.0 / bpm
+        if known_beat_times is not None:
+            beats = np.asarray([float(value) for value in known_beat_times], dtype=np.float64)
+            if (
+                beats.size == 0
+                or not np.isfinite(beats).all()
+                or np.any(beats < 0)
+                or np.any(beats >= duration)
+                or np.any(np.diff(beats) <= 0)
+                or np.any(np.abs(np.diff(beats) - period) > max(0.025, period * 0.02))
+            ):
+                return _empty_result(duration, sample_rate, "declared_beat_map_is_invalid")
+            if known_downbeats is not None:
+                downbeats = [round(float(value), 4) for value in known_downbeats]
+                if any(not np.isfinite(value) or value < 0 or value >= duration for value in downbeats):
+                    return _empty_result(duration, sample_rate, "declared_downbeat_map_is_invalid")
+            else:
+                downbeats = [round(float(value), 4) for value in beats[::4]]
+            onsets = [round(float(value), 4) for value in (known_onsets or [])]
+            if any(not np.isfinite(value) or value < 0 or value >= duration for value in onsets):
+                return _empty_result(duration, sample_rate, "declared_onset_map_is_invalid")
+            return {
+                "status": "metadata_verified",
+                "source": "declared_bpm_and_arrangement_event_map",
+                "decode_backend": decode_backend,
+                "duration_seconds": round(duration, 4),
+                "sample_rate": int(sample_rate),
+                "bpm": round(bpm, 3),
+                "confidence": 1.0,
+                "beat_times": [round(float(value), 4) for value in beats],
+                "downbeats": downbeats,
+                "onsets": onsets,
+                "peak": round(peak, 6),
+                "rms": round(rms, 6),
+            }
         flux, hop = _spectral_flux(mono, sample_rate)
         phase = 0
         if len(flux) >= 5 and float(np.std(flux)) >= 1e-7:
