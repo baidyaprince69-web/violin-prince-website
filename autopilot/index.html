@@ -51,6 +51,17 @@ main{max-width:1080px;margin:auto;padding:28px 18px 60px}.top{display:flex;justi
         <button id="uploadPerformance" class="secondary" disabled>Upload performance video</button>
         <div id="performanceUploadStatus" class="muted" style="font-size:12px;margin-top:10px">No performance video uploaded in this session.</div>
       </div>
+      <div style="border-top:1px solid var(--line);margin-top:17px;padding-top:13px">
+        <h3 style="font-size:13px;margin:0 0 7px">Encrypted own-voice test package</h3>
+        <p class="muted" style="font-size:12px">Upload only the encrypted <code>.vprvoice</code> file from your Voice Vault. This transfers ciphertext into private R2 storage; it does not decrypt the recording or start voice testing. Your passphrase stays in Notepad on your computer and is never entered here. Do not select the original recording or WAV.</p>
+        <label for="voicePackageFile">Encrypted voice package (.vprvoice only)</label>
+        <input class="file" id="voicePackageFile" type="file" accept=".vprvoice,application/octet-stream">
+        <div class="row" style="justify-content:flex-start;flex-wrap:wrap;margin-top:10px">
+          <button id="uploadVoicePackage" class="secondary" disabled>Store encrypted package privately</button>
+          <button id="deleteVoicePackage" class="secondary" disabled>Delete stored package</button>
+        </div>
+        <div id="voicePackageStatus" class="muted" style="font-size:12px;margin-top:10px">No encrypted voice package transferred to R2 in this browser session.</div>
+      </div>
     </section>
     <section class="card">
       <div class="row"><h2>Production control</h2><span class="badge">One attempt per UTC day</span></div>
@@ -92,7 +103,7 @@ main{max-width:1080px;margin:auto;padding:28px 18px 60px}.top{display:flex;justi
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
-  const state = { api: "", token: "", busy: false };
+  const state = { api: "", token: "", busy: false, voicePackageId: "" };
   const auth = () => ({ Authorization: "Bearer " + state.token });
   const setText = (id, value) => { $(id).textContent = value; };
   const save = () => {
@@ -102,8 +113,12 @@ main{max-width:1080px;margin:auto;padding:28px 18px 60px}.top{display:flex;justi
   const load = () => {
     state.api = sessionStorage.getItem("vp_api") || "";
     state.token = sessionStorage.getItem("vp_token") || "";
+    state.voicePackageId = sessionStorage.getItem("vp_voice_package_id") || "";
     $("api").value = state.api;
     $("token").value = state.token;
+    if (state.voicePackageId) {
+      setText("voicePackageStatus", "Encrypted package stored in private R2. Package ID: " + state.voicePackageId);
+    }
   };
   async function request(path, options = {}) {
     if (!state.api || !state.token) throw new Error("Connect the Worker first.");
@@ -119,6 +134,8 @@ main{max-width:1080px;margin:auto;padding:28px 18px 60px}.top{display:flex;justi
     $("connection").className = "pill " + (value ? "ok" : "");
     $("upload").disabled = !value || !$("audio").files.length || !$("rights").checked;
     $("uploadPerformance").disabled = !value || !$("performanceVideo").files.length || !$("performanceRights").checked;
+    $("uploadVoicePackage").disabled = !value || !$("voicePackageFile").files.length || Boolean(state.voicePackageId);
+    $("deleteVoicePackage").disabled = !value || !state.voicePackageId;
     $("triggerTest").disabled = !value;
   }
   async function refresh() {
@@ -268,6 +285,61 @@ main{max-width:1080px;margin:auto;padding:28px 18px 60px}.top{display:flex;justi
   $("rights").addEventListener("change", () => connected(Boolean(state.api && state.token)));
   $("performanceVideo").addEventListener("change", () => connected(Boolean(state.api && state.token)));
   $("performanceRights").addEventListener("change", () => connected(Boolean(state.api && state.token)));
+  $("voicePackageFile").addEventListener("change", () => connected(Boolean(state.api && state.token)));
+  $("uploadVoicePackage").addEventListener("click", async () => {
+    const file = $("voicePackageFile").files[0];
+    if (!file || state.voicePackageId) return;
+    if (file.size < 72 || file.size > 50 * 1024 * 1024 || !/\.vprvoice$/i.test(file.name)) {
+      setText("voicePackageStatus", "Choose a valid encrypted .vprvoice file between 72 bytes and 50 MB.");
+      return;
+    }
+    $("uploadVoicePackage").disabled = true;
+    setText("voicePackageStatus", "Checking the encrypted package header. The file will not be decrypted.");
+    try {
+      const header = new Uint8Array(await file.slice(0, 40).arrayBuffer());
+      const magic = new TextDecoder().decode(header.subarray(0, 8));
+      const iterations = header.length === 40
+        ? new DataView(header.buffer, header.byteOffset, header.byteLength).getUint32(36, false)
+        : 0;
+      if (magic !== "VPRVOICE" || iterations !== 600000) {
+        throw new Error("This file is not a supported encrypted Voice Vault package.");
+      }
+      setText("voicePackageStatus", "Uploading ciphertext to private R2 storage...");
+      const result = await request("/api/voice-packages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "X-Filename": file.name,
+          "X-File-Size": String(file.size)
+        },
+        body: file
+      });
+      if (!result.package_id) throw new Error("The private storage service did not return a package ID.");
+      state.voicePackageId = result.package_id;
+      sessionStorage.setItem("vp_voice_package_id", state.voicePackageId);
+      setText("voicePackageStatus", "Encrypted package stored privately. Package ID: " + state.voicePackageId + ". No decryption or voice test has started.");
+      $("voicePackageFile").value = "";
+    } catch (error) {
+      setText("voicePackageStatus", error.message);
+    } finally {
+      connected(Boolean(state.api && state.token));
+    }
+  });
+  $("deleteVoicePackage").addEventListener("click", async () => {
+    if (!state.voicePackageId) return;
+    $("deleteVoicePackage").disabled = true;
+    setText("voicePackageStatus", "Deleting encrypted package from private R2...");
+    try {
+      await request("/api/voice-packages/" + encodeURIComponent(state.voicePackageId), { method: "DELETE" });
+      sessionStorage.removeItem("vp_voice_package_id");
+      state.voicePackageId = "";
+      setText("voicePackageStatus", "Stored encrypted package deleted from private R2. Your Google Drive backup is not affected.");
+    } catch (error) {
+      setText("voicePackageStatus", error.message);
+    } finally {
+      connected(Boolean(state.api && state.token));
+    }
+  });
   $("triggerTest").addEventListener("click", async () => {
     $("triggerTest").disabled = true;
     setText("runStatus", "Requesting one draft-only cloud production run...");
