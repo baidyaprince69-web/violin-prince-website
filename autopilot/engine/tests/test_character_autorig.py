@@ -114,7 +114,7 @@ class CharacterAutoRigTests(unittest.TestCase):
                 self.assertEqual(plate.size, (80, 60))
                 self.assertEqual(plate.getpixel((0, 0))[3], 0)
                 self.assertEqual(plate.getpixel((40, 30))[3], 255)
-                self.assertEqual(plate.getpixel((40, 5))[3], 0)
+                self.assertEqual(plate.getpixel((40, 4))[3], 0)
 
     def test_pose_reference_plate_removes_near_white_background(self):
         import tempfile
