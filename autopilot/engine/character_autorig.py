@@ -647,6 +647,22 @@ def _save_pose_plate(source_path: Path, destination: Path) -> None:
     alpha = 255 - np.asarray(background_image, dtype=np.uint8)
 
     plate = Image.fromarray(np.dstack((rgb, alpha)), mode="RGBA")
+    foreground_box = plate.getchannel("A").getbbox()
+    if foreground_box is None:
+        raise ManualReviewRequired(
+            f"Pose reference {source_path.name} became fully transparent after backdrop removal."
+        )
+    # Remove empty studio margins so the pose fills a useful portion of a
+    # portrait Shorts frame. Retain enough padding to protect fingers and hair.
+    x0, y0, x1, y1 = foreground_box
+    padding = 28
+    crop_box = (
+        max(0, x0 - padding),
+        max(0, y0 - padding),
+        min(width, x1 + padding),
+        min(height, y1 + padding),
+    )
+    plate = plate.crop(crop_box)
     destination.parent.mkdir(parents=True, exist_ok=True)
     plate.save(destination, format="PNG", optimize=True)
 
