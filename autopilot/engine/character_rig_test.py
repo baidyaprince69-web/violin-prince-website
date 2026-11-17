@@ -116,7 +116,7 @@ def build_rig_preview_project(bundle_dir: str | Path, output_dir: str | Path) ->
         "width": int(character["canvas"]["width"]),
         "height": int(character["canvas"]["height"]),
         "fps": 25,
-        "duration_seconds": 10.0,
+        "duration_seconds": 10.4,
         "scenes": scenes,
         "characters": [staged],
         "diagnostics": {
