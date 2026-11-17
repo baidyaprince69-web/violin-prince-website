@@ -53,7 +53,7 @@ main{max-width:1080px;margin:auto;padding:28px 18px 60px}.top{display:flex;justi
       </div>
       <div style="border-top:1px solid var(--line);margin-top:17px;padding-top:13px">
         <h3 style="font-size:13px;margin:0 0 7px">Encrypted own-voice test package</h3>
-        <p class="muted" style="font-size:12px">Upload only the encrypted <code>.vprvoice</code> file from your Voice Vault. This transfers ciphertext into private R2 storage; it does not decrypt the recording or start voice testing. Your passphrase stays in Notepad on your computer and is never entered here. Do not select the original recording or WAV.</p>
+        <p class="muted" style="font-size:12px">Upload only the encrypted <code>.vprvoice</code> file from your Voice Vault. This transfers ciphertext into R2; it does not decrypt the recording or start voice testing. Your passphrase stays in Notepad on your computer and is never entered here. Do not select the original recording or WAV. The R2 copy is deleted after 30 days; your Google Drive backup is unchanged. Before uploading, confirm that the bucket's Public Development URL is disabled and that no custom domain is enabled.</p>
         <label for="voicePackageFile">Encrypted voice package (.vprvoice only)</label>
         <input class="file" id="voicePackageFile" type="file" accept=".vprvoice,application/octet-stream">
         <div class="row" style="justify-content:flex-start;flex-wrap:wrap;margin-top:10px">
