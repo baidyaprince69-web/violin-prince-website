@@ -43,7 +43,7 @@ test("scene and character animations compile to native WAAPI tracks", () => {
   };
   const tracks = compileMotionTracks(project, { fps: 25 });
   assert.ok(tracks.some(track => track.target === "scene-one-background" && track.property === "opacity"));
-  assert.ok(tracks.some(track => track.target === "scene-one-guide-part-right-arm" && track.property === "rotate"));
+  assert.ok(tracks.some(track => track.target === "scene-one-guide-part-right-arm" && track.property === "transform"));
   assert.ok(tracks.some(track => track.target === "scene-one-guide-expression-curious"));
   assert.ok(tracks.every(track => track.values.length >= 2 && track.duration > 0));
 });
