@@ -104,7 +104,7 @@ jobs:
 
       - name: Run animation and articulated-rig regression tests
         working-directory: autopilot/engine/animation2d
-        run: npm test
+        run: VP_RIG_PROJECT=../../../work/character-rig-test/project.json npm test
 
       - name: Build and lint the character composition
         working-directory: autopilot/engine/animation2d
