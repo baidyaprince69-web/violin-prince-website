@@ -7,6 +7,7 @@ on:
   push:
     branches:
       - baidyaprince69-web-patch-1
+      - feature/character-articulated-rig-validation
     paths:
       - .github/workflows/character-rig-test.yml
       - autopilot/engine/character_autorig.py
@@ -22,6 +23,7 @@ on:
       - autopilot/engine/animation2d/src/contract.mjs
       - autopilot/engine/animation2d/src/motion-build.mjs
       - autopilot/engine/animation2d/test/character-layout.test.mjs
+      - autopilot/engine/animation2d/test/articulated-rig.test.mjs
       - autopilot/engine/tests/test_character_autorig.py
       - autopilot/engine/tests/test_character_rig.py
       - autopilot/engine/tests/test_daily_plan.py
@@ -99,6 +101,10 @@ jobs:
       - name: Install Motion and HyperFrames
         working-directory: autopilot/engine/animation2d
         run: npm install --no-audit --no-fund
+
+      - name: Run animation and articulated-rig regression tests
+        working-directory: autopilot/engine/animation2d
+        run: npm test
 
       - name: Build and lint the character composition
         working-directory: autopilot/engine/animation2d
