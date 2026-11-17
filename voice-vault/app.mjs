@@ -310,7 +310,13 @@ async function findOrCreateVaultFolder() {
 }
 async function verifyUploadedFileIsPrivate(fileId) {
   const fields = "id,shared,permissions(type,role,domain,emailAddress)";
-  const info = await driveRequest(DRIVE_API + "/files/" + encodeURIComponent(fileId) + "?fields=" + encodeURIComponent(fields));
+  let info;
+  try {
+    info = await driveRequest(DRIVE_API + "/files/" + encodeURIComponent(fileId) + "?fields=" + encodeURIComponent(fields));
+  } catch {
+    try { await driveRequest(DRIVE_API + "/files/" + encodeURIComponent(fileId), { method: "DELETE" }); } catch { /* The encrypted object may remain if Drive cleanup is unavailable. */ }
+    throw new Error("Google Drive privacy could not be verified. The encrypted upload was created, but cleanup was attempted. Check your Voice Vault folder before retrying.");
+  }
   const permissions = Array.isArray(info?.permissions) ? info.permissions : [];
   const publicPermission = permissions.some(item => item.type === "anyone" || item.type === "domain");
   if (info?.shared !== false || publicPermission) {
