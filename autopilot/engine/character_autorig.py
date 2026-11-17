@@ -176,8 +176,8 @@ def _centroid(mask: np.ndarray) -> tuple[float, float]:
 
 def _screen_side_masks(
     detail_labels: np.ndarray, coarse_arms: np.ndarray, torso: np.ndarray
-) -> dict[str, np.ndarray]:
-    """Map anatomical ATR arm labels to viewer screen-left and screen-right."""
+) -> tuple[dict[str, np.ndarray], str]:
+    """Map arms to screen sides, using Pascal coarse masks if ATR misses a side."""
     candidates = []
     for label_id in (14, 15):
         candidate = _mask(detail_labels, label_id)
@@ -185,13 +185,12 @@ def _screen_side_masks(
             candidates.append((float(np.where(candidate)[1].mean()), candidate))
     if len(candidates) == 2:
         candidates.sort(key=lambda item: item[0])
-        return {"left": candidates[0][1], "right": candidates[1][1]}
+        return {"left": candidates[0][1], "right": candidates[1][1]}, "atr_arm_labels"
 
-    if len(candidates) == 1:
-        raise ManualReviewRequired(
-            "ATR found only one arm. The character must show both arms clearly for a two-arm rig."
-        )
-
+    # Cartoon illustrations often do not map cleanly to both ATR left/right labels.
+    # Fall back to the independent Pascal arm mask, split around the torso midpoint.
+    # Continue only when both resulting screen-side regions have enough pixels;
+    # otherwise fail closed for manual review.
     tx0, _, tx1, _ = _bbox(torso)
     center = (tx0 + tx1) / 2
     width = coarse_arms.shape[1]
@@ -200,9 +199,9 @@ def _screen_side_masks(
     right = coarse_arms & (xgrid >= center)
     if int(left.sum()) < 40 or int(right.sum()) < 40:
         raise ManualReviewRequired(
-            "The parser could not distinguish two arms. Use a clearer front-facing master image."
+            "The parsers could not distinguish two arms. Use a clearer front-facing master image."
         )
-    return {"left": left, "right": right}
+    return {"left": left, "right": right}, "pascal_coarse_screen_split"
 
 
 def _split_arm(
@@ -395,7 +394,7 @@ def separate_from_parsing(
         )
 
     coarse_arms = upper_all | lower_all
-    sides = _screen_side_masks(detail_labels, coarse_arms, torso)
+    sides, arm_side_source = _screen_side_masks(detail_labels, coarse_arms, torso)
     masks: dict[str, np.ndarray] = {"torso": torso, "head": head, "face": face}
     for side in ("left", "right"):
         upper, forearm, hand = _split_arm(
@@ -437,11 +436,12 @@ def separate_from_parsing(
         )
 
     body_pixels = torso | head_coarse | upper_all | lower_all
+    side_confidence = body_confidence if arm_side_source == "pascal_coarse_screen_split" else detail_confidence
     confidence = {
         "body_mean": round(float(body_confidence[body_pixels].mean()), 4),
         "face_mean": round(float(detail_confidence[face].mean()), 4),
-        "left_arm_mean": round(float(detail_confidence[sides["left"]].mean()), 4),
-        "right_arm_mean": round(float(detail_confidence[sides["right"]].mean()), 4),
+        "left_arm_mean": round(float(side_confidence[sides["left"]].mean()), 4),
+        "right_arm_mean": round(float(side_confidence[sides["right"]].mean()), 4),
     }
     if min(confidence.values()) < 0.20:
         raise ManualReviewRequired(
@@ -457,6 +457,7 @@ def separate_from_parsing(
             "face_hair_and_arm_sides": "pirocheto/schp-atr-18",
         },
         "side_convention": "left and right refer to the viewer's screen sides",
+        "arm_side_source": arm_side_source,
         "hand_split": "distal 28% of each lower-arm mask; not a dedicated hand detector",
         "hand_split_fraction": float(hand_fraction),
         "hidden_area_reconstruction": {
@@ -470,7 +471,9 @@ def separate_from_parsing(
             "SCHP was trained on real-person parsing datasets; illustration styles can reduce accuracy.",
             "Hands are estimated from the distal lower-arm region, not detected as a separate semantic class.",
             "Review layer edges, hand/finger completeness, joint seams and reconstructed torso pixels.",
-        ],
+        ] + ([
+            "ATR did not resolve both arm-side labels; side masks were derived from the coarse Pascal arm segmentation."
+        ] if arm_side_source != "atr_arm_labels" else []),
     }
     return masks, repaired, report, joints
 
