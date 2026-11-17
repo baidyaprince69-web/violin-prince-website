@@ -160,6 +160,17 @@ def _morph(mask: np.ndarray, radius: int, operation: str) -> np.ndarray:
     return np.asarray(image, dtype=np.uint8) > 0
 
 
+def _clean_segmentation_specks(mask: np.ndarray, size: int = 9) -> np.ndarray:
+    """Remove isolated parser specks before calculating head/face geometry."""
+    if size < 3 or size % 2 == 0:
+        raise ValueError("Segmentation cleanup size must be an odd integer >= 3.")
+    image = Image.fromarray(np.asarray(mask, dtype=np.uint8) * 255, mode="L")
+    # Opening removes small detached blobs that otherwise stretch a layer crop
+    # across the canvas, while preserving the large connected illustrated region.
+    image = image.filter(ImageFilter.MinFilter(size)).filter(ImageFilter.MaxFilter(size))
+    return np.asarray(image, dtype=np.uint8) > 0
+
+
 def _bbox(mask: np.ndarray) -> tuple[int, int, int, int]:
     ys, xs = np.where(mask)
     if len(xs) == 0:
@@ -384,9 +395,12 @@ def separate_from_parsing(
     head_coarse = _mask(body_labels, 1)
     upper_all = _mask(body_labels, 3)
     lower_all = _mask(body_labels, 4)
-    face = _mask(detail_labels, 11) | _mask(detail_labels, 3)
-    hair = _mask(detail_labels, 2)
-    head = head_coarse | hair | face
+    # ATR label 11 is the face class; label 3 is sunglasses and must not be
+    # unioned into the whole face plate. Cartoon parser specks are removed before
+    # bounding boxes are generated so a few stray pixels cannot stretch the plate.
+    face = _clean_segmentation_specks(_mask(detail_labels, 11), size=9)
+    hair = _clean_segmentation_specks(_mask(detail_labels, 2), size=9)
+    head = _clean_segmentation_specks(head_coarse | hair | face, size=9)
     if int(torso.sum()) < 100 or int(head.sum()) < 100 or int(face.sum()) < 40:
         raise ManualReviewRequired(
             "The parsers could not identify a reliable head, face and torso. "
@@ -481,15 +495,41 @@ def separate_from_parsing(
 def _face_plate(
     path: Path, parser: SCHPOnnxParser, target_size: tuple[int, int], destination: Path
 ) -> None:
+    """Build an aligned face/head plate from the supplied matching expression art.
+
+    The references are clean character portraits on a near-white background.
+    SCHP's face labels are not reliable for this cartoon style, so use the
+    reference crop itself and remove only the near-white background. The crop
+    stops below the chin rather than including the jacket/torso.
+    """
+    del parser  # Expression references are authored face plates, not model inputs.
     with Image.open(path) as opened:
         image = opened.convert("RGB")
-    labels, _ = parser.parse(image)
-    mask = _mask(labels, 11) | _mask(labels, 3)
-    if int(mask.sum()) < 40:
-        raise ManualReviewRequired(f"Could not find a clear face in expression reference {path.name}.")
-    x0, y0, x1, y1 = _bbox(mask)
-    plate = image.crop((x0, y0, x1, y1)).convert("RGBA")
-    plate.putalpha(Image.fromarray(mask[y0:y1, x0:x1].astype(np.uint8) * 255, mode="L"))
+    rgb = np.asarray(image, dtype=np.uint8)
+    height, width = rgb.shape[:2]
+    # Keep hair, ears, face and chin; exclude the shoulders and blazer beneath.
+    crop_bottom = max(1, min(height, int(height * 0.66)))
+    sample = rgb[:crop_bottom]
+    min_channel = sample.min(axis=2)
+    channel_spread = sample.max(axis=2).astype(np.int16) - sample.min(axis=2).astype(np.int16)
+    foreground = ~((min_channel >= 238) & (channel_spread <= 22))
+    ys, xs = np.where(foreground)
+    if len(xs) < 100:
+        raise ManualReviewRequired(f"Could not find the character face in reference {path.name}.")
+    x0, x1 = int(xs.min()), int(xs.max()) + 1
+    y0 = int(ys.min())
+    y1 = crop_bottom
+    crop = rgb[y0:y1, x0:x1].copy()
+
+    # Anti-aliased white/grey studio background becomes transparent; character
+    # pixels remain opaque. A short soft transition avoids a bright halo.
+    crop_min = crop.min(axis=2).astype(np.float32)
+    crop_spread = crop.max(axis=2).astype(np.float32) - crop_min
+    whiteness = np.clip((crop_min - 232.0) / 20.0, 0.0, 1.0)
+    neutral = np.clip(1.0 - crop_spread / 32.0, 0.0, 1.0)
+    background_strength = whiteness * neutral
+    alpha = np.clip(255.0 * (1.0 - background_strength), 0, 255).astype(np.uint8)
+    plate = Image.fromarray(np.dstack((crop, alpha)), mode="RGBA")
     plate = plate.resize(target_size, Image.Resampling.LANCZOS)
     destination.parent.mkdir(parents=True, exist_ok=True)
     plate.save(destination, format="PNG", optimize=True)
