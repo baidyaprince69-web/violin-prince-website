@@ -31,6 +31,34 @@ on:
       - autopilot/engine/tests/test_character_rig.py
       - autopilot/engine/tests/test_character_visual_validation.py
       - autopilot/engine/tests/test_daily_plan.py
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths:
+      - .github/workflows/character-rig-test.yml
+      - autopilot/engine/character_autorig.py
+      - autopilot/engine/character_rig.py
+      - autopilot/engine/character_rig_test.py
+      - autopilot/engine/character_visual_validation.py
+      - autopilot/engine/character_daily_integration_test.py
+      - autopilot/engine/character_presenter.py
+      - autopilot/engine/illustration_asset_factory.py
+      - autopilot/engine/hyperframes_pipeline.py
+      - autopilot/engine/run_daily_plan.py
+      - autopilot/engine/animation2d/build.mjs
+      - autopilot/engine/animation2d/src/character-layout.mjs
+      - autopilot/engine/animation2d/src/contract.mjs
+      - autopilot/engine/animation2d/src/motion-build.mjs
+      - autopilot/engine/animation2d/test/character-layout.test.mjs
+      - autopilot/engine/animation2d/test/articulated-rig.test.mjs
+      - autopilot/engine/tests/test_character_autorig.py
+      - autopilot/engine/tests/test_character_rig.py
+      - autopilot/engine/tests/test_character_visual_validation.py
+      - autopilot/engine/tests/test_daily_plan.py
   workflow_dispatch:
     inputs:
       source_image:
