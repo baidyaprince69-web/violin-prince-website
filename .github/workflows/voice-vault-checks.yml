@@ -53,8 +53,8 @@ jobs:
               raise SystemExit("External module entry point is missing.")
           if '<script>' in html or ' onload=' in html or ' onclick=' in html:
               raise SystemExit("Inline script/event handler is not permitted.")
-          if "https://www.googleapis.com/upload/drive/v3/files" not in app:
-              raise SystemExit("Google Drive upload API not found.")
+          if 'const DRIVE_UPLOAD_API = "https://www.googleapis.com/upload/drive/v3";' not in app or 'DRIVE_UPLOAD_API + "/files?uploadType=multipart' not in app:
+              raise SystemExit("Google Drive encrypted multipart upload API not found.")
           if "createVoicePackage" not in app or "encryptedBytes" not in app:
               raise SystemExit("Client-side encryption is not wired to upload.")
           if "localStorage" in app or "sessionStorage" in app or "indexedDB" in app:
