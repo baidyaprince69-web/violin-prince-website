@@ -25,10 +25,6 @@ try:
         normalize_visual_reference, scene_camera_move, scene_transition,
         scene_visual_prompt_suffix, transition_duration,
     )
-    from .blender_renderer import (
-        is_blender_render_enabled, render_scene_video, blender_render_worker_count,
-        blender_render_resolution, blender_render_fps,
-    )
     from .parallel_render import parallel_map_ordered
 except ImportError:  # Direct script execution from the engine directory.
     from seo_intelligence import build_topic_queries, discover as seo_discover, load_profile as seo_load_profile
@@ -41,10 +37,6 @@ except ImportError:  # Direct script execution from the engine directory.
     from visual_reference import (
         normalize_visual_reference, scene_camera_move, scene_transition,
         scene_visual_prompt_suffix, transition_duration,
-    )
-    from blender_renderer import (
-        is_blender_render_enabled, render_scene_video, blender_render_worker_count,
-        blender_render_resolution, blender_render_fps,
     )
     from parallel_render import parallel_map_ordered
 
@@ -4313,53 +4305,6 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
     ]
     all_word_cues = narration_info.get("word_cues", [])
     scene_motion_events = []
-    blender_enabled = is_blender_render_enabled()
-    blender_scene_reports = []
-    blender_render_outputs = {}
-    if blender_enabled:
-        render_tasks = [
-            (index, scene, float(scene_seconds))
-            for index, (scene, scene_seconds) in enumerate(zip(plan["scenes"], scene_durations))
-        ]
-
-        def _render_blender_scene(task):
-            index, scene, scene_seconds = task
-            clip = OUT / f"scene-{index + 1}.mp4"
-            result = render_scene_video(
-                scene, clip, scene_index=index, duration_seconds=scene_seconds,
-                resolution=blender_render_resolution(), fps=blender_render_fps(),
-            )
-            if not result:
-                raise PipelineError(
-                    f"Blender skipped scene {index + 1}; refusing an incomplete 3D production."
-                )
-            poster = OUT / f"blender-scene-{index + 1}-poster.png"
-            command([
-                "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
-                "-ss", f"{scene_seconds / 2:.3f}", "-i", str(clip),
-                "-frames:v", "1", "-f", "image2", str(poster),
-            ])
-            if not poster.is_file() or poster.stat().st_size < 1024:
-                raise PipelineError(
-                    f"Blender scene {index + 1} did not produce a verifiable poster frame."
-                )
-            result["poster_path"] = str(poster)
-            return index, clip, result
-
-        render_workers = blender_render_worker_count(len(render_tasks))
-        log(
-            f"Starting {len(render_tasks)} independent Blender scene renders "
-            f"concurrently (workers={render_workers}, threads per worker="
-            f"{os.environ.get('BLENDER_THREADS_PER_WORKER', '1')})."
-        )
-        rendered_scenes = parallel_map_ordered(
-            render_tasks, _render_blender_scene, max_workers=render_workers
-        )
-        blender_render_outputs = {
-            index: (clip, result)
-            for index, clip, result in rendered_scenes
-        }
-
     for i, (scene, scene_seconds) in enumerate(zip(plan["scenes"], scene_durations)):
         scene_start = scene_starts[i]
         scene_word_events = []
@@ -4383,20 +4328,6 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
             "timeline_start_seconds": round(scene_start, 3),
             "word_cue_count": len(scene_word_events),
         })
-
-        # Each independent scene is already rendered by a separate Blender
-        # process. Join them only after all parallel workers have succeeded.
-        if blender_enabled:
-            clip, blender_result = blender_render_outputs[i]
-            blender_scene_reports.append({"scene": i + 1, **blender_result})
-            clips.append(clip)
-            log(
-                f"Blender parallel worker completed scene {i + 1}/3: "
-                f"{blender_result.get('scene_type')} "
-                f"({blender_result.get('duration_seconds')}s, "
-                f"{blender_result.get('width')}×{blender_result.get('height')})."
-            )
-            continue
 
         visual_prompt = _scene_visual_prompt(scene, index=i, plan=plan)
         if image_paths is not None:
@@ -4574,10 +4505,10 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         "narration_duration_seconds": round(narration_end, 2),
         "voice_coverage_percent": round(min(100.0, narration_end / 24.0 * 100.0), 1),
         "music_only_ending_seconds": round(max(0.0, 24.0 - narration_end), 2),
-        "camera_motion": "animated Blender 3D camera" if blender_enabled else "locked photographic framing; no repetitive push-in",
-        "motion_graphics": 0 if blender_enabled else 3,
-        "motion_graphics_renderer": "Blender-authored 3D object and camera animation" if blender_enabled else "word-synchronised kinetic typography with deterministic per-frame animated explainers",
-        "data_driven_graphics": ([] if blender_enabled else [
+        "camera_motion": "deterministic scene-specific framing",
+        "motion_graphics": 3,
+        "motion_graphics_renderer": "word-synchronised kinetic typography with deterministic per-frame animated explainers",
+        "data_driven_graphics": [
             {
                 "scene": index + 1,
                 "type": str((scene.get("graphic_data") or {}).get("type") or "mode_default"),
@@ -4585,21 +4516,8 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
                 if isinstance(scene.get("graphic_data"), dict) else 0,
             }
             for index, scene in enumerate(plan.get("scenes", []))
-        ]),
-        "visual_engine": (
-            "full-frame animated 3D scenes rendered directly by Blender"
-            if blender_enabled else
-            "photorealistic scene plates with Pillow motion graphics and FFmpeg animation"
-        ),
-        "blender_rendering": {
-            "enabled": blender_enabled,
-            "renderer": "Blender Eevee CPU — full-frame scene renderer" if blender_enabled else "disabled",
-            "composition": "Blender owns each 3D frame; FFmpeg joins scenes and adds soundtrack, narration and subtitles",
-            "scenes": blender_scene_reports,
-            "animation_scope": "frame-by-frame 3D object deformation, camera movement, lighting and materials",
-            "no_image_plate": blender_enabled,
-            "no_transparent_overlay": blender_enabled,
-        },
+        ],
+        "visual_engine": "photorealistic scene plates with frame-by-frame Pillow motion graphics and FFmpeg finishing",
         "visual_modes": [str(scene.get("visual_mode") or "waveform") for scene in plan.get("scenes", [])],
         "creative_direction_version": CREATIVE_DIRECTION_VERSION,
         "subtitle_style": "Kokoro word-timed karaoke typography with gold active-word fill",
@@ -4622,8 +4540,8 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         "word_sync_status": narration_info.get("word_sync_status", "not_checked"),
         "word_timing_method": narration_info.get("word_timing_method", "not_checked"),
         "word_timing_count": int(narration_info.get("word_timing_count", 0)),
-        "motion_timing_source": "Kokoro word timestamps drive captions; Blender scene motion is authored independently" if blender_enabled else "Kokoro-native word timestamps",
-        "speech_led_motion": False if blender_enabled else True,
+        "motion_timing_source": "Kokoro-native word timestamps drive Motion keyframes and captions",
+        "speech_led_motion": True,
         "motion_scene_timeline": scene_motion_events,
         "visual_review_contact_sheet": contact_sheet.name,
         "visual_review_samples": [
