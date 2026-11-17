@@ -9,6 +9,8 @@ from character_autorig import (
     ManualReviewRequired,
     _repair_hidden_area,
     _close_small_mask_holes,
+    _soft_alpha_from_mask,
+    _morph,
     _dark_garment_underlap,
     _joint_disk,
     _recover_hand_fingers_from_skin,
@@ -48,11 +50,20 @@ class CharacterAutoRigTests(unittest.TestCase):
         self.assertEqual(len(masks), 9)
         self.assertEqual(len(joints), 7)
         self.assertEqual(repaired.size, image.size)
-        self.assertEqual(
-            int((masks["head"] & masks["face"]).sum()),
-            0,
-            "head and face must be separate so expression overlays cannot double the facial artwork",
+        face_overlap = int((masks["head"] & masks["face"]).sum())
+        self.assertGreater(face_overlap, 0, "head shell must underlap the feathered face edge")
+        self.assertLess(
+            face_overlap,
+            int(masks["face"].sum() * 0.08),
+            "head/face overlap must remain a narrow perimeter ring",
         )
+        face_interior = _morph(masks["face"], 3, "erode")
+        self.assertEqual(
+            int((masks["head"] & face_interior).sum()),
+            0,
+            "original facial pixels must remain excluded from the centre of the face plate",
+        )
+        self.assertGreater(report["face_edge_blend"]["alpha_gaussian_blur_px"], 0)
         for role, region in masks.items():
             self.assertGreater(int(region.sum()), 20, role)
         for side in ("left", "right"):
@@ -169,6 +180,16 @@ class CharacterAutoRigTests(unittest.TestCase):
         )
         self.assertTrue(np.any(overlap[15:25, 11:15]))
         self.assertFalse(np.any(overlap[11:29, 15:29]))
+
+    def test_soft_face_alpha_feathers_the_edge_but_keeps_the_interior_opaque(self):
+        mask = np.zeros((40, 40), dtype=bool)
+        mask[10:30, 10:30] = True
+        alpha = _soft_alpha_from_mask(mask, blur_radius=1.2)
+        self.assertEqual(alpha.shape, mask.shape)
+        self.assertEqual(int(alpha[20, 20]), 255)
+        self.assertGreater(int(alpha[9, 20]), 0)
+        self.assertLess(int(alpha[9, 20]), 255)
+        self.assertEqual(int(alpha[0, 0]), 0)
 
     def test_head_neck_mask_closes_small_alpha_pinholes(self):
         neck = np.zeros((40, 60), dtype=bool)
