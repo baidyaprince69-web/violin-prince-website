@@ -1,0 +1,2 @@
+# Optional large-gap reconstruction backend; installed only when large hidden areas need filling.
+simple-lama-inpainting==0.1.2
