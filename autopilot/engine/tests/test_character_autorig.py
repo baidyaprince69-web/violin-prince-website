@@ -9,6 +9,8 @@ from character_autorig import (
     ManualReviewRequired,
     _repair_hidden_area,
     _save_pose_plate,
+    _face_region_from_head,
+    _face_plate,
     separate_from_parsing,
 )
 
@@ -79,6 +81,40 @@ class CharacterAutoRigTests(unittest.TestCase):
         self.assertEqual(method, "local_neighbour_propagation")
         self.assertGreater(ratio, 0)
         self.assertEqual(result.getpixel((9, 9)), (120, 80, 60))
+
+    def test_face_region_is_smooth_oval_inside_head_silhouette(self):
+        head = np.zeros((120, 100), dtype=bool)
+        head[5:115, 15:85] = True
+        face = _face_region_from_head(head)
+        self.assertTrue(face[60, 50])
+        self.assertFalse(face[0, 0])
+        self.assertFalse(face[60, 15])
+        self.assertFalse(face[60, 84])
+        self.assertFalse(np.any(face & ~head))
+
+    def test_expression_plate_uses_exact_master_face_alpha_mask(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = root / "speaking.jpg"
+            output = root / "expression-speaking.png"
+            image = Image.new("RGB", (400, 300), (250, 250, 250))
+            for y in range(40, 260):
+                for x in range(100, 300):
+                    image.putpixel((x, y), (180, 100, 70))
+            image.save(source, quality=95)
+            alpha = np.zeros((60, 80), dtype=bool)
+            yy, xx = np.ogrid[:60, :80]
+            alpha[((xx - 40) / 32) ** 2 + ((yy - 30) / 25) ** 2 <= 1] = True
+            _face_plate(source, (80, 60), output, alpha_mask=alpha)
+            with Image.open(output) as plate:
+                self.assertEqual(plate.mode, "RGBA")
+                self.assertEqual(plate.size, (80, 60))
+                self.assertEqual(plate.getpixel((0, 0))[3], 0)
+                self.assertEqual(plate.getpixel((40, 30))[3], 255)
+                self.assertEqual(plate.getpixel((40, 5))[3], 0)
 
     def test_pose_reference_plate_removes_near_white_background(self):
         import tempfile
