@@ -1,0 +1,42 @@
+{
+  "source_width": 2032,
+  "source_height": 1104,
+  "model_pair": {
+    "body_parts": "pirocheto/schp-pascal-7",
+    "face_hair_and_arm_sides": "pirocheto/schp-atr-18"
+  },
+  "side_convention": "left and right refer to the viewer's screen sides",
+  "arm_side_source": "pascal_coarse_screen_split",
+  "hand_split": "distal 28% of each lower-arm mask; not a dedicated hand detector",
+  "hand_split_fraction": 0.72,
+  "hidden_area_reconstruction": {
+    "method": "local_neighbour_propagation",
+    "pixels_reconstructed": 4937,
+    "fraction_of_source": 0.002201
+  },
+  "mean_confidence": {
+    "body_mean": 0.978,
+    "face_mean": 0.9612,
+    "left_arm_mean": 0.966,
+    "right_arm_mean": 0.9639
+  },
+  "edge_connected_background_removal": {
+    "method": "near_white_border_flood_fill",
+    "background_fraction": 0.687341,
+    "preserves_enclosed_white_details": true
+  },
+  "needs_visual_review": true,
+  "review_reasons": [
+    "SCHP was trained on real-person parsing datasets; illustration styles can reduce accuracy.",
+    "Hands are estimated from the distal lower-arm region, not detected as a separate semantic class.",
+    "Review layer edges, hand/finger completeness, joint seams and reconstructed torso pixels.",
+    "ATR did not resolve both arm-side labels; side masks were derived from the coarse Pascal arm segmentation."
+  ],
+  "character_id": "violin-prince",
+  "status": "candidate_ready_for_visual_review",
+  "layer_count": 9,
+  "expression_count": 6,
+  "pose_reference_count": 6,
+  "pose_asset_count": 6,
+  "joint_count": 7
+}

@@ -118,6 +118,18 @@ def validate_character_spec(character: dict[str, Any]) -> dict[str, Any]:
     gestures = character.get("gestures") or {}
     if not isinstance(poses, dict) or not isinstance(gestures, dict):
         raise CharacterRigError(f"Character {character_id} poses and gestures must be objects.")
+    raw_pose_assets = character.get("pose_assets") or {}
+    if not isinstance(raw_pose_assets, dict):
+        raise CharacterRigError(f"Character {character_id} pose_assets must be an object.")
+    pose_assets = {}
+    for name, value in raw_pose_assets.items():
+        pose_name = str(name).strip().casefold()
+        if not CHARACTER_ID.fullmatch(pose_name):
+            raise CharacterRigError(f"Character {character_id} has an invalid pose asset name.")
+        src = value.get("src") if isinstance(value, dict) else value
+        if not str(src or "").strip():
+            raise CharacterRigError(f"Pose asset {pose_name} has no image source.")
+        pose_assets[pose_name] = {"src": str(src).strip()}
 
     return {
         **character,
@@ -127,6 +139,7 @@ def validate_character_spec(character: dict[str, Any]) -> dict[str, Any]:
         "expressions": normalised_expressions,
         "poses": poses,
         "gestures": gestures,
+        "pose_assets": pose_assets,
         "scene_actions": character.get("scene_actions") or {},
         "scene_ids": character.get("scene_ids"),
     }

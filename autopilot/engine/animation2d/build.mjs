@@ -63,6 +63,9 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       '" style="' + style + '">';
   }).join("");
 
+  const selectedPose = String(action.pose_asset || "").toLowerCase();
+  const poseIsActive = Boolean(selectedPose && character.pose_assets &&
+    Object.prototype.hasOwnProperty.call(character.pose_assets, selectedPose));
   const face = (character.layers || []).find((layer) => layer.role === "face") || {};
   const expressions = Object.entries(character.expressions || {}).map(([name, expression]) => {
     const style = [
@@ -72,7 +75,9 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       "height:" + Number(expression.height ?? face.height ?? 1) + "px",
       "z-index:999"
     ].join(";");
-    const initial = name === "neutral" ? "opacity:1;" : "opacity:0;";
+    const initial = poseIsActive && selectedPose !== "resting_hands"
+      ? "opacity:0;"
+      : (name === "neutral" ? "opacity:1;" : "opacity:0;");
     const expressionId = scene.id + "-" + character.id + "-expression-" + name;
     return '<img class="rig-expression" id="' + escapeHtml(expressionId) +
       '" data-expression="' + escapeHtml(name) +
@@ -80,10 +85,27 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       '" style="' + style + ";" + initial + '">';
   }).join("");
 
+  const poseAssets = Object.entries(character.pose_assets || {}).map(([name, pose]) => {
+    const style = [
+      "left:0px", "top:0px",
+      "width:" + canvasWidth + "px",
+      "height:" + canvasHeight + "px",
+      "object-fit:contain",
+      "z-index:90",
+      "opacity:" + (name === selectedPose ? "1" : "0")
+    ].join(";");
+    const poseId = scene.id + "-" + character.id + "-pose-" + name;
+    return '<img class="rig-pose" id="' + escapeHtml(poseId) +
+      '" data-pose="' + escapeHtml(name) +
+      '" alt="" draggable="false" src="' + escapeHtml(pose.src) +
+      '" style="' + style + '">';
+  }).join("");
   return '<div class="clip character-rig" id="' + escapeHtml(scene.id + "-" + character.id) +
+    '" data-pose-active="' + (poseIsActive ? "true" : "false") +
+    '" data-pose-name="' + escapeHtml(poseIsActive ? selectedPose : "") +
     '" data-start="' + Number(scene.start) + '" data-duration="' + Number(scene.duration) +
     '" data-track-index="' + (40 + sceneIndex * 100 + characterIndex) +
-    '" style="' + wrapperStyle + '">' + layers + expressions + '</div>';
+    '" style="' + wrapperStyle + '">' + layers + expressions + poseAssets + '</div>';
 }
 
 const args = parseArgs(process.argv.slice(2));
@@ -146,7 +168,9 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.scene-title{top:13%;font:700 42px/1.12 system-ui,sans-serif;letter-spacing:-.03em;z-index:20}' +
   '.scene-caption{bottom:18%;font:500 27px/1.35 system-ui,sans-serif;max-width:86%;color:#e6edf4;z-index:21}' +
   '.character-rig{position:absolute;width:100%;height:100%;opacity:0;transform-origin:center center}' +
-  '.rig-part,.rig-expression{position:absolute;object-fit:contain;max-width:none;pointer-events:none}' +
+  '.rig-part,.rig-expression,.rig-pose{position:absolute;object-fit:contain;max-width:none;pointer-events:none}' +
+  '.character-rig[data-pose-active="true"] .rig-part{opacity:0}' +
+  '.character-rig[data-pose-active="true"]:not([data-pose-name="resting_hands"]) .rig-expression{opacity:0}' +
   '</style></head><body><div id="root" data-composition-id="root" data-start="0"' +
   ' data-duration="' + duration + '" data-fps="' + fps + '"' +
   ' data-width="' + width + '" data-height="' + height + '">' + markup +

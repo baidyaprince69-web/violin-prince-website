@@ -1,0 +1,145 @@
+name: Character Auto-Rig Test
+# Final proof: edge-connected backdrop removal, clean pose plates, no duplicate faces, and persist only after a successful render.
+
+on:
+  # Run the isolated character proof for changes that affect rig generation,
+  # the Motion renderer, pose/expression staging, or the corresponding tests.
+  push:
+    branches:
+      - baidyaprince69-web-patch-1
+    paths:
+      - .github/workflows/character-rig-test.yml
+      - autopilot/engine/character_autorig.py
+      - autopilot/engine/character_rig.py
+      - autopilot/engine/character_rig_test.py
+      - autopilot/engine/illustration_asset_factory.py
+      - autopilot/engine/hyperframes_pipeline.py
+      - autopilot/engine/animation2d/build.mjs
+      - autopilot/engine/animation2d/src/contract.mjs
+      - autopilot/engine/animation2d/src/motion-build.mjs
+      - autopilot/engine/tests/test_character_autorig.py
+      - autopilot/engine/tests/test_character_rig.py
+      - autopilot/engine/tests/test_daily_plan.py
+  workflow_dispatch:
+    inputs:
+      source_image:
+        description: Master character image path inside this repository
+        required: true
+        type: string
+        default: autopilot/engine/assets/characters/violin-prince-reference/master-character.jpg
+      reference_directory:
+        description: Directory containing face and pose reference images
+        required: true
+        type: string
+        default: autopilot/engine/assets/characters/violin-prince-reference
+      use_lama:
+        description: Install optional LaMa inpainting for larger hidden torso areas
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  character-rig-test:
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      PUBLISH_ENABLED: "false"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CPU character parsing dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # The Hugging Face SCHP image processor's remote implementation imports torch and torchvision.
+          pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
+          pip install Pillow numpy
+          pip install -r autopilot/engine/requirements-character.txt
+
+      - name: Install optional LaMa reconstruction backend
+        if: inputs.use_lama
+        run: pip install -r autopilot/engine/requirements-character-lama.txt
+
+      - name: Separate the master character and build transparent layers
+        run: |
+          python autopilot/engine/character_autorig.py \
+            --source "${{ inputs.source_image || 'autopilot/engine/assets/characters/violin-prince-reference/master-character.jpg' }}" \
+            --reference-dir "${{ inputs.reference_directory || 'autopilot/engine/assets/characters/violin-prince-reference' }}" \
+            --output work/character-autorig/violin-prince \
+            --id violin-prince
+
+      - name: Build isolated character-rig preview project
+        run: |
+          python autopilot/engine/character_rig_test.py \
+            --bundle work/character-autorig/violin-prince \
+            --output work/character-rig-test
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Motion and HyperFrames
+        working-directory: autopilot/engine/animation2d
+        run: npm install --no-audit --no-fund
+
+      - name: Build and lint the character composition
+        working-directory: autopilot/engine/animation2d
+        run: |
+          node build.mjs --project ../../../work/character-rig-test/project.json \
+            --out-dir ../../../work/character-rig-test/composition
+          # build.mjs writes the composition into a subfolder; copy its referenced media beside index.html.
+          mkdir -p ../../../work/character-rig-test/composition/assets/characters
+          cp -R ../../../work/character-rig-test/assets/characters/violin-prince \
+            ../../../work/character-rig-test/composition/assets/characters/
+
+      - name: Lint the composition
+        working-directory: work/character-rig-test/composition
+        run: $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes lint
+
+      - name: Install FFmpeg and FFprobe for MP4 rendering
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Render isolated rig preview (not production)
+        working-directory: work/character-rig-test/composition
+        run: $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes render --output ../character-rig-preview.mp4 --fps 25 --quality standard
+
+      - name: Save the tested rig bundle for the main animation pipeline
+        if: success() && github.ref_name == 'baidyaprince69-web-patch-1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEST="autopilot/engine/assets/characters/violin-prince-rig"
+          mkdir -p "$DEST"
+          cp -R work/character-autorig/violin-prince/. "$DEST/"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$DEST"
+          if git diff --cached --quiet; then
+            echo "The saved character rig bundle is already up to date."
+          else
+            git commit -m "Save tested Violin Prince rig bundle for daily animation"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+
+      - name: Preserve rig evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: violin-prince-character-rig-test-${{ github.run_id }}
+          path: |
+            work/character-autorig/violin-prince/
+            work/character-rig-test/
+          if-no-files-found: error
+          retention-days: 14

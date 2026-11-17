@@ -72,6 +72,15 @@ def render_daily_plan(
                 **expression,
                 "src": target.relative_to(project_dir).as_posix(),
             }
+        staged["pose_assets"] = {}
+        for name, pose in character.get("pose_assets", {}).items():
+            source = Path(pose["src"]).resolve(strict=True)
+            target = character_dir / Path(pose["src"]).name
+            shutil.copy2(source, target)
+            staged["pose_assets"][name] = {
+                **pose,
+                "src": target.relative_to(project_dir).as_posix(),
+            }
         staged_characters.append(staged)
 
     durations = engine.scene_durations_from_narration(narration_info, total_seconds=24.0)

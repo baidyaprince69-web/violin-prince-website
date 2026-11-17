@@ -15,6 +15,22 @@ export function gestureKeyframes(name) {
       right_forearm: { rotate: [0, 24] },
       right_hand: { rotate: [0, -8] }
     },
+    point_left: {
+      left_upper_arm: { rotate: [0, 38] },
+      left_forearm: { rotate: [0, -18] },
+      left_hand: { rotate: [0, 7] }
+    },
+    point_right: {
+      right_upper_arm: { rotate: [0, -38] },
+      right_forearm: { rotate: [0, 18] },
+      right_hand: { rotate: [0, -7] }
+    },
+    open_palms: {
+      left_upper_arm: { rotate: [0, -20, -14] },
+      left_forearm: { rotate: [0, 18, 8] },
+      right_upper_arm: { rotate: [0, 20, 14] },
+      right_forearm: { rotate: [0, -18, -8] }
+    },
     explain: {
       left_upper_arm: { rotate: [0, -12, -4, -12, 0] },
       right_upper_arm: { rotate: [0, 12, 4, 12, 0] }

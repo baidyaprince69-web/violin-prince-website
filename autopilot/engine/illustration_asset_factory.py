@@ -112,6 +112,14 @@ def prepare_character_assets(
                 "width": face_layer["width"], "height": face_layer["height"],
             }
 
+        pose_assets = {}
+        for name, pose in character.get("pose_assets", {}).items():
+            src = pose["src"]
+            target = character_folder / ("pose-" + name + Path(src).suffix.lower())
+            pose_assets[name] = {
+                "src": _copy_image(src, target, source_root, work_root),
+            }
+
         scene_actions = character.get("scene_actions") or {}
         if not isinstance(scene_actions, dict):
             raise IllustrationAssetError(
@@ -123,6 +131,7 @@ def prepare_character_assets(
             "layers": layers,
             "joints": character["joints"],
             "expressions": expressions,
+            "pose_assets": pose_assets,
             "poses": character["poses"],
             "gestures": character["gestures"],
             "scene_actions": scene_actions,
