@@ -1,0 +1,208 @@
+{
+  "id": "violin-prince",
+  "name": "Violin Prince presenter",
+  "canvas": {
+    "width": 2032,
+    "height": 1104
+  },
+  "layers": [
+    {
+      "id": "torso",
+      "role": "torso",
+      "src": "torso.png",
+      "x": 687,
+      "y": 428,
+      "width": 647,
+      "height": 676,
+      "pixel_area": 339214,
+      "pivot_x": 0.5,
+      "pivot_y": 0.5,
+      "z_index": 10
+    },
+    {
+      "id": "left_upper_arm",
+      "role": "left_upper_arm",
+      "src": "left_upper_arm.png",
+      "x": 468,
+      "y": 525,
+      "width": 286,
+      "height": 358,
+      "pixel_area": 47618,
+      "pivot_x": 0.909395,
+      "pivot_y": 0.363575,
+      "z_index": 20
+    },
+    {
+      "id": "right_upper_arm",
+      "role": "right_upper_arm",
+      "src": "right_upper_arm.png",
+      "x": 1254,
+      "y": 533,
+      "width": 310,
+      "height": 350,
+      "pixel_area": 48231,
+      "pivot_x": 0.100942,
+      "pivot_y": 0.366201,
+      "z_index": 21
+    },
+    {
+      "id": "left_forearm",
+      "role": "left_forearm",
+      "src": "left_forearm.png",
+      "x": 216,
+      "y": 770,
+      "width": 411,
+      "height": 247,
+      "pixel_area": 48187,
+      "pivot_x": 0.807016,
+      "pivot_y": 0.223953,
+      "z_index": 30
+    },
+    {
+      "id": "right_forearm",
+      "role": "right_forearm",
+      "src": "right_forearm.png",
+      "x": 1389,
+      "y": 775,
+      "width": 343,
+      "height": 227,
+      "pixel_area": 38776,
+      "pivot_x": 0.245416,
+      "pivot_y": 0.223247,
+      "z_index": 31
+    },
+    {
+      "id": "left_hand",
+      "role": "left_hand",
+      "src": "left_hand.png",
+      "x": 71,
+      "y": 839,
+      "width": 241,
+      "height": 223,
+      "pixel_area": 15828,
+      "pivot_x": 0.799151,
+      "pivot_y": 0.394193,
+      "z_index": 40
+    },
+    {
+      "id": "right_hand",
+      "role": "right_hand",
+      "src": "right_hand.png",
+      "x": 1650,
+      "y": 814,
+      "width": 203,
+      "height": 205,
+      "pixel_area": 16910,
+      "pivot_x": 0.199912,
+      "pivot_y": 0.556502,
+      "z_index": 41
+    },
+    {
+      "id": "head",
+      "role": "head",
+      "src": "head.png",
+      "x": 802,
+      "y": 14,
+      "width": 373,
+      "height": 527,
+      "pixel_area": 132316,
+      "pivot_x": 0.545727,
+      "pivot_y": 0.91444,
+      "z_index": 50
+    },
+    {
+      "id": "face",
+      "role": "face",
+      "src": "face.png",
+      "x": 838,
+      "y": 208,
+      "width": 302,
+      "height": 283,
+      "pixel_area": 59926,
+      "pivot_x": 0.5,
+      "pivot_y": 0.5,
+      "z_index": 60
+    }
+  ],
+  "joints": {
+    "neck": {
+      "x": 0.495104,
+      "y": 0.449601
+    },
+    "left_shoulder": {
+      "x": 0.358487,
+      "y": 0.59398
+    },
+    "left_elbow": {
+      "x": 0.269662,
+      "y": 0.748247
+    },
+    "left_wrist": {
+      "x": 0.129786,
+      "y": 0.840349
+    },
+    "right_shoulder": {
+      "x": 0.632837,
+      "y": 0.599429
+    },
+    "right_elbow": {
+      "x": 0.725346,
+      "y": 0.748574
+    },
+    "right_wrist": {
+      "x": 0.832389,
+      "y": 0.841417
+    }
+  },
+  "expressions": {
+    "neutral": {
+      "src": "expression-neutral.png"
+    },
+    "blink": {
+      "src": "expression-blink.png"
+    },
+    "speaking": {
+      "src": "expression-speaking.png"
+    },
+    "smile": {
+      "src": "expression-smile.png"
+    },
+    "shocked": {
+      "src": "expression-shocked.png"
+    },
+    "sad": {
+      "src": "expression-sad.png"
+    }
+  },
+  "poses": {},
+  "gestures": {},
+  "scene_actions": {},
+  "reference_poses": {
+    "resting_hands": "pose-resting-hands.jpg",
+    "one_arm_raised": "pose-one-arm-raised.jpg",
+    "explaining_two_hands": "pose-explaining-two-hands.jpg",
+    "open_palms": "pose-open-palms.jpg",
+    "point_left": "pose-point-left.jpg",
+    "point_right": "pose-point-right.jpg"
+  },
+  "pose_assets": {
+    "resting_hands": {
+      "src": "pose-resting_hands.png"
+    },
+    "one_arm_raised": {
+      "src": "pose-one_arm_raised.png"
+    },
+    "explaining_two_hands": {
+      "src": "pose-explaining_two_hands.png"
+    },
+    "open_palms": {
+      "src": "pose-open_palms.png"
+    },
+    "point_left": {
+      "src": "pose-point_left.png"
+    },
+    "point_right": {
+      "src": "pose-point_right.png"
+    }
+  }
+}
