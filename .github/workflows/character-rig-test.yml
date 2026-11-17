@@ -145,6 +145,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          set -euo pipefail
+          git fetch origin "$GITHUB_REF_NAME"
+          LOCAL_SHA="$(git rev-parse HEAD)"
+          REMOTE_SHA="$(git rev-parse "origin/$GITHUB_REF_NAME")"
+          if [[ "$LOCAL_SHA" != "$REMOTE_SHA" ]]; then
+            echo "Source branch advanced during this render; skip saving this older rig bundle."
+            exit 0
+          fi
           DEST="autopilot/engine/assets/characters/violin-prince-rig"
           mkdir -p "$DEST"
           cp -R work/character-autorig/violin-prince/. "$DEST/"
