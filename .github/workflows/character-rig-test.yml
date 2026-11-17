@@ -1,5 +1,5 @@
 name: Character Auto-Rig Test
-# Current proof target: generated separated layers plus authored transparent pose plates; no duplicate face overlays.
+# Final proof: clean transparent pose plates, no duplicate face overlays, and persist the bundle only after a successful render.
 
 on:
   # Allow this isolated proof to run on the existing PR branch before it is merged.
@@ -121,7 +121,7 @@ jobs:
             echo "The saved character rig bundle is already up to date."
           else
             git commit -m "Save tested Violin Prince rig bundle for daily animation"
-            git push origin "HEAD:\${GITHUB_REF_NAME}"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
 
       - name: Preserve rig evidence
