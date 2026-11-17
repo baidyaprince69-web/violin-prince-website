@@ -13,6 +13,7 @@ on:
       - autopilot/engine/character_rig.py
       - autopilot/engine/character_rig_test.py
       - autopilot/engine/character_daily_integration_test.py
+      - autopilot/engine/character_presenter.py
       - autopilot/engine/illustration_asset_factory.py
       - autopilot/engine/hyperframes_pipeline.py
       - autopilot/engine/run_daily_plan.py
