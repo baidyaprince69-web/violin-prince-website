@@ -129,7 +129,7 @@ export async function createVoicePackage(input, passphrase, cryptoOverride) {
     throw new Error("The original recording must be between 1 byte and 20 MB.");
   }
   validateWav(wav);
-  if (transcript.length < 20 || transcript.length > 12_000 || transcript.split(/\\s+/).filter(Boolean).length < 5) {
+  if (transcript.length < 20 || transcript.length > 12_000 || transcript.split(/\s+/).filter(Boolean).length < 5) {
     throw new Error("Enter the exact transcript of your recording (at least 20 characters and five words).");
   }
   if (!Number.isFinite(duration) || duration < 10 || duration > 120) {
