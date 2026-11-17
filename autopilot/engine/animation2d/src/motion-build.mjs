@@ -101,19 +101,30 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
         partIdByRole.set(layer.role, target);
       }
 
+      const addRigKeyframes = (role, properties, start, duration) => {
+        addKeyframes(partIdByRole.get(role), properties, start, duration);
+        // The face cut-out and expression overlays are separate images, but
+        // they must inherit the head's neck-pivot motion to stay registered.
+        if (role === "head") {
+          addKeyframes(partIdByRole.get("face"), properties, start, duration);
+          for (const name of Object.keys(character.expressions || {})) {
+            addKeyframes(prefix + "-expression-" + name, properties, start, duration);
+          }
+        }
+      };
       const pose = (character.poses || {})[action.pose || ""] || {};
       for (const [role, properties] of Object.entries(pose)) {
-        addKeyframes(partIdByRole.get(role), properties, actionStart + 0.05, Number(action.duration) || 1);
+        addRigKeyframes(role, properties, actionStart + 0.05, Number(action.duration) || 1);
       }
       const gestures = {
         ...gestureKeyframes(action.gesture),
         ...((character.gestures || {})[action.gesture] || {})
       };
       for (const [role, properties] of Object.entries(gestures)) {
-        addKeyframes(partIdByRole.get(role), properties, actionStart + 0.10, Number(action.duration) || 1.35);
+        addRigKeyframes(role, properties, actionStart + 0.10, Number(action.duration) || 1.35);
       }
       for (const [role, properties] of Object.entries(action.keyframes || {})) {
-        addKeyframes(partIdByRole.get(role), properties, actionStart, Number(action.duration) || 1);
+        addRigKeyframes(role, properties, actionStart, Number(action.duration) || 1);
       }
       const selectedExpression = String(action.expression || "neutral").toLowerCase();
       const activePoseAsset = String(action.pose_asset || "").toLowerCase();
