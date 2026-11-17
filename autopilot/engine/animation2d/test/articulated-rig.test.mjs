@@ -46,12 +46,18 @@ test("wave gesture rotates the upper arm and forearm on separate pivots", () => 
   const targets = new Set(tracksFor("wave-test").map(track => track.target));
   assert.ok(targets.has("wave-test-violin-prince-part-right_upper_arm"));
   assert.ok(targets.has("wave-test-violin-prince-part-right_forearm"));
+  assert.ok(targets.has("wave-test-violin-prince-part-right_hand"),
+    "wave must articulate the wrist/hand independently");
 });
 
 test("two-arm explanation animates both independently separated upper arms", () => {
   const targets = new Set(tracksFor("two-arm-test").map(track => track.target));
   assert.ok(targets.has("two-arm-test-violin-prince-part-left_upper_arm"));
+  assert.ok(targets.has("two-arm-test-violin-prince-part-left_forearm"));
+  assert.ok(targets.has("two-arm-test-violin-prince-part-left_hand"));
   assert.ok(targets.has("two-arm-test-violin-prince-part-right_upper_arm"));
+  assert.ok(targets.has("two-arm-test-violin-prince-part-right_forearm"));
+  assert.ok(targets.has("two-arm-test-violin-prince-part-right_hand"));
 });
 
 
