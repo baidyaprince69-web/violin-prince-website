@@ -47,6 +47,18 @@ class CharacterAutoRigTests(unittest.TestCase):
         self.assertEqual(repaired.size, image.size)
         for role, region in masks.items():
             self.assertGreater(int(region.sum()), 20, role)
+        for side in ("left", "right"):
+            self.assertGreater(
+                int((masks[f"{side}_upper_arm"] & masks[f"{side}_forearm"]).sum()),
+                0,
+                f"{side} elbow layers must overlap under the child segment",
+            )
+            self.assertGreater(
+                int((masks[f"{side}_forearm"] & masks[f"{side}_hand"]).sum()),
+                0,
+                f"{side} wrist layers must overlap under the hand",
+            )
+        self.assertTrue(report["joint_underlap"]["joint_anchors_use_unexpanded_masks"])
         for point in joints.values():
             self.assertTrue(0 <= point["x"] <= 1)
             self.assertTrue(0 <= point["y"] <= 1)
