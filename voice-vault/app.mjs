@@ -202,12 +202,13 @@ function loadGoogleIdentity() {
   });
   return googleLoadPromise;
 }
-async function connectGoogleDrive() {
+function connectGoogleDrive() {
   if (!GOOGLE_OAUTH_CLIENT_ID || GOOGLE_OAUTH_CLIENT_ID.includes("REPLACE_ME")) {
-    throw new Error("The Google OAuth client ID has not been configured for this site yet.");
+    return Promise.reject(new Error("The Google OAuth client ID has not been configured for this site yet."));
   }
-  await loadGoogleIdentity();
-  return await new Promise((resolve, reject) => {
+  const oauth = window.google?.accounts?.oauth2;
+  if (!oauth) return Promise.reject(new Error("Google authorization is still loading. Wait for the Connect button to become available."));
+  return new Promise((resolve, reject) => {
     let settled = false;
     const finish = (error) => {
       if (settled) return;
@@ -216,7 +217,7 @@ async function connectGoogleDrive() {
       else resolve();
     };
     try {
-      const client = window.google.accounts.oauth2.initTokenClient({
+      const client = oauth.initTokenClient({
         client_id: GOOGLE_OAUTH_CLIENT_ID,
         scope: DRIVE_SCOPE,
         include_granted_scopes: true,
@@ -431,6 +432,16 @@ async function unlockPackage() {
     $("unlock-package").disabled = !$("vault-file").files?.length;
   }
 }
+
+$("connect-drive").disabled = true;
+setStatus("drive-status", "Loading Google's secure authorisation service…");
+loadGoogleIdentity().then(() => {
+  $("drive-status").textContent = "Google authorisation is ready. Connect your account to save the encrypted package.";
+  $("connect-drive").disabled = false;
+}).catch(error => {
+  $("drive-status").textContent = safeError(error, "Could not load Google authorisation.");
+  $("connect-drive").disabled = true;
+});
 
 $("start-recording").addEventListener("click", startRecording);
 $("stop-recording").addEventListener("click", stopRecording);
