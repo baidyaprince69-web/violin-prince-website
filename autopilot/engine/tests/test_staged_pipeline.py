@@ -102,7 +102,7 @@ class StagedPipelineTests(unittest.TestCase):
         (folder / "narration.wav").write_bytes(b"fake narration")
         if include_images:
             for index, shade in enumerate((40, 80, 120), start=1):
-                Image.new("RGB", (120, 200), (shade, shade, shade)).save(folder / f"scene-{index}.jpg")
+                Image.new("RGB", (640, 640), (shade, shade, shade)).save(folder / f"scene-{index}.jpg")
         return plan
 
     def test_prepared_package_can_load_before_images_exist(self):
@@ -241,7 +241,7 @@ class StagedPipelineTests(unittest.TestCase):
 
             def fake_make_image(_prompt, index):
                 target = folder / f"generated-{index + 1}.jpg"
-                Image.new("RGB", (120, 200), (40 + index * 25, 55, 80)).save(target, "JPEG")
+                Image.new("RGB", (640, 640), (40 + index * 25, 55, 80)).save(target, "JPEG")
                 return target
 
             try:

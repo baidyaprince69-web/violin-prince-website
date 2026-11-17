@@ -3769,8 +3769,8 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
     compose_narration(plan, compact)
 
     scenes = plan.get("scenes")
-    if not isinstance(scenes, list) or len(scenes) != 3:
-        raise PipelineError("Planner must provide exactly three scenes.")
+    if not isinstance(scenes, list) or not 2 <= len(scenes) <= 4:
+        raise PipelineError("Planner must provide between two and four scenes.")
     narration_script = str(plan.get("narration_script", "")).strip()
     final_narration_issue = narration_validation_error(narration_script)
     if final_narration_issue:
@@ -3822,6 +3822,12 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
             "One direct seed source matched. Mandatory story-specific research will seek "
             "a second independent publisher before the package can pass."
         )
+    from scene_timeline import apply_scene_operations
+    try:
+        plan = apply_scene_operations(plan, narration_script, minimum_scenes=2, maximum_scenes=4)
+    except ValueError as exc:
+        raise PipelineError("Generated scene plan failed its narration map: " + str(exc)) from exc
+    scenes = plan["scenes"]
     graphic_labels = ("THE HOOK", "THE KEY DETAIL", "THE PAYOFF")
     narration_beats = narration_sentences(narration_script)
     for index, scene in enumerate(scenes):
@@ -3829,13 +3835,18 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
             scene["caption"] = scene["visual_caption"]
         if not scene.get("caption") or not scene.get("image_prompt"):
             raise PipelineError("A scene is missing its caption or visual prompt.")
+        default_label = graphic_labels[0] if index == 0 else graphic_labels[-1] if index == len(scenes) - 1 else f"THE DETAIL {index}"
         scene["graphic_label"] = re.sub(
-            r"\s+", " ", str(scene.get("graphic_label") or graphic_labels[index])
+            r"\s+", " ", str(scene.get("graphic_label") or default_label)
         ).strip()[:32]
         detail = re.sub(r"\s+", " ", str(scene.get("graphic_detail") or "")).strip()
         if not detail:
-            beat_index = min(index, max(0, len(narration_beats) - 1))
-            detail = narration_beats[beat_index] if narration_beats else str(scene["caption"])
+            mapped = [
+                narration_beats[sentence_index]
+                for sentence_index in scene.get("narration_sentence_indexes", [])
+                if 0 <= sentence_index < len(narration_beats)
+            ]
+            detail = " ".join(mapped) if mapped else str(scene["caption"])
         scene["graphic_detail"] = textwrap.shorten(detail, width=88, placeholder="…")
     (WORK / "creative_plan.json").write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
     return plan
@@ -3932,7 +3943,7 @@ def font(size, weight="bold", family="sans"):
         raise ValueError("Unsupported DM Sans weight: " + str(weight))
     return ImageFont.truetype(paths[weight_key], size)
 
-def make_card(source, caption, index, title=""):
+def make_card(source, caption, index, title="", total_scenes=3):
     """Create a full-bleed vertical cinematic frame with restrained branding."""
     image = Image.open(source).convert("RGB")
     # Use a portrait crop with a centred safe area instead of a small square inset.
@@ -3988,7 +3999,7 @@ def make_card(source, caption, index, title=""):
     draw.line((34, 1190, W - 34, 1190), fill=(235, 202, 139, 115), width=1)
     draw.text((34, 1207), "ORIGINAL STORY • ORIGINAL SOUNDTRACK",
               font=font(12, "medium"), fill=(242, 230, 208, 235))
-    draw.text((W - 110, 1207), f"{index + 1:02d}/03",
+    draw.text((W - 110, 1207), f"{index + 1:02d}/{int(total_scenes):02d}",
               font=font(12, "medium"), fill=(242, 230, 208, 235))
 
     p = OUT / f"card-{index + 1}.png"
@@ -4027,9 +4038,15 @@ def make_motion_graphic_card(scene, index, plan, target):
     # A restrained three-step progress motif makes the sequence legible without
     # adding unsupported data or pretending the story contains a measured chart.
     line_y = height - 22
-    draw.line((width - 112, line_y, width - 26, line_y), fill=(235, 202, 139, 105), width=2)
-    for step in range(3):
-        x = width - 112 + step * 43
+    progress_count = max(1, min(4, len(plan.get("scenes") or [])))
+    spacing = 24
+    progress_width = (progress_count - 1) * spacing
+    progress_start = width - 32 - progress_width
+    if progress_count > 1:
+        draw.line((progress_start, line_y, progress_start + progress_width, line_y),
+                  fill=(235, 202, 139, 105), width=2)
+    for step in range(progress_count):
+        x = progress_start + step * spacing
         fill = gold if step <= index else (120, 133, 151, 180)
         draw.ellipse((x - 5, line_y - 5, x + 5, line_y + 5), fill=fill)
     target = Path(target)
@@ -4167,6 +4184,20 @@ def validate_final_video(path):
             f"Final MP4 frame rate is {frame_rate:.3f} fps; expected {FPS} fps."
         )
 
+    from media_verification import verify_final_video as verify_final_video_independently
+    independent_report = verify_final_video_independently(
+        path,
+        expected_width=W,
+        expected_height=H,
+        expected_fps=FPS,
+        minimum_duration=23.5,
+        maximum_duration=24.5,
+    )
+    if independent_report.get("status") == "failed":
+        raise PipelineError(
+            "Independent final-media verification failed: "
+            + json.dumps(independent_report.get("errors", []), ensure_ascii=False)
+        )
     return {
         "duration_seconds": round(duration, 2),
         "width": int(video["width"]),
@@ -4175,6 +4206,7 @@ def validate_final_video(path):
         "fps": round(frame_rate, 3),
         "audio_sample_rate": int(audio["sample_rate"]),
         "file_size_bytes": path.stat().st_size,
+        "media_verification": independent_report,
     }
 
 
@@ -4292,21 +4324,43 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         probe_creator_performance_video(performance_video_path)
         if performance_video_path and performance_video_path.is_file() else None
     )
+    from scene_timeline import apply_scene_operations, build_scene_timeline, ScenePlanError
+    from audio_analysis import analyse_audio_file
+    from scene_checkpoints import scene_fingerprint, load_valid_checkpoint, save_checkpoint, retry_transient
+    narration_script = str(plan.get("narration_script") or "")
+    if not narration_script:
+        narration_script = " ".join(
+            str(cue.get("text") or "") for cue in narration_info.get("subtitle_cues", [])
+            if isinstance(cue, dict)
+        )
+    try:
+        plan = apply_scene_operations(plan, narration_script, minimum_scenes=2, maximum_scenes=4)
+    except ScenePlanError as exc:
+        raise PipelineError("Render scene/narration contract is invalid: " + str(exc)) from exc
     clips = []
-    scene_durations = scene_durations_from_narration(narration_info)
     transition_seconds = transition_duration(plan)
-    first_transition = scene_transition(plan, 0)
-    second_transition = scene_transition(plan, 1)
-    scene_starts = [
-        0.0,
-        max(0.0, scene_durations[0] - transition_seconds),
-        max(0.0, scene_durations[0] + scene_durations[1] - 2 * transition_seconds),
-    ]
+    beat_analysis = analyse_audio_file(
+        audio_path,
+        known_bpm=(plan.get("audio_metadata") or {}).get("bpm")
+        if isinstance(plan.get("audio_metadata"), dict) else None,
+    )
+    timeline = build_scene_timeline(
+        plan["scenes"], narration_info, total_seconds=24.0,
+        transition_seconds=transition_seconds, beat_analysis=beat_analysis,
+    )
+    scene_durations = [item["clip_duration"] for item in timeline["scenes"]]
+    scene_segment_durations = [item["duration"] for item in timeline["scenes"]]
+    scene_starts = [item["start"] for item in timeline["scenes"]]
     all_word_cues = narration_info.get("word_cues", [])
     scene_motion_events = []
-    for i, (scene, scene_seconds) in enumerate(zip(plan["scenes"], scene_durations)):
+    reused_scene_count = 0
+    cache_root = OUT / "scene-render-cache"
+    for i, (scene, scene_seconds, timeline_item) in enumerate(
+        zip(plan["scenes"], scene_durations, timeline["scenes"])
+    ):
         scene_start = scene_starts[i]
         scene_word_events = []
+        assigned_sentences = set(timeline_item.get("narration_sentence_indexes", []))
         for cue in all_word_cues if isinstance(all_word_cues, list) else []:
             if not isinstance(cue, dict):
                 continue
@@ -4315,6 +4369,22 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
                 absolute_end = float(cue.get("end", absolute_start))
             except (TypeError, ValueError):
                 continue
+            sentence_index = cue.get("sentence_index")
+            if sentence_index is not None:
+                if sentence_index not in assigned_sentences:
+                    continue
+            else:
+                segment_start = scene_start + i * transition_seconds
+                if not segment_start <= absolute_start < segment_start + scene_segment_durations[i]:
+                    continue
+            sentence_index = cue.get("sentence_index")
+            if sentence_index is not None:
+                if sentence_index not in assigned_sentences:
+                    continue
+            else:
+                segment_start = scene_start + i * transition_seconds
+                if not segment_start <= absolute_start < segment_start + scene_segment_durations[i]:
+                    continue
             local_start = absolute_start - scene_start
             if 0.0 <= local_start < scene_seconds:
                 scene_word_events.append({
@@ -4322,10 +4392,13 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
                     "start": round(local_start, 3),
                     "end": round(max(local_start, absolute_end - scene_start), 3),
                 })
+        scene_id = str(scene["id"])
         scene_motion_events.append({
+            "scene_id": scene_id,
             "scene": i + 1,
             "timeline_start_seconds": round(scene_start, 3),
             "word_cue_count": len(scene_word_events),
+            "narration_sentence_indexes": sorted(assigned_sentences),
         })
 
         visual_prompt = _scene_visual_prompt(scene, index=i, plan=plan)
@@ -4336,8 +4409,36 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         else:
             image = make_image(visual_prompt, i)
 
-        card = make_card(image, scene["caption"], i, plan.get("title", ""))
-        clip = OUT / f"scene-{i + 1}.mp4"
+        scene_fingerprint_value = scene_fingerprint(
+            scene, image,
+            renderer_version="violin-prince-legacy-motion-v3",
+            render_settings={
+                "fps": FPS, "width": W, "height": H,
+                "frame_count": max(1, int(round(scene_seconds * FPS))),
+                "scene_index": i,
+                "total_scene_count": len(plan["scenes"]),
+                "plan_title": str(plan.get("title") or ""),
+                "plan_topic": str(plan.get("topic") or ""),
+                "word_events": scene_word_events,
+                "camera": scene_camera_move(plan, i),
+                "visual_reference": plan.get("visual_reference") or {},
+                "performance_video_fingerprint": (
+                    scene_fingerprint({"performance_video": True}, performance_video_path, renderer_version="media-v1")
+                    if performance_video_path and performance_video_path.is_file() and i == len(plan["scenes"]) - 1
+                    else None
+                ),
+            },
+        )
+        cached_clip = load_valid_checkpoint(cache_root, scene_id, scene_fingerprint_value)
+        if cached_clip:
+            clips.append(cached_clip)
+            reused_scene_count += 1
+            continue
+        card = make_card(
+            image, scene["caption"], i, plan.get("title", ""),
+            total_scenes=len(plan["scenes"]),
+        )
+        clip = OUT / f"scene-{scene_id}.mp4"
         frame_count = max(1, int(round(scene_seconds * FPS)))
         graphic_pattern = make_motion_graphic_frames(
             scene,
@@ -4356,7 +4457,7 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
             frame_count, i, scene_camera_move(plan, i), scene_seconds
         )
         panel_fade_out = max(0.0, scene_seconds - 0.34)
-        if i == 2 and performance_video_info:
+        if i == len(plan["scenes"]) - 1 and performance_video_info:
             # The real creator take becomes the visual subject of the final scene.
             # A blurred full-frame fill preserves the complete frame when the
             # source is landscape; portrait footage remains edge-to-edge.
@@ -4399,29 +4500,43 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
                 "-start_number", "1", "-framerate", str(FPS), "-i", str(graphic_pattern),
                 "-start_number", "1", "-framerate", str(FPS), "-i", str(ambient_pattern),
             ]
-        command(scene_args + [
-            "-t", f"{scene_seconds:.3f}", "-filter_complex", scene_filter,
-            "-map", "[v]", "-an", "-c:v", "libx264", "-preset", "veryfast",
-            "-crf", "25", "-pix_fmt", "yuv420p", str(clip)
-        ])
-        clips.append(clip)
+        retry_transient(
+            lambda: command(scene_args + [
+                "-t", f"{scene_seconds:.3f}", "-filter_complex", scene_filter,
+                "-map", "[v]", "-an", "-c:v", "libx264", "-preset", "veryfast",
+                "-crf", "25", "-pix_fmt", "yuv420p", str(clip)
+            ]),
+            attempts=2,
+        )
+        cached_clip = save_checkpoint(
+            cache_root, scene_id, scene_fingerprint_value, clip,
+            qa_report={"status": "rendered", "duration_seconds": round(scene_seconds, 3)},
+        )
+        clips.append(cached_clip)
 
     silent = OUT / "silent.mp4"
-    first_offset = max(0.0, scene_durations[0] - transition_seconds)
-    second_offset = max(0.0, scene_durations[0] + scene_durations[1] - 2 * transition_seconds)
-    transition_filter = (
-        f"[0:v][1:v]xfade=transition={first_transition}:duration={transition_seconds:.3f}:"
-        f"offset={first_offset:.3f}[v1];"
-        f"[v1][2:v]xfade=transition={second_transition}:duration={transition_seconds:.3f}:"
-        f"offset={second_offset:.3f}[v2];"
-        f"[v2]tpad=stop_mode=clone:stop_duration={2 * transition_seconds:.3f},"
-        f"scale={W}:{H}:flags=lanczos,fps={FPS},setsar=1,format=yuv420p[vout]"
+    transition_parts = []
+    previous_label = "0:v"
+    for scene_index in range(1, len(clips)):
+        output_label = f"v{scene_index}"
+        transition_name = scene_transition(plan, scene_index - 1)
+        transition_parts.append(
+            f"[{previous_label}][{scene_index}:v]xfade=transition={transition_name}:"
+            f"duration={transition_seconds:.3f}:offset={scene_starts[scene_index]:.3f}[{output_label}]"
+        )
+        previous_label = output_label
+    transition_parts.append(
+        f"[{previous_label}]scale={W}:{H}:flags=lanczos,fps={FPS},setsar=1,format=yuv420p[vout]"
     )
-    command(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
-             "-i", str(clips[0]), "-i", str(clips[1]), "-i", str(clips[2]),
-             "-filter_complex", transition_filter, "-map", "[vout]", "-an",
-             "-t", "24", "-c:v", "libx264", "-preset", "veryfast",
-             "-crf", "25", "-pix_fmt", "yuv420p", str(silent)])
+    transition_filter = ";".join(transition_parts)
+    assemble_args = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error"]
+    for clip_path in clips:
+        assemble_args.extend(["-i", str(clip_path)])
+    command(assemble_args + [
+        "-filter_complex", transition_filter, "-map", "[vout]", "-an",
+        "-t", "24", "-c:v", "libx264", "-preset", "veryfast",
+        "-crf", "25", "-pix_fmt", "yuv420p", str(silent)
+    ])
     final = OUT / "violin-prince-short.mp4"
     subtitle_path = OUT / "narration.srt"
     from voiceover import write_srt
@@ -4434,12 +4549,10 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         bed_volume = "0.24"
     else:
         bed_volume = "0.26"
-    # Scene 3 starts at the second xfade offset, which overlaps the prior scene
-    # by two transition durations. Align the real performance audio to that same
-    # frame so it does not enter a fraction of a second late.
-    performance_start = max(0.0, sum(scene_durations[:2]) - 2 * transition_seconds)
+    # Align a real creator performance take to the final scene regardless of count.
+    performance_start = max(0.0, scene_starts[-1])
     performance_audio_seconds = (
-        min(scene_durations[2], performance_video_info["duration_seconds"])
+        min(scene_segment_durations[-1], performance_video_info["duration_seconds"])
         if performance_video_info and performance_video_info.get("has_audio") else 0.0
     )
     if performance_audio_seconds >= 0.5:
@@ -4484,14 +4597,14 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(final)
     ])
     quality = validate_final_video(final)
-    contact_samples = [
-        ("HOOK / OPEN", 0.55),
-        ("HOOK / BEAT", min(23.65, max(0.8, scene_durations[0] * 0.56))),
-        ("MECHANISM / MID", min(23.65, scene_starts[1] + scene_durations[1] * 0.54)),
-        ("MECHANISM / LATE", min(23.65, scene_starts[1] + scene_durations[1] * 0.86)),
-        ("PERFORMANCE / MID", min(23.65, scene_starts[2] + scene_durations[2] * 0.55)),
-        ("FINAL FRAME", 23.30),
-    ]
+    contact_samples = [("OPEN", 0.55)]
+    for scene_index, timeline_item in enumerate(timeline["scenes"]):
+        sample_time = min(
+            23.65,
+            max(0.15, float(timeline_item["start"]) + float(timeline_item["duration"]) * 0.55),
+        )
+        contact_samples.append((f"SCENE {scene_index + 1}", sample_time))
+    contact_samples.append(("FINAL FRAME", 23.30))
     contact_sheet = make_render_contact_sheet(
         final, OUT / "visual-contact-sheet.png", contact_samples
     )
@@ -4500,12 +4613,19 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         or [float(narration_info.get("duration_seconds", 0))]
     )
     quality.update({
-        "scene_durations_seconds": list(scene_durations),
+        "scene_durations_seconds": list(scene_segment_durations),
+        "scene_timeline": timeline,
+        "music_beat_analysis": beat_analysis,
+        "scene_render_checkpoints": {
+            "cache_directory": "work/output/scene-render-cache",
+            "reused_scene_count": reused_scene_count,
+            "scene_count": len(clips),
+        },
         "narration_duration_seconds": round(narration_end, 2),
         "voice_coverage_percent": round(min(100.0, narration_end / 24.0 * 100.0), 1),
         "music_only_ending_seconds": round(max(0.0, 24.0 - narration_end), 2),
         "camera_motion": "deterministic scene-specific framing",
-        "motion_graphics": 3,
+        "motion_graphics": len(plan.get("scenes", [])),
         "motion_graphics_renderer": "word-synchronised kinetic typography with deterministic per-frame animated explainers",
         "data_driven_graphics": [
             {
@@ -4520,8 +4640,9 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         "visual_modes": [str(scene.get("visual_mode") or "waveform") for scene in plan.get("scenes", [])],
         "creative_direction_version": CREATIVE_DIRECTION_VERSION,
         "subtitle_style": "Kokoro word-timed karaoke typography with gold active-word fill",
-        "scene_transitions": [first_transition, second_transition],
+        "scene_transitions": [scene_transition(plan, index) for index in range(len(plan.get("scenes", [])) - 1)],
         "scene_transition_seconds": round(transition_seconds, 3),
+        "scene_transition_count": max(0, len(plan.get("scenes", [])) - 1),
         "visual_reference_language": (plan.get("visual_reference") or {}).get("visual_language", "default_brand"),
         "visual_reference_motion_profile": (plan.get("visual_reference") or {}).get("motion_profile", "not_supplied"),
         "visual_reference_adaptation_note": (plan.get("visual_reference") or {}).get("adaptation_note", "Standard Violin Prince visual direction retained."),
@@ -4599,6 +4720,18 @@ def _read_package(require_images=False):
     except (OSError, json.JSONDecodeError) as exc:
         raise PipelineError("Prepared package contains invalid JSON metadata.") from exc
     narration_info = metadata.get("narration_info")
+    from scene_timeline import apply_scene_operations, ScenePlanError
+    narration_script = str(plan.get("narration_script") or "")
+    if not narration_script and isinstance(narration_info, dict):
+        narration_script = " ".join(
+            str(cue.get("text") or "") for cue in narration_info.get("subtitle_cues", [])
+            if isinstance(cue, dict)
+        )
+    try:
+        plan = apply_scene_operations(plan, narration_script, minimum_scenes=2, maximum_scenes=4)
+    except ScenePlanError as exc:
+        raise PipelineError("Prepared scene/narration contract is invalid: " + str(exc)) from exc
+    paths["plan"].write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
     try:
         plan["visual_reference"] = normalize_visual_reference(
             plan.get("visual_reference"), plan.get("scenes")
@@ -4608,8 +4741,8 @@ def _read_package(require_images=False):
     creative_issues = validate_creative_plan(plan)
     if creative_issues:
         raise PipelineError("Prepared package failed the Violin Prince creative-direction gate: " + " ".join(creative_issues))
-    if not isinstance(plan.get("scenes"), list) or len(plan["scenes"]) != 3:
-        raise PipelineError("Prepared package must contain exactly three planned scenes.")
+    if not isinstance(plan.get("scenes"), list) or not 2 <= len(plan["scenes"]) <= 4:
+        raise PipelineError("Prepared package must contain between two and four planned scenes.")
     if not isinstance(narration_info, dict) or not narration_info.get("subtitle_cues"):
         raise PipelineError("Prepared package is missing narration subtitle timings.")
     if (
@@ -4657,7 +4790,11 @@ def _read_package(require_images=False):
     review = metadata.get("story_review") or {}
     if require_images and review.get("approved") is not True:
         raise PipelineError("Render blocked: automated editorial quality gates did not clear this story before Visuals.")
-    image_paths = [PACKAGE / f"scene-{index + 1}.jpg" for index in range(3)]
+    from scene_timeline import scene_asset_path
+    image_paths = [
+        scene_asset_path(str(PACKAGE), scene, index)
+        for index, scene in enumerate(plan["scenes"])
+    ]
     if require_images:
         for path in image_paths:
             if not path.is_file():
@@ -4665,6 +4802,15 @@ def _read_package(require_images=False):
             try:
                 with Image.open(path) as image:
                     image.verify()
+                from media_verification import verify_image_asset
+                asset_report = verify_image_asset(path)
+                if asset_report.get("status") == "failed":
+                    raise PipelineError(
+                        f"Prepared visual asset {path.name} failed independent checks: "
+                        + json.dumps(asset_report.get("errors", []), ensure_ascii=False)
+                    )
+            except PipelineError:
+                raise
             except Exception as exc:
                 raise PipelineError(f"Prepared visual asset {path.name} is not a valid image.") from exc
     return plan, metadata, narration_info, paths, image_paths
@@ -4681,8 +4827,10 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         "SHOT 2 — MECHANISM: close scientific view of the physical or musical detail.",
         "SHOT 3 — PERFORMANCE PAYOFF: cinematic violin-and-bow view with space for a real take.",
     )
+    scene_count = len((plan or {}).get("scenes") or []) or 3
+    role_index = 0 if index <= 0 else 2 if index >= scene_count - 1 else 1
     subject = str((plan or {}).get("topic") or (plan or {}).get("title") or "the music fact")[:80]
-    mode = str(scene.get("visual_mode") or ("macro_illustration" if index == 0 else "cover_performance" if index == 2 else "waveform")).strip().casefold()
+    mode = str(scene.get("visual_mode") or ("macro_illustration" if index == 0 else "cover_performance" if index == scene_count - 1 else "waveform")).strip().casefold()
     mode_direction = VISUAL_MODE_PROMPTS.get(mode, VISUAL_MODE_PROMPTS["waveform"])
 
     # Keep the recognisable instrument identity, but avoid spending most of the
@@ -4697,7 +4845,7 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         "This is original art direction. No stock imagery, identifiable real people, logos, readable text or lyrics; "
         "no watermark. Respect sourced facts and measurements. Portrait 9:16 composition."
     )
-    role = shot_roles[max(0, min(2, int(index)))]
+    role = shot_roles[role_index]
     fixed = f"Story subject: {subject}. {role} {mode_direction} {brand_direction}"
 
     # Scene description is the most important scene-specific input. Optional
@@ -4734,30 +4882,42 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
     return result
 
 def make_storyboard_preview(plan, image_paths, target):
-    """Build a single review sheet so visual approval happens before video rendering."""
+    """Build a responsive review sheet for two to four independently editable scenes."""
+    scenes = plan.get("scenes") or []
+    if not 2 <= len(scenes) <= 4 or len(image_paths) != len(scenes):
+        raise PipelineError("Storyboard preview requires two to four scenes and one image per scene.")
     target = Path(target)
     target.parent.mkdir(parents=True, exist_ok=True)
-    canvas = Image.new("RGB", (1280, 900), (12, 16, 24))
+    tile_width, tile_height = 360, 640
+    columns = 3 if len(scenes) <= 3 else 2
+    rows = (len(scenes) + columns - 1) // columns
+    row_step = 760
+    canvas_height = 900 if rows == 1 else 150 + rows * row_step + 90
+    canvas = Image.new("RGB", (1280, canvas_height), (12, 16, 24))
     draw = ImageDraw.Draw(canvas)
     draw.text((44, 30), "VIOLIN PRINCE  /  STORYBOARD REVIEW",
               font=font(25), fill=(236, 204, 146))
     title = textwrap.shorten(str(plan.get("title", "Untitled story")), width=58, placeholder="…")
     draw.text((44, 76), title, font=font(36), fill=(255, 250, 242))
-    tile_width, tile_height = 360, 640
-    lefts = (44, 460, 876)
-    for index, (scene, image_path, left) in enumerate(zip(plan["scenes"], image_paths, lefts)):
+    for index, (scene, image_path) in enumerate(zip(scenes, image_paths)):
+        row, column = divmod(index, columns)
+        row_count = min(columns, len(scenes) - row * columns)
+        gap = 56
+        left = (1280 - (row_count * tile_width + (row_count - 1) * gap)) // 2 + column * (tile_width + gap)
+        top = 150 + row * row_step
         with Image.open(image_path) as source:
             tile = ImageOps.fit(
                 source.convert("RGB"), (tile_width, tile_height),
                 method=Image.Resampling.LANCZOS, centering=(0.5, 0.45)
             )
-        canvas.paste(tile, (left, 150))
-        draw.rectangle((left, 150, left + tile_width - 1, 150 + tile_height - 1),
+        canvas.paste(tile, (left, top))
+        draw.rectangle((left, top, left + tile_width - 1, top + tile_height - 1),
                        outline=(210, 185, 142), width=2)
         caption = "\n".join(textwrap.wrap(str(scene.get("caption", "")), width=28)[:2])
-        draw.multiline_text((left, 808), f"SCENE {index + 1}  ·  {caption}",
+        caption_top = top + tile_height + 12
+        draw.multiline_text((left, caption_top), f"SCENE {index + 1}  ·  {caption}",
                             font=font(16), fill=(245, 238, 226), spacing=3)
-    draw.text((44, 862), "Visual preview · Final render follows the automated quality gates.",
+    draw.text((44, canvas_height - 38), "Visual preview · Final render follows the automated quality gates.",
               font=font(16), fill=(185, 194, 207))
     canvas.save(target, "PNG", optimize=True)
     return target
@@ -5020,14 +5180,17 @@ def visuals_stage(feedback=""):
         json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     for index, scene in enumerate(plan["scenes"]):
-        if image_paths[index].is_file():
+        if image_paths[index].is_file() and scene.get("_visual_asset_invalidated") is not True:
             try:
                 with Image.open(image_paths[index]) as existing:
                     existing.verify()
-                log(f"Reusing valid scene illustration {index + 1}/3 from an earlier attempt.")
+                log(f"Reusing valid scene illustration {index + 1}/{len(plan['scenes'])} from an earlier attempt.")
+                scene.pop("_visual_asset_invalidated", None)
                 continue
             except Exception:
                 image_paths[index].unlink(missing_ok=True)
+        elif image_paths[index].is_file():
+            image_paths[index].unlink(missing_ok=True)
 
         prompt = _scene_visual_prompt(scene, feedback, index=index, plan=plan)
         try:
@@ -5037,8 +5200,34 @@ def visuals_stage(feedback=""):
             time.sleep(2)
             generated = make_image(prompt, index)
         shutil.copy2(generated, image_paths[index])
-        log(f"Prepared scene illustration {index + 1}/3.")
+        from media_verification import verify_image_asset
+        asset_report = verify_image_asset(image_paths[index])
+        if asset_report.get("status") == "failed":
+            raise PipelineError(
+                f"Scene illustration {scene.get('id', index + 1)} failed media verification: "
+                + json.dumps(asset_report.get("errors", []), ensure_ascii=False)
+            )
+        log(f"Prepared scene illustration {index + 1}/{len(plan['scenes'])}.")
+        scene.pop("_visual_asset_invalidated", None)
 
+    paths["plan"].write_text(
+        json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    from media_verification import verify_scene_assets
+    media_report = verify_scene_assets(
+        plan["scenes"], image_paths, total_seconds=24.0,
+        narration_info=metadata.get("narration_info") or {},
+        expected_narration_script=plan.get("narration_script"),
+    )
+    if media_report.get("status") == "failed":
+        raise PipelineError(
+            "Visual stage media verification failed: "
+            + json.dumps(media_report.get("errors", []), ensure_ascii=False)
+        )
+    (PACKAGE / "media-verification.json").write_text(
+        json.dumps(media_report, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
     storyboard = make_storyboard_preview(plan, image_paths, PACKAGE / "storyboard-preview.png")
     metadata["stage"] = "visuals_ready"
     metadata["visual_feedback"] = re.sub(r"\\s+", " ", str(feedback or "")).strip()[:600]

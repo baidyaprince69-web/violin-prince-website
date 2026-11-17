@@ -366,6 +366,7 @@ jobs:
             work/package/
             work/character-assets/
             work/output/
+            work/scene-render-cache/
             !work/output/scene-3.mp4
             !work/output/violin-prince-short.mp4
             work/research.json
