@@ -8,7 +8,7 @@ This isolated engine powers the ChatGPT-triggered daily production route. It doe
 2. AI Story & Scene Director — the existing daily runner validates sources, story evidence, narration and scene direction.
 3. Illustration & Character Asset Factory — the existing image service creates scene illustration plates; the asset factory validates and stages separate, original character art layers.
 4. Character Rig — the rig contract defines torso, head, face, both upper arms, forearms and hands, plus joint anchors, poses, gestures and expression plates.
-5. Motion — Motion for JavaScript generates spring-sampled, seekable keyframe animations for movement, gestures, transitions and facial expression changes.
+5. Motion — Motion for JavaScript samples spring/keyframe animations during the Node build. The browser uses paused native Web Animations (WAAPI), which HyperFrames seeks at exact frame times for movement, gestures, transitions and facial expressions.
 6. HyperFrames — HyperFrames lints and renders the HTML composition frame-by-frame at the requested FPS.
 7. Preview and MP4 output — the encoded picture is sampled into a visual contact sheet.
 8. Existing FFmpeg finishing and QA — FFmpeg mixes narration/music, burns word-timed captions, encodes the final MP4, and ffprobe verifies the video contract.
@@ -21,4 +21,4 @@ The asset factory does not draw a substitute geometric body or silently invent m
 
 ## Development checks
 
-Node.js 22 or later is required. Install the pinned dependencies from package.json, then run npm test, node build.mjs and hyperframes lint. The validation job does not render a production video or publish anything.
+Node.js 22 or later is required. Install the pinned dependencies from package.json, then run npm test, node build.mjs and hyperframes lint. Motion is a build-time spring/keyframe generator; it is deliberately not bundled into the browser runtime. Browser animation uses paused native WAAPI tracks so the rendered bundle remains deterministic. The validation job does not render a production video or publish anything.

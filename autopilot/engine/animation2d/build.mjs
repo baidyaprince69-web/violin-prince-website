@@ -1,6 +1,7 @@
 import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { build } from "esbuild";
+import { build as bundle } from "esbuild";
+import { compileMotionTracks } from "./src/motion-build.mjs";
 
 function parseArgs(argv) {
   const result = {};
@@ -54,7 +55,9 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       "transform-origin:" + pivotX + "% " + pivotY + "%",
       "z-index:" + Number(layer.z_index ?? 1)
     ].join(";");
-    return '<img class="rig-part" data-role="' + escapeHtml(layer.role) +
+    const partId = scene.id + "-" + character.id + "-part-" + layer.id;
+    return '<img class="rig-part" id="' + escapeHtml(partId) +
+      '" data-role="' + escapeHtml(layer.role) +
       '" data-joint="' + escapeHtml(jointName || "") +
       '" alt="" draggable="false" src="' + escapeHtml(layer.src) +
       '" style="' + style + '">';
@@ -70,7 +73,9 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       "z-index:999"
     ].join(";");
     const initial = name === "neutral" ? "opacity:1;" : "opacity:0;";
-    return '<img class="rig-expression" data-expression="' + escapeHtml(name) +
+    const expressionId = scene.id + "-" + character.id + "-expression-" + name;
+    return '<img class="rig-expression" id="' + escapeHtml(expressionId) +
+      '" data-expression="' + escapeHtml(name) +
       '" alt="" draggable="false" src="' + escapeHtml(expression.src) +
       '" style="' + style + ";" + initial + '">';
   }).join("");
@@ -95,6 +100,7 @@ const duration = Number(project.duration_seconds);
 if (!Number.isFinite(duration) || duration <= 0) {
   throw new Error("duration_seconds must be positive.");
 }
+project.motion_tracks = compileMotionTracks(project, { fps });
 
 mkdirSync(resolve(outputDir, "dist"), { recursive: true });
 const sceneIds = new Set();
@@ -148,7 +154,7 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   ';</script><script src="./dist/player.js"></script></body></html>';
 
 writeFileSync(resolve(outputDir, "index.html"), html, "utf8");
-await build({
+await bundle({
   entryPoints: [new URL("./src/player.mjs", import.meta.url).pathname],
   bundle: true,
   format: "iife",

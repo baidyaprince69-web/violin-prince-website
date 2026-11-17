@@ -4,24 +4,6 @@ export function clampTime(value, duration) {
   return Math.min(total, Math.max(0, time));
 }
 
-export function springKeyframes(from, to, fps = 25, maxMs = 1400) {
-  const duration = Math.max(0.2, Math.min(4, Number(maxMs) / 1000));
-  const frames = Math.max(2, Math.ceil(duration * Math.max(1, Number(fps) || 25)));
-  const delta = Number(to) - Number(from);
-  const values = [];
-  for (let index = 0; index <= frames; index += 1) {
-    const progress = index / frames;
-    const omega = 15;
-    const damping = 0.88;
-    const root = Math.sqrt(1 - damping * damping);
-    const response = 1 - Math.exp(-damping * omega * progress * duration) *
-      (Math.cos(omega * root * progress * duration) +
-       (damping / root) * Math.sin(omega * root * progress * duration));
-    values.push(Number(from) + delta * response);
-  }
-  return values;
-}
-
 export function gestureKeyframes(name) {
   const gestures = {
     wave: {
