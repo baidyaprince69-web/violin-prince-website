@@ -27,6 +27,14 @@ const character = {
   }
 };
 
+test("selected expression plate replaces the static base face cut-out", () => {
+  const renderer = readFileSync(new URL("../build.mjs", import.meta.url), "utf8");
+  assert.ok(
+    renderer.includes('.rig-part[data-role="face"]{opacity:0}'),
+    "base face cut-out must be hidden beneath the selected expression layer"
+  );
+});
+
 function tracksFor(sceneId) {
   return compileMotionTracks({
     fps: 25,
