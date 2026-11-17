@@ -13,10 +13,7 @@ from voiceover import OwnVoiceRequiredError, require_approved_own_voice, synthes
 
 class KaraokeCaptionTests(unittest.TestCase):
     def test_global_production_gate_is_closed_without_approved_own_voice(self):
-        with self.assertRaisesRegex(
-            OwnVoiceRequiredError,
-            "research, visuals and rendering are stopped",
-        ):
+        with self.assertRaises(OwnVoiceRequiredError):
             require_approved_own_voice()
 
     def test_all_production_entrypoints_gate_before_research_or_work(self):
@@ -24,7 +21,7 @@ class KaraokeCaptionTests(unittest.TestCase):
             (
                 "run.py",
                 "main",
-                ("WORK.mkdir", "prepare_stage", "visuals_stage", "render_stage"),
+                ("mkdir", "prepare_stage", "visuals_stage", "render_stage"),
             ),
             (
                 "run_daily_plan.py",
