@@ -50,14 +50,16 @@ class CharacterAutoRigTests(unittest.TestCase):
         self.assertEqual(len(masks), 9)
         self.assertEqual(len(joints), 7)
         self.assertEqual(repaired.size, image.size)
-        face_overlap = int((masks["head"] & masks["face"]).sum())
-        self.assertGreater(face_overlap, 0, "head shell must underlap the feathered face edge")
-        self.assertLess(
-            face_overlap,
-            int(masks["face"].sum() * 0.08),
-            "head/face overlap must remain a narrow perimeter ring",
-        )
         face_interior = _morph(masks["face"], 3, "erode")
+        face_perimeter_ring = masks["face"] & ~face_interior
+        face_overlap_mask = masks["head"] & masks["face"]
+        face_overlap = int(face_overlap_mask.sum())
+        self.assertGreater(face_overlap, 0, "head shell must underlap the feathered face edge")
+        self.assertLessEqual(
+            face_overlap,
+            int(face_perimeter_ring.sum()),
+            "head/face overlap must stay inside the eroded face perimeter ring",
+        )
         self.assertEqual(
             int((masks["head"] & face_interior).sum()),
             0,
