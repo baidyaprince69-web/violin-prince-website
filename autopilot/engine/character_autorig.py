@@ -172,6 +172,16 @@ def _clean_segmentation_specks(mask: np.ndarray, size: int = 9) -> np.ndarray:
     return np.asarray(image, dtype=np.uint8) > 0
 
 
+def _soft_alpha_from_mask(mask: np.ndarray, blur_radius: float = 1.2) -> np.ndarray:
+    """Create an antialiased alpha edge for a face plate that overlaps its head shell."""
+    if not np.isfinite(blur_radius) or blur_radius < 0:
+        raise ValueError("Alpha blur radius must be a finite non-negative value.")
+    alpha = Image.fromarray(np.asarray(mask, dtype=np.uint8) * 255, mode="L")
+    if blur_radius:
+        alpha = alpha.filter(ImageFilter.GaussianBlur(float(blur_radius)))
+    return np.asarray(alpha, dtype=np.uint8)
+
+
 def _close_small_mask_holes(mask: np.ndarray, size: int = 5) -> np.ndarray:
     """Close tiny interior alpha gaps without changing the outer silhouette much."""
     if size < 3 or size % 2 == 0:
@@ -563,13 +573,24 @@ def _repair_hidden_area(
 
 
 def _save_layer(
-    image: Image.Image, mask: np.ndarray, destination: Path, *, padding: int = 8
+    image: Image.Image,
+    mask: np.ndarray,
+    destination: Path,
+    *,
+    padding: int = 8,
+    alpha_mask: np.ndarray | None = None,
 ) -> dict[str, Any]:
     x0, y0, x1, y1 = _bbox(mask)
     x0, y0 = max(0, x0 - padding), max(0, y0 - padding)
     x1, y1 = min(image.width, x1 + padding), min(image.height, y1 + padding)
     crop = image.convert("RGB").crop((x0, y0, x1, y1)).convert("RGBA")
-    alpha = Image.fromarray(mask[y0:y1, x0:x1].astype(np.uint8) * 255, mode="L")
+    if alpha_mask is None:
+        alpha_values = np.asarray(mask, dtype=np.uint8) * 255
+    else:
+        alpha_values = np.asarray(alpha_mask, dtype=np.uint8)
+        if alpha_values.shape != mask.shape:
+            raise AutoRigError("Layer alpha mask must match the master image canvas.")
+    alpha = Image.fromarray(alpha_values[y0:y1, x0:x1], mode="L")
     crop.putalpha(alpha)
     destination.parent.mkdir(parents=True, exist_ok=True)
     crop.save(destination, format="PNG", optimize=True)
@@ -629,10 +650,11 @@ def separate_from_parsing(
     hair = _clean_segmentation_specks(_mask(detail_labels, 2), size=9)
     head_full = _clean_segmentation_specks(head_coarse | hair, size=9)
     face = _face_region_from_head(head_full)
-    # Keep the head layer limited to the hair/skull/side contour. The face is
-    # a separate animated plate; retaining the original facial pixels in
-    # head.png creates doubled eyes and mouth beneath alternate expressions.
-    head = head_full & ~face
+    # Retain only a narrow original-pixel ring beneath the face plate. The
+    # expression alpha is feathered over this underlap, avoiding a hard oval
+    # seam while keeping the facial interior fully separated from head.png.
+    face_interior = _morph(face, 3, "erode")
+    head = head_full & ~face_interior
     # The head shell includes the short neck area below the face opening. SCHP
     # sometimes leaves tiny pinholes there; close only this lower neck strip,
     # and constrain any fill to the dilated original head silhouette.
@@ -761,6 +783,13 @@ def separate_from_parsing(
         "arm_side_source": arm_side_source,
         "hand_split": "distal lower-arm split with connected warm-skin finger recovery; not a dedicated hand detector",
         "hand_split_fraction": float(hand_fraction),
+        "face_edge_blend": {
+            "method": "soft_alpha_over_original_head_underlap",
+            "head_underlap_radius_px": 3,
+            "alpha_gaussian_blur_px": 1.2,
+            "head_and_face_overlap_pixels": int((masks["head"] & masks["face"]).sum()),
+            "visual_review_required": True,
+        },
         "hand_finger_recovery": {
             "method": "bounded_skin_colour_component_growth",
             "pixels_added": hand_recovery_pixels,
@@ -825,10 +854,14 @@ def _face_plate(
         target_size,
         Image.Resampling.LANCZOS,
     ).convert("RGBA")
-    alpha = np.asarray(alpha_mask, dtype=bool)
+    alpha = np.asarray(alpha_mask)
     if alpha.shape != (target_size[1], target_size[0]):
         raise AutoRigError("Expression alpha mask must match the master face layer dimensions.")
-    crop.putalpha(Image.fromarray(alpha.astype(np.uint8) * 255, mode="L"))
+    if alpha.dtype == np.bool_:
+        alpha = alpha.astype(np.uint8) * 255
+    else:
+        alpha = np.clip(alpha, 0, 255).astype(np.uint8)
+    crop.putalpha(Image.fromarray(alpha, mode="L"))
     destination.parent.mkdir(parents=True, exist_ok=True)
     crop.save(destination, format="PNG", optimize=True)
 
@@ -914,13 +947,19 @@ def create_character_bundle(
     )
 
     layers = []
+    face_alpha_full = _soft_alpha_from_mask(masks["face"], blur_radius=1.2)
     ordered_roles = (
         "torso", "left_upper_arm", "right_upper_arm",
         "left_forearm", "right_forearm", "left_hand", "right_hand", "head", "face",
     )
     for role in ordered_roles:
         layer_source = repaired_torso if role == "torso" else image
-        geometry = _save_layer(layer_source, masks[role], output_dir / f"{role}.png")
+        geometry = _save_layer(
+            layer_source,
+            masks[role],
+            output_dir / f"{role}.png",
+            alpha_mask=face_alpha_full if role == "face" else None,
+        )
         joint_name = JOINT_FOR_ROLE.get(role)
         pivot_x = pivot_y = 0.5
         if joint_name:
@@ -945,7 +984,7 @@ def create_character_bundle(
     expressions = {}
     face_x, face_y = int(face_layer["x"]), int(face_layer["y"])
     face_width, face_height = int(face_layer["width"]), int(face_layer["height"])
-    face_alpha = masks["face"][
+    face_alpha = face_alpha_full[
         face_y:face_y + face_height,
         face_x:face_x + face_width,
     ]
