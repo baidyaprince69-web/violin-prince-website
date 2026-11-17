@@ -18,6 +18,7 @@ from character_autorig import (
     _face_region_from_head,
     _face_expression_crop_box,
     _face_plate,
+    _register_expression_to_neutral,
     separate_from_parsing,
 )
 
@@ -294,42 +295,62 @@ class CharacterAutoRigTests(unittest.TestCase):
                 self.assertGreater(min(highlight[:3]), 220,
                     "the enclosed white eye highlight must retain its colour")
 
-    def test_expression_plate_replaces_top_hair_with_master_pixels_and_keeps_features(self):
-        import tempfile
-        from pathlib import Path
+    def test_expression_registration_recovers_translation_and_preserves_neutral_alpha(self):
         from PIL import Image, ImageDraw
 
-        with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
-            source = root / "expression.png"
-            base = root / "master-face.png"
-            output = root / "expression-clean.png"
+        width, height = 100, 80
+        neutral = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(neutral)
+        skin = (206, 150, 116, 255)
+        dark = (35, 30, 29, 255)
+        white = (248, 242, 225, 255)
+        iris = (64, 43, 32, 255)
+        draw.ellipse((3, 1, width - 3, height - 1), fill=skin, outline=dark, width=2)
+        draw.pieslice((2, -18, width - 2, 34), 180, 360, fill=dark)
+        for center_x in (width * 0.32, width * 0.68):
+            center_y = height * 0.43
+            draw.arc((center_x - 18, center_y - 14, center_x + 18, center_y + 8),
+                     190, 350, fill=dark, width=4)
+            draw.ellipse((center_x - 17, center_y - 6, center_x + 17, center_y + 15),
+                         outline=dark, width=2)
+            draw.ellipse((center_x - 8, center_y - 1, center_x + 8, center_y + 10),
+                         fill=white, outline=dark, width=1)
+            draw.ellipse((center_x - 3, center_y + 1, center_x + 4, center_y + 9),
+                         fill=iris)
+            draw.ellipse((center_x - 1, center_y + 2, center_x + 1, center_y + 4),
+                         fill=white)
+        draw.line((width * 0.5, height * 0.4, width * 0.48, height * 0.62,
+                   width * 0.55, height * 0.65), fill=dark, width=2)
+        draw.arc((width * 0.34, height * 0.65, width * 0.68, height * 0.87),
+                 5, 170, fill=dark, width=3)
+        draw.arc((width * 0.37, height * 0.68, width * 0.65, height * 0.82),
+                 5, 170, fill=(115, 65, 50, 255), width=2)
+        for x, y in ((18, 45), (23, 49), (30, 55), (70, 50), (76, 54),
+                     (60, 61), (45, 30), (56, 37)):
+            draw.ellipse((x - 1, y - 1, x + 1, y + 1), fill=(160, 104, 79, 255))
 
-            reference = Image.new("RGB", (400, 300), (255, 255, 255))
-            draw = ImageDraw.Draw(reference)
-            draw.ellipse((80, 20, 320, 280), fill=(188, 125, 92))
-            draw.rectangle((110, 40, 290, 110), fill=(35, 32, 31))
-            draw.rectangle((150, 143, 250, 151), fill=(30, 27, 26))
-            reference.save(source)
-            Image.new("RGBA", (80, 60), (24, 220, 40, 255)).save(base)
+        # Move the source six pixels left and twelve down; the estimated
+        # source-to-neutral transform must recover (+6, -12).
+        shifted = neutral.transform(
+            neutral.size,
+            Image.Transform.AFFINE,
+            (1, 0, 6, 0, 1, -12),
+            resample=Image.Resampling.BICUBIC,
+            fillcolor=(0, 0, 0, 0),
+        )
+        aligned, metrics = _register_expression_to_neutral(shifted, neutral)
+        self.assertAlmostEqual(metrics["translate_x"], 6.0, delta=0.75)
+        self.assertAlmostEqual(metrics["translate_y"], -12.0, delta=0.75)
+        self.assertGreater(metrics["inliers"], 20)
+        self.assertLess(metrics["median_error_px"], 1.0)
+        self.assertEqual(aligned.getchannel("A").tobytes(), neutral.getchannel("A").tobytes())
 
-            alpha = np.full((60, 80), 255, dtype=np.uint8)
-            _face_plate(
-                source, (80, 60), output,
-                alpha_mask=alpha, base_face_path=base,
-            )
-            with Image.open(output) as plate:
-                hair = plate.getpixel((40, 20))
-                eyebrow = plate.getpixel((40, 40))
-                self.assertGreater(hair[1], 180,
-                    "top-connected source hair must be replaced by master hair pixels")
-                self.assertGreater(hair[3], 245,
-                    "the expression plate must remain opaque where hair was replaced")
-                self.assertLess(eyebrow[0], 100,
-                    "the disconnected expression eyebrow must remain intact")
-                self.assertGreater(eyebrow[3], 245,
-                    "facial details must not become transparent")
-                
+    def test_expression_registration_fails_closed_without_landmarks(self):
+        flat = Image.new("RGBA", (100, 80), (180, 120, 90, 255))
+        with self.assertRaisesRegex(ManualReviewRequired, "facial landmarks|reliable facial matches"):
+            _register_expression_to_neutral(flat, flat)
+
+
     def test_pose_reference_plate_removes_near_white_background(self):
         import tempfile
         from pathlib import Path
