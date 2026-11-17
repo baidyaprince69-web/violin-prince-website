@@ -92,6 +92,25 @@ class CharacterAutoRigTests(unittest.TestCase):
         # Neutral background must not be pulled into the hand.
         self.assertFalse(np.any(recovered[:, 120:]))
 
+    def test_hand_recovery_window_reaches_fingertips_beyond_small_mask_bbox(self):
+        width, height = 260, 200
+        image = Image.new("RGB", (width, height), (255, 255, 255))
+        pixels = image.load()
+        hand = np.zeros((height, width), dtype=bool)
+        upper = np.zeros((height, width), dtype=bool)
+
+        hand[45:185, 90:230] = True
+        upper[30:100, 200:245] = True
+        # The far fingertip lies beyond the old 24%-of-hand search padding.
+        for y in range(45, 186):
+            for x in range(48, 231):
+                pixels[x, y] = (205, 140, 100)
+
+        recovered, added = _recover_hand_fingers_from_skin(image, hand, upper)
+        self.assertGreater(added, 0)
+        self.assertTrue(recovered[150, 50], "distal fingertip must be included")
+        self.assertFalse(recovered[10, 10], "unrelated white background must stay transparent")
+
     def test_large_hidden_area_fails_closed_without_lama(self):
         image = Image.new("RGB", (80, 80), (100, 100, 100))
         hole = np.zeros((80, 80), dtype=bool)
