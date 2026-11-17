@@ -118,6 +118,9 @@ jobs:
         with:
           node-version: "22"
 
+      - name: Test private encrypted voice-package R2 routes
+        run: node --test autopilot/cloudflare/tests/voice-packages.test.mjs
+
       - name: Install Motion and HyperFrames
         working-directory: autopilot/engine/animation2d
         run: npm install --no-audit --no-fund
