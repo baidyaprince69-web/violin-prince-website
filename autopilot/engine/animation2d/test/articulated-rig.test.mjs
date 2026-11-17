@@ -68,6 +68,10 @@ test("generated rig project wires real scene actions into frame-seekable motion 
 
   assert.ok(hasChangingTrack(target("scene-head-turn", "head")),
     "head-turn scene must animate the separated head layer");
+  assert.ok(hasChangingTrack(target("scene-head-turn", "face")),
+    "face cut-out must follow the head around the neck pivot");
+  assert.ok(hasChangingTrack("scene-head-turn-violin-prince-expression-neutral"),
+    "expression overlay must follow the head around the neck pivot");
   assert.ok(hasChangingTrack(target("scene-head-turn", "torso")),
     "head-turn scene must counterbalance the torso");
   assert.ok(hasChangingTrack(target("scene-wave", "right_upper_arm")),
