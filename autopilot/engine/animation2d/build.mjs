@@ -33,6 +33,7 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
   ].join(";");
   const jointForRole = {
     head: "neck",
+    face: "neck",
     left_upper_arm: "left_shoulder",
     left_forearm: "left_elbow",
     left_hand: "left_wrist",
@@ -70,11 +71,23 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
     Object.prototype.hasOwnProperty.call(character.pose_assets, selectedPose));
   const face = (character.layers || []).find((layer) => layer.role === "face") || {};
   const expressions = Object.entries(character.expressions || {}).map(([name, expression]) => {
+    const neck = (character.joints || {}).neck;
+    const expressionX = Number(expression.x ?? face.x ?? 0);
+    const expressionY = Number(expression.y ?? face.y ?? 0);
+    const expressionWidth = Number(expression.width ?? face.width ?? 1);
+    const expressionHeight = Number(expression.height ?? face.height ?? 1);
+    const pivotX = neck
+      ? ((Number(neck.x) * layout.sourceWidth - expressionX) / expressionWidth) * 100
+      : 50;
+    const pivotY = neck
+      ? ((Number(neck.y) * layout.sourceHeight - expressionY) / expressionHeight) * 100
+      : 50;
     const style = [
-      "left:" + (layout.offsetX + Number(expression.x ?? face.x ?? 0) * layout.scale) + "px",
-      "top:" + (layout.offsetY + Number(expression.y ?? face.y ?? 0) * layout.scale) + "px",
-      "width:" + (Number(expression.width ?? face.width ?? 1) * layout.scale) + "px",
-      "height:" + (Number(expression.height ?? face.height ?? 1) * layout.scale) + "px",
+      "left:" + (layout.offsetX + expressionX * layout.scale) + "px",
+      "top:" + (layout.offsetY + expressionY * layout.scale) + "px",
+      "width:" + (expressionWidth * layout.scale) + "px",
+      "height:" + (expressionHeight * layout.scale) + "px",
+      "transform-origin:" + pivotX + "% " + pivotY + "%",
       "z-index:999"
     ].join(";");
     // Full-body pose plates already contain their own face. Never layer
