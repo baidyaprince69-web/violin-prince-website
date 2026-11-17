@@ -101,6 +101,7 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
 
   return '<div class="clip character-rig" id="' + escapeHtml(scene.id + "-" + character.id) +
     '" data-pose-active="' + (poseIsActive ? "true" : "false") +
+    '" data-pose-name="' + escapeHtml(poseIsActive ? selectedPose : "") +
     '" data-start="' + Number(scene.start) + '" data-duration="' + Number(scene.duration) +
     '" data-track-index="' + (40 + sceneIndex * 100 + characterIndex) +
     '" style="' + wrapperStyle + '">' + layers + expressions + poseAssets + '</div>';
@@ -168,6 +169,7 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.character-rig{position:absolute;width:100%;height:100%;opacity:0;transform-origin:center center}' +
   '.rig-part,.rig-expression,.rig-pose{position:absolute;object-fit:contain;max-width:none;pointer-events:none}' +
   '.character-rig[data-pose-active="true"] .rig-part{opacity:0}' +
+  '.character-rig[data-pose-active="true"]:not([data-pose-name="resting_hands"]) .rig-expression{opacity:0}' +
   '</style></head><body><div id="root" data-composition-id="root" data-start="0"' +
   ' data-duration="' + duration + '" data-fps="' + fps + '"' +
   ' data-width="' + width + '" data-height="' + height + '">' + markup +
