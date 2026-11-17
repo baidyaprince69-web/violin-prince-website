@@ -507,18 +507,15 @@ def _face_plate(
         image = opened.convert("RGB")
     rgb = np.asarray(image, dtype=np.uint8)
     height, width = rgb.shape[:2]
-    # Keep hair, ears, face and chin; exclude the shoulders and blazer beneath.
-    crop_bottom = max(1, min(height, int(height * 0.66)))
-    sample = rgb[:crop_bottom]
-    min_channel = sample.min(axis=2)
-    channel_spread = sample.max(axis=2).astype(np.int16) - sample.min(axis=2).astype(np.int16)
-    foreground = ~((min_channel >= 238) & (channel_spread <= 22))
-    ys, xs = np.where(foreground)
-    if len(xs) < 100:
-        raise ManualReviewRequired(f"Could not find the character face in reference {path.name}.")
-    x0, x1 = int(xs.min()), int(xs.max()) + 1
-    y0 = int(ys.min())
-    y1 = crop_bottom
+    # The source references are aligned portrait sheets. Crop the facial area
+    # from forehead to chin, excluding the hair mass and jacket/shoulders so the
+    # expression plate cannot create a second hair cap or cover the torso.
+    x0 = int(width * 0.365)
+    x1 = int(width * 0.635)
+    y0 = int(height * 0.22)
+    y1 = int(height * 0.68)
+    if x1 <= x0 or y1 <= y0:
+        raise ManualReviewRequired(f"Invalid facial crop geometry for {path.name}.")
     crop = rgb[y0:y1, x0:x1].copy()
 
     # Anti-aliased white/grey studio background becomes transparent; character
