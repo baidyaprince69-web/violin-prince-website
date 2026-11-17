@@ -82,9 +82,6 @@ jobs:
           import yaml
           files = [
               ".github/workflows/autopilot-checks.yml",
-              ".github/workflows/blender-smoke.yml",
-              ".github/workflows/blender-benchmark.yml",
-              ".github/workflows/first-production.yml",
               ".github/workflows/violin-prince-autopilot.yml",
               ".github/workflows/deploy-autopilot-cloudflare.yml",
               ".github/workflows/youtube-seo-learning.yml",
@@ -100,6 +97,28 @@ jobs:
       - name: Check production and deployment workflow files exist
         run: |
           test -s .github/workflows/violin-prince-autopilot.yml
-          test -s .github/workflows/blender-smoke.yml
           test -s .github/workflows/deploy-autopilot-cloudflare.yml
+          test -s autopilot/engine/animation2d/package.json
+          test -s autopilot/engine/animation2d/build.mjs
+          test -s autopilot/engine/hyperframes_pipeline.py
+          test -s autopilot/engine/character_rig.py
 
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Motion and HyperFrames
+        working-directory: autopilot/engine/animation2d
+        run: npm install --no-audit --no-fund
+
+      - name: Test Motion keyframes and build the HyperFrames composition
+        working-directory: autopilot/engine/animation2d
+        run: |
+          npm test
+          node build.mjs --project project.example.json --out-dir .validation
+          ./node_modules/.bin/hyperframes lint .validation
+        env:
+          HYPERFRAMES_NO_UPDATE_CHECK: "1"
+          CI: "true"
