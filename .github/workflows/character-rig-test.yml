@@ -9,6 +9,7 @@ on:
       - baidyaprince69-web-patch-1
       - feature/character-articulated-rig-validation
       - feat/autopilot-intelligence-validation-recovery
+      - fix/character-expression-face-alignment
     paths:
       - .github/workflows/character-rig-test.yml
       - autopilot/engine/character_autorig.py
