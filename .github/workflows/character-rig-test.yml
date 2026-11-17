@@ -1,5 +1,5 @@
 name: Character Auto-Rig Test
-# Final proof: clean transparent pose plates, no duplicate face overlays, and persist the bundle only after a successful render.
+# Final proof: edge-connected backdrop removal, clean pose plates, no duplicate faces, and persist only after a successful render.
 
 on:
   # Allow this isolated proof to run on the existing PR branch before it is merged.
