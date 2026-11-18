@@ -14,18 +14,18 @@ import run as pipeline
 
 
 ORCHESTRA_SENTENCES = [
-    "Can an orchestra define a region's musical identity?",
-    "The Orchestre National de Metz Grand Est celebrates fifty years.",
-    "International violinist Alena Baeva will perform Mozart's brilliant fifth concerto in Metz.",
-    "Ravel's music also honours the orchestra's long, remarkable regional heritage and identity.",
+    "Can an orchestra shape regional musical identity?",
+    "Metz's orchestra celebrates fifty years of music across the region.",
+    "Alena Baeva performs Mozart's brilliant fifth concerto in Metz tonight.",
+    "Ravel's music proudly honours the orchestra's long regional heritage today.",
 ]
 ORCHESTRA_SCRIPT = " ".join(ORCHESTRA_SENTENCES)
 
 RUN22_INITIAL_SENTENCES = [
     "Can a computer mimic a soul?",
-    "MIT engineers have achieved something remarkable.",
-    "Their virtual violin produces incredibly realistic sounds.",
-    "This digital breakthrough changes how we experience music forever.",
+    "MIT engineers have built a sophisticated computational virtual violin model for experimental sound research.",
+    "Silence.",
+    "Its plucked strings now reproduce remarkably realistic acoustic tones for careful musical comparison.",
 ]
 RUN22_INITIAL_SCRIPT = " ".join(RUN22_INITIAL_SENTENCES)
 
@@ -46,19 +46,19 @@ RUN22_ATTEMPT_3 = (
 )
 
 RUN22_CORRECTED_FIELDS = {
-    "sentence_2": "MIT engineers built a virtual violin through detailed computer-based sound modelling research.",
-    "sentence_3": "Digital modelling reproduces realistic violin resonance, timbre, and expressive details faithfully.",
-    "sentence_4": "This achievement connects traditional violin artistry with possibilities for musical creativity.",
+    "sentence_2": "MIT engineers developed a detailed computational model of a virtual violin instrument.",
+    "sentence_3": "Its plucked strings produce remarkably realistic sounds.",
+    "sentence_4": "The model simulates string motion and predicts how violin bodies shape sound.",
 }
 
 RUN23_INITIAL_SENTENCES = [
     "Can a computer mimic a violin?",
     "MIT engineers developed new technology to simulate the sound of violins.",
-    "This virtual instrument produces realistic tones through advanced digital modeling techniques.",
-    "These digital strings now sing with a very authentic musical soul.",
+    "This virtual instrument produces realistic tones through advanced digital modeling techniques today.",
+    "These strings sound remarkably authentic to listeners.",
 ]
 RUN23_CORRECTED_SENTENCE = (
-    "MIT engineers developed technology to simulate violin sounds with remarkable acoustic realism."
+    "These digital strings sound remarkably authentic to listeners."
 )
 
 
@@ -103,18 +103,18 @@ class PlannerNarrationValidationTests(unittest.TestCase):
 
     def test_variable_sentence_lengths_pass_without_fixed_quotas(self):
         self.assertEqual(pipeline.narration_validation_error(ORCHESTRA_SCRIPT), "")
-        self.assertEqual(pipeline.narration_word_count(ORCHESTRA_SCRIPT), 42)
+        self.assertEqual(pipeline.narration_word_count(ORCHESTRA_SCRIPT), 37)
         self.assertEqual(
             [pipeline.narration_word_count(value) for value in ORCHESTRA_SENTENCES],
-            [8, 10, 12, 12],
+            [7, 10, 10, 10],
         )
 
     def test_validator_rejects_sentence_above_twelve_words(self):
         sentences = [
-            "Can one orchestra shape regional musical identity?",
-            "The Orchestre National de Metz Grand Est celebrates its fiftieth anniversary this November.",
-            "International violinist Alena Baeva performs Mozart's fifth concerto in Metz this season.",
-            "Ravel's music honours the orchestra's remarkable regional heritage and identity today.",
+            "Can an orchestra shape regional musical identity?",
+            "The Orchestre National de Metz Grand Est celebrates its anniversary this year proudly.",
+            "Alena Baeva performs Mozart's fifth concerto in Metz today.",
+            "Ravel's music honours the orchestra's regional heritage today.",
         ]
         issue = pipeline.narration_validation_error(" ".join(sentences))
         self.assertIn("sentence 2 has 13 words", issue)
@@ -122,9 +122,9 @@ class PlannerNarrationValidationTests(unittest.TestCase):
     def test_validator_rejects_hook_outside_five_to_eight_words(self):
         sentences = [
             "Can music travel farther?",
-            "The Orchestre National de Metz Grand Est marks fifty years this November.",
-            "International violinist Alena Baeva performs Mozart's fifth concerto in Metz this season.",
-            "Ravel's music honours the orchestra's remarkable regional heritage and identity across generations.",
+            "Metz's orchestra celebrates fifty years of music across its wider region today.",
+            "Alena Baeva performs Mozart's brilliant fifth concerto in Metz this season.",
+            "Ravel's music honours the orchestra's long regional heritage across generations today.",
         ]
         issue = pipeline.narration_validation_error(" ".join(sentences))
         self.assertIn("opening hook has 4 words", issue)
@@ -147,12 +147,12 @@ class PlannerNarrationValidationTests(unittest.TestCase):
 
     def test_run22_dynamic_budget_repairs_underlength_and_overlong_sentence(self):
         budgets = pipeline.narration_sentence_budget(pipeline.narration_sentences(RUN22_ATTEMPT_3))
-        self.assertEqual(budgets[0], {"min_words": 6, "max_words": 8})
-        self.assertEqual(budgets[1], {"min_words": 12, "max_words": 12})
-        self.assertEqual(budgets[2], {"min_words": 12, "max_words": 12})
+        self.assertEqual(budgets[0], {"min_words": 6, "max_words": 6})
+        self.assertEqual(budgets[1], {"min_words": 10, "max_words": 10})
+        self.assertEqual(budgets[2], {"min_words": 9, "max_words": 10})
         self.assertEqual(budgets[3], {"min_words": 12, "max_words": 12})
-        self.assertEqual(sum(value["min_words"] for value in budgets), 42)
-        self.assertLessEqual(sum(value["max_words"] for value in budgets), 44)
+        self.assertEqual(sum(value["min_words"] for value in budgets), 37)
+        self.assertLessEqual(sum(value["max_words"] for value in budgets), 38)
 
     def test_run22_composer_repairs_only_sentences_two_to_four(self):
         plan = make_test_plan(RUN22_INITIAL_SENTENCES)
@@ -192,7 +192,7 @@ class PlannerNarrationValidationTests(unittest.TestCase):
                 self.assertEqual(mock_ai.call_count, 2)
                 self.assertEqual(result["narration_sentences"][0], RUN22_INITIAL_SENTENCES[0])
                 self.assertEqual(result["narration_sentences"][1:], list(RUN22_CORRECTED_FIELDS.values()))
-                self.assertEqual(pipeline.narration_word_count(result["narration_script"]), 40)
+                self.assertEqual(pipeline.narration_word_count(result["narration_script"]), 37)
                 self.assertEqual(pipeline.narration_validation_error(result["narration_script"]), "")
                 correction_payload = mock_ai.call_args_list[1].args[1]
                 self.assertEqual(correction_payload["tool_choice"]["function"]["name"],
@@ -206,13 +206,13 @@ class PlannerNarrationValidationTests(unittest.TestCase):
                     [array_properties[field]["minItems"] for field in (
                         "sentence_2_words", "sentence_3_words", "sentence_4_words"
                     )],
-                    [12, 11, 11],
+                    [12, 7, 12],
                 )
                 self.assertEqual(
                     [array_properties[field]["maxItems"] for field in (
                         "sentence_2_words", "sentence_3_words", "sentence_4_words"
                     )],
-                    [12, 11, 11],
+                    [12, 8, 12],
                 )
                 locked = json.loads(correction_payload["messages"][1]["content"].split(
                     "Locked sentence fields (must remain unchanged): ", 1
@@ -266,17 +266,17 @@ class PlannerNarrationValidationTests(unittest.TestCase):
         self.assertIn("normalizes to 13 spoken words", issue)
         self.assertIn("allowed range is 11–12", issue)
 
-    def test_run23_exact_39_word_failure_repairs_only_one_word(self):
+    def test_run23_exact_36_word_failure_repairs_only_one_word(self):
         plan = make_test_plan(RUN23_INITIAL_SENTENCES)
         initial_script = " ".join(RUN23_INITIAL_SENTENCES)
-        self.assertEqual(pipeline.narration_word_count(initial_script), 39)
+        self.assertEqual(pipeline.narration_word_count(initial_script), 36)
         self.assertIn(
-            "it has 39 spoken words; the required range is 40–44",
+            "it has 36 spoken words; the calibrated range is 37–38 for a 22–23-second natural delivery",
             pipeline.narration_validation_error(initial_script),
         )
         self.assertEqual(
             [pipeline.narration_word_count(value) for value in RUN23_INITIAL_SENTENCES],
-            [6, 11, 11, 11],
+            [6, 11, 12, 7],
         )
 
         tool_response = {
@@ -287,7 +287,7 @@ class PlannerNarrationValidationTests(unittest.TestCase):
                         "function": {
                             "name": "submit_narration_sentence_corrections",
                             "arguments": json.dumps({
-                                "sentence_2_words": RUN23_CORRECTED_SENTENCE.split()
+                                "sentence_4_words": RUN23_CORRECTED_SENTENCE.split()
                             }),
                         },
                     }],
@@ -310,17 +310,17 @@ class PlannerNarrationValidationTests(unittest.TestCase):
                     result = pipeline.make_plan([self.item], recent=[])
 
                 self.assertEqual(mock_ai.call_count, 2)
-                self.assertEqual(pipeline.narration_word_count(result["narration_script"]), 40)
+                self.assertEqual(pipeline.narration_word_count(result["narration_script"]), 37)
                 self.assertEqual(pipeline.narration_validation_error(result["narration_script"]), "")
                 self.assertEqual(result["narration_sentences"][0], RUN23_INITIAL_SENTENCES[0])
-                self.assertEqual(result["narration_sentences"][1], RUN23_CORRECTED_SENTENCE)
-                self.assertEqual(result["narration_sentences"][2:], RUN23_INITIAL_SENTENCES[2:])
+                self.assertEqual(result["narration_sentences"][3], RUN23_CORRECTED_SENTENCE)
+                self.assertEqual(result["narration_sentences"][1:3], RUN23_INITIAL_SENTENCES[1:3])
 
                 correction_payload = mock_ai.call_args_list[1].args[1]
                 parameters = correction_payload["tools"][0]["function"]["parameters"]
-                self.assertEqual(parameters["required"], ["sentence_2_words"])
-                self.assertEqual(parameters["properties"]["sentence_2_words"]["minItems"], 12)
-                self.assertEqual(parameters["properties"]["sentence_2_words"]["maxItems"], 12)
+                self.assertEqual(parameters["required"], ["sentence_4_words"])
+                self.assertEqual(parameters["properties"]["sentence_4_words"]["minItems"], 8)
+                self.assertEqual(parameters["properties"]["sentence_4_words"]["maxItems"], 9)
                 locked = json.loads(correction_payload["messages"][1]["content"].split(
                     "Locked sentence fields (must remain unchanged): ", 1
                 )[1].split("\nDynamic word budgets", 1)[0])
@@ -328,18 +328,18 @@ class PlannerNarrationValidationTests(unittest.TestCase):
                     locked,
                     {
                         "sentence_1": RUN23_INITIAL_SENTENCES[0],
+                        "sentence_2": RUN23_INITIAL_SENTENCES[1],
                         "sentence_3": RUN23_INITIAL_SENTENCES[2],
-                        "sentence_4": RUN23_INITIAL_SENTENCES[3],
                     },
                 )
 
                 debug = json.loads((Path(folder) / "creative_plan_debug.json").read_text(encoding="utf-8"))
                 self.assertEqual(debug["status"], "repaired")
-                self.assertEqual(debug["final_diagnostics"]["word_count"], 40)
-                self.assertEqual(debug["correction_attempts"][0]["corrected_sentence_numbers"], [2])
+                self.assertEqual(debug["final_diagnostics"]["word_count"], 37)
+                self.assertEqual(debug["correction_attempts"][0]["corrected_sentence_numbers"], [4])
                 self.assertEqual(
                     debug["correction_attempts"][0]["required_word_counts"],
-                    {"sentence_2_words": 12},
+                    {"sentence_4_words": 8},
                 )
             finally:
                 pipeline.WORK = original_work
@@ -498,10 +498,10 @@ class PlannerNarrationValidationTests(unittest.TestCase):
 
     def test_evidence_repair_rewrites_only_flagged_sentence_from_verified_articles(self):
         sentences = [
-            "Can computers recreate a violin's sound?",
-            "MIT engineers built a detailed computational model of a virtual violin instrument.",
-            "Its plucked strings recreate realistic resonance and acoustic timbre for listeners.",
-            "Technology is learning the deep soul of every single violin note.",
+            "Can computers model violin sounds?",
+            "MIT engineers built a detailed computational model of a virtual violin.",
+            "Its plucked strings reproduce realistic resonance and acoustic timbre for listeners.",
+            "Technology now understands the hidden soul of every violin note.",
         ]
         plan = make_test_plan(sentences)
         plan["narration_script"] = " ".join(sentences)
@@ -519,7 +519,7 @@ class PlannerNarrationValidationTests(unittest.TestCase):
             }
         ]
         corrected_words = [
-            "Bowed", "string", "performance", "still", "remains", "a",
+            "Bowed", "string", "performance", "remains", "a",
             "difficult", "challenge", "for", "researchers", "today."
         ]
         response = {
@@ -551,7 +551,7 @@ class PlannerNarrationValidationTests(unittest.TestCase):
                     self.assertIn("verified", prompt_payload["messages"][0]["content"].casefold())
                 self.assertNotIn("deep soul", result)
                 self.assertIn("Bowed string performance", result)
-                self.assertEqual(pipeline.narration_word_count(result), 40)
+                self.assertEqual(pipeline.narration_word_count(result), 37)
                 pipeline.validate_narration_against_sources(plan, verified_sources)
             finally:
                 pipeline.WORK = original_work
