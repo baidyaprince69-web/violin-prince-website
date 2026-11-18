@@ -5034,88 +5034,11 @@ def prepare_stage():
 
 
 def visuals_stage(feedback=""):
-    """Generate approved scene illustrations for the Motion + HyperFrames 2D route."""
+    """Stop until a non-Cloudflare illustration provider has been selected and tested."""
+    del feedback
     raise PipelineError(
-        "The Visuals stage is disabled until an approved illustration provider is configured."
+        "The Visuals stage is disabled until an approved non-Cloudflare illustration provider is configured."
     )
-    plan, metadata, _narration_info, paths, image_paths = _read_package(require_images=False)
-    creative_issues = validate_creative_plan(plan)
-    if creative_issues:
-        raise PipelineError(
-            "Automated channel-fit gate blocked Visuals: " + " ".join(creative_issues)
-        )
-    quality = plan.get("quality_control") or {}
-    if quality.get("status") != "passed":
-        raise PipelineError("Automated source/date/freshness quality gate did not pass; Visuals are blocked.")
-    review = metadata.setdefault("story_review", {})
-    if review.get("approved") is not True:
-        review.update({
-            "status": "approved_by_automated_quality_gates",
-            "approved": True,
-            "approved_at": datetime.now(timezone.utc).isoformat(),
-            "approval_method": "automated_source_date_freshness_and_channel_fit_checks",
-        })
-    paths["metadata"].write_text(
-        json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-    for index, scene in enumerate(plan["scenes"]):
-        if image_paths[index].is_file() and scene.get("_visual_asset_invalidated") is not True:
-            try:
-                with Image.open(image_paths[index]) as existing:
-                    existing.verify()
-                log(f"Reusing valid scene illustration {index + 1}/{len(plan['scenes'])} from an earlier attempt.")
-                scene.pop("_visual_asset_invalidated", None)
-                continue
-            except Exception:
-                image_paths[index].unlink(missing_ok=True)
-        elif image_paths[index].is_file():
-            image_paths[index].unlink(missing_ok=True)
-
-        prompt = _scene_visual_prompt(scene, feedback, index=index, plan=plan)
-        try:
-            generated = make_image(prompt, index)
-        except (requests.Timeout, requests.ConnectionError):
-            log(f"Temporary connection issue for scene {index + 1}; retrying once.")
-            time.sleep(2)
-            generated = make_image(prompt, index)
-        shutil.copy2(generated, image_paths[index])
-        from media_verification import verify_image_asset
-        asset_report = verify_image_asset(image_paths[index])
-        if asset_report.get("status") == "failed":
-            raise PipelineError(
-                f"Scene illustration {scene.get('id', index + 1)} failed media verification: "
-                + json.dumps(asset_report.get("errors", []), ensure_ascii=False)
-            )
-        log(f"Prepared scene illustration {index + 1}/{len(plan['scenes'])}.")
-        scene.pop("_visual_asset_invalidated", None)
-
-    paths["plan"].write_text(
-        json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-    from media_verification import verify_scene_assets
-    media_report = verify_scene_assets(
-        plan["scenes"], image_paths, total_seconds=24.0,
-        narration_info=metadata.get("narration_info") or {},
-        expected_narration_script=plan.get("narration_script"),
-    )
-    if media_report.get("status") == "failed":
-        raise PipelineError(
-            "Visual stage media verification failed: "
-            + json.dumps(media_report.get("errors", []), ensure_ascii=False)
-        )
-    (PACKAGE / "media-verification.json").write_text(
-        json.dumps(media_report, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    storyboard = make_storyboard_preview(plan, image_paths, PACKAGE / "storyboard-preview.png")
-    metadata["stage"] = "visuals_ready"
-    metadata["visual_feedback"] = re.sub(r"\\s+", " ", str(feedback or "")).strip()[:600]
-    metadata["visuals_run_id"] = RUN_ID
-    paths["metadata"].write_text(
-        json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-    log("Storyboard preview created: " + str(storyboard))
-    return 0
 
 
 def render_stage():
