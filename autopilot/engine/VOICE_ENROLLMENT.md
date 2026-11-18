@@ -12,19 +12,13 @@ Encryption uses AES-256-GCM with a PBKDF2-SHA256-derived key and 600,000 iterati
 
 ## Private GitHub Actions voice-test route
 
-The real voice test is designed to run in a **separate private GitHub repository**, not in this public website repository.
+The dedicated private repository is `baidyaprince69-web/violin-prince-private-voice`. It contains the encrypted package at `private/voice-prince-voice.vprvoice`, the private workflow `.github/workflows/private-own-voice-qwen3.yml`, and the passphrase secret was entered by the owner directly in that repository's Actions settings.
 
-The copy-ready, data-free template is stored under `.github/voice-tests/private-runner/`. It is not an active workflow in this public repository. Before a real test:
+Private Actions run `44301408133` verified the encrypted package, decrypted it only inside the temporary runner workspace, installed the pinned Qwen3-TTS runtime, generated one sample and passed the workflow's audio-file validation. The artifact upload then failed because the account's Actions storage quota was full. The cleanup step completed, but no downloadable sample artifact exists from that run.
 
-1. Create a dedicated private repository for the voice test. Do not reuse an unrelated private project.
-2. Copy the template workflow and helper scripts into that private repository.
-3. Upload only the encrypted `.vprvoice` package from the private Drive folder into the private repository's `private/` folder.
-4. Add the passphrase independently as the private repository's `VOICE_PACKAGE_PASSPHRASE` Actions secret. Never put it in a workflow input, source file, commit, issue, log or artifact.
-5. Run the workflow manually. It decrypts the package only in the temporary GitHub-hosted runner workspace, creates a short Qwen3-TTS sample, uploads only that generated sample as a one-day artifact in the private repository, and removes temporary files at the end of the job.
+The workflow is CPU-only and uses `Qwen/Qwen3-TTS-12Hz-0.6B-Base`. CPU generation and automatic file validation have therefore been exercised; human listening, pronunciation review and subjective voice-quality approval are still outstanding because the sample was not retained as an artifact. After GitHub's Actions storage usage refreshes and there is space, the owner can rerun the workflow and download the one-day sample artifact from the private repository.
 
-The workflow is CPU-only and uses the public `Qwen/Qwen3-TTS-12Hz-0.6B-Base` model. The existing model-load check passed, but CPU voice-generation speed and quality have not yet been tested. A hosted GPU is not assumed. No Cloudflare Worker or R2 route is used by this voice-test design.
-
-The public repository must never contain the encrypted voice package, raw recording, normalized WAV, transcript, passphrase, OAuth token, voice embedding, cloned-voice profile or generated sample. Do not upload personal voice material as an artifact from this public repository. Review the private-repository and third-party processing arrangement with a parent or guardian before running a real test.
+The public repository must never contain the encrypted voice package, raw recording, normalized WAV, transcript, passphrase, OAuth token, voice embedding, cloned-voice profile or generated sample. Decrypted reference audio and transcript must remain confined to the temporary private runner workspace and be removed at job completion. No Cloudflare Worker or R2 route is used.
 
 ## Voice identity and production rules
 
