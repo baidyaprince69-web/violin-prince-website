@@ -199,7 +199,7 @@ def _validate_performance_video_metadata(filename, size):
 
 
 def _validate_performance_video_asset(filename, media_bytes):
-    """Validate downloaded bytes without writing private media into workflow artifacts."""
+    """Validate supplied video bytes without copying creator media into workflow artifacts."""
     return _validate_performance_video_metadata(filename, len(media_bytes or b""))
 
 
@@ -5061,7 +5061,7 @@ def render_stage():
     audio = paths["audio"].read_bytes()
     if len(audio) < 4096:
         raise PipelineError("Prepared soundtrack is missing or unexpectedly small.")
-    log("Rendering from saved research, script, narration and scene images. Private media is fetched only now.")
+    log("Rendering from the saved package and locally supplied media, if any.")
     active_audio_asset = metadata.get("asset", {})
     audio_source = str(active_audio_asset.get("audio_source", "generated_ambient_fallback"))
     private_audio_asset, private_audio_bytes = get_audio(
