@@ -37,7 +37,7 @@ class ProviderBoundaryTests(unittest.TestCase):
         ):
             pipeline.ai("text-generation", {"prompt": "synthetic test"})
 
-    def test_image_generation_stops_until_non_cloudflare_provider_is_configured(self):
+    def test_image_ai_provider_fails_closed(self):
         with self.assertRaisesRegex(
             pipeline.PipelineError,
             "No approved illustration-generation provider is configured",
