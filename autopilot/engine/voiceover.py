@@ -10,12 +10,7 @@ import re
 import textwrap
 from pathlib import Path
 
-VOICE = "af_heart"
-LANG_CODE = "a"  # American English
 SAMPLE_RATE = 24000
-PAUSE_SECONDS = 0.22
-# A measured pace keeps the complete narration audible near the 24-second finale.
-NARRATION_SPEED = 1.15
 
 
 def split_sentences(text: str) -> list[str]:
