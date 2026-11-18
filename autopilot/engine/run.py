@@ -3962,7 +3962,7 @@ def _ass_timestamp(seconds):
 
 
 def write_kinetic_ass(cues, output_path, word_cues=None):
-    """Render sentence cards whose gold karaoke fill follows Kokoro word onsets."""
+    """Render sentence cards whose gold karaoke fill follows model-native word onsets."""
     target = Path(output_path)
     target.parent.mkdir(parents=True, exist_ok=True)
     header = [
@@ -4537,7 +4537,7 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         "visual_engine": "legacy illustrated scene plates with frame-by-frame Pillow motion graphics and FFmpeg finishing",
         "visual_modes": [str(scene.get("visual_mode") or "waveform") for scene in plan.get("scenes", [])],
         "creative_direction_version": CREATIVE_DIRECTION_VERSION,
-        "subtitle_style": "Kokoro word-timed karaoke typography with gold active-word fill",
+        "subtitle_style": "model-native word-timed karaoke typography with gold active-word fill",
         "scene_transitions": [scene_transition(plan, index) for index in range(len(plan.get("scenes", [])) - 1)],
         "scene_transition_seconds": round(transition_seconds, 3),
         "scene_transition_count": max(0, len(plan.get("scenes", [])) - 1),
@@ -4558,7 +4558,7 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         "word_sync_status": narration_info.get("word_sync_status", "not_checked"),
         "word_timing_method": narration_info.get("word_timing_method", "not_checked"),
         "word_timing_count": int(narration_info.get("word_timing_count", 0)),
-        "motion_timing_source": "Kokoro-native word timestamps",
+        "motion_timing_source": "approved own-voice model-native word timestamps",
         "speech_led_motion": True,
         "motion_scene_timeline": scene_motion_events,
         "visual_review_contact_sheet": contact_sheet.name,
