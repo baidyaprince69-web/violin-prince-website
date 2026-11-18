@@ -5,8 +5,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-os.environ.setdefault("CF_ACCOUNT_ID", "test-account")
-os.environ.setdefault("CF_AI_TOKEN", "test-ai-token")
 ENGINE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ENGINE))
 
