@@ -131,7 +131,7 @@ class PlannerNarrationValidationTests(unittest.TestCase):
 
     def test_run22_exact_failed_outputs_are_detected(self):
         cases = (
-            (RUN22_INITIAL_SCRIPT, 28, [6, 6, 7, 9]),
+            (RUN22_INITIAL_SCRIPT, 34, [6, 14, 1, 13]),
             (RUN22_ATTEMPT_1, 28, [6, 6, 7, 9]),
             (RUN22_ATTEMPT_2, 29, [6, 6, 8, 9]),
             (RUN22_ATTEMPT_3, 34, [6, 6, 8, 14]),
