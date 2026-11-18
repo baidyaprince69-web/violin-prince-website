@@ -30,24 +30,25 @@ class DailyPlanEvidenceTests(unittest.TestCase):
             "That resonance shapes the sound heard in the room.",
         ]
 
-    def test_narration_contract_targets_22_to_23_seconds(self):
-        script_22 = (
-            "Can room acoustics fool your mix? "
-            "Audient iD interfaces measure room response. "
-            "RoomTune corrects monitor output. "
-            "DSP provides EQ, compression and reverb."
+    def test_narration_contract_uses_37_to_38_words_as_the_duration_estimate(self):
+        script_37 = (
+            "Could your room change your violin mix? "
+            "Audient adds RoomTune monitor correction to its iD interfaces. "
+            "It measures the room and adjusts the signal reaching monitors. "
+            "Its onboard DSP runs EQ, compression and reverb with no latency."
         )
-        script_23 = (
-            "Can room acoustics fool your mix? "
-            "Audient iD interfaces measure room response. "
-            "RoomTune corrects monitor output. "
-            "Onboard DSP adds EQ, compression and reverb."
+        script_38 = (
+            "Could your room change your violin mix? "
+            "Audient adds RoomTune monitor correction to its new iD interfaces. "
+            "It measures the room and adjusts the signal reaching monitors. "
+            "Its onboard DSP runs EQ, compression and reverb with no latency."
         )
-        self.assertEqual(daily.engine.narration_word_count(script_22), 22)
-        self.assertEqual(daily.engine.narration_word_count(script_23), 23)
-        self.assertEqual(daily.engine.narration_validation_error(script_22), "")
-        self.assertEqual(daily.engine.narration_validation_error(script_23), "")
-        self.assertIn("22–23", daily.engine.narration_validation_error(script_23 + " Today."))
+        self.assertEqual(daily.engine.narration_word_count(script_37), 37)
+        self.assertEqual(daily.engine.narration_word_count(script_38), 38)
+        self.assertEqual(daily.engine.narration_validation_error(script_37), "")
+        self.assertEqual(daily.engine.narration_validation_error(script_38), "")
+        self.assertIn("37–38", daily.engine.narration_validation_error(script_38 + " Today."))
+
 
     def test_presenter_workflow_flag_enables_daily_plans(self):
         plan = {"scenes": []}
