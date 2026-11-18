@@ -13,6 +13,7 @@ on:
     paths:
       - ".github/voice-tests/**"
       - ".github/workflows/qwen3-voice-preflight.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
