@@ -40,11 +40,7 @@ except ImportError:  # Direct script execution from the engine directory.
 
 API = os.environ.get("AUTOPILOT_API_URL", "").rstrip("/")
 JOB_TOKEN = os.environ.get("AUTOPILOT_JOB_TOKEN", "")
-CF_ACCOUNT = os.environ.get("CF_ACCOUNT_ID", "")
-CF_TOKEN = os.environ.get("CF_AI_TOKEN", "")
 RUN_ID = os.environ.get("RUN_ID", str(uuid.uuid4()))
-TEXT_MODEL = "@cf/google/gemma-4-26b-a4b-it"
-IMAGE_MODEL = "@cf/black-forest-labs/flux-1-schnell"
 WORK, OUT, IMAGES = Path("work"), Path("work/output"), Path("work/images")
 W, H, FPS, SECONDS = 720, 1280, 25, 8
 http = requests.Session()
@@ -2865,16 +2861,13 @@ def build_story_quality_report(plan, selected_sources, date_check, as_of=None):
 
 
 def ai(model, payload, timeout=180):
-    url = f"https://api.cloudflare.com/client/v4/accounts/{CF_ACCOUNT}/ai/run/{model}"
-    r = http.post(url, headers={"Authorization": "Bearer " + CF_TOKEN}, json=payload, timeout=timeout)
-    if r.status_code in (402, 403, 429):
-        raise PipelineError(f"Workers AI refused the request (HTTP {r.status_code}). Free quota may be exhausted or token permissions missing. No paid fallback.")
-    if not r.ok:
-        raise PipelineError(f"Workers AI HTTP {r.status_code}: {r.text[:400]}")
-    body = r.json()
-    if not body.get("success", True) or not isinstance(body.get("result"), dict):
-        raise PipelineError("Workers AI returned an unsuccessful or unexpected response.")
-    return body["result"]
+    """Fail closed until an approved text or illustration provider is selected."""
+    del payload, timeout
+    purpose = "illustration" if "image" in str(model).lower() else "text"
+    raise PipelineError(
+        f"No approved {purpose}-generation provider is configured. "
+        "Select and test an approved replacement provider before this stage runs."
+    )
 
 
 def recent_topics():
@@ -2890,7 +2883,7 @@ def recent_topics():
 
 
 def parse_planner_result(result):
-    """Parse the Workers AI response into one complete creative-plan object."""
+    """Parse a text-model response into one complete creative-plan object."""
     candidate = result.get("response", "")
     if isinstance(candidate, dict):
         plan = candidate
@@ -3127,7 +3120,7 @@ def _parse_narration_tool_response(result, expected_fields):
             if parsed is not None:
                 return parsed
 
-    raise PipelineError("Workers AI did not return the required structured narration word arrays.")
+    raise PipelineError("The text model did not return the required structured narration word arrays.")
 
 
 def _assemble_narration_sentence_words(words, expected_count, field, max_count=None):
@@ -3369,7 +3362,7 @@ def compose_narration(
             "temperature": 0.2,
         }
 
-        response = ai(TEXT_MODEL, payload)
+        response = ai("text-generation", payload)
         try:
             corrected = _parse_narration_tool_response(response, target_fields)
         except PipelineError as exc:
@@ -3475,7 +3468,7 @@ def compose_narration(
     )
 
 def recent_seo_learning():
-    """Decrypt the latest GitHub-native SEO snapshot; never call Cloudflare or poll YouTube."""
+    """Decrypt the latest GitHub-native SEO snapshot without contacting external services."""
     report_path = os.environ.get("SEO_LEARNING_REPORT_PATH", "").strip()
     encryption_key = os.environ.get("YOUTUBE_STATE_ENCRYPTION_KEY", "").strip()
     if not report_path:
@@ -3684,7 +3677,7 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
     compact = planner_research_items(items)
     if not compact:
         raise PipelineError("Research feeds returned no planner-ready headlines with traceable links.")
-    result = ai(TEXT_MODEL, {
+    result = ai("text-generation", {
         "messages": [
             {"role": "system", "content": system + " Do not show reasoning. Return exactly one JSON object and no preamble or Markdown."},
             {"role": "user", "content":
@@ -3853,29 +3846,18 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
 
 
 def image_request_payload(prompt):
-    """Build only the fields accepted by Cloudflare's FLUX.1-schnell REST schema."""
+    """Build a provider-neutral prompt record for a future approved image backend."""
     value = str(prompt or "").strip()
     if not value:
         raise PipelineError("Image prompt is empty.")
-    return {"prompt": value[:1800], "steps": 4}
+    return {"prompt": value[:1800]}
 
 
 def make_image(prompt, index):
-    # FLUX.1-schnell's REST schema accepts prompt and steps only.
-    # Do not send seed: Cloudflare's current endpoint rejects it as an extra property.
-    result = ai(IMAGE_MODEL, image_request_payload(prompt), 240)
-    if not result.get("image"):
-        raise PipelineError("FLUX returned no image.")
-    try:
-        data = base64.b64decode(result["image"], validate=True)
-        with Image.open(BytesIO(data)) as decoded:
-            decoded.verify()
-    except Exception as exc:
-        raise PipelineError("FLUX returned invalid or undecodable image data.") from exc
-    IMAGES.mkdir(parents=True, exist_ok=True)
-    path = IMAGES / f"scene-{index + 1}.jpg"
-    path.write_bytes(data)
-    return path
+    del prompt, index
+    raise PipelineError(
+        "Scene illustration generation is disabled until an approved provider is configured."
+    )
 
 
 _BRAND_FONT_CACHE = None
@@ -4817,7 +4799,7 @@ def _read_package(require_images=False):
 
 
 def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
-    """Build a useful Violin Prince prompt within FLUX's 1,800-character limit."""
+    """Build a useful Violin Prince image prompt within a bounded length."""
     raw_prompt = " ".join(str(scene.get("image_prompt", "")).split()).strip()
     if not raw_prompt:
         raise PipelineError("A planned scene has no visual prompt.")
@@ -5157,8 +5139,9 @@ def prepare_stage():
 
 def visuals_stage(feedback=""):
     """Generate approved scene illustrations for the Motion + HyperFrames 2D route."""
-    if not CF_ACCOUNT or not CF_TOKEN:
-        raise PipelineError("CF_ACCOUNT_ID and CF_AI_TOKEN are required for the Visuals stage.")
+    raise PipelineError(
+        "The Visuals stage is disabled until an approved illustration provider is configured."
+    )
     plan, metadata, _narration_info, paths, image_paths = _read_package(require_images=False)
     creative_issues = validate_creative_plan(plan)
     if creative_issues:
