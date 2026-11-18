@@ -385,6 +385,8 @@ jobs:
             work/scene-render-cache/
             !work/output/scene-3.mp4
             !work/output/violin-prince-short.mp4
+            !work/output/narration.wav
+            !work/package/narration.wav
             work/research.json
             work/story_candidates.json
             work/story_research.json
