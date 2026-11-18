@@ -239,12 +239,18 @@ def build_asset_provenance(
     narration = _hash_file(narration_path)
     narration.update({
         "asset_type": "narration",
-        "origin": "synthetic_tts",
+        "origin": str(narration_info.get("origin") or "synthetic_tts"),
         "engine": str(narration_info.get("engine") or "Kokoro-82M"),
+        "model": str(narration_info.get("model") or ""),
         "model_license": str(narration_info.get("model_license") or ""),
         "voice_type": str(narration_info.get("voice_type") or "synthetic"),
         "voice": str(narration_info.get("voice") or ""),
-        "rights_status": "synthetic_voice_model_terms_apply",
+        "rights_status": str(narration_info.get("rights_status") or "synthetic_voice_model_terms_apply"),
+        "word_sync_status": str(narration_info.get("word_sync_status") or "not_checked"),
+        "word_timing_method": str(narration_info.get("word_timing_method") or "not_checked"),
+        "word_timing_count": int(narration_info.get("word_timing_count") or 0),
+        "private_voice_run_id": narration_info.get("private_voice_run_id"),
+        "private_release_tag": str(narration_info.get("private_release_tag") or ""),
     })
 
     scenes = plan.get("scenes", [])
@@ -328,7 +334,7 @@ def build_asset_provenance(
         },
         "synthetic_media": {
             "contains_synthetic_media": True,
-            "reason": "The video contains AI-generated scene imagery and synthetic TTS narration.",
+            "reason": "The video contains AI-generated scene imagery and generated narration audio; the narration voice origin is recorded separately in the asset provenance.",
         },
         "rights_notice": (
             "This file records media origins and license metadata available to the pipeline. "
