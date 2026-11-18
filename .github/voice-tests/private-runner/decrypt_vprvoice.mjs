@@ -7,6 +7,7 @@
 import { createHash, createDecipheriv, pbkdf2Sync } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const HEADER_BYTES = 40;
 const ITERATIONS = 600_000;
@@ -67,7 +68,7 @@ export function decryptVprvoiceBytes(packageValue, passphrase) {
   } catch {
     fail("Could not unlock the package. Check the private repository secret and original encrypted file.");
   } finally {
-    key.fill(0);
+    key?.fill(0);
   }
 
   try {
@@ -141,7 +142,7 @@ async function main() {
   }
 }
 
-if (process.argv[1] && import.meta.url === new URL(process.argv[1], "file:").href) {
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch((error) => {
     console.error(error instanceof Error ? error.message : "Voice package processing failed.");
     process.exitCode = 1;
