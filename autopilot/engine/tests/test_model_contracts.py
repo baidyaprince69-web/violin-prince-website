@@ -26,7 +26,7 @@ class ProviderBoundaryTests(unittest.TestCase):
     def test_image_generation_stops_until_non_cloudflare_provider_is_configured(self):
         with self.assertRaisesRegex(
             pipeline.PipelineError,
-            "Scene illustration generation is disabled until an approved provider is configured",
+            "No approved illustration-generation provider is configured",
         ):
             pipeline.make_image("a cinematic illustration", 0)
 
