@@ -22,10 +22,10 @@ from private_voice_client import (
 )
 
 SCRIPT = (
-    "Can room acoustics fool your mix? "
-    "Audient iD interfaces measure room response. "
-    "RoomTune corrects monitor output. "
-    "Onboard DSP adds EQ, compression and reverb."
+    "Could your room change your violin mix? "
+    "Audient adds RoomTune monitor correction to its iD interfaces. "
+    "It measures the room and adjusts the signal reaching monitors. "
+    "Its onboard DSP runs EQ, compression and reverb with no latency."
 )
 
 
@@ -115,16 +115,16 @@ class PrivateVoiceValidationTests(unittest.TestCase):
         wav_bytes, metadata = fixture_payload()
         info = validate_private_narration(SCRIPT, wav_bytes, metadata)
         self.assertEqual(info["word_sync_status"], "verified_exact_transcript")
-        self.assertEqual(info["word_timing_count"], 23)
+        self.assertEqual(info["word_timing_count"], 37)
         self.assertEqual(info["engine"], "Qwen3-TTS")
         self.assertEqual(len(info["subtitle_cues"]), 4)
 
-    def test_rejects_scripts_outside_the_22_to_23_word_contract(self):
+    def test_rejects_scripts_outside_the_37_to_38_word_calibration(self):
         wav_bytes, metadata = fixture_payload()
+        with self.assertRaisesRegex(PrivateVoiceBridgeError, "37–38 words"):
+            validate_private_narration(SCRIPT.replace("with no latency.", "."), wav_bytes, metadata)
         with self.assertRaisesRegex(PrivateVoiceBridgeError, "22–23 words"):
-            validate_private_narration(SCRIPT.replace("and reverb.", "."), wav_bytes, metadata)
-        with self.assertRaisesRegex(PrivateVoiceBridgeError, "22–23 words"):
-            validate_private_narration(SCRIPT.replace("reverb.", "reverb today."), wav_bytes, metadata)
+            validate_private_narration(SCRIPT.replace("with no latency.", "with no latency today."), wav_bytes, metadata)
 
     def test_rejects_audio_outside_the_22_to_23_second_target(self):
         for duration in (21.9, 23.1):
