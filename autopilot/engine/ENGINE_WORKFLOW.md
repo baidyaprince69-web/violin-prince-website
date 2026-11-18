@@ -84,7 +84,7 @@ ChatGPT daily operator / explicit production request
 - ChatGPT prepares the source-checked JSON production plan.
 - The plan is saved on `main` and `.autopilot/prepare-request.json` is updated.
 - A push affecting that request file triggers `.github/workflows/violin-prince-autopilot.yml`.
-- Do not introduce a second GitHub Actions or Cloudflare cron scheduler; the GitHub cron was intentionally removed.
+- Do not introduce an additional scheduler; ChatGPT is the operator and its request-file push is the only automatic trigger.
 
 ### 4.2 Manual/recovery trigger — implemented
 
@@ -160,13 +160,13 @@ Scene plans must map narration sentences to scenes explicitly and completely. Mi
 
 A creator-recorded violin take may be used when uploaded and authorised. Where no creator take is deliberately attached to the daily plan, the final scene is a symbolic violin-performance visual. Do not describe synthetic/sample violin audio as a live performance by the creator.
 
-The dashboard's private media library stores uploads in Cloudflare R2. Raw uploads are fetched only into a temporary private Render workspace and must not be exposed in downloadable diagnostic artifacts.
+The former external media dashboard and remote media library have been removed. The current workflow does not upload or fetch creator media from an external storage service; a creator performance asset must be supplied through a future approved private input route.
 
 ## 8. Scene illustration and visual asset generation
 
-**Status: Implemented in the daily route.**
+**Status: Disabled pending a provider replacement.**
 
-- Cloudflare Workers AI generates original still scene illustrations; the daily route uses FLUX.1-schnell.
+- No scene-illustration provider is currently configured. The former Cloudflare image-generation integration has been removed.
 - The normal story uses three scene plates with consistent editorial direction, palette and distinct visual roles.
 - Structured visual modes include illustrated macro detail, mechanism cutaway, waveform, melody map, comparison and performance payoff.
 - Optional structured charts/process-flow graphics may be rendered only from supplied, verified values. Never invent measurements or imply illustrative geometry is measured data.
@@ -441,7 +441,7 @@ This is an enrollment UI, not a running voice-cloning system. The production `vo
 - The public Qwen3-TTS preflight tested package/API compatibility and loaded the 0.6B Base model on CPU. It did not read the user's recording or generate audio.
 - The actual Qwen voice test is a separate, manually triggered workflow template under `.github/voice-tests/private-runner/`. It must be copied into a dedicated private repository before any personal voice data is processed.
 - The private test repository holds the encrypted package. The passphrase is an Actions secret; decrypted reference audio and transcript exist only in the temporary runner workspace. The generated sample is a one-day artifact in the private repository. The public repository and its Actions artifacts never receive personal voice material.
-- The R2 encrypted voice-package upload/retrieval feature has been removed. The private voice-test route does not use a Cloudflare Worker or R2 storage.
-- The existing video-production engine still contains its earlier Cloudflare Workers AI text/illustration integration and its optional Cloudflare Worker media/dashboard service. Those are separate from voice enrollment and are not part of the private voice-test route. Removing those broader video-engine dependencies requires a replacement provider for research text and scene illustrations; no replacement has been selected or verified here.
+- Cloudflare Worker, Workers AI, R2, D1 and deployment-workflow integrations have been removed from the Autopilot repository in this change. The main GitHub Actions workflow no longer reads Cloudflare or Worker credentials.
+- Text planning and scene illustration generation are deliberately disabled until non-Cloudflare providers are selected, reviewed and tested. The workflow must not fall back to Cloudflare or silently select another service.
 
 Production narration stays blocked by the fail-closed own-voice gate until a real sample is reviewed, the owner approves it, and the provider is integrated and tested.
