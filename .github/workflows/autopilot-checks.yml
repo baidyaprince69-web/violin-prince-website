@@ -7,12 +7,18 @@ on:
       - feature/character-articulated-rig-validation
     paths:
       - "autopilot/**"
+      - "voice-vault/voice-package.mjs"
+      - ".github/voice-tests/**"
+      - ".github/workflows/qwen3-voice-preflight.yml"
       - ".github/workflows/violin-prince-autopilot.yml"
       - ".github/workflows/deploy-autopilot-cloudflare.yml"
       - ".github/workflows/autopilot-checks.yml"
   pull_request:
     paths:
       - "autopilot/**"
+      - "voice-vault/voice-package.mjs"
+      - ".github/voice-tests/**"
+      - ".github/workflows/qwen3-voice-preflight.yml"
       - ".github/workflows/violin-prince-autopilot.yml"
       - ".github/workflows/autopilot-checks.yml"
 
@@ -89,6 +95,7 @@ jobs:
           files = [
               ".github/workflows/autopilot-checks.yml",
               ".github/workflows/violin-prince-autopilot.yml",
+              ".github/voice-tests/private-runner/private-voice-test.workflow.yml",
               ".github/workflows/deploy-autopilot-cloudflare.yml",
               ".github/workflows/youtube-seo-learning.yml",
               ".github/workflows/youtube-seo-discover-verification.yml",
@@ -118,8 +125,13 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Test private encrypted voice-package R2 routes
-        run: node --test autopilot/cloudflare/tests/voice-packages.test.mjs
+      - name: Check private voice-runner helper syntax
+        run: |
+          node --check .github/voice-tests/private-runner/decrypt_vprvoice.mjs
+          node --check .github/voice-tests/private-runner/tests/decrypt_vprvoice.test.mjs
+
+      - name: Test encrypted voice-package decryption using synthetic audio
+        run: node --test .github/voice-tests/private-runner/tests/decrypt_vprvoice.test.mjs
 
       - name: Install Motion and HyperFrames
         working-directory: autopilot/engine/animation2d
