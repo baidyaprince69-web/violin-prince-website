@@ -37,7 +37,7 @@ def fixture_payload():
             words.append((word, sentence_index))
 
     wav_buffer = BytesIO()
-    sf.write(wav_buffer, np.zeros(24_000 * 4, dtype=np.float32), 24_000, subtype="PCM_16")
+    sf.write(wav_buffer, np.zeros(24_000 * 4, dtype=np.float32), 24_000, format="WAV", subtype="PCM_16")
     wav_bytes = wav_buffer.getvalue()
 
     word_cues = []
