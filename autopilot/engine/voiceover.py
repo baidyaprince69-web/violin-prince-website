@@ -1,9 +1,8 @@
-"""CPU text-to-speech with model-native word timings for Violin Prince.
+"""Voiceover timing helpers and fail-closed own-voice production gate.
 
-Kokoro's English tokens carry start/end timestamps derived from the same
-phoneme-duration prediction used to render the waveform. The renderer uses
-those exact timings for word-synchronised captions rather than estimating
-where words should appear.
+Caption timing is accepted only when it comes from model-native word cues.
+This module does not generate fallback narration while the creator's own
+voice provider is untested or unapproved.
 """
 from __future__ import annotations
 
@@ -37,7 +36,7 @@ def _srt_timestamp(seconds: float) -> str:
 
 
 def write_srt(cues: list[dict], output_path: str | Path) -> Path:
-    """Write sentence-level fallback subtitles for players without ASS support."""
+    """Write sentence-level subtitles for players without ASS support."""
     target = Path(output_path)
     target.parent.mkdir(parents=True, exist_ok=True)
     lines: list[str] = []
@@ -83,7 +82,7 @@ def write_karaoke_ass(
     height: int = 1280,
     words_per_caption: int = 2,
 ) -> Path:
-    """Write ASS karaoke captions; the gold word follows Kokoro's native timestamps."""
+    """Write ASS karaoke captions from validated model-native word timestamps."""
     if not isinstance(word_cues, list) or not word_cues:
         raise ValueError("Word-level narration timings are required for karaoke captions.")
     words_per_caption = max(1, min(int(words_per_caption), 3))
