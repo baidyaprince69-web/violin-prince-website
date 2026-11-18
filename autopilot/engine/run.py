@@ -38,8 +38,6 @@ except ImportError:  # Direct script execution from the engine directory.
         scene_visual_prompt_suffix, transition_duration,
     )
 
-API = os.environ.get("AUTOPILOT_API_URL", "").rstrip("/")
-JOB_TOKEN = os.environ.get("AUTOPILOT_JOB_TOKEN", "")
 RUN_ID = os.environ.get("RUN_ID", str(uuid.uuid4()))
 WORK, OUT, IMAGES = Path("work"), Path("work/output"), Path("work/images")
 W, H, FPS, SECONDS = 720, 1280, 25, 8
@@ -86,37 +84,15 @@ def log(message):
     print(f"[{datetime.now(timezone.utc).isoformat()}] {message}", flush=True)
 
 
-def auth():
-    return {"Authorization": "Bearer " + JOB_TOKEN}
-
-
 def report(status, message, topic="", title="", key="", url="", metadata=None):
-    if not API:
-        log("Status: " + str(status) + " — " + str(message)[:400])
-        return
-    try:
-        r = http.post(API + "/internal/report", headers={**auth(), "Content-Type": "application/json"},
-                      json={"run_id": RUN_ID, "status": status, "message": str(message)[:900],
-                            "topic": topic[:300], "title": title[:300],
-                            "output_key": key[:500], "output_url": url[:2000],
-                            "metadata": metadata}, timeout=30)
-        r.raise_for_status()
-    except Exception as exc:
-        log("Status report failed: " + str(exc))
+    """Write a concise run status to the GitHub Actions log only."""
+    del topic, title, key, url, metadata
+    log("Status: " + str(status) + " — " + str(message)[:400])
 
 
 def claim_run():
-    if not API:
-        log("Standalone GitHub Actions mode: no Worker claim is required.")
-        return
-    r = http.post(API + "/internal/claim", headers={**auth(), "Content-Type": "application/json"},
-                  json={"run_id": RUN_ID, "mode": os.environ.get("RUN_MODE", "scheduled")}, timeout=30)
-    if r.status_code == 409:
-        reason = r.json().get("reason", "run_not_claimed")
-        raise PipelineError("Production run was not claimed: " + str(reason))
-    r.raise_for_status()
-    if not r.json().get("ok"):
-        raise PipelineError("Production run was not authorised by the daily quota controller.")
+    """GitHub Actions is the only scheduler and run controller."""
+    log("Run accepted by the GitHub Actions workflow.")
 
 
 def _validate_creator_violin_recording(path):
@@ -148,19 +124,7 @@ def _validate_creator_violin_recording(path):
 
 
 def get_audio(prefer_creator_assets=True, allow_fallback=True):
-    if prefer_creator_assets and API:
-        r = http.get(API + "/internal/assets?kind=audio", headers=auth(), timeout=30)
-        r.raise_for_status()
-        assets = r.json().get("assets", [])
-        if assets:
-            asset = assets[0]
-            media = http.get(API + "/internal/assets/" + quote(asset["id"], safe=""),
-                             headers=auth(), timeout=120)
-            media.raise_for_status()
-            if len(media.content) < 4096:
-                raise PipelineError("Selected audio file is empty or invalid.")
-            return {**asset, "audio_source": "uploaded_recording"}, media.content
-
+    """Load an explicitly configured local recording or the CC0 sampled violin fallback."""
     configured_path = os.environ.get("VIOLIN_RECORDING_PATH", "").strip()
     recording_path = (
         Path(configured_path) if configured_path
@@ -240,65 +204,12 @@ def _validate_performance_video_asset(filename, media_bytes):
 
 
 def get_creator_performance_video(include_bytes=False, asset_id=None):
-    """Read private video metadata during Prepare and download the exact asset only during Render."""
-    if API:
-        asset = None
-        if asset_id:
-            asset = {"id": str(asset_id)}
-        else:
-            response = http.get(
-                API + "/internal/assets?kind=video",
-                headers=auth(),
-                timeout=30,
-            )
-            response.raise_for_status()
-            assets = [
-                item for item in response.json().get("assets", [])
-                if isinstance(item, dict) and item.get("kind") == "video"
-            ]
-            if assets:
-                asset = assets[0]
-
-        if asset:
-            media_metadata = asset
-            if asset_id and not asset.get("filename"):
-                # An exact asset ID comes from the earlier prepared metadata. Its
-                # filename and size are stored there, so no public artifact needs
-                # to contain the raw media.
-                media_metadata = {
-                    "id": str(asset_id),
-                    "filename": "",
-                    "size_bytes": 0,
-                    "kind": "video",
-                }
-            if include_bytes:
-                media = http.get(
-                    API + "/internal/assets/" + quote(str(asset["id"]), safe=""),
-                    headers=auth(),
-                    timeout=180,
-                )
-                media.raise_for_status()
-                media_bytes = media.content
-                filename = (
-                    media.headers.get("Content-Disposition", "")
-                    .split("filename=", 1)[-1].strip().strip('"')
-                    if media.headers.get("Content-Disposition") else ""
-                )
-                filename = filename or str(media_metadata.get("filename") or "creator-performance.mp4")
-                checked = _validate_performance_video_asset(filename, media_bytes)
-            else:
-                checked = _validate_performance_video_metadata(
-                    media_metadata.get("filename"), media_metadata.get("size_bytes")
-                )
-                media_bytes = b""
-            safe_metadata = {
-                "id": str(asset.get("id") or asset_id or ""),
-                **checked,
-                "content_type": media_metadata.get("content_type") or "",
-                "source": "private_r2_upload",
-            }
-            return safe_metadata, media_bytes
-
+    """Load a local creator performance video; no remote media service is used."""
+    if asset_id:
+        raise PipelineError(
+            "This saved package references a remote media asset that is no longer available. "
+            "Provide the creator performance video as a local workflow input and prepare the package again."
+        )
     configured_path = os.environ.get("VIOLIN_PERFORMANCE_VIDEO_PATH", "").strip()
     video_path = (
         Path(configured_path) if configured_path
@@ -315,7 +226,7 @@ def get_creator_performance_video(include_bytes=False, asset_id=None):
     if asset_id:
         raise PipelineError(
             "The prepared private performance-video asset could not be reached. "
-            "Check AUTOPILOT_API_URL and AUTOPILOT_JOB_TOKEN before Render."
+            "Supply the creator performance video locally and rerun the Render stage."
         )
     log("No creator performance video is uploaded; Scene 3 will use its prepared visual fallback.")
     return {"available": False, "source": "none"}, b""
@@ -2872,14 +2783,7 @@ def ai(model, payload, timeout=180):
 
 def recent_topics():
     """Read recent successful topics from D1 when the optional Worker is configured."""
-    if not API:
-        return []
-    r = http.get(API + "/internal/recent-topics", headers=auth(), timeout=30)
-    if r.status_code == 404:
-        return []
-    r.raise_for_status()
-    topics = r.json().get("topics", [])
-    return [str(item)[:180] for item in topics if str(item).strip()][:25]
+    return []
 
 
 def parse_planner_result(result):
@@ -4659,18 +4563,10 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
 
 
 def upload(path):
-    if not API:
-        # GitHub Actions uploads this MP4 as a workflow artifact after this script exits.
-        return {"ok": True, "object_key": "", "media_url": ""}
-    with path.open("rb") as f:
-        r = http.post(API + "/internal/render", headers={
-            **auth(), "Content-Type": "video/mp4", "X-Filename": path.name
-        }, data=f, timeout=300)
-    r.raise_for_status()
-    data = r.json()
-    if not data.get("ok"):
-        raise PipelineError("Private cloud storage rejected the MP4.")
-    return data
+    """Keep the finished MP4 local; GitHub Actions uploads it as an artifact."""
+    if not Path(path).is_file():
+        raise PipelineError("The rendered video is missing; refusing the workflow handoff.")
+    return {"ok": True, "object_key": "", "media_url": ""}
 
 
 
@@ -5300,11 +5196,11 @@ def render_stage():
     )
     report(final_status, "Production complete. " + json.dumps(publish_result, ensure_ascii=False)[:650],
            topic, title, stored.get("object_key", ""), stored.get("media_url", ""), output_metadata)
-    if API:
-        from analytics import collect_and_send
-        analytics_result = collect_and_send(API, JOB_TOKEN)
-    else:
-        analytics_result = {"connected": False, "reason": "dashboard_api_not_configured"}
+    analytics_result = {
+        "connected": False,
+        "reason": "external_media_service_removed",
+        "message": "Analytics upload is not configured; use the separate read-only analytics workflow."
+    }
     (OUT / "analytics.json").write_text(
         json.dumps(analytics_result, ensure_ascii=False, indent=2), encoding="utf-8"
     )
