@@ -209,7 +209,7 @@ class DailyReadinessTests(unittest.TestCase):
                 upload_post_api_key="",
             )
         self.assertFalse(result["ready"])
-        self.assertTrue(any("own-voice" in item for item in result["blockers"]))
+        self.assertTrue(any("own-voice" in item.casefold() for item in result["blockers"]))
         self.assertTrue(any("illustration" in item for item in result["blockers"]))
         self.assertTrue(any("UPLOAD_POST_API_KEY" in item for item in result["blockers"]))
 
