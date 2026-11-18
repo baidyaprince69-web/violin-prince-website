@@ -113,9 +113,9 @@ class NarrationCompletenessTests(unittest.TestCase):
     def test_dangling_preposition_at_end_of_sentence_is_rejected(self):
         script = (
             "A silent film needs music. "
-            "The animated story follows an astronaut as she leaves her robot behind. "
-            "Karen O performed Soft Machine, giving the film its emotional musical center. "
-            "The song is a lullaby about finding your own place in."
+            "An astronaut leaves her robot behind. "
+            "Karen O performs Soft Machine's theme. "
+            "The song seeks a place in."
         )
         error = pipeline.narration_validation_error(script)
         self.assertIn("sentence 4 appears incomplete", error)
@@ -124,9 +124,9 @@ class NarrationCompletenessTests(unittest.TestCase):
     def test_complete_narration_sentence_passes_the_same_validation(self):
         script = (
             "A silent film needs music. "
-            "The animated story follows an astronaut as she leaves her robot behind. "
-            "Karen O performed Soft Machine, giving the film its emotional musical center. "
-            "The song is a lullaby about finding your own place here."
+            "An astronaut leaves her robot behind. "
+            "Karen O performs Soft Machine's theme. "
+            "The song finds a place here."
         )
         self.assertEqual(pipeline.narration_validation_error(script), "")
 
