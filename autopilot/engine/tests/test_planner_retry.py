@@ -214,7 +214,7 @@ class PlannerNarrationValidationTests(unittest.TestCase):
                     [array_properties[field]["maxItems"] for field in (
                         "sentence_2_words", "sentence_3_words", "sentence_4_words"
                     )],
-                    [12, 8, 12],
+                    [12, 7, 12],
                 )
                 locked = json.loads(correction_payload["messages"][1]["content"].split(
                     "Locked sentence fields (must remain unchanged): ", 1
@@ -322,7 +322,7 @@ class PlannerNarrationValidationTests(unittest.TestCase):
                 parameters = correction_payload["tools"][0]["function"]["parameters"]
                 self.assertEqual(parameters["required"], ["sentence_4_words"])
                 self.assertEqual(parameters["properties"]["sentence_4_words"]["minItems"], 8)
-                self.assertEqual(parameters["properties"]["sentence_4_words"]["maxItems"], 9)
+                self.assertEqual(parameters["properties"]["sentence_4_words"]["maxItems"], 8)
                 locked = json.loads(correction_payload["messages"][1]["content"].split(
                     "Locked sentence fields (must remain unchanged): ", 1
                 )[1].split("\nDynamic word budgets", 1)[0])
