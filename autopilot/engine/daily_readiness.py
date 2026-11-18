@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""Cheap scheduled preflight: skip daily production while any hard gate is closed.
+
+Uses only the Python standard library and never decrypts voice data, invokes
+AI providers, installs rendering dependencies, or uploads/publishes anything.
+"""
+from __future__ import annotations
+
+import argparse
+import ast
+import json
+import os
+import sys
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+
+TIMEZONE = "Asia/Kolkata"
+
+
+def _read_json(path: Path, label: str, blockers: list[str]) -> dict:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        blockers.append(f"{label} is missing or invalid JSON.")
+        return {}
+    if not isinstance(value, dict):
+        blockers.append(f"{label} must be a JSON object.")
+        return {}
+    return value
+
+
+def _first_statement_is_raise(path: Path, function_name: str) -> bool | None:
+    """Return True for a fail-closed function, False for an open function."""
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError):
+        return None
+
+    function = next(
+        (
+            node for node in tree.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == function_name
+        ),
+        None,
+    )
+    if function is None:
+        return None
+
+    body = list(function.body)
+    if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
+        if isinstance(body[0].value.value, str):
+            body.pop(0)
+    if not body:
+        return None
+    return isinstance(body[0], ast.Raise)
+
+
+def evaluate_daily_readiness(
+    root: str | Path,
+    *,
+    today: str | None = None,
+    upload_post_api_key: str | None = None,
+) -> dict:
+    root = Path(root)
+    today = today or datetime.now(ZoneInfo(TIMEZONE)).date().isoformat()
+    blockers: list[str] = []
+
+    request = _read_json(root / ".autopilot/prepare-request.json", "Daily production request", blockers)
+    if request.get("mode") != "chatgpt_daily_production":
+        blockers.append("Daily request mode is not chatgpt_daily_production.")
+
+    plan_path_text = str(request.get("plan_path") or ".autopilot/daily-production-plan.json")
+    plan_path = Path(plan_path_text)
+    if (
+        not plan_path_text.startswith(".autopilot/")
+        or ".." in plan_path.parts
+        or plan_path.is_absolute()
+    ):
+        blockers.append("Daily plan path must stay inside .autopilot/.")
+        plan = {}
+    else:
+        plan = _read_json(root / plan_path, "Daily production plan", blockers)
+
+    if str(plan.get("production_date") or "") != today:
+        blockers.append(
+            f"Daily plan production_date must be {today}; refresh the ChatGPT-authored plan before the scheduled run."
+        )
+
+    engine_dir = root / "autopilot/engine"
+    voice_locked = _first_statement_is_raise(
+        engine_dir / "voiceover.py", "require_approved_own_voice"
+    )
+    text_locked = _first_statement_is_raise(
+        engine_dir / "run.py", "require_approved_text_provider"
+    )
+    visuals_locked = _first_statement_is_raise(
+        engine_dir / "run.py", "require_approved_illustration_provider"
+    )
+
+    if voice_locked is None:
+        blockers.append("Could not verify the own-voice production gate.")
+    elif voice_locked:
+        blockers.append("Own-voice approval/provider gate is still locked.")
+
+    if text_locked is None:
+        blockers.append("Could not verify the text-planning provider gate.")
+    elif text_locked:
+        blockers.append("Text/story provider is not configured and approved.")
+
+    if visuals_locked is None:
+        blockers.append("Could not verify the illustration provider gate.")
+    elif visuals_locked:
+        blockers.append("Illustration provider is not configured and approved.")
+
+    if not str(upload_post_api_key if upload_post_api_key is not None else os.environ.get("UPLOAD_POST_API_KEY", "")).strip():
+        blockers.append("GitHub Actions secret UPLOAD_POST_API_KEY is missing.")
+
+    return {
+        "ready": not blockers,
+        "today": today,
+        "timezone": TIMEZONE,
+        "plan_path": plan_path_text,
+        "blockers": blockers,
+    }
+
+
+def _write_github_outputs(result: dict) -> None:
+    output_path = os.environ.get("GITHUB_OUTPUT", "").strip()
+    if output_path:
+        with open(output_path, "a", encoding="utf-8") as handle:
+            handle.write(f"ready={'true' if result['ready'] else 'false'}\n")
+            handle.write("blockers_json=" + json.dumps(result["blockers"], ensure_ascii=False) + "\n")
+
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY", "").strip()
+    if summary_path:
+        lines = [
+            "## Daily Violin Prince production readiness",
+            "",
+            f"**Status:** {'READY' if result['ready'] else 'BLOCKED'}",
+            f"**Date:** {result['today']} ({result['timezone']})",
+        ]
+        if result["blockers"]:
+            lines.extend(["", "### Blockers"])
+            lines.extend(f"- {item}" for item in result["blockers"])
+        else:
+            lines.extend(["", "All production and publishing preflight checks passed."])
+        with open(summary_path, "a", encoding="utf-8") as handle:
+            handle.write("\n".join(lines) + "\n")
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Check whether today's scheduled Short can run.")
+    parser.add_argument("--root", default=str(Path(__file__).resolve().parents[2]))
+    parser.add_argument("--today", default=None, help="Override local date for offline tests.")
+    args = parser.parse_args(argv)
+
+    result = evaluate_daily_readiness(args.root, today=args.today)
+    _write_github_outputs(result)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
