@@ -1,0 +1,60 @@
+name: Private Qwen3 narration bridge test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: private-qwen3-bridge-test
+  cancel-in-progress: false
+
+jobs:
+  verify-private-narration:
+    if: github.repository == 'baidyaprince69-web/violin-prince-website' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    env:
+      PRIVATE_VOICE_TIMEOUT_SECONDS: "5100"
+      PRIVATE_VOICE_REPO_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
+      RUN_ID: ${{ github.run_id }}
+    steps:
+      - name: Check out Violin Prince production code and daily plan
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install lightweight bridge dependencies
+        run: |
+          python -m pip install --no-cache-dir --upgrade pip
+          python -m pip install --no-cache-dir "requests>=2.32,<3" "soundfile>=0.12,<1"
+
+      - name: Read the prepared narration script without printing it
+        id: narration
+        run: |
+          python - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          plan = json.loads(Path(".autopilot/daily-production-plan.json").read_text(encoding="utf-8"))
+          script = re.sub(r"\s+", " ", str(plan.get("narration_script") or "")).strip()
+          words = re.findall(r"[\w’'-]+", script)
+          sentences = [part.strip() for part in re.split(r"(?<=[.!?])\s+", script) if part.strip()]
+          if not 40 <= len(words) <= 44 or len(sentences) != 4:
+              raise SystemExit("The current prepared plan does not meet the narration contract.")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as out:
+              out.write("NARRATION_TEXT=" + script + "\n")
+          print(f"Prepared a {len(words)}-word narration for the private voice test.")
+          PY
+
+      - name: Generate private Qwen3 narration and verify word timings
+        env:
+          NARRATION_OUTPUT_PATH: ${{ runner.temp }}/private-qwen3-narration.wav
+        run: python autopilot/engine/private_voice_client.py
+
+      - name: Remove temporary narration from the public runner
+        if: always()
+        run: rm -f -- "${{ runner.temp }}/private-qwen3-narration.wav"
