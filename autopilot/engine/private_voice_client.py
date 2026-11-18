@@ -11,7 +11,6 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import quote
 
 import requests
 
@@ -256,10 +255,27 @@ def generate_private_voiceover(script: str, output_path: str | Path, *,
     run = _wait_for_run(session, token, request_id, dispatch_started, timeout_seconds)
 
     tag = "private-own-voice-narration-" + request_id
-    release_url = f"{API_ROOT}/repos/{PRIVATE_REPO}/releases/tags/{quote(tag, safe='')}"
-    release = _json_request(session, "GET", release_url, token)
-    if not isinstance(release, dict) or release.get("draft") is not True or release.get("tag_name") != tag:
-        raise PrivateVoiceBridgeError("The private narration release is missing or is not a draft.")
+    release_url = f"{API_ROOT}/repos/{PRIVATE_REPO}/releases"
+    release = None
+    # The tag lookup endpoint returns published releases only. The worker deliberately
+    # saves narration as a draft, so use the authenticated listing endpoint instead.
+    # GitHub includes draft releases here for users with repository push access.
+    for page in range(1, 11):
+        releases = _json_request(
+            session, "GET", release_url, token,
+            params={"per_page": 100, "page": page},
+        )
+        if not isinstance(releases, list):
+            raise PrivateVoiceBridgeError("Private voice service returned an invalid release listing.")
+        release = _select_private_draft_release(releases, tag)
+        if release is not None or len(releases) < 100:
+            break
+    if release is None:
+        raise PrivateVoiceBridgeError(
+            "The private draft narration release could not be found. "
+            "Confirm that the private worker uploaded its assets and that the token's user "
+            "has push access to the private repository."
+        )
     assets = {str(item.get("name")): item for item in release.get("assets", [])}
     if "narration.wav" not in assets or "narration.json" not in assets:
         raise PrivateVoiceBridgeError("The private narration release is missing its required assets.")
