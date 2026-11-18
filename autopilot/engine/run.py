@@ -2771,14 +2771,28 @@ def build_story_quality_report(plan, selected_sources, date_check, as_of=None):
     }
 
 
-def ai(model, payload, timeout=180):
-    """Fail closed until an approved text or illustration provider is selected."""
-    del payload, timeout
-    purpose = "illustration" if "image" in str(model).lower() else "text"
+def require_approved_text_provider():
+    """Fail before research until an approved text-planning provider is configured."""
     raise PipelineError(
-        f"No approved {purpose}-generation provider is configured. "
-        "Select and test an approved replacement provider before this stage runs."
+        "No approved text-generation provider is configured. "
+        "The Prepare stage is disabled until a replacement provider is selected and tested."
     )
+
+
+def require_approved_illustration_provider():
+    """Fail before image work until an approved illustration provider is configured."""
+    raise PipelineError(
+        "No approved illustration-generation provider is configured. "
+        "The Visuals stage is disabled until a replacement provider is selected and tested."
+    )
+
+
+def ai(model, payload, timeout=180):
+    """Fail closed; no remote text or image provider is currently configured."""
+    del payload, timeout
+    if "image" in str(model).lower() or "illustration" in str(model).lower():
+        require_approved_illustration_provider()
+    require_approved_text_provider()
 
 
 def recent_topics():
@@ -3759,9 +3773,7 @@ def image_request_payload(prompt):
 
 def make_image(prompt, index):
     del prompt, index
-    raise PipelineError(
-        "Scene illustration generation is disabled until an approved provider is configured."
-    )
+    require_approved_illustration_provider()
 
 
 _BRAND_FONT_CACHE = None
@@ -5034,11 +5046,9 @@ def prepare_stage():
 
 
 def visuals_stage(feedback=""):
-    """Stop until an approved illustration provider has been selected and tested."""
+    """Stop before package work until an approved illustration provider exists."""
     del feedback
-    raise PipelineError(
-        "The Visuals stage is disabled until an approved illustration provider is configured."
-    )
+    require_approved_illustration_provider()
 
 
 def render_stage():
@@ -5134,6 +5144,13 @@ def main(stage="full", visual_feedback=""):
     try:
         from voiceover import require_approved_own_voice
         require_approved_own_voice()
+        if stage == "prepare":
+            require_approved_text_provider()
+        elif stage == "visuals":
+            require_approved_illustration_provider()
+        elif stage == "full":
+            require_approved_text_provider()
+            require_approved_illustration_provider()
         WORK.mkdir(exist_ok=True)
         OUT.mkdir(exist_ok=True)
         if stage == "prepare":
