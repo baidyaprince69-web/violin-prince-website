@@ -115,6 +115,18 @@ jobs:
           path: work/seo-learning-data
           persist-credentials: false
 
+      - name: Check Upload-Post credentials before daily production
+        if: steps.daily_request.outputs.plan_path != ''
+        shell: bash
+        env:
+          UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
+        run: |
+          if [[ -z "$UPLOAD_POST_API_KEY" ]]; then
+            echo "::error::Add the UPLOAD_POST_API_KEY repository Actions secret before running daily production."
+            exit 1
+          fi
+          echo "Upload-Post credentials are present; the publishing adapter will still validate the manifest and queue configuration."
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -311,6 +323,17 @@ jobs:
           print("Publish ready: " + str(bool(manifest.get("publish_ready"))))
           PY
           gh release upload "$TAG" work/output/publish-manifest.json work/output/asset-provenance.json --clobber
+
+      - name: Queue validated Short on Upload-Post
+        if: success() && env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path != ''
+        env:
+          UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
+          UPLOAD_POST_PROFILE: ${{ vars.UPLOAD_POST_PROFILE || 'default' }}
+        run: |
+          python autopilot/engine/upload_post_publisher.py \
+            --video work/output/violin-prince-short.mp4 \
+            --manifest work/output/publish-manifest.json \
+            --receipt work/output/upload-post-queue-receipt.json
 
       - name: Upload finished video
         if: success() && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')
