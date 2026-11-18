@@ -124,7 +124,7 @@ class PrivateVoiceValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(PrivateVoiceBridgeError, "37–38 words"):
             validate_private_narration(SCRIPT.replace("with no latency.", "."), wav_bytes, metadata)
         with self.assertRaisesRegex(PrivateVoiceBridgeError, "37–38 words"):
-            validate_private_narration(SCRIPT.replace("with no latency.", "with no latency today."), wav_bytes, metadata)
+            validate_private_narration(SCRIPT.replace("with no latency.", "with no latency every single session today."), wav_bytes, metadata)
 
     def test_rejects_audio_outside_the_22_to_23_second_target(self):
         for duration in (21.9, 23.1):
