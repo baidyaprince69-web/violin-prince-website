@@ -30,6 +30,25 @@ class DailyPlanEvidenceTests(unittest.TestCase):
             "That resonance shapes the sound heard in the room.",
         ]
 
+    def test_narration_contract_targets_22_to_23_seconds(self):
+        script_22 = (
+            "Can room acoustics fool your mix? "
+            "Audient iD interfaces measure room response. "
+            "RoomTune corrects monitor output. "
+            "DSP provides EQ, compression and reverb."
+        )
+        script_23 = (
+            "Can room acoustics fool your mix? "
+            "Audient iD interfaces measure room response. "
+            "RoomTune corrects monitor output. "
+            "Onboard DSP adds EQ, compression and reverb."
+        )
+        self.assertEqual(daily.engine.narration_word_count(script_22), 22)
+        self.assertEqual(daily.engine.narration_word_count(script_23), 23)
+        self.assertEqual(daily.engine.narration_validation_error(script_22), "")
+        self.assertEqual(daily.engine.narration_validation_error(script_23), "")
+        self.assertIn("22–23", daily.engine.narration_validation_error(script_23 + " Today."))
+
     def test_presenter_workflow_flag_enables_daily_plans(self):
         plan = {"scenes": []}
         result = daily.enable_presenter_from_environment(plan, "true")
