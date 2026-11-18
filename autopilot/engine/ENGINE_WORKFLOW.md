@@ -14,7 +14,7 @@ This document records the complete intended Violin Prince production lifecycle a
 - **Implemented — support/recovery path:** Exists in the repository, but is invoked separately or manually.
 - **Available / optional:** Implemented capability that is not required for every video.
 - **Target / future integration:** Part of the intended complete system, but not yet proven to run as one fully autonomous closed loop.
-- **Operator action:** Requires ChatGPT, Metricool, a creator-provided asset, or human review.
+- **Operator action:** Requires ChatGPT, Upload-Post, a creator-provided asset, or human review.
 
 Do not describe a target capability as operational merely because its architecture is documented or a related test passes.
 
@@ -68,7 +68,7 @@ ChatGPT daily operator / explicit production request
          GitHub Release handoff assets
                     |
                     v
-       ChatGPT operator -> Metricool -> YouTube
+       ChatGPT operator -> Upload-Post -> YouTube
                     |
                     v
       YouTube analytics and performance review
@@ -323,15 +323,18 @@ After a successful daily production run, the workflow validates the publisher ma
 
 The release is a handoff package, not proof of YouTube publication.
 
-### 13.2 YouTube scheduling — operator/ChatGPT + Metricool
+### 13.2 YouTube scheduling — operator/ChatGPT + Upload-Post
 
-- ChatGPT reads the successful release and publishing manifest.
-- Confirm the configured channel audience setting and use the recorded value unless a valid plan override is supplied.
-- Submit the video and metadata through the connected Metricool brand.
-- Use automatic publishing only when the connected publisher configuration is enabled and the handoff passes preflight.
-- Verify the resulting YouTube post, visibility, title, description and thumbnail after scheduling/publication.
+- The production workflow hands a validated MP4 to Upload-Post only after the GitHub Release, publisher manifest, factual provenance and final-video SHA-256 checks pass.
+- `autopilot/engine/upload_post_handoff.py` sends the public release-asset URL to Upload-Post's video endpoint for YouTube only.
+- The request uses the verified `default` profile, `add_to_queue=true`, and an idempotency key derived from profile/platform/production date so a retried workflow cannot enqueue duplicate daily posts.
+- The profile queue is configured for `Asia/Kolkata`, every day at 19:00, with one post per slot. Upload-Post returns the queue `job_id` and scheduled time; the workflow records these in its Actions step summary.
+- GitHub Actions requires the `UPLOAD_POST_API_KEY` repository secret. Store the key only in GitHub Actions Secrets; never place it in source files, workflow inputs, plans, artifacts or logs.
+- A scheduled preflight runs at 09:30 UTC (15:00 IST). It launches the production job only if today's ChatGPT-authored plan has the matching `production_date`, own-voice and illustration gates are open, and the Upload-Post secret is configured.
+- The scheduled trigger does **not** invent or refresh a daily story. A fresh ChatGPT-authored plan must be committed for the current India date; there is no background ChatGPT plan-generation service. A stale plan or any closed gate causes a cheap preflight skip before model installation or rendering.
+- The final MP4 release asset is the publishing source; the redundant Actions video preview is retained for one day and diagnostic artifacts for three days.
 
-GitHub Actions does not directly upload the daily video to YouTube. Do not describe release creation as YouTube publishing.
+The GitHub Release is a public handoff asset, not proof of YouTube publication. Only a returned Upload-Post queue job confirms scheduling. Verify the eventual YouTube post and its visibility after publication.
 
 ## 14. Analytics and feedback loop
 
@@ -384,7 +387,9 @@ For rig/character changes, the actual rig preview and visual review are mandator
 |---|---|
 | `.autopilot/prepare-request.json` | Daily production trigger |
 | ChatGPT production plan JSON | Story, narration, scenes and visual direction |
-| `.github/workflows/violin-prince-autopilot.yml` | Cloud production stages and release handoff |
+| `.github/workflows/violin-prince-autopilot.yml` | Manual recovery, daily preflight schedule, cloud production and Upload-Post handoff |
+| `autopilot/engine/daily_readiness.py` | Cheap scheduled readiness gate; prevents stale plans and closed providers from launching production |
+| `autopilot/engine/upload_post_handoff.py` | Verifies manifest/provenance/hash and submits the release MP4 to the Upload-Post queue |
 | `autopilot/engine/run.py` | Legacy staged Prepare / Visuals / Render workflow |
 | `autopilot/engine/run_daily_plan.py` | Validates and executes ChatGPT-authored daily plans |
 | `autopilot/engine/creative_direction.py` | Standing channel and creative direction |
