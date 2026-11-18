@@ -1,413 +1,66 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#090b12">
-<title>Violin Prince Autopilot</title>
-<style>
-:root{color-scheme:dark;--bg:#090b12;--panel:#111624;--line:#273247;--muted:#98a5bd;--ink:#eef3ff;--gold:#d8b36d;--green:#67d6a3;--red:#ff8585}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 12% 0%,#1d2638 0,transparent 34%),var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,Segoe UI,sans-serif}
-main{max-width:1080px;margin:auto;padding:28px 18px 60px}.top{display:flex;justify-content:space-between;gap:14px;align-items:center;margin-bottom:25px}.brand{display:flex;gap:13px;align-items:center}.mark{width:46px;height:46px;border-radius:14px;background:linear-gradient(145deg,#e4c17b,#7c572a);display:grid;place-items:center;color:#17120a;font-size:23px;font-weight:800}.eyebrow{color:var(--gold);font-size:11px;letter-spacing:.16em;text-transform:uppercase}.brand h1{font:600 25px Georgia,serif;margin:1px 0}.muted{color:var(--muted)}.pill{border:1px solid var(--line);border-radius:999px;padding:6px 11px;color:var(--muted);font-size:12px}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.card{background:linear-gradient(145deg,rgba(20,28,43,.96),rgba(13,18,29,.96));border:1px solid var(--line);border-radius:17px;padding:17px;min-width:0}.stat small{display:block;color:var(--muted);font-size:12px}.stat strong{font-size:27px;display:block;margin-top:4px;overflow-wrap:anywhere}.section{margin-top:17px}.section h2{font-size:15px;margin:0 0 12px}.row{display:flex;align-items:center;justify-content:space-between;gap:10px}.badge{font-size:11px;border-radius:999px;padding:4px 8px;background:#202b3e;color:#c7d4e9}.ok{color:var(--green)}.warn{color:#ffd18a}.err{color:var(--red)}button,.filebtn{cursor:pointer;border:1px solid #8b7145;background:linear-gradient(135deg,#e5c57f,#bc9250);color:#15110a;font-weight:700;border-radius:10px;padding:10px 14px;font-size:13px}button.secondary{background:#151e2f;color:var(--ink);border-color:var(--line)}button:disabled{opacity:.45;cursor:not-allowed}input[type=text],input[type=password]{width:100%;background:#0a101b;border:1px solid var(--line);border-radius:9px;padding:11px;color:var(--ink);outline:none}input:focus{border-color:var(--gold)}label{display:block;color:var(--muted);font-size:12px;margin:11px 0 6px}.cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}.events{max-height:290px;overflow:auto}.event{padding:9px 0;border-bottom:1px solid #222d40;font-size:13px}.event:last-child{border:0}.event time{display:block;color:var(--muted);font-size:11px}.empty{padding:20px 0;color:var(--muted);font-size:13px}.checks{display:flex;gap:9px;align-items:flex-start;margin:12px 0;color:var(--muted);font-size:12px}.checks input{margin-top:3px}.foot{margin-top:22px;color:#77849b;font-size:11px}.bar{height:7px;background:#222d40;border-radius:10px;overflow:hidden;margin-top:9px}.bar span{display:block;width:0;height:100%;background:linear-gradient(90deg,#61c99e,#e0bd76)}.file{display:block;width:100%;color:var(--muted);font-size:12px;padding:10px;border:1px dashed var(--line);border-radius:10px}
-@media(max-width:760px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.cols{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}.brand h1{font-size:22px}}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1020">
+  <meta name="description" content="Violin Prince Autopilot workflow status and GitHub Actions links.">
+  <title>Violin Prince Autopilot</title>
+  <style>
+    :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0b1020;color:#edf2ff}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 20% 0%,#1c2a50 0,transparent 44%),linear-gradient(145deg,#0b1020,#111a2e)}
+    main{width:min(900px,calc(100% - 32px));margin:0 auto;padding:58px 0 72px}
+    .eyebrow{color:#9db5e9;font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:700}
+    h1{font-size:clamp(34px,6vw,56px);line-height:1.02;letter-spacing:-.04em;margin:14px 0}
+    .intro{max-width:680px;color:#c5d0e7;font-size:16px;line-height:1.7}
+    .panel{margin-top:28px;padding:24px;border:1px solid #314263;border-radius:18px;background:rgba(15,24,44,.82);box-shadow:0 22px 64px rgba(0,0,0,.22)}
+    .status{display:inline-flex;align-items:center;gap:9px;border:1px solid #8d6a36;color:#f2c98e;padding:7px 11px;border-radius:999px;font-size:12px;font-weight:700}
+    .dot{width:7px;height:7px;border-radius:50%;background:#e4a84c}
+    h2{font-size:19px;margin:0 0 12px}
+    p{color:#bdc9df;line-height:1.65;margin:9px 0}
+    .links{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:22px}
+    a{display:block;padding:16px 17px;border:1px solid #40577f;border-radius:12px;color:#eaf1ff;text-decoration:none;background:#16233d;font-weight:650;transition:background .15s,border-color .15s}
+    a:hover{background:#1c3153;border-color:#80a2dc}
+    a span{display:block;color:#aabbd8;font-weight:400;font-size:12px;margin-top:6px;line-height:1.45}
+    .note{font-size:13px;color:#9eacc5;margin-top:22px}
+    footer{margin-top:34px;color:#8190ac;font-size:12px}
+  </style>
 </head>
 <body>
-<main>
-  <header class="top">
-    <div class="brand"><div class="mark">VP</div><div><div class="eyebrow">Autonomous music intelligence</div><h1>Violin Prince Autopilot</h1><div class="muted" style="font-size:12px">Cloud production console · Your computer does not render videos</div></div></div>
-    <span class="pill" id="connection">Not connected</span>
-  </header>
+  <main>
+    <div class="eyebrow">Violin Prince · Production control</div>
+    <h1>Autopilot</h1>
+    <p class="intro">GitHub Actions is the production control point. This page is a lightweight status page; it does not connect to a remote media Worker or accept audio, video, tokens or passwords.</p>
 
-  <section class="grid">
-    <div class="card stat"><small>Autopilot</small><strong id="enabled">—</strong><span class="muted" style="font-size:11px">Cloud scheduler state</span></div>
-    <div class="card stat"><small>Videos today (UTC)</small><strong id="today">—</strong><span class="muted" style="font-size:11px">Default limit: 1</span></div>
-    <div class="card stat"><small>Private media assets</small><strong id="assets">—</strong><span class="muted" style="font-size:11px">Audio + video in R2</span></div>
-    <div class="card stat"><small>Latest production</small><strong id="latest" style="font-size:18px">—</strong><span class="muted" style="font-size:11px">Most recent run</span></div>
-  </section>
+    <section class="panel" aria-labelledby="status-title">
+      <div class="status"><span class="dot" aria-hidden="true"></span> Production locked</div>
+      <h2 id="status-title" style="margin-top:18px">Own-voice approval is pending</h2>
+      <p>The production gate prevents research, narration, visual generation and rendering until a test sample made with the creator's own voice has been reviewed and explicitly approved.</p>
+      <p>The public Qwen preflight checks only the model package and CPU loading. It does not use the creator's recording or generate speech.</p>
+      <p>Cloudflare Worker, Workers AI, R2 and D1 services have been removed from this Autopilot. No replacement text or illustration provider is configured yet, so those stages must remain disabled rather than fall back to another service.</p>
 
-  <section class="section card">
-    <div class="row"><h2>Cloud connection</h2><span class="badge">Credentials stay in this browser session</span></div>
-    <label for="api">Cloudflare Worker URL</label><input id="api" type="text" placeholder="https://your-worker.workers.dev">
-    <label for="token">Dashboard access token</label><input id="token" type="password" placeholder="Paste the DASHBOARD_TOKEN">
-    <div class="row" style="margin-top:13px;justify-content:flex-start"><button id="connect">Connect dashboard</button><button class="secondary" id="disconnect">Disconnect</button><button class="secondary" id="refresh">Refresh insights</button></div>
-    <p class="muted" style="font-size:11px;margin-bottom:0">Do not share this token. It is stored only in session storage and cleared when this browser tab session ends. The source code does not contain credentials.</p>
-  </section>
-
-  <div class="cols section">
-    <section class="card">
-      <div class="row"><h2>Private media library</h2><span class="badge">R2 storage</span></div>
-      <p class="muted" style="font-size:12px">Upload a rights-cleared audio track for the first scenes. Separately upload your own performance video: the final scene will show it as the main visual payoff, and use its recorded sound when available. Media stays in private R2 storage.</p>
-      <label for="audio">Music bed (optional)</label>
-      <input class="file" id="audio" type="file" accept=".wav,.mp3,.flac,.m4a,.aac,.ogg,audio/*">
-      <label class="checks"><input id="rights" type="checkbox"><span>I confirm I own this recording or have permission to use it, and I have checked any underlying composition rights needed for publication.</span></label>
-      <button id="upload" class="secondary" disabled>Upload audio</button>
-      <div id="uploadStatus" class="muted" style="font-size:12px;margin-top:10px">No audio upload started.</div>
-      <div style="border-top:1px solid var(--line);margin-top:17px;padding-top:13px">
-        <label for="performanceVideo">Your violin performance video (Scene 3)</label>
-        <input class="file" id="performanceVideo" type="file" accept=".mp4,.mov,.webm,video/*">
-        <div class="muted" style="font-size:11px;margin-top:6px">MP4, MOV or WebM · Up to 90 MB · Up to 10 minutes. The whole frame is preserved; landscape footage is shown over a blurred fill rather than cropped.</div>
-        <label class="checks"><input id="performanceRights" type="checkbox"><span>I confirm I own or have permission to use both the video and its audio, including any underlying composition.</span></label>
-        <button id="uploadPerformance" class="secondary" disabled>Upload performance video</button>
-        <div id="performanceUploadStatus" class="muted" style="font-size:12px;margin-top:10px">No performance video uploaded in this session.</div>
+      <div class="links">
+        <a href="https://github.com/baidyaprince69-web/violin-prince-website/actions/workflows/violin-prince-autopilot.yml">
+          Open production workflow
+          <span>View runs and manual stage controls. Production is currently locked.</span>
+        </a>
+        <a href="https://github.com/baidyaprince69-web/violin-prince-website/actions/workflows/qwen3-voice-preflight.yml">
+          Run public Qwen preflight
+          <span>Data-free package/API and CPU model-load checks only.</span>
+        </a>
+        <a href="https://github.com/baidyaprince69-web/violin-prince-website/blob/main/.github/voice-tests/private-runner/README.md">
+          Private voice-test setup
+          <span>Instructions for the separate private-repository test template.</span>
+        </a>
+        <a href="https://baidyaprince69-web.github.io/violin-prince-website/voice-vault/">
+          Open Private Voice Vault
+          <span>Record and encrypt your voice locally in the browser before saving to private Drive.</span>
+        </a>
       </div>
-      <div style="border-top:1px solid var(--line);margin-top:17px;padding-top:13px">
-        <h3 style="font-size:13px;margin:0 0 7px">Encrypted own-voice test package</h3>
-        <p class="muted" style="font-size:12px">Upload only the encrypted <code>.vprvoice</code> file from your Voice Vault. This transfers ciphertext into R2; it does not decrypt the recording or start voice testing. Your passphrase stays in Notepad on your computer and is never entered here. Do not select the original recording or WAV. The R2 copy is deleted after 30 days; your Google Drive backup is unchanged. Before uploading, confirm that the bucket's Public Development URL is disabled and that no custom domain is enabled.</p>
-        <label for="voicePackageFile">Encrypted voice package (.vprvoice only)</label>
-        <input class="file" id="voicePackageFile" type="file" accept=".vprvoice,application/octet-stream">
-        <div class="row" style="justify-content:flex-start;flex-wrap:wrap;margin-top:10px">
-          <button id="uploadVoicePackage" class="secondary" disabled>Store encrypted package privately</button>
-          <button id="deleteVoicePackage" class="secondary" disabled>Delete stored package</button>
-        </div>
-        <div id="voicePackageStatus" class="muted" style="font-size:12px;margin-top:10px">No encrypted voice package transferred to R2 in this browser session.</div>
-      </div>
+      <p class="note">Never upload your original recording, decrypted WAV, transcript, passphrase or generated voice sample to this public repository or its Actions artifacts.</p>
     </section>
-    <section class="card">
-      <div class="row"><h2>Production control</h2><span class="badge">One attempt per UTC day</span></div>
-      <p class="muted" style="font-size:12px">Start one cloud draft test from this dashboard. Manual tests never publish to social platforms. The daily scheduler remains separately controlled in Cloudflare.</p>
-      <div class="row" style="justify-content:flex-start;flex-wrap:wrap">
-        <button id="triggerTest" disabled>Start one draft test</button>
-        <a class="filebtn" id="runWorkflow" href="https://github.com/baidyaprince69-web/violin-prince-website/actions/workflows/violin-prince-autopilot.yml" target="_blank" rel="noopener noreferrer">Open GitHub Actions ↗</a>
-      </div>
-      <div class="bar"><span id="progress"></span></div>
-      <div id="runStatus" class="muted" style="font-size:12px;margin-top:10px">Connect the Cloudflare Worker to view status.</div>
-    </section>
-  </div>
-
-  <div class="cols section">
-    <section class="card">
-      <h2>Latest research and production</h2>
-      <div id="latestDetails" class="empty">No run data yet.</div>
-    </section>
-    <section class="card">
-      <h2>Activity log</h2>
-      <div class="events" id="events"><div class="empty">Connect to load recent events.</div></div>
-    </section>
-  </div>
-
-  <section class="card section">
-    <div class="row"><h2>YouTube channel insights</h2><span class="badge" id="ytInsightStatus">Not connected</span></div>
-    <p class="muted" id="ytInsightPeriod" style="font-size:12px">Previous seven complete days · Requires read-only YouTube Analytics authorisation.</p>
-    <div class="grid" style="margin-top:12px">
-      <div class="card stat"><small>Views</small><strong id="ytViews">—</strong></div>
-      <div class="card stat"><small>Watch minutes</small><strong id="ytWatch">—</strong></div>
-      <div class="card stat"><small>Average view duration</small><strong id="ytAverage">—</strong></div>
-      <div class="card stat"><small>Subscribers gained</small><strong id="ytSubs">—</strong></div>
-    </div>
-    <p class="muted" id="ytInsightExtra" style="font-size:12px;margin-bottom:0">Channel metrics will appear after the owner-authorised YouTube Analytics connection is configured.</p>
-  </section>
-
-  <p class="foot">Violin Prince Autopilot · Free-tier-first · No paid fallback · Publishing stays disabled until official account permissions, rights checks and platform adapters are configured. This dashboard displays actual connected service data; it does not simulate activity.</p>
-</main>
-<script>
-(() => {
-  const $ = (id) => document.getElementById(id);
-  const state = { api: "", token: "", busy: false, voicePackageId: "" };
-  const auth = () => ({ Authorization: "Bearer " + state.token });
-  const setText = (id, value) => { $(id).textContent = value; };
-  const save = () => {
-    sessionStorage.setItem("vp_api", state.api);
-    sessionStorage.setItem("vp_token", state.token);
-  };
-  const load = () => {
-    state.api = sessionStorage.getItem("vp_api") || "";
-    state.token = sessionStorage.getItem("vp_token") || "";
-    state.voicePackageId = sessionStorage.getItem("vp_voice_package_id") || "";
-    $("api").value = state.api;
-    $("token").value = state.token;
-    if (state.voicePackageId) {
-      setText("voicePackageStatus", "Encrypted package stored in private R2. Package ID: " + state.voicePackageId);
-    }
-  };
-  async function request(path, options = {}) {
-    if (!state.api || !state.token) throw new Error("Connect the Worker first.");
-    const r = await fetch(state.api.replace(/\/+$/, "") + path, {
-      ...options, headers: { ...auth(), ...(options.headers || {}) }
-    });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data.error || "Request failed: " + r.status);
-    return data;
-  }
-  function connected(value) {
-    $("connection").textContent = value ? "Connected" : "Not connected";
-    $("connection").className = "pill " + (value ? "ok" : "");
-    $("upload").disabled = !value || !$("audio").files.length || !$("rights").checked;
-    $("uploadPerformance").disabled = !value || !$("performanceVideo").files.length || !$("performanceRights").checked;
-    $("uploadVoicePackage").disabled = !value || !$("voicePackageFile").files.length || Boolean(state.voicePackageId);
-    $("deleteVoicePackage").disabled = !value || !state.voicePackageId;
-    $("triggerTest").disabled = !value;
-  }
-  async function refresh() {
-    try {
-      const [status, events, insightData] = await Promise.all([
-        request("/api/status"), request("/api/events"), request("/api/insights")
-      ]);
-      connected(true);
-      setText("enabled", status.enabled ? "Enabled" : "Disabled");
-      setText("today", status.videos_today_utc + " / " + status.daily_video_limit);
-      setText("assets", status.approved_assets);
-      const latest = status.latest_run;
-      setText("latest", latest ? latest.status : "No runs");
-      if (latest) {
-        const panel = $("latestDetails");
-        panel.innerHTML = "";
-        let meta = {};
-        try { meta = JSON.parse(latest.metadata_json || "{}"); } catch (_) {}
-        const title = document.createElement("strong");
-        title.textContent = latest.title || latest.topic || "Untitled run";
-        const status = document.createElement("p");
-        status.className = "muted";
-        status.textContent = [latest.status, latest.message].filter(Boolean).join(" · ");
-        panel.append(title, status);
-
-        if (meta.hook) {
-          const hook = document.createElement("p");
-          hook.textContent = meta.hook;
-          panel.append(hook);
-        }
-        if (meta.description) {
-          const description = document.createElement("p");
-          description.className = "muted";
-          description.textContent = meta.description;
-          panel.append(description);
-        }
-        if (Array.isArray(meta.captions) && meta.captions.length) {
-          const heading = document.createElement("strong");
-          heading.textContent = "Scene captions";
-          heading.style.display = "block";
-          heading.style.marginTop = "10px";
-          const captions = document.createElement("p");
-          captions.className = "muted";
-          captions.textContent = meta.captions.join("  •  ");
-          panel.append(heading, captions);
-        }
-        if (Array.isArray(meta.hashtags) && meta.hashtags.length) {
-          const tags = document.createElement("p");
-          tags.className = "muted";
-          tags.textContent = meta.hashtags.join(" ");
-          panel.append(tags);
-        }
-        if (latest.output_url) {
-          const preview = document.createElement("a");
-          preview.href = latest.output_url;
-          preview.target = "_blank";
-          preview.rel = "noopener noreferrer";
-          preview.className = "filebtn";
-          preview.style.display = "inline-block";
-          preview.style.marginTop = "8px";
-          preview.textContent = "Open finished video preview (link expires in 24 hours)";
-          panel.append(preview);
-        }
-        if (Array.isArray(meta.sources) && meta.sources.length) {
-          const sourceTitle = document.createElement("strong");
-          sourceTitle.textContent = "Research references";
-          sourceTitle.style.display = "block";
-          sourceTitle.style.marginTop = "12px";
-          panel.append(sourceTitle);
-          for (const source of meta.sources.slice(0, 5)) {
-            try {
-              const url = new URL(source);
-              if (!["https:", "http:"].includes(url.protocol)) continue;
-              const link = document.createElement("a");
-              link.href = url.href;
-              link.target = "_blank";
-              link.rel = "noopener noreferrer";
-              link.textContent = url.hostname;
-              link.style.display = "block";
-              link.style.fontSize = "12px";
-              panel.append(link);
-            } catch (_) {}
-          }
-        }
-      } else {
-        $("latestDetails").textContent = "No run data yet.";
-      }
-      $("events").innerHTML = "";
-      for (const item of events.events || []) {
-        const row = document.createElement("div");
-        row.className = "event";
-        const msg = document.createElement("div");
-        msg.textContent = item.message;
-        const time = document.createElement("time");
-        time.textContent = new Date(item.created_at).toLocaleString();
-        row.append(msg, time);
-        $("events").append(row);
-      }
-      if (!events.events || !events.events.length) $("events").textContent = "No activity recorded yet.";
-      const yt = insightData.insight;
-      if (yt && yt.totals) {
-        const t = yt.totals;
-        setText("ytInsightStatus", "Connected");
-        setText("ytInsightPeriod", "Previous seven complete days · " +
-          (yt.period ? yt.period.start + " to " + yt.period.end : ""));
-        setText("ytViews", Number(t.views || 0).toLocaleString());
-        setText("ytWatch", Number(t.watch_minutes || 0).toLocaleString());
-        const seconds = Math.round(Number(t.average_view_duration_seconds || 0));
-        setText("ytAverage", Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0"));
-        setText("ytSubs", Number(t.subscribers_gained || 0).toLocaleString());
-        setText("ytInsightExtra", "Likes: " + Number(t.likes || 0).toLocaleString() +
-          " · Comments: " + Number(t.comments || 0).toLocaleString() +
-          " · Shares: " + Number(t.shares || 0).toLocaleString() +
-          (insightData.captured_at ? " · Updated: " + new Date(insightData.captured_at).toLocaleString() : ""));
-      } else {
-        setText("ytInsightStatus", "Not connected");
-        setText("ytInsightPeriod", "Previous seven complete days · Read-only Analytics access has not been configured yet.");
-        setText("ytViews", "—"); setText("ytWatch", "—"); setText("ytAverage", "—"); setText("ytSubs", "—");
-        setText("ytInsightExtra", "Production can run without Analytics credentials. Connect an eligible channel owner's read-only Analytics authorisation to display these metrics.");
-      }
-    } catch (error) {
-      connected(false);
-      setText("enabled", "—"); setText("today", "—"); setText("assets", "—"); setText("latest", "—");
-      setText("runStatus", error.message);
-    }
-  }
-  $("connect").addEventListener("click", async () => {
-    state.api = $("api").value.trim().replace(/\/+$/, "");
-    state.token = $("token").value.trim();
-    save();
-    try {
-      const health = await fetch(state.api + "/api/health").then(r => r.json());
-      if (!health.ok) throw new Error("Worker health check failed.");
-      await refresh();
-      setText("runStatus", "Connected to the cloud control plane.");
-    } catch (error) {
-      connected(false); setText("runStatus", error.message);
-    }
-  });
-  $("disconnect").addEventListener("click", () => {
-    sessionStorage.removeItem("vp_api"); sessionStorage.removeItem("vp_token");
-    state.api = ""; state.token = ""; $("token").value = ""; connected(false);
-    setText("runStatus", "Disconnected.");
-  });
-  $("refresh").addEventListener("click", refresh);
-  $("audio").addEventListener("change", () => connected(Boolean(state.api && state.token)));
-  $("rights").addEventListener("change", () => connected(Boolean(state.api && state.token)));
-  $("performanceVideo").addEventListener("change", () => connected(Boolean(state.api && state.token)));
-  $("performanceRights").addEventListener("change", () => connected(Boolean(state.api && state.token)));
-  $("voicePackageFile").addEventListener("change", () => connected(Boolean(state.api && state.token)));
-  $("uploadVoicePackage").addEventListener("click", async () => {
-    const file = $("voicePackageFile").files[0];
-    if (!file || state.voicePackageId) return;
-    if (file.size < 72 || file.size > 50 * 1024 * 1024 || !/\.vprvoice$/i.test(file.name)) {
-      setText("voicePackageStatus", "Choose a valid encrypted .vprvoice file between 72 bytes and 50 MB.");
-      return;
-    }
-    $("uploadVoicePackage").disabled = true;
-    setText("voicePackageStatus", "Checking the encrypted package header. The file will not be decrypted.");
-    try {
-      const header = new Uint8Array(await file.slice(0, 40).arrayBuffer());
-      const magic = new TextDecoder().decode(header.subarray(0, 8));
-      const iterations = header.length === 40
-        ? new DataView(header.buffer, header.byteOffset, header.byteLength).getUint32(36, false)
-        : 0;
-      if (magic !== "VPRVOICE" || iterations !== 600000) {
-        throw new Error("This file is not a supported encrypted Voice Vault package.");
-      }
-      setText("voicePackageStatus", "Uploading ciphertext to private R2 storage...");
-      const result = await request("/api/voice-packages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/octet-stream",
-          "X-Filename": file.name,
-          "X-File-Size": String(file.size)
-        },
-        body: file
-      });
-      if (!result.package_id) throw new Error("The private storage service did not return a package ID.");
-      state.voicePackageId = result.package_id;
-      sessionStorage.setItem("vp_voice_package_id", state.voicePackageId);
-      setText("voicePackageStatus", "Encrypted package stored privately. Package ID: " + state.voicePackageId + ". No decryption or voice test has started.");
-      $("voicePackageFile").value = "";
-    } catch (error) {
-      setText("voicePackageStatus", error.message);
-    } finally {
-      connected(Boolean(state.api && state.token));
-    }
-  });
-  $("deleteVoicePackage").addEventListener("click", async () => {
-    if (!state.voicePackageId) return;
-    $("deleteVoicePackage").disabled = true;
-    setText("voicePackageStatus", "Deleting encrypted package from private R2...");
-    try {
-      await request("/api/voice-packages/" + encodeURIComponent(state.voicePackageId), { method: "DELETE" });
-      sessionStorage.removeItem("vp_voice_package_id");
-      state.voicePackageId = "";
-      setText("voicePackageStatus", "Stored encrypted package deleted from private R2. Your Google Drive backup is not affected.");
-    } catch (error) {
-      setText("voicePackageStatus", error.message);
-    } finally {
-      connected(Boolean(state.api && state.token));
-    }
-  });
-  $("triggerTest").addEventListener("click", async () => {
-    $("triggerTest").disabled = true;
-    setText("runStatus", "Requesting one draft-only cloud production run...");
-    try {
-      const result = await request("/api/trigger", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: "{}"
-      });
-      setText("runStatus", result.run_id
-        ? "Draft run queued: " + result.run_id
-        : "Draft run response: " + (result.reason || "request accepted"));
-      await refresh();
-    } catch (error) {
-      setText("runStatus", error.message);
-    } finally {
-      $("triggerTest").disabled = !state.api || !state.token;
-    }
-  });
-
-
-  $("uploadPerformance").addEventListener("click", async () => {
-    const file = $("performanceVideo").files[0];
-    if (!file || !$("performanceRights").checked) return;
-    if (file.size > 90 * 1024 * 1024) {
-      setText("performanceUploadStatus", "This file is larger than 90 MB. Choose a smaller export.");
-      return;
-    }
-    $("uploadPerformance").disabled = true;
-    setText("performanceUploadStatus", "Uploading your performance video to private R2 storage...");
-    try {
-      const result = await request("/api/assets?kind=video", {
-        method: "POST",
-        headers: {
-          "Content-Type": file.type || "application/octet-stream",
-          "X-Filename": file.name,
-          "X-Rights-Confirmed": "true",
-          "X-File-Size": String(file.size)
-        },
-        body: file
-      });
-      setText("performanceUploadStatus", "Uploaded privately: " + result.filename + ". The next Prepare run will attach it to Scene 3.");
-      await refresh();
-    } catch (error) {
-      setText("performanceUploadStatus", error.message);
-    } finally {
-      connected(Boolean(state.api && state.token));
-    }
-  });
-
-  $("upload").addEventListener("click", async () => {
-    const file = $("audio").files[0];
-    if (!file || !$("rights").checked) return;
-    $("upload").disabled = true; setText("uploadStatus", "Uploading to private R2 storage...");
-    try {
-      const result = await request("/api/assets?kind=audio", {
-        method: "POST", headers: { "Content-Type": file.type || "application/octet-stream",
-          "X-Filename": file.name, "X-Rights-Confirmed": "true", "X-File-Size": String(file.size) }, body: file
-      });
-      setText("uploadStatus", "Uploaded: " + result.filename);
-      await refresh();
-    } catch (error) { setText("uploadStatus", error.message); }
-    finally { connected(Boolean(state.api && state.token)); }
-  });
-  load();
-  connected(Boolean(state.api && state.token));
-  if (state.api && state.token) refresh();
-})();
-</script>
+    <footer>Violin Prince Autopilot · GitHub Actions · No Cloudflare integration</footer>
+  </main>
 </body>
 </html>

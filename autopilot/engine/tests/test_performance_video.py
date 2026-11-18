@@ -8,10 +8,6 @@ from unittest.mock import patch
 ENGINE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ENGINE))
 
-os.environ.setdefault("AUTOPILOT_API_URL", "")
-os.environ.setdefault("AUTOPILOT_JOB_TOKEN", "test-job-token")
-os.environ.setdefault("CF_ACCOUNT_ID", "test-account")
-os.environ.setdefault("CF_AI_TOKEN", "test-ai-token")
 
 import run as pipeline
 
@@ -34,7 +30,7 @@ class PerformanceVideoAssetTests(unittest.TestCase):
                 pipeline._validate_performance_video_asset("take.mp4", b"x" * 1025)
 
     def test_missing_optional_video_is_reported_as_unavailable(self):
-        with patch.object(pipeline, "API", ""), patch.dict(os.environ, {"VIOLIN_PERFORMANCE_VIDEO_PATH": ""}):
+        with patch.dict(os.environ, {"VIOLIN_PERFORMANCE_VIDEO_PATH": ""}):
             metadata, media = pipeline.get_creator_performance_video()
         self.assertFalse(metadata["available"])
         self.assertEqual(metadata["source"], "none")

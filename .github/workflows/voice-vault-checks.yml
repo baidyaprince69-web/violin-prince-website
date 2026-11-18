@@ -3,6 +3,7 @@ name: Private Voice Vault checks
 on:
   push:
     branches:
+      - main
       - feature/private-voice-vault-2026-11-18
     paths:
       - "voice-vault/**"

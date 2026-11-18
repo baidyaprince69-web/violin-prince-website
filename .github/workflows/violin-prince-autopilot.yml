@@ -44,10 +44,6 @@ jobs:
       RUN_MODE: manual
       PIPELINE_STAGE: ${{ inputs.stage || 'full' }}
       VISUAL_FEEDBACK: ${{ inputs.visual_feedback }}
-      AUTOPILOT_API_URL: ${{ secrets.AUTOPILOT_API_URL }}
-      AUTOPILOT_JOB_TOKEN: ${{ secrets.AUTOPILOT_JOB_TOKEN }}
-      CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
-      CF_AI_TOKEN: ${{ secrets.CF_AI_TOKEN }}
       YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
       YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
       YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
@@ -65,17 +61,7 @@ jobs:
         env:
           SELECTED_STAGE: ${{ inputs.stage || 'full' }}
           SOURCE_RUN_ID: ${{ inputs.source_run_id }}
-          AUTOPILOT_API_URL: ${{ secrets.AUTOPILOT_API_URL }}
-          AUTOPILOT_JOB_TOKEN: ${{ secrets.AUTOPILOT_JOB_TOKEN }}
         run: |
-          if [[ -n "$AUTOPILOT_API_URL" && -z "$AUTOPILOT_JOB_TOKEN" ]]; then
-            echo "::error::AUTOPILOT_API_URL is set but AUTOPILOT_JOB_TOKEN is missing."
-            exit 1
-          fi
-          if [[ -n "$AUTOPILOT_API_URL" && ! "$AUTOPILOT_API_URL" =~ ^https:// ]]; then
-            echo "::error::AUTOPILOT_API_URL must use HTTPS."
-            exit 1
-          fi
           if [[ "$SELECTED_STAGE" != "full" && "$SELECTED_STAGE" != "prepare" && "$SELECTED_STAGE" != "visuals" && "$SELECTED_STAGE" != "render" ]]; then
             echo "::error::Unknown production stage."
             exit 1
@@ -119,19 +105,6 @@ jobs:
               output.write("plan_path=" + plan_path + "\n")
           print("Validated ChatGPT daily production request: " + plan_path)
           PY
-
-      - name: Check Cloudflare illustration credentials
-        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && env.PIPELINE_STAGE != 'render')
-        shell: bash
-        run: |
-          missing=0
-          for name in CF_ACCOUNT_ID CF_AI_TOKEN; do
-            if [ -z "${!name}" ]; then
-              echo "::error::Missing required repository secret: $name"
-              missing=1
-            fi
-          done
-          if [ "$missing" -ne 0 ]; then exit 1; fi
 
       - name: Restore the latest encrypted SEO learning snapshot
         if: env.PIPELINE_STAGE == 'prepare'
@@ -245,8 +218,6 @@ jobs:
         if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path != ''
         env:
           RUN_ID: ${{ github.run_id }}
-          AUTOPILOT_API_URL: ""
-          AUTOPILOT_JOB_TOKEN: ""
           PUBLISH_ENABLED: "false"
         run: python autopilot/engine/run_daily_plan.py --plan "${{ steps.daily_request.outputs.plan_path }}"
 

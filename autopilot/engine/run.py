@@ -38,13 +38,7 @@ except ImportError:  # Direct script execution from the engine directory.
         scene_visual_prompt_suffix, transition_duration,
     )
 
-API = os.environ.get("AUTOPILOT_API_URL", "").rstrip("/")
-JOB_TOKEN = os.environ.get("AUTOPILOT_JOB_TOKEN", "")
-CF_ACCOUNT = os.environ.get("CF_ACCOUNT_ID", "")
-CF_TOKEN = os.environ.get("CF_AI_TOKEN", "")
 RUN_ID = os.environ.get("RUN_ID", str(uuid.uuid4()))
-TEXT_MODEL = "@cf/google/gemma-4-26b-a4b-it"
-IMAGE_MODEL = "@cf/black-forest-labs/flux-1-schnell"
 WORK, OUT, IMAGES = Path("work"), Path("work/output"), Path("work/images")
 W, H, FPS, SECONDS = 720, 1280, 25, 8
 http = requests.Session()
@@ -90,37 +84,15 @@ def log(message):
     print(f"[{datetime.now(timezone.utc).isoformat()}] {message}", flush=True)
 
 
-def auth():
-    return {"Authorization": "Bearer " + JOB_TOKEN}
-
-
 def report(status, message, topic="", title="", key="", url="", metadata=None):
-    if not API:
-        log("Status: " + str(status) + " — " + str(message)[:400])
-        return
-    try:
-        r = http.post(API + "/internal/report", headers={**auth(), "Content-Type": "application/json"},
-                      json={"run_id": RUN_ID, "status": status, "message": str(message)[:900],
-                            "topic": topic[:300], "title": title[:300],
-                            "output_key": key[:500], "output_url": url[:2000],
-                            "metadata": metadata}, timeout=30)
-        r.raise_for_status()
-    except Exception as exc:
-        log("Status report failed: " + str(exc))
+    """Write a concise run status to the GitHub Actions log only."""
+    del topic, title, key, url, metadata
+    log("Status: " + str(status) + " — " + str(message)[:400])
 
 
 def claim_run():
-    if not API:
-        log("Standalone GitHub Actions mode: no Worker claim is required.")
-        return
-    r = http.post(API + "/internal/claim", headers={**auth(), "Content-Type": "application/json"},
-                  json={"run_id": RUN_ID, "mode": os.environ.get("RUN_MODE", "scheduled")}, timeout=30)
-    if r.status_code == 409:
-        reason = r.json().get("reason", "run_not_claimed")
-        raise PipelineError("Production run was not claimed: " + str(reason))
-    r.raise_for_status()
-    if not r.json().get("ok"):
-        raise PipelineError("Production run was not authorised by the daily quota controller.")
+    """GitHub Actions is the only scheduler and run controller."""
+    log("Run accepted by the GitHub Actions workflow.")
 
 
 def _validate_creator_violin_recording(path):
@@ -152,19 +124,7 @@ def _validate_creator_violin_recording(path):
 
 
 def get_audio(prefer_creator_assets=True, allow_fallback=True):
-    if prefer_creator_assets and API:
-        r = http.get(API + "/internal/assets?kind=audio", headers=auth(), timeout=30)
-        r.raise_for_status()
-        assets = r.json().get("assets", [])
-        if assets:
-            asset = assets[0]
-            media = http.get(API + "/internal/assets/" + quote(asset["id"], safe=""),
-                             headers=auth(), timeout=120)
-            media.raise_for_status()
-            if len(media.content) < 4096:
-                raise PipelineError("Selected audio file is empty or invalid.")
-            return {**asset, "audio_source": "uploaded_recording"}, media.content
-
+    """Load an explicitly configured local recording or the CC0 sampled violin fallback."""
     configured_path = os.environ.get("VIOLIN_RECORDING_PATH", "").strip()
     recording_path = (
         Path(configured_path) if configured_path
@@ -239,70 +199,17 @@ def _validate_performance_video_metadata(filename, size):
 
 
 def _validate_performance_video_asset(filename, media_bytes):
-    """Validate downloaded bytes without writing private media into workflow artifacts."""
+    """Validate supplied video bytes without copying creator media into workflow artifacts."""
     return _validate_performance_video_metadata(filename, len(media_bytes or b""))
 
 
 def get_creator_performance_video(include_bytes=False, asset_id=None):
-    """Read private video metadata during Prepare and download the exact asset only during Render."""
-    if API:
-        asset = None
-        if asset_id:
-            asset = {"id": str(asset_id)}
-        else:
-            response = http.get(
-                API + "/internal/assets?kind=video",
-                headers=auth(),
-                timeout=30,
-            )
-            response.raise_for_status()
-            assets = [
-                item for item in response.json().get("assets", [])
-                if isinstance(item, dict) and item.get("kind") == "video"
-            ]
-            if assets:
-                asset = assets[0]
-
-        if asset:
-            media_metadata = asset
-            if asset_id and not asset.get("filename"):
-                # An exact asset ID comes from the earlier prepared metadata. Its
-                # filename and size are stored there, so no public artifact needs
-                # to contain the raw media.
-                media_metadata = {
-                    "id": str(asset_id),
-                    "filename": "",
-                    "size_bytes": 0,
-                    "kind": "video",
-                }
-            if include_bytes:
-                media = http.get(
-                    API + "/internal/assets/" + quote(str(asset["id"]), safe=""),
-                    headers=auth(),
-                    timeout=180,
-                )
-                media.raise_for_status()
-                media_bytes = media.content
-                filename = (
-                    media.headers.get("Content-Disposition", "")
-                    .split("filename=", 1)[-1].strip().strip('"')
-                    if media.headers.get("Content-Disposition") else ""
-                )
-                filename = filename or str(media_metadata.get("filename") or "creator-performance.mp4")
-                checked = _validate_performance_video_asset(filename, media_bytes)
-            else:
-                checked = _validate_performance_video_metadata(
-                    media_metadata.get("filename"), media_metadata.get("size_bytes")
-                )
-                media_bytes = b""
-            safe_metadata = {
-                "id": str(asset.get("id") or asset_id or ""),
-                **checked,
-                "content_type": media_metadata.get("content_type") or "",
-                "source": "private_r2_upload",
-            }
-            return safe_metadata, media_bytes
-
+    """Load a local creator performance video; no remote media service is used."""
+    if asset_id:
+        raise PipelineError(
+            "This saved package references a remote media asset that is no longer available. "
+            "Provide the creator performance video as a local workflow input and prepare the package again."
+        )
     configured_path = os.environ.get("VIOLIN_PERFORMANCE_VIDEO_PATH", "").strip()
     video_path = (
         Path(configured_path) if configured_path
@@ -319,7 +226,7 @@ def get_creator_performance_video(include_bytes=False, asset_id=None):
     if asset_id:
         raise PipelineError(
             "The prepared private performance-video asset could not be reached. "
-            "Check AUTOPILOT_API_URL and AUTOPILOT_JOB_TOKEN before Render."
+            "Supply the creator performance video locally and rerun the Render stage."
         )
     log("No creator performance video is uploaded; Scene 3 will use its prepared visual fallback.")
     return {"available": False, "source": "none"}, b""
@@ -2864,33 +2771,37 @@ def build_story_quality_report(plan, selected_sources, date_check, as_of=None):
     }
 
 
+def require_approved_text_provider():
+    """Fail before research until an approved text-planning provider is configured."""
+    raise PipelineError(
+        "No approved text-generation provider is configured. "
+        "The Prepare stage is disabled until a replacement provider is selected and tested."
+    )
+
+
+def require_approved_illustration_provider():
+    """Fail before image work until an approved illustration provider is configured."""
+    raise PipelineError(
+        "No approved illustration-generation provider is configured. "
+        "The Visuals stage is disabled until a replacement provider is selected and tested."
+    )
+
+
 def ai(model, payload, timeout=180):
-    url = f"https://api.cloudflare.com/client/v4/accounts/{CF_ACCOUNT}/ai/run/{model}"
-    r = http.post(url, headers={"Authorization": "Bearer " + CF_TOKEN}, json=payload, timeout=timeout)
-    if r.status_code in (402, 403, 429):
-        raise PipelineError(f"Workers AI refused the request (HTTP {r.status_code}). Free quota may be exhausted or token permissions missing. No paid fallback.")
-    if not r.ok:
-        raise PipelineError(f"Workers AI HTTP {r.status_code}: {r.text[:400]}")
-    body = r.json()
-    if not body.get("success", True) or not isinstance(body.get("result"), dict):
-        raise PipelineError("Workers AI returned an unsuccessful or unexpected response.")
-    return body["result"]
+    """Fail closed; no remote text or image provider is currently configured."""
+    del payload, timeout
+    if "image" in str(model).lower() or "illustration" in str(model).lower():
+        require_approved_illustration_provider()
+    require_approved_text_provider()
 
 
 def recent_topics():
-    """Read recent successful topics from D1 when the optional Worker is configured."""
-    if not API:
-        return []
-    r = http.get(API + "/internal/recent-topics", headers=auth(), timeout=30)
-    if r.status_code == 404:
-        return []
-    r.raise_for_status()
-    topics = r.json().get("topics", [])
-    return [str(item)[:180] for item in topics if str(item).strip()][:25]
+    """Return no persisted history until a local, provider-independent store is implemented."""
+    return []
 
 
 def parse_planner_result(result):
-    """Parse the Workers AI response into one complete creative-plan object."""
+    """Parse a text-model response into one complete creative-plan object."""
     candidate = result.get("response", "")
     if isinstance(candidate, dict):
         plan = candidate
@@ -3127,7 +3038,7 @@ def _parse_narration_tool_response(result, expected_fields):
             if parsed is not None:
                 return parsed
 
-    raise PipelineError("Workers AI did not return the required structured narration word arrays.")
+    raise PipelineError("The text model did not return the required structured narration word arrays.")
 
 
 def _assemble_narration_sentence_words(words, expected_count, field, max_count=None):
@@ -3369,7 +3280,7 @@ def compose_narration(
             "temperature": 0.2,
         }
 
-        response = ai(TEXT_MODEL, payload)
+        response = ai("text-generation", payload)
         try:
             corrected = _parse_narration_tool_response(response, target_fields)
         except PipelineError as exc:
@@ -3475,7 +3386,7 @@ def compose_narration(
     )
 
 def recent_seo_learning():
-    """Decrypt the latest GitHub-native SEO snapshot; never call Cloudflare or poll YouTube."""
+    """Decrypt the latest GitHub-native SEO snapshot without contacting external services."""
     report_path = os.environ.get("SEO_LEARNING_REPORT_PATH", "").strip()
     encryption_key = os.environ.get("YOUTUBE_STATE_ENCRYPTION_KEY", "").strip()
     if not report_path:
@@ -3684,7 +3595,7 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
     compact = planner_research_items(items)
     if not compact:
         raise PipelineError("Research feeds returned no planner-ready headlines with traceable links.")
-    result = ai(TEXT_MODEL, {
+    result = ai("text-generation", {
         "messages": [
             {"role": "system", "content": system + " Do not show reasoning. Return exactly one JSON object and no preamble or Markdown."},
             {"role": "user", "content":
@@ -3853,29 +3764,16 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
 
 
 def image_request_payload(prompt):
-    """Build only the fields accepted by Cloudflare's FLUX.1-schnell REST schema."""
+    """Build a provider-neutral prompt record for a future approved image backend."""
     value = str(prompt or "").strip()
     if not value:
         raise PipelineError("Image prompt is empty.")
-    return {"prompt": value[:1800], "steps": 4}
+    return {"prompt": value[:1800]}
 
 
 def make_image(prompt, index):
-    # FLUX.1-schnell's REST schema accepts prompt and steps only.
-    # Do not send seed: Cloudflare's current endpoint rejects it as an extra property.
-    result = ai(IMAGE_MODEL, image_request_payload(prompt), 240)
-    if not result.get("image"):
-        raise PipelineError("FLUX returned no image.")
-    try:
-        data = base64.b64decode(result["image"], validate=True)
-        with Image.open(BytesIO(data)) as decoded:
-            decoded.verify()
-    except Exception as exc:
-        raise PipelineError("FLUX returned invalid or undecodable image data.") from exc
-    IMAGES.mkdir(parents=True, exist_ok=True)
-    path = IMAGES / f"scene-{index + 1}.jpg"
-    path.write_bytes(data)
-    return path
+    del prompt, index
+    require_approved_illustration_provider()
 
 
 _BRAND_FONT_CACHE = None
@@ -4064,7 +3962,7 @@ def _ass_timestamp(seconds):
 
 
 def write_kinetic_ass(cues, output_path, word_cues=None):
-    """Render sentence cards whose gold karaoke fill follows Kokoro word onsets."""
+    """Render sentence cards whose gold karaoke fill follows model-native word onsets."""
     target = Path(output_path)
     target.parent.mkdir(parents=True, exist_ok=True)
     header = [
@@ -4639,7 +4537,7 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         "visual_engine": "legacy illustrated scene plates with frame-by-frame Pillow motion graphics and FFmpeg finishing",
         "visual_modes": [str(scene.get("visual_mode") or "waveform") for scene in plan.get("scenes", [])],
         "creative_direction_version": CREATIVE_DIRECTION_VERSION,
-        "subtitle_style": "Kokoro word-timed karaoke typography with gold active-word fill",
+        "subtitle_style": "model-native word-timed karaoke typography with gold active-word fill",
         "scene_transitions": [scene_transition(plan, index) for index in range(len(plan.get("scenes", [])) - 1)],
         "scene_transition_seconds": round(transition_seconds, 3),
         "scene_transition_count": max(0, len(plan.get("scenes", [])) - 1),
@@ -4660,7 +4558,7 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         "word_sync_status": narration_info.get("word_sync_status", "not_checked"),
         "word_timing_method": narration_info.get("word_timing_method", "not_checked"),
         "word_timing_count": int(narration_info.get("word_timing_count", 0)),
-        "motion_timing_source": "Kokoro-native word timestamps",
+        "motion_timing_source": "approved own-voice model-native word timestamps",
         "speech_led_motion": True,
         "motion_scene_timeline": scene_motion_events,
         "visual_review_contact_sheet": contact_sheet.name,
@@ -4677,18 +4575,10 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
 
 
 def upload(path):
-    if not API:
-        # GitHub Actions uploads this MP4 as a workflow artifact after this script exits.
-        return {"ok": True, "object_key": "", "media_url": ""}
-    with path.open("rb") as f:
-        r = http.post(API + "/internal/render", headers={
-            **auth(), "Content-Type": "video/mp4", "X-Filename": path.name
-        }, data=f, timeout=300)
-    r.raise_for_status()
-    data = r.json()
-    if not data.get("ok"):
-        raise PipelineError("Private cloud storage rejected the MP4.")
-    return data
+    """Keep the finished MP4 local; GitHub Actions uploads it as an artifact."""
+    if not Path(path).is_file():
+        raise PipelineError("The rendered video is missing; refusing the workflow handoff.")
+    return {"ok": True, "object_key": "", "media_url": ""}
 
 
 
@@ -4817,7 +4707,7 @@ def _read_package(require_images=False):
 
 
 def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
-    """Build a useful Violin Prince prompt within FLUX's 1,800-character limit."""
+    """Build a useful Violin Prince image prompt within a bounded length."""
     raw_prompt = " ".join(str(scene.get("image_prompt", "")).split()).strip()
     if not raw_prompt:
         raise PipelineError("A planned scene has no visual prompt.")
@@ -5156,87 +5046,9 @@ def prepare_stage():
 
 
 def visuals_stage(feedback=""):
-    """Generate approved scene illustrations for the Motion + HyperFrames 2D route."""
-    if not CF_ACCOUNT or not CF_TOKEN:
-        raise PipelineError("CF_ACCOUNT_ID and CF_AI_TOKEN are required for the Visuals stage.")
-    plan, metadata, _narration_info, paths, image_paths = _read_package(require_images=False)
-    creative_issues = validate_creative_plan(plan)
-    if creative_issues:
-        raise PipelineError(
-            "Automated channel-fit gate blocked Visuals: " + " ".join(creative_issues)
-        )
-    quality = plan.get("quality_control") or {}
-    if quality.get("status") != "passed":
-        raise PipelineError("Automated source/date/freshness quality gate did not pass; Visuals are blocked.")
-    review = metadata.setdefault("story_review", {})
-    if review.get("approved") is not True:
-        review.update({
-            "status": "approved_by_automated_quality_gates",
-            "approved": True,
-            "approved_at": datetime.now(timezone.utc).isoformat(),
-            "approval_method": "automated_source_date_freshness_and_channel_fit_checks",
-        })
-    paths["metadata"].write_text(
-        json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-    for index, scene in enumerate(plan["scenes"]):
-        if image_paths[index].is_file() and scene.get("_visual_asset_invalidated") is not True:
-            try:
-                with Image.open(image_paths[index]) as existing:
-                    existing.verify()
-                log(f"Reusing valid scene illustration {index + 1}/{len(plan['scenes'])} from an earlier attempt.")
-                scene.pop("_visual_asset_invalidated", None)
-                continue
-            except Exception:
-                image_paths[index].unlink(missing_ok=True)
-        elif image_paths[index].is_file():
-            image_paths[index].unlink(missing_ok=True)
-
-        prompt = _scene_visual_prompt(scene, feedback, index=index, plan=plan)
-        try:
-            generated = make_image(prompt, index)
-        except (requests.Timeout, requests.ConnectionError):
-            log(f"Temporary connection issue for scene {index + 1}; retrying once.")
-            time.sleep(2)
-            generated = make_image(prompt, index)
-        shutil.copy2(generated, image_paths[index])
-        from media_verification import verify_image_asset
-        asset_report = verify_image_asset(image_paths[index])
-        if asset_report.get("status") == "failed":
-            raise PipelineError(
-                f"Scene illustration {scene.get('id', index + 1)} failed media verification: "
-                + json.dumps(asset_report.get("errors", []), ensure_ascii=False)
-            )
-        log(f"Prepared scene illustration {index + 1}/{len(plan['scenes'])}.")
-        scene.pop("_visual_asset_invalidated", None)
-
-    paths["plan"].write_text(
-        json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-    from media_verification import verify_scene_assets
-    media_report = verify_scene_assets(
-        plan["scenes"], image_paths, total_seconds=24.0,
-        narration_info=metadata.get("narration_info") or {},
-        expected_narration_script=plan.get("narration_script"),
-    )
-    if media_report.get("status") == "failed":
-        raise PipelineError(
-            "Visual stage media verification failed: "
-            + json.dumps(media_report.get("errors", []), ensure_ascii=False)
-        )
-    (PACKAGE / "media-verification.json").write_text(
-        json.dumps(media_report, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    storyboard = make_storyboard_preview(plan, image_paths, PACKAGE / "storyboard-preview.png")
-    metadata["stage"] = "visuals_ready"
-    metadata["visual_feedback"] = re.sub(r"\\s+", " ", str(feedback or "")).strip()[:600]
-    metadata["visuals_run_id"] = RUN_ID
-    paths["metadata"].write_text(
-        json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-    log("Storyboard preview created: " + str(storyboard))
-    return 0
+    """Stop before package work until an approved illustration provider exists."""
+    del feedback
+    require_approved_illustration_provider()
 
 
 def render_stage():
@@ -5249,7 +5061,7 @@ def render_stage():
     audio = paths["audio"].read_bytes()
     if len(audio) < 4096:
         raise PipelineError("Prepared soundtrack is missing or unexpectedly small.")
-    log("Rendering from saved research, script, narration and scene images. Private media is fetched only now.")
+    log("Rendering from the saved package and locally supplied media, if any.")
     active_audio_asset = metadata.get("asset", {})
     audio_source = str(active_audio_asset.get("audio_source", "generated_ambient_fallback"))
     private_audio_asset, private_audio_bytes = get_audio(
@@ -5317,11 +5129,11 @@ def render_stage():
     )
     report(final_status, "Production complete. " + json.dumps(publish_result, ensure_ascii=False)[:650],
            topic, title, stored.get("object_key", ""), stored.get("media_url", ""), output_metadata)
-    if API:
-        from analytics import collect_and_send
-        analytics_result = collect_and_send(API, JOB_TOKEN)
-    else:
-        analytics_result = {"connected": False, "reason": "dashboard_api_not_configured"}
+    analytics_result = {
+        "connected": False,
+        "reason": "external_media_service_removed",
+        "message": "Analytics upload is not configured; use the separate read-only analytics workflow."
+    }
     (OUT / "analytics.json").write_text(
         json.dumps(analytics_result, ensure_ascii=False, indent=2), encoding="utf-8"
     )
@@ -5332,6 +5144,13 @@ def main(stage="full", visual_feedback=""):
     try:
         from voiceover import require_approved_own_voice
         require_approved_own_voice()
+        if stage == "prepare":
+            require_approved_text_provider()
+        elif stage == "visuals":
+            require_approved_illustration_provider()
+        elif stage == "full":
+            require_approved_text_provider()
+            require_approved_illustration_provider()
         WORK.mkdir(exist_ok=True)
         OUT.mkdir(exist_ok=True)
         if stage == "prepare":

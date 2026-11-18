@@ -354,6 +354,7 @@ def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list
 def run_daily_plan(plan_path: Path) -> int:
     # Stop before plan validation, research fetches, soundtrack work or image generation.
     require_approved_own_voice()
+    engine.require_approved_illustration_provider()
     plan_path = Path(plan_path)
     if not plan_path.is_file():
         raise engine.PipelineError(f"ChatGPT daily plan was not found: {plan_path}")
@@ -380,16 +381,7 @@ def run_daily_plan(plan_path: Path) -> int:
         raise engine.PipelineError("YouTube publisher preflight blocked the plan: " + str(exc)) from exc
     plan["publish_metadata"] = dict(metadata_check["value"])
     # ChatGPT is the trigger and story/scene director; direct publishing stays off.
-    engine.API = ""
-    engine.JOB_TOKEN = ""
-    os.environ["AUTOPILOT_API_URL"] = ""
-    os.environ["AUTOPILOT_JOB_TOKEN"] = ""
     os.environ["PUBLISH_ENABLED"] = "false"
-
-    if not engine.CF_ACCOUNT or not engine.CF_TOKEN:
-        raise engine.PipelineError(
-            "CF_ACCOUNT_ID and CF_AI_TOKEN are required for original scene illustrations."
-        )
 
     audio_asset, audio_bytes = engine.get_audio(prefer_creator_assets=False)
     if not audio_bytes or len(audio_bytes) < 4096:
