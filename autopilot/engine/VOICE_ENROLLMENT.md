@@ -1,6 +1,6 @@
 # Violin Prince own-voice enrollment
 
-**Status (2026-11-18):** The private browser Voice Vault is merged and deployed on GitHub Pages. The owner confirmed that the encrypted `.vprvoice` package was saved to private Google Drive. The public Qwen3-TTS preflight passed package/API checks and loaded the 0.6B Base model on a standard CPU runner. No personal recording has been decrypted by GitHub Actions, no voice sample has been generated, and production narration remains locked.
+**Status (2026-11-18):** The private browser Voice Vault is deployed and the encrypted `.vprvoice` package is stored in the dedicated private repository `baidyaprince69-web/violin-prince-private-voice`. In private Actions run `44301408133`, encrypted-package verification, decryption inside the temporary runner, Qwen3-TTS installation, sample generation and sample validation all succeeded. The final artifact upload failed because the account's Actions storage quota was full; there is currently no downloadable sample. Temporary decrypted reference files and model cache were removed successfully. The owner has not listened to or approved a sample, so production narration remains locked.
 
 ## Private enrollment page
 
@@ -36,4 +36,4 @@ The public repository must never contain the encrypted voice package, raw record
 
 ## Current production state
 
-`autopilot/engine/voiceover.py` is intentionally fail-closed. Both the legacy staged runner and the ChatGPT daily-plan runner stop before research, soundtrack preparation, image generation or rendering. The Qwen test template does not unlock production. No generated sample is currently approved, and no provider is connected to production.
+`autopilot/engine/voiceover.py` remains intentionally fail-closed. The Qwen sample was generated but could not be uploaded as an Actions artifact because storage was full, so the owner cannot yet review it. Both the own-voice gate and the text/illustration provider gates remain closed; production must not run until all three are genuinely configured and tested. The scheduled readiness gate checks these conditions and skips the expensive job when any blocker remains.
