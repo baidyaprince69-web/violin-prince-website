@@ -1,33 +1,34 @@
-# Violin Prince — isolated Qwen3-TTS test path
+# Violin Prince — own-voice testing
 
-**Verified on 2026-11-18:** the GitHub Actions preflight passed for the pinned `qwen-tts==0.1.1` package, the Base voice-cloning API, and loading the public `Qwen/Qwen3-TTS-12Hz-0.6B-Base` checkpoint on the standard CPU runner.
+**Verified 2026-11-18:** the public, data-free GitHub Actions preflight passed for the pinned `qwen-tts==0.1.1` package, Base voice-cloning API signatures, and loading the public `Qwen/Qwen3-TTS-12Hz-0.6B-Base` checkpoint on a standard CPU runner.
 
 ## What passed
 
-1. Install the pinned official `qwen-tts==0.1.1` package.
+1. Install the pinned Qwen3-TTS package.
 2. Verify the Base voice-cloning API signatures.
-3. Download and initialise the 0.6B Base checkpoint on the standard GitHub-hosted CPU runner.
-4. Confirm the loaded checkpoint reports model type `base` and exposes both voice-cloning methods.
+3. Download and initialise the public 0.6B Base checkpoint on the standard GitHub-hosted CPU runner.
+4. Confirm that the loaded checkpoint reports model type `base` and exposes both voice-cloning methods.
 
-The verified run is [44174265210](https://github.com/baidyaprince69-web/violin-prince-website/actions/runs/44174265210).
+The completed preflight run is [44174265210](https://github.com/baidyaprince69-web/violin-prince-website/actions/runs/44174265210).
 
 ## What this does not prove
 
-- It does not synthesise any audio.
-- It does not use the creator's voice recording or transcript.
-- It does not prove voice similarity, pronunciation quality, latency for a full narration, or production readiness.
-- It does not enable Qwen in the production engine.
+- It does not read or decrypt the owner's recording.
+- It does not synthesise speech.
+- It does not measure similarity to the owner's voice.
+- It does not prove pronunciation, alignment, CPU inference speed or production readiness.
+- It does not enable a narrator in the production engine.
 
-The standard CPU runner can load the 0.6B Base model. Actual CPU synthesis still needs a separate controlled test and may be slow. A GPU runner is not assumed.
+The standard CPU runner loaded the model successfully. Actual CPU synthesis is a separate test and may be slow. A GPU runner is not assumed.
 
 ## Data boundary
 
-This workflow has no audio input, Google Drive integration, passphrase secret, decrypted WAV, reference transcript, or upload step. It downloads only public Qwen model weights. It does not read the encrypted `.vprvoice` package.
+This public preflight has no audio input, Google Drive connection, passphrase secret, decrypted WAV, transcript or output-audio artifact. It downloads public model weights only.
 
-The passphrase remains in the creator's Notepad on their own computer. GitHub Actions cannot read a local Notepad. Never add a voice recording, decrypted WAV, transcript, passphrase, access token, voice embedding, or cloned-voice profile to this public repository, Actions logs, artifacts, or releases.
+The copy-ready private test workflow and helpers are in `.github/voice-tests/private-runner/`. They are templates only; this public repository does not run them with personal voice material. The real test must be run manually from a dedicated private repository. The encrypted package stays in that private repository, the passphrase is a repository Actions secret, the decrypted reference exists only in the temporary runner workspace, and only the generated sample is uploaded as a short-retention artifact in the private repository.
 
-Before a real voice-cloning test, a separately approved private data-transfer and decryption design is required. The encrypted package remains in the creator's Google Drive until that path exists.
+Never put a voice recording, encrypted package, decrypted WAV, transcript, passphrase, OAuth token, voice embedding, cloned-voice profile or generated sample in this public repository, its logs, artifacts or releases.
 
 ## Production boundary
 
-The production `autopilot/engine/voiceover.py` remains unchanged by this preflight and currently uses Kokoro. This PR does not switch the narrator and does not claim that production uses the creator's voice. A separate production safety change must make narration fail closed while the approved own-voice provider is unavailable. No generic, preset-speaker, third-party, or Kokoro fallback may be used for the creator's own-voice-only workflow.
+The production code has a hard fail-closed own-voice gate. `voiceover.py` raises `OwnVoiceRequiredError` until the owner's voice has been tested and approved and an actual provider integration is complete. No generic, preset-speaker, third-party or Kokoro fallback is permitted. The public Qwen preflight and private test template cannot unlock production.
