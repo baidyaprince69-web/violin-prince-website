@@ -219,7 +219,7 @@ class StagedPipelineTests(unittest.TestCase):
     def test_visual_stage_fails_closed_without_approved_image_provider(self):
         with self.assertRaisesRegex(
             pipeline.PipelineError,
-            "disabled until an approved illustration provider is configured",
+            "No approved illustration-generation provider is configured",
         ):
             pipeline.visuals_stage()
 
