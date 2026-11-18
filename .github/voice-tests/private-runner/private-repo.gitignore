@@ -1,0 +1,7 @@
+# In the private test repository, allow only the encrypted reference package.
+# Do not commit original recordings, decrypted audio, transcripts or sample WAVs.
+/private/*
+!/private/voice-prince-voice.vprvoice
+/reference.wav
+/reference.txt
+/voice-sample.wav
