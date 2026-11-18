@@ -145,25 +145,21 @@ class OwnVoiceRequiredError(RuntimeError):
 
 
 def require_approved_own_voice() -> None:
-    """Stop every production stage until the creator's own voice is tested and approved.
+    """Keep production closed until the private Qwen3 narration bridge passes its end-to-end test.
 
-    This is intentionally hard-coded closed. A future provider integration must
-    replace this gate only after real voice tests, timing checks and explicit
-    creator approval. Environment variables or workflow inputs cannot unlock it.
+    The user has approved the sample, but the complete production narration,
+    transcript verification, word timings, and authenticated handoff must pass
+    before this gate can be opened. No environment flag can bypass this hold.
     """
     raise OwnVoiceRequiredError(
-        "Production is locked: the creator's own-voice model has not passed "
-        "voice testing and approval. Research, visuals and rendering are stopped "
-        "to prevent wasted API calls or use of an unapproved narrator."
+        "Production is locked: the private Qwen3 narration bridge has not passed "
+        "its complete end-to-end test. Research, visuals and rendering are stopped "
+        "until the full narration handoff is verified."
     )
 
 
 def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict]:
-    """Fail closed until a user-approved own-voice provider is integrated.
-
-    The legacy Kokoro speaker must not be used as a silent fallback. The next
-    implementation must provide the creator's own tested voice, verified
-    timing data, and an explicit approval gate before this function can render.
-    """
-    del text, output_path
+    """Generate narration through the private Qwen3 worker after the global gate opens."""
     require_approved_own_voice()
+    from private_voice_client import generate_private_voiceover
+    return generate_private_voiceover(text, output_path)
