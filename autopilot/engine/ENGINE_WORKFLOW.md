@@ -435,16 +435,13 @@ No plaintext voice recording, normalized WAV, transcript, passphrase, OAuth toke
 
 This is an enrollment UI, not a running voice-cloning system. The production `voiceover.py` now fails closed: narration cannot be generated until Qwen3-TTS and GPT-SoVITS have each been tested with the creator's own voice, hosting/quota/licence and alignment are validated, and the creator approves a production provider. The approved identity must remain the creator's own voice. If neither provider can produce acceptable narration, keep production stopped; never substitute Kokoro, a preset speaker, or another person's voice.
 
+## Addendum — private own-voice test boundary (2026-11-18)
 
-## Addendum — encrypted voice package handoff to private R2 (2026-11-18)
+- The Voice Vault is merged and deployed; the owner confirmed that the encrypted `.vprvoice` package was saved to private Google Drive.
+- The public Qwen3-TTS preflight tested package/API compatibility and loaded the 0.6B Base model on CPU. It did not read the user's recording or generate audio.
+- The actual Qwen voice test is a separate, manually triggered workflow template under `.github/voice-tests/private-runner/`. It must be copied into a dedicated private repository before any personal voice data is processed.
+- The private test repository holds the encrypted package. The passphrase is an Actions secret; decrypted reference audio and transcript exist only in the temporary runner workspace. The generated sample is a one-day artifact in the private repository. The public repository and its Actions artifacts never receive personal voice material.
+- The R2 encrypted voice-package upload/retrieval feature has been removed. The private voice-test route does not use a Cloudflare Worker or R2 storage.
+- The existing video-production engine still contains its earlier Cloudflare Workers AI text/illustration integration and its optional Cloudflare Worker media/dashboard service. Those are separate from voice enrollment and are not part of the private voice-test route. Removing those broader video-engine dependencies requires a replacement provider for research text and scene illustrations; no replacement has been selected or verified here.
 
-**Implementation status:** dashboard and Worker routes are on the isolated feature branch for review. They are not live until merged and the Cloudflare deployment workflow succeeds.
-
-- The dashboard accepts only the encrypted `.vprvoice` package. It checks the public package header but never decrypts it and never asks for the passphrase. Before the first upload, verify that the R2 bucket's Public Development URL is disabled and no custom domain is enabled.
-- `POST /api/voice-packages` requires the existing dashboard bearer token and accepts only a `.vprvoice` file up to 50 MB. The Worker checks the package magic and PBKDF2 iteration header, then stores the ciphertext in the existing private R2 bucket under a random opaque ID. It does not add the package to D1 or produce a public/signed URL.
-- `GET /internal/voice-packages/{package_id}` requires the internal job bearer token and streams the encrypted bytes with `Cache-Control: private, no-store`. `DELETE /api/voice-packages/{package_id}` requires the dashboard bearer token.
-- A scheduled cleanup removes copied encrypted voice packages from R2 after 30 days. The owner's encrypted Google Drive copy remains the durable backup.
-- This is only a ciphertext handoff. No decryption, model inference, voice sample generation, or private GitHub Actions test-runner integration is included yet.
-- The public website repository contains implementation code only. It must never contain the encrypted package, raw recording, normalized WAV, transcript, passphrase, OAuth token, voice embedding, or generated voice sample.
-
-The separate private GitHub Actions repository and the approved secret-input process must be established before a real Qwen voice-cloning test. The passphrase remains in the creator's Notepad unless the creator independently chooses to enter it into an approved GitHub Actions secret after reviewing the data-processing arrangement with a parent or guardian. Never use a workflow input or log for the passphrase.
+Production narration stays blocked by the fail-closed own-voice gate until a real sample is reviewed, the owner approves it, and the provider is integrated and tested.
