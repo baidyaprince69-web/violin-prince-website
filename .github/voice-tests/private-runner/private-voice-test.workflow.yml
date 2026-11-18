@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   generate-private-sample:
-    if: github.event.repository.private == true && github.actor == github.repository_owner
+    if: github.event.repository.private == true && github.actor == github.repository_owner && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -49,6 +49,11 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/voice/decrypt_vprvoice.mjs "$VOICE_PACKAGE_PATH" "$VOICE_WORK_DIR"
+
+      - name: Install SoX runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sox libsox-fmt-all
 
       - name: Set up Python
         uses: actions/setup-python@v5
