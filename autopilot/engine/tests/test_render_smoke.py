@@ -129,7 +129,7 @@ class FFmpegRenderSmokeTests(unittest.TestCase):
             self.assertEqual(quality["height"], 1280)
             self.assertEqual(quality["video_codec"], "h264")
             self.assertAlmostEqual(quality["fps"], 8.0, places=1)
-            self.assertEqual(quality["motion_timing_source"], "Kokoro-native word timestamps")
+            self.assertEqual(quality["motion_timing_source"], "approved own-voice model-native word timestamps")
             self.assertTrue(quality["speech_led_motion"])
             self.assertEqual(len(quality["motion_scene_timeline"]), 3)
             self.assertTrue(all(item["word_cue_count"] >= 0 for item in quality["motion_scene_timeline"]))
