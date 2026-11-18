@@ -110,6 +110,16 @@ def _wait_for_run(session: requests.Session, token: str, request_id: str,
     )
 
 
+def _select_private_draft_release(releases: list[dict], tag: str) -> dict | None:
+    """Select a matching draft release from GitHub's authenticated release listing."""
+    for release in releases:
+        if isinstance(release, dict) and release.get("tag_name") == tag:
+            if release.get("draft") is not True:
+                raise PrivateVoiceBridgeError("The private narration release was published unexpectedly.")
+            return release
+    return None
+
+
 def _download_asset(session: requests.Session, token: str, asset: dict, limit: int) -> bytes:
     if asset.get("state") != "uploaded":
         raise PrivateVoiceBridgeError("A private narration release asset is not fully uploaded.")
