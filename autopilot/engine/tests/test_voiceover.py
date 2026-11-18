@@ -68,7 +68,7 @@ class KaraokeCaptionTests(unittest.TestCase):
             output = Path(folder) / "must-not-be-created.wav"
             with self.assertRaisesRegex(
                 OwnVoiceRequiredError,
-                "own-voice model has not passed voice testing and approval",
+                "private Qwen3 narration bridge has not passed its complete end-to-end test",
             ):
                 synthesize_voiceover(
                     "This narration must never be rendered by a fallback voice.",

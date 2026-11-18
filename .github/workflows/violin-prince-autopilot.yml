@@ -258,10 +258,13 @@ jobs:
         env:
           RUN_ID: ${{ github.run_id }}
           PUBLISH_ENABLED: "false"
+          PRIVATE_VOICE_REPO_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
         run: python autopilot/engine/run_daily_plan.py --plan "${{ steps.daily_request.outputs.plan_path }}"
 
       - name: Run complete Prepare → Visuals → Render sequence
         if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path == ''
+        env:
+          PRIVATE_VOICE_REPO_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
         run: python autopilot/engine/run.py --stage full
 
       - name: Publish finished MP4 and publisher handoff as release assets
