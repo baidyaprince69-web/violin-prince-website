@@ -29,11 +29,14 @@ def main() -> None:
     )
     if getattr(model.model, "tts_model_type", None) != "base":
         raise SystemExit("The selected checkpoint is not a Qwen3-TTS Base model.")
-    waveforms, sample_rate = model.generate_voice_clone(
-        text=TEST_TEXT, language="English",
-        ref_audio=str(args.reference_wav), ref_text=reference_text,
-        x_vector_only_mode=False, non_streaming_mode=True, max_new_tokens=256,
-    )
+    try:
+        waveforms, sample_rate = model.generate_voice_clone(
+            text=TEST_TEXT, language="English",
+            ref_audio=str(args.reference_wav), ref_text=reference_text,
+            x_vector_only_mode=False, non_streaming_mode=True, max_new_tokens=256,
+        )
+    finally:
+        reference_text = ""
     if not waveforms:
         raise SystemExit("Qwen did not return a sample.")
     waveform = np.asarray(waveforms[0], dtype=np.float32).reshape(-1)
@@ -45,8 +48,10 @@ def main() -> None:
     sf.write(args.output, waveform, sample_rate, subtype="PCM_16")
     info = sf.info(args.output)
     if info.samplerate != sample_rate or info.duration < 2 or not math.isfinite(info.duration):
+        waveform.fill(0)
         raise SystemExit("The generated WAV failed output validation.")
     print("Qwen3-TTS CPU voice sample generated and validated.")
+    waveform.fill(0)
     del waveform, waveforms, model
 
 if __name__ == "__main__":
