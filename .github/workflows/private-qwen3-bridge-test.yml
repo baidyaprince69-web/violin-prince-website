@@ -17,7 +17,6 @@ jobs:
     timeout-minutes: 100
     env:
       PRIVATE_VOICE_TIMEOUT_SECONDS: "5100"
-      PRIVATE_VOICE_REPO_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
       RUN_ID: ${{ github.run_id }}
     steps:
       - name: Check out Violin Prince production code and daily plan
@@ -52,6 +51,7 @@ jobs:
 
       - name: Generate private Qwen3 narration and verify word timings
         env:
+          PRIVATE_VOICE_REPO_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
           NARRATION_OUTPUT_PATH: ${{ runner.temp }}/private-qwen3-narration.wav
         run: python autopilot/engine/private_voice_client.py
 
