@@ -90,7 +90,7 @@ jobs:
 
       - name: Confirm the production runners contain no Cloudflare or Worker credentials
         run: |
-          if grep -nE 'CF_ACCOUNT_ID|CF_AI_TOKEN|AUTOPILOT_API_URL|AUTOPILOT_JOB_TOKEN|api\\.cloudflare\\.com|Workers AI|Cloudflare' \
+          if grep -niE 'CF_ACCOUNT_ID|CF_AI_TOKEN|AUTOPILOT_API_URL|AUTOPILOT_JOB_TOKEN|api\\.cloudflare\\.com|cloudflare|workers[[:space:]]+ai' \\
             .github/workflows/violin-prince-autopilot.yml \
             autopilot/engine/run.py autopilot/engine/run_daily_plan.py; then
             echo "::error::A Cloudflare or Worker dependency remains in the production runner."
