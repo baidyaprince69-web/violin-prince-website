@@ -163,13 +163,13 @@ The daily ChatGPT route validates the same source/date/freshness/channel-fit gat
 
 ## One-click production and stage recovery
 
-The default **Full** option runs Prepare → Visuals → Render in one GitHub Actions job. It is the normal one-click path. If a stage fails, the diagnostic artifact preserves the completed package, images and logs so you can repair only the failed stage rather than repeat earlier work.
+The Full/Prepare/Visuals/Render stage choices remain in the workflow for recovery compatibility, but production is currently locked. The first step of each runner checks the own-voice approval gate and exits before research, narration, remote generation or rendering.
 
-1. **Prepare** — fetch research, select a sourced music-fact story, create narration and save a package. It records private R2 asset IDs and safe metadata, not raw uploaded media bytes.
-2. **Visuals** — create the three scene images and build `storyboard-preview.png`. It proceeds only after automated editorial quality gates pass.
-3. **Render** — fetch the selected private audio/video from R2, use the creator's real performance in Scene 3 when available, and assemble the MP4. It makes no Cloudflare Workers AI calls.
+1. **Prepare** — intended to fetch research, select a sourced music-fact story and save a package. Currently blocked before research.
+2. **Visuals** — intended to create scene plates and a storyboard. Currently disabled until an approved illustration provider is configured.
+3. **Render** — intended to assemble a saved package. Currently blocked by the own-voice production gate.
 
-For repairs, choose **Prepare** when the story itself needs changing. Choose **Visuals** and provide the previous run ID to regenerate scene images. Choose **Render** and provide the successful Prepare/Visuals run ID to assemble the saved package. A failed Full run ID can be used to recover preserved research with Prepare. Valid scene images are reused on partial Visuals retries.
+After the own-voice sample is reviewed and approved, the text-planning and illustration providers must also be selected and tested before these stages can be re-enabled. A failed Full run ID can be used to recover preserved research with Prepare. Valid scene images are reused on partial Visuals retries.
 
 
 
