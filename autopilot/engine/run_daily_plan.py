@@ -354,6 +354,7 @@ def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list
 def run_daily_plan(plan_path: Path) -> int:
     # Stop before plan validation, research fetches, soundtrack work or image generation.
     require_approved_own_voice()
+    engine.require_approved_illustration_provider()
     plan_path = Path(plan_path)
     if not plan_path.is_file():
         raise engine.PipelineError(f"ChatGPT daily plan was not found: {plan_path}")
