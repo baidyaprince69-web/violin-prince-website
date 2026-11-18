@@ -4,11 +4,11 @@ This bridge keeps the enrolled reference voice private while allowing the public
 
 ## Data flow
 
-1. The public Actions workflow sends the current 40–44-word narration script and its numeric run ID to the private repository's `private-qwen3-narration.yml` workflow.
+1. The public Actions workflow sends the current 37–38-word narration estimate, calibrated from the prior 40-word generation that lasted 24.08 seconds and its numeric run ID to the private repository's `private-qwen3-narration.yml` workflow.
 2. The private runner checks `private/voice-approval.json`, decrypts the voice package only in its temporary workspace, and generates audio with `Qwen/Qwen3-TTS-12Hz-0.6B-Base`.
 3. The private runner uses `faster-whisper==1.2.1` with `word_timestamps=True` to estimate word boundaries using cross-attention and dynamic time warping. It independently checks that the recognized word sequence exactly matches the requested script. Missing, extra, reordered, or low-coverage word timings fail the job.
 4. The private runner stores only `narration.wav` and `narration.json` in a private draft release. It never uploads the reference WAV, decrypted transcript, or model cache.
-5. The public renderer downloads those two assets into its ephemeral runner workspace, verifies checksums, script hash, exact word sequence, timing order, audio format, and sentence coverage, then writes the narration WAV to the render workspace. It does not put the narration WAV in public artifacts or a public release.
+5. The public renderer downloads those two assets into its ephemeral runner workspace, verifies checksums, script hash, exact word sequence, timing order, audio format, the 22.0–23.0-second raw-duration target, and sentence coverage, then writes the narration WAV to the render workspace. It does not put the narration WAV in public artifacts or a public release.
 
 Qwen3's `generate_voice_clone` interface returns generated waveforms and a sample rate, not per-word timing cues. The timing step therefore uses a separate speech-recognition pass. This is transcript-checked word timing, not a phoneme-level forced alignment.
 
@@ -30,6 +30,6 @@ Never paste the token into chat, source code, workflow inputs, or a commit. Do n
 
 ## Run the first complete narration test
 
-After the bridge PRs are reviewed and merged, run **Private Qwen3 narration bridge test** from the public repository's Actions tab. It uses the current `.autopilot/daily-production-plan.json` narration. The workflow does not render a video, publish anything, or upload a public artifact. The private repository retains the resulting draft release so the narration can be downloaded and listened to.
+After both bridge PRs are reviewed, merged, and the first end-to-end test is started, run **Private Qwen3 narration bridge test** from the public repository's Actions tab. It uses the current `.autopilot/daily-production-plan.json` narration. The workflow does not render a video, publish anything, or upload a public artifact. The private repository retains the resulting draft release so the narration can be downloaded and listened to.
 
 The production voice gate remains closed until the bridge test completes successfully. The separate illustration-provider gate remains unchanged.
