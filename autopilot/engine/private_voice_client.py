@@ -153,8 +153,8 @@ def validate_private_narration(script: str, wav_bytes: bytes, metadata: dict) ->
 
     script = _normalise_script(script)
     expected_words = WORD_RE.findall(script)
-    if not 22 <= len(expected_words) <= 23:
-        raise PrivateVoiceBridgeError("Narration must contain 22–23 words for the natural 22–23-second target.")
+    if not 37 <= len(expected_words) <= 38:
+        raise PrivateVoiceBridgeError("Narration must contain 37–38 words, calibrated for a natural 22–23-second delivery.")
     expected_hash = hashlib.sha256(script.encode("utf-8")).hexdigest()
     if metadata.get("schema_version") != 1 or metadata.get("script_sha256") != expected_hash:
         raise PrivateVoiceBridgeError("Private narration metadata does not match the requested script.")
