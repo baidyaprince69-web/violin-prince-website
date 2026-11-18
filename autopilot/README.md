@@ -6,12 +6,12 @@ A cloud-first short-video production pipeline. GitHub-hosted runners do the prod
 
 ChatGPT is the only daily scheduler. Its existing daily automation prepares one sourced production plan, writes `.autopilot/daily-production-plan.json` to `main`, then updates `.autopilot/prepare-request.json` to trigger this workflow. The GitHub Actions runner produces the MP4 and creates a public GitHub Release asset. ChatGPT then reads that release and schedules the YouTube Short through the connected Metricool brand with automatic publishing enabled.
 
-- The daily route re-fetches publisher article pages, verifies exact narration evidence quotes and dates, synthesizes narration with Kokoro, generates three original scene illustrations through Cloudflare Workers AI, renders animated HTML scenes with Motion + HyperFrames, then uses the existing FFmpeg finishing and media QA.
-- The daily route uses Cloudflare image generation for scene plates. It does not use a video-generation service; if image generation is unavailable or quota-limited, the run stops rather than producing placeholder illustrations.
+- The production entry points are currently locked before research or rendering until the creator's own voice has been tested and explicitly approved. There is no Kokoro, preset, generic or third-party narrator fallback.
+- The former Cloudflare-based text, image and media services have been removed. No replacement text-planning or illustration provider is currently configured; those stages must stop until an approved non-Cloudflare provider is selected and tested.
 - The final scene is a symbolic violin-performance visual unless a permitted creator recording is deliberately added; generated/sample violin audio must never be described as a live recording by the creator.
 - The daily route keeps direct publishing disabled in GitHub. ChatGPT schedules the public release asset through Metricool after the YouTube audience setting has been confirmed. vidIQ remains available for channel research/optimisation; its draft publishing flow requires the user to approve each exact draft.
-- The GitHub cron schedule has been removed. Do not add a second GitHub or Cloudflare scheduler; ChatGPT is the daily operator.
-- The existing manual `workflow_dispatch` full/Prepare/Visuals/Render route remains available as a legacy recovery path and still uses its existing Cloudflare AI secrets.
+- The GitHub cron schedule has been removed. ChatGPT is the daily operator and triggers the request-file push.
+- The manual `workflow_dispatch` stage selector remains visible, but all production stages currently stop at the own-voice gate. The Visuals stage also remains disabled until an approved non-Cloudflare illustration provider is configured.
 
 ## Approved channel identity and production format
 
@@ -193,13 +193,9 @@ A story with fewer than two independent, readable, article-specific publisher so
 
 ## Add your real violin performance
 
-Use the **Private media library** on the Autopilot dashboard to upload media. Files are stored in your private Cloudflare R2 bucket; raw uploads are not included in downloadable GitHub Actions package or diagnostic artifacts.
+The previous Cloudflare-backed Autopilot media dashboard has been removed. This repository currently has no remote creator-media upload service. Use the symbolic violin-performance visual until a safe, private creator-media input route is implemented.
 
-- **Performance video (Scene 3):** MP4, MOV or WebM, up to 90 MB and 10 minutes. Upload a take you recorded yourself or have permission to use. The final scene uses the real footage as its main visual, preserves the whole frame and adds a blurred background fill when the original video is landscape. If the video contains audio, that sound enters with the performance scene and the music bed fades down.
-- **Music bed (optional):** MP3, WAV, FLAC, M4A, AAC or OGG. It plays under narration; the performance video's own audio is brought forward in Scene 3 when present.
-- Confirm that you own or have permission to use both the recording and the underlying composition before uploading. Do not upload private material you are not comfortable using in the final video.
-
-The prepared package stores only the private R2 asset ID and safe metadata. During Render, the exact audio/video asset is fetched through the authenticated Worker into a temporary private-media directory. That directory is excluded from workflow artifacts. The diagnostic artifact also excludes the intermediate Scene 3 performance clip and final MP4; the final MP4 is uploaded separately as the video-preview artifact and contains the selected performance.
+Creator performance video and custom soundtrack upload are not currently available through the Autopilot dashboard. Do not commit private recordings to this public repository. The production path will use its approved symbolic fallback until a separately reviewed private input mechanism is implemented.
 
 If no performance video is uploaded, Scene 3 uses its generated cinematic violin-performance visual. If no custom music bed is uploaded, the cloud runner creates a solo violin bed from the CC0 String Studio / VSCO 2 CE sample pack; if sample retrieval fails, it uses the ambient fallback.
 
@@ -241,12 +237,10 @@ Artifacts are retained for 14 days. Keep the relevant successful run IDs until y
 ## Services, limits and privacy
 
 - **GitHub Actions** runs the stages in the cloud. No local PC processing is required.
-- The Cloudflare deploy workflow saves `AUTOPILOT_API_URL` as an Actions secret and configures the Worker-side `JOB_TOKEN` from the repository's `AUTOPILOT_JOB_TOKEN` secret. The production workflow passes both secrets into the render job so uploaded dashboard media can be retrieved by the runner.
-- The Cloudflare deploy workflow requires repository secrets `CF_DEPLOY_TOKEN`, `CF_ACCOUNT_ID`, `DASHBOARD_TOKEN`, `AUTOPILOT_JOB_TOKEN` and `GH_DISPATCH_TOKEN`. Do not paste their values into source code or chat.
-- **Cloudflare Workers AI** is used in Prepare, Visuals and ChatGPT daily scene-image generation. The daily route uses FLUX.1-schnell for still images; the GitHub runner handles narration, motion graphics and FFmpeg rendering. The workflow stops on permission, quota or rate-limit errors; it has no paid fallback.
-- **Kokoro-82M** creates the synthetic narration on a CPU runner. Model weights are Apache-2.0.
-- **Motion + HyperFrames** animate and render the daily composition frame-by-frame. **Pillow** remains in the legacy manual renderer; **FFmpeg** performs final audio mixing, captions, MP4 encoding and QA.
-- Cloudflare Worker, D1 and private R2 are used for the dashboard and private media library. GitHub Actions fetches uploaded media only during Render; raw uploaded media files are not attached to the downloadable package/diagnostic artifacts.
+- **Cloudflare is not part of the current Autopilot.** Its former Worker, D1, R2, Workers AI and deployment workflow have been removed. The production workflow requires no Cloudflare secrets or account.
+- **Voice:** production narration uses only the creator's tested and approved own voice. The current fail-closed gate prevents all production stages until the voice sample is approved. Kokoro and other generic narrator fallbacks are prohibited.
+- **Text and illustration providers:** no provider is currently configured. These stages remain disabled until a non-Cloudflare option is selected, reviewed and tested.
+- **Motion + HyperFrames** remain the intended renderer; **Pillow** remains in the legacy local/manual rendering path; **FFmpeg** performs final audio mixing, captions, MP4 encoding and QA once production is unlocked.
 - GitHub Actions keeps direct publishing disabled (`PUBLISH_ENABLED=false`); ChatGPT hands a successful public release asset to Metricool for YouTube scheduling.
 - There is no GitHub cron schedule. The separate ChatGPT daily automation owns the schedule and triggers this workflow by updating the request file.
 - Do not put API tokens or passwords in prompts, files, source code or chat. Keep tokens in GitHub repository Actions secrets.
@@ -282,7 +276,7 @@ The ChatGPT request file remains the only daily trigger. The main workflow now f
 
 1. **ChatGPT Trigger** — `.autopilot/prepare-request.json` points to the current source-checked daily plan.
 2. **AI Story & Scene Director** — the daily runner verifies publisher evidence, narration, scene order, and channel fit.
-3. **Illustration & Character Asset Factory** — Cloudflare Workers AI creates each scene's illustration plate. The character asset factory validates and stages separate original character artwork.
+3. **Illustration & Character Asset Factory** — currently disabled until a non-Cloudflare image provider is selected and tested. The character asset factory can still validate and stage separate original character artwork.
 4. **Character Rig** — torso, head, face, left/right upper arms, forearms and hands are separate layers. Normalised neck/shoulder/elbow/wrist joints provide pivot anchors. The plan can select poses, gestures and facial-expression artwork for each scene.
 5. **Motion** — Motion for JavaScript generates deterministic spring-sampled keyframes for movement, gestures, entrances, transitions and expression changes. Animations are paused and seekable.
 6. **HyperFrames** — the HTML composition is linted and rendered frame-by-frame with a fixed FPS and timeline. Motion's Web Animations are driven by HyperFrames' seek-based WAAPI adapter.
