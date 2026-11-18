@@ -330,8 +330,8 @@ The release is a handoff package, not proof of YouTube publication.
 - The request uses the verified `default` profile, `add_to_queue=true`, and an idempotency key derived from profile/platform/production date so a retried workflow cannot enqueue duplicate daily posts.
 - The profile queue is configured for `Asia/Kolkata`, every day at 19:00, with one post per slot. Upload-Post returns the queue `job_id` and scheduled time; the workflow records these in its Actions step summary.
 - GitHub Actions requires the `UPLOAD_POST_API_KEY` repository secret. Store the key only in GitHub Actions Secrets; never place it in source files, workflow inputs, plans, artifacts or logs.
-- A scheduled preflight runs at 09:30 UTC (15:00 IST). It launches the production job only if today's ChatGPT-authored plan has the matching `production_date`, own-voice approval and both text/illustration provider gates are open, and the Upload-Post secret is configured.
-- The scheduled trigger does **not** invent or refresh a daily story. The ChatGPT-authored plan must be refreshed for the current India date. A stale plan or any closed gate causes a cheap preflight skip before model installation or rendering.
+- A scheduled preflight runs at 09:30 UTC (15:00 IST). It launches the production job only if today's ChatGPT-authored plan has the matching `production_date`, own-voice and illustration gates are open, and the Upload-Post secret is configured.
+- The scheduled trigger does **not** invent or refresh a daily story. A fresh ChatGPT-authored plan must be committed for the current India date; there is no background ChatGPT plan-generation service. A stale plan or any closed gate causes a cheap preflight skip before model installation or rendering.
 - The final MP4 release asset is the publishing source; the redundant Actions video preview is retained for one day and diagnostic artifacts for three days.
 
 The GitHub Release is a public handoff asset, not proof of YouTube publication. Only a returned Upload-Post queue job confirms scheduling. Verify the eventual YouTube post and its visibility after publication.
