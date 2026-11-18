@@ -2782,7 +2782,7 @@ def ai(model, payload, timeout=180):
 
 
 def recent_topics():
-    """Read recent successful topics from D1 when the optional Worker is configured."""
+    """Return no persisted history until a local, provider-independent store is implemented."""
     return []
 
 
@@ -5034,10 +5034,10 @@ def prepare_stage():
 
 
 def visuals_stage(feedback=""):
-    """Stop until a non-Cloudflare illustration provider has been selected and tested."""
+    """Stop until an approved illustration provider has been selected and tested."""
     del feedback
     raise PipelineError(
-        "The Visuals stage is disabled until an approved non-Cloudflare illustration provider is configured."
+        "The Visuals stage is disabled until an approved illustration provider is configured."
     )
 
 
