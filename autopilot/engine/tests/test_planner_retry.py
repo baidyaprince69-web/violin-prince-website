@@ -93,8 +93,10 @@ class PlannerNarrationValidationTests(unittest.TestCase):
             "title": "MIT engineers develop a virtual violin",
             "summary": "The virtual violin produces realistic sounds.",
             "evidence_text": (
-                "The publisher reports that MIT engineers developed a virtual violin "
-                "and describes its realistic sound production."
+                "The publisher reports that MIT engineers developed a detailed computational "
+                "model of a virtual violin instrument. Its plucked strings produce remarkably "
+                "realistic sounds. The model simulates string motion and predicts how violin "
+                "bodies shape sound."
             ),
             "publisher_domain": "publisher.example",
             "url": "https://publisher.example/story-about-a-violin",
