@@ -9,13 +9,14 @@ These files are **templates only**. They are deliberately outside `.github/workf
 | `private-voice-test.workflow.yml` | `.github/workflows/private-voice-test.yml` |
 | `decrypt_vprvoice.mjs` | `scripts/voice/decrypt_vprvoice.mjs` |
 | `generate_qwen_voice_sample.py` | `scripts/voice/generate_qwen_voice_sample.py` |
+| `private-repo.gitignore` | `.gitignore` (rename it when copying) |
 
 The public decryption-helper test uses generated synthetic audio and a test-only passphrase. It never reads personal files or secrets.
 
 ## Private repository setup
 
 1. Create a new, dedicated repository (suggested name: `violin-prince-private-voice`) and set it to **Private**. Do not reuse an unrelated private project.
-2. Copy the three files above to the listed destinations.
+2. Copy the workflow and two scripts to the listed destinations. Copy `private-repo.gitignore` to the private repository root as `.gitignore`. It permits only the encrypted package at the expected path and ignores decrypted/reference and sample WAV files.
 3. From the private Google Drive Voice Vault folder, download the encrypted `.vprvoice` package. Upload only that encrypted file to `private/voice-prince-voice.vprvoice` in the private repository. Do not upload the original audio, normalized WAV or transcript.
 4. In the private repository's Settings → Secrets and variables → Actions, create a repository secret named `VOICE_PACKAGE_PASSPHRASE`. Enter the passphrase directly into GitHub's secret editor. Never put it in a workflow input, source file, commit, issue, chat, log or artifact.
 5. Run **Private own-voice Qwen3 sample** manually from the private repository's Actions tab.
