@@ -17,7 +17,7 @@ The public decryption-helper test uses generated synthetic audio and a test-only
 
 1. Create a new, dedicated repository (suggested name: `violin-prince-private-voice`) and set it to **Private**. Do not reuse an unrelated private project.
 2. Copy the workflow and two scripts to the listed destinations. Copy `private-repo.gitignore` to the private repository root as `.gitignore`. It permits only the encrypted package at the expected path and ignores decrypted/reference and sample WAV files.
-3. From the private Google Drive Voice Vault folder, download the encrypted `.vprvoice` package. Upload only that encrypted file to `private/voice-prince-voice.vprvoice` in the private repository. Do not upload the original audio, normalized WAV or transcript.
+3. From the private Google Drive Voice Vault folder, download the encrypted `.vprvoice` package. Upload only that encrypted file to `private/voice-prince-voice.vprvoice` in the private repository. Do not upload the original audio, normalized WAV or transcript. Keep the encrypted package in that private repository only; never commit it to the public website repository.
 4. In the private repository's Settings → Secrets and variables → Actions, create a repository secret named `VOICE_PACKAGE_PASSPHRASE`. Enter the passphrase directly into GitHub's secret editor. Never put it in a workflow input, source file, commit, issue, chat, log or artifact.
 5. Run **Private own-voice Qwen3 sample** manually from the private repository's Actions tab.
 
@@ -25,7 +25,7 @@ Review the data-processing and retention arrangement with a parent or guardian b
 
 ## Data handling
 
-- The workflow runs only on manual dispatch, and its job is restricted to the repository owner and a private repository.
+- The workflow runs only on manual dispatch from the private repository's main branch, and its job is restricted to the repository owner and a private repository.
 - The encrypted package is stored in the private repository.
 - The passphrase is read only from the private repository's Actions secret.
 - Decrypted reference WAV and transcript files are written only to the temporary runner workspace with restrictive file permissions.
