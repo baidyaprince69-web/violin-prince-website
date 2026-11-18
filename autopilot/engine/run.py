@@ -2864,8 +2864,8 @@ def narration_validation_error(script):
     """Enforce the actual short-form requirements, not arbitrary per-sentence quotas."""
     text_value = re.sub(r"\s+", " ", str(script or "")).strip()
     total_words = narration_word_count(text_value)
-    if not 40 <= total_words <= 44:
-        return f"it has {total_words} spoken words; the required range is 40–44"
+    if not 22 <= total_words <= 23:
+        return f"it has {total_words} spoken words; the required range is 22–23 for a natural 22–23-second narration"
 
     sentences = narration_sentences(text_value)
     if len(sentences) != 4:
@@ -2876,8 +2876,10 @@ def narration_validation_error(script):
         return f"the opening hook has {counts[0]} words; 5–8 are required"
 
     for index, (sentence, count) in enumerate(zip(sentences, counts), start=1):
-        if count > 12:
-            return f"sentence {index} has {count} words; no sentence may exceed 12"
+        if index > 0 and count < 4:
+            return f"sentence {index} has {count} words; each body sentence needs at least 4"
+        if count > (12 if index == 1 else 7):
+            return f"sentence {index} has {count} words; body sentences may not exceed 7"
         if not sentence.endswith((".", "!", "?")):
             return f"sentence {index} is missing closing punctuation"
         if not sentence.endswith("?"):
@@ -2900,12 +2902,12 @@ def narration_sentence_budget(sentences, target_total=None):
     """Allocate a feasible, per-sentence word range from the actual draft."""
     values = [re.sub(r"\s+", " ", str(value or "")).strip() for value in list(sentences or [])[:4]]
     values.extend([""] * (4 - len(values)))
-    limits = (8, 12, 12, 12)
-    floors = (5, 5, 5, 5)
+    limits = (8, 7, 7, 7)
+    floors = (5, 4, 4, 4)
     actual_total = sum(narration_word_count(value) for value in values)
     if target_total is None:
-        target_total = actual_total if 40 <= actual_total <= 44 else 42
-    target_total = max(40, min(44, int(target_total)))
+        target_total = actual_total if 22 <= actual_total <= 23 else (22 if actual_total < 22 else 23)
+    target_total = max(22, min(23, int(target_total)))
 
     counts = [
         min(limits[index], max(floors[index], narration_word_count(value)))
@@ -2937,7 +2939,7 @@ def narration_sentence_budget(sentences, target_total=None):
         difference += 1
 
     maxima = list(counts)
-    extra_capacity = 44 - target_total
+    extra_capacity = 23 - target_total
     while extra_capacity > 0:
         available = [index for index in body_priority if maxima[index] < limits[index]]
         if not available:
@@ -2967,7 +2969,7 @@ def _sentence_needs_correction(sentence, index, budget):
         return True
     if index == 0 and not 5 <= count <= 8:
         return True
-    if index > 0 and count > 12:
+    if index > 0 and not 4 <= count <= 7:
         return True
     return False
 
@@ -3164,11 +3166,11 @@ def compose_narration(
         current_issue = narration_validation_error(current_script)
         current_total = narration_word_count(current_script)
 
-        # Aim for the nearest valid boundary, not an arbitrary 42-word target.
-        if current_total < 40:
-            target_total = 40
-        elif current_total > 44:
-            target_total = 44
+        # Aim for 22–23 words so the model naturally speaks for 22–23 seconds.
+        if current_total < 22:
+            target_total = 22
+        elif current_total > 23:
+            target_total = 23
         else:
             target_total = current_total
 
@@ -3233,7 +3235,7 @@ def compose_narration(
             "Correct only the requested sentence fields. Return each as an array of individual words. "
             "The array length is exact and is stated in the function schema; do not add or omit words. "
             "Python will join the words into sentences. Do not return or rewrite any locked sentence. "
-            "The complete narration must remain exactly four sentences and total 40–44 spoken words. "
+            "The complete narration must remain exactly four sentences and total 22–23 spoken words, targeting 22–23 seconds at the approved natural voice pace. "
             "Use only facts stated in the supplied direct publisher article excerpts. Do not invent dates, "
             "statistics, quotes, names, motives, abilities, or outcomes. No padding, repeated ideas, generic "
             "filler, metaphor presented as fact, or unsupported claims. Do not personify AI as feeling, "
@@ -3380,8 +3382,8 @@ def compose_narration(
     final_script = " ".join(sentences).strip()
     raise PipelineError(
         "Narration composer stopped safely after two targeted correction cycles. "
-        "The narration must contain 40–44 words, exactly four complete sentences, "
-        "a 5–8-word hook, and no sentence over 12 words. Final diagnostic: "
+        "The narration must contain 22–23 words, exactly four complete sentences, "
+        "a 5–8-word hook, and 4–7 words in each body sentence. Final diagnostic: "
         + narration_validation_error(final_script)
     )
 
@@ -3566,8 +3568,9 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
         "of: violin_physics, instrument_design, sound_and_perception, melody_and_composition, song_anatomy, "
         "music_production, music_technology, violin_cover_breakdown. "
         "The narration_sentences field must be an array of exactly four separate, natural, complete spoken sentences. "
-        "Sentence 1 is a concise curiosity hook of 5–8 words and must be resolved by the ending. No sentence may "
-        "exceed 12 words; twelve is a maximum, not a target. Vary sentence lengths naturally for spoken rhythm. "
+        "The complete script must contain exactly 22–23 spoken words, designed for a natural 22–23-second delivery; "
+        "do not pad, repeat, or use filler. Sentence 1 is a concise curiosity hook of 5–8 words and must be resolved "
+        "by the ending. Each of sentences 2–4 must contain 4–7 words. Use natural spoken rhythm. "
         "Build context, reveal one memorable sourced detail, and finish with a satisfying musical payoff. "
         "cover_payoff is mandatory: describe the exact way a short original Violin Prince violin phrase or cover "
         "demonstrates the fact. It must be a performance payoff, not background music. Never claim a creator take "
@@ -3599,7 +3602,7 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
         "messages": [
             {"role": "system", "content": system + " Do not show reasoning. Return exactly one JSON object and no preamble or Markdown."},
             {"role": "user", "content":
-             "Create one 24-second curiosity-driven music-facts story for the creator-approved Violin Prince format. "
+             "Create one 22–23-second curiosity-driven music-facts story for the creator-approved Violin Prince format. "
              "The subject must be a violin, instrument, sound, melody, song structure, arrangement, music-production "
              "or music-technology fact, never an individual musician biography, competition result or celebrity profile. "
              "The final scene must demonstrate the fact through an original Violin Prince violin performance insert. "
