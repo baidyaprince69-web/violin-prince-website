@@ -1,0 +1,86 @@
+name: Private own-voice Qwen3 sample
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: private-own-voice-test
+  cancel-in-progress: false
+
+jobs:
+  generate-private-sample:
+    if: github.event.repository.private == true && github.actor == github.repository_owner
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      HF_HOME: ${{ runner.temp }}/hf-cache
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      TOKENIZERS_PARALLELISM: "false"
+      VOICE_PACKAGE_PATH: private/voice-prince-voice.vprvoice
+      VOICE_WORK_DIR: ${{ runner.temp }}/vp-own-voice-${{ github.run_id }}
+    steps:
+      - name: Check out the private voice-test repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Prepare temporary workspace and verify encrypted package
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          if [[ ! -s "$VOICE_PACKAGE_PATH" ]]; then
+            echo "::error::The encrypted package is missing from the private repository."
+            exit 1
+          fi
+          mkdir -m 700 -p "$VOICE_WORK_DIR"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Decrypt only inside the temporary runner workspace
+        env:
+          VOICE_PACKAGE_PASSPHRASE: ${{ secrets.VOICE_PACKAGE_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          node scripts/voice/decrypt_vprvoice.mjs "$VOICE_PACKAGE_PATH" "$VOICE_WORK_DIR"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pinned Qwen3-TTS runtime
+        run: |
+          python -m pip install --no-cache-dir --upgrade pip
+          python -m pip install --no-cache-dir "qwen-tts==0.1.1" "soundfile>=0.12,<1"
+
+      - name: Generate one short sample using the owner's reference voice
+        run: |
+          set -euo pipefail
+          python scripts/voice/generate_qwen_voice_sample.py \
+            --reference-wav "$VOICE_WORK_DIR/reference.wav" \
+            --reference-text "$VOICE_WORK_DIR/reference.txt" \
+            --output "$VOICE_WORK_DIR/voice-sample.wav"
+
+      - name: Upload only the generated sample to this private repository
+        uses: actions/upload-artifact@v4
+        with:
+          name: private-own-voice-sample-${{ github.run_id }}
+          path: ${{ runner.temp }}/vp-own-voice-${{ github.run_id }}/voice-sample.wav
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Remove temporary reference files and model cache
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          rm -rf -- "${VOICE_WORK_DIR:-}"
+          rm -rf -- "${HF_HOME:-}"
+          rm -f -- "$VOICE_PACKAGE_PATH"
