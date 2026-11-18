@@ -6,8 +6,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-os.environ.setdefault("CF_ACCOUNT_ID", "test-account")
-os.environ.setdefault("CF_AI_TOKEN", "test-ai-token")
 ENGINE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ENGINE))
 
@@ -218,49 +216,12 @@ class StagedPipelineTests(unittest.TestCase):
             finally:
                 pipeline.PACKAGE = original
 
-    def test_visual_stage_passes_automatically_after_quality_gates_without_checkbox(self):
-        with tempfile.TemporaryDirectory() as folder:
-            folder = Path(folder)
-            self._write_package(folder, include_images=False)
-            metadata_path = folder / "stage.json"
-            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-            metadata["story_review"] = {
-                "status": "awaiting_automated_quality_gates",
-                "approved": False,
-                "approved_at": None,
-                "approval_method": None,
-            }
-            metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
-
-            original_package = pipeline.PACKAGE
-            original_account, original_token = pipeline.CF_ACCOUNT, pipeline.CF_TOKEN
-            old_approval = os.environ.get("STORY_APPROVED")
-            pipeline.PACKAGE = folder
-            pipeline.CF_ACCOUNT, pipeline.CF_TOKEN = "test-account", "test-ai-token"
-            os.environ["STORY_APPROVED"] = "false"
-
-            def fake_make_image(_prompt, index):
-                target = folder / f"generated-{index + 1}.jpg"
-                Image.new("RGB", (640, 640), (40 + index * 25, 55, 80)).save(target, "JPEG")
-                return target
-
-            try:
-                with unittest.mock.patch.object(pipeline, "make_image", side_effect=fake_make_image):
-                    pipeline.visuals_stage()
-                updated = json.loads(metadata_path.read_text(encoding="utf-8"))
-                self.assertTrue(updated["story_review"]["approved"])
-                self.assertEqual(
-                    updated["story_review"]["approval_method"],
-                    "automated_source_date_freshness_and_channel_fit_checks",
-                )
-                self.assertTrue((folder / "storyboard-preview.png").is_file())
-            finally:
-                pipeline.PACKAGE = original_package
-                pipeline.CF_ACCOUNT, pipeline.CF_TOKEN = original_account, original_token
-                if old_approval is None:
-                    os.environ.pop("STORY_APPROVED", None)
-                else:
-                    os.environ["STORY_APPROVED"] = old_approval
+    def test_visual_stage_fails_closed_without_approved_image_provider(self):
+        with self.assertRaisesRegex(
+            pipeline.PipelineError,
+            "disabled until an approved non-Cloudflare illustration provider is configured",
+        ):
+            pipeline.visuals_stage()
 
     def test_visual_feedback_is_added_without_changing_base_scene_prompt(self):
         scene = {"image_prompt": "A lighthouse at dawn"}
