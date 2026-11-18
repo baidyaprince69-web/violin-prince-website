@@ -18,6 +18,7 @@ from private_voice_client import (
     PrivateVoiceBridgeError,
     generate_private_voiceover,
     validate_private_narration,
+    _select_private_draft_release,
 )
 
 SCRIPT = (
@@ -84,6 +85,28 @@ def fixture_payload():
         "subtitle_cues": subtitle_cues,
     }
     return wav_bytes, metadata
+
+
+
+class PrivateDraftReleaseLookupTests(unittest.TestCase):
+    def test_selects_matching_draft_release(self):
+        tag = "private-own-voice-narration-123456789"
+        releases = [
+            {"tag_name": "older-release", "draft": True},
+            {"tag_name": tag, "draft": True, "assets": [{"name": "narration.wav"}]},
+        ]
+        self.assertEqual(_select_private_draft_release(releases, tag), releases[1])
+
+    def test_returns_none_when_matching_draft_is_not_listed(self):
+        self.assertIsNone(_select_private_draft_release(
+            [{"tag_name": "another-release", "draft": True}],
+            "private-own-voice-narration-123456789",
+        ))
+
+    def test_rejects_a_matching_release_that_is_not_draft(self):
+        tag = "private-own-voice-narration-123456789"
+        with self.assertRaisesRegex(PrivateVoiceBridgeError, "published unexpectedly"):
+            _select_private_draft_release([{"tag_name": tag, "draft": False}], tag)
 
 
 class PrivateVoiceValidationTests(unittest.TestCase):
