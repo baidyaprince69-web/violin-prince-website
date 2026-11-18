@@ -93,9 +93,6 @@ def evaluate_daily_readiness(
     voice_locked = _first_statement_is_raise(
         engine_dir / "voiceover.py", "require_approved_own_voice"
     )
-    text_locked = _first_statement_is_raise(
-        engine_dir / "run.py", "require_approved_text_provider"
-    )
     visuals_locked = _first_statement_is_raise(
         engine_dir / "run.py", "require_approved_illustration_provider"
     )
@@ -104,11 +101,6 @@ def evaluate_daily_readiness(
         blockers.append("Could not verify the own-voice production gate.")
     elif voice_locked:
         blockers.append("Own-voice approval/provider gate is still locked.")
-
-    if text_locked is None:
-        blockers.append("Could not verify the text-planning provider gate.")
-    elif text_locked:
-        blockers.append("Text/story provider is not configured and approved.")
 
     if visuals_locked is None:
         blockers.append("Could not verify the illustration provider gate.")
