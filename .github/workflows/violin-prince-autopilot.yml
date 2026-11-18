@@ -121,11 +121,19 @@ jobs:
           request = json.loads(request_path.read_text(encoding="utf-8"))
           if request.get("mode") != "chatgpt_daily_production":
               raise SystemExit("Push-triggered production must use mode=chatgpt_daily_production.")
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+
           plan_path = str(request.get("plan_path") or ".autopilot/daily-production-plan.json")
           if not plan_path.startswith(".autopilot/") or ".." in Path(plan_path).parts:
               raise SystemExit("The daily plan must be inside the .autopilot directory.")
-          if not Path(plan_path).is_file():
+          plan_file = Path(plan_path)
+          if not plan_file.is_file():
               raise SystemExit("The ChatGPT daily production plan does not exist.")
+          plan = json.loads(plan_file.read_text(encoding="utf-8"))
+          today = datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
+          if plan.get("production_date") != today:
+              raise SystemExit(f"The daily plan must be refreshed for {today} Asia/Kolkata before production.")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write("plan_path=" + plan_path + "\n")
           print("Validated ChatGPT daily production request: " + plan_path)
