@@ -203,36 +203,15 @@ An `.sf2` or `.sfz` file is an instrument bank, not a finished recording. Custom
 
 ## Running the workflow
 
-Open **GitHub → Actions → Violin Prince Autopilot → Run workflow** on branch main.
+Open **GitHub → Actions → Violin Prince Autopilot** to inspect the workflow and its run history.
 
-### Normal first attempt — one launch
+### Current workflow status
 
-- Keep stage set to **full** (the default).
-- Leave source_run_id and visual_feedback empty.
-- Start the workflow once.
-- Prepare, Visuals and Render run in sequence. The finished MP4 is uploaded as `cloud-video-preview-{run_id}`; the diagnostic artifact `violin-prince-run-{run_id}` preserves the package and storyboard for troubleshooting.
-- The storyboard is available to inspect, but no second approval checkbox is required.
+The manual stage selector remains visible for recovery compatibility, but production is deliberately locked. Every production entry point first checks the own-voice approval gate and exits before research, soundtrack preparation, narration, scene generation or rendering.
 
+The only currently runnable voice-related workflow is **Qwen3-TTS isolated voice preflight**. It downloads public model weights and checks package/API compatibility and CPU model loading; it does not use your recording or generate speech.
 
-
-### Recover a failed Prepare run without repeating research
-
-When a Prepare run fails after collecting sources, the diagnostic artifact may still contain research.json.
-
-- Keep stage set to **full**.
-- Enter the numeric Run ID of that failed Prepare run in source_run_id.
-- Leave visual_feedback empty or provide an overall image direction.
-- Start the workflow once.
-
-The workflow downloads the earlier diagnostic artifact and reuses its saved research.json. It does not call GDELT or Google News again. The planner then applies one automatic narration correction if the generated script misses the word-count, sentence-count or subtitle limits. The Full recovery run completes the remaining stages in the same job. If it fails, the diagnostic artifact contains the package and any scene images created before the failure.
-
-### Repair only the stage that needs it
-
-- **Story/script problem:** choose Prepare; this repeats research, planning, voice and soundtrack.
-- **Image/style problem:** choose Visuals and enter the Run ID from the original Full/Prepare run, or the most recent failed Visuals attempt, in source_run_id. Describe the desired overall direction in visual_feedback. Research, script, narration and soundtrack are reused; valid saved scene images are preserved on a partial retry.
-- **MP4/rendering problem:** choose Render and enter the Run ID from the successful Full/Visuals run in source_run_id. It reuses the saved images, narration and soundtrack and makes no AI calls.
-
-Artifacts are retained for 14 days. Keep the relevant successful run IDs until you have downloaded the final MP4.
+After the own-voice sample is reviewed and approved, text planning and scene illustration providers must still be selected, reviewed and tested before video production can resume. Until then, running **Full**, **Prepare**, **Visuals** or **Render** will not produce a video.
 
 ## Services, limits and privacy
 
