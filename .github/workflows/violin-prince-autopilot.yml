@@ -6,6 +6,9 @@ on:
       - main
     paths:
       - ".autopilot/prepare-request.json"
+  schedule:
+    # 15:00 Asia/Kolkata (09:30 UTC), leaving time for rendering before the 19:00 queue slot.
+    - cron: "30 9 * * *"
   workflow_dispatch:
     inputs:
       stage:
@@ -36,12 +39,34 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  daily_readiness:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.readiness.outputs.ready }}
+    steps:
+      - name: Check out the project
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check today's production and publishing gates
+        id: readiness
+        env:
+          UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
+        run: python autopilot/engine/daily_readiness.py
+
   produce:
+    needs: daily_readiness
+    if: ${{ always() && (github.event_name != 'schedule' || (needs.daily_readiness.result == 'success' && needs.daily_readiness.outputs.ready == 'true')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
       RUN_ID: ${{ github.run_id }}
-      RUN_MODE: manual
+      RUN_MODE: ${{ github.event_name == 'schedule' && 'scheduled' || 'manual' }}
       PIPELINE_STAGE: ${{ inputs.stage || 'full' }}
       VISUAL_FEEDBACK: ${{ inputs.visual_feedback }}
       YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
@@ -51,7 +76,7 @@ jobs:
       YOUTUBE_STATE_ENCRYPTION_KEY: ${{ secrets.YOUTUBE_STATE_ENCRYPTION_KEY }}
       SEO_LEARNING_REPORT_PATH: work/seo-learning-data/seo-learning/latest.enc.json
       # Enables the gated public GitHub Release handoff for validated daily Shorts.
-      # YouTube upload remains a separate Metricool/operator action.
+      # The validated MP4 is handed to Upload-Post after the public release is created.
       PUBLISH_ENABLED: "true"
       VIOLIN_PRINCE_PRESENTER_ENABLED: "true"
     steps:
@@ -82,7 +107,7 @@ jobs:
 
       - name: Read ChatGPT daily production request
         id: daily_request
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'schedule'
         shell: bash
         run: |
           python - <<'PY'
@@ -153,10 +178,16 @@ jobs:
           repository: ${{ github.repository }}
 
       - name: Install preparation dependencies
-        if: env.PIPELINE_STAGE == 'prepare' || env.PIPELINE_STAGE == 'full'
+        if: (env.PIPELINE_STAGE == 'prepare' || env.PIPELINE_STAGE == 'full') && github.event_name != 'schedule'
         run: |
           python -m pip install --upgrade pip
           pip install --index-url https://download.pytorch.org/whl/cpu torch
+          pip install -r autopilot/engine/requirements.txt
+
+      - name: Install scheduled daily-plan dependencies
+        if: github.event_name == 'schedule' && steps.daily_request.outputs.plan_path != ''
+        run: |
+          python -m pip install --upgrade pip
           pip install -r autopilot/engine/requirements.txt
 
       - name: Install visual generation dependencies
@@ -174,13 +205,13 @@ jobs:
           pip install "requests>=2.32,<3" "Pillow>=10.4,<12"
 
       - name: Set up Node.js 22 for Motion + HyperFrames
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'schedule'
         uses: actions/setup-node@v4
         with:
           node-version: "22"
 
       - name: Install Motion + HyperFrames dependencies
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'schedule'
         working-directory: autopilot/engine/animation2d
         run: npm install --no-audit --no-fund
 
@@ -195,7 +226,7 @@ jobs:
           name: prepared-package
           path: work/package/
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 3
 
       - name: Generate visual scenes and storyboard
         if: env.PIPELINE_STAGE == 'visuals'
@@ -208,7 +239,7 @@ jobs:
           name: visual-package
           path: work/package/
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 3
 
       - name: Render final MP4 from saved package (no AI calls)
         if: env.PIPELINE_STAGE == 'render'
@@ -312,6 +343,16 @@ jobs:
           PY
           gh release upload "$TAG" work/output/publish-manifest.json work/output/asset-provenance.json --clobber
 
+      - name: Queue validated Short in the Upload-Post publishing queue
+        id: upload_post
+        if: success() && steps.publish_asset.outcome == 'success' && env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path != ''
+        env:
+          UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
+          UPLOAD_POST_PROFILE: default
+        run: |
+          python autopilot/engine/upload_post_handoff.py \
+            --plan "${{ steps.daily_request.outputs.plan_path }}"
+
       - name: Upload finished video
         if: success() && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')
         uses: actions/upload-artifact@v4
@@ -319,7 +360,7 @@ jobs:
           name: cloud-video-preview-${{ github.run_id }}
           path: work/output/violin-prince-short.mp4
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 1
 
       - name: Preserve stage diagnostics
         if: always()
@@ -341,4 +382,4 @@ jobs:
             work/analytics.json
             work/story-assets/asset-resolution-diagnostic.json
           if-no-files-found: ignore
-          retention-days: 14
+          retention-days: 3
