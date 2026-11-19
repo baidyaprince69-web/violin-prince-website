@@ -221,6 +221,12 @@ class PrivateVoiceValidationTests(unittest.TestCase):
                 with self.assertRaisesRegex(PrivateVoiceBridgeError, "20.0 and 24.0 seconds"):
                     validate_private_narration(SCRIPT, wav_bytes, metadata)
 
+    def test_rejects_a_worker_duration_window_that_disagrees_with_the_bridge(self):
+        wav_bytes, metadata = fixture_payload()
+        metadata["duration_target_seconds"] = {"minimum": 22.0, "maximum": 23.0}
+        with self.assertRaisesRegex(PrivateVoiceBridgeError, "windows do not match"):
+            validate_private_narration(SCRIPT, wav_bytes, metadata, expected_hotwords=[])
+
     def test_rejects_a_metadata_script_hash_mismatch(self):
         wav_bytes, metadata = fixture_payload()
         metadata["script_sha256"] = "0" * 64
