@@ -125,7 +125,7 @@ class PlannerNarrationValidationTests(unittest.TestCase):
         sentences = [
             "Can music travel farther?",
             "Metz's orchestra celebrates fifty years of music across its region today.",
-            "Alena Baeva performs Mozart's brilliant fifth concerto in Metz this season.",
+            "Alena Baeva performs Mozart's fifth concerto in Metz this season.",
             "Ravel's music honours the orchestra's regional heritage across generations today.",
         ]
         issue = pipeline.narration_validation_error(" ".join(sentences))
