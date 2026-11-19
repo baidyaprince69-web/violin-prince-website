@@ -1,0 +1,46 @@
+name: Illustration provider smoke test — OVHcloud SDXL
+
+on:
+  push:
+    branches:
+      - test/ovhcloud-sdxl-smoke
+    paths:
+      - ".github/workflows/ovhcloud-sdxl-smoke.yml"
+      - "autopilot/engine/ovh_sdxl_smoke_test.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Check out smoke-test source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install smoke-test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install "requests>=2.32,<3" "Pillow>=10.4,<12"
+
+      - name: Generate one anonymous SDXL preview
+        env:
+          OVH_AI_ENDPOINTS_ACCESS_TOKEN: ${{ secrets.OVH_AI_ENDPOINTS_ACCESS_TOKEN }}
+        run: |
+          python autopilot/engine/ovh_sdxl_smoke_test.py --output work/ovh-sdxl-preview.png
+
+      - name: Preserve the one-image review artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ovhcloud-sdxl-provider-preview-${{ github.run_id }}
+          path: work/ovh-sdxl-preview.png
+          if-no-files-found: error
+          retention-days: 1
