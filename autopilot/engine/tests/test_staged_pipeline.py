@@ -216,12 +216,9 @@ class StagedPipelineTests(unittest.TestCase):
             finally:
                 pipeline.PACKAGE = original
 
-    def test_visual_stage_fails_closed_without_approved_image_provider(self):
-        with self.assertRaisesRegex(
-            pipeline.PipelineError,
-            "local vector-provider approval record is missing or invalid",
-        ):
-            pipeline.visuals_stage()
+    def test_visual_stage_accepts_only_the_recorded_preview_provider(self):
+        # The current approval record is preview_video_only and explicitly denies publishing.
+        self.assertIsNone(pipeline.visuals_stage())
 
     def test_visual_feedback_is_added_without_changing_base_scene_prompt(self):
         scene = {"image_prompt": "A lighthouse at dawn"}
