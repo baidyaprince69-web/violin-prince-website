@@ -2,12 +2,6 @@ name: Private Qwen3 narration bridge test
 
 on:
   workflow_dispatch:
-  # Temporary one-time trigger for the reviewed narration-plan test.
-  push:
-    branches:
-      - main
-    paths:
-      - ".autopilot/daily-production-plan.json"
 
 permissions:
   contents: read
