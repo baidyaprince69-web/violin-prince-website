@@ -19,7 +19,7 @@ WORKFLOW_FILE = "private-qwen3-narration.yml"
 CLEANUP_WORKFLOW_FILE = "private-qwen3-cleanup.yml"
 API_ROOT = "https://api.github.com"
 WORD_RE = re.compile(r"[\w’'-]+", re.UNICODE)
-GENERATION_SEEDS = (42, 43, 44)
+GENERATION_SEEDS = (43, 44, 45)
 GENERATION_TEMPERATURE = 0.9
 
 
