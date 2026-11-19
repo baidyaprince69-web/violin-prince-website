@@ -4072,7 +4072,7 @@ def write_kinetic_ass(cues, output_path, word_cues=None):
         "",
         "[V4+ Styles]",
         "Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding",
-        "Style: VP,DM Sans,40,&H00F8F5EF,&H008BCAEB,&HCC07111F,&H00000000,-1,0,1,2.0,1.3,2,64,64,136,1",
+        "Style: VP,DM Sans,38,&H00F8F5EF,&H008BCAEB,&HCC07111F,&H00000000,-1,0,1,2.2,1.6,2,64,64,112,1",
         "",
         "[Events]",
         "Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text",
@@ -4809,9 +4809,14 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         raise PipelineError("A planned scene has no visual prompt.")
 
     shot_roles = (
-        "SHOT 1 — HOOK: macro hero view of the musical question.",
-        "SHOT 2 — MECHANISM: close scientific view of the physical or musical detail.",
-        "SHOT 3 — PERFORMANCE PAYOFF: cinematic violin-and-bow view with space for a real take.",
+        "SHOT 1 — HOOK: premium macro hero; reveal one tactile detail immediately.",
+        "SHOT 2 — MECHANISM: precise technical editorial; readable on a phone.",
+        "SHOT 3 — PAYOFF: cinematic violin-and-bow hero shot on a clear diagonal.",
+    )
+    composition_treatments = (
+        "Composition: one dominant subject, asymmetrical balance, layered depth and dark negative space at the top.",
+        "Composition: disciplined technical grid, distinct planes, clear spacing and large components.",
+        "Composition: complete violin diagonal, expressive bow/hands, warm highlights and calm lower caption space.",
     )
     scene_count = len((plan or {}).get("scenes") or []) or 3
     role_index = 0 if index <= 0 else 2 if index >= scene_count - 1 else 1
@@ -4822,17 +4827,18 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
     # Keep the recognisable instrument identity, but avoid spending most of the
     # provider budget on repeated negative prompts and decorative adjectives.
     brand_direction = (
-        "Violin Prince identity: high-detail 2D editorial illustration with polished painted textures, "
-        "precise contour linework and layered shading. Show a complete amber-brown violin with believable "
-        "construction with physically believable violin construction, a solid, opaque violin body, painted natural wood grain, visible strings, bow hair "
-        "and metal fittings. Use layered foreground/midground/background, overlap, tonal shading and illustrated depth rather than CGI or 3D rendering. "
-        "Never draw an empty shell, hollow outline, wireframe or transparent violin body. "
-        "Palette: deep midnight navy, muted teal, antique gold, warm ivory and natural amber. Full colour. "
-        "This is original art direction. No stock imagery, identifiable real people, logos, readable text or lyrics; "
-        "no watermark. Respect sourced facts and measurements. Portrait 9:16 composition."
+        "Premium Violin Prince visual identity: luxury music-documentary illustration, not stock. "
+        "High-detail 2D painted editorial art, refined 2.5D depth, crisp contours, tactile paper and painted natural "
+        "wood grain, selective micro-detail, layered foreground/midground/background, controlled chiaroscuro, warm "
+        "key light and soft oxidised-teal rim. Show physically believable violin construction: a complete solid "
+        "opaque amber-brown body, accurate bridge, fine strings, ebony fingerboard, bow hair and metal fittings; "
+        "never hollow, wireframe or transparent. Palette: deep midnight navy, oxidised teal, antique brass, warm "
+        "ivory and natural amber. No text, fake UI, logos, lyrics, watermarks, photography or CGI. This is original "
+        "art direction. Respect facts. Portrait 9:16 composition."
     )
     role = shot_roles[role_index]
-    fixed = f"Story subject: {subject}. {role} {mode_direction} {brand_direction}"
+    composition = composition_treatments[role_index]
+    fixed = f"Story subject: {subject}. {role} {composition} {mode_direction} {brand_direction}"
 
     # Scene description is the most important scene-specific input. Optional
     # reference notes, cover context and feedback are appended only when room

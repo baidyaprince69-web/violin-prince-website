@@ -215,6 +215,25 @@ def render_daily_plan(
     scene_assets_dir = assets_dir / "scenes"
     scene_assets_dir.mkdir(parents=True, exist_ok=True)
 
+    # Embed the approved channel typefaces in each render project so the
+    # browser composition and final FFmpeg subtitles share one typography system.
+    brand_fonts = engine._ensure_brand_fonts()
+    font_assets_dir = assets_dir / "fonts"
+    font_assets_dir.mkdir(parents=True, exist_ok=True)
+    for key, filename in (
+        ("serif", "DMSerifDisplay-Regular.ttf"),
+        ("sans_regular", "DMSans-Regular.ttf"),
+        ("sans_medium", "DMSans-Medium.ttf"),
+        ("sans_bold", "DMSans-Bold.ttf"),
+    ):
+        # The production font helper supplies all four faces. A minimal serif-only
+        # renderer fixture may supply only the required display face; in that case
+        # reuse it for the fixture rather than breaking the filesystem contract.
+        source_path = brand_fonts.get(key) or brand_fonts.get("serif")
+        if not source_path:
+            raise HyperFramesRenderError("The Violin Prince brand font bundle is incomplete.")
+        shutil.copy2(Path(source_path).resolve(strict=True), font_assets_dir / filename)
+
     staged_characters = []
     for character in characters:
         staged = {**character, "layers": [], "expressions": {}}
@@ -261,6 +280,10 @@ def render_daily_plan(
             "image": target.relative_to(project_dir).as_posix(),
             "caption": str(scene.get("caption") or ""),
             "title": str(scene.get("title") or ""),
+            "graphic_label": str(scene.get("graphic_label") or ""),
+            "graphic_detail": str(scene.get("graphic_detail") or ""),
+            "editorial_index": index + 1,
+            "editorial_total": len(scenes),
             "visual_mode": str(scene.get("visual_mode") or ""),
             "character_actions": scene.get("character_actions") or {},
             "graphic_data": scene.get("graphic_data"),
@@ -274,6 +297,8 @@ def render_daily_plan(
         "height": int(engine.H),
         "fps": int(engine.FPS),
         "duration_seconds": 24.0,
+        "brand_system": "violin-prince-premium-editorial-v3",
+        "brand": {"name": "VIOLIN PRINCE", "palette": ["midnight-navy", "oxidised-teal", "antique-brass", "warm-ivory"]},
         "scenes": staged_scenes,
         "characters": staged_characters,
     }
@@ -315,7 +340,7 @@ def render_daily_plan(
         scene_fingerprint_value = scene_fingerprint(
             scene,
             image_path,
-            renderer_version="motion-hyperframes-per-scene-v2-scene-director-graphics",
+            renderer_version="motion-hyperframes-per-scene-v3-premium-editorial-composition",
             character_asset_paths=character_paths,
             render_settings={
                 "width": int(engine.W),
@@ -332,7 +357,8 @@ def render_daily_plan(
                 "visual_mode": str(scene.get("visual_mode") or ""),
                 "graphic_data": scene.get("graphic_data"),
                 "visual_composition": scene.get("visual_composition") or {},
-                "caption_renderer": "kinetic-ass-v1",
+                "caption_renderer": "kinetic-ass-premium-v2",
+                "brand_system": "violin-prince-premium-editorial-v3",
             },
         )
         cached = load_valid_checkpoint(cache_root, scene_id, scene_fingerprint_value)
@@ -430,8 +456,8 @@ def render_daily_plan(
         assemble.extend(["-i", str(clip_path)])
     _run(assemble + [
         "-filter_complex", filter_graph, "-map", "[vout]",
-        "-t", "24", "-an", "-c:v", "libx264", "-preset", "veryfast",
-        "-crf", "23", "-pix_fmt", "yuv420p", str(picture_only),
+        "-t", "24", "-an", "-c:v", "libx264", "-preset", "medium",
+        "-crf", "19", "-pix_fmt", "yuv420p", str(picture_only),
     ], cwd=work_root, timeout=900)
     if not picture_only.is_file() or picture_only.stat().st_size < 4096:
         raise HyperFramesRenderError("FFmpeg did not assemble the cached scene clips.")
@@ -470,8 +496,9 @@ def render_daily_plan(
         "-map", "0:v:0", "-map", "1:a:0",
         "-t", "24",
         "-vf", f"subtitles={subtitle_path.as_posix()}:fontsdir={font_dir}",
-        "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
-        "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",
+        "-c:v", "libx264", "-preset", "slow", "-crf", "18",
+        "-pix_fmt", "yuv420p", "-profile:v", "high", "-level", "4.1",
+        "-c:a", "aac", "-b:a", "192k",
         "-movflags", "+faststart", str(final_video),
     ], cwd=work_root, timeout=600)
 
@@ -529,7 +556,8 @@ def render_daily_plan(
             "pose changes", "facial expression layers",
         ],
         "preview_contact_sheet": contact_sheet.name,
-        "finishing": "existing FFmpeg audio mix, word-timed captions, MP4 encoding and independent media QA",
+        "finishing": "premium typography, cinematic grade, narration-led captions, high-quality H.264 export, AAC 192k audio and independent media QA",
+        "visual_finish": {"brand_system": "violin-prince-premium-editorial-v3", "typefaces_embedded": True, "video_crf": 18, "video_preset": "slow", "audio_bitrate": "192k"},
         "publishing": "disabled in GitHub Actions; release handoff only",
     })
     (output_root / "quality_report.json").write_text(

@@ -53,7 +53,7 @@ TRANSITIONS = {
 PACE_TRANSITION_SECONDS = {
     "rapid": 0.20,
     "dynamic": 0.27,
-    "steady": 0.35,
+    "steady": 0.42,
     "slow": 0.48,
 }
 
@@ -258,15 +258,15 @@ def scene_transition(plan: dict[str, Any] | None, index: int) -> str:
         scene = guidance[index]
         if isinstance(scene, dict):
             transition = str(scene.get("transition_out") or "crossfade")
-            return TRANSITIONS.get(transition, "fade")
-    return "fade"
+            return TRANSITIONS.get(transition, "smoothleft")
+    return "smoothleft"
 
 
 def transition_duration(plan: dict[str, Any] | None) -> float:
     profile = (plan or {}).get("visual_reference")
     if isinstance(profile, dict):
         try:
-            value = float(profile.get("transition_seconds", 0.35))
+            value = float(profile.get("transition_seconds", 0.42))
             return min(0.50, max(0.18, value))
         except (TypeError, ValueError):
             pass

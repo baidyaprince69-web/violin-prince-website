@@ -64,7 +64,7 @@ class CreativeQualityTests(unittest.TestCase):
             self.assertIn("008BCAEB", content)
             self.assertIn(r"\kf", content)
             self.assertIn("remarkable", content)
-            self.assertIn("Style: VP,DM Sans,40", content)
+            self.assertIn("Style: VP,DM Sans,38", content)
 
     def test_photo_framing_is_stable_without_compulsory_zoom(self):
         filters = [pipeline.camera_motion_filter(120, index) for index in range(3)]
@@ -90,8 +90,10 @@ class CreativeQualityTests(unittest.TestCase):
         self.assertIn("SHOT 2 — MECHANISM", prompts[1])
         self.assertIn("SHOT 3 — PERFORMANCE PAYOFF", prompts[2])
         for prompt in prompts:
+            self.assertIn("Premium Violin Prince visual identity", prompt)
+            self.assertIn("luxury music-documentary illustration", prompt)
             self.assertIn("deep midnight navy", prompt)
-            self.assertIn("high-detail 2D editorial illustration", prompt)
+            self.assertIn("High-detail 2D painted editorial art", prompt)
             self.assertIn("physically believable violin construction", prompt)
             self.assertIn("painted natural wood grain", prompt)
             self.assertIn("This is original art direction", prompt)

@@ -196,9 +196,9 @@ def direct_scene_composition(
             if is_presenter_scene and "violin-prince" not in actions:
                 actions["violin-prince"] = {
                     "visible": True,
-                    "x": 388,
-                    "y": 180,
-                    "scale": 0.46,
+                    "x": 372,
+                    "y": 155,
+                    "scale": 0.48,
                     "start_offset": 0.18,
                     "duration": max(1.0, scene_duration - 0.18),
                     "gesture": "point_left",
@@ -239,6 +239,7 @@ def direct_scene_composition(
             "presenter is not a global overlay",
             "graphic items reveal on matched narration words when available",
             "portrait explainer composition reserves a separate presenter column",
+            "one dominant focal point per scene with deliberate caption-safe space",
             "graphic scenes must be animated by the Motion renderer",
         ],
     }
