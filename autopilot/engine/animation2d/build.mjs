@@ -351,7 +351,7 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.scene-caption--with-presenter{left:5%;right:auto;width:52%;max-width:52%;font-size:19px;bottom:6%}' +
   '.character-rig{position:absolute;width:100%;height:100%;opacity:0;transform-origin:top left}' +
   '.rig-part,.rig-expression,.rig-pose{position:absolute;object-fit:contain;max-width:none;pointer-events:none}' +
-  '.motion-graphic{position:absolute;z-index:34;overflow:visible;color:#f7f1e6;opacity:0;padding:22px 18px;border:1px solid rgba(74,190,185,.26);background:linear-gradient(145deg,rgba(8,18,31,.95),rgba(12,28,40,.91));box-shadow:0 18px 48px rgba(0,0,0,.28),inset 0 0 36px rgba(74,190,185,.06);border-radius:18px}' +
+  '.motion-graphic{position:absolute;left:auto;top:auto;right:auto;bottom:auto;width:86%;height:auto;z-index:34;overflow:visible;color:#f7f1e6;opacity:0;padding:22px 18px;border:1px solid rgba(74,190,185,.26);background:linear-gradient(145deg,rgba(8,18,31,.95),rgba(12,28,40,.91));box-shadow:0 18px 48px rgba(0,0,0,.28),inset 0 0 36px rgba(74,190,185,.06);border-radius:18px}' +
   '.motion-graphic--full{left:7%;top:23%;width:86%;min-height:380px}' +
   '.motion-graphic--with-presenter{left:5%;top:22%;width:51%;min-height:400px;padding:18px 12px}' +
   '.graphic-eyebrow{margin:0 0 9px;color:#4abeb9;font:700 12px/1.2 system-ui,sans-serif;letter-spacing:.18em;text-transform:uppercase}' +
