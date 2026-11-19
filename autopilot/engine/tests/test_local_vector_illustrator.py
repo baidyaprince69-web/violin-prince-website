@@ -13,6 +13,7 @@ ENGINE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ENGINE))
 
 import local_vector_illustrator as illustrator
+import run as pipeline
 from media_verification import verify_image_asset
 
 
@@ -51,6 +52,52 @@ class LocalVectorIllustratorTests(unittest.TestCase):
             with Image.open(target) as image:
                 self.assertEqual(image.format, "PNG")
                 self.assertEqual(image.size, (1024, 1792))
+
+
+    def test_illustration_gate_requires_a_preview_only_record(self):
+        import json
+        valid = {
+            "schema_version": 1,
+            "status": "approved_for_preview",
+            "provider": "local_vector",
+            "scope": "preview_video_only",
+            "renderer_version": illustrator.RENDERER_VERSION,
+            "publishing_enabled": False,
+            "test_evidence": {
+                "workflow_run_id": 12345,
+                "workflow_status": "success",
+                "all_six_modes_passed": True,
+                "network_calls": False,
+                "output_width": 1024,
+                "output_height": 1792,
+                "output_format": "JPEG",
+                "modes": sorted(illustrator.MODES),
+            },
+        }
+        with tempfile.TemporaryDirectory() as folder:
+            approval = Path(folder) / "illustration-approval.json"
+            approval.write_text(json.dumps(valid), encoding="utf-8")
+            pipeline.require_approved_illustration_provider(approval)
+            valid["publishing_enabled"] = True
+            approval.write_text(json.dumps(valid), encoding="utf-8")
+            with self.assertRaisesRegex(pipeline.PipelineError, "approval evidence"):
+                pipeline.require_approved_illustration_provider(approval)
+
+    def test_make_image_uses_scene_mode_and_writes_jpeg(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as folder:
+            with patch.object(pipeline, "require_approved_illustration_provider"):
+                with patch.object(pipeline, "IMAGES", Path(folder)):
+                    target = pipeline.make_image(
+                        "A macro violin scene",
+                        0,
+                        scene={"id": "bridge-detail", "visual_mode": "mechanism_illustration"},
+                        plan={"title": "Violin bridge"},
+                    )
+            with Image.open(target) as image:
+                self.assertEqual(image.format, "JPEG")
+                self.assertEqual(image.size, (1024, 1792))
+            self.assertEqual(target.name, "scene-bridge-detail.jpg")
 
     def test_unknown_scene_mode_is_rejected(self):
         with tempfile.TemporaryDirectory() as folder:
