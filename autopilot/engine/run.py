@@ -2832,10 +2832,12 @@ def require_approved_illustration_provider(approval_file=None):
 
 
 def ai(model, payload, timeout=180):
-    """Fail closed; no remote text or image provider is currently configured."""
+    """Fail closed for remote AI; the approved local vector renderer has its own path."""
     del payload, timeout
     if "image" in str(model).lower() or "illustration" in str(model).lower():
-        require_approved_illustration_provider()
+        raise PipelineError(
+            "Remote image generation is disabled; approved scene plates must use the local vector illustrator."
+        )
     require_approved_text_provider()
 
 
