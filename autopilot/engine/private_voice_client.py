@@ -28,6 +28,22 @@ def _normalise_script(value: str) -> str:
     return re.sub(r"\s+", " ", str(value or "")).strip()
 
 
+def _normalise_hotwords(value) -> list[str]:
+    if isinstance(value, list):
+        raw_terms = value
+    else:
+        raw_terms = str(value or "").split(",")
+    terms = [str(term).strip() for term in raw_terms if str(term).strip()]
+    if len(terms) > 10:
+        raise PrivateVoiceBridgeError("At most 10 ASR hotword hints may be supplied.")
+    for term in terms:
+        if not re.fullmatch(r"[\w’'-]+(?: [\w’'-]+){0,2}", term, flags=re.UNICODE):
+            raise PrivateVoiceBridgeError("An ASR hotword hint contains unsupported characters or spacing.")
+    if len({term.casefold() for term in terms}) != len(terms):
+        raise PrivateVoiceBridgeError("ASR hotword hints must be unique.")
+    return terms
+
+
 def _normalise_word(value: str) -> str:
     return re.sub(r"[^\w]", "", str(value or "").casefold().replace("’", "'"), flags=re.UNICODE)
 
@@ -146,15 +162,17 @@ def _download_asset(session: requests.Session, token: str, asset: dict, limit: i
     return content
 
 
-def validate_private_narration(script: str, wav_bytes: bytes, metadata: dict) -> dict:
+def validate_private_narration(
+    script: str, wav_bytes: bytes, metadata: dict, expected_hotwords: list[str] | None = None
+) -> dict:
     """Validate provenance, exact word sequence, and monotonic model-derived timings."""
     from io import BytesIO
     import soundfile as sf
 
     script = _normalise_script(script)
     expected_words = WORD_RE.findall(script)
-    if not 37 <= len(expected_words) <= 38:
-        raise PrivateVoiceBridgeError("Narration must contain 37–38 words, calibrated for a natural 22–23-second delivery.")
+    if len(expected_words) != 35:
+        raise PrivateVoiceBridgeError("Narration must contain exactly 35 words, calibrated for a natural 22–23-second delivery.")
     expected_hash = hashlib.sha256(script.encode("utf-8")).hexdigest()
     if metadata.get("schema_version") != 1 or metadata.get("script_sha256") != expected_hash:
         raise PrivateVoiceBridgeError("Private narration metadata does not match the requested script.")
@@ -165,6 +183,11 @@ def validate_private_narration(script: str, wav_bytes: bytes, metadata: dict) ->
     aligner = metadata.get("aligner") or {}
     if aligner.get("transcript_match") != "exact" or aligner.get("model") != "small.en":
         raise PrivateVoiceBridgeError("Private narration transcript verification is incomplete.")
+    recorded_hotwords = aligner.get("hotwords")
+    if not isinstance(recorded_hotwords, list) or not all(isinstance(term, str) for term in recorded_hotwords):
+        raise PrivateVoiceBridgeError("Private narration ASR hotword metadata is missing or invalid.")
+    if expected_hotwords is not None and recorded_hotwords != expected_hotwords:
+        raise PrivateVoiceBridgeError("Private narration ASR hotword hints do not match the requested terms.")
 
     audio = metadata.get("audio") or {}
     if hashlib.sha256(wav_bytes).hexdigest() != audio.get("sha256"):
@@ -241,7 +264,8 @@ def validate_private_narration(script: str, wav_bytes: bytes, metadata: dict) ->
 
 def generate_private_voiceover(script: str, output_path: str | Path, *,
                                request_id: str | None = None,
-                               timeout_seconds: int | None = None) -> tuple[Path, dict]:
+                               timeout_seconds: int | None = None,
+                               asr_hotwords: str | list[str] | None = None) -> tuple[Path, dict]:
     script = _normalise_script(script)
     token = os.environ.get("PRIVATE_VOICE_REPO_TOKEN", "").strip()
     if not token:
@@ -254,6 +278,9 @@ def generate_private_voiceover(script: str, output_path: str | Path, *,
         raise PrivateVoiceBridgeError("A numeric request ID is required for the private narration job.")
     if not script or len(script) > 4000:
         raise PrivateVoiceBridgeError("Narration text is missing or outside the supported size limit.")
+    hotwords = _normalise_hotwords(
+        asr_hotwords if asr_hotwords is not None else os.environ.get("ASR_HOTWORDS", "")
+    )
     dispatch_started = datetime.now(timezone.utc)
     session = requests.Session()
     dispatch_url = (
@@ -261,7 +288,11 @@ def generate_private_voiceover(script: str, output_path: str | Path, *,
     )
     _json_request(
         session, "POST", dispatch_url, token,
-        json={"ref": "main", "inputs": {"request_id": request_id, "narration_text": script}},
+        json={"ref": "main", "inputs": {
+            "request_id": request_id,
+            "narration_text": script,
+            "asr_hotwords": ", ".join(hotwords),
+        }},
     )
     timeout_seconds = int(timeout_seconds or os.environ.get("PRIVATE_VOICE_TIMEOUT_SECONDS", "5100"))
     run = _wait_for_run(session, token, request_id, dispatch_started, timeout_seconds)
@@ -299,7 +330,9 @@ def generate_private_voiceover(script: str, output_path: str | Path, *,
         raise PrivateVoiceBridgeError("Private narration metadata is not valid UTF-8 JSON.") from exc
     if metadata.get("request_id") != request_id:
         raise PrivateVoiceBridgeError("Private narration request ID does not match the current run.")
-    info = validate_private_narration(script, wav_bytes, metadata)
+    info = validate_private_narration(
+        script, wav_bytes, metadata, expected_hotwords=hotwords
+    )
 
     target = Path(output_path)
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -318,7 +351,9 @@ def main() -> int:
     script = os.environ.get("NARRATION_TEXT", "").strip()
     if not script:
         raise PrivateVoiceBridgeError("NARRATION_TEXT was not supplied.")
-    path, info = generate_private_voiceover(script, args.output)
+    path, info = generate_private_voiceover(
+        script, args.output, asr_hotwords=os.environ.get("ASR_HOTWORDS", "")
+    )
     print("Private Qwen3 narration bridge passed exact transcript and word-timing validation.")
     print("Word timings: " + str(info["word_timing_count"]))
     print("Private release: " + (info.get("private_release_url") or "available in the private repository"))
