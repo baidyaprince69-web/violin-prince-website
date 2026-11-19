@@ -37,7 +37,9 @@ const character = {
       }
     },
     "wave-test": { gesture: "wave" },
-    "two-arm-test": { gesture: "explain" }
+    "two-arm-test": { gesture: "explain" },
+    "point-left-test": { gesture: "point_left" },
+    "point-right-test": { gesture: "point_right" }
   }
 };
 
@@ -63,6 +65,13 @@ function parseMatrix(value) {
   const match = /^matrix\(([^)]+)\)$/.exec(String(value));
   assert.ok(match, "articulated layer must use a CSS matrix transform");
   return match[1].split(",").map(Number);
+}
+
+function rotationAngles(track) {
+  return track.values.map(value => {
+    const [a, b] = parseMatrix(value);
+    return Math.atan2(b, a);
+  });
 }
 
 function transformPoint(matrix, point) {
@@ -136,6 +145,29 @@ test("two-arm explanation animates both independently separated upper arms", () 
   assert.ok(targets.has("two-arm-test-violin-prince-part-right_hand"));
 });
 
+
+test("left and right pointing gestures use repeated articulated emphasis beats", () => {
+  for (const [sceneId, role, forearm, hand] of [
+    ["point-left-test", "left_upper_arm", "left_forearm", "left_hand"],
+    ["point-right-test", "right_upper_arm", "right_forearm", "right_hand"]
+  ]) {
+    const tracks = tracksFor(sceneId);
+    const targets = new Set(tracks.map(track => track.target));
+    for (const requiredRole of [role, forearm, hand, "head"]) {
+      assert.ok(targets.has(sceneId + "-violin-prince-part-" + requiredRole),
+        sceneId + " must animate " + requiredRole);
+    }
+    const upperArm = tracks.find(track =>
+      track.target === sceneId + "-violin-prince-part-" + role
+    );
+    const angles = rotationAngles(upperArm);
+    const deltas = angles.slice(1).map((value, index) => value - angles[index]);
+    assert.ok(deltas.some(value => value > 0.0001),
+      sceneId + " must include a positive emphasis movement");
+    assert.ok(deltas.some(value => value < -0.0001),
+      sceneId + " must include a return/re-emphasis movement, not a single settle into a held pose");
+  }
+});
 
 test("generated rig project wires real scene actions into frame-seekable motion tracks", {
   skip: !process.env.VP_RIG_PROJECT

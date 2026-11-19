@@ -2,6 +2,7 @@ import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { build as bundle } from "esbuild";
 import { compileMotionTracks } from "./src/motion-build.mjs";
+import { gestureKeyframes } from "./src/contract.mjs";
 import { fitCharacterToCanvas } from "./src/character-layout.mjs";
 
 function parseArgs(argv) {
@@ -18,6 +19,15 @@ function parseArgs(argv) {
 function escapeHtml(value) {
   return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
     .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+function gestureKeyframeCount(name) {
+  const gesture = gestureKeyframes(name);
+  return Object.values(gesture).reduce((maximum, properties) => {
+    const longest = Object.values(properties || {}).reduce((count, values) =>
+      Math.max(count, Array.isArray(values) ? values.length : 0), 0);
+    return Math.max(maximum, longest);
+  }, 0);
 }
 
 function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWidth, canvasHeight) {
@@ -292,9 +302,13 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
       ((scene.character_actions || {})[character.id] || {});
     if (!action.gesture && !action.pose && !action.keyframes) return false;
     const characterPrefix = scene.id + "-" + character.id + "-part-";
-    return project.motion_tracks.some((track) =>
+    const hasArticulatedTracks = project.motion_tracks.some((track) =>
       String(track.target || "").startsWith(characterPrefix)
     );
+    const gestureName = String(action.gesture || "").trim().toLowerCase();
+    const pointingGestureHasMultipleBeats = !["point_left", "point_right"].includes(gestureName) ||
+      gestureKeyframeCount(gestureName) >= 4;
+    return hasArticulatedTracks && pointingGestureHasMultipleBeats;
   }).length;
   if (visibleCharacters.some((character) => {
     const action = (character.scene_actions || {})[scene.id] ||
@@ -302,7 +316,7 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     return Boolean(action.gesture || action.pose || action.keyframes);
   }) && animatedPresenterCount < 1) {
     throw new Error("Scene " + scene.id +
-      " shows a presenter with a requested gesture but generated no articulated motion.");
+      " requires articulated presenter motion; pointing gestures must contain multiple emphasis beats.");
   }
   const presenterPoseAssets = visibleCharacters.flatMap((character) => {
     const action = (character.scene_actions || {})[scene.id] ||
@@ -323,6 +337,11 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     animated_graphic_items: graphicMotionCount,
     visible_character_count: visibleCharacters.length,
     animated_presenter_count: animatedPresenterCount,
+    presenter_gesture_keyframes: visibleCharacters.reduce((maximum, character) => {
+      const action = (character.scene_actions || {})[scene.id] ||
+        ((scene.character_actions || {})[character.id] || {});
+      return Math.max(maximum, gestureKeyframeCount(action.gesture));
+    }, 0),
     presenter_pose_asset_count: presenterPoseAssets.length,
     presenter_pose_assets: presenterPoseAssets
   };
