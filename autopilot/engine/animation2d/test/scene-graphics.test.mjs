@@ -23,6 +23,7 @@ function buildFixture(graphicData) {
         id: "explainer",
         start: 0,
         duration: 4,
+        visual_mode: "macro_illustration",
         title: "The explanation",
         caption: "Watch the signal move",
         graphic_data: graphicData,
@@ -67,6 +68,8 @@ try {
   }
   assert.ok(html.includes("ROOMTUNE SIGNAL PATH"));
   assert.ok(html.includes("graphic-connector"));
+  assert.ok(html.includes("visual-motif--rings"), "Macro illustration scenes should get the animated motif layer");
+  assert.ok(report.total_motion_tracks >= 15, "The scene should include both infographic and ambient motion");
 } finally {
   rmSync(successful.temporary, { recursive: true, force: true });
 }
