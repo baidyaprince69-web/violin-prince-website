@@ -70,6 +70,11 @@ def _verify_scene_clip(path: Path, *, engine: Any) -> dict[str, Any]:
     }
 
 
+def _absolute_scene_project_directory(work_dir: Path) -> Path:
+    """Return the scene-project root as an absolute path from the runner cwd."""
+    return (work_dir / "animation2d").resolve()
+
+
 def _build_motion_project(node: str, scene_project: Path, output_dir: Path) -> None:
     """Build a scene using absolute paths because Node runs from ANIMATION2D_DIR.
 
@@ -157,7 +162,7 @@ def render_daily_plan(
         encoding="utf-8",
     )
 
-    # Resolve once from the Python runner's repository-root cwd. All scene roots\n    # are then absolute, including HyperFrames' cwd and MP4 --output path.\n    project_dir = (engine.WORK / "animation2d").resolve()
+    # Resolve once from the Python runner's repository-root cwd. All scene roots\n    # are then absolute, including HyperFrames' cwd and MP4 --output path.\n    project_dir = _absolute_scene_project_directory(engine.WORK)
     if project_dir.exists():
         shutil.rmtree(project_dir)
     assets_dir = project_dir / "assets"
