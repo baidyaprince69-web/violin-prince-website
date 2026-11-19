@@ -344,12 +344,19 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
     addSpring(backgroundId, "opacity", 0, 1, sceneStart, 650);
     const visualMode = String(scene.visual_mode || "").toLowerCase();
     const cameraKeyframes = visualMode === "cover_performance"
-      ? ["scale(1.045) translateX(-10px)", "scale(1.095) translateX(12px)", "scale(1.07) translateX(-3px)"]
-      : visualMode === "waveform"
-        ? ["scale(1.04) translateY(8px)", "scale(1.085) translateY(-9px)", "scale(1.06) translateY(3px)"]
-        : ["scale(1.045) translateX(8px)", "scale(1.10) translateX(-12px)", "scale(1.065) translateX(4px)"];
+      ? ["scale(1.055) translateX(12px)", "scale(1.105) translateX(-8px)", "scale(1.12) translateX(-13px)"]
+      : visualMode === "waveform" || visualMode === "mechanism_illustration"
+        ? ["scale(1.055) translateY(8px)", "scale(1.105) translateY(-8px)", "scale(1.115) translateY(-12px)"]
+        : ["scale(1.055) translateX(-9px)", "scale(1.105) translateX(7px)", "scale(1.12) translateX(12px)"];
     addKeyframes(backgroundId, { transform: cameraKeyframes },
       sceneStart, sceneDuration, "ease-in-out");
+
+    const brandId = scene.id + "-brand";
+    addSpring(brandId, "opacity", 0, 1, sceneStart + 0.05, 520);
+    addSpring(brandId, "transform", 8, 0, sceneStart + 0.05, 620);
+    tracks[tracks.length - 1].values = tracks[tracks.length - 1].values.map(
+      value => "translateY(" + value + "px)"
+    );
 
     if (visualMode === "macro_illustration") {
       const motif = scene.id + "-motif";
