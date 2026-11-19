@@ -46,7 +46,7 @@ def build_daily_portrait_project(
                 "background_color": ["#101b2b", "#142c35", "#1c2437"][index % 3],
                 "presenter_pose": pose,
             }
-            for index, (scene_id, title, caption, pose, expression) in enumerate(scenes)
+            for index, (scene_id, title, caption, pose) in enumerate(scenes)
         ],
     }
     plan = attach_violin_prince_presenter(
