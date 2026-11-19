@@ -1,5 +1,5 @@
 {
   "mode": "chatgpt_daily_production",
   "plan_path": ".autopilot/daily-production-plan.json",
-  "reason": "Retry the complete Violin Prince preview on 2026-11-19 after fixing absolute HyperFrames paths; keep publishing disabled and transfer the video privately."
+  "reason": "Run one complete private-preview validation on 2026-11-19 after merging PR #92. Verify Qwen3 narration, HyperFrames scene rendering, final MP4 validation, and private Voice Vault transfer. Keep PUBLISH_ENABLED=false; do not create a public release or schedule a post."
 }
