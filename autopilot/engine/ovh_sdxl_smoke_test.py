@@ -19,15 +19,21 @@ API_URL = "https://stable-diffusion-xl.endpoints.kepler.ai.cloud.ovh.net/api/tex
 MODEL = "stable-diffusion-xl-base-v10"
 
 PROMPT = (
-    "Premium 2D editorial illustration for a violin music explainer: one taut violin "
-    "string visibly vibrating above a detailed warm-ivory wooden bridge, subtle antique "
-    "gold resonance waves, midnight-navy background, muted teal and antique-gold palette, "
-    "confident contour linework, layered painted shading, refined educational illustration, "
-    "clear composition, no text, no typography, no logo, no watermark"
+    "Extreme macro close-up crop of a single real violin bridge and the strings passing "
+    "over it, viewed from a shallow side angle. The bridge is the clear hero and fills "
+    "most of the square frame; show believable maple wood grain, the curved bridge feet, "
+    "fine string windings and a narrow strip of the violin top plate. One string has a "
+    "subtle visible vibration shown by two or three precise antique-gold resonance arcs. "
+    "Premium 2D editorial music-science illustration, warm ivory and antique-gold wood, "
+    "muted teal shadows, deep midnight-navy negative space, confident fine contour linework, "
+    "layered painterly shading, restrained cinematic lighting, accurate acoustic-instrument "
+    "construction, elegant and uncluttered composition. No complete violin, no architecture, "
+    "no background room, no text, no typography, no logo, no watermark."
 )
 NEGATIVE_PROMPT = (
-    "photograph, photorealistic, 3D render, CGI, malformed violin, extra strings, "
-    "deformed bridge, duplicate objects, text, letters, logos, watermarks, border"
+    "full violin, complete instrument, building, architecture, room, stage, columns, "
+    "photograph, photorealistic, 3D render, CGI, malformed bridge, extra bridges, "
+    "broken or tangled strings, duplicate objects, text, letters, logo, watermark, border"
 )
 
 
