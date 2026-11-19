@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - ".autopilot/prepare-request.json"
+      - ".autopilot/daily-production-plan.json"
   schedule:
     # 15:00 Asia/Kolkata (09:30 UTC), leaving time for rendering before the 19:00 queue slot.
     - cron: "30 9 * * *"
@@ -144,8 +145,10 @@ jobs:
         shell: bash
         run: |
           python - <<'PY'
+          import hashlib
           import json
           import os
+          import re
           from pathlib import Path
 
           request_path = Path(".autopilot/prepare-request.json")
@@ -163,13 +166,23 @@ jobs:
           plan_file = Path(plan_path)
           if not plan_file.is_file():
               raise SystemExit("The ChatGPT daily production plan does not exist.")
-          plan = json.loads(plan_file.read_text(encoding="utf-8"))
+          plan_bytes = plan_file.read_bytes()
+          plan = json.loads(plan_bytes.decode("utf-8"))
+          narration_script = re.sub(r"\s+", " ", str(plan.get("narration_script") or "")).strip()
+          if not narration_script:
+              raise SystemExit("The daily production plan has no narration script.")
+          plan_sha256 = hashlib.sha256(plan_bytes).hexdigest()
+          narration_sha256 = hashlib.sha256(narration_script.encode("utf-8")).hexdigest()
           today = datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
           if plan.get("production_date") != today:
               raise SystemExit(f"The daily plan must be refreshed for {today} Asia/Kolkata before production.")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write("plan_path=" + plan_path + "\n")
+              output.write("plan_sha256=" + plan_sha256 + "\n")
+              output.write("narration_sha256=" + narration_sha256 + "\n")
           print("Validated ChatGPT daily production request: " + plan_path)
+          print("Production plan SHA-256: " + plan_sha256)
+          print("Narration script SHA-256: " + narration_sha256)
           PY
 
       - name: Restore the latest encrypted SEO learning snapshot
@@ -250,6 +263,9 @@ jobs:
         if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path != ''
         env:
           RUN_ID: ${{ github.run_id }}
+          EXPECTED_PLAN_SHA256: ${{ steps.daily_request.outputs.plan_sha256 }}
+          EXPECTED_NARRATION_SHA256: ${{ steps.daily_request.outputs.narration_sha256 }}
+          PRODUCTION_EVENT_SHA: ${{ github.sha }}
           PUBLISH_ENABLED: "false"
           PRIVATE_VOICE_REPO_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
         run: python autopilot/engine/run_daily_plan.py --plan "${{ steps.daily_request.outputs.plan_path }}"
