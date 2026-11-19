@@ -70,6 +70,20 @@ def _verify_scene_clip(path: Path, *, engine: Any) -> dict[str, Any]:
     }
 
 
+def _build_motion_project(node: str, scene_project: Path, output_dir: Path) -> None:
+    """Build a scene using absolute paths because Node runs from ANIMATION2D_DIR.
+
+    The Python pipeline uses repository-relative work paths, but build.mjs
+    resolves --project and --out-dir from its own working directory. Passing
+    the relative paths directly makes Node look under animation2d/work/.
+    """
+    _run([
+        node, str(ANIMATION2D_DIR / "build.mjs"),
+        "--project", str(scene_project.resolve()),
+        "--out-dir", str(output_dir.resolve()),
+    ], cwd=ANIMATION2D_DIR, timeout=180)
+
+
 def render_daily_plan(
     engine: Any,
     plan: dict[str, Any],
@@ -282,11 +296,7 @@ def render_daily_plan(
             json.dumps(one_scene, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
-        _run([
-            node, str(ANIMATION2D_DIR / "build.mjs"),
-            "--project", str(scene_project),
-            "--out-dir", str(scene_root),
-        ], cwd=ANIMATION2D_DIR, timeout=180)
+        _build_motion_project(node, scene_project, scene_root)
         _run([str(hyperframes_cli), "lint"], cwd=scene_root, timeout=180)
         raw_clip = scene_root / "scene.mp4"
         retry_transient(
