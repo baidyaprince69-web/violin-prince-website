@@ -19,21 +19,26 @@ API_URL = "https://stable-diffusion-xl.endpoints.kepler.ai.cloud.ovh.net/api/tex
 MODEL = "stable-diffusion-xl-base-v10"
 
 PROMPT = (
-    "Extreme macro close-up crop of a single real violin bridge and the strings passing "
-    "over it, viewed from a shallow side angle. The bridge is the clear hero and fills "
-    "most of the square frame; show believable maple wood grain, the curved bridge feet, "
-    "fine string windings and a narrow strip of the violin top plate. One string has a "
-    "subtle visible vibration shown by two or three precise antique-gold resonance arcs. "
-    "Premium 2D editorial music-science illustration, warm ivory and antique-gold wood, "
-    "muted teal shadows, deep midnight-navy negative space, confident fine contour linework, "
-    "layered painterly shading, restrained cinematic lighting, accurate acoustic-instrument "
-    "construction, elegant and uncluttered composition. No complete violin, no architecture, "
-    "no background room, no text, no typography, no logo, no watermark."
+    "A clear, carefully designed TWO-DIMENSIONAL editorial illustration for a premium "
+    "music-science explainer. Show a close-up side view of a traditional wooden violin "
+    "bridge resting on the warm-ivory violin top plate, with exactly four neat strings "
+    "running over the bridge. The bridge is recognisably carved maple wood, not metal; "
+    "show its two curved feet and four clean string grooves. One string is shown vibrating "
+    "with two restrained antique-gold curved motion lines. Use simplified but accurate "
+    "instrument construction, elegant ink contour drawing, layered gouache shading and "
+    "subtle paper grain. Restrained palette: midnight navy, muted teal, warm ivory and "
+    "antique gold. Graphic clarity, strong silhouette, tasteful negative space, balanced "
+    "asymmetrical composition, premium contemporary 2D magazine illustration. This must "
+    "look hand-illustrated, not like a photograph. No full violin, no stage, no building, "
+    "no room, no glossy chrome, no signatures, no labels, no words, no letters, no logo, "
+    "no watermark."
 )
 NEGATIVE_PROMPT = (
-    "full violin, complete instrument, building, architecture, room, stage, columns, "
-    "photograph, photorealistic, 3D render, CGI, malformed bridge, extra bridges, "
-    "broken or tangled strings, duplicate objects, text, letters, logo, watermark, border"
+    "photograph, photorealism, macro photography, glossy metal, chrome bridge, silver "
+    "bridge, wrong instrument, cello, guitar, full violin, building, architecture, room, "
+    "stage, columns, extra strings, fewer than four strings, tangled strings, broken bridge, "
+    "floating bridge, warped instrument, illegible marks, signature, artist signature, "
+    "watermark, text, letters, logo, caption, border, 3D render, CGI"
 )
 
 
