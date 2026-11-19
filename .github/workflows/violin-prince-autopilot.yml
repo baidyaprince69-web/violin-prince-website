@@ -75,9 +75,8 @@ jobs:
       YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
       YOUTUBE_STATE_ENCRYPTION_KEY: ${{ secrets.YOUTUBE_STATE_ENCRYPTION_KEY }}
       SEO_LEARNING_REPORT_PATH: work/seo-learning-data/seo-learning/latest.enc.json
-      # Enables the gated public GitHub Release handoff for validated daily Shorts.
-      # The validated MP4 is handed to Upload-Post after the public release is created.
-      PUBLISH_ENABLED: "true"
+      # Publishing is intentionally disabled during the production-integration and test cycle.
+      PUBLISH_ENABLED: "false"
       VIOLIN_PRINCE_PRESENTER_ENABLED: "true"
     steps:
       - name: Validate stage inputs

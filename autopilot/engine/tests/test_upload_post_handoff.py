@@ -211,9 +211,9 @@ class DailyReadinessTests(unittest.TestCase):
         self.assertFalse(result["ready"])
         self.assertTrue(any("own-voice" in item.casefold() for item in result["blockers"]))
         self.assertTrue(any("illustration" in item.casefold() for item in result["blockers"]))
-        self.assertTrue(any("UPLOAD_POST_API_KEY" in item for item in result["blockers"]))
+        self.assertFalse(any("UPLOAD_POST_API_KEY" in item for item in result["blockers"]))
 
-    def test_scheduled_run_is_ready_only_when_all_gates_plan_and_secret_are_ready(self):
+    def test_scheduled_run_is_ready_only_when_all_gates_and_plan_are_ready(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             self._write(
@@ -236,6 +236,12 @@ class DailyReadinessTests(unittest.TestCase):
                 "autopilot/engine/run.py",
                 'def require_approved_text_provider():\n    return True\n'
                 'def require_approved_illustration_provider():\n    return True\n',
+            )
+            approval_source = Path(__file__).resolve().parents[1] / "voice-approval.json"
+            self._write(
+                root,
+                "autopilot/engine/voice-approval.json",
+                approval_source.read_text(encoding="utf-8"),
             )
             result = evaluate_daily_readiness(
                 root,

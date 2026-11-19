@@ -240,7 +240,8 @@ class StagedPipelineTests(unittest.TestCase):
             pipeline.OUT = pipeline.WORK / "output"
             calls = []
             try:
-                with unittest.mock.patch.object(pipeline, "prepare_stage", side_effect=lambda: calls.append("prepare") or 0), \
+                with unittest.mock.patch("voiceover.require_approved_own_voice", side_effect=RuntimeError("unapproved test record")), \
+                     unittest.mock.patch.object(pipeline, "prepare_stage", side_effect=lambda: calls.append("prepare") or 0), \
                      unittest.mock.patch.object(pipeline, "visuals_stage", side_effect=lambda feedback="": calls.append("visuals") or 0), \
                      unittest.mock.patch.object(pipeline, "render_stage", side_effect=lambda: calls.append("render") or 0):
                     result = pipeline.main(stage="full")
@@ -258,7 +259,8 @@ class StagedPipelineTests(unittest.TestCase):
                 pipeline.OUT = pipeline.WORK / "output"
                 calls = []
                 try:
-                    with unittest.mock.patch.object(pipeline, "prepare_stage", side_effect=lambda: calls.append("prepare") or 0), \
+                    with unittest.mock.patch("voiceover.require_approved_own_voice", side_effect=RuntimeError("unapproved test record")), \
+                         unittest.mock.patch.object(pipeline, "prepare_stage", side_effect=lambda: calls.append("prepare") or 0), \
                          unittest.mock.patch.object(pipeline, "visuals_stage", side_effect=lambda feedback="": calls.append("visuals") or 0), \
                          unittest.mock.patch.object(pipeline, "render_stage", side_effect=lambda: calls.append("render") or 0):
                         result = pipeline.main(stage=stage)

@@ -39,6 +39,7 @@ except ImportError:  # Direct script execution from the engine directory.
     )
 
 RUN_ID = os.environ.get("RUN_ID", str(uuid.uuid4()))
+NARRATION_TARGET_WORDS = 35
 WORK, OUT, IMAGES = Path("work"), Path("work/output"), Path("work/images")
 W, H, FPS, SECONDS = 720, 1280, 25, 8
 http = requests.Session()
@@ -2864,8 +2865,11 @@ def narration_validation_error(script):
     """Enforce the actual short-form requirements, not arbitrary per-sentence quotas."""
     text_value = re.sub(r"\s+", " ", str(script or "")).strip()
     total_words = narration_word_count(text_value)
-    if not 37 <= total_words <= 38:
-        return f"it has {total_words} spoken words; the calibrated range is 37–38 for a 22–23-second natural delivery"
+    if total_words != NARRATION_TARGET_WORDS:
+        return (
+            f"it has {total_words} spoken words; exactly {NARRATION_TARGET_WORDS} are required "
+            "for the verified 22–23-second Qwen3 delivery"
+        )
 
     sentences = narration_sentences(text_value)
     if len(sentences) != 4:
@@ -2896,26 +2900,53 @@ def narration_validation_error(script):
     return ""
 
 
-def narration_sentence_budget(sentences, target_total=None):
-    """Allocate a feasible, per-sentence word range from the actual draft."""
+def narration_sentence_budget(sentences, target_total=None, adjustable_indices=None):
+    """Allocate a feasible exact word budget, optionally changing only selected sentences."""
     values = [re.sub(r"\s+", " ", str(value or "")).strip() for value in list(sentences or [])[:4]]
     values.extend([""] * (4 - len(values)))
     limits = (8, 12, 12, 12)
     floors = (5, 5, 5, 5)
-    actual_total = sum(narration_word_count(value) for value in values)
     if target_total is None:
-        target_total = actual_total if 37 <= actual_total <= 38 else (37 if actual_total < 37 else 38)
-    target_total = max(37, min(38, int(target_total)))
+        target_total = NARRATION_TARGET_WORDS
+    try:
+        target_total = int(target_total)
+    except (TypeError, ValueError) as exc:
+        raise PipelineError("Narration sentence budget must use the exact 35-word contract.") from exc
+    if target_total != NARRATION_TARGET_WORDS:
+        raise PipelineError("Narration sentence budget must use the exact 35-word contract.")
 
-    counts = [
-        min(limits[index], max(floors[index], narration_word_count(value)))
-        for index, value in enumerate(values)
-    ]
-    priority = (1, 2, 3, 0)
-
-    difference = target_total - sum(counts)
-    body_priority = (1, 2, 3)
-    hook_priority = (0,)
+    actual_counts = [narration_word_count(value) for value in values]
+    restricted = adjustable_indices is not None
+    if restricted:
+        editable = sorted({int(index) for index in adjustable_indices if 0 <= int(index) < 4})
+        if not editable:
+            raise PipelineError("A targeted narration correction must identify at least one editable sentence.")
+        editable_set = set(editable)
+        locked_invalid = [
+            index + 1 for index, count in enumerate(actual_counts)
+            if index not in editable_set and not floors[index] <= count <= limits[index]
+        ]
+        if locked_invalid:
+            raise PipelineError(
+                "Targeted narration correction cannot preserve locked sentence(s) outside the allowed word limits: "
+                + ", ".join(map(str, locked_invalid))
+            )
+        counts = [
+            actual_counts[index] if index not in editable_set
+            else min(limits[index], max(floors[index], actual_counts[index]))
+            for index in range(4)
+        ]
+        difference = target_total - sum(counts)
+        body_priority = tuple(index for index in (1, 2, 3) if index in editable_set)
+        hook_priority = tuple(index for index in (0,) if index in editable_set)
+    else:
+        counts = [
+            min(limits[index], max(floors[index], actual_counts[index]))
+            for index in range(4)
+        ]
+        difference = target_total - sum(counts)
+        body_priority = (1, 2, 3)
+        hook_priority = (0,)
     while difference > 0:
         available = [index for index in body_priority if counts[index] < limits[index]]
         if not available:
@@ -2937,7 +2968,12 @@ def narration_sentence_budget(sentences, target_total=None):
         difference += 1
 
     maxima = list(counts)
-    extra_capacity = 38 - target_total
+    if restricted:
+        return [
+            {"min_words": counts[index], "max_words": counts[index]}
+            for index in range(4)
+        ]
+    extra_capacity = NARRATION_TARGET_WORDS - target_total
     while extra_capacity > 0:
         available = [index for index in body_priority if maxima[index] < limits[index]]
         if not available:
@@ -3164,15 +3200,14 @@ def compose_narration(
         current_issue = narration_validation_error(current_script)
         current_total = narration_word_count(current_script)
 
-        # Aim for 37–38 words based on the prior 40-word / 24.08-second generation.
-        if current_total < 37:
-            target_total = 37
-        elif current_total > 38:
-            target_total = 38
-        else:
-            target_total = current_total
+        # Match the exact 35-word contract verified by the private Qwen3 handoff.
+        target_total = NARRATION_TARGET_WORDS
 
-        budgets = narration_sentence_budget(sentences, target_total=target_total)
+        budgets = narration_sentence_budget(
+            sentences,
+            target_total=target_total,
+            adjustable_indices=forced_indices if forced_indices else None,
+        )
         target_indices = (
             list(forced_indices)
             if forced_indices
@@ -3233,7 +3268,7 @@ def compose_narration(
             "Correct only the requested sentence fields. Return each as an array of individual words. "
             "The array length is exact and is stated in the function schema; do not add or omit words. "
             "Python will join the words into sentences. Do not return or rewrite any locked sentence. "
-            "The complete narration must remain exactly four sentences and total 37–38 spoken words, calibrated from the prior 40-word / 24.08-second output for a 22–23-second target. "
+            "The complete narration must remain exactly four sentences and total exactly 35 spoken words, matching the verified private Qwen3 22–23-second delivery. "
             "Use only facts stated in the supplied direct publisher article excerpts. Do not invent dates, "
             "statistics, quotes, names, motives, abilities, or outcomes. No padding, repeated ideas, generic "
             "filler, metaphor presented as fact, or unsupported claims. Do not personify AI as feeling, "
@@ -3380,7 +3415,7 @@ def compose_narration(
     final_script = " ".join(sentences).strip()
     raise PipelineError(
         "Narration composer stopped safely after two targeted correction cycles. "
-        "The narration must contain 37–38 words, exactly four complete sentences, "
+        "The narration must contain exactly 35 words and four complete sentences, "
         "a 5–8-word hook, and no sentence over 12 words. Final diagnostic: "
         + narration_validation_error(final_script)
     )
@@ -3566,8 +3601,8 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
         "of: violin_physics, instrument_design, sound_and_perception, melody_and_composition, song_anatomy, "
         "music_production, music_technology, violin_cover_breakdown. "
         "The narration_sentences field must be an array of exactly four separate, natural, complete spoken sentences. "
-        "Target 37–38 spoken words for a natural 22–23-second delivery, calibrated against the earlier 40-word "
-        "generation that lasted 24.08 seconds. This is an estimate, not a guarantee: never pad or repeat. Sentence 1 "
+        "Target exactly 35 spoken words for the verified natural 22–23-second private Qwen3 delivery. "
+        "This duration is calibrated from the successful 22.96-second end-to-end test; never pad or repeat. Sentence 1 "
         "is a concise 5–8-word curiosity hook resolved by the ending. No sentence may exceed 12 words. "
         "Build context, reveal one memorable sourced detail, and finish with a satisfying musical payoff. "
         "cover_payoff is mandatory: describe the exact way a short original Violin Prince violin phrase or cover "

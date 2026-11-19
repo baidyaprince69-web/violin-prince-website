@@ -32,4 +32,11 @@ Never paste the token into chat, source code, workflow inputs, or a commit. Do n
 
 After both bridge PRs are reviewed, merged, and the first end-to-end test is started, run **Private Qwen3 narration bridge test** from the public repository's Actions tab. It uses the current `.autopilot/daily-production-plan.json` narration. The workflow does not render a video, publish anything, or upload a public artifact. The private repository exposes the two verified files only on a temporary branch, which the bridge deletes after validation.
 
-The production voice gate remains closed until the bridge test completes successfully. The separate illustration-provider gate remains unchanged.
+The private Qwen3 end-to-end bridge test completed successfully:
+- Public bridge run: `44514229249`
+- Private worker run: `44514263171`
+- Private cleanup run: `44517206357`
+- Exact 35-word transcript, all word timings, natural 22.96-second duration and SHA-256 validation passed.
+- The temporary private transfer branch was deleted and verified absent.
+
+The production own-voice gate is now open for the private Qwen3 provider only, backed by `voice-approval.json`. The private client still requires `PRIVATE_VOICE_REPO_TOKEN` and validates every run before writing narration to the temporary public runner workspace. The separate illustration-provider gate remains closed. Publishing remains disabled.
