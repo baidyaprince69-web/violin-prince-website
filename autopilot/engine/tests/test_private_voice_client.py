@@ -70,7 +70,7 @@ def fixture_payload(duration=22.5):
             "repetition_penalty": 1.1,
             "do_sample": True,
             "temperature": 0.9,
-            "seed": 42,
+            "seed": 43,
             "attempt": 1,
         },
         "script_sha256": hashlib.sha256(script.encode("utf-8")).hexdigest(),
@@ -184,7 +184,7 @@ class PrivateVoiceValidationTests(unittest.TestCase):
             )
 
     def test_rejects_unreviewed_or_mismatched_generation_seed(self):
-        for seed, attempt in ((999, 1), (43, 1), (42, 4)):
+        for seed, attempt in ((999, 1), (44, 1), (43, 4)):
             with self.subTest(seed=seed, attempt=attempt):
                 wav_bytes, metadata = fixture_payload()
                 metadata["generation"]["seed"] = seed
