@@ -25,6 +25,13 @@ class WorkflowPrivacyContractTests(unittest.TestCase):
         self.assertIn("private-preview-video-$SOURCE_RUN_ID", self.workflow_text)
         self.assertIn("private-preview-$SOURCE_RUN_ID", self.workflow_text)
 
+    def test_expensive_production_requires_fast_preflight(self):
+        self.assertIn("fast_preflight:", self.workflow_text)
+        self.assertIn("needs: [daily_readiness, fast_preflight]", self.workflow_text)
+        self.assertIn("needs.fast_preflight.result == 'success'", self.workflow_text)
+        self.assertIn("ruff check --select F821,F822,F823 autopilot/engine", self.workflow_text)
+        self.assertIn("test_hyperframes_pipeline.py", self.workflow_text)
+
     def test_publishing_is_hard_disabled_in_the_workflow(self):
         self.assertIn('PUBLISH_ENABLED: "false"', self.workflow_text)
         self.assertIn("env.PUBLISH_ENABLED == 'true'", self.workflow_text)
