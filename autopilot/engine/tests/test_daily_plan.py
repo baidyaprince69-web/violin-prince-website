@@ -30,6 +30,55 @@ class DailyPlanEvidenceTests(unittest.TestCase):
             "That resonance shapes the sound heard in the room.",
         ]
 
+    def test_production_identity_pins_plan_and_narration_hashes(self):
+        import hashlib
+        import json
+
+        script = (
+            "Could your room change your violin mix? "
+            "This system measures your room and changes monitor output. "
+            "Your original recording remains completely unchanged during monitor playback. "
+            "The system handles tone, compression and reverb in real time."
+        )
+        plan = {"narration_script": script}
+        plan_bytes = json.dumps(plan, ensure_ascii=False).encode("utf-8")
+        plan_hash = hashlib.sha256(plan_bytes).hexdigest()
+        script_hash = hashlib.sha256(script.encode("utf-8")).hexdigest()
+
+        identity = daily.build_production_identity(
+            plan_bytes,
+            plan,
+            expected_plan_sha256=plan_hash,
+            expected_narration_sha256=script_hash,
+        )
+        self.assertEqual(identity["plan_sha256"], plan_hash)
+        self.assertEqual(identity["narration_script_sha256"], script_hash)
+        self.assertEqual(identity["narration_word_count"], 35)
+        self.assertEqual(identity["snapshot_lock"], "verified")
+
+        with self.assertRaisesRegex(Exception, "checked-out plan"):
+            daily.build_production_identity(
+                plan_bytes,
+                plan,
+                expected_plan_sha256="0" * 64,
+                expected_narration_sha256=script_hash,
+            )
+        with self.assertRaisesRegex(Exception, "both expected plan and narration hashes"):
+            daily.build_production_identity(
+                plan_bytes,
+                plan,
+                expected_plan_sha256=plan_hash,
+            )
+
+    def test_autopilot_trigger_watches_the_daily_plan_and_passes_snapshot_hashes(self):
+        workflow_path = ENGINE_DIR.parents[1] / ".github" / "workflows" / "violin-prince-autopilot.yml"
+        workflow = workflow_path.read_text(encoding="utf-8")
+        self.assertIn('      - ".autopilot/daily-production-plan.json"', workflow)
+        self.assertIn("plan_sha256=", workflow)
+        self.assertIn("narration_sha256=", workflow)
+        self.assertIn("EXPECTED_PLAN_SHA256:", workflow)
+        self.assertIn("EXPECTED_NARRATION_SHA256:", workflow)
+
     def test_narration_contract_requires_exactly_35_words(self):
         script_35 = (
             "Could your room change your violin mix? "
