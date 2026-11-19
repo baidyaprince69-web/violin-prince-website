@@ -93,7 +93,7 @@ class CreativeQualityTests(unittest.TestCase):
             self.assertIn("Premium Violin Prince visual identity", prompt)
             self.assertIn("luxury music-documentary illustration", prompt)
             self.assertIn("deep midnight navy", prompt)
-            self.assertIn("high-detail 2D editorial illustration", prompt)
+            self.assertIn("High-detail 2D painted editorial art", prompt)
             self.assertIn("physically believable violin construction", prompt)
             self.assertIn("painted natural wood grain", prompt)
             self.assertIn("This is original art direction", prompt)
