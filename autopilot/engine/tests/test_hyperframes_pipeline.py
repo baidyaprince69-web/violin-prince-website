@@ -79,6 +79,11 @@ class HyperFramesProjectPathTests(unittest.TestCase):
                     (("hook", "The hook"), ("detail", "The detail"), ("payoff", "The payoff"))
                 )
             ]
+            scenes[1]["graphic_data"] = {
+                "type": "process_flow",
+                "title": "THREE STEP TEST",
+                "items": ["MEASURE", "CORRECT", "LISTEN"],
+            }
             plan = {"title": "Offline renderer smoke test", "scenes": scenes}
             narration_info = {
                 "subtitle_cues": [],
@@ -122,6 +127,35 @@ class HyperFramesProjectPathTests(unittest.TestCase):
                     self.assertTrue(out_dir.is_absolute())
                     self.assertEqual(Path(cwd), pipeline.ANIMATION2D_DIR)
                     build_calls.append((project, out_dir))
+                    project_data = json.loads(project.read_text(encoding="utf-8"))
+                    report_scenes = []
+                    total_graphics = 0
+                    for render_scene in project_data["scenes"]:
+                        graphic = render_scene.get("graphic_data") or {}
+                        graphic_count = (
+                            1 if graphic.get("type") == "waveform"
+                            else len(graphic.get("items") or [])
+                        ) if graphic else 0
+                        total_graphics += graphic_count
+                        report_scenes.append({
+                            "scene_id": render_scene["id"],
+                            "animated_graphic_items": graphic_count,
+                            "animated_presenter_count": 0,
+                        })
+                    out_dir.mkdir(parents=True, exist_ok=True)
+                    (out_dir / "motion-report.json").write_text(
+                        json.dumps({
+                            "status": "passed",
+                            "total_motion_tracks": 12,
+                            "animated_graphic_scene_count": sum(
+                                1 for item in report_scenes if item["animated_graphic_items"]
+                            ),
+                            "animated_graphic_item_count": total_graphics,
+                            "animated_presenter_count": 0,
+                            "scenes": report_scenes,
+                        }),
+                        encoding="utf-8",
+                    )
                     return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
                 if name == "hyperframes":
                     if "render" in command:
@@ -198,6 +232,9 @@ class HyperFramesProjectPathTests(unittest.TestCase):
             self.assertTrue((output_absolute / "violin-prince-short.mp4").is_file())
             self.assertEqual(quality["visual_engine"], "Motion + HyperFrames 2D scene renderer")
             self.assertEqual(quality["scene_render_checkpoints"]["rendered_scene_count"], 3)
+            self.assertEqual(quality["motion_graphics"]["status"], "passed")
+            self.assertEqual(quality["motion_graphics"]["animated_graphic_item_count"], 3)
+            self.assertEqual(quality["visual_direction"]["status"], "directed")
 
     def test_node_builder_receives_absolute_project_and_output_paths(self):
         # Production's Python process runs from the repository root, while
