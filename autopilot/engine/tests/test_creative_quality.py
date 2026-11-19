@@ -90,6 +90,8 @@ class CreativeQualityTests(unittest.TestCase):
         self.assertIn("SHOT 2 — MECHANISM", prompts[1])
         self.assertIn("SHOT 3 — PERFORMANCE PAYOFF", prompts[2])
         for prompt in prompts:
+            self.assertIn("Premium Violin Prince visual identity", prompt)
+            self.assertIn("luxury music-documentary illustration", prompt)
             self.assertIn("deep midnight navy", prompt)
             self.assertIn("high-detail 2D editorial illustration", prompt)
             self.assertIn("physically believable violin construction", prompt)
