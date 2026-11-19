@@ -2784,6 +2784,7 @@ ILLUSTRATION_APPROVAL_FILE = Path(__file__).with_name("illustration-approval.jso
 _ILLUSTRATION_APPROVAL_EVIDENCE = {
     "workflow_status": "success",
     "all_six_modes_passed": True,
+    "story_profile_scenes_passed": True,
     "network_calls": False,
     "output_width": 1024,
     "output_height": 1792,
