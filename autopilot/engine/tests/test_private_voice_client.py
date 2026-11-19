@@ -145,7 +145,7 @@ class PrivateVoiceValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(PrivateVoiceBridgeError, "generation safeguards"):
             validate_private_narration(
                 SCRIPT, wav_bytes, metadata,
-                expected_hotwords=["Audient"],
+                expected_hotwords=[],
             )
 
     def test_rejects_audio_outside_the_22_to_23_second_target(self):
