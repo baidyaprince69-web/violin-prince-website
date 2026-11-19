@@ -2,6 +2,7 @@
 import ast
 import inspect
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -49,9 +50,11 @@ class HyperFramesProjectPathTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            work = root / "work"
+            work = Path("work")
             output = work / "output"
-            output.mkdir(parents=True)
+            work_absolute = root / "work"
+            output_absolute = work_absolute / "output"
+            output_absolute.mkdir(parents=True)
             images = []
             for index in range(3):
                 image = root / f"scene-{index + 1}.png"
@@ -138,7 +141,21 @@ class HyperFramesProjectPathTests(unittest.TestCase):
                         command, 0, stdout=json.dumps(stream), stderr=""
                     )
                 if name == "ffmpeg":
+                    command_cwd = Path(cwd)
+                    if not command_cwd.is_absolute():
+                        command_cwd = Path.cwd() / command_cwd
+                    for index, argument in enumerate(command[:-1]):
+                        if argument == "-i":
+                            source_path = Path(command[index + 1])
+                            if not source_path.is_absolute():
+                                source_path = command_cwd / source_path
+                            self.assertTrue(
+                                source_path.is_file(),
+                                f"FFmpeg input must exist from its working directory: {source_path}",
+                            )
                     target = Path(command[-1])
+                    if not target.is_absolute():
+                        target = command_cwd / target
                     target.parent.mkdir(parents=True, exist_ok=True)
                     target.write_bytes(b"F" * 8192)
                     return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
@@ -155,25 +172,30 @@ class HyperFramesProjectPathTests(unittest.TestCase):
                 "status": "passed", "errors": [], "warnings": []
             }
 
-            with (
-                patch.dict(sys.modules, {
-                    "audio_analysis": audio_analysis,
-                    "media_verification": media_verification,
-                    "character_visual_validation": character_validation,
-                }),
-                patch.object(pipeline, "_run", side_effect=fake_run),
-                patch.object(pipeline.shutil, "which", side_effect=lambda name: f"/usr/bin/{name}"),
-            ):
-                quality = pipeline.render_daily_plan(
-                    engine, plan, images, audio, narration, narration_info, characters=[]
-                )
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(root)
+                with (
+                    patch.dict(sys.modules, {
+                        "audio_analysis": audio_analysis,
+                        "media_verification": media_verification,
+                        "character_visual_validation": character_validation,
+                    }),
+                    patch.object(pipeline, "_run", side_effect=fake_run),
+                    patch.object(pipeline.shutil, "which", side_effect=lambda name: f"/usr/bin/{name}"),
+                ):
+                    quality = pipeline.render_daily_plan(
+                        engine, plan, images, audio, narration, narration_info, characters=[]
+                    )
+            finally:
+                os.chdir(original_cwd)
 
-            expected_project_root = (work / "animation2d").resolve()
+            expected_project_root = (work_absolute / "animation2d").resolve()
             self.assertEqual(len(build_calls), 3)
             self.assertTrue(all(path.is_relative_to(expected_project_root) for path, _ in build_calls))
             self.assertTrue(all(out.is_absolute() for _, out in build_calls))
             self.assertTrue(all(path.is_file() for path, _ in build_calls))
-            self.assertTrue((output / "violin-prince-short.mp4").is_file())
+            self.assertTrue((output_absolute / "violin-prince-short.mp4").is_file())
             self.assertEqual(quality["visual_engine"], "Motion + HyperFrames 2D scene renderer")
             self.assertEqual(quality["scene_render_checkpoints"]["rendered_scene_count"], 3)
 
