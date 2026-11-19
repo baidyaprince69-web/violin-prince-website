@@ -31,9 +31,39 @@ function buildFixture(graphicData) {
           layout: "graphic_left_presenter_right",
           graphic_area: "left_column",
           presenter_area: "right_column"
+        },
+        character_actions: {
+          "violin-prince": {
+            visible: true,
+            x: 388,
+            y: 180,
+            scale: 0.46,
+            start_offset: 0.18,
+            duration: 3.82,
+            gesture: "point_left",
+            expression: "speaking"
+          }
         }
       }],
-      characters: []
+      characters: [{
+        id: "violin-prince",
+        canvas: { width: 720, height: 1280 },
+        layers: [
+          { id: "left-upper-arm", role: "left_upper_arm", src: "left-upper-arm.png",
+            x: 230, y: 330, width: 150, height: 190, pivot_x: 0.75, pivot_y: 0.25, z_index: 20 },
+          { id: "left-forearm", role: "left_forearm", src: "left-forearm.png",
+            x: 145, y: 475, width: 145, height: 140, pivot_x: 0.8, pivot_y: 0.22, z_index: 30 },
+          { id: "left-hand", role: "left_hand", src: "left-hand.png",
+            x: 100, y: 570, width: 80, height: 80, pivot_x: 0.85, pivot_y: 0.4, z_index: 40 }
+        ],
+        joints: {
+          left_shoulder: { x: 0.44, y: 0.34 },
+          left_elbow: { x: 0.34, y: 0.47 },
+          left_wrist: { x: 0.25, y: 0.56 }
+        },
+        expressions: {},
+        pose_assets: {}
+      }]
     };
     writeFileSync(projectPath, JSON.stringify(project, null, 2));
     const result = spawnSync(process.execPath, [
@@ -69,7 +99,10 @@ try {
   assert.ok(html.includes("ROOMTUNE SIGNAL PATH"));
   assert.ok(html.includes("graphic-connector"));
   assert.ok(html.includes("visual-motif--rings"), "Macro illustration scenes should get the animated motif layer");
-  assert.ok(report.total_motion_tracks >= 15, "The scene should include both infographic and ambient motion");
+  assert.ok(html.includes("explainer-violin-prince"), "The presenter must render in the combined explanatory scene");
+  assert.ok(html.includes("motion-graphic--with-presenter"), "The diagram must use the presenter-aware split layout");
+  assert.equal(report.animated_presenter_count, 1, "The presenter must have articulated motion tracks");
+  assert.ok(report.total_motion_tracks >= 20, "The scene should include infographic, ambient and presenter motion");
 } finally {
   rmSync(successful.temporary, { recursive: true, force: true });
 }
