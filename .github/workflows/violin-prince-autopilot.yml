@@ -18,14 +18,6 @@ on:
         default: full
         options:
           - full
-      source_run_id:
-        description: "Optional for Prepare/Full research recovery; required for Visuals/Render to identify the previous stage run."
-        required: false
-        type: string
-      visual_feedback:
-        description: "Optional visual changes; used only when stage is Visuals."
-        required: false
-        type: string
 
 permissions:
   contents: write
@@ -65,7 +57,6 @@ jobs:
       RUN_ID: ${{ github.run_id }}
       RUN_MODE: ${{ github.event_name == 'schedule' && 'scheduled' || 'manual' }}
       PIPELINE_STAGE: ${{ inputs.stage || 'full' }}
-      VISUAL_FEEDBACK: ${{ inputs.visual_feedback }}
       YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
       YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
       YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
@@ -81,21 +72,10 @@ jobs:
         shell: bash
         env:
           SELECTED_STAGE: ${{ inputs.stage || 'full' }}
-          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
         run: |
           if [[ "$SELECTED_STAGE" != "full" ]]; then
             echo "::error::Only the complete preview-only run is enabled. Staged package artifacts are disabled until a private stage handoff is implemented."
             exit 1
-          fi
-          if [[ -n "$SOURCE_RUN_ID" && ! "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]]; then
-            echo "::error::source_run_id must contain only the numeric GitHub Actions run ID."
-            exit 1
-          fi
-          if [[ "$SELECTED_STAGE" == "visuals" || "$SELECTED_STAGE" == "render" ]]; then
-            if [[ -z "$SOURCE_RUN_ID" ]]; then
-              echo "::error::Enter the earlier workflow Run ID in source_run_id."
-              exit 1
-            fi
           fi
 
       - name: Check out the project
@@ -151,16 +131,6 @@ jobs:
           cache: pip
           cache-dependency-path: autopilot/engine/requirements.txt
 
-      - name: Reuse research from an earlier failed run when requested
-        if: (env.PIPELINE_STAGE == 'prepare' || env.PIPELINE_STAGE == 'full') && (inputs.source_run_id != '' || steps.prepare_request.outputs.source_run_id != '')
-        uses: actions/download-artifact@v4
-        with:
-          name: violin-prince-run-${{ inputs.source_run_id || steps.prepare_request.outputs.source_run_id }}
-          path: work/reuse
-          run-id: ${{ inputs.source_run_id || steps.prepare_request.outputs.source_run_id }}
-          github-token: ${{ github.token }}
-          repository: ${{ github.repository }}
-
 
       - name: Cache CC0 violin sample zones
         if: env.PIPELINE_STAGE == 'prepare' || env.PIPELINE_STAGE == 'full'
@@ -168,18 +138,6 @@ jobs:
         with:
           path: ~/.cache/violin-prince/cc0-solo-violin-v1
           key: violin-prince-cc0-solo-violin-v1
-
-      - name: Restore production package, including any completed scene images
-        if: env.PIPELINE_STAGE == 'visuals' || env.PIPELINE_STAGE == 'render'
-        uses: actions/download-artifact@v4
-        with:
-          # The diagnostic artifact retains the complete work/package directory.
-          # This lets a later Visuals run resume images from a partial prior attempt.
-          name: violin-prince-run-${{ inputs.source_run_id }}
-          path: work
-          run-id: ${{ inputs.source_run_id }}
-          github-token: ${{ github.token }}
-          repository: ${{ github.repository }}
 
       - name: Install preparation dependencies
         if: (env.PIPELINE_STAGE == 'prepare' || env.PIPELINE_STAGE == 'full') && github.event_name != 'schedule'
@@ -223,27 +181,9 @@ jobs:
         if: env.PIPELINE_STAGE == 'prepare'
         run: python autopilot/engine/run.py --stage prepare
 
-      - name: Upload prepared story package
-        if: success() && (env.PIPELINE_STAGE == 'prepare')
-        uses: actions/upload-artifact@v4
-        with:
-          name: prepared-package
-          path: work/package/
-          if-no-files-found: error
-          retention-days: 3
-
       - name: Generate visual scenes and storyboard
         if: env.PIPELINE_STAGE == 'visuals'
         run: python autopilot/engine/run.py --stage visuals
-
-      - name: Upload visual review package
-        if: success() && (env.PIPELINE_STAGE == 'visuals')
-        uses: actions/upload-artifact@v4
-        with:
-          name: visual-package
-          path: work/package/
-          if-no-files-found: error
-          retention-days: 3
 
       - name: Render final MP4 from saved package (no AI calls)
         if: env.PIPELINE_STAGE == 'render'
