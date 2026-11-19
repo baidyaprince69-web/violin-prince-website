@@ -431,10 +431,13 @@ jobs:
           git -C "$temporary_dir/private-repo" commit -m "Private preview handoff request $SOURCE_RUN_ID"
           git -C "$temporary_dir/private-repo" push origin "$transfer_branch"
 
-          # Do not report a completed handoff until the private workflow has
-          # verified the MP4 and uploaded its one-day private artifact.
+          # Wait for the private workflow to verify the MP4. Prefer a one-day
+          # Actions artifact; fall back to a private draft release if artifact
+          # storage refuses the upload.
           private_run_id=""
           private_artifact_id=""
+          private_release_url=""
+          private_delivery=""
           for attempt in $(seq 1 40); do
             runs_json="$(gh api "repos/$PRIVATE_REPO/actions/workflows/private-video-preview-intake.yml/runs?branch=$transfer_branch&event=push&per_page=10")"
             run_state="$(python -c '
@@ -475,53 +478,110 @@ jobs:
           ]
           print(artifacts[0]["id"] if artifacts else "")
           ' "$SOURCE_RUN_ID" <<< "$artifacts_json")"
-              if [[ -z "$private_artifact_id" ]]; then
-                echo "::error::The private intake run passed but its verified one-day artifact was not found."
-                exit 1
+              if [[ -n "$private_artifact_id" ]]; then
+                private_delivery="one_day_actions_artifact"
+                break
               fi
-              break
+
+              releases_json="$(gh api "repos/$PRIVATE_REPO/releases?per_page=100")"
+              private_release_url="$(python -c '
+          import json, sys
+          data = json.load(sys.stdin)
+          expected_title = "Private Violin Prince preview run " + sys.argv[1]
+          expected_size = int(sys.argv[2])
+          matches = [
+              item for item in data
+              if item.get("draft") is True and item.get("name") == expected_title
+              and any(
+                  asset.get("name") == "violin-prince-short.mp4"
+                  and int(asset.get("size") or 0) == expected_size
+                  for asset in item.get("assets", [])
+              )
+          ]
+          print(matches[0].get("html_url", "") if matches else "")
+          ' "$SOURCE_RUN_ID" "$size_bytes" <<< "$releases_json")"
+              if [[ -n "$private_release_url" ]]; then
+                private_delivery="private_draft_release_fallback"
+                break
+              fi
+              echo "::error::The private intake passed but neither a verified artifact nor a verified private-release fallback was found."
+              exit 1
             fi
             sleep 15
           done
 
-          if [[ -z "$private_run_id" || -z "$private_artifact_id" ]]; then
-            echo "::error::Timed out waiting for the private preview artifact to be confirmed."
+          if [[ -z "$private_run_id" || -z "$private_delivery" ]]; then
+            echo "::error::Timed out waiting for the private preview to be confirmed."
             exit 1
           fi
 
-          # Private intake cleanup should have deleted both temporary resources.
+          # The transfer branch is temporary in both delivery modes.
           if gh api "repos/$PRIVATE_REPO/git/ref/heads/$transfer_branch" >/dev/null 2>&1; then
-            echo "::error::Private intake artifact exists, but its temporary transfer branch remains."
+            echo "::error::The private intake finished but its temporary transfer branch remains."
             exit 1
           fi
-          if gh api "repos/$PRIVATE_REPO/releases/tags/$release_tag" >/dev/null 2>&1; then
+
+          releases_json="$(gh api "repos/$PRIVATE_REPO/releases?per_page=100")"
+          remaining_release_url="$(python -c '
+          import json, sys
+          data = json.load(sys.stdin)
+          expected_title = "Private Violin Prince preview run " + sys.argv[1]
+          expected_size = int(sys.argv[2])
+          matches = [
+              item for item in data
+              if item.get("draft") is True and item.get("name") == expected_title
+              and any(
+                  asset.get("name") == "violin-prince-short.mp4"
+                  and int(asset.get("size") or 0) == expected_size
+                  for asset in item.get("assets", [])
+              )
+          ]
+          print(matches[0].get("html_url", "") if matches else "")
+          ' "$SOURCE_RUN_ID" "$size_bytes" <<< "$releases_json")"
+
+          if [[ "$private_delivery" == "one_day_actions_artifact" && -n "$remaining_release_url" ]]; then
             echo "::error::Private intake artifact exists, but its temporary draft release remains."
             exit 1
           fi
+          if [[ "$private_delivery" == "private_draft_release_fallback" && "$remaining_release_url" != "$private_release_url" ]]; then
+            echo "::error::The verified private-release fallback is no longer available."
+            exit 1
+          fi
 
-          echo "The MP4 is saved in a verified one-day artifact in the private Voice Vault repository."
+          echo "The MP4 is verified and stored in the private Voice Vault."
           echo "Private workflow run ID: $private_run_id"
-          echo "Private artifact ID: $private_artifact_id"
+          echo "Private delivery method: $private_delivery"
           echo "MP4 SHA-256: $sha256"
           {
             echo "## Private preview stored and verified"
             echo ""
             echo "- [Private intake run](https://github.com/$PRIVATE_REPO/actions/runs/$private_run_id)"
-            echo "- Private artifact ID: $private_artifact_id (one-day retention)"
-            echo "- Temporary draft release and transfer branch were deleted."
-            echo "- MP4 SHA-256: `$sha256`"
+            echo "- MP4 SHA-256: \`$sha256\`"
+            if [[ "$private_delivery" == "one_day_actions_artifact" ]]; then
+              echo "- Private artifact ID: $private_artifact_id (one-day retention)"
+              echo "- Temporary draft release and transfer branch were deleted."
+            else
+              echo "- [Private preview fallback release]($private_release_url)"
+              echo "- Draft release remains private and is automatically removed after it is 24 hours old."
+              echo "- Temporary transfer branch was deleted."
+            fi
             echo "- No MP4 or raw narration file was uploaded as a public artifact."
+          } >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Private preview handoff"
+            echo ""
+            echo "- The completed MP4 passed size and SHA-256 verification in the private Voice Vault."
+            if [[ "$private_delivery" == "one_day_actions_artifact" ]]; then
+              echo "- Delivery: private one-day Actions artifact."
+            else
+              echo "- Delivery: private draft-release fallback, automatically removed after 24 hours."
+              echo "- [Open private fallback release]($private_release_url)"
+            fi
+            echo "- Public Actions artifacts containing the MP4, raw narration or narration text are disabled."
           } >> "$GITHUB_STEP_SUMMARY"
           echo "Private release tag: $release_tag"
           echo "Private transfer branch: $transfer_branch"
           echo "MP4 SHA-256: $sha256"
-          {
-            echo "## Private preview handoff"
-            echo ""
-            echo "- The completed MP4 was transferred to the private Voice Vault repository."
-            echo "- SHA-256: `$sha256`"
-            echo "- Public Actions artifacts containing the MP4, raw narration or narration text are disabled."
-          } >> "$GITHUB_STEP_SUMMARY"
           trap - EXIT
           rm -rf "$temporary_dir"
 
