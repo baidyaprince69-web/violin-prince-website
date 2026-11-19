@@ -4,6 +4,7 @@ import os
 import re
 import sys
 import tempfile
+import zipfile
 import unittest
 from io import BytesIO
 from pathlib import Path
@@ -18,7 +19,8 @@ from private_voice_client import (
     PrivateVoiceBridgeError,
     generate_private_voiceover,
     validate_private_narration,
-    _select_private_draft_release,
+    _select_private_run_artifact,
+    _extract_private_artifact_files,
 )
 
 SCRIPT = (
@@ -91,25 +93,76 @@ def fixture_payload(duration=22.5):
 
 
 
-class PrivateDraftReleaseLookupTests(unittest.TestCase):
-    def test_selects_matching_draft_release(self):
-        tag = "private-own-voice-narration-123456789"
-        releases = [
-            {"tag_name": "older-release", "draft": True},
-            {"tag_name": tag, "draft": True, "assets": [{"name": "narration.wav"}]},
-        ]
-        self.assertEqual(_select_private_draft_release(releases, tag), releases[1])
+class PrivateWorkflowArtifactLookupTests(unittest.TestCase):
+    ARTIFACT_NAME = "private-qwen3-narration-123456789"
 
-    def test_returns_none_when_matching_draft_is_not_listed(self):
-        self.assertIsNone(_select_private_draft_release(
-            [{"tag_name": "another-release", "draft": True}],
-            "private-own-voice-narration-123456789",
+    def test_selects_matching_unexpired_artifact(self):
+        artifacts = [
+            {"id": 12, "name": "older-artifact", "size_in_bytes": 100, "expired": False},
+            {"id": 34, "name": self.ARTIFACT_NAME, "size_in_bytes": 2048, "expired": False},
+        ]
+        self.assertEqual(
+            _select_private_run_artifact(artifacts, self.ARTIFACT_NAME),
+            artifacts[1],
+        )
+
+    def test_returns_none_when_matching_artifact_is_not_listed(self):
+        self.assertIsNone(_select_private_run_artifact(
+            [{"id": 12, "name": "another-artifact", "size_in_bytes": 100, "expired": False}],
+            self.ARTIFACT_NAME,
         ))
 
-    def test_rejects_a_matching_release_that_is_not_draft(self):
-        tag = "private-own-voice-narration-123456789"
-        with self.assertRaisesRegex(PrivateVoiceBridgeError, "published unexpectedly"):
-            _select_private_draft_release([{"tag_name": tag, "draft": False}], tag)
+    def test_rejects_an_expired_matching_artifact(self):
+        with self.assertRaisesRegex(PrivateVoiceBridgeError, "expired"):
+            _select_private_run_artifact(
+                [{"id": 34, "name": self.ARTIFACT_NAME, "size_in_bytes": 2048, "expired": True}],
+                self.ARTIFACT_NAME,
+            )
+
+    def test_rejects_duplicate_matching_artifacts(self):
+        duplicate = {"id": 34, "name": self.ARTIFACT_NAME, "size_in_bytes": 2048, "expired": False}
+        with self.assertRaisesRegex(PrivateVoiceBridgeError, "duplicate"):
+            _select_private_run_artifact([duplicate, dict(duplicate, id=35)], self.ARTIFACT_NAME)
+
+    def test_rejects_invalid_artifact_size(self):
+        with self.assertRaisesRegex(PrivateVoiceBridgeError, "invalid size"):
+            _select_private_run_artifact(
+                [{"id": 34, "name": self.ARTIFACT_NAME, "size_in_bytes": 0, "expired": False}],
+                self.ARTIFACT_NAME,
+            )
+
+    def test_extracts_only_the_two_expected_narration_files(self):
+        archive_buffer = BytesIO()
+        with zipfile.ZipFile(archive_buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr("narration.wav", b"RIFF-private-audio")
+            archive.writestr("narration.json", b'{"request_id":"123456789"}')
+        files = _extract_private_artifact_files(archive_buffer.getvalue())
+        self.assertEqual(set(files), {"narration.wav", "narration.json"})
+        self.assertEqual(files["narration.wav"], b"RIFF-private-audio")
+
+    def test_rejects_missing_files_in_artifact_archive(self):
+        archive_buffer = BytesIO()
+        with zipfile.ZipFile(archive_buffer, "w") as archive:
+            archive.writestr("narration.wav", b"RIFF-private-audio")
+        with self.assertRaisesRegex(PrivateVoiceBridgeError, "missing"):
+            _extract_private_artifact_files(archive_buffer.getvalue())
+
+    def test_rejects_unexpected_files_in_artifact_archive(self):
+        archive_buffer = BytesIO()
+        with zipfile.ZipFile(archive_buffer, "w") as archive:
+            archive.writestr("narration.wav", b"RIFF-private-audio")
+            archive.writestr("narration.json", b'{"request_id":"123456789"}')
+            archive.writestr("extra.txt", b"not allowed")
+        with self.assertRaisesRegex(PrivateVoiceBridgeError, "unexpected"):
+            _extract_private_artifact_files(archive_buffer.getvalue())
+
+    def test_rejects_unsafe_paths_in_artifact_archive(self):
+        archive_buffer = BytesIO()
+        with zipfile.ZipFile(archive_buffer, "w") as archive:
+            archive.writestr("../narration.wav", b"RIFF-private-audio")
+            archive.writestr("narration.json", b'{"request_id":"123456789"}')
+        with self.assertRaisesRegex(PrivateVoiceBridgeError, "unsafe"):
+            _extract_private_artifact_files(archive_buffer.getvalue())
 
 
 class PrivateVoiceValidationTests(unittest.TestCase):
