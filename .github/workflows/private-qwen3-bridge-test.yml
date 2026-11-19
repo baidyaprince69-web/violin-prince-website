@@ -2,6 +2,11 @@ name: Private Qwen3 narration bridge test
 
 on:
   workflow_dispatch:
+  # Temporary one-time trigger for private artifact handoff verification.
+  push:
+    branches: [main]
+    paths:
+      - ".autopilot/daily-production-plan.json"
 
 permissions:
   contents: read
