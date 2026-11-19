@@ -9,6 +9,7 @@ import os
 import re
 import sys
 import time
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -126,41 +127,86 @@ def _wait_for_run(session: requests.Session, token: str, request_id: str,
     )
 
 
-def _select_private_draft_release(releases: list[dict], tag: str) -> dict | None:
-    """Select a matching draft release from GitHub's authenticated release listing."""
-    for release in releases:
-        if isinstance(release, dict) and release.get("tag_name") == tag:
-            if release.get("draft") is not True:
-                raise PrivateVoiceBridgeError("The private narration release was published unexpectedly.")
-            return release
-    return None
+def _select_private_run_artifact(artifacts: list[dict], expected_name: str) -> dict | None:
+    """Select one unexpired artifact created by the requested private workflow run."""
+    matches = [
+        item for item in artifacts
+        if isinstance(item, dict) and item.get("name") == expected_name
+    ]
+    if len(matches) > 1:
+        raise PrivateVoiceBridgeError("The private narration run returned duplicate artifacts.")
+    if not matches:
+        return None
+    artifact = matches[0]
+    if artifact.get("expired") is True:
+        raise PrivateVoiceBridgeError("The private narration workflow artifact has expired.")
+    try:
+        artifact_id = int(artifact.get("id") or 0)
+        size = int(artifact.get("size_in_bytes") or 0)
+    except (TypeError, ValueError) as exc:
+        raise PrivateVoiceBridgeError("The private narration artifact metadata is invalid.") from exc
+    if artifact_id <= 0 or size <= 0 or size > 24 * 1024 * 1024:
+        raise PrivateVoiceBridgeError("The private narration artifact has an invalid size or identifier.")
+    return artifact
 
 
-def _download_asset(session: requests.Session, token: str, asset: dict, limit: int) -> bytes:
-    if asset.get("state") != "uploaded":
-        raise PrivateVoiceBridgeError("A private narration release asset is not fully uploaded.")
-    if int(asset.get("size") or 0) <= 0 or int(asset.get("size") or 0) > limit:
-        raise PrivateVoiceBridgeError("A private narration release asset has an invalid size.")
-    url = str(asset.get("url") or "")
-    if not url.startswith("https://api.github.com/repos/"):
-        raise PrivateVoiceBridgeError("Private narration release asset URL is invalid.")
+def _extract_private_artifact_files(archive_bytes: bytes) -> dict[str, bytes]:
+    """Safely extract only the two approved narration files from a workflow artifact ZIP."""
+    from io import BytesIO
+    from pathlib import PurePosixPath
+
+    if not archive_bytes or len(archive_bytes) > 24 * 1024 * 1024:
+        raise PrivateVoiceBridgeError("The private narration artifact archive is empty or too large.")
+    limits = {"narration.wav": 20 * 1024 * 1024, "narration.json": 2 * 1024 * 1024}
+    extracted: dict[str, bytes] = {}
+    try:
+        with zipfile.ZipFile(BytesIO(archive_bytes), "r") as archive:
+            for entry in archive.infolist():
+                if entry.is_dir():
+                    continue
+                path = PurePosixPath(entry.filename)
+                if path.is_absolute() or ".." in path.parts:
+                    raise PrivateVoiceBridgeError("The private narration artifact contains an unsafe file path.")
+                name = path.name
+                if name not in limits:
+                    raise PrivateVoiceBridgeError("The private narration artifact contains an unexpected file.")
+                if name in extracted:
+                    raise PrivateVoiceBridgeError("The private narration artifact contains duplicate files.")
+                if entry.file_size <= 0 or entry.file_size > limits[name]:
+                    raise PrivateVoiceBridgeError("A private narration artifact file has an invalid size.")
+                data = archive.read(entry)
+                if len(data) != entry.file_size:
+                    raise PrivateVoiceBridgeError("A private narration artifact file failed its size check.")
+                extracted[name] = data
+    except zipfile.BadZipFile as exc:
+        raise PrivateVoiceBridgeError("The private narration workflow artifact is not a valid ZIP archive.") from exc
+    if set(extracted) != set(limits):
+        raise PrivateVoiceBridgeError("The private narration artifact is missing narration.wav or narration.json.")
+    return extracted
+
+
+def _download_private_artifact_archive(
+    session: requests.Session, token: str, artifact: dict
+) -> bytes:
+    """Download an artifact archive using the private repository's Actions read permission."""
+    artifact_id = int(artifact["id"])
+    url = (
+        f"{API_ROOT}/repos/{PRIVATE_REPO}/actions/artifacts/{artifact_id}/zip"
+    )
     try:
         response = session.get(
-            url, headers=_headers(token, binary=True), timeout=(20, 120), allow_redirects=True
+            url, headers=_headers(token), timeout=(20, 120), allow_redirects=True
         )
     except requests.RequestException as exc:
-        raise PrivateVoiceBridgeError("Could not download a private narration release asset.") from exc
+        raise PrivateVoiceBridgeError("Could not download the private narration workflow artifact.") from exc
     if not response.ok:
         raise PrivateVoiceBridgeError(
-            f"Private narration asset download returned HTTP {response.status_code}."
+            f"Private narration artifact download returned HTTP {response.status_code}."
         )
     content = response.content
-    if not content or len(content) > limit:
-        raise PrivateVoiceBridgeError("Downloaded private narration asset is empty or too large.")
-    if len(content) != int(asset["size"]):
-        raise PrivateVoiceBridgeError("Private narration asset size did not match GitHub's release metadata.")
+    if not content or len(content) > 24 * 1024 * 1024:
+        raise PrivateVoiceBridgeError("Downloaded private narration artifact is empty or too large.")
     return content
-
 
 def validate_private_narration(
     script: str, wav_bytes: bytes, metadata: dict, expected_hotwords: list[str] | None = None
@@ -305,33 +351,25 @@ def generate_private_voiceover(script: str, output_path: str | Path, *,
     timeout_seconds = int(timeout_seconds or os.environ.get("PRIVATE_VOICE_TIMEOUT_SECONDS", "5100"))
     run = _wait_for_run(session, token, request_id, dispatch_started, timeout_seconds)
 
-    tag = "private-own-voice-narration-" + request_id
-    release_url = f"{API_ROOT}/repos/{PRIVATE_REPO}/releases"
-    release = None
-    # The tag lookup endpoint returns published releases only. The worker deliberately
-    # saves narration as a draft, so use the authenticated listing endpoint instead.
-    # GitHub includes draft releases here for users with repository push access.
-    for page in range(1, 11):
-        releases = _json_request(
-            session, "GET", release_url, token,
-            params={"per_page": 100, "page": page},
-        )
-        if not isinstance(releases, list):
-            raise PrivateVoiceBridgeError("Private voice service returned an invalid release listing.")
-        release = _select_private_draft_release(releases, tag)
-        if release is not None or len(releases) < 100:
-            break
-    if release is None:
+    artifact_name = "private-qwen3-narration-" + request_id
+    artifacts_url = (
+        f"{API_ROOT}/repos/{PRIVATE_REPO}/actions/runs/{int(run['id'])}/artifacts"
+    )
+    artifact_payload = _json_request(
+        session, "GET", artifacts_url, token, params={"per_page": 100}
+    )
+    if not isinstance(artifact_payload, dict) or not isinstance(artifact_payload.get("artifacts"), list):
+        raise PrivateVoiceBridgeError("Private voice service returned an invalid workflow artifact listing.")
+    artifact = _select_private_run_artifact(artifact_payload["artifacts"], artifact_name)
+    if artifact is None:
         raise PrivateVoiceBridgeError(
-            "The private draft narration release could not be found. "
-            "Confirm that the private worker uploaded its assets and that the token's user "
-            "has push access to the private repository."
+            "The private narration artifact could not be found for this run. "
+            "The bridge token needs Actions read access to the private voice repository."
         )
-    assets = {str(item.get("name")): item for item in release.get("assets", [])}
-    if "narration.wav" not in assets or "narration.json" not in assets:
-        raise PrivateVoiceBridgeError("The private narration release is missing its required assets.")
-    wav_bytes = _download_asset(session, token, assets["narration.wav"], 20 * 1024 * 1024)
-    metadata_bytes = _download_asset(session, token, assets["narration.json"], 2 * 1024 * 1024)
+    artifact_archive = _download_private_artifact_archive(session, token, artifact)
+    files = _extract_private_artifact_files(artifact_archive)
+    wav_bytes = files["narration.wav"]
+    metadata_bytes = files["narration.json"]
     try:
         metadata = json.loads(metadata_bytes.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -346,8 +384,8 @@ def generate_private_voiceover(script: str, output_path: str | Path, *,
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(wav_bytes)
     info["private_voice_run_id"] = int(run["id"])
-    info["private_release_url"] = str(release.get("html_url") or "")
-    info["private_release_tag"] = tag
+    info["private_artifact_id"] = int(artifact["id"])
+    info["private_artifact_name"] = artifact_name
     info["audio_sha256"] = hashlib.sha256(wav_bytes).hexdigest()
     return target, info
 
@@ -364,7 +402,7 @@ def main() -> int:
     )
     print("Private Qwen3 narration bridge passed exact transcript and word-timing validation.")
     print("Word timings: " + str(info["word_timing_count"]))
-    print("Private release: " + (info.get("private_release_url") or "available in the private repository"))
+    print("Private workflow artifact: " + str(info.get("private_artifact_name") or "verified in the private repository"))
     print("Temporary WAV: " + str(path))
     return 0
 
