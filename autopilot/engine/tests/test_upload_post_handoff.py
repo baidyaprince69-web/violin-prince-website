@@ -257,6 +257,7 @@ class DailyReadinessTests(unittest.TestCase):
                         "workflow_run_id": 12345,
                         "workflow_status": "success",
                         "all_six_modes_passed": True,
+                        "story_profile_scenes_passed": True,
                         "network_calls": False,
                         "output_width": 1024,
                         "output_height": 1792,
