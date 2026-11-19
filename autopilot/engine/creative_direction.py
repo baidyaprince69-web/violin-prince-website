@@ -9,14 +9,15 @@ from __future__ import annotations
 import re
 from typing import Any
 
-CREATIVE_DIRECTION_VERSION = "music-facts-illustrated-2d-v2"
+CREATIVE_DIRECTION_VERSION = "music-facts-premium-editorial-2d-v3"
 
 CHANNEL_BRIEF = (
     "Violin Prince is a curiosity-driven music channel: real facts about the "
     "violin, instruments, acoustics, sound, melody, harmony, rhythm, song "
     "structure, music production and original violin covers, explained through "
-    "high-detail 2D editorial illustration, animated diagrams, character "
-    "performance, kinetic typography, sound design and the creator's own violin performance."
+    "premium illustrated music-documentary direction: tactile high-detail 2D art, "
+    "cinematic lighting, controlled depth, precise motion graphics, editorial typography, "
+    "narration-led pacing, refined transitions and the creator's own violin performance."
 )
 
 STORY_TYPES = {
@@ -59,31 +60,39 @@ BIOGRAPHY_PATTERNS = (
 
 VISUAL_MODE_PROMPTS = {
     "macro_illustration": (
-        "Create a highly detailed 2D editorial macro illustration of the real musical "
-        "object. Use precise contour drawing, painted wood grain, layered tonal shading "
-        "and a clear silhouette rather than a photographic or CGI render."
+        "Create a premium 2D illustrated documentary macro shot of the real musical "
+        "object. Make one tactile detail the unmistakable hero: painted natural wood "
+        "grain, fine varnish highlights, crisp contour drawing and layered 2.5D depth. "
+        "Use controlled chiaroscuro, a warm key light and a restrained teal edge light; "
+        "leave intentional negative space instead of filling every area with decoration."
     ),
     "mechanism_illustration": (
-        "Show the real physical mechanism as a carefully researched 2D technical "
-        "cutaway or exploded illustration. Separate the parts clearly and preserve "
-        "believable scale and component relationships."
+        "Show the real mechanism as a premium 2D technical-editorial cutaway. Keep "
+        "component relationships physically believable, separate each stage cleanly, "
+        "and use a disciplined grid, fine brass callout rules, restrained teal signal "
+        "paths and clear negative space. Never invent measurements or labels."
     ),
     "waveform": (
-        "Show sound through elegant 2D acoustic ribbons, travelling wavefronts and "
-        "painted particles, grounded in the stated physical explanation."
+        "Show sound through elegant 2D acoustic ribbons and travelling wavefronts, "
+        "with a precise luminous signal path, subtle particle depth and a restrained "
+        "technical grid. Animate one meaningful signal movement at a time; keep the "
+        "visual rooted in the stated physical explanation."
     ),
     "melody_map": (
-        "Turn the melody idea into an original animated 2D map of pitch contour, "
-        "rhythm and note movement; do not reproduce copyrighted notation or lyrics."
+        "Turn the idea into an original premium motion-graphics score map: elegant "
+        "pitch contours, rhythm markers, clear hierarchy and synchronized highlights. "
+        "Do not reproduce copyrighted notation, lyrics or a recognizable melody."
     ),
     "comparison": (
-        "Create a clear 2D editorial side-by-side comparison of the two stated musical "
-        "ideas, using matching scale, visual weight and lighting."
+        "Create a refined 2D editorial comparison with matched scale, aligned baselines, "
+        "controlled brass and teal accents, and clear visual contrast. Give both ideas "
+        "equal visual weight and preserve generous spacing."
     ),
     "cover_performance": (
-        "Create a detailed 2D performance-payoff illustration centred on a violin, "
-        "bow and expressive playing hands. Do not depict an identifiable person or "
-        "claim that a generated illustration is the creator's live recording."
+        "Create a premium illustrated performance-payoff shot centred on a complete "
+        "violin, bow and expressive playing hands. Use a dramatic diagonal, warm wood "
+        "highlights, rich midnight shadows and a clean silhouette. Do not depict an "
+        "identifiable person or claim that generated art is the creator's live take."
     ),
 }
 
