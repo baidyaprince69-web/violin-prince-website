@@ -17,14 +17,24 @@ export function gestureKeyframes(name) {
       right_hand: { rotate: [0, -8] }
     },
     point_left: {
-      left_upper_arm: { rotate: [0, 28] },
-      left_forearm: { rotate: [0, -12] },
-      left_hand: { rotate: [0, 5] }
+      // Several emphasis beats keep the pointing arm alive for the whole narration beat.
+      left_upper_arm: { rotate: [0, 26, 17, 32, 19, 29, 15, 24] },
+      left_forearm: { rotate: [0, -18, -9, -23, -11, -20, -8, -16] },
+      left_hand: { rotate: [0, 8, 1, 10, 2, 8, 1, 6] },
+      right_upper_arm: { rotate: [0, 8, 2, 11, 3, 9, 1, 6] },
+      right_forearm: { rotate: [0, -6, 2, -8, 2, -6, 1, -4] },
+      right_hand: { rotate: [0, 4, -2, 5, -1, 4, 0, 3] },
+      head: { rotate: [0, -4, 2, -5, 1, -3, 0, -2] }
     },
     point_right: {
-      right_upper_arm: { rotate: [0, -28] },
-      right_forearm: { rotate: [0, 12] },
-      right_hand: { rotate: [0, -5] }
+      // Mirror the left-pointing sequence for layouts with the graphic on the right.
+      left_upper_arm: { rotate: [0, -8, -2, -11, -3, -9, -1, -6] },
+      left_forearm: { rotate: [0, 6, -2, 8, -2, 6, -1, 4] },
+      left_hand: { rotate: [0, -4, 2, -5, 1, -4, 0, -3] },
+      right_upper_arm: { rotate: [0, -26, -17, -32, -19, -29, -15, -24] },
+      right_forearm: { rotate: [0, 18, 9, 23, 11, 20, 8, 16] },
+      right_hand: { rotate: [0, -8, -1, -10, -2, -8, -1, -6] },
+      head: { rotate: [0, 4, -2, 5, -1, 3, 0, 2] }
     },
     open_palms: {
       left_upper_arm: { rotate: [0, -20, -14] },
