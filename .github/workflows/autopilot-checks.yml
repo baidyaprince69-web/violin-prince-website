@@ -54,12 +54,57 @@ jobs:
           python -m py_compile autopilot/engine/seo_intelligence/*.py
 
       - name: Install offline render-test tools
+        timeout-minutes: 6
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg fonts-dejavu-core
-          python -m pip install --upgrade pip
-          pip install requests Pillow PyYAML numpy soundfile cryptography 'fonttools[woff]>=4.50,<5'
-          pip install 'opencv-python-headless>=4.10,<5'
+          set -euo pipefail
+
+          # Hosted Ubuntu images normally include FFmpeg and DejaVu fonts.
+          # Avoid refreshing apt indexes unless a required tool is actually absent.
+          if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
+            timeout 180s sudo apt-get -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 update
+            timeout 180s sudo apt-get -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 install -y ffmpeg
+          fi
+          if ! fc-match "DejaVu Sans" >/dev/null 2>&1; then
+            timeout 180s sudo apt-get -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 update
+            timeout 180s sudo apt-get -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 install -y fonts-dejavu-core
+          fi
+          ffmpeg -version | head -n 1
+          ffprobe -version | head -n 1
+
+          # Import-check first; install only modules missing from the hosted image.
+          python - <<'PY'
+          import importlib.util
+          import subprocess
+          import sys
+
+          requirements = {
+              "requests": "requests",
+              "PIL": "Pillow",
+              "yaml": "PyYAML",
+              "numpy": "numpy",
+              "soundfile": "soundfile",
+              "cryptography": "cryptography",
+              "fontTools": "fonttools[woff]>=4.50,<5",
+              "cv2": "opencv-python-headless>=4.10,<5",
+          }
+          missing = [
+              package for module, package in requirements.items()
+              if importlib.util.find_spec(module) is None
+          ]
+          if missing:
+              print("Installing missing render-test packages:", ", ".join(missing))
+              subprocess.run(
+                  [
+                      sys.executable, "-m", "pip", "install",
+                      "--disable-pip-version-check", "--retries", "2", "--timeout", "20",
+                      *missing,
+                  ],
+                  check=True,
+                  timeout=240,
+              )
+          else:
+              print("All offline render-test Python dependencies are already available.")
+          PY
 
       - name: Run offline audio and narration helper tests
         env:
