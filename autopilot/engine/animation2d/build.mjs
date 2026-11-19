@@ -226,6 +226,29 @@ function renderMotionGraphic(scene) {
   throw new Error("Unsupported motion graphic type in scene " + scene.id + ": " + type);
 }
 
+function renderAmbientMotif(scene) {
+  const mode = String(scene.visual_mode || "").toLowerCase();
+  if (mode === "macro_illustration") {
+    const prefix = scene.id + "-motif";
+    return '<svg class="visual-motif visual-motif--rings" viewBox="0 0 480 480" aria-hidden="true">' +
+      '<circle id="' + prefix + '-ring-outer" cx="240" cy="240" r="186"></circle>' +
+      '<circle id="' + prefix + '-ring-inner" cx="240" cy="240" r="128"></circle>' +
+      '<circle id="' + prefix + '-ring-core" cx="240" cy="240" r="68"></circle>' +
+      '<path id="' + prefix + '-ring-sweep" d="M 240 54 A 186 186 0 0 1 425 240"></path>' +
+      '</svg>';
+  }
+  if (mode === "cover_performance") {
+    const prefix = scene.id + "-motif";
+    const bars = Array.from({ length: 18 }, (_value, index) => {
+      const height = 28 + Math.round((0.5 + 0.5 * Math.sin(index * 0.83)) * 48);
+      return '<span class="visualizer-bar" id="' + prefix + '-bar-' + index +
+        '" style="height:' + height + 'px"></span>';
+    }).join("");
+    return '<div class="visual-motif visual-motif--spectrum" aria-hidden="true">' + bars + '</div>';
+  }
+  return "";
+}
+
 const args = parseArgs(process.argv.slice(2));
 const projectPath = resolve(args["--project"] || "project.example.json");
 const outputDir = resolve(args["--out-dir"] || ".validation");
@@ -331,10 +354,11 @@ const markup = project.scenes.map((scene, index) => {
     Math.max(0.25, sceneDuration - 0.45) + '" data-track-index="' + (11 + index * 3) + '">' +
     escapeHtml(scene.caption || "") + '</div>';
   const graphic = renderMotionGraphic(scene);
+  const atmosphere = renderAmbientMotif(scene);
   const characters = (project.characters || []).map((character, characterIndex) =>
     renderCharacter(character, scene, index, characterIndex, width, height)
   ).join("");
-  return background + title + caption + graphic + characters;
+  return background + title + caption + graphic + atmosphere + characters;
 }).join("");
 
 const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
@@ -371,6 +395,14 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.graphic-wave{width:100%;height:210px;margin-top:32px;overflow:visible}' +
   '.graphic-wave-path{fill:none;stroke:#ebca8b;stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1;filter:drop-shadow(0 0 8px rgba(74,190,185,.42))}' +
   '.graphic-wave-marker{fill:#f7f1e6;stroke:#4abeb9;stroke-width:3}' +
+  '.visual-motif{position:absolute;z-index:25;pointer-events:none}' +
+  '.visual-motif--rings{right:-7%;top:24%;width:66%;height:50%;opacity:.48;overflow:visible}' +
+  '.visual-motif--rings circle{fill:none;stroke:#4abeb9;stroke-width:1.4;stroke-opacity:.6;transform-box:fill-box;transform-origin:center}' +
+  '.visual-motif--rings circle:nth-child(2){stroke:#ebca8b;stroke-opacity:.48;stroke-dasharray:5 12}' +
+  '.visual-motif--rings circle:nth-child(3){stroke:#f7f1e6;stroke-opacity:.35;stroke-dasharray:2 9}' +
+  '.visual-motif--rings path{fill:none;stroke:#ebca8b;stroke-width:3;stroke-linecap:round;stroke-dasharray:2 8;filter:drop-shadow(0 0 8px rgba(235,202,139,.6))}' +
+  '.visual-motif--spectrum{left:8%;right:8%;bottom:22%;height:92px;display:flex;align-items:center;justify-content:center;gap:7px;opacity:.76}' +
+  '.visualizer-bar{display:block;flex:1;max-width:17px;border-radius:9px 9px 3px 3px;transform:scaleY(.22);transform-origin:center bottom;background:linear-gradient(180deg,#f7f1e6 0%,#ebca8b 42%,#4abeb9 100%);box-shadow:0 0 14px rgba(74,190,185,.24)}' +
   // Expression plates replace the base face crop; showing both creates a ghosted double face.
   '.rig-part[data-role="face"]{opacity:0}' +
   '.character-rig[data-pose-active="true"] .rig-part{opacity:0}' +
