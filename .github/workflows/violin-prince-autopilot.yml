@@ -12,15 +12,12 @@ on:
   workflow_dispatch:
     inputs:
       stage:
-        description: "Run the complete Prepare → Visuals → Render pipeline, or choose one stage for recovery."
+        description: "Run one complete preview-only production pass. Staged package handoffs are paused while narration remains private."
         required: true
         type: choice
         default: full
         options:
           - full
-          - prepare
-          - visuals
-          - render
       source_run_id:
         description: "Optional for Prepare/Full research recovery; required for Visuals/Render to identify the previous stage run."
         required: false
@@ -86,8 +83,8 @@ jobs:
           SELECTED_STAGE: ${{ inputs.stage || 'full' }}
           SOURCE_RUN_ID: ${{ inputs.source_run_id }}
         run: |
-          if [[ "$SELECTED_STAGE" != "full" && "$SELECTED_STAGE" != "prepare" && "$SELECTED_STAGE" != "visuals" && "$SELECTED_STAGE" != "render" ]]; then
-            echo "::error::Unknown production stage."
+          if [[ "$SELECTED_STAGE" != "full" ]]; then
+            echo "::error::Only the complete preview-only run is enabled. Staged package artifacts are disabled until a private stage handoff is implemented."
             exit 1
           fi
           if [[ -n "$SOURCE_RUN_ID" && ! "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]]; then
@@ -363,35 +360,99 @@ jobs:
           python autopilot/engine/upload_post_handoff.py \
             --plan "${{ steps.daily_request.outputs.plan_path }}"
 
-      - name: Upload finished video
-        if: success() && (env.PIPELINE_STAGE == 'render' || env.PIPELINE_STAGE == 'full')
-        uses: actions/upload-artifact@v4
-        with:
-          name: cloud-video-preview-${{ github.run_id }}
-          path: work/output/violin-prince-short.mp4
-          if-no-files-found: error
-          retention-days: 1
+      - name: Transfer finished preview to the private Voice Vault
+        id: private_preview
+        if: success() && env.PIPELINE_STAGE == 'full'
+        env:
+          GH_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
+          PRIVATE_REPO: baidyaprince69-web/violin-prince-private-voice
+          SOURCE_RUN_ID: ${{ github.run_id }}
+          VIDEO_PATH: work/output/violin-prince-short.mp4
+        shell: bash
+        run: |
+          set -euo pipefail
+          video="$VIDEO_PATH"
+          if [[ ! -s "$video" ]]; then
+            echo "::error::The finished MP4 is missing or empty; private handoff cancelled."
+            exit 1
+          fi
 
-      - name: Preserve stage diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: violin-prince-run-${{ github.run_id }}
-          path: |
-            work/package/
-            work/character-assets/
-            work/output/
-            work/scene-render-cache/
-            !work/output/scene-3.mp4
-            !work/output/violin-prince-short.mp4
-            !work/output/narration.wav
-            !work/package/narration.wav
-            work/research.json
-            work/story_candidates.json
-            work/story_research.json
-            work/creative_plan.json
-            work/creative_plan_debug.json
-            work/analytics.json
-            work/story-assets/asset-resolution-diagnostic.json
-          if-no-files-found: ignore
-          retention-days: 3
+          size_bytes="$(stat -c '%s' "$video")"
+          if [[ ! "$size_bytes" =~ ^[0-9]+$ ]] || (( size_bytes < 4096 || size_bytes > 100 * 1024 * 1024 )); then
+            echo "::error::The preview MP4 size is outside the private transfer limit."
+            exit 1
+          fi
+          sha256="$(sha256sum "$video" | awk '{print $1}')"
+          release_tag="private-preview-video-$SOURCE_RUN_ID"
+          transfer_branch="private-preview-$SOURCE_RUN_ID"
+          temporary_dir="$(mktemp -d)"
+          cleanup_on_failure() {
+            status="$?"
+            if (( status != 0 )); then
+              gh release delete "$release_tag" --repo "$PRIVATE_REPO" --yes --cleanup-tag || true
+              if [[ -d "$temporary_dir/private-repo/.git" ]]; then
+                git -C "$temporary_dir/private-repo" push origin --delete "$transfer_branch" || true
+              fi
+            fi
+            rm -rf "$temporary_dir"
+            exit "$status"
+          }
+          trap cleanup_on_failure EXIT
+
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo "::error::PRIVATE_VOICE_REPO_TOKEN is not configured."
+            exit 1
+          fi
+          gh auth setup-git
+          gh release create "$release_tag" "$video" \
+            --repo "$PRIVATE_REPO" \
+            --draft \
+            --title "Private Violin Prince preview run $SOURCE_RUN_ID" \
+            --notes "Temporary private preview transfer. Automatically removed after a verified private one-day artifact is saved." \
+            --target main
+
+          git clone --depth 1 --branch main "https://github.com/$PRIVATE_REPO.git" "$temporary_dir/private-repo"
+          git -C "$temporary_dir/private-repo" config user.name "github-actions[bot]"
+          git -C "$temporary_dir/private-repo" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$temporary_dir/private-repo" switch --create "$transfer_branch"
+          mkdir -p "$temporary_dir/private-repo/.private-preview"
+          python - "$temporary_dir/private-repo/.private-preview/request.json" "$SOURCE_RUN_ID" "$release_tag" "$sha256" "$size_bytes" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          path, run_id, tag, digest, size = sys.argv[1:]
+          value = {
+              "source_run_id": run_id,
+              "release_tag": tag,
+              "sha256": digest,
+              "size_bytes": int(size),
+          }
+          Path(path).write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+          PY
+          git -C "$temporary_dir/private-repo" add .private-preview/request.json
+          git -C "$temporary_dir/private-repo" commit -m "Private preview handoff request $SOURCE_RUN_ID"
+          git -C "$temporary_dir/private-repo" push origin "$transfer_branch"
+
+          echo "Private preview handoff queued; no video or narration WAV was uploaded as a public artifact."
+          echo "Private release tag: $release_tag"
+          echo "Private transfer branch: $transfer_branch"
+          echo "MP4 SHA-256: $sha256"
+          {
+            echo "## Private preview handoff"
+            echo ""
+            echo "- The completed MP4 was transferred to the private Voice Vault repository."
+            echo "- SHA-256: `$sha256`"
+            echo "- Public Actions artifacts containing the MP4, raw narration or narration text are disabled."
+          } >> "$GITHUB_STEP_SUMMARY"
+          trap - EXIT
+          rm -rf "$temporary_dir"
+
+      - name: Verify the preview remains in the ephemeral runner after private transfer
+        if: success() && env.PIPELINE_STAGE == 'full'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s work/output/violin-prince-short.mp4
+          test -s work/output/narration.wav
+          echo "MP4 and narration remain on the temporary runner; no public upload step is configured."
