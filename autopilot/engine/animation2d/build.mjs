@@ -335,8 +335,12 @@ const markup = project.scenes.map((scene, index) => {
   if (!scene.id || !Number.isFinite(sceneDuration) || sceneDuration <= 0) {
     throw new Error("Every scene needs an id and positive duration.");
   }
+  const presenterLayout = scene.visual_composition?.layout === "graphic_left_presenter_right";
+  const backgroundClass = presenterLayout
+    ? "clip scene-background scene-background--presenter-layout"
+    : "clip scene-background";
   const background = scene.image
-    ? '<img class="clip scene-background" id="' + escapeHtml(scene.id) +
+    ? '<img class="' + backgroundClass + '" id="' + escapeHtml(scene.id) +
       '-background" data-start="' + start + '" data-duration="' + sceneDuration +
       '" data-track-index="' + index + '" src="' + escapeHtml(scene.image) +
       '" alt="" draggable="false">'
@@ -344,7 +348,6 @@ const markup = project.scenes.map((scene, index) => {
       '-background" data-start="' + start + '" data-duration="' + sceneDuration +
       '" data-track-index="' + index + '" style="background:' +
       escapeHtml(scene.background_color || "#101b2b") + '"></div>';
-  const presenterLayout = scene.visual_composition?.layout === "graphic_left_presenter_right";
   const titleClass = presenterLayout ? "clip scene-title scene-title--with-presenter" : "clip scene-title";
   const captionClass = presenterLayout ? "clip scene-caption scene-caption--with-presenter" : "clip scene-caption";
   const title = '<div class="' + titleClass + '" id="' + escapeHtml(scene.id) +
@@ -370,6 +373,7 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   'html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#080f1a}' +
   '#root{position:relative;width:' + width + 'px;height:' + height + 'px;overflow:hidden;background:#080f1a}' +
   '.scene-background{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.045)}' +
+  '.scene-background--presenter-layout{filter:brightness(.22) saturate(.72) blur(5px)}' +
   '.scene-title,.scene-caption{position:absolute;left:7%;right:7%;color:#fff;opacity:0;text-shadow:0 4px 24px #0008}' +
   '.scene-title{top:9%;font:700 38px/1.12 system-ui,sans-serif;letter-spacing:-.03em;z-index:20}' +
   '.scene-caption{bottom:8%;font:500 22px/1.35 system-ui,sans-serif;max-width:86%;color:#e6edf4;z-index:21}' +
