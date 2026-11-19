@@ -64,7 +64,7 @@ class CreativeQualityTests(unittest.TestCase):
             self.assertIn("008BCAEB", content)
             self.assertIn(r"\kf", content)
             self.assertIn("remarkable", content)
-            self.assertIn("Style: VP,DM Sans,40", content)
+            self.assertIn("Style: VP,DM Sans,38", content)
 
     def test_photo_framing_is_stable_without_compulsory_zoom(self):
         filters = [pipeline.camera_motion_filter(120, index) for index in range(3)]
