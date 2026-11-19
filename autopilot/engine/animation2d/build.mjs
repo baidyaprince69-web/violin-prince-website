@@ -383,50 +383,80 @@ const markup = project.scenes.map((scene, index) => {
       '" data-track-index="' + index + '" style="background:' +
       escapeHtml(scene.background_color || "#101b2b") + '"></div>';
   const titleClass = presenterLayout ? "clip scene-title scene-title--with-presenter" : "clip scene-title";
-  const captionClass = presenterLayout ? "clip scene-caption scene-caption--with-presenter" : "clip scene-caption";
-  const title = '<div class="' + titleClass + '" id="' + escapeHtml(scene.id) +
-    '-title" data-start="' + (start + 0.12) + '" data-duration="' +
-    Math.max(0.25, sceneDuration - 0.12) + '" data-track-index="' + (10 + index * 3) + '">' +
-    escapeHtml(scene.title || (index === 0 ? project.title : "")) + '</div>';
+  const captionClass = presenterLayout
+    ? "clip scene-caption scene-caption--with-presenter"
+    : (index === 0 ? "clip scene-caption scene-caption--intro" : "clip scene-caption");
+  const chapter = escapeHtml(scene.graphic_label || (index === 0 ? "THE HOOK" : index === project.scenes.length - 1 ? "THE PAYOFF" : "THE DETAIL"));
+  const editorialIndex = String(scene.editorial_index || index + 1).padStart(2, "0");
+  const editorialTotal = String(scene.editorial_total || project.scenes.length).padStart(2, "0");
+  const brand = '<div class="clip scene-brand" id="' + escapeHtml(scene.id) +
+    '-brand" data-start="' + (start + 0.04) + '" data-duration="' +
+    Math.max(0.25, sceneDuration - 0.04) + '" data-track-index="' + (9 + index * 3) + '">' +
+    '<span class="scene-brand__name">VIOLIN PRINCE</span>' +
+    '<span class="scene-brand__separator"></span>' +
+    '<span class="scene-brand__chapter">' + chapter + '</span>' +
+    '<span class="scene-brand__index">' + editorialIndex + ' / ' + editorialTotal + '</span>' +
+    '</div>';
+  const titleText = String(scene.title || (index === 0 ? project.title : "")).trim();
+  const title = titleText
+    ? '<div class="' + titleClass + '" id="' + escapeHtml(scene.id) +
+      '-title" data-start="' + (start + 0.18) + '" data-duration="' +
+      Math.max(0.25, sceneDuration - 0.18) + '" data-track-index="' + (10 + index * 3) + '">' +
+      escapeHtml(titleText) + '</div>'
+    : "";
   const caption = '<div class="' + captionClass + '" id="' + escapeHtml(scene.id) +
-    '-caption" data-start="' + (start + 0.45) + '" data-duration="' +
-    Math.max(0.25, sceneDuration - 0.45) + '" data-track-index="' + (11 + index * 3) + '">' +
+    '-caption" data-start="' + (start + 0.52) + '" data-duration="' +
+    Math.max(0.25, sceneDuration - 0.52) + '" data-track-index="' + (11 + index * 3) + '">' +
     escapeHtml(scene.caption || "") + '</div>';
+  const grade = '<div class="clip scene-grade" id="' + escapeHtml(scene.id) +
+    '-grade" data-start="' + start + '" data-duration="' + sceneDuration +
+    '" data-track-index="' + (8 + index * 3) + '"></div>';
   const graphic = renderMotionGraphic(scene);
   const atmosphere = renderAmbientMotif(scene);
   const characters = (project.characters || []).map((character, characterIndex) =>
     renderCharacter(character, scene, index, characterIndex, width, height)
   ).join("");
-  return background + title + caption + graphic + atmosphere + characters;
+  return background + grade + brand + title + caption + graphic + atmosphere + characters;
 }).join("");
 
 const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '<meta name="viewport" content="width=device-width,initial-scale=1">' +
   '<title>' + escapeHtml(project.title || "Violin Prince") + '</title>' +
   '<style>' +
-  'html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#080f1a}' +
-  '#root{position:relative;width:' + width + 'px;height:' + height + 'px;overflow:hidden;background:#080f1a}' +
-  '.scene-background{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.045)}' +
-  '.scene-background--presenter-layout{filter:brightness(.22) saturate(.72) blur(5px)}' +
-  '.scene-title,.scene-caption{position:absolute;left:7%;right:7%;color:#fff;opacity:0;text-shadow:0 4px 24px #0008}' +
-  '.scene-title{top:9%;font:700 38px/1.12 system-ui,sans-serif;letter-spacing:-.03em;z-index:20}' +
-  '.scene-caption{bottom:8%;font:500 22px/1.35 system-ui,sans-serif;max-width:86%;color:#e6edf4;z-index:21}' +
-  '.scene-title--with-presenter{left:5%;right:auto;width:52%;font-size:31px}' +
-  '.scene-caption--with-presenter{left:5%;right:auto;width:52%;max-width:52%;font-size:19px;bottom:6%}' +
-  '.character-rig{position:absolute;width:100%;height:100%;opacity:0;transform-origin:top left}' +
+  '@font-face{font-family:DMSerifDisplay;src:url("./assets/fonts/DMSerifDisplay-Regular.ttf") format("truetype");font-display:swap}' +
+  '@font-face{font-family:DMSans;src:url("./assets/fonts/DMSans-Regular.ttf") format("truetype");font-weight:400;font-display:swap}' +
+  '@font-face{font-family:DMSans;src:url("./assets/fonts/DMSans-Medium.ttf") format("truetype");font-weight:500;font-display:swap}' +
+  '@font-face{font-family:DMSans;src:url("./assets/fonts/DMSans-Bold.ttf") format("truetype");font-weight:700;font-display:swap}' +
+  'html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050b13}' +
+  '#root{position:relative;width:' + width + 'px;height:' + height + 'px;overflow:hidden;background:#050b13;color:#f4ead9}' +
+  '.scene-background{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.06);will-change:transform,opacity}' +
+  '.scene-background--presenter-layout{filter:brightness(.42) saturate(.90) blur(1.5px)}' +
+  '.scene-grade{position:absolute;inset:0;z-index:5;pointer-events:none;background:radial-gradient(ellipse at 52% 42%,rgba(0,0,0,0) 36%,rgba(2,7,13,.34) 100%),linear-gradient(180deg,rgba(3,8,15,.44) 0%,rgba(3,8,15,.06) 26%,rgba(3,8,15,0) 62%,rgba(3,8,15,.34) 100%)}' +
+  '.scene-brand{position:absolute;left:0;right:0;top:0;height:174px;z-index:18;display:flex;align-items:flex-start;gap:12px;padding:34px 7% 0;box-sizing:border-box;background:linear-gradient(180deg,rgba(4,10,18,.96) 0%,rgba(4,10,18,.86) 52%,rgba(4,10,18,0) 100%);color:#e7d4ad;font:700 12px/1 DMSans,Arial,sans-serif;letter-spacing:.19em;text-transform:uppercase;opacity:0}' +
+  '.scene-brand__name{color:#f6ead6}' +
+  '.scene-brand__separator{width:1px;height:13px;background:rgba(190,151,91,.7);margin-top:-1px}' +
+  '.scene-brand__chapter{color:#c7aa79;font-weight:500;letter-spacing:.15em}' +
+  '.scene-brand__index{margin-left:auto;color:rgba(240,226,203,.72);font-size:11px;letter-spacing:.18em}' +
+  '.scene-title,.scene-caption{position:absolute;left:7%;right:7%;opacity:0;text-shadow:0 6px 28px rgba(0,0,0,.72);z-index:22}' +
+  '.scene-title{top:12.5%;max-width:86%;color:#fbf0df;font:400 50px/.99 DMSerifDisplay,Georgia,serif;letter-spacing:-.025em}' +
+  '.scene-caption{top:15.5%;color:#e8c98d;font:700 15px/1.25 DMSans,Arial,sans-serif;letter-spacing:.17em;text-transform:uppercase;max-width:82%}' +
+  '.scene-caption--intro{top:25%;max-width:86%;font-size:14px;letter-spacing:.19em}' +
+  '.scene-title--with-presenter{left:5%;right:auto;width:48%;font-size:35px}' +
+  '.scene-caption--with-presenter{left:5%;right:auto;top:14.5%;width:48%;max-width:48%;font-size:13px;letter-spacing:.12em}' +
+  '.character-rig{position:absolute;width:100%;height:100%;opacity:0;transform-origin:top left;z-index:38}' +
   '.rig-part,.rig-expression,.rig-pose{position:absolute;object-fit:contain;max-width:none;pointer-events:none}' +
-  '.motion-graphic{position:absolute;left:auto;top:auto;right:auto;bottom:auto;width:86%;height:auto;z-index:34;overflow:visible;color:#f7f1e6;opacity:0;padding:22px 18px;border:1px solid rgba(74,190,185,.26);background:linear-gradient(145deg,rgba(8,18,31,.95),rgba(12,28,40,.91));box-shadow:0 18px 48px rgba(0,0,0,.28),inset 0 0 36px rgba(74,190,185,.06);border-radius:18px}' +
+  '.motion-graphic{position:absolute;left:auto;top:auto;right:auto;bottom:auto;width:86%;height:auto;z-index:34;overflow:visible;color:#f4ead9;opacity:0;padding:24px 20px;border:1px solid rgba(190,151,91,.48);border-left:3px solid #bf985e;background:linear-gradient(145deg,rgba(5,13,22,.97),rgba(9,27,35,.95));box-shadow:0 22px 64px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,244,220,.07);border-radius:9px}' +
   '.motion-graphic--full{left:7%;top:23%;width:86%;min-height:380px}' +
-  '.motion-graphic--with-presenter{left:5%;top:22%;width:51%;min-height:400px;padding:18px 12px}' +
-  '.graphic-eyebrow{margin:0 0 9px;color:#4abeb9;font:700 12px/1.2 system-ui,sans-serif;letter-spacing:.18em;text-transform:uppercase}' +
-  '.graphic-heading{margin:0;color:#f7f1e6;font:600 23px/1.12 system-ui,sans-serif;letter-spacing:-.02em}' +
-  '.graphic-detail{margin:10px 0 0;color:#b8c5d0;font:500 14px/1.35 system-ui,sans-serif}' +
-  '.graphic-flow{position:relative;height:330px;margin-top:15px}' +
+  '.motion-graphic--with-presenter{left:5%;top:22.5%;width:48.5%;min-height:400px;padding:22px 18px}' +
+  '.graphic-eyebrow{margin:0 0 11px;color:#70b9b2;font:700 11px/1.2 DMSans,Arial,sans-serif;letter-spacing:.21em;text-transform:uppercase}' +
+  '.graphic-heading{margin:0;color:#fbf0df;font:400 25px/1.08 DMSerifDisplay,Georgia,serif;letter-spacing:-.01em}' +
+  '.graphic-detail{margin:12px 0 0;color:#b9c7c9;font:400 14px/1.38 DMSans,Arial,sans-serif;letter-spacing:.01em}' +
+  '.graphic-flow{position:relative;height:330px;margin-top:16px}' +
   '.graphic-flow-lines{position:absolute;inset:0;width:100%;height:100%;overflow:visible}' +
-  '.graphic-connector{fill:none;stroke:#4abeb9;stroke-width:2.5;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;filter:drop-shadow(0 0 5px rgba(74,190,185,.35))}' +
-  '.graphic-step{position:absolute;left:0;right:0;display:flex;align-items:center;gap:12px;min-height:54px;opacity:0;transform:translateY(18px) scale(.96)}' +
-  '.graphic-node-index{display:grid;place-items:center;flex:0 0 46px;width:46px;height:46px;border:1.5px solid #ebca8b;border-radius:50%;color:#ebca8b;font:700 14px/1 system-ui,sans-serif;box-shadow:0 0 18px rgba(235,202,139,.12),inset 0 0 13px rgba(235,202,139,.08)}' +
-  '.graphic-step-label{color:#f7f1e6;font:650 17px/1.18 system-ui,sans-serif;letter-spacing:.01em;overflow-wrap:anywhere}' +
+  '.graphic-connector{fill:none;stroke:#6ab7b0;stroke-width:2;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;filter:drop-shadow(0 0 5px rgba(106,183,176,.28))}' +
+  '.graphic-step{position:absolute;left:0;right:0;display:flex;align-items:center;gap:13px;min-height:54px;opacity:0;transform:translateY(18px) scale(.96)}' +
+  '.graphic-node-index{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;border:1px solid rgba(194,155,93,.85);border-radius:7px;background:rgba(194,155,93,.08);color:#d6b47c;font:700 13px/1 DMSans,Arial,sans-serif;letter-spacing:.04em;box-shadow:inset 0 0 18px rgba(194,155,93,.06)}' +
+  '.graphic-step-label{color:#f5ecde;font:500 17px/1.2 DMSans,Arial,sans-serif;letter-spacing:.025em;overflow-wrap:anywhere}' +
   '.graphic-bars{display:flex;align-items:flex-end;justify-content:space-around;gap:12px;height:280px;margin-top:24px;padding:12px 4px 0;border-bottom:1px solid rgba(183,199,214,.35)}' +
   '.graphic-bar-column{display:flex;flex:1;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:9px;opacity:0}' +
   '.graphic-bar-value,.graphic-bar-label{font:600 12px/1.15 system-ui,sans-serif;color:#dce6ed;text-align:center}' +
@@ -435,13 +465,13 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.graphic-wave{width:100%;height:210px;margin-top:32px;overflow:visible}' +
   '.graphic-wave-path{fill:none;stroke:#ebca8b;stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1;filter:drop-shadow(0 0 8px rgba(74,190,185,.42))}' +
   '.graphic-wave-marker{fill:#f7f1e6;stroke:#4abeb9;stroke-width:3}' +
-  '.visual-motif{position:absolute;z-index:25;pointer-events:none}' +
+  '.visual-motif{position:absolute;z-index:25;pointer-events:none;mix-blend-mode:screen}' +
   '.visual-motif--rings{right:-7%;top:24%;width:66%;height:50%;opacity:.48;overflow:visible}' +
   '.visual-motif--rings circle{fill:none;stroke:#4abeb9;stroke-width:1.4;stroke-opacity:.6;transform-box:fill-box;transform-origin:center}' +
   '.visual-motif--rings circle:nth-child(2){stroke:#ebca8b;stroke-opacity:.48;stroke-dasharray:5 12}' +
   '.visual-motif--rings circle:nth-child(3){stroke:#f7f1e6;stroke-opacity:.35;stroke-dasharray:2 9}' +
   '.visual-motif--rings path{fill:none;stroke:#ebca8b;stroke-width:3;stroke-linecap:round;stroke-dasharray:2 8;filter:drop-shadow(0 0 8px rgba(235,202,139,.6))}' +
-  '.visual-motif--spectrum{left:8%;right:8%;bottom:22%;height:92px;display:flex;align-items:center;justify-content:center;gap:7px;opacity:.76}' +
+  '.visual-motif--spectrum{left:8%;right:8%;bottom:22%;height:92px;display:flex;align-items:center;justify-content:center;gap:7px;opacity:.58}' +
   '.visualizer-bar{display:block;flex:1;max-width:17px;border-radius:9px 9px 3px 3px;transform:scaleY(.22);transform-origin:center bottom;background:linear-gradient(180deg,#f7f1e6 0%,#ebca8b 42%,#4abeb9 100%);box-shadow:0 0 14px rgba(74,190,185,.24)}' +
   // Expression plates replace the base face crop; showing both creates a ghosted double face.
   '.rig-part[data-role="face"]{opacity:0}' +
