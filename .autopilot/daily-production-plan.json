@@ -25,7 +25,7 @@
   ],
   "narrative_style": "documentary",
   "cover_payoff": "Use an original 2D editorial illustration of a complete violin and bow to demonstrate the monitoring signal path. Show the room-correction signal reaching the studio monitors, not rewriting the original recording. A sampled violin phrase is illustrative accompaniment and must never be presented as Prince's live performance.",
-  "narration_script": "Could your room change your violin mix? Audient adds RoomTune monitor correction to its new iD interfaces. It measures your room and adjusts the signal reaching your monitors. Its onboard DSP also runs EQ, compression and reverb with no latency.",
+  "narration_script": "Could your room change your violin mix? Audient adds RoomTune monitor correction to its iD interfaces. It measures the room and adjusts the signal reaching monitors. Its onboard DSP runs EQ, compression and reverb with no latency.",
   "narration_evidence": [
     {
       "sentence_number": 2,

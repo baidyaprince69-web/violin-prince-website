@@ -42,11 +42,11 @@ jobs:
           script = re.sub(r"\s+", " ", str(plan.get("narration_script") or "")).strip()
           words = re.findall(r"[\w’'-]+", script)
           sentences = [part.strip() for part in re.split(r"(?<=[.!?])\s+", script) if part.strip()]
-          if not 40 <= len(words) <= 44 or len(sentences) != 4:
-              raise SystemExit("The current prepared plan does not meet the narration contract.")
+          if not 37 <= len(words) <= 38 or len(sentences) != 4:
+              raise SystemExit("The prepared narration must contain 37–38 words in exactly four sentences, calibrated for a 22–23-second natural delivery.")
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as out:
               out.write("NARRATION_TEXT=" + script + "\n")
-          print(f"Prepared a {len(words)}-word narration for the private voice test.")
+          print(f"Prepared a {len(words)}-word narration calibrated for 22–23 seconds without audio speed adjustment.")
           PY
 
       - name: Generate private Qwen3 narration and verify word timings

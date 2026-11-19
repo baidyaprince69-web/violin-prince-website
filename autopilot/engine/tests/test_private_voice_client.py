@@ -23,13 +23,13 @@ from private_voice_client import (
 
 SCRIPT = (
     "Could your room change your violin mix? "
-    "Audient adds RoomTune monitor correction to its new iD interfaces. "
-    "It measures your room and adjusts the signal reaching your monitors. "
-    "Its onboard DSP also runs EQ, compression and reverb with no latency."
+    "Audient adds RoomTune monitor correction to its iD interfaces. "
+    "It measures the room and adjusts the signal reaching monitors. "
+    "Its onboard DSP runs EQ, compression and reverb with no latency."
 )
 
 
-def fixture_payload():
+def fixture_payload(duration=22.5):
     script = re.sub(r"\s+", " ", SCRIPT).strip()
     sentences = [part.strip() for part in re.split(r"(?<=[.!?])\s+", script) if part.strip()]
     words = []
@@ -38,12 +38,12 @@ def fixture_payload():
             words.append((word, sentence_index))
 
     wav_buffer = BytesIO()
-    sf.write(wav_buffer, np.zeros(24_000 * 4, dtype=np.float32), 24_000, format="WAV", subtype="PCM_16")
+    sf.write(wav_buffer, np.zeros(round(24_000 * duration), dtype=np.float32), 24_000, format="WAV", subtype="PCM_16")
     wav_bytes = wav_buffer.getvalue()
 
     word_cues = []
     for index, (word, sentence_index) in enumerate(words):
-        start = index * 0.085
+        start = 0.4 + index * ((duration - 1.0) / max(1, len(words)))
         word_cues.append({
             "text": word,
             "start": round(start, 4),
@@ -71,8 +71,9 @@ def fixture_payload():
             "size_bytes": len(wav_bytes),
             "sample_rate": 24_000,
             "channels": 1,
-            "duration_seconds": 4.0,
+            "duration_seconds": round(duration, 4),
         },
+        "audio_postprocessing": "none",
         "word_sync_status": "verified_exact_transcript",
         "word_timing_method": "faster-whisper-cross-attention-dtw",
         "aligner": {
@@ -114,9 +115,23 @@ class PrivateVoiceValidationTests(unittest.TestCase):
         wav_bytes, metadata = fixture_payload()
         info = validate_private_narration(SCRIPT, wav_bytes, metadata)
         self.assertEqual(info["word_sync_status"], "verified_exact_transcript")
-        self.assertEqual(info["word_timing_count"], 40)
+        self.assertEqual(info["word_timing_count"], 37)
         self.assertEqual(info["engine"], "Qwen3-TTS")
         self.assertEqual(len(info["subtitle_cues"]), 4)
+
+    def test_rejects_scripts_outside_the_37_to_38_word_calibration(self):
+        wav_bytes, metadata = fixture_payload()
+        with self.assertRaisesRegex(PrivateVoiceBridgeError, "37–38 words"):
+            validate_private_narration(SCRIPT.replace("with no latency.", "."), wav_bytes, metadata)
+        with self.assertRaisesRegex(PrivateVoiceBridgeError, "37–38 words"):
+            validate_private_narration(SCRIPT.replace("with no latency.", "with no latency every single session today."), wav_bytes, metadata)
+
+    def test_rejects_audio_outside_the_22_to_23_second_target(self):
+        for duration in (21.9, 23.1):
+            with self.subTest(duration=duration):
+                wav_bytes, metadata = fixture_payload(duration=duration)
+                with self.assertRaisesRegex(PrivateVoiceBridgeError, "22.0 and 23.0 seconds"):
+                    validate_private_narration(SCRIPT, wav_bytes, metadata)
 
     def test_rejects_a_metadata_script_hash_mismatch(self):
         wav_bytes, metadata = fixture_payload()
@@ -138,8 +153,8 @@ class PrivateVoiceValidationTests(unittest.TestCase):
 
     def test_rejects_non_monotonic_or_out_of_range_word_timing(self):
         wav_bytes, metadata = fixture_payload()
-        metadata["word_cues"][4]["start"] = 3.95
-        metadata["word_cues"][4]["end"] = 4.2
+        metadata["word_cues"][4]["start"] = metadata["word_cues"][3]["start"] - 0.1
+        metadata["word_cues"][4]["end"] = metadata["word_cues"][3]["start"] - 0.02
         with self.assertRaisesRegex(PrivateVoiceBridgeError, "timing validation"):
             validate_private_narration(SCRIPT, wav_bytes, metadata)
 
