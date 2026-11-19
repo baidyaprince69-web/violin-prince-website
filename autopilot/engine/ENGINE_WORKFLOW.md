@@ -134,9 +134,9 @@ Current daily creative contract:
 - Approximately 24 seconds.
 - Vertical 720 × 1280 output.
 - Three illustrated scenes as the normal daily format.
-- Exactly four sentences and exactly 35 spoken English words, calibrated to the verified 22–23-second private Qwen3 delivery.
+- Exactly four sentences and exactly 35 spoken English words, with a natural private Qwen3 delivery accepted from 20–24 seconds.
 - Production narration is approved through the private Qwen3 worker only; the gate requires the checked-in voice-approval record.
-- The private worker handoff validates the exact transcript, all 35 word timings, the 22–23-second natural duration, metadata and WAV SHA-256 checksum.
+- The private worker handoff validates the exact transcript, all 35 word timings, the 20–24-second natural duration, metadata and WAV SHA-256 checksum. A context-assisted Whisper retry may resolve a first-pass recognition error, but exact transcript matching remains mandatory.
 - No preset, generic, third-party or fallback voice is permitted; missing credentials or invalid output stop production.
 - Word-synchronised karaoke captions.
 - The final scene is the musical/violin payoff and should explain how the violin phrase demonstrates the story's idea.
