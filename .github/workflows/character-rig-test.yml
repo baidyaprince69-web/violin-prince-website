@@ -29,6 +29,7 @@ on:
       - autopilot/engine/animation2d/test/articulated-rig.test.mjs
       - autopilot/engine/tests/test_character_autorig.py
       - autopilot/engine/tests/test_character_rig.py
+      - autopilot/engine/tests/test_character_daily_integration.py
       - autopilot/engine/tests/test_character_visual_validation.py
       - autopilot/engine/tests/test_daily_plan.py
   pull_request:
@@ -57,6 +58,7 @@ on:
       - autopilot/engine/animation2d/test/articulated-rig.test.mjs
       - autopilot/engine/tests/test_character_autorig.py
       - autopilot/engine/tests/test_character_rig.py
+      - autopilot/engine/tests/test_character_daily_integration.py
       - autopilot/engine/tests/test_character_visual_validation.py
       - autopilot/engine/tests/test_daily_plan.py
   workflow_dispatch:
@@ -118,6 +120,7 @@ jobs:
         run: |
           python -m unittest discover -s tests -p 'test_character_autorig.py'
           python -m unittest discover -s tests -p 'test_character_rig.py'
+          python -m unittest discover -s tests -p 'test_character_daily_integration.py'
 
       - name: Separate the master character and build transparent layers
         run: |
@@ -180,6 +183,32 @@ jobs:
           mkdir -p ../../../work/character-rig-test/daily-integration/composition/assets/characters
           cp -R ../../../work/character-rig-test/daily-integration/assets/characters/violin-prince \
             ../../../work/character-rig-test/daily-integration/composition/assets/characters/
+
+      - name: Verify daily presenter pose assets reach the composition
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report_path = Path("work/character-rig-test/daily-integration/composition/motion-report.json")
+          report = json.loads(report_path.read_text(encoding="utf-8"))
+          expected = [
+              ["resting_hands"],
+              ["one_arm_raised"],
+              ["explaining_two_hands"],
+              ["point_left"],
+              ["point_right"],
+              ["open_palms"],
+              ["resting_hands"],
+          ]
+          actual = [scene.get("presenter_pose_assets", []) for scene in report.get("scenes", [])]
+          if report.get("presenter_pose_asset_count") != len(expected) or actual != expected:
+              raise SystemExit(
+                  "Daily portrait composition did not select every requested presenter pose asset: "
+                  + json.dumps(actual)
+              )
+          print("Verified all 7 requested presenter pose assets reached the Motion composition.")
+          PY
 
       - name: Lint the daily-pipeline portrait composition
         working-directory: work/character-rig-test/daily-integration/composition
