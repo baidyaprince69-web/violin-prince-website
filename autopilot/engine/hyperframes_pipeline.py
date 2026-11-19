@@ -226,7 +226,13 @@ def render_daily_plan(
         ("sans_medium", "DMSans-Medium.ttf"),
         ("sans_bold", "DMSans-Bold.ttf"),
     ):
-        shutil.copy2(Path(brand_fonts[key]).resolve(strict=True), font_assets_dir / filename)
+        # The production font helper supplies all four faces. A minimal serif-only
+        # renderer fixture may supply only the required display face; in that case
+        # reuse it for the fixture rather than breaking the filesystem contract.
+        source_path = brand_fonts.get(key) or brand_fonts.get("serif")
+        if not source_path:
+            raise HyperFramesRenderError("The Violin Prince brand font bundle is incomplete.")
+        shutil.copy2(Path(source_path).resolve(strict=True), font_assets_dir / filename)
 
     staged_characters = []
     for character in characters:
