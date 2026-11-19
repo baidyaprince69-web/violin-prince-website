@@ -188,6 +188,14 @@ def validate_private_narration(
         raise PrivateVoiceBridgeError("Private narration ASR hotword metadata is missing or invalid.")
     if expected_hotwords is not None and recorded_hotwords != expected_hotwords:
         raise PrivateVoiceBridgeError("Private narration ASR hotword hints do not match the requested terms.")
+    generation = metadata.get("generation") or {}
+    try:
+        generation_tokens = int(generation.get("max_new_tokens", 0))
+        generation_penalty = float(generation.get("repetition_penalty", 0))
+    except (TypeError, ValueError) as exc:
+        raise PrivateVoiceBridgeError("Private narration generation metadata is invalid.") from exc
+    if generation_tokens != 288 or generation_penalty != 1.1:
+        raise PrivateVoiceBridgeError("Private narration generation safeguards do not match the reviewed configuration.")
 
     audio = metadata.get("audio") or {}
     if hashlib.sha256(wav_bytes).hexdigest() != audio.get("sha256"):
