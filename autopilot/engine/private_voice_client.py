@@ -241,6 +241,14 @@ def validate_private_narration(
         raise PrivateVoiceBridgeError("Private narration did not pass exact transcript verification.")
     if metadata.get("word_timing_method") != "faster-whisper-cross-attention-dtw":
         raise PrivateVoiceBridgeError("Private narration did not use the approved word-timing method.")
+    duration_target = metadata.get("duration_target_seconds")
+    try:
+        target_min = float(duration_target["minimum"])
+        target_max = float(duration_target["maximum"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise PrivateVoiceBridgeError("Private narration duration target metadata is missing or invalid.") from exc
+    if target_min != MIN_NARRATION_AUDIO_SECONDS or target_max != MAX_NARRATION_AUDIO_SECONDS:
+        raise PrivateVoiceBridgeError("Private narration worker and public bridge duration windows do not match.")
     aligner = metadata.get("aligner") or {}
     if aligner.get("transcript_match") != "exact" or aligner.get("model") != "small.en":
         raise PrivateVoiceBridgeError("Private narration transcript verification is incomplete.")
