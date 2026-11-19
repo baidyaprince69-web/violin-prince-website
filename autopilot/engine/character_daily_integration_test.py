@@ -26,13 +26,13 @@ def build_daily_portrait_project(
     assets_dir.mkdir(parents=True, exist_ok=True)
 
     scenes = [
-        ("scene-neutral", "Presenter introduction", "Neutral presenter with a subtle blink", "resting_hands", "neutral"),
-        ("scene-wave", "Welcome", "The presenter greets the viewer", "one_arm_raised", "smile"),
-        ("scene-explain", "Key explanation", "Two-hand explaining pose", "explaining_two_hands", "speaking"),
-        ("scene-left", "First detail", "Point toward the left-side graphic", "point_left", "neutral"),
-        ("scene-right", "Second detail", "Point toward the right-side graphic", "point_right", "neutral"),
-        ("scene-palms", "Summary", "Open-palms presenting gesture", "open_palms", "smile"),
-        ("scene-close", "Closing", "Return to a relaxed presenter pose", "resting_hands", "neutral"),
+        ("scene-neutral", "Presenter introduction", "Relaxed presenter in a resting pose", "resting_hands"),
+        ("scene-wave", "Welcome", "The presenter greets the viewer", "one_arm_raised"),
+        ("scene-explain", "Key explanation", "Two-hand explaining pose", "explaining_two_hands"),
+        ("scene-left", "First detail", "Point toward the left-side graphic", "point_left"),
+        ("scene-right", "Second detail", "Point toward the right-side graphic", "point_right"),
+        ("scene-palms", "Summary", "Open-palms presenting gesture", "open_palms"),
+        ("scene-close", "Closing", "Return to a relaxed presenter pose", "resting_hands"),
     ]
     plan = {
         "use_violin_prince_presenter": True,
@@ -45,7 +45,6 @@ def build_daily_portrait_project(
                 "caption": caption,
                 "background_color": ["#101b2b", "#142c35", "#1c2437"][index % 3],
                 "presenter_pose": pose,
-                "presenter_expression": expression,
             }
             for index, (scene_id, title, caption, pose, expression) in enumerate(scenes)
         ],
@@ -55,6 +54,16 @@ def build_daily_portrait_project(
         package_dir=package_dir,
         rig_bundle_dir=bundle_dir,
     )
+    # The Motion renderer does not consume the descriptive presenter_pose
+    # field. Convert it to the scene action contract so the selected full-body
+    # pose plate is actually shown in the rendered integration proof.
+    for scene in plan["scenes"]:
+        pose_asset = str(scene.pop("presenter_pose", "") or "").strip().casefold()
+        if pose_asset:
+            scene.setdefault("character_actions", {})["violin-prince"] = {
+                "visible": True,
+                "pose_asset": pose_asset,
+            }
     staged = prepare_character_assets(
         plan,
         source_root=package_dir,
