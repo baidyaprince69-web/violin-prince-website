@@ -36,6 +36,18 @@ jobs:
         with:
           python-version: "3.11"
 
+      # Run the cheapest source-level checks before installing rendering dependencies.
+      - name: Install fast Python static checker
+        run: python -m pip install --disable-pip-version-check "ruff>=0.14,<0.16"
+
+      - name: Detect undefined and possibly unbound Python names
+        run: ruff check --select F821,F822,F823 autopilot/engine
+
+      - name: Run focused HyperFrames production-path regression tests
+        env:
+          PYTHONPATH: autopilot/engine
+        run: python -m unittest discover -s autopilot/engine/tests -p "test_hyperframes_pipeline.py" -v
+
       - name: Compile all Python engine modules
         run: |
           python -m py_compile autopilot/engine/*.py
