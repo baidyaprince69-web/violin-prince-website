@@ -54,11 +54,11 @@ RUN22_CORRECTED_FIELDS = {
 RUN23_INITIAL_SENTENCES = [
     "Can a computer mimic a violin?",
     "MIT engineers developed new technology to simulate the sound of violins.",
-    "This virtual instrument produces realistic tones through advanced digital modeling techniques today.",
-    "These strings sound remarkably authentic to listeners.",
+    "The model creates remarkably realistic violin tones.",
+    "These strings sound remarkably authentic to listeners in careful musical listening comparisons.",
 ]
 RUN23_CORRECTED_SENTENCE = (
-    "These strings sound authentic to listeners."
+    "These strings sound authentic to listeners in careful musical listening comparisons."
 )
 
 
@@ -278,7 +278,7 @@ class PlannerNarrationValidationTests(unittest.TestCase):
         )
         self.assertEqual(
             [pipeline.narration_word_count(value) for value in RUN23_INITIAL_SENTENCES],
-            [6, 11, 12, 7],
+            [6, 11, 7, 12],
         )
 
         tool_response = {
@@ -321,8 +321,8 @@ class PlannerNarrationValidationTests(unittest.TestCase):
                 correction_payload = mock_ai.call_args_list[1].args[1]
                 parameters = correction_payload["tools"][0]["function"]["parameters"]
                 self.assertEqual(parameters["required"], ["sentence_4_words"])
-                self.assertEqual(parameters["properties"]["sentence_4_words"]["minItems"], 6)
-                self.assertEqual(parameters["properties"]["sentence_4_words"]["maxItems"], 6)
+                self.assertEqual(parameters["properties"]["sentence_4_words"]["minItems"], 11)
+                self.assertEqual(parameters["properties"]["sentence_4_words"]["maxItems"], 11)
                 locked = json.loads(correction_payload["messages"][1]["content"].split(
                     "Locked sentence fields (must remain unchanged): ", 1
                 )[1].split("\nDynamic word budgets", 1)[0])
