@@ -8,9 +8,10 @@
   "publishing_enabled": false,
   "test_evidence": {
     "workflow_name": "Local vector illustration preview",
-    "workflow_run_id": 44522943801,
+    "workflow_run_id": 44524124774,
     "workflow_status": "success",
     "all_six_modes_passed": true,
+    "story_profile_scenes_passed": true,
     "network_calls": false,
     "output_width": 1024,
     "output_height": 1792,
@@ -23,14 +24,23 @@
       "melody_map",
       "waveform"
     ],
-    "output_artifact_id": 14529255824,
-    "contact_sheet_sha256": "1a178f605e789939f66cd60916856691fe2d89d9bc2686385b8f8daa3036569c"
+    "story_profile": "studio_acoustics",
+    "story_profile_scene_count": 3,
+    "output_artifact_id": 14528468081,
+    "contact_sheet_sha256": "3e5149c69edc83c6862c4a8b123a80fd485bccfc3fc2cb323a0847d1190c4d1e"
   },
   "visual_review": {
     "status": "approved_for_preview_only",
     "result": "consistent_violin_prince_palette_and_scene_language",
+    "inspected_assets": [
+      "contact-sheet.jpg",
+      "studio-room.jpg",
+      "studio-measurement.jpg",
+      "studio-violin-payoff.jpg"
+    ],
     "limitations": [
       "The artwork is deterministic vector-style editorial illustration, not photorealism.",
+      "Studio response curve is conceptual and contains no measured values.",
       "The creator must inspect the complete rendered video before any publication.",
       "This approval does not authorize a public release or YouTube upload."
     ]
