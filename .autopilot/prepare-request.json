@@ -1,5 +1,5 @@
 {
   "mode": "chatgpt_daily_production",
   "plan_path": ".autopilot/daily-production-plan.json",
-  "reason": "Run one preview-only production verification after public PR #99 and private Voice Vault PR #21. Verify static checks, offline renderer, private draft-release write and cleanup permissions before Qwen3 or rendering. If preflight passes, generate and inspect narration, render and quality-check the final MP4, then store it in the private Voice Vault using a one-day Actions artifact or the verified private draft-release fallback if artifact quota is full. Keep PUBLISH_ENABLED=false; do not create a public release or schedule a post."
+  "reason": "Run one preview-only production verification after public PR #100 merged. Use the approved 2026-11-19 daily plan with narration-aware scene direction, the ROOMTUNE SIGNAL PATH animated infographic and the Violin Prince presenter in the separate right-side column. Run fast preflight, generate private Qwen3 narration, render with Motion + HyperFrames, verify the final MP4, audio and visual contact sheet, and store the finished video only in the private Voice Vault using a one-day Actions artifact or the verified private draft-release fallback if artifact quota is full. Keep PUBLISH_ENABLED=false; do not create a public release, queue Upload-Post, or schedule a post."
 }
