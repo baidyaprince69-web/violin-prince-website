@@ -24,8 +24,8 @@ from private_voice_client import (
 SCRIPT = (
     "Could your room change your violin mix? "
     "Modern audio interfaces feature RoomTune monitor correction. "
-    "It measures your room acoustics and corrects what you hear through monitors. "
-    "DSP handles input EQ, compression and reverb without latency."
+    "It measures your room's acoustics and adjusts monitor response. "
+    "Onboard DSP also runs input EQ, compression and reverb with no latency."
 )
 
 
