@@ -23,7 +23,7 @@ from private_voice_client import (
 
 SCRIPT = (
     "Could your room change your violin mix? "
-    "Audient's new audio interfaces add RoomTune monitor correction. "
+    "Newer audio interfaces now add RoomTune monitor correction. "
     "It measures your room's acoustics and adjusts monitor playback. "
     "Onboard DSP runs input EQ, compression and reverb with no latency."
 )
@@ -81,7 +81,7 @@ def fixture_payload(duration=22.5):
             "name": "faster-whisper",
             "version": "1.2.1",
             "model": "small.en",
-            "hotwords": ["Audient"],
+            "hotwords": [],
             "transcript_match": "exact",
         },
         "word_cues": word_cues,
@@ -117,7 +117,7 @@ class PrivateVoiceValidationTests(unittest.TestCase):
         wav_bytes, metadata = fixture_payload()
         info = validate_private_narration(
             SCRIPT, wav_bytes, metadata,
-            expected_hotwords=["Audient"],
+            expected_hotwords=[],
         )
         self.assertEqual(info["word_sync_status"], "verified_exact_transcript")
         self.assertEqual(info["word_timing_count"], 35)
@@ -136,7 +136,7 @@ class PrivateVoiceValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(PrivateVoiceBridgeError, "hotword hints do not match"):
             validate_private_narration(
                 SCRIPT, wav_bytes, metadata,
-                expected_hotwords=["Audient", "different"],
+                expected_hotwords=["different"],
             )
 
     def test_rejects_unreviewed_qwen_generation_safeguards(self):
