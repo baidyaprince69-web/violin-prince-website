@@ -116,7 +116,7 @@ class PlannerNarrationValidationTests(unittest.TestCase):
             "Can an orchestra shape regional musical identity?",
             "The Orchestre National de Metz Grand Est celebrates its anniversary this year proudly.",
             "Alena Baeva performs Mozart's fifth concerto in Metz today.",
-            "Ravel's music honours the orchestra's regional heritage today.",
+            "Ravel's music honours regional heritage today.",
         ]
         issue = pipeline.narration_validation_error(" ".join(sentences))
         self.assertIn("sentence 2 has 13 words", issue)
@@ -124,9 +124,9 @@ class PlannerNarrationValidationTests(unittest.TestCase):
     def test_validator_rejects_hook_outside_five_to_eight_words(self):
         sentences = [
             "Can music travel farther?",
-            "Metz's orchestra celebrates fifty years of music across its wider region today.",
+            "Metz's orchestra celebrates fifty years of music across its region today.",
             "Alena Baeva performs Mozart's brilliant fifth concerto in Metz this season.",
-            "Ravel's music honours the orchestra's long regional heritage across generations today.",
+            "Ravel's music honours the orchestra's regional heritage across generations today.",
         ]
         issue = pipeline.narration_validation_error(" ".join(sentences))
         self.assertIn("opening hook has 4 words", issue)
@@ -337,11 +337,11 @@ class PlannerNarrationValidationTests(unittest.TestCase):
 
                 debug = json.loads((Path(folder) / "creative_plan_debug.json").read_text(encoding="utf-8"))
                 self.assertEqual(debug["status"], "repaired")
-                self.assertEqual(debug["final_diagnostics"]["word_count"], 37)
+                self.assertEqual(debug["final_diagnostics"]["word_count"], 35)
                 self.assertEqual(debug["correction_attempts"][0]["corrected_sentence_numbers"], [4])
                 self.assertEqual(
                     debug["correction_attempts"][0]["required_word_counts"],
-                    {"sentence_4_words": 8},
+                    {"sentence_4_words": 11},
                 )
             finally:
                 pipeline.WORK = original_work
@@ -516,13 +516,13 @@ class PlannerNarrationValidationTests(unittest.TestCase):
                 "evidence_text": (
                     "MIT engineers developed a detailed computational model of a virtual violin instrument. "
                     "Its plucked strings recreate realistic resonance and acoustic timbre for listeners. "
-                    "Bowed string performance remains a difficult challenge for researchers today."
+                    "Bowed string performance remains a difficult challenge today."
                 ),
             }
         ]
         corrected_words = [
             "Bowed", "string", "performance", "remains", "a",
-            "difficult", "challenge", "for", "researchers", "today."
+            "difficult", "challenge", "today."
         ]
         response = {
             "choices": [{
