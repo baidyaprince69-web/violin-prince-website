@@ -134,16 +134,16 @@ Current daily creative contract:
 - Approximately 24 seconds.
 - Vertical 720 × 1280 output.
 - Three illustrated scenes as the normal daily format.
-- Four-sentence, approximately 40–44-word English narration.
-- Production narration is locked until a tested and user-approved clone of the creator's own voice is available.
-- No synthetic, preset, generic, or third-party voice fallback is permitted.
-- The voiceover module may provide caption helpers, but narration generation must stop while the own-voice gate is locked.
+- Exactly four sentences and exactly 35 spoken English words, calibrated to the verified 22–23-second private Qwen3 delivery.
+- Production narration is approved through the private Qwen3 worker only; the gate requires the checked-in voice-approval record.
+- The private worker handoff validates the exact transcript, all 35 word timings, the 22–23-second natural duration, metadata and WAV SHA-256 checksum.
+- No preset, generic, third-party or fallback voice is permitted; missing credentials or invalid output stop production.
 - Word-synchronised karaoke captions.
 - The final scene is the musical/violin payoff and should explain how the violin phrase demonstrates the story's idea.
 
 Scene plans must map narration sentences to scenes explicitly and completely. Missing/invalid word timing or incomplete narration blocks rendering rather than being silently guessed.
 
-**Outputs after own-voice approval:** validated plan JSON, own-voice narration WAV and timing data, scene timeline and storyboard preview. **Current state:** blocked before these outputs are created.
+**Outputs after own-voice approval:** validated plan JSON, private-Qwen3 narration WAV and verified word-timing data, scene timeline and storyboard preview. **Current state:** narration approval is recorded; the separate illustration-provider gate still blocks complete video production.
 
 ## 7. Audio and music preparation
 
@@ -154,7 +154,7 @@ Scene plans must map narration sentences to scenes explicitly and completely. Mi
 3. Analyse BPM, beats, downbeats and onsets when available.
 4. Generate the solo-violin phrase from the checksum-verified CC0 sample path when no creator recording is supplied and that route is enabled.
 5. Use the ambient fallback only when the sample-instrument route is unavailable.
-6. Synthesise narration only through the creator's tested and approved own-voice provider. **Current status: blocked by the fail-closed own-voice gate; no substitute narrator is allowed.**
+6. Synthesise narration only through the approved private Qwen3 worker. **Current status: approved, with exact transcript, word-timing and audio-checksum validation; no substitute narrator is allowed.**
 7. Align narration timing with the scene plan.
 8. Mix narration, music and any permitted creator-performance audio during final finishing.
 
@@ -438,7 +438,7 @@ No plaintext voice recording, normalized WAV, transcript, passphrase, OAuth toke
 
 **Deployed enrollment route:** `https://baidyaprince69-web.github.io/violin-prince-website/voice-vault/`
 
-This is an enrollment UI, not a running voice-cloning system. The production `voiceover.py` now fails closed: narration cannot be generated until Qwen3-TTS and GPT-SoVITS have each been tested with the creator's own voice, hosting/quota/licence and alignment are validated, and the creator approves a production provider. The approved identity must remain the creator's own voice. If neither provider can produce acceptable narration, keep production stopped; never substitute Kokoro, a preset speaker, or another person's voice.
+The Voice Vault is an enrollment and private-storage boundary, not a public voice service. Production narration uses only the approved private Qwen3 worker. The public repository stores approval/test metadata only; the private worker retains voice-reference processing and performs exact transcript, alignment and audio-integrity checks. Missing credentials, failed checks or unavailable private service stop narration. Never substitute Kokoro, a preset speaker, or another person's voice.
 
 ## Addendum — private own-voice test boundary (2026-11-18)
 
@@ -449,4 +449,4 @@ This is an enrollment UI, not a running voice-cloning system. The production `vo
 - Cloudflare Worker, Workers AI, R2, D1 and deployment-workflow integrations have been removed from the Autopilot repository in this change. The main GitHub Actions workflow no longer reads Cloudflare or Worker credentials.
 - Text planning and scene illustration generation are deliberately disabled until non-Cloudflare providers are selected, reviewed and tested. The workflow must not fall back to Cloudflare or silently select another service.
 
-Production narration stays blocked by the fail-closed own-voice gate until a real sample is reviewed, the owner approves it, and the provider is integrated and tested.
+Production narration is approved through private Qwen3 after the creator-authorized sample and end-to-end handoff passed. The private worker run, public bridge run and cleanup run are recorded in `voice-approval.json`. The separate illustration-provider gate remains closed, and publishing is disabled.
