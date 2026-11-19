@@ -69,7 +69,7 @@ jobs:
           created=false
           cleanup() {
             if [[ "$created" == "true" ]]; then
-              gh release delete "$release_tag" --repo "$PRIVATE_REPO" --yes --cleanup-tag >/dev/null 2>&1 || true
+              gh release delete "$release_tag" --repo "$PRIVATE_REPO" --yes >/dev/null 2>&1 || true
             fi
           }
           trap cleanup EXIT
@@ -80,7 +80,7 @@ jobs:
             --notes "Temporary permission check; automatically deleted immediately." \
             --target main
           created=true
-          gh release delete "$release_tag" --repo "$PRIVATE_REPO" --yes --cleanup-tag
+          gh release delete "$release_tag" --repo "$PRIVATE_REPO" --yes
           created=false
           trap - EXIT
           echo "Private Voice Vault release-write permission verified; temporary draft release removed."
@@ -386,7 +386,7 @@ jobs:
           cleanup_on_failure() {
             status="$?"
             if (( status != 0 )); then
-              gh release delete "$release_tag" --repo "$PRIVATE_REPO" --yes --cleanup-tag || true
+              gh release delete "$release_tag" --repo "$PRIVATE_REPO" --yes || true
               if [[ -d "$temporary_dir/private-repo/.git" ]]; then
                 git -C "$temporary_dir/private-repo" push origin --delete "$transfer_branch" || true
               fi

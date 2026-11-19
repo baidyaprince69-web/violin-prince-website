@@ -32,6 +32,12 @@ class WorkflowPrivacyContractTests(unittest.TestCase):
         self.assertIn("ruff check --select F821,F822,F823 autopilot/engine", self.workflow_text)
         self.assertIn("test_hyperframes_pipeline.py", self.workflow_text)
 
+    def test_draft_release_cleanup_does_not_delete_a_nonexistent_tag(self):
+        self.assertNotIn(
+            'gh release delete "$release_tag" --repo "$PRIVATE_REPO" --yes --cleanup-tag',
+            self.workflow_text,
+        )
+
     def test_private_handoff_write_access_is_checked_before_expensive_production(self):
         self.assertIn("Verify private Voice Vault draft-release write access", self.workflow_text)
         self.assertIn("gh release create", self.workflow_text)
