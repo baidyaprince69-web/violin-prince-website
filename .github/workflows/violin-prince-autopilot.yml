@@ -24,7 +24,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: violin-prince-autopilot-staged
+  group: violin-prince-autopilot-premium-v2
   cancel-in-progress: true
 
 jobs:
