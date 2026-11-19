@@ -1,0 +1,8 @@
+{
+  "purpose": "One-time private Qwen3 narration handoff verification",
+  "mode": "private-only",
+  "production_render": false,
+  "youtube_upload": false,
+  "publish": false,
+  "created_utc": "2026-11-19"
+}
