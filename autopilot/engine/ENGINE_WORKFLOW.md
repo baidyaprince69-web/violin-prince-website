@@ -395,7 +395,7 @@ For rig/character changes, the actual rig preview and visual review are mandator
 | `autopilot/engine/run.py` | Legacy staged Prepare / Visuals / Render workflow |
 | `autopilot/engine/run_daily_plan.py` | Validates and executes ChatGPT-authored daily plans |
 | `autopilot/engine/creative_direction.py` | Standing channel and creative direction |
-| `autopilot/engine/voiceover.py` | Fail-closed own-voice narration gate and caption helpers; provider integration pending |
+| `autopilot/engine/voiceover.py` | Private Qwen3 own-voice narration gate, transcript/timing/checksum validation and caption helpers |
 | `autopilot/engine/violin_sampler.py` | CC0 sampled violin phrase generation |
 | `autopilot/engine/audio_analysis.py` | Beat, onset and timing analysis |
 | `autopilot/engine/illustration_asset_factory.py` | Character asset staging and validation |
@@ -407,6 +407,7 @@ For rig/character changes, the actual rig preview and visual review are mandator
 | `autopilot/engine/scene_timeline.py` | Stable scene identity and narration mapping/timing |
 | `autopilot/engine/hyperframes_pipeline.py` | Scene rendering, transitions, FFmpeg finishing and media checks |
 | `autopilot/engine/media_verification.py` | Image, scene and final-media verification |
+| `autopilot/engine/local_vector_illustrator.py` | Deterministic no-network 2D scene plates for the approved preview-only provider |
 | `autopilot/engine/publish_handoff.py` | Metadata preflight, manifest and provenance generation |
 | `autopilot/engine/analytics.py` | Optional read-only YouTube Analytics collection |
 | `.github/workflows/character-rig-test.yml` | Separate actual character auto-rig and integration proof |
@@ -450,5 +451,14 @@ The Voice Vault is an enrollment and private-storage boundary, not a public voic
 - The private test repository holds the encrypted package. The passphrase is an Actions secret; decrypted reference audio and transcript exist only in the temporary runner workspace. The generated sample is a one-day artifact in the private repository. The public repository and its Actions artifacts never receive personal voice material.
 - Cloudflare Worker, Workers AI, R2, D1 and deployment-workflow integrations have been removed from the Autopilot repository in this change. The main GitHub Actions workflow no longer reads Cloudflare or Worker credentials.
 - Automated text planning remains disabled until an approved text provider is selected. The local vector illustrator is approved only for a one-video preview; it does not call Cloudflare or any remote image provider.
+- The public Autopilot workflow currently exposes only the complete one-shot preview path. Stage-by-stage public artifacts and downloads are disabled because the package can contain narration text and private audio.
 
-Production narration is approved through private Qwen3 after the creator-authorized sample and end-to-end handoff passed. The private worker run, public bridge run and cleanup run are recorded in `voice-approval.json`. The local vector renderer passed all six-mode JPEG tests (run `44522943801`) and is recorded in `illustration-approval.json` for preview-only use. Publishing remains disabled.
+Production narration is approved through private Qwen3 after the creator-authorized sample and end-to-end handoff passed. The private worker run, public bridge run and cleanup run are recorded in `voice-approval.json`. The local vector renderer passed six general modes plus three Audient studio-story scenes (run `44524124774`) and is recorded in `illustration-approval.json` for preview-only use.
+
+## Addendum — private video preview delivery (2026-11-19)
+
+- The public renderer must not upload a voice-bearing MP4, narration WAV, narration transcript or stage diagnostic package as a public GitHub Actions artifact or public release.
+- For the one-video preview, the ephemeral public runner creates a temporary **draft release in the private** `violin-prince-private-voice` repository containing the final MP4 only, then pushes a small temporary marker branch with the source run ID, file size and SHA-256.
+- The private workflow `.github/workflows/private-video-preview-intake.yml` downloads that draft asset inside the private repository, verifies its exact size and SHA-256, stores the MP4 as a one-day private Actions artifact and deletes the temporary release/tag and transfer branch after a successful upload.
+- The public workflow offers only the complete `full` stage while private intermediate-stage handoff is unavailable. It has no public video or diagnostic-artifact upload step. `PUBLISH_ENABLED` remains `false`; there is no public GitHub release, Upload-Post queue submission or YouTube upload in this preview path.
+- The private artifact is for creator inspection of the completed render. It is not publication approval; the full video must be reviewed before any later publishing decision.
