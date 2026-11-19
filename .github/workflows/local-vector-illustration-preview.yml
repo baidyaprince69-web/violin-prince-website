@@ -1,0 +1,50 @@
+name: Local vector illustration preview
+
+on:
+  push:
+    branches:
+      - feat/local-vector-illustration-provider
+    paths:
+      - "autopilot/engine/local_vector_illustrator.py"
+      - "autopilot/engine/tests/render_local_vector_preview.py"
+      - ".github/workflows/local-vector-illustration-preview.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Check out vector illustration prototype
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install local renderer dependency
+        run: |
+          python -m pip install --upgrade pip
+          pip install "Pillow>=10.4,<12" "numpy>=1.26,<3" "requests>=2.32,<3" "cryptography>=43,<48"
+
+      - name: Compile local renderer
+        run: python -m py_compile autopilot/engine/local_vector_illustrator.py autopilot/engine/tests/render_local_vector_preview.py
+
+      - name: Run local illustrator regression tests
+        run: python autopilot/engine/tests/test_local_vector_illustrator.py
+
+      - name: Render all six local illustration modes
+        run: python autopilot/engine/tests/render_local_vector_preview.py work/local-vector-preview
+
+      - name: Preserve visual review plates
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-vector-illustration-preview-${{ github.run_id }}
+          path: work/local-vector-preview/
+          if-no-files-found: error
+          retention-days: 1

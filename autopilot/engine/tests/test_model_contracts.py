@@ -23,12 +23,13 @@ class ProviderBoundaryTests(unittest.TestCase):
         with self.assertRaises(pipeline.PipelineError):
             pipeline.image_request_payload("   ")
 
-    def test_image_generation_stops_until_non_cloudflare_provider_is_configured(self):
-        with self.assertRaisesRegex(
-            pipeline.PipelineError,
-            "No approved illustration-generation provider is configured",
-        ):
-            pipeline.make_image("a cinematic illustration", 0)
+    def test_local_image_generation_requires_a_validated_scene(self):
+        with unittest.mock.patch.object(pipeline, "require_approved_illustration_provider"):
+            with self.assertRaisesRegex(
+                pipeline.PipelineError,
+                "requires the validated scene object",
+            ):
+                pipeline.make_image("a cinematic illustration", 0)
 
     def test_text_generation_stops_until_non_cloudflare_provider_is_configured(self):
         with self.assertRaisesRegex(
@@ -37,10 +38,10 @@ class ProviderBoundaryTests(unittest.TestCase):
         ):
             pipeline.ai("text-generation", {"prompt": "synthetic test"})
 
-    def test_image_ai_provider_fails_closed(self):
+    def test_remote_image_ai_provider_remains_disabled(self):
         with self.assertRaisesRegex(
             pipeline.PipelineError,
-            "No approved illustration-generation provider is configured",
+            "Remote image generation is disabled",
         ):
             pipeline.ai("image-generation", {"prompt": "synthetic test"})
 

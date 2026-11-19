@@ -243,6 +243,32 @@ class DailyReadinessTests(unittest.TestCase):
                 "autopilot/engine/voice-approval.json",
                 approval_source.read_text(encoding="utf-8"),
             )
+            self._write(
+                root,
+                "autopilot/engine/illustration-approval.json",
+                json.dumps({
+                    "schema_version": 1,
+                    "status": "approved_for_preview",
+                    "provider": "local_vector",
+                    "scope": "preview_video_only",
+                    "renderer_version": "violin-prince-vector-illustrator-v1",
+                    "publishing_enabled": False,
+                    "test_evidence": {
+                        "workflow_run_id": 12345,
+                        "workflow_status": "success",
+                        "all_six_modes_passed": True,
+                        "story_profile_scenes_passed": True,
+                        "network_calls": False,
+                        "output_width": 1024,
+                        "output_height": 1792,
+                        "output_format": "JPEG",
+                        "modes": [
+                            "comparison", "cover_performance", "macro_illustration",
+                            "mechanism_illustration", "melody_map", "waveform"
+                        ],
+                    },
+                }),
+            )
             result = evaluate_daily_readiness(
                 root,
                 today="2026-11-19",

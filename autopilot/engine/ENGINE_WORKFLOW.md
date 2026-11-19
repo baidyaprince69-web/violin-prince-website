@@ -143,7 +143,7 @@ Current daily creative contract:
 
 Scene plans must map narration sentences to scenes explicitly and completely. Missing/invalid word timing or incomplete narration blocks rendering rather than being silently guessed.
 
-**Outputs after own-voice approval:** validated plan JSON, private-Qwen3 narration WAV and verified word-timing data, scene timeline and storyboard preview. **Current state:** narration approval is recorded; the separate illustration-provider gate still blocks complete video production.
+**Outputs after own-voice approval:** validated plan JSON, private-Qwen3 narration WAV and verified word-timing data, scene timeline and storyboard preview. **Current state:** narration is approved through private Qwen3; the local illustration provider is approved for preview video only. Publishing remains disabled.
 
 ## 7. Audio and music preparation
 
@@ -164,16 +164,18 @@ The former external media dashboard and remote media library have been removed. 
 
 ## 8. Scene illustration and visual asset generation
 
-**Status: Disabled pending a provider replacement.**
+**Status: Local deterministic vector illustrator tested and approved for preview-only use.**
 
-- No scene-illustration provider is currently configured. The former Cloudflare image-generation integration has been removed.
+- `autopilot/engine/local_vector_illustrator.py` renders six fixed scene modes locally with Pillow; it makes no network calls, needs no API key and creates 1024 × 1792 JPEG plates.
+- The renderer is gated by `autopilot/engine/illustration-approval.json`, which records the successful six-mode preview test and explicitly restricts use to `preview_video_only` with publishing disabled.
+- The generated plates provide a consistent navy, teal, ivory and antique-gold editorial style. They are vector-style explanatory illustrations, not photorealistic AI artwork or story-specific factual diagrams.
 - The normal story uses three scene plates with consistent editorial direction, palette and distinct visual roles.
 - Structured visual modes include illustrated macro detail, mechanism cutaway, waveform, melody map, comparison and performance payoff.
 - Optional structured charts/process-flow graphics may be rendered only from supplied, verified values. Never invent measurements or imply illustrative geometry is measured data.
 - Optional visual-reference guidance can specify visual language, pacing, motion profile, shot type, bounded camera movement and transition. Reference analysis is only used when the reference was actually reviewed.
 - The current system animates still illustrations; it must not claim that it generated new AI video footage.
 
-If original scene art generation fails due to permissions, quota or rate limits, stop with a clear diagnostic. Do not silently substitute placeholder art or an unapproved paid service.
+The local renderer is deterministic and contains fixed scene compositions. It must not invent source-specific measurements, dates or physical claims. The creator must inspect the complete rendered preview before the visuals are used in any published video. Do not silently fall back to a remote image service or a paid provider.
 
 **Outputs:** validated scene image files, storyboard preview and scene media-verification report.
 
@@ -330,7 +332,7 @@ The release is a handoff package, not proof of YouTube publication.
 - The request uses the verified `default` profile, `add_to_queue=true`, and an idempotency key derived from profile/platform/production date so a retried workflow cannot enqueue duplicate daily posts.
 - The profile queue is configured for `Asia/Kolkata`, every day at 19:00, with one post per slot. Upload-Post returns the queue `job_id` and scheduled time; the workflow records these in its Actions step summary.
 - GitHub Actions requires the `UPLOAD_POST_API_KEY` repository secret. Store the key only in GitHub Actions Secrets; never place it in source files, workflow inputs, plans, artifacts or logs.
-- A scheduled preflight runs at 09:30 UTC (15:00 IST). It launches the production job only if today's ChatGPT-authored plan has the matching `production_date`, own-voice and illustration gates are open, and the Upload-Post secret is configured.
+- A scheduled preflight runs at 09:30 UTC (15:00 IST). It checks today's ChatGPT-authored plan, the private-Qwen3 approval record and the local illustration preview approval record. The current preview-only workflow does not require Upload-Post credentials and does not create a public release or enqueue a post.
 - The scheduled trigger does **not** invent or refresh a daily story. A fresh ChatGPT-authored plan must be committed for the current India date; there is no background ChatGPT plan-generation service. A stale plan or any closed gate causes a cheap preflight skip before model installation or rendering.
 - The final MP4 release asset is the publishing source; the redundant Actions video preview is retained for one day and diagnostic artifacts for three days.
 
@@ -393,7 +395,7 @@ For rig/character changes, the actual rig preview and visual review are mandator
 | `autopilot/engine/run.py` | Legacy staged Prepare / Visuals / Render workflow |
 | `autopilot/engine/run_daily_plan.py` | Validates and executes ChatGPT-authored daily plans |
 | `autopilot/engine/creative_direction.py` | Standing channel and creative direction |
-| `autopilot/engine/voiceover.py` | Fail-closed own-voice narration gate and caption helpers; provider integration pending |
+| `autopilot/engine/voiceover.py` | Private Qwen3 own-voice narration gate, transcript/timing/checksum validation and caption helpers |
 | `autopilot/engine/violin_sampler.py` | CC0 sampled violin phrase generation |
 | `autopilot/engine/audio_analysis.py` | Beat, onset and timing analysis |
 | `autopilot/engine/illustration_asset_factory.py` | Character asset staging and validation |
@@ -405,6 +407,7 @@ For rig/character changes, the actual rig preview and visual review are mandator
 | `autopilot/engine/scene_timeline.py` | Stable scene identity and narration mapping/timing |
 | `autopilot/engine/hyperframes_pipeline.py` | Scene rendering, transitions, FFmpeg finishing and media checks |
 | `autopilot/engine/media_verification.py` | Image, scene and final-media verification |
+| `autopilot/engine/local_vector_illustrator.py` | Deterministic no-network 2D scene plates for the approved preview-only provider |
 | `autopilot/engine/publish_handoff.py` | Metadata preflight, manifest and provenance generation |
 | `autopilot/engine/analytics.py` | Optional read-only YouTube Analytics collection |
 | `.github/workflows/character-rig-test.yml` | Separate actual character auto-rig and integration proof |
@@ -447,6 +450,15 @@ The Voice Vault is an enrollment and private-storage boundary, not a public voic
 - The actual Qwen voice test is a separate, manually triggered workflow template under `.github/voice-tests/private-runner/`. It must be copied into a dedicated private repository before any personal voice data is processed.
 - The private test repository holds the encrypted package. The passphrase is an Actions secret; decrypted reference audio and transcript exist only in the temporary runner workspace. The generated sample is a one-day artifact in the private repository. The public repository and its Actions artifacts never receive personal voice material.
 - Cloudflare Worker, Workers AI, R2, D1 and deployment-workflow integrations have been removed from the Autopilot repository in this change. The main GitHub Actions workflow no longer reads Cloudflare or Worker credentials.
-- Text planning and scene illustration generation are deliberately disabled until non-Cloudflare providers are selected, reviewed and tested. The workflow must not fall back to Cloudflare or silently select another service.
+- Automated text planning remains disabled until an approved text provider is selected. The local vector illustrator is approved only for a one-video preview; it does not call Cloudflare or any remote image provider.
+- The public Autopilot workflow currently exposes only the complete one-shot preview path. Stage-by-stage public artifacts and downloads are disabled because the package can contain narration text and private audio.
 
-Production narration is approved through private Qwen3 after the creator-authorized sample and end-to-end handoff passed. The private worker run, public bridge run and cleanup run are recorded in `voice-approval.json`. The separate illustration-provider gate remains closed, and publishing is disabled.
+Production narration is approved through private Qwen3 after the creator-authorized sample and end-to-end handoff passed. The private worker run, public bridge run and cleanup run are recorded in `voice-approval.json`. The local vector renderer passed six general modes plus three Audient studio-story scenes (run `44524124774`) and is recorded in `illustration-approval.json` for preview-only use.
+
+## Addendum — private video preview delivery (2026-11-19)
+
+- The public renderer must not upload a voice-bearing MP4, narration WAV, narration transcript or stage diagnostic package as a public GitHub Actions artifact or public release.
+- For the one-video preview, the ephemeral public runner creates a temporary **draft release in the private** `violin-prince-private-voice` repository containing the final MP4 only, then pushes a small temporary marker branch with the source run ID, file size and SHA-256.
+- The private workflow `.github/workflows/private-video-preview-intake.yml` downloads that draft asset inside the private repository, verifies its exact size and SHA-256, stores the MP4 as a one-day private Actions artifact and deletes the temporary release/tag and transfer branch after a successful upload.
+- The public workflow offers only the complete `full` stage while private intermediate-stage handoff is unavailable. It has no public video or diagnostic-artifact upload step. `PUBLISH_ENABLED` remains `false`; there is no public GitHub release, Upload-Post queue submission or YouTube upload in this preview path.
+- The private artifact is for creator inspection of the completed render. It is not publication approval; the full video must be reviewed before any later publishing decision.

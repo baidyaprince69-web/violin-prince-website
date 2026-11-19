@@ -2780,19 +2780,64 @@ def require_approved_text_provider():
     )
 
 
-def require_approved_illustration_provider():
-    """Fail before image work until an approved illustration provider is configured."""
-    raise PipelineError(
-        "No approved illustration-generation provider is configured. "
-        "The Visuals stage is disabled until a replacement provider is selected and tested."
-    )
+ILLUSTRATION_APPROVAL_FILE = Path(__file__).with_name("illustration-approval.json")
+_ILLUSTRATION_APPROVAL_EVIDENCE = {
+    "workflow_status": "success",
+    "all_six_modes_passed": True,
+    "story_profile_scenes_passed": True,
+    "network_calls": False,
+    "output_width": 1024,
+    "output_height": 1792,
+    "output_format": "JPEG",
+}
+
+
+def require_approved_illustration_provider(approval_file=None):
+    """Allow only the reviewed deterministic local illustrator in preview scope."""
+    approval_path = Path(approval_file) if approval_file is not None else ILLUSTRATION_APPROVAL_FILE
+    try:
+        approval = json.loads(approval_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise PipelineError(
+            "Illustrations are locked: the local vector-provider approval record is missing or invalid."
+        ) from exc
+
+    if not isinstance(approval, dict):
+        raise PipelineError("Illustrations are locked: provider approval must be a JSON object.")
+
+    try:
+        from local_vector_illustrator import RENDERER_VERSION, MODES
+    except ImportError as exc:
+        raise PipelineError("Illustrations are locked: the approved local vector renderer is unavailable.") from exc
+
+    evidence = approval.get("test_evidence")
+    required_modes = sorted(MODES)
+    if (
+        approval.get("schema_version") != 1
+        or approval.get("status") != "approved_for_preview"
+        or approval.get("provider") != "local_vector"
+        or approval.get("scope") != "preview_video_only"
+        or approval.get("renderer_version") != RENDERER_VERSION
+        or approval.get("publishing_enabled") is not False
+        or not isinstance(evidence, dict)
+        or isinstance(evidence.get("workflow_run_id"), bool)
+        or not isinstance(evidence.get("workflow_run_id"), int)
+        or evidence.get("workflow_run_id", 0) <= 0
+        or any(evidence.get(key) != value for key, value in _ILLUSTRATION_APPROVAL_EVIDENCE.items())
+        or evidence.get("modes") != required_modes
+    ):
+        raise PipelineError(
+            "Illustrations are locked: approval evidence does not match the tested local vector renderer."
+        )
 
 
 def ai(model, payload, timeout=180):
-    """Fail closed; no remote text or image provider is currently configured."""
+    """Fail closed for remote AI; the approved local vector renderer has its own path."""
     del payload, timeout
     if "image" in str(model).lower() or "illustration" in str(model).lower():
-        require_approved_illustration_provider()
+        raise PipelineError(
+            "Remote image generation is disabled; approved scene plates must use the local vector illustrator."
+        )
     require_approved_text_provider()
 
 
@@ -3807,9 +3852,24 @@ def image_request_payload(prompt):
     return {"prompt": value[:1800]}
 
 
-def make_image(prompt, index):
-    del prompt, index
+def make_image(prompt, index, scene=None, plan=None):
+    """Render an approved scene locally; scene prompts are never sent to a service."""
     require_approved_illustration_provider()
+    if not isinstance(scene, dict):
+        raise PipelineError("The local illustrator requires the validated scene object.")
+    if not str(prompt or "").strip():
+        raise PipelineError("The local illustrator requires a non-empty scene direction record.")
+
+    scene_id = re.sub(r"[^a-z0-9_-]+", "-", str(scene.get("id") or f"scene-{index + 1}").casefold()).strip("-")
+    if not scene_id:
+        scene_id = f"scene-{index + 1}"
+    IMAGES.mkdir(parents=True, exist_ok=True)
+    target = IMAGES / f"scene-{scene_id}.jpg"
+    try:
+        from local_vector_illustrator import render_scene
+        return render_scene(scene, index, plan, target)
+    except (OSError, ValueError) as exc:
+        raise PipelineError(f"Local vector illustration failed for scene {scene_id}: {exc}") from exc
 
 
 _BRAND_FONT_CACHE = None
@@ -4341,7 +4401,7 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
             if not image.is_file():
                 raise PipelineError(f"Prepared scene image {i + 1} is missing.")
         else:
-            image = make_image(visual_prompt, i)
+            image = make_image(visual_prompt, i, scene=scene, plan=plan)
 
         scene_fingerprint_value = scene_fingerprint(
             scene, image,
