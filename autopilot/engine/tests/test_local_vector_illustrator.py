@@ -44,6 +44,28 @@ class LocalVectorIllustratorTests(unittest.TestCase):
             self.assertEqual(hashlib.sha256(first.read_bytes()).hexdigest(),
                              hashlib.sha256(second.read_bytes()).hexdigest())
 
+    def test_room_correction_topic_selects_studio_illustrations(self):
+        scene = {"visual_mode": "macro_illustration"}
+        studio_plan = {
+            "title": "Can your room change your violin mix?",
+            "topic": "How room acoustics change studio monitor playback and correction.",
+            "narration_script": "RoomTune measures the room and adjusts monitor response.",
+        }
+        violin_plan = {
+            "title": "How a violin bridge works",
+            "topic": "How strings transfer vibration through a violin bridge.",
+        }
+        self.assertEqual(illustrator._scene_profile(studio_plan), "studio_acoustics")
+        self.assertEqual(illustrator._scene_profile(violin_plan), "violin")
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            studio = illustrator.render_scene(scene, 0, studio_plan, root / "studio.jpg")
+            violin = illustrator.render_scene(scene, 0, violin_plan, root / "violin.jpg")
+            self.assertNotEqual(
+                hashlib.sha256(studio.read_bytes()).hexdigest(),
+                hashlib.sha256(violin.read_bytes()).hexdigest(),
+            )
+
     def test_png_preview_format_is_supported(self):
         with tempfile.TemporaryDirectory() as folder:
             target = illustrator.render_scene(
