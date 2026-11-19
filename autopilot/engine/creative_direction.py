@@ -60,39 +60,28 @@ BIOGRAPHY_PATTERNS = (
 
 VISUAL_MODE_PROMPTS = {
     "macro_illustration": (
-        "Create a premium 2D illustrated documentary macro shot of the real musical "
-        "object. Make one tactile detail the unmistakable hero: painted natural wood "
-        "grain, fine varnish highlights, crisp contour drawing and layered 2.5D depth. "
-        "Use controlled chiaroscuro, a warm key light and a restrained teal edge light; "
-        "leave intentional negative space instead of filling every area with decoration."
+        "Premium documentary macro: one tactile musical detail, painted wood grain, "
+        "varnish highlights, crisp silhouette, layered depth and controlled warm light."
     ),
     "mechanism_illustration": (
-        "Show the real mechanism as a premium 2D technical-editorial cutaway. Keep "
-        "component relationships physically believable, separate each stage cleanly, "
-        "and use a disciplined grid, fine brass callout rules, restrained teal signal "
-        "paths and clear negative space. Never invent measurements or labels."
+        "Premium technical cutaway: accurate components, clear separation, fine brass "
+        "callout rules, restrained teal signal paths and no invented measurements."
     ),
     "waveform": (
-        "Show sound through elegant 2D acoustic ribbons and travelling wavefronts, "
-        "with a precise luminous signal path, subtle particle depth and a restrained "
-        "technical grid. Animate one meaningful signal movement at a time; keep the "
-        "visual rooted in the stated physical explanation."
+        "Elegant acoustic ribbons, travelling wavefronts, one luminous signal path, "
+        "subtle depth and a clean technical grid grounded in the stated explanation."
     ),
     "melody_map": (
-        "Turn the idea into an original premium motion-graphics score map: elegant "
-        "pitch contours, rhythm markers, clear hierarchy and synchronized highlights. "
-        "Do not reproduce copyrighted notation, lyrics or a recognizable melody."
+        "Original premium score map: clear pitch contours, rhythm markers and synchronized "
+        "highlights. Do not reproduce copyrighted notation, lyrics or melodies."
     ),
     "comparison": (
-        "Create a refined 2D editorial comparison with matched scale, aligned baselines, "
-        "controlled brass and teal accents, and clear visual contrast. Give both ideas "
-        "equal visual weight and preserve generous spacing."
+        "Refined editorial comparison: matched scale, aligned baselines, brass and teal "
+        "accents, generous spacing and balanced visual weight."
     ),
     "cover_performance": (
-        "Create a premium illustrated performance-payoff shot centred on a complete "
-        "violin, bow and expressive playing hands. Use a dramatic diagonal, warm wood "
-        "highlights, rich midnight shadows and a clean silhouette. Do not depict an "
-        "identifiable person or claim that generated art is the creator's live take."
+        "Premium illustrated payoff: complete violin and bow, expressive playing hands, "
+        "dramatic diagonal, warm wood highlights and rich midnight shadows. No identifiable person."
     ),
 }
 
