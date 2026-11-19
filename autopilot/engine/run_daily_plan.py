@@ -438,7 +438,7 @@ def run_daily_plan(plan_path: Path) -> int:
 
         prompt = engine._scene_visual_prompt(scene, index=index, plan=plan)
         try:
-            generated_image = engine.make_image(prompt, index)
+            generated_image = engine.make_image(prompt, index, scene=scene, plan=plan)
         except (engine.requests.Timeout, engine.requests.ConnectionError):
             engine.log(f"Temporary connection issue for scene {index + 1}; retrying once.")
             engine.time.sleep(2)
