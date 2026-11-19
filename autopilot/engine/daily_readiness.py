@@ -144,6 +144,7 @@ def evaluate_daily_readiness(
             or evidence.get("workflow_run_id", 0) <= 0
             or evidence.get("workflow_status") != "success"
             or evidence.get("all_six_modes_passed") is not True
+            or evidence.get("story_profile_scenes_passed") is not True
             or evidence.get("network_calls") is not False
             or evidence.get("output_width") != 1024
             or evidence.get("output_height") != 1792
