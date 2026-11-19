@@ -4,7 +4,6 @@ import os
 import re
 import sys
 import tempfile
-import zipfile
 import unittest
 from io import BytesIO
 from pathlib import Path
@@ -19,8 +18,7 @@ from private_voice_client import (
     PrivateVoiceBridgeError,
     generate_private_voiceover,
     validate_private_narration,
-    _select_private_run_artifact,
-    _extract_private_artifact_files,
+    _download_private_transfer_file,
 )
 
 SCRIPT = (
@@ -93,76 +91,62 @@ def fixture_payload(duration=22.5):
 
 
 
-class PrivateWorkflowArtifactLookupTests(unittest.TestCase):
-    ARTIFACT_NAME = "private-qwen3-narration-123456789"
+class FakeResponse:
+    def __init__(self, content=b"", status_code=200):
+        self.content = content
+        self.status_code = status_code
+        self.ok = 200 <= status_code < 400
 
-    def test_selects_matching_unexpired_artifact(self):
-        artifacts = [
-            {"id": 12, "name": "older-artifact", "size_in_bytes": 100, "expired": False},
-            {"id": 34, "name": self.ARTIFACT_NAME, "size_in_bytes": 2048, "expired": False},
-        ]
-        self.assertEqual(
-            _select_private_run_artifact(artifacts, self.ARTIFACT_NAME),
-            artifacts[1],
+
+class FakeSession:
+    def __init__(self, response):
+        self.response = response
+        self.last_request = None
+
+    def get(self, url, **kwargs):
+        self.last_request = (url, kwargs)
+        return self.response
+
+
+class PrivateTransferFileTests(unittest.TestCase):
+    def test_downloads_only_approved_files_from_the_private_branch(self):
+        payload = b"RIFF-private-audio"
+        session = FakeSession(FakeResponse(payload))
+        result = _download_private_transfer_file(
+            session, "test-token", "123456789",
+            "private-qwen3-transfer-123456789", "narration.wav",
         )
+        self.assertEqual(result, payload)
+        url, options = session.last_request
+        self.assertTrue(url.endswith("/contents/bridge-transfer/123456789/narration.wav"))
+        self.assertEqual(options["params"]["ref"], "private-qwen3-transfer-123456789")
+        self.assertEqual(options["headers"]["Accept"], "application/vnd.github.raw+json")
+        self.assertTrue(options["allow_redirects"])
 
-    def test_returns_none_when_matching_artifact_is_not_listed(self):
-        self.assertIsNone(_select_private_run_artifact(
-            [{"id": 12, "name": "another-artifact", "size_in_bytes": 100, "expired": False}],
-            self.ARTIFACT_NAME,
-        ))
+    def test_rejects_unapproved_transfer_filenames(self):
+        session = FakeSession(FakeResponse(b""))
+        with self.assertRaisesRegex(PrivateVoiceBridgeError, "not permitted"):
+            _download_private_transfer_file(
+                session, "test-token", "123456789",
+                "private-qwen3-transfer-123456789", "voice-reference.wav",
+            )
+        self.assertIsNone(session.last_request)
 
-    def test_rejects_an_expired_matching_artifact(self):
-        with self.assertRaisesRegex(PrivateVoiceBridgeError, "expired"):
-            _select_private_run_artifact(
-                [{"id": 34, "name": self.ARTIFACT_NAME, "size_in_bytes": 2048, "expired": True}],
-                self.ARTIFACT_NAME,
+    def test_reports_missing_private_contents_permission(self):
+        session = FakeSession(FakeResponse(status_code=403))
+        with self.assertRaisesRegex(PrivateVoiceBridgeError, "Contents: read"):
+            _download_private_transfer_file(
+                session, "test-token", "123456789",
+                "private-qwen3-transfer-123456789", "narration.json",
             )
 
-    def test_rejects_duplicate_matching_artifacts(self):
-        duplicate = {"id": 34, "name": self.ARTIFACT_NAME, "size_in_bytes": 2048, "expired": False}
-        with self.assertRaisesRegex(PrivateVoiceBridgeError, "duplicate"):
-            _select_private_run_artifact([duplicate, dict(duplicate, id=35)], self.ARTIFACT_NAME)
-
-    def test_rejects_invalid_artifact_size(self):
-        with self.assertRaisesRegex(PrivateVoiceBridgeError, "invalid size"):
-            _select_private_run_artifact(
-                [{"id": 34, "name": self.ARTIFACT_NAME, "size_in_bytes": 0, "expired": False}],
-                self.ARTIFACT_NAME,
+    def test_rejects_empty_transfer_files(self):
+        session = FakeSession(FakeResponse(b""))
+        with self.assertRaisesRegex(PrivateVoiceBridgeError, "empty or too large"):
+            _download_private_transfer_file(
+                session, "test-token", "123456789",
+                "private-qwen3-transfer-123456789", "narration.json",
             )
-
-    def test_extracts_only_the_two_expected_narration_files(self):
-        archive_buffer = BytesIO()
-        with zipfile.ZipFile(archive_buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-            archive.writestr("narration.wav", b"RIFF-private-audio")
-            archive.writestr("narration.json", b'{"request_id":"123456789"}')
-        files = _extract_private_artifact_files(archive_buffer.getvalue())
-        self.assertEqual(set(files), {"narration.wav", "narration.json"})
-        self.assertEqual(files["narration.wav"], b"RIFF-private-audio")
-
-    def test_rejects_missing_files_in_artifact_archive(self):
-        archive_buffer = BytesIO()
-        with zipfile.ZipFile(archive_buffer, "w") as archive:
-            archive.writestr("narration.wav", b"RIFF-private-audio")
-        with self.assertRaisesRegex(PrivateVoiceBridgeError, "missing"):
-            _extract_private_artifact_files(archive_buffer.getvalue())
-
-    def test_rejects_unexpected_files_in_artifact_archive(self):
-        archive_buffer = BytesIO()
-        with zipfile.ZipFile(archive_buffer, "w") as archive:
-            archive.writestr("narration.wav", b"RIFF-private-audio")
-            archive.writestr("narration.json", b'{"request_id":"123456789"}')
-            archive.writestr("extra.txt", b"not allowed")
-        with self.assertRaisesRegex(PrivateVoiceBridgeError, "unexpected"):
-            _extract_private_artifact_files(archive_buffer.getvalue())
-
-    def test_rejects_unsafe_paths_in_artifact_archive(self):
-        archive_buffer = BytesIO()
-        with zipfile.ZipFile(archive_buffer, "w") as archive:
-            archive.writestr("../narration.wav", b"RIFF-private-audio")
-            archive.writestr("narration.json", b'{"request_id":"123456789"}')
-        with self.assertRaisesRegex(PrivateVoiceBridgeError, "unsafe"):
-            _extract_private_artifact_files(archive_buffer.getvalue())
 
 
 class PrivateVoiceValidationTests(unittest.TestCase):

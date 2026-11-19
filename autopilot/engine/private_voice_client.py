@@ -9,7 +9,6 @@ import os
 import re
 import sys
 import time
-import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -17,6 +16,7 @@ import requests
 
 PRIVATE_REPO = "baidyaprince69-web/violin-prince-private-voice"
 WORKFLOW_FILE = "private-qwen3-narration.yml"
+CLEANUP_WORKFLOW_FILE = "private-qwen3-cleanup.yml"
 API_ROOT = "https://api.github.com"
 WORD_RE = re.compile(r"[\w’'-]+", re.UNICODE)
 
@@ -127,86 +127,97 @@ def _wait_for_run(session: requests.Session, token: str, request_id: str,
     )
 
 
-def _select_private_run_artifact(artifacts: list[dict], expected_name: str) -> dict | None:
-    """Select one unexpired artifact created by the requested private workflow run."""
-    matches = [
-        item for item in artifacts
-        if isinstance(item, dict) and item.get("name") == expected_name
-    ]
-    if len(matches) > 1:
-        raise PrivateVoiceBridgeError("The private narration run returned duplicate artifacts.")
-    if not matches:
-        return None
-    artifact = matches[0]
-    if artifact.get("expired") is True:
-        raise PrivateVoiceBridgeError("The private narration workflow artifact has expired.")
-    try:
-        artifact_id = int(artifact.get("id") or 0)
-        size = int(artifact.get("size_in_bytes") or 0)
-    except (TypeError, ValueError) as exc:
-        raise PrivateVoiceBridgeError("The private narration artifact metadata is invalid.") from exc
-    if artifact_id <= 0 or size <= 0 or size > 24 * 1024 * 1024:
-        raise PrivateVoiceBridgeError("The private narration artifact has an invalid size or identifier.")
-    return artifact
-
-
-def _extract_private_artifact_files(archive_bytes: bytes) -> dict[str, bytes]:
-    """Safely extract only the two approved narration files from a workflow artifact ZIP."""
-    from io import BytesIO
-    from pathlib import PurePosixPath
-
-    if not archive_bytes or len(archive_bytes) > 24 * 1024 * 1024:
-        raise PrivateVoiceBridgeError("The private narration artifact archive is empty or too large.")
-    limits = {"narration.wav": 20 * 1024 * 1024, "narration.json": 2 * 1024 * 1024}
-    extracted: dict[str, bytes] = {}
-    try:
-        with zipfile.ZipFile(BytesIO(archive_bytes), "r") as archive:
-            for entry in archive.infolist():
-                if entry.is_dir():
-                    continue
-                path = PurePosixPath(entry.filename)
-                if path.is_absolute() or ".." in path.parts:
-                    raise PrivateVoiceBridgeError("The private narration artifact contains an unsafe file path.")
-                name = path.name
-                if name not in limits:
-                    raise PrivateVoiceBridgeError("The private narration artifact contains an unexpected file.")
-                if name in extracted:
-                    raise PrivateVoiceBridgeError("The private narration artifact contains duplicate files.")
-                if entry.file_size <= 0 or entry.file_size > limits[name]:
-                    raise PrivateVoiceBridgeError("A private narration artifact file has an invalid size.")
-                data = archive.read(entry)
-                if len(data) != entry.file_size:
-                    raise PrivateVoiceBridgeError("A private narration artifact file failed its size check.")
-                extracted[name] = data
-    except zipfile.BadZipFile as exc:
-        raise PrivateVoiceBridgeError("The private narration workflow artifact is not a valid ZIP archive.") from exc
-    if set(extracted) != set(limits):
-        raise PrivateVoiceBridgeError("The private narration artifact is missing narration.wav or narration.json.")
-    return extracted
-
-
-def _download_private_artifact_archive(
-    session: requests.Session, token: str, artifact: dict
+def _download_private_transfer_file(
+    session: requests.Session, token: str, request_id: str, branch: str, filename: str
 ) -> bytes:
-    """Download an artifact archive using the private repository's Actions read permission."""
-    artifact_id = int(artifact["id"])
-    url = (
-        f"{API_ROOT}/repos/{PRIVATE_REPO}/actions/artifacts/{artifact_id}/zip"
-    )
+    """Read one approved binary file from a temporary branch in the private repository."""
+    if filename not in {"narration.wav", "narration.json"}:
+        raise PrivateVoiceBridgeError("The requested private transfer filename is not permitted.")
+    path = f"bridge-transfer/{request_id}/{filename}"
+    url = f"{API_ROOT}/repos/{PRIVATE_REPO}/contents/{path}"
+    headers = _headers(token, binary=True)
+    headers["Accept"] = "application/vnd.github.raw+json"
     try:
         response = session.get(
-            url, headers=_headers(token), timeout=(20, 120), allow_redirects=True
+            url, headers=headers, params={"ref": branch},
+            timeout=(20, 120), allow_redirects=True
         )
     except requests.RequestException as exc:
-        raise PrivateVoiceBridgeError("Could not download the private narration workflow artifact.") from exc
+        raise PrivateVoiceBridgeError("Could not reach the private narration transfer branch.") from exc
     if not response.ok:
+        if response.status_code in (401, 403, 404):
+            raise PrivateVoiceBridgeError(
+                "The private narration file could not be read (HTTP "
+                f"{response.status_code}). Check that PRIVATE_VOICE_REPO_TOKEN has "
+                "Contents: read access to violin-prince-private-voice."
+            )
         raise PrivateVoiceBridgeError(
-            f"Private narration artifact download returned HTTP {response.status_code}."
+            f"Private narration file download returned HTTP {response.status_code}."
         )
-    content = response.content
-    if not content or len(content) > 24 * 1024 * 1024:
-        raise PrivateVoiceBridgeError("Downloaded private narration artifact is empty or too large.")
-    return content
+    data = response.content
+    limit = 20 * 1024 * 1024 if filename == "narration.wav" else 2 * 1024 * 1024
+    if not data or len(data) > limit:
+        raise PrivateVoiceBridgeError("A private narration transfer file is empty or too large.")
+    return data
+
+
+def _find_cleanup_run(
+    session: requests.Session, token: str, request_id: str, dispatched_at: datetime
+):
+    url = (
+        f"{API_ROOT}/repos/{PRIVATE_REPO}/actions/workflows/"
+        f"{CLEANUP_WORKFLOW_FILE}/runs?event=workflow_dispatch&branch=main&per_page=100"
+    )
+    payload = _json_request(session, "GET", url, token)
+    runs = payload.get("workflow_runs", []) if isinstance(payload, dict) else []
+    expected_title = f"Clean up private narration transfer {request_id}"
+    candidates = []
+    for run in runs:
+        if run.get("event") != "workflow_dispatch" or run.get("head_branch") != "main":
+            continue
+        if run.get("path") and run.get("path") != f".github/workflows/{CLEANUP_WORKFLOW_FILE}":
+            continue
+        if str(run.get("display_title") or "") != expected_title:
+            continue
+        try:
+            created = datetime.fromisoformat(str(run.get("created_at", "")).replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if created >= dispatched_at:
+            candidates.append(run)
+    return max(candidates, key=lambda item: item.get("created_at", "")) if candidates else None
+
+
+def _request_private_transfer_cleanup(
+    session: requests.Session, token: str, request_id: str, timeout_seconds: int = 180
+) -> dict:
+    """Ask the private repository to delete the transfer branch and confirm cleanup."""
+    dispatched_at = datetime.now(timezone.utc)
+    dispatch_url = (
+        f"{API_ROOT}/repos/{PRIVATE_REPO}/actions/workflows/"
+        f"{CLEANUP_WORKFLOW_FILE}/dispatches"
+    )
+    _json_request(
+        session, "POST", dispatch_url, token,
+        json={"ref": "main", "inputs": {"request_id": request_id}},
+    )
+    deadline = time.monotonic() + timeout_seconds
+    cleanup_run = None
+    while time.monotonic() < deadline:
+        cleanup_run = _find_cleanup_run(session, token, request_id, dispatched_at)
+        if cleanup_run and cleanup_run.get("status") == "completed":
+            if cleanup_run.get("conclusion") != "success":
+                raise PrivateVoiceBridgeError(
+                    "Private narration transfer cleanup failed: "
+                    + str(cleanup_run.get("html_url") or "open the private cleanup Actions run")
+                )
+            print("Temporary private narration branch was deleted.")
+            return cleanup_run
+        time.sleep(5)
+    raise PrivateVoiceBridgeError(
+        "The temporary private narration branch cleanup did not finish before the timeout."
+    )
+
 
 def validate_private_narration(
     script: str, wav_bytes: bytes, metadata: dict, expected_hotwords: list[str] | None = None
@@ -349,43 +360,39 @@ def generate_private_voiceover(script: str, output_path: str | Path, *,
         }},
     )
     timeout_seconds = int(timeout_seconds or os.environ.get("PRIVATE_VOICE_TIMEOUT_SECONDS", "5100"))
-    run = _wait_for_run(session, token, request_id, dispatch_started, timeout_seconds)
-
-    artifact_name = "private-qwen3-narration-" + request_id
-    artifacts_url = (
-        f"{API_ROOT}/repos/{PRIVATE_REPO}/actions/runs/{int(run['id'])}/artifacts"
-    )
-    artifact_payload = _json_request(
-        session, "GET", artifacts_url, token, params={"per_page": 100}
-    )
-    if not isinstance(artifact_payload, dict) or not isinstance(artifact_payload.get("artifacts"), list):
-        raise PrivateVoiceBridgeError("Private voice service returned an invalid workflow artifact listing.")
-    artifact = _select_private_run_artifact(artifact_payload["artifacts"], artifact_name)
-    if artifact is None:
-        raise PrivateVoiceBridgeError(
-            "The private narration artifact could not be found for this run. "
-            "The bridge token needs Actions read access to the private voice repository."
-        )
-    artifact_archive = _download_private_artifact_archive(session, token, artifact)
-    files = _extract_private_artifact_files(artifact_archive)
-    wav_bytes = files["narration.wav"]
-    metadata_bytes = files["narration.json"]
+    run = None
+    transfer_branch = "private-qwen3-transfer-" + request_id
     try:
-        metadata = json.loads(metadata_bytes.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise PrivateVoiceBridgeError("Private narration metadata is not valid UTF-8 JSON.") from exc
-    if metadata.get("request_id") != request_id:
-        raise PrivateVoiceBridgeError("Private narration request ID does not match the current run.")
-    info = validate_private_narration(
-        script, wav_bytes, metadata, expected_hotwords=hotwords
-    )
+        run = _wait_for_run(session, token, request_id, dispatch_started, timeout_seconds)
+        wav_bytes = _download_private_transfer_file(
+            session, token, request_id, transfer_branch, "narration.wav"
+        )
+        metadata_bytes = _download_private_transfer_file(
+            session, token, request_id, transfer_branch, "narration.json"
+        )
+        try:
+            metadata = json.loads(metadata_bytes.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise PrivateVoiceBridgeError("Private narration metadata is not valid UTF-8 JSON.") from exc
+        if metadata.get("request_id") != request_id:
+            raise PrivateVoiceBridgeError("Private narration request ID does not match the current run.")
+        info = validate_private_narration(
+            script, wav_bytes, metadata, expected_hotwords=hotwords
+        )
+    except Exception:
+        try:
+            _request_private_transfer_cleanup(session, token, request_id)
+        except Exception as cleanup_exc:
+            print("::warning::Private transfer cleanup also failed: " + str(cleanup_exc), file=sys.stderr)
+        raise
+    else:
+        _request_private_transfer_cleanup(session, token, request_id)
 
     target = Path(output_path)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(wav_bytes)
     info["private_voice_run_id"] = int(run["id"])
-    info["private_artifact_id"] = int(artifact["id"])
-    info["private_artifact_name"] = artifact_name
+    info["private_transfer_branch"] = transfer_branch
     info["audio_sha256"] = hashlib.sha256(wav_bytes).hexdigest()
     return target, info
 
@@ -402,7 +409,7 @@ def main() -> int:
     )
     print("Private Qwen3 narration bridge passed exact transcript and word-timing validation.")
     print("Word timings: " + str(info["word_timing_count"]))
-    print("Private workflow artifact: " + str(info.get("private_artifact_name") or "verified in the private repository"))
+    print("Private transfer branch: " + str(info.get("private_transfer_branch") or "verified in the private repository"))
     print("Temporary WAV: " + str(path))
     return 0
 
