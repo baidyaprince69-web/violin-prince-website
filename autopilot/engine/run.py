@@ -2913,7 +2913,7 @@ def narration_validation_error(script):
     if total_words != NARRATION_TARGET_WORDS:
         return (
             f"it has {total_words} spoken words; exactly {NARRATION_TARGET_WORDS} are required "
-            "for the verified 22–23-second Qwen3 delivery"
+            "for the verified 20–24-second Qwen3 delivery"
         )
 
     sentences = narration_sentences(text_value)
@@ -3313,7 +3313,7 @@ def compose_narration(
             "Correct only the requested sentence fields. Return each as an array of individual words. "
             "The array length is exact and is stated in the function schema; do not add or omit words. "
             "Python will join the words into sentences. Do not return or rewrite any locked sentence. "
-            "The complete narration must remain exactly four sentences and total exactly 35 spoken words, matching the verified private Qwen3 22–23-second delivery. "
+            "The complete narration must remain exactly four sentences and total exactly 35 spoken words, matching the verified private Qwen3 20–24-second duration window. "
             "Use only facts stated in the supplied direct publisher article excerpts. Do not invent dates, "
             "statistics, quotes, names, motives, abilities, or outcomes. No padding, repeated ideas, generic "
             "filler, metaphor presented as fact, or unsupported claims. Do not personify AI as feeling, "
@@ -3646,7 +3646,7 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
         "of: violin_physics, instrument_design, sound_and_perception, melody_and_composition, song_anatomy, "
         "music_production, music_technology, violin_cover_breakdown. "
         "The narration_sentences field must be an array of exactly four separate, natural, complete spoken sentences. "
-        "Target exactly 35 spoken words for the verified natural 22–23-second private Qwen3 delivery. "
+        "Target exactly 35 spoken words for the verified natural 20–24-second private Qwen3 delivery. "
         "This duration is calibrated from the successful 22.96-second end-to-end test; never pad or repeat. Sentence 1 "
         "is a concise 5–8-word curiosity hook resolved by the ending. No sentence may exceed 12 words. "
         "Build context, reveal one memorable sourced detail, and finish with a satisfying musical payoff. "
@@ -3680,7 +3680,7 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
         "messages": [
             {"role": "system", "content": system + " Do not show reasoning. Return exactly one JSON object and no preamble or Markdown."},
             {"role": "user", "content":
-             "Create one 22–23-second curiosity-driven music-facts story for the creator-approved Violin Prince format. "
+             "Create one 20–24-second curiosity-driven music-facts story for the creator-approved Violin Prince format. "
              "The subject must be a violin, instrument, sound, melody, song structure, arrangement, music-production "
              "or music-technology fact, never an individual musician biography, competition result or celebrity profile. "
              "The final scene must demonstrate the fact through an original Violin Prince violin performance insert. "
