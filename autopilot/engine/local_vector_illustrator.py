@@ -315,20 +315,180 @@ def _cover():
     return image
 
 
+def _scene_profile(plan: dict[str, Any] | None) -> str:
+    """Choose a closed local illustration family from safe topic keywords only."""
+    if not isinstance(plan, dict):
+        return "violin"
+    text = " ".join(
+        str(plan.get(key) or "")
+        for key in ("topic", "title", "core_claim", "narration_script")
+    ).casefold()
+    studio_terms = (
+        "roomtune", "room correction", "room acoustics", "acoustic treatment",
+        "studio monitor", "monitor response", "monitor playback",
+        "audio interface", "onboard dsp", "monitor correction",
+    )
+    return "studio_acoustics" if any(term in text for term in studio_terms) else "violin"
+
+
+def _draw_studio_monitor(draw: ImageDraw.ImageDraw, x: int, y: int, scale: float = 1.0):
+    """Draw a compact nearfield monitor with controlled, recognisable geometry."""
+    w, h = round(190 * scale), round(320 * scale)
+    draw.rounded_rectangle((x, y, x + w, y + h), radius=round(16 * scale),
+                           fill=(27, 39, 47, 255), outline=(*GOLD_LIGHT, 255),
+                           width=max(2, round(4 * scale)))
+    draw.rounded_rectangle((x + round(12*scale), y + round(12*scale),
+                            x + w - round(12*scale), y + h - round(12*scale)),
+                           radius=round(10*scale), outline=(105, 140, 142, 180),
+                           width=max(1, round(2*scale)))
+    cx = x + w // 2
+    cy = y + round(132 * scale)
+    radius = round(64 * scale)
+    draw.ellipse((cx-radius, cy-radius, cx+radius, cy+radius),
+                 fill=(11, 20, 29, 255), outline=(*TEAL_LIGHT, 255),
+                 width=max(2, round(4*scale)))
+    draw.ellipse((cx-round(42*scale), cy-round(42*scale),
+                  cx+round(42*scale), cy+round(42*scale)),
+                 fill=(46, 68, 74, 255), outline=(*GOLD, 255),
+                 width=max(2, round(3*scale)))
+    draw.ellipse((cx-round(15*scale), cy-round(15*scale),
+                  cx+round(15*scale), cy+round(15*scale)),
+                 fill=(*GOLD_LIGHT, 255))
+    tweeter_y = y + round(238 * scale)
+    tweeter_r = round(27 * scale)
+    draw.ellipse((cx-tweeter_r, tweeter_y-tweeter_r,
+                  cx+tweeter_r, tweeter_y+tweeter_r),
+                 fill=(11, 20, 29, 255), outline=(*TEAL_LIGHT, 255),
+                 width=max(2, round(3*scale)))
+    draw.ellipse((cx-round(8*scale), tweeter_y-round(8*scale),
+                  cx+round(8*scale), tweeter_y+round(8*scale)),
+                 fill=(*GOLD_LIGHT, 255))
+    led = y + h - round(28*scale)
+    draw.ellipse((cx-round(4*scale), led-round(4*scale),
+                  cx+round(4*scale), led+round(4*scale)),
+                 fill=(*TEAL_LIGHT, 255))
+
+
+def _draw_measurement_mic(draw: ImageDraw.ImageDraw, x: int, y: int, scale: float = 1.0):
+    """Draw a calibration microphone and stand without labels or fabricated readings."""
+    stem_top = y - round(115 * scale)
+    capsule_w, capsule_h = round(23*scale), round(62*scale)
+    draw.rounded_rectangle((x-capsule_w//2, stem_top, x+capsule_w//2,
+                            stem_top+capsule_h), radius=round(10*scale),
+                           fill=(224, 216, 194, 255), outline=(*GOLD, 255),
+                           width=max(2, round(3*scale)))
+    draw.line((x, stem_top+capsule_h, x, y+round(150*scale)),
+              fill=(219, 209, 181, 255), width=max(2, round(5*scale)))
+    draw.line((x, y+round(90*scale), x-round(60*scale), y+round(155*scale)),
+              fill=(*GOLD_LIGHT, 255), width=max(2, round(4*scale)))
+    draw.line((x, y+round(90*scale), x+round(60*scale), y+round(155*scale)),
+              fill=(*GOLD_LIGHT, 255), width=max(2, round(4*scale)))
+    draw.line((x, y+round(145*scale), x, y+round(190*scale)),
+              fill=(*GOLD_LIGHT, 255), width=max(2, round(4*scale)))
+
+
+def _studio_macro():
+    """A listening-room overview: nearfield monitors, calibration mic and violin context."""
+    image = _background()
+    d = ImageDraw.Draw(image, "RGBA")
+    # Acoustic wall panels and perspective floor.
+    for x in (115, 335, 555, 775):
+        d.rounded_rectangle((x, 250, x+125, 490), radius=10,
+                            fill=(22, 46, 55, 170), outline=(106, 158, 155, 115), width=3)
+        for offset in (32, 76, 120, 164, 208):
+            d.line((x+18, 250+offset, x+107, 250+offset),
+                   fill=(118, 158, 151, 38), width=2)
+    d.line((90, 1180, 934, 1180), fill=(*GOLD_LIGHT, 125), width=3)
+    d.line((170, 1180, 512, 1515), fill=(*GOLD_LIGHT, 54), width=3)
+    d.line((854, 1180, 512, 1515), fill=(*GOLD_LIGHT, 54), width=3)
+
+    _draw_studio_monitor(d, 115, 615, .88)
+    _draw_studio_monitor(d, 742, 615, .88)
+    _draw_measurement_mic(d, 512, 925, .90)
+    for radius in (95, 145, 205):
+        d.arc((512-radius, 760-radius*.45, 512+radius, 760+radius*.45),
+              195, 345, fill=(*GOLD_LIGHT, 115), width=3)
+    # A restrained violin silhouette links the room-correction story to the channel.
+    _draw_violin(image, center=(512, 1515), scale=.34, angle=0)
+    return image
+
+
+def _studio_measurement():
+    """A conceptual calibration path with a mic, two monitors and an illustrative response curve."""
+    image = _background()
+    d = ImageDraw.Draw(image, "RGBA")
+
+    # Response plot; no ticks or numeric values because no real-room measurement is supplied.
+    d.rounded_rectangle((100, 230, 924, 590), radius=22,
+                        fill=(9, 22, 35, 165), outline=(*GOLD_LIGHT, 105), width=3)
+    for y in (310, 390, 470, 550):
+        d.line((140, y, 884, y), fill=(126, 158, 160, 50), width=2)
+    before = []
+    after = []
+    for step in range(100):
+        x = 150 + step * 7
+        phase = step / 99
+        y1 = 420 + 74*math.sin(phase*math.pi*4) + 24*math.sin(phase*math.pi*11)
+        y2 = 420 + 18*math.sin(phase*math.pi*4 + .25)
+        before.append((round(x), round(y1)))
+        after.append((round(x), round(y2)))
+    d.line(before, fill=(*TEAL_LIGHT, 210), width=5, joint="curve")
+    d.line(after, fill=(*GOLD_LIGHT, 240), width=5, joint="curve")
+
+    _draw_studio_monitor(d, 95, 790, .68)
+    _draw_studio_monitor(d, 739, 790, .68)
+    _draw_measurement_mic(d, 512, 980, .95)
+
+    # Audio interface panel, controls and signal path.
+    d.rounded_rectangle((252, 1300, 772, 1570), radius=24,
+                        fill=(23, 35, 43, 255), outline=(*GOLD_LIGHT, 230), width=5)
+    d.rounded_rectangle((280, 1330, 744, 1535), radius=14,
+                        outline=(112, 158, 154, 150), width=3)
+    for index, x in enumerate((350, 458, 566, 674)):
+        d.ellipse((x-33, 1370-33, x+33, 1370+33),
+                  fill=(10, 19, 27, 255), outline=(*GOLD_LIGHT, 240), width=4)
+        d.arc((x-24, 1370-24, x+24, 1370+24), 205, 330,
+              fill=(*TEAL_LIGHT, 255), width=4)
+        d.line((x, 1370, x+round(19*math.cos(index*.55)),
+                1370-round(19*math.sin(index*.55))),
+               fill=(242, 229, 199, 255), width=4)
+        d.rounded_rectangle((x-30, 1450, x+30, 1500), radius=8,
+                            fill=(45, 66, 70, 255), outline=(129, 166, 157, 170), width=2)
+    return image
+
+
+def _studio_cover():
+    """A violin performance payoff placed inside the same treated listening room."""
+    image = _background()
+    d = ImageDraw.Draw(image, "RGBA")
+    _draw_studio_monitor(d, 80, 760, .58)
+    _draw_studio_monitor(d, 770, 760, .58)
+    for radius in (145, 220, 295):
+        d.arc((512-radius, 420-radius*.36, 512+radius, 420+radius*.36),
+              195, 345, fill=(*TEAL_LIGHT, 110), width=4)
+    _draw_violin(image, center=(490, 1215), scale=.92, angle=-16)
+    d = ImageDraw.Draw(image, "RGBA")
+    bow = _curve((145, 510), (350, 560), (670, 1050), (900, 1210), 80)
+    d.line(bow, fill=(33, 29, 27, 190), width=20, joint="curve")
+    d.line(bow, fill=(*GOLD_LIGHT, 220), width=4, joint="curve")
+    return image
+
+
 def render_scene(scene: dict[str, Any], index: int, plan: dict[str, Any] | None,
                  output_path: str | Path) -> Path:
-    """Render a reviewed visual mode with fixed, verifiable instrument geometry."""
-    del index, plan  # Scene prompts and story text are never executable input.
+    """Render a reviewed visual mode from a closed set of deterministic local compositions."""
+    del index  # Scene prompts are descriptive metadata, never executable input.
     if not isinstance(scene, dict):
         raise ValueError("Scene must be a JSON object.")
     mode = str(scene.get("visual_mode") or "").strip().casefold()
+    profile = _scene_profile(plan)
     renderers = {
-        "macro_illustration": _macro,
+        "macro_illustration": _studio_macro if profile == "studio_acoustics" else _macro,
         "mechanism_illustration": _mechanism,
-        "waveform": _waveform,
+        "waveform": _studio_measurement if profile == "studio_acoustics" else _waveform,
         "melody_map": _melody_map,
         "comparison": _comparison,
-        "cover_performance": _cover,
+        "cover_performance": _studio_cover if profile == "studio_acoustics" else _cover,
     }
     renderer = renderers.get(mode)
     if renderer is None:
