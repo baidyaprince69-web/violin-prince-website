@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "status": "approved",
+  "provider": "private_qwen3",
+  "voice_identity": "creator_own_voice_clone",
+  "approved_by": "creator",
+  "scope": "production narration through the private Qwen3 worker only",
+  "bridge_test": {
+    "public_bridge_run_id": 44514229249,
+    "private_worker_run_id": 44514263171,
+    "private_cleanup_run_id": 44517206357,
+    "bridge_status": "passed",
+    "exact_transcript_status": "verified_exact_transcript",
+    "word_timing_method": "faster-whisper-cross-attention-dtw",
+    "audio_checksum_status": "verified_sha256",
+    "word_count": 35,
+    "duration_min_seconds": 22,
+    "duration_max_seconds": 23,
+    "temporary_transfer_cleanup": "passed"
+  },
+  "publishing_enabled": false,
+  "fallback_voice_allowed": false,
+  "approval_date": "2026-11-19"
+}
