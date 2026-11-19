@@ -401,12 +401,24 @@ jobs:
             exit 1
           fi
           gh auth setup-git
-          gh release create "$release_tag" "$video" \
+          release_url="$(gh release create "$release_tag" "$video" \
             --repo "$PRIVATE_REPO" \
             --draft \
             --title "Private Violin Prince preview run $SOURCE_RUN_ID" \
             --notes "Temporary private preview transfer. Automatically removed after a verified private one-day artifact is saved." \
-            --target main
+            --target main)"
+          if [[ "$release_url" != */releases/tag/* ]]; then
+            echo "::error::GitHub did not return the private draft-release URL."
+            exit 1
+          fi
+          # Draft releases may be assigned an untagged-* tag by GitHub.
+          # Pass the actual tag from the returned URL to the private intake workflow.
+          release_tag="${release_url##*/}"
+          if [[ "$release_tag" != "private-preview-video-$SOURCE_RUN_ID" && ! "$release_tag" =~ ^untagged-[0-9a-f]{16,64}$ ]]; then
+            echo "::error::GitHub returned an unexpected private draft-release tag."
+            exit 1
+          fi
+          echo "Resolved private draft-release tag: $release_tag"
 
           git clone --depth 1 --branch main "https://github.com/$PRIVATE_REPO.git" "$temporary_dir/private-repo"
           git -C "$temporary_dir/private-repo" config user.name "github-actions[bot]"
