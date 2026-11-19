@@ -117,6 +117,42 @@ def evaluate_daily_readiness(
         blockers.append("Could not verify the illustration provider gate.")
     elif visuals_locked:
         blockers.append("Illustration provider is not configured and approved.")
+    else:
+        illustration = _read_json(
+            engine_dir / "illustration-approval.json",
+            "Local vector illustration approval record",
+            blockers,
+        )
+        evidence = illustration.get("test_evidence")
+        required_modes = [
+            "comparison",
+            "cover_performance",
+            "macro_illustration",
+            "mechanism_illustration",
+            "melody_map",
+            "waveform",
+        ]
+        if (
+            illustration.get("schema_version") != 1
+            or illustration.get("status") != "approved_for_preview"
+            or illustration.get("provider") != "local_vector"
+            or illustration.get("scope") != "preview_video_only"
+            or illustration.get("renderer_version") != "violin-prince-vector-illustrator-v1"
+            or illustration.get("publishing_enabled") is not False
+            or not isinstance(evidence, dict)
+            or not isinstance(evidence.get("workflow_run_id"), int)
+            or evidence.get("workflow_run_id", 0) <= 0
+            or evidence.get("workflow_status") != "success"
+            or evidence.get("all_six_modes_passed") is not True
+            or evidence.get("network_calls") is not False
+            or evidence.get("output_width") != 1024
+            or evidence.get("output_height") != 1792
+            or evidence.get("output_format") != "JPEG"
+            or evidence.get("modes") != required_modes
+        ):
+            blockers.append(
+                "Local vector illustration approval record is missing required preview evidence or enables publishing."
+            )
 
     # This workflow is preview-only; publishing credentials are not required.
 
