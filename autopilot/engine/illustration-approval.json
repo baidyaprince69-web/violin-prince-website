@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "status": "approved_for_preview",
+  "provider": "local_vector",
+  "scope": "preview_video_only",
+  "renderer_version": "violin-prince-vector-illustrator-v1",
+  "approval_date": "2026-11-19",
+  "publishing_enabled": false,
+  "test_evidence": {
+    "workflow_name": "Local vector illustration preview",
+    "workflow_run_id": 44522943801,
+    "workflow_status": "success",
+    "all_six_modes_passed": true,
+    "network_calls": false,
+    "output_width": 1024,
+    "output_height": 1792,
+    "output_format": "JPEG",
+    "modes": [
+      "comparison",
+      "cover_performance",
+      "macro_illustration",
+      "mechanism_illustration",
+      "melody_map",
+      "waveform"
+    ],
+    "output_artifact_id": 14529255824,
+    "contact_sheet_sha256": "1a178f605e789939f66cd60916856691fe2d89d9bc2686385b8f8daa3036569c"
+  },
+  "visual_review": {
+    "status": "approved_for_preview_only",
+    "result": "consistent_violin_prince_palette_and_scene_language",
+    "limitations": [
+      "The artwork is deterministic vector-style editorial illustration, not photorealism.",
+      "The creator must inspect the complete rendered video before any publication.",
+      "This approval does not authorize a public release or YouTube upload."
+    ]
+  }
+}
