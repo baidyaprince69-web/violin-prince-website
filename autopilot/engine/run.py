@@ -2782,7 +2782,6 @@ def require_approved_text_provider():
 
 ILLUSTRATION_APPROVAL_FILE = Path(__file__).with_name("illustration-approval.json")
 _ILLUSTRATION_APPROVAL_EVIDENCE = {
-    "workflow_run_id": 0,
     "workflow_status": "success",
     "all_six_modes_passed": True,
     "network_calls": False,
@@ -2820,12 +2819,10 @@ def require_approved_illustration_provider(approval_file=None):
         or approval.get("renderer_version") != RENDERER_VERSION
         or approval.get("publishing_enabled") is not False
         or not isinstance(evidence, dict)
+        or isinstance(evidence.get("workflow_run_id"), bool)
         or not isinstance(evidence.get("workflow_run_id"), int)
         or evidence.get("workflow_run_id", 0) <= 0
-        or any(evidence.get(key) != value for key, value in {
-            **_ILLUSTRATION_APPROVAL_EVIDENCE,
-            "workflow_run_id": evidence.get("workflow_run_id"),
-        }.items())
+        or any(evidence.get(key) != value for key, value in _ILLUSTRATION_APPROVAL_EVIDENCE.items())
         or evidence.get("modes") != required_modes
     ):
         raise PipelineError(
