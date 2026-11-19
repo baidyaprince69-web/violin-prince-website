@@ -4809,9 +4809,14 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         raise PipelineError("A planned scene has no visual prompt.")
 
     shot_roles = (
-        "SHOT 1 — HOOK: macro hero view of the musical question.",
-        "SHOT 2 — MECHANISM: close scientific view of the physical or musical detail.",
-        "SHOT 3 — PERFORMANCE PAYOFF: cinematic violin-and-bow view with space for a real take.",
+        "SHOT 1 — HOOK: premium macro hero shot; reveal one tactile detail immediately.",
+        "SHOT 2 — MECHANISM: precise technical-editorial composition; make the explanation readable at phone size.",
+        "SHOT 3 — PERFORMANCE PAYOFF: cinematic violin-and-bow hero shot with a clear diagonal and room for the music.",
+    )
+    composition_treatments = (
+        "Composition: one dominant hero subject, asymmetrical editorial balance, a deliberate close foreground and a soft distant background. Reserve the top 16 percent as quiet dark negative space for the channel title.",
+        "Composition: an intentional technical grid with separate foreground, explanation plane and deep studio background. Keep important components large, aligned and readable at phone size; reserve the top band for chapter typography.",
+        "Composition: place the complete violin diagonally across the frame, give the bow and playing hands room to breathe, and use a warm key light with a soft teal rim. Keep the lower caption-safe area visually calm.",
     )
     scene_count = len((plan or {}).get("scenes") or []) or 3
     role_index = 0 if index <= 0 else 2 if index >= scene_count - 1 else 1
@@ -4822,17 +4827,19 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
     # Keep the recognisable instrument identity, but avoid spending most of the
     # provider budget on repeated negative prompts and decorative adjectives.
     brand_direction = (
-        "Violin Prince identity: high-detail 2D editorial illustration with polished painted textures, "
-        "precise contour linework and layered shading. Show a complete amber-brown violin with believable "
-        "construction with physically believable violin construction, a solid, opaque violin body, painted natural wood grain, visible strings, bow hair "
-        "and metal fittings. Use layered foreground/midground/background, overlap, tonal shading and illustrated depth rather than CGI or 3D rendering. "
-        "Never draw an empty shell, hollow outline, wireframe or transparent violin body. "
-        "Palette: deep midnight navy, muted teal, antique gold, warm ivory and natural amber. Full colour. "
-        "This is original art direction. No stock imagery, identifiable real people, logos, readable text or lyrics; "
-        "no watermark. Respect sourced facts and measurements. Portrait 9:16 composition."
+        "Premium Violin Prince visual identity: luxury music-documentary illustration, not a generic template. "
+        "High-detail 2D painted editorial art with refined 2.5D depth, confident contour linework, tactile paper "
+        "and wood textures, selective micro-detail, controlled chiaroscuro and a clear foreground/midground/background "
+        "hierarchy. Show physically believable violin construction: a complete solid opaque amber-brown body, natural "
+        "wood grain, bridge, strings, ebony fingerboard, bow hair and accurate metal fittings. Never draw an empty "
+        "shell, hollow outline, wireframe or transparent violin. Palette: deep midnight navy, oxidised teal, brushed "
+        "antique brass, warm ivory and natural amber; rich full colour, restrained highlights and soft atmospheric falloff. "
+        "No fake typography, letters, numbers, labels, UI, logos, captions, lyrics or watermark. No stock imagery, "
+        "photography or CGI. This is original art direction. Respect sourced facts and measurements. Portrait 9:16 composition."
     )
     role = shot_roles[role_index]
-    fixed = f"Story subject: {subject}. {role} {mode_direction} {brand_direction}"
+    composition = composition_treatments[role_index]
+    fixed = f"Story subject: {subject}. {role} {composition} {mode_direction} {brand_direction}"
 
     # Scene description is the most important scene-specific input. Optional
     # reference notes, cover context and feedback are appended only when room
