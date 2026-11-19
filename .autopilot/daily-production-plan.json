@@ -25,7 +25,7 @@
   ],
   "narrative_style": "documentary",
   "cover_payoff": "Use an original 2D editorial illustration of a complete violin and bow to demonstrate the monitoring signal path. Show the room-correction signal reaching the studio monitors, not rewriting the original recording. A sampled violin phrase is illustrative accompaniment and must never be presented as Prince's live performance.",
-  "narration_script": "Could your room change your violin mix? Audient adds RoomTune monitor correction to its iD interfaces. It measures the room and adjusts the signal reaching monitors. Its onboard DSP runs EQ, compression and reverb with no latency.",
+  "narration_script": "Could your room change your violin mix? Audient's new iD range adds RoomTune monitor correction. It measures your room's acoustics and adjusts monitor playback. Onboard DSP runs input EQ, compression and reverb with no latency.",
   "narration_evidence": [
     {
       "sentence_number": 2,
@@ -101,5 +101,10 @@
     ],
     "one_change_to_test": "Open with a one-second violin phrase before narration and keep the first on-screen caption to three to five words; treat this as a test, not a proven pattern.",
     "measurement_for_next_upload": "At 24 hours and seven days, compare views, engaged views, average view duration, likes per view, comments and shares. Use Studio retention or viewed-versus-swiped metrics only if connected Studio analytics actually returns them."
-  }
+  },
+  "narration_asr_hotwords": [
+    "Audient",
+    "RoomTune",
+    "iD"
+  ]
 }

@@ -23,9 +23,9 @@ from private_voice_client import (
 
 SCRIPT = (
     "Could your room change your violin mix? "
-    "Audient adds RoomTune monitor correction to its iD interfaces. "
-    "It measures the room and adjusts the signal reaching monitors. "
-    "Its onboard DSP runs EQ, compression and reverb with no latency."
+    "Audient's new iD range adds RoomTune monitor correction. "
+    "It measures your room's acoustics and adjusts monitor playback. "
+    "Onboard DSP runs input EQ, compression and reverb with no latency."
 )
 
 
@@ -80,6 +80,7 @@ def fixture_payload(duration=22.5):
             "name": "faster-whisper",
             "version": "1.2.1",
             "model": "small.en",
+            "hotwords": ["Audient", "RoomTune", "iD"],
             "transcript_match": "exact",
         },
         "word_cues": word_cues,
@@ -113,18 +114,29 @@ class PrivateDraftReleaseLookupTests(unittest.TestCase):
 class PrivateVoiceValidationTests(unittest.TestCase):
     def test_accepts_exact_transcript_and_complete_word_timings(self):
         wav_bytes, metadata = fixture_payload()
-        info = validate_private_narration(SCRIPT, wav_bytes, metadata)
+        info = validate_private_narration(
+            SCRIPT, wav_bytes, metadata,
+            expected_hotwords=["Audient", "RoomTune", "iD"],
+        )
         self.assertEqual(info["word_sync_status"], "verified_exact_transcript")
-        self.assertEqual(info["word_timing_count"], 37)
+        self.assertEqual(info["word_timing_count"], 35)
         self.assertEqual(info["engine"], "Qwen3-TTS")
         self.assertEqual(len(info["subtitle_cues"]), 4)
 
-    def test_rejects_scripts_outside_the_37_to_38_word_calibration(self):
+    def test_rejects_scripts_outside_the_35_word_calibration(self):
         wav_bytes, metadata = fixture_payload()
-        with self.assertRaisesRegex(PrivateVoiceBridgeError, "37–38 words"):
-            validate_private_narration(SCRIPT.replace("with no latency.", "."), wav_bytes, metadata)
-        with self.assertRaisesRegex(PrivateVoiceBridgeError, "37–38 words"):
+        with self.assertRaisesRegex(PrivateVoiceBridgeError, "exactly 35 words"):
+            validate_private_narration(SCRIPT.replace("with no latency.", "with latency."), wav_bytes, metadata)
+        with self.assertRaisesRegex(PrivateVoiceBridgeError, "exactly 35 words"):
             validate_private_narration(SCRIPT.replace("with no latency.", "with no latency every single session today."), wav_bytes, metadata)
+
+    def test_rejects_asr_hotword_metadata_that_differs_from_the_request(self):
+        wav_bytes, metadata = fixture_payload()
+        with self.assertRaisesRegex(PrivateVoiceBridgeError, "hotword hints do not match"):
+            validate_private_narration(
+                SCRIPT, wav_bytes, metadata,
+                expected_hotwords=["Audient", "RoomTune", "different"],
+            )
 
     def test_rejects_audio_outside_the_22_to_23_second_target(self):
         for duration in (21.9, 23.1):
