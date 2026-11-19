@@ -277,7 +277,7 @@ def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list
     script = str(plan.get("narration_script") or "").strip()
     narration_issue = engine.narration_validation_error(script)
     if narration_issue:
-        raise engine.PipelineError("Narration failed its four-sentence/37–38-word calibration and 22–23-second duration target check: " + narration_issue + ".")
+        raise engine.PipelineError("Narration failed its exact 35-word/four-sentence calibration and 22–23-second duration target check: " + narration_issue + ".")
 
     sentences = engine.narration_sentences(script)
     from scene_timeline import apply_scene_operations, ScenePlanError
@@ -442,7 +442,7 @@ def run_daily_plan(plan_path: Path) -> int:
         except (engine.requests.Timeout, engine.requests.ConnectionError):
             engine.log(f"Temporary connection issue for scene {index + 1}; retrying once.")
             engine.time.sleep(2)
-            generated_image = engine.make_image(prompt, index)
+            generated_image = engine.make_image(prompt, index, scene=scene, plan=plan)
         image_path.write_bytes(generated_image.read_bytes())
         image_report = verify_image_asset(image_path)
         if image_report.get("status") == "failed":
