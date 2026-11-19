@@ -342,6 +342,8 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
     const titleId = scene.id + "-title";
     const captionId = scene.id + "-caption";
     addSpring(backgroundId, "opacity", 0, 1, sceneStart, 650);
+    const gradeId = scene.id + "-grade";
+    addSpring(gradeId, "opacity", 0, 1, sceneStart + 0.02, 420);
     const visualMode = String(scene.visual_mode || "").toLowerCase();
     const cameraKeyframes = visualMode === "cover_performance"
       ? ["scale(1.055) translateX(12px)", "scale(1.105) translateX(-8px)", "scale(1.12) translateX(-13px)"]
