@@ -101,14 +101,24 @@ def evaluate_daily_readiness(
         blockers.append("Could not verify the own-voice production gate.")
     elif voice_locked:
         blockers.append("Own-voice approval/provider gate is still locked.")
+    else:
+        if str(engine_dir) not in sys.path:
+            sys.path.insert(0, str(engine_dir))
+        try:
+            from voiceover import require_approved_own_voice
+            require_approved_own_voice(engine_dir / "voice-approval.json")
+        except Exception as exc:
+            blockers.append(
+                "Private Qwen3 own-voice approval record is missing or invalid: "
+                + str(exc)[:240]
+            )
 
     if visuals_locked is None:
         blockers.append("Could not verify the illustration provider gate.")
     elif visuals_locked:
         blockers.append("Illustration provider is not configured and approved.")
 
-    if not str(upload_post_api_key if upload_post_api_key is not None else os.environ.get("UPLOAD_POST_API_KEY", "")).strip():
-        blockers.append("GitHub Actions secret UPLOAD_POST_API_KEY is missing.")
+    # This workflow is preview-only; publishing credentials are not required.
 
     return {
         "ready": not blockers,
