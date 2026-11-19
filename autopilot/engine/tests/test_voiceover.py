@@ -4,7 +4,8 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 ENGINE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ENGINE))
@@ -26,7 +27,9 @@ class KaraokeCaptionTests(unittest.TestCase):
     def test_synthesis_wrapper_delegates_only_to_the_private_qwen3_client(self):
         output = Path("work/output/narration.wav")
         expected = (output, {"engine": "Qwen3-TTS", "word_sync_status": "verified_exact_transcript"})
-        with patch("private_voice_client.generate_private_voiceover", return_value=expected) as worker:
+        worker = Mock(return_value=expected)
+        fake_client = SimpleNamespace(generate_private_voiceover=worker)
+        with patch.dict(sys.modules, {"private_voice_client": fake_client}):
             result = synthesize_voiceover("An exact approved narration.", output)
         self.assertEqual(result, expected)
         worker.assert_called_once_with("An exact approved narration.", output)
