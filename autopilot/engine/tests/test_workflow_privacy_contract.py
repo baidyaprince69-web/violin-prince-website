@@ -32,6 +32,16 @@ class WorkflowPrivacyContractTests(unittest.TestCase):
         self.assertIn("ruff check --select F821,F822,F823 autopilot/engine", self.workflow_text)
         self.assertIn("test_hyperframes_pipeline.py", self.workflow_text)
 
+    def test_private_handoff_write_access_is_checked_before_expensive_production(self):
+        self.assertIn("Verify private Voice Vault draft-release write access", self.workflow_text)
+        self.assertIn("gh release create", self.workflow_text)
+        self.assertIn("PRIVATE_VOICE_REPO_TOKEN is missing", self.workflow_text)
+        self.assertIn("private-handoff-preflight-$GITHUB_RUN_ID", self.workflow_text)
+        self.assertLess(
+            self.workflow_text.index("Verify private Voice Vault draft-release write access"),
+            self.workflow_text.index("  produce:"),
+        )
+
     def test_publishing_is_hard_disabled_in_the_workflow(self):
         self.assertIn('PUBLISH_ENABLED: "false"', self.workflow_text)
         self.assertIn("env.PUBLISH_ENABLED == 'true'", self.workflow_text)
