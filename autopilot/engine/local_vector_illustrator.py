@@ -160,60 +160,95 @@ def _draw_violin(image: Image.Image, center=(512, 1050), scale=1.0, angle=0.0):
 
 
 def _macro():
+    """A deliberate close crop of the violin's lower bout, bridge and four strings."""
     image = _background()
     d = ImageDraw.Draw(image, "RGBA")
-    d.ellipse((150,240,874,1080), outline=(211,171,105,74), width=4)
-    d.ellipse((205,300,819,1020), outline=(211,171,105,34), width=2)
-    _draw_violin(image, center=(512,1050), scale=1.11, angle=-2)
+    d.ellipse((100,240,924,1280), outline=(211,171,105,64), width=4)
+    d.ellipse((155,300,869,1220), outline=(211,171,105,30), width=2)
+    # The larger scale crops the scroll and centres the bridge/string contact area.
+    _draw_violin(image, center=(512,940), scale=1.58, angle=-2)
     d = ImageDraw.Draw(image, "RGBA")
-    for r in (90,140,198,260):
-        d.arc((512-r,930-r*.32,512+r,930+r*.32), 190, 350,
-              fill=(215,170,94,120), width=3)
-    d.line((115,1465,909,1465), fill=(217,183,119,115), width=2)
+    for radius in (115,170,230,295):
+        d.arc((512-radius,945-radius*.28,512+radius,945+radius*.28),
+              190,350,fill=(215,170,94,118),width=3)
+    d.line((115,1485,909,1485),fill=(217,183,119,105),width=2)
     return image
 
 
 def _mechanism():
+    """Show a violin soundboard in profile with four correctly oriented strings over one bridge."""
     image = _background()
     d = ImageDraw.Draw(image, "RGBA")
-    plate = _path((96,1070), [
-        ((250,900),(770,900),(928,1070)),
-        ((935,1240),(855,1480),(720,1510)),
-        ((560,1590),(360,1590),(205,1510)),
-        ((80,1435),(30,1240),(96,1070)),
+
+    # Upright violin top plate: the strings run along its length, bridge across its width.
+    plate = _path((512,250), [
+        ((330,205),(172,338),(174,570)),
+        ((176,765),(295,882),(350,980)),
+        ((300,1130),(345,1455),(512,1545)),
+        ((679,1455),(724,1130),(674,980)),
+        ((729,882),(848,765),(850,570)),
+        ((852,338),(694,205),(512,250)),
     ])
-    d.polygon(plate, fill=(210,188,146,255), outline=(*GOLD_LIGHT,255), width=7)
-    d.line(plate + [plate[0]], fill=(104,77,48,190), width=4, joint="curve")
-    for y in range(1150,1430,34):
-        pts = [(x,round(y+28*math.sin((x-150)/730*math.pi)))
-               for x in range(150,880,12)]
-        d.line(pts, fill=(143,105,68,43), width=2)
-    bridge = _path((445,1115), [
-        ((455,1030),(460,890),(512,815)),
-        ((564,890),(569,1030),(579,1115)),
-        ((560,1140),(541,1110),(530,1095)),
-        ((520,1087),(504,1087),(494,1095)),
-        ((480,1110),(464,1140),(445,1115)),
+    d.polygon(plate,fill=(214,194,155,255),outline=(*GOLD_LIGHT,255),width=8)
+    d.line(plate+[plate[0]],fill=(104,77,48,190),width=4,joint="curve")
+
+    # Longitudinal wood grain, kept subtle so the bridge remains the focal point.
+    for x in range(295,750,28):
+        pts = [(x+round(12*math.sin(y/180)),y) for y in range(390,1430,12)]
+        d.line(pts,fill=(143,105,68,48),width=2)
+
+    # Two f-hole hints anchor the illustration as a violin soundboard.
+    left_hole = _path((350,720),[
+        ((390,770),(330,830),(352,895)),
+        ((370,950),(365,1000),(342,1050)),
     ])
-    d.polygon(bridge, fill=(159,108,62,255), outline=(55,38,29,255), width=7)
-    d.line([(456,1030),(512,855),(568,1030)], fill=(237,200,136,245), width=4)
-    d.polygon([(486,1010),(495,953),(512,935),(529,953),(538,1010),
-               (528,1055),(512,1035),(496,1055)],
-              fill=(48,39,34,255), outline=(207,161,99,255), width=3)
-    d.line([(478,1118),(470,1282)], fill=(113,75,44,255), width=18)
-    d.line([(546,1118),(554,1282)], fill=(113,75,44,255), width=18)
-    # Four strings, each a separate, fine line.
-    for i, y in enumerate((818,837,856,875)):
-        pts = [(120,y),(380,y-4),(640,y+2),(900,y-5)]
-        d.line(pts, fill=(47,39,32,245), width=5, joint="curve")
-        d.line([(x,yy-1) for x,yy in pts], fill=(238,218,178,255), width=2, joint="curve")
-    for offset in range(3):
-        pts = [(x,round(846+8*math.sin((x-235)/570*math.pi*4+offset*.14)))
-               for x in range(235,805,7)]
-        d.line(pts, fill=(223,176,94,85-offset*16), width=2, joint="curve")
-    for r in (145,205,265):
-        d.arc((512-r,530-r*.5,512+r,530+r*.5),195,345,
-              fill=(104,172,166,105), width=3)
+    right_hole = _path((674,720),[
+        ((634,770),(694,830),(672,895)),
+        ((654,950),(659,1000),(682,1050)),
+    ])
+    d.line(left_hole,fill=(57,43,34,255),width=14,joint="curve")
+    d.line(right_hole,fill=(57,43,34,255),width=14,joint="curve")
+
+    # One arched maple bridge spans across the four longitudinal strings.
+    bridge = _path((330,885),[
+        ((370,850),(425,812),(512,805)),
+        ((599,812),(654,850),(694,885)),
+        ((684,951),(659,1010),(637,1080)),
+        ((600,1110),(572,1080),(548,1050)),
+        ((532,1032),(492,1032),(476,1050)),
+        ((448,1080),(420,1110),(383,1080)),
+        ((361,1010),(340,951),(330,885)),
+    ])
+    d.polygon(bridge,fill=(166,116,66,255),outline=(56,39,30,255),width=7)
+    d.line(_curve((365,892),(430,820),(590,820),(659,892)),
+           fill=(238,201,139,255),width=5,joint="curve")
+    # Dark bridge heart and cut-out windows are geometric and symmetrical.
+    d.polygon([(477,911),(493,874),(512,861),(531,874),(547,911),
+               (539,967),(525,991),(512,976),(499,991),(485,967)],
+              fill=(49,39,32,255),outline=(218,172,105,255),width=4)
+    d.ellipse((494,900,506,912),fill=(226,190,122,230))
+    d.ellipse((518,900,530,912),fill=(226,190,122,230))
+    d.line([(394,1068),(386,1170)],fill=(102,68,42,255),width=17)
+    d.line([(630,1068),(638,1170)],fill=(102,68,42,255),width=17)
+
+    # Exactly four strings travel vertically across the bridge and the soundboard.
+    string_x = (476, 500, 524, 548)
+    for x in string_x:
+        d.line([(x,335),(x,1430)],fill=(66,52,39,210),width=6)
+        d.line([(x-1,335),(x-1,1430)],fill=(248,232,193,255),width=2)
+
+    # Gentle transverse oscillation around the second string, not around the whole bridge.
+    for amplitude, alpha in ((7,185),(14,120),(21,70)):
+        points = []
+        for y in range(520,790,4):
+            x = 500 + amplitude*math.sin((y-520)/270*math.pi*5)
+            points.append((round(x),y))
+        d.line(points,fill=(221,170,88,alpha),width=4,joint="curve")
+
+    # Direction cues radiate from the contact point into the wooden top plate.
+    for radius in (105,165,230):
+        d.arc((512-radius,570-radius*.48,512+radius,570+radius*.48),
+              198,342,fill=(104,172,166,105),width=3)
     return image
 
 
@@ -303,5 +338,11 @@ def render_scene(scene: dict[str, Any], index: int, plan: dict[str, Any] | None,
     image = renderer()
     if image.size != (WIDTH, HEIGHT):
         raise ValueError(f"Unexpected illustration size: {image.size}")
-    image.save(target, format="PNG", optimize=True)
+    suffix = target.suffix.casefold()
+    if suffix in {".jpg", ".jpeg"}:
+        image.convert("RGB").save(target, format="JPEG", quality=93, optimize=True, progressive=True)
+    elif suffix == ".png":
+        image.save(target, format="PNG", optimize=True)
+    else:
+        raise ValueError(f"Unsupported illustration file extension: {suffix or '[missing]'}")
     return target
