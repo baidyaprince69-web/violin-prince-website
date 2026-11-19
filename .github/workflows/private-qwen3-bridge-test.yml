@@ -60,7 +60,6 @@ jobs:
       - name: Generate private Qwen3 narration and verify word timings
         env:
           PRIVATE_VOICE_REPO_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
-          ASR_HOTWORDS: ${{ env.ASR_HOTWORDS }}
           NARRATION_OUTPUT_PATH: ${{ runner.temp }}/private-qwen3-narration.wav
         run: python autopilot/engine/private_voice_client.py
 
