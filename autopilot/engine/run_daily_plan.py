@@ -278,7 +278,7 @@ def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list
     script = str(plan.get("narration_script") or "").strip()
     narration_issue = engine.narration_validation_error(script)
     if narration_issue:
-        raise engine.PipelineError("Narration failed its exact 35-word/four-sentence calibration and 22–23-second duration target check: " + narration_issue + ".")
+        raise engine.PipelineError("Narration failed its exact 35-word/four-sentence calibration and 20–24-second duration target check: " + narration_issue + ".")
 
     sentences = engine.narration_sentences(script)
     from scene_timeline import apply_scene_operations, ScenePlanError

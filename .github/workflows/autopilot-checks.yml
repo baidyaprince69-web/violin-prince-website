@@ -81,6 +81,7 @@ jobs:
           files = [
               ".github/workflows/autopilot-checks.yml",
               ".github/workflows/violin-prince-autopilot.yml",
+              ".github/workflows/private-qwen3-bridge-test.yml",
               ".github/voice-tests/private-runner/private-voice-test.workflow.yml",
               ".github/workflows/youtube-seo-learning.yml",
               ".github/workflows/youtube-seo-discover-verification.yml",

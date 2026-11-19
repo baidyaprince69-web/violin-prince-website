@@ -44,7 +44,7 @@ jobs:
           sentences = [part.strip() for part in re.split(r"(?<=[.!?])\s+", script) if part.strip()]
           hints = plan.get("narration_asr_hotwords") or []
           if len(words) != 35 or len(sentences) != 4:
-              raise SystemExit("The prepared narration must contain exactly 35 words in four sentences for the 22–23-second natural-delivery test.")
+              raise SystemExit("The prepared narration must contain exactly 35 words in four sentences for the 20–24-second natural-delivery test.")
           if not isinstance(hints, list) or len(hints) > 10:
               raise SystemExit("The prepared narration ASR terminology hints must be a list containing 0–10 terms.")
           if any(not isinstance(term, str) or not re.fullmatch(r"[\w’'-]+(?: [\w’'-]+){0,2}", term, flags=re.UNICODE) for term in hints):
@@ -54,7 +54,7 @@ jobs:
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as out:
               out.write("NARRATION_TEXT=" + script + "\n")
               out.write("ASR_HOTWORDS=" + ", ".join(hints) + "\n")
-          print(f"Prepared a {len(words)}-word narration and {len(hints)} ASR terminology hints for the natural 22–23-second test.")
+          print(f"Prepared a {len(words)}-word narration and {len(hints)} ASR terminology hints for the natural 20–24-second test.")
           PY
 
       - name: Generate private Qwen3 narration and verify word timings
