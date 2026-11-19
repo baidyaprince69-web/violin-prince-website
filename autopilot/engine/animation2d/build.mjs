@@ -271,10 +271,12 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
   const type = String(data?.type || "").toLowerCase();
   const expectedGraphicItems = type === "waveform" ? 1 :
     (Array.isArray(data?.items) ? data.items.length : 0);
-  const graphicMotionCount = project.motion_tracks.filter((track) =>
-    String(track.target || "").startsWith(prefix + "-node-") ||
-    track.target === prefix + "-wave"
-  ).length;
+  const graphicMotionCount = new Set(project.motion_tracks
+    .filter((track) =>
+      String(track.target || "").startsWith(prefix + "-node-") ||
+      track.target === prefix + "-wave"
+    )
+    .map((track) => track.target)).size;
   if (data && graphicMotionCount < expectedGraphicItems) {
     throw new Error("Scene " + scene.id + " planned a " + type +
       " graphic but produced only " + graphicMotionCount +
@@ -323,7 +325,7 @@ const motionReport = {
 
 mkdirSync(resolve(outputDir, "dist"), { recursive: true });
 writeFileSync(resolve(outputDir, "motion-report.json"),
-  JSON.stringify(motionReport, null, 2) + "\\n", "utf8");
+  JSON.stringify(motionReport, null, 2) + "\n", "utf8");
 const sceneIds = new Set();
 const markup = project.scenes.map((scene, index) => {
   if (sceneIds.has(scene.id)) throw new Error("Scene ids must be unique: " + scene.id);
