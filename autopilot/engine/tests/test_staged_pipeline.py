@@ -219,7 +219,7 @@ class StagedPipelineTests(unittest.TestCase):
     def test_visual_stage_fails_closed_without_approved_image_provider(self):
         with self.assertRaisesRegex(
             pipeline.PipelineError,
-            "No approved illustration-generation provider is configured",
+            "local vector-provider approval record is missing or invalid",
         ):
             pipeline.visuals_stage()
 
