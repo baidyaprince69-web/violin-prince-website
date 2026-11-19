@@ -53,7 +53,167 @@ jobs:
           python -m py_compile autopilot/engine/*.py
           python -m py_compile autopilot/engine/seo_intelligence/*.py
 
+      - name: Detect Python engine changes in this commit
+        id: python_changes
+        shell: bash
+        run: |
+          if git diff --name-only HEAD^ HEAD | grep -Eq '^autopilot/engine/.*\\.py
+          set -euo pipefail
+
+          # Hosted Ubuntu images normally include FFmpeg and DejaVu fonts.
+          # Avoid refreshing apt indexes unless a required tool is actually absent.
+          if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
+            timeout 180s sudo apt-get -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 update
+            timeout 180s sudo apt-get -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 install -y ffmpeg
+          fi
+          if ! fc-match "DejaVu Sans" >/dev/null 2>&1; then
+            timeout 180s sudo apt-get -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 update
+            timeout 180s sudo apt-get -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 install -y fonts-dejavu-core
+          fi
+          ffmpeg -version | head -n 1
+          ffprobe -version | head -n 1
+
+          # Import-check first; install only modules missing from the hosted image.
+          python - <<'PY'
+          import importlib.util
+          import subprocess
+          import sys
+
+          requirements = {
+              "requests": "requests",
+              "PIL": "Pillow",
+              "yaml": "PyYAML",
+              "numpy": "numpy",
+              "soundfile": "soundfile",
+              "cryptography": "cryptography",
+              "fontTools": "fonttools[woff]>=4.50,<5",
+              "cv2": "opencv-python-headless>=4.10,<5",
+          }
+          missing = [
+              package for module, package in requirements.items()
+              if importlib.util.find_spec(module) is None
+          ]
+          if missing:
+              print("Installing missing render-test packages:", ", ".join(missing))
+              subprocess.run(
+                  [
+                      sys.executable, "-m", "pip", "install",
+                      "--disable-pip-version-check", "--retries", "2", "--timeout", "20",
+                      *missing,
+                  ],
+                  check=True,
+                  timeout=240,
+              )
+          else:
+              print("All offline render-test Python dependencies are already available.")
+          PY
+
+      - name: Run offline audio and narration helper tests
+        if: steps.python_changes.outputs.changed == 'true'
+        env:
+          PYTHONPATH: autopilot/engine
+        run: python -m unittest discover -s autopilot/engine/tests -v
+
+      - name: Run narration composer regressions after the full suite
+        if: steps.python_changes.outputs.changed == 'true'
+        run: python -m unittest autopilot.engine.tests.test_planner_retry -v
+
+      - name: Validate workflow YAML syntax
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+          files = [
+              ".github/workflows/autopilot-checks.yml",
+              ".github/workflows/violin-prince-autopilot.yml",
+              ".github/voice-tests/private-runner/private-voice-test.workflow.yml",
+              ".github/workflows/youtube-seo-learning.yml",
+              ".github/workflows/youtube-seo-discover-verification.yml",
+              ".github/workflows/character-rig-test.yml",
+          ]
+          for name in files:
+              parsed = yaml.safe_load(Path(name).read_text(encoding="utf-8"))
+              if not isinstance(parsed, dict):
+                  raise SystemExit(f"{name}: expected a YAML mapping")
+              print(f"{name}: YAML syntax OK")
+          PY
+
+      - name: Check production workflow and voice test templates exist
+        run: |
+          test -s .github/workflows/violin-prince-autopilot.yml
+          test -s autopilot/engine/animation2d/package.json
+          test -s autopilot/engine/animation2d/build.mjs
+          test -s autopilot/engine/hyperframes_pipeline.py
+          test -s autopilot/engine/character_rig.py
+          test -s autopilot/engine/character_autorig.py
+          test -s autopilot/engine/character_rig_test.py
+
+
+      - name: Confirm the production runners contain no Cloudflare or Worker credentials
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          pattern = re.compile(
+              r"CF_ACCOUNT_ID|CF_AI_TOKEN|AUTOPILOT_API_URL|AUTOPILOT_JOB_TOKEN|"
+              r"api\.cloudflare\.com|cloudflare|workers\s+ai",
+              re.IGNORECASE,
+          )
+          paths = [
+              Path(".github/workflows/violin-prince-autopilot.yml"),
+              Path("autopilot/engine/run.py"),
+              Path("autopilot/engine/run_daily_plan.py"),
+          ]
+          findings = []
+          for path in paths:
+              if not path.is_file():
+                  raise SystemExit(f"Required scan target is missing: {path}")
+              for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                  if pattern.search(line):
+                      findings.append(f"{path}:{line_number}: {line.strip()}")
+          if findings:
+              print("\n".join(findings))
+              raise SystemExit("A Cloudflare or Worker dependency remains in the production runner.")
+          print(f"Scanned {len(paths)} production runner files; no Cloudflare or Worker credentials were found.")
+          PY
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Check private voice-runner helper syntax
+        run: |
+          node --check .github/voice-tests/private-runner/decrypt_vprvoice.mjs
+          node --check .github/voice-tests/private-runner/tests/decrypt_vprvoice.test.mjs
+
+      - name: Test encrypted voice-package decryption using synthetic audio
+        run: node --test .github/voice-tests/private-runner/tests/decrypt_vprvoice.test.mjs
+
+      - name: Install Motion and HyperFrames
+        working-directory: autopilot/engine/animation2d
+        run: npm install --no-audit --no-fund
+
+      - name: Test Motion keyframes and build the HyperFrames composition
+        working-directory: autopilot/engine/animation2d
+        run: |
+          npm test
+          node build.mjs --project project.example.json --out-dir .validation
+          ./node_modules/.bin/hyperframes lint .validation
+        env:
+          HYPERFRAMES_NO_UPDATE_CHECK: "1"
+          CI: "true"
+; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Python engine source changed; full Python regression suite will run."
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No Python engine source changed in this commit; prior full-suite result remains applicable."
+          fi
+
       - name: Install offline render-test tools
+        if: steps.python_changes.outputs.changed == 'true'
         timeout-minutes: 6
         run: |
           set -euo pipefail
