@@ -118,6 +118,7 @@ jobs:
         run: |
           python -m unittest discover -s tests -p 'test_character_autorig.py'
           python -m unittest discover -s tests -p 'test_character_rig.py'
+          python -m unittest discover -s tests -p 'test_character_daily_integration.py'
 
       - name: Separate the master character and build transparent layers
         run: |
