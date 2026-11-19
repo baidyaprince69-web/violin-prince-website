@@ -25,14 +25,27 @@ class SavedPresenterBundleTests(unittest.TestCase):
                 {
                     "id": "intro",
                     "duration": 1.0,
-                    "presenter_pose": "resting_hands",
-                    "presenter_expression": "neutral",
                 },
                 {
                     "id": "explain",
                     "duration": 1.2,
-                    "presenter_pose": "explaining_two_hands",
-                    "presenter_expression": "speaking",
+                    "character_actions": {
+                        "violin-prince": {
+                            "visible": True,
+                            "gesture": "point_left",
+                            "expression": "speaking",
+                        }
+                    },
+                },
+                {
+                    "id": "manual-pose",
+                    "duration": 1.0,
+                    "character_actions": {
+                        "violin-prince": {
+                            "visible": True,
+                            "pose_asset": "explaining_two_hands",
+                        }
+                    },
                 },
             ],
         }
@@ -60,14 +73,13 @@ class SavedPresenterBundleTests(unittest.TestCase):
             for item in character["pose_assets"].values():
                 self.assertTrue(Path(item["src"]).is_file(), item["src"])
 
-            self.assertEqual(
-                attached["scenes"][0]["character_actions"]["violin-prince"]["pose_asset"],
-                "resting_hands",
-            )
-            self.assertEqual(
-                attached["scenes"][1]["character_actions"]["violin-prince"]["expression"],
-                "speaking",
-            )
+            self.assertNotIn("character_actions", attached["scenes"][0])
+            gesture_action = attached["scenes"][1]["character_actions"]["violin-prince"]
+            self.assertEqual(gesture_action["gesture"], "point_left")
+            self.assertEqual(gesture_action["expression"], "speaking")
+            self.assertNotIn("pose_asset", gesture_action)
+            explicit_pose = attached["scenes"][2]["character_actions"]["violin-prince"]
+            self.assertEqual(explicit_pose["pose_asset"], "explaining_two_hands")
 
 
 if __name__ == "__main__":

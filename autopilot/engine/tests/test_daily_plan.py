@@ -79,7 +79,7 @@ class DailyPlanEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(Exception, "Missing exact publisher evidence"):
             daily.validate_claim_evidence(evidence, self.sources, self.sentences)
 
-    def test_presenter_opt_in_copies_bundle_and_assigns_scene_poses(self):
+    def test_presenter_opt_in_copies_bundle_without_forcing_static_scene_poses(self):
         import json
         import tempfile
         from PIL import Image
@@ -119,9 +119,10 @@ class DailyPlanEvidenceTests(unittest.TestCase):
             )
             self.assertEqual(len(result["characters"]), 1)
             self.assertTrue(result["presenter_integration"]["enabled"])
+            self.assertTrue(all("character_actions" not in scene for scene in result["scenes"]))
             self.assertEqual(
-                [scene["character_actions"]["violin-prince"]["pose_asset"] for scene in result["scenes"]],
-                ["resting_hands", "explaining_two_hands", "open_palms"],
+                result["presenter_integration"]["visibility_and_placement"],
+                "narration-aware scene director",
             )
             copied = result["characters"][0]
             self.assertTrue(Path(copied["layers"][0]["src"]).is_file())

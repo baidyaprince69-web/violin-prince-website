@@ -104,9 +104,6 @@ def attach_violin_prince_presenter(
             "or disable use_violin_prince_presenter."
         )
 
-    default_poses = ("resting_hands", "explaining_two_hands", "open_palms")
-    available_poses = set(pose_assets)
-    available_expressions = set(expressions)
     scenes = plan.get("scenes") or []
     if not isinstance(scenes, list):
         raise PresenterIntegrationError("The daily plan scenes field must be an array.")
@@ -118,36 +115,27 @@ def attach_violin_prince_presenter(
             raise PresenterIntegrationError(
                 f"Scene {index + 1} character_actions must be an object."
             )
-        if "violin-prince" not in actions:
-            requested_pose = str(
-                scene.get("presenter_pose") or default_poses[index % len(default_poses)]
-            ).strip().casefold()
-            requested_expression = str(
-                scene.get("presenter_expression") or ("neutral" if index == 0 else "speaking")
-            ).strip().casefold()
-            pose_name = requested_pose if requested_pose in available_poses else "resting_hands"
-            expression_name = (
-                requested_expression if requested_expression in available_expressions else "neutral"
-            )
-            try:
-                action_duration = float(scene.get("duration") or 1.2)
-            except (TypeError, ValueError):
-                action_duration = 1.2
-            scene["character_actions"] = {
-                **actions,
-                "violin-prince": {
-                    "pose_asset": pose_name,
-                    "expression": expression_name,
-                    "duration": action_duration,
-                },
-            }
+        # Do not place a static full-body pose on every image. The scene
+        # director decides visibility and placement; gestures animate the
+        # separated rig unless a plan explicitly requests a pose plate.
+        if "violin-prince" in actions:
+            action = actions["violin-prince"]
+            if not isinstance(action, dict):
+                raise PresenterIntegrationError(
+                    f"Scene {index + 1} violin-prince action must be an object."
+                )
+            if action.get("visible") is True and not action.get("pose_asset"):
+                action.setdefault("gesture", "explain")
+                action.setdefault("expression", "speaking")
+            actions["violin-prince"] = action
+            scene["character_actions"] = actions
 
     plan["characters"] = [*characters, character]
     plan["presenter_integration"] = {
         "enabled": True,
         "character_id": "violin-prince",
         "asset_bundle": "autopilot/engine/assets/characters/violin-prince-rig",
-        "pose_selection": "scene presenter_pose or a safe three-pose default cycle",
-        "expressions": "scene presenter_expression or neutral/speaking default",
+        "visibility_and_placement": "narration-aware scene director",
+        "animation": "articulated rig gestures; static pose plates only when explicitly requested",
     }
     return plan

@@ -15,6 +15,42 @@ class HyperFramesRenderError(RuntimeError):
     """Raised when Motion/HyperFrames rendering or verification fails."""
 
 
+def _validate_scene_motion_report(scene: dict[str, Any], report: dict[str, Any]) -> None:
+    """Reject static substitutes when the scene plan explicitly requests motion graphics."""
+    if not isinstance(report, dict) or report.get("status") != "passed":
+        raise HyperFramesRenderError(
+            "Motion builder did not pass its visual-motion contract for "
+            + str(scene.get("id") or "unknown scene") + "."
+        )
+    graphic = scene.get("graphic_data")
+    if isinstance(graphic, dict):
+        graphic_type = str(graphic.get("type") or "").casefold()
+        expected = 1 if graphic_type == "waveform" else len(graphic.get("items") or [])
+        scenes = report.get("scenes") or []
+        item = next(
+            (value for value in scenes if str(value.get("scene_id") or "") == str(scene.get("id") or "")),
+            None,
+        )
+        actual = int((item or {}).get("animated_graphic_items") or 0)
+        if expected < 1 or actual < expected:
+            raise HyperFramesRenderError(
+                f"Scene {scene.get('id')} planned {expected} animated graphic elements "
+                f"but Motion generated {actual}; static-image fallback is blocked."
+            )
+    actions = scene.get("character_actions") or {}
+    presenter = actions.get("violin-prince") or {}
+    if presenter.get("visible") is True and presenter.get("gesture"):
+        scenes = report.get("scenes") or []
+        item = next(
+            (value for value in scenes if str(value.get("scene_id") or "") == str(scene.get("id") or "")),
+            None,
+        )
+        if int((item or {}).get("animated_presenter_count") or 0) < 1:
+            raise HyperFramesRenderError(
+                f"Scene {scene.get('id')} shows Violin Prince but contains no articulated gesture animation."
+            )
+
+
 def _run(command: list[str], *, cwd: Path, timeout: int = 900) -> subprocess.CompletedProcess:
     result = subprocess.run(
         command, cwd=str(cwd), capture_output=True, text=True,
@@ -113,6 +149,7 @@ def render_daily_plan(
         scene_fingerprint,
     )
     from scene_timeline import build_scene_timeline
+    from scene_director import direct_scene_composition, SceneDirectionError
 
     scenes = plan.get("scenes") or []
     if len(scene_images) != len(scenes) or not 2 <= len(scenes) <= 4:
@@ -131,6 +168,10 @@ def render_daily_plan(
         transition_seconds=transition, beat_analysis=beat_analysis,
     )
     timeline_by_id = {item["scene_id"]: item for item in timeline["scenes"]}
+    try:
+        visual_direction_report = direct_scene_composition(plan, timeline, narration_info)
+    except SceneDirectionError as exc:
+        raise HyperFramesRenderError("Scene direction rejected the plan: " + str(exc)) from exc
 
     media_report = verify_scene_assets(
         scenes, scene_images, total_seconds=24.0, narration_info=narration_info,
@@ -220,7 +261,10 @@ def render_daily_plan(
             "image": target.relative_to(project_dir).as_posix(),
             "caption": str(scene.get("caption") or ""),
             "title": str(scene.get("title") or ""),
+            "visual_mode": str(scene.get("visual_mode") or ""),
             "character_actions": scene.get("character_actions") or {},
+            "graphic_data": scene.get("graphic_data"),
+            "visual_composition": scene.get("visual_composition") or {},
             "narration_sentence_indexes": timing["narration_sentence_indexes"],
         })
 
@@ -260,6 +304,9 @@ def render_daily_plan(
     cache_root.mkdir(parents=True, exist_ok=True)
     scene_clips: list[Path] = []
     scene_cache_records = []
+    motion_reports = []
+    motion_report_cache = cache_root / "motion-reports"
+    motion_report_cache.mkdir(parents=True, exist_ok=True)
     for index, (scene, image_path, staged_scene) in enumerate(zip(scenes, scene_images, staged_scenes)):
         scene_id = str(scene["id"])
         timing = timeline_by_id[scene_id]
@@ -268,7 +315,7 @@ def render_daily_plan(
         scene_fingerprint_value = scene_fingerprint(
             scene,
             image_path,
-            renderer_version="motion-hyperframes-per-scene-v1",
+            renderer_version="motion-hyperframes-per-scene-v2-scene-director-graphics",
             character_asset_paths=character_paths,
             render_settings={
                 "width": int(engine.W),
@@ -281,14 +328,26 @@ def render_daily_plan(
                 "project_title": str(plan.get("title") or "Violin Prince"),
                 "transition": engine.scene_transition(plan, index - 1) if index else None,
                 "character_definitions": characters,
+                "character_actions": scene.get("character_actions") or {},
+                "visual_mode": str(scene.get("visual_mode") or ""),
+                "graphic_data": scene.get("graphic_data"),
+                "visual_composition": scene.get("visual_composition") or {},
                 "caption_renderer": "kinetic-ass-v1",
             },
         )
         cached = load_valid_checkpoint(cache_root, scene_id, scene_fingerprint_value)
-        if cached:
-            scene_clips.append(cached)
-            scene_cache_records.append({"scene_id": scene_id, "status": "reused", "path": str(cached)})
-            continue
+        cached_motion_report = motion_report_cache / f"{scene_id}.json"
+        if cached and cached_motion_report.is_file():
+            try:
+                cached_report = json.loads(cached_motion_report.read_text(encoding="utf-8"))
+                _validate_scene_motion_report(scene, cached_report)
+            except (OSError, ValueError, json.JSONDecodeError):
+                cached = None
+            else:
+                scene_clips.append(cached)
+                motion_reports.append(cached_report)
+                scene_cache_records.append({"scene_id": scene_id, "status": "reused", "path": str(cached)})
+                continue
 
         scene_assets = scene_root / "assets"
         shutil.copytree(assets_dir, scene_assets, dirs_exist_ok=True)
@@ -307,6 +366,23 @@ def render_daily_plan(
             encoding="utf-8",
         )
         _build_motion_project(node, scene_project, scene_root)
+        report_path = scene_root / "motion-report.json"
+        if not report_path.is_file():
+            raise HyperFramesRenderError(
+                f"Motion builder did not emit its required scene report for {scene_id}."
+            )
+        try:
+            scene_motion_report = json.loads(report_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise HyperFramesRenderError(
+                f"Motion builder emitted an unreadable scene report for {scene_id}."
+            ) from exc
+        _validate_scene_motion_report(scene, scene_motion_report)
+        cached_motion_report.write_text(
+            json.dumps(scene_motion_report, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        motion_reports.append(scene_motion_report)
         _run([str(hyperframes_cli), "lint"], cwd=scene_root, timeout=180)
         raw_clip = scene_root / "scene.mp4"
         retry_transient(
@@ -424,6 +500,23 @@ def render_daily_plan(
             "rendered_scene_count": sum(1 for item in scene_cache_records if item["status"] == "rendered"),
         },
         "music_beat_analysis": beat_analysis,
+        "visual_direction": visual_direction_report,
+        "motion_graphics": {
+            "status": "passed",
+            "scene_reports": motion_reports,
+            "animated_graphic_scene_count": sum(
+                1 for item in motion_reports
+                if int(item.get("animated_graphic_item_count") or 0) > 0
+            ),
+            "animated_graphic_item_count": sum(
+                int(item.get("animated_graphic_item_count") or 0)
+                for item in motion_reports
+            ),
+            "animated_presenter_count": sum(
+                int(item.get("animated_presenter_count") or 0)
+                for item in motion_reports
+            ),
+        },
         "scene_media_verification": media_report,
         "character_visual_verification": character_visual_reports,
         "character_count": len(staged_characters),
