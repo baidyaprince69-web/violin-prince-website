@@ -23,7 +23,7 @@ from private_voice_client import (
 
 SCRIPT = (
     "Could your room change your violin mix? "
-    "Audient's new iD range adds RoomTune monitor correction. "
+    "Audient's new audio interfaces add RoomTune monitor correction. "
     "It measures your room's acoustics and adjusts monitor playback. "
     "Onboard DSP runs input EQ, compression and reverb with no latency."
 )
@@ -65,6 +65,7 @@ def fixture_payload(duration=22.5):
         "schema_version": 1,
         "request_id": "123456789",
         "model": "Qwen/Qwen3-TTS-12Hz-0.6B-Base",
+        "generation": {"max_new_tokens": 288, "repetition_penalty": 1.1},
         "script_sha256": hashlib.sha256(script.encode("utf-8")).hexdigest(),
         "audio": {
             "sha256": hashlib.sha256(wav_bytes).hexdigest(),
@@ -80,7 +81,7 @@ def fixture_payload(duration=22.5):
             "name": "faster-whisper",
             "version": "1.2.1",
             "model": "small.en",
-            "hotwords": ["Audient", "RoomTune", "iD"],
+            "hotwords": ["Audient"],
             "transcript_match": "exact",
         },
         "word_cues": word_cues,
@@ -116,7 +117,7 @@ class PrivateVoiceValidationTests(unittest.TestCase):
         wav_bytes, metadata = fixture_payload()
         info = validate_private_narration(
             SCRIPT, wav_bytes, metadata,
-            expected_hotwords=["Audient", "RoomTune", "iD"],
+            expected_hotwords=["Audient"],
         )
         self.assertEqual(info["word_sync_status"], "verified_exact_transcript")
         self.assertEqual(info["word_timing_count"], 35)
@@ -135,7 +136,16 @@ class PrivateVoiceValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(PrivateVoiceBridgeError, "hotword hints do not match"):
             validate_private_narration(
                 SCRIPT, wav_bytes, metadata,
-                expected_hotwords=["Audient", "RoomTune", "different"],
+                expected_hotwords=["Audient", "different"],
+            )
+
+    def test_rejects_unreviewed_qwen_generation_safeguards(self):
+        wav_bytes, metadata = fixture_payload()
+        metadata["generation"]["max_new_tokens"] = 512
+        with self.assertRaisesRegex(PrivateVoiceBridgeError, "generation safeguards"):
+            validate_private_narration(
+                SCRIPT, wav_bytes, metadata,
+                expected_hotwords=["Audient"],
             )
 
     def test_rejects_audio_outside_the_22_to_23_second_target(self):
