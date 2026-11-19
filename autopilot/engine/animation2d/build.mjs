@@ -304,13 +304,27 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     throw new Error("Scene " + scene.id +
       " shows a presenter with a requested gesture but generated no articulated motion.");
   }
+  const presenterPoseAssets = visibleCharacters.flatMap((character) => {
+    const action = (character.scene_actions || {})[scene.id] ||
+      ((scene.character_actions || {})[character.id] || {});
+    const selected = String(action.pose_asset || "").trim().toLowerCase();
+    if (!selected) return [];
+    const available = Object.keys(character.pose_assets || {})
+      .map((name) => name.toLowerCase());
+    if (!available.includes(selected)) {
+      throw new Error("Scene " + scene.id + " requests unknown presenter pose asset: " + selected);
+    }
+    return [selected];
+  });
   return {
     scene_id: scene.id,
     graphic_type: type,
     expected_graphic_items: expectedGraphicItems,
     animated_graphic_items: graphicMotionCount,
     visible_character_count: visibleCharacters.length,
-    animated_presenter_count: animatedPresenterCount
+    animated_presenter_count: animatedPresenterCount,
+    presenter_pose_asset_count: presenterPoseAssets.length,
+    presenter_pose_assets: presenterPoseAssets
   };
 });
 const motionReport = {
@@ -320,6 +334,7 @@ const motionReport = {
   animated_graphic_scene_count: motionSceneReports.filter((scene) => scene.expected_graphic_items > 0).length,
   animated_graphic_item_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_graphic_items, 0),
   animated_presenter_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_presenter_count, 0),
+  presenter_pose_asset_count: motionSceneReports.reduce((sum, scene) => sum + scene.presenter_pose_asset_count, 0),
   scenes: motionSceneReports
 };
 
