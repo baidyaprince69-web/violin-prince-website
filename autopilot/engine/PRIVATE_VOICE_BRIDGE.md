@@ -4,11 +4,11 @@ This bridge keeps the enrolled reference voice private while allowing the public
 
 ## Data flow
 
-1. The public Actions workflow sends the current 35-word narration script, calibrated for a natural 22–23-second delivery and its numeric run ID to the private repository's `private-qwen3-narration.yml` workflow.
+1. The public Actions workflow sends the current 35-word narration script, calibrated for the worker's natural 20–24-second delivery target and its numeric run ID to the private repository's `private-qwen3-narration.yml` workflow.
 2. The private runner checks `private/voice-approval.json`, decrypts the voice package only in its temporary workspace, and generates audio with `Qwen/Qwen3-TTS-12Hz-0.6B-Base`.
 3. The private runner uses `faster-whisper==1.2.1` with `word_timestamps=True` to estimate word boundaries using cross-attention and dynamic time warping. It independently checks that the recognized word sequence exactly matches the requested script. Missing, extra, reordered, or low-coverage word timings fail the job.
 4. The private runner creates a one-request orphan branch in the private repository containing only `narration.wav` and `narration.json`. It never uploads the reference WAV, decrypted transcript, or model cache, and it does not use Actions artifact storage.
-5. The public bridge downloads those two files from that private branch into its ephemeral runner workspace, verifies checksums, script hash, exact word sequence, timing order, audio format, the 22.0–23.0-second raw-duration target, and sentence coverage, then asks the private cleanup workflow to delete the temporary branch. The narration WAV is written only to the render workspace; it is not placed in a public artifact or release.
+5. The public bridge downloads those two files from that private branch into its ephemeral runner workspace, verifies checksums, script hash, exact word sequence, timing order, audio format, the 20.0–24.0-second raw-duration target, and sentence coverage, then asks the private cleanup workflow to delete the temporary branch. The narration WAV is written only to the render workspace; it is not placed in a public artifact or release.
 
 Qwen3's `generate_voice_clone` interface returns generated waveforms and a sample rate, not per-word timing cues. The timing step therefore uses a separate speech-recognition pass. This is transcript-checked word timing, not a phoneme-level forced alignment.
 
