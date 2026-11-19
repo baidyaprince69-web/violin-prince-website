@@ -385,8 +385,13 @@ jobs:
         run: |
           set -euo pipefail
           video="$VIDEO_PATH"
+          identity_file="work/output/production-identity.json"
           if [[ ! -s "$video" ]]; then
             echo "::error::The finished MP4 is missing or empty; private handoff cancelled."
+            exit 1
+          fi
+          if [[ ! -s "$identity_file" ]]; then
+            echo "::error::The production identity record is missing; private handoff cancelled."
             exit 1
           fi
 
@@ -429,19 +434,33 @@ jobs:
           git -C "$temporary_dir/private-repo" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git -C "$temporary_dir/private-repo" switch --create "$transfer_branch"
           mkdir -p "$temporary_dir/private-repo/.private-preview"
-          python - "$temporary_dir/private-repo/.private-preview/request.json" "$SOURCE_RUN_ID" "$release_tag" "$sha256" "$size_bytes" <<'PY'
+          python - "$temporary_dir/private-repo/.private-preview/request.json" "$SOURCE_RUN_ID" "$release_tag" "$sha256" "$size_bytes" "$identity_file" <<'PY'
           import json
+          import re
           import sys
           from pathlib import Path
 
-          path, run_id, tag, digest, size = sys.argv[1:]
+          path, run_id, tag, digest, size, identity_path = sys.argv[1:]
+          identity = json.loads(Path(identity_path).read_text(encoding="utf-8"))
+          plan_hash = str(identity.get("plan_sha256") or "")
+          script_hash = str(identity.get("narration_script_sha256") or "")
+          voice_hash = str(identity.get("private_voice_script_sha256") or "")
+          if identity.get("schema_version") != 1 or str(identity.get("run_id")) != run_id:
+              raise SystemExit("Production identity does not match the current video run.")
+          if not re.fullmatch(r"[0-9a-f]{64}", plan_hash):
+              raise SystemExit("Production identity has an invalid plan SHA-256.")
+          if not re.fullmatch(r"[0-9a-f]{64}", script_hash) or voice_hash != script_hash:
+              raise SystemExit("Production identity does not prove the exact Qwen3 narration script.")
+          if identity.get("private_voice_verification") != "verified_exact_transcript":
+              raise SystemExit("Production identity does not contain verified private narration.")
           value = {
               "source_run_id": run_id,
               "release_tag": tag,
               "sha256": digest,
               "size_bytes": int(size),
+              "production_identity": identity,
           }
-          Path(path).write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+          Path(path).write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
           PY
           git -C "$temporary_dir/private-repo" add .private-preview/request.json
           git -C "$temporary_dir/private-repo" commit -m "Private preview handoff request $SOURCE_RUN_ID"
