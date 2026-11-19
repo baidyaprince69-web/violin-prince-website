@@ -1,5 +1,5 @@
 {
   "mode": "chatgpt_daily_production",
   "plan_path": ".autopilot/daily-production-plan.json",
-  "reason": "Run one preview-only production verification after PR #97 and private Voice Vault PR #19. Verify static checks, offline renderer, private draft-release write and cleanup permissions before Qwen3 or rendering. If preflight passes, verify narration, final MP4 quality and private one-day artifact transfer. Keep PUBLISH_ENABLED=false; do not create a public release or schedule a post."
+  "reason": "Run one preview-only production verification after public PR #99 and private Voice Vault PR #21. Verify static checks, offline renderer, private draft-release write and cleanup permissions before Qwen3 or rendering. If preflight passes, generate and inspect narration, render and quality-check the final MP4, then store it in the private Voice Vault using a one-day Actions artifact or the verified private draft-release fallback if artifact quota is full. Keep PUBLISH_ENABLED=false; do not create a public release or schedule a post."
 }
