@@ -21,6 +21,8 @@ API_ROOT = "https://api.github.com"
 WORD_RE = re.compile(r"[\w’'-]+", re.UNICODE)
 GENERATION_SEEDS = (43, 44, 45)
 GENERATION_TEMPERATURE = 0.9
+MIN_NARRATION_AUDIO_SECONDS = 20.0
+MAX_NARRATION_AUDIO_SECONDS = 24.0
 
 
 class PrivateVoiceBridgeError(RuntimeError):
@@ -231,7 +233,7 @@ def validate_private_narration(
     script = _normalise_script(script)
     expected_words = WORD_RE.findall(script)
     if len(expected_words) != 35:
-        raise PrivateVoiceBridgeError("Narration must contain exactly 35 words, calibrated for a natural 22–23-second delivery.")
+        raise PrivateVoiceBridgeError("Narration must contain exactly 35 words, calibrated for a natural 20–24-second delivery.")
     expected_hash = hashlib.sha256(script.encode("utf-8")).hexdigest()
     if metadata.get("schema_version") != 1 or metadata.get("script_sha256") != expected_hash:
         raise PrivateVoiceBridgeError("Private narration metadata does not match the requested script.")
@@ -280,8 +282,8 @@ def validate_private_narration(
     duration = float(info.duration)
     if info.channels != 1 or int(info.samplerate) != int(audio.get("sample_rate") or 0):
         raise PrivateVoiceBridgeError("Private narration WAV channel or sample-rate validation failed.")
-    if not 22.0 <= duration <= 23.0 or abs(duration - float(audio.get("duration_seconds") or 0)) > 0.08:
-        raise PrivateVoiceBridgeError("Private narration must be naturally generated between 22.0 and 23.0 seconds; post-generation speed changes are not accepted.")
+    if not MIN_NARRATION_AUDIO_SECONDS <= duration <= MAX_NARRATION_AUDIO_SECONDS or abs(duration - float(audio.get("duration_seconds") or 0)) > 0.08:
+        raise PrivateVoiceBridgeError("Private narration must be naturally generated between 20.0 and 24.0 seconds; post-generation speed changes are not accepted.")
     if metadata.get("audio_postprocessing") != "none":
         raise PrivateVoiceBridgeError("Private narration must use raw Qwen3 audio without time-stretching.")
 
