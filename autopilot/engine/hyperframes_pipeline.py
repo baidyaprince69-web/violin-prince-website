@@ -101,6 +101,9 @@ def render_daily_plan(
     beat_analysis: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Render/cache independent scene clips, xfade them, then mix audio and captions."""
+    work_root = Path(engine.WORK).resolve()
+    output_root = Path(engine.OUT).resolve()
+
     from audio_analysis import analyse_audio_file
     from media_verification import verify_scene_assets
     from scene_checkpoints import (
@@ -137,7 +140,7 @@ def render_daily_plan(
         raise HyperFramesRenderError(
             "Scene media verification failed: " + json.dumps(media_report.get("errors", []))
         )
-    (engine.OUT / "scene-media-verification.json").write_text(
+    (output_root / "scene-media-verification.json").write_text(
         json.dumps(media_report, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
@@ -157,14 +160,14 @@ def render_daily_plan(
                 + ": " + json.dumps(character_report.get("errors", []))
             )
         character_visual_reports.append(character_report)
-    (engine.OUT / "character-visual-verification.json").write_text(
+    (output_root / "character-visual-verification.json").write_text(
         json.dumps(character_visual_reports, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
 
     # Resolve once from the Python runner's repository-root cwd. All scene roots
     # are then absolute, including HyperFrames' cwd and MP4 --output path.
-    project_dir = _absolute_scene_project_directory(engine.WORK)
+    project_dir = _absolute_scene_project_directory(work_root)
     if project_dir.exists():
         shutil.rmtree(project_dir)
     assets_dir = project_dir / "assets"
@@ -253,7 +256,7 @@ def render_daily_plan(
         _run([npm, "install", "--no-audit", "--no-fund"], cwd=ANIMATION2D_DIR, timeout=600)
 
     character_paths = _character_asset_paths(characters)
-    cache_root = engine.WORK / "scene-render-cache"
+    cache_root = work_root / "scene-render-cache"
     cache_root.mkdir(parents=True, exist_ok=True)
     scene_clips: list[Path] = []
     scene_cache_records = []
@@ -329,7 +332,7 @@ def render_daily_plan(
     # Assemble the scene checkpoint clips with transitions at the narration-aware
     # cut times. A changed soundtrack does not invalidate unchanged picture clips;
     # the final audio/video assembly is still performed on every run.
-    picture_only = engine.OUT / "hyperframes-picture.mp4"
+    picture_only = output_root / "hyperframes-picture.mp4"
     transition_parts = []
     previous_label = "0:v"
     for scene_index in range(1, len(scene_clips)):
@@ -353,11 +356,13 @@ def render_daily_plan(
         "-filter_complex", filter_graph, "-map", "[vout]",
         "-t", "24", "-an", "-c:v", "libx264", "-preset", "veryfast",
         "-crf", "23", "-pix_fmt", "yuv420p", str(picture_only),
-    ], cwd=engine.WORK, timeout=900)
+    ], cwd=work_root, timeout=900)
     if not picture_only.is_file() or picture_only.stat().st_size < 4096:
         raise HyperFramesRenderError("FFmpeg did not assemble the cached scene clips.")
 
-    audio_mix = engine.OUT / "daily-audio-mix.wav"
+    audio_path = Path(audio_path).resolve(strict=True)
+    narration_path = Path(narration_path).resolve(strict=True)
+    audio_mix = output_root / "daily-audio-mix.wav"
     audio_filter = (
         "[0:a]volume=0.24[bed];"
         "[1:a]highpass=f=75,acompressor=threshold=-20dB:ratio=3:attack=12:release=180,"
@@ -373,16 +378,16 @@ def render_daily_plan(
         "-i", str(audio_path), "-i", str(narration_path),
         "-filter_complex", audio_filter, "-map", "[aout]",
         "-ar", "48000", "-ac", "2", "-c:a", "pcm_s16le", str(audio_mix),
-    ], cwd=engine.WORK, timeout=240)
+    ], cwd=work_root, timeout=240)
 
-    subtitle_path = engine.OUT / "narration.ass"
+    subtitle_path = output_root / "narration.ass"
     engine.write_kinetic_ass(
         narration_info.get("subtitle_cues", []),
         subtitle_path,
         narration_info.get("word_cues", []),
     )
     font_dir = Path(engine._ensure_brand_fonts()["serif"]).parent.as_posix()
-    final_video = engine.OUT / "violin-prince-short.mp4"
+    final_video = output_root / "violin-prince-short.mp4"
     _run([
         "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
         "-i", str(picture_only), "-i", str(audio_mix),
@@ -392,7 +397,7 @@ def render_daily_plan(
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
         "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",
         "-movflags", "+faststart", str(final_video),
-    ], cwd=engine.WORK, timeout=600)
+    ], cwd=work_root, timeout=600)
 
     quality = engine.validate_final_video(final_video)
     sample_points = [("OPEN", 0.55)]
@@ -403,7 +408,7 @@ def render_daily_plan(
         ))
     sample_points.append(("FINAL FRAME", 23.30))
     contact_sheet = engine.make_render_contact_sheet(
-        final_video, engine.OUT / "visual-contact-sheet.png", sample_points
+        final_video, output_root / "visual-contact-sheet.png", sample_points
     )
     quality.update({
         "visual_engine": "Motion + HyperFrames 2D scene renderer",
@@ -434,7 +439,7 @@ def render_daily_plan(
         "finishing": "existing FFmpeg audio mix, word-timed captions, MP4 encoding and independent media QA",
         "publishing": "disabled in GitHub Actions; release handoff only",
     })
-    (engine.OUT / "quality_report.json").write_text(
+    (output_root / "quality_report.json").write_text(
         json.dumps(quality, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
