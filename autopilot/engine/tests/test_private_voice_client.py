@@ -270,5 +270,26 @@ class PrivateVoiceValidationTests(unittest.TestCase):
                 os.environ["PRIVATE_VOICE_REPO_TOKEN"] = previous
 
 
+
+class PublicNarrationTargetContractTests(unittest.TestCase):
+    def test_active_autopilot_instructions_match_the_private_worker_duration_window(self):
+        run_source = (ENGINE / "run.py").read_text(encoding="utf-8")
+        daily_plan_source = (ENGINE / "run_daily_plan.py").read_text(encoding="utf-8")
+        bridge_doc = (ENGINE / "PRIVATE_VOICE_BRIDGE.md").read_text(encoding="utf-8")
+        bridge_workflow = (
+            ENGINE.parents[1] / ".github" / "workflows" / "private-qwen3-bridge-test.yml"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("20–24-second", run_source)
+        self.assertIn("20–24-second", daily_plan_source)
+        self.assertIn("20–24-second", bridge_doc)
+        self.assertIn("20–24-second", bridge_workflow)
+
+        # The old narrow target is historical evidence only, not an active gate.
+        for source in (run_source, daily_plan_source, bridge_doc, bridge_workflow):
+            self.assertNotIn("22–23-second", source)
+            self.assertNotIn("22.0–23.0-second", source)
+
+
 if __name__ == "__main__":
     unittest.main()
