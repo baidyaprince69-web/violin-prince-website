@@ -59,6 +59,12 @@ class WorkflowPrivacyContractTests(unittest.TestCase):
         self.assertIn("Private intake artifact exists", self.workflow_text)
         self.assertIn("temporary draft release remains", self.workflow_text)
 
+    def test_private_preview_supports_verified_release_fallback_when_artifact_upload_fails(self):
+        self.assertIn("private_draft_release_fallback", self.workflow_text)
+        self.assertIn("private_release_url", self.workflow_text)
+        self.assertIn('releases?per_page=100', self.workflow_text)
+        self.assertIn("automatically removed after 24 hours", self.workflow_text)
+
     def test_stage_recovery_inputs_cannot_request_public_intermediate_artifacts(self):
         self.assertNotIn("inputs.source_run_id", self.workflow_text)
         self.assertNotIn("inputs.visual_feedback", self.workflow_text)
