@@ -4809,14 +4809,14 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
         raise PipelineError("A planned scene has no visual prompt.")
 
     shot_roles = (
-        "SHOT 1 — HOOK: premium macro hero shot; reveal one tactile detail immediately.",
-        "SHOT 2 — MECHANISM: precise technical-editorial composition; make the explanation readable at phone size.",
-        "SHOT 3 — PERFORMANCE PAYOFF: cinematic violin-and-bow hero shot with a clear diagonal and room for the music.",
+        "SHOT 1 — HOOK: premium macro hero; reveal one tactile detail immediately.",
+        "SHOT 2 — MECHANISM: precise technical editorial; readable on a phone.",
+        "SHOT 3 — PAYOFF: cinematic violin-and-bow hero shot on a clear diagonal.",
     )
     composition_treatments = (
-        "Composition: one dominant hero subject, asymmetrical editorial balance, a deliberate close foreground and a soft distant background. Reserve the top 16 percent as quiet dark negative space for the channel title.",
-        "Composition: an intentional technical grid with separate foreground, explanation plane and deep studio background. Keep important components large, aligned and readable at phone size; reserve the top band for chapter typography.",
-        "Composition: place the complete violin diagonally across the frame, give the bow and playing hands room to breathe, and use a warm key light with a soft teal rim. Keep the lower caption-safe area visually calm.",
+        "Composition: one dominant subject, asymmetrical balance, layered depth and dark negative space at the top.",
+        "Composition: disciplined technical grid, distinct planes, clear spacing and large components.",
+        "Composition: complete violin diagonal, expressive bow/hands, warm highlights and calm lower caption space.",
     )
     scene_count = len((plan or {}).get("scenes") or []) or 3
     role_index = 0 if index <= 0 else 2 if index >= scene_count - 1 else 1
@@ -4827,15 +4827,14 @@ def _scene_visual_prompt(scene, feedback="", index=0, plan=None):
     # Keep the recognisable instrument identity, but avoid spending most of the
     # provider budget on repeated negative prompts and decorative adjectives.
     brand_direction = (
-        "Premium Violin Prince visual identity: luxury music-documentary illustration, not a generic template. "
-        "High-detail 2D painted editorial art with refined 2.5D depth, confident contour linework, tactile paper "
-        "and wood textures, selective micro-detail, controlled chiaroscuro and a clear foreground/midground/background "
-        "hierarchy. Show physically believable violin construction: a complete solid opaque amber-brown body, natural "
-        "wood grain, bridge, strings, ebony fingerboard, bow hair and accurate metal fittings. Never draw an empty "
-        "shell, hollow outline, wireframe or transparent violin. Palette: deep midnight navy, oxidised teal, brushed "
-        "antique brass, warm ivory and natural amber; rich full colour, restrained highlights and soft atmospheric falloff. "
-        "No fake typography, letters, numbers, labels, UI, logos, captions, lyrics or watermark. No stock imagery, "
-        "photography or CGI. This is original art direction. Respect sourced facts and measurements. Portrait 9:16 composition."
+        "Premium Violin Prince visual identity: luxury music-documentary illustration, not stock. "
+        "High-detail 2D painted editorial art, refined 2.5D depth, crisp contours, tactile paper and painted natural "
+        "wood grain, selective micro-detail, layered foreground/midground/background, controlled chiaroscuro, warm "
+        "key light and soft oxidised-teal rim. Show physically believable violin construction: a complete solid "
+        "opaque amber-brown body, accurate bridge, fine strings, ebony fingerboard, bow hair and metal fittings; "
+        "never hollow, wireframe or transparent. Palette: deep midnight navy, oxidised teal, antique brass, warm "
+        "ivory and natural amber. No text, fake UI, logos, lyrics, watermarks, photography or CGI. This is original "
+        "art direction. Respect facts. Portrait 9:16 composition."
     )
     role = shot_roles[role_index]
     composition = composition_treatments[role_index]
