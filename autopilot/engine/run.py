@@ -2900,8 +2900,8 @@ def narration_validation_error(script):
     return ""
 
 
-def narration_sentence_budget(sentences, target_total=None):
-    """Allocate a feasible, per-sentence word range from the actual draft."""
+def narration_sentence_budget(sentences, target_total=None, adjustable_indices=None):
+    """Allocate a feasible exact word budget, optionally changing only selected sentences."""
     values = [re.sub(r"\s+", " ", str(value or "")).strip() for value in list(sentences or [])[:4]]
     values.extend([""] * (4 - len(values)))
     limits = (8, 12, 12, 12)
@@ -2915,15 +2915,38 @@ def narration_sentence_budget(sentences, target_total=None):
     if target_total != NARRATION_TARGET_WORDS:
         raise PipelineError("Narration sentence budget must use the exact 35-word contract.")
 
-    counts = [
-        min(limits[index], max(floors[index], narration_word_count(value)))
-        for index, value in enumerate(values)
-    ]
-    priority = (1, 2, 3, 0)
-
-    difference = target_total - sum(counts)
-    body_priority = (1, 2, 3)
-    hook_priority = (0,)
+    actual_counts = [narration_word_count(value) for value in values]
+    restricted = adjustable_indices is not None
+    if restricted:
+        editable = sorted({int(index) for index in adjustable_indices if 0 <= int(index) < 4})
+        if not editable:
+            raise PipelineError("A targeted narration correction must identify at least one editable sentence.")
+        editable_set = set(editable)
+        locked_invalid = [
+            index + 1 for index, count in enumerate(actual_counts)
+            if index not in editable_set and not floors[index] <= count <= limits[index]
+        ]
+        if locked_invalid:
+            raise PipelineError(
+                "Targeted narration correction cannot preserve locked sentence(s) outside the allowed word limits: "
+                + ", ".join(map(str, locked_invalid))
+            )
+        counts = [
+            actual_counts[index] if index not in editable_set
+            else min(limits[index], max(floors[index], actual_counts[index]))
+            for index in range(4)
+        ]
+        difference = target_total - sum(counts)
+        body_priority = tuple(index for index in (1, 2, 3) if index in editable_set)
+        hook_priority = tuple(index for index in (0,) if index in editable_set)
+    else:
+        counts = [
+            min(limits[index], max(floors[index], actual_counts[index]))
+            for index in range(4)
+        ]
+        difference = target_total - sum(counts)
+        body_priority = (1, 2, 3)
+        hook_priority = (0,)
     while difference > 0:
         available = [index for index in body_priority if counts[index] < limits[index]]
         if not available:
@@ -2945,6 +2968,11 @@ def narration_sentence_budget(sentences, target_total=None):
         difference += 1
 
     maxima = list(counts)
+    if restricted:
+        return [
+            {"min_words": counts[index], "max_words": counts[index]}
+            for index in range(4)
+        ]
     extra_capacity = NARRATION_TARGET_WORDS - target_total
     while extra_capacity > 0:
         available = [index for index in body_priority if maxima[index] < limits[index]]
@@ -3175,7 +3203,11 @@ def compose_narration(
         # Match the exact 35-word contract verified by the private Qwen3 handoff.
         target_total = NARRATION_TARGET_WORDS
 
-        budgets = narration_sentence_budget(sentences, target_total=target_total)
+        budgets = narration_sentence_budget(
+            sentences,
+            target_total=target_total,
+            adjustable_indices=forced_indices if forced_indices else None,
+        )
         target_indices = (
             list(forced_indices)
             if forced_indices
