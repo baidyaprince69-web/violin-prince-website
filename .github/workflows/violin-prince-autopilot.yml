@@ -374,7 +374,87 @@ jobs:
           git -C "$temporary_dir/private-repo" commit -m "Private preview handoff request $SOURCE_RUN_ID"
           git -C "$temporary_dir/private-repo" push origin "$transfer_branch"
 
-          echo "Private preview handoff queued; no video or narration WAV was uploaded as a public artifact."
+          # Do not report a completed handoff until the private workflow has
+          # verified the MP4 and uploaded its one-day private artifact.
+          private_run_id=""
+          private_artifact_id=""
+          for attempt in $(seq 1 40); do
+            runs_json="$(gh api "repos/$PRIVATE_REPO/actions/workflows/private-video-preview-intake.yml/runs?branch=$transfer_branch&event=push&per_page=10")"
+            run_state="$(python -c '
+          import json, sys
+          data = json.load(sys.stdin)
+          matches = [
+              item for item in data.get("workflow_runs", [])
+              if item.get("head_branch") == sys.argv[1]
+              and item.get("name") == "Private Violin Prince video preview intake"
+          ]
+          if not matches:
+              print("not_found")
+          else:
+              item = sorted(matches, key=lambda value: value.get("created_at", ""), reverse=True)[0]
+              print(str(item.get("id", "")) + "|" + str(item.get("status", "")) + "|" + str(item.get("conclusion") or ""))
+          ' "$transfer_branch" <<< "$runs_json")"
+
+            if [[ "$run_state" == "not_found" ]]; then
+              sleep 15
+              continue
+            fi
+
+            IFS='|' read -r private_run_id private_status private_conclusion <<< "$run_state"
+            if [[ "$private_status" == "completed" ]]; then
+              if [[ "$private_conclusion" != "success" ]]; then
+                echo "::error::The private preview intake workflow completed with conclusion: $private_conclusion"
+                exit 1
+              fi
+              artifacts_json="$(gh api "repos/$PRIVATE_REPO/actions/runs/$private_run_id/artifacts?per_page=100")"
+              private_artifact_id="$(python -c '
+          import json, sys
+          data = json.load(sys.stdin)
+          expected = "violin-prince-private-preview-" + sys.argv[1]
+          artifacts = [
+              item for item in data.get("artifacts", [])
+              if item.get("name") == expected and not item.get("expired")
+              and int(item.get("size_in_bytes") or 0) > 4096
+          ]
+          print(artifacts[0]["id"] if artifacts else "")
+          ' "$SOURCE_RUN_ID" <<< "$artifacts_json")"
+              if [[ -z "$private_artifact_id" ]]; then
+                echo "::error::The private intake run passed but its verified one-day artifact was not found."
+                exit 1
+              fi
+              break
+            fi
+            sleep 15
+          done
+
+          if [[ -z "$private_run_id" || -z "$private_artifact_id" ]]; then
+            echo "::error::Timed out waiting for the private preview artifact to be confirmed."
+            exit 1
+          fi
+
+          # Private intake cleanup should have deleted both temporary resources.
+          if gh api "repos/$PRIVATE_REPO/git/ref/heads/$transfer_branch" >/dev/null 2>&1; then
+            echo "::error::Private intake artifact exists, but its temporary transfer branch remains."
+            exit 1
+          fi
+          if gh api "repos/$PRIVATE_REPO/releases/tags/$release_tag" >/dev/null 2>&1; then
+            echo "::error::Private intake artifact exists, but its temporary draft release remains."
+            exit 1
+          fi
+
+          echo "The MP4 is saved in a verified one-day artifact in the private Voice Vault repository."
+          echo "Private workflow run ID: $private_run_id"
+          echo "Private artifact ID: $private_artifact_id"
+          echo "MP4 SHA-256: $sha256"
+          {
+            echo "## Private preview stored and verified"
+            echo ""
+            echo "- [Private intake run](https://github.com/$PRIVATE_REPO/actions/runs/$private_run_id)"
+            echo "- Private artifact ID: $private_artifact_id (one-day retention)"
+            echo "- Temporary draft release and transfer branch were deleted."
+            echo "- MP4 SHA-256: `$sha256`"
+            echo "- No MP4 or raw narration file was uploaded as a public artifact."
+          } >> "$GITHUB_STEP_SUMMARY"
           echo "Private release tag: $release_tag"
           echo "Private transfer branch: $transfer_branch"
           echo "MP4 SHA-256: $sha256"
