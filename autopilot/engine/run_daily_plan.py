@@ -10,6 +10,7 @@ This script never publishes; it creates the quality-gated release handoff only.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -351,6 +352,49 @@ def validate_and_enrich_plan(plan: dict[str, Any]) -> tuple[dict[str, Any], list
     return plan, verified
 
 
+def build_production_identity(
+    plan_bytes: bytes,
+    plan: dict[str, Any],
+    *,
+    expected_plan_sha256: str = "",
+    expected_narration_sha256: str = "",
+) -> dict[str, Any]:
+    """Pin the exact checked-out plan and normalized script used for narration."""
+    if not isinstance(plan, dict):
+        raise engine.PipelineError("The daily production plan must be a JSON object.")
+    script = re.sub(r"\s+", " ", str(plan.get("narration_script") or "")).strip()
+    if not script:
+        raise engine.PipelineError("The daily production plan has no narration script.")
+
+    plan_sha256 = hashlib.sha256(plan_bytes).hexdigest()
+    narration_sha256 = hashlib.sha256(script.encode("utf-8")).hexdigest()
+    expected_plan_sha256 = str(expected_plan_sha256 or "").strip().lower()
+    expected_narration_sha256 = str(expected_narration_sha256 or "").strip().lower()
+    if bool(expected_plan_sha256) != bool(expected_narration_sha256):
+        raise engine.PipelineError(
+            "Production snapshot lock is incomplete: both expected plan and narration hashes are required."
+        )
+    for label, expected, actual in (
+        ("plan", expected_plan_sha256, plan_sha256),
+        ("narration", expected_narration_sha256, narration_sha256),
+    ):
+        if expected and not re.fullmatch(r"[0-9a-f]{64}", expected):
+            raise engine.PipelineError(f"Expected {label} SHA-256 is malformed.")
+        if expected and expected != actual:
+            raise engine.PipelineError(
+                f"Production snapshot mismatch: checked-out {label} does not match the trigger snapshot. "
+                "Refusing to send narration to Qwen3."
+            )
+
+    return {
+        "schema_version": 1,
+        "plan_sha256": plan_sha256,
+        "narration_script_sha256": narration_sha256,
+        "narration_word_count": engine.narration_word_count(script),
+        "snapshot_lock": "verified" if expected_plan_sha256 else "not_supplied_for_manual_invocation",
+    }
+
+
 def run_daily_plan(plan_path: Path) -> int:
     # Stop before plan validation, research fetches, soundtrack work or image generation.
     require_approved_own_voice()
@@ -359,10 +403,17 @@ def run_daily_plan(plan_path: Path) -> int:
     if not plan_path.is_file():
         raise engine.PipelineError(f"ChatGPT daily plan was not found: {plan_path}")
     try:
-        plan = json.loads(plan_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise engine.PipelineError("ChatGPT daily plan is not readable JSON.") from exc
+        plan_bytes = plan_path.read_bytes()
+        plan = json.loads(plan_bytes.decode("utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise engine.PipelineError("ChatGPT daily plan is not readable UTF-8 JSON.") from exc
 
+    production_identity = build_production_identity(
+        plan_bytes,
+        plan,
+        expected_plan_sha256=os.environ.get("EXPECTED_PLAN_SHA256", ""),
+        expected_narration_sha256=os.environ.get("EXPECTED_NARRATION_SHA256", ""),
+    )
     plan, verified_sources = validate_and_enrich_plan(plan)
     engine.WORK.mkdir(parents=True, exist_ok=True)
     engine.OUT.mkdir(parents=True, exist_ok=True)
@@ -407,6 +458,23 @@ def run_daily_plan(plan_path: Path) -> int:
     narration_path, narration_info = synthesize_voiceover(
         plan["narration_script"], engine.OUT / "narration.wav"
     )
+    private_script_sha256 = str(narration_info.get("script_sha256") or "").strip().lower()
+    if private_script_sha256 != production_identity["narration_script_sha256"]:
+        raise engine.PipelineError(
+            "Private Qwen3 returned narration metadata for a different script version; refusing production."
+        )
+    production_identity.update({
+        "run_id": str(engine.RUN_ID),
+        "event_commit_sha": str(os.environ.get("PRODUCTION_EVENT_SHA") or os.environ.get("GITHUB_SHA") or ""),
+        "plan_path": str(plan_path),
+        "private_voice_script_sha256": private_script_sha256,
+        "private_voice_run_id": narration_info.get("private_voice_run_id"),
+        "private_voice_verification": narration_info.get("word_sync_status"),
+    })
+    plan["production_identity"] = production_identity
+    identity_text = json.dumps(production_identity, ensure_ascii=False, indent=2) + "\n"
+    (engine.PACKAGE / "production-identity.json").write_text(identity_text, encoding="utf-8")
+    (engine.OUT / "production-identity.json").write_text(identity_text, encoding="utf-8")
     paths["narration"].write_bytes(narration_path.read_bytes())
     paths["plan"].write_text(
         json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -484,6 +552,7 @@ def run_daily_plan(plan_path: Path) -> int:
         "topic": str(plan.get("topic") or ""),
         "title": str(plan.get("title") or "Violin Prince"),
         "prepared_at": datetime.now(timezone.utc).isoformat(),
+        "production_identity": production_identity,
         "stage": "illustrations_and_character_assets_ready",
         "visual_engine": "Motion + HyperFrames 2D",
         "character_count": len(character_assets),

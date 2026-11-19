@@ -165,6 +165,7 @@ class PrivateVoiceValidationTests(unittest.TestCase):
             expected_hotwords=[],
         )
         self.assertEqual(info["word_sync_status"], "verified_exact_transcript")
+        self.assertEqual(info["script_sha256"], hashlib.sha256(SCRIPT.encode("utf-8")).hexdigest())
         self.assertEqual(info["word_timing_count"], 35)
         self.assertEqual(info["engine"], "Qwen3-TTS")
         self.assertEqual(len(info["subtitle_cues"]), 4)

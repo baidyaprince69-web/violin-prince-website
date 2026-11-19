@@ -342,6 +342,7 @@ def validate_private_narration(
         "sample_rate": int(info.samplerate),
         "channels": int(info.channels),
         "word_sync_status": "verified_exact_transcript",
+        "script_sha256": expected_hash,
         "word_timing_method": str(metadata["word_timing_method"]),
         "word_timing_count": len(cues),
         "word_cues": cues,

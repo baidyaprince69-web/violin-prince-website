@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - ".autopilot/prepare-request.json"
+      - ".autopilot/daily-production-plan.json"
   schedule:
     # 15:00 Asia/Kolkata (09:30 UTC), leaving time for rendering before the 19:00 queue slot.
     - cron: "30 9 * * *"
@@ -144,8 +145,10 @@ jobs:
         shell: bash
         run: |
           python - <<'PY'
+          import hashlib
           import json
           import os
+          import re
           from pathlib import Path
 
           request_path = Path(".autopilot/prepare-request.json")
@@ -163,13 +166,23 @@ jobs:
           plan_file = Path(plan_path)
           if not plan_file.is_file():
               raise SystemExit("The ChatGPT daily production plan does not exist.")
-          plan = json.loads(plan_file.read_text(encoding="utf-8"))
+          plan_bytes = plan_file.read_bytes()
+          plan = json.loads(plan_bytes.decode("utf-8"))
+          narration_script = re.sub(r"\s+", " ", str(plan.get("narration_script") or "")).strip()
+          if not narration_script:
+              raise SystemExit("The daily production plan has no narration script.")
+          plan_sha256 = hashlib.sha256(plan_bytes).hexdigest()
+          narration_sha256 = hashlib.sha256(narration_script.encode("utf-8")).hexdigest()
           today = datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
           if plan.get("production_date") != today:
               raise SystemExit(f"The daily plan must be refreshed for {today} Asia/Kolkata before production.")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write("plan_path=" + plan_path + "\n")
+              output.write("plan_sha256=" + plan_sha256 + "\n")
+              output.write("narration_sha256=" + narration_sha256 + "\n")
           print("Validated ChatGPT daily production request: " + plan_path)
+          print("Production plan SHA-256: " + plan_sha256)
+          print("Narration script SHA-256: " + narration_sha256)
           PY
 
       - name: Restore the latest encrypted SEO learning snapshot
@@ -250,6 +263,9 @@ jobs:
         if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path != ''
         env:
           RUN_ID: ${{ github.run_id }}
+          EXPECTED_PLAN_SHA256: ${{ steps.daily_request.outputs.plan_sha256 }}
+          EXPECTED_NARRATION_SHA256: ${{ steps.daily_request.outputs.narration_sha256 }}
+          PRODUCTION_EVENT_SHA: ${{ github.sha }}
           PUBLISH_ENABLED: "false"
           PRIVATE_VOICE_REPO_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
         run: python autopilot/engine/run_daily_plan.py --plan "${{ steps.daily_request.outputs.plan_path }}"
@@ -369,8 +385,13 @@ jobs:
         run: |
           set -euo pipefail
           video="$VIDEO_PATH"
+          identity_file="work/output/production-identity.json"
           if [[ ! -s "$video" ]]; then
             echo "::error::The finished MP4 is missing or empty; private handoff cancelled."
+            exit 1
+          fi
+          if [[ ! -s "$identity_file" ]]; then
+            echo "::error::The production identity record is missing; private handoff cancelled."
             exit 1
           fi
 
@@ -413,19 +434,33 @@ jobs:
           git -C "$temporary_dir/private-repo" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git -C "$temporary_dir/private-repo" switch --create "$transfer_branch"
           mkdir -p "$temporary_dir/private-repo/.private-preview"
-          python - "$temporary_dir/private-repo/.private-preview/request.json" "$SOURCE_RUN_ID" "$release_tag" "$sha256" "$size_bytes" <<'PY'
+          python - "$temporary_dir/private-repo/.private-preview/request.json" "$SOURCE_RUN_ID" "$release_tag" "$sha256" "$size_bytes" "$identity_file" <<'PY'
           import json
+          import re
           import sys
           from pathlib import Path
 
-          path, run_id, tag, digest, size = sys.argv[1:]
+          path, run_id, tag, digest, size, identity_path = sys.argv[1:]
+          identity = json.loads(Path(identity_path).read_text(encoding="utf-8"))
+          plan_hash = str(identity.get("plan_sha256") or "")
+          script_hash = str(identity.get("narration_script_sha256") or "")
+          voice_hash = str(identity.get("private_voice_script_sha256") or "")
+          if identity.get("schema_version") != 1 or str(identity.get("run_id")) != run_id:
+              raise SystemExit("Production identity does not match the current video run.")
+          if not re.fullmatch(r"[0-9a-f]{64}", plan_hash):
+              raise SystemExit("Production identity has an invalid plan SHA-256.")
+          if not re.fullmatch(r"[0-9a-f]{64}", script_hash) or voice_hash != script_hash:
+              raise SystemExit("Production identity does not prove the exact Qwen3 narration script.")
+          if identity.get("private_voice_verification") != "verified_exact_transcript":
+              raise SystemExit("Production identity does not contain verified private narration.")
           value = {
               "source_run_id": run_id,
               "release_tag": tag,
               "sha256": digest,
               "size_bytes": int(size),
+              "production_identity": identity,
           }
-          Path(path).write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+          Path(path).write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
           PY
           git -C "$temporary_dir/private-repo" add .private-preview/request.json
           git -C "$temporary_dir/private-repo" commit -m "Private preview handoff request $SOURCE_RUN_ID"
