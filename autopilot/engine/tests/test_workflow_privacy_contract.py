@@ -63,7 +63,7 @@ class WorkflowPrivacyContractTests(unittest.TestCase):
         self.assertIn("private_draft_release_fallback", self.workflow_text)
         self.assertIn("private_release_url", self.workflow_text)
         self.assertIn('releases?per_page=100', self.workflow_text)
-        self.assertIn("automatically removed after 24 hours", self.workflow_text)
+        self.assertIn("automatically removed after it is 24 hours old", self.workflow_text)
 
     def test_stage_recovery_inputs_cannot_request_public_intermediate_artifacts(self):
         self.assertNotIn("inputs.source_run_id", self.workflow_text)
