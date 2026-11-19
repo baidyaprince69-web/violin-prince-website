@@ -11,6 +11,12 @@ import hyperframes_pipeline as pipeline  # noqa: E402
 
 
 class HyperFramesProjectPathTests(unittest.TestCase):
+    def test_scene_project_directory_is_absolute(self):
+        work_dir = Path("work")
+        project_dir = (work_dir / "animation2d").resolve()
+        self.assertTrue(project_dir.is_absolute())
+        self.assertEqual(project_dir, work_dir.resolve() / "animation2d")
+
     def test_node_builder_receives_absolute_project_and_output_paths(self):
         # Production's Python process runs from the repository root, while
         # build.mjs runs with autopilot/engine/animation2d as its cwd.
