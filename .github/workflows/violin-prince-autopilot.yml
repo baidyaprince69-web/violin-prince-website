@@ -52,6 +52,39 @@ jobs:
           PYTHONPATH: autopilot/engine
         run: python -m unittest discover -s autopilot/engine/tests -p "test_hyperframes_pipeline.py" -v
 
+      # Test the exact private-repository operation required for preview transfer
+      # before Qwen3 or the full renderer consumes time.
+      - name: Verify private Voice Vault draft-release write access
+        env:
+          GH_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
+          PRIVATE_REPO: baidyaprince69-web/violin-prince-private-voice
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo "::error::PRIVATE_VOICE_REPO_TOKEN is missing; private preview transfer cannot proceed."
+            exit 1
+          fi
+          release_tag="private-handoff-preflight-$GITHUB_RUN_ID"
+          created=false
+          cleanup() {
+            if [[ "$created" == "true" ]]; then
+              gh release delete "$release_tag" --repo "$PRIVATE_REPO" --yes --cleanup-tag >/dev/null 2>&1 || true
+            fi
+          }
+          trap cleanup EXIT
+          gh release create "$release_tag" \
+            --repo "$PRIVATE_REPO" \
+            --draft \
+            --title "Temporary private handoff permission check $GITHUB_RUN_ID" \
+            --notes "Temporary permission check; automatically deleted immediately." \
+            --target main
+          created=true
+          gh release delete "$release_tag" --repo "$PRIVATE_REPO" --yes --cleanup-tag
+          created=false
+          trap - EXIT
+          echo "Private Voice Vault release-write permission verified; temporary draft release removed."
+
   daily_readiness:
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
