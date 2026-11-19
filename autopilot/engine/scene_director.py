@@ -196,9 +196,9 @@ def direct_scene_composition(
             if is_presenter_scene and "violin-prince" not in actions:
                 actions["violin-prince"] = {
                     "visible": True,
-                    "x": 388,
-                    "y": 170,
-                    "scale": 0.54,
+                    "x": 355,
+                    "y": 155,
+                    "scale": 0.50,
                     "start_offset": 0.18,
                     "duration": max(1.0, scene_duration - 0.18),
                     "gesture": "point_left",
