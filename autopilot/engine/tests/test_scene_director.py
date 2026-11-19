@@ -56,7 +56,7 @@ class SceneDirectorTests(unittest.TestCase):
             "word_cues": [
                 {"text": "Measure", "start": 5.2, "sentence_index": 1},
                 {"text": "room", "start": 5.6, "sentence_index": 1},
-                {"text": "Apply", "start": 7.0, "sentence_index": 2},
+                {"text": "DSP", "start": 7.0, "sentence_index": 2},
                 {"text": "correction", "start": 7.4, "sentence_index": 2},
                 {"text": "monitor", "start": 9.2, "sentence_index": 2},
                 {"text": "output", "start": 9.6, "sentence_index": 2},
