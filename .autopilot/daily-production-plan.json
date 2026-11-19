@@ -1,11 +1,11 @@
 {
-  "production_date": "2026-11-19",
+  "production_date": "2026-11-20",
   "story_type": "music_technology",
   "core_claim": "Audient's third-generation iD interfaces add RoomTune monitor correction and onboard DSP effects.",
   "topic": "How Audient's third-generation iD interfaces measure room acoustics, adjust monitor playback, and run input effects through onboard DSP.",
   "title": "Can Your Room Trick Your Violin Mix?",
   "hook": "Could your room change your violin mix?",
-  "description": "Audient's third-generation iD interfaces add RoomTune monitor correction. The system measures room acoustics and adjusts the signal sent to studio monitors. The onboard DSP also runs EQ, compression and reverb on input signals without latency. This Short illustrates monitor correction and input processing, not a claim that the original violin recording is rewritten.",
+  "description": "Audient's third-generation iD interfaces add RoomTune monitor correction. The system measures the listening environment and creates correction profiles for monitor outputs. The onboard DSP also runs EQ, compression and reverb in hardware without DAW latency. This Short illustrates monitor correction and input processing, not a claim that the original violin recording is rewritten.",
   "hashtags": [
     "#Violin",
     "#MusicProduction",
@@ -25,38 +25,38 @@
   ],
   "narrative_style": "documentary",
   "cover_payoff": "Use an original 2D editorial illustration of a complete violin and bow to demonstrate the monitoring signal path. Show the room-correction signal reaching the studio monitors, not rewriting the original recording. A sampled violin phrase is illustrative accompaniment and must never be presented as Prince's live performance.",
-  "narration_script": "Could your room change your violin mix? Modern audio interfaces feature RoomTune monitor correction. It measures your room's acoustics and adjusts monitor response. Onboard DSP also runs input EQ, compression and reverb with no latency.",
+  "narration_script": "Could your room change your violin mix? Modern audio interfaces feature RoomTune monitor correction. It measures your room's acoustics and adjusts monitor response. Onboard DSP also runs EQ, compression and reverb with no DAW latency.",
   "narration_evidence": [
     {
       "sentence_number": 2,
-      "source_id": "S001",
-      "quote": "analogue mic preamps with onboard DSP, monitor correction and new tone-shaping tools."
+      "source_id": "S002",
+      "quote": "RoomTune is Audient’s new monitor correction system."
     },
     {
       "sentence_number": 3,
       "source_id": "S002",
-      "quote": "It measures your room and adjusts the signal going to your monitors to compensate for its acoustics"
+      "quote": "RoomTune measures your listening environment and creates a correction profile for your monitor outputs"
     },
     {
       "sentence_number": 4,
-      "source_id": "S002",
-      "quote": "The DSP also handles EQ, compression and reverb on the inputs with no latency and no load on your computer."
+      "source_id": "S001",
+      "quote": "EQ, compression and reverb, all computed in hardware and therefore free of DAW latency"
     }
   ],
   "sources": [
     {
       "source_id": "S001",
-      "title": "\"This isn't a spec refresh – it's a completely new technology platform\": Audient launches next generation of iD audio interfaces with onboard DSP and built-in monitor correction",
-      "url": "https://www.musicradar.com/music-tech/this-isnt-a-spec-refresh-its-a-completely-new-technology-platform-audient-launches-next-generation-of-id-audio-interfaces-with-onboard-dsp-and-built-in-monitor-correction",
-      "publisher_domain": "musicradar.com",
-      "date": "2026-11-12"
+      "title": "Audient iD MK3: specs, release date and the RoomTune room correction",
+      "url": "https://digital-mixing.com/en/studio-en/20875-audient-id-mk3-specs-release-date-and-the-roomtune-room-correction-14-11-2026/",
+      "publisher_domain": "digital-mixing.com",
+      "date": "2026-11-14"
     },
     {
       "source_id": "S002",
-      "title": "Room correction comes to every model in Audient’s redesigned iD range",
-      "url": "https://mixdownmag.com.au/news/room-correction-comes-to-every-model-in-audients-redesigned-id-range/",
-      "publisher_domain": "mixdownmag.com.au",
-      "date": "2026-11-13"
+      "title": "iD2 FAQ's",
+      "url": "https://support.audient.com/hc/en-us/articles/55585996384916-iD2-FAQ-s",
+      "publisher_domain": "support.audient.com",
+      "date": "2026-11-16"
     }
   ],
   "timeline": [],
