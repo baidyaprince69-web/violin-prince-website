@@ -1,4 +1,6 @@
 """Regression tests for Motion + HyperFrames project-path resolution."""
+import ast
+import inspect
 import sys
 import unittest
 from pathlib import Path
@@ -11,6 +13,28 @@ import hyperframes_pipeline as pipeline  # noqa: E402
 
 
 class HyperFramesProjectPathTests(unittest.TestCase):
+    def test_production_renderer_assigns_project_dir_before_use(self):
+        source = inspect.getsource(pipeline.render_daily_plan)
+        function = next(
+            node for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef) and node.name == "render_daily_plan"
+        )
+        stores = [
+            node.lineno for node in ast.walk(function)
+            if isinstance(node, ast.Name)
+            and node.id == "project_dir"
+            and isinstance(node.ctx, ast.Store)
+        ]
+        loads = [
+            node.lineno for node in ast.walk(function)
+            if isinstance(node, ast.Name)
+            and node.id == "project_dir"
+            and isinstance(node.ctx, ast.Load)
+        ]
+        self.assertTrue(stores, "render_daily_plan must assign project_dir")
+        self.assertTrue(loads, "render_daily_plan must use project_dir")
+        self.assertLess(min(stores), min(loads))
+
     def test_scene_project_directory_is_absolute(self):
         project_dir = pipeline._absolute_scene_project_directory(Path("work"))
         self.assertTrue(project_dir.is_absolute())
