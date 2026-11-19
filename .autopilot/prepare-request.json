@@ -1,5 +1,5 @@
 {
   "mode": "chatgpt_daily_production",
   "plan_path": ".autopilot/daily-production-plan.json",
-  "reason": "Run one complete private-preview validation after PR #94. The renderer path fixes and fast preflight gate are merged. Verify private Qwen3 narration, scene rendering, final MP4 validation, and private Voice Vault transfer. Keep PUBLISH_ENABLED=false; do not create a public release or schedule a post."
+  "reason": "Run one private-preview retry after updating the Qwen3 Bridge token permissions and merging PR #96. First verify draft-release write access in the private Voice Vault preflight; only proceed to Qwen3 and rendering if that check passes. Verify final MP4 and private handoff. Keep PUBLISH_ENABLED=false; do not create a public release or schedule a post."
 }
