@@ -4072,7 +4072,7 @@ def write_kinetic_ass(cues, output_path, word_cues=None):
         "",
         "[V4+ Styles]",
         "Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding",
-        "Style: VP,DM Sans,40,&H00F8F5EF,&H008BCAEB,&HCC07111F,&H00000000,-1,0,1,2.0,1.3,2,64,64,136,1",
+        "Style: VP,DM Sans,38,&H00F8F5EF,&H008BCAEB,&HCC07111F,&H00000000,-1,0,1,2.2,1.6,2,64,64,112,1",
         "",
         "[Events]",
         "Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text",
