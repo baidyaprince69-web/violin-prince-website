@@ -342,8 +342,44 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
     const titleId = scene.id + "-title";
     const captionId = scene.id + "-caption";
     addSpring(backgroundId, "opacity", 0, 1, sceneStart, 650);
-    addSpring(backgroundId, "transform", 1.045, 1, sceneStart, 800);
-    tracks[tracks.length - 1].values = tracks[tracks.length - 1].values.map(value => "scale(" + value + ")");
+    const visualMode = String(scene.visual_mode || "").toLowerCase();
+    const cameraKeyframes = visualMode === "cover_performance"
+      ? ["scale(1.045) translateX(-10px)", "scale(1.095) translateX(12px)", "scale(1.07) translateX(-3px)"]
+      : visualMode === "waveform"
+        ? ["scale(1.04) translateY(8px)", "scale(1.085) translateY(-9px)", "scale(1.06) translateY(3px)"]
+        : ["scale(1.045) translateX(8px)", "scale(1.10) translateX(-12px)", "scale(1.065) translateX(4px)"];
+    addKeyframes(backgroundId, { transform: cameraKeyframes },
+      sceneStart, sceneDuration, "ease-in-out");
+
+    if (visualMode === "macro_illustration") {
+      const motif = scene.id + "-motif";
+      addKeyframes(motif + "-ring-outer",
+        { transform: ["rotate(0deg) scale(.94)", "rotate(18deg) scale(1.04)", "rotate(0deg) scale(.98)"] },
+        sceneStart + 0.15, sceneDuration, "ease-in-out");
+      addKeyframes(motif + "-ring-inner",
+        { transform: ["rotate(0deg) scale(1)", "rotate(-22deg) scale(1.08)", "rotate(0deg) scale(1.02)"] },
+        sceneStart + 0.15, sceneDuration, "ease-in-out");
+      addKeyframes(motif + "-ring-core",
+        { transform: ["scale(.92)", "scale(1.10)", "scale(.96)"] },
+        sceneStart + 0.25, sceneDuration * 0.9, "ease-in-out");
+      addKeyframes(motif + "-ring-sweep",
+        { strokeDashoffset: [1, 0] },
+        sceneStart + 0.2, sceneDuration * 0.85, "ease-in-out");
+    } else if (visualMode === "cover_performance") {
+      for (let barIndex = 0; barIndex < 18; barIndex += 1) {
+        const peak = 0.48 + 0.46 * Math.abs(Math.sin(barIndex * 0.83));
+        const middle = 0.22 + 0.3 * Math.abs(Math.sin(barIndex * 0.61 + 0.8));
+        addKeyframes(scene.id + "-motif-bar-" + barIndex, {
+          transform: [
+            "scaleY(.18)",
+            "scaleY(" + peak.toFixed(3) + ")",
+            "scaleY(" + middle.toFixed(3) + ")",
+            "scaleY(" + (0.36 + peak * 0.52).toFixed(3) + ")",
+            "scaleY(.2)"
+          ]
+        }, sceneStart + 0.12, sceneDuration * 0.92, "ease-in-out");
+      }
+    }
     addSpring(titleId, "opacity", 0, 1, sceneStart + 0.12, 600);
     addSpring(titleId, "transform", 30, 0, sceneStart + 0.12, 700);
     tracks[tracks.length - 1].values = tracks[tracks.length - 1].values.map(value => "translateY(" + value + "px)");
