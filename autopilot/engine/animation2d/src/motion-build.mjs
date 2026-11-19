@@ -351,6 +351,52 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
     addSpring(captionId, "transform", 20, 0, sceneStart + 0.45, 580);
     tracks[tracks.length - 1].values = tracks[tracks.length - 1].values.map(value => "translateY(" + value + "px)");
 
+    const graphic = scene.graphic_data;
+    if (graphic && typeof graphic === "object") {
+      const graphicPrefix = scene.id + "-graphic";
+      addSpring(graphicPrefix, "opacity", 0, 1, sceneStart + 0.08, 560);
+      addSpring(graphicPrefix, "transform", 20, 0, sceneStart + 0.08, 620);
+      tracks[tracks.length - 1].values = tracks[tracks.length - 1].values.map(
+        value => "translateY(" + value + "px)"
+      );
+      addSpring(graphicPrefix + "-heading", "opacity", 0, 1, sceneStart + 0.18, 480);
+      addSpring(graphicPrefix + "-heading", "transform", 14, 0, sceneStart + 0.18, 500);
+      tracks[tracks.length - 1].values = tracks[tracks.length - 1].values.map(
+        value => "translateY(" + value + "px)"
+      );
+
+      const graphicType = String(graphic.type || "").toLowerCase();
+      const graphicItems = Array.isArray(graphic.items) ? graphic.items : [];
+      if (["process_flow", "signal_path", "comparison", "arch_heights"].includes(graphicType)) {
+        graphicItems.forEach((item, itemIndex) => {
+          const revealAt = sceneStart + Math.max(
+            0.08,
+            Number(item?.reveal_at ?? (0.24 + itemIndex * 0.62)) || 0
+          );
+          const nodeId = graphicPrefix + "-node-" + itemIndex;
+          addSpring(nodeId, "opacity", 0, 1, revealAt, 470);
+          addSpring(nodeId, "transform", 18, 0, revealAt, 540);
+          tracks[tracks.length - 1].values = tracks[tracks.length - 1].values.map(
+            value => "translateY(" + value + "px) scale(.98)"
+          );
+          if (graphicType === "arch_heights") {
+            addKeyframes(graphicPrefix + "-bar-" + itemIndex,
+              { transform: ["scaleY(0)", "scaleY(1)"] },
+              revealAt + 0.08, 0.62, "ease-out");
+          }
+          if (itemIndex < graphicItems.length - 1 && graphicType !== "arch_heights") {
+            addKeyframes(graphicPrefix + "-connector-" + itemIndex,
+              { strokeDashoffset: [1, 0] }, revealAt + 0.16, 0.58, "ease-out");
+          }
+        });
+      } else if (graphicType === "waveform") {
+        addKeyframes(graphicPrefix + "-wave",
+          { strokeDashoffset: [1, 0] }, sceneStart + 0.35, 1.35, "ease-out");
+        addKeyframes(graphicPrefix + "-wave-marker",
+          { cx: [8, 292] }, sceneStart + 0.35, Math.max(0.8, sceneDuration - 0.6), "linear");
+      }
+    }
+
     for (const character of project.characters || []) {
       const action = (character.scene_actions || {})[scene.id] ||
         ((scene.character_actions || {})[character.id] || {});
@@ -359,8 +405,11 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
       const prefix = scene.id + "-" + character.id;
       const actionStart = sceneStart + Math.max(0, Number(action.start_offset) || 0);
       addSpring(prefix, "opacity", 0, 1, actionStart, 650);
+      const presenterScale = Number(action.scale ?? character.scale ?? 1);
       addSpring(prefix, "transform", 28, 0, actionStart, 720);
-      tracks[tracks.length - 1].values = tracks[tracks.length - 1].values.map(value => "translateY(" + value + "px)");
+      tracks[tracks.length - 1].values = tracks[tracks.length - 1].values.map(
+        value => "translateY(" + value + "px) scale(" + presenterScale + ")"
+      );
       const partIdByRole = new Map();
       for (const layer of character.layers || []) {
         const target = prefix + "-part-" + layer.id;
