@@ -4,6 +4,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ENGINE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ENGINE))
@@ -12,9 +13,23 @@ from voiceover import OwnVoiceRequiredError, require_approved_own_voice, synthes
 
 
 class KaraokeCaptionTests(unittest.TestCase):
-    def test_global_production_gate_is_closed_without_approved_own_voice(self):
-        with self.assertRaises(OwnVoiceRequiredError):
-            require_approved_own_voice()
+    def test_global_production_gate_accepts_the_verified_private_qwen3_record(self):
+        require_approved_own_voice()
+
+    def test_approval_gate_fails_closed_for_missing_or_modified_records(self):
+        with tempfile.TemporaryDirectory() as folder:
+            approval = Path(folder) / "voice-approval.json"
+            approval.write_text('{"schema_version": 1, "status": "approved"}', encoding="utf-8")
+            with self.assertRaises(OwnVoiceRequiredError):
+                require_approved_own_voice(approval)
+
+    def test_synthesis_wrapper_delegates_only_to_the_private_qwen3_client(self):
+        output = Path("work/output/narration.wav")
+        expected = (output, {"engine": "Qwen3-TTS", "word_sync_status": "verified_exact_transcript"})
+        with patch("private_voice_client.generate_private_voiceover", return_value=expected) as worker:
+            result = synthesize_voiceover("An exact approved narration.", output)
+        self.assertEqual(result, expected)
+        worker.assert_called_once_with("An exact approved narration.", output)
 
     def test_all_production_entrypoints_gate_before_research_or_work(self):
         cases = [
@@ -62,19 +77,6 @@ class KaraokeCaptionTests(unittest.TestCase):
                     min(matching_lines),
                     f"{filename}.{function_name} must gate before {label}.",
                 )
-
-    def test_production_narration_fails_closed_without_approved_own_voice(self):
-        with tempfile.TemporaryDirectory() as folder:
-            output = Path(folder) / "must-not-be-created.wav"
-            with self.assertRaisesRegex(
-                OwnVoiceRequiredError,
-                "private Qwen3 narration bridge has not passed its complete end-to-end test",
-            ):
-                synthesize_voiceover(
-                    "This narration must never be rendered by a fallback voice.",
-                    output,
-                )
-            self.assertFalse(output.exists())
 
     def sample_cues(self):
         return [
