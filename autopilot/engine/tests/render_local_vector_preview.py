@@ -66,12 +66,12 @@ def render_preview(output_dir: Path) -> dict:
     output_dir.mkdir(parents=True, exist_ok=True)
     records = []
     for index, scene in enumerate(SCENES):
-        target = output_dir / f"{scene['id']}.png"
+        target = output_dir / f"{scene['id']}.jpg"
         illustrator.render_scene(scene, index, {"title": "Violin Prince preview"}, target)
         with Image.open(target) as image:
             image.verify()
         with Image.open(target) as image:
-            if image.size != (1024, 1792) or image.format != "PNG":
+            if image.size != (1024, 1792) or image.format != "JPEG":
                 raise RuntimeError(f"{scene['id']}: unexpected asset properties {image.size} {image.format}")
             records.append({
                 "id": scene["id"],
