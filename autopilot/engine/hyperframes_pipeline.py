@@ -162,7 +162,9 @@ def render_daily_plan(
         encoding="utf-8",
     )
 
-    # Resolve once from the Python runner's repository-root cwd. All scene roots\n    # are then absolute, including HyperFrames' cwd and MP4 --output path.\n    project_dir = _absolute_scene_project_directory(engine.WORK)
+    # Resolve once from the Python runner's repository-root cwd. All scene roots
+    # are then absolute, including HyperFrames' cwd and MP4 --output path.
+    project_dir = _absolute_scene_project_directory(engine.WORK)
     if project_dir.exists():
         shutil.rmtree(project_dir)
     assets_dir = project_dir / "assets"
