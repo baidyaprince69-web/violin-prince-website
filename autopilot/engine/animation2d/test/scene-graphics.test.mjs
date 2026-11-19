@@ -98,6 +98,13 @@ try {
   }
   assert.ok(html.includes("ROOMTUNE SIGNAL PATH"));
   assert.ok(html.includes("graphic-connector"));
+  assert.ok(html.includes("scene-brand__name"), "Every scene should carry the premium editorial brand rail");
+  assert.ok(html.includes("scene-brand__chapter"), "Every scene should display its own chapter label");
+  assert.ok(html.includes("scene-grade"), "Every scene should receive the cinematic grade layer");
+  assert.ok(html.includes("DMSerifDisplay"), "Premium display typography must be bundled into the composition");
+  assert.ok(html.includes("DMSans"), "Premium supporting typography must be bundled into the composition");
+  assert.ok(html.includes("scene-caption--intro"), "The opening hook should use its own caption treatment");
+  assert.ok(html.includes("motion-graphic--with-presenter"), "The explainer should use the editorial split layout");
   assert.ok(html.includes("visual-motif--rings"), "Macro illustration scenes should get the animated motif layer");
   assert.ok(html.includes("explainer-violin-prince"), "The presenter must render in the combined explanatory scene");
   assert.ok(html.includes("motion-graphic--with-presenter"), "The diagram must use the presenter-aware split layout");
