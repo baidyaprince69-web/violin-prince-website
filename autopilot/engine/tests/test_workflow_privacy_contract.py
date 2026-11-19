@@ -30,6 +30,12 @@ class WorkflowPrivacyContractTests(unittest.TestCase):
         self.assertIn("env.PUBLISH_ENABLED == 'true'", self.workflow_text)
         self.assertIn("Only the complete preview-only run is enabled", self.workflow_text)
 
+    def test_private_handoff_waits_for_artifact_and_cleanup_confirmation(self):
+        self.assertIn("private-video-preview-intake.yml/runs?", self.workflow_text)
+        self.assertIn("private_artifact_id", self.workflow_text)
+        self.assertIn("Private intake artifact exists", self.workflow_text)
+        self.assertIn("temporary draft release remains", self.workflow_text)
+
     def test_stage_recovery_inputs_cannot_request_public_intermediate_artifacts(self):
         self.assertNotIn("inputs.source_run_id", self.workflow_text)
         self.assertNotIn("inputs.visual_feedback", self.workflow_text)
