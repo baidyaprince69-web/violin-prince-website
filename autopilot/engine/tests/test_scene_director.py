@@ -74,8 +74,8 @@ class SceneDirectorTests(unittest.TestCase):
 
         action = plan["scenes"][1]["character_actions"]["violin-prince"]
         self.assertEqual(action["gesture"], "point_left")
-        self.assertGreater(action["scale"], 0.4)
-        self.assertGreaterEqual(action["x"], 360)
+        self.assertGreaterEqual(action["scale"], 0.5)
+        self.assertGreaterEqual(action["x"], 350)
         self.assertLess(action["x"] + (720 * action["scale"]), 720)
         self.assertEqual(
             plan["scenes"][1]["visual_composition"]["layout"],
