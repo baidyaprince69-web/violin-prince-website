@@ -19,6 +19,8 @@ WORKFLOW_FILE = "private-qwen3-narration.yml"
 CLEANUP_WORKFLOW_FILE = "private-qwen3-cleanup.yml"
 API_ROOT = "https://api.github.com"
 WORD_RE = re.compile(r"[\w’'-]+", re.UNICODE)
+GENERATION_SEEDS = (42, 43, 44)
+GENERATION_TEMPERATURE = 0.9
 
 
 class PrivateVoiceBridgeError(RuntimeError):
@@ -249,9 +251,20 @@ def validate_private_narration(
     try:
         generation_tokens = int(generation.get("max_new_tokens", 0))
         generation_penalty = float(generation.get("repetition_penalty", 0))
+        generation_temperature = float(generation.get("temperature", 0))
+        generation_seed = int(generation.get("seed", -1))
+        generation_attempt = int(generation.get("attempt", 0))
     except (TypeError, ValueError) as exc:
         raise PrivateVoiceBridgeError("Private narration generation metadata is invalid.") from exc
-    if generation_tokens != 288 or generation_penalty != 1.1:
+    if (
+        generation_tokens != 288
+        or generation_penalty != 1.1
+        or generation.get("do_sample") is not True
+        or generation_temperature != GENERATION_TEMPERATURE
+        or generation_attempt < 1
+        or generation_attempt > len(GENERATION_SEEDS)
+        or generation_seed != GENERATION_SEEDS[generation_attempt - 1]
+    ):
         raise PrivateVoiceBridgeError("Private narration generation safeguards do not match the reviewed configuration.")
 
     audio = metadata.get("audio") or {}

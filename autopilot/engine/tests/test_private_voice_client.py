@@ -65,7 +65,14 @@ def fixture_payload(duration=22.5):
         "schema_version": 1,
         "request_id": "123456789",
         "model": "Qwen/Qwen3-TTS-12Hz-0.6B-Base",
-        "generation": {"max_new_tokens": 288, "repetition_penalty": 1.1},
+        "generation": {
+            "max_new_tokens": 288,
+            "repetition_penalty": 1.1,
+            "do_sample": True,
+            "temperature": 0.9,
+            "seed": 42,
+            "attempt": 1,
+        },
         "script_sha256": hashlib.sha256(script.encode("utf-8")).hexdigest(),
         "audio": {
             "sha256": hashlib.sha256(wav_bytes).hexdigest(),
@@ -175,6 +182,18 @@ class PrivateVoiceValidationTests(unittest.TestCase):
                 SCRIPT, wav_bytes, metadata,
                 expected_hotwords=["different"],
             )
+
+    def test_rejects_unreviewed_or_mismatched_generation_seed(self):
+        for seed, attempt in ((999, 1), (43, 1), (42, 4)):
+            with self.subTest(seed=seed, attempt=attempt):
+                wav_bytes, metadata = fixture_payload()
+                metadata["generation"]["seed"] = seed
+                metadata["generation"]["attempt"] = attempt
+                with self.assertRaisesRegex(PrivateVoiceBridgeError, "generation safeguards"):
+                    validate_private_narration(
+                        SCRIPT, wav_bytes, metadata,
+                        expected_hotwords=[],
+                    )
 
     def test_rejects_unreviewed_qwen_generation_safeguards(self):
         wav_bytes, metadata = fixture_payload()
