@@ -82,6 +82,7 @@ def fixture_payload(duration=22.5):
             "duration_seconds": round(duration, 4),
         },
         "audio_postprocessing": "none",
+        "duration_target_seconds": {"minimum": 20.0, "maximum": 24.0},
         "word_sync_status": "verified_exact_transcript",
         "word_timing_method": "faster-whisper-cross-attention-dtw",
         "aligner": {
@@ -204,12 +205,27 @@ class PrivateVoiceValidationTests(unittest.TestCase):
                 expected_hotwords=[],
             )
 
-    def test_rejects_audio_outside_the_22_to_23_second_target(self):
-        for duration in (21.9, 23.1):
+    def test_accepts_the_full_20_to_24_second_range_including_21_84(self):
+        for duration in (20.0, 21.84, 22.5, 24.0):
             with self.subTest(duration=duration):
                 wav_bytes, metadata = fixture_payload(duration=duration)
-                with self.assertRaisesRegex(PrivateVoiceBridgeError, "22.0 and 23.0 seconds"):
+                info = validate_private_narration(
+                    SCRIPT, wav_bytes, metadata, expected_hotwords=[]
+                )
+                self.assertAlmostEqual(info["duration_seconds"], duration, places=2)
+
+    def test_rejects_audio_outside_the_20_to_24_second_range(self):
+        for duration in (19.9, 24.1):
+            with self.subTest(duration=duration):
+                wav_bytes, metadata = fixture_payload(duration=duration)
+                with self.assertRaisesRegex(PrivateVoiceBridgeError, "20.0 and 24.0 seconds"):
                     validate_private_narration(SCRIPT, wav_bytes, metadata)
+
+    def test_rejects_a_worker_duration_window_that_disagrees_with_the_bridge(self):
+        wav_bytes, metadata = fixture_payload()
+        metadata["duration_target_seconds"] = {"minimum": 22.0, "maximum": 23.0}
+        with self.assertRaisesRegex(PrivateVoiceBridgeError, "windows do not match"):
+            validate_private_narration(SCRIPT, wav_bytes, metadata, expected_hotwords=[])
 
     def test_rejects_a_metadata_script_hash_mismatch(self):
         wav_bytes, metadata = fixture_payload()

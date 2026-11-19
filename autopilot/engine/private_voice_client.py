@@ -21,6 +21,8 @@ API_ROOT = "https://api.github.com"
 WORD_RE = re.compile(r"[\w’'-]+", re.UNICODE)
 GENERATION_SEEDS = (43, 44, 45)
 GENERATION_TEMPERATURE = 0.9
+MIN_NARRATION_AUDIO_SECONDS = 20.0
+MAX_NARRATION_AUDIO_SECONDS = 24.0
 
 
 class PrivateVoiceBridgeError(RuntimeError):
@@ -231,7 +233,7 @@ def validate_private_narration(
     script = _normalise_script(script)
     expected_words = WORD_RE.findall(script)
     if len(expected_words) != 35:
-        raise PrivateVoiceBridgeError("Narration must contain exactly 35 words, calibrated for a natural 22–23-second delivery.")
+        raise PrivateVoiceBridgeError("Narration must contain exactly 35 words, calibrated for a natural 20–24-second delivery.")
     expected_hash = hashlib.sha256(script.encode("utf-8")).hexdigest()
     if metadata.get("schema_version") != 1 or metadata.get("script_sha256") != expected_hash:
         raise PrivateVoiceBridgeError("Private narration metadata does not match the requested script.")
@@ -239,6 +241,14 @@ def validate_private_narration(
         raise PrivateVoiceBridgeError("Private narration did not pass exact transcript verification.")
     if metadata.get("word_timing_method") != "faster-whisper-cross-attention-dtw":
         raise PrivateVoiceBridgeError("Private narration did not use the approved word-timing method.")
+    duration_target = metadata.get("duration_target_seconds")
+    try:
+        target_min = float(duration_target["minimum"])
+        target_max = float(duration_target["maximum"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise PrivateVoiceBridgeError("Private narration duration target metadata is missing or invalid.") from exc
+    if target_min != MIN_NARRATION_AUDIO_SECONDS or target_max != MAX_NARRATION_AUDIO_SECONDS:
+        raise PrivateVoiceBridgeError("Private narration worker and public bridge duration windows do not match.")
     aligner = metadata.get("aligner") or {}
     if aligner.get("transcript_match") != "exact" or aligner.get("model") != "small.en":
         raise PrivateVoiceBridgeError("Private narration transcript verification is incomplete.")
@@ -280,8 +290,8 @@ def validate_private_narration(
     duration = float(info.duration)
     if info.channels != 1 or int(info.samplerate) != int(audio.get("sample_rate") or 0):
         raise PrivateVoiceBridgeError("Private narration WAV channel or sample-rate validation failed.")
-    if not 22.0 <= duration <= 23.0 or abs(duration - float(audio.get("duration_seconds") or 0)) > 0.08:
-        raise PrivateVoiceBridgeError("Private narration must be naturally generated between 22.0 and 23.0 seconds; post-generation speed changes are not accepted.")
+    if not MIN_NARRATION_AUDIO_SECONDS <= duration <= MAX_NARRATION_AUDIO_SECONDS or abs(duration - float(audio.get("duration_seconds") or 0)) > 0.08:
+        raise PrivateVoiceBridgeError("Private narration must be naturally generated between 20.0 and 24.0 seconds; post-generation speed changes are not accepted.")
     if metadata.get("audio_postprocessing") != "none":
         raise PrivateVoiceBridgeError("Private narration must use raw Qwen3 audio without time-stretching.")
 
