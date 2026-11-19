@@ -6,6 +6,7 @@ voice provider is untested or unapproved.
 """
 from __future__ import annotations
 
+import json
 import re
 import textwrap
 from pathlib import Path
@@ -141,21 +142,63 @@ def write_karaoke_ass(
 
 
 class OwnVoiceRequiredError(RuntimeError):
-    """Raised while production narration is locked pending approved own-voice cloning."""
+    """Raised when the reviewed private own-voice approval record is missing or invalid."""
 
 
-def require_approved_own_voice() -> None:
-    """Keep production closed until the private Qwen3 narration bridge passes its end-to-end test.
+APPROVAL_FILE = Path(__file__).with_name("voice-approval.json")
+_REQUIRED_BRIDGE_EVIDENCE = {
+    "public_bridge_run_id": 44514229249,
+    "private_worker_run_id": 44514263171,
+    "private_cleanup_run_id": 44517206357,
+    "bridge_status": "passed",
+    "exact_transcript_status": "verified_exact_transcript",
+    "word_timing_method": "faster-whisper-cross-attention-dtw",
+    "audio_checksum_status": "verified_sha256",
+    "word_count": 35,
+    "duration_min_seconds": 22.0,
+    "duration_max_seconds": 23.0,
+    "temporary_transfer_cleanup": "passed",
+}
 
-    The user has approved the sample, but the complete production narration,
-    transcript verification, word timings, and authenticated handoff must pass
-    before this gate can be opened. No environment flag can bypass this hold.
+
+def require_approved_own_voice(approval_file: str | Path | None = None) -> None:
+    """Allow only the reviewed private Qwen3 voice after the recorded end-to-end test.
+
+    The public approval record contains test evidence only, never a voice sample.
+    The private client separately requires its token and validates every returned
+    transcript, word cue, audio property and SHA-256 checksum. There is no fallback.
     """
-    raise OwnVoiceRequiredError(
-        "Production is locked: the private Qwen3 narration bridge has not passed "
-        "its complete end-to-end test. Research, visuals and rendering are stopped "
-        "until the full narration handoff is verified."
-    )
+    path = Path(approval_file) if approval_file is not None else APPROVAL_FILE
+    try:
+        approval = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise OwnVoiceRequiredError(
+            "Production is locked: the private Qwen3 approval record is missing or invalid."
+        ) from exc
+
+    if not isinstance(approval, dict):
+        raise OwnVoiceRequiredError(
+            "Production is locked: the private Qwen3 approval record must be a JSON object."
+        )
+
+    if (
+        approval.get("schema_version") != 1
+        or approval.get("status") != "approved"
+        or approval.get("provider") != "private_qwen3"
+        or approval.get("voice_identity") != "creator_own_voice_clone"
+        or approval.get("approved_by") != "creator"
+    ):
+        raise OwnVoiceRequiredError(
+            "Production is locked: the approval record does not authorize the private Qwen3 own-voice provider."
+        )
+
+    evidence = approval.get("bridge_test")
+    if not isinstance(evidence, dict) or any(
+        evidence.get(key) != value for key, value in _REQUIRED_BRIDGE_EVIDENCE.items()
+    ):
+        raise OwnVoiceRequiredError(
+            "Production is locked: the recorded private Qwen3 handoff evidence does not match the verified test."
+        )
 
 
 def synthesize_voiceover(text: str, output_path: str | Path) -> tuple[Path, dict]:
