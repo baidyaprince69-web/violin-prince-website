@@ -24,8 +24,8 @@ from private_voice_client import (
 SCRIPT = (
     "Could your room change your violin mix? "
     "Newer audio interfaces now add RoomTune monitor correction. "
-    "It measures your room's acoustics and adjusts monitor playback. "
-    "Onboard DSP runs input EQ, compression and reverb with no latency."
+    "It measures room acoustics and adjusts sound through your studio monitors. "
+    "DSP runs input EQ, compression and reverb without latency."
 )
 
 
@@ -127,9 +127,9 @@ class PrivateVoiceValidationTests(unittest.TestCase):
     def test_rejects_scripts_outside_the_35_word_calibration(self):
         wav_bytes, metadata = fixture_payload()
         with self.assertRaisesRegex(PrivateVoiceBridgeError, "exactly 35 words"):
-            validate_private_narration(SCRIPT.replace("with no latency.", "with latency."), wav_bytes, metadata)
+            validate_private_narration(SCRIPT.replace("without latency.", "without."), wav_bytes, metadata)
         with self.assertRaisesRegex(PrivateVoiceBridgeError, "exactly 35 words"):
-            validate_private_narration(SCRIPT.replace("with no latency.", "with no latency every single session today."), wav_bytes, metadata)
+            validate_private_narration(SCRIPT.replace("without latency.", "without latency every single session today."), wav_bytes, metadata)
 
     def test_rejects_asr_hotword_metadata_that_differs_from_the_request(self):
         wav_bytes, metadata = fixture_payload()
