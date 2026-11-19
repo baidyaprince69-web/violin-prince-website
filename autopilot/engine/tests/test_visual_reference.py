@@ -28,8 +28,8 @@ class VisualReferenceTests(unittest.TestCase):
     def test_missing_reference_keeps_existing_default_path(self):
         self.assertIsNone(normalize_visual_reference(None, self.scenes))
         self.assertEqual(scene_camera_move({}, 0), "locked")
-        self.assertEqual(scene_transition({}, 0), "fade")
-        self.assertAlmostEqual(transition_duration({}), 0.35)
+        self.assertEqual(scene_transition({}, 0), "smoothleft")
+        self.assertAlmostEqual(transition_duration({}), 0.42)
         self.assertEqual(scene_visual_prompt_suffix({}, 0), "")
 
     def test_normalizes_reference_style_and_scene_choreography(self):
