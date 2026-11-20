@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "attempting",
+  "status": "uploaded",
   "source_workflow_run_id": "44785872417",
   "private_release_tag": "private-preview-video-44785872417",
   "expected_sha256": "c4b9b7c7eb659745564266f08a12ddab3555c867089be872370207f77b4ce528",
@@ -13,5 +13,8 @@
     "spliteq2_matches": 0
   },
   "created_at_utc": "2026-11-20T18:53:14Z",
-  "note": "Committed before upload; an uncertain outcome must be reconciled manually before retry."
+  "note": "Committed before upload; an uncertain outcome must be reconciled manually before retry.",
+  "youtube_video_id": "eb3D1Y9sSIM",
+  "youtube_video_url": "https://www.youtube.com/watch?v=eb3D1Y9sSIM",
+  "completed_at_utc": "2026-11-20T18:53:17Z"
 }

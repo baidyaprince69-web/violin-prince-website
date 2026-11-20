@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "status": "uploaded",
+  "provider": "youtube_data_api",
+  "source_workflow_run_id": "44785872417",
+  "voice_workflow_run_id": "44786137826",
+  "youtube_video_id": "eb3D1Y9sSIM",
+  "youtube_video_url": "https://www.youtube.com/watch?v=eb3D1Y9sSIM",
+  "youtube_channel_id": "UCGCfZij4Fn3Ga2j2HiCT45w",
+  "title": "SplitEQ 2: Shape a Violin's Attack and Tone Separately",
+  "privacy_status": "public",
+  "sha256": "c4b9b7c7eb659745564266f08a12ddab3555c867089be872370207f77b4ce528",
+  "size_bytes": 6218466,
+  "duplicate_check": {
+    "channel_id": "UCGCfZij4Fn3Ga2j2HiCT45w",
+    "uploads_checked_pages": 4,
+    "spliteq2_matches": 0
+  },
+  "production_audit": {
+    "source_run_id": "44785872417",
+    "source_run_date": "2026-11-20",
+    "source_job_id": 136460580971,
+    "voice_run_id": "44786137826",
+    "voice_job_id": 136461394424,
+    "sha256": "c4b9b7c7eb659745564266f08a12ddab3555c867089be872370207f77b4ce528",
+    "size_bytes": 6218466,
+    "media_verification": {
+      "status": "passed",
+      "duration_seconds": 24.0,
+      "width": 720,
+      "height": 1280,
+      "fps": 25.0,
+      "video_codec": "h264",
+      "audio_sample_rate": 48000,
+      "file_size_bytes": 6218466,
+      "audio": {
+        "status": "passed",
+        "sample_rate": 22050,
+        "channels": 2,
+        "duration_seconds": 22.976,
+        "sample_peak": 0.768817,
+        "estimated_true_peak_4x": 0.768817,
+        "rms": 0.112899,
+        "rms_dbfs": -18.95,
+        "clipping_ratio": 0.0,
+        "errors": [],
+        "warnings": []
+      },
+      "black_interval_count": 0,
+      "freeze_interval_count": 0,
+      "errors": [],
+      "warnings": []
+    },
+    "publisher_preflight": {
+      "status": "ready",
+      "blockers": [],
+      "warnings": [],
+      "required_action": "Metadata and production checks passed; proceed through the configured publisher."
+    }
+  },
+  "uploaded_at_utc": "2026-11-20T18:53:17Z"
+}
