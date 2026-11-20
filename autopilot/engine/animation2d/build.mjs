@@ -153,24 +153,56 @@ function renderMotionGraphic(scene) {
     ? item : (item?.label || item?.display || item?.title || "");
   const items = Array.isArray(data.items) ? data.items : [];
 
-  if (["process_flow", "signal_path", "comparison"].includes(type)) {
+  if (type === "comparison") {
+    if (items.length !== 2) {
+      throw new Error("Motion graphic " + scene.id + " requires exactly two comparison items.");
+    }
+    const cards = items.map((item, index) => {
+      const label = escapeHtml(itemLabel(item));
+      const cardDetail = escapeHtml(typeof item === "object" ? item.detail || "" : "");
+      const accent = index === 0 ? "#65c9e8" : "#f29a68";
+      const marker = index === 0 ? "A" : "B";
+      return '<div class="graphic-comparison-card" id="' + prefix + '-node-' + index +
+        '" data-comparison-index="' + index + '" style="--comparison-accent:' + accent + '">' +
+        '<span class="graphic-comparison-marker">' + marker + '</span>' +
+        '<strong class="graphic-comparison-title">' + label + '</strong>' +
+        (cardDetail ? '<span class="graphic-comparison-detail">' + cardDetail + '</span>' : '') +
+        '</div>';
+    });
+    return '<div class="clip ' + panelClass + ' graphic-comparison-panel" id="' + prefix +
+      '" data-start="' + start + '" data-duration="' + duration +
+      '" data-track-index="30">' +
+      '<p class="graphic-eyebrow">THE PAYOFF</p>' +
+      '<h3 class="graphic-heading" id="' + prefix + '-heading">' + heading + '</h3>' +
+      (detail ? '<p class="graphic-detail">' + detail + '</p>' : '') +
+      '<div class="graphic-comparison-grid">' + cards[0] +
+      '<span class="graphic-comparison-arrow" aria-hidden="true">→</span>' +
+      cards[1] + '</div></div>';
+  }
+
+  if (["process_flow", "signal_path"].includes(type)) {
     if (items.length < 2 || items.length > 4) {
       throw new Error("Motion graphic " + scene.id + " requires two to four process items.");
     }
     const rowGap = 88;
-    const firstY = 34;
+    const rowTop = 10;
+    const flowHeight = rowTop + (items.length - 1) * rowGap + 54;
+    const connectorColors = ["#65c9e8", "#9bd47d", "#f1b96e"];
     const connectorPaths = items.slice(0, -1).map((_item, index) => {
-      const from = firstY + index * rowGap + 23;
-      const to = firstY + (index + 1) * rowGap - 23;
+      const from = rowTop + index * rowGap + 49;
+      const to = rowTop + (index + 1) * rowGap + 5;
+      const color = connectorColors[index % connectorColors.length];
       return '<path class="graphic-connector" id="' + prefix + '-connector-' + index +
-        '" pathLength="1" d="M 27 ' + from + ' L 27 ' + to + '"></path>';
+        '" pathLength="1" style="stroke:' + color +
+        '" d="M 22 ' + from + ' L 22 ' + to +
+        ' M 17 ' + (to - 6) + ' L 22 ' + to + ' L 27 ' + (to - 6) + '"></path>';
     }).join("");
     const rows = items.map((item, index) => {
-      const top = 10 + index * rowGap;
+      const top = rowTop + index * rowGap;
       const label = escapeHtml(itemLabel(item));
       const number = String(index + 1).padStart(2, "0");
       return '<div class="graphic-step" id="' + prefix + '-node-' + index +
-        '" style="top:' + top + 'px">' +
+        '" data-step-index="' + (index + 1) + '" style="top:' + top + 'px">' +
         '<span class="graphic-node-index">' + number + '</span>' +
         '<span class="graphic-step-label">' + label + '</span></div>';
     }).join("");
@@ -180,8 +212,8 @@ function renderMotionGraphic(scene) {
       '<p class="graphic-eyebrow">VISUAL EXPLANATION</p>' +
       '<h3 class="graphic-heading" id="' + prefix + '-heading">' + heading + '</h3>' +
       (detail ? '<p class="graphic-detail">' + detail + '</p>' : '') +
-      '<div class="graphic-flow">' +
-      '<svg class="graphic-flow-lines" viewBox="0 0 300 ' + (firstY + (items.length - 1) * rowGap + 30) +
+      '<div class="graphic-flow" style="height:' + flowHeight + 'px">' +
+      '<svg class="graphic-flow-lines" viewBox="0 0 44 ' + flowHeight +
       '" preserveAspectRatio="none" aria-hidden="true">' + connectorPaths + '</svg>' +
       rows + '</div></div>';
   }
@@ -382,7 +414,8 @@ const markup = project.scenes.map((scene, index) => {
       '-background" data-start="' + start + '" data-duration="' + sceneDuration +
       '" data-track-index="' + index + '" style="background:' +
       escapeHtml(scene.background_color || "#101b2b") + '"></div>';
-  const titleClass = presenterLayout ? "clip scene-title scene-title--with-presenter" : "clip scene-title";
+  const titleClass = presenterLayout ? "clip scene-title scene-title--with-presenter" :
+    (index === 0 ? "clip scene-title scene-title--intro" : "clip scene-title");
   const captionClass = presenterLayout
     ? "clip scene-caption scene-caption--with-presenter"
     : (index === 0 ? "clip scene-caption scene-caption--intro" : "clip scene-caption");
@@ -430,8 +463,8 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   'html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050b13}' +
   '#root{position:relative;width:' + width + 'px;height:' + height + 'px;overflow:hidden;background:#050b13;color:#f4ead9}' +
   '.scene-background{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.06);will-change:transform,opacity}' +
-  '.scene-background--presenter-layout{filter:brightness(.42) saturate(.90) blur(1.5px)}' +
-  '.scene-grade{position:absolute;inset:0;z-index:5;pointer-events:none;background:radial-gradient(ellipse at 52% 42%,rgba(0,0,0,0) 36%,rgba(2,7,13,.34) 100%),linear-gradient(180deg,rgba(3,8,15,.44) 0%,rgba(3,8,15,.06) 26%,rgba(3,8,15,0) 62%,rgba(3,8,15,.34) 100%)}' +
+  '.scene-background--presenter-layout{filter:brightness(.72) saturate(1.16) contrast(1.04) blur(.4px)}' +
+  '.scene-grade{position:absolute;inset:0;z-index:5;pointer-events:none;background:radial-gradient(ellipse at 52% 42%,rgba(0,0,0,0) 42%,rgba(2,7,13,.16) 100%),linear-gradient(180deg,rgba(3,8,15,.20) 0%,rgba(3,8,15,.025) 27%,rgba(3,8,15,0) 64%,rgba(3,8,15,.18) 100%)}' +
   '.scene-brand{position:absolute;left:0;right:0;top:0;height:174px;z-index:18;display:flex;align-items:flex-start;gap:12px;padding:34px 7% 0;box-sizing:border-box;background:linear-gradient(180deg,rgba(4,10,18,.96) 0%,rgba(4,10,18,.86) 52%,rgba(4,10,18,0) 100%);color:#e7d4ad;font:700 12px/1 DMSans,Arial,sans-serif;letter-spacing:.19em;text-transform:uppercase;opacity:0}' +
   '.scene-brand__name{color:#f6ead6}' +
   '.scene-brand__separator{width:1px;height:13px;background:rgba(190,151,91,.7);margin-top:-1px}' +
@@ -440,23 +473,34 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.scene-title,.scene-caption{position:absolute;left:7%;right:7%;opacity:0;text-shadow:0 6px 28px rgba(0,0,0,.72);z-index:22}' +
   '.scene-title{top:18%;max-width:86%;color:#fbf0df;font:400 50px/.99 DMSerifDisplay,Georgia,serif;letter-spacing:-.025em}' +
   '.scene-caption{top:18.5%;color:#e8c98d;font:700 15px/1.25 DMSans,Arial,sans-serif;letter-spacing:.17em;text-transform:uppercase;max-width:82%}' +
-  '.scene-caption--intro{top:31%;max-width:86%;font-size:14px;letter-spacing:.19em}' +
+  '.scene-title--intro{top:22%;max-width:92%;font-size:64px;line-height:.94;letter-spacing:-.035em;color:#fffdf6;text-shadow:0 8px 34px rgba(0,0,0,.78)}' +
+  '.scene-caption--intro{top:43%;max-width:86%;font-size:18px;letter-spacing:.10em;color:#ffd5a5}' +
   '.scene-title--with-presenter{left:5%;right:auto;width:43%;font-size:35px}' +
   '.scene-caption--with-presenter{left:5%;right:auto;top:18.5%;width:41%;max-width:41%;font-size:13px;letter-spacing:.12em}' +
   '.character-rig{position:absolute;width:100%;height:100%;opacity:0;transform-origin:top left;z-index:38}' +
   '.rig-part,.rig-expression,.rig-pose{position:absolute;object-fit:contain;max-width:none;pointer-events:none}' +
-  '.motion-graphic{position:absolute;left:auto;top:auto;right:auto;bottom:auto;width:86%;height:auto;z-index:34;overflow:visible;color:#f4ead9;opacity:0;padding:24px 20px;border:1px solid rgba(190,151,91,.48);border-left:3px solid #bf985e;background:linear-gradient(145deg,rgba(5,13,22,.97),rgba(9,27,35,.95));box-shadow:0 22px 64px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,244,220,.07);border-radius:9px}' +
+  '.motion-graphic{position:absolute;left:auto;top:auto;right:auto;bottom:auto;width:86%;height:auto;z-index:34;overflow:visible;color:#f4ead9;opacity:0;padding:24px 20px;border:1px solid rgba(229,184,131,.68);border-left:4px solid #f09a6d;background:linear-gradient(145deg,rgba(12,28,42,.95),rgba(23,49,57,.93));box-shadow:0 22px 64px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,244,220,.10);border-radius:10px}' +
   '.motion-graphic--full{left:7%;top:23%;width:86%;min-height:380px}' +
   '.motion-graphic--with-presenter{left:5%;top:22.5%;width:41%;min-height:400px;padding:22px 18px}' +
-  '.graphic-eyebrow{margin:0 0 11px;color:#70b9b2;font:700 11px/1.2 DMSans,Arial,sans-serif;letter-spacing:.21em;text-transform:uppercase}' +
+  '.graphic-eyebrow{margin:0 0 11px;color:#8fe0d7;font:700 11px/1.2 DMSans,Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase}' +
   '.graphic-heading{margin:0;color:#fbf0df;font:400 25px/1.08 DMSerifDisplay,Georgia,serif;letter-spacing:-.01em}' +
-  '.graphic-detail{margin:12px 0 0;color:#b9c7c9;font:400 14px/1.38 DMSans,Arial,sans-serif;letter-spacing:.01em}' +
-  '.graphic-flow{position:relative;height:330px;margin-top:16px}' +
-  '.graphic-flow-lines{position:absolute;inset:0;width:100%;height:100%;overflow:visible}' +
-  '.graphic-connector{fill:none;stroke:#6ab7b0;stroke-width:2;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;filter:drop-shadow(0 0 5px rgba(106,183,176,.28))}' +
+  '.graphic-detail{margin:12px 0 0;color:#e1e9e5;font:500 14px/1.42 DMSans,Arial,sans-serif;letter-spacing:.005em}' +
+  '.graphic-flow{position:relative;height:auto;margin-top:16px}' +
+  '.graphic-flow-lines{position:absolute;left:0;top:0;width:44px;height:100%;overflow:visible}' +
+  '.graphic-connector{fill:none;stroke:#65c9e8;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1;filter:drop-shadow(0 0 4px rgba(101,201,232,.42))}' +
   '.graphic-step{position:absolute;left:0;right:0;display:flex;align-items:center;gap:13px;min-height:54px;opacity:0;transform:translateY(18px) scale(.96)}' +
+  '.graphic-step[data-step-index="1"] .graphic-node-index{color:#fff4e9;border-color:#f29a68;background:rgba(242,154,104,.18);box-shadow:0 0 18px rgba(242,154,104,.16)}' +
+  '.graphic-step[data-step-index="2"] .graphic-node-index{color:#effaff;border-color:#65c9e8;background:rgba(101,201,232,.16);box-shadow:0 0 18px rgba(101,201,232,.14)}' +
+  '.graphic-step[data-step-index="3"] .graphic-node-index{color:#f4ffed;border-color:#9bd47d;background:rgba(155,212,125,.16);box-shadow:0 0 18px rgba(155,212,125,.14)}' +
+  '.graphic-step[data-step-index="4"] .graphic-node-index{color:#fff8e9;border-color:#f1b96e;background:rgba(241,185,110,.16)}' +
   '.graphic-node-index{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;border:1px solid rgba(194,155,93,.85);border-radius:7px;background:rgba(194,155,93,.08);color:#d6b47c;font:700 13px/1 DMSans,Arial,sans-serif;letter-spacing:.04em;box-shadow:inset 0 0 18px rgba(194,155,93,.06)}' +
-  '.graphic-step-label{color:#f5ecde;font:500 17px/1.2 DMSans,Arial,sans-serif;letter-spacing:.025em;overflow-wrap:anywhere}' +
+  '.graphic-step-label{color:#fff9ef;font:700 16px/1.22 DMSans,Arial,sans-serif;letter-spacing:.01em;overflow-wrap:anywhere;text-shadow:0 1px 9px rgba(0,0,0,.28)}' +
+  '.graphic-comparison-grid{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 30px minmax(0,1fr);align-items:stretch;gap:8px;margin-top:26px}' +
+  '.graphic-comparison-card{min-width:0;min-height:176px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:12px;padding:18px 14px;border:1px solid color-mix(in srgb,var(--comparison-accent) 78%,transparent);border-radius:12px;background:linear-gradient(145deg,color-mix(in srgb,var(--comparison-accent) 17%,#122333),rgba(8,18,28,.72));box-shadow:inset 0 1px 0 rgba(255,255,255,.08);opacity:0;transform:translateY(18px) scale(.96)}' +
+  '.graphic-comparison-marker{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--comparison-accent);color:#10202b;font:700 15px/1 DMSans,Arial,sans-serif}' +
+  '.graphic-comparison-title{color:#fff8ee;font:700 15px/1.18 DMSans,Arial,sans-serif;letter-spacing:.025em;overflow-wrap:anywhere}' +
+  '.graphic-comparison-detail{color:#dce8e5;font:500 12px/1.35 DMSans,Arial,sans-serif;overflow-wrap:anywhere}' +
+  '.graphic-comparison-arrow{align-self:center;color:#f6c78d;font:700 25px/1 DMSans,Arial,sans-serif;text-align:center;text-shadow:0 0 14px rgba(246,199,141,.42)}' +
   '.graphic-bars{display:flex;align-items:flex-end;justify-content:space-around;gap:12px;height:280px;margin-top:24px;padding:12px 4px 0;border-bottom:1px solid rgba(183,199,214,.35)}' +
   '.graphic-bar-column{display:flex;flex:1;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:9px;opacity:0}' +
   '.graphic-bar-value,.graphic-bar-label{font:600 12px/1.15 system-ui,sans-serif;color:#dce6ed;text-align:center}' +
@@ -466,7 +510,7 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.graphic-wave-path{fill:none;stroke:#ebca8b;stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1;filter:drop-shadow(0 0 8px rgba(74,190,185,.42))}' +
   '.graphic-wave-marker{fill:#f7f1e6;stroke:#4abeb9;stroke-width:3}' +
   '.visual-motif{position:absolute;z-index:25;pointer-events:none;mix-blend-mode:screen}' +
-  '.visual-motif--rings{right:-7%;top:24%;width:66%;height:50%;opacity:.48;overflow:visible}' +
+  '.visual-motif--rings{right:-7%;top:24%;width:66%;height:50%;opacity:.58;overflow:visible}' +
   '.visual-motif--rings circle{fill:none;stroke:#4abeb9;stroke-width:1.4;stroke-opacity:.6;transform-box:fill-box;transform-origin:center}' +
   '.visual-motif--rings circle:nth-child(2){stroke:#ebca8b;stroke-opacity:.48;stroke-dasharray:5 12}' +
   '.visual-motif--rings circle:nth-child(3){stroke:#f7f1e6;stroke-opacity:.35;stroke-dasharray:2 9}' +

@@ -43,11 +43,11 @@ STUDIO_PLAN = {
 }
 STUDIO_SCENES = [
     {"id": "studio-room", "visual_mode": "macro_illustration",
-     "caption": "YOUR ROOM. YOUR SOUND.", "image_prompt": "Studio monitors and room acoustics"},
+     "caption": "IS YOUR ROOM LYING TO YOUR EARS?", "image_prompt": "Colour-rich studio overview with a full-size, anatomically correct four-string violin in the foreground"},
     {"id": "studio-measurement", "visual_mode": "waveform",
-     "caption": "MEASURE. CORRECT. LISTEN.", "image_prompt": "Measurement microphone and monitor correction"},
+     "caption": "MEASURE. CORRECT. LISTEN.", "image_prompt": "Clear measurement microphone and monitor correction signal path"},
     {"id": "studio-violin-payoff", "visual_mode": "cover_performance",
-     "caption": "HEAR THE VIOLIN. TRUST THE MIX.", "image_prompt": "Violin performance in a treated studio"},
+     "caption": "YOUR TAKE STAYS. YOUR MONITORS CHANGE.", "image_prompt": "Natural amber violin performance in a rich, clearly graded studio"},
 ]
 
 

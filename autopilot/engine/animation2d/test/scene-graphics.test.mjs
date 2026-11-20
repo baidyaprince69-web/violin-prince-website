@@ -112,8 +112,42 @@ try {
   assert.ok(html.includes("motion-graphic--with-presenter"), "The diagram must use the presenter-aware split layout");
   assert.equal(report.animated_presenter_count, 1, "The presenter must have articulated motion tracks");
   assert.ok(report.total_motion_tracks >= 20, "The scene should include infographic, ambient and presenter motion");
+  assert.ok(html.includes('viewBox="0 0 44 240"'),
+    "The connector SVG must use the real 44px node lane and matching three-row height");
+  assert.ok(html.includes('style="height:240px"'),
+    "The connector layer must not be stretched beyond the three rows");
+  assert.ok(html.includes('d="M 22 59 L 22 103 M 17 97 L 22 103 L 27 97"'),
+    "The first signal connector must start and end at the actual node centres");
+  assert.ok(html.includes('width:44px;height:100%'),
+    "The connector SVG must stay inside the node-index column");
 } finally {
   rmSync(successful.temporary, { recursive: true, force: true });
+}
+
+const comparison = buildFixture({
+  type: "comparison",
+  title: "WHAT CHANGES?",
+  detail: "Monitor playback is corrected; the original take stays untouched.",
+  items: [
+    { label: "ORIGINAL TAKE", detail: "The recorded audio stays as it is." },
+    { label: "MONITOR FEED", detail: "Room correction shapes what you hear." }
+  ]
+});
+try {
+  assert.equal(comparison.result.status, 0, comparison.result.stderr || comparison.result.stdout);
+  const report = JSON.parse(readFileSync(resolve(comparison.outputDirectory, "motion-report.json"), "utf8"));
+  const html = readFileSync(resolve(comparison.outputDirectory, "index.html"), "utf8");
+  assert.equal(report.status, "passed");
+  assert.equal(report.animated_graphic_item_count, 2);
+  assert.ok(html.includes("graphic-comparison-grid"));
+  assert.ok(html.includes("graphic-comparison-card"));
+  assert.ok(html.includes("ORIGINAL TAKE"));
+  assert.ok(html.includes("MONITOR FEED"));
+  assert.ok(html.includes("graphic-comparison-arrow"));
+  assert.ok(html.includes("explainer-graphic-node-0"));
+  assert.ok(html.includes("explainer-graphic-node-1"));
+} finally {
+  rmSync(comparison.temporary, { recursive: true, force: true });
 }
 
 const rejected = buildFixture({
