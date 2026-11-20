@@ -24,11 +24,11 @@ jobs:
       contents: write
       actions: read
     env:
-      GITHUB_TOKEN: \${{ github.token }}
-      PRIVATE_VOICE_REPO_TOKEN: \${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
-      YOUTUBE_CLIENT_ID: \${{ secrets.YOUTUBE_CLIENT_ID }}
-      YOUTUBE_CLIENT_SECRET: \${{ secrets.YOUTUBE_CLIENT_SECRET }}
-      YOUTUBE_REFRESH_TOKEN: \${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+      GITHUB_TOKEN: ${{ github.token }}
+      PRIVATE_VOICE_REPO_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
+      YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+      YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+      YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
       EXPECTED_YOUTUBE_CHANNEL_ID: "UCGCfZij4Fn3Ga2j2HiCT45w"
       YOUTUBE_PRIVACY_STATUS: "public"
     steps:
