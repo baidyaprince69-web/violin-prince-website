@@ -192,7 +192,7 @@ def prepare_attempt(
 ) -> dict[str, Any]:
     """Create the durable one-attempt guard before any external upload request."""
     request = _read_json(request_path, "publisher fallback request")
-    manifest, _plan, _video = validate_release_bundle(request, release_dir, repository)
+    manifest, plan, _video = validate_release_bundle(request, release_dir, repository)
     _run_id, release_tag, request_id = _validate_request(request)
 
     receipt_path = release_dir / "publisher-receipt.json"
