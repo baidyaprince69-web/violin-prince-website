@@ -62,15 +62,16 @@
   "timeline": [],
   "scenes": [
     {
-      "caption": "YOUR ROOM. YOUR SOUND.",
-      "image_prompt": "Original high-detail 2D editorial illustration, vertical 9:16: a complete solid amber-brown violin with carefully painted maple grain, bridge, strings and a detailed bow in a midnight mixing room. Two studio monitors stand at either side; elegant antique-gold sound waves reflect from the room surfaces. Precise contour linework, layered hand-painted shading, subtle paper texture, strong foreground/midground/background separation, muted teal shadows and antique-gold accents. No readable text, logos or watermark. No CGI, 3D rendering, photorealistic photography or wireframes.",
+      "caption": "YOUR ROOM CAN FOOL YOUR MIX.",
+      "image_prompt": "A vivid, highly readable 2D editorial studio illustration in vertical 9:16. Put a full-size, unmistakably accurate amber-varnished violin in the foreground, with its classic upper and lower bouts, pinched C-bouts, two f-holes, ebony fingerboard, carved scroll, exactly four tuning pegs, exactly four strings, maple bridge and tailpiece. Place two clear studio monitors and a calibration microphone in the background. Use natural maple amber, warm walnut, ivory, graphite, teal and a restrained coral accent; preserve bright natural wood colour and clear subject separation. Strong first-frame silhouette, confident light direction, no text, no logos, no watermark, no generic lute silhouette, no extra tuning pegs, no CGI or 3D rendering.",
       "graphic_label": "THE HOOK",
       "graphic_detail": "Room acoustics can shape monitor playback",
-      "visual_mode": "macro_illustration"
+      "visual_mode": "macro_illustration",
+      "title": "IS YOUR ROOM LYING TO YOUR EARS?"
     },
     {
       "caption": "MEASURE. CORRECT. LISTEN.",
-      "image_prompt": "Original high-detail 2D technical editorial illustration, vertical 9:16, in the same midnight studio. A calibrated reference microphone stands between two studio monitors; an antique-gold test signal travels through the room into a compact illustrated DSP signal path and returns to the speakers. Show a smooth conceptual room-response curve before and after correction without numbers; make clear that the curve is illustrative, not a measurement from a real room. Clean cutaway drawing, careful linework, painted metal and glass textures, muted teal shadows and antique-gold highlights. No text, brand marks or watermark. No CGI, 3D rendering or photorealistic photography.",
+      "image_prompt": "A vivid, technically clear 2D editorial diagram scene in vertical 9:16. Show a calibration microphone centred between two recognisable studio monitors, with a single clear signal route and an illustrative response curve. Use distinct high-contrast colours for measurement, DSP correction and corrected monitor playback: cyan, coral and fresh green, with natural warm metal and wood details. Keep every connector straight, aligned and attached to its intended node. No numerical measurement claims, no text, logos or watermark, no CGI or 3D rendering.",
       "graphic_label": "THE KEY DETAIL",
       "graphic_detail": "RoomTune measures the room and adjusts monitor output",
       "visual_mode": "waveform",
@@ -85,11 +86,27 @@
       }
     },
     {
-      "caption": "HEAR THE VIOLIN. TRUST THE MIX.",
-      "image_prompt": "Original high-detail 2D performance illustration, vertical 9:16, centred on a complete amber-brown violin with painted maple grain, natural varnish, ebony fingerboard, bridge, tailpiece, fine strings and a detailed bow with visible bow hair contacting the strings. Show expressive illustrated playing hands only, without an identifiable face or creator likeness. A restrained golden waveform travels toward studio monitors, with a calm balanced listening-space glow. Premium hand-painted editorial style, precise linework, layered shading, paper texture, midnight-navy background, muted-teal accents and antique-gold highlights. No readable text, logos or watermark. No CGI, 3D rendering, photorealistic photography or wireframes.",
+      "caption": "Room correction changes monitor playback—not the recording.",
+      "image_prompt": "A vivid premium 2D editorial violin performance scene in vertical 9:16. Feature a clearly recognisable, anatomically accurate four-string violin in natural amber maple varnish, with the correct upper and lower bouts, narrow C-bouts, two f-holes, ebony fingerboard, carved scroll, exactly four tuning pegs, bridge, tailpiece and bow hair contacting the strings. Studio monitors remain clearly visible behind it. Use warm wood, natural ivory, rich teal, muted coral and clean neutral highlights; do not bury the instrument in a dark blue-black grade. No readable text, logos, watermark, generic lute or guitar silhouette, no extra tuning pegs, no CGI or 3D rendering.",
       "graphic_label": "THE PAYOFF",
-      "graphic_detail": "Correction shapes monitor playback, not the original take",
-      "visual_mode": "cover_performance"
+      "graphic_detail": "RoomTune changes what reaches your monitors, not the source recording.",
+      "visual_mode": "cover_performance",
+      "title": "THE TAKE STAYS. THE MONITORS CHANGE.",
+      "graphic_data": {
+        "type": "comparison",
+        "title": "WHAT ACTUALLY CHANGES?",
+        "detail": "The recording stays as it is. RoomTune corrects monitor playback.",
+        "items": [
+          {
+            "label": "ORIGINAL TAKE",
+            "detail": "Your recorded violin audio stays unchanged."
+          },
+          {
+            "label": "MONITOR FEED",
+            "detail": "RoomTune adjusts what you hear in the room."
+          }
+        ]
+      }
     }
   ],
   "performance_feedback": {
