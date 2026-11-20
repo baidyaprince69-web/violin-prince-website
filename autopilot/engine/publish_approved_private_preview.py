@@ -6,6 +6,7 @@ from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 from zoneinfo import ZoneInfo
+import av
 import requests
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -130,17 +131,19 @@ def download_asset(request: dict, token: str, audit: dict, workdir: Path) -> Pat
 
 def validate_media(path: Path):
     try:
-        raw = subprocess.check_output(["ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", str(path)], text=True, stderr=subprocess.STDOUT)
-        info = json.loads(raw)
-    except (subprocess.CalledProcessError, json.JSONDecodeError) as exc:
-        raise PublishBlocked("ffprobe could not inspect the private MP4.") from exc
-    streams = info.get("streams") or []
-    video = next((s for s in streams if s.get("codec_type") == "video"), None)
-    audio = next((s for s in streams if s.get("codec_type") == "audio"), None)
-    duration = float((info.get("format") or {}).get("duration") or 0)
-    if not video or not audio or video.get("codec_name") != "h264" or int(video.get("width") or 0) != 720 or int(video.get("height") or 0) != 1280 or not 20 <= duration <= 25:
+        with av.open(str(path)) as container:
+            video = next((stream for stream in container.streams if stream.type == "video"), None)
+            audio = next((stream for stream in container.streams if stream.type == "audio"), None)
+            duration = float(container.duration or 0) / float(av.time_base)
+            video_codec = video.codec_context.name if video else None
+            video_width = int(video.width or 0) if video else 0
+            video_height = int(video.height or 0) if video else 0
+            audio_sample_rate = int(audio.codec_context.sample_rate or 0) if audio else 0
+    except Exception as exc:
+        raise PublishBlocked("PyAV could not independently inspect the private MP4.") from exc
+    if not video or not audio or video_codec != "h264" or video_width != 720 or video_height != 1280 or not 20 <= duration <= 25:
         raise PublishBlocked("Independent MP4 inspection failed the 20–25 second vertical Shorts contract.")
-    if int(audio.get("sample_rate") or 0) != 48000:
+    if audio_sample_rate != 48000:
         raise PublishBlocked("Independent MP4 inspection found an unexpected audio sample rate.")
 
 def validate_plan(plan: dict, request: dict) -> dict:
