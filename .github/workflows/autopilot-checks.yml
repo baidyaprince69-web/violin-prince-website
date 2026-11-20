@@ -12,6 +12,7 @@ on:
       - ".github/workflows/qwen3-voice-preflight.yml"
       - ".github/workflows/violin-prince-autopilot.yml"
       - ".github/workflows/publisher-fallback.yml"
+      - ".github/workflows/youtube-connection-check.yml"
       - ".github/workflows/autopilot-checks.yml"
   pull_request:
     paths:
@@ -21,6 +22,7 @@ on:
       - ".github/workflows/qwen3-voice-preflight.yml"
       - ".github/workflows/violin-prince-autopilot.yml"
       - ".github/workflows/publisher-fallback.yml"
+      - ".github/workflows/youtube-connection-check.yml"
       - ".github/workflows/autopilot-checks.yml"
 
 permissions:
@@ -99,6 +101,7 @@ jobs:
               ".github/workflows/autopilot-checks.yml",
               ".github/workflows/violin-prince-autopilot.yml",
               ".github/workflows/publisher-fallback.yml",
+              ".github/workflows/youtube-connection-check.yml",
               ".github/workflows/private-qwen3-bridge-test.yml",
               ".github/voice-tests/private-runner/private-voice-test.workflow.yml",
               ".github/workflows/youtube-seo-learning.yml",
