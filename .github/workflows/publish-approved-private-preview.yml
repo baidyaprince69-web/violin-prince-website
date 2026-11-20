@@ -12,7 +12,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: violin-prince-approved-preview-publication
+  group: violin-prince-approved-preview-publication-v2
   cancel-in-progress: false
 
 jobs:
@@ -43,10 +43,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install media inspection tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+      - name: Verify the preinstalled media inspection tool
+        run: ffprobe -version
 
       - name: Install the existing publisher dependency
         run: python -m pip install --disable-pip-version-check "requests>=2.32,<3"
