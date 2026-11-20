@@ -121,8 +121,6 @@ jobs:
       YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
       YOUTUBE_STATE_ENCRYPTION_KEY: ${{ secrets.YOUTUBE_STATE_ENCRYPTION_KEY }}
       SEO_LEARNING_REPORT_PATH: work/seo-learning-data/seo-learning/latest.enc.json
-      # Publishing is intentionally disabled during the production-integration and test cycle.
-      PUBLISH_ENABLED: "false"
       VIOLIN_PRINCE_PRESENTER_ENABLED: "true"
     steps:
       - name: Validate stage inputs
@@ -157,6 +155,11 @@ jobs:
           request = json.loads(request_path.read_text(encoding="utf-8"))
           if request.get("mode") != "chatgpt_daily_production":
               raise SystemExit("Push-triggered production must use mode=chatgpt_daily_production.")
+          publish_to_youtube = request.get("publish_to_youtube", False)
+          if not isinstance(publish_to_youtube, bool):
+              raise SystemExit("publish_to_youtube must be an explicit boolean.")
+          if publish_to_youtube and os.environ.get("GITHUB_EVENT_NAME") != "push":
+              raise SystemExit("Public YouTube publishing can only be armed by an explicit ChatGPT push request.")
           from datetime import datetime
           from zoneinfo import ZoneInfo
 
@@ -180,7 +183,9 @@ jobs:
               output.write("plan_path=" + plan_path + "\n")
               output.write("plan_sha256=" + plan_sha256 + "\n")
               output.write("narration_sha256=" + narration_sha256 + "\n")
+              output.write("publish_to_youtube=" + ("true" if publish_to_youtube else "false") + "\n")
           print("Validated ChatGPT daily production request: " + plan_path)
+          print("Direct YouTube publish requested: " + str(publish_to_youtube))
           print("Production plan SHA-256: " + plan_sha256)
           print("Narration script SHA-256: " + narration_sha256)
           PY
@@ -278,7 +283,7 @@ jobs:
 
       - name: Publish finished MP4 and publisher handoff as release assets
         id: publish_asset
-        if: success() && env.PUBLISH_ENABLED == 'true' && env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path != ''
+        if: success() && github.event_name == 'push' && steps.daily_request.outputs.publish_to_youtube == 'true' && env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path != ''
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_RUN_ID: ${{ github.run_id }}
@@ -362,16 +367,6 @@ jobs:
           print("Publish ready: " + str(bool(manifest.get("publish_ready"))))
           PY
           gh release upload "$TAG" work/output/publish-manifest.json work/output/asset-provenance.json --clobber
-
-      - name: Queue validated Short in the Upload-Post publishing queue
-        id: upload_post
-        if: success() && steps.publish_asset.outcome == 'success' && env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path != ''
-        env:
-          UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
-          UPLOAD_POST_PROFILE: default
-        run: |
-          python autopilot/engine/upload_post_handoff.py \
-            --plan "${{ steps.daily_request.outputs.plan_path }}"
 
       - name: Transfer finished preview to the private Voice Vault
         id: private_preview
@@ -627,4 +622,4 @@ jobs:
           set -euo pipefail
           test -s work/output/violin-prince-short.mp4
           test -s work/output/narration.wav
-          echo "MP4 and narration remain on the temporary runner; no public upload step is configured."
+          echo "MP4 and narration remain on the temporary runner until the job ends; any public release is created only after publisher preflight and SHA-256 provenance pass."

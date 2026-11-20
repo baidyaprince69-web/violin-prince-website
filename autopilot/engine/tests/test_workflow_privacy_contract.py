@@ -48,9 +48,14 @@ class WorkflowPrivacyContractTests(unittest.TestCase):
             self.workflow_text.index("  produce:"),
         )
 
-    def test_publishing_is_hard_disabled_in_the_workflow(self):
-        self.assertIn('PUBLISH_ENABLED: "false"', self.workflow_text)
-        self.assertIn("env.PUBLISH_ENABLED == 'true'", self.workflow_text)
+    def test_public_release_requires_an_explicit_chatgpt_youtube_request(self):
+        self.assertIn('request.get("publish_to_youtube", False)', self.workflow_text)
+        self.assertIn('if not isinstance(publish_to_youtube, bool)', self.workflow_text)
+        self.assertIn('output.write("publish_to_youtube="', self.workflow_text)
+        self.assertIn("github.event_name == 'push'", self.workflow_text)
+        self.assertIn("steps.daily_request.outputs.publish_to_youtube == 'true'", self.workflow_text)
+        self.assertNotIn('PUBLISH_ENABLED: "true"', self.workflow_text)
+        self.assertNotIn("Queue validated Short in the Upload-Post publishing queue", self.workflow_text)
         self.assertIn("Only the complete preview-only run is enabled", self.workflow_text)
 
     def test_private_handoff_waits_for_artifact_and_cleanup_confirmation(self):
