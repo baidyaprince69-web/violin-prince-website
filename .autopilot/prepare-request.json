@@ -2,5 +2,5 @@
   "mode": "chatgpt_daily_production",
   "plan_path": ".autopilot/daily-production-plan.json",
   "publish_to_youtube": false,
-  "reason": "Creator-requested distinct SplitEQ 2 production as a PRIVATE PREVIEW ONLY. Public release and YouTube upload are disabled because the checked-in local illustration approval is preview_video_only and requires creator review. Do not publish, schedule, or create a public release asset."
+  "reason": "Creator-requested distinct SplitEQ 2 production as a PRIVATE PREVIEW ONLY. Two independent direct publisher articles are specified for runner re-verification. Public release and YouTube upload are disabled because the checked-in local illustration approval is preview_video_only and requires creator review. Do not publish, schedule, or create a public release asset."
 }
