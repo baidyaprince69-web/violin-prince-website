@@ -4551,26 +4551,26 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         take_fade_start = max(0.0, performance_audio_seconds - 0.35)
         audio_filter = (
             f"[1:a]volume={bed_volume},afade=t=out:st={bed_fade_start:.3f}:d=0.50[bed];"
-            voice_processing_filter() + ",asplit=2[voice_sc][voice_mix];"
-            f"[3:a]atrim=duration={performance_audio_seconds:.3f},asetpts=PTS-STARTPTS,"
-            "highpass=f=70,acompressor=threshold=-22dB:ratio=2.5:attack=10:release=220,"
-            f"volume={VOICE_PRIORITY_MIX['creator_take_volume']:.2f},afade=t=in:st=0:d=0.15,"
-            f"afade=t=out:st={take_fade_start:.3f}:d=0.35,adelay={delay_ms}:all=1[creator_take];"
-            "[bed][creator_take]amix=inputs=2:duration=first:dropout_transition=0[music];"
-            sidechain_music_filter("music") + ";"
-            "[duckedbed][voice_mix]amix=inputs=2:duration=longest:dropout_transition=1,"
-            "loudnorm=I=-16:TP=-1.5:LRA=11,"
-            "afade=t=in:st=0:d=0.5,afade=t=out:st=22:d=2[aout]"
+            + voice_processing_filter() + ",asplit=2[voice_sc][voice_mix];"
+            + f"[3:a]atrim=duration={performance_audio_seconds:.3f},asetpts=PTS-STARTPTS,"
+            + "highpass=f=70,acompressor=threshold=-22dB:ratio=2.5:attack=10:release=220,"
+            + f"volume={VOICE_PRIORITY_MIX['creator_take_volume']:.2f},afade=t=in:st=0:d=0.15,"
+            + f"afade=t=out:st={take_fade_start:.3f}:d=0.35,adelay={delay_ms}:all=1[creator_take];"
+            + "[bed][creator_take]amix=inputs=2:duration=first:dropout_transition=0[music];"
+            + sidechain_music_filter("music") + ";"
+            + "[duckedbed][voice_mix]amix=inputs=2:duration=longest:dropout_transition=1,"
+            + "loudnorm=I=-16:TP=-1.5:LRA=11,"
+            + "afade=t=in:st=0:d=0.5,afade=t=out:st=22:d=2[aout]"
         )
         audio_inputs = ["-i", str(performance_video_path)]
     else:
         audio_filter = (
             f"[1:a]volume={bed_volume}[bed];"
-            voice_processing_filter() + ",asplit=2[voice_sc][voice_mix];"
-            sidechain_music_filter() + ";"
-            "[duckedbed][voice_mix]amix=inputs=2:duration=longest:dropout_transition=1,"
-            "loudnorm=I=-16:TP=-1.5:LRA=11,"
-            "afade=t=in:st=0:d=0.5,afade=t=out:st=22:d=2[aout]"
+            + voice_processing_filter() + ",asplit=2[voice_sc][voice_mix];"
+            + sidechain_music_filter() + ";"
+            + "[duckedbed][voice_mix]amix=inputs=2:duration=longest:dropout_transition=1,"
+            + "loudnorm=I=-16:TP=-1.5:LRA=11,"
+            + "afade=t=in:st=0:d=0.5,afade=t=out:st=22:d=2[aout]"
         )
         audio_inputs = []
     font_dir = Path(_ensure_brand_fonts()["serif"]).parent.as_posix()
