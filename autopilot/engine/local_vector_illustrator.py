@@ -16,10 +16,10 @@ MODES = {
     "macro_illustration", "mechanism_illustration", "waveform",
     "melody_map", "comparison", "cover_performance",
 }
-NAVY = (18, 32, 43)
-NAVY_MID = (39, 67, 73)
-TEAL = (38, 139, 140)
-TEAL_LIGHT = (112, 205, 193)
+NAVY = (28, 40, 51)
+NAVY_MID = (56, 80, 79)
+TEAL = (40, 145, 140)
+TEAL_LIGHT = (122, 210, 194)
 GOLD = (181, 108, 56)
 GOLD_LIGHT = (238, 190, 121)
 IVORY = (245, 230, 203)
@@ -152,24 +152,27 @@ def _draw_violin(image: Image.Image, center=(512, 1050), scale=1.0, angle=0.0):
     d.polygon(mapped(fingerboard), fill=(29, 31, 34, 255), outline=(130, 91, 57, 255), width=4)
     d.polygon(mapped([(486, 184), (538, 184), (538, 201), (486, 201)]),
               fill=(34, 30, 29, 255), outline=(224, 190, 134, 220))
-    # Carved violin scroll: a solid rounded head flowing out of the pegbox,
-    # with one inset spiral curl rather than a loop-shaped outline.
+    # Carved violin scroll: an offset C-shaped shell with a visible inward curl.
+    # Avoid the circular/lyre-like head shape of the previous illustration.
     scroll_head = _path((480,190), [
-        ((466,164),(448,140),(448,113)),
-        ((447,82),(470,60),(496,59)),
-        ((525,57),(548,75),(555,102)),
-        ((560,130),(546,158),(544,190)),
+        ((465,164),(455,140),(456,115)),
+        ((457,87),(476,66),(498,61)),
+        ((520,56),(541,69),(548,89)),
+        ((554,107),(545,124),(530,130)),
+        ((515,137),(502,124),(508,110)),
+        ((513,99),(527,98),(534,107)),
+        ((539,123),(528,145),(544,190)),
     ])
     d.polygon(mapped(scroll_head), fill=(159, 86, 48, 255),
               outline=(78, 43, 31, 255), width=8)
     d.line(mapped(scroll_head), fill=(241, 188, 119, 235), width=3, joint="curve")
-    spiral = _path((520,88), [
-        ((536,77),(548,87),(543,101)),
-        ((538,116),(521,117),(514,105)),
-        ((508,95),(517,88),(526,92)),
+    spiral = _path((523,89), [
+        ((536,81),(545,90),(540,101)),
+        ((535,112),(521,113),(517,104)),
+        ((514,97),(522,92),(529,96)),
     ])
     d.line(mapped(spiral), fill=(75, 43, 32, 255), width=7, joint="curve")
-    d.line(mapped([(487, 163), (496, 178), (512, 184)]),
+    d.line(mapped([(486, 160), (493, 176), (508, 184)]),
            fill=(243, 194, 126, 215), width=3, joint="curve")
 
     # A violin has four tuning pegs total: two on each side of the pegbox.
