@@ -29,17 +29,17 @@
   "narration_evidence": [
     {
       "sentence_number": 2,
+      "source_id": "S002",
+      "quote": "every one now has onboard DSP and Audient’s new RoomTune monitor correction."
+    },
+    {
+      "sentence_number": 3,
       "source_id": "S001",
       "quote": "The real headline has a name, RoomTune. It is acoustic correction that measures the room’s response and adjusts your monitoring"
     },
     {
-      "sentence_number": 3,
-      "source_id": "S002",
-      "quote": "It measures your room and adjusts the signal going to your monitors to compensate for its acoustics"
-    },
-    {
       "sentence_number": 4,
-      "source_id": "S002",
+      "source_id": "S001",
       "quote": "The DSP also handles EQ, compression and reverb on the inputs with no latency and no load on your computer."
     }
   ],
@@ -53,10 +53,10 @@
     },
     {
       "source_id": "S002",
-      "title": "Room correction comes to every model in Audient’s redesigned iD range",
-      "url": "https://mixdownmag.com.au/news/room-correction-comes-to-every-model-in-audients-redesigned-id-range/",
-      "publisher_domain": "mixdownmag.com.au",
-      "date": "2026-11-13"
+      "title": "Audient iD1, iD2, iD2+ and iD4+ price, specifications and availability announced",
+      "url": "https://camerajabber.com/photography-news/audient-id1-id2-id2-and-id4-price-specifications-and-availability-announced/",
+      "publisher_domain": "camerajabber.com",
+      "date": "2026-11-20"
     }
   ],
   "timeline": [],
