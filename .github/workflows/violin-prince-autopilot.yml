@@ -7,9 +7,6 @@ on:
     paths:
       - ".autopilot/prepare-request.json"
       - ".autopilot/daily-production-plan.json"
-  schedule:
-    # 15:00 Asia/Kolkata (09:30 UTC), leaving time for rendering before the 19:00 queue slot.
-    - cron: "30 9 * * *"
   workflow_dispatch:
     inputs:
       stage:

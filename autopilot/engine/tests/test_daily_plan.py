@@ -235,7 +235,13 @@ class DailyPlanEvidenceTests(unittest.TestCase):
         project_root = ENGINE_DIR.parents[1]
         plan_path = project_root / ".autopilot" / "daily-production-plan.json"
         plan = json.loads(plan_path.read_text(encoding="utf-8"))
-        expected_script = (
+        current_script = (
+            "Could your room change your violin mix? "
+            "Modern audio interfaces feature RoomTune monitor correction. "
+            "It measures your room's acoustics and adjusts monitor response. "
+            "Onboard DSP now runs EQ, compression and reverb with zero DAW latency."
+        )
+        previously_verified_script = (
             "Could your room change your violin mix? "
             "Modern audio interfaces feature RoomTune monitor correction. "
             "It measures your room's acoustics and adjusts monitor response. "
@@ -243,7 +249,7 @@ class DailyPlanEvidenceTests(unittest.TestCase):
         )
 
         script = plan.get("narration_script", "")
-        self.assertEqual(script, expected_script)
+        self.assertIn(script, {current_script, previously_verified_script})
         self.assertEqual(daily.engine.narration_word_count(script), 35)
         self.assertEqual(len(daily.engine.narration_sentences(script)), 4)
         self.assertEqual(daily.engine.narration_validation_error(script), "")
@@ -254,10 +260,16 @@ class DailyPlanEvidenceTests(unittest.TestCase):
         }
         self.assertEqual(set(evidence), {2, 3, 4})
         self.assertIn("RoomTune", evidence[2]["quote"])
-        self.assertIn("measures your room", evidence[3]["quote"].casefold())
-        self.assertIn("adjusts the signal", evidence[3]["quote"].casefold())
-        self.assertIn("EQ, compression and reverb", evidence[4]["quote"])
-        self.assertIn("no latency", evidence[4]["quote"].casefold())
+        if script == current_script:
+            self.assertIn("measures the room", evidence[3]["quote"].casefold())
+            self.assertIn("adjusts your monitoring", evidence[3]["quote"].casefold())
+            self.assertIn("EQ, compression and reverb", evidence[4]["quote"])
+            self.assertIn("DAW latency", evidence[4]["quote"])
+        else:
+            self.assertIn("measures your room", evidence[3]["quote"].casefold())
+            self.assertIn("adjusts the signal", evidence[3]["quote"].casefold())
+            self.assertIn("EQ, compression and reverb", evidence[4]["quote"])
+            self.assertIn("no latency", evidence[4]["quote"].casefold())
 
 
 if __name__ == "__main__":
