@@ -9,7 +9,7 @@ ChatGPT is the only daily scheduler. Its existing daily automation prepares one 
 - The production entry points are currently locked before research or rendering until the creator's own voice has been tested and explicitly approved. There is no Kokoro, preset, generic or third-party narrator fallback.
 - The former Cloudflare-based text, image and media services have been removed. No replacement text-planning or illustration provider is currently configured; those stages must stop until an approved non-Cloudflare provider is selected and tested.
 - The final scene is a symbolic violin-performance visual unless a permitted creator recording is deliberately added; generated/sample violin audio must never be described as a live recording by the creator.
-- The daily route keeps direct publishing disabled in GitHub. ChatGPT schedules the public release asset through Metricool after the YouTube audience setting has been confirmed. vidIQ remains available for channel research/optimisation; its draft publishing flow requires the user to approve each exact draft.
+- The production job keeps direct publishing disabled and creates the verified public GitHub Release handoff. ChatGPT uses the connected Metricool brand as the primary publisher. Only when Metricool confirms its monthly post limit has been reached does ChatGPT push `.autopilot/publisher-fallback-request.json`, triggering the separate `.github/workflows/publisher-fallback.yml` route. That route revalidates the exact MP4, manifest and provenance, stores a durable no-duplicate attempt marker, then reuses the existing Google OAuth/resumable uploader in `engine/publisher.py` to publish directly to YouTube. It does not rerun production. vidIQ remains analytics/optimisation only; its approval-dependent draft route is not an unattended fallback.
 - The GitHub cron schedule has been removed. ChatGPT is the daily operator and triggers the request-file push.
 - The manual `workflow_dispatch` stage selector remains visible, but all production stages currently stop at the own-voice gate. The Visuals stage also remains disabled until an approved non-Cloudflare illustration provider is configured.
 
@@ -246,7 +246,11 @@ After the own-voice sample is reviewed and approved, text planning and scene ill
 - engine/violin_sampler.py — checksum-verified CC0 sample download and solo-violin phrase rendering.
 - engine/synth_audio.py — quiet ambient fallback used only if the recording and sample-instrument paths are unavailable.
 - engine/tests/ — offline regression, model-contract, storyboard and FFmpeg render tests.
-- .github/workflows/violin-prince-autopilot.yml — staged GitHub Actions workflow.
+- .github/workflows/violin-prince-autopilot.yml — staged production and verified public-release workflow.
+- .github/workflows/publisher-fallback.yml — separate push-triggered direct YouTube fallback after confirmed Metricool monthly quota exhaustion.
+- engine/publisher.py — existing OAuth token-refresh and resumable YouTube upload adapter.
+- engine/publisher_router.py — manifest/provenance validation, durable attempt guard and direct-upload receipt.
+- engine/tests/test_publisher_router.py — offline regression tests for the fallback guard and receipts.
 - .github/workflows/autopilot-checks.yml — offline code and workflow validation.
 
 ## ChatGPT-triggered 2D illustrated production architecture
