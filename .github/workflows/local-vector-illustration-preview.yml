@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/local-vector-illustration-provider
+      - feat/visual-clarity-roomtune-v2
     paths:
       - "autopilot/engine/local_vector_illustrator.py"
       - "autopilot/engine/tests/render_local_vector_preview.py"
