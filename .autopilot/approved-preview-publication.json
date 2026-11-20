@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "mode": "approved_private_preview_publication",
+  "publish_to_youtube": true,
+  "creator_approved_publication": true,
+  "approval_statement": "Everything is approved",
+  "approval_context": "Creator explicitly approved the finished SplitEQ 2 preview and public publication in this conversation.",
+  "exception_context": "One-time creator-requested immediate publication of a distinct topic; does not change the normal 24-hour analytics learning cycle or its daily schedule.",
+  "production_date": "2026-11-20",
+  "title": "SplitEQ 2: Shape a Violin's Attack and Tone Separately",
+  "youtube_channel_id": "UCGCfZij4Fn3Ga2j2HiCT45w",
+  "source_workflow_run_id": "44785872417",
+  "voice_workflow_run_id": "44786137826",
+  "private_release_tag": "private-preview-video-44785872417",
+  "private_release_asset_id": 772782641,
+  "expected_size_bytes": 6218466,
+  "expected_sha256": "c4b9b7c7eb659745564266f08a12ddab3555c867089be872370207f77b4ce528"
+}
