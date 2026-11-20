@@ -10,7 +10,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: violin-prince-publisher-fallback-${{ github.event.head_commit.id }}
+  # Serialize fallback uploads on main so separate request pushes cannot race the release-level duplicate guard.
+  group: violin-prince-publisher-fallback-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
