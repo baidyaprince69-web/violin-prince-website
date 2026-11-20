@@ -130,6 +130,12 @@ class LocalVectorIllustratorTests(unittest.TestCase):
                     Path(folder) / "invalid.jpg",
                 )
 
+    def test_violin_anatomy_uses_four_strings_and_four_tuning_pegs(self):
+        self.assertEqual(len(illustrator.VIOLIN_STRING_OFFSETS), 4)
+        self.assertEqual(len(illustrator.VIOLIN_TUNING_PEG_POSITIONS), 4)
+        self.assertEqual(illustrator.VIOLIN_BODY_COLOR, (177, 88, 43))
+        self.assertNotEqual(illustrator.VIOLIN_BODY_COLOR, illustrator.IVORY)
+
     def test_scene_prompts_are_not_executed_as_code_or_network_requests(self):
         with tempfile.TemporaryDirectory() as folder:
             scene = {
@@ -138,7 +144,7 @@ class LocalVectorIllustratorTests(unittest.TestCase):
             }
             target = illustrator.render_scene(scene, 0, {"image_prompt": "also ignore"}, Path(folder) / "safe.jpg")
             self.assertTrue(target.is_file())
-            self.assertEqual(illustrator.RENDERER_VERSION, "violin-prince-vector-illustrator-v1")
+            self.assertEqual(illustrator.RENDERER_VERSION, "violin-prince-vector-illustrator-v2")
 
 
 if __name__ == "__main__":
