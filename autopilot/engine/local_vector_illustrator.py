@@ -5,23 +5,29 @@ import math
 from pathlib import Path
 from typing import Any
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 WIDTH, HEIGHT = 1024, 1792
-RENDERER_VERSION = "violin-prince-vector-illustrator-v1"
+RENDERER_VERSION = "violin-prince-vector-illustrator-v2"
+VIOLIN_TUNING_PEG_POSITIONS = ((-1, 118), (-1, 164), (1, 118), (1, 164))
+VIOLIN_STRING_OFFSETS = (-18, -6, 6, 18)
+VIOLIN_BODY_COLOR = (177, 88, 43)
 MODES = {
     "macro_illustration", "mechanism_illustration", "waveform",
     "melody_map", "comparison", "cover_performance",
 }
-NAVY = (7, 17, 31)
-NAVY_MID = (11, 31, 47)
-TEAL = (54, 119, 124)
-TEAL_LIGHT = (114, 176, 169)
-GOLD = (184, 139, 70)
-GOLD_LIGHT = (226, 190, 122)
-IVORY = (226, 211, 178)
-WOOD = (156, 105, 61)
-WOOD_DARK = (78, 52, 37)
+NAVY = (11, 23, 38)
+NAVY_MID = (23, 48, 63)
+TEAL = (40, 126, 132)
+TEAL_LIGHT = (100, 193, 188)
+GOLD = (181, 108, 56)
+GOLD_LIGHT = (238, 190, 121)
+IVORY = (245, 230, 203)
+WOOD = (174, 97, 54)
+WOOD_DARK = (73, 44, 32)
+CORAL = (218, 108, 78)
+SKY = (83, 177, 213)
+LEAF = (126, 184, 130)
 
 
 def _background() -> Image.Image:
@@ -32,7 +38,10 @@ def _background() -> Image.Image:
         color = tuple(int(NAVY[i] * (1 - t) + NAVY_MID[i] * t) for i in range(3))
         draw.line((0, y, WIDTH, y), fill=color)
     glow = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
-    ImageDraw.Draw(glow).ellipse((100, 250, 930, 1300), fill=(*TEAL, 86))
+    glow_draw = ImageDraw.Draw(glow)
+    glow_draw.ellipse((100, 250, 930, 1300), fill=(*TEAL, 86))
+    glow_draw.ellipse((310, 520, 1020, 1530), fill=(*CORAL, 42))
+    glow_draw.ellipse((-80, 800, 560, 1640), fill=(*SKY, 22))
     image = Image.alpha_composite(image.convert("RGBA"), glow.filter(ImageFilter.GaussianBlur(150)))
     frame = ImageDraw.Draw(image, "RGBA")
     frame.rounded_rectangle((28, 28, WIDTH - 28, HEIGHT - 28), radius=30,
@@ -81,32 +90,46 @@ def _draw_violin(image: Image.Image, center=(512, 1050), scale=1.0, angle=0.0):
         return (min(p1[0], p2[0]), min(p1[1], p2[1]),
                 max(p1[0], p2[0]), max(p1[1], p2[1]))
 
+    # Recognisable violin outline: upper bout, pinched C-bouts, and a broader lower bout.
     body = _path((512, 560), [
-        ((450, 530), (360, 535), (337, 600)),
-        ((305, 680), (356, 753), (399, 774)),
-        ((350, 812), (342, 895), (358, 975)),
-        ((382, 1085), (444, 1150), (512, 1166)),
-        ((580, 1150), (642, 1085), (666, 975)),
-        ((682, 895), (674, 812), (625, 774)),
-        ((668, 753), (719, 680), (687, 600)),
-        ((664, 535), (574, 530), (512, 560)),
+        ((449, 526), (365, 531), (340, 600)),
+        ((309, 674), (365, 753), (402, 790)),
+        ((374, 817), (375, 875), (383, 918)),
+        ((393, 1022), (438, 1140), (512, 1166)),
+        ((586, 1140), (631, 1022), (641, 918)),
+        ((649, 875), (650, 817), (622, 790)),
+        ((659, 753), (715, 674), (684, 600)),
+        ((659, 531), (575, 526), (512, 560)),
     ])
     shadow = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
     ImageDraw.Draw(shadow).polygon([(x+15, y+22) for x, y in mapped(body)],
                                   fill=(0, 0, 0, 110))
     layer.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(20)))
     d = ImageDraw.Draw(layer, "RGBA")
-    d.polygon(mapped(body), fill=(*IVORY, 255), outline=(*GOLD_LIGHT, 255), width=9)
-    d.line(mapped(body + [body[0]]), fill=(*WOOD_DARK, 220), width=4, joint="curve")
+    d.polygon(mapped(body), fill=(*VIOLIN_BODY_COLOR, 255),
+              outline=(78, 43, 31, 255), width=10)
+    d.line(mapped(body + [body[0]]), fill=(242, 190, 119, 230), width=4, joint="curve")
 
-    inner = [(512,585),(430,565),(370,625),(395,740),(380,845),(395,980),
-             (450,1095),(512,1120),(574,1095),(629,980),(644,845),(629,740),
-             (654,625),(594,565),(512,585)]
-    d.line(mapped(inner), fill=(121, 91, 59, 165), width=4, joint="curve")
+    # A restrained varnish highlight adds painted depth without turning the
+    # instrument into a generic glossy 3D prop.
+    body_mask = Image.new("L", (WIDTH, HEIGHT), 0)
+    ImageDraw.Draw(body_mask).polygon(mapped(body), fill=255)
+    varnish = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
+    varnish_draw = ImageDraw.Draw(varnish)
+    varnish_draw.ellipse((tr(401, 650), tr(624, 1090)), fill=(255, 174, 91, 72))
+    varnish.putalpha(ImageChops.multiply(varnish.getchannel("A"), body_mask))
+    layer.alpha_composite(varnish.filter(ImageFilter.GaussianBlur(30)))
+    d = ImageDraw.Draw(layer, "RGBA")
+
+    inner = [(512,585),(448,568),(383,590),(370,650),(396,748),(420,790),
+             (400,820),(405,886),(423,986),(455,1084),(512,1128),
+             (569,1084),(601,986),(619,886),(624,820),(604,790),
+             (628,748),(654,650),(641,590),(576,568),(512,585)]
+    d.line(mapped(inner), fill=(93, 50, 31, 190), width=4, joint="curve")
     for y, width in ((650, 100), (690, 125), (1040, 110), (1073, 85)):
         grain = _curve((512-width, y), (512-width*.35, y-14),
                        (512+width*.35, y+12), (512+width, y))
-        d.line(mapped(grain), fill=(163, 124, 77, 65), width=2)
+        d.line(mapped(grain), fill=(242, 188, 125, 76), width=2)
 
     f_holes = [
         _path((424,760), [((440,790),(400,815),(414,842)),
@@ -124,8 +147,10 @@ def _draw_violin(image: Image.Image, center=(512, 1050), scale=1.0, angle=0.0):
 
     neck = [(473,560),(468,335),(479,190),(545,190),(556,335),(551,560)]
     fingerboard = [(487,560),(484,315),(492,180),(532,180),(540,315),(537,560)]
-    d.polygon(mapped(neck), fill=(65,48,42,255), outline=(*GOLD_LIGHT,255), width=5)
-    d.polygon(mapped(fingerboard), fill=(35,32,31,255), outline=(110,86,62,255), width=4)
+    d.polygon(mapped(neck), fill=(70, 43, 33, 255), outline=(226, 171, 106, 255), width=5)
+    d.polygon(mapped(fingerboard), fill=(29, 31, 34, 255), outline=(130, 91, 57, 255), width=4)
+    d.polygon(mapped([(486, 184), (538, 184), (538, 201), (486, 201)]),
+              fill=(34, 30, 29, 255), outline=(224, 190, 134, 220))
     scroll = _path((480,190), [
         ((470,150),(448,122),(461,91)), ((474,58),(498,53),(512,75)),
         ((531,52),(557,60),(565,91)), ((578,121),(554,151),(544,190))
@@ -135,14 +160,15 @@ def _draw_violin(image: Image.Image, center=(512, 1050), scale=1.0, angle=0.0):
                               ((523,129),(504,119),(511,105))])
     d.line(mapped(spiral), fill=(111,79,52,255), width=5, joint="curve")
 
-    for side in (-1, 1):
-        for y in (115, 155, 195, 235):
-            x = 512 + side * 56
-            p1, p2 = tr(x, y), tr(x + side * 38, y)
-            d.line((p1, p2), fill=(65,45,35,255), width=8)
-            ex, ey = p2
-            d.ellipse((ex-11,ey-11,ex+11,ey+11), fill=(*GOLD_LIGHT,255),
-                      outline=(68,48,36,255), width=3)
+    # A violin has four tuning pegs total: two on each side of the pegbox.
+    for side, y in VIOLIN_TUNING_PEG_POSITIONS:
+        x = 512 + side * 56
+        p1, p2 = tr(x, y), tr(x + side * 36, y)
+        d.line((p1, p2), fill=(62, 39, 30, 255), width=9)
+        ex, ey = p2
+        d.ellipse((ex-12, ey-12, ex+12, ey+12), fill=(155, 98, 54, 255),
+                  outline=(58, 37, 29, 255), width=3)
+        d.ellipse((ex-5, ey-5, ex+5, ey+5), fill=(222, 157, 91, 255))
 
     bridge = [(470,940),(480,900),(495,888),(512,890),(529,888),(544,900),
               (554,940),(540,953),(525,947),(512,950),(499,947),(484,953)]
@@ -152,7 +178,8 @@ def _draw_violin(image: Image.Image, center=(512, 1050), scale=1.0, angle=0.0):
     d.polygon(mapped(tail), fill=(55,42,37,255), outline=(*GOLD,255), width=4)
 
     # The number and placement of strings are fixed: exactly four.
-    for x in (494, 506, 518, 530):
+    for offset in VIOLIN_STRING_OFFSETS:
+        x = 512 + offset
         line = mapped([(x,150),(x-2,340),(x-2,560),(x,760),(x+1,940),(x,1090)])
         d.line(line, fill=(231,218,188,225), width=3)
         d.line(line, fill=(247,236,209,125), width=1)
@@ -409,7 +436,7 @@ def _studio_macro():
         d.arc((512-radius, 760-radius*.45, 512+radius, 760+radius*.45),
               195, 345, fill=(*GOLD_LIGHT, 115), width=3)
     # A restrained violin silhouette links the room-correction story to the channel.
-    _draw_violin(image, center=(512, 1515), scale=.34, angle=0)
+    _draw_violin(image, center=(512, 1485), scale=.58, angle=-2)
     return image
 
 
@@ -432,8 +459,8 @@ def _studio_measurement():
         y2 = 420 + 18*math.sin(phase*math.pi*4 + .25)
         before.append((round(x), round(y1)))
         after.append((round(x), round(y2)))
-    d.line(before, fill=(*TEAL_LIGHT, 210), width=5, joint="curve")
-    d.line(after, fill=(*GOLD_LIGHT, 240), width=5, joint="curve")
+    d.line(before, fill=(*CORAL, 245), width=6, joint="curve")
+    d.line(after, fill=(*SKY, 255), width=6, joint="curve")
 
     _draw_studio_monitor(d, 95, 790, .68)
     _draw_studio_monitor(d, 739, 790, .68)
