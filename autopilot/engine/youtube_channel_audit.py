@@ -29,7 +29,7 @@ class DuplicateVideoFound(ChannelAuditError):
 def normalise_title(value: str) -> str:
     """Normalise Unicode and whitespace while retaining meaningful punctuation."""
     text = unicodedata.normalize("NFKC", str(value or ""))
-    return re.sub(r"\\s+", " ", text).strip().casefold()
+    return re.sub(r"\s+", " ", text).strip().casefold()
 
 
 def _required(env: dict[str, str], name: str) -> str:
