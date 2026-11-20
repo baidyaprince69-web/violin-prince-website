@@ -18,6 +18,11 @@ from pathlib import Path
 from typing import Any
 
 from publisher import youtube_upload
+from youtube_channel_audit import (
+    ChannelAuditError,
+    DuplicateVideoFound,
+    assert_title_absent,
+)
 
 
 class RouterError(RuntimeError):
@@ -206,6 +211,23 @@ def prepare_attempt(
             )
         return {"skip": False, "reason": "Resuming the same workflow attempt only.", "attempt": previous}
 
+    # Read the channel's complete uploads playlist before creating the publication
+    # attempt marker. This check covers public, unlisted and private uploads and
+    # fails closed if OAuth or pagination cannot verify the full list.
+    try:
+        youtube_audit = assert_title_absent(plan["title"])
+    except DuplicateVideoFound as exc:
+        matches = json.dumps(exc.matches[:5], ensure_ascii=False)
+        raise RouterError(
+            "A video with this exact title already exists in the channel uploads; "
+            "publication was blocked: " + matches
+        ) from exc
+    except ChannelAuditError as exc:
+        raise RouterError(
+            "YouTube uploads-list duplicate verification failed; refusing publication: "
+            + str(exc)
+        ) from exc
+
     attempt = {
         "schema_version": 1,
         "status": "attempting",
@@ -214,6 +236,7 @@ def prepare_attempt(
         "production_run_id": str(manifest["run_id"]),
         "release_tag": release_tag,
         "provider": "youtube_data_api",
+        "youtube_channel_audit": youtube_audit,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "note": "This marker is stored before the upload request to prevent duplicate publication after an uncertain retry.",
     }
