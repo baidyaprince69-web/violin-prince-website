@@ -62,20 +62,43 @@ def youtube_upload(video_path: Path, plan: dict):
     if not access_token:
         raise PublishError("Google OAuth refresh did not return an access token.")
 
-    title = str(plan.get("title") or "Violin Prince")[:95]
+    metadata = plan.get("publish_metadata")
+    metadata = metadata if isinstance(metadata, dict) else {}
+
+    title = str(metadata.get("title") or plan.get("title") or "Violin Prince")[:100]
+    description = str(metadata.get("description") or make_caption(plan))[:5000]
+    raw_tags = metadata.get("tags")
+    if raw_tags is None:
+        raw_tags = plan.get("hashtags") or []
+    tags = raw_tags if isinstance(raw_tags, list) else str(raw_tags or "").split()
+    category_id = str(metadata.get("category_id") or metadata.get("categoryId") or "10")
+    language = str(metadata.get("default_language") or metadata.get("defaultLanguage") or "en")
+    audience = metadata.get("made_for_kids", plan.get("made_for_kids", False))
+    if not isinstance(audience, bool):
+        raise PublishError("YouTube made-for-kids classification must be an explicit boolean.")
+    synthetic = plan.get("contains_synthetic_media")
+    if synthetic is None:
+        synthetic = metadata.get("contains_synthetic_media", True)
+    if not isinstance(synthetic, bool):
+        raise PublishError("YouTube synthetic-media declaration must be an explicit boolean.")
+    privacy = os.environ.get("YOUTUBE_PRIVACY_STATUS", "").strip()
+    if not privacy:
+        privacy = str(metadata.get("privacy_status") or "private").strip().lower()
+    if privacy not in {"public", "unlisted", "private"}:
+        raise PublishError("YouTube privacy status must be public, unlisted, or private.")
+
     body = {
         "snippet": {
             "title": title,
-            "description": make_caption(plan),
-            "tags": [str(x).lstrip("#").replace(" ", "")[:30]
-                     for x in (plan.get("hashtags") or [])[:15]] if isinstance(plan.get("hashtags"), list) else [],
-            "categoryId": "10",
-            "defaultLanguage": "en",
+            "description": description,
+            "tags": [str(x).lstrip("#").replace(" ", "")[:30] for x in tags[:30]],
+            "categoryId": category_id,
+            "defaultLanguage": language,
         },
         "status": {
-            "privacyStatus": os.environ.get("YOUTUBE_PRIVACY_STATUS", "private"),
-            "selfDeclaredMadeForKids": False,
-            "containsSyntheticMedia": True,
+            "privacyStatus": privacy,
+            "selfDeclaredMadeForKids": audience,
+            "containsSyntheticMedia": synthetic,
         },
     }
     publish_at = os.environ.get("YOUTUBE_PUBLISH_AT", "").strip()
