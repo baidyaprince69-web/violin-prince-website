@@ -136,7 +136,10 @@ class YouTubeChannelAuditTests(unittest.TestCase):
     def test_missing_credentials_fail_before_api_calls(self):
         session = FakeSession()
         with self.assertRaisesRegex(ChannelAuditError, "YOUTUBE_REFRESH_TOKEN"):
-            scan_uploads_playlist(env={"YOUTUBE_CLIENT_ID": "x"}, session=session)
+            scan_uploads_playlist(
+                env={"YOUTUBE_CLIENT_ID": "x", "YOUTUBE_CLIENT_SECRET": "y"},
+                session=session,
+            )
         self.assertEqual(session.calls, [])
 
 
