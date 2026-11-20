@@ -168,7 +168,7 @@ function renderMotionGraphic(scene) {
         '<strong class="graphic-comparison-title">' + label + '</strong>' +
         (cardDetail ? '<span class="graphic-comparison-detail">' + cardDetail + '</span>' : '') +
         '</div>';
-    }).join("");
+    });
     return '<div class="clip ' + panelClass + ' graphic-comparison-panel" id="' + prefix +
       '" data-start="' + start + '" data-duration="' + duration +
       '" data-track-index="30">' +
