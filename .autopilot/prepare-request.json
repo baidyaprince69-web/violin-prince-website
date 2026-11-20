@@ -1,6 +1,6 @@
 {
   "mode": "chatgpt_daily_production",
   "plan_path": ".autopilot/daily-production-plan.json",
-  "publish_to_youtube": true,
-  "reason": "Run the full ChatGPT-directed production for the approved 2026-11-20 RoomTune plan. Generate private Qwen3 narration and require the exact 35-word transcript with complete word timings and 20–24-second delivery; render through Motion + HyperFrames; verify the actual MP4, audio, motion report, visual contact sheet, final media metadata, source evidence and provenance. Preserve the private Voice Vault preview transfer and cleanup checks. Create a public release asset only after the publish manifest, factual provenance, duration and MP4 SHA-256 checks pass. After the production workflow succeeds, publish the verified release MP4 immediately to the connected YouTube channel @violinprince through Upload-Post with public visibility; do not add it to the queue or schedule it. Use the premium-v2 Autopilot concurrency group and the current calibrated ASR-friendly narration."
+  "publish_to_youtube": false,
+  "reason": "Creator-requested distinct SplitEQ 2 production as a PRIVATE PREVIEW ONLY. Public release and YouTube upload are disabled because the checked-in local illustration approval is preview_video_only and requires creator review. Do not publish, schedule, or create a public release asset."
 }

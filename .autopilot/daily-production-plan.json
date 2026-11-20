@@ -1,106 +1,119 @@
 {
   "production_date": "2026-11-20",
-  "story_type": "music_technology",
-  "core_claim": "Audient's third-generation iD interfaces add RoomTune monitor correction and onboard DSP effects.",
-  "topic": "How Audient's third-generation iD interfaces measure room acoustics, adjust monitor playback, and run input effects through onboard DSP.",
-  "title": "Can Your Room Trick Your Violin Mix?",
-  "hook": "Could your room change your violin mix?",
-  "description": "Audient's third-generation iD interfaces add RoomTune monitor correction. The system measures the listening environment and creates correction profiles for monitor outputs. The onboard DSP also runs EQ, compression and reverb in hardware without DAW latency. This Short illustrates monitor correction and input processing, not a claim that the original violin recording is rewritten.",
+  "story_type": "music_production",
+  "core_claim": "Eventide SplitEQ 2 uses Structural Split to separate transient and tonal components so they can be shaped independently.",
+  "topic": "How SplitEQ 2 separates the transient attack and tonal body of a sound, with six dynamic bands and source tuning options relevant to strings.",
+  "title": "SplitEQ 2: Shape a Violin's Attack and Tone Separately",
+  "hook": "What if you could shape a note's attack without changing its tonal body?",
+  "description": "Eventide's SplitEQ 2 uses Structural Split to separate transient and tonal parts of a sound. Six dynamic bands can shape those layers independently, and new source options include strings, synths, horns and woodwinds. This is a music-production explainer with a symbolic violin example, not a claim of a live creator recording.",
   "hashtags": [
     "#Violin",
     "#MusicProduction",
     "#AudioEngineering",
-    "#RoomCorrection",
+    "#DynamicEQ",
     "#ViolinPrince"
   ],
   "tags": [
-    "violin mix",
-    "room correction",
-    "RoomTune",
-    "audio interfaces",
+    "SplitEQ 2",
+    "Eventide SplitEQ",
+    "dynamic EQ",
+    "transient shaping",
+    "tonal shaping",
+    "violin mixing",
     "music production",
     "audio engineering",
-    "monitoring",
     "Violin Prince"
   ],
   "narrative_style": "documentary",
-  "cover_payoff": "Use an original 2D editorial illustration of a complete violin and bow to demonstrate the monitoring signal path. Show the room-correction signal reaching the studio monitors, not rewriting the original recording. A sampled violin phrase is illustrative accompaniment and must never be presented as Prince's live performance.",
-  "narration_script": "Could your room change your violin mix? Modern audio interfaces feature RoomTune monitor correction. It measures your room's acoustics and adjusts monitor response. Onboard DSP now runs EQ, compression and reverb with zero DAW latency.",
+  "cover_payoff": "Use a clearly symbolic sampled violin phrase to illustrate how separately shaping a note's transient attack and tonal body may change its perceived articulation. Do not present the sample or illustrated hands as a live performance recorded by Prince.",
+  "narration_script": "Why separate a note's attack from its body? SplitEQ 2 separates transient and tonal components. Six dynamic bands can shape those layers independently. New sources now include strings, synths, horns and woodwinds on SplitEQ 2.",
   "narration_evidence": [
     {
       "sentence_number": 2,
-      "source_id": "S002",
-      "quote": "every one now has onboard DSP and Audient’s new RoomTune monitor correction."
+      "source_id": "S001",
+      "quote": "a six-band dynamic EQ that separates the transient and tonal parts of a sound, enabling independent shaping of each."
     },
     {
       "sentence_number": 3,
       "source_id": "S001",
-      "quote": "The real headline has a name, RoomTune. It is acoustic correction that measures the room’s response and adjusts your monitoring"
+      "quote": "Transient and tonal content may be compressed or expanded independently with six dynamic bands"
     },
     {
       "sentence_number": 4,
-      "source_id": "S001",
-      "quote": "The accelerated DSP hosts an effects suite called the Analogue Tone Suite, with EQ, compression and reverb, all computed in hardware and therefore free of DAW latency and processor load."
+      "source_id": "S002",
+      "quote": "7 new source types for improved separation quality, including Distorted Guitar, Strings, Synth Lead, Synth Pad, Horn, Horn Section, and Woodwinds."
     }
   ],
   "sources": [
     {
       "source_id": "S001",
-      "title": "Audient iD MK3: specs, release date and the RoomTune room correction",
-      "url": "https://digital-mixing.com/en/studio-en/20875-audient-id-mk3-specs-release-date-and-the-roomtune-room-correction-14-11-2026/",
-      "publisher_domain": "digital-mixing.com",
-      "date": "2026-11-14"
+      "title": "Eventide Launches SplitEQ 2 Plug-In",
+      "url": "https://www.mixonline.com/technology/eventide-launches-spliteq-2-plug-in",
+      "publisher_domain": "mixonline.com",
+      "date": "2026-11-17"
     },
     {
       "source_id": "S002",
-      "title": "Audient iD1, iD2, iD2+ and iD4+ price, specifications and availability announced",
-      "url": "https://camerajabber.com/photography-news/audient-id1-id2-id2-and-id4-price-specifications-and-availability-announced/",
-      "publisher_domain": "camerajabber.com",
-      "date": "2026-11-20"
+      "title": "SplitEQ 2 Makes Room in a Mix",
+      "url": "https://www.audiotechnology.com/by-brand/eventide/spliteq-2-makes-room-in-a-mix",
+      "publisher_domain": "audiotechnology.com",
+      "date": "2026-11-18"
     }
   ],
   "timeline": [],
   "scenes": [
     {
-      "caption": "YOUR ROOM. YOUR SOUND.",
-      "image_prompt": "Original high-detail 2D editorial illustration, vertical 9:16: a complete solid amber-brown violin with carefully painted maple grain, bridge, strings and a detailed bow in a midnight mixing room. Two studio monitors stand at either side; elegant antique-gold sound waves reflect from the room surfaces. Precise contour linework, layered hand-painted shading, subtle paper texture, strong foreground/midground/background separation, muted teal shadows and antique-gold accents. No readable text, logos or watermark. No CGI, 3D rendering, photorealistic photography or wireframes.",
-      "graphic_label": "THE HOOK",
-      "graphic_detail": "Room acoustics can shape monitor playback",
-      "visual_mode": "macro_illustration"
-    },
-    {
-      "caption": "MEASURE. CORRECT. LISTEN.",
-      "image_prompt": "Original high-detail 2D technical editorial illustration, vertical 9:16, in the same midnight studio. A calibrated reference microphone stands between two studio monitors; an antique-gold test signal travels through the room into a compact illustrated DSP signal path and returns to the speakers. Show a smooth conceptual room-response curve before and after correction without numbers; make clear that the curve is illustrative, not a measurement from a real room. Clean cutaway drawing, careful linework, painted metal and glass textures, muted teal shadows and antique-gold highlights. No text, brand marks or watermark. No CGI, 3D rendering or photorealistic photography.",
-      "graphic_label": "THE KEY DETAIL",
-      "graphic_detail": "RoomTune measures the room and adjusts monitor output",
+      "id": "attack-tone-hook",
+      "title": "One note, two layers",
+      "caption": "ONE NOTE. TWO LAYERS.",
+      "image_prompt": "Vertical 9:16 midnight-navy 2D editorial illustration of an amber violin beside a single musical note represented by two separate visual lanes: a short bright transient pulse and a longer warm tonal waveform. Keep the illustration symbolic and technically explanatory, with antique-gold and muted-teal accents, precise linework, painted texture, no numbers, no logos and no readable text inside the artwork.",
       "visual_mode": "waveform",
-      "graphic_data": {
-        "type": "process_flow",
-        "title": "ROOMTUNE SIGNAL PATH",
-        "items": [
-          "MEASURE THE ROOM",
-          "APPLY DSP CORRECTION",
-          "ADJUST MONITOR OUTPUT"
-        ]
-      }
+      "graphic_label": "THE HOOK",
+      "graphic_detail": "A note has a sharp attack and a tonal body",
+      "narration_sentence_indexes": [
+        0
+      ]
     },
     {
-      "caption": "HEAR THE VIOLIN. TRUST THE MIX.",
-      "image_prompt": "Original high-detail 2D performance illustration, vertical 9:16, centred on a complete amber-brown violin with painted maple grain, natural varnish, ebony fingerboard, bridge, tailpiece, fine strings and a detailed bow with visible bow hair contacting the strings. Show expressive illustrated playing hands only, without an identifiable face or creator likeness. A restrained golden waveform travels toward studio monitors, with a calm balanced listening-space glow. Premium hand-painted editorial style, precise linework, layered shading, paper texture, midnight-navy background, muted-teal accents and antique-gold highlights. No readable text, logos or watermark. No CGI, 3D rendering, photorealistic photography or wireframes.",
+      "id": "independent-dynamics",
+      "title": "Shape each layer",
+      "caption": "SHAPE EACH PART",
+      "image_prompt": "Vertical 9:16 premium 2D technical editorial illustration showing two parallel audio lanes, one representing transient attack and one representing tonal body, entering separate dynamic-processing controls and rejoining. Use six small abstract band markers, but no invented measurements, numeric response curves, logos or readable embedded words. Midnight navy, antique gold and muted teal.",
+      "visual_mode": "comparison",
+      "graphic_label": "THE KEY DETAIL",
+      "graphic_detail": "Six dynamic bands can shape both layers independently",
+      "narration_sentence_indexes": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": "violin-payoff",
+      "title": "The violin example",
+      "caption": "KEEP THE NOTE IN FOCUS",
+      "image_prompt": "Vertical 9:16 symbolic violin-performance payoff in the Violin Prince midnight studio: a complete amber-brown violin and bow, expressive non-identifiable playing hands, and two subtle audio ribbons for attack and tonal body converging into one balanced musical phrase. Original illustrated artwork only; do not imply a real recorded performance. No text, logos or watermark.",
+      "visual_mode": "cover_performance",
       "graphic_label": "THE PAYOFF",
-      "graphic_detail": "Correction shapes monitor playback, not the original take",
-      "visual_mode": "cover_performance"
+      "graphic_detail": "Separate shaping can clarify a string note's articulation",
+      "narration_sentence_indexes": [
+        3
+      ]
     }
   ],
   "performance_feedback": {
-    "sample_window": "2026-10-17 through 2026-11-16",
-    "sample_count": 5,
-    "confidence": "Low: five recent Shorts had usable video-level analytics, but only two exceeded 100 views; the 2026-11-15 Short has views and likes but its AVD and video-level analytics have not populated.",
+    "sample_window": "No mature sample available for this creator-requested one-off preview on 2026-11-20",
+    "sample_count": 0,
+    "confidence": "Not an analytics-derived recommendation. The latest RoomTune publication has not reached its 24-hour review window and duplicate-check analytics access is limited.",
     "strengths_to_preserve": [
-      "Keep violin-led audio and concise curiosity-led titles as the established channel identity; the current sample does not establish a repeatable performance winner."
+      "Keep a violin-led example and a clear music-production explanation as part of the channel identity."
     ],
-    "one_change_to_test": "Open with a one-second violin phrase before narration and keep the first on-screen caption to three to five words; treat this as a test, not a proven pattern.",
-    "measurement_for_next_upload": "At 24 hours and seven days, compare views, engaged views, average view duration, likes per view, comments and shares. Use Studio retention or viewed-versus-swiped metrics only if connected Studio analytics actually returns them."
+    "one_change_to_test": "Use a different music-production mechanism—transient versus tonal shaping—instead of another room-acoustics topic. This is a topic-diversity test, not a claimed audience preference.",
+    "measurement_for_next_upload": "After creator review and any later approved publication, compare 24-hour and seven-day views, engaged views, average view duration, average view percentage, likes, comments, shares and stayed-to-watch where available."
   },
-  "narration_asr_hotwords": []
+  "narration_asr_hotwords": [
+    "SplitEQ",
+    "Eventide",
+    "transient",
+    "tonal"
+  ]
 }
