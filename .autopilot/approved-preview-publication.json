@@ -4,7 +4,7 @@
   "publish_to_youtube": true,
   "creator_approved_publication": true,
   "approval_statement": "Everything is approved",
-  "approval_context": "Creator explicitly approved the finished SplitEQ 2 preview and public publication in this conversation; this is a retry of the same approved artifact after workflow configuration correction.",
+  "approval_context": "Creator explicitly approved the finished SplitEQ 2 preview and public publication in this conversation. This retry uses the same exact checksum-verified MP4 after replacing the unavailable ffprobe dependency with PyAV.",
   "exception_context": "One-time creator-requested immediate publication of a distinct topic; does not change the normal 24-hour analytics learning cycle or its daily schedule.",
   "production_date": "2026-11-20",
   "title": "SplitEQ 2: Shape a Violin's Attack and Tone Separately",
@@ -15,5 +15,5 @@
   "private_release_asset_id": 772782641,
   "expected_size_bytes": 6218466,
   "expected_sha256": "c4b9b7c7eb659745564266f08a12ddab3555c867089be872370207f77b4ce528",
-  "publication_attempt_revision": 2
+  "publication_attempt_revision": 3
 }
