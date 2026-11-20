@@ -175,8 +175,9 @@ function renderMotionGraphic(scene) {
       '<p class="graphic-eyebrow">THE PAYOFF</p>' +
       '<h3 class="graphic-heading" id="' + prefix + '-heading">' + heading + '</h3>' +
       (detail ? '<p class="graphic-detail">' + detail + '</p>' : '') +
-      '<div class="graphic-comparison-grid">' + cards +
-      '<span class="graphic-comparison-arrow" aria-hidden="true">→</span></div></div>';
+      '<div class="graphic-comparison-grid">' + cards[0] +
+      '<span class="graphic-comparison-arrow" aria-hidden="true">→</span>' +
+      cards[1] + '</div></div>';
   }
 
   if (["process_flow", "signal_path"].includes(type)) {
