@@ -1,0 +1,147 @@
+name: Violin Prince Metricool Quota Fallback
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".autopilot/publisher-fallback-request.json"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: violin-prince-publisher-fallback-${{ github.event.head_commit.id }}
+  cancel-in-progress: false
+
+jobs:
+  direct_youtube_fallback:
+    name: Publish through the official YouTube API
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PUBLISHER_ATTEMPT_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+      YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+      YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+      YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+      YOUTUBE_PRIVACY_STATUS: "public"
+    steps:
+      - name: Check out the exact fallback request
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install the existing publisher dependency
+        run: python -m pip install "requests>=2.32,<3"
+
+      - name: Read and validate the release tag
+        id: request
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          path = Path(".autopilot/publisher-fallback-request.json")
+          if not path.is_file():
+              raise SystemExit("Publisher fallback request is missing.")
+          request = json.loads(path.read_text(encoding="utf-8"))
+          if not isinstance(request, dict):
+              raise SystemExit("Publisher fallback request must be a JSON object.")
+          run_id = str(request.get("production_run_id") or "")
+          tag = str(request.get("release_tag") or "")
+          expected = "violin-prince-short-" + run_id
+          if request.get("schema_version") != 1 or request.get("mode") != "metricool_quota_fallback":
+              raise SystemExit("Unsupported publisher fallback request schema or mode.")
+          if request.get("reason") != "metricool_monthly_limit_reached":
+              raise SystemExit("Fallback requires a confirmed Metricool monthly-limit response.")
+          if not re.fullmatch(r"\d{6,20}", run_id) or tag != expected:
+              raise SystemExit("Fallback release tag does not match its production run ID.")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write("release_tag=" + tag + "\n")
+          print("Confirmed Metricool quota fallback request for " + tag)
+          PY
+
+      - name: Download the exact verified production release
+        env:
+          RELEASE_TAG: ${{ steps.request.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p work/release
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir work/release
+
+      - name: Create the durable no-duplicate attempt guard
+        id: guard
+        run: |
+          set -euo pipefail
+          python autopilot/engine/publisher_router.py guard             --request .autopilot/publisher-fallback-request.json             --release-dir work/release             --repository "$GITHUB_REPOSITORY"             --attempt-id "$PUBLISHER_ATTEMPT_ID"
+
+      - name: Store the attempt guard before contacting YouTube
+        if: success() && steps.guard.outputs.skip != 'true'
+        env:
+          RELEASE_TAG: ${{ steps.request.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          gh release upload "$RELEASE_TAG" work/release/publisher-attempt.json             --repo "$GITHUB_REPOSITORY" --clobber
+
+      - name: Upload directly to YouTube using the existing OAuth adapter
+        id: publish
+        if: success() && steps.guard.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          python autopilot/engine/publisher_router.py route             --request .autopilot/publisher-fallback-request.json             --release-dir work/release             --repository "$GITHUB_REPOSITORY"             --attempt-id "$PUBLISHER_ATTEMPT_ID"
+
+      - name: Store the final publishing receipt
+        if: always() && steps.guard.outputs.skip != 'true'
+        env:
+          RELEASE_TAG: ${{ steps.request.outputs.release_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -s work/release/publisher-receipt.json ]]; then
+            gh release upload "$RELEASE_TAG" work/release/publisher-receipt.json               --repo "$GITHUB_REPOSITORY" --clobber
+            echo "A durable publishing receipt was saved to the production release."
+          else
+            echo "No final receipt was created; the pre-upload attempt guard remains in place."
+          fi
+
+      - name: Verify and report the final publishing receipt
+        if: always() && steps.guard.outputs.skip != 'true'
+        env:
+          RELEASE_TAG: ${{ steps.request.outputs.release_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -s work/release/publisher-receipt.json ]]; then
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path("work/release/publisher-receipt.json").read_text(encoding="utf-8"))
+          summary = Path(__import__("os").environ["GITHUB_STEP_SUMMARY"])
+          status = receipt.get("status", "unknown")
+          summary.write_text(
+              "## Violin Prince publishing fallback\n\n"
+              f"- Status: **{status}**\n"
+              f"- Provider: {receipt.get('provider', 'unknown')}\n"
+              f"- YouTube video ID: {receipt.get('youtube_video_id', 'not confirmed')}\n"
+              f"- YouTube URL: {receipt.get('youtube_video_url', 'not available')}\n"
+              f"- Release: {receipt.get('release_tag', 'unknown')}\n"
+              f"- Error: {receipt.get('error', 'none')}\n",
+              encoding="utf-8",
+          )
+          print(json.dumps(receipt, ensure_ascii=False, indent=2))
+          PY
+          else
+            echo "No final receipt exists. The release attempt marker prevents an automatic duplicate retry." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Confirm the workflow never ran on a schedule
+        if: always()
+        run: |
+          echo "This fallback is push-triggered only by the ChatGPT-created request file. No new cron or scheduler was added."
