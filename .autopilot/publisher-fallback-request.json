@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "mode": "metricool_quota_fallback",
+  "request_id": "metricool-fallback-2026-11-20-44739181917",
+  "production_run_id": "44739181917",
+  "release_tag": "violin-prince-short-44739181917",
+  "reason": "metricool_monthly_limit_reached"
+}
