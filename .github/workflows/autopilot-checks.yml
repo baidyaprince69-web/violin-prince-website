@@ -11,6 +11,7 @@ on:
       - ".github/voice-tests/**"
       - ".github/workflows/qwen3-voice-preflight.yml"
       - ".github/workflows/violin-prince-autopilot.yml"
+      - ".github/workflows/publisher-fallback.yml"
       - ".github/workflows/autopilot-checks.yml"
   pull_request:
     paths:
@@ -19,6 +20,7 @@ on:
       - ".github/voice-tests/**"
       - ".github/workflows/qwen3-voice-preflight.yml"
       - ".github/workflows/violin-prince-autopilot.yml"
+      - ".github/workflows/publisher-fallback.yml"
       - ".github/workflows/autopilot-checks.yml"
 
 permissions:
@@ -61,6 +63,11 @@ jobs:
           PYTHONPATH: autopilot/engine
         run: python -m unittest discover -s autopilot/engine/tests -p "test_daily_plan.py" -v
 
+      - name: Run guarded direct-publishing fallback tests
+        env:
+          PYTHONPATH: autopilot/engine
+        run: python -m unittest discover -s autopilot/engine/tests -p "test_publisher_router.py" -v
+
       - name: Install private voice bridge test dependencies
         run: |
           python -m pip install --disable-pip-version-check \
@@ -81,6 +88,7 @@ jobs:
           files = [
               ".github/workflows/autopilot-checks.yml",
               ".github/workflows/violin-prince-autopilot.yml",
+              ".github/workflows/publisher-fallback.yml",
               ".github/workflows/private-qwen3-bridge-test.yml",
               ".github/voice-tests/private-runner/private-voice-test.workflow.yml",
               ".github/workflows/youtube-seo-learning.yml",
