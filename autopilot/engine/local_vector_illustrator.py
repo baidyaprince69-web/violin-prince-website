@@ -16,10 +16,10 @@ MODES = {
     "macro_illustration", "mechanism_illustration", "waveform",
     "melody_map", "comparison", "cover_performance",
 }
-NAVY = (11, 23, 38)
-NAVY_MID = (23, 48, 63)
-TEAL = (40, 126, 132)
-TEAL_LIGHT = (100, 193, 188)
+NAVY = (18, 32, 43)
+NAVY_MID = (39, 67, 73)
+TEAL = (38, 139, 140)
+TEAL_LIGHT = (112, 205, 193)
 GOLD = (181, 108, 56)
 GOLD_LIGHT = (238, 190, 121)
 IVORY = (245, 230, 203)
@@ -39,9 +39,10 @@ def _background() -> Image.Image:
         draw.line((0, y, WIDTH, y), fill=color)
     glow = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
     glow_draw = ImageDraw.Draw(glow)
-    glow_draw.ellipse((100, 250, 930, 1300), fill=(*TEAL, 86))
-    glow_draw.ellipse((310, 520, 1020, 1530), fill=(*CORAL, 42))
-    glow_draw.ellipse((-80, 800, 560, 1640), fill=(*SKY, 22))
+    glow_draw.ellipse((65, 190, 980, 1390), fill=(*TEAL, 118))
+    glow_draw.ellipse((280, 450, 1080, 1580), fill=(*CORAL, 64))
+    glow_draw.ellipse((-110, 780, 610, 1660), fill=(*SKY, 44))
+    glow_draw.ellipse((265, 860, 790, 1700), fill=(*GOLD_LIGHT, 23))
     image = Image.alpha_composite(image.convert("RGBA"), glow.filter(ImageFilter.GaussianBlur(150)))
     frame = ImageDraw.Draw(image, "RGBA")
     frame.rounded_rectangle((28, 28, WIDTH - 28, HEIGHT - 28), radius=30,
@@ -151,14 +152,25 @@ def _draw_violin(image: Image.Image, center=(512, 1050), scale=1.0, angle=0.0):
     d.polygon(mapped(fingerboard), fill=(29, 31, 34, 255), outline=(130, 91, 57, 255), width=4)
     d.polygon(mapped([(486, 184), (538, 184), (538, 201), (486, 201)]),
               fill=(34, 30, 29, 255), outline=(224, 190, 134, 220))
-    scroll = _path((480,190), [
-        ((470,150),(448,122),(461,91)), ((474,58),(498,53),(512,75)),
-        ((531,52),(557,60),(565,91)), ((578,121),(554,151),(544,190))
+    # Carved violin scroll: a solid rounded head flowing out of the pegbox,
+    # with one inset spiral curl rather than a loop-shaped outline.
+    scroll_head = _path((480,190), [
+        ((466,164),(448,140),(448,113)),
+        ((447,82),(470,60),(496,59)),
+        ((525,57),(548,75),(555,102)),
+        ((560,130),(546,158),(544,190)),
     ])
-    d.line(mapped(scroll), fill=(*GOLD_LIGHT,255), width=10, joint="curve")
-    spiral = _path((512,89), [((536,83),(552,101),(537,116)),
-                              ((523,129),(504,119),(511,105))])
-    d.line(mapped(spiral), fill=(111,79,52,255), width=5, joint="curve")
+    d.polygon(mapped(scroll_head), fill=(159, 86, 48, 255),
+              outline=(78, 43, 31, 255), width=8)
+    d.line(mapped(scroll_head), fill=(241, 188, 119, 235), width=3, joint="curve")
+    spiral = _path((520,88), [
+        ((536,77),(548,87),(543,101)),
+        ((538,116),(521,117),(514,105)),
+        ((508,95),(517,88),(526,92)),
+    ])
+    d.line(mapped(spiral), fill=(75, 43, 32, 255), width=7, joint="curve")
+    d.line(mapped([(487, 163), (496, 178), (512, 184)]),
+           fill=(243, 194, 126, 215), width=3, joint="curve")
 
     # A violin has four tuning pegs total: two on each side of the pegbox.
     for side, y in VIOLIN_TUNING_PEG_POSITIONS:
@@ -496,8 +508,11 @@ def _studio_cover():
     _draw_violin(image, center=(490, 1215), scale=.92, angle=-16)
     d = ImageDraw.Draw(image, "RGBA")
     bow = _curve((145, 510), (350, 560), (670, 1050), (900, 1210), 80)
-    d.line(bow, fill=(33, 29, 27, 190), width=20, joint="curve")
-    d.line(bow, fill=(*GOLD_LIGHT, 220), width=4, joint="curve")
+    d.line(bow, fill=(55, 39, 30, 235), width=18, joint="curve")
+    d.line(bow, fill=(238, 190, 121, 255), width=3, joint="curve")
+    # Pale bow hair is visible where the bow crosses the string plane.
+    hair = _curve((151, 523), (356, 575), (675, 1065), (906, 1220), 80)
+    d.line(hair, fill=(255, 242, 211, 235), width=2, joint="curve")
     return image
 
 
