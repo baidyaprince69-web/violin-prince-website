@@ -12,7 +12,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: violin-prince-approved-preview-publication-v2
+  group: violin-prince-approved-preview-publication
   cancel-in-progress: false
 
 jobs:
@@ -43,8 +43,13 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install media inspection tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
       - name: Install the existing publisher dependency
-        run: python -m pip install --disable-pip-version-check "requests>=2.32,<3" "av>=18,<19"
+        run: python -m pip install --disable-pip-version-check 'requests>=2.32,<3'
 
       - name: Verify provenance, check the actual channel for duplicates, and upload the exact preview
         run: python autopilot/engine/publish_approved_private_preview.py
@@ -53,12 +58,14 @@ jobs:
         if: always()
         shell: bash
         run: |
-          receipt=".autopilot/publication-receipts/44785872417.json"
+          source_run_id="$(python -c 'import json; print(json.load(open(".autopilot/approved-preview-publication.json", encoding="utf-8"))["source_workflow_run_id"])')"
+          receipt=".autopilot/publication-receipts/${source_run_id}.json"
           if [[ -s "$receipt" ]]; then
-            python - <<'PY'
+            python - "$receipt" <<'PY'
           import json
+          import sys
           from pathlib import Path
-          data = json.loads(Path(".autopilot/publication-receipts/44785872417.json").read_text(encoding="utf-8"))
+          data = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
           print("Receipt status:", data.get("status"))
           print("YouTube video:", data.get("youtube_video_url"))
           PY
