@@ -259,6 +259,18 @@ class DailyPlanEvidenceTests(unittest.TestCase):
         self.assertIn("EQ, compression and reverb", evidence[4]["quote"])
         self.assertIn("no latency", evidence[4]["quote"].casefold())
 
+        scenes = plan.get("scenes", [])
+        self.assertGreaterEqual(len(scenes), 3)
+        self.assertEqual(scenes[0].get("title"), "IS YOUR ROOM LYING TO YOUR EARS?")
+        self.assertEqual(scenes[0].get("caption"), "YOUR ROOM CAN FOOL YOUR MIX.")
+        payoff = scenes[-1]
+        self.assertEqual(payoff.get("graphic_data", {}).get("type"), "comparison")
+        self.assertEqual(
+            [item.get("label") for item in payoff["graphic_data"]["items"]],
+            ["ORIGINAL TAKE", "MONITOR FEED"],
+        )
+        self.assertIn("monitor playback", payoff["graphic_data"]["detail"].casefold())
+
 
 if __name__ == "__main__":
     unittest.main()
