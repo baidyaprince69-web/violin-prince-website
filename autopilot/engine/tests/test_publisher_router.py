@@ -14,6 +14,7 @@ from publisher_router import (
     route_to_youtube,
     validate_release_bundle,
 )
+from youtube_channel_audit import ChannelAuditError, DuplicateVideoFound
 
 
 class PublisherRouterTests(unittest.TestCase):
@@ -97,8 +98,20 @@ class PublisherRouterTests(unittest.TestCase):
         (self.release / "asset-provenance.json").write_text(
             json.dumps(self.provenance), encoding="utf-8"
         )
+        self.audit_patcher = patch(
+            "publisher_router.assert_title_absent",
+            return_value={
+                "status": "passed",
+                "match_count": 0,
+                "channel_id": "UCGCfZij4Fn3Ga2j2HiCT45w",
+                "uploads_checked_pages": 4,
+                "uploads_examined": 173,
+            },
+        )
+        self.audit_patcher.start()
 
     def tearDown(self):
+        self.audit_patcher.stop()
         self.temporary.cleanup()
 
     def test_valid_release_bundle_uses_exact_manifest_metadata(self):
@@ -143,6 +156,34 @@ class PublisherRouterTests(unittest.TestCase):
         )
         self.assertEqual(marker["status"], "attempting")
         self.assertEqual(marker["attempt_id"], "123456-1")
+        self.assertEqual(marker["youtube_channel_audit"]["status"], "passed")
+        self.assertEqual(marker["youtube_channel_audit"]["uploads_checked_pages"], 4)
+
+    def test_duplicate_title_blocks_before_attempt_marker_is_created(self):
+        with patch(
+            "publisher_router.assert_title_absent",
+            side_effect=DuplicateVideoFound([{
+                "video_id": "existingVideo123",
+                "title": self.manifest["title"],
+                "published_at": "2026-11-20T18:53:17Z",
+            }]),
+        ):
+            with self.assertRaisesRegex(RouterError, "already exists"):
+                prepare_attempt(
+                    self.request_path, self.release, self.repository, "123456-1"
+                )
+        self.assertFalse((self.release / "publisher-attempt.json").exists())
+
+    def test_incomplete_channel_audit_blocks_before_attempt_marker(self):
+        with patch(
+            "publisher_router.assert_title_absent",
+            side_effect=ChannelAuditError("YouTube returned HTTP 403"),
+        ):
+            with self.assertRaisesRegex(RouterError, "duplicate verification failed"):
+                prepare_attempt(
+                    self.request_path, self.release, self.repository, "123456-1"
+                )
+        self.assertFalse((self.release / "publisher-attempt.json").exists())
 
     def test_old_attempt_marker_blocks_a_new_workflow_attempt(self):
         prepare_attempt(self.request_path, self.release, self.repository, "123456-1")
