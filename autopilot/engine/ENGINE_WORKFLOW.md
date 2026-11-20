@@ -462,3 +462,26 @@ Production narration is approved through private Qwen3 after the creator-authori
 - The private workflow `.github/workflows/private-video-preview-intake.yml` downloads that draft asset inside the private repository, verifies its exact size and SHA-256, stores the MP4 as a one-day private Actions artifact and deletes the temporary release/tag and transfer branch after a successful upload.
 - The public workflow offers only the complete `full` stage while private intermediate-stage handoff is unavailable. It has no public video or diagnostic-artifact upload step. `PUBLISH_ENABLED` remains `false`; there is no public GitHub release, Upload-Post queue submission or YouTube upload in this preview path.
 - The private artifact is for creator inspection of the completed render. It is not publication approval; the full video must be reviewed before any later publishing decision.
+
+
+## Addendum — Metricool quota fallback to the official YouTube API (2026-11-20)
+
+**Status:** Implemented in the feature branch `feat/publisher-failover-chain-20261120`; not active on `main` until reviewed and merged.
+
+The production workflow remains unchanged: it performs the video production gates, creates the verified public GitHub Release and leaves `PUBLISH_ENABLED=false`. ChatGPT remains the only daily scheduler and uses the connected Metricool brand as the primary YouTube publisher.
+
+If and only if Metricool confirms that its monthly post limit has been reached, ChatGPT writes `.autopilot/publisher-fallback-request.json` to `main`. The push triggers the separate `.github/workflows/publisher-fallback.yml` workflow. That workflow:
+
+1. Downloads the exact release identified by the request's numeric production run ID.
+2. Revalidates `publish-manifest.json`, `asset-provenance.json`, release URL, public audience setting, synthetic-media declaration, duration/format contract, MP4 size and SHA-256.
+3. Writes `publisher-attempt.json` to the GitHub Release **before** calling YouTube. Existing attempt or receipt records block a new workflow attempt, including retries with a different GitHub Actions attempt number.
+4. Calls the already-existing `youtube_upload()` function in `engine/publisher.py`. This refreshes the saved Google OAuth refresh token and uses YouTube's resumable video-upload endpoint. The separate fallback workflow sets public privacy, while the production job itself remains publishing-disabled.
+5. Saves `publisher-receipt.json` to the same release with the returned YouTube video ID and URL. If the upload outcome is uncertain, the receipt records `outcome_unknown` and automatic retry is blocked to prevent accidental duplicate uploads.
+
+The request schema is illustrated by `.autopilot/publisher-fallback-request.example.json`. The live request must use `mode=metricool_quota_fallback`, `reason=metricool_monthly_limit_reached`, the exact release tag and a unique request ID. Temporary Metricool outages, unknown post state or an unverified quota do **not** trigger fallback. If Metricool has already queued a post, the ChatGPT operator must verify it rather than creating another one.
+
+The production workflow's trigger and scheduler are not changed: there is no new cron. The fallback workflow is push-triggered only by the dedicated request file. It does not call Buffer, Publer, vidIQ publishing, Upload-Post or a second social-media scheduler.
+
+The default YouTube Data API quota documents 100 `videos.insert` calls per day for the upload method; the pipeline's intended one or two uploads daily are within that published default, subject to the project's actual quota and YouTube channel-specific restrictions. This is a quota reference, not a guarantee that an upload will succeed.
+
+**Required secrets:** the fallback workflow reuses `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET` and `YOUTUBE_REFRESH_TOKEN` already used by the repository's OAuth publishing adapter. Never commit these values or include them in request files, logs or release receipts.
