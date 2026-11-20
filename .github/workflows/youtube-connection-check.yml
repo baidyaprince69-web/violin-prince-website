@@ -1,4 +1,4 @@
-name: Violin Prince YouTube connection check
+name: Violin Prince native YouTube uploads audit
 
 on:
   workflow_dispatch:
@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   read-only-connection:
-    name: Verify channel OAuth, Analytics and complete uploads-list access (no upload)
+    name: Verify channel OAuth and complete uploads-list access (no upload)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
@@ -40,15 +40,10 @@ jobs:
       - name: Install minimal connection-check dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install "requests>=2.32,<3" "cryptography>=43,<48"
+          pip install "requests>=2.32,<3"
 
-      - name: Compile the read-only YouTube engine
-        run: |
-          python -m py_compile autopilot/engine/youtube_channel_audit.py
-          python -m py_compile autopilot/engine/youtube_native/*.py autopilot/engine/analytics.py autopilot/engine/seo_intelligence/*.py
-
-      - name: Verify OAuth channel and YouTube Analytics (no upload)
-        run: python -m autopilot.engine.youtube_native.connection_check
+      - name: Compile the native uploads audit module
+        run: python -m py_compile autopilot/engine/youtube_channel_audit.py
 
       - name: Audit the complete authenticated uploads playlist (no upload)
         shell: bash
