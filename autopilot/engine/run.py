@@ -12,6 +12,7 @@ from pathlib import Path
 from urllib.parse import quote, unquote, urlparse, parse_qs, urljoin
 import requests
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
+from audio_mix import VOICE_PRIORITY_MIX, bed_volume_for, sidechain_music_filter, voice_processing_filter
 
 try:
     from .seo_intelligence import build_topic_queries, discover as seo_discover, load_profile as seo_load_profile
@@ -4537,12 +4538,7 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
     write_srt(narration_info.get("subtitle_cues", []), subtitle_path)
     ass_path = OUT / "narration.ass"
     write_kinetic_ass(narration_info.get("subtitle_cues", []), ass_path, narration_info.get("word_cues", []))
-    if audio_source == "generated_ambient_fallback":
-        bed_volume = "0.18"
-    elif audio_source == "sampled_violin_cc0":
-        bed_volume = "0.24"
-    else:
-        bed_volume = "0.26"
+    bed_volume = bed_volume_for(audio_source)
     # Align a real creator performance take to the final scene regardless of count.
     performance_start = max(0.0, scene_starts[-1])
     performance_audio_seconds = (
@@ -4555,14 +4551,13 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         take_fade_start = max(0.0, performance_audio_seconds - 0.35)
         audio_filter = (
             f"[1:a]volume={bed_volume},afade=t=out:st={bed_fade_start:.3f}:d=0.50[bed];"
-            "[2:a]highpass=f=75,acompressor=threshold=-20dB:ratio=3:attack=12:release=180,"
-            "volume=1.15,asplit=2[voice_sc][voice_mix];"
+            voice_processing_filter() + ",asplit=2[voice_sc][voice_mix];"
             f"[3:a]atrim=duration={performance_audio_seconds:.3f},asetpts=PTS-STARTPTS,"
             "highpass=f=70,acompressor=threshold=-22dB:ratio=2.5:attack=10:release=220,"
-            "volume=0.95,afade=t=in:st=0:d=0.15,"
+            f"volume={VOICE_PRIORITY_MIX['creator_take_volume']:.2f},afade=t=in:st=0:d=0.15,"
             f"afade=t=out:st={take_fade_start:.3f}:d=0.35,adelay={delay_ms}:all=1[creator_take];"
             "[bed][creator_take]amix=inputs=2:duration=first:dropout_transition=0[music];"
-            "[music][voice_sc]sidechaincompress=threshold=0.035:ratio=10:attack=18:release=620:knee=4:makeup=1[duckedbed];"
+            sidechain_music_filter("music") + ";"
             "[duckedbed][voice_mix]amix=inputs=2:duration=longest:dropout_transition=1,"
             "loudnorm=I=-16:TP=-1.5:LRA=11,"
             "afade=t=in:st=0:d=0.5,afade=t=out:st=22:d=2[aout]"
@@ -4571,9 +4566,8 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
     else:
         audio_filter = (
             f"[1:a]volume={bed_volume}[bed];"
-            "[2:a]highpass=f=75,acompressor=threshold=-20dB:ratio=3:attack=12:release=180,"
-            "volume=1.15,asplit=2[voice_sc][voice_mix];"
-            "[bed][voice_sc]sidechaincompress=threshold=0.035:ratio=10:attack=18:release=620:knee=4:makeup=1[duckedbed];"
+            voice_processing_filter() + ",asplit=2[voice_sc][voice_mix];"
+            sidechain_music_filter() + ";"
             "[duckedbed][voice_mix]amix=inputs=2:duration=longest:dropout_transition=1,"
             "loudnorm=I=-16:TP=-1.5:LRA=11,"
             "afade=t=in:st=0:d=0.5,afade=t=out:st=22:d=2[aout]"
@@ -4641,7 +4635,7 @@ def render(plan, audio_bytes, narration_path, narration_info, image_paths=None,
         "visual_reference_motion_profile": (plan.get("visual_reference") or {}).get("motion_profile", "not_supplied"),
         "visual_reference_adaptation_note": (plan.get("visual_reference") or {}).get("adaptation_note", "Standard Violin Prince visual direction retained."),
         "audio_source": audio_source,
-        "audio_mix": "voice-priority sidechain ducking; creator performance audio enters with Scene 3 when present",
+        "audio_mix": "narration-forward: music bed gain 0.10-0.12, narration gain 1.40 with 2.6 kHz presence lift, stronger 16:1 voice-triggered music ducking; creator performance audio is also ducked",
         "creator_performance_video": {
             "inserted": bool(performance_video_info),
             "duration_seconds": performance_video_info.get("duration_seconds") if performance_video_info else None,
