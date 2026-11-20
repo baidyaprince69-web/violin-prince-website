@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "status": "attempting",
+  "source_workflow_run_id": "44785872417",
+  "private_release_tag": "private-preview-video-44785872417",
+  "expected_sha256": "c4b9b7c7eb659745564266f08a12ddab3555c867089be872370207f77b4ce528",
+  "youtube_channel_id": "UCGCfZij4Fn3Ga2j2HiCT45w",
+  "title": "SplitEQ 2: Shape a Violin's Attack and Tone Separately",
+  "privacy_status": "public",
+  "duplicate_check": {
+    "channel_id": "UCGCfZij4Fn3Ga2j2HiCT45w",
+    "uploads_checked_pages": 4,
+    "spliteq2_matches": 0
+  },
+  "created_at_utc": "2026-11-20T18:53:14Z",
+  "note": "Committed before upload; an uncertain outcome must be reconciled manually before retry."
+}
