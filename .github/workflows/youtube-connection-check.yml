@@ -2,6 +2,12 @@ name: Violin Prince YouTube connection check
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/youtube-connection-check.yml"
+      - "autopilot/engine/youtube_channel_audit.py"
 
 permissions:
   contents: read
@@ -12,21 +18,18 @@ concurrency:
 
 jobs:
   read-only-connection:
-    name: Verify YouTube channel and Analytics access (no upload)
+    name: Verify channel OAuth, Analytics and complete uploads-list access (no upload)
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     env:
       YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
       YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
       YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
       YOUTUBE_EXPECTED_CHANNEL_ID: ${{ vars.YOUTUBE_EXPECTED_CHANNEL_ID }}
     steps:
-      - name: Check out tested staging connection code
+      - name: Check out the exact workflow commit
         uses: actions/checkout@v4
         with:
-          # Pin the already-tested read-only connection implementation.
-          ref: 4ba40de7b1472121d2307156db696925957f01ed
-          path: source
           persist-credentials: false
 
       - name: Set up Python
@@ -40,9 +43,44 @@ jobs:
           pip install "requests>=2.32,<3" "cryptography>=43,<48"
 
       - name: Compile the read-only YouTube engine
-        working-directory: source
-        run: python -m py_compile autopilot/engine/youtube_native/*.py autopilot/engine/analytics.py autopilot/engine/seo_intelligence/*.py
+        run: |
+          python -m py_compile autopilot/engine/youtube_channel_audit.py
+          python -m py_compile autopilot/engine/youtube_native/*.py autopilot/engine/analytics.py autopilot/engine/seo_intelligence/*.py
 
       - name: Verify OAuth channel and YouTube Analytics (no upload)
-        working-directory: source
         run: python -m autopilot.engine.youtube_native.connection_check
+
+      - name: Audit the complete authenticated uploads playlist (no upload)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, str(Path("autopilot/engine").resolve()))
+          from youtube_channel_audit import scan_uploads_playlist
+
+          expected = os.environ["YOUTUBE_EXPECTED_CHANNEL_ID"].strip()
+          audit = scan_uploads_playlist()
+          if audit["channel_id"] != expected:
+              raise SystemExit("Live uploads audit returned a different channel ID.")
+          if int(audit["uploads_checked_pages"]) < 1:
+              raise SystemExit("Live uploads audit did not scan any playlist pages.")
+
+          print("Native YouTube uploads-list audit: SUCCESS")
+          print("Verified channel ID: " + audit["channel_id"])
+          print("Uploads playlist pages fully scanned: " + str(audit["uploads_checked_pages"]))
+          print("Upload entries examined: " + str(audit["uploads_examined"]))
+          print("Upload performed: NO")
+
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_path:
+              with open(summary_path, "a", encoding="utf-8") as summary:
+                  summary.write("## Native YouTube uploads-list audit\n\n")
+                  summary.write("- Channel identity: **verified**\n")
+                  summary.write("- Uploads playlist pages fully scanned: **" + str(audit["uploads_checked_pages"]) + "**\n")
+                  summary.write("- Entries examined: **" + str(audit["uploads_examined"]) + "**\n")
+                  summary.write("- Upload performed: **no**\n")
+          PY
