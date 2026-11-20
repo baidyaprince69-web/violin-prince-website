@@ -68,6 +68,11 @@ jobs:
           PYTHONPATH: autopilot/engine
         run: python -m unittest discover -s autopilot/engine/tests -p "test_publisher_router.py" -v
 
+      - name: Run native YouTube uploads-list duplicate-audit tests
+        env:
+          PYTHONPATH: autopilot/engine
+        run: python -m unittest discover -s autopilot/engine/tests -p "test_youtube_channel_audit.py" -v
+
       - name: Run direct YouTube OAuth uploader metadata tests
         env:
           PYTHONPATH: autopilot/engine
