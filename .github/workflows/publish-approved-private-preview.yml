@@ -43,11 +43,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Verify the preinstalled media inspection tool
-        run: ffprobe -version
-
       - name: Install the existing publisher dependency
-        run: python -m pip install --disable-pip-version-check "requests>=2.32,<3"
+        run: python -m pip install --disable-pip-version-check "requests>=2.32,<3" "av>=18,<19"
 
       - name: Verify provenance, check the actual channel for duplicates, and upload the exact preview
         run: python autopilot/engine/publish_approved_private_preview.py
