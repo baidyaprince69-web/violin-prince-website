@@ -6,25 +6,21 @@
       "production_date": "2026-11-22",
       "slot_id": "music-secrets",
       "slot_status": "blocked",
-      "blocked_reason": "Only one fresh direct publisher article was fully verified for the specific label-free dùndún speech/music categorization finding: Springer Nature, published 18 November 2026. The fresh MedicalXpress article concerns a different auditory-cortex study and is not independent corroboration of that same claim.",
-      "topic": "How task labels change the way listeners group speech-like and music-like sounds produced by the same dùndún talking drum.",
+      "blocked_reason": "Only one fresh, direct publisher article was fully verified for the label-free dùndún speech/music categorization finding. The separate auditory-cortex study is not independent corroboration of that same finding; do not pad the source set with unrelated research.",
+      "topic": "How task labels affect the grouping of speech-like and music-like sounds from the same dùndún talking drum.",
       "research_sources": [
         {
           "title": "Reverse-engineering speech and music categorization from a single sound source",
           "url": "https://link.springer.com/article/10.3758/s13414-026-03375-9",
           "publisher_domain": "link.springer.com",
-          "date": "2026-11-18",
-          "source_type": "direct_journal_article",
-          "note": "Direct Springer Nature article page; article-specific publication date verified. The study reports that the speech/music distinction became secondary when listeners sorted the same drum sounds without preset category labels."
-        }
-      ],
-      "related_context_not_counted_as_corroboration": [
+          "date": "2026-11-18"
+        },
         {
           "title": "The Harry Potter soundtrack helps researchers test how the brain differentiates speech and background music",
           "url": "https://medicalxpress.com/news/2026-11-harry-potter-soundtrack-brain-differentiates.html",
           "publisher_domain": "medicalxpress.com",
           "date": "2026-11-19",
-          "note": "Direct MedicalXpress article page and date verified, but this is a separate Science Advances study about auditory-cortex timing and frequency cues, not a second report of the dùndún label-framing finding."
+          "note": "Separate study; not corroboration of the dùndún categorization claim."
         }
       ]
     },
@@ -32,90 +28,253 @@
       "production_date": "2026-11-22",
       "slot_id": "production-tech",
       "slot_status": "ready",
-      "topic": "sonible pure:smooth, a newly released AI-assisted de-harshing plugin; explain its source-profile analysis and Difference Monitoring as product news, not a hands-on test.",
-      "research_sources": [
+      "story_type": "music_production",
+      "core_claim": "sonible pure:smooth uses source-profile analysis and adjustable resonance controls to reduce harsh frequencies, while Difference Monitoring lets users hear what the process removes.",
+      "topic": "A source-based explainer of sonible pure:smooth: its AI-assisted source-profile analysis, Smoothing and Resolution controls, and Difference Monitoring. Treat as product news, not a hands-on test.",
+      "title": "sonible pure:smooth: AI De-Harshing Explained",
+      "hook": "Can AI de-harshing soften harsh violin resonances?",
+      "description": "sonible's pure:smooth is a new AI-assisted de-harshing plugin. This short explains how source profiles, Smoothing, Resolution and Difference Monitoring are described by the manufacturer and music-production press. It is based on published product information, not a hands-on test or a claim that the plugin has been tested on Prince's violin recording.",
+      "hashtags": [
+        "#MusicProduction",
+        "#AudioEngineering",
+        "#ViolinMixing",
+        "#sonible",
+        "#ViolinPrince"
+      ],
+      "tags": [
+        "sonible pure:smooth",
+        "AI de-harshing",
+        "resonance suppression",
+        "violin mixing",
+        "audio engineering",
+        "music production",
+        "Difference Monitoring",
+        "Smoothing",
+        "Resolution",
+        "Violin Prince"
+      ],
+      "narrative_style": "documentary",
+      "cover_payoff": "Use a symbolic violin waveform to explain the controls. Do not show a fake DAW test, invented measurements, or claim that Prince has tested the plugin.",
+      "narration_script": "Can AI de-harshing soften harsh violin resonances? pure:smooth learns from a selected source profile and your audio. Smoothing sets intensity, while Resolution controls frequency precision. Difference Monitoring lets you hear the frequencies being removed.",
+      "narration_evidence": [
         {
+          "sentence_number": 2,
+          "source_id": "S002",
+          "quote": "You pick a source profile, and pure:smooth studies the incoming signal to learn where its energy sits"
+        },
+        {
+          "sentence_number": 3,
+          "source_id": "S001",
+          "quote": "Smoothing sets the amount of resonance reduction, while Resolution switches between broad tonal smoothing and precise resonance reduction."
+        },
+        {
+          "sentence_number": 4,
+          "source_id": "S002",
+          "quote": "Difference Monitoring lets you solo the removed frequency components and hear only what the plugin is taking out"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "S001",
           "title": "Sonible releases AI-powered Resonance Suppression Plugin",
           "url": "https://mmrmagazine.com/sonible-releases-ai-powered-resonance-suppression-plugin/",
           "publisher_domain": "mmrmagazine.com",
-          "date": "2026-11-18",
-          "source_type": "direct_publisher_article",
-          "note": "MMR article date verified; reports source-profile processing and Difference Monitoring."
+          "date": "2026-11-18"
         },
         {
+          "source_id": "S002",
           "title": "sonible pure:smooth Tames Harsh Resonance in One Knob",
           "url": "https://blog.dubspot.com/sonible-pure-smooth-2026",
           "publisher_domain": "blog.dubspot.com",
-          "date": "2026-11-19",
-          "source_type": "direct_publisher_article",
-          "note": "Dubspot article date verified; describes source profiles, adaptive processing and Difference Monitoring. The page explicitly says this is a first look based on official specs, not a lab test."
+          "date": "2026-11-19"
         }
+      ],
+      "timeline": [],
+      "scenes": [
+        {
+          "id": "harsh-note-hook",
+          "title": "The sharp note",
+          "caption": "WHEN A NOTE FEELS TOO SHARP",
+          "image_prompt": "Vertical 9:16 original 2D editorial illustration: an amber violin beside one musical note with a narrow, bright resonance spike emerging from a warm waveform. Midnight navy background, antique-gold and muted-teal accents, clean precise linework, no text, no logos, no measurements, no watermark.",
+          "visual_mode": "waveform",
+          "graphic_label": "THE HOOK",
+          "graphic_detail": "A sharp resonance can distract from a string tone",
+          "narration_sentence_indexes": [
+            0
+          ]
+        },
+        {
+          "id": "source-profile-control",
+          "title": "Source-aware controls",
+          "caption": "LEARN THE SOURCE. SHAPE THE REDUCTION.",
+          "image_prompt": "Vertical 9:16 premium 2D technical illustration of an abstract audio source profile feeding a simple resonance-control panel, with broad and narrow frequency shapes represented symbolically. Include a violin silhouette as context, but no real software interface, brand logo, invented values or readable embedded text. Midnight navy, antique gold and muted teal.",
+          "visual_mode": "comparison",
+          "graphic_label": "THE KEY DETAIL",
+          "graphic_detail": "Source profiles and controls guide resonance reduction",
+          "narration_sentence_indexes": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "difference-monitoring-payoff",
+          "title": "Hear the difference",
+          "caption": "LISTEN TO WHAT IS REMOVED",
+          "image_prompt": "Vertical 9:16 symbolic editorial studio illustration: headphones beside an amber violin and two separate audio ribbons, one showing the original phrase and one showing a removed frequency layer. The scene is explanatory artwork, not a real plugin screenshot or an actual creator performance. Midnight navy, gold and muted teal; no text or logos.",
+          "visual_mode": "cover_performance",
+          "graphic_label": "THE PAYOFF",
+          "graphic_detail": "Difference Monitoring lets listeners audition the removed frequencies",
+          "narration_sentence_indexes": [
+            3
+          ]
+        }
+      ],
+      "performance_feedback": {
+        "sample_window": "No mature channel sample attached to this new product-news slot.",
+        "sample_count": 0,
+        "confidence": "Topic and script are evidence-led; no claim of audience preference or plugin hands-on testing.",
+        "strengths_to_preserve": [
+          "Keep the violin context while making the audio-engineering idea understandable."
+        ],
+        "one_change_to_test": "Use a clear signal-flow visual rather than a product demonstration that has not been performed.",
+        "measurement_for_next_upload": "Review preview clarity, narration intelligibility, visual legibility and source accuracy before publication."
+      },
+      "narration_asr_hotwords": [
+        "sonible",
+        "pure:smooth",
+        "Smoothing",
+        "Resolution",
+        "Difference Monitoring"
       ]
     },
     {
       "production_date": "2026-11-22",
       "slot_id": "melody-stories",
       "slot_status": "ready",
-      "topic": "Phoebe Bridgers' new cover of Adrianne Lenker's 2020 song 'Anything': how the arrangement becomes lusher while retaining the original's fragile character, with proceeds directed to the Palestine Children's Relief Fund.",
-      "research_sources": [
+      "story_type": "music_news",
+      "core_claim": "Phoebe Bridgers' holiday cover of Adrianne Lenker's 2020 song Anything has a lusher production that retains the original's fragile character, and proceeds benefit the Palestine Children's Relief Fund.",
+      "topic": "Phoebe Bridgers' new holiday cover of Adrianne Lenker's 2020 song Anything: the arrangement contrast described by music press and its charitable proceeds.",
+      "title": "Phoebe Bridgers' 'Anything': Fuller, Still Fragile",
+      "hook": "Can a holiday cover feel fuller yet delicate?",
+      "description": "Phoebe Bridgers has released a holiday cover of Adrianne Lenker's 2020 song Anything. Stereogum describes the new version as lusher while retaining the original's fragile character. Both artists are donating proceeds to the Palestine Children's Relief Fund. This is an editorial music-news explainer using original symbolic visuals, not the artists' recordings or likenesses.",
+      "hashtags": [
+        "#PhoebeBridgers",
+        "#AdrianneLenker",
+        "#IndieMusic",
+        "#NewMusic",
+        "#ViolinPrince"
+      ],
+      "tags": [
+        "Phoebe Bridgers",
+        "Adrianne Lenker",
+        "Anything cover",
+        "holiday cover",
+        "indie music news",
+        "Stereogum",
+        "Pitchfork",
+        "Palestine Children's Relief Fund",
+        "music arrangement",
+        "Violin Prince"
+      ],
+      "narrative_style": "documentary",
+      "cover_payoff": "Show an original symbolic arrangement comparison: a delicate central melody surrounded by fuller visual layers. Do not reproduce the song audio, lyrics, official cover artwork or identifiable artist likenesses.",
+      "narration_script": "Can a holiday cover feel fuller yet delicate? Bridgers covers Lenker's 2020 single Anything for holidays. Stereogum describes a lusher production retaining the original's fragile character. Both artists donate proceeds to Palestine Children's Relief Fund.",
+      "narration_evidence": [
         {
+          "sentence_number": 2,
+          "source_id": "S001",
+          "quote": "Today, she’s releasing a cover of Adrianne Lenker’s 2020 single “Anything,”"
+        },
+        {
+          "sentence_number": 3,
+          "source_id": "S002",
+          "quote": "With her version, Bridgers keeps the lilting fragility of Lenker’s original track, but her take is a lot lusher and more produced."
+        },
+        {
+          "sentence_number": 4,
+          "source_id": "S001",
+          "quote": "Both Bridgers’ and Lenker’s proceeds from the benefit single will go to Palestine Children’s Relief Fund."
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "S001",
           "title": "Phoebe Bridgers Covers Adrianne Lenker’s “Anything” for the Holidays",
           "url": "https://pitchfork.com/story/phoebe-bridgers-covers-adrianne-lenkers-anything-for-the-holidays/",
           "publisher_domain": "pitchfork.com",
-          "date": "2026-11-19",
-          "source_type": "direct_publisher_article",
-          "note": "Pitchfork article date verified; confirms the cover release and proceeds."
+          "date": "2026-11-19"
         },
         {
+          "source_id": "S002",
           "title": "Phoebe Bridgers – “Anything” (Adrianne Lenker Cover)",
           "url": "https://stereogum.com/2518664/phoebe-bridgers-anything-adrianne-lenker-cover/music",
           "publisher_domain": "stereogum.com",
-          "date": "2026-11-19",
-          "source_type": "direct_publisher_article",
-          "note": "Stereogum article date verified; describes the lusher production while retaining the original's fragility."
+          "date": "2026-11-19"
+        }
+      ],
+      "timeline": [],
+      "scenes": [
+        {
+          "id": "holiday-cover-hook",
+          "title": "A fuller holiday cover",
+          "caption": "FULLER, STILL DELICATE",
+          "image_prompt": "Vertical 9:16 original editorial music illustration: a small glowing melody line inside a winter-night soundscape, with subtle holiday lights and an abstract acoustic-guitar outline. No artists, no album art, no lyrics, no logos, no watermark. Midnight navy with muted amber and teal.",
+          "visual_mode": "melody_map",
+          "graphic_label": "THE HOOK",
+          "graphic_detail": "A new holiday cover revisits a 2020 song",
+          "narration_sentence_indexes": [
+            0
+          ]
         },
         {
-          "title": "Phoebe Bridgers releases cover of Adrianne Lenker's 'Anything' for the festive season",
-          "url": "https://www.hotpress.com/music/phoebe-bridgers-releases-cover-of-adrianne-lenkers-anything-for-the-festive-season-23170128",
-          "publisher_domain": "hotpress.com",
-          "date": "2026-11-20",
-          "source_type": "direct_publisher_article",
-          "note": "Hot Press article date verified; independently confirms the charity proceeds."
+          "id": "arrangement-contrast",
+          "title": "Fragility and layers",
+          "caption": "KEEP THE FRAGILE CORE",
+          "image_prompt": "Vertical 9:16 original 2D arrangement comparison: a delicate central musical line surrounded by a fuller halo of abstract instrumental layers. Show contrast through shape and density, not invented audio measurements. No text, artists, lyrics, logos or recognizable album imagery. Midnight navy, warm amber and muted teal.",
+          "visual_mode": "comparison",
+          "graphic_label": "THE KEY DETAIL",
+          "graphic_detail": "Music press describes a lusher production with the original's fragile character",
+          "narration_sentence_indexes": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "charity-release-payoff",
+          "title": "A charitable release",
+          "caption": "MUSIC WITH A CHARITABLE PURPOSE",
+          "image_prompt": "Vertical 9:16 original symbolic illustration of two separate musical paths converging into a softly illuminated heart-shaped soundwave, representing shared charitable proceeds. No flags, political slogans, charity logo, artist likenesses or readable text. Editorial, respectful, midnight navy and muted gold.",
+          "visual_mode": "waveform",
+          "graphic_label": "THE PAYOFF",
+          "graphic_detail": "Both artists are donating proceeds to the named relief fund",
+          "narration_sentence_indexes": [
+            3
+          ]
         }
+      ],
+      "performance_feedback": {
+        "sample_window": "No channel analytics sample attached to this current-news slot.",
+        "sample_count": 0,
+        "confidence": "The story angle is supported by two current independent music-publication articles; no claim of audience preference.",
+        "strengths_to_preserve": [
+          "Keep the arrangement observation distinct from the release and charity facts."
+        ],
+        "one_change_to_test": "Use a visual contrast between delicate melody and fuller arrangement without using the copyrighted track.",
+        "measurement_for_next_upload": "Review preview clarity, accuracy, visual pacing and whether the arrangement distinction is understandable."
+      },
+      "narration_asr_hotwords": [
+        "Phoebe Bridgers",
+        "Adrianne Lenker",
+        "Anything",
+        "Palestine Children's Relief Fund"
       ]
     },
     {
       "production_date": "2026-11-22",
       "slot_id": "real-performance",
       "slot_status": "blocked",
-      "blocked_reason": "No approved creator-recorded violin clip is accessible to the unattended runner. The publisher handoff code explicitly records creator_supplied_performance.included=false and says the daily route does not insert a private creator-uploaded performance asset. Only one fresh direct article page was fully verified for this performance story; The Times page did not expose its article date or body beyond the paywall, and the Hallé page is an event listing rather than a second article.",
-      "topic": "Pekka Kuusisto's performance in the world premiere of Gabriella Smith's violin concerto How to Be a Bird, with tremolo, trills, harmonics and bow-pressure colour as the performance-technique angle.",
-      "research_sources": [
-        {
-          "title": "Hallé/Adès/Kuusisto review – this concert oozed youthful confidence and creative energy",
-          "url": "https://www.theguardian.com/music/2026/nov/20/halle-orchestra-thomas-ades-pekka-kuusisto-review-bridgewater-hall",
-          "publisher_domain": "theguardian.com",
-          "date": "2026-11-20",
-          "source_type": "direct_publisher_article",
-          "note": "Guardian article date verified; describes tremolo, trilling, harmonics and bow-pressure textures in the premiere."
-        }
-      ],
-      "research_context_not_counted_as_second_article": [
-        {
-          "title": "Stravinsky's The Firebird — The Hallé",
-          "url": "https://halle.co.uk/event/stravinskys-firebird/",
-          "publisher_domain": "halle.co.uk",
-          "date": "2026-11-19",
-          "note": "Official concert programme confirms the premiere, soloist and work, but it is an event page rather than a second publisher article."
-        },
-        {
-          "title": "Hallé review — Thomas Adès takes flight as the orchestra’s new maestro",
-          "url": "https://www.thetimes.com/culture/classical-opera/article/halle-review-thomas-ades-bppkjkdp7",
-          "publisher_domain": "thetimes.com",
-          "date": null,
-          "note": "The page exposed the headline and summary but not an article-specific date or verifiable body text, so it was not counted."
-        }
-      ]
+      "blocked_reason": "No approved creator-recorded violin clip is accessible to the unattended runner. The unattended route must not substitute symbolic artwork or sampled audio for Prince's actual performance. Only one fresh direct article page was fully verified for this performance story.",
+      "topic": "Pekka Kuusisto's performance in the world premiere of Gabriella Smith's violin concerto How to Be a Bird."
     }
   ]
 }
