@@ -1,0 +1,10 @@
+{
+  "mode": "upload_existing_private_preview",
+  "source_run_id": "44936103450",
+  "artifact_name": "violin-prince-private-preview-120",
+  "slot_id": "production-tech",
+  "production_date": "2026-11-22",
+  "privacy_status": "private",
+  "publish_to_youtube": false,
+  "reason": "Creator requested upload via the connected Upload-Post YouTube account. Use the exact rendered artifact and verify YouTube reports the video as PRIVATE before marking complete."
+}
