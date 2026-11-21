@@ -1,0 +1,118 @@
+name: Master Creative Director
+
+on:
+  workflow_dispatch:
+    inputs:
+      batch_path:
+        description: "Path to an existing four-slot, source-candidate batch JSON in the repository"
+        required: true
+        type: string
+      slot_id:
+        description: "Ready story slot to direct"
+        required: true
+        type: choice
+        options:
+          - music-secrets
+          - production-tech
+          - melody-stories
+          - real-performance
+
+permissions:
+  contents: read
+
+concurrency:
+  group: violin-prince-master-director-${{ inputs.batch_path }}-${{ inputs.slot_id }}
+  cancel-in-progress: false
+
+jobs:
+  direct:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out the source-verified story batch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install source validation and image-manifest dependencies
+        run: |
+          python -m pip install --disable-pip-version-check \
+            "requests>=2.32,<3" \
+            "Pillow>=10.4,<12" \
+            "soundfile>=0.12,<1" \
+            "numpy>=1.26,<3" \
+            "cryptography>=43,<48" \
+            "fonttools[woff]>=4.50,<5"
+
+      - name: Set up Node.js 22 for GitHub Copilot CLI
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install GitHub Copilot CLI
+        run: npm install --global @github/copilot
+
+      - name: Generate and validate the Master Creative Director v2 plan
+        env:
+          PYTHONPATH: autopilot/engine
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          COPILOT_AUTO_UPDATE: "false"
+        run: |
+          set -euo pipefail
+          if [[ -z "$COPILOT_GITHUB_TOKEN" ]]; then
+            echo "::error::Missing COPILOT_GITHUB_TOKEN. Add a fine-grained Copilot Requests token as a repository Actions secret."
+            exit 1
+          fi
+          python autopilot/engine/create_master_director_plan.py \
+            --batch "${{ inputs.batch_path }}" \
+            --slot-id "${{ inputs.slot_id }}" \
+            --output-dir "work/master-director/${{ inputs.slot_id }}"
+
+      - name: Summarize the AI director decisions
+        if: success()
+        env:
+          PLAN_PATH: work/master-director/${{ inputs.slot_id }}/master-director-plan.json
+          BRIEF_PATH: work/master-director/${{ inputs.slot_id }}/shot-layer-generation-brief.json
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          plan = json.loads(Path(os.environ["PLAN_PATH"]).read_text(encoding="utf-8"))
+          brief = json.loads(Path(os.environ["BRIEF_PATH"]).read_text(encoding="utf-8"))
+          concept = plan["visual_concept"]
+          palette = concept["palette"]
+          lines = [
+              "## Master Creative Director result",
+              "",
+              f"- Concept: {concept['concept_name']}",
+              f"- Duration: {plan['storyboard']['duration_seconds']} seconds",
+              f"- Shots: {len(plan['storyboard']['shots'])}",
+              f"- Generated layer assets requested: {sum(len(item['layers']) for item in brief['shots'])}",
+              f"- Palette: dominant {palette['dominant']}, secondary {palette['secondary']}, accent {palette['accent']}",
+              f"- Harmony: {palette['harmony']}",
+              "- Rendered: No",
+              "- Published: No",
+              "",
+              "The shot-layer generation brief is saved with this run's artifact. No old procedural images were used.",
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as handle:
+              handle.write("\n".join(lines) + "\n")
+          PY
+
+      - name: Retain Master Director plan and cinematic layer-generation brief
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: master-director-${{ inputs.slot_id }}-${{ github.run_number }}
+          path: |
+            work/master-director/${{ inputs.slot_id }}/master-director-plan.json
+            work/master-director/${{ inputs.slot_id }}/shot-layer-generation-brief.json
+          if-no-files-found: error
+          retention-days: 14
