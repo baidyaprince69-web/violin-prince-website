@@ -77,6 +77,11 @@ jobs:
           PYTHONPATH: autopilot/engine
         run: python -m unittest discover -s autopilot/engine/tests -p "test_daily_plan.py" -v
 
+      - name: Run Master Creative Director shot-led contract tests
+        env:
+          PYTHONPATH: autopilot/engine
+        run: python -m unittest discover -s autopilot/engine/tests -p "test_master_creative_director.py" -v
+
       - name: Run guarded direct-publishing fallback tests
         env:
           PYTHONPATH: autopilot/engine
