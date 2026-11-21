@@ -65,10 +65,16 @@ ChatGPT daily operator / explicit production request
          Media QA + provenance + manifest
                     |
                     v
-         GitHub Release handoff assets
+        Verified PRIVATE YouTube preview
                     |
                     v
-       ChatGPT operator -> Upload-Post -> YouTube
+       Creator reviews at night / weekly
+                    |
+                    v
+    Separate explicit public-publishing approval
+                    |
+                    v
+      Future public schedule (disabled in commissioning)
                     |
                     v
       YouTube analytics and performance review
