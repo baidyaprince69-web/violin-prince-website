@@ -267,7 +267,7 @@ class DirectorShotRendererTests(unittest.TestCase):
             root = Path(temporary)
             images = make_images(root / "images")
             with self.assertRaisesRegex(DirectorShotRenderError, "failed validation"):
-                build_director_hyperframes_project(plan, images, root / "project")
+                build_project(plan, images, root)
 
     def test_render_project_keeps_action_and_music_sync_metadata(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -290,7 +290,7 @@ class DirectorShotRendererTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             images = make_images(root / "images")
-            project = build_director_hyperframes_project(plan, images, root / "project")
+            project = build_project(plan, images, root)
             self.assertEqual(project["scenes"][1]["start"], 4.0)
             self.assertEqual(project["scenes"][1]["transition_in"], "cut")
             self.assertEqual(project["scenes"][1]["transition_in_duration"], 0.0)
