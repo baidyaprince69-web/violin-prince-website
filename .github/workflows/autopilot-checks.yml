@@ -146,6 +146,7 @@ jobs:
           import yaml
           files = [
               ".github/workflows/autopilot-checks.yml",
+              ".github/workflows/master-creative-director.yml",
               ".github/workflows/violin-prince-autopilot.yml",
               ".github/workflows/publisher-fallback.yml",
               ".github/workflows/youtube-connection-check.yml",
