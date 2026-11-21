@@ -54,7 +54,7 @@
         "Violin Prince"
       ],
       "narrative_style": "documentary",
-      "cover_payoff": "Use a symbolic violin waveform to explain the controls. Do not show a fake DAW test, invented measurements, or claim that Prince has tested the plugin.",
+      "cover_payoff": "Use an original, newly composed Violin Prince violin phrase to demonstrate the contrast between a sharp resonant edge and a smoother sustained tone. Any sampler is illustrative, never a creator-recorded take.",
       "narration_script": "Can AI de-harshing soften harsh violin resonances? pure:smooth learns from a selected source profile and your audio. Smoothing sets intensity, while Resolution controls frequency precision. Difference Monitoring lets you hear the frequencies being removed.",
       "narration_evidence": [
         {
@@ -96,7 +96,7 @@
           "title": "The sharp note",
           "caption": "WHEN A NOTE FEELS TOO SHARP",
           "image_prompt": "Vertical 9:16 original 2D editorial illustration: an amber violin beside one musical note with a narrow, bright resonance spike emerging from a warm waveform. Midnight navy background, antique-gold and muted-teal accents, clean precise linework, no text, no logos, no measurements, no watermark.",
-          "visual_mode": "waveform",
+          "visual_mode": "mechanism_illustration",
           "graphic_label": "THE HOOK",
           "graphic_detail": "A sharp resonance can distract from a string tone",
           "narration_sentence_indexes": [
@@ -151,7 +151,7 @@
       "production_date": "2026-11-22",
       "slot_id": "melody-stories",
       "slot_status": "ready",
-      "story_type": "music_news",
+      "story_type": "song_anatomy",
       "core_claim": "Phoebe Bridgers' holiday cover of Adrianne Lenker's 2020 song Anything has a lusher production that retains the original's fragile character, and proceeds benefit the Palestine Children's Relief Fund.",
       "topic": "Phoebe Bridgers' new holiday cover of Adrianne Lenker's 2020 song Anything: the arrangement contrast described by music press and its charitable proceeds.",
       "title": "Phoebe Bridgers' 'Anything': Fuller, Still Fragile",
@@ -177,13 +177,13 @@
         "Violin Prince"
       ],
       "narrative_style": "documentary",
-      "cover_payoff": "Show an original symbolic arrangement comparison: a delicate central melody surrounded by fuller visual layers. Do not reproduce the song audio, lyrics, official cover artwork or identifiable artist likenesses.",
+      "cover_payoff": "Use an original, newly composed Violin Prince violin phrase—not the copyrighted cover—to show how a delicate melodic line can remain audible within a fuller arrangement. Any sample is illustrative, never a creator-recorded take.",
       "narration_script": "Can a holiday cover feel fuller yet delicate? Bridgers covers Lenker's 2020 single Anything for holidays. Stereogum describes a lusher production retaining the original's fragile character. Both artists donate proceeds to Palestine Children's Relief Fund.",
       "narration_evidence": [
         {
           "sentence_number": 2,
           "source_id": "S001",
-          "quote": "Today, she’s releasing a cover of Adrianne Lenker’s 2020 single “Anything,”"
+          "quote": "Phoebe Bridgers’ holiday songbook continues to grow. Today, she’s releasing a cover of Adrianne Lenker’s 2020 single “Anything,”"
         },
         {
           "sentence_number": 3,
@@ -219,7 +219,7 @@
           "title": "A fuller holiday cover",
           "caption": "FULLER, STILL DELICATE",
           "image_prompt": "Vertical 9:16 original editorial music illustration: a small glowing melody line inside a winter-night soundscape, with subtle holiday lights and an abstract acoustic-guitar outline. No artists, no album art, no lyrics, no logos, no watermark. Midnight navy with muted amber and teal.",
-          "visual_mode": "melody_map",
+          "visual_mode": "macro_illustration",
           "graphic_label": "THE HOOK",
           "graphic_detail": "A new holiday cover revisits a 2020 song",
           "narration_sentence_indexes": [
@@ -244,7 +244,7 @@
           "title": "A charitable release",
           "caption": "MUSIC WITH A CHARITABLE PURPOSE",
           "image_prompt": "Vertical 9:16 original symbolic illustration of two separate musical paths converging into a softly illuminated heart-shaped soundwave, representing shared charitable proceeds. No flags, political slogans, charity logo, artist likenesses or readable text. Editorial, respectful, midnight navy and muted gold.",
-          "visual_mode": "waveform",
+          "visual_mode": "cover_performance",
           "graphic_label": "THE PAYOFF",
           "graphic_detail": "Both artists are donating proceeds to the named relief fund",
           "narration_sentence_indexes": [
