@@ -1,7 +1,7 @@
 # Violin Prince — Global four-pillar content strategy
 
 **Prepared:** 21 November 2026  
-**Status:** Global editorial direction documented. Four-slot scheduling is configured on the feature branch only; public publishing is NOT enabled.
+**Status:** Global editorial direction and four-slot schedule are on main. GitHub cron is active for private-preview runs; public publishing is NOT enabled.
 
 ## 1. Channel positioning
 
@@ -158,9 +158,9 @@ Use a source mix:
 
 The current repository is not yet configured for this target. Before enabling public uploads, the implementation needs:
 
-1. **Four-plan batch model:** replace the single daily-plan assumption with four immutable slot plans. Each needs a unique production_id, production_date, slot_id, content_pillar, source list, script, asset references and quality report.
-2. **Four triggers:** add one independent production trigger for each six-hour slot. The feature branch now contains four six-hour GitHub cron events. The existing ChatGPT director automation prepares the next day's date-specific batch; those events activate only after the branch passes checks and is merged.
-3. **Per-slot duplicate protection:** replace the production-date-only Upload-Post request ID, external ID and idempotency key with unique per-production/per-slot identifiers. Keep a hard daily ceiling of four confirmed uploads and reconcile uncertain outcomes before retrying.
+1. **Four-plan batch model:** implemented on main through `.autopilot/daily-batches/YYYY-MM-DD.json`; each date has four canonical slot entries, including explicit blocked state when evidence is insufficient.
+2. **Four triggers:** implemented on main as four UTC cron events. ChatGPT's daily Global Director prepares tomorrow's date-specific batch before the first slot.
+3. **Per-slot duplicate protection:** publisher request IDs, external IDs and idempotency keys now include the date and slot. Confirmed-public-upload ceiling and uncertain-outcome reconciliation remain publication gates.
 4. **One publisher decision:** reconcile the Metricool and Upload-Post routes before enabling scheduling. Metricool reports YouTube, Facebook, Threads and Pinterest connected; Upload-Post currently reports YouTube only. Do not run two schedulers against the same slot.
 5. **Real performance intake:** accept a creator-selected recording, preserve its audio/video provenance, create clip candidates with timecodes, and require creator approval of the edit.
 6. **Release gates:** restore a production-ready illustration path, validate the complete rendered video/audio, keep the private Qwen3 voice proof intact, confirm synthetic-media metadata and channel settings, and only then permit public publishing.
@@ -169,7 +169,7 @@ The current repository is not yet configured for this target. Before enabling pu
 ## 9. Verified operational status on 21 November 2026
 
 - The current .autopilot/prepare-request.json has publish_to_youtube set to false.
-- The main Autopilot workflow is push/workflow-dispatch driven; no active four-slot cron has been configured.
+- The main Autopilot workflow has four six-hour UTC cron events and ChatGPT prepares date-specific batches. Scheduled jobs remain private-preview-only.
 - The checked-in illustration approval is approved_for_preview, scoped to preview_video_only, with publishing_enabled set to false.
 - The main daily plan is a single file, .autopilot/daily-production-plan.json.
 - autopilot/engine/upload_post_handoff.py derives request/idempotency identifiers from production_date, so it must be redesigned before multiple same-day uploads can be safely queued.
