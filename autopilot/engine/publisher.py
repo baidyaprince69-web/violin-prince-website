@@ -131,11 +131,20 @@ def youtube_upload(video_path: Path, plan: dict):
             timeout=600,
         )
     uploaded.raise_for_status()
-    video_id = uploaded.json().get("id")
+    upload_payload = uploaded.json()
+    video_id = str(upload_payload.get("id") or "").strip()
     if not video_id:
         raise PublishError("YouTube upload response did not contain a video ID.")
-    return {"platform": "youtube", "ok": True, "id": video_id,
-            "url": "https://www.youtube.com/watch?v=" + video_id}
+    returned_privacy = str(
+        (upload_payload.get("status") or {}).get("privacyStatus") or ""
+    ).strip().lower()
+    return {
+        "platform": "youtube",
+        "ok": True,
+        "id": video_id,
+        "url": "https://www.youtube.com/watch?v=" + video_id,
+        "privacy_status": returned_privacy,
+    }
 
 
 def instagram_publish(video_url: str, plan: dict):
