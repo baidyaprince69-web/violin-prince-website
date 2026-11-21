@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from datetime import date
 from typing import Any
 
 SLOT_CATALOG = {
