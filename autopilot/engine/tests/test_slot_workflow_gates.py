@@ -37,18 +37,18 @@ class BlockedSlotWorkflowTests(unittest.TestCase):
         self.assertIn("No narration, MP4 render or YouTube upload was attempted.", content)
         self.assertIn("  report_readiness_blocked:", content)
 
-    def test_ready_scheduled_slot_uploads_a_private_youtube_preview(self):
+    def test_ready_scheduled_slot_uploads_a_public_youtube_video(self):
         content = WORKFLOW.read_text(encoding="utf-8")
-        self.assertIn("- name: Upload validated daily slot as a PRIVATE YouTube preview via Upload-Post", content)
-        self.assertIn("python autopilot/engine/upload_private_preview_uploadpost.py", content)
-        self.assertIn('YOUTUBE_PRIVACY_STATUS: "private"', content)
+        self.assertIn("- name: Publish approved daily slot PUBLICLY to YouTube via Upload-Post", content)
+        self.assertIn("python autopilot/engine/upload_public_short_uploadpost.py", content)
+        self.assertIn('YOUTUBE_PRIVACY_STATUS: "public"', content)
         self.assertIn('PUBLISH_ENABLED: "false"', content)
         self.assertIn("needs.daily_readiness.outputs.slot_status == 'ready'", content)
-        self.assertIn("Retain scheduled private-preview artifact for recovery", content)
+        self.assertIn("Retain scheduled YouTube upload artifact for recovery", content)
         self.assertIn("creative_plan.json", content)
-        self.assertNotIn("python autopilot/engine/upload_private_preview.py", content)
+        self.assertNotIn("python autopilot/engine/upload_private_preview_uploadpost.py", content)
         self.assertNotIn("publish_daily_short.py", content)
-        self.assertNotIn('YOUTUBE_PRIVACY_STATUS: "public"', content)
+        self.assertNotIn('YOUTUBE_PRIVACY_STATUS: "private"', content)
 
 
 if __name__ == "__main__":
