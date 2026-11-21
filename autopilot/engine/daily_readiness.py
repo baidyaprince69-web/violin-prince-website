@@ -169,7 +169,7 @@ def evaluate_daily_readiness(
 def evaluate_daily_batch_readiness(
     root: str | Path,
     *,
-    batch_path: str = ".autopilot/daily-production-batch.json",
+    batch_path: str = ".autopilot/daily-batches/daily-production-batch.json",
     today: str | None = None,
 ) -> dict:
     """Check the four-plan batch and existing preview-only provider approvals."""
