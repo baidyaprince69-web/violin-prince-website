@@ -278,7 +278,16 @@ jobs:
               query_id = parse_qs(parsed.query).get("v", [""])[0]
               path_parts = [part for part in parsed.path.split("/") if part]
               path_id = path_parts[-1] if path_parts else ""
-              candidate = query_id or (path_id if parsed.netloc.endswith("youtu.be") else "")
+              candidate = query_id
+              if not candidate and parsed.netloc.lower().endswith("youtu.be"):
+                  candidate = path_id
+              if not candidate and "youtube.com" in parsed.netloc.lower():
+                  for marker in ("shorts", "embed", "live"):
+                      if marker in path_parts:
+                          marker_index = path_parts.index(marker)
+                          if marker_index + 1 < len(path_parts):
+                              candidate = path_parts[marker_index + 1]
+                              break
               if re.fullmatch(r"[A-Za-z0-9_-]{11}", candidate):
                   video_id = candidate
           if not re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id):
