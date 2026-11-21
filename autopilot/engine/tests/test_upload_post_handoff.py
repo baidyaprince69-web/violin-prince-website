@@ -61,6 +61,7 @@ class UploadPostHandoffTests(unittest.TestCase):
         digest = hashlib.sha256(video.read_bytes()).hexdigest()
         plan = {
             "production_date": "2026-11-19",
+            "slot_id": "music-secrets",
             "title": "A verified Violin Prince Short",
             "hook": "Could your room change your violin mix?",
             "description": "A clear explanation of monitor correction.",
@@ -135,9 +136,21 @@ class UploadPostHandoffTests(unittest.TestCase):
         self.assertEqual(values["privacyStatus"], "public")
         self.assertEqual(values["video"], "https://github.com/owner/repo/releases/download/release/video.mp4")
         self.assertEqual(len(request_id), 32)
-        self.assertEqual(external_id, "violin-prince-youtube-2026-11-19")
+        self.assertEqual(external_id, "violin-prince-youtube-2026-11-19:music-secrets")
         self.assertIn("#MusicProduction", values["description"])
 
+    def test_same_date_slots_have_distinct_publisher_identities(self):
+        identities = []
+        for slot_id in ("music-secrets", "production-tech", "melody-stories", "real-performance"):
+            with tempfile.TemporaryDirectory() as temporary:
+                paths = self._bundle_files(Path(temporary))
+                plan = json.loads(paths[1].read_text(encoding="utf-8"))
+                plan["slot_id"] = slot_id
+                paths[1].write_text(json.dumps(plan), encoding="utf-8")
+                bundle = load_validated_bundle(*paths)
+                _, request_id, external_id = build_upload_fields(bundle, "default", "https://github.com/owner/repo/releases/download/release/video.mp4")
+                identities.append((request_id, external_id))
+        self.assertEqual(len(set(identities)), 4)
     def test_queue_submission_uses_stable_idempotency_and_returns_job_id(self):
         with tempfile.TemporaryDirectory() as temporary:
             bundle = load_validated_bundle(*self._bundle_files(Path(temporary)))
@@ -151,7 +164,7 @@ class UploadPostHandoffTests(unittest.TestCase):
             )
         self.assertEqual(result["status"], "queued")
         self.assertEqual(result["job_id"], "job-123")
-        self.assertIn("2026-11-19", result["idempotency_key"])
+        self.assertIn("2026-11-19-music-secrets", result["idempotency_key"])
         url, kwargs = session.post_calls[0]
         self.assertEqual(url, "https://api.upload-post.com/api/upload")
         self.assertEqual(kwargs["headers"]["Authorization"], "Apikey test-key-never-real")
