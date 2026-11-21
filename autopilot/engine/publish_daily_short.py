@@ -223,13 +223,12 @@ def _git_commit(paths: list[str], message: str) -> None:
         ["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"],
         cwd=ROOT, check=True,
     )
+    subprocess.run(["git", "fetch", "origin", "main"], cwd=ROOT, check=True)
+    subprocess.run(["git", "rebase", "origin/main"], cwd=ROOT, check=True)
     subprocess.run(["git", "add", *paths], cwd=ROOT, check=True)
     staged = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=ROOT)
     if staged.returncode == 0:
         raise PublishBlocked("No durable publication record was staged; refusing to upload.")
-
-    subprocess.run(["git", "fetch", "origin", "main"], cwd=ROOT, check=True)
-    subprocess.run(["git", "rebase", "origin/main"], cwd=ROOT, check=True)
     subprocess.run(["git", "commit", "-m", message], cwd=ROOT, check=True)
 
     last_error = ""
