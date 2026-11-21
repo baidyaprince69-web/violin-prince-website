@@ -20,7 +20,7 @@ class SlotContractError(ValueError):
     """Invalid or incomplete daily slot batch."""
 
 def production_identity(production_date: str, slot_id: str) -> str:
-    if not re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}", str(production_date or "")):
+    if not re.fullmatch(r"\d{4}-\\d{2}-\\d{2}", str(production_date or "")):
         raise SlotContractError("production_date must use YYYY-MM-DD.")
     if slot_id not in SLOT_CATALOG:
         raise SlotContractError(f"Unknown slot_id: {slot_id!r}.")
@@ -74,5 +74,5 @@ def write_slot_receipt(path: str | Path, *, production_date: str, slot_id: str,
     }
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+    target.write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return receipt
