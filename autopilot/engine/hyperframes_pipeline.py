@@ -354,10 +354,14 @@ def render_master_director_video(
         "visual_only_qa": visual_qa,
         "final_video_qa": final_qa,
         "animation_execution_status": execution_notes,
+        "independent_layer_motion_count": int(motion_report.get("independent_layer_motion_count") or 0),
+        "rendered_layer_count": int(motion_report.get("rendered_layer_count") or 0),
+        "shot_layer_manifest": project.get("shot_asset_manifest", []),
         "publish_ready": False,
         "publish_blocker": (
-            "Subject, environment and true depth animation still require separated visual layers; "
-            "the current shot render executes camera and transition tracks only."
+            "The automated cinematic image-generation provider is not connected to the scheduled "
+            "production workflow yet. This render path accepts and animates verified separated layers, "
+            "but the production pipeline still needs to generate and verify those assets automatically."
         ),
         "output": str(output),
     }
