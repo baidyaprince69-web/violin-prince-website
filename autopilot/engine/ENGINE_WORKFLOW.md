@@ -489,17 +489,14 @@ The default YouTube Data API quota documents 100 `videos.insert` calls per day f
 
 ## Addendum — ChatGPT director plus six-hour slot cron (2026-11-21)
 
-**Feature branch:** `feat/four-slot-production-foundation-20261121`
+**Status:** Merged to `main` through PR #115. The first date-specific batch for 2026-11-22 is committed.
 
-The feature branch now contains the first end-to-end four-slot orchestration foundation:
+- `engine/slot_registry.py` validates exactly four same-date plans, canonical slot IDs, unique slots and explicit ready/blocked states; it creates per-date/per-slot workspace paths and receipts.
+- `run_daily_plan.py --batch --slot-id --workspace-root` verifies the entire batch SHA-256, materializes one immutable selected plan, verifies plan and narration hashes, and runs with separate `work`, `package`, `images` and `output` directories.
+- The final manifest, provenance and receipt record `slot_id`, `production_identity` and the batch SHA-256. The private Voice Vault handoff receives only the selected slot's MP4 and identity.
+- Upload-Post request IDs, external IDs and idempotency keys include date and slot. GitHub Actions uses a run-specific concurrency group with `cancel-in-progress: false`.
+- The four cron events run at 00:00, 06:00, 12:00 and 18:00 UTC, corresponding to 05:30, 11:30, 17:30 and 23:30 Asia/Kolkata. Each selects one content slot.
+- The ChatGPT Global Director automation prepares the next day's batch at approximately 18:00 Asia/Kolkata. It commits only `.autopilot/daily-batches/YYYY-MM-DD.json`, a path that is not a push trigger.
+- The first batch `.autopilot/daily-batches/2026-11-22.json` has two ready plans and two blocked plans. The two blocked slots will be skipped; no placeholder content will be generated.
 
-- `engine/slot_registry.py` defines the canonical slot IDs, validates exactly four same-date plans, rejects duplicates/missing slots, creates per-date/per-slot workspace paths, and writes production receipts.
-- `run_daily_plan.py --batch --slot-id --workspace-root` verifies the complete date-specific batch snapshot, materializes only the selected immutable plan, checks its plan and narration hashes, then runs it with separate `work`, `package`, `images` and `output` directories.
-- The final manifest, provenance and receipt record `slot_id`, `production_identity` and the batch SHA-256. The existing private Voice Vault transfer receives the selected slot's MP4 and production identity.
-- Upload-Post request IDs, external IDs and idempotency keys include the date and slot, so same-day content slots do not share a duplicate identity. Legacy single-plan requests use `legacy-single`.
-- Workflow concurrency is unique per run with `cancel-in-progress: false`; independent scheduled slot runs therefore cannot cancel one another.
-- Four cron expressions are defined on the feature branch: 00:00, 06:00, 12:00 and 18:00 UTC, mapped to 05:30, 11:30, 17:30 and 23:30 Asia/Kolkata. Each schedule event selects exactly one canonical slot.
-- The existing ChatGPT director automation has been updated to research and commit the next day's four-plan batch at approximately 18:00 Asia/Kolkata. Batches are stored separately as `.autopilot/daily-batches/YYYY-MM-DD.json`; the batch path is not a push trigger. This lets the current day's final slot run from its existing file while ChatGPT prepares tomorrow's file.
-- Offline tests cover batch completeness, date checks, duplicate slot rejection, separate workspaces/receipts, readiness gates and same-date publisher identity separation.
-
-**Still gated:** the schedule exists only on this feature branch and does not activate until merge to the default branch. No date-specific batch has yet been committed by the newly updated director automation. Public releases and YouTube publishing remain disabled; scheduled jobs are private previews. Four complete private end-to-end runs, visual/audio review, and a separate publishing approval update are required before public publishing is enabled. The fourth pillar currently supports honest performance/technique explainers with symbolic/sample demonstrations; an actual creator-recorded performance requires a validated private recording input and must never be simulated or misrepresented.
+**Publishing gate:** scheduled runs are private previews only. The checked-in trigger still sets `publish_to_youtube: false`; illustration approval is `preview_video_only`. Public releases/YouTube uploads require four successful private end-to-end runs, actual visual/audio review, a validated creator-performance intake, one confirmed publisher route and a separate explicit publishing-approval update. Never present sampled/symbolic audio as the creator's live violin recording.
