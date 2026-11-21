@@ -161,8 +161,6 @@ jobs:
 
       - name: Check today's four-slot production gates
         id: readiness
-        env:
-          UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
         run: python autopilot/engine/daily_readiness.py --batch "${{ steps.batch.outputs.batch_path }}"
 
   report_blocked_slot:
@@ -209,9 +207,6 @@ jobs:
       RUN_ID: ${{ github.run_id }}
       RUN_MODE: ${{ github.event_name == 'schedule' && 'scheduled' || 'manual' }}
       PIPELINE_STAGE: ${{ inputs.stage || 'full' }}
-      UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
-      UPLOAD_POST_USER: "default"
-      YOUTUBE_EXPECTED_CHANNEL_ID: ${{ vars.YOUTUBE_EXPECTED_CHANNEL_ID }}
       SEO_LEARNING_REPORT_PATH: work/seo-learning-data/seo-learning/latest.enc.json
       VIOLIN_PRINCE_PRESENTER_ENABLED: "true"
     steps:
