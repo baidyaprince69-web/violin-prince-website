@@ -696,8 +696,8 @@ def _materialize_batch_slot(batch_path: Path, slot_id: str, workspace_root: Path
 
         batch_payload = json.loads(batch_bytes.decode("utf-8"))
         batch_date = str(batch_payload.get("production_date") or "")
-        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", batch_date) or batch_path.stem != batch_date:
-            raise engine.PipelineError("Daily batch filename and production_date must match.")
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", batch_date):
+            raise engine.PipelineError("Daily batch production_date must use YYYY-MM-DD.")
         plans = load_daily_batch(batch_path, expected_date=batch_date)
         plan = next((dict(item) for item in plans if item.get("slot_id") == slot_id), None)
         if plan is None:
