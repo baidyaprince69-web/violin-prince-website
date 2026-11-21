@@ -765,7 +765,8 @@ def main() -> int:
             try:
                 from slot_registry import write_slot_receipt
                 slot_id = str(args.slot_id or "legacy-single")
-                production_date = datetime.now().astimezone().date().isoformat()
+                from zoneinfo import ZoneInfo
+                production_date = datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
                 write_slot_receipt(
                     workspace_root / "output" / "slot-receipt.json",
                     production_date=production_date,
