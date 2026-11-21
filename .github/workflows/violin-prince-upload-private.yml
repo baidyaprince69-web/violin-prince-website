@@ -75,7 +75,7 @@ jobs:
         with:
           name: ${{ steps.request.outputs.artifact_name }}
           path: work/output
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ github.token }}
           repository: ${{ github.repository }}
           run-id: ${{ steps.request.outputs.source_run_id }}
 
@@ -209,9 +209,9 @@ jobs:
           if payload.get("success") is not True:
               raise SystemExit("Upload-Post did not accept the private YouTube upload.")
           returned_id = str(payload.get("request_id") or "")
+          final = None
           if returned_id:
               deadline = time.monotonic() + 600
-              final = None
               while time.monotonic() < deadline:
                   status_response = requests.get(
                       "https://api.upload-post.com/api/uploadposts/status",
@@ -231,21 +231,75 @@ jobs:
                       )
                   state = str(status_payload.get("status") or "").lower()
                   platform_state = str((youtube_result or {}).get("status") or "").lower()
-                  if state == "completed" or platform_state == "completed":
-                      if not youtube_result or youtube_result.get("success") is False:
+                  if state == "completed":
+                      if not youtube_result or youtube_result.get("success") is not True:
                           raise SystemExit("Upload-Post completed without a successful YouTube result.")
                       final = status_payload
                       break
                   if state == "failed" or platform_state == "failed":
-                      raise SystemExit("Upload-Post reported a failed YouTube upload.")
+                      raise SystemExit("Upload-Post reported a failed YouTube upload; do not retry automatically.")
                   time.sleep(10)
               if final is None:
                   raise SystemExit("Upload-Post did not confirm completion before the polling deadline; do not create a second upload.")
+              results = final.get("results") or []
+              if isinstance(results, dict):
+                  youtube_result = results.get("youtube")
+              else:
+                  youtube_result = next(
+                      (item for item in results if isinstance(item, dict) and item.get("platform") == "youtube"),
+                      None,
+                  )
           else:
               results = payload.get("results") or {}
-              youtube_result = results.get("youtube") if isinstance(results, dict) else None
+              if isinstance(results, dict):
+                  youtube_result = results.get("youtube")
+              else:
+                  youtube_result = next(
+                      (item for item in results if isinstance(item, dict) and item.get("platform") == "youtube"),
+                      None,
+                  )
               if not youtube_result or youtube_result.get("success") is not True:
                   raise SystemExit("Upload-Post did not return a successful YouTube result.")
+
+          if not youtube_result or youtube_result.get("success") is not True:
+              raise SystemExit("No successful YouTube upload result was returned.")
+
+          post_url = str(youtube_result.get("post_url") or youtube_result.get("url") or "")
+          video_id = str(
+              youtube_result.get("platform_post_id")
+              or youtube_result.get("post_id")
+              or youtube_result.get("video_id")
+              or youtube_result.get("id")
+              or ""
+          )
+          if not re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id):
+              from urllib.parse import urlparse, parse_qs
+              parsed = urlparse(post_url)
+              query_id = parse_qs(parsed.query).get("v", [""])[0]
+              path_parts = [part for part in parsed.path.split("/") if part]
+              path_id = path_parts[-1] if path_parts else ""
+              candidate = query_id or (path_id if parsed.netloc.endswith("youtu.be") else "")
+              if re.fullmatch(r"[A-Za-z0-9_-]{11}", candidate):
+                  video_id = candidate
+          if not re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id):
+              raise SystemExit("Upload-Post reported success but did not return a verifiable YouTube video ID; inspect the channel before any retry.")
+
+          details_response = requests.get(
+              "https://api.upload-post.com/api/uploadposts/youtube/videos",
+              headers=headers,
+              params={"user": "default", "ids": video_id, "parts": "snippet,status"},
+              timeout=45,
+          )
+          details_response.raise_for_status()
+          details_payload = details_response.json()
+          items = details_payload.get("items") or []
+          item = next((x for x in items if x.get("id") == video_id), None)
+          if not item:
+              raise SystemExit("YouTube upload was reported but YouTube video details could not yet verify it; do not retry.")
+          actual_privacy = str((item.get("status") or {}).get("privacyStatus") or "").lower()
+          actual_title = str((item.get("snippet") or {}).get("title") or "")
+          if actual_privacy != "private" or actual_title != title:
+              raise SystemExit("YouTube video details did not confirm the exact title and PRIVATE visibility; do not retry.")
 
           summary = (
               "## Violin Prince private preview uploaded\n\n"
