@@ -61,7 +61,7 @@ class SlotBatchReadinessTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             self._root(root)
-            self._write(root, ".autopilot/daily-production-batch.json",
+            self._write(root, ".autopilot/daily-batches/2026-11-22.json",
                         json.dumps(self._batch("2026-11-22")))
             result = evaluate_daily_batch_readiness(root, today="2026-11-22")
         self.assertTrue(result["ready"], result["blockers"])
@@ -71,7 +71,7 @@ class SlotBatchReadinessTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             self._root(root)
-            self._write(root, ".autopilot/daily-production-batch.json",
+            self._write(root, ".autopilot/daily-batches/2026-11-22.json",
                         json.dumps(self._batch("2026-11-21")))
             result = evaluate_daily_batch_readiness(root, today="2026-11-22")
         self.assertFalse(result["ready"])
