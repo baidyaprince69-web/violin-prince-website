@@ -170,7 +170,7 @@ def evaluate_daily_readiness(
                 "Local vector illustration approval record is missing required preview evidence or enables publishing."
             )
 
-    # YouTube OAuth is checked separately by fast_preflight and again before upload.
+    # Upload-Post credentials are checked by fast_preflight and again immediately before upload.
 
     return {
         "ready": not blockers,
