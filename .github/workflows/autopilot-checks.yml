@@ -64,7 +64,9 @@ jobs:
       - name: Run four-slot contract and isolation tests
         env:
           PYTHONPATH: autopilot/engine
-        run: python -m unittest discover -s autopilot/engine/tests -p "test_slot_registry.py" -v
+        run: |
+          python -m unittest discover -s autopilot/engine/tests -p "test_slot_registry.py" -v
+          python -m unittest discover -s autopilot/engine/tests -p "test_slot_batch_readiness.py" -v
 
       - name: Run daily-plan evidence and snapshot identity regression tests
         env:
