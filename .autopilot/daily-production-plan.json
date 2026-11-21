@@ -28,7 +28,7 @@
   ],
   "narrative_style": "documentary",
   "cover_payoff": "Use a disclosed original or CC0 violin sample as the source in a conceptual diagram showing how one recording can become a playable instrument. Do not claim the sample was processed in Chromaspheres or fake a software demonstration; keep the audible phrase original and clearly illustrative.",
-  "narration_script": "Can one recording become a playable instrument? Steinberg’s free Chromaspheres instrument turns samples into sounds. Four engines—wavetable, granular, spectral and sample—offer thirty sound-shaping modes. Composers can create new source material from their recordings.",
+  "narration_script": "Can one recording become a playable instrument? Steinberg’s free Chromaspheres instrument turns samples into sounds. One engine can turn a sample into thirty prepared sound modes. Composers can create new source material from their recordings.",
   "narration_evidence": [
     {
       "sentence_number": 2,
@@ -38,7 +38,7 @@
     {
       "sentence_number": 3,
       "source_id": "S002",
-      "quote": "four engines (wavetable, granular, spectral, sample), 30 modes and MPE"
+      "quote": "The idea fits in one sentence: drop an audio file into the instrument, pick an engine, then one of the 30 sound modes Steinberg has prepared."
     },
     {
       "sentence_number": 4,

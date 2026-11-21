@@ -2,5 +2,5 @@
   "mode": "chatgpt_daily_production",
   "plan_path": ".autopilot/daily-production-plan.json",
   "publish_to_youtube": false,
-  "reason": "Creator-requested immediate one-off production for a PRIVATE YouTube preview only. Public publishing is explicitly disabled. The workflow must pass source, narration, media, provenance, duplicate-title and channel checks before private upload; do not publish publicly."
+  "reason": "Creator-requested fresh attempt after correcting the source-body evidence for narration sentence 3. Produce a PRIVATE YouTube preview only. Public publishing remains explicitly disabled. Full source, narration, media, provenance, duplicate-title and channel checks must pass before private upload."
 }
