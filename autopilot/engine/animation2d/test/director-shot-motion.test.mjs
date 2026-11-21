@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   directorCameraKeyframes,
+  directorLayerMotionKeyframes,
   directorTransitionSpec,
   compileMotionTracks
 } from "../src/motion-build.mjs";
@@ -69,4 +70,51 @@ test("shot projects compile the director transition and camera timing into frame
   assert.equal(camera.start, 4);
   assert.equal(camera.duration, 4);
   assert.ok(camera.values.at(-1).includes("scale(1.225)"));
+});
+
+
+test("independent subject and foreground layers receive different timed Motion tracks", () => {
+  const subjectFrames = directorLayerMotionKeyframes(
+    {type:"float",direction:"up",intensity:0.3},
+    "subject"
+  );
+  const foregroundFrames = directorLayerMotionKeyframes(
+    {type:"parallax",direction:"right",intensity:0.45},
+    "foreground"
+  );
+  assert.notDeepEqual(subjectFrames, foregroundFrames);
+
+  const project = {
+    duration_seconds: 6,
+    scenes: [{
+      id: "shot-layered",
+      start: 0,
+      duration: 6,
+      visual_mode: "director_shot",
+      transition_in: "cut",
+      transition_in_duration: 0,
+      camera_motion_start_offset: 0,
+      camera_motion_duration: 6,
+      director_camera: {movement:"dolly_in",shot_size:"medium"},
+      visual_layers: [
+        {id:"background",role:"background",motion:{type:"drift",direction:"left",intensity:0.2}},
+        {id:"subject",role:"subject",motion:{type:"float",direction:"up",intensity:0.3,start_offset_seconds:0.5}},
+        {id:"foreground",role:"foreground",motion:{type:"parallax",direction:"right",intensity:0.45,start_offset_seconds:0.2}}
+      ]
+    }],
+    characters: []
+  };
+  const tracks = compileMotionTracks(project, {fps:25});
+  const subject = tracks.filter((track) => track.target === "shot-layered-layer-subject");
+  const foreground = tracks.filter((track) => track.target === "shot-layered-layer-foreground");
+  assert.ok(subject.some((track) => track.property === "opacity"));
+  assert.ok(subject.some((track) => track.property === "transform"));
+  assert.ok(foreground.some((track) => track.property === "opacity"));
+  assert.ok(foreground.some((track) => track.property === "transform"));
+  assert.equal(subject.find((track) => track.property === "transform").start, 0.5);
+  assert.equal(foreground.find((track) => track.property === "transform").start, 0.2);
+  assert.notDeepEqual(
+    subject.find((track) => track.property === "transform").values,
+    foreground.find((track) => track.property === "transform").values
+  );
 });
