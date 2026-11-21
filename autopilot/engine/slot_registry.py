@@ -46,6 +46,11 @@ def load_daily_batch(path: str | Path, *, expected_date: str | None = None) -> l
     date = str(payload.get("production_date") or "")
     if expected_date and date != expected_date:
         raise SlotContractError(f"production_date must be {expected_date}.")
+    try:
+        if date.fromisoformat(date).isoformat() != date:
+            raise ValueError("not canonical")
+    except ValueError as exc:
+        raise SlotContractError("Batch production_date must use YYYY-MM-DD.") from exc
     seen: set[str] = set()
     for plan in plans:
         if not isinstance(plan, dict):
