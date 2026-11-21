@@ -685,6 +685,9 @@ jobs:
 
       - name: Verify the preview remains in the ephemeral runner after private transfer
         if: success() && env.PIPELINE_STAGE == 'full'
+        env:
+          VIDEO_PATH: ${{ needs.daily_readiness.outputs.workspace_root != '' && format('{0}/output/violin-prince-short.mp4', needs.daily_readiness.outputs.workspace_root) || 'work/output/violin-prince-short.mp4' }}
+          NARRATION_PATH: ${{ needs.daily_readiness.outputs.workspace_root != '' && format('{0}/output/narration.wav', needs.daily_readiness.outputs.workspace_root) || 'work/output/narration.wav' }}
         shell: bash
         run: |
           set -euo pipefail
