@@ -9,10 +9,10 @@ returned title, channel and privacy status before saving a success receipt.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 import unicodedata
@@ -502,7 +502,7 @@ def main() -> int:
             production_date=args.production_date or None,
         )
         return 0
-    except (PublishBlocked, OSError, ValueError, requests.RequestException) as exc:
+    except (PublishBlocked, OSError, ValueError, requests.RequestException, subprocess.CalledProcessError) as exc:
         message = " ".join(str(exc).split())
         print("PRIVATE_PREVIEW_BLOCKED=" + message[:1000], file=sys.stderr)
         _summary("## Private YouTube preview upload blocked\n\n" + message[:1000])
