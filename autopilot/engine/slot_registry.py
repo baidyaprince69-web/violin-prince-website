@@ -25,7 +25,7 @@ def production_identity(production_date: str, slot_id: str) -> str:
         date.fromisoformat(str(production_date or ""))
     except ValueError as exc:
         raise SlotContractError("production_date must use YYYY-MM-DD.") from exc
-    if slot_id not in SLOT_CATALOG:
+    if slot_id not in SLOT_CATALOG and slot_id != "legacy-single":
         raise SlotContractError(f"Unknown slot_id: {slot_id!r}.")
     return f"{production_date}:{slot_id}"
 
