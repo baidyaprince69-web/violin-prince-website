@@ -40,7 +40,7 @@ class DailyPlanEvidenceTests(unittest.TestCase):
             "It measures your room's acoustics and adjusts monitor response. "
             "Onboard DSP also runs input EQ, compression and reverb with no latency."
         )
-        plan = {"narration_script": script}
+        plan = {"production_date": "2026-11-21", "narration_script": script}
         plan_bytes = json.dumps(plan, ensure_ascii=False).encode("utf-8")
         plan_hash = hashlib.sha256(plan_bytes).hexdigest()
         script_hash = hashlib.sha256(script.encode("utf-8")).hexdigest()
