@@ -22,8 +22,9 @@ permissions:
   actions: read
 
 concurrency:
-  group: violin-prince-autopilot-premium-v2
-  cancel-in-progress: true
+  # Unique per run: later slot dispatches must never cancel an earlier render.
+  group: violin-prince-autopilot-${{ github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   fast_preflight:
