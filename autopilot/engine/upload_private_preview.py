@@ -155,7 +155,7 @@ def upload_private_preview(
             "privacy_status": "private",
             "sha256": audit["sha256"],
             "created_at_utc": datetime.now(timezone.utc).isoformat(),
-            "error": re.sub(r"\\s+", " ", str(exc))[:500],
+            "error": " ".join(str(exc).split())[:500],
             "retry_allowed": False,
         }
         _write_json(receipt_path, receipt)
@@ -270,7 +270,7 @@ def main() -> int:
         )
         return 0
     except (PublishBlocked, OSError, ValueError) as exc:
-        message = re.sub(r"\\s+", " ", str(exc)).strip()
+        message = " ".join(str(exc).split())
         print("PRIVATE_PREVIEW_BLOCKED=" + message[:1000], file=sys.stderr)
         return 1
 
