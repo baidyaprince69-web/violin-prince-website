@@ -99,6 +99,8 @@ jobs:
       workspace_root: ${{ steps.batch.outputs.workspace_root }}
       batch_path: ${{ steps.batch.outputs.batch_path }}
       batch_sha256: ${{ steps.batch.outputs.batch_sha256 }}
+      slot_status: ${{ steps.batch.outputs.slot_status }}
+      blocked_reason: ${{ steps.batch.outputs.blocked_reason }}
     steps:
       - name: Check out the project
         uses: actions/checkout@v4
@@ -314,8 +316,22 @@ jobs:
         if: env.PIPELINE_STAGE == 'render'
         run: python autopilot/engine/run.py --stage render
 
+      - name: Report a source-blocked slot without creating placeholder content
+        if: github.event_name == 'schedule' && needs.daily_readiness.outputs.slot_status == 'blocked'
+        env:
+          SLOT_ID: ${{ needs.daily_readiness.outputs.slot_id }}
+          BLOCKED_REASON: ${{ needs.daily_readiness.outputs.blocked_reason }}
+        run: |
+          {
+            echo "## Scheduled slot blocked"
+            echo ""
+            echo "- Slot: `$SLOT_ID`"
+            echo "- Reason: $BLOCKED_REASON"
+            echo "- No narration, video, private release or public upload was created."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Run the selected ChatGPT-directed slot through Motion + HyperFrames
-        if: env.PIPELINE_STAGE == 'full' && (steps.daily_request.outputs.plan_path != '' || github.event_name == 'schedule')
+        if: env.PIPELINE_STAGE == 'full' && (steps.daily_request.outputs.plan_path != '' || github.event_name == 'schedule') && (github.event_name != 'schedule' || needs.daily_readiness.outputs.slot_status != 'blocked')
         env:
           RUN_ID: ${{ github.run_id }}
           GITHUB_RUN_ID: ${{ github.run_id }}
@@ -341,7 +357,7 @@ jobs:
           fi
 
       - name: Run complete Prepare → Visuals → Render sequence
-        if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path == ''
+        if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path == '' && github.event_name != 'schedule'
         env:
           PRIVATE_VOICE_REPO_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
         run: python autopilot/engine/run.py --stage full
@@ -435,7 +451,7 @@ jobs:
 
       - name: Transfer finished preview to the private Voice Vault
         id: private_preview
-        if: success() && env.PIPELINE_STAGE == 'full'
+        if: success() && env.PIPELINE_STAGE == 'full' && (github.event_name != 'schedule' || needs.daily_readiness.outputs.slot_status != 'blocked')
         env:
           GH_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
           PRIVATE_REPO: baidyaprince69-web/violin-prince-private-voice
@@ -683,7 +699,7 @@ jobs:
           rm -rf "$temporary_dir"
 
       - name: Verify the preview remains in the ephemeral runner after private transfer
-        if: success() && env.PIPELINE_STAGE == 'full'
+        if: success() && env.PIPELINE_STAGE == 'full' && (github.event_name != 'schedule' || needs.daily_readiness.outputs.slot_status != 'blocked')
         env:
           VIDEO_PATH: ${{ needs.daily_readiness.outputs.workspace_root != '' && format('{0}/output/violin-prince-short.mp4', needs.daily_readiness.outputs.workspace_root) || 'work/output/violin-prince-short.mp4' }}
           NARRATION_PATH: ${{ needs.daily_readiness.outputs.workspace_root != '' && format('{0}/output/narration.wav', needs.daily_readiness.outputs.workspace_root) || 'work/output/narration.wav' }}
