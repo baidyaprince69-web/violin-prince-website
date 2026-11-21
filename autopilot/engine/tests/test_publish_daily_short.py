@@ -167,6 +167,7 @@ class DailyPublicPublisherTests(unittest.TestCase):
         upload.return_value = {
             "ok": True, "id": "publicVideoId123",
             "url": "https://www.youtube.com/watch?v=publicVideoId123",
+            "privacy_status": "public",
         }
         with patch.object(daily, "ROOT", self.root), patch.dict(os.environ, {
             "GITHUB_REF_NAME": "main",
@@ -188,6 +189,45 @@ class DailyPublicPublisherTests(unittest.TestCase):
         self.assertEqual(len(receipts), 1)
         self.assertEqual(commit.call_count, 2)
         self.assertEqual(upload.call_args.args[0], self.video)
+
+    @patch("publish_daily_short._git_commit")
+    @patch("publish_daily_short.youtube_upload")
+    @patch("publish_daily_short.assert_title_absent")
+    @patch("publish_daily_short.probe_video")
+    def test_non_public_response_is_recorded_and_never_reported_as_published(
+        self, probe, duplicate_audit, upload, commit
+    ):
+        probe.return_value = self.quality
+        duplicate_audit.return_value = {
+            "status": "passed", "match_count": 0,
+            "channel_id": "UCGCfZij4Fn3Ga2j2HiCT45w",
+            "uploads_checked_pages": 3, "uploads_examined": 120,
+        }
+        upload.return_value = {
+            "ok": True, "id": "videoWithWrongPrivacy",
+            "url": "https://www.youtube.com/watch?v=videoWithWrongPrivacy",
+            "privacy_status": "private",
+        }
+        with patch.object(daily, "ROOT", self.root), patch.dict(os.environ, {
+            "GITHUB_REF_NAME": "main",
+            "YOUTUBE_PRIVACY_STATUS": "public",
+            "YOUTUBE_EXPECTED_CHANNEL_ID": "UCGCfZij4Fn3Ga2j2HiCT45w",
+        }, clear=False):
+            with self.assertRaisesRegex(daily.PublishBlocked, "did not confirm public visibility"):
+                daily.publish_daily_short(
+                    self.output, self.plan_path,
+                    run_id=self.run_id,
+                    expected_slot_id=self.slot_id,
+                    production_date="2026-11-21",
+                )
+        attempts = list((self.root / ".autopilot/publication-attempts").glob("*.json"))
+        receipts = list((self.root / ".autopilot/publication-receipts").glob("*.json"))
+        self.assertEqual(len(attempts), 1)
+        self.assertEqual(len(receipts), 1)
+        receipt = json.loads(receipts[0].read_text(encoding="utf-8"))
+        self.assertEqual(receipt["status"], "uploaded_visibility_mismatch")
+        self.assertIs(receipt["retry_allowed"], False)
+        self.assertEqual(commit.call_count, 2)
 
     @patch("publish_daily_short.assert_title_absent", side_effect=daily.DuplicateVideoFound([
         {"video_id": "existing", "title": "One Sample, Thirty Sound Modes", "published_at": ""}
