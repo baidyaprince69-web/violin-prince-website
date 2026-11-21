@@ -62,10 +62,17 @@ def load_daily_batch(path: str | Path, *, expected_date: str | None = None) -> l
         seen.add(slot_id)
         if str(plan.get("production_date") or "") != date:
             raise SlotContractError(f"Plan {slot_id} does not match the batch production_date.")
-        if not str(plan.get("narration_script") or "").strip():
-            raise SlotContractError(f"Plan {slot_id} has no narration_script.")
-        if not str(plan.get("title") or "").strip():
-            raise SlotContractError(f"Plan {slot_id} has no title.")
+        slot_status = str(plan.get("slot_status") or "ready").strip().lower()
+        if slot_status not in {"ready", "blocked"}:
+            raise SlotContractError(f"Plan {slot_id} slot_status must be ready or blocked.")
+        if slot_status == "blocked":
+            if not str(plan.get("blocked_reason") or "").strip():
+                raise SlotContractError(f"Blocked slot {slot_id} must include blocked_reason.")
+        else:
+            if not str(plan.get("narration_script") or "").strip():
+                raise SlotContractError(f"Plan {slot_id} has no narration_script.")
+            if not str(plan.get("title") or "").strip():
+                raise SlotContractError(f"Plan {slot_id} has no title.")
     missing = set(SLOT_CATALOG) - seen
     if missing:
         raise SlotContractError("Missing slot(s): " + ", ".join(sorted(missing)))
