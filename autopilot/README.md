@@ -4,15 +4,15 @@ A cloud-first short-video production pipeline. GitHub-hosted runners do the prod
 
 ## Production architecture and current operational state
 
-The global editorial direction is documented in [GLOBAL_CONTENT_STRATEGY.md](GLOBAL_CONTENT_STRATEGY.md). It defines four content pillars for a worldwide music audience and a target of four distinct Shorts per day, approximately six hours apart. Bengali and Indian repertoire remain part of the channel's identity, not a geographic boundary. This is a strategy target, **not an enabled schedule**.
+The global editorial direction is documented in [GLOBAL_CONTENT_STRATEGY.md](GLOBAL_CONTENT_STRATEGY.md). It defines four content pillars for a worldwide music audience and a target of four distinct Shorts per day, approximately six hours apart. Bengali and Indian repertoire remain part of the channel's identity, not a geographic boundary. This is the editorial target; the scheduler is configured on the feature branch and is not active on main until merge.
 
 Verified against the main branch on 21 November 2026:
 
 - The main Autopilot workflow is triggered by request-file pushes or manual workflow dispatch; it does not currently have an active four-slot schedule.
 - The checked-in `.autopilot/prepare-request.json` sets `publish_to_youtube: false`. The current request is preview-only; it does not authorize a public YouTube upload.
 - The checked-in illustration approval is scoped to `preview_video_only` and sets `publishing_enabled: false`. Do not treat a preview pass as permission to publish.
-- The main production flow uses one `.autopilot/daily-production-plan.json` file. It is not yet a four-plan batch.
-- The existing Upload-Post helper derives request and idempotency identifiers from `production_date`; that must be redesigned around unique production/slot IDs before four same-day posts can be safely queued.
+- Main still uses one `.autopilot/daily-production-plan.json`; the feature branch adds date-specific `.autopilot/daily-batches/YYYY-MM-DD.json` four-plan batches.
+- The feature branch changes publisher request IDs, external IDs and idempotency keys to include the slot identity. It also creates separate workspaces and receipts.
 - The publisher documentation is inconsistent: this README previously named Metricool, while `engine/ENGINE_WORKFLOW.md` describes an Upload-Post queue. Resolve the actual connected publisher and configure only one scheduler before enabling public posts.
 - Private fallback preview retention is six hours in the separate `violin-prince-private-voice` repository. This is a cleanup rule only; it does not trigger video production or YouTube uploads.
 
@@ -20,7 +20,11 @@ The production workflow must remain fail-closed until the four-slot planner, cre
 
 ## Four-slot engineering foundation — feature branch only
 
-The feature branch `feat/four-slot-production-foundation-20261121` adds the canonical four-slot contract, per-slot workspace/receipt helpers, slot-aware publisher duplicate keys and non-cancelling workflow concurrency. It is not yet wired into the daily production runner. No six-hour cron or public publishing has been enabled. See [ENGINE_WORKFLOW.md](engine/ENGINE_WORKFLOW.md) for the exact implementation boundary and remaining acceptance work.
+The feature branch `feat/four-slot-production-foundation-20261121` now wires date-specific four-plan batches into `run_daily_plan.py`, creates one isolated workspace and receipt per slot, includes slot identity in publisher duplicate protection, and prevents overlapping runs from cancelling one another.
+
+It defines four GitHub Actions cron triggers at 00:00, 06:00, 12:00 and 18:00 UTC (05:30, 11:30, 17:30 and 23:30 Asia/Kolkata). The existing ChatGPT director automation prepares the next day's date-specific batch at approximately 18:00 Asia/Kolkata. This preserves today's final slot while preparing tomorrow's first slot.
+
+The scheduler is **not active on main** until this branch is reviewed, checks pass and it is merged. Scheduled production remains private-preview-only; public YouTube publishing is disabled. The fourth slot must describe sampled/symbolic audio honestly unless an approved creator recording is available. See [ENGINE_WORKFLOW.md](engine/ENGINE_WORKFLOW.md) for remaining gates.
 
 ## Approved channel identity and production format
 
