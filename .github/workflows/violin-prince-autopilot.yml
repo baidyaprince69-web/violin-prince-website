@@ -388,7 +388,7 @@ jobs:
         if: success() && github.event_name == 'push' && steps.daily_request.outputs.plan_path != ''
         uses: actions/upload-artifact@v4
         with:
-          name: violin-prince-youtube-upload-${{ github.run_number }}
+          name: violin-prince-private-preview-${{ github.run_number }}
           path: |
             work/output/violin-prince-short.mp4
             work/output/publish-manifest.json
