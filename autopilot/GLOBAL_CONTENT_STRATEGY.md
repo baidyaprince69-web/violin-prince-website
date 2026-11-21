@@ -1,7 +1,7 @@
 # Violin Prince — Global four-pillar content strategy
 
 **Prepared:** 21 November 2026  
-**Status:** Global editorial direction documented. Four-a-day production and public publishing are NOT enabled by this document.
+**Status:** Global editorial direction documented. Four-slot scheduling is configured on the feature branch only; public publishing is NOT enabled.
 
 ## 1. Channel positioning
 
@@ -93,7 +93,7 @@ Metricool's country and traffic-source reports returned no rows for the checked 
 
 **Production pattern:** use a short original demonstration or an appropriately cleared example. Explain the musical idea rather than reproducing copyrighted lyrics, sheet music or a full commercial recording.
 
-### Pillar 4 — Real Violin Performance
+### Pillar 4 — Violin Performance & Technique
 
 **Purpose:** Build the recognisable artist identity of Violin Prince and give viewers a reason to return for the music itself.
 
@@ -106,7 +106,7 @@ Metricool's country and traffic-source reports returned no rows for the checked 
 4. Make a clean vertical edit: preserve the real performance audio, use restrained titles/captions and avoid overlays that hide the instrument or hands.
 5. Show the proposed cut and metadata to the creator for review before publishing.
 
-**Authenticity rule:** never present generated violin imagery, sampled violin audio or an illustrated character as a live performance by the creator. A symbolic performance scene in an explainer is not a substitute for a genuine recording.
+**Authenticity rule:** never present generated violin imagery, sampled violin audio or an illustrated character as a live performance by the creator. A symbolic performance scene in an explainer is not a substitute for a genuine recording. Until a validated creator-recording intake is connected to unattended production, the scheduled fourth slot may use a clearly disclosed sample-based technique explainer only; it must never claim sampled audio or generated visuals are the creator performing live.
 
 ## 4. Daily publishing target
 
@@ -159,7 +159,7 @@ Use a source mix:
 The current repository is not yet configured for this target. Before enabling public uploads, the implementation needs:
 
 1. **Four-plan batch model:** replace the single daily-plan assumption with four immutable slot plans. Each needs a unique production_id, production_date, slot_id, content_pillar, source list, script, asset references and quality report.
-2. **Four triggers:** add one independent production trigger for each six-hour slot. The main GitHub workflow currently has no active four-slot schedule and is ChatGPT-triggered; a six-hour private-retention rule is not a scheduler.
+2. **Four triggers:** add one independent production trigger for each six-hour slot. The feature branch now contains four six-hour GitHub cron events. The existing ChatGPT director automation prepares the next day's date-specific batch; those events activate only after the branch passes checks and is merged.
 3. **Per-slot duplicate protection:** replace the production-date-only Upload-Post request ID, external ID and idempotency key with unique per-production/per-slot identifiers. Keep a hard daily ceiling of four confirmed uploads and reconcile uncertain outcomes before retrying.
 4. **One publisher decision:** reconcile the Metricool and Upload-Post routes before enabling scheduling. Metricool reports YouTube, Facebook, Threads and Pinterest connected; Upload-Post currently reports YouTube only. Do not run two schedulers against the same slot.
 5. **Real performance intake:** accept a creator-selected recording, preserve its audio/video provenance, create clip candidates with timecodes, and require creator approval of the edit.

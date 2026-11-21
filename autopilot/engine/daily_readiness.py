@@ -166,6 +166,93 @@ def evaluate_daily_readiness(
     }
 
 
+def evaluate_daily_batch_readiness(
+    root: str | Path,
+    *,
+    batch_path: str | None = None,
+    today: str | None = None,
+) -> dict:
+    """Check the four-plan batch and existing preview-only provider approvals."""
+    root = Path(root)
+    today = today or datetime.now(ZoneInfo(TIMEZONE)).date().isoformat()
+    blockers: list[str] = []
+    batch_path = batch_path or str(Path(".autopilot/daily-batches") / (today + ".json"))
+    relative = Path(batch_path)
+    if not batch_path.startswith(".autopilot/") or ".." in relative.parts or relative.is_absolute():
+        blockers.append("Daily batch path must stay inside .autopilot/.")
+        plans = []
+    else:
+        try:
+            from slot_registry import load_daily_batch, SlotContractError
+            plans = load_daily_batch(root / relative, expected_date=today)
+        except Exception as exc:
+            blockers.append("Four-slot daily batch is missing or invalid: " + str(exc)[:300])
+            plans = []
+
+    engine_dir = root / "autopilot/engine"
+    voice_locked = _first_statement_is_raise(engine_dir / "voiceover.py", "require_approved_own_voice")
+    visuals_locked = _first_statement_is_raise(engine_dir / "run.py", "require_approved_illustration_provider")
+
+    if voice_locked is None:
+        blockers.append("Could not verify the own-voice production gate.")
+    elif voice_locked:
+        blockers.append("Own-voice approval/provider gate is still locked.")
+    else:
+        if str(engine_dir) not in sys.path:
+            sys.path.insert(0, str(engine_dir))
+        try:
+            from voiceover import require_approved_own_voice
+            require_approved_own_voice(engine_dir / "voice-approval.json")
+        except Exception as exc:
+            blockers.append("Private Qwen3 own-voice approval record is missing or invalid: " + str(exc)[:240])
+
+    if visuals_locked is None:
+        blockers.append("Could not verify the illustration provider gate.")
+    elif visuals_locked:
+        blockers.append("Illustration provider is not configured and approved.")
+    else:
+        illustration = _read_json(
+            engine_dir / "illustration-approval.json",
+            "Local vector illustration approval record",
+            blockers,
+        )
+        evidence = illustration.get("test_evidence")
+        required_modes = [
+            "comparison", "cover_performance", "macro_illustration",
+            "mechanism_illustration", "melody_map", "waveform",
+        ]
+        if (
+            illustration.get("schema_version") != 1
+            or illustration.get("status") != "approved_for_preview"
+            or illustration.get("provider") != "local_vector"
+            or illustration.get("scope") != "preview_video_only"
+            or illustration.get("renderer_version") != "violin-prince-vector-illustrator-v1"
+            or illustration.get("publishing_enabled") is not False
+            or not isinstance(evidence, dict)
+            or not isinstance(evidence.get("workflow_run_id"), int)
+            or evidence.get("workflow_run_id", 0) <= 0
+            or evidence.get("workflow_status") != "success"
+            or evidence.get("all_six_modes_passed") is not True
+            or evidence.get("story_profile_scenes_passed") is not True
+            or evidence.get("network_calls") is not False
+            or evidence.get("output_width") != 1024
+            or evidence.get("output_height") != 1792
+            or evidence.get("output_format") != "JPEG"
+            or evidence.get("modes") != required_modes
+        ):
+            blockers.append("Local vector illustration approval record is missing required preview evidence or enables publishing.")
+
+    return {
+        "ready": not blockers,
+        "today": today,
+        "timezone": TIMEZONE,
+        "batch_path": batch_path,
+        "slot_ids": [str(item.get("slot_id") or "") for item in plans],
+        "slot_count": len(plans),
+        "blockers": blockers,
+    }
+
+
 def _write_github_outputs(result: dict) -> None:
     output_path = os.environ.get("GITHUB_OUTPUT", "").strip()
     if output_path:

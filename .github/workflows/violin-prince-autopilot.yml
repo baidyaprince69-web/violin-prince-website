@@ -7,6 +7,12 @@ on:
     paths:
       - ".autopilot/prepare-request.json"
       - ".autopilot/daily-production-plan.json"
+  schedule:
+    # Four six-hour slots, expressed in UTC (the corresponding IST times are 05:30, 11:30, 17:30 and 23:30).
+    - cron: "0 0 * * *"
+    - cron: "0 6 * * *"
+    - cron: "0 12 * * *"
+    - cron: "0 18 * * *"
   workflow_dispatch:
     inputs:
       stage:
@@ -22,8 +28,9 @@ permissions:
   actions: read
 
 concurrency:
-  group: violin-prince-autopilot-premium-v2
-  cancel-in-progress: true
+  # Unique per run: later slot dispatches must never cancel an earlier render.
+  group: violin-prince-autopilot-${{ github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   fast_preflight:
@@ -88,6 +95,12 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       ready: ${{ steps.readiness.outputs.ready }}
+      slot_id: ${{ steps.batch.outputs.slot_id }}
+      workspace_root: ${{ steps.batch.outputs.workspace_root }}
+      batch_path: ${{ steps.batch.outputs.batch_path }}
+      batch_sha256: ${{ steps.batch.outputs.batch_sha256 }}
+      slot_status: ${{ steps.batch.outputs.slot_status }}
+      blocked_reason: ${{ steps.batch.outputs.blocked_reason }}
     steps:
       - name: Check out the project
         uses: actions/checkout@v4
@@ -97,11 +110,69 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Check today's production and publishing gates
+      - name: Select the slot for this six-hour UTC trigger
+        id: batch
+        env:
+          SCHEDULE_EXPRESSION: ${{ github.event.schedule }}
+          PYTHONPATH: autopilot/engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$SCHEDULE_EXPRESSION" in
+            "0 0 * * *") slot_id="music-secrets" ;;
+            "0 6 * * *") slot_id="production-tech" ;;
+            "0 12 * * *") slot_id="melody-stories" ;;
+            "0 18 * * *") slot_id="real-performance" ;;
+            *) echo "::error::Unrecognised scheduled slot: $SCHEDULE_EXPRESSION"; exit 1 ;;
+          esac
+          echo "slot_id=$slot_id" >> "$GITHUB_OUTPUT"
+          export SELECTED_SLOT_ID="$slot_id"
+          python - <<'PY'
+          import hashlib
+          import os
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+          from slot_registry import load_daily_batch, slot_workspace
+
+          today = datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
+          batch_path = Path(".autopilot/daily-batches") / (today + ".json")
+          if not batch_path.is_file():
+              workspace = slot_workspace(Path("work/slots"), today, slot_id)
+              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+                  output.write("slot_status=blocked\\n")
+                  output.write("blocked_reason=No ChatGPT-authored batch exists for today's date; this slot was safely skipped.\\n")
+                  output.write("slot_id=" + slot_id + "\\n")
+                  output.write("workspace_root=" + str(workspace) + "\\n")
+                  output.write("batch_path=" + str(batch_path) + "\\n")
+                  output.write("batch_sha256=\\n")
+              print(f"No batch exists for {today}; safely skipping {slot_id}.")
+              raise SystemExit(0)
+          batch_bytes = batch_path.read_bytes()
+          batch_sha = hashlib.sha256(batch_bytes).hexdigest()
+          plans = load_daily_batch(batch_path, expected_date=today)
+          slot_id = os.environ.get("SELECTED_SLOT_ID", "")
+          selected = next((plan for plan in plans if plan["slot_id"] == slot_id), None)
+          if selected is None:
+              raise SystemExit("The selected content slot is missing from the batch.")
+          slot_status = str(selected.get("slot_status") or "ready").lower()
+          blocked_reason = str(selected.get("blocked_reason") or "").replace("\n", " ")[:500]
+          workspace = slot_workspace(Path("work/slots"), today, slot_id)
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write("slot_status=" + slot_status + "\n")
+              output.write("blocked_reason=" + blocked_reason + "\n")
+              output.write("slot_id=" + slot_id + "\n")
+              output.write("workspace_root=" + str(workspace) + "\n")
+              output.write("batch_path=" + str(batch_path) + "\n")
+              output.write("batch_sha256=" + batch_sha + "\n")
+          print(f"Validated {len(plans)} plans for {today}; selected {slot_id}.")
+          PY
+
+      - name: Check today's four-slot production gates
         id: readiness
         env:
           UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
-        run: python autopilot/engine/daily_readiness.py
+        run: python autopilot/engine/daily_readiness.py --batch "${{ steps.batch.outputs.batch_path }}"
 
   produce:
     needs: [daily_readiness, fast_preflight]
@@ -136,7 +207,7 @@ jobs:
 
       - name: Read ChatGPT daily production request
         id: daily_request
-        if: github.event_name == 'push' || github.event_name == 'schedule'
+        if: github.event_name == 'push'
         shell: bash
         run: |
           python - <<'PY'
@@ -219,7 +290,7 @@ jobs:
           pip install -r autopilot/engine/requirements.txt
 
       - name: Install scheduled daily-plan dependencies
-        if: github.event_name == 'schedule' && steps.daily_request.outputs.plan_path != ''
+        if: github.event_name == 'schedule'
         run: |
           python -m pip install --upgrade pip
           pip install -r autopilot/engine/requirements.txt
@@ -261,19 +332,48 @@ jobs:
         if: env.PIPELINE_STAGE == 'render'
         run: python autopilot/engine/run.py --stage render
 
-      - name: Run ChatGPT-prepared daily plan through Motion + HyperFrames 2D production
-        if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path != ''
+      - name: Report a source-blocked slot without creating placeholder content
+        if: github.event_name == 'schedule' && needs.daily_readiness.outputs.slot_status == 'blocked'
+        env:
+          SLOT_ID: ${{ needs.daily_readiness.outputs.slot_id }}
+          BLOCKED_REASON: ${{ needs.daily_readiness.outputs.blocked_reason }}
+        run: |
+          {
+            echo "## Scheduled slot blocked"
+            echo ""
+            echo "- Slot: `$SLOT_ID`"
+            echo "- Reason: $BLOCKED_REASON"
+            echo "- No narration, video, private release or public upload was created."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run the selected ChatGPT-directed slot through Motion + HyperFrames
+        if: env.PIPELINE_STAGE == 'full' && (steps.daily_request.outputs.plan_path != '' || github.event_name == 'schedule') && (github.event_name != 'schedule' || needs.daily_readiness.outputs.slot_status != 'blocked')
         env:
           RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
           EXPECTED_PLAN_SHA256: ${{ steps.daily_request.outputs.plan_sha256 }}
           EXPECTED_NARRATION_SHA256: ${{ steps.daily_request.outputs.narration_sha256 }}
+          EXPECTED_BATCH_SHA256: ${{ needs.daily_readiness.outputs.batch_sha256 }}
+          SLOT_ID: ${{ needs.daily_readiness.outputs.slot_id }}
+          SLOT_WORKSPACE_ROOT: ${{ needs.daily_readiness.outputs.workspace_root }}
+          SLOT_BATCH_PATH: ${{ needs.daily_readiness.outputs.batch_path }}
           PRODUCTION_EVENT_SHA: ${{ github.sha }}
           PUBLISH_ENABLED: "false"
           PRIVATE_VOICE_REPO_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
-        run: python autopilot/engine/run_daily_plan.py --plan "${{ steps.daily_request.outputs.plan_path }}"
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "schedule" ]]; then
+            python autopilot/engine/run_daily_plan.py \
+              --batch "$SLOT_BATCH_PATH" \
+              --slot-id "$SLOT_ID" \
+              --workspace-root "$SLOT_WORKSPACE_ROOT"
+          else
+            python autopilot/engine/run_daily_plan.py --plan "${{ steps.daily_request.outputs.plan_path }}"
+          fi
 
       - name: Run complete Prepare → Visuals → Render sequence
-        if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path == ''
+        if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path == '' && github.event_name != 'schedule'
         env:
           PRIVATE_VOICE_REPO_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
         run: python autopilot/engine/run.py --stage full
@@ -367,17 +467,19 @@ jobs:
 
       - name: Transfer finished preview to the private Voice Vault
         id: private_preview
-        if: success() && env.PIPELINE_STAGE == 'full'
+        if: success() && env.PIPELINE_STAGE == 'full' && (github.event_name != 'schedule' || needs.daily_readiness.outputs.slot_status != 'blocked')
         env:
           GH_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
           PRIVATE_REPO: baidyaprince69-web/violin-prince-private-voice
           SOURCE_RUN_ID: ${{ github.run_id }}
-          VIDEO_PATH: work/output/violin-prince-short.mp4
+          VIDEO_PATH: ${{ needs.daily_readiness.outputs.workspace_root != '' && format('{0}/output/violin-prince-short.mp4', needs.daily_readiness.outputs.workspace_root) || 'work/output/violin-prince-short.mp4' }}
+          IDENTITY_PATH: ${{ needs.daily_readiness.outputs.workspace_root != '' && format('{0}/output/production-identity.json', needs.daily_readiness.outputs.workspace_root) || 'work/output/production-identity.json' }}
+          NARRATION_PATH: ${{ needs.daily_readiness.outputs.workspace_root != '' && format('{0}/output/narration.wav', needs.daily_readiness.outputs.workspace_root) || 'work/output/narration.wav' }}
         shell: bash
         run: |
           set -euo pipefail
           video="$VIDEO_PATH"
-          identity_file="work/output/production-identity.json"
+          identity_file="$IDENTITY_PATH"
           if [[ ! -s "$video" ]]; then
             echo "::error::The finished MP4 is missing or empty; private handoff cancelled."
             exit 1
@@ -613,10 +715,13 @@ jobs:
           rm -rf "$temporary_dir"
 
       - name: Verify the preview remains in the ephemeral runner after private transfer
-        if: success() && env.PIPELINE_STAGE == 'full'
+        if: success() && env.PIPELINE_STAGE == 'full' && (github.event_name != 'schedule' || needs.daily_readiness.outputs.slot_status != 'blocked')
+        env:
+          VIDEO_PATH: ${{ needs.daily_readiness.outputs.workspace_root != '' && format('{0}/output/violin-prince-short.mp4', needs.daily_readiness.outputs.workspace_root) || 'work/output/violin-prince-short.mp4' }}
+          NARRATION_PATH: ${{ needs.daily_readiness.outputs.workspace_root != '' && format('{0}/output/narration.wav', needs.daily_readiness.outputs.workspace_root) || 'work/output/narration.wav' }}
         shell: bash
         run: |
           set -euo pipefail
-          test -s work/output/violin-prince-short.mp4
-          test -s work/output/narration.wav
+          test -s "$VIDEO_PATH"
+          test -s "$NARRATION_PATH"
           echo "MP4 and narration remain on the temporary runner until the job ends; any public release is created only after publisher preflight and SHA-256 provenance pass."

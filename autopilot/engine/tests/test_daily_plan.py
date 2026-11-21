@@ -40,7 +40,7 @@ class DailyPlanEvidenceTests(unittest.TestCase):
             "It measures your room's acoustics and adjusts monitor response. "
             "Onboard DSP also runs input EQ, compression and reverb with no latency."
         )
-        plan = {"narration_script": script}
+        plan = {"production_date": "2026-11-21", "narration_script": script}
         plan_bytes = json.dumps(plan, ensure_ascii=False).encode("utf-8")
         plan_hash = hashlib.sha256(plan_bytes).hexdigest()
         script_hash = hashlib.sha256(script.encode("utf-8")).hexdigest()
@@ -69,6 +69,130 @@ class DailyPlanEvidenceTests(unittest.TestCase):
                 plan,
                 expected_plan_sha256=plan_hash,
             )
+
+
+    def test_batch_materializes_one_slot_into_its_own_workspace(self):
+        import hashlib
+        import json
+        import os
+        import tempfile
+        from datetime import datetime
+        from unittest.mock import patch
+        from zoneinfo import ZoneInfo
+
+        today = datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
+        plans = [
+            {
+                "production_date": today,
+                "slot_id": slot_id,
+                "title": "A separate slot story",
+                "narration_script": "Could music reveal something new? Four sentences make a complete script. Evidence supports the second and third. This final sentence closes the story.",
+            }
+            for slot_id in ("music-secrets", "production-tech", "melody-stories", "real-performance")
+        ]
+        batch = {"schema_version": 1, "production_date": today, "plans": plans}
+
+        with tempfile.TemporaryDirectory() as temporary:
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(temporary)
+                batch_path = Path(".autopilot/daily-batches") / (today + ".json")
+                batch_path.parent.mkdir(parents=True)
+                batch_path.write_text(json.dumps(batch), encoding="utf-8")
+                batch_hash = hashlib.sha256(batch_path.read_bytes()).hexdigest()
+                workspace = Path("work/slots") / today / "melody-stories"
+                with patch.dict(os.environ, {"EXPECTED_BATCH_SHA256": batch_hash}):
+                    plan_path, returned_hash = daily._materialize_batch_slot(
+                        batch_path, "melody-stories", workspace
+                    )
+                    self.assertEqual(
+                        os.environ["EXPECTED_PLAN_SHA256"],
+                        hashlib.sha256(plan_path.read_bytes()).hexdigest(),
+                    )
+                materialized = json.loads(plan_path.read_text(encoding="utf-8"))
+                self.assertEqual(returned_hash, batch_hash)
+                self.assertEqual(materialized["slot_id"], "melody-stories")
+                self.assertEqual(plan_path.parent.parent, workspace.resolve())
+                self.assertEqual(
+                    len({Path("work/slots") / today / slot for slot in (
+                        "music-secrets", "production-tech", "melody-stories", "real-performance"
+                    )}),
+                    4,
+                )
+            finally:
+                os.chdir(original_cwd)
+
+
+    def test_batch_materialization_refuses_explicitly_blocked_slot(self):
+        import hashlib
+        import json
+        import os
+        import tempfile
+        from datetime import datetime
+        from unittest.mock import patch
+        from zoneinfo import ZoneInfo
+
+        today = datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
+        plans = [
+            {"production_date": today, "slot_id": slot, "title": "Slot",
+             "narration_script": "A small test narration with enough tokens."}
+            for slot in ("music-secrets", "production-tech", "melody-stories", "real-performance")
+        ]
+        plans[2] = {
+            "production_date": today, "slot_id": "melody-stories",
+            "slot_status": "blocked", "blocked_reason": "Independent sources not verified.",
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            previous = Path.cwd()
+            try:
+                os.chdir(temporary)
+                path = Path("batch.json")
+                path.write_text(json.dumps({"production_date": today, "plans": plans}), encoding="utf-8")
+                digest = hashlib.sha256(path.read_bytes()).hexdigest()
+                workspace = Path("work/slots") / today / "melody-stories"
+                with patch.dict(os.environ, {"EXPECTED_BATCH_SHA256": digest}):
+                    with self.assertRaisesRegex(Exception, "Selected slot is blocked"):
+                        daily._materialize_batch_slot(path, "melody-stories", workspace)
+            finally:
+                os.chdir(previous)
+
+    def test_batch_materialization_rejects_a_changed_snapshot(self):
+        import hashlib
+        import json
+        import os
+        import tempfile
+        from datetime import datetime
+        from unittest.mock import patch
+        from zoneinfo import ZoneInfo
+
+        today = datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
+        plans = [
+            {"production_date": today, "slot_id": slot, "title": "Test slot",
+             "narration_script": "One two three four five six seven eight nine ten."}
+            for slot in ("music-secrets", "production-tech", "melody-stories", "real-performance")
+        ]
+        with tempfile.TemporaryDirectory() as temporary:
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(temporary)
+                batch_path = Path("batch.json")
+                batch_path.write_text(json.dumps({"production_date": today, "plans": plans}), encoding="utf-8")
+                workspace = Path("work/slots") / today / "music-secrets"
+                with patch.dict(os.environ, {"EXPECTED_BATCH_SHA256": "0" * 64}):
+                    with self.assertRaisesRegex(Exception, "does not match"):
+                        daily._materialize_batch_slot(batch_path, "music-secrets", workspace)
+            finally:
+                os.chdir(original_cwd)
+
+    def test_workflow_exposes_four_non_cancelling_six_hour_slots(self):
+        workflow_path = ENGINE_DIR.parents[1] / ".github" / "workflows" / "violin-prince-autopilot.yml"
+        workflow = workflow_path.read_text(encoding="utf-8")
+        for cron in ('"0 0 * * *"', '"0 6 * * *"', '"0 12 * * *"', '"0 18 * * *"'):
+            self.assertIn(f"- cron: {cron}", workflow)
+        for slot_id in ("music-secrets", "production-tech", "melody-stories", "real-performance"):
+            self.assertIn(f'slot_id="{slot_id}"', workflow)
+        self.assertIn("cancel-in-progress: false", workflow)
+        self.assertIn('PUBLISH_ENABLED: "false"', workflow)
 
     def test_autopilot_trigger_watches_the_daily_plan_and_passes_snapshot_hashes(self):
         workflow_path = ENGINE_DIR.parents[1] / ".github" / "workflows" / "violin-prince-autopilot.yml"
