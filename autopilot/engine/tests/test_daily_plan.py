@@ -105,6 +105,10 @@ class DailyPlanEvidenceTests(unittest.TestCase):
                     plan_path, returned_hash = daily._materialize_batch_slot(
                         batch_path, "melody-stories", workspace
                     )
+                    self.assertEqual(
+                        os.environ["EXPECTED_PLAN_SHA256"],
+                        hashlib.sha256(plan_path.read_bytes()).hexdigest(),
+                    )
                 materialized = json.loads(plan_path.read_text(encoding="utf-8"))
                 self.assertEqual(returned_hash, batch_hash)
                 self.assertEqual(materialized["slot_id"], "melody-stories")
