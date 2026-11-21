@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       stage:
-        description: "Run one complete production pass. Scheduled ready slots upload private YouTube previews only."
+        description: "Run one complete production pass. Approved scheduled slots publish publicly to YouTube."
         required: true
         type: choice
         default: full
@@ -247,8 +247,8 @@ jobs:
               raise SystemExit("publish_to_youtube must be an explicit boolean.")
           if publish_to_youtube:
               raise SystemExit(
-                  "Public YouTube publishing is disabled during private-preview commissioning. "
-                  "Set publish_to_youtube=false; the scheduled four-slot route uploads private previews only."
+                  "Direct public publishing from this one-off handoff route is disabled. "
+                  "The approved scheduled four-slot route handles public YouTube uploads; set publish_to_youtube=false for this handoff."
               )
           from datetime import datetime
           from zoneinfo import ZoneInfo
