@@ -18,6 +18,10 @@ Verified against the main branch on 21 November 2026:
 
 The production workflow must remain fail-closed until the four-slot planner, creator-recorded performance intake, publishing provider, per-slot idempotency, media QA and public publishing gates have been tested.
 
+## Four-slot engineering foundation — feature branch only
+
+The feature branch `feat/four-slot-production-foundation-20261121` adds the canonical four-slot contract, per-slot workspace/receipt helpers, slot-aware publisher duplicate keys and non-cancelling workflow concurrency. It is not yet wired into the daily production runner. No six-hour cron or public publishing has been enabled. See [ENGINE_WORKFLOW.md](engine/ENGINE_WORKFLOW.md) for the exact implementation boundary and remaining acceptance work.
+
 ## Approved channel identity and production format
 
 The standing creative direction is **Violin Prince = music facts + cinematic visual explanations + the creator's own violin performance**. This channel-format decision is recorded in `engine/creative_direction.py`; it is not the same as the separate review of an individual prepared story.
