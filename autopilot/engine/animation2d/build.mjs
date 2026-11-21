@@ -382,7 +382,28 @@ const markup = project.scenes.map((scene, index) => {
   const backgroundClass = presenterLayout
     ? "clip scene-background scene-background--presenter-layout"
     : "clip scene-background";
-  const background = scene.image
+  const visualLayers = Array.isArray(scene.visual_layers) ? scene.visual_layers : [];
+  const layeredMarkup = visualLayers.map((layer, layerIndex) => {
+    const role = String(layer.role || "foreground").toLowerCase();
+    const isBackground = role === "background";
+    const layerId = isBackground
+      ? scene.id + "-background"
+      : scene.id + "-layer-" + String(layer.id || layerIndex + 1);
+    const className = isBackground
+      ? backgroundClass + " scene-layer scene-layer--background"
+      : "clip scene-layer scene-layer--" + escapeHtml(role);
+    const objectFit = isBackground ? "cover" : "contain";
+    const style = [
+      "z-index:" + Number(layer.z_index ?? (10 + layerIndex)),
+      "object-fit:" + objectFit
+    ].join(";");
+    return '<img class="' + className + '" id="' + escapeHtml(layerId) +
+      '" data-start="' + start + '" data-duration="' + sceneDuration +
+      '" data-track-index="' + (index * 100 + Number(layer.z_index ?? layerIndex + 1)) +
+      '" src="' + escapeHtml(layer.image) + '" style="' + style +
+      '" alt="" draggable="false">';
+  }).join("");
+  const background = layeredMarkup || (scene.image
     ? '<img class="' + backgroundClass + '" id="' + escapeHtml(scene.id) +
       '-background" data-start="' + start + '" data-duration="' + sceneDuration +
       '" data-track-index="' + index + '" src="' + escapeHtml(scene.image) +
@@ -390,7 +411,7 @@ const markup = project.scenes.map((scene, index) => {
     : '<div class="clip scene-background" id="' + escapeHtml(scene.id) +
       '-background" data-start="' + start + '" data-duration="' + sceneDuration +
       '" data-track-index="' + index + '" style="background:' +
-      escapeHtml(scene.background_color || "#101b2b") + '"></div>';
+      escapeHtml(scene.background_color || "#101b2b") + '"></div>');
   const titleClass = presenterLayout ? "clip scene-title scene-title--with-presenter" : "clip scene-title";
   const captionClass = presenterLayout
     ? "clip scene-caption scene-caption--with-presenter"
@@ -439,6 +460,8 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   'html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050b13}' +
   '#root{position:relative;width:' + width + 'px;height:' + height + 'px;overflow:hidden;background:var(--vp-dominant,#050b13);color:var(--vp-secondary,#f4ead9)}' +
   '.scene-background{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.06);will-change:transform,opacity}' +
+  '.scene-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;will-change:transform,opacity,filter;transform-origin:50% 50%}' +
+  '.scene-layer:not(.scene-layer--background){opacity:0;object-position:center center}' +
   '.scene-background--presenter-layout{filter:brightness(.42) saturate(.90) blur(1.5px)}' +
   '.scene-grade{position:absolute;inset:0;z-index:5;pointer-events:none;background:radial-gradient(ellipse at 52% 42%,rgba(0,0,0,0) 36%,rgba(2,7,13,.34) 100%),linear-gradient(180deg,rgba(3,8,15,.44) 0%,rgba(3,8,15,.06) 26%,rgba(3,8,15,0) 62%,rgba(3,8,15,.34) 100%)}' +
   '.scene-brand{position:absolute;left:0;right:0;top:0;height:174px;z-index:18;display:flex;align-items:flex-start;gap:12px;padding:34px 7% 0;box-sizing:border-box;background:linear-gradient(180deg,rgba(4,10,18,.96) 0%,rgba(4,10,18,.86) 52%,rgba(4,10,18,0) 100%);color:var(--vp-accent,#e7d4ad);font:700 12px/1 DMSans,Arial,sans-serif;letter-spacing:.19em;text-transform:uppercase;opacity:0}' +
