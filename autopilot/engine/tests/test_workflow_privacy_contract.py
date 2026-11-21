@@ -13,15 +13,18 @@ class WorkflowPublicationContractTests(unittest.TestCase):
     def setUpClass(cls):
         cls.workflow_text = WORKFLOW.read_text(encoding="utf-8")
 
-    def test_public_workflow_never_uploads_actions_artifacts(self):
-        self.assertNotIn("actions/upload-artifact", self.workflow_text)
+    def test_scheduled_private_preview_artifact_is_retained_for_recovery(self):
+        self.assertIn("actions/upload-artifact@v4", self.workflow_text)
+        self.assertIn("Retain scheduled private-preview artifact for recovery", self.workflow_text)
+        self.assertIn("retention-days: 3", self.workflow_text)
         self.assertNotIn("actions/download-artifact", self.workflow_text)
         self.assertNotIn("Upload finished video", self.workflow_text)
         self.assertNotIn("Preserve stage diagnostics", self.workflow_text)
 
     def test_scheduled_ready_slots_upload_private_previews_only(self):
-        self.assertIn("Upload validated daily slot as a PRIVATE YouTube preview", self.workflow_text)
-        self.assertIn("upload_private_preview.py", self.workflow_text)
+        self.assertIn("Upload validated daily slot as a PRIVATE YouTube preview via Upload-Post", self.workflow_text)
+        self.assertIn("upload_private_preview_uploadpost.py", self.workflow_text)
+        self.assertNotIn("upload_private_preview.py", self.workflow_text)
         self.assertIn('YOUTUBE_PRIVACY_STATUS: "private"', self.workflow_text)
         self.assertNotIn("publish_daily_short.py", self.workflow_text)
         self.assertNotIn('YOUTUBE_PRIVACY_STATUS: "public"', self.workflow_text)
