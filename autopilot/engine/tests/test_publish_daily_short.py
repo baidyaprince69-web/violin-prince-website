@@ -269,10 +269,6 @@ class DailyPublicPublisherTests(unittest.TestCase):
         commit.assert_not_called()
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class PrivatePreviewPublisherTests(unittest.TestCase):
     def setUp(self):
         self.fixture = DailyPublicPublisherTests()
@@ -417,3 +413,7 @@ class PrivatePreviewPublisherTests(unittest.TestCase):
                     production_date="2026-11-21",
                 )
         upload.assert_not_called()
+
+
+if __name__ == "__main__":
+    unittest.main()
