@@ -37,7 +37,7 @@ from character_presenter import (  # noqa: E402
 )
 from slot_registry import (  # noqa: E402
     SLOT_CATALOG, SlotContractError, load_daily_batch,
-    production_identity as slot_production_identity, slot_workspace,
+    production_identity as slot_production_identity, slot_workspace, write_slot_receipt,
 )
 
 
@@ -397,7 +397,7 @@ def build_production_identity(
         raise engine.PipelineError("Daily production slot identity is invalid: " + str(exc)) from exc
 
     return {
-        "schema_version": 2,
+        "schema_version": 1,
         "production_date": str(plan.get("production_date") or ""),
         "slot_id": slot_id,
         "production_identity": slot_identity,
@@ -664,7 +664,7 @@ def _materialize_batch_slot(batch_path: Path, slot_id: str, workspace_root: Path
         plan_path.write_bytes(plan_bytes)
 
         os.environ["EXPECTED_PLAN_SHA256"] = hashlib.sha256(plan_bytes).hexdigest()
-        script = re.sub(r"\\s+", " ", str(plan.get("narration_script") or "")).strip()
+        script = re.sub(r"\s+", " ", str(plan.get("narration_script") or "")).strip()
         os.environ["EXPECTED_NARRATION_SHA256"] = hashlib.sha256(script.encode("utf-8")).hexdigest()
         return plan_path, batch_sha256
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, SlotContractError) as exc:
