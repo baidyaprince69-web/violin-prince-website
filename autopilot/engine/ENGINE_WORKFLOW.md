@@ -149,7 +149,7 @@ Current daily creative contract:
 
 Scene plans must map narration sentences to scenes explicitly and completely. Missing/invalid word timing or incomplete narration blocks rendering rather than being silently guessed.
 
-**Outputs after own-voice approval:** validated plan JSON, private-Qwen3 narration WAV and verified word-timing data, scene timeline and storyboard preview. **Current state:** narration is approved through private Qwen3. The tested local illustration style has explicit creator approval for public YouTube use. Ready scheduled slots can be uploaded directly to the confirmed public channel after source, narration, soundtrack, media-quality, channel-identity and duplicate checks pass; no private video copy is created.
+**Outputs after own-voice approval:** validated plan JSON, private-Qwen3 narration WAV and verified word-timing data, scene timeline and storyboard preview. **Current state:** narration is approved through private Qwen3, and the tested local illustration style has creator approval for public YouTube use. However, PR #118 places the scheduled route in private-preview commissioning: ready slots upload only as private previews after source, narration, soundtrack, media-quality, channel-identity and duplicate checks pass. The creator reviews the accumulated previews before a separate future public-schedule activation.
 
 ## 7. Audio and music preparation
 
@@ -170,7 +170,7 @@ The former external media dashboard and remote media library have been removed. 
 
 ## 8. Scene illustration and visual asset generation
 
-**Status: Local deterministic vector illustrator tested and approved for preview-only use.**
+**Status: Local deterministic vector illustrator tested and creator-approved for public YouTube artwork; scheduled commissioning currently uploads its renders as private previews.**
 
 - `autopilot/engine/local_vector_illustrator.py` renders six fixed scene modes locally with Pillow; it makes no network calls, needs no API key and creates 1024 × 1792 JPEG plates.
 - The renderer is gated by `autopilot/engine/illustration-approval.json`, which records the successful six-mode test and the creator's explicit `public_youtube` approval for the tested deterministic illustration style.
@@ -320,7 +320,7 @@ A successful process exit alone is not enough. Apply these gates before release:
 
 ## 13. Release handoff and YouTube publishing
 
-### 13.1 Scheduled private YouTube previews — commissioning branch
+### 13.1 Scheduled private YouTube previews — active on `main` after PR #118
 
 - The four cron slots on `main` remain at 00:00, 06:00, 12:00 and 18:00 UTC (05:30, 11:30, 17:30 and 23:30 Asia/Kolkata). Each ready slot uses its own date/slot workspace and proceeds independently.
 - The batch path in `run_daily_plan.py` forces `publish_metadata.privacy_status=private` before publisher metadata validation and writes a manifest whose `youtube_privacy` is `private`. The public-only plan metadata is not allowed to override this setting.
@@ -450,7 +450,7 @@ The Voice Vault is an enrollment and private-storage boundary, not a public voic
 - Automated text planning remains disabled until an approved text provider is selected. The local vector illustrator is approved only for a one-video preview; it does not call Cloudflare or any remote image provider.
 - The public Autopilot workflow currently exposes only the complete one-shot preview path. Stage-by-stage public artifacts and downloads are disabled because the package can contain narration text and private audio.
 
-Production narration is approved through private Qwen3 after the creator-authorized sample and end-to-end handoff passed. The private worker run, public bridge run and cleanup run are recorded in `voice-approval.json`. The local vector renderer passed six general modes plus three Audient studio-story scenes (run `44524124774`) and is recorded in `illustration-approval.json` for preview-only use.
+Production narration is approved through private Qwen3 after the creator-authorized sample and end-to-end handoff passed. The private worker run, public bridge run and cleanup run are recorded in `voice-approval.json`. The local vector renderer passed six general modes plus three Audient studio-story scenes (run `44524124774`) and has creator-approved public-artwork scope in `illustration-approval.json`; PR #118 independently forces all scheduled commissioning uploads to private visibility.
 
 ## Addendum — private video preview delivery (2026-11-19)
 
@@ -496,15 +496,13 @@ The default YouTube Data API quota documents 100 `videos.insert` calls per day f
 - The ChatGPT Global Director automation prepares the next day's batch at approximately 18:00 Asia/Kolkata. It commits only `.autopilot/daily-batches/YYYY-MM-DD.json`, a path that is not a push trigger.
 - The first batch `.autopilot/daily-batches/2026-11-22.json` has two ready plans and two blocked plans. The two blocked slots will be skipped; no placeholder content will be generated.
 
-**Publishing gate:** scheduled runs are private previews only. The checked-in trigger still sets `publish_to_youtube: false`; illustration approval is `preview_video_only`. Public releases/YouTube uploads require four successful private end-to-end runs, actual visual/audio review, a validated creator-performance intake, one confirmed publisher route and a separate explicit publishing-approval update. Never present sampled/symbolic audio as the creator's live violin recording.
-## Addendum — direct public YouTube publishing from scheduled slots (2026-11-21)
+**Publishing gate:** scheduled runs are private previews only. The checked-in trigger still sets `publish_to_youtube: false`, and PR #118 forces `privacy_status=private` regardless of the artwork approval's public-artwork scope. Public releases/YouTube uploads require successful commissioning, actual visual/audio review, one confirmed publisher route and a separate explicit publishing-workflow activation. Never present sampled/symbolic audio as the creator's live violin recording.
+## Addendum — scheduled public publishing deferred during commissioning (2026-11-21)
 
-**Status:** Implemented on the feature branch feat/direct-public-youtube-four-slot-20261121; public activation occurs when the branch is merged to main.
+**Status:** The separate direct-public scheduled route is not active on `main`. PR #118 merged the private-preview-only route and supersedes the public-scheduled implementation described in the earlier feature-branch work.
 
-- The four existing GitHub Actions cron events and ChatGPT daily director remain unchanged. A ready scheduled slot now flows from the rendered MP4 into autopilot/engine/publish_daily_short.py.
-- The publisher independently probes the final MP4, checks its SHA-256 against provenance, validates the two-source/three-claim evidence contract, enforces the 35-word/four-sentence narration shape, checks soundtrack rights metadata and requires public YouTube metadata.
-- Before upload, it verifies the OAuth identity against the expected Violin Prince channel and scans the channel's uploads playlist for an exact-title duplicate.
-- A durable publication-attempt marker is committed to main before the YouTube API request. A confirmed upload is followed by a receipt containing the returned video ID and URL. If the outcome is uncertain, a no-retry receipt is written and manual channel verification is required.
-- The daily workflow no longer transfers finished MP4s to the private Voice Vault and does not create a public GitHub Release asset. The private Qwen3 service remains a narration-only dependency.
-- The local vector illustration approval now records the creator's explicit public-YouTube scope and no-private-preview instruction. Generic multi-platform PUBLISH_ENABLED remains false; only the dedicated post-render YouTube publisher can upload.
-- Slots marked blocked, or slots that fail any readiness, quality, provenance or channel check, do not upload. No placeholder content is generated.
+- The four existing cron triggers remain at 05:30, 11:30, 17:30 and 23:30 Asia/Kolkata.
+- Each ready scheduled slot runs production and verification, then `autopilot/engine/upload_private_preview.py` with YouTube privacy explicitly set to `private`.
+- The scheduled workflow does not invoke `publish_daily_short.py`, does not create a public GitHub Release or Upload-Post queue entry, and does not persist private video IDs or URLs in public receipts or logs.
+- Blocked slots and failed production, provenance, media-quality, channel-identity or upload-visibility checks stop that slot's upload.
+- Public publishing remains the final operating goal, but enabling scheduled public visibility requires a separate implementation change after the commissioning cycle and nightly review.
