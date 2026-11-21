@@ -202,6 +202,8 @@ def build_director_hyperframes_project(
             "director_transition_out": outgoing_transition,
             "transition_in": incoming_transition,
             "transition_in_duration": round(incoming_seconds, 4),
+            "camera_motion_start_offset": round(incoming_seconds, 4),
+            "camera_motion_duration": round(shot_duration, 4),
             "transition_out_duration": round(outgoing_seconds, 4),
             "camera_easing": "ease-in" if outgoing_transition == "speed_ramp" else "ease-in-out",
             "animation_execution_status": (
