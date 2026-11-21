@@ -1,0 +1,412 @@
+{
+  "schema_version": 1,
+  "production_date": "2026-11-23",
+  "plans": [
+    {
+      "production_date": "2026-11-23",
+      "slot_id": "music-secrets",
+      "slot_status": "ready",
+      "story_type": "music_culture",
+      "topic": "The launch of Grand Theft Auto VI: The Album, its 34 original songs and how the standalone album relates to the wider music heard in the game.",
+      "core_claim": "Grand Theft Auto VI: The Album launched in partnership with Atlantic Records with 34 original songs, while reporting notes that the game's wider music extends beyond the standalone tracklist.",
+      "title": "GTA VI's 34-Track Album: A Soundtrack Beyond the Game",
+      "hook": "Can a game soundtrack stand on its own?",
+      "description": "A source-checked look at Grand Theft Auto VI: The Album: Rockstar describes a 34-song release created with Atlantic Records, while Stereogum notes that the album covers only part of the game's wider musical world. Violin Prince adds a newly composed, unrelated violin motif; no game footage, soundtrack recordings, existing melodies or lyrics are used.",
+      "hashtags": [
+        "#GameSoundtracks",
+        "#MusicCulture",
+        "#Soundtrack",
+        "#ViolinPrince"
+      ],
+      "tags": [
+        "Grand Theft Auto VI",
+        "GTA VI soundtrack",
+        "video game music",
+        "Rockstar Games",
+        "Atlantic Records",
+        "music culture",
+        "soundtrack album",
+        "Violin Prince"
+      ],
+      "narrative_style": "documentary",
+      "cover_payoff": "Create an original, unrelated violin motif that moves through three contrasting imagined radio moods. Do not imitate or sample any soundtrack song; do not use game footage, logos, character likenesses or lyrics.",
+      "narration_script": "Can a game soundtrack stand alone? Rockstar says its 34-song official album pairs with Atlantic Records. Stereogum notes those tracks represent only a small fraction of the game's music. A separate score is also planned.",
+      "narration_evidence": [
+        {
+          "sentence_number": 2,
+          "source_id": "S001",
+          "quote": "Grand Theft Auto VI: The Album, the official soundtrack album created in partnership with Atlantic Records, is available everywhere now. With 34 original songs"
+        },
+        {
+          "sentence_number": 3,
+          "source_id": "S002",
+          "quote": "But the 34 tracks on Grand Theft Auto VI: The Album represent only a small fraction of the music featured in the game itself."
+        },
+        {
+          "sentence_number": 4,
+          "source_id": "S001",
+          "quote": "For the full tracklist and much more, including details on the Original Score composed by Justice coming December 11"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "S001",
+          "title": "Grand Theft Auto VI: The Album Now Available",
+          "url": "https://www.rockstargames.com/newswire/article/k4a8955a93o747/grand-theft-auto-vi-the-album-now-available",
+          "publisher_domain": "rockstargames.com",
+          "date": "2026-11-20"
+        },
+        {
+          "source_id": "S002",
+          "title": "GTA VI Unveils Soundtrack Album, Game Includes Surprise Songs And Cameos",
+          "url": "https://stereogum.com/2518780/gta-vi-unveils-soundtrack-album-game-includes-surprise-songs-and-cameos/news",
+          "publisher_domain": "stereogum.com",
+          "date": "2026-11-20"
+        }
+      ],
+      "timeline": [],
+      "scenes": [
+        {
+          "id": "soundtrack-world",
+          "title": "A soundtrack opens a world",
+          "caption": "34 ORIGINAL SONGS, ONE GAME WORLD",
+          "image_prompt": "Vertical 9:16 original editorial 2D illustration of a fictional coastal night city, a simple record disc and abstract radio-wave ribbons travelling between distant rooftops. No recognizable game city, logo, character, album cover or text. Premium clean linework, high visual clarity, restrained cinematic light, generous negative space.",
+          "visual_mode": "waveform",
+          "narration_sentence_indexes": [
+            0
+          ]
+        },
+        {
+          "id": "album-vs-world",
+          "title": "The album and the wider game",
+          "caption": "THE ALBUM IS ONLY ONE LAYER",
+          "image_prompt": "Vertical 9:16 premium 2D comparison graphic: one neat row of abstract album discs on one side and a much broader network of small, distinct radio-wave symbols on the other, visually explaining a soundtrack album beside a larger in-game music world. No real track names, artist likenesses, game interface or logos. Clean midnight-studio illustration with legible shapes.",
+          "visual_mode": "comparison",
+          "narration_sentence_indexes": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "violin-prince-payoff",
+          "title": "An original Violin Prince theme",
+          "caption": "ONE NEW MOTIF, MANY MUSICAL MOODS",
+          "image_prompt": "Vertical 9:16 symbolic Violin Prince payoff: a complete amber-walnut violin and bow with expressive non-identifiable hands, surrounded by three original abstract sound ribbons with distinct moods. No recognizable existing song notation, artwork, artist likeness, game references, text or logos. Premium illustrated finish.",
+          "visual_mode": "cover_performance",
+          "narration_sentence_indexes": [
+            3
+          ]
+        }
+      ],
+      "performance_feedback": {
+        "sample_window": "No mature Violin Prince analytics sample exists for this newly introduced story format.",
+        "sample_count": 0,
+        "confidence": "Editorial selection is based on two independent publisher articles; no measured audience-performance comparison or hands-on performance claim is made.",
+        "strengths_to_preserve": [
+          "Connect a current international music story to one clear musical idea through an original violin-led example."
+        ],
+        "one_change_to_test": "Keep the distinction between the 34-song album and the game's broader music clear; use only original visual symbols and an unrelated violin motif.",
+        "measurement_for_next_upload": "After publication, compare 24-hour and seven-day views, engaged views, average view duration, average percentage viewed, stayed-to-watch, likes, comments and shares."
+      },
+      "narration_asr_hotwords": [
+        "Grand Theft Auto VI",
+        "GTA VI",
+        "Rockstar Games",
+        "Atlantic Records",
+        "soundtrack",
+        "original score"
+      ],
+      "publish_metadata": {
+        "title": "GTA VI's 34-Track Album: A Soundtrack Beyond the Game",
+        "description": "A source-checked look at Grand Theft Auto VI: The Album: Rockstar describes a 34-song release created with Atlantic Records, while Stereogum notes that the album covers only part of the game's wider musical world. Violin Prince adds a newly composed, unrelated violin motif; no game footage, soundtrack recordings, existing melodies or lyrics are used.",
+        "tags": [
+          "Grand Theft Auto VI",
+          "GTA VI soundtrack",
+          "video game music",
+          "Rockstar Games",
+          "Atlantic Records",
+          "music culture",
+          "soundtrack album",
+          "Violin Prince"
+        ],
+        "category_id": "10",
+        "default_language": "en",
+        "privacy_status": "public",
+        "made_for_kids": false
+      },
+      "one_change_to_test": "Keep the distinction between the 34-song album and the game's broader music clear; use only original visual symbols and an unrelated violin motif."
+    },
+    {
+      "production_date": "2026-11-23",
+      "slot_id": "production-tech",
+      "slot_status": "ready",
+      "story_type": "arrangement_and_sound_design",
+      "topic": "How Hans Zimmer and RÜFÜS DU SOL reimagined Innerbloom XI as a nine-minute orchestral arrangement for the original song's eleventh anniversary.",
+      "core_claim": "Hans Zimmer reimagined RÜFÜS DU SOL's Innerbloom as a nine-minute orchestral arrangement for its eleventh anniversary, retaining the original vocals.",
+      "title": "Hans Zimmer Reimagines RÜFÜS DU SOL's 'Innerbloom'",
+      "hook": "What changes when an electronic song meets an orchestra?",
+      "description": "A sourced arrangement breakdown of Innerbloom XI: Variety reports the RÜFÜS DU SOL and Hans Zimmer collaboration, while DJ Mag describes its nine-minute orchestral treatment and retained original vocals. The Violin Prince payoff uses a newly composed, unrelated motif to demonstrate how orchestral layers change texture without borrowing the source melody or recording.",
+      "hashtags": [
+        "#HansZimmer",
+        "#RufusDuSol",
+        "#MusicArrangement",
+        "#ViolinPrince"
+      ],
+      "tags": [
+        "Hans Zimmer",
+        "RÜFÜS DU SOL",
+        "Innerbloom XI",
+        "orchestral arrangement",
+        "electronic music",
+        "music production",
+        "sound design",
+        "Violin Prince"
+      ],
+      "narrative_style": "cinematic_story",
+      "cover_payoff": "Compose a new violin phrase that begins as a restrained repeating pulse, then gains original string counterlines and percussion-like accents. Do not quote, imitate or sample Innerbloom, its vocal or its melody.",
+      "narration_script": "Can an electronic classic become orchestral? Variety says Zimmer joins RÜFÜS DU SOL to reimagine Innerbloom. DJ Mag describes a nine-minute orchestral arrangement retaining the original vocals. The release marks exactly the song's eleventh anniversary.",
+      "narration_evidence": [
+        {
+          "sentence_number": 2,
+          "source_id": "S001",
+          "quote": "Australia’s RÜFÜS DU SOL have teamed with legendary composer Hans Zimmer for a reimagining of their classic track, “Innerbloom”."
+        },
+        {
+          "sentence_number": 3,
+          "source_id": "S002",
+          "quote": "The nine-minute orchestral arrangement transforms the Australian trio’s emotive electronic classic into a cinematic composition, while retaining the original vocals from Tyrone Lindqvist."
+        },
+        {
+          "sentence_number": 4,
+          "source_id": "S001",
+          "quote": "The reimagined version, “Innerbloom XI”, comes out exactly on the 11th anniversary of the original song’s release, which featured on their second studio album, Bloom."
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "S001",
+          "title": "Hans Zimmer Joins Forces With RÜFÜS DU SOL For ‘Innerbloom’ Reimagining",
+          "url": "https://au.variety.com/2026/music/news/hans-zimmer-rufus-du-sol-innerbloom-reimagining-42774/",
+          "publisher_domain": "au.variety.com",
+          "date": "2026-11-20"
+        },
+        {
+          "source_id": "S002",
+          "title": "Listen to Hans Zimmer’s rework of RÜFÜS DU SOL’s ‘Innerbloom’",
+          "url": "https://djmag.asia/news/listen-hans-zimmers-rework-of-rufus-du-sols-innerbloom",
+          "publisher_domain": "djmag.asia",
+          "date": "2026-11-20"
+        }
+      ],
+      "timeline": [],
+      "scenes": [
+        {
+          "id": "electronic-pulse",
+          "title": "The original electronic shape",
+          "caption": "A PATIENT ELECTRONIC BUILD",
+          "image_prompt": "Vertical 9:16 original 2D editorial illustration of a single abstract electronic pulse moving through a dark open sound space, with a restrained repeating wave and one glowing central line. No source-song notation, album art, artist likeness, logos or text. Premium illustrated linework and balanced negative space.",
+          "visual_mode": "waveform",
+          "narration_sentence_indexes": [
+            0
+          ]
+        },
+        {
+          "id": "orchestral-reframe",
+          "title": "The orchestral reimagining",
+          "caption": "STRINGS EXPAND THE TEXTURE",
+          "image_prompt": "Vertical 9:16 clean 2D comparison of one abstract musical pulse expanding into layered original string shapes, horn-like arcs and soft percussion circles. Retain the same central pulse while showing richer orchestral texture. No existing melody, vocals, sheet music, logos or artist likeness. Use clear visual hierarchy and premium editorial illustration.",
+          "visual_mode": "comparison",
+          "narration_sentence_indexes": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "violin-payoff",
+          "title": "The Violin Prince arrangement",
+          "caption": "KEEP THE PULSE, EXPAND THE COLOURS",
+          "image_prompt": "Vertical 9:16 symbolic Violin Prince studio scene with complete amber-walnut violin and bow, non-identifiable playing hands, and an original musical ribbon growing from a simple pulse into layered string-like arcs. No Innerbloom motif, recording, lyrics, artist likeness or album art. Premium conceptual illustration.",
+          "visual_mode": "cover_performance",
+          "narration_sentence_indexes": [
+            3
+          ]
+        }
+      ],
+      "performance_feedback": {
+        "sample_window": "No mature Violin Prince analytics sample exists for this newly introduced story format.",
+        "sample_count": 0,
+        "confidence": "Editorial selection is based on two independent publisher articles; no measured audience-performance comparison or hands-on performance claim is made.",
+        "strengths_to_preserve": [
+          "Connect a current international music story to one clear musical idea through an original violin-led example."
+        ],
+        "one_change_to_test": "Explain the arrangement change through texture and orchestration, not imitation of the original song; keep the violin payoff fully original.",
+        "measurement_for_next_upload": "After publication, compare 24-hour and seven-day views, engaged views, average view duration, average percentage viewed, stayed-to-watch, likes, comments and shares."
+      },
+      "narration_asr_hotwords": [
+        "RÜFÜS DU SOL",
+        "Hans Zimmer",
+        "Innerbloom XI",
+        "Bleeding Fingers",
+        "orchestral arrangement"
+      ],
+      "publish_metadata": {
+        "title": "Hans Zimmer Reimagines RÜFÜS DU SOL's 'Innerbloom'",
+        "description": "A sourced arrangement breakdown of Innerbloom XI: Variety reports the RÜFÜS DU SOL and Hans Zimmer collaboration, while DJ Mag describes its nine-minute orchestral treatment and retained original vocals. The Violin Prince payoff uses a newly composed, unrelated motif to demonstrate how orchestral layers change texture without borrowing the source melody or recording.",
+        "tags": [
+          "Hans Zimmer",
+          "RÜFÜS DU SOL",
+          "Innerbloom XI",
+          "orchestral arrangement",
+          "electronic music",
+          "music production",
+          "sound design",
+          "Violin Prince"
+        ],
+        "category_id": "10",
+        "default_language": "en",
+        "privacy_status": "public",
+        "made_for_kids": false
+      },
+      "one_change_to_test": "Explain the arrangement change through texture and orchestration, not imitation of the original song; keep the violin payoff fully original."
+    },
+    {
+      "production_date": "2026-11-23",
+      "slot_id": "melody-stories",
+      "slot_status": "ready",
+      "story_type": "melody_and_composition",
+      "topic": "Tems releases African Love Story as the lead single from the Children of Blood and Bone soundtrack while serving as its executive music producer and curator.",
+      "core_claim": "Tems released African Love Story as the lead single from the Children of Blood and Bone soundtrack and serves as its executive music producer, with Burna Boy as executive music consultant.",
+      "title": "Tems Launches 'African Love Story' for a Film Soundtrack",
+      "hook": "Can a song introduce a film's world?",
+      "description": "A source-checked look at Tems' African Love Story, the lead single from the Children of Blood and Bone soundtrack, and her role as executive music producer. The Violin Prince musical payoff will be a newly composed, unrelated motif suggesting a fictional world; no soundtrack melody, recording, lyrics, film artwork or character likeness is used.",
+      "hashtags": [
+        "#Tems",
+        "#AfricanLoveStory",
+        "#FilmSoundtrack",
+        "#ViolinPrince"
+      ],
+      "tags": [
+        "Tems",
+        "African Love Story",
+        "Children of Blood and Bone",
+        "film soundtrack",
+        "Burna Boy",
+        "Afrobeats",
+        "music composition",
+        "Violin Prince"
+      ],
+      "narrative_style": "documentary",
+      "cover_payoff": "Compose a new, unrelated motif that moves from an intimate phrase to a wider call-and-response texture, suggesting a fictional world. Do not imitate Tems' tune or use any source soundtrack audio or lyrics.",
+      "narration_script": "Can a song introduce a film's world? Stereogum says Tems executive-produces its soundtrack and released the lead single. StupidDope confirms African Love Story arrived through RCA November twentieth. Burna Boy is its executive music consultant.",
+      "narration_evidence": [
+        {
+          "sentence_number": 2,
+          "source_id": "S001",
+          "quote": "It'll also have a soundtrack executive produced by the Nigerian star Tems, and her first single is out today."
+        },
+        {
+          "sentence_number": 3,
+          "source_id": "S002",
+          "quote": "Tems has released African Love Story, the lead single from Children of Blood and Bone (Original Motion Picture Soundtrack), out now on November 20, 2026, via RCA Records."
+        },
+        {
+          "sentence_number": 4,
+          "source_id": "S002",
+          "quote": "Tems wrote and performs the song, and she also serves as the soundtrack executive music producer and curator, with Burna Boy as executive music consultant."
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "S001",
+          "title": "Tems Shares New Single “African Love Story”: Listen",
+          "url": "https://stereogum.com/2518836/tems-african-love-story/music",
+          "publisher_domain": "stereogum.com",
+          "date": "2026-11-20"
+        },
+        {
+          "source_id": "S002",
+          "title": "Tems ‘African Love Story’: Lead Single From Children of Blood and Bone Is Out Now",
+          "url": "https://stupiddope.com/2026/11/tems-african-love-story-lead-single-from-children-of-blood-and-bone-is-out-now/",
+          "publisher_domain": "stupiddope.com",
+          "date": "2026-11-20"
+        }
+      ],
+      "timeline": [],
+      "scenes": [
+        {
+          "id": "film-music-world",
+          "title": "A song introduces a world",
+          "caption": "THE FIRST MUSICAL IMPRESSION",
+          "image_prompt": "Vertical 9:16 original 2D editorial illustration of a fictional landscape emerging from a single abstract music ribbon, suggesting how a soundtrack can introduce a world. No movie stills, actors, characters, official artwork, lyrics or logos. Use elegant original shapes and a premium illustrated finish.",
+          "visual_mode": "melody_map",
+          "narration_sentence_indexes": [
+            0
+          ]
+        },
+        {
+          "id": "soundtrack-lead",
+          "title": "The lead single and soundtrack",
+          "caption": "ONE VOICE, A WIDER MUSICAL WORLD",
+          "image_prompt": "Vertical 9:16 premium 2D conceptual comparison: one clear central musical motif branches into several distinct abstract sound textures, representing a lead single within a larger ensemble soundtrack. No real melody, album cover, artist likeness, film character or text. Keep the composition calm and readable.",
+          "visual_mode": "comparison",
+          "narration_sentence_indexes": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "violin-prince-theme",
+          "title": "An original Violin Prince theme",
+          "caption": "A NEW THEME FOR AN IMAGINED WORLD",
+          "image_prompt": "Vertical 9:16 symbolic Violin Prince studio payoff: a complete amber-walnut violin and bow with non-identifiable hands, playing a new original motif that expands into a soft constellation of musical shapes. No Tems likeness, soundtrack melody, recording, film artwork, lyrics or logos.",
+          "visual_mode": "cover_performance",
+          "narration_sentence_indexes": [
+            3
+          ]
+        }
+      ],
+      "performance_feedback": {
+        "sample_window": "No mature Violin Prince analytics sample exists for this newly introduced story format.",
+        "sample_count": 0,
+        "confidence": "Editorial selection is based on two independent publisher articles; no measured audience-performance comparison or hands-on performance claim is made.",
+        "strengths_to_preserve": [
+          "Connect a current international music story to one clear musical idea through an original violin-led example."
+        ],
+        "one_change_to_test": "Make the producer and consultant roles clear without overloading the story; use a fully original Violin Prince motif rather than the soundtrack music.",
+        "measurement_for_next_upload": "After publication, compare 24-hour and seven-day views, engaged views, average view duration, average percentage viewed, stayed-to-watch, likes, comments and shares."
+      },
+      "narration_asr_hotwords": [
+        "Tems",
+        "African Love Story",
+        "Children of Blood and Bone",
+        "Burna Boy",
+        "RCA Records"
+      ],
+      "publish_metadata": {
+        "title": "Tems Launches 'African Love Story' for a Film Soundtrack",
+        "description": "A source-checked look at Tems' African Love Story, the lead single from the Children of Blood and Bone soundtrack, and her role as executive music producer. The Violin Prince musical payoff will be a newly composed, unrelated motif suggesting a fictional world; no soundtrack melody, recording, lyrics, film artwork or character likeness is used.",
+        "tags": [
+          "Tems",
+          "African Love Story",
+          "Children of Blood and Bone",
+          "film soundtrack",
+          "Burna Boy",
+          "Afrobeats",
+          "music composition",
+          "Violin Prince"
+        ],
+        "category_id": "10",
+        "default_language": "en",
+        "privacy_status": "public",
+        "made_for_kids": false
+      },
+      "one_change_to_test": "Make the producer and consultant roles clear without overloading the story; use a fully original Violin Prince motif rather than the soundtrack music."
+    },
+    {
+      "production_date": "2026-11-23",
+      "slot_id": "real-performance",
+      "slot_status": "blocked",
+      "blocked_reason": "No approved creator-recorded violin performance clip is available in the production assets for this batch. This slot remains blocked rather than presenting generated imagery as a real Violin Prince performance."
+    }
+  ]
+}
