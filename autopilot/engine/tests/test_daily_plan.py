@@ -189,8 +189,9 @@ class DailyPlanEvidenceTests(unittest.TestCase):
         workflow = workflow_path.read_text(encoding="utf-8")
         for cron in ('"0 0 * * *"', '"0 6 * * *"', '"0 12 * * *"', '"0 18 * * *"'):
             self.assertIn(f"- cron: {cron}", workflow)
-        for slot_id in ("music-secrets", "production-tech", "melody-stories", "real-performance"):
-            self.assertIn(f'slot_id="{slot_id}"', workflow)
+        self.assertIn("select_public_queue.py", workflow)
+        self.assertIn("Select the next unused public-ready story from the rolling backlog", workflow)
+        self.assertIn("group: violin-prince-public-youtube-queue", workflow)
         self.assertIn("cancel-in-progress: false", workflow)
         self.assertIn('PUBLISH_ENABLED: "false"', workflow)
 
