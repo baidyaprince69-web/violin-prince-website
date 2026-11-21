@@ -589,7 +589,7 @@ jobs:
               echo "- Temporary draft release and transfer branch were deleted."
             else
               echo "- [Private preview fallback release]($private_release_url)"
-              echo "- Draft release remains private and is automatically removed after it is 24 hours old."
+              echo "- Draft release remains private and is automatically removed after it is 6 hours old."
               echo "- Temporary transfer branch was deleted."
             fi
             echo "- No MP4 or raw narration file was uploaded as a public artifact."
@@ -601,7 +601,7 @@ jobs:
             if [[ "$private_delivery" == "one_day_actions_artifact" ]]; then
               echo "- Delivery: private one-day Actions artifact."
             else
-              echo "- Delivery: private draft-release fallback, automatically removed after 24 hours."
+              echo "- Delivery: private draft-release fallback, automatically removed after 6 hours."
               echo "- [Open private fallback release]($private_release_url)"
             fi
             echo "- Public Actions artifacts containing the MP4, raw narration or narration text are disabled."
