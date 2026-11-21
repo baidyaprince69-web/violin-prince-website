@@ -52,13 +52,54 @@ def valid_plan():
                 "depth_motion": f"Foreground and background shift {index + 1}",
                 "motion_rationale": f"Movement supports the story beat {index + 1}",
             },
+            "visual_layers": [
+                {
+                    "id": "background",
+                    "role": "background",
+                    "description": f"Full-frame environment without the subject {index + 1}",
+                    "generation_prompt": f"Cinematic background plate, exclude subject, scene {index + 1}",
+                    "z_index": 0,
+                    "asset_mode": "opaque",
+                    "motion": {
+                        "type": "drift", "direction": "left", "intensity": 0.25,
+                        "start_offset_seconds": 0,
+                        "rationale": "Subtle environment drift adds depth."
+                    }
+                },
+                {
+                    "id": "subject",
+                    "role": "subject",
+                    "description": f"Isolated hero subject with transparent background {index + 1}",
+                    "generation_prompt": f"Transparent cutout of the hero subject, scene {index + 1}",
+                    "z_index": 20,
+                    "asset_mode": "transparent_png",
+                    "motion": {
+                        "type": "float", "direction": "up", "intensity": 0.3,
+                        "start_offset_seconds": 0.2,
+                        "rationale": "A gentle subject movement gives the hero presence."
+                    }
+                },
+                {
+                    "id": "foreground",
+                    "role": "foreground",
+                    "description": f"Isolated foreground depth element {index + 1}",
+                    "generation_prompt": f"Transparent foreground-only cinematic depth element, scene {index + 1}",
+                    "z_index": 40,
+                    "asset_mode": "transparent_png",
+                    "motion": {
+                        "type": "parallax", "direction": "right", "intensity": 0.45,
+                        "start_offset_seconds": 0,
+                        "rationale": "Independent foreground travel creates visual depth."
+                    }
+                }
+            ],
             "transition_to_next": transitions[index],
             "narration_cue": f"Narration beat {index + 1}",
             "music_cue": f"Music cue {index + 1}",
             "sound_effects": [],
         })
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "story_understanding": {
             "central_truth": "One grounded music fact.",
             "viewer_question": "Why does this sound happen?",
