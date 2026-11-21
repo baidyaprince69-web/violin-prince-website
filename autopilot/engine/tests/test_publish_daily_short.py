@@ -376,10 +376,12 @@ class PrivatePreviewPublisherTests(unittest.TestCase):
         upload.assert_called_once()
         self.assertEqual(commit.call_count, 2)
 
+    @patch("publish_daily_short.probe_video")
     @patch("upload_private_preview.youtube_upload")
-    def test_existing_attempt_without_receipt_blocks_automatic_retry(self, upload):
+    def test_existing_attempt_without_receipt_blocks_automatic_retry(self, upload, probe):
         import upload_private_preview as preview
 
+        probe.return_value = self.fixture.quality
         identity = f"{self.fixture.run_id}-{self.fixture.slot_id}"
         attempt_dir = self.fixture.root / ".autopilot/private-preview-attempts"
         attempt_dir.mkdir(parents=True)
