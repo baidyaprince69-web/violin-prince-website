@@ -12,7 +12,7 @@ The channel has one recognisable identity and four recurring content pillars:
 1. Discover something surprising about music and instruments.
 2. Understand how music is recorded, mixed and produced.
 3. Explore why melodies and musical moments connect with people.
-4. Hear the creator's real violin playing.
+4. Hear the creator's real violin playing and learn how expressive technique shapes a phrase.
 
 Use international topics and examples when they serve the story: Indian and Bengali music, Western pop, film music, classical traditions, global instrument design, audio engineering and music technology. Do not force a country-specific angle into every video.
 
