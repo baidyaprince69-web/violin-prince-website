@@ -112,7 +112,6 @@ jobs:
         id: batch
         env:
           SCHEDULE_EXPRESSION: ${{ github.event.schedule }}
-          BATCH_PATH: .autopilot/daily-production-batch.json
           PYTHONPATH: autopilot/engine
         shell: bash
         run: |
@@ -134,10 +133,10 @@ jobs:
           from zoneinfo import ZoneInfo
           from slot_registry import load_daily_batch, slot_workspace
 
-          batch_path = Path(os.environ["BATCH_PATH"])
+          today = datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
+          batch_path = Path(".autopilot/daily-batches") / (today + ".json")
           batch_bytes = batch_path.read_bytes()
           batch_sha = hashlib.sha256(batch_bytes).hexdigest()
-          today = datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
           plans = load_daily_batch(batch_path, expected_date=today)
           slot_id = os.environ.get("SELECTED_SLOT_ID", "")
           if slot_id not in {plan["slot_id"] for plan in plans}:
@@ -155,7 +154,7 @@ jobs:
         id: readiness
         env:
           UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
-        run: python autopilot/engine/daily_readiness.py --batch .autopilot/daily-production-batch.json
+        run: python autopilot/engine/daily_readiness.py --batch "${{ steps.batch.outputs.batch_path }}"
 
   produce:
     needs: [daily_readiness, fast_preflight]
