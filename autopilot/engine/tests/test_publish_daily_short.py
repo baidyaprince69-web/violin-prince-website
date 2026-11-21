@@ -271,3 +271,149 @@ class DailyPublicPublisherTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PrivatePreviewPublisherTests(unittest.TestCase):
+    def setUp(self):
+        self.fixture = DailyPublicPublisherTests()
+        self.fixture.setUp()
+        self.addCleanup(self.fixture.tearDown)
+        self.fixture.manifest["youtube_privacy"] = "private"
+        self.fixture.plan["publish_metadata"] = {"privacy_status": "private"}
+        self.fixture.plan_path.write_text(json.dumps(self.fixture.plan), encoding="utf-8")
+        (self.fixture.output / "publish-manifest.json").write_text(
+            json.dumps(self.fixture.manifest), encoding="utf-8"
+        )
+
+    def _environment(self, privacy="private"):
+        return patch.dict(os.environ, {
+            "GITHUB_REF_NAME": "main",
+            "YOUTUBE_PRIVACY_STATUS": privacy,
+            "YOUTUBE_EXPECTED_CHANNEL_ID": "UCGCfZij4Fn3Ga2j2HiCT45w",
+        }, clear=False)
+
+    def test_private_bundle_validation_accepts_only_explicit_private_metadata(self):
+        manifest, _provenance, plan, video, audit = daily.validate_daily_bundle(
+            self.fixture.output,
+            self.fixture.plan_path,
+            run_id=self.fixture.run_id,
+            expected_slot_id=self.fixture.slot_id,
+            production_date="2026-11-21",
+            video_probe=self.fixture.quality,
+            expected_privacy_status="private",
+        )
+        self.assertEqual(manifest["youtube_privacy"], "private")
+        self.assertEqual(plan["publish_metadata"]["privacy_status"], "private")
+        self.assertEqual(video, self.fixture.video)
+        self.assertEqual(audit["sha256"], self.fixture.provenance["assets"]["final_video"]["sha256"])
+
+    @patch("upload_private_preview._git_commit")
+    @patch("upload_private_preview.youtube_upload")
+    @patch("upload_private_preview.assert_title_absent")
+    @patch("publish_daily_short.probe_video")
+    def test_private_upload_persists_attempt_and_receipt_only_after_private_confirmation(
+        self, probe, duplicate_audit, upload, commit
+    ):
+        import upload_private_preview as preview
+
+        probe.return_value = self.fixture.quality
+        duplicate_audit.return_value = {
+            "status": "passed", "match_count": 0,
+            "channel_id": "UCGCfZij4Fn3Ga2j2HiCT45w",
+            "uploads_checked_pages": 3, "uploads_examined": 120,
+        }
+        upload.return_value = {
+            "ok": True, "id": "privateVideoId123",
+            "url": "https://www.youtube.com/watch?v=privateVideoId123",
+            "privacy_status": "private",
+        }
+        with patch.object(preview, "ROOT", self.fixture.root), self._environment():
+            receipt = preview.upload_private_preview(
+                self.fixture.output, self.fixture.plan_path,
+                run_id=self.fixture.run_id,
+                expected_slot_id=self.fixture.slot_id,
+                production_date="2026-11-21",
+            )
+        self.assertEqual(receipt["status"], "uploaded_private")
+        self.assertEqual(receipt["privacy_status"], "private")
+        self.assertEqual(receipt["youtube_video_id"], "privateVideoId123")
+        attempts = list((self.fixture.root / ".autopilot/private-preview-attempts").glob("*.json"))
+        receipts = list((self.fixture.root / ".autopilot/private-preview-receipts").glob("*.json"))
+        self.assertEqual(len(attempts), 1)
+        self.assertEqual(len(receipts), 1)
+        self.assertEqual(commit.call_count, 2)
+        self.assertEqual(upload.call_args.args[0], self.fixture.video)
+
+    @patch("upload_private_preview._git_commit")
+    @patch("upload_private_preview.youtube_upload")
+    @patch("upload_private_preview.assert_title_absent")
+    @patch("publish_daily_short.probe_video")
+    def test_wrong_visibility_response_is_recorded_and_never_retried(
+        self, probe, duplicate_audit, upload, commit
+    ):
+        import upload_private_preview as preview
+
+        probe.return_value = self.fixture.quality
+        duplicate_audit.return_value = {
+            "status": "passed", "match_count": 0,
+            "channel_id": "UCGCfZij4Fn3Ga2j2HiCT45w",
+            "uploads_checked_pages": 3, "uploads_examined": 120,
+        }
+        upload.return_value = {
+            "ok": True, "id": "wrongVisibilityVideo",
+            "url": "https://www.youtube.com/watch?v=wrongVisibilityVideo",
+            "privacy_status": "public",
+        }
+        with patch.object(preview, "ROOT", self.fixture.root), self._environment():
+            with self.assertRaisesRegex(preview.PublishBlocked, "did not confirm private visibility"):
+                preview.upload_private_preview(
+                    self.fixture.output, self.fixture.plan_path,
+                    run_id=self.fixture.run_id,
+                    expected_slot_id=self.fixture.slot_id,
+                    production_date="2026-11-21",
+                )
+        receipts = list((self.fixture.root / ".autopilot/private-preview-receipts").glob("*.json"))
+        self.assertEqual(len(receipts), 1)
+        receipt = json.loads(receipts[0].read_text(encoding="utf-8"))
+        self.assertEqual(receipt["status"], "uploaded_visibility_mismatch")
+        self.assertIs(receipt["retry_allowed"], False)
+        upload.assert_called_once()
+        self.assertEqual(commit.call_count, 2)
+
+    @patch("upload_private_preview.youtube_upload")
+    def test_existing_attempt_without_receipt_blocks_automatic_retry(self, upload):
+        import upload_private_preview as preview
+
+        identity = f"{self.fixture.run_id}-{self.fixture.slot_id}"
+        attempt_dir = self.fixture.root / ".autopilot/private-preview-attempts"
+        attempt_dir.mkdir(parents=True)
+        (attempt_dir / f"{identity}.json").write_text(
+            json.dumps({"status": "attempting"}), encoding="utf-8"
+        )
+        with patch.object(preview, "ROOT", self.fixture.root), self._environment():
+            with self.assertRaisesRegex(preview.PublishBlocked, "automatic retries are blocked"):
+                preview.upload_private_preview(
+                    self.fixture.output, self.fixture.plan_path,
+                    run_id=self.fixture.run_id,
+                    expected_slot_id=self.fixture.slot_id,
+                    production_date="2026-11-21",
+                )
+        upload.assert_not_called()
+
+    @patch("upload_private_preview.youtube_upload")
+    def test_public_visibility_cannot_be_requested_from_private_uploader(self, upload):
+        import upload_private_preview as preview
+
+        with patch.dict(os.environ, {
+            "GITHUB_REF_NAME": "main",
+            "YOUTUBE_PRIVACY_STATUS": "public",
+            "YOUTUBE_EXPECTED_CHANNEL_ID": "UCGCfZij4Fn3Ga2j2HiCT45w",
+        }, clear=False):
+            with self.assertRaisesRegex(preview.PublishBlocked, "explicitly set to private"):
+                preview.upload_private_preview(
+                    self.fixture.output, self.fixture.plan_path,
+                    run_id=self.fixture.run_id,
+                    expected_slot_id=self.fixture.slot_id,
+                    production_date="2026-11-21",
+                )
+        upload.assert_not_called()
