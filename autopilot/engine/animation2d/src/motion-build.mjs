@@ -453,6 +453,9 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
     const transitionDuration = Math.max(0, Number(scene.transition_in_duration) || 0);
     if (isDirectorShot) {
       const transition = directorTransitionSpec(transitionIn, transitionDuration);
+      if (transition.property !== "opacity") {
+        addKeyframes(backgroundId, { opacity: [1, 1] }, sceneStart, Math.max(0.08, transitionDuration || 0.08), "linear");
+      }
       addKeyframes(backgroundId, {
         [transition.property]: transition.values
       }, sceneStart, Math.max(0.08, transitionDuration || 0.08), transition.easing);
