@@ -30,8 +30,9 @@ class WorkflowPublicationContractTests(unittest.TestCase):
         self.assertNotIn('YOUTUBE_PRIVACY_STATUS: "private"', self.workflow_text)
         self.assertIn("needs.daily_readiness.outputs.slot_status == 'ready'", self.workflow_text)
 
-    def test_legacy_public_upload_requests_are_rejected_during_commissioning(self):
-        self.assertIn("Public YouTube publishing is disabled during private-preview commissioning", self.workflow_text)
+    def test_one_off_push_requests_cannot_bypass_the_scheduled_public_upload_guard(self):
+        self.assertIn("Direct public publishing from this one-off handoff route is disabled", self.workflow_text)
+        self.assertIn("The approved scheduled four-slot route handles public YouTube uploads", self.workflow_text)
         self.assertIn("publish_to_youtube=false", self.workflow_text)
 
     def test_private_voice_bridge_is_separate_from_video_delivery(self):
