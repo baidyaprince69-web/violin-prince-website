@@ -311,9 +311,19 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Check whether today's scheduled Short can run.")
     parser.add_argument("--root", default=str(Path(__file__).resolve().parents[2]))
     parser.add_argument("--today", default=None, help="Override local date for offline tests.")
+    parser.add_argument(
+        "--batch",
+        default=None,
+        help="Validate the four-slot scheduled batch instead of the legacy single-plan request.",
+    )
     args = parser.parse_args(argv)
 
-    result = evaluate_daily_readiness(args.root, today=args.today)
+    if args.batch:
+        result = evaluate_daily_batch_readiness(
+            args.root, batch_path=args.batch, today=args.today
+        )
+    else:
+        result = evaluate_daily_readiness(args.root, today=args.today)
     _write_github_outputs(result)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0
