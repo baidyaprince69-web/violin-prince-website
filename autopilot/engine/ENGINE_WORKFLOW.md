@@ -487,15 +487,19 @@ The default YouTube Data API quota documents 100 `videos.insert` calls per day f
 **Required secrets:** the fallback workflow reuses `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET` and `YOUTUBE_REFRESH_TOKEN` already used by the repository's OAuth publishing adapter. Never commit these values or include them in request files, logs or release receipts.
 
 
-## Addendum — four-slot production foundation (2026-11-21)
+## Addendum — ChatGPT director plus six-hour slot cron (2026-11-21)
 
 **Feature branch:** `feat/four-slot-production-foundation-20261121`
 
-The first isolated foundation changes are in progress on the feature branch only:
+The feature branch now contains the first end-to-end four-slot orchestration foundation:
 
-- `engine/slot_registry.py` defines the four canonical slot IDs, validates a four-plan daily batch, creates per-date/per-slot workspace paths, and writes slot-specific production receipts.
-- Upload-Post request IDs, external IDs and idempotency keys now include the slot identity, so same-day videos no longer share the date-only duplicate key. Legacy single-plan requests retain a distinct `legacy-single` identity.
-- The main workflow concurrency group is unique per run and `cancel-in-progress: false`, so a later dispatch cannot cancel an earlier render.
-- Offline tests cover four-slot completeness, duplicate slot rejection, distinct workspaces/receipts and same-date publisher identity separation.
+- `engine/slot_registry.py` defines the canonical slot IDs, validates exactly four same-date plans, rejects duplicates/missing slots, creates per-date/per-slot workspace paths, and writes production receipts.
+- `run_daily_plan.py --batch --slot-id --workspace-root` verifies the complete date-specific batch snapshot, materializes only the selected immutable plan, checks its plan and narration hashes, then runs it with separate `work`, `package`, `images` and `output` directories.
+- The final manifest, provenance and receipt record `slot_id`, `production_identity` and the batch SHA-256. The existing private Voice Vault transfer receives the selected slot's MP4 and production identity.
+- Upload-Post request IDs, external IDs and idempotency keys include the date and slot, so same-day content slots do not share a duplicate identity. Legacy single-plan requests use `legacy-single`.
+- Workflow concurrency is unique per run with `cancel-in-progress: false`; independent scheduled slot runs therefore cannot cancel one another.
+- Four cron expressions are defined on the feature branch: 00:00, 06:00, 12:00 and 18:00 UTC, mapped to 05:30, 11:30, 17:30 and 23:30 Asia/Kolkata. Each schedule event selects exactly one canonical slot.
+- The existing ChatGPT director automation has been updated to research and commit the next day's four-plan batch at approximately 18:00 Asia/Kolkata. Batches are stored separately as `.autopilot/daily-batches/YYYY-MM-DD.json`; the batch path is not a push trigger. This lets the current day's final slot run from its existing file while ChatGPT prepares tomorrow's file.
+- Offline tests cover batch completeness, date checks, duplicate slot rejection, separate workspaces/receipts, readiness gates and same-date publisher identity separation.
 
-**Not enabled by this foundation:** the four-plan batch is not yet connected to `run_daily_plan.py`; per-slot render/release paths are not yet wired into the production workflow; there is no six-hour cron; and the checked-in request still sets `publish_to_youtube: false`. Do not merge this branch as production-ready until the batch runner, release isolation, full tests and private end-to-end review are complete.
+**Still gated:** the schedule exists only on this feature branch and does not activate until merge to the default branch. No date-specific batch has yet been committed by the newly updated director automation. Public releases and YouTube publishing remain disabled; scheduled jobs are private previews. Four complete private end-to-end runs, visual/audio review, and a separate publishing approval update are required before public publishing is enabled. The fourth pillar currently supports honest performance/technique explainers with symbolic/sample demonstrations; an actual creator-recorded performance requires a validated private recording input and must never be simulated or misrepresented.
