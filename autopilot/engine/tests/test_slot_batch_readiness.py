@@ -106,7 +106,7 @@ class SlotBatchReadinessTests(unittest.TestCase):
             ])
         self.assertEqual(result, 0)
 
-    def test_checked_in_november_22_batch_has_two_complete_channel_valid_preview_plans(self):
+    def test_checked_in_november_22_batch_has_two_complete_public_upload_plans(self):
         import run_daily_plan as daily
 
         project_root = Path(__file__).resolve().parents[3]
@@ -124,6 +124,7 @@ class SlotBatchReadinessTests(unittest.TestCase):
             self.assertEqual(daily.engine.narration_validation_error(script), "", plan["slot_id"])
             self.assertEqual(len(daily.engine.narration_sentences(script)), 4, plan["slot_id"])
             self.assertEqual(daily.engine.validate_creative_plan(plan), [], plan["slot_id"])
+            self.assertEqual(plan["publish_metadata"]["privacy_status"], "public", plan["slot_id"])
             self.assertEqual({item["sentence_number"] for item in plan["narration_evidence"]}, {2, 3, 4})
             self.assertGreaterEqual(len(plan["sources"]), 2)
 
