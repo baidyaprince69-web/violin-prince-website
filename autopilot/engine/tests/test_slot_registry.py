@@ -29,6 +29,19 @@ class FourSlotContractTests(unittest.TestCase):
             with self.assertRaisesRegex(SlotContractError, "Duplicate"):
                 load_daily_batch(path)
 
+    def test_accepts_a_blocked_slot_with_reason_without_placeholder_script(self):
+        batch = self.batch()
+        blocked = batch["plans"][-1]
+        blocked["slot_status"] = "blocked"
+        blocked["blocked_reason"] = "No independent source pair was verified."
+        blocked.pop("narration_script")
+        blocked.pop("title")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "batch.json"
+            path.write_text(json.dumps(batch), encoding="utf-8")
+            plans = load_daily_batch(path)
+        self.assertEqual(plans[-1]["slot_status"], "blocked")
+
     def test_each_slot_gets_distinct_identity_and_workspace(self):
         identities = {production_identity("2026-11-21", slot) for slot in SLOT_CATALOG}
         paths = {slot_workspace("work/slots", "2026-11-21", slot) for slot in SLOT_CATALOG}
