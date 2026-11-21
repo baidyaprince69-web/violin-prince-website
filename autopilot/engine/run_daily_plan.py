@@ -660,7 +660,7 @@ def _materialize_batch_slot(batch_path: Path, slot_id: str, workspace_root: Path
         input_dir = resolved_workspace / "input"
         input_dir.mkdir(parents=True, exist_ok=True)
         plan_path = input_dir / "daily-plan.json"
-        plan_bytes = (json.dumps(plan, ensure_ascii=False, indent=2) + "\\n").encode("utf-8")
+        plan_bytes = (json.dumps(plan, ensure_ascii=False, indent=2) + chr(10)).encode("utf-8")
         plan_path.write_bytes(plan_bytes)
 
         os.environ["EXPECTED_PLAN_SHA256"] = hashlib.sha256(plan_bytes).hexdigest()
@@ -705,10 +705,10 @@ def main() -> int:
                 plan.setdefault("slot_id", args.slot_id or "legacy-single")
                 plan_path = workspace_root / "input" / "daily-plan.json"
                 plan_path.parent.mkdir(parents=True, exist_ok=True)
-                plan_path.write_text(json.dumps(plan, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+                plan_path.write_text(json.dumps(plan, ensure_ascii=False, indent=2) + chr(10), encoding="utf-8")
                 os.environ["EXPECTED_PLAN_SHA256"] = hashlib.sha256(plan_path.read_bytes()).hexdigest()
                 os.environ["EXPECTED_NARRATION_SHA256"] = hashlib.sha256(
-                    re.sub(r"\\s+", " ", str(plan.get("narration_script") or "")).strip().encode("utf-8")
+                    re.sub(r"\s+", " ", str(plan.get("narration_script") or "")).strip().encode("utf-8")
                 ).hexdigest()
 
         result = run_daily_plan(
