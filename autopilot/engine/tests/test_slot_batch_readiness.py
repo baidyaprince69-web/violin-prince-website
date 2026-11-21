@@ -3,7 +3,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from daily_readiness import evaluate_daily_batch_readiness
+from daily_readiness import evaluate_daily_batch_readiness, main as daily_readiness_main
 from slot_registry import SLOT_CATALOG
 
 class SlotBatchReadinessTests(unittest.TestCase):
@@ -92,6 +92,19 @@ class SlotBatchReadinessTests(unittest.TestCase):
             result = evaluate_daily_batch_readiness(root, today="2026-11-22")
         self.assertTrue(result["ready"], result["blockers"])
         self.assertEqual(result["slot_count"], 4)
+
+    def test_cli_accepts_batch_argument_and_runs_batch_readiness(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._root(root)
+            self._write(root, ".autopilot/daily-batches/2026-11-22.json",
+                        json.dumps(self._batch("2026-11-22")))
+            result = daily_readiness_main([
+                "--root", str(root),
+                "--batch", ".autopilot/daily-batches/2026-11-22.json",
+                "--today", "2026-11-22",
+            ])
+        self.assertEqual(result, 0)
 
     def test_wrong_date_batch_is_blocked(self):
         with tempfile.TemporaryDirectory() as temporary:
