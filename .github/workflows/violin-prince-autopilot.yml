@@ -113,6 +113,7 @@ jobs:
         env:
           SCHEDULE_EXPRESSION: ${{ github.event.schedule }}
           BATCH_PATH: .autopilot/daily-production-batch.json
+          PYTHONPATH: autopilot/engine
         shell: bash
         run: |
           set -euo pipefail
@@ -123,6 +124,8 @@ jobs:
             "0 18 * * *") slot_id="real-performance" ;;
             *) echo "::error::Unrecognised scheduled slot: $SCHEDULE_EXPRESSION"; exit 1 ;;
           esac
+          echo "slot_id=$slot_id" >> "$GITHUB_OUTPUT"
+          export SELECTED_SLOT_ID="$slot_id"
           python - <<'PY'
           import hashlib
           import os
@@ -147,8 +150,6 @@ jobs:
               output.write("batch_sha256=" + batch_sha + "\n")
           print(f"Validated {len(plans)} plans for {today}; selected {slot_id}.")
           PY
-        env:
-          SELECTED_SLOT_ID: ${{ steps.batch.outputs.slot_id }}
 
       - name: Check today's four-slot production gates
         id: readiness
@@ -440,12 +441,14 @@ jobs:
           GH_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
           PRIVATE_REPO: baidyaprince69-web/violin-prince-private-voice
           SOURCE_RUN_ID: ${{ github.run_id }}
-          VIDEO_PATH: work/output/violin-prince-short.mp4
+          VIDEO_PATH: ${{ needs.daily_readiness.outputs.workspace_root != '' && format('{0}/output/violin-prince-short.mp4', needs.daily_readiness.outputs.workspace_root) || 'work/output/violin-prince-short.mp4' }}
+          IDENTITY_PATH: ${{ needs.daily_readiness.outputs.workspace_root != '' && format('{0}/output/production-identity.json', needs.daily_readiness.outputs.workspace_root) || 'work/output/production-identity.json' }}
+          NARRATION_PATH: ${{ needs.daily_readiness.outputs.workspace_root != '' && format('{0}/output/narration.wav', needs.daily_readiness.outputs.workspace_root) || 'work/output/narration.wav' }}
         shell: bash
         run: |
           set -euo pipefail
           video="$VIDEO_PATH"
-          identity_file="work/output/production-identity.json"
+          identity_file="$IDENTITY_PATH"
           if [[ ! -s "$video" ]]; then
             echo "::error::The finished MP4 is missing or empty; private handoff cancelled."
             exit 1
@@ -685,6 +688,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -s work/output/violin-prince-short.mp4
-          test -s work/output/narration.wav
+          test -s "$VIDEO_PATH"
+          test -s "$NARRATION_PATH"
           echo "MP4 and narration remain on the temporary runner until the job ends; any public release is created only after publisher preflight and SHA-256 provenance pass."
