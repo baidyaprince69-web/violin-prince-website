@@ -169,13 +169,14 @@ def evaluate_daily_readiness(
 def evaluate_daily_batch_readiness(
     root: str | Path,
     *,
-    batch_path: str = ".autopilot/daily-batches/daily-production-batch.json",
+    batch_path: str | None = None,
     today: str | None = None,
 ) -> dict:
     """Check the four-plan batch and existing preview-only provider approvals."""
     root = Path(root)
     today = today or datetime.now(ZoneInfo(TIMEZONE)).date().isoformat()
     blockers: list[str] = []
+    batch_path = batch_path or str(Path(".autopilot/daily-batches") / (today + ".json"))
     relative = Path(batch_path)
     if not batch_path.startswith(".autopilot/") or ".." in relative.parts or relative.is_absolute():
         blockers.append("Daily batch path must stay inside .autopilot/.")
