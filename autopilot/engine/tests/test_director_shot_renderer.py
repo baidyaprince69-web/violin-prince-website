@@ -1,15 +1,21 @@
 """Tests for the shot-led Master Director -> HyperFrames project adapter."""
 from __future__ import annotations
 
+import json
 import sys
 import tempfile
 import unittest
+import subprocess
+from types import SimpleNamespace
+from unittest.mock import patch
 from pathlib import Path
 
 from PIL import Image
 
 ENGINE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ENGINE))
+
+import hyperframes_pipeline as pipeline  # noqa: E402
 
 from director_shot_renderer import (  # noqa: E402
     DirectorShotRenderError,
@@ -185,6 +191,107 @@ class DirectorShotRendererTests(unittest.TestCase):
             self.assertEqual(project["scenes"][1]["start"], 4.0)
             self.assertEqual(project["scenes"][1]["transition_in"], "cut")
             self.assertEqual(project["scenes"][1]["transition_in_duration"], 0.0)
+
+
+    def test_complete_director_video_path_renders_and_mixes_without_publishing(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            images = make_images(root / "images")
+            animation_dir = root / "animation2d"
+            hyperframes_cli = animation_dir / "node_modules" / ".bin" / "hyperframes"
+            hyperframes_cli.parent.mkdir(parents=True)
+            hyperframes_cli.write_text("fixture", encoding="utf-8")
+            font_path = root / "DMSerifDisplay-Regular.ttf"
+            font_path.write_bytes(b"synthetic-font")
+            audio = root / "music.wav"
+            narration = root / "narration.wav"
+            audio.write_bytes(b"music" * 2000)
+            narration.write_bytes(b"voice" * 2000)
+            output = root / "output" / "final.mp4"
+            project_dir = root / "director-project"
+
+            engine = SimpleNamespace(
+                W=720,
+                H=1280,
+                FPS=25,
+                _ensure_brand_fonts=lambda: {"serif": str(font_path)},
+                write_kinetic_ass=lambda _cues, path, _words: (
+                    Path(path).write_text("[Script Info]\n", encoding="utf-8")
+                ),
+            )
+
+            def fake_run(command, *, cwd, timeout=900):
+                name = Path(command[0]).name
+                if name == "node" and len(command) > 1 and command[1] == "--version":
+                    return subprocess.CompletedProcess(command, 0, stdout="v22.0.0", stderr="")
+                if name == "hyperframes":
+                    if command[1] == "render":
+                        target = Path(command[command.index("--output") + 1])
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        target.write_bytes(b"V" * 8192)
+                    return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+                if name == "ffprobe":
+                    command_text = " ".join(command)
+                    if "format=duration:stream=" in command_text:
+                        result = {
+                            "format": {"duration": "32.0"},
+                            "streams": [
+                                {"codec_type": "video", "codec_name": "h264",
+                                 "width": 720, "height": 1280, "r_frame_rate": "25/1"},
+                                {"codec_type": "audio", "codec_name": "aac",
+                                 "sample_rate": "48000", "channels": 2},
+                            ],
+                        }
+                    elif "format=duration" in command_text:
+                        result = {"format": {"duration": "32.0"}}
+                    else:
+                        result = {"streams": [{
+                            "codec_name": "h264", "width": 720,
+                            "height": 1280, "r_frame_rate": "25/1"
+                        }]}
+                    return subprocess.CompletedProcess(
+                        command, 0, stdout=json.dumps(result), stderr=""
+                    )
+                if name == "ffmpeg":
+                    target = Path(command[-1])
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(b"A" * (8192 if target.suffix == ".wav" else 200000))
+                    return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+                raise AssertionError("Unexpected renderer command: " + repr(command))
+
+            def fake_build(_node, scene_project, out_dir):
+                self.assertTrue(Path(scene_project).is_file())
+                self.assertTrue(Path(json.loads(Path(scene_project).read_text())["scenes"][0]["image"]).exists() is False)
+                Path(out_dir).mkdir(parents=True, exist_ok=True)
+                (Path(out_dir) / "motion-report.json").write_text(
+                    json.dumps({"status": "passed", "scenes": []}),
+                    encoding="utf-8",
+                )
+
+            with (
+                patch.object(pipeline, "ANIMATION2D_DIR", animation_dir),
+                patch.object(pipeline, "_build_motion_project", side_effect=fake_build),
+                patch.object(pipeline, "_run", side_effect=fake_run),
+                patch.object(pipeline.shutil, "which", side_effect=lambda name: f"/usr/bin/{name}"),
+            ):
+                report = pipeline.render_master_director_video(
+                    engine,
+                    director_plan(),
+                    images,
+                    audio,
+                    narration,
+                    {"subtitle_cues": [], "word_cues": []},
+                    project_dir=project_dir,
+                    output_video=output,
+                )
+
+            self.assertTrue(output.is_file())
+            self.assertEqual(report["status"], "passed")
+            self.assertEqual(report["shot_count"], 8)
+            self.assertEqual(report["duration_seconds"], 32)
+            self.assertFalse(report["publish_ready"])
+            self.assertIn("separated visual layers", report["publish_blocker"])
+            self.assertTrue((output.parent / "master-director-render-report.json").is_file())
 
 
 if __name__ == "__main__":
