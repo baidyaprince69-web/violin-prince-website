@@ -634,30 +634,124 @@ def run_daily_plan(
     return 0
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Render one ChatGPT-prepared Violin Prince daily plan.")
-    parser.add_argument("--plan", required=True, help="Path to the ChatGPT-authored JSON plan.")
-    args = parser.parse_args()
+def _materialize_batch_slot(batch_path: Path, slot_id: str, workspace_root: Path) -> tuple[Path, str]:
+    """Verify the complete immutable batch and materialize one slot plan."""
     try:
-        result = run_daily_plan(Path(args.plan))
+        batch_bytes = batch_path.read_bytes()
+        batch_sha256 = hashlib.sha256(batch_bytes).hexdigest()
+        expected = str(os.environ.get("EXPECTED_BATCH_SHA256") or "").strip().lower()
+        if not re.fullmatch(r"[0-9a-f]{64}", expected) or expected != batch_sha256:
+            raise engine.PipelineError("Daily batch snapshot does not match its trigger SHA-256.")
+
+        from zoneinfo import ZoneInfo
+        today = datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
+        plans = load_daily_batch(batch_path, expected_date=today)
+        plan = next((dict(item) for item in plans if item.get("slot_id") == slot_id), None)
+        if plan is None:
+            raise engine.PipelineError(f"The daily batch has no plan for slot {slot_id!r}.")
+
+        expected_workspace = slot_workspace(Path("work/slots").resolve(), today, slot_id)
+        resolved_workspace = workspace_root.resolve()
+        if resolved_workspace != expected_workspace.resolve():
+            raise engine.PipelineError(
+                "Workspace path does not match the validated date and slot; refusing to mix outputs."
+            )
+
+        input_dir = resolved_workspace / "input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        plan_path = input_dir / "daily-plan.json"
+        plan_bytes = (json.dumps(plan, ensure_ascii=False, indent=2) + "\\n").encode("utf-8")
+        plan_path.write_bytes(plan_bytes)
+
+        os.environ["EXPECTED_PLAN_SHA256"] = hashlib.sha256(plan_bytes).hexdigest()
+        script = re.sub(r"\\s+", " ", str(plan.get("narration_script") or "")).strip()
+        os.environ["EXPECTED_NARRATION_SHA256"] = hashlib.sha256(script.encode("utf-8")).hexdigest()
+        return plan_path, batch_sha256
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, SlotContractError) as exc:
+        raise engine.PipelineError("Daily four-slot batch validation failed: " + str(exc)) from exc
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Render one isolated Violin Prince production slot.")
+    inputs = parser.add_mutually_exclusive_group(required=True)
+    inputs.add_argument("--plan", help="Path to one ChatGPT-authored JSON plan.")
+    inputs.add_argument("--batch", help="Path to the ChatGPT-authored four-plan daily batch.")
+    parser.add_argument("--slot-id", help="Canonical content slot ID; required with --batch.")
+    parser.add_argument("--workspace-root", help="Isolated output root for this slot.")
+    args = parser.parse_args()
+
+    workspace_root = Path(args.workspace_root) if args.workspace_root else None
+    batch_snapshot_sha256 = ""
+    try:
+        if args.batch:
+            if args.slot_id not in SLOT_CATALOG:
+                raise engine.PipelineError("--batch requires one canonical --slot-id.")
+            if workspace_root is None:
+                raise engine.PipelineError("--batch requires --workspace-root.")
+            plan_path, batch_snapshot_sha256 = _materialize_batch_slot(
+                Path(args.batch), args.slot_id, workspace_root
+            )
+            os.environ["RUN_ID"] = os.environ.get("GITHUB_RUN_ID", engine.RUN_ID)
+            os.environ["PUBLISH_ENABLED"] = "false"
+        else:
+            if args.slot_id and args.slot_id not in ("legacy-single", *SLOT_CATALOG):
+                raise engine.PipelineError("Unknown --slot-id.")
+            plan_path = Path(args.plan)
+            if workspace_root is not None:
+                try:
+                    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError) as exc:
+                    raise engine.PipelineError("Single plan is not valid JSON.") from exc
+                plan.setdefault("slot_id", args.slot_id or "legacy-single")
+                plan_path = workspace_root / "input" / "daily-plan.json"
+                plan_path.parent.mkdir(parents=True, exist_ok=True)
+                plan_path.write_text(json.dumps(plan, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+                os.environ["EXPECTED_PLAN_SHA256"] = hashlib.sha256(plan_path.read_bytes()).hexdigest()
+                os.environ["EXPECTED_NARRATION_SHA256"] = hashlib.sha256(
+                    re.sub(r"\\s+", " ", str(plan.get("narration_script") or "")).strip().encode("utf-8")
+                ).hexdigest()
+
+        result = run_daily_plan(
+            plan_path,
+            workspace_root=workspace_root,
+            batch_snapshot_sha256=batch_snapshot_sha256,
+        )
         if result != 0:
             return result
+
         final = engine.OUT / "violin-prince-short.mp4"
         quality = engine.validate_final_video(final)
         publish_manifest = json.loads((engine.OUT / "publish-manifest.json").read_text(encoding="utf-8"))
         print("DAILY_PRODUCTION_RESULT=" + json.dumps({
             "status": "rendered",
             "run_id": engine.RUN_ID,
+            "slot_id": publish_manifest.get("slot_id"),
+            "production_identity": publish_manifest.get("production_identity"),
             "video": str(final),
             "quality": quality,
             "publish_manifest": str(engine.OUT / "publish-manifest.json"),
             "asset_provenance": str(engine.OUT / "asset-provenance.json"),
             "publish_ready": publish_manifest.get("publish_ready", False),
             "publisher_preflight": publish_manifest.get("publisher_preflight", {}),
-            "publishing": "deferred_to_ChatGPT_Metricool_operator",
+            "publishing": "disabled_private_preview_only",
         }, ensure_ascii=False), flush=True)
         return 0
     except Exception as exc:
+        if workspace_root is not None:
+            try:
+                from slot_registry import write_slot_receipt
+                slot_id = str(args.slot_id or "legacy-single")
+                production_date = datetime.now().astimezone().date().isoformat()
+                write_slot_receipt(
+                    workspace_root / "output" / "slot-receipt.json",
+                    production_date=production_date,
+                    slot_id=slot_id,
+                    run_id=engine.RUN_ID,
+                    status="failed",
+                    output_dir=workspace_root / "output",
+                )
+            except Exception:
+                pass
         print("Daily production stopped safely: " + str(exc)[:900], file=sys.stderr, flush=True)
         engine.report("failed", str(exc))
         return 1
