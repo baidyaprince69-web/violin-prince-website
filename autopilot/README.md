@@ -2,16 +2,21 @@
 
 A cloud-first short-video production pipeline. GitHub-hosted runners do the production work; the creator's computer does not need to stay on.
 
-## ChatGPT-operated daily production
+## Production architecture and current operational state
 
-ChatGPT is the only daily scheduler. Its existing daily automation prepares one sourced production plan, writes `.autopilot/daily-production-plan.json` to `main`, then updates `.autopilot/prepare-request.json` to trigger this workflow. The GitHub Actions runner produces the MP4 and creates a public GitHub Release asset. ChatGPT then reads that release and schedules the YouTube Short through the connected Metricool brand with automatic publishing enabled.
+The India-first editorial target is documented in [INDIA_CONTENT_STRATEGY.md](INDIA_CONTENT_STRATEGY.md). It defines four content pillars and a target of four distinct Shorts per day, approximately six hours apart. That is a strategy target, **not an enabled schedule**.
 
-- The production entry points are currently locked before research or rendering until the creator's own voice has been tested and explicitly approved. There is no Kokoro, preset, generic or third-party narrator fallback.
-- The former Cloudflare-based text, image and media services have been removed. No replacement text-planning or illustration provider is currently configured; those stages must stop until an approved non-Cloudflare provider is selected and tested.
-- The final scene is a symbolic violin-performance visual unless a permitted creator recording is deliberately added; generated/sample violin audio must never be described as a live recording by the creator.
-- The production job keeps direct publishing disabled and creates the verified public GitHub Release handoff. ChatGPT uses the connected Metricool brand as the primary publisher. Only when Metricool confirms its monthly post limit has been reached does ChatGPT push `.autopilot/publisher-fallback-request.json`, triggering the separate `.github/workflows/publisher-fallback.yml` route. That route revalidates the exact MP4, manifest and provenance, stores a durable no-duplicate attempt marker, then reuses the existing Google OAuth/resumable uploader in `engine/publisher.py` to publish directly to YouTube. It does not rerun production. vidIQ remains analytics/optimisation only; its approval-dependent draft route is not an unattended fallback.
-- The GitHub cron schedule has been removed. ChatGPT is the daily operator and triggers the request-file push.
-- The manual `workflow_dispatch` stage selector remains visible, but all production stages currently stop at the own-voice gate. The Visuals stage also remains disabled until an approved non-Cloudflare illustration provider is configured.
+Verified against the main branch on 21 November 2026:
+
+- The main Autopilot workflow is triggered by request-file pushes or manual workflow dispatch; it does not currently have an active four-slot schedule.
+- The checked-in `.autopilot/prepare-request.json` sets `publish_to_youtube: false`. The current request is preview-only; it does not authorize a public YouTube upload.
+- The checked-in illustration approval is scoped to `preview_video_only` and sets `publishing_enabled: false`. Do not treat a preview pass as permission to publish.
+- The main production flow uses one `.autopilot/daily-production-plan.json` file. It is not yet a four-plan batch.
+- The existing Upload-Post helper derives request and idempotency identifiers from `production_date`; that must be redesigned around unique production/slot IDs before four same-day posts can be safely queued.
+- The publisher documentation is inconsistent: this README previously named Metricool, while `engine/ENGINE_WORKFLOW.md` describes an Upload-Post queue. Resolve the actual connected publisher and configure only one scheduler before enabling public posts.
+- Private fallback preview retention is six hours in the separate `violin-prince-private-voice` repository. This is a cleanup rule only; it does not trigger video production or YouTube uploads.
+
+The production workflow must remain fail-closed until the four-slot planner, creator-recorded performance intake, publishing provider, per-slot idempotency, media QA and public publishing gates have been tested.
 
 ## Approved channel identity and production format
 
