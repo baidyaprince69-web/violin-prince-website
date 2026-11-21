@@ -2794,7 +2794,7 @@ _ILLUSTRATION_APPROVAL_EVIDENCE = {
 
 
 def require_approved_illustration_provider(approval_file=None):
-    """Allow only the reviewed deterministic local illustrator in preview scope."""
+    """Allow the tested local illustrator only within its explicitly approved scope."""
     approval_path = Path(approval_file) if approval_file is not None else ILLUSTRATION_APPROVAL_FILE
     try:
         approval = json.loads(approval_path.read_text(encoding="utf-8"))
@@ -2813,13 +2813,28 @@ def require_approved_illustration_provider(approval_file=None):
 
     evidence = approval.get("test_evidence")
     required_modes = sorted(MODES)
+    public_approval = approval.get("creator_publication_approval")
+    preview_scope_valid = (
+        approval.get("status") == "approved_for_preview"
+        and approval.get("scope") == "preview_video_only"
+        and approval.get("publishing_enabled") is False
+    )
+    public_scope_valid = (
+        approval.get("status") == "approved_for_publication"
+        and approval.get("scope") == "public_youtube"
+        and approval.get("publishing_enabled") is True
+        and isinstance(public_approval, dict)
+        and public_approval.get("approved") is True
+        and public_approval.get("platform") == "youtube"
+        and public_approval.get("privacy_status") == "public"
+        and public_approval.get("no_private_preview_required") is True
+        and str(public_approval.get("approval_statement") or "").strip()
+    )
     if (
         approval.get("schema_version") != 1
-        or approval.get("status") != "approved_for_preview"
         or approval.get("provider") != "local_vector"
-        or approval.get("scope") != "preview_video_only"
         or approval.get("renderer_version") != RENDERER_VERSION
-        or approval.get("publishing_enabled") is not False
+        or not (preview_scope_valid or public_scope_valid)
         or not isinstance(evidence, dict)
         or isinstance(evidence.get("workflow_run_id"), bool)
         or not isinstance(evidence.get("workflow_run_id"), int)
@@ -2828,7 +2843,7 @@ def require_approved_illustration_provider(approval_file=None):
         or evidence.get("modes") != required_modes
     ):
         raise PipelineError(
-            "Illustrations are locked: approval evidence does not match the tested local vector renderer."
+            "Illustrations are locked: tested renderer evidence or explicit creator scope approval is invalid."
         )
 
 
