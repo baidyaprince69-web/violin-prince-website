@@ -626,6 +626,30 @@ def run_daily_plan(
         video_quality=video_quality,
         run_id=engine.RUN_ID,
     )
+
+    slot_id = str(plan.get("slot_id") or "legacy-single")
+    slot_identity = str(production_identity.get("production_identity") or "")
+    manifest["slot_id"] = slot_id
+    manifest["production_identity"] = slot_identity
+    manifest["batch_snapshot_sha256"] = batch_snapshot_sha256 or None
+    provenance = _provenance
+    provenance["slot_id"] = slot_id
+    provenance["production_identity"] = slot_identity
+    provenance["batch_snapshot_sha256"] = batch_snapshot_sha256 or None
+    (engine.OUT / "publish-manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + chr(10), encoding="utf-8"
+    )
+    (engine.OUT / "asset-provenance.json").write_text(
+        json.dumps(provenance, ensure_ascii=False, indent=2) + chr(10), encoding="utf-8"
+    )
+    write_slot_receipt(
+        engine.OUT / "slot-receipt.json",
+        production_date=str(plan.get("production_date") or ""),
+        slot_id=slot_id,
+        run_id=engine.RUN_ID,
+        status="private_preview_rendered",
+        output_dir=engine.OUT,
+    )
     print(
         "PUBLISHER_PREFLIGHT="
         + json.dumps(manifest.get("publisher_preflight", {}), ensure_ascii=False),
