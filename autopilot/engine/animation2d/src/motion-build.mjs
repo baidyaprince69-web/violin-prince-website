@@ -148,6 +148,67 @@ export function directorTransitionSpec(transition, duration) {
   }
 }
 
+
+export function directorLayerMotionKeyframes(motion, role = "subject") {
+  const type = String(motion?.type || "locked").toLowerCase();
+  const direction = String(motion?.direction || "subtle").toLowerCase();
+  const intensity = Math.min(1, Math.max(0, Number(motion?.intensity) || 0));
+  const distance = Math.round(6 + intensity * (role === "foreground" ? 54 : 34));
+  const angle = Number((0.6 + intensity * 7).toFixed(2));
+  const pulse = Number((1 + intensity * 0.07).toFixed(3));
+  const translate = (x, y) => "translateX(" + x + "px) translateY(" + y + "px)";
+  const neutral = "translateX(0px) translateY(0px) scale(1)";
+  const xDir = direction === "left" ? -1 : direction === "right" ? 1 : 0;
+  const yDir = direction === "up" ? -1 : direction === "down" ? 1 : 0;
+  switch (type) {
+    case "drift":
+      return [
+        translate(-xDir * distance, -yDir * distance) + " scale(" + (1 + intensity * 0.025).toFixed(3) + ")",
+        translate(xDir * distance, yDir * distance) + " scale(" + (1 + intensity * 0.035).toFixed(3) + ")"
+      ];
+    case "float":
+      return [
+        "translateY(" + distance + "px) scale(1)",
+        "translateY(" + -distance + "px) scale(" + pulse + ")",
+        "translateY(" + Math.round(distance * 0.25) + "px) scale(1)"
+      ];
+    case "sway":
+      return [
+        "rotate(" + -angle + "deg) translateY(" + Math.round(distance * 0.15) + "px)",
+        "rotate(" + angle + "deg) translateY(" + -Math.round(distance * 0.15) + "px)",
+        "rotate(" + -angle * 0.35 + "deg)"
+      ];
+    case "pulse":
+      return ["scale(1)", "scale(" + pulse + ")", "scale(1)"];
+    case "rotate":
+      return ["rotate(" + -angle + "deg)", "rotate(" + angle + "deg)"];
+    case "reveal":
+      return ["translateY(" + distance + "px) scale(.98)", neutral];
+    case "parallax": {
+      const factor = role === "foreground" ? 1.35 : role === "atmosphere" ? 0.75 : 0.45;
+      const offset = Math.round(distance * factor);
+      return [
+        translate(-xDir * offset || -offset, -yDir * offset) + " scale(1.02)",
+        translate(xDir * offset || offset, yDir * offset) + " scale(1.04)"
+      ];
+    }
+    case "particle":
+      return [
+        translate(-xDir * distance, distance) + " rotate(-" + angle + "deg)",
+        translate(xDir * distance, -distance) + " rotate(" + angle + "deg)"
+      ];
+    case "wave":
+      return [
+        "rotate(" + -angle + "deg) translateY(" + distance + "px)",
+        "rotate(" + angle + "deg) translateY(" + -distance + "px)"
+      ];
+    case "locked":
+      return [neutral, neutral];
+    default:
+      throw new TypeError("Unsupported Master Director layer motion: " + type);
+  }
+}
+
 function multiplyMatrix(left, right) {
   return {
     a: left.a * right.a + left.c * right.b,
@@ -477,6 +538,29 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
         cameraDuration,
         scene.camera_easing || "ease-in-out"
       );
+
+      const visualLayers = Array.isArray(scene.visual_layers) ? scene.visual_layers : [];
+      for (const layer of visualLayers) {
+        const role = String(layer.role || "").toLowerCase();
+        if (role === "background") continue;
+        const layerId = scene.id + "-layer-" + String(layer.id || "");
+        const motion = layer.motion || {};
+        const offset = Math.max(0, Number(motion.start_offset_seconds) || 0);
+        const layerStart = sceneStart + offset;
+        const layerDuration = Math.max(0.08, sceneDuration - offset);
+        const revealMs = Math.max(300, Math.min(750, layerDuration * 420));
+        addSpring(layerId, "opacity", 0, 1, layerStart, revealMs);
+        if (String(motion.type || "locked").toLowerCase() !== "locked") {
+          const layerFrames = directorLayerMotionKeyframes(motion, role);
+          addKeyframes(
+            layerId,
+            { transform: layerFrames },
+            layerStart,
+            layerDuration,
+            String(motion.type || "") === "reveal" ? "ease-out" : "ease-in-out"
+          );
+        }
+      }
     } else {
       const cameraKeyframes = visualMode === "cover_performance"
         ? ["scale(1.055) translateX(12px)", "scale(1.105) translateX(-8px)", "scale(1.12) translateX(-13px)"]
