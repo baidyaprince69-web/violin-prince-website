@@ -122,6 +122,40 @@ class DailyPlanEvidenceTests(unittest.TestCase):
             finally:
                 os.chdir(original_cwd)
 
+
+    def test_batch_materialization_refuses_explicitly_blocked_slot(self):
+        import hashlib
+        import json
+        import os
+        import tempfile
+        from datetime import datetime
+        from unittest.mock import patch
+        from zoneinfo import ZoneInfo
+
+        today = datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
+        plans = [
+            {"production_date": today, "slot_id": slot, "title": "Slot",
+             "narration_script": "A small test narration with enough tokens."}
+            for slot in ("music-secrets", "production-tech", "melody-stories", "real-performance")
+        ]
+        plans[2] = {
+            "production_date": today, "slot_id": "melody-stories",
+            "slot_status": "blocked", "blocked_reason": "Independent sources not verified.",
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            previous = Path.cwd()
+            try:
+                os.chdir(temporary)
+                path = Path("batch.json")
+                path.write_text(json.dumps({"production_date": today, "plans": plans}), encoding="utf-8")
+                digest = hashlib.sha256(path.read_bytes()).hexdigest()
+                workspace = Path("work/slots") / today / "melody-stories"
+                with patch.dict(os.environ, {"EXPECTED_BATCH_SHA256": digest}):
+                    with self.assertRaisesRegex(Exception, "Selected slot is blocked"):
+                        daily._materialize_batch_slot(path, "melody-stories", workspace)
+            finally:
+                os.chdir(previous)
+
     def test_batch_materialization_rejects_a_changed_snapshot(self):
         import hashlib
         import json
