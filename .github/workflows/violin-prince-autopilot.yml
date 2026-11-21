@@ -57,11 +57,9 @@ jobs:
           PYTHONPATH: autopilot/engine
         run: python -m unittest discover -s autopilot/engine/tests -p "test_hyperframes_pipeline.py" -v
 
-      - name: Verify YouTube upload and private voice credentials are configured
+      - name: Verify Upload-Post private-upload and private voice credentials are configured
         env:
-          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
-          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
-          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
           YOUTUBE_EXPECTED_CHANNEL_ID: ${{ vars.YOUTUBE_EXPECTED_CHANNEL_ID }}
           PRIVATE_VOICE_REPO_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
         shell: bash
@@ -70,16 +68,14 @@ jobs:
           python - <<'PY'
           import os
           required = (
-              "YOUTUBE_CLIENT_ID",
-              "YOUTUBE_CLIENT_SECRET",
-              "YOUTUBE_REFRESH_TOKEN",
+              "UPLOAD_POST_API_KEY",
               "YOUTUBE_EXPECTED_CHANNEL_ID",
               "PRIVATE_VOICE_REPO_TOKEN",
           )
           missing = [name for name in required if not os.environ.get(name, "").strip()]
           if missing:
-              raise SystemExit("Required publishing/voice credentials are missing: " + ", ".join(missing))
-          print("YouTube OAuth configuration and private Qwen3 voice credentials are present.")
+              raise SystemExit("Required private-upload/voice configuration is missing: " + ", ".join(missing))
+          print("Upload-Post private-upload configuration and private Qwen3 voice credentials are present.")
           PY
 
   daily_readiness:
@@ -213,11 +209,9 @@ jobs:
       RUN_ID: ${{ github.run_id }}
       RUN_MODE: ${{ github.event_name == 'schedule' && 'scheduled' || 'manual' }}
       PIPELINE_STAGE: ${{ inputs.stage || 'full' }}
-      YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
-      YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
-      YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
-      YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-      YOUTUBE_STATE_ENCRYPTION_KEY: ${{ secrets.YOUTUBE_STATE_ENCRYPTION_KEY }}
+      UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
+      UPLOAD_POST_USER: "default"
+      YOUTUBE_EXPECTED_CHANNEL_ID: ${{ vars.YOUTUBE_EXPECTED_CHANNEL_ID }}
       SEO_LEARNING_REPORT_PATH: work/seo-learning-data/seo-learning/latest.enc.json
       VIOLIN_PRINCE_PRESENTER_ENABLED: "true"
     steps:
@@ -414,14 +408,28 @@ jobs:
           PRIVATE_VOICE_REPO_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
         run: python autopilot/engine/run.py --stage full
 
-      - name: Upload validated daily slot as a PRIVATE YouTube preview
+      - name: Retain scheduled private-preview artifact for recovery
+        if: success() && github.event_name == 'schedule' && env.PIPELINE_STAGE == 'full' && needs.daily_readiness.outputs.slot_status == 'ready'
+        uses: actions/upload-artifact@v4
+        with:
+          name: violin-prince-private-preview-${{ github.run_number }}
+          path: |
+            ${{ format('{0}/output/violin-prince-short.mp4', needs.daily_readiness.outputs.workspace_root) }}
+            ${{ format('{0}/output/publish-manifest.json', needs.daily_readiness.outputs.workspace_root) }}
+            ${{ format('{0}/output/asset-provenance.json', needs.daily_readiness.outputs.workspace_root) }}
+            ${{ format('{0}/output/slot-receipt.json', needs.daily_readiness.outputs.workspace_root) }}
+            ${{ format('{0}/package/creative_plan.json', needs.daily_readiness.outputs.workspace_root) }}
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Upload validated daily slot as a PRIVATE YouTube preview via Upload-Post
         if: success() && github.event_name == 'schedule' && env.PIPELINE_STAGE == 'full' && needs.daily_readiness.outputs.slot_status == 'ready'
         env:
-          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
-          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
-          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
+          UPLOAD_POST_USER: "default"
           YOUTUBE_EXPECTED_CHANNEL_ID: ${{ vars.YOUTUBE_EXPECTED_CHANNEL_ID }}
           YOUTUBE_PRIVACY_STATUS: "private"
+          PUBLISH_ENABLED: "false"
           GITHUB_REF_NAME: ${{ github.ref_name }}
           GITHUB_RUN_ID: ${{ github.run_id }}
           OUTPUT_DIR: ${{ format('{0}/output', needs.daily_readiness.outputs.workspace_root) }}
@@ -430,7 +438,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python autopilot/engine/upload_private_preview.py \
+          python autopilot/engine/upload_private_preview_uploadpost.py \
             --output-dir "$OUTPUT_DIR" \
             --plan "$PLAN_PATH" \
             --run-id "$GITHUB_RUN_ID" \
