@@ -15,7 +15,7 @@ class SlotBatchReadinessTests(unittest.TestCase):
 
     def _root(self, root: Path):
         self._write(root, "autopilot/engine/voiceover.py",
-                    "def require_approved_own_voice():\n    return True\n")
+                    "def require_approved_own_voice(approval_file=None):\n    return True\n")
         self._write(root, "autopilot/engine/run.py",
                     "def require_approved_illustration_provider():\n    return True\n")
         self._write(root, "autopilot/engine/voice-approval.json", json.dumps({
