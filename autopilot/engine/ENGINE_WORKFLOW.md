@@ -485,3 +485,17 @@ The production workflow's trigger and scheduler are not changed: there is no new
 The default YouTube Data API quota documents 100 `videos.insert` calls per day for the upload method; the pipeline's intended one or two uploads daily are within that published default, subject to the project's actual quota and YouTube channel-specific restrictions. This is a quota reference, not a guarantee that an upload will succeed.
 
 **Required secrets:** the fallback workflow reuses `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET` and `YOUTUBE_REFRESH_TOKEN` already used by the repository's OAuth publishing adapter. Never commit these values or include them in request files, logs or release receipts.
+
+
+## Addendum — four-slot production foundation (2026-11-21)
+
+**Feature branch:** `feat/four-slot-production-foundation-20261121`
+
+The first isolated foundation changes are in progress on the feature branch only:
+
+- `engine/slot_registry.py` defines the four canonical slot IDs, validates a four-plan daily batch, creates per-date/per-slot workspace paths, and writes slot-specific production receipts.
+- Upload-Post request IDs, external IDs and idempotency keys now include the slot identity, so same-day videos no longer share the date-only duplicate key. Legacy single-plan requests retain a distinct `legacy-single` identity.
+- The main workflow concurrency group is unique per run and `cancel-in-progress: false`, so a later dispatch cannot cancel an earlier render.
+- Offline tests cover four-slot completeness, duplicate slot rejection, distinct workspaces/receipts and same-date publisher identity separation.
+
+**Not enabled by this foundation:** the four-plan batch is not yet connected to `run_daily_plan.py`; per-slot render/release paths are not yet wired into the production workflow; there is no six-hour cron; and the checked-in request still sets `publish_to_youtube: false`. Do not merge this branch as production-ready until the batch runner, release isolation, full tests and private end-to-end review are complete.
