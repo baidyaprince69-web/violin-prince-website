@@ -84,7 +84,7 @@ def upload_private_preview(
             _summary(
                 "## Private preview already uploaded\n\n"
                 f"- **Title:** {title}\n"
-                f"- **YouTube:** {receipt.get('youtube_video_url', '')}\n"
+                "- **Review:** Find this title in YouTube Studio → Content → Private.\n"
                 "- **Visibility:** Private\n"
                 "- This exact production run will not be uploaded again."
             )
@@ -101,9 +101,9 @@ def upload_private_preview(
     try:
         duplicate_check = assert_title_absent(title)
     except DuplicateVideoFound as exc:
-        matches = json.dumps(exc.matches[:5], ensure_ascii=False)
         raise PublishBlocked(
-            "A video with this exact title already exists in channel uploads; private preview blocked: " + matches
+            "A video with this exact title already exists in channel uploads; private preview blocked. "
+            "Check YouTube Studio before choosing a different title."
         ) from exc
     except ChannelAuditError as exc:
         raise PublishBlocked(
@@ -178,8 +178,6 @@ def upload_private_preview(
             "run_id": str(run_id),
             "production_date": str(plan.get("production_date") or ""),
             "slot_id": expected_slot_id,
-            "youtube_video_id": video_id,
-            "youtube_video_url": video_url,
             "youtube_channel_id": expected_channel,
             "title": title,
             "requested_privacy_status": "private",
@@ -187,13 +185,11 @@ def upload_private_preview(
             "sha256": audit["sha256"],
             "created_at_utc": datetime.now(timezone.utc).isoformat(),
             "retry_allowed": False,
-            "note": "YouTube returned an upload ID but did not confirm private visibility. Inspect this exact video; do not retry.",
+            "note": "YouTube accepted the upload but did not confirm private visibility. Find this title in YouTube Studio; do not retry.",
         }
         _write_json(receipt_path, receipt)
         attempt.update({
             "status": "uploaded_visibility_mismatch",
-            "youtube_video_id": video_id,
-            "youtube_video_url": video_url,
             "returned_privacy_status": actual_privacy or "not returned",
         })
         _write_json(attempt_path, attempt)
@@ -214,8 +210,6 @@ def upload_private_preview(
         "production_date": str(plan.get("production_date") or ""),
         "slot_id": expected_slot_id,
         "production_identity": str(manifest.get("production_identity") or ""),
-        "youtube_video_id": video_id,
-        "youtube_video_url": video_url,
         "youtube_channel_id": expected_channel,
         "title": title,
         "privacy_status": "private",
@@ -231,8 +225,6 @@ def upload_private_preview(
     _write_json(receipt_path, receipt)
     attempt.update({
         "status": "uploaded_private",
-        "youtube_video_id": video_id,
-        "youtube_video_url": video_url,
         "completed_at_utc": receipt["uploaded_at_utc"],
     })
     _write_json(attempt_path, attempt)
@@ -243,7 +235,7 @@ def upload_private_preview(
     _summary(
         "## Violin Prince private preview uploaded to YouTube\n\n"
         f"- **Title:** {title}\n"
-        f"- **Preview:** {video_url}\n"
+        "- **Review:** YouTube Studio → Content → Private (match by title and slot).\n"
         f"- **Channel:** {expected_channel}\n"
         f"- **Slot:** {expected_slot_id}\n"
         f"- **SHA-256:** {audit['sha256']}\n"
