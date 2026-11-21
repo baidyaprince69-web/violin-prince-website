@@ -57,5 +57,38 @@ class FourSlotContractTests(unittest.TestCase):
             self.assertEqual(json.loads(path.read_text(encoding="utf-8")), receipt)
             self.assertEqual(receipt["production_identity"], "2026-11-21:melody-stories")
 
+
+    def test_committed_next_day_batch_meets_ready_plan_contract_when_present(self):
+        """Catch incomplete ChatGPT batches before the next scheduled slot starts."""
+        from datetime import datetime, timedelta
+        from zoneinfo import ZoneInfo
+        import re
+
+        root = Path(__file__).resolve().parents[3]
+        next_day = (
+            datetime.now(ZoneInfo("Asia/Kolkata")).date() + timedelta(days=1)
+        ).isoformat()
+        batch_path = root / ".autopilot" / "daily-batches" / f"{next_day}.json"
+        if not batch_path.is_file():
+            self.skipTest(f"No committed next-day batch exists for {next_day}.")
+        plans = load_daily_batch(batch_path, expected_date=next_day)
+        self.assertEqual(len(plans), 4)
+        for plan in plans:
+            if plan.get("slot_status", "ready") != "ready":
+                continue
+            script = str(plan.get("narration_script") or "").strip()
+            self.assertEqual(len(re.findall(r"\b[\w’'-]+\b", script)), 35,
+                             f"{plan['slot_id']} must have exactly 35 narration words")
+            self.assertEqual(len(re.findall(r"[^.!?]+[.!?]+(?=\s|$)", script)), 4,
+                             f"{plan['slot_id']} must have exactly four narration sentences")
+            self.assertGreaterEqual(len(plan.get("sources") or []), 2,
+                                    f"{plan['slot_id']} must select two direct publisher sources")
+            self.assertEqual(len(plan.get("narration_evidence") or []), 3,
+                             f"{plan['slot_id']} must map evidence to narration sentences 2–4")
+            self.assertEqual(len(plan.get("scenes") or []), 3,
+                             f"{plan['slot_id']} must define three scenes")
+            self.assertTrue(str(plan.get("cover_payoff") or "").strip(),
+                            f"{plan['slot_id']} must define its original violin payoff")
+
 if __name__ == "__main__":
     unittest.main()
