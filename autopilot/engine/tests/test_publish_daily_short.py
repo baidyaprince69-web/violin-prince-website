@@ -203,9 +203,6 @@ class DailyPublicPublisherTests(unittest.TestCase):
         receipts = list((self.root / ".autopilot/publication-receipts").glob("*.json"))
         self.assertEqual(len(attempts), 1)
         self.assertEqual(len(receipts), 1)
-        attempt_record = json.loads(attempts[0].read_text(encoding="utf-8"))
-        self.assertNotIn("youtube_video_id", attempt_record)
-        self.assertNotIn("youtube_video_url", attempt_record)
         self.assertEqual(commit.call_count, 2)
         self.assertEqual(upload.call_args.args[0], self.video)
 
@@ -341,6 +338,9 @@ class PrivatePreviewPublisherTests(unittest.TestCase):
         receipts = list((self.fixture.root / ".autopilot/private-preview-receipts").glob("*.json"))
         self.assertEqual(len(attempts), 1)
         self.assertEqual(len(receipts), 1)
+        attempt_record = json.loads(attempts[0].read_text(encoding="utf-8"))
+        self.assertNotIn("youtube_video_id", attempt_record)
+        self.assertNotIn("youtube_video_url", attempt_record)
         self.assertEqual(commit.call_count, 2)
         self.assertEqual(upload.call_args.args[0], self.fixture.video)
 
