@@ -85,6 +85,11 @@ jobs:
           PYTHONPATH: autopilot/engine
         run: python -m unittest discover -s autopilot/engine/tests -p "test_publish_daily_short.py" -v
 
+      - name: Run publisher metadata and provenance handoff tests
+        env:
+          PYTHONPATH: autopilot/engine
+        run: python -m unittest discover -s autopilot/engine/tests -p "test_publish_handoff.py" -v
+
       - name: Run creator-scope illustration approval tests
         env:
           PYTHONPATH: autopilot/engine

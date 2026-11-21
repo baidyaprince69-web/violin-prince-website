@@ -65,10 +65,16 @@ ChatGPT daily operator / explicit production request
          Media QA + provenance + manifest
                     |
                     v
-         GitHub Release handoff assets
+        Verified PRIVATE YouTube preview
                     |
                     v
-       ChatGPT operator -> Upload-Post -> YouTube
+       Creator reviews at night / weekly
+                    |
+                    v
+    Separate explicit public-publishing approval
+                    |
+                    v
+      Future public schedule (disabled in commissioning)
                     |
                     v
       YouTube analytics and performance review
@@ -314,29 +320,20 @@ A successful process exit alone is not enough. Apply these gates before release:
 
 ## 13. Release handoff and YouTube publishing
 
-### 13.1 GitHub release handoff — implemented
+### 13.1 Scheduled private YouTube previews — commissioning branch
 
-After a successful daily production run, the workflow validates the publisher manifest, provenance and final MP4, then creates a public GitHub Release containing:
+- The four cron slots on `main` remain at 00:00, 06:00, 12:00 and 18:00 UTC (05:30, 11:30, 17:30 and 23:30 Asia/Kolkata). Each ready slot uses its own date/slot workspace and proceeds independently.
+- The batch path in `run_daily_plan.py` forces `publish_metadata.privacy_status=private` before publisher metadata validation and writes a manifest whose `youtube_privacy` is `private`. The public-only plan metadata is not allowed to override this setting.
+- After the existing renderer completes and the manifest/provenance/MP4 pass validation, the workflow invokes `autopilot/engine/upload_private_preview.py`.
+- The private uploader reuses `publisher.py`'s existing OAuth/resumable YouTube adapter and the read-only uploads-playlist audit. It requires `YOUTUBE_PRIVACY_STATUS=private`, the configured Violin Prince channel ID, explicit private visibility in both plan and manifest, two independent publisher sources, the exact 35-word/four-sentence narration evidence, accepted soundtrack and illustration provenance, and a matching final-video SHA-256/MP4 probe.
+- An exact-title scan includes private uploads. Before calling YouTube, the uploader commits a slot/run-specific attempt marker to `.autopilot/private-preview-attempts/`; after YouTube confirms `privacyStatus=private`, it commits a receipt to `.autopilot/private-preview-receipts/`. An uncertain response or visibility mismatch is recorded as a no-retry state.
+- The workflow never invokes `publish_daily_short.py` for scheduled slots. Legacy requests with `publish_to_youtube=true` are rejected while preview-only commissioning is active. The standalone public publisher remains separate and does not form part of the scheduled route.
+- No public GitHub Release asset or Upload-Post queue entry is created by this private-preview flow. Private YouTube video IDs and URLs are not written to the public repository or Actions summary. Review previews in YouTube Studio → Content → Private, matching each title and production date.
+- The creator can inspect the accumulated previews together at night or during a weekly review; there is no per-video manual approval step in the scheduled production loop.
 
-- `violin-prince-short.mp4`
-- `publish-manifest.json`
-- `asset-provenance.json`
-- Release notes/source references
+### 13.2 Public publishing — separately authorised future stage
 
-The release is a handoff package, not proof of YouTube publication.
-
-### 13.2 YouTube scheduling — operator/ChatGPT + Upload-Post
-
-- The production workflow hands a validated MP4 to Upload-Post only after the GitHub Release, publisher manifest, factual provenance and final-video SHA-256 checks pass.
-- `autopilot/engine/upload_post_handoff.py` sends the public release-asset URL to Upload-Post's video endpoint for YouTube only.
-- The request uses the verified `default` profile, `add_to_queue=true`, and an idempotency key derived from profile/platform/production date so a retried workflow cannot enqueue duplicate daily posts.
-- The profile queue is configured for `Asia/Kolkata`, every day at 19:00, with one post per slot. Upload-Post returns the queue `job_id` and scheduled time; the workflow records these in its Actions step summary.
-- GitHub Actions requires the `UPLOAD_POST_API_KEY` repository secret. Store the key only in GitHub Actions Secrets; never place it in source files, workflow inputs, plans, artifacts or logs.
-- A scheduled preflight runs at 09:30 UTC (15:00 IST). It checks today's ChatGPT-authored plan, the private-Qwen3 approval record and the local illustration preview approval record. The current preview-only workflow does not require Upload-Post credentials and does not create a public release or enqueue a post.
-- The scheduled trigger does **not** invent or refresh a daily story. A fresh ChatGPT-authored plan must be committed for the current India date; there is no background ChatGPT plan-generation service. A stale plan or any closed gate causes a cheap preflight skip before model installation or rendering.
-- The final MP4 release asset is the publishing source; the redundant Actions video preview is retained for one day and diagnostic artifacts for three days.
-
-The GitHub Release is a public handoff asset, not proof of YouTube publication. Only a returned Upload-Post queue job confirms scheduling. Verify the eventual YouTube post and its visibility after publication.
+Public publishing is intentionally disabled during commissioning. The scheduled private-preview path must first demonstrate four complete previews, pass visual/audio review, and verify the private uploader and publisher route. A separate explicit authorisation is required before any future change enables scheduled public visibility. Do not change approval records or secrets as part of private-preview commissioning.
 
 ## 14. Analytics and feedback loop
 
@@ -387,11 +384,11 @@ For rig/character changes, the actual rig preview and visual review are mandator
 
 | Component | Responsibility |
 |---|---|
-| `.autopilot/prepare-request.json` | Daily production trigger |
+| `.autopilot/daily-batches/YYYY-MM-DD.json` | ChatGPT-authored four-slot daily production batch |\n| `.autopilot/prepare-request.json` | Legacy single-plan push request; public upload requests are rejected during commissioning |
 | ChatGPT production plan JSON | Story, narration, scenes and visual direction |
-| `.github/workflows/violin-prince-autopilot.yml` | Manual recovery, daily preflight schedule, cloud production and Upload-Post handoff |
+| `.github/workflows/violin-prince-autopilot.yml` | Four-slot schedule, readiness gates, cloud production and private YouTube preview upload |
 | `autopilot/engine/daily_readiness.py` | Cheap scheduled readiness gate; prevents stale plans and closed providers from launching production |
-| `autopilot/engine/upload_post_handoff.py` | Verifies manifest/provenance/hash and submits the release MP4 to the Upload-Post queue |
+| `autopilot/engine/upload_private_preview.py` | Verifies the final bundle, duplicate status and channel, then uploads and receipts a private YouTube preview |
 | `autopilot/engine/run.py` | Legacy staged Prepare / Visuals / Render workflow |
 | `autopilot/engine/run_daily_plan.py` | Validates and executes ChatGPT-authored daily plans |
 | `autopilot/engine/creative_direction.py` | Standing channel and creative direction |
