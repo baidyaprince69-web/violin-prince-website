@@ -228,7 +228,7 @@ jobs:
           SELECTED_STAGE: ${{ inputs.stage || 'full' }}
         run: |
           if [[ "$SELECTED_STAGE" != "full" ]]; then
-            echo "::error::Only the complete preview-only run is enabled. Staged package artifacts are disabled until a private stage handoff is implemented."
+            echo "::error::Only the complete production path is enabled. Intermediate partial-stage runs are paused until their package continuity and validation contract is complete."
             exit 1
           fi
 
