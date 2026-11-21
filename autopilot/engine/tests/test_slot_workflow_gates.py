@@ -39,10 +39,14 @@ class BlockedSlotWorkflowTests(unittest.TestCase):
 
     def test_ready_scheduled_slot_uploads_a_private_youtube_preview(self):
         content = WORKFLOW.read_text(encoding="utf-8")
-        self.assertIn("- name: Upload validated daily slot as a PRIVATE YouTube preview", content)
-        self.assertIn("python autopilot/engine/upload_private_preview.py", content)
+        self.assertIn("- name: Upload validated daily slot as a PRIVATE YouTube preview via Upload-Post", content)
+        self.assertIn("python autopilot/engine/upload_private_preview_uploadpost.py", content)
         self.assertIn('YOUTUBE_PRIVACY_STATUS: "private"', content)
+        self.assertIn('PUBLISH_ENABLED: "false"', content)
         self.assertIn("needs.daily_readiness.outputs.slot_status == 'ready'", content)
+        self.assertIn("Retain scheduled private-preview artifact for recovery", content)
+        self.assertIn("creative_plan.json", content)
+        self.assertNotIn("python autopilot/engine/upload_private_preview.py", content)
         self.assertNotIn("publish_daily_short.py", content)
         self.assertNotIn('YOUTUBE_PRIVACY_STATUS: "public"', content)
 
