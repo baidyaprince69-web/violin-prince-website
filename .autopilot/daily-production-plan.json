@@ -1,119 +1,138 @@
 {
-  "production_date": "2026-11-20",
-  "story_type": "music_production",
-  "core_claim": "Eventide SplitEQ 2 uses Structural Split to separate transient and tonal components so they can be shaped independently.",
-  "topic": "How SplitEQ 2 separates the transient attack and tonal body of a sound, with six dynamic bands and source tuning options relevant to strings.",
-  "title": "SplitEQ 2: Shape a Violin's Attack and Tone Separately",
-  "hook": "What if you could shape a note's attack without changing its tonal body?",
-  "description": "Eventide's SplitEQ 2 uses Structural Split to separate transient and tonal parts of a sound. Six dynamic bands can shape those layers independently, and new source options include strings, synths, horns and woodwinds. This is a music-production explainer with a symbolic violin example, not a claim of a live creator recording.",
+  "production_date": "2026-11-21",
+  "slot_id": "production-tech",
+  "slot_status": "ready",
+  "story_type": "music_technology",
+  "core_claim": "Steinberg Chromaspheres converts imported audio samples into playable sounds using four synthesis engines and thirty sound-shaping modes.",
+  "topic": "Steinberg's free Chromaspheres instrument for HALion Sonic and HALion, which converts imported samples into playable sounds through wavetable, granular, spectral and sample-based engines.",
+  "title": "One Sample, Thirty Sound Modes: Steinberg Chromaspheres",
+  "hook": "What if one recording could become a completely different playable instrument?",
+  "description": "A global music-technology explainer about Steinberg Chromaspheres, a free HALion Sonic instrument. Production Expert and Synth News independently describe its sample-to-playable-instrument workflow, four synthesis engines and thirty sound-shaping modes. The video uses only conceptual diagrams and an original/CC0 violin phrase as an illustration. It is not a hands-on Violin Prince test: do not claim the sample was processed through Chromaspheres, show a fabricated plugin interface, or invent a before-and-after result.",
   "hashtags": [
-    "#Violin",
-    "#MusicProduction",
-    "#AudioEngineering",
-    "#DynamicEQ",
+    "#MusicTechnology",
+    "#SoundDesign",
+    "#Synthesis",
+    "#AudioProduction",
     "#ViolinPrince"
   ],
   "tags": [
-    "SplitEQ 2",
-    "Eventide SplitEQ",
-    "dynamic EQ",
-    "transient shaping",
-    "tonal shaping",
-    "violin mixing",
-    "music production",
-    "audio engineering",
+    "Steinberg Chromaspheres",
+    "sample based synthesis",
+    "wavetable synthesis",
+    "granular synthesis",
+    "spectral synthesis",
+    "HALion Sonic",
+    "sound design",
+    "music technology",
     "Violin Prince"
   ],
   "narrative_style": "documentary",
-  "cover_payoff": "Use a clearly symbolic sampled violin phrase to illustrate how separately shaping a note's transient attack and tonal body may change its perceived articulation. Do not present the sample or illustrated hands as a live performance recorded by Prince.",
-  "narration_script": "Why separate a note's attack from its body? SplitEQ 2 separates transient and tonal components. Six dynamic bands can shape those layers independently. New sources now include strings, synths, horns and woodwinds on SplitEQ 2.",
+  "cover_payoff": "Use a disclosed original or CC0 violin sample as the source in a conceptual diagram showing how one recording can become a playable instrument. Do not claim the sample was processed in Chromaspheres or fake a software demonstration; keep the audible phrase original and clearly illustrative.",
+  "narration_script": "Can one recording become a playable instrument? Steinberg’s free Chromaspheres instrument turns samples into sounds. Four engines—wavetable, granular, spectral and sample—offer thirty sound-shaping modes. Composers can create new source material from their recordings.",
   "narration_evidence": [
     {
       "sentence_number": 2,
       "source_id": "S001",
-      "quote": "Eventide has announced SplitEQ 2, a six-band dynamic EQ incorporating patented Structural Split technology that separates the transient and tonal parts of a sound, enabling independent shaping of each."
+      "quote": "turns any sample dropped onto it into a playable sound"
     },
     {
       "sentence_number": 3,
-      "source_id": "S001",
-      "quote": "Transient and tonal content may be compressed or expanded independently with six dynamic bands"
+      "source_id": "S002",
+      "quote": "four engines (wavetable, granular, spectral, sample), 30 modes and MPE"
     },
     {
       "sentence_number": 4,
-      "source_id": "S002",
-      "quote": "Eventide has also added seven new processing profiles for different types of material, for working with distorted guitars, synth leads, strings, synth pads, woodwinds, solo horn instruments, and horn sections"
+      "source_id": "S001",
+      "quote": "aimed at composers and sound designers who want to build new source material from their own recordings"
     }
   ],
   "sources": [
     {
       "source_id": "S001",
-      "title": "Eventide Launches SplitEQ 2 Plug-In",
-      "url": "https://www.mixonline.com/technology/eventide-launches-spliteq-2-plug-in",
-      "publisher_domain": "mixonline.com",
-      "date": "2026-11-17"
+      "title": "Steinberg's Free Chromaspheres Builds Synths From Your Samples",
+      "url": "https://www.production-expert.com/production-expert-1/steinbergs-free-chromaspheres-builds-synths-from-your-samples",
+      "publisher_domain": "production-expert.com",
+      "date": "2026-11-19"
     },
     {
       "source_id": "S002",
-      "title": "Eventide SplitEQ 2: A True Pro-Q Competitor?",
-      "url": "https://www.gearnews.com/eventide-spliteq-studio/",
-      "publisher_domain": "gearnews.com",
-      "date": "2026-11-17"
+      "title": "Steinberg Chromaspheres: a free instrument that turns your samples into new sounds",
+      "url": "https://www.synth-news.com/en/software/free-open-source/steinberg-chromaspheres-free-sample-synth-released/",
+      "publisher_domain": "synth-news.com",
+      "date": "2026-11-19"
     }
   ],
   "timeline": [],
   "scenes": [
     {
-      "id": "attack-tone-hook",
-      "title": "One note, two layers",
-      "caption": "ONE NOTE. TWO LAYERS.",
-      "image_prompt": "Vertical 9:16 midnight-navy 2D editorial illustration of an amber violin beside a single musical note represented by two separate visual lanes: a short bright transient pulse and a longer warm tonal waveform. Keep the illustration symbolic and technically explanatory, with antique-gold and muted-teal accents, precise linework, painted texture, no numbers, no logos and no readable text inside the artwork.",
+      "id": "one-sample",
+      "title": "One recording",
+      "caption": "ONE SAMPLE CAN BECOME AN INSTRUMENT",
       "visual_mode": "waveform",
-      "graphic_label": "THE HOOK",
-      "graphic_detail": "A note has a sharp attack and a tonal body",
+      "image_prompt": "Vertical 9:16 premium editorial illustration. A single amber waveform from a short violin sample enters a precise, elegant sound-design chamber and becomes a luminous playable instrument shape. Conceptual only, no numeric measurements, no product interface, no logos or readable text. Midnight navy, muted teal and antique gold, tactile materials and crisp motion-graphic linework.",
       "narration_sentence_indexes": [
         0
       ]
     },
     {
-      "id": "independent-dynamics",
-      "title": "Shape each layer",
-      "caption": "SHAPE EACH PART",
-      "image_prompt": "Vertical 9:16 premium 2D technical editorial illustration showing two parallel audio lanes, one representing transient attack and one representing tonal body, entering separate dynamic-processing controls and rejoining. Use six small abstract band markers, but no invented measurements, numeric response curves, logos or readable embedded words. Midnight navy, antique gold and muted teal.",
-      "visual_mode": "comparison",
-      "graphic_label": "THE KEY DETAIL",
-      "graphic_detail": "Six dynamic bands can shape both layers independently",
+      "id": "four-engines",
+      "title": "Four synthesis paths",
+      "caption": "WAVETABLE · GRANULAR · SPECTRAL · SAMPLE",
+      "visual_mode": "mechanism_illustration",
+      "image_prompt": "Vertical 9:16 technical editorial illustration: one generic sample waveform branches into four clearly distinct conceptual paths representing wavetable, granular, spectral and sample playback, then resolves into a playable keyboard-like sound object. Keep the four paths visually clear; no fake software UI, brand logos, measured values or unsupported controls. Midnight navy, muted teal, antique gold.",
       "narration_sentence_indexes": [
         1,
         2
       ]
     },
     {
-      "id": "violin-payoff",
-      "title": "The violin example",
-      "caption": "KEEP THE NOTE IN FOCUS",
-      "image_prompt": "Vertical 9:16 symbolic violin-performance payoff in the Violin Prince midnight studio: a complete amber-brown violin and bow, expressive non-identifiable playing hands, and two subtle audio ribbons for attack and tonal body converging into one balanced musical phrase. Original illustrated artwork only; do not imply a real recorded performance. No text, logos or watermark.",
+      "id": "sound-design-payoff",
+      "title": "A sound becomes playable",
+      "caption": "A NEW WAY TO SHAPE A SAMPLE",
       "visual_mode": "cover_performance",
-      "graphic_label": "THE PAYOFF",
-      "graphic_detail": "Separate shaping can clarify a string note's articulation",
+      "image_prompt": "Vertical 9:16 symbolic Violin Prince studio illustration: a complete amber-walnut violin and bow beside an abstract playable sound ribbon, with non-identifiable expressive hands. Clearly conceptual rather than a real creator recording or product demonstration. Cinematic midnight-navy background, muted teal and antique-gold highlights, no text, logos, software UI or watermark.",
       "narration_sentence_indexes": [
         3
       ]
     }
   ],
   "performance_feedback": {
-    "sample_window": "No mature sample available for this creator-requested one-off preview on 2026-11-20",
+    "sample_window": "No published Violin Prince performance sample exists for this first scheduled batch.",
     "sample_count": 0,
-    "confidence": "Not an analytics-derived recommendation. The latest RoomTune publication has not reached its 24-hour review window and duplicate-check analytics access is limited.",
+    "confidence": "Editorial selection is based on two independent current music-technology reports; no claim is made about Violin Prince audience response.",
     "strengths_to_preserve": [
-      "Keep a violin-led example and a clear music-production explanation as part of the channel identity."
+      "Connect a real production technology story to a clear, violin-related concept."
     ],
-    "one_change_to_test": "Use a different music-production mechanism—transient versus tonal shaping—instead of another room-acoustics topic. This is a topic-diversity test, not a claimed audience preference.",
-    "measurement_for_next_upload": "After creator review and any later approved publication, compare 24-hour and seven-day views, engaged views, average view duration, average view percentage, likes, comments, shares and stayed-to-watch where available."
+    "one_change_to_test": "Explain the four synthesis approaches with one sample-to-four-path visual rather than a generic plugin showcase.",
+    "measurement_for_next_upload": "Compare 24-hour and seven-day views, engaged views, average view duration, average percentage viewed, stayed-to-watch, likes, comments and shares."
   },
   "narration_asr_hotwords": [
-    "SplitEQ",
-    "Eventide",
-    "transient",
-    "tonal"
-  ]
+    "Steinberg",
+    "Chromaspheres",
+    "wavetable",
+    "granular",
+    "spectral",
+    "HALion Sonic"
+  ],
+  "publish_metadata": {
+    "title": "One Sample, Thirty Sound Modes: Steinberg Chromaspheres",
+    "description": "A global music-technology explainer about Steinberg Chromaspheres, a free HALion Sonic instrument. Production Expert and Synth News independently describe its sample-to-playable-instrument workflow, four synthesis engines and thirty sound-shaping modes. The video uses only conceptual diagrams and an original/CC0 violin phrase as an illustration. It is not a hands-on Violin Prince test: do not claim the sample was processed through Chromaspheres, show a fabricated plugin interface, or invent a before-and-after result.",
+    "tags": [
+      "Steinberg Chromaspheres",
+      "sample based synthesis",
+      "wavetable synthesis",
+      "granular synthesis",
+      "spectral synthesis",
+      "HALion Sonic",
+      "sound design",
+      "music technology",
+      "Violin Prince"
+    ],
+    "category_id": "10",
+    "default_language": "en",
+    "privacy_status": "private",
+    "made_for_kids": false
+  },
+  "made_for_kids": false,
+  "contains_synthetic_media": true
 }

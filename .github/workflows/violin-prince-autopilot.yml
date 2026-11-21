@@ -275,6 +275,9 @@ jobs:
           narration_script = re.sub(r"\s+", " ", str(plan.get("narration_script") or "")).strip()
           if not narration_script:
               raise SystemExit("The daily production plan has no narration script.")
+          slot_id = str(plan.get("slot_id") or "").strip()
+          if slot_id not in {"music-secrets", "production-tech", "melody-stories", "real-performance"}:
+              raise SystemExit("A canonical four-slot ID is required for a private-preview upload.")
           plan_sha256 = hashlib.sha256(plan_bytes).hexdigest()
           narration_sha256 = hashlib.sha256(narration_script.encode("utf-8")).hexdigest()
           today = datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
@@ -282,6 +285,7 @@ jobs:
               raise SystemExit(f"The daily plan must be refreshed for {today} Asia/Kolkata before production.")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write("plan_path=" + plan_path + "\n")
+              output.write("slot_id=" + slot_id + "\n")
               output.write("plan_sha256=" + plan_sha256 + "\n")
               output.write("narration_sha256=" + narration_sha256 + "\n")
               output.write("publish_to_youtube=" + ("true" if publish_to_youtube else "false") + "\n")
@@ -390,6 +394,29 @@ jobs:
           else
             python autopilot/engine/run_daily_plan.py --plan "${{ steps.daily_request.outputs.plan_path }}"
           fi
+
+      - name: Upload creator-requested production as a PRIVATE YouTube preview
+        if: success() && github.event_name == 'push' && steps.daily_request.outputs.plan_path != ''
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          YOUTUBE_EXPECTED_CHANNEL_ID: ${{ vars.YOUTUBE_EXPECTED_CHANNEL_ID }}
+          YOUTUBE_PRIVACY_STATUS: "private"
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          OUTPUT_DIR: work/output
+          PLAN_PATH: work/package/creative_plan.json
+          SLOT_ID: ${{ steps.daily_request.outputs.slot_id }}
+          PUBLISH_ENABLED: "false"
+        shell: bash
+        run: |
+          set -euo pipefail
+          python autopilot/engine/upload_private_preview.py \
+            --output-dir "$OUTPUT_DIR" \
+            --plan "$PLAN_PATH" \
+            --run-id "$GITHUB_RUN_ID" \
+            --slot-id "$SLOT_ID"
 
       - name: Run complete Prepare → Visuals → Render sequence
         if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path == '' && github.event_name != 'schedule'
