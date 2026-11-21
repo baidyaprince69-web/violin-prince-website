@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from daily_readiness import evaluate_daily_batch_readiness, main as daily_readiness_main
-from slot_registry import SLOT_CATALOG
+from slot_registry import SLOT_CATALOG, load_daily_batch
 
 class SlotBatchReadinessTests(unittest.TestCase):
     def _write(self, root: Path, relative: str, text: str) -> Path:
@@ -105,6 +105,28 @@ class SlotBatchReadinessTests(unittest.TestCase):
                 "--today", "2026-11-22",
             ])
         self.assertEqual(result, 0)
+
+    def test_checked_in_november_22_batch_has_two_complete_channel_valid_preview_plans(self):
+        from datetime import date
+        import run_daily_plan as daily
+
+        project_root = Path(__file__).resolve().parents[3]
+        batch_path = project_root / ".autopilot/daily-batches/2026-11-22.json"
+        plans = load_daily_batch(batch_path, expected_date="2026-11-22")
+        ready = [plan for plan in plans if plan.get("slot_status") == "ready"]
+        blocked = [plan for plan in plans if plan.get("slot_status") == "blocked"]
+
+        self.assertEqual(len(plans), 4)
+        self.assertEqual(len(ready), 2)
+        self.assertEqual(len(blocked), 2)
+        for plan in ready:
+            script = str(plan.get("narration_script") or "")
+            self.assertEqual(daily.engine.narration_word_count(script), 35, plan["slot_id"])
+            self.assertEqual(daily.engine.narration_validation_error(script), "", plan["slot_id"])
+            self.assertEqual(len(daily.engine.narration_sentences(script)), 4, plan["slot_id"])
+            self.assertEqual(daily.engine.validate_creative_plan(plan), [], plan["slot_id"])
+            self.assertEqual({item["sentence_number"] for item in plan["narration_evidence"]}, {2, 3, 4})
+            self.assertGreaterEqual(len(plan["sources"]), 2)
 
     def test_wrong_date_batch_is_blocked(self):
         with tempfile.TemporaryDirectory() as temporary:
