@@ -137,8 +137,8 @@ export function directorTransitionSpec(transition, duration) {
     case "shape_match":
       return { property: "clipPath", values: ["circle(0% at 50% 50%)", "circle(76% at 50% 50%)"], easing: "ease-in-out" };
     case "speed_ramp":
-      // Speed ramp is represented as an accelerated camera move; footage retiming needs moving-image layers.
-      return { property: "filter", values: ["blur(2px)", "blur(0px)"], easing: "ease-in" };
+      // The outgoing shot uses an eased camera move; true footage retiming needs moving-image layers.
+      return { property: "opacity", values: [1, 1], easing: "linear" };
     case "light_transition":
       return { property: "filter", values: ["brightness(2.1)", "brightness(1)"], easing: "ease-out" };
     case "foreground_wipe":
