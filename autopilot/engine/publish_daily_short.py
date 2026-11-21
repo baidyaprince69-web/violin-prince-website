@@ -170,6 +170,19 @@ def validate_daily_bundle(
     if manifest.get("contains_synthetic_media") is not synthetic.get("contains_synthetic_media"):
         raise PublishBlocked("Manifest and asset provenance synthetic-media declarations do not match.")
     assets = provenance.get("assets") or {}
+    scene_images = assets.get("scene_images")
+    if not isinstance(scene_images, list) or len(scene_images) != 3:
+        raise PublishBlocked("Provenance must describe the three rendered scene illustrations.")
+    for image_record in scene_images:
+        if (
+            not isinstance(image_record, dict)
+            or image_record.get("origin") != "locally_generated_vector_artwork"
+            or image_record.get("provider") != "Violin Prince local vector illustrator"
+            or image_record.get("model") != "violin-prince-vector-illustrator-v1"
+            or image_record.get("rights_status") != "original_locally_generated_vector_artwork"
+            or not re.fullmatch(r"[0-9a-f]{64}", str(image_record.get("sha256") or ""))
+        ):
+            raise PublishBlocked("Scene illustration provenance does not match the creator-approved local vector renderer.")
     soundtrack = assets.get("soundtrack") or {}
     if soundtrack.get("rights_status") not in {
         "cc0_license_recorded_from_pinned_sample_manifest",
