@@ -180,7 +180,7 @@ def make_layer_assets(root: Path, count: int = 8) -> dict[str, dict[str, Path]]:
         foreground_path = shot_dir / "foreground.png"
         foreground = Image.new("RGBA", (360, 640), (0, 0, 0, 0))
         ImageDraw.Draw(foreground).polygon(
-            [(0, 470 + index, 95, 425, 180, 640, 0, 640)],
+            [(0, 470 + index), (95, 425), (180, 640), (0, 640)],
             fill=(15 + index * 9, 35, 55 + index * 8, 185),
         )
         foreground.save(foreground_path, format="PNG")
