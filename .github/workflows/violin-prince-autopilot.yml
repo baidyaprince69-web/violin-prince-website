@@ -266,7 +266,7 @@ jobs:
               raise SystemExit("The daily production plan has no narration script.")
           slot_id = str(plan.get("slot_id") or "").strip()
           if slot_id not in {"music-secrets", "production-tech", "melody-stories", "real-performance"}:
-              raise SystemExit("A canonical four-slot ID is required for a private-preview upload.")
+              raise SystemExit("A canonical four-slot ID is required for the scheduled YouTube upload.")
           plan_sha256 = hashlib.sha256(plan_bytes).hexdigest()
           narration_sha256 = hashlib.sha256(narration_script.encode("utf-8")).hexdigest()
           today = datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
