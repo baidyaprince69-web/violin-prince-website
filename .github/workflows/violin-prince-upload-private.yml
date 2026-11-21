@@ -1,0 +1,262 @@
+name: Violin Prince Private Preview Upload via Upload-Post
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".autopilot/upload-request.json"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: violin-prince-private-upload-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out upload request and approved plan
+        uses: actions/checkout@v4
+
+      - name: Validate private-upload request
+        id: request
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import re
+          from datetime import datetime
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+
+          request = json.loads(Path(".autopilot/upload-request.json").read_text(encoding="utf-8"))
+          plan = json.loads(Path(".autopilot/daily-production-plan.json").read_text(encoding="utf-8"))
+          if request.get("mode") != "upload_existing_private_preview":
+              raise SystemExit("Unsupported upload request mode.")
+          if request.get("privacy_status") != "private" or request.get("publish_to_youtube") is not False:
+              raise SystemExit("This workflow accepts PRIVATE previews only.")
+          source_run_id = str(request.get("source_run_id") or "")
+          artifact_name = str(request.get("artifact_name") or "")
+          slot_id = str(request.get("slot_id") or "")
+          production_date = str(request.get("production_date") or "")
+          if not source_run_id.isdigit():
+              raise SystemExit("A numeric source workflow run ID is required.")
+          if not re.fullmatch(r"violin-prince-private-preview-\d+", artifact_name):
+              raise SystemExit("The private-preview artifact name is invalid.")
+          if slot_id not in {"music-secrets", "production-tech", "melody-stories", "real-performance"}:
+              raise SystemExit("A canonical production slot is required.")
+          today = datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
+          if production_date != today or plan.get("production_date") != today:
+              raise SystemExit("The plan and upload request must be current for Asia/Kolkata.")
+          if plan.get("slot_id") != slot_id:
+              raise SystemExit("The upload request does not match the approved plan slot.")
+          metadata = plan.get("publish_metadata") or {}
+          if metadata.get("privacy_status") != "private":
+              raise SystemExit("The creative plan does not explicitly request private visibility.")
+          if not str(metadata.get("title") or "").strip():
+              raise SystemExit("The creative plan is missing its YouTube title.")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write("source_run_id=" + source_run_id + "\n")
+              output.write("artifact_name=" + artifact_name + "\n")
+              output.write("slot_id=" + slot_id + "\n")
+              output.write("production_date=" + production_date + "\n")
+          print("Validated one private-preview upload request.")
+          PY
+
+      - name: Download the exact rendered MP4 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ steps.request.outputs.artifact_name }}
+          path: work/output
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.request.outputs.source_run_id }}
+
+      - name: Install upload validation dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python -m pip install --disable-pip-version-check "requests>=2.32,<3"
+
+      - name: Validate the rendered asset and upload as PRIVATE through Upload-Post
+        env:
+          UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
+          REQUEST_PATH: .autopilot/upload-request.json
+          PLAN_PATH: .autopilot/daily-production-plan.json
+          OUTPUT_DIR: work/output
+          SOURCE_RUN_ID: ${{ steps.request.outputs.source_run_id }}
+          SLOT_ID: ${{ steps.request.outputs.slot_id }}
+          PRODUCTION_DATE: ${{ steps.request.outputs.production_date }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          import subprocess
+          import time
+          from pathlib import Path
+
+          import requests
+
+          request = json.loads(Path(os.environ["REQUEST_PATH"]).read_text(encoding="utf-8"))
+          plan = json.loads(Path(os.environ["PLAN_PATH"]).read_text(encoding="utf-8"))
+          output = Path(os.environ["OUTPUT_DIR"])
+          video = output / "violin-prince-short.mp4"
+          manifest = json.loads((output / "publish-manifest.json").read_text(encoding="utf-8"))
+          provenance = json.loads((output / "asset-provenance.json").read_text(encoding="utf-8"))
+          api_key = os.environ.get("UPLOAD_POST_API_KEY", "").strip()
+          if not api_key:
+              raise SystemExit("UPLOAD_POST_API_KEY is not configured; no upload was attempted.")
+
+          source_run_id = str(os.environ["SOURCE_RUN_ID"])
+          slot_id = str(os.environ["SLOT_ID"])
+          production_date = str(os.environ["PRODUCTION_DATE"])
+          if str(request.get("source_run_id")) != source_run_id:
+              raise SystemExit("The source run ID does not match the upload request.")
+          if str(manifest.get("run_id")) != source_run_id:
+              raise SystemExit("The MP4 manifest belongs to a different production run.")
+          if manifest.get("status") != "rendered" or manifest.get("publish_ready") is not True:
+              raise SystemExit("The MP4 manifest is not marked ready for private preview.")
+          if str(manifest.get("youtube_privacy") or "").lower() != "private":
+              raise SystemExit("The publisher manifest does not explicitly require PRIVATE visibility.")
+          if manifest.get("made_for_kids") is not False:
+              raise SystemExit("The manifest is missing the approved not-made-for-kids declaration.")
+          if manifest.get("format") != "9:16" or manifest.get("video_type") != "short":
+              raise SystemExit("The manifest does not identify a vertical Short.")
+          if plan.get("production_date") != production_date or plan.get("slot_id") != slot_id:
+              raise SystemExit("The downloaded MP4 does not match the current approved plan.")
+          metadata = plan.get("publish_metadata") or {}
+          if metadata.get("privacy_status") != "private":
+              raise SystemExit("The plan does not request PRIVATE visibility.")
+          if str(plan.get("title") or "").strip() != str(manifest.get("title") or "").strip():
+              raise SystemExit("The plan and manifest titles do not match.")
+          if not isinstance(manifest.get("contains_synthetic_media"), bool) or manifest.get("contains_synthetic_media") is not True:
+              raise SystemExit("The synthetic-media declaration is missing.")
+          factual = provenance.get("factual_provenance") or {}
+          sources = factual.get("sources") or []
+          evidence = factual.get("narration_claim_evidence") or []
+          publishers = {str(x.get("publisher_domain") or "").casefold() for x in sources if isinstance(x, dict)}
+          if factual.get("status") != "passed" or len(publishers) < 2 or len(evidence) < 3:
+              raise SystemExit("Two-publisher factual provenance did not pass.")
+          if not video.is_file() or video.stat().st_size < 4096:
+              raise SystemExit("The rendered MP4 is missing or unexpectedly small.")
+          digest = hashlib.sha256(video.read_bytes()).hexdigest()
+          final_record = ((provenance.get("assets") or {}).get("final_video") or {})
+          if final_record.get("sha256") != digest:
+              raise SystemExit("The MP4 checksum does not match the provenance record.")
+          probe = subprocess.run(
+              ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+               "-show_entries", "stream=codec_type,codec_name,width,height",
+               "-of", "json", str(video)],
+              check=True, capture_output=True, text=True, timeout=45,
+          )
+          media = json.loads(probe.stdout)
+          streams = media.get("streams") or []
+          vstream = next((x for x in streams if x.get("codec_type") == "video"), {})
+          duration = float((media.get("format") or {}).get("duration") or 0)
+          if (vstream.get("codec_name") != "h264" or vstream.get("width") != 720
+              or vstream.get("height") != 1280 or not 20 <= duration <= 25):
+              raise SystemExit("Independent MP4 inspection failed the vertical Shorts quality contract.")
+
+          title = str(metadata["title"]).strip()
+          description = str(metadata["description"]).strip()
+          tags = metadata.get("tags") or []
+          if not title or len(title) > 100 or not description or len(tags) < 3:
+              raise SystemExit("Required YouTube metadata is incomplete.")
+          request_id = f"violin-prince-{source_run_id}-{slot_id}"
+          form = [
+              ("user", "default"),
+              ("platform[]", "youtube"),
+              ("title", title),
+              ("description", description),
+              ("categoryId", str(metadata.get("category_id") or "10")),
+              ("privacyStatus", "private"),
+              ("defaultLanguage", str(metadata.get("default_language") or "en")),
+              ("defaultAudioLanguage", "en"),
+              ("selfDeclaredMadeForKids", "false"),
+              ("containsSyntheticMedia", "true"),
+              ("youtube_notify_subscribers", "false"),
+              ("async_upload", "true"),
+              ("request_id", request_id),
+              ("external_id", request_id),
+          ]
+          form.extend(("tags[]", str(tag)) for tag in tags)
+          headers = {
+              "Authorization": "Apikey " + api_key,
+              "Idempotency-Key": request_id,
+          }
+          with video.open("rb") as stream:
+              response = requests.post(
+                  "https://api.upload-post.com/api/upload",
+                  headers=headers,
+                  data=form,
+                  files={"video": (video.name, stream, "video/mp4")},
+                  timeout=(30, 300),
+              )
+          if response.status_code not in (200, 202):
+              raise SystemExit(f"Upload-Post rejected the private upload request (HTTP {response.status_code}).")
+          payload = response.json()
+          if payload.get("success") is not True:
+              raise SystemExit("Upload-Post did not accept the private YouTube upload.")
+          returned_id = str(payload.get("request_id") or "")
+          if returned_id:
+              deadline = time.monotonic() + 600
+              final = None
+              while time.monotonic() < deadline:
+                  status_response = requests.get(
+                      "https://api.upload-post.com/api/uploadposts/status",
+                      headers=headers,
+                      params={"request_id": returned_id},
+                      timeout=30,
+                  )
+                  status_response.raise_for_status()
+                  status_payload = status_response.json()
+                  results = status_payload.get("results") or []
+                  if isinstance(results, dict):
+                      youtube_result = results.get("youtube")
+                  else:
+                      youtube_result = next(
+                          (item for item in results if isinstance(item, dict) and item.get("platform") == "youtube"),
+                          None,
+                      )
+                  state = str(status_payload.get("status") or "").lower()
+                  platform_state = str((youtube_result or {}).get("status") or "").lower()
+                  if state == "completed" or platform_state == "completed":
+                      if not youtube_result or youtube_result.get("success") is False:
+                          raise SystemExit("Upload-Post completed without a successful YouTube result.")
+                      final = status_payload
+                      break
+                  if state == "failed" or platform_state == "failed":
+                      raise SystemExit("Upload-Post reported a failed YouTube upload.")
+                  time.sleep(10)
+              if final is None:
+                  raise SystemExit("Upload-Post did not confirm completion before the polling deadline; do not create a second upload.")
+          else:
+              results = payload.get("results") or {}
+              youtube_result = results.get("youtube") if isinstance(results, dict) else None
+              if not youtube_result or youtube_result.get("success") is not True:
+                  raise SystemExit("Upload-Post did not return a successful YouTube result.")
+
+          summary = (
+              "## Violin Prince private preview uploaded\n\n"
+              f"- **Title:** {title}\n"
+              "- **Channel:** Violin - Prince (@violinprince)\n"
+              "- **Upload route:** Upload-Post\n"
+              "- **YouTube visibility requested:** PRIVATE\n"
+              "- **Public publishing:** disabled\n"
+          )
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as handle:
+              handle.write(summary)
+          print("UPLOAD_POST_YOUTUBE_STATUS=completed")
+          print("YOUTUBE_VISIBILITY_REQUESTED=private")
+          PY
