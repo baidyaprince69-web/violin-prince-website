@@ -14,7 +14,7 @@ SLOT_CATALOG = {
     "music-secrets": "Violin & Music Secrets",
     "production-tech": "Production & Audio Tech",
     "melody-stories": "Melody Stories",
-    "real-performance": "Real Violin Performance",
+    "real-performance": "Violin Performance & Technique",
 }
 
 class SlotContractError(ValueError):
