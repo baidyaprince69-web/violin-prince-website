@@ -10,7 +10,7 @@ import json
 import re
 from typing import Any
 
-DIRECTOR_CONTRACT_VERSION = "violin-prince-master-director-v1"
+DIRECTOR_CONTRACT_VERSION = "violin-prince-master-director-v2"
 MIN_DURATION_SECONDS = 20.0
 MAX_DURATION_SECONDS = 60.0
 MIN_SHOTS = 8
@@ -124,7 +124,7 @@ DIRECTORIAL THINKING:
 Return exactly one JSON object, with no Markdown, prose preamble or comments.
 Use this contract:
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "story_understanding": {
     "central_truth": "string",
     "viewer_question": "string",
@@ -171,6 +171,53 @@ Use this contract:
         "depth_motion": "string or empty only when genuinely absent",
         "motion_rationale": "why the motion communicates the story"
       },
+      "visual_layers": [
+        {
+          "id": "background",
+          "role": "background",
+          "description": "full-frame environment, with no subject baked into it",
+          "generation_prompt": "specific asset-generation prompt matching this shot",
+          "z_index": 0,
+          "asset_mode": "opaque",
+          "motion": {
+            "type": "drift",
+            "direction": "left",
+            "intensity": 0.25,
+            "start_offset_seconds": 0,
+            "rationale": "why this separate layer moves"
+          }
+        },
+        {
+          "id": "subject",
+          "role": "subject",
+          "description": "one isolated subject only; no background",
+          "generation_prompt": "matching transparent cutout prompt; preserve subject identity",
+          "z_index": 20,
+          "asset_mode": "transparent_png",
+          "motion": {
+            "type": "float",
+            "direction": "up",
+            "intensity": 0.3,
+            "start_offset_seconds": 0.2,
+            "rationale": "why this separate layer moves"
+          }
+        },
+        {
+          "id": "foreground",
+          "role": "foreground",
+          "description": "separate foreground occluder or environmental detail",
+          "generation_prompt": "matching transparent foreground-only cutout prompt",
+          "z_index": 40,
+          "asset_mode": "transparent_png",
+          "motion": {
+            "type": "parallax",
+            "direction": "right",
+            "intensity": 0.45,
+            "start_offset_seconds": 0,
+            "rationale": "why depth movement supports the shot"
+          }
+        }
+      ],
       "transition_to_next": "supported transition; final shot uses none",
       "narration_cue": "words or factual beat to align",
       "music_cue": "music moment or editorial target",
@@ -252,8 +299,8 @@ def validate_director_plan(plan: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     if not isinstance(plan, dict):
         return ["Director plan must be a JSON object."]
-    if plan.get("schema_version") != 1:
-        errors.append("schema_version must be 1.")
+    if plan.get("schema_version") != 2:
+        errors.append("schema_version must be 2.")
 
     story = plan.get("story_understanding")
     if not isinstance(story, dict):
@@ -387,6 +434,72 @@ def validate_director_plan(plan: dict[str, Any]) -> list[str]:
             )
         if not _is_nonempty(animation.get("motion_rationale")):
             errors.append(f"{prefix}.animation.motion_rationale must explain the story purpose of movement.")
+
+        visual_layers = shot.get("visual_layers")
+        if not isinstance(visual_layers, list) or len(visual_layers) < 3 or len(visual_layers) > 6:
+            errors.append(f"{prefix}.visual_layers must contain 3 to 6 independently generated layers.")
+            visual_layers = []
+        layer_ids: set[str] = set()
+        layer_roles: set[str] = set()
+        layer_z_values: set[int] = set()
+        active_layer_count = 0
+        for layer_index, layer in enumerate(visual_layers):
+            layer_prefix = f"{prefix}.visual_layers[{layer_index}]"
+            if not isinstance(layer, dict):
+                errors.append(f"{layer_prefix} must be an object.")
+                continue
+            layer_id = str(layer.get("id") or "").strip()
+            role = str(layer.get("role") or "").strip().casefold()
+            if not layer_id or layer_id in layer_ids:
+                errors.append(f"{layer_prefix}.id must be non-empty and unique.")
+            layer_ids.add(layer_id)
+            if role not in {"background", "subject", "foreground", "atmosphere", "graphic"}:
+                errors.append(f"{layer_prefix}.role is unsupported.")
+            layer_roles.add(role)
+            if not _is_nonempty(layer.get("description")):
+                errors.append(f"{layer_prefix}.description is required.")
+            if not _is_nonempty(layer.get("generation_prompt")):
+                errors.append(f"{layer_prefix}.generation_prompt is required.")
+            z_value = layer.get("z_index")
+            if not isinstance(z_value, int) or isinstance(z_value, bool) or z_value < 0 or z_value > 1000:
+                errors.append(f"{layer_prefix}.z_index must be an integer from 0 to 1000.")
+            elif z_value in layer_z_values:
+                errors.append(f"{layer_prefix}.z_index must be unique within its shot.")
+            else:
+                layer_z_values.add(z_value)
+            asset_mode = str(layer.get("asset_mode") or "").strip().casefold()
+            if role == "background" and asset_mode != "opaque":
+                errors.append(f"{layer_prefix} background asset_mode must be opaque.")
+            elif role != "background" and asset_mode != "transparent_png":
+                errors.append(f"{layer_prefix} non-background asset_mode must be transparent_png.")
+            motion = layer.get("motion")
+            if not isinstance(motion, dict):
+                errors.append(f"{layer_prefix}.motion must be an object.")
+                motion = {}
+            motion_type = str(motion.get("type") or "").strip().casefold()
+            if motion_type not in {
+                "drift", "float", "sway", "pulse", "rotate", "reveal",
+                "parallax", "particle", "wave", "locked",
+            }:
+                errors.append(f"{layer_prefix}.motion.type is unsupported.")
+            elif motion_type != "locked":
+                active_layer_count += 1
+            if not _is_nonempty(motion.get("direction")):
+                errors.append(f"{layer_prefix}.motion.direction is required.")
+            intensity = motion.get("intensity")
+            if not _is_number(intensity) or not 0 <= float(intensity) <= 1:
+                errors.append(f"{layer_prefix}.motion.intensity must be between 0 and 1.")
+            offset = motion.get("start_offset_seconds")
+            if not _is_number(offset) or not 0 <= float(offset) < max(0.8, shot_duration):
+                errors.append(f"{layer_prefix}.motion.start_offset_seconds is outside this shot.")
+            if not _is_nonempty(motion.get("rationale")):
+                errors.append(f"{layer_prefix}.motion.rationale is required.")
+        if not {"background", "subject"}.issubset(layer_roles):
+            errors.append(f"{prefix}.visual_layers must include separate background and subject layers.")
+        if not ({"foreground", "atmosphere", "graphic"} & layer_roles):
+            errors.append(f"{prefix}.visual_layers needs a separate foreground, atmosphere or graphic layer.")
+        if active_layer_count < 2:
+            errors.append(f"{prefix}.visual_layers requires at least two independently animated layers.")
 
         transition = str(shot.get("transition_to_next") or "").strip().casefold()
         if index == len(shots) - 1:
