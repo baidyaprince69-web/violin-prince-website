@@ -1,4 +1,4 @@
-import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { readFileSync, mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { build as bundle } from "esbuild";
 import { compileMotionTracks } from "./src/motion-build.mjs";
@@ -339,6 +339,60 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     }
     return [selected];
   });
+
+  const visualLayers = Array.isArray(scene.visual_layers) ? scene.visual_layers : [];
+  let independentLayerMotionCount = 0;
+  if (String(scene.visual_mode || "").toLowerCase() === "director_shot") {
+    if (visualLayers.length < 3) {
+      throw new Error("Director shot " + scene.id + " needs at least three separate visual layers.");
+    }
+    const roles = new Set(visualLayers.map((layer) => String(layer.role || "").toLowerCase()));
+    if (!roles.has("background") || !roles.has("subject")) {
+      throw new Error("Director shot " + scene.id + " is missing a separate background or subject layer.");
+    }
+    if (!["foreground", "atmosphere", "graphic"].some((role) => roles.has(role))) {
+      throw new Error("Director shot " + scene.id + " needs a foreground, atmosphere or graphic depth layer.");
+    }
+    const layerIds = new Set();
+    const zIndexes = new Set();
+    for (const layer of visualLayers) {
+      const layerId = String(layer.id || "");
+      const role = String(layer.role || "").toLowerCase();
+      if (!layerId || layerIds.has(layerId)) {
+        throw new Error("Director shot " + scene.id + " has a missing or duplicate visual layer ID.");
+      }
+      layerIds.add(layerId);
+      const z = Number(layer.z_index);
+      if (!Number.isInteger(z) || z < 0 || zIndexes.has(z)) {
+        throw new Error("Director shot " + scene.id + " has an invalid or duplicated layer depth order.");
+      }
+      zIndexes.add(z);
+      if (!layer.image || !existsSync(resolve(outputDir, layer.image))) {
+        throw new Error("Director shot " + scene.id + " is missing staged layer asset " + layerId + ".");
+      }
+      if (role !== "background") {
+        if (String(layer.asset_mode || "") !== "transparent_png" || !layer.asset_has_alpha) {
+          throw new Error("Director shot " + scene.id + " layer " + layerId +
+            " is not a verified transparent cutout.");
+        }
+      }
+      const motionType = String(layer.motion?.type || "locked").toLowerCase();
+      if (role !== "background" && motionType !== "locked") {
+        independentLayerMotionCount += 1;
+      }
+    }
+    const actualLayerMotionCount = new Set(project.motion_tracks
+      .filter((track) =>
+        String(track.target || "").startsWith(scene.id + "-layer-") &&
+        track.property === "transform"
+      )
+      .map((track) => track.target)).size;
+    if (actualLayerMotionCount < independentLayerMotionCount || independentLayerMotionCount < 2) {
+      throw new Error("Director shot " + scene.id + " requested " + independentLayerMotionCount +
+        " independently animated foreground/subject layers but Motion generated " +
+        actualLayerMotionCount + ".");
+    }
+  }
   return {
     scene_id: scene.id,
     graphic_type: type,
@@ -352,7 +406,9 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
       return Math.max(maximum, gestureKeyframeCount(action.gesture));
     }, 0),
     presenter_pose_asset_count: presenterPoseAssets.length,
-    presenter_pose_assets: presenterPoseAssets
+    presenter_pose_assets: presenterPoseAssets,
+    independent_layer_motion_count: independentLayerMotionCount,
+    rendered_layer_count: visualLayers.length
   };
 });
 const motionReport = {
@@ -363,6 +419,8 @@ const motionReport = {
   animated_graphic_item_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_graphic_items, 0),
   animated_presenter_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_presenter_count, 0),
   presenter_pose_asset_count: motionSceneReports.reduce((sum, scene) => sum + scene.presenter_pose_asset_count, 0),
+  independent_layer_motion_count: motionSceneReports.reduce((sum, scene) => sum + scene.independent_layer_motion_count, 0),
+  rendered_layer_count: motionSceneReports.reduce((sum, scene) => sum + scene.rendered_layer_count, 0),
   scenes: motionSceneReports
 };
 
