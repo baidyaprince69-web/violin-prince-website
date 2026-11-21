@@ -17,6 +17,7 @@ Base `main` was verified on 21 November 2026 after PR #115 merged. The private-p
 - The workflow rejects legacy `publish_to_youtube: true` requests while private-preview commissioning is active. The existing public publisher module remains separate and is not called by the scheduled route.
 - Existing approval records and GitHub secrets are unchanged. The local illustration approval's `public_youtube` scope does not override the scheduled workflow's explicit private-visibility requirement.
 - The private Qwen3 voice worker remains a narration service; the new private-preview step uploads the finished video to the verified YouTube channel.
+- Private video IDs and URLs are never written to this public repository or Actions summary. Review the accumulated previews in YouTube Studio → Content → Private, matched by title and production date.
 
 ## Four-slot production and ChatGPT director — PR #115 merged
 
