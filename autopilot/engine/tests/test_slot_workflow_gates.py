@@ -1,5 +1,4 @@
 from __future__ import annotations
-import re
 import unittest
 from pathlib import Path
 
@@ -7,15 +6,30 @@ ROOT = Path(__file__).resolve().parents[3]
 WORKFLOW = ROOT / ".github" / "workflows" / "violin-prince-autopilot.yml"
 
 
+def top_level_job_block(content: str, job_name: str) -> str:
+    lines = content.splitlines()
+    heading = f"  {job_name}:"
+    try:
+        start = lines.index(heading) + 1
+    except ValueError as exc:
+        raise AssertionError(f"Could not locate top-level job {job_name!r}.") from exc
+    end = next(
+        (
+            index for index in range(start, len(lines))
+            if lines[index].startswith("  ")
+            and not lines[index].startswith("    ")
+            and lines[index].strip().endswith(":")
+        ),
+        len(lines),
+    )
+    return "\n".join(lines[start:end])
+
+
 class BlockedSlotWorkflowTests(unittest.TestCase):
     def test_blocked_slot_never_enters_production_job(self):
         content = WORKFLOW.read_text(encoding="utf-8")
-        match = re.search(
-            r"(?ms)^  produce:\n(.*?)(?=^  [A-Za-z_][A-Za-z0-9_-]*:\n|\\Z)",
-            content,
-        )
-        self.assertIsNotNone(match, "Could not locate the top-level production job.")
-        self.assertIn("needs.daily_readiness.outputs.slot_status == 'ready'", match.group(1))
+        produce = top_level_job_block(content, "produce")
+        self.assertIn("needs.daily_readiness.outputs.slot_status == 'ready'", produce)
 
     def test_blocked_slot_has_a_summary_without_private_transfer(self):
         content = WORKFLOW.read_text(encoding="utf-8")
