@@ -157,11 +157,15 @@ def build_upload_fields(bundle: dict[str, Any], profile: str, release_url: str) 
         raise UploadPostHandoffError("Upload-Post profile name is empty.")
 
     date_key = bundle["production_date"]
+    slot_id = str(bundle["plan"].get("slot_id") or "legacy-single").strip()
+    if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", slot_id):
+        raise UploadPostHandoffError("The production plan slot_id is malformed.")
+    production_identity = f"{date_key}:{slot_id}"
     request_id = uuid.uuid5(
         uuid.NAMESPACE_URL,
-        f"violin-prince:{profile}:youtube:{date_key}",
+        f"violin-prince:{profile}:youtube:{production_identity}",
     ).hex
-    external_id = f"violin-prince-youtube-{date_key}"
+    external_id = f"violin-prince-youtube-{production_identity}"
     fields = [
         ("user", profile),
         ("platform[]", "youtube"),
@@ -251,7 +255,10 @@ def submit_to_upload_post(
 
     client = session or requests.Session()
     fields, request_id, external_id = build_upload_fields(bundle, profile, release_url)
-    idempotency_key = f"violin-prince-youtube-{bundle['production_date']}-{profile}"
+    slot_id = str(bundle["plan"].get("slot_id") or "legacy-single").strip()
+    if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", slot_id):
+        raise UploadPostHandoffError("The production plan slot_id is malformed.")
+    idempotency_key = f"violin-prince-youtube-{bundle['production_date']}-{slot_id}-{profile}"
     headers = {
         "Authorization": f"Apikey {api_key}",
         "Idempotency-Key": idempotency_key,
