@@ -449,6 +449,13 @@ def run_daily_plan(
             raise engine.PipelineError("The daily batch snapshot SHA-256 is malformed.")
         production_identity["batch_snapshot_sha256"] = batch_snapshot_sha256
     plan, verified_sources = validate_and_enrich_plan(plan)
+    scheduled_preview = bool(batch_snapshot_sha256)
+    if scheduled_preview:
+        # Four-slot scheduled runs are commissioned as private YouTube previews.
+        # Do not let editorial metadata accidentally request public visibility.
+        supplied_metadata = plan.get("publish_metadata")
+        supplied_metadata = supplied_metadata if isinstance(supplied_metadata, dict) else {}
+        plan["publish_metadata"] = {**supplied_metadata, "privacy_status": "private"}
     engine.WORK.mkdir(parents=True, exist_ok=True)
     engine.OUT.mkdir(parents=True, exist_ok=True)
     paths = engine._package_paths()
@@ -465,9 +472,8 @@ def run_daily_plan(
     except (TypeError, ValueError) as exc:
         raise engine.PipelineError("YouTube publisher preflight blocked the plan: " + str(exc)) from exc
     plan["publish_metadata"] = dict(metadata_check["value"])
-    # Keep generic multi-destination adapters disabled. A separate, fail-closed
-    # workflow step publishes only to the verified public YouTube channel after
-    # final MP4, source-provenance and duplicate checks pass.
+    # Keep generic multi-destination adapters disabled. Scheduled four-slot
+    # runs are uploaded only as private previews by a separate fail-closed step.
     os.environ["PUBLISH_ENABLED"] = "false"
 
     audio_asset, audio_bytes = engine.get_audio(prefer_creator_assets=False)
@@ -649,7 +655,7 @@ def run_daily_plan(
         production_date=str(plan.get("production_date") or ""),
         slot_id=slot_id,
         run_id=engine.RUN_ID,
-        status="rendered_ready_for_public_youtube",
+        status=("rendered_ready_for_private_preview" if scheduled_preview else "rendered_handoff_only"),
         output_dir=engine.OUT,
     )
     print(
@@ -762,7 +768,7 @@ def main() -> int:
             "asset_provenance": str(engine.OUT / "asset-provenance.json"),
             "publish_ready": publish_manifest.get("publish_ready", False),
             "publisher_preflight": publish_manifest.get("publisher_preflight", {}),
-            "publishing": "direct_public_youtube_after_final_validation",
+            "publishing": ("private_youtube_preview_after_final_validation" if batch_snapshot_sha256 else "no_automatic_upload"),
         }, ensure_ascii=False), flush=True)
         return 0
     except Exception as exc:
