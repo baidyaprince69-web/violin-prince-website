@@ -34,16 +34,17 @@ class BlockedSlotWorkflowTests(unittest.TestCase):
     def test_blocked_slot_has_a_summary_and_no_publication_attempt(self):
         content = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("  report_blocked_slot:", content)
-        self.assertIn("No narration, MP4, private release or public upload was attempted.", content)
+        self.assertIn("No narration, MP4 render or YouTube upload was attempted.", content)
         self.assertIn("  report_readiness_blocked:", content)
 
-    def test_ready_scheduled_slot_publishes_directly_to_public_youtube(self):
+    def test_ready_scheduled_slot_uploads_a_private_youtube_preview(self):
         content = WORKFLOW.read_text(encoding="utf-8")
-        self.assertIn("- name: Publish validated daily slot directly to public YouTube", content)
-        self.assertIn("python autopilot/engine/publish_daily_short.py", content)
-        self.assertIn('YOUTUBE_PRIVACY_STATUS: "public"', content)
+        self.assertIn("- name: Upload validated daily slot as a PRIVATE YouTube preview", content)
+        self.assertIn("python autopilot/engine/upload_private_preview.py", content)
+        self.assertIn('YOUTUBE_PRIVACY_STATUS: "private"', content)
         self.assertIn("needs.daily_readiness.outputs.slot_status == 'ready'", content)
-        self.assertNotIn("- name: Transfer finished preview to the private Voice Vault", content)
+        self.assertNotIn("publish_daily_short.py", content)
+        self.assertNotIn('YOUTUBE_PRIVACY_STATUS: "public"', content)
 
 
 if __name__ == "__main__":

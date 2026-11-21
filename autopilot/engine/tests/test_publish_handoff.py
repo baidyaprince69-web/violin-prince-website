@@ -263,6 +263,27 @@ class AssetProvenanceTests(unittest.TestCase):
         self.assertEqual(manifest["publisher_preflight"]["status"], "ready")
         self.assertIs(manifest["made_for_kids"], False)
 
+    def test_private_preview_manifest_does_not_claim_a_public_release_url(self):
+        check = validate_publish_metadata({
+            "title": self.plan["title"],
+            "description": "Verified source-led music explanation.",
+            "tags": ["Violin", "Music", "Acoustics"],
+            "made_for_kids": False,
+            "privacy_status": "private",
+        })
+        manifest = build_publish_manifest(
+            plan=self.plan,
+            metadata_check=check,
+            video_quality=self.video_quality,
+            provenance=self._provenance(),
+            run_id="private-preview-test",
+        )
+        self.assertTrue(manifest["publish_ready"])
+        self.assertEqual(manifest["youtube_privacy"], "private")
+        self.assertIsNone(manifest["public_video_url"])
+        self.assertIn("private-preview", manifest["publisher"])
+        self.assertIn("Public publishing remains disabled", manifest["publisher_preflight"]["required_action"])
+
     def test_missing_audience_value_uses_preconfirmed_setting_in_publish_manifest(self):
         plan = {key: value for key, value in self.plan.items() if key != "made_for_kids"}
         check = validate_publish_metadata({

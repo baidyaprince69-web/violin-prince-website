@@ -19,13 +19,17 @@ class WorkflowPublicationContractTests(unittest.TestCase):
         self.assertNotIn("Upload finished video", self.workflow_text)
         self.assertNotIn("Preserve stage diagnostics", self.workflow_text)
 
-    def test_scheduled_video_is_sent_directly_to_public_youtube_not_private_vault(self):
-        self.assertIn("Publish validated daily slot directly to public YouTube", self.workflow_text)
-        self.assertIn("publish_daily_short.py", self.workflow_text)
-        self.assertIn('YOUTUBE_PRIVACY_STATUS: "public"', self.workflow_text)
-        self.assertNotIn("Transfer finished preview to the private Voice Vault", self.workflow_text)
-        self.assertNotIn("private-preview-video-$SOURCE_RUN_ID", self.workflow_text)
-        self.assertNotIn("private-preview-$SOURCE_RUN_ID", self.workflow_text)
+    def test_scheduled_ready_slots_upload_private_previews_only(self):
+        self.assertIn("Upload validated daily slot as a PRIVATE YouTube preview", self.workflow_text)
+        self.assertIn("upload_private_preview.py", self.workflow_text)
+        self.assertIn('YOUTUBE_PRIVACY_STATUS: "private"', self.workflow_text)
+        self.assertNotIn("publish_daily_short.py", self.workflow_text)
+        self.assertNotIn('YOUTUBE_PRIVACY_STATUS: "public"', self.workflow_text)
+        self.assertIn("needs.daily_readiness.outputs.slot_status == 'ready'", self.workflow_text)
+
+    def test_legacy_public_upload_requests_are_rejected_during_commissioning(self):
+        self.assertIn("Public YouTube publishing is disabled during private-preview commissioning", self.workflow_text)
+        self.assertIn("publish_to_youtube=false", self.workflow_text)
 
     def test_private_voice_bridge_is_separate_from_video_delivery(self):
         self.assertIn("PRIVATE_VOICE_REPO_TOKEN", self.workflow_text)
@@ -39,11 +43,10 @@ class WorkflowPublicationContractTests(unittest.TestCase):
         self.assertIn("ruff check --select F821,F822,F823 autopilot/engine", self.workflow_text)
         self.assertIn("test_hyperframes_pipeline.py", self.workflow_text)
 
-    def test_direct_publication_is_limited_to_ready_scheduled_slots_or_explicit_push_requests(self):
-        self.assertIn("steps.daily_request.outputs.publish_to_youtube == 'true'", self.workflow_text)
-        self.assertIn("needs.daily_readiness.outputs.slot_status == 'ready'", self.workflow_text)
+    def test_publication_is_private_preview_only_and_generic_publishers_stay_disabled(self):
         self.assertIn("github.event_name == 'schedule'", self.workflow_text)
         self.assertNotIn('PUBLISH_ENABLED: "true"', self.workflow_text)
+        self.assertNotIn("publish_daily_short.py", self.workflow_text)
 
     def test_no_generic_publication_flag_is_enabled_during_rendering(self):
         self.assertIn('PUBLISH_ENABLED: "false"', self.workflow_text)

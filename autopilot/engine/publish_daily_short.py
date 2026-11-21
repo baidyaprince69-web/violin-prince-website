@@ -110,8 +110,9 @@ def validate_daily_bundle(
     expected_slot_id: str,
     production_date: str | None = None,
     video_probe: dict[str, Any] | None = None,
+    expected_privacy_status: str = "public",
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], Path, dict[str, Any]]:
-    """Validate the exact rendered asset, editorial provenance and public metadata."""
+    """Validate the exact rendered asset, editorial provenance and requested YouTube visibility."""
     output = Path(output_dir)
     plan = _read_json(Path(plan_path), "Creative plan")
     manifest = _read_json(output / "publish-manifest.json", "Publisher manifest")
@@ -131,8 +132,21 @@ def validate_daily_bundle(
     if not isinstance(preflight, dict) or preflight.get("status") != "ready" or preflight.get("blockers"):
         blockers = (preflight or {}).get("blockers") or []
         raise PublishBlocked("Publisher preflight is not ready: " + json.dumps(blockers, ensure_ascii=False))
-    if manifest.get("youtube_privacy") != "public":
-        raise PublishBlocked("The daily publication manifest does not explicitly request public YouTube visibility.")
+    expected_privacy = str(expected_privacy_status or "").strip().lower()
+    if expected_privacy not in {"public", "private"}:
+        raise PublishBlocked("The daily uploader supports only public or private YouTube visibility.")
+    manifest_privacy = str(manifest.get("youtube_privacy") or "").strip().lower()
+    if manifest_privacy != expected_privacy:
+        raise PublishBlocked(
+            f"The daily publication manifest does not explicitly request {expected_privacy} YouTube visibility."
+        )
+    plan_metadata = plan.get("publish_metadata")
+    plan_metadata = plan_metadata if isinstance(plan_metadata, dict) else {}
+    plan_privacy = str(plan_metadata.get("privacy_status") or plan.get("privacy_status") or "").strip().lower()
+    if expected_privacy == "private" and plan_privacy != "private":
+        raise PublishBlocked("The scheduled creative plan must explicitly request private YouTube visibility.")
+    if plan_privacy and plan_privacy != expected_privacy:
+        raise PublishBlocked("Creative-plan and publisher-manifest YouTube visibility do not match.")
     if manifest.get("made_for_kids") is not False:
         raise PublishBlocked("The plan does not match the channel's confirmed not-made-for-kids setting.")
     if manifest.get("format") != "9:16" or manifest.get("video_type") != "short":
@@ -213,7 +227,7 @@ def validate_daily_bundle(
         "tags": manifest.get("tags") if isinstance(manifest.get("tags"), list) else [],
         "category_id": str(manifest.get("category_id") or "10"),
         "default_language": str(manifest.get("default_language") or "en"),
-        "privacy_status": "public",
+        "privacy_status": expected_privacy,
         "made_for_kids": False,
     }
     if not metadata["title"] or not metadata["description"]:

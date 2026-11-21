@@ -390,7 +390,7 @@ def build_publish_manifest(
     release_tag = f"violin-prince-short-{github_run}"
     public_video_url = (
         f"https://github.com/{repository}/releases/download/{quote(release_tag, safe='')}/violin-prince-short.mp4"
-        if repository and github_run else ""
+        if metadata.get("privacy_status") == "public" and repository and github_run else ""
     )
 
     return {
@@ -418,7 +418,11 @@ def build_publish_manifest(
             for item in provenance.get("factual_provenance", {}).get("sources", [])
         ],
         "asset_provenance_file": "asset-provenance.json",
-        "publisher": "Violin Prince direct YouTube Data API workflow",
+        "publisher": (
+            "Violin Prince private-preview YouTube Data API workflow"
+            if metadata.get("privacy_status") == "private"
+            else "Violin Prince direct YouTube Data API workflow"
+        ),
         "publishing_enabled_in_github": True,
         "publish_ready": not blockers,
         "publisher_preflight": {
@@ -426,8 +430,12 @@ def build_publish_manifest(
             "blockers": blockers,
             "warnings": metadata_check.get("warnings", []),
             "required_action": (
-                "Resolve every blocker before the direct public YouTube upload."
-                if blockers else "Metadata and production checks passed; the dedicated YouTube workflow will verify the channel and publish after render."
+                "Resolve every blocker before upload."
+                if blockers else (
+                    "Production checks passed; the scheduled workflow may upload this video as a private YouTube preview. Public publishing remains disabled."
+                    if metadata.get("privacy_status") == "private"
+                    else "Metadata and production checks passed; the dedicated YouTube workflow may verify the channel and publish after render."
+                )
             ),
         },
     }
