@@ -395,28 +395,18 @@ jobs:
             python autopilot/engine/run_daily_plan.py --plan "${{ steps.daily_request.outputs.plan_path }}"
           fi
 
-      - name: Upload creator-requested production as a PRIVATE YouTube preview
+      - name: Save the creator-requested MP4 for alternate private upload
         if: success() && github.event_name == 'push' && steps.daily_request.outputs.plan_path != ''
-        env:
-          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
-          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
-          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-          YOUTUBE_EXPECTED_CHANNEL_ID: ${{ vars.YOUTUBE_EXPECTED_CHANNEL_ID }}
-          YOUTUBE_PRIVACY_STATUS: "private"
-          GITHUB_REF_NAME: ${{ github.ref_name }}
-          GITHUB_RUN_ID: ${{ github.run_id }}
-          OUTPUT_DIR: work/output
-          PLAN_PATH: work/package/creative_plan.json
-          SLOT_ID: ${{ steps.daily_request.outputs.slot_id }}
-          PUBLISH_ENABLED: "false"
-        shell: bash
-        run: |
-          set -euo pipefail
-          python autopilot/engine/upload_private_preview.py \
-            --output-dir "$OUTPUT_DIR" \
-            --plan "$PLAN_PATH" \
-            --run-id "$GITHUB_RUN_ID" \
-            --slot-id "$SLOT_ID"
+        uses: actions/upload-artifact@v4
+        with:
+          name: violin-prince-private-preview-${{ github.run_number }}
+          path: |
+            work/output/violin-prince-short.mp4
+            work/output/publish-manifest.json
+            work/output/asset-provenance.json
+            work/output/slot-receipt.json
+          if-no-files-found: error
+          retention-days: 3
 
       - name: Run complete Prepare → Visuals → Render sequence
         if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path == '' && github.event_name != 'schedule'
