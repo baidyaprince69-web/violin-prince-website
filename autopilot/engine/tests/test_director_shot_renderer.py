@@ -269,6 +269,38 @@ class DirectorShotRendererTests(unittest.TestCase):
             with self.assertRaisesRegex(DirectorShotRenderError, "failed validation"):
                 build_project(plan, images, root)
 
+    def test_rejects_nontransparent_png_disguised_as_a_subject_cutout(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            images = make_images(root / "images")
+            layers = make_layer_assets(root / "layers")
+            bad_subject = root / "opaque-subject.png"
+            Image.new("RGB", (360, 640), (120, 80, 40)).save(bad_subject, format="PNG")
+            layers["shot-01"]["subject"] = bad_subject
+            with self.assertRaisesRegex(DirectorShotRenderError, "real non-opaque alpha channel"):
+                build_director_hyperframes_project(
+                    director_plan(),
+                    images,
+                    root / "project",
+                    layer_assets=layers,
+                )
+
+    def test_duplicate_transparent_layer_content_is_rejected_across_shots(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            images = make_images(root / "images")
+            layers = make_layer_assets(root / "layers")
+            layers["shot-02"]["subject"].write_bytes(
+                layers["shot-01"]["subject"].read_bytes()
+            )
+            with self.assertRaisesRegex(DirectorShotRenderError, "identical image content"):
+                build_director_hyperframes_project(
+                    director_plan(),
+                    images,
+                    root / "project",
+                    layer_assets=layers,
+                )
+
     def test_render_project_keeps_action_and_music_sync_metadata(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -396,7 +428,9 @@ class DirectorShotRendererTests(unittest.TestCase):
             self.assertEqual(report["shot_count"], 8)
             self.assertEqual(report["duration_seconds"], 32)
             self.assertFalse(report["publish_ready"])
-            self.assertIn("separated visual layers", report["publish_blocker"])
+            self.assertIn("image-generation provider is not connected", report["publish_blocker"])
+            self.assertEqual(report["rendered_layer_count"], 24)
+            self.assertEqual(report["shot_count"], 8)
             self.assertTrue((output.parent / "master-director-render-report.json").is_file())
 
 
