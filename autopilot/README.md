@@ -10,14 +10,13 @@ Verified against `main` on 21 November 2026 after PR #115 merged:
 
 - GitHub Actions now has four scheduled UTC cron triggers, mapped to 05:30, 11:30, 17:30 and 23:30 Asia/Kolkata. Each event selects one of the four canonical content slots, uses its date-specific batch and has run-specific, non-cancelling concurrency.
 - The ChatGPT Global Director automation remains the editorial planner. It prepares the next day's four-plan batch at approximately 18:00 Asia/Kolkata and commits only `.autopilot/daily-batches/YYYY-MM-DD.json`; this path is not a push trigger.
-- The first batch, `.autopilot/daily-batches/2026-11-22.json`, is committed. Two slots are source-ready for private preview and two are explicitly blocked pending stronger evidence or a valid creator recording.
-- The checked-in `.autopilot/prepare-request.json` still sets `publish_to_youtube: false`. The current request is preview-only and does not authorize a public YouTube upload.
-- The illustration approval remains scoped to `preview_video_only` and sets `publishing_enabled: false`. A preview pass is not publication approval.
-- The legacy single-plan `.autopilot/daily-production-plan.json` path remains available for manual recovery; the scheduled route reads date-specific four-plan batches.
-- Publisher documentation still needs reconciliation: this README previously named Metricool, while `engine/ENGINE_WORKFLOW.md` describes an Upload-Post queue. Resolve the actual connected publisher and configure only one publisher/scheduler before enabling public posts.
-- Private fallback preview retention is six hours in the separate `violin-prince-private-voice` repository. This is a cleanup rule only; it does not trigger video production or YouTube uploads.
-
-Scheduled jobs remain private-preview-only. Four actual private runs, visual/audio review, a validated creator-performance intake, publisher selection and a separate publishing approval update are required before any public YouTube publishing is enabled.
+- The date-specific batches for 21 and 22 November 2026 each contain two source-ready story slots and two explicitly blocked slots. Blocked slots are skipped; the runner does not invent replacement scripts or performances.
+- The four scheduled slots now publish a ready, fully validated MP4 directly to the connected public YouTube channel through `autopilot/engine/publish_daily_short.py`. The schedule does not create a private video copy or public GitHub Release asset.
+- The checked-in `.autopilot/prepare-request.json` remains `publish_to_youtube: false` for the separate legacy single-plan push trigger. Scheduled four-slot batches use their own ready-slot gate and direct YouTube publisher.
+- The local vector illustration approval now records the creator's explicit `public_youtube` scope. The tested illustration style is authorised for direct public publishing without a private preview.
+- The daily publisher rechecks source provenance, 35-word/four-sentence narration, soundtrack rights metadata, synthetic-media disclosure, MP4 dimensions/duration/codec, SHA-256, YouTube channel identity and title duplicates. It writes a durable attempt marker before upload and a receipt afterwards; an uncertain result is never automatically retried.
+- The private Qwen3 voice worker remains a narration service only. Its credentials are still required for the creator-authorised voice path; this is not a private video delivery step.
+- Older one-off private-preview and Metricool quota-fallback workflows remain in the repository for their original, explicitly identified runs. They are not used by the new scheduled four-slot route.
 
 ## Four-slot production and ChatGPT director — merged to main
 
@@ -101,18 +100,18 @@ Example shape:
 
 If the reference uses real video clips (`video_clips` or `mixed`), the render report records that limitation: the intended engine uses still 2D scene illustrations animated by Motion and captured by HyperFrames, not new AI video clips. Illustration generation is currently disabled pending provider selection. The system adapts only high-level craft, never exact frames, text, logos, music, assets or another creator's identity. If no reference analysis is supplied, the existing Violin Prince visual direction and stable framing remain unchanged.
 
-This adds no runtime dependency, paid provider, extra API call or new scheduler. ChatGPT remains the daily operator; GitHub Actions remains the cloud production worker; publishing stays outside the render workflow.
+This adds no runtime dependency, paid provider or new scheduler. ChatGPT remains the daily director; GitHub Actions remains the cloud production worker; a separate post-render step handles direct YouTube publishing.
 
-Direct publishing remains disabled inside GitHub Actions. The ChatGPT-operated daily route publishes only through the connected Metricool account after the required YouTube audience setting is confirmed.
+Generic multi-platform publishing remains disabled during rendering. After the render passes all gates, the dedicated workflow step uploads the verified MP4 directly through the existing YouTube Data API OAuth adapter with public privacy.
 
 ### Publisher preflight and asset provenance — version 9
 
 A selective review of [YouTube Automation Agent](https://github.com/darkzOGx/youtube-automation-agent) added two safeguards to the ChatGPT daily handoff without importing its local Node/Chromium application, provider stack, scheduler or direct-publishing agents.
 
 - **Metadata validation runs before scene generation.** YouTube titles are limited to 100 characters, descriptions to 5,000 characters, and tags are de-duplicated and capped at 30 tags / 450 combined characters. Category ID, language tag and privacy status are normalized and checked. Empty descriptions and short tag lists produce warnings; invalid required fields stop the run before it spends on visuals.
-- **The GitHub release now includes two JSON handoff assets:** `publish-manifest.json` and `asset-provenance.json`, alongside the MP4. The manifest gives ChatGPT the normalized title, description, tags, privacy setting, synthetic-media disclosure, source references and publisher-preflight result.
+- **The daily runner writes two JSON handoff files in its temporary workspace:** `publish-manifest.json` and `asset-provenance.json`. The dedicated publisher validates those files and the MP4 before contacting YouTube; it does not create a GitHub Release or private video copy.
 - **The provenance record** identifies verified publisher articles and the exact quotes used to support narration sentences, and stores SHA-256 hashes and origin metadata for generated scene images, approved own-voice narration, soundtrack and final MP4 when production is re-enabled. It records the pinned CC0-1.0 sample-bank license and attribution when that violin soundtrack is used. AI-generated imagery and narration are labelled as synthetic; provider terms still apply.
-- **Audience setting:** the existing channel-level confirmation says Violin Prince is **not made for kids**. The manifest records `made_for_kids: false` from that saved setting; ChatGPT must use it for Metricool and should not ask again. A future explicit boolean in the plan can override it. A malformed/non-boolean override is not silently coerced and places the release on hold.
+- **Audience setting:** the existing channel-level confirmation says Violin Prince is **not made for kids**. The manifest records `made_for_kids: false`; the direct uploader requires that boolean and will hold a release if the value changes or is malformed.
 - Unknown soundtrack origin/license metadata also places the release on hold. The provenance document is an origin-and-license record, not a legal opinion or blanket rights clearance.
 
 The ChatGPT production plan can provide the publishing fields under `publish_metadata` (or use the compatible top-level fields):
