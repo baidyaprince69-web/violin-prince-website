@@ -694,9 +694,11 @@ def _materialize_batch_slot(batch_path: Path, slot_id: str, workspace_root: Path
         if not re.fullmatch(r"[0-9a-f]{64}", expected) or expected != batch_sha256:
             raise engine.PipelineError("Daily batch snapshot does not match its trigger SHA-256.")
 
-        from zoneinfo import ZoneInfo
-        today = datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
-        plans = load_daily_batch(batch_path, expected_date=today)
+        batch_payload = json.loads(batch_bytes.decode("utf-8"))
+        batch_date = str(batch_payload.get("production_date") or "")
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", batch_date) or batch_path.stem != batch_date:
+            raise engine.PipelineError("Daily batch filename and production_date must match.")
+        plans = load_daily_batch(batch_path, expected_date=batch_date)
         plan = next((dict(item) for item in plans if item.get("slot_id") == slot_id), None)
         if plan is None:
             raise engine.PipelineError(f"The daily batch has no plan for slot {slot_id!r}.")
@@ -704,12 +706,13 @@ def _materialize_batch_slot(batch_path: Path, slot_id: str, workspace_root: Path
             reason = str(plan.get("blocked_reason") or "source or editorial evidence gate is not satisfied.")
             raise engine.PipelineError("Selected slot is blocked: " + reason[:500])
 
-        expected_workspace = slot_workspace(Path("work/slots").resolve(), today, slot_id)
+        expected_workspace = slot_workspace(Path("work/slots").resolve(), batch_date, slot_id)
         resolved_workspace = workspace_root.resolve()
         if resolved_workspace != expected_workspace.resolve():
             raise engine.PipelineError(
-                "Workspace path does not match the validated date and slot; refusing to mix outputs."
+                "Workspace path does not match the validated batch date and slot; refusing to mix outputs."
             )
+        os.environ["SLOT_PRODUCTION_DATE"] = batch_date
 
         input_dir = resolved_workspace / "input"
         input_dir.mkdir(parents=True, exist_ok=True)
@@ -796,7 +799,9 @@ def main() -> int:
                 from slot_registry import write_slot_receipt
                 slot_id = str(args.slot_id or "legacy-single")
                 from zoneinfo import ZoneInfo
-                production_date = datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
+                production_date = str(os.environ.get("SLOT_PRODUCTION_DATE") or "")
+                if not production_date:
+                    production_date = datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
                 write_slot_receipt(
                     workspace_root / "output" / "slot-receipt.json",
                     production_date=production_date,
