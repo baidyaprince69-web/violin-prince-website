@@ -1,0 +1,253 @@
+{
+  "schema_version": 1,
+  "production_date": "2026-11-21",
+  "plans": [
+    {
+      "production_date": "2026-11-21",
+      "slot_id": "music-secrets",
+      "slot_status": "blocked",
+      "blocked_reason": "No two independent, directly readable sources about a fresh violin-physics or instrument-design development were verified inside the runner's 168-hour freshness window. The recent Journal of the Acoustical Society of America paper on violin back arch height was published on 11 November, outside that window; reliable evergreen acoustics references do not satisfy the current-news freshness gate. Do not invent a new finding or relax the source rule."
+    },
+    {
+      "production_date": "2026-11-21",
+      "slot_id": "production-tech",
+      "slot_status": "ready",
+      "story_type": "music_technology",
+      "core_claim": "Steinberg Chromaspheres turns an imported audio sample into a playable instrument, with four synthesis engines and thirty sound-shaping modes.",
+      "topic": "Steinberg's free Chromaspheres instrument for HALion Sonic and HALion, which converts imported samples into playable sounds through wavetable, granular, spectral and sample-based engines.",
+      "title": "One Sample, Thirty Sound Modes: Steinberg Chromaspheres",
+      "hook": "What if one recording could become a completely different playable instrument?",
+      "description": "A global music-technology explainer about Steinberg Chromaspheres, released in November 2026. Production Expert and Synth News independently describe its sample-to-instrument workflow, four synthesis engines and thirty modes. Use only generic conceptual diagrams and a clearly disclosed original/CC0 violin sample as an example. This is not a hands-on Violin Prince test: do not claim that the sample was processed through Chromaspheres, show a fabricated plugin interface, or invent a before-and-after result.",
+      "hashtags": [
+        "#MusicTechnology",
+        "#SoundDesign",
+        "#Synthesis",
+        "#AudioProduction",
+        "#ViolinPrince"
+      ],
+      "tags": [
+        "Steinberg Chromaspheres",
+        "sample based synthesis",
+        "wavetable synthesis",
+        "granular synthesis",
+        "spectral synthesis",
+        "HALion Sonic",
+        "sound design",
+        "music technology",
+        "Violin Prince"
+      ],
+      "narrative_style": "documentary",
+      "cover_payoff": "Use a disclosed original or CC0 violin sample as the source in a conceptual diagram showing how one recording can become a playable instrument. Do not claim the sample was processed in Chromaspheres or fake a software demonstration; keep the audible phrase original and clearly illustrative.",
+      "narration_script": "What if one recording could become a playable instrument? Steinberg’s free Chromaspheres turns samples into sounds. Four engines—wavetable, granular, spectral and sample—offer thirty modes. It’s a sound-design tool, not an automatic finished song.",
+      "narration_evidence": [
+        {
+          "sentence_number": 2,
+          "source_id": "S001",
+          "quote": "turns any sample dropped onto it into a playable sound"
+        },
+        {
+          "sentence_number": 3,
+          "source_id": "S002",
+          "quote": "four engines (wavetable, granular, spectral, sample), 30 modes and MPE"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "S001",
+          "title": "Steinberg's Free Chromaspheres Builds Synths From Your Samples",
+          "url": "https://www.production-expert.com/production-expert-1/steinbergs-free-chromaspheres-builds-synths-from-your-samples",
+          "publisher_domain": "production-expert.com",
+          "date": "2026-11-19"
+        },
+        {
+          "source_id": "S002",
+          "title": "Steinberg Chromaspheres: a free instrument that turns your samples into new sounds",
+          "url": "https://www.synth-news.com/en/software/free-open-source/steinberg-chromaspheres-free-sample-synth-released/",
+          "publisher_domain": "synth-news.com",
+          "date": "2026-11-19"
+        }
+      ],
+      "timeline": [],
+      "scenes": [
+        {
+          "id": "one-sample",
+          "title": "One recording",
+          "caption": "ONE SAMPLE CAN BECOME AN INSTRUMENT",
+          "visual_mode": "waveform",
+          "image_prompt": "Vertical 9:16 premium editorial illustration. A single amber waveform from a short violin sample enters a precise, elegant sound-design chamber and becomes a luminous playable instrument shape. Conceptual only, no numeric measurements, no product interface, no logos or readable text. Midnight navy, muted teal and antique gold, tactile materials and crisp motion-graphic linework.",
+          "narration_sentence_indexes": [
+            0
+          ]
+        },
+        {
+          "id": "four-engines",
+          "title": "Four synthesis paths",
+          "caption": "WAVETABLE · GRANULAR · SPECTRAL · SAMPLE",
+          "visual_mode": "mechanism_illustration",
+          "image_prompt": "Vertical 9:16 technical editorial illustration: one generic sample waveform branches into four clearly distinct conceptual paths representing wavetable, granular, spectral and sample playback, then resolves into a playable keyboard-like sound object. Keep the four paths visually clear; no fake software UI, brand logos, measured values or unsupported controls. Midnight navy, muted teal, antique gold.",
+          "narration_sentence_indexes": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "sound-design-payoff",
+          "title": "A sound becomes playable",
+          "caption": "A NEW WAY TO SHAPE A SAMPLE",
+          "visual_mode": "cover_performance",
+          "image_prompt": "Vertical 9:16 symbolic Violin Prince studio illustration: a complete amber-walnut violin and bow beside an abstract playable sound ribbon, with non-identifiable expressive hands. Clearly conceptual rather than a real creator recording or product demonstration. Cinematic midnight-navy background, muted teal and antique-gold highlights, no text, logos, software UI or watermark.",
+          "narration_sentence_indexes": [
+            3
+          ]
+        }
+      ],
+      "performance_feedback": {
+        "sample_window": "No published performance sample exists for this first production slot.",
+        "sample_count": 0,
+        "confidence": "Editorial selection is based on two independent current music-technology reports; no claim is made about Violin Prince audience response.",
+        "strengths_to_preserve": [
+          "Connect a real production technology story to a clear, audible violin-related concept."
+        ],
+        "one_change_to_test": "Explain the four synthesis approaches with one sample-to-four-path visual rather than a generic plugin showcase.",
+        "measurement_for_next_upload": "If later approved for publication, compare 24-hour and seven-day views, engaged views, average view duration, average percentage viewed, stayed-to-watch, likes, comments and shares."
+      },
+      "narration_asr_hotwords": [
+        "Steinberg",
+        "Chromaspheres",
+        "wavetable",
+        "granular",
+        "spectral",
+        "HALion Sonic"
+      ]
+    },
+    {
+      "production_date": "2026-11-21",
+      "slot_id": "melody-stories",
+      "slot_status": "ready",
+      "story_type": "melody_and_composition",
+      "core_claim": "A new instrumental album by Toro y Moi foregrounds repeating patterns and gradual texture changes instead of vocal hooks, showing how small musical shifts can carry a story.",
+      "topic": "Toro y Moi's newly released album Unusua and how repetition, space and subtle changes in texture can create musical movement without vocal hooks.",
+      "title": "Toro y Moi’s Unusua: When Tiny Changes Become the Music",
+      "hook": "What if the biggest moment in an instrumental track is a change you almost miss?",
+      "description": "A global melody-and-composition story about Toro y Moi's album Unusua, released on 20 November 2026. Apple Music describes seven ambient instrumentals; WXPN calls it a set of ambient instrumentals; AudioFuzz reviews how repeating patterns subtly mutate. The Violin Prince payoff must use a newly composed original violin motif and original accompaniment textures only. Do not use the album's recording, melodies, lyrics, artwork or artist likeness.",
+      "hashtags": [
+        "#Melody",
+        "#MusicComposition",
+        "#AmbientMusic",
+        "#SongAnatomy",
+        "#ViolinPrince"
+      ],
+      "tags": [
+        "Toro y Moi Unusua",
+        "melody and composition",
+        "repetition in music",
+        "ambient instrumentals",
+        "music texture",
+        "musical arrangement",
+        "violin composition",
+        "Violin Prince"
+      ],
+      "narrative_style": "cinematic_story",
+      "cover_payoff": "Create a short original violin motif using the approved CC0 violin sample bank, repeat it once unchanged, then change only the original accompaniment texture. Label the result as a Violin Prince conceptual example; it must not quote or imitate any melody, recording, lyric or artwork from Unusua.",
+      "narration_script": "How can a song move without a big musical change? Toro y Moi’s new album Unusua explores seven ambient instrumentals. Reviews describe repeating patterns and subtle texture shifts. Here, tiny changes become the musical story.",
+      "narration_evidence": [
+        {
+          "sentence_number": 2,
+          "source_id": "S001",
+          "quote": "seven ambient instrumentals"
+        },
+        {
+          "sentence_number": 2,
+          "source_id": "S003",
+          "quote": "a set of ambient instrumentals"
+        },
+        {
+          "sentence_number": 3,
+          "source_id": "S002",
+          "quote": "Patterns repeat, blur and subtly mutate"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "S001",
+          "title": "Unusua — Album by Toro y Moi",
+          "url": "https://music.apple.com/us/album/unusua/6823370459",
+          "publisher_domain": "music.apple.com",
+          "date": "2026-11-20"
+        },
+        {
+          "source_id": "S002",
+          "title": "Hot New Album Friday: Toro y Moi Finds Stillness on ‘Unusua’",
+          "url": "https://www.audiofuzz.com/2026/11/20/hot-new-album-friday-toro-y-moi-finds-stillness-on-unusua-album-review/",
+          "publisher_domain": "audiofuzz.com",
+          "date": "2026-11-20"
+        },
+        {
+          "source_id": "S003",
+          "title": "PRESS PLAY: New Albums out November 20th",
+          "url": "https://xpn.org/press-play/",
+          "publisher_domain": "xpn.org",
+          "date": "2026-11-19"
+        }
+      ],
+      "timeline": [],
+      "scenes": [
+        {
+          "id": "pattern-loop",
+          "title": "A pattern repeats",
+          "caption": "REPETITION CREATES EXPECTATION",
+          "visual_mode": "melody_map",
+          "image_prompt": "Vertical 9:16 original abstract score-map illustration. A fresh generic melodic contour repeats across a midnight-navy field, with a soft pulse and spacious negative space. Do not reproduce any commercial melody, notation, lyrics, album artwork or artist likeness. Fine editorial linework, muted teal and antique gold.",
+          "narration_sentence_indexes": [
+            0
+          ]
+        },
+        {
+          "id": "texture-shift",
+          "title": "Small changes matter",
+          "caption": "TINY TEXTURE SHIFTS CHANGE THE FEEL",
+          "visual_mode": "comparison",
+          "image_prompt": "Vertical 9:16 split editorial comparison of the same newly invented abstract melodic contour placed over two original accompaniment textures: first sparse and open, second gently layered. Matched scale and alignment; no notes copied from any existing song, no album artwork or recognizable artist imagery. Midnight navy, muted teal, antique gold.",
+          "narration_sentence_indexes": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "violin-interpretation",
+          "title": "The Violin Prince example",
+          "caption": "SAME ORIGINAL MOTIF · NEW TEXTURE",
+          "visual_mode": "cover_performance",
+          "image_prompt": "Vertical 9:16 illustrated Violin Prince studio payoff: full amber-walnut violin, bow and expressive non-identifiable hands beside two contrasting original audio ribbons. Symbolic editorial illustration, not a real creator performance or an image of Toro y Moi. No album art, logos, lyrics or readable embedded text. Midnight navy, muted teal and antique gold.",
+          "narration_sentence_indexes": [
+            3
+          ]
+        }
+      ],
+      "performance_feedback": {
+        "sample_window": "First batch using this story format; no published sample exists.",
+        "sample_count": 0,
+        "confidence": "Selection is based on new-release reporting and editorial reviews, not on a measured Violin Prince audience preference.",
+        "strengths_to_preserve": [
+          "Use a current international music story to explain one transferable composition idea."
+        ],
+        "one_change_to_test": "Make repetition and the small texture change audible in an original violin example rather than relying only on narration.",
+        "measurement_for_next_upload": "If later approved for publication, compare 24-hour and seven-day views, engaged views, average view duration, average percentage viewed, stayed-to-watch, likes, comments and shares."
+      },
+      "narration_asr_hotwords": [
+        "Toro y Moi",
+        "Unusua",
+        "ambient",
+        "instrumental",
+        "repetition",
+        "texture"
+      ]
+    },
+    {
+      "production_date": "2026-11-21",
+      "slot_id": "real-performance",
+      "slot_status": "blocked",
+      "blocked_reason": "No approved creator-recorded violin performance clip is attached to this date's unattended production package. Do not substitute symbolic artwork, a CC0 sample, a generated phrase or another musician's footage for the creator's real performance."
+    }
+  ]
+}
