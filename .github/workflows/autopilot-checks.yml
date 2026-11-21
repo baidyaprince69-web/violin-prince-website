@@ -66,6 +66,7 @@ jobs:
           PYTHONPATH: autopilot/engine
         run: |
           python -m unittest discover -s autopilot/engine/tests -p "test_slot_registry.py" -v
+          python -m unittest discover -s autopilot/engine/tests -p "test_public_queue.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_slot_batch_readiness.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_slot_workflow_gates.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_workflow_privacy_contract.py" -v
