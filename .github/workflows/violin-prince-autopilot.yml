@@ -177,9 +177,44 @@ jobs:
           UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
         run: python autopilot/engine/daily_readiness.py --batch "${{ steps.batch.outputs.batch_path }}"
 
+  report_blocked_slot:
+    needs: [daily_readiness]
+    if: ${{ always() && github.event_name == 'schedule' && needs.daily_readiness.result == 'success' && needs.daily_readiness.outputs.slot_status == 'blocked' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report safely skipped slot
+        env:
+          SLOT_ID: ${{ needs.daily_readiness.outputs.slot_id }}
+          BLOCKED_REASON: ${{ needs.daily_readiness.outputs.blocked_reason }}
+        run: |
+          {
+            echo "## Scheduled slot safely skipped"
+            echo ""
+            echo "- Slot: `$SLOT_ID`"
+            echo "- Reason: $BLOCKED_REASON"
+            echo "- No narration, MP4, private release or public upload was attempted."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  report_readiness_blocked:
+    needs: [daily_readiness]
+    if: ${{ always() && github.event_name == 'schedule' && needs.daily_readiness.result == 'success' && needs.daily_readiness.outputs.ready != 'true' && needs.daily_readiness.outputs.slot_status != 'blocked' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report failed production preflight
+        env:
+          SLOT_ID: ${{ needs.daily_readiness.outputs.slot_id }}
+        run: |
+          {
+            echo "## Scheduled slot blocked by production preflight"
+            echo ""
+            echo "- Slot: `$SLOT_ID`"
+            echo "- The four-plan batch exists, but a required voice, illustration or production approval gate did not pass."
+            echo "- No video was rendered or uploaded."
+          } >> "$GITHUB_STEP_SUMMARY"
+
   produce:
     needs: [daily_readiness, fast_preflight]
-    if: ${{ always() && needs.fast_preflight.result == 'success' && (github.event_name != 'schedule' || (needs.daily_readiness.result == 'success' && needs.daily_readiness.outputs.ready == 'true')) }}
+    if: ${{ always() && needs.fast_preflight.result == 'success' && (github.event_name != 'schedule' || (needs.daily_readiness.result == 'success' && needs.daily_readiness.outputs.ready == 'true' && needs.daily_readiness.outputs.slot_status == 'ready')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -334,20 +369,6 @@ jobs:
       - name: Render final MP4 from saved package (no AI calls)
         if: env.PIPELINE_STAGE == 'render'
         run: python autopilot/engine/run.py --stage render
-
-      - name: Report a source-blocked slot without creating placeholder content
-        if: github.event_name == 'schedule' && needs.daily_readiness.outputs.slot_status == 'blocked'
-        env:
-          SLOT_ID: ${{ needs.daily_readiness.outputs.slot_id }}
-          BLOCKED_REASON: ${{ needs.daily_readiness.outputs.blocked_reason }}
-        run: |
-          {
-            echo "## Scheduled slot blocked"
-            echo ""
-            echo "- Slot: `$SLOT_ID`"
-            echo "- Reason: $BLOCKED_REASON"
-            echo "- No narration, video, private release or public upload was created."
-          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run the selected ChatGPT-directed slot through Motion + HyperFrames
         if: env.PIPELINE_STAGE == 'full' && (steps.daily_request.outputs.plan_path != '' || github.event_name == 'schedule') && (github.event_name != 'schedule' || needs.daily_readiness.outputs.slot_status != 'blocked')
