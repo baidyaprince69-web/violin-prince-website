@@ -28,8 +28,8 @@ permissions:
   actions: read
 
 concurrency:
-  # Unique per run: later slot dispatches must never cancel an earlier render.
-  group: violin-prince-autopilot-${{ github.run_id }}
+  # One active queue consumer prevents two six-hour triggers claiming the same story.
+  group: violin-prince-public-youtube-queue
   cancel-in-progress: false
 
 jobs:
@@ -57,7 +57,7 @@ jobs:
           PYTHONPATH: autopilot/engine
         run: python -m unittest discover -s autopilot/engine/tests -p "test_hyperframes_pipeline.py" -v
 
-      - name: Verify Upload-Post private-upload and private voice credentials are configured
+      - name: Verify public YouTube Upload-Post and private voice credentials are configured
         env:
           UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
           YOUTUBE_EXPECTED_CHANNEL_ID: ${{ vars.YOUTUBE_EXPECTED_CHANNEL_ID }}
@@ -75,7 +75,7 @@ jobs:
           missing = [name for name in required if not os.environ.get(name, "").strip()]
           if missing:
               raise SystemExit("Required private-upload/voice configuration is missing: " + ", ".join(missing))
-          print("Upload-Post private-upload configuration and private Qwen3 voice credentials are present.")
+          print("Upload-Post public YouTube configuration and private Qwen3 voice credentials are present.")
           PY
 
   daily_readiness:
@@ -84,11 +84,13 @@ jobs:
     outputs:
       ready: ${{ steps.readiness.outputs.ready }}
       slot_id: ${{ steps.batch.outputs.slot_id }}
+      production_date: ${{ steps.batch.outputs.production_date }}
       workspace_root: ${{ steps.batch.outputs.workspace_root }}
       batch_path: ${{ steps.batch.outputs.batch_path }}
       batch_sha256: ${{ steps.batch.outputs.batch_sha256 }}
       slot_status: ${{ steps.batch.outputs.slot_status }}
       blocked_reason: ${{ steps.batch.outputs.blocked_reason }}
+      ready: ${{ steps.readiness.outputs.ready }}
     steps:
       - name: Check out the project
         uses: actions/checkout@v4
@@ -98,70 +100,19 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Select the slot for this six-hour UTC trigger
+      - name: Select the next unused public-ready story from the rolling backlog
         id: batch
         env:
-          SCHEDULE_EXPRESSION: ${{ github.event.schedule }}
           PYTHONPATH: autopilot/engine
-        shell: bash
-        run: |
-          set -euo pipefail
-          case "$SCHEDULE_EXPRESSION" in
-            "0 0 * * *") slot_id="music-secrets" ;;
-            "0 6 * * *") slot_id="production-tech" ;;
-            "0 12 * * *") slot_id="melody-stories" ;;
-            "0 18 * * *") slot_id="real-performance" ;;
-            *) echo "::error::Unrecognised scheduled slot: $SCHEDULE_EXPRESSION"; exit 1 ;;
-          esac
-          echo "slot_id=$slot_id" >> "$GITHUB_OUTPUT"
-          export SELECTED_SLOT_ID="$slot_id"
-          python - <<'PY'
-          import hashlib
-          import os
-          from datetime import datetime
-          from pathlib import Path
-          from zoneinfo import ZoneInfo
-          from slot_registry import load_daily_batch, slot_workspace
+        run: python autopilot/engine/select_public_queue.py --root .
 
-          today = datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
-          batch_path = Path(".autopilot/daily-batches") / (today + ".json")
-          slot_id = os.environ.get("SELECTED_SLOT_ID", "")
-          if slot_id not in {"music-secrets", "production-tech", "melody-stories", "real-performance"}:
-              raise SystemExit("The six-hour trigger did not select a canonical slot.")
-          if not batch_path.is_file():
-              workspace = slot_workspace(Path("work/slots"), today, slot_id)
-              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-                  output.write("slot_status=blocked\n")
-                  output.write("blocked_reason=No ChatGPT-authored batch exists for today's date; this slot was safely skipped.\n")
-                  output.write("slot_id=" + slot_id + "\n")
-                  output.write("workspace_root=" + str(workspace) + "\n")
-                  output.write("batch_path=" + str(batch_path) + "\n")
-                  output.write("batch_sha256=\n")
-              print(f"No batch exists for {today}; safely skipping {slot_id}.")
-              raise SystemExit(0)
-          batch_bytes = batch_path.read_bytes()
-          batch_sha = hashlib.sha256(batch_bytes).hexdigest()
-          plans = load_daily_batch(batch_path, expected_date=today)
-          slot_id = os.environ.get("SELECTED_SLOT_ID", "")
-          selected = next((plan for plan in plans if plan["slot_id"] == slot_id), None)
-          if selected is None:
-              raise SystemExit("The selected content slot is missing from the batch.")
-          slot_status = str(selected.get("slot_status") or "ready").lower()
-          blocked_reason = str(selected.get("blocked_reason") or "").replace("\n", " ")[:500]
-          workspace = slot_workspace(Path("work/slots"), today, slot_id)
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write("slot_status=" + slot_status + "\n")
-              output.write("blocked_reason=" + blocked_reason + "\n")
-              output.write("slot_id=" + slot_id + "\n")
-              output.write("workspace_root=" + str(workspace) + "\n")
-              output.write("batch_path=" + str(batch_path) + "\n")
-              output.write("batch_sha256=" + batch_sha + "\n")
-          print(f"Validated {len(plans)} plans for {today}; selected {slot_id}.")
-          PY
-
-      - name: Check today's four-slot production gates
+      - name: Check production and public-publishing gates for the selected batch
         id: readiness
-        run: python autopilot/engine/daily_readiness.py --batch "${{ steps.batch.outputs.batch_path }}"
+        if: steps.batch.outputs.slot_status == 'ready'
+        run: |
+          python autopilot/engine/daily_readiness.py \
+            --batch "${{ steps.batch.outputs.batch_path }}" \
+            --today "${{ steps.batch.outputs.production_date }}"
 
   report_blocked_slot:
     needs: [daily_readiness]
@@ -174,10 +125,10 @@ jobs:
           BLOCKED_REASON: ${{ needs.daily_readiness.outputs.blocked_reason }}
         run: |
           {
-            echo "## Scheduled slot safely skipped"
+            echo "## Rolling public queue has no eligible video"
             echo ""
-            echo "- Slot: `$SLOT_ID`"
             echo "- Reason: $BLOCKED_REASON"
+            echo "- The scheduler checked today's and all later prepared batches."
             echo "- No narration, MP4 render or YouTube upload was attempted."
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -189,12 +140,14 @@ jobs:
       - name: Report failed production preflight
         env:
           SLOT_ID: ${{ needs.daily_readiness.outputs.slot_id }}
+          PRODUCTION_DATE: ${{ needs.daily_readiness.outputs.production_date }}
         run: |
           {
-            echo "## Scheduled slot blocked by production preflight"
+            echo "## Selected queue item blocked by production preflight"
             echo ""
+            echo "- Batch date: `$PRODUCTION_DATE`"
             echo "- Slot: `$SLOT_ID`"
-            echo "- The four-plan batch exists, but a required voice, illustration or production approval gate did not pass."
+            echo "- A required voice, illustration or production approval gate did not pass."
             echo "- No video was rendered or uploaded."
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -430,6 +383,7 @@ jobs:
           OUTPUT_DIR: ${{ format('{0}/output', needs.daily_readiness.outputs.workspace_root) }}
           PLAN_PATH: ${{ format('{0}/package/creative_plan.json', needs.daily_readiness.outputs.workspace_root) }}
           SLOT_ID: ${{ needs.daily_readiness.outputs.slot_id }}
+          PRODUCTION_DATE: ${{ needs.daily_readiness.outputs.production_date }}
         shell: bash
         run: |
           set -euo pipefail
@@ -437,4 +391,5 @@ jobs:
             --output-dir "$OUTPUT_DIR" \
             --plan "$PLAN_PATH" \
             --run-id "$GITHUB_RUN_ID" \
-            --slot-id "$SLOT_ID"
+            --slot-id "$SLOT_ID" \
+            --production-date "$PRODUCTION_DATE"
