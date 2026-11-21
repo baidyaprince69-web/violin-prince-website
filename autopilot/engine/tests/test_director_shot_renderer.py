@@ -124,8 +124,10 @@ class DirectorShotRendererTests(unittest.TestCase):
             self.assertEqual(len({item["sha256"] for item in project["shot_asset_manifest"]}), 8)
             self.assertEqual(project["scenes"][3]["director_camera"]["movement"], "pan")
             self.assertEqual(project["director_palette"]["accent"], "#D95D39")
-            self.assertEqual(project["scenes"][1]["transition_in"], "whip_pan")
-            self.assertLess(project["scenes"][1]["start"], 4.0)
+            self.assertEqual(project["scenes"][1]["transition_in"], "match_cut")
+            self.assertEqual(project["scenes"][1]["camera_motion_start_offset"], 0.0)
+            self.assertEqual(project["scenes"][1]["camera_motion_duration"], 4.0)
+            self.assertLess(project["scenes"][2]["start"], 8.0)
             self.assertEqual(project["duration_seconds"], 32)
             self.assertTrue((root / "project" / "project.json").is_file())
 
