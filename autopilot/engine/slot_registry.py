@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from datetime import date
+from datetime import date as date_cls
 from typing import Any
 
 SLOT_CATALOG = {
@@ -22,7 +22,7 @@ class SlotContractError(ValueError):
 
 def production_identity(production_date: str, slot_id: str) -> str:
     try:
-        date.fromisoformat(str(production_date or ""))
+        date_cls.fromisoformat(str(production_date or ""))
     except ValueError as exc:
         raise SlotContractError("production_date must use YYYY-MM-DD.") from exc
     if slot_id not in SLOT_CATALOG and slot_id != "legacy-single":
@@ -47,7 +47,7 @@ def load_daily_batch(path: str | Path, *, expected_date: str | None = None) -> l
     if expected_date and date != expected_date:
         raise SlotContractError(f"production_date must be {expected_date}.")
     try:
-        if date.fromisoformat(date).isoformat() != date:
+        if date_cls.fromisoformat(date).isoformat() != date:
             raise ValueError("not canonical")
     except ValueError as exc:
         raise SlotContractError("Batch production_date must use YYYY-MM-DD.") from exc
