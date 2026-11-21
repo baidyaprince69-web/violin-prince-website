@@ -353,6 +353,43 @@ def publish_daily_short(
             "The YouTube upload outcome is uncertain. A durable no-retry receipt was saved; check the channel before any further action."
         ) from exc
 
+    actual_privacy = str(upload.get("privacy_status") or "").strip().lower()
+    if actual_privacy != "public":
+        receipt = {
+            "schema_version": 1,
+            "status": "uploaded_visibility_mismatch",
+            "provider": "youtube_data_api",
+            "run_id": str(run_id),
+            "production_date": str(plan.get("production_date") or ""),
+            "slot_id": expected_slot_id,
+            "youtube_video_id": video_id,
+            "youtube_video_url": video_url,
+            "youtube_channel_id": expected_channel,
+            "title": title,
+            "requested_privacy_status": "public",
+            "returned_privacy_status": actual_privacy or "not returned",
+            "sha256": audit["sha256"],
+            "created_at_utc": datetime.now(timezone.utc).isoformat(),
+            "retry_allowed": False,
+            "note": "YouTube returned an upload ID but did not confirm public visibility. Do not retry or publish another copy; inspect this exact video.",
+        }
+        receipt_dir.mkdir(parents=True, exist_ok=True)
+        receipt_path.write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        attempt.update({
+            "status": "uploaded_visibility_mismatch",
+            "youtube_video_id": video_id,
+            "youtube_video_url": video_url,
+            "returned_privacy_status": actual_privacy or "not returned",
+        })
+        attempt_path.write_text(json.dumps(attempt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        _git_commit(
+            [str(attempt_path.relative_to(ROOT)), str(receipt_path.relative_to(ROOT))],
+            f"Record YouTube visibility mismatch {identity}",
+        )
+        raise PublishBlocked(
+            "YouTube accepted the upload but did not confirm public visibility. A no-retry receipt was saved; inspect this exact video manually."
+        )
+
     receipt = {
         "schema_version": 1,
         "status": "uploaded",
@@ -364,7 +401,7 @@ def publish_daily_short(
         "youtube_video_url": video_url,
         "youtube_channel_id": expected_channel,
         "title": title,
-        "privacy_status": "public",
+        "privacy_status": actual_privacy,
         "sha256": audit["sha256"],
         "size_bytes": audit["size_bytes"],
         "duplicate_check": duplicate_check,
