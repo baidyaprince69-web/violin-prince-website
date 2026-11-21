@@ -261,7 +261,9 @@ class DirectorShotRendererTests(unittest.TestCase):
 
             def fake_build(_node, scene_project, out_dir):
                 self.assertTrue(Path(scene_project).is_file())
-                self.assertTrue(Path(json.loads(Path(scene_project).read_text())["scenes"][0]["image"]).exists() is False)
+                project_data = json.loads(Path(scene_project).read_text(encoding="utf-8"))
+                first_image = Path(project_data["scenes"][0]["image"])
+                self.assertTrue((Path(scene_project).parent / first_image).is_file())
                 Path(out_dir).mkdir(parents=True, exist_ok=True)
                 (Path(out_dir) / "motion-report.json").write_text(
                     json.dumps({"status": "passed", "scenes": []}),
