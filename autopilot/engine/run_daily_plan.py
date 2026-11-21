@@ -673,6 +673,9 @@ def _materialize_batch_slot(batch_path: Path, slot_id: str, workspace_root: Path
         plan = next((dict(item) for item in plans if item.get("slot_id") == slot_id), None)
         if plan is None:
             raise engine.PipelineError(f"The daily batch has no plan for slot {slot_id!r}.")
+        if str(plan.get("slot_status") or "ready").strip().lower() != "ready":
+            reason = str(plan.get("blocked_reason") or "source or editorial evidence gate is not satisfied.")
+            raise engine.PipelineError("Selected slot is blocked: " + reason[:500])
 
         expected_workspace = slot_workspace(Path("work/slots").resolve(), today, slot_id)
         resolved_workspace = workspace_root.resolve()
