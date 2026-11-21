@@ -165,7 +165,7 @@ def build_upload_fields(bundle: dict[str, Any], profile: str, release_url: str) 
         uuid.NAMESPACE_URL,
         f"violin-prince:{profile}:youtube:{production_identity}",
     ).hex
-    external_id = f"violin-prince-youtube-{production_identity}"
+    external_id = f"violin-prince-youtube-{date_key}-{slot_id}"
     fields = [
         ("user", profile),
         ("platform[]", "youtube"),
