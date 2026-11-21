@@ -42,6 +42,112 @@ function cssKeyframeValues(property, values) {
   return values;
 }
 
+
+export function directorCameraKeyframes(camera, shotIndex = 0) {
+  const movement = String(camera?.movement || "locked_off").toLowerCase();
+  const size = String(camera?.shot_size || "medium").toLowerCase();
+  const baseScale = {
+    extreme_wide: 1.025,
+    wide: 1.04,
+    medium: 1.06,
+    close_up: 1.085,
+    extreme_close_up: 1.12,
+    macro: 1.14,
+    overhead: 1.055,
+    point_of_view: 1.075
+  }[size] || 1.06;
+  const direction = String(camera?.direction || "").toLowerCase();
+  const left = direction === "right" ? -1 : 1;
+  const up = direction === "down" ? -1 : 1;
+  const scale = value => "scale(" + value.toFixed(3) + ")";
+  switch (movement) {
+    case "dolly_in":
+      return [scale(baseScale) + " translateY(8px)", scale(baseScale + 0.085) + " translateY(-8px)"];
+    case "dolly_out":
+      return [scale(baseScale + 0.085) + " translateY(-8px)", scale(baseScale) + " translateY(8px)"];
+    case "truck_left":
+      return [scale(baseScale) + " translateX(34px)", scale(baseScale + 0.015) + " translateX(-34px)"];
+    case "truck_right":
+    case "tracking":
+      return [scale(baseScale) + " translateX(-34px)", scale(baseScale + 0.015) + " translateX(34px)"];
+    case "pan":
+      return [
+        scale(baseScale) + " translateX(" + (left * 34) + "px)",
+        scale(baseScale + 0.012) + " translateX(" + (left * -34) + "px)"
+      ];
+    case "tilt":
+      return [
+        scale(baseScale) + " translateY(" + (up * 28) + "px)",
+        scale(baseScale + 0.01) + " translateY(" + (up * -28) + "px)"
+      ];
+    case "crane_up":
+      return [scale(baseScale) + " translateY(36px)", scale(baseScale + 0.02) + " translateY(-36px)"];
+    case "crane_down":
+      return [scale(baseScale) + " translateY(-36px)", scale(baseScale + 0.02) + " translateY(36px)"];
+    case "orbit":
+      return [
+        "rotate(-1.4deg) " + scale(baseScale) + " translateX(-18px)",
+        "rotate(1.4deg) " + scale(baseScale + 0.025) + " translateX(18px)"
+      ];
+    case "arc":
+      return [
+        "rotate(1.1deg) " + scale(baseScale) + " translateY(18px)",
+        "rotate(-1.1deg) " + scale(baseScale + 0.02) + " translateY(-18px)"
+      ];
+    case "whip_pan":
+      return [
+        scale(baseScale + 0.05) + " translateX(86px)",
+        scale(baseScale + 0.04) + " translateX(-44px)",
+        scale(baseScale + 0.025) + " translateX(0px)"
+      ];
+    case "controlled_handheld":
+      return [
+        scale(baseScale + 0.025) + " translateX(-5px) translateY(3px) rotate(-0.25deg)",
+        scale(baseScale + 0.03) + " translateX(5px) translateY(-3px) rotate(0.25deg)",
+        scale(baseScale + 0.025) + " translateX(-3px) translateY(2px) rotate(-0.12deg)",
+        scale(baseScale + 0.03) + " translateX(0px) translateY(0px)"
+      ];
+    case "parallax_track":
+      // This is a controlled frame track on a single plate, not true multi-plane parallax.
+      return [scale(baseScale) + " translateX(-26px)", scale(baseScale + 0.035) + " translateX(26px)"];
+    case "zoom_in":
+      return [scale(baseScale), scale(baseScale + 0.09)];
+    case "zoom_out":
+      return [scale(baseScale + 0.09), scale(baseScale)];
+    case "locked_off":
+      return [scale(baseScale), scale(baseScale)];
+    default:
+      throw new TypeError("Unsupported Master Director camera movement: " + movement);
+  }
+}
+
+export function directorTransitionSpec(transition, duration) {
+  const kind = String(transition || "cut").toLowerCase();
+  const seconds = Math.max(0, Number(duration) || 0);
+  if (!seconds || kind === "cut" || kind === "match_cut") {
+    return { property: "opacity", values: [1, 1], easing: "linear" };
+  }
+  switch (kind) {
+    case "dissolve":
+      return { property: "opacity", values: [0, 1], easing: "linear" };
+    case "whip_pan":
+      return { property: "filter", values: ["blur(16px)", "blur(0px)"], easing: "ease-out" };
+    case "luma_wipe":
+      return { property: "clipPath", values: ["inset(0 100% 0 0)", "inset(0 0 0 0)"], easing: "ease-in-out" };
+    case "shape_match":
+      return { property: "clipPath", values: ["circle(0% at 50% 50%)", "circle(76% at 50% 50%)"], easing: "ease-in-out" };
+    case "speed_ramp":
+      // Speed ramp is represented as an accelerated camera move; footage retiming needs moving-image layers.
+      return { property: "filter", values: ["blur(2px)", "blur(0px)"], easing: "ease-in" };
+    case "light_transition":
+      return { property: "filter", values: ["brightness(2.1)", "brightness(1)"], easing: "ease-out" };
+    case "foreground_wipe":
+      return { property: "clipPath", values: ["inset(100% 0 0 0)", "inset(0 0 0 0)"], easing: "ease-in-out" };
+    default:
+      throw new TypeError("Unsupported Master Director transition: " + kind);
+  }
+}
+
 function multiplyMatrix(left, right) {
   return {
     a: left.a * right.a + left.c * right.b,
@@ -341,17 +447,42 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
     const backgroundId = scene.id + "-background";
     const titleId = scene.id + "-title";
     const captionId = scene.id + "-caption";
-    addSpring(backgroundId, "opacity", 0, 1, sceneStart, 650);
+    const visualMode = String(scene.visual_mode || "").toLowerCase();
+    const isDirectorShot = visualMode === "director_shot";
+    const transitionIn = String(scene.transition_in || "cut").toLowerCase();
+    const transitionDuration = Math.max(0, Number(scene.transition_in_duration) || 0);
+    if (isDirectorShot) {
+      const transition = directorTransitionSpec(transitionIn, transitionDuration);
+      addKeyframes(backgroundId, {
+        [transition.property]: transition.values
+      }, sceneStart, Math.max(0.08, transitionDuration || 0.08), transition.easing);
+    } else {
+      addSpring(backgroundId, "opacity", 0, 1, sceneStart, 650);
+    }
     const gradeId = scene.id + "-grade";
     addSpring(gradeId, "opacity", 0, 1, sceneStart + 0.02, 420);
-    const visualMode = String(scene.visual_mode || "").toLowerCase();
-    const cameraKeyframes = visualMode === "cover_performance"
-      ? ["scale(1.055) translateX(12px)", "scale(1.105) translateX(-8px)", "scale(1.12) translateX(-13px)"]
-      : visualMode === "waveform" || visualMode === "mechanism_illustration"
-        ? ["scale(1.055) translateY(8px)", "scale(1.105) translateY(-8px)", "scale(1.115) translateY(-12px)"]
-        : ["scale(1.055) translateX(-9px)", "scale(1.105) translateX(7px)", "scale(1.12) translateX(12px)"];
-    addKeyframes(backgroundId, { transform: cameraKeyframes },
-      sceneStart, sceneDuration, "ease-in-out");
+
+    if (isDirectorShot) {
+      const camera = scene.director_camera || {};
+      const cameraStart = sceneStart + Math.max(0, Number(scene.camera_motion_start_offset) || 0);
+      const cameraDuration = Math.max(0.08, Number(scene.camera_motion_duration) || sceneDuration);
+      const cameraFrames = directorCameraKeyframes(camera, Number(scene.editorial_index) || 0);
+      addKeyframes(
+        backgroundId,
+        { transform: cameraFrames },
+        cameraStart,
+        cameraDuration,
+        scene.camera_easing || "ease-in-out"
+      );
+    } else {
+      const cameraKeyframes = visualMode === "cover_performance"
+        ? ["scale(1.055) translateX(12px)", "scale(1.105) translateX(-8px)", "scale(1.12) translateX(-13px)"]
+        : visualMode === "waveform" || visualMode === "mechanism_illustration"
+          ? ["scale(1.055) translateY(8px)", "scale(1.105) translateY(-8px)", "scale(1.115) translateY(-12px)"]
+          : ["scale(1.055) translateX(-9px)", "scale(1.105) translateX(7px)", "scale(1.12) translateX(12px)"];
+      addKeyframes(backgroundId, { transform: cameraKeyframes },
+        sceneStart, sceneDuration, "ease-in-out");
+    }
 
     const brandId = scene.id + "-brand";
     addSpring(brandId, "opacity", 0, 1, sceneStart + 0.05, 520);
