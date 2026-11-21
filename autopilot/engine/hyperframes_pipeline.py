@@ -190,6 +190,7 @@ def render_master_director_video(
     *,
     project_dir: Path,
     output_video: Path,
+    layer_assets: dict[str, dict[str, Path]] | None = None,
 ) -> dict[str, Any]:
     """Render a complete shot-led Master Director composition and mix its audio.
 
@@ -211,6 +212,7 @@ def render_master_director_video(
         director_plan,
         shot_images,
         root,
+        layer_assets=layer_assets,
         width=int(engine.W),
         height=int(engine.H),
         fps=int(engine.FPS),
