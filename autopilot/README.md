@@ -18,13 +18,15 @@ Base `main` was verified on 21 November 2026 after PR #115 merged. The private-p
 - Existing approval records and GitHub secrets are unchanged. The local illustration approval's `public_youtube` scope does not override the scheduled workflow's explicit private-visibility requirement.
 - The private Qwen3 voice worker remains a narration service; the new private-preview step uploads the finished video to the verified YouTube channel.
 
-## Four-slot production and ChatGPT director — merged to main
+## Four-slot production and ChatGPT director — PR #115 merged
 
 PR [#115](https://github.com/baidyaprince69-web/violin-prince-website/pull/115) is merged. The daily runner accepts date-specific four-plan batches, assigns a separate date/slot identity and workspace to each production, records a slot receipt, and gives the publisher handoff slot-specific duplicate protection.
 
-GitHub Actions runs four cron slots at 00:00, 06:00, 12:00 and 18:00 UTC (05:30, 11:30, 17:30 and 23:30 Asia/Kolkata). ChatGPT remains the global creative director and prepares the next day's batch at approximately 18:00 Asia/Kolkata. The first batch for 22 November is committed; its two blocked slots are skipped safely rather than being filled with invented content.
+GitHub Actions runs four cron slots at 00:00, 06:00, 12:00 and 18:00 UTC (05:30, 11:30, 17:30 and 23:30 Asia/Kolkata). ChatGPT remains the global creative director and prepares the next day's batch at approximately 18:00 Asia/Kolkata. The first batch for 22 November is committed; blocked slots are skipped safely rather than filled with invented content.
 
-The cron is active on `main`, but scheduled production is private-preview-only. Public YouTube publishing remains disabled. The performance slot must use a genuine creator recording when available; sampled or symbolic audio must never be presented as a live creator performance. See [ENGINE_WORKFLOW.md](engine/ENGINE_WORKFLOW.md) for operational gates and testing status.
+**Branch activation status:** `main` still contains the older scheduled public-upload step until PR [#118](https://github.com/baidyaprince69-web/violin-prince-website/pull/118) is reviewed and merged. This branch contains the proposed private-preview-only route. Do not treat private-preview delivery as active on `main` yet. Once PR #118 is merged, ready scheduled slots will upload verified private previews automatically; the creator can review them together at night or weekly. Public scheduled publishing remains a separate future authorization step.
+
+The performance slot must use a genuine creator recording when available; sampled or symbolic audio must never be presented as a live creator performance. See [ENGINE_WORKFLOW.md](engine/ENGINE_WORKFLOW.md) for operational gates and testing status.
 
 ## Approved channel identity and production format
 
