@@ -449,13 +449,32 @@ def run_daily_plan(
             raise engine.PipelineError("The daily batch snapshot SHA-256 is malformed.")
         production_identity["batch_snapshot_sha256"] = batch_snapshot_sha256
     plan, verified_sources = validate_and_enrich_plan(plan)
-    scheduled_preview = bool(batch_snapshot_sha256)
-    if scheduled_preview:
-        # Four-slot scheduled runs are commissioned as private YouTube previews.
-        # Do not let editorial metadata accidentally request public visibility.
+    scheduled_public_upload = bool(batch_snapshot_sha256)
+    if scheduled_public_upload:
+        # The creator has explicitly approved direct public YouTube uploads.
+        # Re-check the approval file in the production process itself; do not
+        # rely only on a workflow environment flag or a batch plan field.
+        approval_path = Path(__file__).resolve().parent / "illustration-approval.json"
+        try:
+            approval = json.loads(approval_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise engine.PipelineError("Public YouTube upload approval is missing or invalid.") from exc
+        public_approval = approval.get("creator_publication_approval") if isinstance(approval, dict) else None
+        if not (
+            approval.get("status") == "approved_for_publication"
+            and approval.get("scope") == "public_youtube"
+            and approval.get("publishing_enabled") is True
+            and isinstance(public_approval, dict)
+            and public_approval.get("approved") is True
+            and public_approval.get("platform") == "youtube"
+            and public_approval.get("privacy_status") == "public"
+            and public_approval.get("no_private_preview_required") is True
+            and str(public_approval.get("approval_statement") or "").strip()
+        ):
+            raise engine.PipelineError("Creator's explicit public YouTube publishing approval is not valid.")
         supplied_metadata = plan.get("publish_metadata")
         supplied_metadata = supplied_metadata if isinstance(supplied_metadata, dict) else {}
-        plan["publish_metadata"] = {**supplied_metadata, "privacy_status": "private"}
+        plan["publish_metadata"] = {**supplied_metadata, "privacy_status": "public"}
     engine.WORK.mkdir(parents=True, exist_ok=True)
     engine.OUT.mkdir(parents=True, exist_ok=True)
     paths = engine._package_paths()
@@ -655,7 +674,7 @@ def run_daily_plan(
         production_date=str(plan.get("production_date") or ""),
         slot_id=slot_id,
         run_id=engine.RUN_ID,
-        status=("rendered_ready_for_private_preview" if scheduled_preview else "rendered_handoff_only"),
+        status=("rendered_ready_for_public_youtube_upload" if scheduled_public_upload else "rendered_handoff_only"),
         output_dir=engine.OUT,
     )
     print(
