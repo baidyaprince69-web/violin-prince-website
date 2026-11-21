@@ -140,12 +140,12 @@ jobs:
           if not batch_path.is_file():
               workspace = slot_workspace(Path("work/slots"), today, slot_id)
               with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-                  output.write("slot_status=blocked\\n")
-                  output.write("blocked_reason=No ChatGPT-authored batch exists for today's date; this slot was safely skipped.\\n")
-                  output.write("slot_id=" + slot_id + "\\n")
-                  output.write("workspace_root=" + str(workspace) + "\\n")
-                  output.write("batch_path=" + str(batch_path) + "\\n")
-                  output.write("batch_sha256=\\n")
+                  output.write("slot_status=blocked\n")
+                  output.write("blocked_reason=No ChatGPT-authored batch exists for today's date; this slot was safely skipped.\n")
+                  output.write("slot_id=" + slot_id + "\n")
+                  output.write("workspace_root=" + str(workspace) + "\n")
+                  output.write("batch_path=" + str(batch_path) + "\n")
+                  output.write("batch_sha256=\n")
               print(f"No batch exists for {today}; safely skipping {slot_id}.")
               raise SystemExit(0)
           batch_bytes = batch_path.read_bytes()
