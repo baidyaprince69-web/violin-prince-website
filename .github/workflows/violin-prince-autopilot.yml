@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       stage:
-        description: "Run one complete production pass. Scheduled ready slots can publish publicly to YouTube after all gates pass."
+        description: "Run one complete production pass. Scheduled ready slots upload private YouTube previews only."
         required: true
         type: choice
         default: full
@@ -57,7 +57,7 @@ jobs:
           PYTHONPATH: autopilot/engine
         run: python -m unittest discover -s autopilot/engine/tests -p "test_hyperframes_pipeline.py" -v
 
-      - name: Verify public YouTube and private voice credentials are configured
+      - name: Verify YouTube upload and private voice credentials are configured
         env:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
@@ -79,7 +79,7 @@ jobs:
           missing = [name for name in required if not os.environ.get(name, "").strip()]
           if missing:
               raise SystemExit("Required publishing/voice credentials are missing: " + ", ".join(missing))
-          print("Direct YouTube OAuth configuration and private Qwen3 voice credentials are present.")
+          print("YouTube OAuth configuration and private Qwen3 voice credentials are present.")
           PY
 
   daily_readiness:
@@ -184,7 +184,7 @@ jobs:
             echo ""
             echo "- Slot: `$SLOT_ID`"
             echo "- Reason: $BLOCKED_REASON"
-            echo "- No narration, MP4, private release or public upload was attempted."
+            echo "- No narration, MP4 render or YouTube upload was attempted."
           } >> "$GITHUB_STEP_SUMMARY"
 
   report_readiness_blocked:
@@ -256,8 +256,11 @@ jobs:
           publish_to_youtube = request.get("publish_to_youtube", False)
           if not isinstance(publish_to_youtube, bool):
               raise SystemExit("publish_to_youtube must be an explicit boolean.")
-          if publish_to_youtube and os.environ.get("GITHUB_EVENT_NAME") != "push":
-              raise SystemExit("Public YouTube publishing can only be armed by an explicit ChatGPT push request.")
+          if publish_to_youtube:
+              raise SystemExit(
+                  "Public YouTube publishing is disabled during private-preview commissioning. "
+                  "Set publish_to_youtube=false; the scheduled four-slot route uploads private previews only."
+              )
           from datetime import datetime
           from zoneinfo import ZoneInfo
 
@@ -394,23 +397,23 @@ jobs:
           PRIVATE_VOICE_REPO_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
         run: python autopilot/engine/run.py --stage full
 
-      - name: Publish validated daily slot directly to public YouTube
-        if: success() && env.PIPELINE_STAGE == 'full' && ((github.event_name == 'schedule' && needs.daily_readiness.outputs.slot_status == 'ready') || (github.event_name == 'push' && steps.daily_request.outputs.publish_to_youtube == 'true'))
+      - name: Upload validated daily slot as a PRIVATE YouTube preview
+        if: success() && github.event_name == 'schedule' && env.PIPELINE_STAGE == 'full' && needs.daily_readiness.outputs.slot_status == 'ready'
         env:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
           YOUTUBE_EXPECTED_CHANNEL_ID: ${{ vars.YOUTUBE_EXPECTED_CHANNEL_ID }}
-          YOUTUBE_PRIVACY_STATUS: "public"
+          YOUTUBE_PRIVACY_STATUS: "private"
           GITHUB_REF_NAME: ${{ github.ref_name }}
           GITHUB_RUN_ID: ${{ github.run_id }}
-          OUTPUT_DIR: ${{ needs.daily_readiness.outputs.workspace_root != '' && format('{0}/output', needs.daily_readiness.outputs.workspace_root) || 'work/output' }}
-          PLAN_PATH: ${{ needs.daily_readiness.outputs.workspace_root != '' && format('{0}/package/creative_plan.json', needs.daily_readiness.outputs.workspace_root) || 'work/package/creative_plan.json' }}
-          SLOT_ID: ${{ needs.daily_readiness.outputs.slot_id != '' && needs.daily_readiness.outputs.slot_id || 'legacy-single' }}
+          OUTPUT_DIR: ${{ format('{0}/output', needs.daily_readiness.outputs.workspace_root) }}
+          PLAN_PATH: ${{ format('{0}/package/creative_plan.json', needs.daily_readiness.outputs.workspace_root) }}
+          SLOT_ID: ${{ needs.daily_readiness.outputs.slot_id }}
         shell: bash
         run: |
           set -euo pipefail
-          python autopilot/engine/publish_daily_short.py \
+          python autopilot/engine/upload_private_preview.py \
             --output-dir "$OUTPUT_DIR" \
             --plan "$PLAN_PATH" \
             --run-id "$GITHUB_RUN_ID" \
