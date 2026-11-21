@@ -384,11 +384,11 @@ jobs:
             python autopilot/engine/run_daily_plan.py --plan "${{ steps.daily_request.outputs.plan_path }}"
           fi
 
-      - name: Save the creator-requested MP4 for alternate private upload
+      - name: Retain creator-requested MP4 for YouTube upload handoff
         if: success() && github.event_name == 'push' && steps.daily_request.outputs.plan_path != ''
         uses: actions/upload-artifact@v4
         with:
-          name: violin-prince-private-preview-${{ github.run_number }}
+          name: violin-prince-youtube-upload-${{ github.run_number }}
           path: |
             work/output/violin-prince-short.mp4
             work/output/publish-manifest.json
@@ -403,11 +403,11 @@ jobs:
           PRIVATE_VOICE_REPO_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
         run: python autopilot/engine/run.py --stage full
 
-      - name: Retain scheduled private-preview artifact for recovery
+      - name: Retain scheduled YouTube upload artifact for recovery
         if: success() && github.event_name == 'schedule' && env.PIPELINE_STAGE == 'full' && needs.daily_readiness.outputs.slot_status == 'ready'
         uses: actions/upload-artifact@v4
         with:
-          name: violin-prince-private-preview-${{ github.run_number }}
+          name: violin-prince-youtube-upload-${{ github.run_number }}
           path: |
             ${{ format('{0}/output/violin-prince-short.mp4', needs.daily_readiness.outputs.workspace_root) }}
             ${{ format('{0}/output/publish-manifest.json', needs.daily_readiness.outputs.workspace_root) }}
@@ -417,13 +417,13 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
-      - name: Upload validated daily slot as a PRIVATE YouTube preview via Upload-Post
+      - name: Publish approved daily slot PUBLICLY to YouTube via Upload-Post
         if: success() && github.event_name == 'schedule' && env.PIPELINE_STAGE == 'full' && needs.daily_readiness.outputs.slot_status == 'ready'
         env:
           UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
           UPLOAD_POST_USER: "default"
           YOUTUBE_EXPECTED_CHANNEL_ID: ${{ vars.YOUTUBE_EXPECTED_CHANNEL_ID }}
-          YOUTUBE_PRIVACY_STATUS: "private"
+          YOUTUBE_PRIVACY_STATUS: "public"
           PUBLISH_ENABLED: "false"
           GITHUB_REF_NAME: ${{ github.ref_name }}
           GITHUB_RUN_ID: ${{ github.run_id }}
@@ -433,7 +433,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python autopilot/engine/upload_private_preview_uploadpost.py \
+          python autopilot/engine/upload_public_short_uploadpost.py \
             --output-dir "$OUTPUT_DIR" \
             --plan "$PLAN_PATH" \
             --run-id "$GITHUB_RUN_ID" \
