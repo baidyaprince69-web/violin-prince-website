@@ -8,7 +8,7 @@ on:
       - ".autopilot/upload-request.json"
 
 permissions:
-  contents: read
+  contents: write
   actions: read
 
 concurrency:
