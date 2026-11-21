@@ -35,6 +35,10 @@ from character_presenter import (  # noqa: E402
     attach_violin_prince_presenter,
     enable_presenter_from_environment,
 )
+from slot_registry import (  # noqa: E402
+    SLOT_CATALOG, SlotContractError, load_daily_batch,
+    production_identity as slot_production_identity, slot_workspace,
+)
 
 
 def _normalise_quote(value: str) -> str:
@@ -386,8 +390,17 @@ def build_production_identity(
                 "Refusing to send narration to Qwen3."
             )
 
+    slot_id = str(plan.get("slot_id") or "legacy-single")
+    try:
+        slot_identity = slot_production_identity(str(plan.get("production_date") or ""), slot_id)
+    except SlotContractError as exc:
+        raise engine.PipelineError("Daily production slot identity is invalid: " + str(exc)) from exc
+
     return {
-        "schema_version": 1,
+        "schema_version": 2,
+        "production_date": str(plan.get("production_date") or ""),
+        "slot_id": slot_id,
+        "production_identity": slot_identity,
         "plan_sha256": plan_sha256,
         "narration_script_sha256": narration_sha256,
         "narration_word_count": engine.narration_word_count(script),
@@ -395,11 +408,28 @@ def build_production_identity(
     }
 
 
-def run_daily_plan(plan_path: Path) -> int:
+def configure_slot_workspace(workspace_root: Path, *, run_id: str) -> None:
+    """Point every shared engine path at one slot-owned workspace."""
+    root = Path(workspace_root).resolve()
+    engine.WORK = root / "work"
+    engine.OUT = root / "output"
+    engine.IMAGES = root / "images"
+    engine.PACKAGE = root / "package"
+    engine.RUN_ID = str(run_id)
+
+
+def run_daily_plan(
+    plan_path: Path,
+    *,
+    workspace_root: Path | None = None,
+    batch_snapshot_sha256: str = "",
+) -> int:
     # Stop before plan validation, research fetches, soundtrack work or image generation.
     require_approved_own_voice()
     engine.require_approved_illustration_provider()
     plan_path = Path(plan_path)
+    if workspace_root is not None:
+        configure_slot_workspace(workspace_root, run_id=os.environ.get("RUN_ID", engine.RUN_ID))
     if not plan_path.is_file():
         raise engine.PipelineError(f"ChatGPT daily plan was not found: {plan_path}")
     try:
@@ -414,6 +444,10 @@ def run_daily_plan(plan_path: Path) -> int:
         expected_plan_sha256=os.environ.get("EXPECTED_PLAN_SHA256", ""),
         expected_narration_sha256=os.environ.get("EXPECTED_NARRATION_SHA256", ""),
     )
+    if batch_snapshot_sha256:
+        if not re.fullmatch(r"[0-9a-f]{64}", batch_snapshot_sha256):
+            raise engine.PipelineError("The daily batch snapshot SHA-256 is malformed.")
+        production_identity["batch_snapshot_sha256"] = batch_snapshot_sha256
     plan, verified_sources = validate_and_enrich_plan(plan)
     engine.WORK.mkdir(parents=True, exist_ok=True)
     engine.OUT.mkdir(parents=True, exist_ok=True)
