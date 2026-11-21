@@ -31,16 +31,19 @@ class BlockedSlotWorkflowTests(unittest.TestCase):
         produce = top_level_job_block(content, "produce")
         self.assertIn("needs.daily_readiness.outputs.slot_status == 'ready'", produce)
 
-    def test_blocked_slot_has_a_summary_without_private_transfer(self):
+    def test_blocked_slot_has_a_summary_and_no_publication_attempt(self):
         content = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("  report_blocked_slot:", content)
         self.assertIn("No narration, MP4, private release or public upload was attempted.", content)
         self.assertIn("  report_readiness_blocked:", content)
 
-    def test_private_transfer_runs_only_inside_the_gated_production_job(self):
+    def test_ready_scheduled_slot_publishes_directly_to_public_youtube(self):
         content = WORKFLOW.read_text(encoding="utf-8")
-        self.assertIn("- name: Transfer finished preview to the private Voice Vault", content)
+        self.assertIn("- name: Publish validated daily slot directly to public YouTube", content)
+        self.assertIn("python autopilot/engine/publish_daily_short.py", content)
+        self.assertIn('YOUTUBE_PRIVACY_STATUS: "public"', content)
         self.assertIn("needs.daily_readiness.outputs.slot_status == 'ready'", content)
+        self.assertNotIn("- name: Transfer finished preview to the private Voice Vault", content)
 
 
 if __name__ == "__main__":
