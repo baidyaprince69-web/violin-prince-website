@@ -1,7 +1,6 @@
 """Four-slot daily production contract and isolated workspace helpers.
 
-Foundation only: validates a four-plan batch and allocates per-slot paths.
-It does not schedule jobs or enable any publisher.
+Defines the four-plan contract, per-slot workspaces and receipts used by the scheduled preview runner. It does not enable public publishing.
 """
 from __future__ import annotations
 import json
