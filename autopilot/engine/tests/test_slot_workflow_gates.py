@@ -1,4 +1,5 @@
 from __future__ import annotations
+import re
 import unittest
 from pathlib import Path
 
@@ -9,8 +10,12 @@ WORKFLOW = ROOT / ".github" / "workflows" / "violin-prince-autopilot.yml"
 class BlockedSlotWorkflowTests(unittest.TestCase):
     def test_blocked_slot_never_enters_production_job(self):
         content = WORKFLOW.read_text(encoding="utf-8")
-        produce = content.split("  produce:", 1)[1].split("\n  ", 1)[0]
-        self.assertIn("needs.daily_readiness.outputs.slot_status == 'ready'", produce)
+        match = re.search(
+            r"(?ms)^  produce:\n(.*?)(?=^  [A-Za-z_][A-Za-z0-9_-]*:\n|\\Z)",
+            content,
+        )
+        self.assertIsNotNone(match, "Could not locate the top-level production job.")
+        self.assertIn("needs.daily_readiness.outputs.slot_status == 'ready'", match.group(1))
 
     def test_blocked_slot_has_a_summary_without_private_transfer(self):
         content = WORKFLOW.read_text(encoding="utf-8")
