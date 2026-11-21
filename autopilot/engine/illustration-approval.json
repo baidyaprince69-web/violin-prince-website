@@ -4,7 +4,7 @@
   "provider": "local_vector",
   "scope": "public_youtube",
   "renderer_version": "violin-prince-vector-illustrator-v1",
-  "approval_date": "2026-11-21",
+  "approval_date": "2026-11-22",
   "publishing_enabled": true,
   "test_evidence": {
     "workflow_name": "Local vector illustration preview",
@@ -50,7 +50,7 @@
     "platform": "youtube",
     "privacy_status": "public",
     "no_private_preview_required": true,
-    "approval_statement": "Do not make a private video; publish the finished video publicly to YouTube.",
-    "approval_source": "Explicit creator instruction in the ChatGPT conversation on 2026-11-21."
+    "approval_statement": "The creator authorizes automatic public uploads of approved Violin Prince videos to YouTube without private-preview copies.",
+    "approval_source": "Explicit creator authorization in ChatGPT, reconfirmed on 2026-11-22."
   }
 }
