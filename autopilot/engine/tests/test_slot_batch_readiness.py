@@ -18,8 +18,24 @@ class SlotBatchReadinessTests(unittest.TestCase):
                     "def require_approved_own_voice():\n    return True\n")
         self._write(root, "autopilot/engine/run.py",
                     "def require_approved_illustration_provider():\n    return True\n")
-        self._write(root, "autopilot/engine/voice-approval.json",
-                    '{"schema_version":1,"status":"approved","provider":"private_qwen3","test_evidence":{"workflow_status":"success","exact_transcript_verified":true,"word_timestamps_verified":true}}')
+        self._write(root, "autopilot/engine/voice-approval.json", json.dumps({
+            "schema_version": 1, "status": "approved", "provider": "private_qwen3",
+            "voice_identity": "creator_own_voice_clone", "approved_by": "creator",
+            "scope": "production narration through the private Qwen3 worker only",
+            "bridge_test": {
+                "public_bridge_run_id": 44514229249,
+                "private_worker_run_id": 44514263171,
+                "private_cleanup_run_id": 44517206357,
+                "bridge_status": "passed",
+                "exact_transcript_status": "verified_exact_transcript",
+                "word_timing_method": "faster-whisper-cross-attention-dtw",
+                "audio_checksum_status": "verified_sha256",
+                "word_count": 35, "duration_min_seconds": 22, "duration_max_seconds": 23,
+                "temporary_transfer_cleanup": "passed",
+            },
+            "publishing_enabled": False, "fallback_voice_allowed": False,
+            "approval_date": "2026-11-19",
+        }))
         self._write(root, "autopilot/engine/illustration-approval.json", json.dumps({
             "schema_version": 1, "status": "approved_for_preview", "provider": "local_vector",
             "scope": "preview_video_only", "renderer_version": "violin-prince-vector-illustrator-v1",
