@@ -137,6 +137,9 @@ jobs:
 
           today = datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
           batch_path = Path(".autopilot/daily-batches") / (today + ".json")
+          slot_id = os.environ.get("SELECTED_SLOT_ID", "")
+          if slot_id not in {"music-secrets", "production-tech", "melody-stories", "real-performance"}:
+              raise SystemExit("The six-hour trigger did not select a canonical slot.")
           if not batch_path.is_file():
               workspace = slot_workspace(Path("work/slots"), today, slot_id)
               with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
