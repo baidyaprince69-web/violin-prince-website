@@ -21,8 +21,10 @@ class SlotContractError(ValueError):
     """Invalid or incomplete daily slot batch."""
 
 def production_identity(production_date: str, slot_id: str) -> str:
-    if not re.fullmatch(r"\d{4}-\d{2}-\\d{2}", str(production_date or "")):
-        raise SlotContractError("production_date must use YYYY-MM-DD.")
+    try:
+        date.fromisoformat(str(production_date or ""))
+    except ValueError as exc:
+        raise SlotContractError("production_date must use YYYY-MM-DD.") from exc
     if slot_id not in SLOT_CATALOG:
         raise SlotContractError(f"Unknown slot_id: {slot_id!r}.")
     return f"{production_date}:{slot_id}"
