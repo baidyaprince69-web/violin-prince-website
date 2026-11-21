@@ -400,8 +400,22 @@ class DirectorShotRendererTests(unittest.TestCase):
                 first_image = Path(project_data["scenes"][0]["image"])
                 self.assertTrue((Path(scene_project).parent / first_image).is_file())
                 Path(out_dir).mkdir(parents=True, exist_ok=True)
+                render_scenes = project_data["scenes"]
+                rendered_layers = sum(len(scene.get("visual_layers") or []) for scene in render_scenes)
+                independent_tracks = sum(
+                    1
+                    for scene in render_scenes
+                    for layer in scene.get("visual_layers") or []
+                    if layer.get("role") != "background"
+                    and (layer.get("motion") or {}).get("type") != "locked"
+                )
                 (Path(out_dir) / "motion-report.json").write_text(
-                    json.dumps({"status": "passed", "scenes": []}),
+                    json.dumps({
+                        "status": "passed",
+                        "independent_layer_motion_count": independent_tracks,
+                        "rendered_layer_count": rendered_layers,
+                        "scenes": []
+                    }),
                     encoding="utf-8",
                 )
 
