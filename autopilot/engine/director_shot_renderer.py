@@ -40,7 +40,7 @@ def _safe_hex(value: object, field: str) -> str:
 
 
 def _transition_duration(transition: str, shot_duration: float) -> float:
-    if transition in {"cut", "match_cut"}:
+    if transition in {"none", "cut", "match_cut"}:
         return 0.0
     if transition not in SUPPORTED_TRANSITION_IN:
         raise DirectorShotRenderError(
