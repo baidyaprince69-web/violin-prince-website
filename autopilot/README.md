@@ -4,7 +4,7 @@ A cloud-first short-video production pipeline. GitHub-hosted runners do the prod
 
 ## Production architecture and current operational state
 
-The India-first editorial target is documented in [INDIA_CONTENT_STRATEGY.md](INDIA_CONTENT_STRATEGY.md). It defines four content pillars and a target of four distinct Shorts per day, approximately six hours apart. That is a strategy target, **not an enabled schedule**.
+The global editorial direction is documented in [GLOBAL_CONTENT_STRATEGY.md](GLOBAL_CONTENT_STRATEGY.md). It defines four content pillars for a worldwide music audience and a target of four distinct Shorts per day, approximately six hours apart. Bengali and Indian repertoire remain part of the channel's identity, not a geographic boundary. This is a strategy target, **not an enabled schedule**.
 
 Verified against the main branch on 21 November 2026:
 
