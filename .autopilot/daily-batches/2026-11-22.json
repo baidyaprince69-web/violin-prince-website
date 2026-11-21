@@ -1,0 +1,253 @@
+{
+  "schema_version": 1,
+  "production_date": "2026-11-22",
+  "plans": [
+    {
+      "production_date": "2026-11-22",
+      "slot_id": "music-secrets",
+      "slot_status": "blocked",
+      "blocked_reason": "Only one fresh institutional publisher page about the violin playing-in experiment was fully verified. The Sorbonne page's original publication date is 13 November (outside the runner's 168-hour freshness window), and the other recent secondary page explicitly identifies itself as AI-generated rather than independent editorial corroboration. Do not lower the two-source freshness and independence gate."
+    },
+    {
+      "production_date": "2026-11-22",
+      "slot_id": "production-tech",
+      "slot_status": "ready",
+      "story_type": "music_technology",
+      "core_claim": "A de-harshing plug-in reduces harsh string resonances with source profiles and lets listeners monitor the processing.",
+      "topic": "Sonible's newly released pure:smooth plugin and its source-aware resonance-reduction controls, explained as product news rather than a hands-on test.",
+      "title": "A New AI Tool for Taming Harsh Violin Resonances",
+      "hook": "What if the harshest part of a violin recording could be targeted without flattening its whole tone?",
+      "description": "A global music-technology explainer about sonible's pure:smooth launch. The official product announcement describes AI-assisted resonance reduction and source profiles; MMR independently reports how the source profile and Difference Monitoring work. This is not a hands-on test or a claim that the plugin was used on a Violin Prince recording. The visual sound example is symbolic and uses a disclosed sample, not a captured plugin session.",
+      "hashtags": [
+        "#Violin",
+        "#AudioEngineering",
+        "#MusicProduction",
+        "#AudioPlugins",
+        "#ViolinPrince"
+      ],
+      "tags": [
+        "sonible pure:smooth",
+        "de-harshing plugin",
+        "resonance reduction",
+        "harsh frequencies",
+        "violin recording",
+        "audio engineering",
+        "music technology",
+        "Difference Monitoring",
+        "Violin Prince"
+      ],
+      "narrative_style": "documentary",
+      "cover_payoff": "Use a clearly disclosed CC0 or symbolic violin phrase to explain the idea of reducing harsh resonances. Do not fake a pure:smooth before-and-after test, show invented plugin measurements, or imply the sample is a live Violin Prince recording.",
+      "narration_script": "Why can a violin recording sound sharp even when the notes are right? Sonible’s pure:smooth targets harsh resonances. It adapts processing after a source profile is selected. Difference Monitoring lets you hear what is removed.",
+      "narration_evidence": [
+        {
+          "sentence_number": 2,
+          "source_id": "S001",
+          "quote": "new AI-powered de-harshing plug-in that intelligently identifies and reduces unwanted resonances and harsh frequencies"
+        },
+        {
+          "sentence_number": 3,
+          "source_id": "S002",
+          "quote": "After a user selects a source profile, the plugin analyzes the audio and adjusts its processing automatically."
+        },
+        {
+          "sentence_number": 4,
+          "source_id": "S002",
+          "quote": "With Difference Monitoring, users can listen to exactly what is being removed."
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "S001",
+          "title": "pure:smooth is out now!",
+          "url": "https://www.sonible.com/blog/puresmooth-is-out-now/",
+          "publisher_domain": "sonible.com",
+          "date": "2026-11-18"
+        },
+        {
+          "source_id": "S002",
+          "title": "Sonible releases AI-powered Resonance Suppression Plugin",
+          "url": "https://mmrmagazine.com/sonible-releases-ai-powered-resonance-suppression-plugin/",
+          "publisher_domain": "mmrmagazine.com",
+          "date": "2026-11-18"
+        }
+      ],
+      "timeline": [],
+      "scenes": [
+        {
+          "id": "sharp-string-hook",
+          "title": "The sharp edge",
+          "caption": "WHEN STRINGS SOUND SHARP",
+          "visual_mode": "waveform",
+          "image_prompt": "Vertical 9:16 premium editorial illustration in midnight navy, muted teal and antique gold. Show an amber-brown violin beside a warm waveform with a few visually prominent resonance peaks, clearly conceptual and not numeric. Fine editorial linework, cinematic studio lighting, uncluttered composition, no software UI, no logos, no readable embedded words.",
+          "narration_sentence_indexes": [
+            0
+          ]
+        },
+        {
+          "id": "source-aware-reduction",
+          "title": "Source-aware reduction",
+          "caption": "A SOURCE PROFILE GUIDES THE PROCESS",
+          "visual_mode": "comparison",
+          "image_prompt": "Vertical 9:16 conceptual audio-engineering comparison: one illustrated string waveform flows into a simple source-profile selector and a transparent resonance-reduction stage, then exits with a calmer highlighted spectrum. Show no invented decibel values, no product interface or brand logo. Midnight-navy background, muted teal and antique-gold signal paths, precise editorial graphics.",
+          "narration_sentence_indexes": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "listening-payoff",
+          "title": "Listen to the difference",
+          "caption": "HEAR WHAT CHANGES",
+          "visual_mode": "cover_performance",
+          "image_prompt": "Vertical 9:16 symbolic violin demonstration in the Violin Prince midnight studio. Show a complete amber-walnut violin and bow, expressive non-identifiable hands, and two subtle conceptual audio ribbons. The image must read as an illustrated demonstration, not a photograph or claim of a real creator recording. Midnight navy, muted teal and antique gold, no text, logo or watermark.",
+          "narration_sentence_indexes": [
+            3
+          ]
+        }
+      ],
+      "performance_feedback": {
+        "sample_window": "No published sample exists for this first slot in the new schedule.",
+        "sample_count": 0,
+        "confidence": "No audience-response claim; this is a sourced product-news explainer, not a performance-based topic ranking.",
+        "strengths_to_preserve": [
+          "Keep the violin example central while explaining a current audio-production mechanism."
+        ],
+        "one_change_to_test": "Use a clearly labelled conceptual signal comparison rather than pretending to show a hands-on plugin test.",
+        "measurement_for_next_upload": "If later approved for publication, compare 24-hour and seven-day views, engaged views, average view duration, average percentage viewed, stayed-to-watch, likes, comments and shares."
+      },
+      "narration_asr_hotwords": [
+        "sonible",
+        "pure:smooth",
+        "resonances",
+        "Difference Monitoring"
+      ]
+    },
+    {
+      "production_date": "2026-11-22",
+      "slot_id": "melody-stories",
+      "slot_status": "ready",
+      "story_type": "song_anatomy",
+      "core_claim": "Phoebe Bridgers' cover of Adrianne Lenker's song changes the production arrangement while retaining the original song's fragile character.",
+      "topic": "How a new holiday cover of Adrianne Lenker's 'Anything' changes the production feel while keeping the song recognizable.",
+      "title": "How a Cover Changes a Song’s Feel",
+      "hook": "A familiar melody can feel different when another artist changes the arrangement.",
+      "description": "A global melody-and-arrangement story about Phoebe Bridgers' newly released cover of Adrianne Lenker's 2020 song 'Anything'. Pitchfork reports the release and co-producers; Stereogum describes the production shift; Hot Press reports that both singers are donating their proceeds to the Palestine Children's Relief Fund. The Violin Prince video must not reproduce the recording, lyrics, melody or artwork. Its musical payoff is an original violin phrase demonstrating the general idea of arrangement contrast.",
+      "hashtags": [
+        "#Melody",
+        "#SongAnatomy",
+        "#ViolinCover",
+        "#MusicStories",
+        "#ViolinPrince"
+      ],
+      "tags": [
+        "Phoebe Bridgers",
+        "Adrianne Lenker",
+        "Anything cover",
+        "song arrangement",
+        "melody breakdown",
+        "music production",
+        "cover versions",
+        "Violin Prince"
+      ],
+      "narrative_style": "cinematic_story",
+      "cover_payoff": "Play a short original CC0 violin phrase twice with contrasting, original accompaniment textures to demonstrate how arrangement can change a song's feel. Do not imitate or reproduce the copyrighted song, its recording, lyrics, melody, or cover artwork.",
+      "narration_script": "What can a cover change while keeping a song recognizable? Phoebe Bridgers revisits Adrianne Lenker’s 2020 song “Anything.” Critics describe her take as lusher, while keeping its fragile feel. Both artists donate proceeds to charity.",
+      "narration_evidence": [
+        {
+          "sentence_number": 2,
+          "source_id": "S001",
+          "quote": "Today, she’s releasing a cover of Adrianne Lenker’s 2020 single “Anything,”"
+        },
+        {
+          "sentence_number": 3,
+          "source_id": "S002",
+          "quote": "her take is a lot lusher and more produced"
+        },
+        {
+          "sentence_number": 4,
+          "source_id": "S003",
+          "quote": "Both singers are donating proceeds made from the track to the Palestine Children's Relief Fund."
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "S001",
+          "title": "Phoebe Bridgers Covers Adrianne Lenker’s “Anything” for the Holidays",
+          "url": "https://pitchfork.com/story/phoebe-bridgers-covers-adrianne-lenkers-anything-for-the-holidays/",
+          "publisher_domain": "pitchfork.com",
+          "date": "2026-11-19"
+        },
+        {
+          "source_id": "S002",
+          "title": "Phoebe Bridgers Shares Cover Of Adrienne Lenker's 'Anything'",
+          "url": "https://stereogum.com/2518664/phoebe-bridgers-anything-adrianne-lenker-cover/music",
+          "publisher_domain": "stereogum.com",
+          "date": "2026-11-19"
+        },
+        {
+          "source_id": "S003",
+          "title": "Phoebe Bridgers releases cover of Adrianne Lenker's 'Anything' for the festive season",
+          "url": "https://www.hotpress.com/music/phoebe-bridgers-releases-cover-of-adrianne-lenkers-anything-for-the-festive-season-23170128",
+          "publisher_domain": "hotpress.com",
+          "date": "2026-11-20"
+        }
+      ],
+      "timeline": [],
+      "scenes": [
+        {
+          "id": "cover-question",
+          "title": "One melody, another voice",
+          "caption": "WHAT CAN A COVER CHANGE?",
+          "visual_mode": "melody_map",
+          "image_prompt": "Vertical 9:16 premium editorial illustration of one original, abstract melodic contour moving across a midnight-navy field toward an amber violin. Use no notation copied from any commercial song, no lyrics and no recognizable album art. Muted teal and antique gold accents, precise visual storytelling, clean negative space.",
+          "narration_sentence_indexes": [
+            0
+          ]
+        },
+        {
+          "id": "arrangement-shift",
+          "title": "The arrangement changes",
+          "caption": "SAME SONG, DIFFERENT FEEL",
+          "visual_mode": "comparison",
+          "image_prompt": "Vertical 9:16 split editorial composition showing one original, generic melodic contour interpreted through two contrasting abstract arrangements: one sparse and intimate, one fuller and layered. Do not recreate any real song melody, recording, album artwork or artist likeness. Midnight navy, antique gold and muted teal, restrained cinematic depth.",
+          "narration_sentence_indexes": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "original-violin-payoff",
+          "title": "The violin interpretation",
+          "caption": "MAKE THE MELODY YOUR OWN",
+          "visual_mode": "cover_performance",
+          "image_prompt": "Vertical 9:16 illustrated Violin Prince studio payoff: a full amber-walnut violin, bow and expressive non-identifiable hands beside a fresh original melodic ribbon. The image is symbolic and does not depict Phoebe Bridgers, Adrianne Lenker or an existing recording. Premium midnight-navy, muted-teal and antique-gold editorial finish, no embedded words or logos.",
+          "narration_sentence_indexes": [
+            3
+          ]
+        }
+      ],
+      "performance_feedback": {
+        "sample_window": "First scheduled batch; this story has not been published.",
+        "sample_count": 0,
+        "confidence": "No performance data exists for this topic on this channel; selection is based on current global music reporting only.",
+        "strengths_to_preserve": [
+          "Connect an international music story to an original violin interpretation without copying the original recording."
+        ],
+        "one_change_to_test": "Explain one audible arrangement contrast using an original phrase rather than summarizing artist biographies.",
+        "measurement_for_next_upload": "If later approved for publication, compare 24-hour and seven-day views, engaged views, average view duration, average percentage viewed, stayed-to-watch, likes, comments and shares."
+      },
+      "narration_asr_hotwords": [
+        "Phoebe Bridgers",
+        "Adrianne Lenker",
+        "Anything"
+      ]
+    },
+    {
+      "production_date": "2026-11-22",
+      "slot_id": "real-performance",
+      "slot_status": "blocked",
+      "blocked_reason": "No approved creator-recorded violin clip is currently available to the unattended runner, and this research pass did not verify two independent, current direct publisher articles supporting a distinct performance/technique story. Do not replace a real performance with an undisclosed sample or repeat the melody-story topic."
+    }
+  ]
+}
