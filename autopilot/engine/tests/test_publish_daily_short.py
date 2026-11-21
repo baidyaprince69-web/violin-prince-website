@@ -78,6 +78,16 @@ class DailyPublicPublisherTests(unittest.TestCase):
                 ],
             },
             "assets": {
+                "scene_images": [
+                    {
+                        "origin": "locally_generated_vector_artwork",
+                        "provider": "Violin Prince local vector illustrator",
+                        "model": "violin-prince-vector-illustrator-v1",
+                        "rights_status": "original_locally_generated_vector_artwork",
+                        "sha256": f"{index + 1:064x}",
+                    }
+                    for index in range(3)
+                ],
                 "soundtrack": {"rights_status": "cc0_license_recorded_from_pinned_sample_manifest"},
                 "final_video": {
                     "sha256": digest,
@@ -137,6 +147,12 @@ class DailyPublicPublisherTests(unittest.TestCase):
         self.provenance["factual_provenance"]["independent_publisher_count"] = 1
         (self.output / "asset-provenance.json").write_text(json.dumps(self.provenance), encoding="utf-8")
         with self.assertRaisesRegex(daily.PublishBlocked, "two independent publisher sources"):
+            self.validate()
+
+    def test_unverified_scene_illustration_provider_is_rejected(self):
+        self.provenance["assets"]["scene_images"][0]["provider"] = "Cloudflare Workers AI"
+        (self.output / "asset-provenance.json").write_text(json.dumps(self.provenance), encoding="utf-8")
+        with self.assertRaisesRegex(daily.PublishBlocked, "Scene illustration provenance"):
             self.validate()
 
     def test_hash_mismatch_is_rejected(self):
