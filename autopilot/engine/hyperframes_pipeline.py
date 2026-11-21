@@ -125,6 +125,247 @@ def _build_motion_project(node: str, scene_project: Path, output_dir: Path) -> N
     ], cwd=ANIMATION2D_DIR, timeout=180)
 
 
+
+
+def _verify_director_final_video(
+    path: Path,
+    *,
+    engine: Any,
+    expected_duration: float,
+) -> dict[str, Any]:
+    """Validate a variable-duration director render rather than the legacy 24s format."""
+    if not path.is_file() or path.stat().st_size < 150000:
+        raise HyperFramesRenderError("Master Director final MP4 is missing or unexpectedly small.")
+    probe = _run([
+        "ffprobe", "-v", "error",
+        "-show_entries",
+        "format=duration:stream=codec_type,width,height,sample_rate,channels,codec_name,r_frame_rate",
+        "-of", "json", str(path),
+    ], cwd=path.parent, timeout=60)
+    try:
+        data = json.loads(probe.stdout)
+        duration = float(data.get("format", {}).get("duration", 0))
+        streams = data.get("streams", [])
+        video = next(item for item in streams if item.get("codec_type") == "video")
+        audio = next(item for item in streams if item.get("codec_type") == "audio")
+        numerator, denominator = str(video.get("r_frame_rate", "0/1")).split("/", 1)
+        frame_rate = float(numerator) / float(denominator)
+    except (KeyError, StopIteration, TypeError, ValueError, ZeroDivisionError) as exc:
+        raise HyperFramesRenderError("Master Director MP4 has invalid audio/video stream metadata.") from exc
+    if abs(duration - expected_duration) > 0.5:
+        raise HyperFramesRenderError(
+            f"Master Director MP4 duration {duration:.2f}s does not match its "
+            f"{expected_duration:.2f}s storyboard."
+        )
+    if (int(video.get("width", 0)), int(video.get("height", 0))) != (
+        int(engine.W), int(engine.H)
+    ):
+        raise HyperFramesRenderError("Master Director MP4 has unexpected frame dimensions.")
+    if str(video.get("codec_name") or "") != "h264":
+        raise HyperFramesRenderError("Master Director MP4 must use H.264 video.")
+    if abs(frame_rate - float(engine.FPS)) > 0.5:
+        raise HyperFramesRenderError("Master Director MP4 has an unexpected frame rate.")
+    if int(audio.get("sample_rate", 0)) < 22050:
+        raise HyperFramesRenderError("Master Director mixed audio sample rate is too low.")
+    return {
+        "status": "passed",
+        "duration_seconds": round(duration, 3),
+        "width": int(video["width"]),
+        "height": int(video["height"]),
+        "fps": round(frame_rate, 3),
+        "video_codec": str(video.get("codec_name") or ""),
+        "audio_codec": str(audio.get("codec_name") or ""),
+        "audio_sample_rate": int(audio.get("sample_rate") or 0),
+        "file_size_bytes": path.stat().st_size,
+    }
+
+
+def render_master_director_video(
+    engine: Any,
+    director_plan: dict[str, Any],
+    shot_images: list[Path],
+    audio_path: Path,
+    narration_path: Path,
+    narration_info: dict[str, Any],
+    *,
+    project_dir: Path,
+    output_video: Path,
+) -> dict[str, Any]:
+    """Render a complete shot-led Master Director composition and mix its audio.
+
+    This path consumes the director's full 8–18 shot timeline. Every shot must
+    have its own unique, verified image. Camera and transition tracks are
+    rendered by Motion; the director's subject/environment/depth action remains
+    recorded in the project until separated visual layers are supplied.
+    """
+    from director_shot_renderer import build_director_hyperframes_project
+
+    root = Path(project_dir).resolve()
+    output = Path(output_video).resolve()
+    audio = Path(audio_path).resolve(strict=True)
+    narration = Path(narration_path).resolve(strict=True)
+    root.mkdir(parents=True, exist_ok=True)
+    output.parent.mkdir(parents=True, exist_ok=True)
+
+    project = build_director_hyperframes_project(
+        director_plan,
+        shot_images,
+        root,
+        width=int(engine.W),
+        height=int(engine.H),
+        fps=int(engine.FPS),
+    )
+    duration = float(project["duration_seconds"])
+
+    brand_fonts = engine._ensure_brand_fonts()
+    font_assets = root / "assets" / "fonts"
+    font_assets.mkdir(parents=True, exist_ok=True)
+    for key, filename in (
+        ("serif", "DMSerifDisplay-Regular.ttf"),
+        ("sans_regular", "DMSans-Regular.ttf"),
+        ("sans_medium", "DMSans-Medium.ttf"),
+        ("sans_bold", "DMSans-Bold.ttf"),
+    ):
+        font_source = brand_fonts.get(key) or brand_fonts.get("serif")
+        if not font_source:
+            raise HyperFramesRenderError("The Master Director render is missing the Violin Prince font bundle.")
+        shutil.copy2(Path(font_source).resolve(strict=True), font_assets / filename)
+
+    node = shutil.which("node")
+    npm = shutil.which("npm")
+    if not node or not npm:
+        raise HyperFramesRenderError("Node.js 22+ and npm are required for the Master Director renderer.")
+    node_version = _run([node, "--version"], cwd=ANIMATION2D_DIR, timeout=20).stdout.strip()
+    try:
+        major = int(node_version.lstrip("v").split(".", 1)[0])
+    except (TypeError, ValueError) as exc:
+        raise HyperFramesRenderError("Unable to read the Node.js version for Master Director rendering.") from exc
+    if major < 22:
+        raise HyperFramesRenderError("The Master Director renderer requires Node.js 22 or later.")
+
+    hyperframes_cli = ANIMATION2D_DIR / "node_modules" / ".bin" / "hyperframes"
+    if not hyperframes_cli.is_file():
+        _run([npm, "install", "--no-audit", "--no-fund"], cwd=ANIMATION2D_DIR, timeout=600)
+    _build_motion_project(node, root / "project.json", root)
+
+    motion_report_path = root / "motion-report.json"
+    if not motion_report_path.is_file():
+        raise HyperFramesRenderError("Master Director Motion builder did not emit its motion report.")
+    try:
+        motion_report = json.loads(motion_report_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise HyperFramesRenderError("Master Director Motion report is unreadable.") from exc
+    if motion_report.get("status") != "passed":
+        raise HyperFramesRenderError("Master Director Motion build did not pass its animation checks.")
+
+    _run([str(hyperframes_cli), "lint"], cwd=root, timeout=180)
+    visual_only = root / "director-visual-only.mp4"
+    retry_command = [
+        str(hyperframes_cli), "render",
+        "--output", str(visual_only),
+        "--fps", str(engine.FPS),
+        "--quality", "standard",
+    ]
+    from scene_checkpoints import retry_transient
+    retry_transient(
+        lambda: _run(retry_command, cwd=root, timeout=1800),
+        attempts=3,
+    )
+    visual_qa = _verify_scene_clip(visual_only, engine=engine)
+    duration_probe = _run([
+        "ffprobe", "-v", "error", "-show_entries", "format=duration",
+        "-of", "json", str(visual_only),
+    ], cwd=root, timeout=60)
+    try:
+        visual_duration = float(json.loads(duration_probe.stdout)["format"]["duration"])
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise HyperFramesRenderError("HyperFrames shot render has no valid duration metadata.") from exc
+    if abs(visual_duration - duration) > 0.5:
+        raise HyperFramesRenderError(
+            f"HyperFrames shot render duration {visual_duration:.2f}s does not match "
+            f"the {duration:.2f}s Master Director storyboard."
+        )
+
+    audio_mix = output.parent / "master-director-audio-mix.wav"
+    fade_start = max(0.0, duration - 2.0)
+    audio_filter = (
+        "[0:a]volume=0.24[bed];"
+        "[1:a]highpass=f=75,acompressor=threshold=-20dB:ratio=3:attack=12:release=180,"
+        "volume=1.15,asplit=2[voice_sc][voice_mix];"
+        "[bed][voice_sc]sidechaincompress=threshold=0.035:ratio=10:attack=18:release=620:"
+        "knee=4:makeup=1[ducked];"
+        "[ducked][voice_mix]amix=inputs=2:duration=longest:dropout_transition=1,"
+        "loudnorm=I=-16:TP=-1.5:LRA=11,afade=t=in:st=0:d=0.5,"
+        f"afade=t=out:st={fade_start:.3f}:d=2[aout]"
+    )
+    _run([
+        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+        "-stream_loop", "-1", "-i", str(audio), "-i", str(narration),
+        "-filter_complex", audio_filter, "-map", "[aout]",
+        "-t", f"{duration:.3f}",
+        "-ar", "48000", "-ac", "2", "-c:a", "pcm_s16le", str(audio_mix),
+    ], cwd=output.parent, timeout=360)
+
+    subtitle_path = output.parent / "master-director-narration.ass"
+    engine.write_kinetic_ass(
+        narration_info.get("subtitle_cues", []),
+        subtitle_path,
+        narration_info.get("word_cues", []),
+    )
+    font_dir = Path(brand_fonts.get("serif") or brand_fonts["sans_regular"]).resolve().parent.as_posix()
+    _run([
+        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+        "-i", str(visual_only), "-i", str(audio_mix),
+        "-map", "0:v:0", "-map", "1:a:0",
+        "-t", f"{duration:.3f}",
+        "-vf", f"subtitles={subtitle_path.as_posix()}:fontsdir={font_dir}",
+        "-c:v", "libx264", "-preset", "slow", "-crf", "18",
+        "-pix_fmt", "yuv420p", "-profile:v", "high", "-level", "4.1",
+        "-c:a", "aac", "-b:a", "192k",
+        "-movflags", "+faststart", str(output),
+    ], cwd=output.parent, timeout=900)
+
+    final_qa = _verify_director_final_video(
+        output,
+        engine=engine,
+        expected_duration=duration,
+    )
+    execution_notes = sorted({
+        str(scene.get("animation_execution_status") or "")
+        for scene in project.get("scenes", [])
+    })
+    report = {
+        "status": "passed",
+        "renderer": "Motion + HyperFrames Master Director shot renderer",
+        "contract_version": project.get("director_contract"),
+        "duration_seconds": duration,
+        "shot_count": len(project.get("scenes") or []),
+        "shot_ids": [str(scene.get("id") or "") for scene in project.get("scenes") or []],
+        "camera_movements": [
+            str(scene.get("director_camera", {}).get("movement") or "")
+            for scene in project.get("scenes") or []
+        ],
+        "transitions": project.get("director_transition_summary", []),
+        "story_palette": project.get("director_palette", {}),
+        "music_sync_cues": project.get("director_music_sync_cues", []),
+        "motion_report": motion_report,
+        "visual_only_qa": visual_qa,
+        "final_video_qa": final_qa,
+        "animation_execution_status": execution_notes,
+        "publish_ready": False,
+        "publish_blocker": (
+            "Subject, environment and true depth animation still require separated visual layers; "
+            "the current shot render executes camera and transition tracks only."
+        ),
+        "output": str(output),
+    }
+    report_path = output.parent / "master-director-render-report.json"
+    report_path.write_text(
+        json.dumps(report, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return report
+
 def render_daily_plan(
     engine: Any,
     plan: dict[str, Any],
