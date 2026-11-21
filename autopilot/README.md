@@ -6,12 +6,12 @@ A cloud-first short-video production pipeline. GitHub-hosted runners do the prod
 
 The global editorial direction is documented in [GLOBAL_CONTENT_STRATEGY.md](GLOBAL_CONTENT_STRATEGY.md). It defines four content pillars for a worldwide music audience and a target of four distinct Shorts per day, approximately six hours apart. Bengali and Indian repertoire remain part of the channel's identity, not a geographic boundary.
 
-Base `main` was verified on 21 November 2026 after PR #115 merged. The private-preview commissioning implementation is prepared on the `autopilot/private-preview-only` branch and is not active on `main` until reviewed and merged.
+Base `main` is verified at merge commit `cc95cc2592c159e044521ab35a203d4e94a065eb` after PR #118 merged on 21 November 2026. The private-preview commissioning workflow is active on `main`.
 
 - GitHub Actions retains four scheduled UTC cron triggers, mapped to 05:30, 11:30, 17:30 and 23:30 Asia/Kolkata. Each event selects one canonical slot, uses its date-specific batch and has run-specific, non-cancelling concurrency.
 - ChatGPT remains the Global Director. It prepares the next day's four-plan batch at approximately 18:00 Asia/Kolkata and commits only `.autopilot/daily-batches/YYYY-MM-DD.json`; this path is not a push trigger.
 - Blocked slots are skipped independently; the runner does not invent replacement scripts or performances.
-- In this commissioning branch, each ready scheduled slot runs the existing renderer and then `autopilot/engine/upload_private_preview.py`. YouTube upload visibility is explicitly `private`; the workflow does not invoke the public daily publisher.
+- On `main`, each ready scheduled slot runs the existing renderer and then `autopilot/engine/upload_private_preview.py`. YouTube upload visibility is explicitly `private`; the scheduled workflow does not invoke the public daily publisher.
 - The batch runner forces `publish_metadata.privacy_status=private` for scheduled plans before producing the publisher manifest. The private uploader revalidates source/asset provenance, narration, MP4 quality, SHA-256, configured channel identity and exact-title duplicates.
 - A durable attempt marker is committed before the YouTube request. A receipt is committed only after YouTube confirms `private`. Uncertain outcomes and visibility mismatches are recorded as no-retry states.
 - The workflow rejects legacy `publish_to_youtube: true` requests while private-preview commissioning is active. The existing public publisher module remains separate and is not called by the scheduled route.
@@ -25,7 +25,7 @@ PR [#115](https://github.com/baidyaprince69-web/violin-prince-website/pull/115) 
 
 GitHub Actions runs four cron slots at 00:00, 06:00, 12:00 and 18:00 UTC (05:30, 11:30, 17:30 and 23:30 Asia/Kolkata). ChatGPT remains the global creative director and prepares the next day's batch at approximately 18:00 Asia/Kolkata. The first batch for 22 November is committed; blocked slots are skipped safely rather than filled with invented content.
 
-**Branch activation status:** `main` still contains the older scheduled public-upload step until PR [#118](https://github.com/baidyaprince69-web/violin-prince-website/pull/118) is reviewed and merged. This branch contains the proposed private-preview-only route. Do not treat private-preview delivery as active on `main` yet. Once PR #118 is merged, ready scheduled slots will upload verified private previews automatically; the creator can review them together at night or weekly. Public scheduled publishing remains a separate future authorization step.
+**Commissioning status (21 November 2026):** PR [#118](https://github.com/baidyaprince69-web/violin-prince-website/pull/118) is merged and the private-preview-only scheduled route is active on `main`. The 22 November batch contains two prepared ready slots (Production Tech and Melody Stories) and two deliberately blocked slots (Music Secrets and Real Performance). A `ready` label is only the content-plan gate: each run still re-fetches its sources and must pass narration, asset, render, provenance, MP4 and private-upload checks. Public scheduled publishing is not enabled; it remains a separate future activation after commissioning review.
 
 The performance slot must use a genuine creator recording when available; sampled or symbolic audio must never be presented as a live creator performance. See [ENGINE_WORKFLOW.md](engine/ENGINE_WORKFLOW.md) for operational gates and testing status.
 
@@ -42,7 +42,7 @@ The daily cloud-first visual implementation is an illustrated 2D pipeline. Its c
 - Target renderer: Motion-driven scene entrances, spring movement, crossfades, character poses and gestures, expression-layer animation, and word-synchronised captions. HyperFrames captures exact frame times; FFmpeg performs final audio/caption finishing and QA. The legacy manual recovery path retains its frame-by-frame Pillow explainer renderer.
 - Structured visual modes: illustrated macro detail, illustrated mechanism cutaway, waveform, melody map, comparison, and cover-performance payoff.
 - Scene 3 is planned as the musical payoff and must include a `cover_payoff` explaining how an original Violin Prince violin phrase demonstrates the fact.
-- Target narration: four-sentence, 40–44-word English script voiced only by the creator's tested and approved own-voice provider. No voice synthesis is currently enabled.
+- Current narration contract: exactly four sentences and 35 spoken English words, voiced through the approved private Qwen3 own-voice worker with verified word timings. No fallback narrator is permitted.
 - A creator-recorded violin take when supplied. Otherwise, the existing CC0 sampled-violin path remains available, with the existing ambient fallback if sample retrieval fails.
 - Target scene timing follows measured narration beats. The approved own-voice provider must supply validated word timestamps for each spoken-word highlight; rendering must stop if timings are missing or invalid. FFmpeg validates final picture and audio.
 
