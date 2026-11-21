@@ -136,7 +136,7 @@ class UploadPostHandoffTests(unittest.TestCase):
         self.assertEqual(values["privacyStatus"], "public")
         self.assertEqual(values["video"], "https://github.com/owner/repo/releases/download/release/video.mp4")
         self.assertEqual(len(request_id), 32)
-        self.assertEqual(external_id, "violin-prince-youtube-2026-11-19:music-secrets")
+        self.assertEqual(external_id, "violin-prince-youtube-2026-11-19-music-secrets")
         self.assertIn("#MusicProduction", values["description"])
 
     def test_same_date_slots_have_distinct_publisher_identities(self):
