@@ -158,17 +158,70 @@ def make_images(root: Path, count: int = 8) -> list[Path]:
     return paths
 
 
+def make_layer_assets(root: Path, count: int = 8) -> dict[str, dict[str, Path]]:
+    root.mkdir(parents=True, exist_ok=True)
+    result = {}
+    for index in range(count):
+        shot_id = f"shot-{index + 1:02d}"
+        shot_dir = root / shot_id
+        shot_dir.mkdir(parents=True, exist_ok=True)
+        from PIL import ImageDraw
+
+        subject_path = shot_dir / "subject.png"
+        subject = Image.new("RGBA", (360, 640), (0, 0, 0, 0))
+        ImageDraw.Draw(subject).ellipse(
+            (90 + index, 90, 265 + index, 540),
+            fill=(160, 75 + index * 7, 55, 235),
+            outline=(250, 245, 230, 220),
+            width=5,
+        )
+        subject.save(subject_path, format="PNG")
+
+        foreground_path = shot_dir / "foreground.png"
+        foreground = Image.new("RGBA", (360, 640), (0, 0, 0, 0))
+        ImageDraw.Draw(foreground).polygon(
+            [(0, 470 + index, 95, 425, 180, 640, 0, 640)],
+            fill=(15 + index * 9, 35, 55 + index * 8, 185),
+        )
+        foreground.save(foreground_path, format="PNG")
+        result[shot_id] = {
+            "subject": subject_path,
+            "foreground": foreground_path,
+        }
+    return result
+
+
+def build_project(plan, images, root):
+    return build_director_hyperframes_project(
+        plan,
+        images,
+        root / "project",
+        layer_assets=make_layer_assets(root / "layers", len(plan["storyboard"]["shots"])),
+    )
+
+
 class DirectorShotRendererTests(unittest.TestCase):
     def test_builds_one_unique_render_scene_per_directed_shot(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             images = make_images(root / "images")
             project = build_director_hyperframes_project(
-                director_plan(), images, root / "project", width=720, height=1280, fps=25
+                director_plan(), images, root / "project",
+                layer_assets=make_layer_assets(root / "layers"),
+                width=720, height=1280, fps=25
             )
             self.assertEqual(len(project["scenes"]), 8)
-            self.assertEqual(len(project["shot_asset_manifest"]), 8)
-            self.assertEqual(len({item["sha256"] for item in project["shot_asset_manifest"]}), 8)
+            self.assertEqual(len(project["shot_asset_manifest"]), 24)
+            self.assertEqual(len({item["sha256"] for item in project["shot_asset_manifest"]}), 24)
+            self.assertEqual(
+                {layer["role"] for layer in project["scenes"][0]["visual_layers"]},
+                {"background", "subject", "foreground"},
+            )
+            self.assertTrue(all(
+                layer["asset_has_alpha"]
+                for layer in project["scenes"][0]["visual_layers"]
+                if layer["role"] != "background"
+            ))
             self.assertEqual(project["scenes"][3]["director_camera"]["movement"], "pan")
             self.assertEqual(project["director_palette"]["accent"], "#D95D39")
             self.assertEqual(project["scenes"][1]["transition_in"], "match_cut")
@@ -181,8 +234,14 @@ class DirectorShotRendererTests(unittest.TestCase):
     def test_rejects_missing_per_shot_assets(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            with self.assertRaisesRegex(DirectorShotRenderError, "needs its own image asset"):
-                build_director_hyperframes_project(director_plan(), [], root / "project")
+            images = make_images(root / "images")
+            with self.assertRaisesRegex(DirectorShotRenderError, "needs exactly these independently generated"):
+                build_director_hyperframes_project(
+                    director_plan(),
+                    images,
+                    root / "project",
+                    layer_assets={f"shot-{index + 1:02d}": {} for index in range(8)},
+                )
 
     def test_rejects_duplicate_image_content_even_when_filenames_differ(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -190,7 +249,7 @@ class DirectorShotRendererTests(unittest.TestCase):
             images = make_images(root / "images")
             images[1].write_bytes(images[0].read_bytes())
             with self.assertRaisesRegex(DirectorShotRenderError, "identical image content"):
-                build_director_hyperframes_project(director_plan(), images, root / "project")
+                build_project(director_plan(), images, root)
 
     def test_rejects_unimplemented_morph_transition_instead_of_downgrading(self):
         plan = director_plan()
@@ -199,7 +258,7 @@ class DirectorShotRendererTests(unittest.TestCase):
             root = Path(temporary)
             images = make_images(root / "images")
             with self.assertRaisesRegex(DirectorShotRenderError, "not supported by the current shot renderer"):
-                build_director_hyperframes_project(plan, images, root / "project")
+                build_project(plan, images, root)
 
     def test_invalid_director_contract_is_rejected_before_staging(self):
         plan = director_plan()
@@ -214,13 +273,16 @@ class DirectorShotRendererTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             images = make_images(root / "images")
-            project = build_director_hyperframes_project(director_plan(), images, root / "project")
+            project = build_project(director_plan(), images, root)
             self.assertEqual(
                 project["scenes"][0]["director_animation"]["subject_action"],
                 "Subject moves in a distinct way 1",
             )
             self.assertEqual(len(project["director_music_sync_cues"]), 2)
-            self.assertIn("requires_separated_assets", project["scenes"][0]["animation_execution_status"])
+            self.assertEqual(
+                project["scenes"][0]["animation_execution_status"],
+                "separate_image_layers_staged_for_independent_motion",
+            )
 
     def test_cut_does_not_create_an_overlap(self):
         plan = director_plan()
@@ -326,6 +388,7 @@ class DirectorShotRendererTests(unittest.TestCase):
                     {"subtitle_cues": [], "word_cues": []},
                     project_dir=project_dir,
                     output_video=output,
+                    layer_assets=make_layer_assets(root / "layer-assets"),
                 )
 
             self.assertTrue(output.is_file())
