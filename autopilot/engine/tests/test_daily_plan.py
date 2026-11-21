@@ -108,7 +108,7 @@ class DailyPlanEvidenceTests(unittest.TestCase):
                 materialized = json.loads(plan_path.read_text(encoding="utf-8"))
                 self.assertEqual(returned_hash, batch_hash)
                 self.assertEqual(materialized["slot_id"], "melody-stories")
-                self.assertEqual(plan_path.parent.parent, workspace)
+                self.assertEqual(plan_path.parent.parent, workspace.resolve())
                 self.assertEqual(
                     len({Path("work/slots") / today / slot for slot in (
                         "music-secrets", "production-tech", "melody-stories", "real-performance"
