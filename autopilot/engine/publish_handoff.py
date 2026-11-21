@@ -263,11 +263,11 @@ def build_asset_provenance(
             "asset_type": "scene_illustration",
             "scene_number": index + 1,
             "visual_mode": str(scene.get("visual_mode") or ""),
-            "origin": "ai_generated_image",
-            "provider": "Cloudflare Workers AI",
-            "model": "@cf/black-forest-labs/flux-1-schnell",
+            "origin": "locally_generated_vector_artwork",
+            "provider": "Violin Prince local vector illustrator",
+            "model": "violin-prince-vector-illustrator-v1",
             "scene_prompt_source_sha256": _hash_text(prompt),
-            "rights_status": "provider_terms_apply_no_external_stock_asset_inserted",
+            "rights_status": "original_locally_generated_vector_artwork",
         })
         scene_assets.append(asset)
 
@@ -334,12 +334,13 @@ def build_asset_provenance(
         },
         "synthetic_media": {
             "contains_synthetic_media": True,
-            "reason": "The video contains AI-generated scene imagery and generated narration audio; the narration voice origin is recorded separately in the asset provenance.",
+            "reason": "The video contains locally generated vector illustrations and AI-generated narration through the creator-authorised private Qwen3 voice path; the narration voice origin and transcript verification are recorded separately.",
         },
         "rights_notice": (
             "This file records media origins and license metadata available to the pipeline. "
-            "It is not legal advice or blanket rights clearance. Provider terms apply to generated "
-            "media; separately supplied character artwork and other assets require their own permission review."
+            "It is not legal advice or blanket rights clearance. Scene plates are original deterministic "
+            "local vector artwork; the narration is generated through the creator-authorised private Qwen3 "
+            "voice path. Separately supplied character artwork and other assets require their own permission review."
         ),
     }
 
@@ -417,16 +418,16 @@ def build_publish_manifest(
             for item in provenance.get("factual_provenance", {}).get("sources", [])
         ],
         "asset_provenance_file": "asset-provenance.json",
-        "publisher": "ChatGPT daily operator via Metricool",
-        "publishing_enabled_in_github": False,
+        "publisher": "Violin Prince direct YouTube Data API workflow",
+        "publishing_enabled_in_github": True,
         "publish_ready": not blockers,
         "publisher_preflight": {
             "status": "ready" if not blockers else "hold",
             "blockers": blockers,
             "warnings": metadata_check.get("warnings", []),
             "required_action": (
-                "Resolve every blocker before Metricool scheduling or any public upload."
-                if blockers else "Metadata and production checks passed; proceed through the configured publisher."
+                "Resolve every blocker before the direct public YouTube upload."
+                if blockers else "Metadata and production checks passed; the dedicated YouTube workflow will verify the channel and publish after render."
             ),
         },
     }

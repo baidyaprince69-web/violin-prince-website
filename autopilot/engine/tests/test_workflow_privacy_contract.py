@@ -1,4 +1,4 @@
-"""Privacy regression checks for the public Autopilot workflow."""
+"""Privacy and direct-publication regression checks for the Autopilot workflow."""
 from __future__ import annotations
 
 import unittest
@@ -8,7 +8,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "violin-prince-autopilot.yml"
 
 
-class WorkflowPrivacyContractTests(unittest.TestCase):
+class WorkflowPublicationContractTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.workflow_text = WORKFLOW.read_text(encoding="utf-8")
@@ -19,11 +19,18 @@ class WorkflowPrivacyContractTests(unittest.TestCase):
         self.assertNotIn("Upload finished video", self.workflow_text)
         self.assertNotIn("Preserve stage diagnostics", self.workflow_text)
 
-    def test_voice_bearing_preview_uses_only_private_voice_vault_handoff(self):
-        self.assertIn("Transfer finished preview to the private Voice Vault", self.workflow_text)
+    def test_scheduled_video_is_sent_directly_to_public_youtube_not_private_vault(self):
+        self.assertIn("Publish validated daily slot directly to public YouTube", self.workflow_text)
+        self.assertIn("publish_daily_short.py", self.workflow_text)
+        self.assertIn('YOUTUBE_PRIVACY_STATUS: "public"', self.workflow_text)
+        self.assertNotIn("Transfer finished preview to the private Voice Vault", self.workflow_text)
+        self.assertNotIn("private-preview-video-$SOURCE_RUN_ID", self.workflow_text)
+        self.assertNotIn("private-preview-$SOURCE_RUN_ID", self.workflow_text)
+
+    def test_private_voice_bridge_is_separate_from_video_delivery(self):
         self.assertIn("PRIVATE_VOICE_REPO_TOKEN", self.workflow_text)
-        self.assertIn("private-preview-video-$SOURCE_RUN_ID", self.workflow_text)
-        self.assertIn("private-preview-$SOURCE_RUN_ID", self.workflow_text)
+        self.assertIn("Run the selected ChatGPT-directed slot through Motion + HyperFrames", self.workflow_text)
+        self.assertNotIn("PRIVATE_REPO: baidyaprince69-web/violin-prince-private-voice", self.workflow_text)
 
     def test_expensive_production_requires_fast_preflight(self):
         self.assertIn("fast_preflight:", self.workflow_text)
@@ -32,43 +39,15 @@ class WorkflowPrivacyContractTests(unittest.TestCase):
         self.assertIn("ruff check --select F821,F822,F823 autopilot/engine", self.workflow_text)
         self.assertIn("test_hyperframes_pipeline.py", self.workflow_text)
 
-    def test_draft_release_cleanup_does_not_delete_a_nonexistent_tag(self):
-        self.assertNotIn(
-            'gh release delete "$release_tag" --repo "$PRIVATE_REPO" --yes --cleanup-tag',
-            self.workflow_text,
-        )
-
-    def test_private_handoff_write_access_is_checked_before_expensive_production(self):
-        self.assertIn("Verify private Voice Vault draft-release write access", self.workflow_text)
-        self.assertIn("gh release create", self.workflow_text)
-        self.assertIn("PRIVATE_VOICE_REPO_TOKEN is missing", self.workflow_text)
-        self.assertIn("private-handoff-preflight-$GITHUB_RUN_ID", self.workflow_text)
-        self.assertLess(
-            self.workflow_text.index("Verify private Voice Vault draft-release write access"),
-            self.workflow_text.index("  produce:"),
-        )
-
-    def test_public_release_requires_an_explicit_chatgpt_youtube_request(self):
-        self.assertIn('request.get("publish_to_youtube", False)', self.workflow_text)
-        self.assertIn('if not isinstance(publish_to_youtube, bool)', self.workflow_text)
-        self.assertIn('output.write("publish_to_youtube="', self.workflow_text)
-        self.assertIn("github.event_name == 'push'", self.workflow_text)
+    def test_direct_publication_is_limited_to_ready_scheduled_slots_or_explicit_push_requests(self):
         self.assertIn("steps.daily_request.outputs.publish_to_youtube == 'true'", self.workflow_text)
+        self.assertIn("needs.daily_readiness.outputs.slot_status == 'ready'", self.workflow_text)
+        self.assertIn("github.event_name == 'schedule'", self.workflow_text)
         self.assertNotIn('PUBLISH_ENABLED: "true"', self.workflow_text)
-        self.assertNotIn("Queue validated Short in the Upload-Post publishing queue", self.workflow_text)
-        self.assertIn("Only the complete preview-only run is enabled", self.workflow_text)
 
-    def test_private_handoff_waits_for_artifact_and_cleanup_confirmation(self):
-        self.assertIn("private-video-preview-intake.yml/runs?", self.workflow_text)
-        self.assertIn("private_artifact_id", self.workflow_text)
-        self.assertIn("Private intake artifact exists", self.workflow_text)
-        self.assertIn("temporary draft release remains", self.workflow_text)
-
-    def test_private_preview_supports_verified_release_fallback_when_artifact_upload_fails(self):
-        self.assertIn("private_draft_release_fallback", self.workflow_text)
-        self.assertIn("private_release_url", self.workflow_text)
-        self.assertIn('releases?per_page=100', self.workflow_text)
-        self.assertIn("automatically removed after it is 24 hours old", self.workflow_text)
+    def test_no_generic_publication_flag_is_enabled_during_rendering(self):
+        self.assertIn('PUBLISH_ENABLED: "false"', self.workflow_text)
+        self.assertNotIn('PUBLISH_DESTINATIONS: "youtube,instagram,facebook"', self.workflow_text)
 
     def test_stage_recovery_inputs_cannot_request_public_intermediate_artifacts(self):
         self.assertNotIn("inputs.source_run_id", self.workflow_text)

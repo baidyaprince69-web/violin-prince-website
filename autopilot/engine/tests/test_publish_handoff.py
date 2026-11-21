@@ -317,11 +317,19 @@ class AssetProvenanceTests(unittest.TestCase):
         provenance = self._provenance()
         self.assertEqual(
             provenance["assets"]["scene_images"][0]["origin"],
-            "ai_generated_image",
+            "locally_generated_vector_artwork",
         )
         self.assertEqual(
             provenance["assets"]["scene_images"][0]["provider"],
-            "Cloudflare Workers AI",
+            "Violin Prince local vector illustrator",
+        )
+        self.assertEqual(
+            provenance["assets"]["scene_images"][0]["model"],
+            "violin-prince-vector-illustrator-v1",
+        )
+        self.assertEqual(
+            provenance["assets"]["scene_images"][0]["rights_status"],
+            "original_locally_generated_vector_artwork",
         )
         self.assertEqual(provenance["assets"]["character_rig"]["character_count"], 1)
         self.assertIn(

@@ -13,11 +13,11 @@
       "slot_id": "production-tech",
       "slot_status": "ready",
       "story_type": "music_technology",
-      "core_claim": "Steinberg Chromaspheres turns an imported audio sample into a playable instrument, with four synthesis engines and thirty sound-shaping modes.",
+      "core_claim": "Steinberg Chromaspheres converts imported audio samples into playable sounds using four synthesis engines and thirty sound-shaping modes.",
       "topic": "Steinberg's free Chromaspheres instrument for HALion Sonic and HALion, which converts imported samples into playable sounds through wavetable, granular, spectral and sample-based engines.",
       "title": "One Sample, Thirty Sound Modes: Steinberg Chromaspheres",
       "hook": "What if one recording could become a completely different playable instrument?",
-      "description": "A global music-technology explainer about Steinberg Chromaspheres, released in November 2026. Production Expert and Synth News independently describe its sample-to-instrument workflow, four synthesis engines and thirty modes. Use only generic conceptual diagrams and a clearly disclosed original/CC0 violin sample as an example. This is not a hands-on Violin Prince test: do not claim that the sample was processed through Chromaspheres, show a fabricated plugin interface, or invent a before-and-after result.",
+      "description": "A global music-technology explainer about Steinberg Chromaspheres, a free HALion Sonic instrument. Production Expert and Synth News independently describe its sample-to-playable-instrument workflow, four synthesis engines and thirty sound-shaping modes. The video uses only conceptual diagrams and an original/CC0 violin phrase as an illustration. It is not a hands-on Violin Prince test: do not claim the sample was processed through Chromaspheres, show a fabricated plugin interface, or invent a before-and-after result.",
       "hashtags": [
         "#MusicTechnology",
         "#SoundDesign",
@@ -38,7 +38,7 @@
       ],
       "narrative_style": "documentary",
       "cover_payoff": "Use a disclosed original or CC0 violin sample as the source in a conceptual diagram showing how one recording can become a playable instrument. Do not claim the sample was processed in Chromaspheres or fake a software demonstration; keep the audible phrase original and clearly illustrative.",
-      "narration_script": "What if one recording could become a playable instrument? Steinberg’s free Chromaspheres turns samples into sounds. Four engines—wavetable, granular, spectral and sample—offer thirty modes. It’s a sound-design tool, not an automatic finished song.",
+      "narration_script": "What if one recording could become a playable instrument? Steinberg’s free Chromaspheres turns samples into sounds. Four engines—wavetable, granular, spectral and sample—offer thirty modes. Composers can create new source material from their recordings.",
       "narration_evidence": [
         {
           "sentence_number": 2,
@@ -49,6 +49,11 @@
           "sentence_number": 3,
           "source_id": "S002",
           "quote": "four engines (wavetable, granular, spectral, sample), 30 modes and MPE"
+        },
+        {
+          "sentence_number": 4,
+          "source_id": "S001",
+          "quote": "aimed at composers and sound designers who want to build new source material from their own recordings"
         }
       ],
       "sources": [
@@ -102,14 +107,14 @@
         }
       ],
       "performance_feedback": {
-        "sample_window": "No published performance sample exists for this first production slot.",
+        "sample_window": "No published Violin Prince performance sample exists for this first scheduled batch.",
         "sample_count": 0,
         "confidence": "Editorial selection is based on two independent current music-technology reports; no claim is made about Violin Prince audience response.",
         "strengths_to_preserve": [
-          "Connect a real production technology story to a clear, audible violin-related concept."
+          "Connect a real production technology story to a clear, violin-related concept."
         ],
         "one_change_to_test": "Explain the four synthesis approaches with one sample-to-four-path visual rather than a generic plugin showcase.",
-        "measurement_for_next_upload": "If later approved for publication, compare 24-hour and seven-day views, engaged views, average view duration, average percentage viewed, stayed-to-watch, likes, comments and shares."
+        "measurement_for_next_upload": "Compare 24-hour and seven-day views, engaged views, average view duration, average percentage viewed, stayed-to-watch, likes, comments and shares."
       },
       "narration_asr_hotwords": [
         "Steinberg",
@@ -125,11 +130,11 @@
       "slot_id": "melody-stories",
       "slot_status": "ready",
       "story_type": "melody_and_composition",
-      "core_claim": "A new instrumental album by Toro y Moi foregrounds repeating patterns and gradual texture changes instead of vocal hooks, showing how small musical shifts can carry a story.",
-      "topic": "Toro y Moi's newly released album Unusua and how repetition, space and subtle changes in texture can create musical movement without vocal hooks.",
+      "core_claim": "Toro y Moi's new album Unusua is an instrumental ambient record whose repeating patterns subtly mutate, so tiny texture shifts carry the musical movement.",
+      "topic": "Toro y Moi's newly released album Unusua and how repetition, space and tiny changes in texture can create musical movement without vocal hooks.",
       "title": "Toro y Moi’s Unusua: When Tiny Changes Become the Music",
       "hook": "What if the biggest moment in an instrumental track is a change you almost miss?",
-      "description": "A global melody-and-composition story about Toro y Moi's album Unusua, released on 20 November 2026. Apple Music describes seven ambient instrumentals; WXPN calls it a set of ambient instrumentals; AudioFuzz reviews how repeating patterns subtly mutate. The Violin Prince payoff must use a newly composed original violin motif and original accompaniment textures only. Do not use the album's recording, melodies, lyrics, artwork or artist likeness.",
+      "description": "A global melody-and-composition story about Toro y Moi's album Unusua, released on 20 November 2026. WXPN describes the record as a set of ambient instrumentals; AudioFuzz reviews how repeating patterns subtly mutate and tiny texture changes become the drama. The Violin Prince payoff uses a newly composed original violin motif and original accompaniment textures only. Do not use the album's recording, melodies, lyrics, artwork or artist likeness.",
       "hashtags": [
         "#Melody",
         "#MusicComposition",
@@ -149,32 +154,25 @@
       ],
       "narrative_style": "cinematic_story",
       "cover_payoff": "Create a short original violin motif using the approved CC0 violin sample bank, repeat it once unchanged, then change only the original accompaniment texture. Label the result as a Violin Prince conceptual example; it must not quote or imitate any melody, recording, lyric or artwork from Unusua.",
-      "narration_script": "How can a song move without a big musical change? Toro y Moi’s new album Unusua explores seven ambient instrumentals. Reviews describe repeating patterns and subtle texture shifts. Here, tiny changes become the musical story.",
+      "narration_script": "How can instrumentals hold attention without familiar vocal hooks? Toro y Moi’s Unusua is a set of ambient instrumentals. Its patterns subtly mutate without a conventional musical payoff. Tiny texture shifts quietly become the story.",
       "narration_evidence": [
         {
           "sentence_number": 2,
-          "source_id": "S001",
-          "quote": "seven ambient instrumentals"
-        },
-        {
-          "sentence_number": 2,
           "source_id": "S003",
-          "quote": "a set of ambient instrumentals"
+          "quote": "the record is a set of ambient instrumentals"
         },
         {
           "sentence_number": 3,
           "source_id": "S002",
-          "quote": "Patterns repeat, blur and subtly mutate"
+          "quote": "Patterns repeat, blur and subtly mutate rather than building toward a conventional payoff"
+        },
+        {
+          "sentence_number": 4,
+          "source_id": "S002",
+          "quote": "tiny changes in texture become the drama"
         }
       ],
       "sources": [
-        {
-          "source_id": "S001",
-          "title": "Unusua — Album by Toro y Moi",
-          "url": "https://music.apple.com/us/album/unusua/6823370459",
-          "publisher_domain": "music.apple.com",
-          "date": "2026-11-20"
-        },
         {
           "source_id": "S002",
           "title": "Hot New Album Friday: Toro y Moi Finds Stillness on ‘Unusua’",
@@ -225,14 +223,14 @@
         }
       ],
       "performance_feedback": {
-        "sample_window": "First batch using this story format; no published sample exists.",
+        "sample_window": "No published Violin Prince sample exists for this story format.",
         "sample_count": 0,
-        "confidence": "Selection is based on new-release reporting and editorial reviews, not on a measured Violin Prince audience preference.",
+        "confidence": "Selection is based on new-release reporting and editorial reviews, not on measured Violin Prince audience preference.",
         "strengths_to_preserve": [
           "Use a current international music story to explain one transferable composition idea."
         ],
-        "one_change_to_test": "Make repetition and the small texture change audible in an original violin example rather than relying only on narration.",
-        "measurement_for_next_upload": "If later approved for publication, compare 24-hour and seven-day views, engaged views, average view duration, average percentage viewed, stayed-to-watch, likes, comments and shares."
+        "one_change_to_test": "Make the repetition and small texture change audible in an original violin example rather than relying only on narration.",
+        "measurement_for_next_upload": "Compare 24-hour and seven-day views, engaged views, average view duration, average percentage viewed, stayed-to-watch, likes, comments and shares."
       },
       "narration_asr_hotwords": [
         "Toro y Moi",

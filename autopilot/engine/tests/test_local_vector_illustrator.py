@@ -76,7 +76,7 @@ class LocalVectorIllustratorTests(unittest.TestCase):
                 self.assertEqual(image.size, (1024, 1792))
 
 
-    def test_illustration_gate_requires_a_preview_only_record(self):
+    def test_illustration_gate_requires_explicit_scope_for_publication(self):
         import json
         valid = {
             "schema_version": 1,
@@ -101,9 +101,32 @@ class LocalVectorIllustratorTests(unittest.TestCase):
             approval = Path(folder) / "illustration-approval.json"
             approval.write_text(json.dumps(valid), encoding="utf-8")
             pipeline.require_approved_illustration_provider(approval)
-            valid["publishing_enabled"] = True
-            approval.write_text(json.dumps(valid), encoding="utf-8")
-            with self.assertRaisesRegex(pipeline.PipelineError, "approval evidence"):
+
+            # A boolean toggle alone cannot extend a preview-only approval.
+            preview_only = dict(valid, publishing_enabled=True)
+            approval.write_text(json.dumps(preview_only), encoding="utf-8")
+            with self.assertRaisesRegex(pipeline.PipelineError, "explicit creator scope"):
+                pipeline.require_approved_illustration_provider(approval)
+
+            public = dict(valid)
+            public.update({
+                "status": "approved_for_publication",
+                "scope": "public_youtube",
+                "publishing_enabled": True,
+                "creator_publication_approval": {
+                    "approved": True,
+                    "platform": "youtube",
+                    "privacy_status": "public",
+                    "no_private_preview_required": True,
+                    "approval_statement": "Creator explicitly requested public YouTube publishing.",
+                },
+            })
+            approval.write_text(json.dumps(public), encoding="utf-8")
+            pipeline.require_approved_illustration_provider(approval)
+
+            public["creator_publication_approval"]["no_private_preview_required"] = False
+            approval.write_text(json.dumps(public), encoding="utf-8")
+            with self.assertRaisesRegex(pipeline.PipelineError, "explicit creator scope"):
                 pipeline.require_approved_illustration_provider(approval)
 
     def test_make_image_uses_scene_mode_and_writes_jpeg(self):

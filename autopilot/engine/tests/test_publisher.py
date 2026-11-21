@@ -35,7 +35,7 @@ class FakeSession:
 
     def put(self, url, **kwargs):
         self.put_calls.append((url, kwargs))
-        return FakeResponse({"id": "youtube-video-123"})
+        return FakeResponse({"id": "youtube-video-123", "status": {"privacyStatus": "public"}})
 
 
 class YouTubeUploaderTests(unittest.TestCase):
@@ -70,6 +70,7 @@ class YouTubeUploaderTests(unittest.TestCase):
 
         self.assertEqual(result["id"], "youtube-video-123")
         self.assertEqual(result["url"], "https://www.youtube.com/watch?v=youtube-video-123")
+        self.assertEqual(result["privacy_status"], "public")
         self.assertEqual(len(session.post_calls), 2)
         token_url, token_args = session.post_calls[0]
         self.assertEqual(token_url, "https://oauth2.googleapis.com/token")

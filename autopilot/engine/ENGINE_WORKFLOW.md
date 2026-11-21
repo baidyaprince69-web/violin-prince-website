@@ -143,7 +143,7 @@ Current daily creative contract:
 
 Scene plans must map narration sentences to scenes explicitly and completely. Missing/invalid word timing or incomplete narration blocks rendering rather than being silently guessed.
 
-**Outputs after own-voice approval:** validated plan JSON, private-Qwen3 narration WAV and verified word-timing data, scene timeline and storyboard preview. **Current state:** narration is approved through private Qwen3; the local illustration provider is approved for preview video only. Publishing remains disabled.
+**Outputs after own-voice approval:** validated plan JSON, private-Qwen3 narration WAV and verified word-timing data, scene timeline and storyboard preview. **Current state:** narration is approved through private Qwen3. The tested local illustration style has explicit creator approval for public YouTube use. Ready scheduled slots can be uploaded directly to the confirmed public channel after source, narration, soundtrack, media-quality, channel-identity and duplicate checks pass; no private video copy is created.
 
 ## 7. Audio and music preparation
 
@@ -167,7 +167,7 @@ The former external media dashboard and remote media library have been removed. 
 **Status: Local deterministic vector illustrator tested and approved for preview-only use.**
 
 - `autopilot/engine/local_vector_illustrator.py` renders six fixed scene modes locally with Pillow; it makes no network calls, needs no API key and creates 1024 × 1792 JPEG plates.
-- The renderer is gated by `autopilot/engine/illustration-approval.json`, which records the successful six-mode preview test and explicitly restricts use to `preview_video_only` with publishing disabled.
+- The renderer is gated by `autopilot/engine/illustration-approval.json`, which records the successful six-mode test and the creator's explicit `public_youtube` approval for the tested deterministic illustration style.
 - The generated plates provide a consistent navy, teal, ivory and antique-gold editorial style. They are vector-style explanatory illustrations, not photorealistic AI artwork or story-specific factual diagrams.
 - The normal story uses three scene plates with consistent editorial direction, palette and distinct visual roles.
 - Structured visual modes include illustrated macro detail, mechanism cutaway, waveform, melody map, comparison and performance payoff.
@@ -500,3 +500,14 @@ The default YouTube Data API quota documents 100 `videos.insert` calls per day f
 - The first batch `.autopilot/daily-batches/2026-11-22.json` has two ready plans and two blocked plans. The two blocked slots will be skipped; no placeholder content will be generated.
 
 **Publishing gate:** scheduled runs are private previews only. The checked-in trigger still sets `publish_to_youtube: false`; illustration approval is `preview_video_only`. Public releases/YouTube uploads require four successful private end-to-end runs, actual visual/audio review, a validated creator-performance intake, one confirmed publisher route and a separate explicit publishing-approval update. Never present sampled/symbolic audio as the creator's live violin recording.
+## Addendum — direct public YouTube publishing from scheduled slots (2026-11-21)
+
+**Status:** Implemented on the feature branch feat/direct-public-youtube-four-slot-20261121; public activation occurs when the branch is merged to main.
+
+- The four existing GitHub Actions cron events and ChatGPT daily director remain unchanged. A ready scheduled slot now flows from the rendered MP4 into autopilot/engine/publish_daily_short.py.
+- The publisher independently probes the final MP4, checks its SHA-256 against provenance, validates the two-source/three-claim evidence contract, enforces the 35-word/four-sentence narration shape, checks soundtrack rights metadata and requires public YouTube metadata.
+- Before upload, it verifies the OAuth identity against the expected Violin Prince channel and scans the channel's uploads playlist for an exact-title duplicate.
+- A durable publication-attempt marker is committed to main before the YouTube API request. A confirmed upload is followed by a receipt containing the returned video ID and URL. If the outcome is uncertain, a no-retry receipt is written and manual channel verification is required.
+- The daily workflow no longer transfers finished MP4s to the private Voice Vault and does not create a public GitHub Release asset. The private Qwen3 service remains a narration-only dependency.
+- The local vector illustration approval now records the creator's explicit public-YouTube scope and no-private-preview instruction. Generic multi-platform PUBLISH_ENABLED remains false; only the dedicated post-render YouTube publisher can upload.
+- Slots marked blocked, or slots that fail any readiness, quality, provenance or channel check, do not upload. No placeholder content is generated.

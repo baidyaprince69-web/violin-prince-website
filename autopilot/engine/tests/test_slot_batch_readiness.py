@@ -67,6 +67,32 @@ class SlotBatchReadinessTests(unittest.TestCase):
         self.assertTrue(result["ready"], result["blockers"])
         self.assertEqual(result["slot_count"], 4)
 
+
+    def test_explicit_creator_publication_scope_passes_readiness(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._root(root)
+            approval_path = root / "autopilot/engine/illustration-approval.json"
+            approval = json.loads(approval_path.read_text(encoding="utf-8"))
+            approval.update({
+                "status": "approved_for_publication",
+                "scope": "public_youtube",
+                "publishing_enabled": True,
+                "creator_publication_approval": {
+                    "approved": True,
+                    "platform": "youtube",
+                    "privacy_status": "public",
+                    "no_private_preview_required": True,
+                    "approval_statement": "Creator explicitly requested public YouTube publishing.",
+                },
+            })
+            approval_path.write_text(json.dumps(approval), encoding="utf-8")
+            self._write(root, ".autopilot/daily-batches/2026-11-22.json",
+                        json.dumps(self._batch("2026-11-22")))
+            result = evaluate_daily_batch_readiness(root, today="2026-11-22")
+        self.assertTrue(result["ready"], result["blockers"])
+        self.assertEqual(result["slot_count"], 4)
+
     def test_wrong_date_batch_is_blocked(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

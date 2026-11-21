@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "status": "approved_for_preview",
+  "status": "approved_for_publication",
   "provider": "local_vector",
-  "scope": "preview_video_only",
+  "scope": "public_youtube",
   "renderer_version": "violin-prince-vector-illustrator-v1",
-  "approval_date": "2026-11-19",
-  "publishing_enabled": false,
+  "approval_date": "2026-11-21",
+  "publishing_enabled": true,
   "test_evidence": {
     "workflow_name": "Local vector illustration preview",
     "workflow_run_id": 44524124774,
@@ -30,8 +30,8 @@
     "contact_sheet_sha256": "3e5149c69edc83c6862c4a8b123a80fd485bccfc3fc2cb323a0847d1190c4d1e"
   },
   "visual_review": {
-    "status": "approved_for_preview_only",
-    "result": "consistent_violin_prince_palette_and_scene_language",
+    "status": "tested_style_approved_for_public_use_by_creator",
+    "result": "The creator approved public use of the tested deterministic Violin Prince illustration style without a private preview.",
     "inspected_assets": [
       "contact-sheet.jpg",
       "studio-room.jpg",
@@ -40,9 +40,17 @@
     ],
     "limitations": [
       "The artwork is deterministic vector-style editorial illustration, not photorealism.",
-      "Studio response curve is conceptual and contains no measured values.",
-      "The creator must inspect the complete rendered video before any publication.",
-      "This approval does not authorize a public release or YouTube upload."
+      "Diagrams remain conceptual and must not imply unmeasured values.",
+      "Each upload remains subject to factual, rights, media-quality, channel and duplicate-publication checks.",
+      "The creator has expressly requested direct public YouTube publication without a private video copy."
     ]
+  },
+  "creator_publication_approval": {
+    "approved": true,
+    "platform": "youtube",
+    "privacy_status": "public",
+    "no_private_preview_required": true,
+    "approval_statement": "Do not make a private video; publish the finished video publicly to YouTube.",
+    "approval_source": "Explicit creator instruction in the ChatGPT conversation on 2026-11-21."
   }
 }
