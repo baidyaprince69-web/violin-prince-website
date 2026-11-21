@@ -465,7 +465,9 @@ def run_daily_plan(
     except (TypeError, ValueError) as exc:
         raise engine.PipelineError("YouTube publisher preflight blocked the plan: " + str(exc)) from exc
     plan["publish_metadata"] = dict(metadata_check["value"])
-    # ChatGPT is the trigger and story/scene director; direct publishing stays off.
+    # Keep generic multi-destination adapters disabled. A separate, fail-closed
+    # workflow step publishes only to the verified public YouTube channel after
+    # final MP4, source-provenance and duplicate checks pass.
     os.environ["PUBLISH_ENABLED"] = "false"
 
     audio_asset, audio_bytes = engine.get_audio(prefer_creator_assets=False)
@@ -647,7 +649,7 @@ def run_daily_plan(
         production_date=str(plan.get("production_date") or ""),
         slot_id=slot_id,
         run_id=engine.RUN_ID,
-        status="private_preview_rendered",
+        status="rendered_ready_for_public_youtube",
         output_dir=engine.OUT,
     )
     print(
@@ -760,7 +762,7 @@ def main() -> int:
             "asset_provenance": str(engine.OUT / "asset-provenance.json"),
             "publish_ready": publish_manifest.get("publish_ready", False),
             "publisher_preflight": publish_manifest.get("publisher_preflight", {}),
-            "publishing": "disabled_private_preview_only",
+            "publishing": "direct_public_youtube_after_final_validation",
         }, ensure_ascii=False), flush=True)
         return 0
     except Exception as exc:
