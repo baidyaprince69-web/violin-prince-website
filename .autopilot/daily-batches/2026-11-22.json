@@ -6,7 +6,7 @@
       "production_date": "2026-11-22",
       "slot_id": "music-secrets",
       "slot_status": "blocked",
-      "blocked_reason": "Only one fresh direct publisher article was fully verified for the specific label-free dùndún speech/music categorization finding: Springer Nature, published 18 November 2026. The fresh MedicalXpress article concerns a different auditory-cortex study and is not independent corroboration of that same claim. In addition, main's scheduled ready-slot path publishes publicly, which conflicts with this run's private-preview-only safety rule.",
+      "blocked_reason": "Only one fresh direct publisher article was fully verified for the specific label-free dùndún speech/music categorization finding: Springer Nature, published 18 November 2026. The fresh MedicalXpress article concerns a different auditory-cortex study and is not independent corroboration of that same claim.",
       "topic": "How task labels change the way listeners group speech-like and music-like sounds produced by the same dùndún talking drum.",
       "research_sources": [
         {
@@ -88,7 +88,7 @@
       "production_date": "2026-11-22",
       "slot_id": "real-performance",
       "slot_status": "blocked",
-      "blocked_reason": "No approved creator-recorded violin clip is accessible to the unattended runner. The publisher handoff code explicitly records creator_supplied_performance.included=false and says the daily route does not insert a private creator-uploaded performance asset. Only one fresh direct article page was fully verified for this performance story; The Times page did not expose its article date or body beyond the paywall, and the Hallé page is an event listing rather than a second article. The public scheduled-upload conflict also remains unresolved.",
+      "blocked_reason": "No approved creator-recorded violin clip is accessible to the unattended runner. The publisher handoff code explicitly records creator_supplied_performance.included=false and says the daily route does not insert a private creator-uploaded performance asset. Only one fresh direct article page was fully verified for this performance story; The Times page did not expose its article date or body beyond the paywall, and the Hallé page is an event listing rather than a second article.",
       "topic": "Pekka Kuusisto's performance in the world premiere of Gabriella Smith's violin concerto How to Be a Bird, with tremolo, trills, harmonics and bow-pressure colour as the performance-technique angle.",
       "research_sources": [
         {
