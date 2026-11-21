@@ -417,16 +417,16 @@ def build_publish_manifest(
             for item in provenance.get("factual_provenance", {}).get("sources", [])
         ],
         "asset_provenance_file": "asset-provenance.json",
-        "publisher": "ChatGPT daily operator via Metricool",
-        "publishing_enabled_in_github": False,
+        "publisher": "Violin Prince direct YouTube Data API workflow",
+        "publishing_enabled_in_github": True,
         "publish_ready": not blockers,
         "publisher_preflight": {
             "status": "ready" if not blockers else "hold",
             "blockers": blockers,
             "warnings": metadata_check.get("warnings", []),
             "required_action": (
-                "Resolve every blocker before Metricool scheduling or any public upload."
-                if blockers else "Metadata and production checks passed; proceed through the configured publisher."
+                "Resolve every blocker before the direct public YouTube upload."
+                if blockers else "Metadata and production checks passed; the dedicated YouTube workflow will verify the channel and publish after render."
             ),
         },
     }
