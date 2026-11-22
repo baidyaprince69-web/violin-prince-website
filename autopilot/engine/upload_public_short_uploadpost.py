@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-"""Publish one approved Violin Prince daily Short publicly through Upload-Post.
+"""Legacy public uploader retained only as a hard-disabled compatibility entrypoint.
 
-Public publishing is gated twice: this script verifies the creator's committed
-public-YouTube approval, and the bundle validator requires public privacy in
-both the creative plan and publisher manifest. It checks the connected channel
-for duplicate titles and commits a durable no-blind-retry marker before upload.
+Automatic Violin Prince publishing is private-preview-only. All calls to this
+module fail before credentials, network access, or an upload request are made.
 """
 from __future__ import annotations
 
@@ -42,24 +40,9 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def _require_public_creator_approval() -> dict[str, Any]:
-    approval_path = ROOT / "autopilot" / "engine" / "illustration-approval.json"
-    approval = _read_json(approval_path, "Creator public YouTube approval")
-    public_approval = approval.get("creator_publication_approval")
-    if not (
-        approval.get("status") == "approved_for_publication"
-        and approval.get("scope") == "public_youtube"
-        and approval.get("publishing_enabled") is True
-        and isinstance(public_approval, dict)
-        and public_approval.get("approved") is True
-        and public_approval.get("platform") == "youtube"
-        and public_approval.get("privacy_status") == "public"
-        and public_approval.get("no_private_preview_required") is True
-        and str(public_approval.get("approval_statement") or "").strip()
-    ):
-        raise PublishBlocked(
-            "Public YouTube upload blocked: the committed creator approval does not explicitly authorize public publishing."
-        )
-    return public_approval
+    raise PublishBlocked(
+        "Public YouTube publishing is disabled. Use the private-preview Upload-Post workflow."
+    )
 
 
 def _identity(production_date: str, slot_id: str) -> str:
@@ -121,6 +104,9 @@ def upload_public_short(
     expected_slot_id: str,
     production_date: str | None = None,
 ) -> dict[str, Any]:
+    raise PublishBlocked(
+        "Public YouTube publishing is disabled. Use upload_private_preview_uploadpost.py instead."
+    )
     if os.environ.get("GITHUB_REF_NAME") != "main":
         raise PublishBlocked("Scheduled public uploads must execute from main.")
     if os.environ.get("YOUTUBE_PRIVACY_STATUS", "").strip().lower() != "public":
