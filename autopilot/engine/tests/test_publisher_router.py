@@ -206,36 +206,12 @@ class PublisherRouterTests(unittest.TestCase):
         self.assertFalse((self.release / "publisher-attempt.json").exists())
 
     @patch("publisher_router.youtube_upload")
-    def test_direct_upload_writes_verified_receipt(self, upload):
-        upload.return_value = {
-            "platform": "youtube",
-            "ok": True,
-            "id": "youtubeVideo123",
-            "url": "https://www.youtube.com/watch?v=youtubeVideo123",
-        }
-        prepare_attempt(self.request_path, self.release, self.repository, "123456-1")
-        receipt = route_to_youtube(
-            self.request_path, self.release, self.repository, "123456-1"
-        )
-        self.assertEqual(receipt["status"], "uploaded")
-        self.assertEqual(receipt["provider"], "youtube_data_api")
-        self.assertEqual(receipt["youtube_video_id"], "youtubeVideo123")
-        plan = upload.call_args.args[1]
-        self.assertEqual(plan["publish_metadata"]["privacy_status"], "public")
-
-    @patch("publisher_router.youtube_upload")
-    def test_uncertain_upload_failure_persists_no_retry_receipt(self, upload):
-        upload.side_effect = TimeoutError("connection ended after upload request")
-        prepare_attempt(self.request_path, self.release, self.repository, "123456-1")
-        with self.assertRaisesRegex(RouterError, "outcome is uncertain"):
+    def test_direct_public_upload_is_blocked_before_network_access(self, upload):
+        with self.assertRaisesRegex(RouterError, "Direct public YouTube publication is disabled"):
             route_to_youtube(
                 self.request_path, self.release, self.repository, "123456-1"
             )
-        receipt = json.loads(
-            (self.release / "publisher-receipt.json").read_text(encoding="utf-8")
-        )
-        self.assertEqual(receipt["status"], "outcome_unknown")
-        self.assertIs(receipt["retry_allowed"], False)
+        upload.assert_not_called()
 
 
 if __name__ == "__main__":
