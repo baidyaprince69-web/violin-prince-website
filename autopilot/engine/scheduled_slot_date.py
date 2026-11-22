@@ -18,10 +18,10 @@ TIMEZONE = "Asia/Kolkata"
 IST = ZoneInfo(TIMEZONE)
 SLOT_INTERVAL = timedelta(hours=6)
 CRON_TO_IST_SLOT = {
-    "11 0 * * *": time(5, 41),
-    "11 6 * * *": time(11, 41),
-    "11 12 * * *": time(17, 41),
-    "11 18 * * *": time(23, 41),
+    "30 5 * * *": time(5, 30),
+    "30 11 * * *": time(11, 30),
+    "30 17 * * *": time(17, 30),
+    "30 23 * * *": time(23, 30),
 }
 
 
