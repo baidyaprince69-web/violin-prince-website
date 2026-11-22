@@ -44,6 +44,8 @@ ROLE_Z = {
     "left_upper_arm": 20, "right_upper_arm": 21,
     "left_forearm": 30, "right_forearm": 31,
     "left_hand": 40, "right_hand": 41,
+    "right_index_finger": 42, "right_middle_finger": 43,
+    "right_ring_finger": 44, "right_little_finger": 45,
     "head": 50, "face": 60,
 }
 JOINT_FOR_ROLE = {
@@ -60,6 +62,10 @@ JOINT_FOR_ROLE = {
     "right_thigh": "right_hip",
     "right_shin": "right_knee",
     "right_foot": "right_ankle",
+    "right_index_finger": "right_index_knuckle",
+    "right_middle_finger": "right_middle_knuckle",
+    "right_ring_finger": "right_ring_knuckle",
+    "right_little_finger": "right_little_knuckle",
 }
 
 
@@ -546,6 +552,82 @@ def _split_full_body_legs(
     return legs, side_source, foot_source
 
 
+def _split_finger_regions(
+    image: Image.Image,
+    hand_mask: np.ndarray,
+    finger_regions: dict[str, Any],
+) -> tuple[dict[str, np.ndarray], np.ndarray]:
+    """Split four authored finger contours from the fingerboard hand.
+
+    The supplied manifest defines source-space contour polygons and knuckle
+    pivots. Warm-skin pixels refine each contour, the hand parser bounds the
+    result, and a small knuckle overlap remains on the palm to avoid seams.
+    """
+    required = ("index", "middle", "ring", "little")
+    if set(finger_regions) != set(required):
+        raise ManualReviewRequired(
+            "The violin-playing reference must define index, middle, ring and little finger regions."
+        )
+    if image.size != (hand_mask.shape[1], hand_mask.shape[0]):
+        raise AutoRigError("Finger segmentation image and hand mask dimensions do not match.")
+
+    rgb = np.asarray(image.convert("RGB"), dtype=np.uint8)
+    red, green, blue = (rgb[:, :, index].astype(np.int16) for index in range(3))
+    skin = (
+        ((red - green) > 18) & ((green - blue) > 7) &
+        (red > 85) & (red < 255) & (green > 30) &
+        (green < 210) & (blue > 15) & (blue < 175)
+    )
+    claimed = np.zeros(hand_mask.shape, dtype=bool)
+    extracted: dict[str, np.ndarray] = {}
+    palm = np.asarray(hand_mask, dtype=bool).copy()
+    pivots: dict[str, tuple[float, float]] = {}
+
+    for name in required:
+        item = finger_regions[name]
+        if not isinstance(item, dict):
+            raise AutoRigError(f"The {name} finger region must be an object.")
+        polygon = item.get("polygon")
+        pivot = item.get("pivot")
+        if (not isinstance(polygon, list) or len(polygon) < 3
+                or not isinstance(pivot, list) or len(pivot) != 2):
+            raise AutoRigError(f"The {name} finger region needs a polygon and a two-coordinate pivot.")
+        points = []
+        for point in polygon:
+            if not isinstance(point, (list, tuple)) or len(point) != 2:
+                raise AutoRigError(f"The {name} finger polygon contains an invalid point.")
+            x, y = float(point[0]), float(point[1])
+            if not (0 <= x < image.width and 0 <= y < image.height):
+                raise ManualReviewRequired(f"The {name} finger contour falls outside the reference canvas.")
+            points.append((round(x), round(y)))
+        px, py = float(pivot[0]), float(pivot[1])
+        if not (0 <= px < image.width and 0 <= py < image.height):
+            raise ManualReviewRequired(f"The {name} finger knuckle pivot falls outside the reference canvas.")
+
+        polygon_mask_image = Image.new("L", image.size, 0)
+        ImageDraw.Draw(polygon_mask_image).polygon(points, fill=255)
+        polygon_mask = np.asarray(polygon_mask_image, dtype=np.uint8) > 0
+        skin_seed = polygon_mask & skin
+        recovered_skin = _morph(skin_seed, 1, "dilate")
+        allowed_contour = _morph(polygon_mask, 1, "dilate")
+        allowed_hand = _morph(palm, 2, "dilate")
+        finger = recovered_skin & allowed_contour & allowed_hand & ~claimed
+        if int(finger.sum()) < 22:
+            raise ManualReviewRequired(
+                f"The {name} finger contour isolated only {int(finger.sum())} pixels; "
+                "review the playing-pose reference or finger polygon."
+            )
+        claimed |= finger
+        joint_overlap = _joint_disk(hand_mask.shape, (px, py), radius=5)
+        palm &= ~(finger & ~joint_overlap)
+        extracted[f"right_{name}_finger"] = finger
+        pivots[f"right_{name}_finger"] = (px, py)
+
+    # Attach the pivot map to the ndarray subclass-free return via a reserved
+    # attribute is not reliable; callers calculate anchors from the manifest.
+    return extracted, palm
+
+
 def _joint_disk(
     shape: tuple[int, int],
     point: tuple[float, float],
@@ -728,6 +810,7 @@ def separate_from_parsing(
     hand_fraction: float = 0.72,
     max_local_inpaint_ratio: float = 0.025,
     include_legs: bool = False,
+    finger_regions: dict[str, Any] | None = None,
 ):
     """Convert Pascal and ATR pixel labels into articulated body-part masks.
 
@@ -782,6 +865,7 @@ def separate_from_parsing(
         "torso": torso, "head": head, "face": face, **leg_masks
     }
     hand_recovery_pixels: dict[str, int] = {}
+    finger_masks: dict[str, np.ndarray] = {}
     joint_reference_masks: dict[str, tuple[np.ndarray, np.ndarray]] = {}
     joint_centers: dict[str, dict[str, tuple[float, float]]] = {}
     joint_overlap_pixels: dict[str, int] = {}
@@ -828,6 +912,17 @@ def separate_from_parsing(
         masks[f"{side}_forearm"] = forearm
         masks[f"{side}_hand"] = hand
 
+    if include_legs:
+        if not finger_regions:
+            raise ManualReviewRequired(
+                "A full-body violin performance rig requires the authored finger-regions.json reference."
+            )
+        finger_masks, palm_mask = _split_finger_regions(
+            image, masks["right_hand"], finger_regions
+        )
+        masks["right_hand"] = palm_mask
+        masks.update(finger_masks)
+
     masks, removed_background_ratio = _remove_edge_connected_near_white(image, masks)
     torso = masks["torso"]
     head = masks["head"]
@@ -863,6 +958,11 @@ def separate_from_parsing(
             )
             joints[f"{side}_ankle"] = _normalise_joint(
                 _joint_between(masks[f"{side}_shin"], masks[f"{side}_foot"]), image.width, image.height
+            )
+        for name, item in finger_regions.items():
+            px, py = float(item["pivot"][0]), float(item["pivot"][1])
+            joints[f"right_{name}_knuckle"] = _normalise_joint(
+                (px, py), image.width, image.height
             )
     for side in ("left", "right"):
         joints[f"{side}_shoulder"] = _normalise_joint(
@@ -915,6 +1015,12 @@ def separate_from_parsing(
             "left_thigh", "left_shin", "left_foot",
             "right_thigh", "right_shin", "right_foot",
         ] if include_legs else []),
+        "finger_separation": {
+            "fingerboard_hand": "right_hand_screen_side",
+            "separated_fingers": sorted(finger_masks),
+            "pixels_by_finger": {name: int(mask.sum()) for name, mask in finger_masks.items()},
+            "visual_review_required": bool(finger_masks),
+        },
         "hand_split": "distal lower-arm split with connected warm-skin finger recovery; not a dedicated hand detector",
         "hand_split_fraction": float(hand_fraction),
         "face_edge_blend": {
@@ -955,7 +1061,7 @@ def separate_from_parsing(
         "review_reasons": [
             "SCHP was trained on real-person parsing datasets; illustration styles can reduce accuracy.",
             "Hand masks combine a distal lower-arm split with bounded skin-colour finger recovery; there is no dedicated semantic hand class.",
-            "Review layer edges, hand/finger completeness, joint seams and reconstructed torso pixels.",
+            "Review layer edges, hand/finger completeness, knuckle seams and reconstructed torso pixels.",
         ] + ([
             "ATR did not resolve both arm-side labels; side masks were derived from the coarse Pascal arm segmentation."
         ] if arm_side_source != "atr_arm_labels" else []),
@@ -1268,11 +1374,22 @@ def create_character_bundle(
     body_parser, detail_parser = _download_parsers(cache_dir)
     body_labels, body_conf = body_parser.parse(image)
     detail_labels, detail_conf = detail_parser.parse(image)
+    finger_manifest_path = reference_dir / "finger-regions.json"
+    try:
+        finger_manifest = json.loads(finger_manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ManualReviewRequired("The full-body rig requires a readable finger-regions.json manifest.") from exc
+    declared_finger_canvas = finger_manifest.get("canvas") or {}
+    if (int(declared_finger_canvas.get("width", -1)) != image.width
+            or int(declared_finger_canvas.get("height", -1)) != image.height):
+        raise ManualReviewRequired("The finger-region canvas does not match the cropped playing reference.")
+    finger_regions = finger_manifest.get("fingers") or {}
     masks, repaired_torso, report, joints = separate_from_parsing(
         image, body_labels, body_conf, detail_labels, detail_conf,
         hand_fraction=hand_fraction,
         max_local_inpaint_ratio=max_local_inpaint_ratio,
         include_legs=True,
+        finger_regions=finger_regions,
     )
 
     layers = []
@@ -1281,7 +1398,9 @@ def create_character_bundle(
         "left_thigh", "right_thigh", "left_shin", "right_shin",
         "left_foot", "right_foot", "torso",
         "left_upper_arm", "right_upper_arm",
-        "left_forearm", "right_forearm", "left_hand", "right_hand", "head", "face",
+        "left_forearm", "right_forearm", "left_hand", "right_hand",
+        "right_index_finger", "right_middle_finger", "right_ring_finger", "right_little_finger",
+        "head", "face",
     )
     for role in ordered_roles:
         layer_source = repaired_torso if role == "torso" else image
@@ -1403,6 +1522,7 @@ def create_character_bundle(
         "pose_reference_count": len(reference_poses),
         "pose_asset_count": len(pose_assets),
         "full_body_layer_count": 6,
+        "finger_layer_count": len(finger_masks),
         "instrument_prop_count": len(props),
         "joint_count": len(joints),
         "expression_registration": registration_reports,
