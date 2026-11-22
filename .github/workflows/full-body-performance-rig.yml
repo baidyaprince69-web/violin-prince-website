@@ -85,6 +85,27 @@ jobs:
             --expression-sheet autopilot/engine/assets/characters/violin-prince-performance/reference-sheets/four-core-expressions.jpeg \
             --head-angle-sheet autopilot/engine/assets/characters/violin-prince-performance/reference-sheets/multi-angle-heads-facial-parts.jpeg
 
+      - name: Verify mapped character reference catalogue
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("work/full-body-rig/bundle")
+          report = json.loads((root / "reference-sheets-report.json").read_text())
+          mapping = json.loads((root / "reference-part-map.json").read_text())
+          assert report.get("reference_parts_mapping") == "curated_role_catalogue_review_only", report
+          parts = mapping.get("parts", [])
+          assert len(parts) == 33, mapping
+          assert mapping.get("automatic_body_part_replacement") is False, mapping
+          assert all(part.get("reference_role") != "unclassified_reference_part" for part in parts), mapping
+          assert all(part.get("use_policy") == "reference_only_until_manual_alignment_review" for part in parts), mapping
+          assert any(part.get("reference_role") == "hair_shape" for part in parts), mapping
+          assert any(part.get("reference_role") == "hand_pose" for part in parts), mapping
+          assert any(part.get("reference_role") == "violin_prop" for part in parts), mapping
+          assert any(part.get("reference_role") == "bow_prop" for part in parts), mapping
+          print(f"Validated {len(parts)} reference assets with explicit roles; no unaligned asset is auto-applied.")
+          PY
+
       - name: Verify source-aligned limb segmentation and preserve the violin
         run: |
           python - <<'PY'
@@ -109,7 +130,9 @@ jobs:
           assert hand_cleanup.get("pixels_removed", 0) > 100, report
           assert hand_cleanup.get("method") == "source_hand_alpha_cutout_plus_one_pixel_seam", report
           edge_cleanup = report.get("source_edge_color_decontamination", {})
-          assert edge_cleanup.get("pixels_recoloured", 0) > 0, report
+          assert edge_cleanup.get("method") == "distance_aware_neutral_matte_decontamination", report
+          assert edge_cleanup.get("edge_band_radius", 0) >= 4.0, report
+          assert edge_cleanup.get("pixels_recoloured", 0) > 400, report
           assert edge_cleanup.get("source_alpha_preserved") is True, report
           assert edge_cleanup.get("source_silhouette_geometry_preserved") is True, report
           print("All twelve source-aligned limb/hand layers extracted; duplicate fretting-hand pixels removed from the violin prop.")
@@ -288,6 +311,7 @@ jobs:
             work/full-body-rig/full-body-performance-contact-sheet.jpg
             work/full-body-rig/bundle/full-body-performance-report.json
             work/full-body-rig/bundle/reference-sheets-report.json
+            work/full-body-rig/bundle/reference-part-map.json
             work/full-body-rig/bundle/reference-parts-contact-sheet.png
             work/full-body-rig/bundle/separation-report.json
             work/full-body-rig/composition/motion-report.json
