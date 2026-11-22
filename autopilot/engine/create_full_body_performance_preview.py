@@ -29,7 +29,8 @@ def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dic
         raise FileNotFoundError("The full-body rig bundle does not contain character.json.")
 
     character = json.loads(character_path.read_text(encoding="utf-8"))
-    if character.get("base_art"):
+    composite_base_mode = bool(character.get("base_art"))
+    if composite_base_mode:
         character["base_art"]["src"] = stage_asset(bundle, asset_root, character["base_art"]["src"])
     if character.get("performance", {}).get("instrument_performance") is not True:
         raise ValueError("The candidate character bundle is not marked as an instrument-performance rig.")
@@ -54,9 +55,11 @@ def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dic
                 "gesture": "violin_performance",
                 "instrument_performance": True,
                 "expression": "neutral",
-                "head_angle": "front",
-                "head_angle_sequence": ["front", "three_quarter", "profile_right", "profile_left", "front"],
-                "head_angle_cycle_duration_seconds": 7.2,
+                **({} if composite_base_mode else {
+                    "head_angle": "front",
+                    "head_angle_sequence": ["front", "three_quarter", "profile_right", "profile_left", "front"],
+                    "head_angle_cycle_duration_seconds": 7.2,
+                }),
                 "x": 46,
                 "y": 58,
                 "scale": 0.84,
@@ -71,7 +74,9 @@ def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dic
                             "18px 4px", "-18px -4px", "0px 0px"
                         ]
                     },
-                    "violin": {"rotate": [0, -0.45, 0.35, 0.45, 0]},
+                    **({} if composite_base_mode else {
+                        "violin": {"rotate": [0, -0.45, 0.35, 0.45, 0]},
+                    }),
                 },
             }
         },
@@ -100,7 +105,7 @@ def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dic
         "diagnostics": {
             "publishing": "disabled",
             "preview_only": True,
-            "character_rig": "full_body",
+            "character_rig": "intact_full_body_composite_review" if composite_base_mode else "segmented_full_body",
             "instrument_performance": "candidate_requires_visual_review",
         },
     }
@@ -109,11 +114,19 @@ def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dic
         encoding="utf-8",
     )
     (output / "README.txt").write_text(
-        "Non-publishing full-body violin performance preview. The scene uses the "
-        "candidate full-body rig, individual leg/finger layers, and separately "
-        "attached violin/bow props. Inspect the render and the separation report "
-        "before considering this rig for any production workflow. Publishing and "
-        "scheduling are disabled. Synthetic or temporary audio is not included.\n",
+        (
+            "Non-publishing complete-body review preview. The original full-body "
+            "source plate preserves both arms, both hands, shirt, trousers and shoes. "
+            "The bow and four finger controls are separate animated overlays. "
+            "Independent arm, leg and head motion is intentionally paused while the "
+            "segmentation masks are rebuilt. Inspect the bow grip, finger seams and "
+            "full-body silhouette before any production use. Publishing and "
+            "scheduling are disabled.\n"
+            if composite_base_mode else
+            "Non-publishing segmented full-body rig preview. Inspect all layers "
+            "and motion before any production use. Publishing and scheduling are "
+            "disabled.\n"
+        ),
         encoding="utf-8",
     )
     return {
