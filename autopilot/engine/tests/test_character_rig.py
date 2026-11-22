@@ -42,10 +42,14 @@ class CharacterRigContractTests(unittest.TestCase):
         leg_roles = [
             "left_thigh", "left_shin", "left_foot",
             "right_thigh", "right_shin", "right_foot",
+            "right_index_finger", "right_middle_finger",
+            "right_ring_finger", "right_little_finger",
         ]
         leg_joints = [
             "left_hip", "left_knee", "left_ankle",
             "right_hip", "right_knee", "right_ankle",
+            "right_index_knuckle", "right_middle_knuckle",
+            "right_ring_knuckle", "right_little_knuckle",
         ]
         character["layers"].extend({
             "id": role, "role": role, "src": role + ".png",
@@ -76,6 +80,8 @@ class CharacterRigContractTests(unittest.TestCase):
         leg_roles = [
             "left_thigh", "left_shin", "left_foot",
             "right_thigh", "right_shin", "right_foot",
+            "right_index_finger", "right_middle_finger",
+            "right_ring_finger", "right_little_finger",
         ]
         for role in leg_roles:
             character["layers"].append({
@@ -85,6 +91,8 @@ class CharacterRigContractTests(unittest.TestCase):
         for name in (
             "left_hip", "left_knee", "left_ankle",
             "right_hip", "right_knee", "right_ankle",
+            "right_index_knuckle", "right_middle_knuckle",
+            "right_ring_knuckle", "right_little_knuckle",
         ):
             character["joints"][name] = {"x": 0.5, "y": 0.8}
         character["joints"].pop("left_knee")
