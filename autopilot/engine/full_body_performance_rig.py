@@ -306,6 +306,97 @@ def _prepare_fingers(
     return layers, joints, areas
 
 
+def _build_preserved_composite_base(
+    source: Image.Image,
+    bundle_dir: Path,
+    *,
+    bow_canvas_alpha: np.ndarray,
+    character: dict[str, Any],
+    finger_manifest_path: Path | None,
+) -> dict[str, Any]:
+    """Build an intact full-body safety plate while modular limb masks are reworked.
+
+    The source illustration remains the authority for the sleeves, both hands,
+    trousers and shoes. Only the bow shaft and authored finger polygons are
+    separated; this prevents low-confidence semantic masks from creating holes
+    in the visible presenter.
+    """
+    try:
+        import cv2
+    except ImportError as exc:
+        raise AutoRigError(
+            "OpenCV is required to prepare the complete-body review plate."
+        ) from exc
+
+    rgba = np.asarray(source.convert("RGBA"), dtype=np.uint8).copy()
+    height, width = rgba.shape[:2]
+    bow_mask = np.asarray(bow_canvas_alpha, dtype=np.uint8)
+    if bow_mask.shape != (height, width):
+        raise AutoRigError("The bow mask must match the complete-body source canvas.")
+    bow_pixels = bow_mask > 12
+    if int(bow_pixels.sum()) < 40:
+        raise ManualReviewRequired("The bow mask is too small to prepare a complete-body plate.")
+
+    # Preserve the source bow-grip hand above the independently animated bow.
+    # The hand layer is an exact crop of the supplied performance illustration.
+    hand_layer = next(
+        (layer for layer in character.get("layers", []) if layer.get("role") == "left_hand"),
+        None,
+    )
+    hand_protect = np.zeros((height, width), dtype=bool)
+    if hand_layer:
+        hand_path = bundle_dir / str(hand_layer["src"])
+        with Image.open(hand_path) as opened:
+            hand_alpha = np.asarray(opened.convert("RGBA").getchannel("A"), dtype=np.uint8)
+        hx, hy = int(hand_layer["x"]), int(hand_layer["y"])
+        h, w = hand_alpha.shape
+        hand_protect[hy:hy + h, hx:hx + w] = hand_alpha > 12
+    bow_clear = bow_pixels & ~hand_protect
+    # A one-pixel edge expansion prevents a dark source outline from remaining
+    # behind the moving bow. The authored grip hand is kept intact.
+    bow_clear = _morph(bow_clear, 1, "dilate") & ~hand_protect
+    rgb = rgba[:, :, :3]
+    repaired_rgb = cv2.inpaint(
+        rgb,
+        bow_clear.astype(np.uint8) * 255,
+        3,
+        cv2.INPAINT_TELEA,
+    )
+    rgba[:, :, :3] = repaired_rgb
+
+    finger_cut = np.zeros((height, width), dtype=bool)
+    if finger_manifest_path and finger_manifest_path.is_file():
+        manifest = json.loads(finger_manifest_path.read_text(encoding="utf-8"))
+        canvas = manifest.get("canvas") or {}
+        if int(canvas.get("width", 0)) != width or int(canvas.get("height", 0)) != height:
+            raise ManualReviewRequired("Finger manifest canvas does not match the complete-body source.")
+        region = Image.new("L", (width, height), 0)
+        draw = ImageDraw.Draw(region)
+        for name, specification in (manifest.get("fingers") or {}).items():
+            polygon = specification.get("polygon") or []
+            if len(polygon) < 3:
+                raise ManualReviewRequired(f"Finger {name} has no usable cutout polygon.")
+            draw.polygon([tuple(point) for point in polygon], fill=255)
+        finger_cut = np.asarray(region, dtype=np.uint8) > 0
+        finger_cut &= rgba[:, :, 3] > 0
+        rgba[finger_cut, 3] = 0
+
+    destination = bundle_dir / "performance-composite-base.png"
+    Image.fromarray(rgba, mode="RGBA").save(destination, format="PNG", optimize=True)
+    return {
+        "src": destination.name,
+        "x": 0,
+        "y": 0,
+        "width": width,
+        "height": height,
+        "z_index": 10,
+        "mode": "intact_full_body_with_bow_and_finger_cutouts",
+        "bow_pixels_reconstructed": int(bow_clear.sum()),
+        "finger_pixels_separated": int(finger_cut.sum()),
+        "preserves_original_arms_hands_legs_and_head": True,
+    }
+
+
 def extend_full_body_character(
     source_path: str | Path,
     bundle_dir: str | Path,
