@@ -375,16 +375,16 @@ def extend_full_body_character(
             "attach_to": props[prop_id]["attach_to"],
         }
 
-    # The separate violin/bow sprites replace their pixels on the stationary body plates.
-    # Hands remain on top and are not cut from these attachment masks.
-    removed_by_role = {}
-    removable_roles = {"torso", "left_upper_arm", "right_upper_arm", "left_forearm", "right_forearm"}
-    combined_prop_alpha = np.maximum.reduce(list(prop_masks.values())) if prop_masks else np.zeros_like(alpha)
-    for layer in character["layers"]:
-        if layer["role"] in removable_roles:
-            removed_by_role[layer["role"]] = _subtract_prop_from_layer(
-                bundle, layer, combined_prop_alpha
-            )
+    # Keep every body plate intact. Instrument sprites are independent overlay
+    # layers with explicit z-order: violin above torso/upper arms but below
+    # forearms/hands; bow above forearms but below the bow-grip hand. Erasing
+    # the prop alpha from body plates creates transparent gaps wherever the
+    # prop's antialiased or semi-transparent edges do not fully cover them.
+    removable_roles = (
+        "torso", "left_upper_arm", "right_upper_arm",
+        "left_forearm", "right_forearm",
+    )
+    removed_by_role = {role: 0 for role in removable_roles}
 
     finger_layers, finger_joints, finger_areas = _prepare_fingers(
         source, bundle, character, finger_path
@@ -436,6 +436,7 @@ def extend_full_body_character(
         "finger_pixel_areas": finger_areas,
         "prop_report": prop_report,
         "body_plate_prop_pixels_removed": removed_by_role,
+        "prop_compositing": "independent_overlay_layers_preserve_body_plates",
         "neutral_apose_reference": neutral_report,
         "publishing": "disabled",
         "preview_only": True,
