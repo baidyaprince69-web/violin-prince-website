@@ -91,6 +91,7 @@ def _build_procedural_stagecraft_brief(
         "shot_count": len(shots),
         "shots": shots,
         "asset_policy": {
+            "mode": "procedural_vectors_and_articulated_rig",
             "generated_scene_images": 0,
             "generated_transparent_cutouts": 0,
             "environment_renderer": "procedural SVG + Motion",
