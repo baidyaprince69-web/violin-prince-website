@@ -727,8 +727,13 @@ def separate_from_parsing(
     *,
     hand_fraction: float = 0.72,
     max_local_inpaint_ratio: float = 0.025,
+    include_legs: bool = False,
 ):
-    """Convert Pascal and ATR pixel labels into nine overlapping rig masks."""
+    """Convert Pascal and ATR pixel labels into articulated body-part masks.
+
+    The default remains the nine-layer upper-body contract for existing callers.
+    Full-body production candidates opt in to six additional leg/foot layers.
+    """
     expected = (image.height, image.width)
     if any(array.shape != expected for array in (
         body_labels, body_confidence, detail_labels, detail_confidence
@@ -767,9 +772,12 @@ def separate_from_parsing(
 
     coarse_arms = upper_all | lower_all
     sides, arm_side_source = _screen_side_masks(detail_labels, coarse_arms, torso)
-    leg_masks, leg_side_source, foot_source = _split_full_body_legs(
-        body_labels, detail_labels, torso
-    )
+    leg_masks: dict[str, np.ndarray] = {}
+    leg_side_source = foot_source = "not_requested"
+    if include_legs:
+        leg_masks, leg_side_source, foot_source = _split_full_body_legs(
+            body_labels, detail_labels, torso
+        )
     masks: dict[str, np.ndarray] = {
         "torso": torso, "head": head, "face": face, **leg_masks
     }
@@ -845,16 +853,17 @@ def separate_from_parsing(
     joints = {
         "neck": _normalise_joint(_joint_between(head, masks["torso"]), image.width, image.height)
     }
-    for side in ("left", "right"):
-        joints[f"{side}_hip"] = _normalise_joint(
-            _joint_between(masks["torso"], masks[f"{side}_thigh"]), image.width, image.height
-        )
-        joints[f"{side}_knee"] = _normalise_joint(
-            _joint_between(masks[f"{side}_thigh"], masks[f"{side}_shin"]), image.width, image.height
-        )
-        joints[f"{side}_ankle"] = _normalise_joint(
-            _joint_between(masks[f"{side}_shin"], masks[f"{side}_foot"]), image.width, image.height
-        )
+    if include_legs:
+        for side in ("left", "right"):
+            joints[f"{side}_hip"] = _normalise_joint(
+                _joint_between(masks["torso"], masks[f"{side}_thigh"]), image.width, image.height
+            )
+            joints[f"{side}_knee"] = _normalise_joint(
+                _joint_between(masks[f"{side}_thigh"], masks[f"{side}_shin"]), image.width, image.height
+            )
+            joints[f"{side}_ankle"] = _normalise_joint(
+                _joint_between(masks[f"{side}_shin"], masks[f"{side}_foot"]), image.width, image.height
+            )
     for side in ("left", "right"):
         joints[f"{side}_shoulder"] = _normalise_joint(
             _joint_between(masks["torso"], masks[f"{side}_upper_arm"]), image.width, image.height
@@ -875,13 +884,16 @@ def separate_from_parsing(
         "face_mean": round(float(detail_confidence[face].mean()), 4),
         "left_arm_mean": round(float(side_confidence[sides["left"]].mean()), 4),
         "right_arm_mean": round(float(side_confidence[sides["right"]].mean()), 4),
-        "left_leg_mean": round(float(body_confidence[
-            masks["left_thigh"] | masks["left_shin"]
-        ].mean()), 4),
-        "right_leg_mean": round(float(body_confidence[
-            masks["right_thigh"] | masks["right_shin"]
-        ].mean()), 4),
     }
+    if include_legs:
+        confidence.update({
+            "left_leg_mean": round(float(body_confidence[
+                masks["left_thigh"] | masks["left_shin"]
+            ].mean()), 4),
+            "right_leg_mean": round(float(body_confidence[
+                masks["right_thigh"] | masks["right_shin"]
+            ].mean()), 4),
+        })
     if min(confidence.values()) < 0.20:
         raise ManualReviewRequired(
             "One or more required regions had very low model confidence: "
@@ -899,10 +911,10 @@ def separate_from_parsing(
         "arm_side_source": arm_side_source,
         "leg_side_source": leg_side_source,
         "foot_source": foot_source,
-        "full_body_parts": [
+        "full_body_parts": ([
             "left_thigh", "left_shin", "left_foot",
             "right_thigh", "right_shin", "right_foot",
-        ],
+        ] if include_legs else []),
         "hand_split": "distal lower-arm split with connected warm-skin finger recovery; not a dedicated hand detector",
         "hand_split_fraction": float(hand_fraction),
         "face_edge_blend": {
@@ -1260,6 +1272,7 @@ def create_character_bundle(
         image, body_labels, body_conf, detail_labels, detail_conf,
         hand_fraction=hand_fraction,
         max_local_inpaint_ratio=max_local_inpaint_ratio,
+        include_legs=True,
     )
 
     layers = []
