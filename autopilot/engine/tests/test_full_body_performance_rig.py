@@ -11,6 +11,7 @@ from full_body_performance_rig import (
     _leg_layers,
     _skin_material_mask,
     _decontaminate_edge_matte_rgb,
+    _remove_embedded_props_from_static_layers,
 )
 
 
@@ -85,6 +86,54 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                 x0, y0, _x1, _y1 = result["bow_grip_hand"]["bbox"]
                 self.assertEqual(hand_rgba.getpixel((26 - x0, 29 - y0))[3], 0,
                     "the bright bow hair must not be baked into the hand overlay")
+
+
+    def test_removes_embedded_violin_and_bow_from_static_torso_and_head_plates(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source_size = (64, 64)
+            torso = np.full((32, 36, 4), (34, 42, 48, 255), dtype=np.uint8)
+            head = np.full((24, 24, 4), (170, 120, 92, 255), dtype=np.uint8)
+            Image.fromarray(torso, mode="RGBA").save(root / "torso.png")
+            Image.fromarray(head, mode="RGBA").save(root / "head.png")
+
+            character = {
+                "layers": [
+                    {"role": "torso", "src": "torso.png", "x": 10, "y": 20},
+                    {"role": "head", "src": "head.png", "x": 30, "y": 0},
+                ]
+            }
+            violin = np.zeros(source_size, dtype=bool)
+            bow = np.zeros(source_size, dtype=bool)
+            violin[26:36, 20:34] = True
+            bow[8:32, 25:28] = True
+
+            report = _remove_embedded_props_from_static_layers(
+                root,
+                character,
+                {"violin": violin, "bow": bow},
+            )
+
+            with Image.open(root / "torso.png") as opened:
+                torso_after = np.asarray(opened.convert("RGBA"), dtype=np.uint8)
+            with Image.open(root / "head.png") as opened:
+                head_after = np.asarray(opened.convert("RGBA"), dtype=np.uint8)
+
+            self.assertGreater(report["layers"]["torso"]["violin_pixels_removed"], 50)
+            self.assertGreater(report["layers"]["torso"]["bow_pixels_removed"], 10)
+            self.assertGreater(report["layers"]["head"]["bow_pixels_removed"], 10)
+            self.assertGreater(report["total_pixels_removed"], 100)
+            self.assertEqual(int(torso_after[5, 5, 3]), 255,
+                "unrelated torso pixels must remain opaque")
+            self.assertEqual(int(head_after[2, 2, 3]), 255,
+                "unrelated head pixels must remain opaque")
+            self.assertEqual(int(torso_after[8, 12, 3]), 0,
+                "source violin pixels must be cleared from the static torso plate")
+            self.assertEqual(int(torso_after[12, 16, 3]), 0,
+                "source bow pixels must be cleared from the static torso plate")
 
     def test_source_aligned_manifest_extracts_twelve_independent_limb_layers(self):
         import json
