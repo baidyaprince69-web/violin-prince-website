@@ -53,7 +53,7 @@ def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dic
                 "instrument_performance": True,
                 "expression": "neutral",
                 "head_angle": "front",
-                "head_angle_sequence": ["front", "three_quarter", "front", "profile_right", "front"],
+                "head_angle_sequence": ["front", "three_quarter", "profile_right", "profile_left", "front"],
                 "head_angle_cycle_duration_seconds": 7.2,
                 "x": 46,
                 "y": 58,
