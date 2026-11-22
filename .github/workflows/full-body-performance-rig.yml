@@ -194,6 +194,7 @@ jobs:
           project = json.loads(Path("work/full-body-rig/project.json").read_text())
           action = project["scenes"][0]["character_actions"]["violin-prince"]
           sync = action.get("music_sync", {})
+          scene = report["scenes"][0]
           assert sync.get("source") == "sampled_violin_cc0", sync
           assert sync.get("audio_attached") is True, sync
           assert sync.get("audio_license") == "CC0-1.0", sync
@@ -213,7 +214,6 @@ jobs:
           assert report.get("animated_limb_segment_count") == 12, report
           assert report.get("animated_fingering_control_count") == 4, report
           assert report.get("animated_instrument_prop_count") == 2, report
-          scene = report["scenes"][0]
           assert scene.get("full_body_visual_mode") == "segmented_source_body", scene
           print(json.dumps({
               "full_body_scenes": report["full_body_performance_scene_count"],
