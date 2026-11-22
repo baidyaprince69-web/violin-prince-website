@@ -44,6 +44,9 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
     "transform:translateY(28px) scale(" + characterScale + ")",
     "transform-origin:top left"
   ].join(";");
+  const hasHeadPlates =
+    Object.keys(character.head_variants || {}).length > 0 ||
+    Object.keys(character.head_angles || {}).length > 0;
   const jointForRole = {
     head: "neck",
     face: "neck",
@@ -80,13 +83,17 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       "height:" + (Number(layer.height) * layout.scale) + "px",
       "transform-origin:0 0",
       "z-index:" + Number(layer.z_index ?? 1)
-    ].join(";");
+    ];
+    if (hasHeadPlates && (layer.role === "head" || layer.role === "face")) {
+      style.push("opacity:0");
+    }
+    const styleText = style.join(";");
     const partId = scene.id + "-" + character.id + "-part-" + layer.id;
     return '<img class="rig-part" id="' + escapeHtml(partId) +
       '" data-role="' + escapeHtml(layer.role) +
       '" data-joint="' + escapeHtml(jointName || "") +
       '" alt="" draggable="false" src="' + escapeHtml(layer.src) +
-      '" style="' + style + '">';
+      '" style="' + styleText + '">';
   }).join("");
 
   const props = Object.values(character.props || {}).map((prop) => {
@@ -132,7 +139,7 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
     ].join(";");
     // Full-body pose plates already contain their own face. Never layer
     // the master-face expression crop over a complete pose illustration.
-    const initial = poseIsActive
+    const initial = (poseIsActive || hasHeadPlates)
       ? "opacity:0;"
       : (name === "neutral" ? "opacity:1;" : "opacity:0;");
     const expressionId = scene.id + "-" + character.id + "-expression-" + name;
@@ -161,7 +168,6 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
   const selectedHeadExpression = String(action.head_expression || action.expression || "neutral").toLowerCase();
   const headVariantEntries = Object.entries(character.head_variants || {});
   const headAngleEntries = Object.entries(character.head_angles || {});
-  const hasHeadPlates = headVariantEntries.length > 0 || headAngleEntries.length > 0;
   const headVariants = headVariantEntries.map(([name, variant]) => {
     const style = [
       "position:absolute",
@@ -169,7 +175,7 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       "top:" + (layout.offsetY + Number(variant.y) * layout.scale) + "px",
       "width:" + (Number(variant.width) * layout.scale) + "px",
       "height:" + (Number(variant.height) * layout.scale) + "px",
-      "object-fit:fill",
+      "object-fit:contain",
       "transform-origin:0 0",
       "z-index:" + Number(variant.z_index ?? 85),
       "opacity:" + (!poseIsActive && selectedHeadAngle === "front" && name === selectedHeadExpression ? "1" : "0")
@@ -187,7 +193,7 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       "top:" + (layout.offsetY + Number(angle.y) * layout.scale) + "px",
       "width:" + (Number(angle.width) * layout.scale) + "px",
       "height:" + (Number(angle.height) * layout.scale) + "px",
-      "object-fit:fill",
+      "object-fit:contain",
       "transform-origin:0 0",
       "z-index:" + Number(angle.z_index ?? 85),
       "opacity:" + (!poseIsActive && selectedHeadAngle === name && name !== "front" ? "1" : "0")
