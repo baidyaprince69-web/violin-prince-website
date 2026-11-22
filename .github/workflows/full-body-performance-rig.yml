@@ -105,7 +105,10 @@ jobs:
           assert all(part["pixel_area"] > part["minimum_pixels"] for part in limbs["parts"].values()), report
           assert max(limbs.get("joint_overlap_pixels", {}).values()) <= 500, report
           assert report.get("finger_layer_count") == 4, report
-          print("All twelve source-aligned limb/hand layers extracted; untouched pixels and violin protected.")
+          hand_cleanup = report.get("violin_hand_overlap_cleanup", {})
+          assert hand_cleanup.get("pixels_removed", 0) > 100, report
+          assert hand_cleanup.get("method") == "source_hand_alpha_cutout_plus_one_pixel_seam", report
+          print("All twelve source-aligned limb/hand layers extracted; duplicate fretting-hand pixels removed from the violin prop.")
           PY
 
       - name: Build the isolated 8-second performance project
