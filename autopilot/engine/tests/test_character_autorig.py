@@ -42,6 +42,27 @@ class CharacterAutoRigTests(unittest.TestCase):
         detail_conf = np.full((height, width), 0.92, dtype=np.float32)
         return body, body_conf, detail, detail_conf
 
+
+
+    def test_neutral_expression_fallback_is_pixel_identical_and_explicit(self):
+        import tempfile
+        from pathlib import Path
+        from PIL import Image, ImageChops
+        from character_autorig import _copy_neutral_expression_fallback
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = root / "face.png"
+            destination = root / "expression-fallback.png"
+            image = Image.new("RGBA", (17, 23), (140, 90, 70, 0))
+            image.putpixel((8, 10), (210, 150, 110, 255))
+            image.save(source)
+            _copy_neutral_expression_fallback(source, destination)
+            with Image.open(source) as expected, Image.open(destination) as actual:
+                self.assertEqual(expected.mode, actual.mode)
+                self.assertEqual(expected.size, actual.size)
+                self.assertIsNone(ImageChops.difference(expected, actual).getbbox())
+
     def test_creates_nine_nonempty_layers_and_seven_joint_anchors(self):
         body, body_conf, detail, detail_conf = self.synthetic_maps()
         image = Image.new("RGB", (160, 112), (30, 30, 36))
