@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from select_public_queue import select_next_public_plan
+from select_public_queue import select_next_private_preview_plan
 from slot_registry import SLOT_CATALOG
 
 
@@ -55,7 +55,7 @@ class ExactProductionDateQueueTests(unittest.TestCase):
             attempt.parent.mkdir(parents=True, exist_ok=True)
             attempt.write_text('{"status":"attempted"}', encoding="utf-8")
 
-            result = select_next_public_plan(root, production_date="2026-11-21")
+            result = select_next_private_preview_plan(root, production_date="2026-11-21")
 
         self.assertFalse(result["ready"])
         self.assertEqual(result["slot_status"], "blocked")
