@@ -142,6 +142,7 @@ jobs:
         working-directory: autopilot/engine
         run: |
           python -m unittest discover -s tests -p 'test_character_autorig.py'
+          python -m unittest discover -s tests -p 'test_prepare_full_body_performance.py'
           python -m unittest discover -s tests -p 'test_character_rig.py'
           python -m unittest discover -s tests -p 'test_character_daily_integration.py'
 
