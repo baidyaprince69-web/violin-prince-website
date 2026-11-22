@@ -374,10 +374,10 @@ def _restore_person_holes_in_source(
 def _clean_inherited_edge_matte(
     source_rgba: Image.Image,
     *,
-    minimum_brightness: int = 180,
-    maximum_channel_spread: int = 18,
+    minimum_brightness: int = 120,
+    maximum_channel_spread: int = 30,
     exterior_band_px: int = 2,
-    maximum_component_pixels: int = 3,
+    maximum_component_pixels: int = 8,
 ) -> tuple[Image.Image, dict[str, Any]]:
     """Remove tiny neutral matte specks attached to the outside source edge.
 
