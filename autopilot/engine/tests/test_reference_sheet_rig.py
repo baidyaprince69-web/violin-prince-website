@@ -55,11 +55,13 @@ class ReferenceSheetRigTests(unittest.TestCase):
             draw.rectangle((20, 20, 44, 44), fill=(190, 125, 88, 255))
             draw.rectangle((18, 18, 46, 46), outline=(255, 0, 255, 255), width=2)
             draw.line((20, 50, 44, 50), fill=(129, 8, 124, 255), width=2)
+            draw.line((20, 55, 44, 55), fill=(54, 0, 45, 255), width=2)
             image.save(path)
 
             _source, alpha = _keyed_sheet(path)
             self.assertEqual(int(alpha[18, 24]), 0)
             self.assertEqual(int(alpha[50, 30]), 0)
+            self.assertEqual(int(alpha[55, 30]), 0)
             self.assertEqual(int(alpha[32, 32]), 255)
 
     def test_builds_four_expression_plates_four_head_angles_and_parts_catalogue(self):
