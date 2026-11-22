@@ -334,7 +334,9 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
 
       const prefix = scene.id + "-" + character.id;
       const layers = character.layers || [];
+      const props = Object.values(character.props || {});
       const layerByRole = new Map(layers.map(layer => [layer.role, layer]));
+      const propById = new Map(props.map(prop => [prop.id, prop]));
       const sourceWidth = Number(character.canvas?.width) || width;
       const sourceHeight = Number(character.canvas?.height) || height;
       const { scale } = fitCharacterToCanvas(character, width, height);
@@ -345,6 +347,13 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
         const id = prefix + "-part-" + layer.id;
         rotationTracks.set(
           layer.role,
+          sourceTracks.filter(track => track.target === id && track.property === "rotate")
+        );
+      }
+      for (const prop of props) {
+        const id = prefix + "-prop-" + prop.id;
+        rotationTracks.set(
+          "prop:" + prop.id,
           sourceTracks.filter(track => track.target === id && track.property === "rotate")
         );
       }
@@ -359,7 +368,17 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
         left_hand: ["torso", "left_upper_arm", "left_forearm", "left_hand"],
         right_upper_arm: ["torso", "right_upper_arm"],
         right_forearm: ["torso", "right_upper_arm", "right_forearm"],
-        right_hand: ["torso", "right_upper_arm", "right_forearm", "right_hand"]
+        right_hand: ["torso", "right_upper_arm", "right_forearm", "right_hand"],
+        left_thigh: ["torso", "left_thigh"],
+        left_calf: ["torso", "left_thigh", "left_calf"],
+        left_foot: ["torso", "left_thigh", "left_calf", "left_foot"],
+        right_thigh: ["torso", "right_thigh"],
+        right_calf: ["torso", "right_thigh", "right_calf"],
+        right_foot: ["torso", "right_thigh", "right_calf", "right_foot"],
+        finger_index: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_index"],
+        finger_middle: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_middle"],
+        finger_ring: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_ring"],
+        finger_little: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_little"]
       };
 
       const rolesToAnimate = new Set();
@@ -370,7 +389,13 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
       }
       const expressionNames = Object.keys(character.expressions || {});
       const needsExpressionTransform = hasRotation("torso") || hasRotation("head");
-      if (!rolesToAnimate.size && !(needsExpressionTransform && expressionNames.length)) continue;
+      const animatedProps = props.filter(prop => {
+        const parentRole = String(prop.attach_to || "torso");
+        const parentDependencies = dependencies[parentRole] || [parentRole];
+        return parentDependencies.some(hasRotation) || hasRotation("prop:" + prop.id);
+      });
+      if (!rolesToAnimate.size && !animatedProps.length &&
+          !(needsExpressionTransform && expressionNames.length)) continue;
 
       const pivotFor = (jointName, layerRole) =>
         layerPivot(layerByRole.get(layerRole), joints[jointName], sourceWidth, sourceHeight);
@@ -382,6 +407,18 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
       const rightShoulder = pivotFor("right_shoulder", "right_upper_arm");
       const rightElbow = pivotFor("right_elbow", "right_forearm");
       const rightWrist = pivotFor("right_wrist", "right_hand");
+      const leftHip = pivotFor("left_hip", "left_thigh");
+      const leftKnee = pivotFor("left_knee", "left_calf");
+      const leftAnkle = pivotFor("left_ankle", "left_foot");
+      const rightHip = pivotFor("right_hip", "right_thigh");
+      const rightKnee = pivotFor("right_knee", "right_calf");
+      const rightAnkle = pivotFor("right_ankle", "right_foot");
+      const fingerPivots = {
+        finger_index: pivotFor("right_index_base", "finger_index"),
+        finger_middle: pivotFor("right_middle_base", "finger_middle"),
+        finger_ring: pivotFor("right_ring_base", "finger_ring"),
+        finger_little: pivotFor("right_little_base", "finger_little")
+      };
 
       const localAngle = (role, time) => {
         const candidates = rotationTracks.get(role) || [];
@@ -392,6 +429,7 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
 
       const sampledMatrices = new Map([...rolesToAnimate].map(role => [role, []]));
       const sampledExpressionMatrices = new Map(expressionNames.map(name => [name, []]));
+      const sampledPropMatrices = new Map(animatedProps.map(prop => [prop.id, []]));
 
       for (const offset of sampleOffsets) {
         const time = sceneStart + offset * sceneDuration;
@@ -427,6 +465,31 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
           aroundPivot(rightWrist, localAngle("right_hand", time))
         );
 
+        const leftThighWorld = multiplyMatrix(
+          torsoWorld,
+          aroundPivot(leftHip, localAngle("left_thigh", time))
+        );
+        const leftCalfWorld = multiplyMatrix(
+          leftThighWorld,
+          aroundPivot(leftKnee, localAngle("left_calf", time))
+        );
+        const leftFootWorld = multiplyMatrix(
+          leftCalfWorld,
+          aroundPivot(leftAnkle, localAngle("left_foot", time))
+        );
+        const rightThighWorld = multiplyMatrix(
+          torsoWorld,
+          aroundPivot(rightHip, localAngle("right_thigh", time))
+        );
+        const rightCalfWorld = multiplyMatrix(
+          rightThighWorld,
+          aroundPivot(rightKnee, localAngle("right_calf", time))
+        );
+        const rightFootWorld = multiplyMatrix(
+          rightCalfWorld,
+          aroundPivot(rightAnkle, localAngle("right_foot", time))
+        );
+
         const worldByRole = {
           torso: torsoWorld,
           head: headWorld,
@@ -436,8 +499,21 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
           left_hand: leftHandWorld,
           right_upper_arm: rightUpperWorld,
           right_forearm: rightForearmWorld,
-          right_hand: rightHandWorld
+          right_hand: rightHandWorld,
+          left_thigh: leftThighWorld,
+          left_calf: leftCalfWorld,
+          left_foot: leftFootWorld,
+          right_thigh: rightThighWorld,
+          right_calf: rightCalfWorld,
+          right_foot: rightFootWorld
         };
+        for (const [role, pivot] of Object.entries(fingerPivots)) {
+          worldByRole[role] = multiplyMatrix(
+            rightHandWorld,
+            aroundPivot(pivot, localAngle(role, time))
+          );
+        }
+
         for (const role of rolesToAnimate) {
           sampledMatrices.get(role).push(
             localCssMatrix(worldByRole[role], layerByRole.get(role), scale)
@@ -448,11 +524,20 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
             localCssMatrix(headWorld, character.expressions[name], scale)
           );
         }
+        for (const prop of animatedProps) {
+          const parentWorld = worldByRole[String(prop.attach_to || "torso")] || torsoWorld;
+          const pivot = layerPivot(prop, null, sourceWidth, sourceHeight);
+          const propWorld = multiplyMatrix(
+            parentWorld,
+            aroundPivot(pivot, localAngle("prop:" + prop.id, time))
+          );
+          sampledPropMatrices.get(prop.id).push(localCssMatrix(propWorld, prop, scale));
+        }
       }
 
       for (const role of rolesToAnimate) {
         transformTracks.push({
-          target: prefix + "-part-" + (layerByRole.get(role).id),
+          target: prefix + "-part-" + layerByRole.get(role).id,
           property: "transform",
           values: sampledMatrices.get(role),
           offsets: sampleOffsets,
@@ -474,11 +559,21 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
           });
         }
       }
+      for (const prop of animatedProps) {
+        transformTracks.push({
+          target: prefix + "-prop-" + prop.id,
+          property: "transform",
+          values: sampledPropMatrices.get(prop.id),
+          offsets: sampleOffsets,
+          start: sceneStart,
+          duration: sceneDuration,
+          easing: "linear"
+        });
+      }
     }
   }
   return transformTracks;
 }
-
 export function compileMotionTracks(project, { fps = 25 } = {}) {
   const tracks = [];
   const addSpring = (target, property, from, to, start, maxMs) => {
