@@ -29,7 +29,7 @@ def _identity(production_date: str, slot_id: str) -> str:
 
 
 def _normalise_title(value: str) -> str:
-    return re.sub(r"\\s+", " ", unicodedata.normalize("NFKC", str(value or ""))).strip().casefold()
+    return re.sub(r"\s+", " ", unicodedata.normalize("NFKC", str(value or ""))).strip().casefold()
 
 
 def _scan_youtube_history(api_key: str) -> tuple[set[str], dict[str, Any]]:
@@ -171,20 +171,27 @@ def select_next_public_plan(
             })
 
     if not candidates:
+        blocked_reason = (
+            f"No unused, public-ready story exists in the exact {production_date} batch. "
+            "The scheduled run will not fall forward into another production date."
+            if production_date else
+            "No unused, public-ready story exists in today's or any later prepared batch. "
+            "Prepare another source-checked batch to refill the rolling queue."
+        )
+        if duplicate_channel_matches:
+            blocked_reason += (
+                f" {len(duplicate_channel_matches)} candidate title/topic match(es) "
+                "were already present in the connected YouTube channel and were skipped."
+            )
         return {
             "ready": False,
             "slot_status": "blocked",
             "production_date": production_date or "",
-            "blocked_reason": (
-                f"No unused, public-ready story exists in the exact {production_date} batch. "
-                "The scheduled run will not fall forward into another production date."
-                if production_date else
-                "No unused, public-ready story exists in today's or any later prepared batch. "
-                "Prepare another source-checked batch to refill the rolling queue."
-            ),
+            "blocked_reason": blocked_reason,
             "checked_batches": checked_batches,
             "remaining_ready_count": 0,
             "ignored_batches": ignored_batches,
+            "duplicate_channel_matches": duplicate_channel_matches,
         }
 
     chosen = candidates[0]
@@ -219,7 +226,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     except Exception as exc:
         message = "YouTube history audit failed; no story was selected: " + str(exc)[:500]
-        _write_summary("## YouTube history audit blocked\\n\\n" + message)
+        _write_summary("## YouTube history audit blocked\n\n" + message)
         print(message, file=sys.stderr)
         return 2
 
