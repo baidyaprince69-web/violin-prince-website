@@ -119,6 +119,52 @@ test("violin and bow are separately transformed and bow receives a stroke cycle"
 });
 
 
+test("intact full-body composite keeps limbs together while bow and fingers animate", () => {
+  const compositeCharacter = {
+    ...character,
+    base_art: {
+      src: "performance-composite-base.png",
+      x: 0, y: 0, width: 441, height: 755,
+      mode: "intact_full_body_with_bow_and_finger_cutouts"
+    }
+  };
+  const compositeProject = {
+    ...project,
+    characters: [compositeCharacter]
+  };
+  const tracks = compileMotionTracks(compositeProject, { fps: 25 });
+  const findTrack = (target, property = "transform") =>
+    tracks.find(track => track.target === target && track.property === property);
+  const base = findTrack("playing-violin-prince-base-art");
+  assert.ok(base, "full-body composite base receives a coordinated transform track");
+  assert.ok(base.values.some(value => value !== base.values[0]));
+
+  const bow = findTrack("playing-violin-prince-prop-bow");
+  assert.ok(bow, "bow remains independently animated over the intact body");
+  assert.ok(bow.values.some(value => value !== bow.values[0]));
+  assert.equal(findTrack("playing-violin-prince-prop-violin"), undefined,
+    "the original violin stays in the preserved source illustration");
+
+  const bowHand = findTrack("playing-violin-prince-part-left_hand");
+  assert.ok(bowHand, "the original bow-grip hand remains aligned above the bow");
+  assert.ok(bowHand.values.some(value => value !== bowHand.values[0]));
+
+  for (const role of ["finger_index", "finger_middle", "finger_ring", "finger_little"]) {
+    const track = findTrack("playing-violin-prince-part-" + role);
+    assert.ok(track, role + " retains its own transform track");
+    assert.ok(track.values.some(value => value !== track.values[0]));
+  }
+
+  for (const role of [
+    "left_upper_arm", "left_forearm", "right_upper_arm", "right_forearm",
+    "right_hand", "left_thigh", "left_calf", "left_foot",
+    "right_thigh", "right_calf", "right_foot"
+  ]) {
+    assert.equal(findTrack("playing-violin-prince-part-" + role), undefined,
+      role + " must remain part of the intact source body until segmentation is repaired");
+  }
+});
+
 test("modular head expressions and angle plates are separately rendered and frame-seekable", () => {
   const tracks = compileMotionTracks(project, { fps: 25 });
   assert.equal(tracks.some(track =>
