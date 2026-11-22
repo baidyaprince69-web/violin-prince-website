@@ -739,9 +739,23 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
         partIdByRole.set(name, prefix + "-prop-" + name);
       }
 
+      const propNames = new Set(Object.keys(character.props || {}));
       const addRigKeyframes = (role, properties, start, duration, loop = false) => {
         const target = partIdByRole.get(role);
-        if (target) addKeyframes(target, properties, start, duration, "ease-in-out", loop);
+        if (target) {
+          if (propNames.has(role) && Array.isArray(properties?.rotate)) {
+            const transformValues = properties.rotate.map(value => "rotate(" + Number(value) + "deg)");
+            addKeyframes(target, { transform: transformValues }, start, duration, "ease-in-out", loop);
+            const remaining = Object.fromEntries(
+              Object.entries(properties).filter(([property]) => property !== "rotate")
+            );
+            if (Object.keys(remaining).length) {
+              addKeyframes(target, remaining, start, duration, "ease-in-out", loop);
+            }
+          } else {
+            addKeyframes(target, properties, start, duration, "ease-in-out", loop);
+          }
+        }
         // The face cut-out and expression overlays are separate images, but
         // they must inherit the head's neck-pivot motion to stay registered.
         if (role === "head") {
