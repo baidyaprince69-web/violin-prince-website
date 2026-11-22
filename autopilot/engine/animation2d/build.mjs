@@ -123,7 +123,8 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
   }).join("");
 
   const props = Object.values(character.props || {})
-    .filter(prop => !compositeBase || prop.id === "bow")
+    .filter(prop => !compositeBase || prop.id === "bow" ||
+      (character.performance_base_mode === "segmented_source_body" && prop.id === "violin"))
     .map((prop) => {
     const style = [
       "left:" + (layout.offsetX + Number(prop.x) * layout.scale) + "px",
@@ -493,7 +494,7 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
       if (requiredLegs.includes(role)) animatedFullBodyPartCount += 1;
       if (requiredFingers.includes(role)) animatedFingeringControlCount += 1;
     }
-    const requiredProps = compositeBaseMode ? ["bow"] : ["violin", "bow"];
+    const requiredProps = compositeBaseMode ? ["violin", "bow"] : ["violin", "bow"];
     for (const propId of requiredProps) {
       if (!propSet.has(propId)) {
         throw new Error("Scene " + scene.id + " full-body performance is missing the " + propId + " prop.");
