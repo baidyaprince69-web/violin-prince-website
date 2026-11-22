@@ -486,12 +486,21 @@ def _authored_performance_layers(
         yy, xx = np.ogrid[:height, :width]
         joint_underlap = (xx - ex) ** 2 + (yy - ey) ** 2 <= overlap_radius ** 2
         upper_region = upper_region & (~forearm_region | joint_underlap)
-        for role, region in (
-            (upper_role, upper_region),
-            (forearm_role, forearm_region),
+        forearm_mask = forearm_region & (alpha > 12)
+        wrist = (manifest.get("joints") or {}).get(f"{side}_wrist")
+        if not wrist or len(wrist) != 2:
+            raise ManualReviewRequired(f"The {side} wrist anchor must be authored as [x, y].")
+        wx, wy = float(wrist[0]), float(wrist[1])
+        wrist_radius = int(regions[forearm_role].get("wrist_overlap_radius", 8))
+        wrist_underlap = (xx - wx) ** 2 + (yy - wy) ** 2 <= wrist_radius ** 2
+        # The forearm carries a tiny copy beneath the hand; the hand remains
+        # the upper layer and owns the visible skin contour at the wrist.
+        forearm_mask |= wrist_underlap & hand_masks[f"{side}_hand"] & (alpha > 12)
+        for role, mask in (
+            (upper_role, upper_region & (alpha > 12)),
+            (forearm_role, forearm_mask),
         ):
-            mask = region & (alpha > 12)
-            mask &= ~hand_masks[f"{side}_hand"]
+            mask &= ~hand_masks[f"{side}_hand"] if role == upper_role else np.ones(shape, dtype=bool)
             for blocked in blocked_props:
                 mask &= ~blocked
             minimum = int(regions[role].get("minimum_pixels", 100))
@@ -505,19 +514,23 @@ def _authored_performance_layers(
     for role, mask in hand_masks.items():
         moving_masks[role] = mask
 
-    # Trouser regions are independent of SCHP's broad upper/lower-leg labels.
+    # The distal part owns the knee and ankle seams. Keep only local overlap
+    # disks so rotation cannot expose the inpainted parent plate at either joint.
     for side in ("left", "right"):
-        for segment in ("thigh", "calf"):
-            role = f"{side}_{segment}"
-            specification = regions[role]
-            mask = polygon_masks[role] & (alpha > 12)
-            minimum = int(specification.get("minimum_pixels", 500))
-            if int(mask.sum()) < minimum:
-                raise ManualReviewRequired(
-                    f"The {role} source-aligned trouser mask contains only {int(mask.sum())} pixels."
-                )
-            moving_masks[role] = mask
+        knee = (manifest.get("joints") or {}).get(f"{side}_knee")
+        ankle = (manifest.get("joints") or {}).get(f"{side}_ankle")
+        if not knee or len(knee) != 2 or not ankle or len(ankle) != 2:
+            raise ManualReviewRequired(f"The {side} knee and ankle anchors are required.")
+        kx, ky = float(knee[0]), float(knee[1])
+        ax, ay = float(ankle[0]), float(ankle[1])
+        yy, xx = np.ogrid[:height, :width]
+        knee_radius = int(regions[f"{side}_thigh"].get("knee_overlap_radius", 9))
+        ankle_radius = int(regions[f"{side}_calf"].get("ankle_overlap_radius", 8))
+        knee_underlap = (xx - kx) ** 2 + (yy - ky) ** 2 <= knee_radius ** 2
+        ankle_underlap = (xx - ax) ** 2 + (yy - ay) ** 2 <= ankle_radius ** 2
 
+        thigh = polygon_masks[f"{side}_thigh"] & (alpha > 12)
+        calf = polygon_masks[f"{side}_calf"] & (alpha > 12)
         foot_role = f"{side}_foot"
         foot_spec = regions[foot_role]
         if str(foot_spec.get("method") or "") != "dark_connected_bottom_component":
@@ -529,10 +542,21 @@ def _authored_performance_layers(
                 side=side,
                 split_x=screen_split_x,
             )
+        thigh &= ~calf | knee_underlap
+        calf |= ankle_underlap & foot_mask
+        # Keep leg material separate from shoes and preserve a small shared seam.
+        minimum_thigh = int(regions[f"{side}_thigh"].get("minimum_pixels", 500))
+        minimum_calf = int(regions[f"{side}_calf"].get("minimum_pixels", 500))
+        if int(thigh.sum()) < minimum_thigh:
+            raise ManualReviewRequired(f"The {side} thigh mask became too small after knee seam extraction.")
+        if int(calf.sum()) < minimum_calf:
+            raise ManualReviewRequired(f"The {side} calf mask became too small after ankle seam extraction.")
         if int(foot_mask.sum()) < int(foot_spec.get("minimum_pixels", 500)):
             raise ManualReviewRequired(
                 f"The {foot_role} shoe mask contains only {int(foot_mask.sum())} pixels."
             )
+        moving_masks[f"{side}_thigh"] = thigh
+        moving_masks[f"{side}_calf"] = calf
         moving_masks[foot_role] = foot_mask
 
     # Save all twelve independently controllable limb/hand layers.
@@ -570,15 +594,25 @@ def _authored_performance_layers(
             "minimum_pixels": int(specification.get("minimum_pixels", 0)),
         }
 
-    # Validate that the elbow cut is local rather than copying most of a sleeve.
+    # Validate every joint overlap stays local; these parent underlaps seal
+    # articulated seams without copying broad duplicate areas.
     for side in ("left", "right"):
-        overlap = moving_masks[f"{side}_upper_arm"] & moving_masks[f"{side}_forearm"]
-        overlap_pixels = int(overlap.sum())
-        if overlap_pixels > 500:
-            raise ManualReviewRequired(
-                f"The {side} elbow underlap is too broad ({overlap_pixels} pixels); refine the elbow boundary."
-            )
-        report.setdefault("joint_overlap_pixels", {})[f"{side}_elbow"] = overlap_pixels
+        elbow_overlap = int((moving_masks[f"{side}_upper_arm"] & moving_masks[f"{side}_forearm"]).sum())
+        wrist_overlap = int((moving_masks[f"{side}_forearm"] & moving_masks[f"{side}_hand"]).sum())
+        knee_overlap = int((moving_masks[f"{side}_thigh"] & moving_masks[f"{side}_calf"]).sum())
+        ankle_overlap = int((moving_masks[f"{side}_calf"] & moving_masks[f"{side}_foot"]).sum())
+        overlaps = {
+            f"{side}_elbow": elbow_overlap,
+            f"{side}_wrist": wrist_overlap,
+            f"{side}_knee": knee_overlap,
+            f"{side}_ankle": ankle_overlap,
+        }
+        for joint_name, overlap_pixels in overlaps.items():
+            if overlap_pixels > 500:
+                raise ManualReviewRequired(
+                    f"The {joint_name} underlap is too broad ({overlap_pixels} pixels); refine the boundary."
+                )
+            report.setdefault("joint_overlap_pixels", {})[joint_name] = overlap_pixels
 
     joint_manifest = manifest.get("joints") or {}
     expected_joints = (
