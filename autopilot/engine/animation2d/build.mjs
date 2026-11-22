@@ -58,7 +58,11 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
     left_foot: "left_ankle",
     right_thigh: "right_hip",
     right_shin: "right_knee",
-    right_foot: "right_ankle"
+    right_foot: "right_ankle",
+    right_index_finger: "right_index_knuckle",
+    right_middle_finger: "right_middle_knuckle",
+    right_ring_finger: "right_ring_knuckle",
+    right_little_finger: "right_little_knuckle"
   };
   const layers = (character.layers || []).map((layer) => {
     const jointName = jointForRole[layer.role];
