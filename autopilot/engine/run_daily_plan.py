@@ -662,7 +662,7 @@ def run_daily_plan(
         production_date=str(plan.get("production_date") or ""),
         slot_id=slot_id,
         run_id=engine.RUN_ID,
-        status=("rendered_ready_for_public_youtube_upload" if scheduled_public_upload else "rendered_handoff_only"),
+        status=("rendered_ready_for_private_preview_upload" if scheduled_slot_run else "rendered_handoff_only"),
         output_dir=engine.OUT,
     )
     print(
