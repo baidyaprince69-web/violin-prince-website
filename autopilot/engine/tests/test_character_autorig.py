@@ -22,6 +22,7 @@ from character_autorig import (
     _split_arm,
     _repair_transparent_person_holes,
     _restore_person_holes_in_source,
+    _clean_inherited_edge_matte,
     separate_from_parsing,
 )
 
@@ -118,6 +119,34 @@ class CharacterAutoRigTests(unittest.TestCase):
             "original non-hole body pixels must remain pixel-identical")
         self.assertEqual(report["pixels_restored"], 25)
         self.assertTrue(report["original_alpha_preserved_outside_holes"])
+
+    def test_edge_matte_cleanup_removes_only_small_external_neutral_specks(self):
+        pixels = np.zeros((32, 32, 4), dtype=np.uint8)
+        pixels[7:26, 7:26] = (38, 42, 46, 255)
+        # A single matte fleck and a detached two-pixel fleck on the exterior edge.
+        pixels[6, 10] = (190, 190, 190, 255)
+        pixels[6, 12:14] = (185, 185, 185, 255)
+        # Skin-coloured edge detail, interior white detail, and feathered edge
+        # pixels must not be removed by the conservative matte rule.
+        pixels[6, 16] = (220, 150, 120, 255)
+        pixels[12, 12] = (248, 246, 240, 255)
+        pixels[6, 20] = (38, 42, 46, 153)
+        source = Image.fromarray(pixels, mode="RGBA")
+
+        cleaned, report = _clean_inherited_edge_matte(source)
+        result = np.asarray(cleaned, dtype=np.uint8)
+
+        self.assertEqual(report["method"], "border_connected_neutral_edge_speck_cleanup")
+        self.assertEqual(report["pixels_removed"], 3)
+        self.assertEqual(report["components_removed"], 2)
+        self.assertEqual(tuple(result[6, 10]), (0, 0, 0, 0))
+        self.assertTrue(np.all(result[6, 12:14, 3] == 0))
+        self.assertEqual(tuple(result[6, 16]), (220, 150, 120, 255))
+        self.assertEqual(tuple(result[12, 12]), (248, 246, 240, 255))
+        self.assertEqual(tuple(result[6, 20]), (38, 42, 46, 153))
+        self.assertTrue(report["interior_details_preserved"])
+        self.assertTrue(report["partial_alpha_edge_preserved"])
+
 
     def test_ignores_low_confidence_transparent_background(self):
         width, height = 40, 40
