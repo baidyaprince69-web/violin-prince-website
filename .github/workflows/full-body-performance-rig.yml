@@ -136,7 +136,7 @@ jobs:
           if len(music_map.get("beat_times", [])) != 32 or not music_map.get("onsets"):
               raise SystemExit("The sampled-violin arrangement did not provide a complete beat/onset map.")
           map_path = Path("work/full-body-rig/audio/violin-prince-cc0-solo-violin.music-map.json")
-          map_path.write_text(json.dumps(music_map, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+          map_path.write_text(json.dumps(music_map, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
           print(json.dumps({
               "audio_file": str(audio_path),
               "audio_source": music_map["audio_source"],
