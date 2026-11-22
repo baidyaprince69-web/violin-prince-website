@@ -421,6 +421,13 @@ def _authored_performance_layers(
         for name, mask in prop_masks.items()
         if name in {"violin", "bow"}
     )
+    # The bow hair can cross the grip; retain source skin there so the hand
+    # can be composited above the independently moving bow.
+    blocked_skin_props = tuple(
+        np.asarray(mask, dtype=bool)
+        for name, mask in prop_masks.items()
+        if name == "violin"
+    )
     skin_thresholds = manifest.get("skin_mask") or {}
     polygon_masks: dict[str, np.ndarray] = {}
     for role, specification in regions.items():
@@ -442,7 +449,7 @@ def _authored_performance_layers(
             source_rgba,
             allowed,
             thresholds=skin_thresholds,
-            excluded=blocked_props,
+            excluded=blocked_skin_props,
         )
         minimum = int(specification.get("minimum_pixels", 200))
         if int(hand_masks[role].sum()) < minimum:
@@ -604,6 +611,7 @@ def _build_segmented_source_base(
     *,
     bow_canvas_alpha: np.ndarray,
     moving_mask: np.ndarray,
+    protected_mask: np.ndarray,
 ) -> dict[str, Any]:
     """Inpaint limb cutouts into a source-aligned parent plate behind moving layers."""
     try:
@@ -615,10 +623,13 @@ def _build_segmented_source_base(
     height, width = rgba.shape[:2]
     bow = np.asarray(bow_canvas_alpha, dtype=np.uint8) > 12
     moving = np.asarray(moving_mask, dtype=bool)
-    if bow.shape != (height, width) or moving.shape != (height, width):
-        raise AutoRigError("The bow and moving-region masks must match the source canvas.")
+    protected = np.asarray(protected_mask, dtype=bool)
+    if any(mask.shape != (height, width) for mask in (bow, moving, protected)):
+        raise AutoRigError("Bow, moving-region and protected masks must match the source canvas.")
     # Slightly expand each cut so antialiased edges travel with the sprite.
-    cut = _morph(moving | bow, 2, "dilate") & (rgba[:, :, 3] > 12)
+    # The violin remains untouched even where an arm mask approaches its edge.
+    cut = _morph(moving | bow, 2, "dilate")
+    cut &= (rgba[:, :, 3] > 12) & ~protected
     if int(cut.sum()) < 1000:
         raise ManualReviewRequired("The source-aligned limb/prop cutout is unexpectedly small.")
     repaired = cv2.inpaint(
@@ -941,6 +952,7 @@ def extend_full_body_character(
         bundle,
         bow_canvas_alpha=prop_masks["bow"],
         moving_mask=moving_mask,
+        protected_mask=prop_masks["violin"],
     )
     character["base_art"] = composite_base
     character["performance_base_mode"] = "segmented_source_body"
