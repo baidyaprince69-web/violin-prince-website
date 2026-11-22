@@ -77,7 +77,7 @@ class CharacterAutoRigTests(unittest.TestCase):
         image = Image.fromarray(pixels, mode="RGB")
 
         repaired, report = _repair_transparent_person_holes(
-            image, alpha, labels, confidence
+            image, alpha, labels, confidence, maximum_fraction=0.05
         )
         repaired_pixels = np.asarray(repaired, dtype=np.uint8)
         self.assertEqual(report["method"], "opencv_telea_semantic_alpha_holes")
