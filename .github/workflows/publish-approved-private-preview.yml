@@ -1,4 +1,4 @@
-name: Publish approved private Violin Prince preview
+name: Disabled — public release from a private preview
 
 on:
   push:
@@ -17,7 +17,9 @@ concurrency:
 
 jobs:
   publish_approved_preview:
-    name: Verify exact private preview and publish once
+    # Public publishing is disabled; this workflow must never upload.
+    if: false
+    name: Disabled — public publishing
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
