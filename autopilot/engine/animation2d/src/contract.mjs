@@ -79,6 +79,26 @@ export function gestureKeyframes(name) {
       right_forearm: { rotate: [0, -18, 11, -18, 0] },
       right_hand: { rotate: [0, 5, -5, 5, 0] }
     },
+    violin_performance: {
+      torso: { rotate: [0, -1.1, 0, 1.1, 0] },
+      head: { rotate: [0, -1.8, -0.4, 1.1, 0] },
+      left_upper_arm: { rotate: [0, -4, -7, -4, 0] },
+      left_forearm: { rotate: [0, 5, 9, 6, 0] },
+      left_hand: { rotate: [0, -1.5, 1.2, -1, 0] },
+      right_upper_arm: { rotate: [0, 3, 6, 4, 0] },
+      right_forearm: { rotate: [0, -8, 8, -7, 0] },
+      right_hand: { rotate: [0, 2.5, -2.5, 2, 0] },
+      finger_index: { rotate: [0, 8, -5, 7, 0] },
+      finger_middle: { rotate: [0, -5, 8, -4, 0] },
+      finger_ring: { rotate: [0, 6, -4, 5, 0] },
+      finger_little: { rotate: [0, -4, 6, -3, 0] },
+      left_thigh: { rotate: [0, 1.2, 0, -1.2, 0] },
+      left_calf: { rotate: [0, -1.8, 0, 1.8, 0] },
+      left_foot: { rotate: [0, 0.8, 0, -0.8, 0] },
+      right_thigh: { rotate: [0, -1.1, 0, 1.1, 0] },
+      right_calf: { rotate: [0, 1.6, 0, -1.6, 0] },
+      right_foot: { rotate: [0, -0.7, 0, 0.7, 0] }
+    },
     walk_cycle: {
       torso: { rotate: [0, -2, 0, 2, 0] },
       head: { rotate: [0, 1, 0, -1, 0] },
