@@ -100,7 +100,7 @@ class ExactProductionDateQueueTests(unittest.TestCase):
 
         self.assertFalse(result["ready"])
         self.assertEqual(len(result["duplicate_channel_matches"]), 1)
-        self.assertIn("already-uploaded", result["blocked_reason"].lower())
+        self.assertIn("already present", result["blocked_reason"].lower())
 
     def test_selector_moves_to_next_ready_story_when_first_title_already_exists(self):
         with tempfile.TemporaryDirectory() as temporary:
