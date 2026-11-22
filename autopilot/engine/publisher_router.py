@@ -250,6 +250,9 @@ def route_to_youtube(
     repository: str,
     attempt_id: str,
 ) -> dict[str, Any]:
+    raise RouterError(
+        "Direct public YouTube publication is disabled. Use the private-preview workflow."
+    )
     """Publish the verified MP4 directly with the existing OAuth uploader."""
     request = _read_json(request_path, "publisher fallback request")
     manifest, plan, video_path = validate_release_bundle(request, release_dir, repository)
