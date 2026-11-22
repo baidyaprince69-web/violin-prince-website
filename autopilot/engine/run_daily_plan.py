@@ -460,6 +460,7 @@ def run_daily_plan(
             raise engine.PipelineError("The daily batch snapshot SHA-256 is malformed.")
         production_identity["batch_snapshot_sha256"] = batch_snapshot_sha256
     plan, verified_sources = validate_and_enrich_plan(plan)
+    scheduled_slot_run = bool(batch_snapshot_sha256)
     # The production runner is private-preview-only. A legacy plan or approval
     # record requesting public visibility can never override this invariant.
     plan = enforce_private_preview_visibility(plan)
