@@ -126,10 +126,13 @@ test("modular head expressions and angle plates are separately rendered and fram
       track.target === "playing-violin-prince-head-variant-" + name &&
       track.property === "transform"
     ), "head expression " + name + " follows the neck pivot");
-    assert.ok(tracks.some(track =>
+    const variantOpacity = tracks.find(track =>
       track.target === "playing-violin-prince-head-variant-" + name &&
       track.property === "opacity"
-    ), "head expression " + name + " has an independent visibility track");
+    );
+    assert.ok(variantOpacity, "head expression " + name + " has an independent visibility track");
+    assert.equal(variantOpacity.keyframeEasing, "steps(1, end)",
+      "full-head expression plates must switch without overlapping ghost faces");
   }
   for (const name of ["three_quarter", "profile_right", "profile_left"]) {
     assert.ok(tracks.some(track =>
@@ -142,5 +145,7 @@ test("modular head expressions and angle plates are separately rendered and fram
     );
     assert.ok(opacity, "head angle " + name + " has a frame-seekable swap track");
     assert.ok(opacity.values.includes(1) && opacity.values.includes(0));
+    assert.equal(opacity.keyframeEasing, "steps(1, end)",
+      "full-head angle plates must switch without overlapping ghost faces");
   }
 });
