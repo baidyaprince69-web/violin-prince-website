@@ -5,9 +5,11 @@ from PIL import Image
 from full_body_performance_rig import (
     _authored_performance_layers,
     _build_segmented_source_base,
+    _clip_hand_from_violin_prop,
     _foot_mask,
     _leg_layers,
 )
+from character_autorig import _skin_material_mask
 
 
 class FullBodyPerformanceRigTests(unittest.TestCase):
@@ -129,6 +131,60 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             self.assertGreater(report["parts"]["left_hand"]["pixel_area"], 500)
             self.assertGreater(report["parts"]["right_hand"]["pixel_area"], 700)
             self.assertTrue(all((Path(folder) / layer["src"]).is_file() for layer in layers))
+
+    def test_skin_mask_rejects_violin_wood_inside_hand_region(self):
+        pixels = np.full((40, 60, 4), (30, 30, 30, 255), dtype=np.uint8)
+        pixels[8:25, 5:22, :3] = (173, 121, 88)   # illustrated hand skin
+        pixels[8:25, 34:51, :3] = (182, 98, 38)   # warm violin varnish
+        image = Image.fromarray(pixels, mode="RGBA")
+        allowed = np.zeros((40, 60), dtype=bool)
+        allowed[2:31, 2:55] = True
+        mask = _skin_material_mask(
+            image,
+            allowed,
+            thresholds={
+                "red_min": 120, "red_max": 240, "green_min": 70, "blue_min": 55,
+                "red_minus_green_min": 20, "green_minus_blue_min": 10,
+                "red_minus_blue_min": 35,
+            },
+        )
+        self.assertTrue(mask[15, 14], "skin pixels must remain in the source-derived hand")
+        self.assertFalse(mask[15, 43], "low-blue violin wood must not be classified as a finger")
+
+    def test_clips_source_hand_from_violin_prop_without_changing_other_alpha(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            hand = Image.new("RGBA", (18, 16), (170, 115, 85, 0))
+            hand_pixels = np.asarray(hand, dtype=np.uint8).copy()
+            hand_pixels[4:13, 5:16, 3] = 255
+            hand = Image.fromarray(hand_pixels, mode="RGBA")
+            hand.save(root / "right_hand.png")
+
+            violin = Image.new("RGBA", (30, 20), (125, 62, 30, 255))
+            violin.save(root / "prop-violin.webp", format="WEBP", lossless=True)
+
+            report = _clip_hand_from_violin_prop(
+                root,
+                violin_specification={"src": "violin-prop.webp", "x": 20, "y": 15},
+                hand_layer={
+                    "src": "right_hand.png",
+                    "x": 27, "y": 20,
+                    "width": 18, "height": 16,
+                },
+                dilation_radius=1,
+            )
+            with Image.open(root / "prop-violin.webp") as opened:
+                result = np.asarray(opened.convert("RGBA"), dtype=np.uint8)
+
+            self.assertEqual(report["method"], "source_hand_alpha_cutout_plus_one_pixel_seam")
+            self.assertGreater(report["pixels_removed"], 40)
+            self.assertEqual(int(result[5, 8, 3]), 0,
+                "overlapping fretting-hand pixels must be transparent in the violin sprite")
+            self.assertEqual(int(result[0, 0, 3]), 255,
+                "the violin body outside the hand overlap must remain opaque")
 
     def test_segmented_source_base_preserves_untouched_pixels_and_alpha(self):
         import tempfile
