@@ -1,4 +1,4 @@
-"""Offline tests for direct public YouTube publication of daily Shorts."""
+"""Offline tests for private-only YouTube bundle validation and upload guards."""
 from __future__ import annotations
 
 import hashlib
@@ -12,7 +12,7 @@ from unittest.mock import patch
 import publish_daily_short as daily
 
 
-class DailyPublicPublisherTests(unittest.TestCase):
+class PrivateOnlyBundleValidationTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
@@ -144,6 +144,18 @@ class DailyPublicPublisherTests(unittest.TestCase):
         with self.assertRaisesRegex(daily.PublishBlocked, "does not explicitly request private"):
             self.validate()
 
+    def test_explicit_public_visibility_mode_is_rejected(self):
+        with self.assertRaisesRegex(daily.PublishBlocked, "private-preview-only"):
+            daily.validate_daily_bundle(
+                self.output,
+                self.plan_path,
+                run_id=self.run_id,
+                expected_slot_id=self.slot_id,
+                production_date="2026-11-21",
+                video_probe=self.quality,
+                expected_privacy_status="public",
+            )
+
     def test_missing_independent_source_evidence_is_rejected(self):
         self.provenance["factual_provenance"]["independent_publisher_count"] = 1
         (self.output / "asset-provenance.json").write_text(json.dumps(self.provenance), encoding="utf-8")
@@ -189,7 +201,7 @@ class DailyPublicPublisherTests(unittest.TestCase):
 
 class PrivatePreviewPublisherTests(unittest.TestCase):
     def setUp(self):
-        self.fixture = DailyPublicPublisherTests()
+        self.fixture = PrivateOnlyBundleValidationTests()
         self.fixture.setUp()
         self.addCleanup(self.fixture.tearDown)
         self.fixture.manifest["youtube_privacy"] = "private"
