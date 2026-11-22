@@ -19,7 +19,9 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             source = Image.new("RGBA", (64, 64), (42, 48, 55, 255))
             draw = ImageDraw.Draw(source)
             draw.rectangle((8, 24, 22, 40), fill=(185, 122, 86, 255))
-            draw.line((31, 8, 31, 55), fill=(245, 238, 225, 255), width=3)
+            # A white bow-hair stroke passes through the hand region; it must
+            # be removed from the hand overlay and restored only by the bow prop.
+            draw.line((26, 22, 21, 42), fill=(245, 238, 225, 255), width=3)
             original_hand_pixel = source.getpixel((14, 30))
             bow_alpha = np.zeros((64, 64), dtype=np.uint8)
             bow_alpha[6:58, 29:34] = 255
@@ -36,11 +38,19 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                 }
             }), encoding="utf-8")
 
+            character = {
+                "layers": [{
+                    "id": "left_hand", "role": "left_hand", "src": "left_hand.png",
+                    "x": 8, "y": 20, "width": 18, "height": 22, "z_index": 40,
+                }],
+                "joints": {"left_wrist": {"x": 0.25, "y": 0.55}},
+            }
             result = _build_preserved_composite_base(
                 source,
                 root,
                 bow_canvas_alpha=bow_alpha,
                 finger_manifest_path=finger_manifest,
+                character=character,
             )
             with Image.open(root / result["src"]) as opened:
                 composite = opened.convert("RGBA")
@@ -54,6 +64,14 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             self.assertTrue(result["preserves_original_arms_hands_legs_and_head"])
             self.assertGreater(result["bow_pixels_reconstructed"], 0)
             self.assertGreater(result["finger_pixels_separated"], 0)
+            self.assertTrue(result["bow_grip_hand"]["excludes_original_bow_pixels"])
+            hand_layer = next(layer for layer in character["layers"] if layer["role"] == "left_hand")
+            self.assertEqual(hand_layer["src"], "bow-grip-hand.png")
+            with Image.open(root / hand_layer["src"]) as hand_asset:
+                hand_rgba = hand_asset.convert("RGBA")
+                x0, y0, _x1, _y1 = result["bow_grip_hand"]["bbox"]
+                self.assertEqual(hand_rgba.getpixel((26 - x0, 29 - y0))[3], 0,
+                    "the bright bow hair must not be baked into the hand overlay")
 
     def test_shoe_mask_isolated_from_trouser_and_connected_to_bottom(self):
         width, height, split_x = 100, 120, 50
