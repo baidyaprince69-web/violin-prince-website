@@ -16,7 +16,9 @@ concurrency:
 
 jobs:
   direct_youtube_fallback:
-    name: Publish through the official YouTube API
+    # Public publishing is disabled; keep this legacy fallback non-runnable.
+    if: false
+    name: Disabled — public YouTube fallback
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
