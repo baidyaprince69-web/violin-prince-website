@@ -65,6 +65,12 @@ class ProceduralDirectorRendererTests(unittest.TestCase):
                     self.assertNotIn("visual_layers", scene)
                     self.assertNotIn("image", scene)
                     self.assertEqual(scene.get("graphic_data"), source_shot.get("graphic_data"))
+                    if source_shot.get("graphic_data"):
+                        self.assertEqual(scene["visual_composition"]["layout"], "graphic_left_presenter_right")
+                        self.assertEqual(scene["character_actions"]["violin-prince"]["x"], 315)
+                        self.assertEqual(scene["character_actions"]["violin-prince"]["scale"], 0.56)
+                    else:
+                        self.assertNotIn("visual_composition", scene)
                     self.assertGreater(scene["duration"], 0)
                     self.assertTrue(scene["animation_execution_status"].startswith("procedural_"))
 

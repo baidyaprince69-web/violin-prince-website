@@ -127,6 +127,12 @@ def build_procedural_director_project(
         }
         if graphic is not None:
             scene["graphic_data"] = dict(graphic)
+            # Keep information cards in the left column and the articulated
+            # presenter in the right safe area; never cover the face/gesture.
+            scene["visual_composition"] = {"layout": "graphic_left_presenter_right"}
+            action["x"] = 315
+            action["scale"] = 0.56
+            scene["character_actions"] = {"violin-prince": action}
         scenes.append(scene)
         if index < len(shots) - 1:
             transition_summary.append({

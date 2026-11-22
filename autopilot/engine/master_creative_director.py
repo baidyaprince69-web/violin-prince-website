@@ -106,7 +106,9 @@ PROCEDURAL ENGINE LIMITS:
   speaking, smile, shocked, sad. All visible character actions loop.
 - Optional graphic_data is one of process_flow, signal_path, comparison,
   arch_heights or waveform. Use 2–4 factual items where required; omit it
-  when a card would add clutter.
+  when a card would add clutter. A card automatically occupies the left column
+  while the presenter is moved to the right safe area; point across to the card
+  when useful and never overlap the presenter with essential labels.
 - Do not invent visual_layers or picture-generation instructions.
 
 DIRECTORIAL THINKING:
