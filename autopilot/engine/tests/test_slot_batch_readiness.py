@@ -68,7 +68,7 @@ class SlotBatchReadinessTests(unittest.TestCase):
         self.assertEqual(result["slot_count"], 4)
 
 
-    def test_explicit_creator_publication_scope_passes_readiness(self):
+    def test_publication_approval_cannot_substitute_for_preview_only_approval(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             self._root(root)
@@ -83,15 +83,15 @@ class SlotBatchReadinessTests(unittest.TestCase):
                     "platform": "youtube",
                     "privacy_status": "public",
                     "no_private_preview_required": True,
-                    "approval_statement": "Creator explicitly requested public YouTube publishing.",
+                    "approval_statement": "Legacy public approval must not enable uploads.",
                 },
             })
             approval_path.write_text(json.dumps(approval), encoding="utf-8")
             self._write(root, ".autopilot/daily-batches/2026-11-22.json",
                         json.dumps(self._batch("2026-11-22")))
             result = evaluate_daily_batch_readiness(root, today="2026-11-22")
-        self.assertTrue(result["ready"], result["blockers"])
-        self.assertEqual(result["slot_count"], 4)
+        self.assertFalse(result["ready"])
+        self.assertTrue(any("illustration approval record" in item.casefold() for item in result["blockers"]))
 
     def test_cli_accepts_batch_argument_and_runs_batch_readiness(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -106,7 +106,7 @@ class SlotBatchReadinessTests(unittest.TestCase):
             ])
         self.assertEqual(result, 0)
 
-    def test_checked_in_november_22_batch_has_two_complete_public_upload_plans(self):
+    def test_checked_in_november_batches_use_private_preview_metadata(self):
         import run_daily_plan as daily
 
         project_root = Path(__file__).resolve().parents[3]
@@ -124,9 +124,15 @@ class SlotBatchReadinessTests(unittest.TestCase):
             self.assertEqual(daily.engine.narration_validation_error(script), "", plan["slot_id"])
             self.assertEqual(len(daily.engine.narration_sentences(script)), 4, plan["slot_id"])
             self.assertEqual(daily.engine.validate_creative_plan(plan), [], plan["slot_id"])
-            self.assertEqual(plan["publish_metadata"]["privacy_status"], "public", plan["slot_id"])
+            self.assertEqual(plan["publish_metadata"]["privacy_status"], "private", plan["slot_id"])
             self.assertEqual({item["sentence_number"] for item in plan["narration_evidence"]}, {2, 3, 4})
             self.assertGreaterEqual(len(plan["sources"]), 2)
+
+        next_batch = project_root / ".autopilot" / "daily-batches" / "2026-11-23.json"
+        next_plans = load_daily_batch(next_batch, expected_date="2026-11-23")
+        for plan in next_plans:
+            if plan.get("slot_status") == "ready":
+                self.assertEqual(plan["publish_metadata"]["privacy_status"], "private", plan["slot_id"])
 
     def test_wrong_date_batch_is_blocked(self):
         with tempfile.TemporaryDirectory() as temporary:
