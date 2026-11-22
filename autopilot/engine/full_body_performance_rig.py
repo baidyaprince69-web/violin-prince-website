@@ -844,6 +844,7 @@ def extend_full_body_character(
     *,
     prop_dir: str | Path,
     instrument_manifest_path: str | Path,
+    performance_regions_path: str | Path,
     finger_manifest_path: str | Path | None = None,
     neutral_apose_path: str | Path | None = None,
 ) -> dict[str, Any]:
@@ -851,6 +852,7 @@ def extend_full_body_character(
     bundle = Path(bundle_dir).resolve(strict=True)
     prop_root = Path(prop_dir).resolve(strict=True)
     manifest_path = Path(instrument_manifest_path).resolve(strict=True)
+    regions_path = Path(performance_regions_path).resolve(strict=True)
     finger_path = Path(finger_manifest_path).resolve() if finger_manifest_path else None
     character_path = bundle / "character.json"
     if not character_path.is_file():
@@ -860,19 +862,7 @@ def extend_full_body_character(
     source_input = preserved_source_path if preserved_source_path.is_file() else source_path
     with Image.open(source_input) as opened:
         source = opened.convert("RGBA")
-    rgba = np.asarray(source, dtype=np.uint8)
-    alpha = rgba[:, :, 3]
-    # Feed a clean white-composited copy to the real-person parser; keep alpha for final cutouts.
-    parse_plate = Image.new("RGBA", source.size, (255, 255, 255, 255))
-    parse_plate.alpha_composite(source)
-    parser = SCHPOnnxParser(*PASCAL_MODEL, revision=PASCAL_REVISION)
-    labels, confidence = parser.parse(parse_plate.convert("RGB"))
-    _ = confidence
-
     character = json.loads(character_path.read_text(encoding="utf-8"))
-    leg_layers, leg_joints, leg_report = _leg_layers(source, labels, character, bundle)
-    character["layers"].extend(leg_layers)
-    character["joints"].update(leg_joints)
 
     prop_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     prop_canvas = prop_manifest.get("canvas") or {}
@@ -909,40 +899,61 @@ def extend_full_body_character(
             "attach_to": props[prop_id]["attach_to"],
         }
 
-    # Keep every body plate intact. Instrument sprites are independent overlay
-    # layers with explicit z-order: violin above torso/upper arms but below
-    # forearms/hands; bow above forearms but below the bow-grip hand. Erasing
-    # the prop alpha from body plates creates transparent gaps wherever the
-    # prop's antialiased or semi-transparent edges do not fully cover them.
-    removable_roles = (
-        "torso", "left_upper_arm", "right_upper_arm",
-        "left_forearm", "right_forearm",
+    # Replace the unreliable SCHP limb masks with reviewed source-pixel regions.
+    limb_layers, limb_joints, limb_report, moving_mask = _authored_performance_layers(
+        source,
+        bundle,
+        regions_manifest_path=regions_path,
+        prop_masks=prop_masks,
     )
-    removed_by_role = {role: 0 for role in removable_roles}
+    limb_roles = {
+        "left_upper_arm", "left_forearm", "left_hand",
+        "right_upper_arm", "right_forearm", "right_hand",
+        "left_thigh", "left_calf", "left_foot",
+        "right_thigh", "right_calf", "right_foot",
+        "finger_index", "finger_middle", "finger_ring", "finger_little",
+    }
+    character["layers"] = [
+        layer for layer in character.get("layers", [])
+        if str(layer.get("role") or "") not in limb_roles
+    ]
+    character["layers"].extend(limb_layers)
+    character.setdefault("joints", {}).update(limb_joints)
 
+    # Finger polygons are extracted from the source-aligned right-hand layer.
     finger_layers, finger_joints, finger_areas = _prepare_fingers(
         source, bundle, character, finger_path
     ) if finger_path else ([], {}, {})
     character["layers"].extend(finger_layers)
     character["joints"].update(finger_joints)
-    composite_base = _build_preserved_composite_base(
+    if finger_layers:
+        finger_manifest = json.loads(finger_path.read_text(encoding="utf-8"))
+        finger_union = np.zeros((source.height, source.width), dtype=bool)
+        for specification in (finger_manifest.get("fingers") or {}).values():
+            finger_union |= _polygon_mask(
+                (source.height, source.width),
+                specification.get("polygon") or [],
+            )
+        moving_mask |= finger_union & (np.asarray(source.getchannel("A")) > 12)
+
+    composite_base = _build_segmented_source_base(
         source,
         bundle,
         bow_canvas_alpha=prop_masks["bow"],
-        finger_manifest_path=finger_path,
-        character=character,
+        moving_mask=moving_mask,
     )
     character["base_art"] = composite_base
-    character["performance_base_mode"] = "composite_full_body_review"
+    character["performance_base_mode"] = "segmented_source_body"
     character["props"] = props
     character["performance"] = {
-        "schema": "violin-prince-fullbody-performance-v1",
+        "schema": "violin-prince-fullbody-performance-v2",
         "instrument_performance": True,
         "fingering_parts": sorted(finger_areas),
         "bow_prop_id": "bow",
         "violin_prop_id": "violin",
+        "independent_limb_layer_count": len(limb_layers),
         "review_required": True,
-        "compositing_mode": "intact_full_body_plate_with_separate_bow_and_fingers",
+        "compositing_mode": "segmented_source_body_with_underpaint",
     }
 
     # Preserve the provided neutral A-pose as a review source, not as a runtime overlay.
@@ -969,21 +980,21 @@ def extend_full_body_character(
         encoding="utf-8",
     )
     report = {
-        "status": "candidate_full_body_performance_rig_ready_for_review",
+        "status": "candidate_source_aligned_performance_rig_ready_for_review",
         "character_id": character["id"],
         "canvas": character["canvas"],
         "base_layer_count": 9,
-        "full_body_layer_count": len(leg_layers),
+        "independent_limb_layer_count": len(limb_layers),
         "finger_layer_count": len(finger_layers),
-        "joint_additions": sorted(leg_joints.keys() | finger_joints.keys()),
-        "leg_report": leg_report,
+        "joint_additions": sorted(limb_joints.keys() | finger_joints.keys()),
+        "limb_report": limb_report,
         "finger_pixel_areas": finger_areas,
         "prop_report": prop_report,
-        "body_plate_prop_pixels_removed": removed_by_role,
-        "prop_compositing": "intact_full_body_composite_base_with_separate_bow_and_fingers",
+        "body_plate_prop_pixels_removed": {"torso": 0, "arms": 0},
+        "prop_compositing": "source_aligned_body_base_with_separate_limb_and_prop_layers",
         "composite_base": composite_base,
-        "composite_source": "preserved-full-body-source.png" if source_input == preserved_source_path else source_path.name,
-        "segmented_limb_masks_status": "retained_for_rework_not_rendered_in_preview",
+        "composite_source": source_input.name,
+        "segmented_limb_masks_status": "source_aligned_polygon_regions_active_in_preview",
         "neutral_apose_reference": neutral_report,
         "publishing": "disabled",
         "preview_only": True,
