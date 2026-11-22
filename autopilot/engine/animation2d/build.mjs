@@ -468,7 +468,12 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     if (compositeBaseMode) {
       preservedCompositeBaseCount += 1;
       if (character.performance_base_mode === "segmented_source_body") {
+        const minimumLimbZ = Math.min(...(character.layers || [])
+          .filter(layer => articulatedArmRoles.includes(layer.role) ||
+            requiredLegs.includes(layer.role) || requiredFingers.includes(layer.role))
+          .map(layer => Number(layer.z_index ?? 0)));
         if (character.base_art.mode !== "segmented_source_body" ||
+            Number(character.base_art.z_index ?? 999) >= minimumLimbZ ||
             character.base_art.source_alpha_preserved !== true ||
             character.base_art.source_pixels_outside_cut_mask_preserved !== true) {
           throw new Error("Scene " + scene.id + " segmented base must preserve source alpha and untouched pixels.");
