@@ -49,6 +49,10 @@ def _keyed_sheet(path: str | Path) -> tuple[Image.Image, np.ndarray]:
     alpha = np.full((height, width), 255, dtype=np.uint8)
     keyed_alpha = np.clip((distance - 22.0) * (255.0 / 48.0), 0, 255)
     alpha[magenta_like] = keyed_alpha[magenta_like].astype(np.uint8)
+    # Some supplied sheets use magenta as a visible cutline on a dark or
+    # transparent canvas rather than as the canvas colour. Remove those
+    # guide pixels as well so the contour does not survive on the final rig.
+    alpha[magenta_like] = 0
     alpha = np.minimum(alpha, rgba[:, :, 3])
     return image, alpha
 
@@ -251,7 +255,7 @@ def build_reference_sheet_rig(
         ],
         "reference_parts_mapping": "unassigned_review_required",
         "alignment": "all head plates share the extracted head-and-face anchor bounds",
-        "magenta_key": "edge-sampled background colour with soft alpha matte",
+        "magenta_key": "hot-magenta background and cutline pixels removed; source alpha preserved",
         "visual_review_required": True,
         "publishing": "disabled",
     }
