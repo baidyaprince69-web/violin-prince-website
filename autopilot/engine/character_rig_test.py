@@ -138,7 +138,7 @@ def build_rig_preview_project(bundle_dir: str | Path, output_dir: str | Path) ->
         ("scene-right", "Right point", "Right arm chain and hand rotate on their joint pivots"),
         ("scene-palms", "Open palms", "Both arm chains move into a presenting gesture"),
         ("scene-body", "Body articulation", "Torso rotates around its body pivot"),
-        *([("scene-violin-performance", "Violin performance", "Leg joints, left-hand fingering gestures, and independent bow strokes")]
+        *([("scene-violin-performance", "Violin performance", "Leg joints, independent fingerboard fingers, and coordinated bow strokes")]
           if staged.get("body_scope") == "full_body" and {"violin", "bow"}.issubset(staged.get("props", {})) else []),
     ]
     scenes = []
