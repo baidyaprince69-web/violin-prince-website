@@ -260,6 +260,75 @@ def _remove_edge_connected_near_white(
     return cleaned, round(float(background.mean()), 6)
 
 
+def _repair_transparent_person_holes(
+    image: Image.Image,
+    source_alpha: np.ndarray,
+    body_labels: np.ndarray,
+    body_confidence: np.ndarray,
+    *,
+    confidence_floor: float = 0.25,
+    maximum_fraction: float = 0.025,
+) -> tuple[Image.Image, dict[str, Any]]:
+    """Reconstruct transparent cutout holes only where the parser sees a person.
+
+    Transparent pixels inside a confidently detected head/torso/limb region are
+    often accidental holes left by background-removal tools. Keep ordinary
+    transparent background untouched, but inpaint those internal person pixels
+    before extracting rig plates.
+    """
+    expected = (image.height, image.width)
+    if source_alpha.shape != expected or body_labels.shape != expected or body_confidence.shape != expected:
+        raise AutoRigError("Source alpha and parser maps must match the master image dimensions.")
+    if not 0 <= confidence_floor <= 1:
+        raise ValueError("Transparent-hole confidence floor must be between 0 and 1.")
+    if not np.isfinite(maximum_fraction) or not 0 <= maximum_fraction <= 1:
+        raise ValueError("Transparent-hole maximum fraction must be between 0 and 1.")
+
+    transparent = np.asarray(source_alpha, dtype=np.uint8) <= 16
+    person_class = np.isin(body_labels, (1, 2, 3, 4, 5, 6))
+    confident_person = np.asarray(body_confidence, dtype=np.float32) >= confidence_floor
+    holes = transparent & person_class & confident_person
+    pixel_count = int(holes.sum())
+    fraction = pixel_count / max(1, holes.size)
+    summary = {
+        "method": "not_required",
+        "pixels_reconstructed": 0,
+        "fraction_of_source": 0.0,
+        "confidence_floor": float(confidence_floor),
+        "visual_review_required": True,
+    }
+    if not pixel_count:
+        return image, summary
+    if fraction > maximum_fraction:
+        raise ManualReviewRequired(
+            f"Transparent cutout holes inside parsed body regions cover {fraction:.1%} "
+            "of the image. Use a cleaner master image or review the cutout before rigging."
+        )
+
+    try:
+        import cv2
+    except ImportError as exc:
+        raise ManualReviewRequired(
+            "OpenCV is required to reconstruct transparent pixels inside parsed body regions."
+        ) from exc
+
+    rgb = np.asarray(image.convert("RGB"), dtype=np.uint8)
+    repaired = cv2.inpaint(
+        rgb,
+        holes.astype(np.uint8) * 255,
+        inpaintRadius=5,
+        flags=cv2.INPAINT_TELEA,
+    )
+    if repaired.shape != rgb.shape or not np.isfinite(repaired).all():
+        raise ManualReviewRequired("Transparent body-hole reconstruction produced invalid pixels.")
+    summary.update({
+        "method": "opencv_telea_semantic_alpha_holes",
+        "pixels_reconstructed": pixel_count,
+        "fraction_of_source": round(fraction, 6),
+    })
+    return Image.fromarray(repaired.astype(np.uint8)), summary
+
+
 def _bbox(mask: np.ndarray) -> tuple[int, int, int, int]:
     ys, xs = np.where(mask)
     if len(xs) == 0:
@@ -1176,15 +1245,18 @@ def create_character_bundle(
 
     with Image.open(source_path) as opened:
         rgba = opened.convert("RGBA")
-    # Transparent AI cutouts can retain arbitrary RGB values below alpha=0.
-    # Composite on white before semantic parsing so the model never sees
-    # checkerboard/matte pixels as part of the body.
+    source_alpha = np.asarray(rgba.getchannel("A"), dtype=np.uint8)
+    # Composite on white for semantic parsing, then restore any transparent
+    # cutout holes that the body parser still confidently classifies as person.
     image = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
     image.alpha_composite(rgba)
     image = image.convert("RGB")
     body_parser, detail_parser = _download_parsers(cache_dir)
     body_labels, body_conf = body_parser.parse(image)
     detail_labels, detail_conf = detail_parser.parse(image)
+    image, transparency_report = _repair_transparent_person_holes(
+        image, source_alpha, body_labels, body_conf
+    )
     masks, repaired_torso, report, joints = separate_from_parsing(
         image, body_labels, body_conf, detail_labels, detail_conf,
         hand_fraction=hand_fraction,
@@ -1295,6 +1367,7 @@ def create_character_bundle(
     )
     _save_mask_preview(image, masks, output_dir / "separation-preview.png")
     report.update({
+        "source_transparency_repair": transparency_report,
         "character_id": character_id,
         "status": "candidate_ready_for_visual_review",
         "layer_count": len(layers),
