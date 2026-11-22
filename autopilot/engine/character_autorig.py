@@ -1109,6 +1109,14 @@ def _save_pose_plate(source_path: Path, destination: Path) -> None:
     plate.save(destination, format="PNG", optimize=True)
 
 
+def _copy_neutral_expression_fallback(source_path: str | Path, destination: str | Path) -> None:
+    """Copy the exact extracted neutral face when a preview-only expression cannot be aligned."""
+    source = Path(source_path).resolve(strict=True)
+    target = Path(destination).resolve()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, target)
+
+
 def create_character_bundle(
     source_path: str | Path,
     reference_dir: str | Path,
@@ -1118,6 +1126,7 @@ def create_character_bundle(
     cache_dir: str | Path | None = None,
     hand_fraction: float = 0.72,
     max_local_inpaint_ratio: float = 0.025,
+    allow_expression_fallback: bool = False,
 ) -> dict[str, Any]:
     source_path = Path(source_path).resolve(strict=True)
     reference_dir = Path(reference_dir).resolve(strict=True)
@@ -1179,7 +1188,8 @@ def create_character_bundle(
     if "neutral" not in expression_paths:
         raise AutoRigError("face-neutral.jpg is required in the reference directory.")
     expressions = {}
-    registration_reports: dict[str, dict[str, float | int]] = {}
+    registration_reports: dict[str, dict[str, Any]] = {}
+    expression_fallbacks: list[str] = []
     face_x, face_y = int(face_layer["x"]), int(face_layer["y"])
     face_width, face_height = int(face_layer["width"]), int(face_layer["height"])
     face_alpha = face_alpha_full[
@@ -1194,15 +1204,29 @@ def create_character_bundle(
             # master face. Re-cropping another portrait introduces drift.
             shutil.copy2(output_dir / "face.png", destination)
         else:
-            registration = _face_plate(
-                path,
-                (face_width, face_height),
-                destination,
-                alpha_mask=face_alpha,
-                base_face_path=output_dir / "face.png",
-            )
-            if registration is not None:
-                registration_reports[name] = registration
+            try:
+                registration = _face_plate(
+                    path,
+                    (face_width, face_height),
+                    destination,
+                    alpha_mask=face_alpha,
+                    base_face_path=output_dir / "face.png",
+                )
+                if registration is not None:
+                    registration_reports[name] = registration
+            except ManualReviewRequired as exc:
+                if not allow_expression_fallback:
+                    raise
+                # Preview-only full-body art may use a face style that does
+                # not register to legacy expression sheets. Reuse the exact
+                # extracted neutral plate, retain the failed reason in QA,
+                # and do not synthesize a false alternate facial expression.
+                _copy_neutral_expression_fallback(output_dir / "face.png", destination)
+                expression_fallbacks.append(name)
+                registration_reports[name] = {
+                    "fallback": "neutral_face_reused",
+                    "reason": str(exc),
+                }
         expressions[name] = {"src": plate_name}
 
     reference_poses = {
@@ -1240,6 +1264,11 @@ def create_character_bundle(
         "pose_asset_count": len(pose_assets),
         "joint_count": len(joints),
         "expression_registration": registration_reports,
+        "expression_registration_fallbacks": expression_fallbacks,
+        "expression_fallback_policy": (
+            "neutral_face_reuse_for_preview_only" if allow_expression_fallback
+            else "strict_alignment_required"
+        ),
     })
     (output_dir / "separation-report.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
@@ -1258,6 +1287,11 @@ def main() -> int:
     parser.add_argument("--cache-dir", default=None)
     parser.add_argument("--hand-fraction", type=float, default=0.72)
     parser.add_argument("--max-local-inpaint-ratio", type=float, default=0.025)
+    parser.add_argument(
+        "--allow-expression-fallback",
+        action="store_true",
+        help="For review-only previews, reuse the extracted neutral face when an alternate expression cannot be registered.",
+    )
     args = parser.parse_args()
     try:
         result = create_character_bundle(
@@ -1265,6 +1299,7 @@ def main() -> int:
             character_id=args.id, cache_dir=args.cache_dir,
             hand_fraction=args.hand_fraction,
             max_local_inpaint_ratio=args.max_local_inpaint_ratio,
+            allow_expression_fallback=args.allow_expression_fallback,
         )
     except Exception as exc:
         print("CHARACTER_AUTO_RIG_FAILED=" + str(exc)[:1500], file=sys.stderr)
