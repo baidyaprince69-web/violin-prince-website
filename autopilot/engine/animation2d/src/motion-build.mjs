@@ -365,7 +365,11 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
         left_foot: ["torso", "left_thigh", "left_shin", "left_foot"],
         right_thigh: ["torso", "right_thigh"],
         right_shin: ["torso", "right_thigh", "right_shin"],
-        right_foot: ["torso", "right_thigh", "right_shin", "right_foot"]
+        right_foot: ["torso", "right_thigh", "right_shin", "right_foot"],
+        right_index_finger: ["torso", "right_upper_arm", "right_forearm", "right_hand", "right_index_finger"],
+        right_middle_finger: ["torso", "right_upper_arm", "right_forearm", "right_hand", "right_middle_finger"],
+        right_ring_finger: ["torso", "right_upper_arm", "right_forearm", "right_hand", "right_ring_finger"],
+        right_little_finger: ["torso", "right_upper_arm", "right_forearm", "right_hand", "right_little_finger"]
       };
 
       const rolesToAnimate = new Set();
@@ -394,6 +398,10 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
       const rightHip = pivotFor("right_hip", "right_thigh");
       const rightKnee = pivotFor("right_knee", "right_shin");
       const rightAnkle = pivotFor("right_ankle", "right_foot");
+      const rightIndexKnuckle = pivotFor("right_index_knuckle", "right_index_finger");
+      const rightMiddleKnuckle = pivotFor("right_middle_knuckle", "right_middle_finger");
+      const rightRingKnuckle = pivotFor("right_ring_knuckle", "right_ring_finger");
+      const rightLittleKnuckle = pivotFor("right_little_knuckle", "right_little_finger");
 
       const localAngle = (role, time) => {
         const candidates = rotationTracks.get(role) || [];
@@ -462,6 +470,22 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
           rightShinWorld,
           aroundPivot(rightAnkle, localAngle("right_foot", time))
         );
+        const rightIndexFingerWorld = multiplyMatrix(
+          rightHandWorld,
+          aroundPivot(rightIndexKnuckle, localAngle("right_index_finger", time))
+        );
+        const rightMiddleFingerWorld = multiplyMatrix(
+          rightHandWorld,
+          aroundPivot(rightMiddleKnuckle, localAngle("right_middle_finger", time))
+        );
+        const rightRingFingerWorld = multiplyMatrix(
+          rightHandWorld,
+          aroundPivot(rightRingKnuckle, localAngle("right_ring_finger", time))
+        );
+        const rightLittleFingerWorld = multiplyMatrix(
+          rightHandWorld,
+          aroundPivot(rightLittleKnuckle, localAngle("right_little_finger", time))
+        );
 
         const worldByRole = {
           torso: torsoWorld,
@@ -478,7 +502,11 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
           left_foot: leftFootWorld,
           right_thigh: rightThighWorld,
           right_shin: rightShinWorld,
-          right_foot: rightFootWorld
+          right_foot: rightFootWorld,
+          right_index_finger: rightIndexFingerWorld,
+          right_middle_finger: rightMiddleFingerWorld,
+          right_ring_finger: rightRingFingerWorld,
+          right_little_finger: rightLittleFingerWorld
         };
         for (const role of rolesToAnimate) {
           sampledMatrices.get(role).push(
