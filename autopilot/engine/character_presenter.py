@@ -76,8 +76,10 @@ def attach_violin_prince_presenter(
     layers = character.get("layers")
     expressions = character.get("expressions")
     pose_assets = character.get("pose_assets")
-    if not isinstance(layers, list) or not isinstance(expressions, dict) or not isinstance(pose_assets, dict):
-        raise PresenterIntegrationError("The saved presenter bundle lacks layers, expressions or pose assets.")
+    props = character.get("props") or {}
+    if (not isinstance(layers, list) or not isinstance(expressions, dict)
+            or not isinstance(pose_assets, dict) or not isinstance(props, dict)):
+        raise PresenterIntegrationError("The saved presenter bundle lacks layers, expressions, pose assets or valid props.")
 
     for layer in layers:
         if not isinstance(layer, dict):
@@ -91,6 +93,10 @@ def attach_violin_prince_presenter(
         if not isinstance(pose, dict):
             raise PresenterIntegrationError("The saved presenter contains an invalid pose entry.")
         pose["src"] = stage_asset(pose.get("src"), "pose")
+    for prop in props.values():
+        if not isinstance(prop, dict):
+            raise PresenterIntegrationError("The saved presenter contains an invalid instrument prop entry.")
+        prop["src"] = stage_asset(prop.get("src"), "instrument prop")
 
     characters = plan.get("characters") or []
     if not isinstance(characters, list):
