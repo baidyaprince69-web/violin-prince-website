@@ -445,6 +445,7 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
   let animatedFingeringControlCount = 0;
   let animatedInstrumentPropCount = 0;
   let preservedCompositeBaseCount = 0;
+  let animatedLimbSegmentCount = 0;
   for (const character of fullBodyPerformanceCharacters) {
     const compositeBaseMode = Boolean(character.base_art && character.base_art.src);
     const requiredLegs = [
@@ -508,7 +509,7 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
       }
       animatedInstrumentPropCount += 1;
     }
-    const animatedLimbSegmentCount = requiredRoles.filter(role =>
+    animatedLimbSegmentCount += requiredRoles.filter(role =>
       [...articulatedArmRoles, ...requiredLegs].includes(role)
     ).length;
     if (compositeBaseMode) {
