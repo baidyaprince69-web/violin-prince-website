@@ -187,7 +187,8 @@ def _draw_violin(image: Image.Image, center=(512, 1050), scale=1.0, angle=0.0):
     d.line(mapped(spiral), fill=(111,79,52,255), width=5, joint="curve")
 
     for side in (-1, 1):
-        # Four pegs total: two on each side of the scroll, as on a real violin.\n        for y in VIOLIN_TUNING_PEG_Y:
+        # Four pegs total: two on each side of the scroll, as on a real violin.
+        for y in VIOLIN_TUNING_PEG_Y:
             x = 512 + side * 56
             p1, p2 = tr(x, y), tr(x + side * 38, y)
             d.line((p1, p2), fill=(65,45,35,255), width=8)
