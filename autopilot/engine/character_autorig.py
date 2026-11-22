@@ -19,6 +19,13 @@ from PIL import Image, ImageDraw, ImageFilter
 
 PASCAL_MODEL = ("pirocheto/schp-pascal-7", "onnx/schp-pascal-7-int8-static.onnx")
 ATR_MODEL = ("pirocheto/schp-atr-18", "onnx/schp-atr-18-int8-static.onnx")
+# Pin the custom processor code and ONNX weights to immutable revisions.
+PASCAL_REVISION = "e97480b846bf0f23a9f9b7ab673dc1c86af89467"
+ATR_REVISION = "a54fa65e7e4f27f21011f652ffc0053ebb24b292"
+MODEL_REVISIONS = {
+    PASCAL_MODEL[0]: PASCAL_REVISION,
+    ATR_MODEL[0]: ATR_REVISION,
+}
 
 EXPRESSION_FILES = {
     "neutral": "face-neutral.jpg",
@@ -65,7 +72,14 @@ class ManualReviewRequired(AutoRigError):
 class SCHPOnnxParser:
     """CPU ONNX wrapper using the model card's Hugging Face image processor."""
 
-    def __init__(self, model_id: str, filename: str, *, cache_dir: str | Path | None = None):
+    def __init__(
+        self,
+        model_id: str,
+        filename: str,
+        *,
+        revision: str | None = None,
+        cache_dir: str | Path | None = None,
+    ):
         try:
             import onnxruntime as ort
             from huggingface_hub import hf_hub_download
@@ -76,13 +90,19 @@ class SCHPOnnxParser:
                 "autopilot/engine/requirements-character.txt."
             ) from exc
 
+        model_revision = revision or MODEL_REVISIONS.get(model_id)
+        if not model_revision:
+            raise AutoRigError(f"No immutable model revision is configured for {model_id}.")
         try:
             self.processor = AutoImageProcessor.from_pretrained(
-                model_id, trust_remote_code=True
+                model_id,
+                revision=model_revision,
+                trust_remote_code=True,
             )
             model_path = hf_hub_download(
                 repo_id=model_id,
                 filename=filename,
+                revision=model_revision,
                 cache_dir=str(cache_dir) if cache_dir else None,
             )
             options = ort.SessionOptions()
@@ -105,6 +125,7 @@ class SCHPOnnxParser:
             outputs[0].name,
         )
         self.model_id = model_id
+        self.revision = model_revision
 
     def parse(self, image: Image.Image) -> tuple[np.ndarray, np.ndarray]:
         try:
@@ -140,8 +161,8 @@ class SCHPOnnxParser:
 
 def _download_parsers(cache_dir: str | Path | None = None):
     return (
-        SCHPOnnxParser(*PASCAL_MODEL, cache_dir=cache_dir),
-        SCHPOnnxParser(*ATR_MODEL, cache_dir=cache_dir),
+        SCHPOnnxParser(*PASCAL_MODEL, revision=PASCAL_REVISION, cache_dir=cache_dir),
+        SCHPOnnxParser(*ATR_MODEL, revision=ATR_REVISION, cache_dir=cache_dir),
     )
 
 
@@ -321,12 +342,20 @@ def _split_arm(
     side: str,
     *,
     hand_fraction: float,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, bool]:
     near_side = _morph(side_mask, 4, "dilate")
     upper = upper_all & near_side
     lower = lower_all & near_side
+    upper_mask_fallback = False
     if int(upper.sum()) < 30:
-        raise ManualReviewRequired(f"Could not isolate the {side} upper arm.")
+        # Recover only the proximal portion of the already identified
+        # side-specific arm silhouette. Fail closed without a reliable
+        # lower-arm seed instead of inferring an arm from unrelated pixels.
+        proximal = side_mask & ~_morph(lower, 5, "dilate")
+        if int(proximal.sum()) < 30 or int(lower.sum()) < 45:
+            raise ManualReviewRequired(f"Could not isolate the {side} upper arm.")
+        upper = proximal
+        upper_mask_fallback = True
     if int(lower.sum()) < 45:
         # A coarse fallback is allowed only when the ATR side mask remains clear.
         lower = side_mask & ~_morph(upper, 3, "dilate")
@@ -355,7 +384,7 @@ def _split_arm(
         raise ManualReviewRequired(
             f"The {side} hand/forearm split is unreliable. Review the hand split or source artwork."
         )
-    return upper, forearm, hand
+    return upper, forearm, hand, upper_mask_fallback
 
 
 def _dilate3(mask: np.ndarray) -> np.ndarray:
@@ -677,10 +706,13 @@ def separate_from_parsing(
     joint_reference_masks: dict[str, tuple[np.ndarray, np.ndarray]] = {}
     joint_centers: dict[str, dict[str, tuple[float, float]]] = {}
     joint_overlap_pixels: dict[str, int] = {}
+    arm_upper_mask_fallback_sides: list[str] = []
     for side in ("left", "right"):
-        upper, forearm, hand = _split_arm(
+        upper, forearm, hand, used_upper_fallback = _split_arm(
             sides[side], upper_all, lower_all, side, hand_fraction=hand_fraction
         )
+        if used_upper_fallback:
+            arm_upper_mask_fallback_sides.append(side)
         hand, recovered_pixels = _recover_hand_fingers_from_skin(image, hand, upper)
         hand_recovery_pixels[side] = recovered_pixels
         forearm &= ~hand
@@ -781,6 +813,11 @@ def separate_from_parsing(
         },
         "side_convention": "left and right refer to the viewer's screen sides",
         "arm_side_source": arm_side_source,
+        "arm_upper_mask_fallback_sides": arm_upper_mask_fallback_sides,
+        "model_revisions": {
+            "body_parts": PASCAL_REVISION,
+            "face_hair_and_arm_sides": ATR_REVISION,
+        },
         "hand_split": "distal lower-arm split with connected warm-skin finger recovery; not a dedicated hand detector",
         "hand_split_fraction": float(hand_fraction),
         "face_edge_blend": {
@@ -823,6 +860,8 @@ def separate_from_parsing(
             "Hand masks combine a distal lower-arm split with bounded skin-colour finger recovery; there is no dedicated semantic hand class.",
             "Review layer edges, hand/finger completeness, joint seams and reconstructed torso pixels.",
         ] + ([
+            "An upper-arm semantic mask was missing; the proximal region was recovered only inside the identified screen-side arm silhouette."
+        ] if arm_upper_mask_fallback_sides else []) + ([
             "ATR did not resolve both arm-side labels; side masks were derived from the coarse Pascal arm segmentation."
         ] if arm_side_source != "atr_arm_labels" else []),
     }
