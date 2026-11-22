@@ -135,11 +135,13 @@ def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dic
         "canvas": [project["width"], project["height"]],
         "layer_count": len(character.get("layers", [])),
         "prop_ids": sorted((character.get("props") or {}).keys()),
-        "head_variant_ids": sorted((character.get("head_variants") or {}).keys()),
+        "head_variant_ids": sorted((character.get("head_variants") or {}).keys())
+        if not composite_base_mode else [],
         "head_angle_ids": sorted((character.get("head_angles") or {}).keys())
-        if not character.get("base_art") else [],
-        "composite_base_mode": bool(character.get("base_art")),
-        "bow_hand_mode": "preserved_original_hand_plate" if character.get("base_art") else "segmented",
+        if not composite_base_mode else [],
+        "composite_base_mode": composite_base_mode,
+        "full_body_visual_mode": "intact_composite_base" if composite_base_mode else "segmented_limb_rig",
+        "bow_hand_mode": "original_source_hand_overlay" if composite_base_mode else "segmented",
         "publishing": "disabled",
         "preview_only": True,
     }
