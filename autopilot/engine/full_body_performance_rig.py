@@ -509,18 +509,20 @@ def _decontaminate_edge_matte_rgb(
     # Find the darkest visible, unprotected pixel in the immediate interior
     # neighborhood. A bright edge pixel is suspect only when it is strongly
     # inconsistent with the character colour directly beside it.
-    interior_luminance = np.where(visible & ~protected, luminance, 255).astype(np.uint8)
-    local_interior_minimum = cv2.erode(
-        interior_luminance, np.ones((3, 3), dtype=np.uint8), iterations=1
-    ).astype(np.int16)
-    contrast = luminance - local_interior_minimum
-    matte_candidates = (
+    neutral_edge = (
         edge
         & ~protected
         & (minimum >= int(minimum_brightness))
         & ((maximum - minimum) <= int(maximum_channel_spread))
-        & (contrast >= int(minimum_interior_contrast))
     )
+    interior_luminance = np.where(
+        visible & ~protected & ~neutral_edge, luminance, 255
+    ).astype(np.uint8)
+    local_interior_minimum = cv2.erode(
+        interior_luminance, np.ones((3, 3), dtype=np.uint8), iterations=1
+    ).astype(np.int16)
+    contrast = luminance - local_interior_minimum
+    matte_candidates = neutral_edge & (contrast >= int(minimum_interior_contrast))
 
     # Replace RGB with the median of adjacent visible interior samples that
     # are materially darker than the edge pixel. This is a local colour repair,
@@ -544,7 +546,10 @@ def _decontaminate_edge_matte_rgb(
             valid = (
                 matte_candidates
                 & neighbour_visible
-                & ~neighbour_candidate
+                & ~neutral_edge[
+                    np.clip(np.arange(height)[:, None] + dy, 0, height - 1),
+                    np.clip(np.arange(width)[None, :] + dx, 0, width - 1),
+                ]
                 & (neighbour_luma <= luminance - float(minimum_interior_contrast) * 0.5)
             )
             sample_rgb.append(neighbour_rgb.astype(np.float32))
