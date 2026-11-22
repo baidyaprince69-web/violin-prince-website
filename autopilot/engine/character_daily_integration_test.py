@@ -34,6 +34,13 @@ def build_daily_portrait_project(
         ("scene-palms", "Summary", "Open-palms presenting gesture", "open_palms"),
         ("scene-close", "Closing", "Return to a relaxed presenter pose", "resting_hands"),
     ]
+    bundle_spec = json.loads((bundle_dir / "character.json").read_text(encoding="utf-8"))
+    has_performance_props = {"violin", "bow"}.issubset(bundle_spec.get("props", {}))
+    performance_gesture = (
+        "violin_performance"
+        if bundle_spec.get("body_scope") == "full_body" and has_performance_props
+        else "dance_groove"
+    )
     plan = {
         "use_violin_prince_presenter": True,
         "scenes": [
@@ -111,10 +118,10 @@ def build_daily_portrait_project(
         "character_actions": {
             "violin-prince": {
                 "visible": True,
-                "gesture": "dance_groove",
-                "expression": "smile",
+                "gesture": performance_gesture,
+                "expression": "neutral" if performance_gesture == "violin_performance" else "smile",
                 "loop": True,
-                "cycle_duration_seconds": 1.25,
+                "cycle_duration_seconds": 1.35,
                 "root_motion": {"type": "sway", "intensity": 0.38},
             }
         },
@@ -158,6 +165,11 @@ def build_daily_portrait_project(
         target = assets_dir / source.name
         shutil.copy2(source, target)
         pose["src"] = (Path("assets") / "characters" / "violin-prince" / target.name).as_posix()
+    for prop in character.get("props", {}).values():
+        source = Path(prop["src"]).resolve(strict=True)
+        target = assets_dir / source.name
+        shutil.copy2(source, target)
+        prop["src"] = (Path("assets") / "characters" / "violin-prince" / target.name).as_posix()
 
     project = {
         "title": "Violin Prince — Daily Portrait Integration Test",
@@ -172,6 +184,10 @@ def build_daily_portrait_project(
             "presenter_enabled": True,
             "rig_source": "tested_character_autorig_bundle",
             "character_source_canvas": character.get("canvas"),
+            "body_scope": character.get("body_scope", "upper_body"),
+            "joint_count": len(character.get("joints") or {}),
+            "instrument_prop_count": len(character.get("props") or {}),
+            "performance_gesture": performance_gesture,
             "composition_canvas": {"width": 720, "height": 1280},
             "publishing": "disabled",
         },
