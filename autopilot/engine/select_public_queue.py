@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Select the next unclaimed, public-ready Violin Prince story from the rolling backlog.
+"""Select the next unclaimed, ready Violin Prince story for a private preview.
 
 The queue is ordered by batch date, then by the canonical four-slot order.
 Successful uploads and any started/uncertain upload attempts are terminal queue
@@ -41,16 +41,16 @@ def _write_summary(message: str) -> None:
             handle.write(message.rstrip() + "\n")
 
 
-def select_next_public_plan(
+def select_next_private_preview_plan(
     root: str | Path,
     *,
     after_date: str | None = None,
     production_date: str | None = None,
     batches_dir: str = ".autopilot/daily-batches",
-    attempts_dir: str = ".autopilot/public-youtube-attempts",
-    receipts_dir: str = ".autopilot/public-youtube-receipts",
+    attempts_dir: str = ".autopilot/private-preview-attempts",
+    receipts_dir: str = ".autopilot/private-preview-receipts",
 ) -> dict[str, Any]:
-    """Return the earliest ready, public, unused plan for an exact date or lower bound."""
+    """Return the earliest ready, unattempted plan for an exact date or lower bound."""
     root = Path(root).resolve()
     if after_date and production_date:
         raise ValueError("Use either production_date for an exact batch or after_date for a rolling lower bound, not both.")
@@ -104,8 +104,7 @@ def select_next_public_plan(
             if str(plan.get("slot_status") or "ready").strip().lower() != "ready":
                 continue
             metadata = plan.get("publish_metadata")
-            if not isinstance(metadata, dict) or str(metadata.get("privacy_status") or "").lower() != "public":
-                continue
+            metadata = metadata if isinstance(metadata, dict) else {}
 
             identity = _identity(batch_date, slot_id)
             attempt_path = attempt_root / f"{identity}.json"
@@ -131,10 +130,10 @@ def select_next_public_plan(
             "slot_status": "blocked",
             "production_date": production_date or "",
             "blocked_reason": (
-                f"No unused, public-ready story exists in the exact {production_date} batch. "
+                f"No unused, ready story exists in the exact {production_date} batch. "
                 "The scheduled run will not fall forward into another production date."
                 if production_date else
-                "No unused, public-ready story exists in today's or any later prepared batch. "
+                "No unused, ready story exists in today's or any later prepared batch. "
                 "Prepare another source-checked batch to refill the rolling queue."
             ),
             "checked_batches": checked_batches,
@@ -167,7 +166,7 @@ def main(argv: list[str] | None = None) -> int:
         from datetime import datetime
         after_date = datetime.now(ZoneInfo(TIMEZONE)).date().isoformat()
 
-    result = select_next_public_plan(
+    result = select_next_private_preview_plan(
         args.root, after_date=after_date, production_date=args.production_date
     )
     outputs = {
@@ -185,7 +184,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if result["ready"]:
         summary = [
-            "## Rolling YouTube queue selection",
+            "## Private-preview queue selection",
             "",
             f"- **Selected:** {result['title']}",
             f"- **Batch date:** {result['production_date']}",
@@ -195,7 +194,7 @@ def main(argv: list[str] | None = None) -> int:
         ]
     else:
         summary = [
-            "## Rolling YouTube queue is empty",
+            "## Private-preview queue is empty",
             "",
             f"- {result['blocked_reason']}",
         ]
