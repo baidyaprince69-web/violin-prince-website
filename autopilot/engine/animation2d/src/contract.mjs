@@ -85,7 +85,29 @@ export function gestureKeyframes(name) {
       left_upper_arm: { rotate: [0, 17, 0, -17, 0] },
       left_forearm: { rotate: [0, -10, 0, 10, 0] },
       right_upper_arm: { rotate: [0, -17, 0, 17, 0] },
-      right_forearm: { rotate: [0, 10, 0, -10, 0] }
+      right_forearm: { rotate: [0, 10, 0, -10, 0] },
+      left_thigh: { rotate: [0, 20, 0, -20, 0] },
+      left_shin: { rotate: [0, -26, 0, 26, 0] },
+      left_foot: { rotate: [0, 8, 0, -8, 0] },
+      right_thigh: { rotate: [0, -20, 0, 20, 0] },
+      right_shin: { rotate: [0, 26, 0, -26, 0] },
+      right_foot: { rotate: [0, -8, 0, 8, 0] }
+    },
+    violin_performance: {
+      torso: { rotate: [0, -0.7, 0, 0.7, 0] },
+      head: { rotate: [0, -1.0, 0.4, 1.0, 0] },
+      left_upper_arm: { rotate: [0, -1.2, -0.4, -1.5, 0] },
+      left_forearm: { rotate: [0, 1.8, -0.8, 1.5, 0] },
+      left_hand: { rotate: [0, -2.2, 1.8, -1.6, 0] },
+      right_upper_arm: { rotate: [0, 1.5, -1.2, 1.5, 0] },
+      right_forearm: { rotate: [0, -3.5, 4.5, -3.5, 0] },
+      right_hand: { rotate: [0, 1.8, -2.4, 1.8, 0] },
+      left_thigh: { rotate: [0, 0.6, -0.6, 0.6, 0] },
+      right_thigh: { rotate: [0, -0.6, 0.6, -0.6, 0] },
+      left_shin: { rotate: [0, 0.8, 0, -0.8, 0] },
+      right_shin: { rotate: [0, -0.8, 0, 0.8, 0] },
+      violin: { rotate: [0, -0.45, 0.45, -0.45, 0] },
+      bow: { rotate: [0, -5.5, 5.5, -5.5, 0] }
     },
     dance_groove: {
       torso: { rotate: [0, -5, 0, 5, 0] },
