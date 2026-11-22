@@ -16,6 +16,14 @@ JOINT_LAYER_PAIRS = {
     "right_elbow": ("right_upper_arm", "right_forearm"),
     "right_wrist": ("right_forearm", "right_hand"),
 }
+FULL_BODY_JOINT_LAYER_PAIRS = {
+    "left_hip": ("torso", "left_thigh"),
+    "left_knee": ("left_thigh", "left_shin"),
+    "left_ankle": ("left_shin", "left_foot"),
+    "right_hip": ("torso", "right_thigh"),
+    "right_knee": ("right_thigh", "right_shin"),
+    "right_ankle": ("right_shin", "right_foot"),
+}
 
 
 def _nearest_alpha_distance(mask: np.ndarray, x: float, y: float, *, radius: int = 32) -> float | None:
@@ -37,6 +45,10 @@ def verify_character_visuals(character: dict[str, Any], bundle_dir: str | Path) 
     canvas_width, canvas_height = int(canvas.get("width", 0)), int(canvas.get("height", 0))
     if canvas_width <= 0 or canvas_height <= 0:
         raise ValueError("Character canvas dimensions must be positive.")
+
+    joint_layer_pairs = dict(JOINT_LAYER_PAIRS)
+    if str(character.get("body_scope") or "").casefold() == "full_body":
+        joint_layer_pairs.update(FULL_BODY_JOINT_LAYER_PAIRS)
 
     layer_masks: dict[str, np.ndarray] = {}
     layer_records = []
@@ -77,7 +89,7 @@ def verify_character_visuals(character: dict[str, Any], bundle_dir: str | Path) 
 
     joints = character.get("joints") or {}
     joint_records = []
-    for joint_name, pair in JOINT_LAYER_PAIRS.items():
+    for joint_name, pair in joint_layer_pairs.items():
         point = joints.get(joint_name) or {}
         px = float(point.get("x", -1)) * canvas_width
         py = float(point.get("y", -1)) * canvas_height
