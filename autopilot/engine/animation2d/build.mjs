@@ -169,7 +169,7 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       "top:" + (layout.offsetY + Number(variant.y) * layout.scale) + "px",
       "width:" + (Number(variant.width) * layout.scale) + "px",
       "height:" + (Number(variant.height) * layout.scale) + "px",
-      "object-fit:contain",
+      "object-fit:fill",
       "transform-origin:0 0",
       "z-index:" + Number(variant.z_index ?? 85),
       "opacity:" + (!poseIsActive && selectedHeadAngle === "front" && name === selectedHeadExpression ? "1" : "0")
@@ -187,7 +187,7 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       "top:" + (layout.offsetY + Number(angle.y) * layout.scale) + "px",
       "width:" + (Number(angle.width) * layout.scale) + "px",
       "height:" + (Number(angle.height) * layout.scale) + "px",
-      "object-fit:contain",
+      "object-fit:fill",
       "transform-origin:0 0",
       "z-index:" + Number(angle.z_index ?? 85),
       "opacity:" + (!poseIsActive && selectedHeadAngle === name && name !== "front" ? "1" : "0")
