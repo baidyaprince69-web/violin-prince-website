@@ -749,6 +749,10 @@ def _authored_performance_layers(
                 split_x=screen_split_x,
             )
         thigh &= ~calf | knee_underlap
+        # The source polygon can extend into the shoe, especially after Auto-Rig
+        # restores transparent body holes. Remove that duplicate area first,
+        # then retain only the small authored ankle overlap disk.
+        calf &= ~foot_mask | ankle_underlap
         calf |= ankle_underlap & foot_mask
         # Keep leg material separate from shoes and preserve a small shared seam.
         minimum_thigh = int(regions[f"{side}_thigh"].get("minimum_pixels", 500))
