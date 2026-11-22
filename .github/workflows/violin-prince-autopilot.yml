@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       stage:
-        description: "Run one complete production pass. Approved scheduled slots publish publicly to YouTube."
+        description: "Run one complete production pass. Scheduled slots create private YouTube previews only."
         required: true
         type: choice
         default: full
@@ -29,7 +29,7 @@ permissions:
 
 concurrency:
   # One active queue consumer prevents two six-hour triggers claiming the same story.
-  group: violin-prince-public-youtube-queue
+  group: violin-prince-private-preview-queue
   cancel-in-progress: false
 
 jobs:
@@ -64,7 +64,7 @@ jobs:
           python -m unittest discover -s autopilot/engine/tests -p "test_scheduled_slot_date.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_select_public_queue.py" -v
 
-      - name: Verify public YouTube Upload-Post and private voice credentials are configured
+      - name: Verify private-preview Upload-Post and private voice credentials are configured
         env:
           UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
           YOUTUBE_EXPECTED_CHANNEL_ID: ${{ vars.YOUTUBE_EXPECTED_CHANNEL_ID }}
@@ -82,7 +82,7 @@ jobs:
           missing = [name for name in required if not os.environ.get(name, "").strip()]
           if missing:
               raise SystemExit("Required private-upload/voice configuration is missing: " + ", ".join(missing))
-          print("Upload-Post public YouTube configuration and private Qwen3 voice credentials are present.")
+          print("Upload-Post private-preview configuration and private Qwen3 voice credentials are present.")
           PY
 
   daily_readiness:
@@ -113,14 +113,14 @@ jobs:
           SCHEDULE_CRON: ${{ github.event.schedule }}
         run: python autopilot/engine/scheduled_slot_date.py --cron "$SCHEDULE_CRON"
 
-      - name: Select the next unused public-ready story from the scheduled date's batch
+      - name: Select the next unused ready story from the scheduled date's batch
         id: batch
         env:
           PYTHONPATH: autopilot/engine
           SCHEDULED_PRODUCTION_DATE: ${{ steps.schedule_context.outputs.production_date }}
         run: python autopilot/engine/select_public_queue.py --root . --production-date "$SCHEDULED_PRODUCTION_DATE"
 
-      - name: Check production and public-publishing gates for the selected batch
+      - name: Check production and private-preview gates for the selected batch
         id: readiness
         if: steps.batch.outputs.slot_status == 'ready'
         run: |
@@ -139,10 +139,10 @@ jobs:
           BLOCKED_REASON: ${{ needs.daily_readiness.outputs.blocked_reason }}
         run: |
           {
-            echo "## Rolling public queue has no eligible video"
+            echo "## Private-preview queue has no eligible video"
             echo ""
             echo "- Reason: $BLOCKED_REASON"
-            echo "- The scheduler checked today's and all later prepared batches."
+            echo "- The scheduler checked only the intended production-date batch."
             echo "- No narration, MP4 render or YouTube upload was attempted."
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -370,11 +370,11 @@ jobs:
           PRIVATE_VOICE_REPO_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
         run: python autopilot/engine/run.py --stage full
 
-      - name: Retain scheduled YouTube upload artifact for recovery
+      - name: Retain scheduled private-preview artifact for recovery
         if: success() && github.event_name == 'schedule' && env.PIPELINE_STAGE == 'full' && needs.daily_readiness.outputs.slot_status == 'ready'
         uses: actions/upload-artifact@v4
         with:
-          name: violin-prince-youtube-upload-${{ github.run_number }}
+          name: violin-prince-private-preview-${{ github.run_number }}
           path: |
             ${{ format('{0}/output/violin-prince-short.mp4', needs.daily_readiness.outputs.workspace_root) }}
             ${{ format('{0}/output/publish-manifest.json', needs.daily_readiness.outputs.workspace_root) }}
@@ -384,13 +384,13 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
-      - name: Publish approved daily slot PUBLICLY to YouTube via Upload-Post
+      - name: Upload the scheduled slot as a PRIVATE YouTube preview via Upload-Post
         if: success() && github.event_name == 'schedule' && env.PIPELINE_STAGE == 'full' && needs.daily_readiness.outputs.slot_status == 'ready'
         env:
           UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
           UPLOAD_POST_USER: "default"
           YOUTUBE_EXPECTED_CHANNEL_ID: ${{ vars.YOUTUBE_EXPECTED_CHANNEL_ID }}
-          YOUTUBE_PRIVACY_STATUS: "public"
+          YOUTUBE_PRIVACY_STATUS: "private"
           PUBLISH_ENABLED: "false"
           GITHUB_REF_NAME: ${{ github.ref_name }}
           GITHUB_RUN_ID: ${{ github.run_id }}
@@ -401,7 +401,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python autopilot/engine/upload_public_short_uploadpost.py \
+          python autopilot/engine/upload_private_preview_uploadpost.py \
             --output-dir "$OUTPUT_DIR" \
             --plan "$PLAN_PATH" \
             --run-id "$GITHUB_RUN_ID" \
