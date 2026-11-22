@@ -10,8 +10,12 @@ on:
       - feature/character-articulated-rig-validation
       - feat/autopilot-intelligence-validation-recovery
       - fix/character-expression-face-alignment
+      - feat/full-body-violin-performance-rig
     paths:
       - .github/workflows/character-rig-test.yml
+      - autopilot/engine/prepare_full_body_performance.py
+      - autopilot/engine/assets/characters/violin-prince-reference/master-character-reference.webp
+      - autopilot/engine/assets/characters/violin-prince-reference/neutral-apose-reference.webp
       - autopilot/engine/character_autorig.py
       - autopilot/engine/character_rig.py
       - autopilot/engine/character_rig_test.py
@@ -78,10 +82,15 @@ on:
   workflow_dispatch:
     inputs:
       source_image:
-        description: Master character image path inside this repository
+        description: Full-body violin-playing reference image path inside this repository
         required: true
         type: string
-        default: autopilot/engine/assets/characters/violin-prince-reference/master-character.jpg
+        default: autopilot/engine/assets/characters/violin-prince-reference/master-character-reference.webp
+      neutral_reference:
+        description: Neutral A-pose identity and body-structure cross-check
+        required: true
+        type: string
+        default: autopilot/engine/assets/characters/violin-prince-reference/neutral-apose-reference.webp
       reference_directory:
         description: Directory containing face and pose reference images
         required: true
@@ -136,10 +145,18 @@ jobs:
           python -m unittest discover -s tests -p 'test_character_rig.py'
           python -m unittest discover -s tests -p 'test_character_daily_integration.py'
 
+      - name: Prepare full-body source and separate violin and bow prop references
+        run: |
+          python autopilot/engine/prepare_full_body_performance.py \
+            --source "${{ inputs.source_image || 'autopilot/engine/assets/characters/violin-prince-reference/master-character-reference.webp' }}" \
+            --neutral-reference "${{ inputs.neutral_reference || 'autopilot/engine/assets/characters/violin-prince-reference/neutral-apose-reference.webp' }}" \
+            --output work/full-body-performance \
+            --reference-dir "${{ inputs.reference_directory || 'autopilot/engine/assets/characters/violin-prince-reference' }}"
+
       - name: Separate the master character and build transparent layers
         run: |
           python autopilot/engine/character_autorig.py \
-            --source "${{ inputs.source_image || 'autopilot/engine/assets/characters/violin-prince-reference/master-character.jpg' }}" \
+            --source work/full-body-performance/master-character.webp \
             --reference-dir "${{ inputs.reference_directory || 'autopilot/engine/assets/characters/violin-prince-reference' }}" \
             --output work/character-autorig/violin-prince \
             --id violin-prince
