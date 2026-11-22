@@ -36,6 +36,61 @@ class CharacterRigContractTests(unittest.TestCase):
         self.assertEqual(len(result["layers"]), 9)
         self.assertIn("curious", result["expressions"])
 
+    def test_full_body_rig_requires_six_leg_parts_and_six_lower_body_joints(self):
+        character = self.valid_character()
+        character["body_scope"] = "full_body"
+        leg_roles = [
+            "left_thigh", "left_shin", "left_foot",
+            "right_thigh", "right_shin", "right_foot",
+        ]
+        leg_joints = [
+            "left_hip", "left_knee", "left_ankle",
+            "right_hip", "right_knee", "right_ankle",
+        ]
+        character["layers"].extend({
+            "id": role, "role": role, "src": role + ".png",
+            "x": 10, "y": 20, "width": 100, "height": 120,
+        } for role in leg_roles)
+        character["joints"].update({
+            name: {"x": 0.5, "y": 0.8} for name in leg_joints
+        })
+        character["props"] = {
+            "violin": {
+                "src": "violin.png", "x": 10, "y": 20,
+                "width": 60, "height": 24, "pivot_x": 0.2, "pivot_y": 0.5,
+            },
+            "bow": {
+                "src": "bow.png", "x": 20, "y": 10,
+                "width": 8, "height": 70, "pivot_x": 0.1, "pivot_y": 0.95,
+            },
+        }
+        result = validate_character_spec(character)
+        self.assertEqual(result["body_scope"], "full_body")
+        self.assertEqual({item["role"] for item in result["layers"]} & set(leg_roles), set(leg_roles))
+        self.assertEqual(set(result["props"]), {"violin", "bow"})
+        self.assertEqual(result["props"]["bow"]["pivot_y"], 0.95)
+
+    def test_full_body_contract_rejects_missing_knee_joint(self):
+        character = self.valid_character()
+        character["body_scope"] = "full_body"
+        leg_roles = [
+            "left_thigh", "left_shin", "left_foot",
+            "right_thigh", "right_shin", "right_foot",
+        ]
+        for role in leg_roles:
+            character["layers"].append({
+                "id": role, "role": role, "src": role + ".png",
+                "x": 10, "y": 20, "width": 100, "height": 120,
+            })
+        for name in (
+            "left_hip", "left_knee", "left_ankle",
+            "right_hip", "right_knee", "right_ankle",
+        ):
+            character["joints"][name] = {"x": 0.5, "y": 0.8}
+        character["joints"].pop("left_knee")
+        with self.assertRaisesRegex(CharacterRigError, "left_knee"):
+            validate_character_spec(character)
+
     def test_rejects_missing_hand_layer(self):
         character = self.valid_character()
         character["layers"] = [
