@@ -1,5 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   buildStagecraftMotion,
   renderStagecraftMarkup,
@@ -55,4 +60,54 @@ test("invalid environment, object kind, duplicate id and color are rejected", ()
   assert.throws(() => renderStagecraftMarkup({ id:"bad", stagecraft:{ environment:"space", objects:[{id:"x",kind:"jpeg"}] } }), /Unsupported stagecraft object kind/);
   assert.throws(() => renderStagecraftMarkup({ id:"bad", stagecraft:{ environment:"space", objects:[{id:"x"},{id:"x"}] } }), /IDs must be unique/);
   assert.throws(() => renderStagecraftMarkup({ id:"bad", stagecraft:{ environment:"space", objects:[{id:"x",color:"url(javascript:alert(1))"}] } }), /six-digit hexadecimal/);
+});
+
+test("stagecraft enters the real Motion composition with independent loop tracks", () => {
+  const engineDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  const buildScript = resolve(engineDirectory, "build.mjs");
+  const temporary = mkdtempSync(resolve(tmpdir(), "vp-stagecraft-build-"));
+  try {
+    const projectPath = resolve(temporary, "project.json");
+    const outputDirectory = resolve(temporary, "composition");
+    const project = {
+      title: "Procedural stagecraft integration proof",
+      width: 720,
+      height: 1280,
+      fps: 25,
+      duration_seconds: 4,
+      scenes: [{
+        id: "night-drive",
+        start: 0,
+        duration: 4,
+        caption: "The city moves around the performer",
+        stagecraft: {
+          environment: "city_night",
+          objects: [
+            { id: "foreground-note", kind: "music_note", x: .82, y: .32, size: 28, color: "#e8c98f", motion: "float" },
+            { id: "passing-light", kind: "light_streak", x: .23, y: .81, size: 54, color: "#66d9d5", motion: "travel_right" }
+          ]
+        }
+      }],
+      characters: []
+    };
+    writeFileSync(projectPath, JSON.stringify(project, null, 2));
+    const result = spawnSync(process.execPath, [
+      buildScript, "--project", projectPath, "--out-dir", outputDirectory
+    ], { cwd: engineDirectory, encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+
+    const report = JSON.parse(readFileSync(resolve(outputDirectory, "motion-report.json"), "utf8"));
+    const html = readFileSync(resolve(outputDirectory, "index.html"), "utf8");
+    assert.equal(report.status, "passed");
+    assert.equal(report.animated_stagecraft_scene_count, 1);
+    assert.ok(report.animated_stagecraft_environment_node_count >= 4);
+    assert.equal(report.animated_stagecraft_object_count, 2);
+    assert.ok(report.animated_stagecraft_node_count >= 6);
+    assert.ok(html.includes("scene-stagecraft--city_night"));
+    assert.ok(html.includes("night-drive-stagecraft-traffic-a"));
+    assert.ok(html.includes("night-drive-stagecraft-object-foreground-note"));
+    assert.ok(html.includes('"loop":true'), "composition must preserve looping track metadata");
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
 });

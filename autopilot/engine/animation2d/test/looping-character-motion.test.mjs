@@ -66,6 +66,7 @@ test("non-looped gestures still settle rather than wrapping", () => {
     track.target === "single-performer-part-right-upper" && track.property === "transform"
   );
   assert.ok(arm);
-  assert.equal(arm.values.at(-1), arm.values[0] === arm.values.at(-1) ? arm.values.at(-1) : arm.values.at(-1));
+  assert.notEqual(arm.values[10], arm.values[0], "the gesture must visibly move during its active interval");
+  assert.equal(arm.values[35], arm.values.at(-1), "the non-looping gesture must settle at its final pose");
   assert.equal(arm.duration, 4);
 });
