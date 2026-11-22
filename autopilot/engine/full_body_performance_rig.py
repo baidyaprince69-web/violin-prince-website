@@ -313,12 +313,12 @@ def _build_preserved_composite_base(
     bow_canvas_alpha: np.ndarray,
     finger_manifest_path: Path | None,
 ) -> dict[str, Any]:
-    """Build an intact full-body safety plate while modular limb masks are reworked.
+    """Build an intact full-body plate with a separate bow and fingering sprites.
 
     The source illustration remains the authority for the sleeves, both hands,
-    trousers and shoes. Only the bow shaft and authored finger polygons are
-    separated; this prevents low-confidence semantic masks from creating holes
-    in the visible presenter.
+    trousers and shoes. The bow is erased from the source, then the exact
+    source-derived bow-grip hand is layered above the animated bow. This avoids
+    low-confidence semantic masks from creating holes in the presenter.
     """
     try:
         import cv2
