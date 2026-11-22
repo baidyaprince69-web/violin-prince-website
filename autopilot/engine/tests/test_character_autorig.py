@@ -131,16 +131,27 @@ class CharacterAutoRigTests(unittest.TestCase):
         pixels[6, 16] = (220, 150, 120, 255)
         pixels[12, 12] = (248, 246, 240, 255)
         pixels[6, 20] = (38, 42, 46, 153)
+        # A short five-pixel neutral-grey remnant is also matte contamination,
+        # not a deliberate highlight or part of the body outline.
+        pixels[6:11, 22] = np.array([
+            (145, 145, 143, 255),
+            (152, 152, 150, 255),
+            (160, 160, 158, 255),
+            (168, 168, 166, 255),
+            (175, 175, 173, 255),
+        ], dtype=np.uint8)
         source = Image.fromarray(pixels, mode="RGBA")
 
         cleaned, report = _clean_inherited_edge_matte(source)
         result = np.asarray(cleaned, dtype=np.uint8)
 
         self.assertEqual(report["method"], "border_connected_neutral_edge_speck_cleanup")
-        self.assertEqual(report["pixels_removed"], 3)
-        self.assertEqual(report["components_removed"], 2)
+        self.assertEqual(report["pixels_removed"], 8)
+        self.assertEqual(report["components_removed"], 3)
         self.assertEqual(tuple(result[6, 10]), (0, 0, 0, 0))
         self.assertTrue(np.all(result[6, 12:14, 3] == 0))
+        self.assertTrue(np.all(result[6:11, 22, 3] == 0),
+            "small neutral-grey matte remnants on the outside alpha edge must be cleared")
         self.assertEqual(tuple(result[6, 16]), (220, 150, 120, 255))
         self.assertEqual(tuple(result[12, 12]), (248, 246, 240, 255))
         self.assertEqual(tuple(result[6, 20]), (38, 42, 46, 153))
