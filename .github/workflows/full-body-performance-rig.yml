@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: full-body-performance-preview-${{ github.ref }}
+  group: full-body-performance-preview-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
