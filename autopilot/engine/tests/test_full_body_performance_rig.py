@@ -161,6 +161,8 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                 output = np.asarray(opened.convert("RGBA"), dtype=np.uint8)
 
         self.assertEqual(report["mode"], "segmented_source_body")
+        self.assertLess(report["z_index"], 4,
+            "the underpaint must remain behind the thigh/calf/foot sprites")
         self.assertGreater(report["pixels_cut_from_source"], 900)
         np.testing.assert_array_equal(output[:, :, 3], original[:, :, 3])
         untouched = np.ones((80, 80), dtype=bool)
