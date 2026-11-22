@@ -18,6 +18,12 @@ from media_verification import verify_image_asset
 
 
 class LocalVectorIllustratorTests(unittest.TestCase):
+    def test_canonical_violin_has_four_strings_and_four_tuning_pegs(self):
+        self.assertEqual(illustrator.INSTRUMENT_SPEC["string_count"], 4)
+        self.assertEqual(illustrator.INSTRUMENT_SPEC["tuning_peg_count"], 4)
+        self.assertEqual(len(illustrator.VIOLIN_STRING_X), 4)
+        self.assertEqual(len(illustrator.VIOLIN_TUNING_PEG_Y) * 2, 4)
+
     def test_all_scene_modes_render_valid_vertical_production_jpegs(self):
         for mode in sorted(illustrator.MODES):
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as folder:
