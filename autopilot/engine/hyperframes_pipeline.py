@@ -191,6 +191,7 @@ def render_master_director_video(
     project_dir: Path,
     output_video: Path,
     layer_assets: dict[str, dict[str, Path]] | None = None,
+    rig_bundle_dir: Path | None = None,
 ) -> dict[str, Any]:
     """Render a Master Director composition and mix its audio.
 
@@ -220,6 +221,7 @@ def render_master_director_video(
             width=int(engine.W),
             height=int(engine.H),
             fps=int(engine.FPS),
+            rig_bundle_dir=rig_bundle_dir,
         )
     elif render_mode == "layered_images":
         project = build_director_hyperframes_project(
