@@ -24,6 +24,7 @@ def _build_preview_music_sync(
     *,
     bpm: float | None = 100.0,
     audio_path: str | Path | None = None,
+    music_map: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Create a validated beat map from real audio, or an explicitly labelled preview grid."""
     duration = float(duration_seconds)
@@ -33,7 +34,25 @@ def _build_preview_music_sync(
     if audio_path:
         from audio_analysis import analyse_audio_file
 
-        analysis = analyse_audio_file(audio_path, known_bpm=bpm)
+        if music_map is not None:
+            required = ("bpm", "beat_times", "downbeats", "onsets")
+            missing = [key for key in required if key not in music_map]
+            if missing:
+                raise ValueError(
+                    "The supplied sampled-violin event map is missing: "
+                    + ", ".join(missing)
+                )
+            if float(music_map.get("duration_seconds", 0)) < duration:
+                raise ValueError("The sampled-violin event map is shorter than the preview.")
+            analysis = analyse_audio_file(
+                audio_path,
+                known_bpm=float(music_map["bpm"]),
+                known_beat_times=music_map["beat_times"],
+                known_downbeats=music_map["downbeats"],
+                known_onsets=music_map["onsets"],
+            )
+        else:
+            analysis = analyse_audio_file(audio_path, known_bpm=bpm)
         beats = [
             float(value) for value in analysis.get("beat_times", [])
             if 0 <= float(value) < duration
@@ -60,7 +79,11 @@ def _build_preview_music_sync(
             ]
         return {
             "status": analysis.get("status", "analysed"),
-            "source": analysis.get("source", "decoded_audio"),
+            "source": (
+                music_map.get("audio_source", "decoded_audio")
+                if music_map is not None else
+                analysis.get("source", "decoded_audio")
+            ),
             "audio_attached": True,
             "bpm": float(analysis["bpm"]),
             "confidence": float(analysis.get("confidence", 0.0)),
@@ -68,6 +91,16 @@ def _build_preview_music_sync(
             "beat_times": [round(value, 4) for value in beats],
             "downbeats": [round(value, 4) for value in downbeats],
             "onsets": [round(value, 4) for value in onsets],
+            "audio_license": music_map.get("license") if music_map is not None else None,
+            "audio_attribution": music_map.get("attribution") if music_map is not None else None,
+            "event_map_source": (
+                "sampled_violin_arrangement_note_events"
+                if music_map is not None else None
+            ),
+            "analysis_status": analysis.get("status"),
+            "analysis_source": analysis.get("source"),
+            "decode_backend": analysis.get("decode_backend"),
+            "decoded_audio_duration_seconds": analysis.get("duration_seconds"),
         }
 
     tempo = 100.0 if bpm is None else float(bpm)
@@ -100,6 +133,7 @@ def build_preview_project(
     *,
     audio_path: str | Path | None = None,
     bpm: float | None = None,
+    music_map_path: str | Path | None = None,
 ) -> dict[str, Any]:
     bundle = Path(bundle_dir).resolve(strict=True)
     output = Path(output_dir).resolve()
@@ -122,10 +156,21 @@ def build_preview_project(
         for asset in (character.get(collection_name) or {}).values():
             asset["src"] = stage_asset(bundle, asset_root, asset["src"])
 
+    music_map = None
+    if music_map_path:
+        music_map = json.loads(
+            Path(music_map_path).read_text(encoding="utf-8")
+        )
+        if not isinstance(music_map, dict):
+            raise ValueError("The supplied violin music map must be a JSON object.")
+    if music_map is not None and not audio_path:
+        raise ValueError("A sampled-violin event map requires its corresponding audio file.")
+
     music_sync = _build_preview_music_sync(
         8,
         bpm=bpm,
         audio_path=audio_path,
+        music_map=music_map,
     )
     scene = {
         "id": "full-body-violin-performance",
@@ -198,6 +243,8 @@ def build_preview_project(
             "instrument_performance": "candidate_requires_visual_review",
             "music_sync_source": music_sync["source"],
             "music_sync_bpm": music_sync["bpm"],
+            "music_sync_analysis_status": music_sync.get("analysis_status", music_sync["status"]),
+            "music_sync_audio_license": music_sync.get("audio_license"),
         },
     }
     (output / "project.json").write_text(
@@ -218,8 +265,13 @@ def build_preview_project(
         "and motion before any production use. "
     )
     music_note = (
-        f"Beat/onset timing analysed from attached audio ({music_sync['source']}) "
+        f"Beat/onset timing validated against attached audio ({music_sync['source']}) "
         f"at {music_sync['bpm']:.1f} BPM. "
+        + (
+            f"Sampled-instrument licence: {music_sync['audio_license']}; "
+            "this is not a creator-recorded performance. "
+            if music_sync.get("audio_license") else ""
+        )
         if music_sync["audio_attached"] else
         f"Preview timing uses a declared {music_sync['bpm']:.1f} BPM grid; "
         "no song audio is attached. "
@@ -254,7 +306,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bundle", required=True)
     parser.add_argument("--output", required=True)
-    parser.add_argument("--audio", default="", help="Optional real audio track for beat/onset analysis.")
+    parser.add_argument("--audio", default="", help="Optional audio track used for beat/onset timing.")
+    parser.add_argument("--music-map", default="",
+                        help="Optional JSON arrangement/event map matching --audio.")
     parser.add_argument("--bpm", type=float, default=None,
                         help="Verified tempo for the preview grid or optional audio phase alignment.")
     args = parser.parse_args()
@@ -263,6 +317,7 @@ def main() -> int:
         args.output,
         audio_path=args.audio or None,
         bpm=args.bpm,
+        music_map_path=args.music_map or None,
     )
     print("FULL_BODY_PREVIEW_PROJECT=" + json.dumps(result, ensure_ascii=False))
     return 0
