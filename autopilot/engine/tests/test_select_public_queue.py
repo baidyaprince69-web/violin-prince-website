@@ -70,7 +70,7 @@ class ExactProductionDateQueueTests(unittest.TestCase):
             self._write_batch(root, "2026-11-21", "production-tech")
             self._write_batch(root, "2026-11-22", "melody-stories")
 
-            result = select_next_public_plan(root, production_date="2026-11-21")
+            result = select_next_private_preview_plan(root, production_date="2026-11-21")
 
         self.assertTrue(result["ready"])
         self.assertEqual(result["production_date"], "2026-11-21")
@@ -80,7 +80,7 @@ class ExactProductionDateQueueTests(unittest.TestCase):
     def test_exact_date_and_rolling_lower_bound_cannot_be_combined(self):
         with tempfile.TemporaryDirectory() as temporary:
             with self.assertRaisesRegex(ValueError, "Use either production_date"):
-                select_next_public_plan(
+                select_next_private_preview_plan(
                     temporary,
                     after_date="2026-11-21",
                     production_date="2026-11-21",
