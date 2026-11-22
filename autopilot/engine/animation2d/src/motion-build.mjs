@@ -824,6 +824,31 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
       for (const [role, properties] of Object.entries(action.keyframes || {})) {
         addRigKeyframes(role, properties, actionStart, gestureDuration, gestureLoop);
       }
+
+      const instrumentPerformance = action.instrument_performance === true ||
+        String(action.gesture || "").toLowerCase() === "violin_performance";
+      for (const prop of Object.values(character.props || {})) {
+        const authored = (action.prop_keyframes || {})[prop.id];
+        let propFrames = authored;
+        if (!propFrames && instrumentPerformance && prop.id === "bow") {
+          // Frame-seekable alternating bow strokes around the player's grip pivot.
+          propFrames = { rotate: [0, -5.5, 5.5, -5.5, 5.5, 0] };
+        } else if (!propFrames && instrumentPerformance && prop.id === "violin") {
+          // The violin follows the torso with a restrained responsive tilt.
+          propFrames = { rotate: [0, -0.55, 0.35, 0.55, 0] };
+        }
+        if (propFrames) {
+          addKeyframes(
+            prefix + "-prop-" + prop.id,
+            propFrames,
+            actionStart + 0.10,
+            gestureDuration,
+            "ease-in-out",
+            gestureLoop
+          );
+        }
+      }
+
       if (action.root_motion) {
         const kind = typeof action.root_motion === "string" ? action.root_motion : String(action.root_motion.type || "");
         const intensity = typeof action.root_motion === "object"
