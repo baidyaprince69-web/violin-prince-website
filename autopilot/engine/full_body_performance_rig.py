@@ -441,7 +441,7 @@ def _build_preserved_composite_base(
             "OpenCV is required to prepare the complete-body review plate."
         ) from exc
 
-    hand_report = _build_bow_grip_hand_overlay(source, bundle, character)
+    hand_report = _build_bow_grip_hand_overlay(source, bundle_dir, character)
     rgba = np.asarray(source.convert("RGBA"), dtype=np.uint8).copy()
     height, width = rgba.shape[:2]
     bow_mask = np.asarray(bow_canvas_alpha, dtype=np.uint8)
