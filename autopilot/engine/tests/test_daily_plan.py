@@ -190,10 +190,24 @@ class DailyPlanEvidenceTests(unittest.TestCase):
         for cron in ('"0 0 * * *"', '"0 6 * * *"', '"0 12 * * *"', '"0 18 * * *"'):
             self.assertIn(f"- cron: {cron}", workflow)
         self.assertIn("select_public_queue.py", workflow)
-        self.assertIn("Select the next unused public-ready story from the rolling backlog", workflow)
-        self.assertIn("group: violin-prince-public-youtube-queue", workflow)
+        self.assertIn("Select the next unused ready story from the scheduled date's batch", workflow)
+        self.assertIn("group: violin-prince-private-preview-queue", workflow)
         self.assertIn("cancel-in-progress: false", workflow)
         self.assertIn('PUBLISH_ENABLED: "false"', workflow)
+
+    def test_automatic_production_overrides_any_plan_visibility_to_private(self):
+        plan = {
+            "title": "Private preview test",
+            "publish_metadata": {
+                "title": "Private preview test",
+                "privacy_status": "public",
+                "description": "A test description.",
+            },
+        }
+        result = daily.enforce_private_preview_visibility(plan)
+        self.assertEqual(result["privacy_status"], "private")
+        self.assertEqual(result["publish_metadata"]["privacy_status"], "private")
+        self.assertEqual(result["publish_metadata"]["description"], "A test description.")
 
     def test_autopilot_trigger_watches_the_daily_plan_and_passes_snapshot_hashes(self):
         workflow_path = ENGINE_DIR.parents[1] / ".github" / "workflows" / "violin-prince-autopilot.yml"
