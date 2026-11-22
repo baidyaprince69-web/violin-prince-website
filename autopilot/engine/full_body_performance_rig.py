@@ -457,6 +457,9 @@ def main() -> int:
     parser.add_argument("--instrument-manifest", required=True)
     parser.add_argument("--finger-manifest", default="")
     parser.add_argument("--neutral-apose", default="")
+    parser.add_argument("--rigging-sheet", default="")
+    parser.add_argument("--expression-sheet", default="")
+    parser.add_argument("--head-angle-sheet", default="")
     args = parser.parse_args()
     result = extend_full_body_character(
         args.source, args.bundle,
@@ -465,6 +468,27 @@ def main() -> int:
         finger_manifest_path=args.finger_manifest or None,
         neutral_apose_path=args.neutral_apose or None,
     )
+    reference_inputs = (args.rigging_sheet, args.expression_sheet, args.head_angle_sheet)
+    if any(reference_inputs) and not all(reference_inputs):
+        raise AutoRigError("Provide all three reference-sheet paths together.")
+    if all(reference_inputs):
+        from reference_sheet_rig import build_reference_sheet_rig
+        bundle = Path(args.bundle).resolve(strict=True)
+        reference_report = build_reference_sheet_rig(
+            bundle / "character.json",
+            bundle,
+            rigging_sheet_path=args.rigging_sheet,
+            expression_sheet_path=args.expression_sheet,
+            head_angle_sheet_path=args.head_angle_sheet,
+        )
+        result["reference_sheet_rig"] = reference_report
+        report_path = bundle / "full-body-performance-report.json"
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        report["reference_sheet_rig"] = reference_report
+        report_path.write_text(
+            json.dumps(report, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
     print("FULL_BODY_PERFORMANCE_RIG=" + json.dumps(result, ensure_ascii=False))
     return 0
 

@@ -54,6 +54,7 @@ jobs:
         env:
           PYTHONPATH: autopilot/engine
         run: |
+          python -m unittest discover -s autopilot/engine/tests -p "test_reference_sheet_rig.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_full_body_performance_rig.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_character_rig.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_character_autorig.py" -v

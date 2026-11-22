@@ -157,14 +157,58 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       '" alt="" draggable="false" src="' + escapeHtml(pose.src) +
       '" style="' + style + '">';
   }).join("");
+  const selectedHeadAngle = String(action.head_angle || "front").toLowerCase();
+  const selectedHeadExpression = String(action.head_expression || action.expression || "neutral").toLowerCase();
+  const headVariantEntries = Object.entries(character.head_variants || {});
+  const headAngleEntries = Object.entries(character.head_angles || {});
+  const hasHeadPlates = headVariantEntries.length > 0 || headAngleEntries.length > 0;
+  const headVariants = headVariantEntries.map(([name, variant]) => {
+    const style = [
+      "position:absolute",
+      "left:" + (layout.offsetX + Number(variant.x) * layout.scale) + "px",
+      "top:" + (layout.offsetY + Number(variant.y) * layout.scale) + "px",
+      "width:" + (Number(variant.width) * layout.scale) + "px",
+      "height:" + (Number(variant.height) * layout.scale) + "px",
+      "object-fit:contain",
+      "transform-origin:0 0",
+      "z-index:" + Number(variant.z_index ?? 85),
+      "opacity:" + (!poseIsActive && selectedHeadAngle === "front" && name === selectedHeadExpression ? "1" : "0")
+    ].join(";");
+    const variantId = scene.id + "-" + character.id + "-head-variant-" + name;
+    return '<img class="rig-head-variant" id="' + escapeHtml(variantId) +
+      '" data-head-variant="' + escapeHtml(name) +
+      '" alt="" draggable="false" src="' + escapeHtml(variant.src) +
+      '" style="' + style + '">';
+  }).join("");
+  const headAngles = headAngleEntries.map(([name, angle]) => {
+    const style = [
+      "position:absolute",
+      "left:" + (layout.offsetX + Number(angle.x) * layout.scale) + "px",
+      "top:" + (layout.offsetY + Number(angle.y) * layout.scale) + "px",
+      "width:" + (Number(angle.width) * layout.scale) + "px",
+      "height:" + (Number(angle.height) * layout.scale) + "px",
+      "object-fit:contain",
+      "transform-origin:0 0",
+      "z-index:" + Number(angle.z_index ?? 85),
+      "opacity:" + (!poseIsActive && selectedHeadAngle === name && name !== "front" ? "1" : "0")
+    ].join(";");
+    const angleId = scene.id + "-" + character.id + "-head-angle-" + name;
+    return '<img class="rig-head-angle" id="' + escapeHtml(angleId) +
+      '" data-head-angle="' + escapeHtml(name) +
+      '" alt="" draggable="false" src="' + escapeHtml(angle.src) +
+      '" style="' + style + '">';
+  }).join("");
+
   return '<div class="clip character-rig" id="' + escapeHtml(scene.id + "-" + character.id) +
     '" data-pose-active="' + (poseIsActive ? "true" : "false") +
     '" data-pose-name="' + escapeHtml(poseIsActive ? selectedPose : "") +
+    '" data-head-plates="' + (hasHeadPlates ? "true" : "false") +
+    '" data-head-angle="' + escapeHtml(selectedHeadAngle) +
     '" data-start="' + Number(scene.start) + '" data-duration="' + Number(scene.duration) +
     '" data-track-index="' + (40 + sceneIndex * 100 + characterIndex) +
     '" style="' + wrapperStyle + '"><div class="character-motion" id="' +
     escapeHtml(scene.id + "-" + character.id + "-motion") + '">' +
-    layers + expressions + props + poseAssets + '</div></div>';
+    layers + expressions + props + poseAssets + headVariants + headAngles + '</div></div>';
 }
 
 
@@ -681,6 +725,9 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.visualizer-bar{display:block;flex:1;max-width:17px;border-radius:9px 9px 3px 3px;transform:scaleY(.22);transform-origin:center bottom;background:linear-gradient(180deg,#f7f1e6 0%,#ebca8b 42%,#4abeb9 100%);box-shadow:0 0 14px rgba(74,190,185,.24)}' +
   // Expression plates replace the base face crop; showing both creates a ghosted double face.
   '.rig-part[data-role="face"]{opacity:0}' +
+  '.character-rig[data-head-plates="true"]:not([data-pose-active="true"]) .rig-part[data-role="head"],.character-rig[data-head-plates="true"]:not([data-pose-active="true"]) .rig-part[data-role="face"]{opacity:0}' +
+  '.character-rig[data-head-plates="true"] .rig-expression{opacity:0}' +
+  '.rig-head-variant,.rig-head-angle{pointer-events:none}' +
   '.character-rig[data-pose-active="true"] .rig-part{opacity:0}' +
   '.character-rig[data-pose-active="true"]:not([data-pose-name="resting_hands"]) .rig-expression{opacity:0}' +
   '</style></head><body><div id="root" data-composition-id="root" data-start="0"' +

@@ -195,8 +195,40 @@ def validate_character_spec(character: dict[str, Any]) -> dict[str, Any]:
             "attach_to": attach_to,
         }
 
+    head_asset_maps = {}
+    for field in ("head_variants", "head_angles"):
+        raw_assets = character.get(field) or {}
+        if not isinstance(raw_assets, dict):
+            raise CharacterRigError(f"Character {character_id} {field} must be an object.")
+        normalised_assets = {}
+        for name, asset in raw_assets.items():
+            asset_name = str(name).strip().casefold()
+            if not CHARACTER_ID.fullmatch(asset_name) or not isinstance(asset, dict):
+                raise CharacterRigError(f"Character {character_id} has an invalid {field} entry.")
+            src = str(asset.get("src") or "").strip()
+            if not src:
+                raise CharacterRigError(f"{field[:-1].replace('_', ' ')} {asset_name} has no image source.")
+            geometry = {}
+            for key, default in (("x", 0), ("y", 0), ("width", 1), ("height", 1)):
+                number = _finite_number(asset.get(key, default), f"{character_id}.{field}.{asset_name}.{key}")
+                if key in ("width", "height") and number <= 0:
+                    raise CharacterRigError(f"{field} {asset_name} {key} must be positive.")
+                geometry[key] = number
+            pivot_x = _finite_number(asset.get("pivot_x", 0.5), f"{asset_name}.pivot_x")
+            pivot_y = _finite_number(asset.get("pivot_y", 0.92), f"{asset_name}.pivot_y")
+            if not 0 <= pivot_x <= 1 or not 0 <= pivot_y <= 1:
+                raise CharacterRigError(f"{field} {asset_name} pivots must be between 0 and 1.")
+            normalised_assets[asset_name] = {
+                **asset, "src": src, **geometry,
+                "pivot_x": pivot_x, "pivot_y": pivot_y,
+                "z_index": int(asset.get("z_index", 85)),
+            }
+        head_asset_maps[field] = normalised_assets
+
     return {
         **character,
+        "head_variants": head_asset_maps["head_variants"],
+        "head_angles": head_asset_maps["head_angles"],
         "id": character_id,
         "layers": normalised_layers,
         "joints": normalised_joints,

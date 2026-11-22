@@ -31,6 +31,12 @@ const character = {
     name, { x: .2 + (index % 6) * .12, y: .2 + (index % 7) * .1 }
   ])),
   expressions: { neutral: { src: "neutral.png" } },
+  head_variants: Object.fromEntries(["happy", "focused", "surprised", "neutral"].map(name => [
+    name, { src: "head-variant-" + name + ".png", x: 120, y: 20, width: 80, height: 100, pivot_x: .5, pivot_y: .92 }
+  ])),
+  head_angles: Object.fromEntries(["front", "three_quarter", "profile_right", "profile_left"].map(name => [
+    name, { src: "head-angle-" + name + ".png", x: 120, y: 20, width: 80, height: 100, pivot_x: .5, pivot_y: .92 }
+  ])),
   props: {
     violin: {
       id: "violin", src: "violin.webp",
@@ -53,6 +59,10 @@ const project = {
       "violin-prince": {
         gesture: "violin_performance",
         instrument_performance: true,
+        expression: "focused",
+        head_angle: "front",
+        head_angle_sequence: ["front", "three_quarter", "profile_right", "front"],
+        head_angle_cycle_duration_seconds: 3,
         loop: true,
         cycle_duration_seconds: 2,
         prop_keyframes: {
@@ -106,4 +116,31 @@ test("violin and bow are separately transformed and bow receives a stroke cycle"
   assert.ok(bowTranslation, "bow receives an explicit reciprocal translation along the strings");
   assert.ok(bowTranslation.values.some(value => value !== bowTranslation.values[0]),
     "bow translation must change during each stroke");
+});
+
+
+test("modular head expressions and angle plates are separately rendered and frame-seekable", () => {
+  const tracks = compileMotionTracks(project, { fps: 25 });
+  for (const name of ["happy", "focused", "surprised", "neutral"]) {
+    assert.ok(tracks.some(track =>
+      track.target === "playing-violin-prince-head-variant-" + name &&
+      track.property === "transform"
+    ), "head expression " + name + " follows the neck pivot");
+    assert.ok(tracks.some(track =>
+      track.target === "playing-violin-prince-head-variant-" + name &&
+      track.property === "opacity"
+    ), "head expression " + name + " has an independent visibility track");
+  }
+  for (const name of ["three_quarter", "profile_right", "profile_left"]) {
+    assert.ok(tracks.some(track =>
+      track.target === "playing-violin-prince-head-angle-" + name &&
+      track.property === "transform"
+    ), "head angle " + name + " follows the neck pivot");
+    const opacity = tracks.find(track =>
+      track.target === "playing-violin-prince-head-angle-" + name &&
+      track.property === "opacity"
+    );
+    assert.ok(opacity, "head angle " + name + " has a frame-seekable swap track");
+    assert.ok(opacity.values.includes(1) && opacity.values.includes(0));
+  }
 });

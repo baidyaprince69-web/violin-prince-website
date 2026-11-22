@@ -129,6 +129,20 @@ def prepare_character_assets(
                 "src": _copy_image(src, target, source_root, work_root),
             }
 
+        modular_head_assets = {}
+        for collection_name in ("head_variants", "head_angles"):
+            staged_assets = {}
+            for name, asset in (character.get(collection_name) or {}).items():
+                src = asset["src"]
+                target = character_folder / (
+                    collection_name.replace("_", "-") + "-" + name + Path(src).suffix.lower()
+                )
+                staged_assets[name] = {
+                    **asset,
+                    "src": _copy_image(src, target, source_root, work_root),
+                }
+            modular_head_assets[collection_name] = staged_assets
+
         scene_actions = character.get("scene_actions") or {}
         if not isinstance(scene_actions, dict):
             raise IllustrationAssetError(
@@ -143,6 +157,9 @@ def prepare_character_assets(
             "expressions": expressions,
             "pose_assets": pose_assets,
             "props": props,
+            "head_variants": modular_head_assets["head_variants"],
+            "head_angles": modular_head_assets["head_angles"],
+            "head_plate_bounds": character.get("head_plate_bounds"),
             "performance": character.get("performance"),
             "poses": character["poses"],
             "gestures": character["gestures"],

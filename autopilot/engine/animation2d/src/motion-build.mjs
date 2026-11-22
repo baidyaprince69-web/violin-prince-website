@@ -388,14 +388,17 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
         }
       }
       const expressionNames = Object.keys(character.expressions || {});
+      const headVariants = Object.entries(character.head_variants || {});
+      const headAngles = Object.entries(character.head_angles || {});
       const needsExpressionTransform = hasRotation("torso") || hasRotation("head");
       const animatedProps = props.filter(prop => {
         const parentRole = String(prop.attach_to || "torso");
         const parentDependencies = dependencies[parentRole] || [parentRole];
         return parentDependencies.some(hasRotation) || hasRotation("prop:" + prop.id);
       });
+      const hasHeadPlates = headVariants.length > 0 || headAngles.length > 0;
       if (!rolesToAnimate.size && !animatedProps.length &&
-          !(needsExpressionTransform && expressionNames.length)) continue;
+          !(needsExpressionTransform && (expressionNames.length || hasHeadPlates))) continue;
 
       const pivotFor = (jointName, layerRole) =>
         layerPivot(layerByRole.get(layerRole), joints[jointName], sourceWidth, sourceHeight);
@@ -429,6 +432,8 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
 
       const sampledMatrices = new Map([...rolesToAnimate].map(role => [role, []]));
       const sampledExpressionMatrices = new Map(expressionNames.map(name => [name, []]));
+      const sampledHeadVariantMatrices = new Map(headVariants.map(([name]) => [name, []]));
+      const sampledHeadAngleMatrices = new Map(headAngles.map(([name]) => [name, []]));
       const sampledPropMatrices = new Map(animatedProps.map(prop => [prop.id, []]));
 
       for (const offset of sampleOffsets) {
@@ -524,6 +529,16 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
             localCssMatrix(headWorld, character.expressions[name], scale)
           );
         }
+        for (const [name, plate] of headVariants) {
+          sampledHeadVariantMatrices.get(name).push(
+            localCssMatrix(headWorld, plate, scale)
+          );
+        }
+        for (const [name, plate] of headAngles) {
+          sampledHeadAngleMatrices.get(name).push(
+            localCssMatrix(headWorld, plate, scale)
+          );
+        }
         for (const prop of animatedProps) {
           const parentWorld = worldByRole[String(prop.attach_to || "torso")] || torsoWorld;
           const pivot = layerPivot(prop, null, sourceWidth, sourceHeight);
@@ -552,6 +567,30 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
             target: prefix + "-expression-" + name,
             property: "transform",
             values: sampledExpressionMatrices.get(name),
+            offsets: sampleOffsets,
+            start: sceneStart,
+            duration: sceneDuration,
+            easing: "linear"
+          });
+        }
+      }
+      if (needsExpressionTransform) {
+        for (const [name] of headVariants) {
+          transformTracks.push({
+            target: prefix + "-head-variant-" + name,
+            property: "transform",
+            values: sampledHeadVariantMatrices.get(name),
+            offsets: sampleOffsets,
+            start: sceneStart,
+            duration: sceneDuration,
+            easing: "linear"
+          });
+        }
+        for (const [name] of headAngles) {
+          transformTracks.push({
+            target: prefix + "-head-angle-" + name,
+            property: "transform",
+            values: sampledHeadAngleMatrices.get(name),
             offsets: sampleOffsets,
             start: sceneStart,
             duration: sceneDuration,
@@ -881,6 +920,46 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
             actionStart, 140);
         }
       }
+      const selectedHeadAngle = String(action.head_angle || "front").toLowerCase();
+      const headVariantNames = Object.keys(character.head_variants || {});
+      const headAngleNames = Object.keys(character.head_angles || {});
+      const headAngleSequence = Array.isArray(action.head_angle_sequence)
+        ? action.head_angle_sequence.map(value => String(value).toLowerCase())
+          .filter(value => value === "front" || headAngleNames.includes(value))
+        : [];
+      if (headVariantNames.length || headAngleNames.length) {
+        if (headAngleSequence.length > 1) {
+          const sequence = [...headAngleSequence, headAngleSequence[0]];
+          const cycleDuration = Math.max(0.08,
+            Number(action.head_angle_cycle_duration_seconds) || gestureDuration);
+          const sequenceLoop = action.head_angle_loop !== false;
+          for (const name of headVariantNames) {
+            const values = sequence.map(angle =>
+              angle === "front" && name === selectedExpression ? 1 : 0
+            );
+            addKeyframes(prefix + "-head-variant-" + name,
+              { opacity: values }, actionStart, cycleDuration, "linear", sequenceLoop);
+          }
+          for (const name of headAngleNames) {
+            if (name === "front") continue;
+            const values = sequence.map(angle => angle === name ? 1 : 0);
+            addKeyframes(prefix + "-head-angle-" + name,
+              { opacity: values }, actionStart, cycleDuration, "linear", sequenceLoop);
+          }
+        } else {
+          for (const name of headVariantNames) {
+            const active = selectedHeadAngle === "front" && name === selectedExpression;
+            addSpring(prefix + "-head-variant-" + name, "opacity",
+              active ? 0 : 1, active ? 1 : 0, actionStart, 140);
+          }
+          for (const name of headAngleNames) {
+            const active = selectedHeadAngle === name && name !== "front";
+            addSpring(prefix + "-head-angle-" + name, "opacity",
+              active ? 0 : 1, active ? 1 : 0, actionStart, 140);
+          }
+        }
+      }
+
       const eyeTarget = partIdByRole.get("eyes");
       if (eyeTarget) {
         addKeyframes(eyeTarget, { scaleY: [1, 0.12, 1] },

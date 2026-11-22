@@ -1,0 +1,134 @@
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+from PIL import Image, ImageDraw
+
+from reference_sheet_rig import build_reference_sheet_rig
+
+
+def draw_head(draw, center_x, top_y, scale=1.0, skin=(183, 119, 83), hair=(33, 29, 28)):
+    width = int(38 * scale)
+    height = int(48 * scale)
+    draw.ellipse((center_x-width, top_y, center_x+width, top_y+height), fill=hair)
+    draw.ellipse((center_x-int(30*scale), top_y+int(20*scale),
+                  center_x+int(30*scale), top_y+int(86*scale)), fill=skin)
+    draw.rectangle((center_x-int(13*scale), top_y+int(72*scale),
+                    center_x+int(13*scale), top_y+int(112*scale)), fill=skin)
+
+
+def make_head_sheet(path, *, with_lower_parts=False):
+    image = Image.new("RGB", (800, 420), (255, 0, 255))
+    draw = ImageDraw.Draw(image)
+    for center in (100, 300, 500, 700):
+        draw_head(draw, center, 36, scale=0.9)
+    if with_lower_parts:
+        for index in range(12):
+            x = 30 + index * 64
+            y = 280 + (index % 2) * 36
+            draw.ellipse((x, y, x+22, y+18), fill=(80, 55, 48))
+    image.save(path)
+
+
+def make_parts_sheet(path):
+    image = Image.new("RGB", (1000, 700), (255, 0, 255))
+    draw = ImageDraw.Draw(image)
+    for row in range(4):
+        for column in range(5):
+            x = 50 + column * 185
+            y = 50 + row * 150
+            if (row + column) % 2:
+                draw.ellipse((x, y, x+70, y+100), fill=(40, 35, 34))
+            else:
+                draw.rounded_rectangle((x, y, x+82, y+100), radius=12, fill=(150, 95, 64))
+    image.save(path)
+
+
+class ReferenceSheetRigTests(unittest.TestCase):
+    def test_builds_four_expression_plates_four_head_angles_and_parts_catalogue(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            parts = root / "parts.png"
+            expressions = root / "expressions.png"
+            angles = root / "angles.png"
+            make_parts_sheet(parts)
+            make_head_sheet(expressions)
+            make_head_sheet(angles, with_lower_parts=True)
+
+            roles = (
+                "torso", "head", "face",
+                "left_upper_arm", "left_forearm", "left_hand",
+                "right_upper_arm", "right_forearm", "right_hand",
+            )
+            layers = [
+                {"id": role, "role": role, "src": role + ".png",
+                 "x": 160, "y": 45 if role in ("head", "face") else 180,
+                 "width": 120 if role in ("head", "face") else 180,
+                 "height": 160 if role in ("head", "face") else 210}
+                for role in roles
+            ]
+            joints = {
+                name: {"x": 0.5, "y": 0.3}
+                for name in (
+                    "neck", "left_shoulder", "left_elbow", "left_wrist",
+                    "right_shoulder", "right_elbow", "right_wrist",
+                )
+            }
+            character_path = root / "character.json"
+            character_path.write_text(json.dumps({
+                "id": "violin-prince",
+                "canvas": {"width": 500, "height": 600},
+                "layers": layers,
+                "joints": joints,
+                "expressions": {
+                    "neutral": {"src": "neutral.png"},
+                    "smile": {"src": "smile.png"},
+                },
+            }), encoding="utf-8")
+
+            report = build_reference_sheet_rig(
+                character_path, root,
+                rigging_sheet_path=parts,
+                expression_sheet_path=expressions,
+                head_angle_sheet_path=angles,
+            )
+            character = json.loads(character_path.read_text(encoding="utf-8"))
+            self.assertEqual(set(character["head_variants"]), {
+                "happy", "focused", "surprised", "neutral"
+            })
+            self.assertEqual(set(character["head_angles"]), {
+                "front", "three_quarter", "profile_right", "profile_left"
+            })
+            self.assertGreaterEqual(report["reference_part_count"], 12)
+            self.assertEqual(report["reference_parts_mapping"], "unassigned_review_required")
+            self.assertTrue((root / "reference-parts-contact-sheet.png").is_file())
+            for asset in list(character["head_variants"].values()) + list(character["head_angles"].values()):
+                image = Image.open(root / asset["src"]).convert("RGBA")
+                self.assertEqual(image.getchannel("A").getextrema()[0], 0)
+                self.assertGreater(image.getchannel("A").getextrema()[1], 0)
+
+    def test_rejects_expression_sheet_without_four_separate_heads(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            parts = root / "parts.png"
+            expressions = root / "expressions.png"
+            angles = root / "angles.png"
+            make_parts_sheet(parts)
+            image = Image.new("RGB", (800, 420), (255, 0, 255))
+            draw_head(ImageDraw.Draw(image), 200, 40)
+            image.save(expressions)
+            make_head_sheet(angles)
+            character_path = root / "character.json"
+            character_path.write_text("{}", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "Expected four separated"):
+                build_reference_sheet_rig(
+                    character_path, root,
+                    rigging_sheet_path=parts,
+                    expression_sheet_path=expressions,
+                    head_angle_sheet_path=angles,
+                )
+
+
+if __name__ == "__main__":
+    unittest.main()

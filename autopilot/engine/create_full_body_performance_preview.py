@@ -33,7 +33,7 @@ def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dic
         raise ValueError("The candidate character bundle is not marked as an instrument-performance rig.")
     for layer in character.get("layers", []):
         layer["src"] = stage_asset(bundle, asset_root, layer["src"])
-    for collection_name in ("expressions", "pose_assets", "props"):
+    for collection_name in ("expressions", "pose_assets", "props", "head_variants", "head_angles"):
         for asset in (character.get(collection_name) or {}).values():
             asset["src"] = stage_asset(bundle, asset_root, asset["src"])
 
@@ -52,6 +52,9 @@ def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dic
                 "gesture": "violin_performance",
                 "instrument_performance": True,
                 "expression": "neutral",
+                "head_angle": "front",
+                "head_angle_sequence": ["front", "three_quarter", "front", "profile_right", "front"],
+                "head_angle_cycle_duration_seconds": 7.2,
                 "x": 46,
                 "y": 58,
                 "scale": 0.84,
@@ -117,6 +120,8 @@ def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dic
         "canvas": [project["width"], project["height"]],
         "layer_count": len(character.get("layers", [])),
         "prop_ids": sorted((character.get("props") or {}).keys()),
+        "head_variant_ids": sorted((character.get("head_variants") or {}).keys()),
+        "head_angle_ids": sorted((character.get("head_angles") or {}).keys()),
         "publishing": "disabled",
         "preview_only": True,
     }
