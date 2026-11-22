@@ -70,6 +70,37 @@ def _build_preview_music_sync(
                 "Audio beat analysis did not produce a reliable beat map. "
                 "Supply a clearer audio source or a verified BPM."
             )
+        note_events: list[dict[str, Any]] = []
+        if music_map is not None:
+            raw_events = music_map.get("note_events")
+            if not isinstance(raw_events, list) or not raw_events:
+                raise ValueError("The sampled-violin arrangement has no note-level event map.")
+            for event in raw_events:
+                try:
+                    note_time = float(event["time"])
+                    note = int(event["note"])
+                    velocity = int(event["velocity"])
+                    note_duration = float(event["duration_seconds"])
+                except (KeyError, TypeError, ValueError) as exc:
+                    raise ValueError("A sampled-violin note event is incomplete.") from exc
+                if (
+                    not 0 <= note_time < float(music_map["duration_seconds"])
+                    or not 0 <= note <= 127
+                    or not 1 <= velocity <= 127
+                    or not 0 < note_duration <= 8
+                ):
+                    raise ValueError("A sampled-violin note event is outside its valid range.")
+                note_events.append({
+                    "time": round(note_time, 4),
+                    "note": note,
+                    "velocity": velocity,
+                    "duration_seconds": round(note_duration, 4),
+                })
+            mapped_onsets = [event["time"] for event in note_events]
+            declared_onsets = [round(float(value), 4) for value in music_map["onsets"]]
+            if mapped_onsets != declared_onsets:
+                raise ValueError("The note-event times do not match the declared sampled-violin onsets.")
+            note_events = [event for event in note_events if event["time"] < duration]
         if not onsets and beats:
             beat_period = 60.0 / float(analysis["bpm"])
             onsets = [
@@ -101,6 +132,7 @@ def _build_preview_music_sync(
             "analysis_source": analysis.get("source"),
             "decode_backend": analysis.get("decode_backend"),
             "decoded_audio_duration_seconds": analysis.get("duration_seconds"),
+            "note_events": note_events,
         }
 
     tempo = 100.0 if bpm is None else float(bpm)
@@ -178,15 +210,48 @@ def build_preview_project(
         "duration": 8,
         "visual_mode": "full_body_performance",
         "background_color": "#08111b",
-        "graphic_label": "FULL-BODY RIG TEST",
+        "graphic_label": "MIDNIGHT SESSION",
         "title": "",
         "caption": "",
+        "director_camera": {
+            "movement": "dolly_in",
+            "shot_size": "wide",
+        },
+        "stagecraft": {
+            "environment": "concert_stage",
+            "objects": [
+                {
+                    "id": "gold-resonance-ring",
+                    "kind": "ring",
+                    "x": 0.51,
+                    "y": 0.70,
+                    "size": 165,
+                    "color": "#d9b77a",
+                    "motion": "pulse",
+                    "amplitude": 9,
+                    "period_seconds": 3.0,
+                },
+                {
+                    "id": "teal-stage-dust",
+                    "kind": "particle",
+                    "x": 0.76,
+                    "y": 0.39,
+                    "size": 10,
+                    "color": "#70c4c2",
+                    "motion": "float",
+                    "amplitude": 26,
+                    "period_seconds": 2.8,
+                },
+            ],
+        },
+        "camera_motion_duration": 8,
+        "camera_easing": "ease-in-out",
         "character_actions": {
             "violin-prince": {
                 "visible": True,
                 "gesture": "violin_performance",
                 "instrument_performance": True,
-                "expression": "neutral",
+                "expression": "focused",
                 **({} if composite_base_mode else {
                     "head_angle": "front",
                     "head_angle_sequence": ["front", "three_quarter", "profile_right", "profile_left", "front"],
