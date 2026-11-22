@@ -61,7 +61,7 @@ const project = {
         instrument_performance: true,
         expression: "focused",
         head_angle: "front",
-        head_angle_sequence: ["front", "three_quarter", "profile_right", "front"],
+        head_angle_sequence: ["front", "three_quarter", "profile_right", "profile_left", "front"],
         head_angle_cycle_duration_seconds: 3,
         loop: true,
         cycle_duration_seconds: 2,
