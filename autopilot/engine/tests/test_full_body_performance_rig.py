@@ -252,6 +252,15 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                 "beat_times": [round(index * 0.75, 4) for index in range(32)],
                 "downbeats": [round(index * 0.75, 4) for index in range(0, 32, 4)],
                 "onsets": [0.0, 1.5, 3.0, 4.5, 6.0, 7.5, 9.0],
+                "note_events": [
+                    {"time": 0.0, "note": 62, "velocity": 60, "duration_seconds": 1.5},
+                    {"time": 1.5, "note": 65, "velocity": 58, "duration_seconds": 0.75},
+                    {"time": 3.0, "note": 67, "velocity": 64, "duration_seconds": 0.75},
+                    {"time": 4.5, "note": 69, "velocity": 72, "duration_seconds": 1.5},
+                    {"time": 6.0, "note": 72, "velocity": 78, "duration_seconds": 0.75},
+                    {"time": 7.5, "note": 70, "velocity": 66, "duration_seconds": 0.75},
+                    {"time": 9.0, "note": 69, "velocity": 70, "duration_seconds": 1.5},
+                ],
             }
             verified_analysis = {
                 "status": "metadata_verified",
@@ -286,6 +295,9 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             self.assertEqual(timing["downbeats"], [0.0, 3.0, 6.0])
             self.assertEqual(timing["onsets"], music_map["onsets"][:6])
             self.assertEqual(timing["decode_backend"], "soundfile")
+            self.assertEqual(len(timing["note_events"]), 6)
+            self.assertEqual(timing["note_events"][0]["note"], 62)
+            self.assertEqual(timing["note_events"][-1]["time"], 7.5)
 
     def test_segmented_source_base_preserves_untouched_pixels_and_alpha(self):
         import tempfile
