@@ -10,7 +10,7 @@ from pathlib import Path
 ENGINE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ENGINE_DIR))
 
-from procedural_director_renderer import build_procedural_director_project
+from procedural_director_renderer import ProceduralDirectorError, build_procedural_director_project
 from master_creative_director import validate_director_plan
 
 
@@ -77,7 +77,7 @@ class ProceduralDirectorRendererTests(unittest.TestCase):
         bad["storyboard"]["shots"][0]["procedural_scene"]["objects"][0]["kind"] = "background_jpeg"
         self.assertTrue(any("kind is unsupported" in issue for issue in validate_director_plan(bad)))
         with tempfile.TemporaryDirectory() as temporary:
-            with self.assertRaises(ValueError):
+            with self.assertRaises(ProceduralDirectorError):
                 build_procedural_director_project(bad, temporary, rig_bundle_dir=RIG_BUNDLE)
             self.assertFalse((Path(temporary) / "project.json").exists())
 
