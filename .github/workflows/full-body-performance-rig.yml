@@ -1,0 +1,194 @@
+name: Full-Body Violin Performance Rig Preview
+
+on:
+  push:
+    branches:
+      - feat/fullbody-violin-performance-rig
+    paths:
+      - "autopilot/engine/**"
+      - ".github/workflows/full-body-performance-rig.yml"
+  pull_request:
+    branches:
+      - feat/procedural-2d-animation-engine
+    paths:
+      - "autopilot/engine/**"
+      - ".github/workflows/full-body-performance-rig.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: full-body-performance-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      PUBLISH_ENABLED: "false"
+      AUTOPILOT_ENABLED: "false"
+      HYPERFRAMES_NO_UPDATE_CHECK: "1"
+      CI: "true"
+    steps:
+      - name: Check out the isolated full-body rig branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            autopilot/engine/requirements-character.txt
+
+      - name: Install CPU-only semantic parsing dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
+          pip install -r autopilot/engine/requirements-character.txt
+          pip install "Pillow>=10.4,<12" "numpy>=1.24,<3" "cryptography>=42,<47"
+
+      - name: Run full-body leg and instrument rig unit tests
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python -m unittest discover -s autopilot/engine/tests -p "test_full_body_performance_rig.py" -v
+          python -m unittest discover -s autopilot/engine/tests -p "test_character_rig.py" -v
+
+      - name: Run Auto-Rig and create base articulated body layers
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python autopilot/engine/character_autorig.py \
+            --source autopilot/engine/assets/characters/violin-prince-performance/master-character-performance.webp \
+            --reference-dir autopilot/engine/assets/characters/violin-prince-reference \
+            --output work/full-body-rig/bundle \
+            --id violin-prince
+
+      - name: Add hips, knees, ankles, fingers, violin and bow
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python autopilot/engine/full_body_performance_rig.py \
+            --source autopilot/engine/assets/characters/violin-prince-performance/master-character-performance.webp \
+            --bundle work/full-body-rig/bundle \
+            --prop-dir autopilot/engine/assets/characters/violin-prince-performance \
+            --instrument-manifest autopilot/engine/assets/characters/violin-prince-performance/instrument-props.json \
+            --finger-manifest autopilot/engine/assets/characters/violin-prince-performance/finger-regions.json \
+            --neutral-apose autopilot/engine/assets/characters/violin-prince-performance/neutral-apose-reference.webp
+
+      - name: Build the isolated 8-second performance project
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python autopilot/engine/create_full_body_performance_preview.py \
+            --bundle work/full-body-rig/bundle \
+            --output work/full-body-rig
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: autopilot/engine/animation2d/package-lock.json
+
+      - name: Install Motion and HyperFrames
+        working-directory: autopilot/engine/animation2d
+        run: npm install --no-audit --no-fund
+
+      - name: Run all animation contract and full-body motion tests
+        working-directory: autopilot/engine/animation2d
+        run: npm test
+
+      - name: Build the full-body composition
+        working-directory: autopilot/engine/animation2d
+        run: |
+          node build.mjs \
+            --project ../../../work/full-body-rig/project.json \
+            --out-dir ../../../work/full-body-rig/composition
+          mkdir -p ../../../work/full-body-rig/composition/assets/characters
+          cp -R ../../../work/full-body-rig/assets/characters/violin-prince \
+            ../../../work/full-body-rig/composition/assets/characters/
+          cp ../../../work/full-body-rig/bundle/full-body-performance-report.json \
+            ../../../work/full-body-rig/
+
+      - name: Verify full-body motion QA gate
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("work/full-body-rig/composition/motion-report.json").read_text())
+          assert report.get("full_body_performance_scene_count") == 1, report
+          assert report.get("animated_full_body_part_count") == 6, report
+          assert report.get("animated_fingering_control_count") == 4, report
+          assert report.get("animated_instrument_prop_count") == 2, report
+          print(json.dumps({
+              "full_body_scenes": report["full_body_performance_scene_count"],
+              "leg_parts": report["animated_full_body_part_count"],
+              "finger_controls": report["animated_fingering_control_count"],
+              "instrument_props": report["animated_instrument_prop_count"],
+              "motion_tracks": report["total_motion_tracks"],
+          }, indent=2))
+          PY
+
+      - name: Lint the built HyperFrames composition
+        working-directory: work/full-body-rig/composition
+        run: $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes lint
+
+      - name: Install FFmpeg for preview rendering and contact sheet
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Render the non-publishing full-body performance preview
+        working-directory: work/full-body-rig/composition
+        run: |
+          $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes render \
+            --output ../full-body-violin-performance.mp4 \
+            --fps 25 \
+            --quality standard
+
+      - name: Create a visual review contact sheet
+        run: |
+          mkdir -p work/full-body-rig/frames
+          for t in 0.5 2.0 3.5 5.0 6.5 7.5; do
+            ffmpeg -hide_banner -loglevel error \
+              -ss "$t" -i work/full-body-rig/full-body-violin-performance.mp4 \
+              -frames:v 1 -q:v 2 "work/full-body-rig/frames/frame-$t.jpg"
+          done
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageDraw
+          files = sorted(Path("work/full-body-rig/frames").glob("*.jpg"))
+          if len(files) != 6:
+              raise SystemExit(f"Expected six sampled frames, got {len(files)}")
+          thumbs = []
+          for path in files:
+              image = Image.open(path).convert("RGB")
+              image.thumbnail((240, 426))
+              thumbs.append((path.stem, image.copy()))
+          canvas = Image.new("RGB", (240 * 3, 452 * 2), (12, 18, 28))
+          draw = ImageDraw.Draw(canvas)
+          for index, (label, image) in enumerate(thumbs):
+              x = (index % 3) * 240
+              y = (index // 3) * 452
+              canvas.paste(image, (x, y + 24))
+              draw.text((x + 8, y + 6), label, fill=(240, 230, 210))
+          canvas.save("work/full-body-rig/full-body-performance-contact-sheet.jpg", quality=94)
+          PY
+
+      - name: Upload preview and QA evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-body-violin-performance-preview-${{ github.run_number }}
+          path: |
+            work/full-body-rig/full-body-violin-performance.mp4
+            work/full-body-rig/full-body-performance-contact-sheet.jpg
+            work/full-body-rig/bundle/full-body-performance-report.json
+            work/full-body-rig/composition/motion-report.json
+            work/full-body-rig/bundle/separation-preview.png
+            work/full-body-rig/bundle/character.json
+            work/full-body-rig/project.json
+          if-no-files-found: error
+          retention-days: 7
