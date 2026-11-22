@@ -6,6 +6,55 @@ from full_body_performance_rig import _foot_mask, _leg_layers
 
 
 class FullBodyPerformanceRigTests(unittest.TestCase):
+    def test_preserved_composite_keeps_body_and_cuts_only_bow_and_finger_regions(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        from PIL import ImageDraw
+
+        from full_body_performance_rig import _build_preserved_composite_base
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = Image.new("RGBA", (64, 64), (42, 48, 55, 255))
+            draw = ImageDraw.Draw(source)
+            draw.rectangle((8, 24, 22, 40), fill=(185, 122, 86, 255))
+            draw.line((31, 8, 31, 55), fill=(245, 238, 225, 255), width=3)
+            original_hand_pixel = source.getpixel((14, 30))
+            bow_alpha = np.zeros((64, 64), dtype=np.uint8)
+            bow_alpha[6:58, 29:34] = 255
+
+            finger_manifest = root / "fingers.json"
+            finger_manifest.write_text(json.dumps({
+                "schema_version": 1,
+                "canvas": {"width": 64, "height": 64},
+                "fingers": {
+                    "index": {
+                        "polygon": [[9, 9], [16, 9], [16, 19], [9, 19]],
+                        "pivot": [13, 18]
+                    }
+                }
+            }), encoding="utf-8")
+
+            result = _build_preserved_composite_base(
+                source,
+                root,
+                bow_canvas_alpha=bow_alpha,
+                finger_manifest_path=finger_manifest,
+            )
+            with Image.open(root / result["src"]) as opened:
+                composite = opened.convert("RGBA")
+            pixels = np.asarray(composite)
+            self.assertEqual(composite.size, (64, 64))
+            self.assertEqual(tuple(pixels[30, 14]), original_hand_pixel)
+            self.assertEqual(int(pixels[12, 12, 3]), 0)
+            self.assertEqual(int(pixels[30, 31, 3]), 255)
+            self.assertLess(int(pixels[30, 31, :3].max()), 245)
+            self.assertEqual(result["mode"], "intact_full_body_with_bow_and_finger_cutouts")
+            self.assertTrue(result["preserves_original_arms_hands_legs_and_head"])
+            self.assertGreater(result["bow_pixels_reconstructed"], 0)
+            self.assertGreater(result["finger_pixels_separated"], 0)
+
     def test_shoe_mask_isolated_from_trouser_and_connected_to_bottom(self):
         width, height, split_x = 100, 120, 50
         rgb = np.full((height, width, 3), 220, dtype=np.uint8)
