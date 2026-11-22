@@ -287,6 +287,9 @@ def publish_daily_short(
     expected_slot_id: str,
     production_date: str | None = None,
 ) -> dict[str, Any]:
+    raise PublishBlocked(
+        "Direct public YouTube publication is disabled. Use upload_private_preview_uploadpost.py."
+    )
     if os.environ.get("GITHUB_REF_NAME") != "main":
         raise PublishBlocked("Scheduled public publication must execute from main.")
     if os.environ.get("YOUTUBE_PRIVACY_STATUS", "").strip().lower() != "public":
