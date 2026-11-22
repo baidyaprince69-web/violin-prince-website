@@ -187,7 +187,7 @@ class DailyPlanEvidenceTests(unittest.TestCase):
     def test_workflow_exposes_four_non_cancelling_six_hour_slots(self):
         workflow_path = ENGINE_DIR.parents[1] / ".github" / "workflows" / "violin-prince-autopilot.yml"
         workflow = workflow_path.read_text(encoding="utf-8")
-        for cron in ('"0 0 * * *"', '"0 6 * * *"', '"0 12 * * *"', '"0 18 * * *"'):
+        for cron in ('"11 0 * * *"', '"11 6 * * *"', '"11 12 * * *"', '"11 18 * * *"'):
             self.assertIn(f"- cron: {cron}", workflow)
         self.assertIn("select_public_queue.py", workflow)
         self.assertIn("Select the next unused public-ready story from the scheduled date's batch", workflow)
