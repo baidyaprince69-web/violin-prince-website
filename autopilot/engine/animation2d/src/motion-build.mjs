@@ -333,6 +333,7 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
       if (action.visible === false) continue;
 
       const prefix = scene.id + "-" + character.id;
+      const compositeBaseMode = Boolean(character.base_art && character.base_art.src);
       const layers = character.layers || [];
       const props = Object.values(character.props || {});
       const layerByRole = new Map(layers.map(layer => [layer.role, layer]));
@@ -380,6 +381,16 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
         finger_ring: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_ring"],
         finger_little: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_little"]
       };
+      if (compositeBaseMode) {
+        // The source composite already contains complete arms and legs. Keep
+        // those pixels together; animate only the preserved bow hand and the
+        // four separately cut finger sprites over the complete-body plate.
+        dependencies.left_hand = ["torso"];
+        dependencies.finger_index = ["finger_index"];
+        dependencies.finger_middle = ["finger_middle"];
+        dependencies.finger_ring = ["finger_ring"];
+        dependencies.finger_little = ["finger_little"];
+      }
 
       const rolesToAnimate = new Set();
       for (const [role, ancestors] of Object.entries(dependencies)) {
@@ -387,11 +398,20 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
           rolesToAnimate.add(role);
         }
       }
-      const expressionNames = Object.keys(character.expressions || {});
-      const headVariants = Object.entries(character.head_variants || {});
-      const headAngles = Object.entries(character.head_angles || {});
-      const needsExpressionTransform = hasRotation("torso") || hasRotation("head");
+      if (compositeBaseMode) {
+        for (const role of [...rolesToAnimate]) {
+          if (role !== "torso" && role !== "left_hand" && !role.startsWith("finger_")) {
+            rolesToAnimate.delete(role);
+          }
+        }
+      }
+      const expressionNames = compositeBaseMode ? [] : Object.keys(character.expressions || {});
+      const headVariants = compositeBaseMode ? [] : Object.entries(character.head_variants || {});
+      const headAngles = compositeBaseMode ? [] : Object.entries(character.head_angles || {});
+      const needsExpressionTransform = !compositeBaseMode &&
+        (hasRotation("torso") || hasRotation("head"));
       const animatedProps = props.filter(prop => {
+        if (compositeBaseMode && prop.id !== "bow") return false;
         const parentRole = String(prop.attach_to || "torso");
         const parentDependencies = dependencies[parentRole] || [parentRole];
         return parentDependencies.some(hasRotation) || hasRotation("prop:" + prop.id);
@@ -423,7 +443,12 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
         finger_little: pivotFor("right_little_base", "finger_little")
       };
 
+      const compositeStaticRoles = new Set([
+        "head", "left_upper_arm", "left_forearm", "right_upper_arm", "right_forearm", "right_hand",
+        "left_thigh", "left_calf", "left_foot", "right_thigh", "right_calf", "right_foot"
+      ]);
       const localAngle = (role, time) => {
+        if (compositeBaseMode && compositeStaticRoles.has(role)) return 0;
         const candidates = rotationTracks.get(role) || [];
         if (!candidates.length) return 0;
         const selected = candidates[candidates.length - 1];
@@ -431,6 +456,7 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
       };
 
       const sampledMatrices = new Map([...rolesToAnimate].map(role => [role, []]));
+      const sampledBaseArtMatrices = compositeBaseMode ? [] : null;
       const sampledExpressionMatrices = new Map(expressionNames.map(name => [name, []]));
       const sampledHeadVariantMatrices = new Map(headVariants.map(([name]) => [name, []]));
       const sampledHeadAngleMatrices = new Map(headAngles.map(([name]) => [name, []]));
@@ -439,6 +465,13 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
       for (const offset of sampleOffsets) {
         const time = sceneStart + offset * sceneDuration;
         const torsoWorld = aroundPivot(torsoPivot, localAngle("torso", time));
+        if (compositeBaseMode) {
+          sampledBaseArtMatrices.push(localCssMatrix(
+            torsoWorld,
+            { x: 0, y: 0, width: sourceWidth, height: sourceHeight },
+            scale
+          ));
+        }
         const headWorld = multiplyMatrix(
           torsoWorld,
           aroundPivot(neckPivot, localAngle("head", time))
@@ -550,6 +583,17 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
         }
       }
 
+      if (compositeBaseMode) {
+        transformTracks.push({
+          target: prefix + "-base-art",
+          property: "transform",
+          values: sampledBaseArtMatrices,
+          offsets: sampleOffsets,
+          start: sceneStart,
+          duration: sceneDuration,
+          easing: "linear"
+        });
+      }
       for (const role of rolesToAnimate) {
         transformTracks.push({
           target: prefix + "-part-" + layerByRole.get(role).id,
