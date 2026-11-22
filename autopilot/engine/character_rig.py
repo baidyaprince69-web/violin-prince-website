@@ -15,6 +15,14 @@ REQUIRED_JOINTS = frozenset({
     "neck", "left_shoulder", "left_elbow", "left_wrist",
     "right_shoulder", "right_elbow", "right_wrist",
 })
+FULL_BODY_LAYER_ROLES = frozenset({
+    "left_thigh", "left_shin", "left_foot",
+    "right_thigh", "right_shin", "right_foot",
+})
+FULL_BODY_JOINTS = frozenset({
+    "left_hip", "left_knee", "left_ankle",
+    "right_hip", "right_knee", "right_ankle",
+})
 
 
 class CharacterRigError(ValueError):
@@ -74,7 +82,10 @@ def validate_character_spec(character: dict[str, Any]) -> dict[str, Any]:
             "z_index": int(layer.get("z_index", index + 1)),
         })
 
-    missing_roles = sorted(REQUIRED_LAYER_ROLES - roles)
+    required_roles = REQUIRED_LAYER_ROLES | (
+        FULL_BODY_LAYER_ROLES if str(character.get("body_scope") or "").casefold() == "full_body" else frozenset()
+    )
+    missing_roles = sorted(required_roles - roles)
     if missing_roles:
         raise CharacterRigError(
             f"Character {character_id} is missing required illustration layers: "
@@ -84,7 +95,10 @@ def validate_character_spec(character: dict[str, Any]) -> dict[str, Any]:
     joints = character.get("joints")
     if not isinstance(joints, dict):
         raise CharacterRigError(f"Character {character_id} must define its joint anchors.")
-    missing_joints = sorted(REQUIRED_JOINTS - set(joints))
+    required_joints = REQUIRED_JOINTS | (
+        FULL_BODY_JOINTS if str(character.get("body_scope") or "").casefold() == "full_body" else frozenset()
+    )
+    missing_joints = sorted(required_joints - set(joints))
     if missing_joints:
         raise CharacterRigError(
             f"Character {character_id} is missing joints: " + ", ".join(missing_joints)
@@ -131,6 +145,33 @@ def validate_character_spec(character: dict[str, Any]) -> dict[str, Any]:
             raise CharacterRigError(f"Pose asset {pose_name} has no image source.")
         pose_assets[pose_name] = {"src": str(src).strip()}
 
+    raw_props = character.get("props") or {}
+    if not isinstance(raw_props, dict):
+        raise CharacterRigError(f"Character {character_id} props must be an object.")
+    normalised_props = {}
+    for name, value in raw_props.items():
+        prop_id = str(name).strip().casefold()
+        if not CHARACTER_ID.fullmatch(prop_id) or not isinstance(value, dict):
+            raise CharacterRigError(f"Character {character_id} has an invalid prop entry.")
+        src = str(value.get("src") or "").strip()
+        if not src:
+            raise CharacterRigError(f"Character prop {prop_id} has no image source.")
+        geometry = {}
+        for key, default in (("x", 0), ("y", 0), ("width", 1), ("height", 1)):
+            number = _finite_number(value.get(key, default), f"{character_id}.{prop_id}.{key}")
+            if key in ("width", "height") and number <= 0:
+                raise CharacterRigError(f"{character_id}.{prop_id}.{key} must be positive.")
+            geometry[key] = number
+        pivot_x = _finite_number(value.get("pivot_x", 0.5), f"{character_id}.{prop_id}.pivot_x")
+        pivot_y = _finite_number(value.get("pivot_y", 0.5), f"{character_id}.{prop_id}.pivot_y")
+        if not 0 <= pivot_x <= 1 or not 0 <= pivot_y <= 1:
+            raise CharacterRigError(f"Character prop {prop_id} pivots must be between 0 and 1.")
+        normalised_props[prop_id] = {
+            **value, "src": src, **geometry,
+            "pivot_x": pivot_x, "pivot_y": pivot_y,
+            "z_index": int(value.get("z_index", 50)),
+        }
+
     return {
         **character,
         "id": character_id,
@@ -140,6 +181,8 @@ def validate_character_spec(character: dict[str, Any]) -> dict[str, Any]:
         "poses": poses,
         "gestures": gestures,
         "pose_assets": pose_assets,
+        "props": normalised_props,
+        "body_scope": str(character.get("body_scope") or "upper_body"),
         "scene_actions": character.get("scene_actions") or {},
         "scene_ids": character.get("scene_ids"),
     }
