@@ -334,14 +334,32 @@ def _build_bow_grip_hand_overlay(
     green = rgba[:, :, 1].astype(np.int16)
     blue = rgba[:, :, 2].astype(np.int16)
 
-    region = np.zeros((height, width), dtype=bool)
-    region[y0:y1, x0:x1] = True
-    # Restrict the hand extraction to warm skin pixels. The bow shaft and
-    # pale bow hair are intentionally excluded, even where they cross fingers.
+    # Reuse the source hand silhouette as a spatial guard, then remove any
+    # bow pixels from that region using a warm-skin colour test.
+    hand_path = bundle_dir / str(original_layer["src"])
+    with Image.open(hand_path) as opened_hand:
+        local_hand_alpha = np.asarray(opened_hand.convert("RGBA").getchannel("A"), dtype=np.uint8)
+    hx, hy = int(original_layer["x"]), int(original_layer["y"])
+    hand_seed = np.zeros((height, width), dtype=np.uint8)
+    hand_seed[hy:hy + local_hand_alpha.shape[0], hx:hx + local_hand_alpha.shape[1]] = (
+        local_hand_alpha > 12
+    ).astype(np.uint8)
+    allowed = cv2.dilate(
+        hand_seed,
+        cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)),
+        iterations=1,
+    ) > 0
+    allowed[:y0, :] = False
+    allowed[y1:, :] = False
+    allowed[:, :x0] = False
+    allowed[:, x1:] = False
+
+    # The bow shaft and pale bow hair are intentionally excluded, even where
+    # they cross the fingers. A one-pixel dilation retains the hand outline.
     skin = (
         (red >= 135) & (green >= 65) &
         ((red - green) >= 15) & ((green - blue) >= 10) &
-        ((red - blue) >= 40) & region &
+        ((red - blue) >= 40) & allowed &
         (rgba[:, :, 3] > 16)
     )
     skin = cv2.morphologyEx(
@@ -354,7 +372,7 @@ def _build_bow_grip_hand_overlay(
         np.ones((3, 3), dtype=np.uint8),
         iterations=1,
     ) > 0
-    hand_mask &= region & (rgba[:, :, 3] > 16)
+    hand_mask &= allowed & (rgba[:, :, 3] > 16)
     hand_area = int(hand_mask.sum())
     if hand_area < 180:
         raise ManualReviewRequired(
