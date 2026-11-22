@@ -482,6 +482,15 @@ def extend_full_body_character(
     ) if finger_path else ([], {}, {})
     character["layers"].extend(finger_layers)
     character["joints"].update(finger_joints)
+    composite_base = _build_preserved_composite_base(
+        source,
+        bundle,
+        bow_canvas_alpha=prop_masks["bow"],
+        character=character,
+        finger_manifest_path=finger_path,
+    )
+    character["base_art"] = composite_base
+    character["performance_base_mode"] = "composite_full_body_review"
     character["props"] = props
     character["performance"] = {
         "schema": "violin-prince-fullbody-performance-v1",
@@ -490,6 +499,7 @@ def extend_full_body_character(
         "bow_prop_id": "bow",
         "violin_prop_id": "violin",
         "review_required": True,
+        "compositing_mode": "intact_full_body_plate_with_separate_bow_and_fingers",
     }
 
     # Preserve the provided neutral A-pose as a review source, not as a runtime overlay.
@@ -527,7 +537,9 @@ def extend_full_body_character(
         "finger_pixel_areas": finger_areas,
         "prop_report": prop_report,
         "body_plate_prop_pixels_removed": removed_by_role,
-        "prop_compositing": "independent_overlay_layers_preserve_body_plates",
+        "prop_compositing": "intact_full_body_composite_base_with_separate_bow_and_fingers",
+        "composite_base": composite_base,
+        "segmented_limb_masks_status": "retained_for_rework_not_rendered_in_preview",
         "neutral_apose_reference": neutral_report,
         "publishing": "disabled",
         "preview_only": True,
