@@ -22,7 +22,7 @@ class WorkflowPublicationContractTests(unittest.TestCase):
         self.assertNotIn("Preserve stage diagnostics", self.workflow_text)
 
     def test_scheduled_ready_slots_publish_publicly_through_upload_post(self):
-        self.assertIn("Select the next unused public-ready story from the rolling backlog", self.workflow_text)
+        self.assertIn("Select the next unused public-ready story from the scheduled date's batch", self.workflow_text)
         self.assertIn("group: violin-prince-public-youtube-queue", self.workflow_text)
         self.assertIn("select_public_queue.py", self.workflow_text)
         self.assertIn("Publish approved daily slot PUBLICLY to YouTube via Upload-Post", self.workflow_text)

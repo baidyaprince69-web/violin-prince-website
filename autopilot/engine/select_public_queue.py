@@ -45,17 +45,28 @@ def select_next_public_plan(
     root: str | Path,
     *,
     after_date: str | None = None,
+    production_date: str | None = None,
     batches_dir: str = ".autopilot/daily-batches",
     attempts_dir: str = ".autopilot/public-youtube-attempts",
     receipts_dir: str = ".autopilot/public-youtube-receipts",
 ) -> dict[str, Any]:
-    """Return the earliest ready, public, unused plan from today onwards."""
+    """Return the earliest ready, public, unused plan for an exact date or lower bound."""
     root = Path(root).resolve()
-    after_date = after_date or date.today().isoformat()
-    try:
-        date.fromisoformat(after_date)
-    except ValueError as exc:
-        raise ValueError("after_date must use YYYY-MM-DD.") from exc
+    if after_date and production_date:
+        raise ValueError("Use either production_date for an exact batch or after_date for a rolling lower bound, not both.")
+    if production_date:
+        try:
+            if date.fromisoformat(production_date).isoformat() != production_date:
+                raise ValueError("not canonical")
+        except ValueError as exc:
+            raise ValueError("production_date must use canonical YYYY-MM-DD.") from exc
+    else:
+        after_date = after_date or date.today().isoformat()
+        try:
+            if date.fromisoformat(after_date).isoformat() != after_date:
+                raise ValueError("not canonical")
+        except ValueError as exc:
+            raise ValueError("after_date must use canonical YYYY-MM-DD.") from exc
 
     batch_root = (root / batches_dir).resolve()
     attempt_root = (root / attempts_dir).resolve()
@@ -73,7 +84,12 @@ def select_next_public_plan(
             date.fromisoformat(batch_date)
         except ValueError:
             continue
-        if batch_date < after_date:
+        if production_date is not None:
+            # Scheduled runs must be pinned to the date implied by their cron slot.
+            # Never fall forward into a later day when that batch is exhausted or absent.
+            if batch_date != production_date:
+                continue
+        elif batch_date < after_date:
             continue
         checked_batches += 1
         try:
@@ -113,7 +129,11 @@ def select_next_public_plan(
         return {
             "ready": False,
             "slot_status": "blocked",
+            "production_date": production_date or "",
             "blocked_reason": (
+                f"No unused, public-ready story exists in the exact {production_date} batch. "
+                "The scheduled run will not fall forward into another production date."
+                if production_date else
                 "No unused, public-ready story exists in today's or any later prepared batch. "
                 "Prepare another source-checked batch to refill the rolling queue."
             ),
@@ -137,15 +157,19 @@ def select_next_public_plan(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default=".")
-    parser.add_argument("--after-date", default=None, help="Earliest eligible batch date, inclusive.")
+    date_group = parser.add_mutually_exclusive_group()
+    date_group.add_argument("--after-date", default=None, help="Earliest eligible batch date, inclusive (rolling queue mode).")
+    date_group.add_argument("--production-date", default=None, help="Select only this exact Asia/Kolkata production batch; never fall forward.")
     args = parser.parse_args(argv)
 
     after_date = args.after_date
-    if not after_date:
+    if not after_date and not args.production_date:
         from datetime import datetime
         after_date = datetime.now(ZoneInfo(TIMEZONE)).date().isoformat()
 
-    result = select_next_public_plan(args.root, after_date=after_date)
+    result = select_next_public_plan(
+        args.root, after_date=after_date, production_date=args.production_date
+    )
     outputs = {
         "slot_status": str(result.get("slot_status") or "blocked"),
         "slot_id": str(result.get("slot_id") or ""),
