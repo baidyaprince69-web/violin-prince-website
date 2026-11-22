@@ -8,12 +8,15 @@ on:
       - ".autopilot/prepare-request.json"
       - ".autopilot/daily-production-plan.json"
   schedule:
-    # Four six-hour slots, offset from GitHub's busy :00 UTC boundary.
-    # 00:11, 06:11, 12:11 and 18:11 UTC = 05:41, 11:41, 17:41 and 23:41 IST.
-    - cron: "11 0 * * *"
-    - cron: "11 6 * * *"
-    - cron: "11 12 * * *"
-    - cron: "11 18 * * *"
+    # Four six-hour slots in India time. Minute 30 avoids GitHub's busy top-of-hour window.
+    - cron: "30 5 * * *"
+      timezone: "Asia/Kolkata"
+    - cron: "30 11 * * *"
+      timezone: "Asia/Kolkata"
+    - cron: "30 17 * * *"
+      timezone: "Asia/Kolkata"
+    - cron: "30 23 * * *"
+      timezone: "Asia/Kolkata"
   workflow_dispatch:
     inputs:
       stage:
