@@ -79,6 +79,18 @@ jobs:
             --instrument-manifest autopilot/engine/assets/characters/violin-prince-performance/instrument-props.json \
             --finger-manifest autopilot/engine/assets/characters/violin-prince-performance/finger-regions.json
 
+      - name: Verify instrument overlays preserve all body plates
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("work/full-body-rig/bundle/full-body-performance-report.json").read_text())
+          assert report.get("prop_compositing") == "independent_overlay_layers_preserve_body_plates", report
+          removed = report.get("body_plate_prop_pixels_removed", {})
+          assert removed and all(value == 0 for value in removed.values()), report
+          print("Body plates preserved; violin and bow remain separate overlay layers.")
+          PY
+
       - name: Build the isolated 8-second performance project
         env:
           PYTHONPATH: autopilot/engine
@@ -187,6 +199,8 @@ jobs:
             work/full-body-rig/composition/motion-report.json
             work/full-body-rig/bundle/separation-preview.png
             work/full-body-rig/bundle/character.json
+            work/full-body-rig/bundle/*.png
+            work/full-body-rig/bundle/*.webp
             work/full-body-rig/project.json
           if-no-files-found: error
           retention-days: 7
