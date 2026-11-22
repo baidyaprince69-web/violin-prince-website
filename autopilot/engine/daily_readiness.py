@@ -90,6 +90,8 @@ def evaluate_daily_readiness(
         )
 
     engine_dir = root / "autopilot/engine"
+    from animation_production_gate import animation_production_blockers
+    blockers.extend(animation_production_blockers(engine_dir / "animation-production-approval.json"))
     voice_locked = _first_statement_is_raise(
         engine_dir / "voiceover.py", "require_approved_own_voice"
     )
@@ -205,6 +207,8 @@ def evaluate_daily_batch_readiness(
             plans = []
 
     engine_dir = root / "autopilot/engine"
+    from animation_production_gate import animation_production_blockers
+    blockers.extend(animation_production_blockers(engine_dir / "animation-production-approval.json"))
     voice_locked = _first_statement_is_raise(engine_dir / "voiceover.py", "require_approved_own_voice")
     visuals_locked = _first_statement_is_raise(engine_dir / "run.py", "require_approved_illustration_provider")
 
