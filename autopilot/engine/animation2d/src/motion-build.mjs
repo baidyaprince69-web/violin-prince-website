@@ -33,6 +33,108 @@ export function sampleMotionSpring(from, to, fps = 25, maxMs = 1400) {
   };
 }
 
+export function buildMusicSynchronizedPerformanceTracks({
+  targetPrefix,
+  start = 0,
+  duration = 1,
+  bpm,
+  beatTimes = [],
+  downbeats = [],
+  onsets = [],
+  confidence = 1
+} = {}) {
+  const total = Math.max(0.08, Number(duration) || 0.08);
+  const tempo = Number(bpm);
+  const certainty = Number(confidence);
+  if (!targetPrefix || !Number.isFinite(tempo) || tempo < 40 || tempo > 240 ||
+      !Number.isFinite(certainty) || certainty < 0.28) return [];
+
+  const cleanTimes = values => [...new Set((Array.isArray(values) ? values : [])
+    .map(value => Number(value))
+    .filter(value => Number.isFinite(value) && value >= 0 && value <= total)
+    .map(value => Math.round(value * 10000) / 10000))]
+    .sort((a, b) => a - b);
+  const beats = cleanTimes(beatTimes);
+  if (beats.length < 2) return [];
+  const period = 60 / tempo;
+  const bars = cleanTimes(downbeats);
+  const strongBeats = bars.length ? bars : beats.filter((_time, index) => index % 4 === 0);
+  const attacks = cleanTimes(onsets);
+
+  const makeTrack = (target, points) => {
+    const valuesByTime = new Map([[0, 0], [total, 0]]);
+    for (const point of points) {
+      const time = Number(point.time);
+      const value = Number(point.value);
+      if (!Number.isFinite(time) || !Number.isFinite(value) || time < 0 || time > total) continue;
+      valuesByTime.set(Math.round(time * 10000) / 10000, value);
+    }
+    const ordered = [...valuesByTime.entries()].sort((a, b) => a[0] - b[0]);
+    return {
+      target,
+      property: "rotate",
+      values: ordered.map(point => point[1]),
+      key_times: ordered.map(point => point[0]),
+      start: Math.max(0, Number(start) || 0),
+      duration: total,
+      easing: "linear"
+    };
+  };
+
+  const beatDelay = Math.min(0.08, period * 0.12);
+  const bowStrokes = beats.map((time, index) => ({
+    time: time + beatDelay,
+    value: index % 2 === 0 ? -6.5 : 6.5
+  }));
+  const elbowStrokes = beats.map((time, index) => ({
+    time: time + beatDelay,
+    value: index % 2 === 0 ? -7.8 : 7.8
+  }));
+  const wristStrokes = beats.map((time, index) => ({
+    time: time + beatDelay,
+    value: index % 2 === 0 ? 2.6 : -2.6
+  }));
+
+  const torsoPulses = [];
+  const headPulses = [];
+  strongBeats.forEach((time, index) => {
+    const hit = Math.min(total, time + beatDelay);
+    const release = Math.min(total, hit + Math.min(0.18, period * 0.28));
+    torsoPulses.push(
+      { time: hit, value: index % 2 === 0 ? -0.95 : 0.7 },
+      { time: release, value: 0 }
+    );
+    headPulses.push(
+      { time: hit, value: index % 2 === 0 ? -1.7 : 1.1 },
+      { time: Math.min(total, hit + Math.min(0.14, period * 0.22)), value: 0 }
+    );
+  });
+
+  const fingerNames = ["finger_index", "finger_middle", "finger_ring", "finger_little"];
+  const fingerPulses = Object.fromEntries(fingerNames.map(name => [name, []]));
+  attacks.forEach((time, index) => {
+    const finger = fingerNames[index % fingerNames.length];
+    const pulse = time + 0.025;
+    const release = Math.min(total, pulse + Math.min(0.11, period * 0.18));
+    const amplitude = [5.2, -4.4, 4.8, -3.8][index % fingerNames.length];
+    fingerPulses[finger].push(
+      { time: pulse, value: amplitude },
+      { time: release, value: 0 }
+    );
+  });
+
+  const prefix = String(targetPrefix);
+  return [
+    makeTrack(prefix + "-part-left_forearm", elbowStrokes),
+    makeTrack(prefix + "-part-left_hand", wristStrokes),
+    makeTrack(prefix + "-prop-bow", bowStrokes),
+    makeTrack(prefix + "-part-torso", torsoPulses),
+    makeTrack(prefix + "-part-head", headPulses),
+    ...fingerNames.map(name => makeTrack(prefix + "-part-" + name, fingerPulses[name]))
+  ];
+}
+
+
 function cssKeyframeValues(property, values) {
   if (property === "rotate") {
     return values.map(value => typeof value === "number" ? value + "deg" : String(value));
@@ -268,15 +370,39 @@ function sampleRotationTrack(track, time) {
   const values = track.values || [];
   if (values.length < 2) return numericCssValue(values[0] || 0);
   const duration = Math.max(0.001, Number(track.duration) || 0.001);
-  const rawProgress = (Number(time) - Number(track.start || 0)) / duration;
-  // Repeat articulated movement on an exact cycle boundary. Before the
-  // action starts, hold the first pose rather than wrapping negative time.
-  const progress = track.loop === true
-    ? (rawProgress <= 0 ? 0 : rawProgress % 1)
-    : Math.min(1, Math.max(0, rawProgress));
-  const segmentPosition = progress * (values.length - 1);
-  const segment = Math.min(values.length - 2, Math.floor(segmentPosition));
-  const localProgress = segmentPosition - segment;
+  const keyTimes = track.key_times;
+  const hasTimedKeys = Array.isArray(keyTimes) &&
+    keyTimes.length === values.length &&
+    keyTimes.every((value, index) => Number.isFinite(Number(value)) &&
+      (index === 0 || Number(value) > Number(keyTimes[index - 1])));
+
+  let segment;
+  let localProgress;
+  if (hasTimedKeys) {
+    const elapsed = Number(time) - Number(track.start || 0);
+    if (elapsed <= Number(keyTimes[0])) return numericCssValue(values[0]);
+    if (elapsed >= Number(keyTimes.at(-1))) return numericCssValue(values.at(-1));
+    segment = 0;
+    while (segment < keyTimes.length - 2 && elapsed > Number(keyTimes[segment + 1])) {
+      segment += 1;
+    }
+    const segmentDuration = Math.max(
+      0.0001,
+      Number(keyTimes[segment + 1]) - Number(keyTimes[segment])
+    );
+    localProgress = (elapsed - Number(keyTimes[segment])) / segmentDuration;
+  } else {
+    const rawProgress = (Number(time) - Number(track.start || 0)) / duration;
+    // Repeat articulated movement on an exact cycle boundary. Before the
+    // action starts, hold the first pose rather than wrapping negative time.
+    const progress = track.loop === true
+      ? (rawProgress <= 0 ? 0 : rawProgress % 1)
+      : Math.min(1, Math.max(0, rawProgress));
+    const segmentPosition = progress * (values.length - 1);
+    segment = Math.min(values.length - 2, Math.floor(segmentPosition));
+    localProgress = segmentPosition - segment;
+  }
+
   const eased = track.easing === "linear"
     ? localProgress
     : cubicBezierProgress(localProgress);
@@ -933,6 +1059,29 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
             gestureLoop
           );
         }
+      }
+
+      // Optional real-audio timing overrides the generic loop with exact beat,
+      // downbeat and onset events. Low-confidence/invalid analysis stays on the
+      // existing authored performance loop instead of inventing a beat grid.
+      if (instrumentPerformance && action.music_sync && typeof action.music_sync === "object") {
+        const sync = action.music_sync;
+        const actionOffset = Math.max(0, actionStart - sceneStart);
+        const toActionTimes = values => (Array.isArray(values) ? values : [])
+          .map(value => Number(value) - actionOffset)
+          .filter(value => Number.isFinite(value) && value >= 0)
+          .map(value => Math.min(sceneDuration - actionOffset, value));
+        const timedPerformanceTracks = buildMusicSynchronizedPerformanceTracks({
+          targetPrefix: prefix,
+          start: actionStart,
+          duration: Math.max(0.08, sceneDuration - actionOffset),
+          bpm: sync.bpm,
+          beatTimes: toActionTimes(sync.beat_times),
+          downbeats: toActionTimes(sync.downbeats),
+          onsets: toActionTimes(sync.onsets),
+          confidence: sync.confidence
+        });
+        tracks.push(...timedPerformanceTracks);
       }
 
       if (action.root_motion) {
