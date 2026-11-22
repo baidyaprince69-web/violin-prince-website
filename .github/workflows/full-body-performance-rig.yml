@@ -48,7 +48,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
           pip install -r autopilot/engine/requirements-character.txt
-          pip install "Pillow>=10.4,<12" "numpy>=1.24,<3" "cryptography>=42,<47"
+          pip install "Pillow>=10.4,<12" "numpy>=1.24,<3" "cryptography>=42,<47" "soundfile>=0.12,<1" "requests>=2.31,<3"
 
       - name: Run full-body leg and instrument rig unit tests
         env:
@@ -115,14 +115,49 @@ jobs:
           print("All twelve source-aligned limb/hand layers extracted; duplicate fretting-hand pixels removed from the violin prop.")
           PY
 
-      - name: Build the isolated 8-second performance project
+      - name: Generate the CC0 sampled solo-violin phrase and note event map
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          mkdir -p work/full-body-rig/audio
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from violin_sampler import create_sampled_violin_bed
+
+          audio_path, music_map = create_sampled_violin_bed(
+              "work/full-body-rig/audio/violin-prince-cc0-solo-violin.wav",
+              seed_text="violin-prince-full-body-performance-preview",
+          )
+          if music_map.get("license") != "CC0-1.0":
+              raise SystemExit("The generated violin audio did not pass its CC0 licence check.")
+          if float(music_map.get("bpm", 0)) != 80.0:
+              raise SystemExit("The sampled-violin arrangement tempo does not match its event map.")
+          if len(music_map.get("beat_times", [])) != 32 or not music_map.get("onsets"):
+              raise SystemExit("The sampled-violin arrangement did not provide a complete beat/onset map.")
+          map_path = Path("work/full-body-rig/audio/violin-prince-cc0-solo-violin.music-map.json")
+          map_path.write_text(json.dumps(music_map, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+          print(json.dumps({
+              "audio_file": str(audio_path),
+              "audio_source": music_map["audio_source"],
+              "license": music_map["license"],
+              "source_library": music_map["source_library"],
+              "duration_seconds": music_map["duration_seconds"],
+              "bpm": music_map["bpm"],
+              "beats": len(music_map["beat_times"]),
+              "note_onsets": len(music_map["onsets"]),
+          }, indent=2))
+          PY
+
+      - name: Build the isolated 8-second performance project using sampled-violin timing
         env:
           PYTHONPATH: autopilot/engine
         run: |
           python autopilot/engine/create_full_body_performance_preview.py \
             --bundle work/full-body-rig/bundle \
             --output work/full-body-rig \
-            --bpm 100
+            --audio work/full-body-rig/audio/violin-prince-cc0-solo-violin.wav \
+            --music-map work/full-body-rig/audio/violin-prince-cc0-solo-violin.music-map.json
 
       - name: Set up Node.js 22
         uses: actions/setup-node@v4
@@ -159,8 +194,13 @@ jobs:
           project = json.loads(Path("work/full-body-rig/project.json").read_text())
           action = project["scenes"][0]["character_actions"]["violin-prince"]
           sync = action.get("music_sync", {})
-          assert sync.get("source") == "preview_tempo_grid_no_audio_asset", sync
-          assert sync.get("bpm") == 100, sync
+          assert sync.get("source") == "sampled_violin_cc0", sync
+          assert sync.get("audio_attached") is True, sync
+          assert sync.get("audio_license") == "CC0-1.0", sync
+          assert sync.get("event_map_source") == "sampled_violin_arrangement_note_events", sync
+          assert sync.get("analysis_status") == "metadata_verified", sync
+          assert sync.get("decode_backend") in {"soundfile", "ffmpeg"}, sync
+          assert sync.get("bpm") == 80, sync
           assert len(sync.get("beat_times", [])) >= 10, sync
           assert len(sync.get("onsets", [])) > 0, sync
           assert report.get("full_body_performance_scene_count") == 1, report
@@ -193,9 +233,18 @@ jobs:
         working-directory: work/full-body-rig/composition
         run: |
           $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes render \
-            --output ../full-body-violin-performance.mp4 \
+            --output ../full-body-violin-performance-video-only.mp4 \
             --fps 25 \
             --quality standard
+
+      - name: Mix the synchronized sampled violin audio into the review MP4
+        run: |
+          ffmpeg -hide_banner -loglevel error -y \
+            -i work/full-body-rig/full-body-violin-performance-video-only.mp4 \
+            -i work/full-body-rig/audio/violin-prince-cc0-solo-violin.wav \
+            -map 0:v:0 -map 1:a:0 -t 8 \
+            -c:v copy -c:a aac -b:a 192k -shortest -movflags +faststart \
+            work/full-body-rig/full-body-violin-performance.mp4
 
       - name: Create a visual review contact sheet
         run: |
@@ -243,5 +292,7 @@ jobs:
             work/full-body-rig/bundle/*.png
             work/full-body-rig/bundle/*.webp
             work/full-body-rig/project.json
+            work/full-body-rig/audio/violin-prince-cc0-solo-violin.wav
+            work/full-body-rig/audio/violin-prince-cc0-solo-violin.music-map.json
           if-no-files-found: error
           retention-days: 7
