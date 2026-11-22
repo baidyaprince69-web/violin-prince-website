@@ -20,6 +20,7 @@ from character_autorig import (
     _face_plate,
     _register_expression_to_neutral,
     _split_arm,
+    _repair_transparent_person_holes,
     separate_from_parsing,
 )
 
@@ -63,6 +64,40 @@ class CharacterAutoRigTests(unittest.TestCase):
                 self.assertEqual(expected.mode, actual.mode)
                 self.assertEqual(expected.size, actual.size)
                 self.assertIsNone(ImageChops.difference(expected, actual).getbbox())
+
+    def test_repairs_transparent_holes_only_inside_confident_person_regions(self):
+        width, height = 40, 40
+        pixels = np.full((height, width, 3), 255, dtype=np.uint8)
+        pixels[8:32, 8:32] = (36, 44, 52)
+        alpha = np.full((height, width), 255, dtype=np.uint8)
+        alpha[16:24, 16:24] = 0
+        labels = np.zeros((height, width), dtype=np.uint8)
+        labels[8:32, 8:32] = 2
+        confidence = np.full((height, width), 0.95, dtype=np.float32)
+        image = Image.fromarray(pixels, mode="RGB")
+
+        repaired, report = _repair_transparent_person_holes(
+            image, alpha, labels, confidence
+        )
+        repaired_pixels = np.asarray(repaired, dtype=np.uint8)
+        self.assertEqual(report["method"], "opencv_telea_semantic_alpha_holes")
+        self.assertEqual(report["pixels_reconstructed"], 64)
+        self.assertLess(float(repaired_pixels[16:24, 16:24].mean()), 100)
+        self.assertTrue(np.all(repaired_pixels[0, 0] == 255),
+                        "ordinary transparent background must not be reconstructed")
+
+    def test_ignores_low_confidence_transparent_background(self):
+        width, height = 40, 40
+        image = Image.new("RGB", (width, height), (255, 255, 255))
+        alpha = np.zeros((height, width), dtype=np.uint8)
+        labels = np.zeros((height, width), dtype=np.uint8)
+        confidence = np.full((height, width), 0.1, dtype=np.float32)
+        repaired, report = _repair_transparent_person_holes(
+            image, alpha, labels, confidence
+        )
+        self.assertEqual(report["method"], "not_required")
+        self.assertEqual(report["pixels_reconstructed"], 0)
+        self.assertEqual(repaired.getpixel((12, 12)), (255, 255, 255))
 
     def test_creates_nine_nonempty_layers_and_seven_joint_anchors(self):
         body, body_conf, detail, detail_conf = self.synthetic_maps()
