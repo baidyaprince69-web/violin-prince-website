@@ -181,7 +181,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
 
             self.assertEqual(report["method"], "source_hand_alpha_cutout_plus_one_pixel_seam")
             self.assertGreater(report["pixels_removed"], 40)
-            self.assertEqual(int(result[5, 8, 3]), 0,
+            self.assertEqual(int(result[13, 15, 3]), 0,
                 "overlapping fretting-hand pixels must be transparent in the violin sprite")
             self.assertEqual(int(result[0, 0, 3]), 255,
                 "the violin body outside the hand overlap must remain opaque")
