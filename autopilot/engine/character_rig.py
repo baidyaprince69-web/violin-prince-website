@@ -15,6 +15,23 @@ REQUIRED_JOINTS = frozenset({
     "neck", "left_shoulder", "left_elbow", "left_wrist",
     "right_shoulder", "right_elbow", "right_wrist",
 })
+LEG_LAYER_ROLES = frozenset(
+    f"{side}_{part}"
+    for side in ("left", "right")
+    for part in ("thigh", "calf", "foot")
+)
+LEG_JOINTS = frozenset(
+    f"{side}_{joint}"
+    for side in ("left", "right")
+    for joint in ("hip", "knee", "ankle")
+)
+FINGER_ROLES = frozenset({
+    "finger_index", "finger_middle", "finger_ring", "finger_little"
+})
+FINGER_JOINTS = frozenset({
+    "right_index_base", "right_middle_base",
+    "right_ring_base", "right_little_base",
+})
 
 
 class CharacterRigError(ValueError):
@@ -80,11 +97,26 @@ def validate_character_spec(character: dict[str, Any]) -> dict[str, Any]:
             f"Character {character_id} is missing required illustration layers: "
             + ", ".join(missing_roles)
         )
+    present_leg_roles = roles & LEG_LAYER_ROLES
+    if present_leg_roles and present_leg_roles != LEG_LAYER_ROLES:
+        raise CharacterRigError(
+            f"Character {character_id} must provide all six leg layers when enabling a full-body rig."
+        )
+    present_finger_roles = roles & FINGER_ROLES
+    if present_finger_roles and present_finger_roles != FINGER_ROLES:
+        raise CharacterRigError(
+            f"Character {character_id} must provide all four finger layers when enabling finger articulation."
+        )
 
     joints = character.get("joints")
     if not isinstance(joints, dict):
         raise CharacterRigError(f"Character {character_id} must define its joint anchors.")
-    missing_joints = sorted(REQUIRED_JOINTS - set(joints))
+    conditional_joints = set()
+    if present_leg_roles:
+        conditional_joints.update(LEG_JOINTS)
+    if present_finger_roles:
+        conditional_joints.update(FINGER_JOINTS)
+    missing_joints = sorted((REQUIRED_JOINTS | conditional_joints) - set(joints))
     if missing_joints:
         raise CharacterRigError(
             f"Character {character_id} is missing joints: " + ", ".join(missing_joints)
@@ -131,6 +163,38 @@ def validate_character_spec(character: dict[str, Any]) -> dict[str, Any]:
             raise CharacterRigError(f"Pose asset {pose_name} has no image source.")
         pose_assets[pose_name] = {"src": str(src).strip()}
 
+    raw_props = character.get("props") or {}
+    if not isinstance(raw_props, dict):
+        raise CharacterRigError(f"Character {character_id} props must be an object keyed by prop id.")
+    normalised_props = {}
+    valid_attachment_roles = roles | {"torso", "left_hand", "right_hand"}
+    for prop_id, prop in raw_props.items():
+        prop_name = str(prop_id).strip().casefold()
+        if not CHARACTER_ID.fullmatch(prop_name) or not isinstance(prop, dict):
+            raise CharacterRigError(f"Character {character_id} has an invalid prop definition.")
+        src = str(prop.get("src") or "").strip()
+        if not src:
+            raise CharacterRigError(f"Prop {prop_name} has no image source.")
+        geometry = {}
+        for key, default in (("x", 0), ("y", 0), ("width", 1), ("height", 1)):
+            value = _finite_number(prop.get(key, default), f"{character_id}.props.{prop_name}.{key}")
+            if key in ("width", "height") and value <= 0:
+                raise CharacterRigError(f"Prop {prop_name} {key} must be positive.")
+            geometry[key] = value
+        pivot_x = _finite_number(prop.get("pivot_x", 0.5), f"{prop_name}.pivot_x")
+        pivot_y = _finite_number(prop.get("pivot_y", 0.5), f"{prop_name}.pivot_y")
+        if not 0 <= pivot_x <= 1 or not 0 <= pivot_y <= 1:
+            raise CharacterRigError(f"Prop {prop_name} pivots must be between 0 and 1.")
+        attach_to = str(prop.get("attach_to") or "torso").strip().casefold()
+        if attach_to not in valid_attachment_roles:
+            raise CharacterRigError(f"Prop {prop_name} attaches to unknown rig role {attach_to}.")
+        normalised_props[prop_name] = {
+            **prop, "id": prop_name, "src": src, **geometry,
+            "pivot_x": pivot_x, "pivot_y": pivot_y,
+            "z_index": int(prop.get("z_index", 25)),
+            "attach_to": attach_to,
+        }
+
     return {
         **character,
         "id": character_id,
@@ -140,6 +204,7 @@ def validate_character_spec(character: dict[str, Any]) -> dict[str, Any]:
         "poses": poses,
         "gestures": gestures,
         "pose_assets": pose_assets,
+        "props": normalised_props,
         "scene_actions": character.get("scene_actions") or {},
         "scene_ids": character.get("scene_ids"),
     }
