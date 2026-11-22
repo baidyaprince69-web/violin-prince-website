@@ -203,6 +203,10 @@ jobs:
           assert sync.get("bpm") == 80, sync
           assert len(sync.get("beat_times", [])) >= 10, sync
           assert len(sync.get("onsets", [])) > 0, sync
+          assert len(sync.get("note_events", [])) >= 4, sync
+          assert scene.get("stagecraft_environment") == "concert_stage", scene
+          assert report.get("animated_stagecraft_scene_count") == 1, report
+          assert report.get("animated_stagecraft_node_count", 0) > 0, report
           assert report.get("full_body_performance_scene_count") == 1, report
           assert report.get("preserved_composite_base_count") == 1, report
           assert report.get("animated_full_body_part_count") == 6, report
