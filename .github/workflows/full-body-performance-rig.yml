@@ -65,7 +65,8 @@ jobs:
             --source autopilot/engine/assets/characters/violin-prince-performance/master-character-performance.webp \
             --reference-dir autopilot/engine/assets/characters/violin-prince-reference \
             --output work/full-body-rig/bundle \
-            --id violin-prince
+            --id violin-prince \
+            --allow-expression-fallback
 
       - name: Add hips, knees, ankles, fingers, violin and bow
         env:
