@@ -46,7 +46,7 @@ const character = {
     bow: {
       id: "bow", src: "bow.webp",
       x: 173, y: 39, width: 172, height: 254,
-      pivot_x: .035, pivot_y: .976, z_index: 35, attach_to: "right_hand"
+      pivot_x: .035, pivot_y: .976, z_index: 35, attach_to: "left_hand"
     }
   }
 };
@@ -163,6 +163,55 @@ test("intact full-body composite keeps limbs together while bow and fingers anim
     assert.equal(findTrack("playing-violin-prince-part-" + role), undefined,
       role + " must remain part of the intact source body until segmentation is repaired");
   }
+});
+
+test("segmented source base keeps twelve independent limb/hand layers and the bow chain", () => {
+  const segmentedCharacter = {
+    ...character,
+    performance_base_mode: "segmented_source_body",
+    base_art: {
+      src: "performance-segmented-base.png",
+      x: 0, y: 0, width: 441, height: 755,
+      mode: "segmented_source_body",
+      source_alpha_preserved: true,
+      source_pixels_outside_cut_mask_preserved: true
+    }
+  };
+  const segmentedProject = {
+    ...project,
+    characters: [segmentedCharacter]
+  };
+  const tracks = compileMotionTracks(segmentedProject, { fps: 25 });
+  const findTrack = target => tracks.find(track =>
+    track.target === target && track.property === "transform"
+  );
+  const base = findTrack("playing-violin-prince-base-art");
+  assert.ok(base, "the source underpaint base follows the torso");
+  assert.ok(base.values.some(value => value !== base.values[0]));
+
+  const limbs = [
+    "left_upper_arm", "left_forearm", "left_hand",
+    "right_upper_arm", "right_forearm", "right_hand",
+    "left_thigh", "left_calf", "left_foot",
+    "right_thigh", "right_calf", "right_foot"
+  ];
+  for (const role of limbs) {
+    const track = findTrack("playing-violin-prince-part-" + role);
+    assert.ok(track, role + " receives its own hierarchical transform");
+    assert.ok(track.values.some(value => value !== track.values[0]),
+      role + " must have changing frame-seekable movement");
+  }
+  for (const role of ["finger_index", "finger_middle", "finger_ring", "finger_little"]) {
+    const track = findTrack("playing-violin-prince-part-" + role);
+    assert.ok(track, role + " remains an independent fingering layer");
+    assert.ok(track.values.some(value => value !== track.values[0]));
+  }
+
+  const bow = findTrack("playing-violin-prince-prop-bow");
+  assert.ok(bow, "the bow attaches to the source-aligned bow hand");
+  assert.ok(bow.values.some(value => value !== bow.values[0]));
+  assert.equal(findTrack("playing-violin-prince-prop-violin"), undefined,
+    "the original violin stays embedded in the preserved source base");
 });
 
 test("modular head expressions and angle plates are separately rendered and frame-seekable", () => {
