@@ -93,6 +93,12 @@ test("music-synchronized performance keyframes follow beat and onset timestamps"
     beatTimes: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5],
     downbeats: [0, 2],
     onsets: [0.25, 0.75, 1.25, 1.75, 2.25],
+    noteEvents: [
+      { time: 0.25, note: 62, velocity: 60, duration_seconds: 0.75 },
+      { time: 0.75, note: 67, velocity: 64, duration_seconds: 0.75 },
+      { time: 1.25, note: 72, velocity: 78, duration_seconds: 1.5 },
+      { time: 1.75, note: 77, velocity: 88, duration_seconds: 0.75 }
+    ],
     confidence: 1
   });
   const find = target => tracks.find(track => track.target === target);
@@ -100,11 +106,17 @@ test("music-synchronized performance keyframes follow beat and onset timestamps"
   const bowTranslation = tracks.find(track =>
     track.target === "playing-violin-prince-prop-bow" && track.property === "translate"
   );
+  const bowShoulder = find("playing-violin-prince-part-left_upper_arm");
   const elbow = find("playing-violin-prince-part-left_forearm");
+  const wrist = find("playing-violin-prince-part-left_hand");
+  const fingerboardForearm = find("playing-violin-prince-part-right_forearm");
+  const fingerboardHand = find("playing-violin-prince-part-right_hand");
   const indexFinger = find("playing-violin-prince-part-finger_index");
-  const middleFinger = find("playing-violin-prince-part-finger_middle");
+  const ringFinger = find("playing-violin-prince-part-finger_ring");
+  const littleFinger = find("playing-violin-prince-part-finger_little");
 
-  assert.ok(bow && bowTranslation && elbow && indexFinger && middleFinger);
+  assert.ok(bow && bowTranslation && bowShoulder && elbow && wrist);
+  assert.ok(fingerboardForearm && fingerboardHand && indexFinger && ringFinger && littleFinger);
   assert.equal(bow.start, 0.12);
   assert.ok(bowTranslation.values.length > 80,
     "bow travel is sampled at composition frame rate");
@@ -113,8 +125,14 @@ test("music-synchronized performance keyframes follow beat and onset timestamps"
   assert.deepEqual(bow.key_times.slice(0, 4), [0, 0.06, 0.56, 1.06]);
   assert.equal(bow.key_times.at(-1), 3.88);
   assert.ok(bow.values.some((value, index) => index > 1 && value !== bow.values[index - 1]));
-  assert.ok(indexFinger.key_times.includes(0.275));
-  assert.ok(middleFinger.key_times.includes(0.775));
+  assert.ok(indexFinger.key_times.includes(0.268));
+  assert.ok(ringFinger.key_times.includes(1.268));
+  assert.ok(littleFinger.key_times.includes(1.768));
+  assert.ok(fingerboardForearm.key_times.includes(0.268));
+  assert.ok(fingerboardHand.key_times.includes(0.268));
+  assert.ok(bowShoulder.values.some(value => Math.abs(value) >= 3.8));
+  assert.ok(elbow.values.some(value => Math.abs(value) >= 12.8));
+  assert.ok(wrist.values.some(value => Math.abs(value) >= 4.3));
 
   assert.deepEqual(buildMusicSynchronizedPerformanceTracks({
     targetPrefix: "playing-violin-prince",
@@ -132,7 +150,16 @@ test("compileMotionTracks consumes audio beat maps for bow, arm and finger motio
     confidence: 0.84,
     beat_times: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5],
     downbeats: [0, 2],
-    onsets: [0.25, 0.75, 1.25, 1.75, 2.25, 2.75, 3.25]
+    onsets: [0.25, 0.75, 1.25, 1.75, 2.25, 2.75, 3.25],
+    note_events: [
+      { time: 0.25, note: 62, velocity: 60, duration_seconds: 0.75 },
+      { time: 0.75, note: 65, velocity: 58, duration_seconds: 0.75 },
+      { time: 1.25, note: 67, velocity: 64, duration_seconds: 0.75 },
+      { time: 1.75, note: 69, velocity: 72, duration_seconds: 0.75 },
+      { time: 2.25, note: 72, velocity: 78, duration_seconds: 0.75 },
+      { time: 2.75, note: 70, velocity: 66, duration_seconds: 0.75 },
+      { time: 3.25, note: 69, velocity: 70, duration_seconds: 0.75 }
+    ]
   };
 
   const regularTracks = compileMotionTracks(project, { fps: 25 });
@@ -142,8 +169,13 @@ test("compileMotionTracks consumes audio beat maps for bow, arm and finger motio
 
   for (const target of [
     "playing-violin-prince-prop-bow",
+    "playing-violin-prince-part-left_upper_arm",
     "playing-violin-prince-part-left_forearm",
-    "playing-violin-prince-part-finger_index"
+    "playing-violin-prince-part-left_hand",
+    "playing-violin-prince-part-right_forearm",
+    "playing-violin-prince-part-right_hand",
+    "playing-violin-prince-part-finger_index",
+    "playing-violin-prince-part-finger_ring"
   ]) {
     const regular = getTrack(regularTracks, target);
     const synchronized = getTrack(musicTracks, target);
@@ -155,6 +187,34 @@ test("compileMotionTracks consumes audio beat maps for bow, arm and finger motio
   const bowTravel = getTrack(musicTracks, "playing-violin-prince-prop-bow", "translate");
   assert.ok(bowTravel && bowTravel.values.length > 80);
   assert.ok(new Set(bowTravel.values).size > 3);
+});
+
+test("sampled note pitches select finger layers and music cues counterbalance the full body", () => {
+  const tracks = buildMusicSynchronizedPerformanceTracks({
+    targetPrefix: "playing-violin-prince",
+    duration: 3.8,
+    bpm: 120,
+    beatTimes: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5],
+    downbeats: [0, 2],
+    onsets: [0, 1, 2, 3],
+    noteEvents: [
+      { time: 0, note: 60, velocity: 65, duration_seconds: 0.5 },
+      { time: 1, note: 64, velocity: 70, duration_seconds: 0.5 },
+      { time: 2, note: 68, velocity: 75, duration_seconds: 0.5 },
+      { time: 3, note: 72, velocity: 80, duration_seconds: 0.5 }
+    ],
+    confidence: 1
+  });
+  const targets = new Set(tracks.map(track => track.target));
+  for (const role of [
+    "left_upper_arm", "left_forearm", "left_hand",
+    "right_upper_arm", "right_forearm", "right_hand",
+    "torso", "head", "left_thigh", "right_thigh",
+    "left_calf", "right_calf", "left_foot", "right_foot",
+    "finger_index", "finger_middle", "finger_ring", "finger_little"
+  ]) {
+    assert.ok(targets.has("playing-violin-prince-part-" + role), role + " must receive its own synchronized cue");
+  }
 });
 
 test("full-body gesture animates thigh, knee, ankle and all four fingering controls", () => {
