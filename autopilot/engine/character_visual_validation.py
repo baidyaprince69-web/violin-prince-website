@@ -23,6 +23,10 @@ FULL_BODY_JOINT_LAYER_PAIRS = {
     "right_hip": ("torso", "right_thigh"),
     "right_knee": ("right_thigh", "right_shin"),
     "right_ankle": ("right_shin", "right_foot"),
+    "right_index_knuckle": ("right_hand", "right_index_finger"),
+    "right_middle_knuckle": ("right_hand", "right_middle_finger"),
+    "right_ring_knuckle": ("right_hand", "right_ring_finger"),
+    "right_little_knuckle": ("right_hand", "right_little_finger"),
 }
 
 
@@ -122,7 +126,7 @@ def verify_character_visuals(character: dict[str, Any], bundle_dir: str | Path) 
     # pixels and report the declared front-to-back order without rewriting it.
     occlusion_records = []
     by_role = {str(item.get("role")): item for item in character.get("layers", [])}
-    for joint_name, pair in JOINT_LAYER_PAIRS.items():
+    for joint_name, pair in joint_layer_pairs.items():
         first, second = (by_role.get(pair[0]), by_role.get(pair[1]))
         if not first or not second or pair[0] not in layer_masks or pair[1] not in layer_masks:
             continue
