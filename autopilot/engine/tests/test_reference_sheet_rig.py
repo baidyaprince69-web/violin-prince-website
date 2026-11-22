@@ -5,7 +5,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
-from reference_sheet_rig import build_reference_sheet_rig
+from reference_sheet_rig import build_reference_sheet_rig, _keyed_sheet
 
 
 def draw_head(draw, center_x, top_y, scale=1.0, skin=(183, 119, 83), hair=(33, 29, 28)):
@@ -46,6 +46,20 @@ def make_parts_sheet(path):
 
 
 class ReferenceSheetRigTests(unittest.TestCase):
+    def test_removes_magenta_cutline_on_non_magenta_transparent_canvas(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            path = root / "cutline.png"
+            image = Image.new("RGBA", (64, 64), (30, 42, 58, 0))
+            draw = ImageDraw.Draw(image)
+            draw.rectangle((20, 20, 44, 44), fill=(190, 125, 88, 255))
+            draw.rectangle((18, 18, 46, 46), outline=(255, 0, 255, 255), width=2)
+            image.save(path)
+
+            _source, alpha = _keyed_sheet(path)
+            self.assertEqual(int(alpha[18, 24]), 0)
+            self.assertEqual(int(alpha[32, 32]), 255)
+
     def test_builds_four_expression_plates_four_head_angles_and_parts_catalogue(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
