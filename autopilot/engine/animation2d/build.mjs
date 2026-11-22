@@ -556,7 +556,7 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.scene-caption--with-presenter{left:5%;right:auto;top:18.5%;width:41%;max-width:41%;font-size:13px;letter-spacing:.12em}' +
   '.character-rig{position:absolute;width:100%;height:100%;opacity:0;transform-origin:top left;z-index:38}' +
   '.character-motion{position:absolute;inset:0;width:100%;height:100%;transform-origin:50% 70%;will-change:transform}' +
-  '.scene-stagecraft{position:absolute;inset:0;width:100%;height:100%;z-index:27;overflow:hidden;pointer-events:none;mix-blend-mode:screen}' +
+  '.scene-stagecraft{position:absolute;inset:0;width:100%;height:100%;z-index:2;overflow:hidden;pointer-events:none;mix-blend-mode:screen}' +
   '.scene-stagecraft svg{display:block;width:100%;height:100%;overflow:visible}' +
   '.stagecraft-node{transform-box:fill-box;transform-origin:center;will-change:transform,opacity}' +
   '.rig-part,.rig-expression,.rig-pose{position:absolute;object-fit:contain;max-width:none;pointer-events:none}' +
