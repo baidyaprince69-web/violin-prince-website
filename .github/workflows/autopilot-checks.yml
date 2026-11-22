@@ -119,6 +119,11 @@ jobs:
           PYTHONPATH: autopilot/engine
         run: python -m unittest discover -s autopilot/engine/tests -p "test_local_vector_illustrator.py" -v
 
+      - name: Run visual consistency and pre-render quality gate tests
+        env:
+          PYTHONPATH: autopilot/engine
+        run: python -m unittest discover -s autopilot/engine/tests -p "test_visual_quality.py" -v
+
       - name: Run native YouTube uploads-list duplicate-audit tests
         env:
           PYTHONPATH: autopilot/engine
