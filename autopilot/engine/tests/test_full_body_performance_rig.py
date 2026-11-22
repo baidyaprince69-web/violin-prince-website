@@ -209,7 +209,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         )
         result = np.asarray(cleaned, dtype=np.uint8)
 
-        self.assertEqual(report["method"], "boundary_neutral_matte_rgb_decontamination")
+        self.assertEqual(report["method"], "distance_aware_neutral_matte_decontamination")
         self.assertGreater(report["pixels_recoloured"], 0)
         self.assertLess(int(result[14, 7, :3].mean()), 100,
             "neutral matte colour should be replaced by adjacent interior colour")
@@ -222,6 +222,40 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         np.testing.assert_array_equal(result[:, :, 3], pixels[:, :, 3])
         self.assertTrue(report["source_alpha_preserved"])
         self.assertTrue(report["source_silhouette_geometry_preserved"])
+
+
+    def test_removes_multi_pixel_neutral_halo_without_erasing_interior_highlights(self):
+        pixels = np.zeros((40, 40, 4), dtype=np.uint8)
+        pixels[:, :, :3] = (232, 234, 236)
+        pixels[8:32, 8:32] = (34, 40, 43, 255)
+
+        # A three-pixel pale fringe runs along the top silhouette boundary.
+        pixels[8:11, 13:27] = (190, 190, 190, 255)
+        # This genuine bright detail is well inside the silhouette.
+        pixels[17, 17] = (248, 248, 248, 255)
+        # A known prop highlight on the boundary must remain untouched.
+        pixels[8, 20] = (238, 232, 218, 255)
+
+        source = Image.fromarray(pixels, mode="RGBA")
+        protected = np.zeros((40, 40), dtype=bool)
+        protected[8, 20] = True
+        cleaned, report = _decontaminate_edge_matte_rgb(
+            source,
+            protected_masks=(protected,),
+        )
+        result = np.asarray(cleaned, dtype=np.uint8)
+
+        self.assertEqual(report["method"], "distance_aware_neutral_matte_decontamination")
+        self.assertGreater(report["pixels_recoloured"], 10)
+        self.assertLess(int(result[8, 16, :3].mean()), 90)
+        self.assertLess(int(result[9, 16, :3].mean()), 90)
+        self.assertLess(int(result[10, 16, :3].mean()), 90)
+        self.assertEqual(tuple(result[17, 17]), (248, 248, 248, 255))
+        self.assertEqual(tuple(result[8, 20]), (238, 232, 218, 255))
+        np.testing.assert_array_equal(result[:, :, 3], pixels[:, :, 3])
+        self.assertTrue(report["source_alpha_preserved"])
+        self.assertTrue(report["source_silhouette_geometry_preserved"])
+        self.assertTrue(report["interior_highlights_preserved"])
 
 
     def test_preview_music_sync_uses_explicit_tempo_grid_when_no_audio_is_attached(self):
