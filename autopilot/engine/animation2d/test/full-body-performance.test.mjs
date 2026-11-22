@@ -89,4 +89,11 @@ test("violin and bow are separately transformed and bow receives a stroke cycle"
   }
   const bow = tracks.find(item => item.target === "playing-violin-prince-prop-bow" && item.property === "transform");
   assert.ok(bow.values.length > 20, "bow stroke is frame-sampled for smooth HyperFrames seeking");
+  const bowTranslation = tracks.find(item =>
+    item.target === "playing-violin-prince-prop-bow" &&
+    item.property === "translate"
+  );
+  assert.ok(bowTranslation, "bow receives an explicit reciprocal translation along the strings");
+  assert.ok(bowTranslation.values.some(value => value !== bowTranslation.values[0]),
+    "bow translation must change during each stroke");
 });
