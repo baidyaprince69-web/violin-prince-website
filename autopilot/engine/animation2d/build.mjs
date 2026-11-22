@@ -438,7 +438,9 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
   let animatedFullBodyPartCount = 0;
   let animatedFingeringControlCount = 0;
   let animatedInstrumentPropCount = 0;
+  let preservedCompositeBaseCount = 0;
   for (const character of fullBodyPerformanceCharacters) {
+    const compositeBaseMode = Boolean(character.base_art && character.base_art.src);
     const requiredLegs = [
       "left_thigh", "left_calf", "left_foot",
       "right_thigh", "right_calf", "right_foot"
@@ -446,9 +448,18 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     const requiredFingers = [
       "finger_index", "finger_middle", "finger_ring", "finger_little"
     ];
+    const requiredRoles = compositeBaseMode
+      ? ["left_hand", ...requiredFingers]
+      : [...requiredLegs, ...requiredFingers];
     const roleSet = new Set((character.layers || []).map((layer) => String(layer.role || "")));
     const propSet = new Set(Object.keys(character.props || {}));
-    for (const role of [...requiredLegs, ...requiredFingers]) {
+    if (compositeBaseMode) {
+      preservedCompositeBaseCount += 1;
+      if (character.base_art.mode !== "intact_full_body_with_bow_and_finger_cutouts") {
+        throw new Error("Scene " + scene.id + " composite base must preserve the intact source illustration.");
+      }
+    }
+    for (const role of requiredRoles) {
       if (!roleSet.has(role)) {
         throw new Error("Scene " + scene.id + " full-body performance rig is missing layer " + role + ".");
       }
@@ -465,7 +476,8 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
       if (requiredLegs.includes(role)) animatedFullBodyPartCount += 1;
       if (requiredFingers.includes(role)) animatedFingeringControlCount += 1;
     }
-    for (const propId of ["violin", "bow"]) {
+    const requiredProps = compositeBaseMode ? ["bow"] : ["violin", "bow"];
+    for (const propId of requiredProps) {
       if (!propSet.has(propId)) {
         throw new Error("Scene " + scene.id + " full-body performance is missing the " + propId + " prop.");
       }
@@ -479,6 +491,18 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
           " has no changing attachment/performance transform track.");
       }
       animatedInstrumentPropCount += 1;
+    }
+    if (compositeBaseMode) {
+      const baseTarget = scene.id + "-" + character.id + "-base-art";
+      if (!project.motion_tracks.some((item) =>
+        item.target === baseTarget && item.property === "transform" &&
+        item.values.some((value) => value !== item.values[0])
+      )) {
+        throw new Error("Scene " + scene.id + " complete-body base has no coordinated breathing/sway transform.");
+      }
+    }
+  }
+
     }
   }
 
@@ -575,6 +599,8 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     animated_full_body_parts: animatedFullBodyPartCount,
     animated_fingering_controls: animatedFingeringControlCount,
     animated_instrument_props: animatedInstrumentPropCount,
+    preserved_composite_base_count: preservedCompositeBaseCount,
+    full_body_visual_mode: preservedCompositeBaseCount > 0 ? "intact_composite_base" : "segmented_limb_rig",
     independent_layer_motion_count: independentLayerMotionCount,
     rendered_layer_count: visualLayers.length,
     stagecraft_environment: scene.stagecraft?.environment || "",
@@ -595,6 +621,7 @@ const motionReport = {
   animated_full_body_part_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_full_body_parts, 0),
   animated_fingering_control_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_fingering_controls, 0),
   animated_instrument_prop_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_instrument_props, 0),
+  preserved_composite_base_count: motionSceneReports.reduce((sum, scene) => sum + scene.preserved_composite_base_count, 0),
   independent_layer_motion_count: motionSceneReports.reduce((sum, scene) => sum + scene.independent_layer_motion_count, 0),
   rendered_layer_count: motionSceneReports.reduce((sum, scene) => sum + scene.rendered_layer_count, 0),
   animated_stagecraft_environment_node_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_stagecraft_environment_nodes, 0),
