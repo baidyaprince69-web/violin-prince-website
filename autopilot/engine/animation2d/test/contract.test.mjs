@@ -54,7 +54,10 @@ test("gesture presets include arms and head movement", () => {
   assert.ok(wave.right_forearm);
   assert.ok(gestureKeyframes("nod").head);
   assert.deepEqual(gestureKeyframes("unknown"), {});
-  for (const name of ["idle_breath", "talking", "violin_bow", "walk_cycle", "dance_groove"]) {
+  const performance = gestureKeyframes("violin_performance");
+  assert.ok(performance.left_hand, "the fingering hand must receive a hand-level motion cue");
+  assert.ok(performance.bow && performance.violin, "the performance gesture must animate both instrument props");
+  for (const name of ["idle_breath", "talking", "violin_bow", "walk_cycle", "dance_groove", "violin_performance"]) {
     assert.ok(Object.keys(gestureKeyframes(name)).length >= 2, name + " should animate multiple rig parts");
   }
 });
