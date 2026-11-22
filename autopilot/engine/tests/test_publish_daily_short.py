@@ -36,6 +36,7 @@ class DailyPublicPublisherTests(unittest.TestCase):
             "production_date": "2026-11-21",
             "slot_id": self.slot_id,
             "title": self.title,
+            "privacy_status": "private",
             "narration_script": self.script,
             "sources": [
                 {"source_id": "S001", "publisher_domain": "production-expert.com"},
@@ -52,7 +53,7 @@ class DailyPublicPublisherTests(unittest.TestCase):
             "tags": ["Violin", "Synthesis", "Music Technology"],
             "category_id": "10",
             "default_language": "en",
-            "youtube_privacy": "public",
+            "youtube_privacy": "private",
             "made_for_kids": False,
             "contains_synthetic_media": True,
             "duration_seconds": 24.0,
@@ -128,19 +129,19 @@ class DailyPublicPublisherTests(unittest.TestCase):
             video_probe=self.quality,
         )
 
-    def test_valid_public_release_bundle_is_accepted(self):
+    def test_valid_private_preview_bundle_is_accepted(self):
         manifest, provenance, plan, video, audit = self.validate()
         self.assertEqual(manifest["title"], self.title)
         self.assertEqual(video, self.video)
-        self.assertEqual(plan["publish_metadata"]["privacy_status"], "public")
+        self.assertEqual(plan["publish_metadata"]["privacy_status"], "private")
         self.assertIs(plan["publish_metadata"]["made_for_kids"], False)
         self.assertTrue(plan["contains_synthetic_media"])
         self.assertEqual(audit["sha256"], self.provenance["assets"]["final_video"]["sha256"])
 
-    def test_private_visibility_is_rejected(self):
-        self.manifest["youtube_privacy"] = "private"
+    def test_public_visibility_is_rejected(self):
+        self.manifest["youtube_privacy"] = "public"
         (self.output / "publish-manifest.json").write_text(json.dumps(self.manifest), encoding="utf-8")
-        with self.assertRaisesRegex(daily.PublishBlocked, "public YouTube visibility"):
+        with self.assertRaisesRegex(daily.PublishBlocked, "does not explicitly request private"):
             self.validate()
 
     def test_missing_independent_source_evidence_is_rejected(self):
