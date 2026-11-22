@@ -167,8 +167,8 @@ def _leg_layers(
             if side == "left"
             else np.broadcast_to(np.arange(width)[None, :] >= split_x, (height, width))
         )
-        thigh = _morph(thigh_all & side_mask, 2, "close") & (alpha > 0)
-        calf = _morph(calf_all & side_mask, 2, "close") & (alpha > 0)
+        thigh = _morph(_morph(thigh_all & side_mask, 2, "dilate"), 2, "erode") & (alpha > 0)
+        calf = _morph(_morph(calf_all & side_mask, 2, "dilate"), 2, "erode") & (alpha > 0)
         foot = _foot_mask(rgb, alpha, side=side, split_x=split_x)
 
         if int(thigh.sum()) < 100 or int(calf.sum()) < 80:
