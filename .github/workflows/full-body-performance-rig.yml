@@ -76,8 +76,7 @@ jobs:
             --bundle work/full-body-rig/bundle \
             --prop-dir autopilot/engine/assets/characters/violin-prince-performance \
             --instrument-manifest autopilot/engine/assets/characters/violin-prince-performance/instrument-props.json \
-            --finger-manifest autopilot/engine/assets/characters/violin-prince-performance/finger-regions.json \
-            --neutral-apose autopilot/engine/assets/characters/violin-prince-performance/neutral-apose-reference.webp
+            --finger-manifest autopilot/engine/assets/characters/violin-prince-performance/finger-regions.json
 
       - name: Build the isolated 8-second performance project
         env:
