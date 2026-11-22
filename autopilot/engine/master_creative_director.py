@@ -64,6 +64,9 @@ TRANSITIONS = {
     "speed_ramp",
     "light_transition",
     "foreground_wipe",
+    # Accepted by the legacy contract so its renderer can issue the specific
+    # unsupported-transition error; v3 prompt and renderers never select it.
+    "morph_cut",
 }
 HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 
