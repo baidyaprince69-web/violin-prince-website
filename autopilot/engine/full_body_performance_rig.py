@@ -30,9 +30,10 @@ from character_rig import validate_character_spec
 # SCHP PASCAL-person-part label map: 5=upper legs, 6=lower legs.
 LEG_LABELS = {"upper_leg": 5, "lower_leg": 6}
 LEG_ROLE_Z = {
-    "left_foot": 4, "right_foot": 5,
+    # Parent-to-child draw order: upper legs behind calves, calves behind feet.
+    "left_thigh": 4, "right_thigh": 5,
     "left_calf": 6, "right_calf": 7,
-    "left_thigh": 8, "right_thigh": 9,
+    "left_foot": 8, "right_foot": 9,
 }
 FINGER_Z = {
     "finger_index": 43,
