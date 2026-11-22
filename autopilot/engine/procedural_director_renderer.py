@@ -169,7 +169,7 @@ def build_procedural_director_project(
             target = character_root / source.name
             shutil.copy2(source, target)
             item["src"] = (Path("assets") / "characters" / "violin-prince" / target.name).as_posix()
-    for section in ("expressions", "pose_assets"):
+    for section in ("expressions", "pose_assets", "props"):
         for item in (character.get(section) or {}).values():
             source = Path(item["src"]).resolve(strict=True)
             target = character_root / source.name
@@ -184,6 +184,8 @@ def build_procedural_director_project(
             )
 
     concept = dict(director_plan["visual_concept"])
+    body_scope = str(character.get("body_scope") or "upper_body")
+    full_body_ready = body_scope == "full_body"
     project = {
         "schema_version": 4,
         "title": str(director_plan.get("title") or "Violin Prince — Procedural Master Director"),
@@ -212,18 +214,28 @@ def build_procedural_director_project(
         "diagnostics": {
             "publishing": "disabled",
             "preview_only": True,
-            "rig_scope": "upper_body_only_no_leg_joints_no_attached_violin_or_bow",
+            "body_scope": body_scope,
+            "rig_scope": (
+                "full_body_with_hip_knee_ankle_and_independent_instrument_props"
+                if full_body_ready else "upper_body_only_no_leg_joints_no_attached_violin_or_bow"
+            ),
+            "instrument_prop_count": len(character.get("props") or {}),
         },
     }
     destination = root / "project.json"
     temporary = destination.with_suffix(".json.tmp")
     temporary.write_text(json.dumps(project, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     temporary.replace(destination)
+    rig_note = (
+        "The presenter has independently articulated hip/knee/ankle chains and separate violin/bow prop layers. "
+        if full_body_ready else
+        "The presenter is upper-body only and has no leg joints or attached violin/bow. "
+    )
     (root / "README.txt").write_text(
         "Procedural Master Director preview project. Environments and props are live SVG Motion "
-        "elements, camera movement targets the full scene world, and the Violin Prince upper-body "
-        "rig is articulated per shot. This preview contains no generated scene plates or cutout "
-        "images and cannot be published. The presenter has no leg joints or attached violin/bow.\n",
+        "elements, camera movement targets the full scene world, and the Violin Prince rig is "
+        "articulated per shot. This preview contains no generated scene plates or cutout images "
+        "and cannot be published. " + rig_note + "\n",
         encoding="utf-8",
     )
     return project
