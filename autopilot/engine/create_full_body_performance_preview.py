@@ -99,7 +99,7 @@ def build_preview_project(
     output_dir: str | Path,
     *,
     audio_path: str | Path | None = None,
-    bpm: float | None = 100.0,
+    bpm: float | None = None,
 ) -> dict[str, Any]:
     bundle = Path(bundle_dir).resolve(strict=True)
     output = Path(output_dir).resolve()
@@ -251,7 +251,7 @@ def main() -> int:
     parser.add_argument("--bundle", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--audio", default="", help="Optional real audio track for beat/onset analysis.")
-    parser.add_argument("--bpm", type=float, default=100.0,
+    parser.add_argument("--bpm", type=float, default=None,
                         help="Verified tempo for the preview grid or optional audio phase alignment.")
     args = parser.parse_args()
     result = build_preview_project(
