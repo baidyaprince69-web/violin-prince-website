@@ -49,6 +49,8 @@ def select_next_private_preview_plan(
     batches_dir: str = ".autopilot/daily-batches",
     attempts_dir: str = ".autopilot/private-preview-attempts",
     receipts_dir: str = ".autopilot/private-preview-receipts",
+    legacy_attempts_dir: str = ".autopilot/public-youtube-attempts",
+    legacy_receipts_dir: str = ".autopilot/public-youtube-receipts",
 ) -> dict[str, Any]:
     """Return the earliest ready, unattempted plan for an exact date or lower bound."""
     root = Path(root).resolve()
@@ -71,7 +73,10 @@ def select_next_private_preview_plan(
     batch_root = (root / batches_dir).resolve()
     attempt_root = (root / attempts_dir).resolve()
     receipt_root = (root / receipts_dir).resolve()
-    if root not in batch_root.parents or root not in attempt_root.parents or root not in receipt_root.parents:
+    legacy_attempt_root = (root / legacy_attempts_dir).resolve()
+    legacy_receipt_root = (root / legacy_receipts_dir).resolve()
+    state_roots = (batch_root, attempt_root, receipt_root, legacy_attempt_root, legacy_receipt_root)
+    if any(root not in state_root.parents for state_root in state_roots):
         raise ValueError("Queue state directories must remain inside the repository root.")
 
     candidates: list[dict[str, Any]] = []
@@ -107,11 +112,17 @@ def select_next_private_preview_plan(
             metadata = metadata if isinstance(metadata, dict) else {}
 
             identity = _identity(batch_date, slot_id)
-            attempt_path = attempt_root / f"{identity}.json"
-            receipt_path = receipt_root / f"{identity}.json"
-            # Any durable attempt marker is terminal for automatic queueing.
-            # This includes uncertain outcomes, which must be reconciled manually.
-            if attempt_path.exists() or receipt_path.exists():
+            attempt_paths = (
+                attempt_root / f"{identity}.json",
+                legacy_attempt_root / f"{identity}.json",
+            )
+            receipt_paths = (
+                receipt_root / f"{identity}.json",
+                legacy_receipt_root / f"{identity}.json",
+            )
+            # Private and legacy public attempt/receipt markers are all terminal.
+            # This preserves no-retry and no-duplicate guarantees across the cutover.
+            if any(path.exists() for path in (*attempt_paths, *receipt_paths)):
                 continue
 
             candidates.append({
