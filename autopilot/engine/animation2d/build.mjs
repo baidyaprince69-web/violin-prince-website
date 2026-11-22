@@ -357,6 +357,59 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     throw new Error("Scene " + scene.id +
       " requires articulated presenter motion; pointing gestures must contain multiple emphasis beats.");
   }
+  const fullBodyPerformanceCharacters = visibleCharacters.filter((character) => {
+    const action = (character.scene_actions || {})[scene.id] ||
+      ((scene.character_actions || {})[character.id] || {});
+    return action.instrument_performance === true ||
+      String(action.gesture || "").trim().toLowerCase() === "violin_performance";
+  });
+  let animatedFullBodyPartCount = 0;
+  let animatedFingeringControlCount = 0;
+  let animatedInstrumentPropCount = 0;
+  for (const character of fullBodyPerformanceCharacters) {
+    const requiredLegs = [
+      "left_thigh", "left_calf", "left_foot",
+      "right_thigh", "right_calf", "right_foot"
+    ];
+    const requiredFingers = [
+      "finger_index", "finger_middle", "finger_ring", "finger_little"
+    ];
+    const roleSet = new Set((character.layers || []).map((layer) => String(layer.role || "")));
+    const propSet = new Set(Object.keys(character.props || {}));
+    for (const role of [...requiredLegs, ...requiredFingers]) {
+      if (!roleSet.has(role)) {
+        throw new Error("Scene " + scene.id + " full-body performance rig is missing layer " + role + ".");
+      }
+      const target = scene.id + "-" + character.id + "-part-" +
+        (character.layers || []).find((layer) => layer.role === role).id;
+      const track = project.motion_tracks.find((item) =>
+        item.target === target && item.property === "transform" &&
+        item.values.some((value) => value !== item.values[0])
+      );
+      if (!track) {
+        throw new Error("Scene " + scene.id + " full-body performance part " + role +
+          " has no changing frame-seekable transform track.");
+      }
+      if (requiredLegs.includes(role)) animatedFullBodyPartCount += 1;
+      if (requiredFingers.includes(role)) animatedFingeringControlCount += 1;
+    }
+    for (const propId of ["violin", "bow"]) {
+      if (!propSet.has(propId)) {
+        throw new Error("Scene " + scene.id + " full-body performance is missing the " + propId + " prop.");
+      }
+      const target = scene.id + "-" + character.id + "-prop-" + propId;
+      const track = project.motion_tracks.find((item) =>
+        item.target === target && item.property === "transform" &&
+        item.values.some((value) => value !== item.values[0])
+      );
+      if (!track) {
+        throw new Error("Scene " + scene.id + " instrument prop " + propId +
+          " has no changing attachment/performance transform track.");
+      }
+      animatedInstrumentPropCount += 1;
+    }
+  }
+
   const presenterPoseAssets = visibleCharacters.flatMap((character) => {
     const action = (character.scene_actions || {})[scene.id] ||
       ((scene.character_actions || {})[character.id] || {});
@@ -446,6 +499,10 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     }, 0),
     presenter_pose_asset_count: presenterPoseAssets.length,
     presenter_pose_assets: presenterPoseAssets,
+    full_body_performance_character_count: fullBodyPerformanceCharacters.length,
+    animated_full_body_parts: animatedFullBodyPartCount,
+    animated_fingering_controls: animatedFingeringControlCount,
+    animated_instrument_props: animatedInstrumentPropCount,
     independent_layer_motion_count: independentLayerMotionCount,
     rendered_layer_count: visualLayers.length,
     stagecraft_environment: scene.stagecraft?.environment || "",
@@ -462,6 +519,10 @@ const motionReport = {
   animated_graphic_item_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_graphic_items, 0),
   animated_presenter_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_presenter_count, 0),
   presenter_pose_asset_count: motionSceneReports.reduce((sum, scene) => sum + scene.presenter_pose_asset_count, 0),
+  full_body_performance_scene_count: motionSceneReports.filter((scene) => scene.full_body_performance_character_count > 0).length,
+  animated_full_body_part_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_full_body_parts, 0),
+  animated_fingering_control_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_fingering_controls, 0),
+  animated_instrument_prop_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_instrument_props, 0),
   independent_layer_motion_count: motionSceneReports.reduce((sum, scene) => sum + scene.independent_layer_motion_count, 0),
   rendered_layer_count: motionSceneReports.reduce((sum, scene) => sum + scene.rendered_layer_count, 0),
   animated_stagecraft_environment_node_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_stagecraft_environment_nodes, 0),
