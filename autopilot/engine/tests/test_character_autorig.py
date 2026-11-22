@@ -21,6 +21,7 @@ from character_autorig import (
     _register_expression_to_neutral,
     _split_arm,
     _repair_transparent_person_holes,
+    _restore_person_holes_in_source,
     separate_from_parsing,
 )
 
@@ -85,6 +86,38 @@ class CharacterAutoRigTests(unittest.TestCase):
         self.assertLess(float(repaired_pixels[16:24, 16:24].mean()), 100)
         self.assertTrue(np.all(repaired_pixels[0, 0] == 255),
                         "ordinary transparent background must not be reconstructed")
+
+    def test_preserved_full_body_source_restores_only_confident_person_holes(self):
+        width, height = 32, 32
+        original = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        pixels = np.asarray(original, dtype=np.uint8).copy()
+        pixels[6:26, 6:26] = (40, 48, 58, 255)
+        pixels[14:19, 14:19] = (40, 48, 58, 0)
+        original = Image.fromarray(pixels, mode="RGBA")
+
+        repaired = Image.new("RGB", (width, height), (255, 255, 255))
+        repaired_pixels = np.asarray(repaired, dtype=np.uint8).copy()
+        repaired_pixels[14:19, 14:19] = (42, 49, 57)
+        repaired = Image.fromarray(repaired_pixels, mode="RGB")
+
+        source_alpha = pixels[:, :, 3].copy()
+        labels = np.zeros((height, width), dtype=np.uint8)
+        labels[6:26, 6:26] = 2
+        confidence = np.full((height, width), 0.05, dtype=np.float32)
+        confidence[6:26, 6:26] = 0.95
+
+        preserved, report = _restore_person_holes_in_source(
+            original, repaired, source_alpha, labels, confidence
+        )
+        result = np.asarray(preserved, dtype=np.uint8)
+        self.assertTrue(np.all(result[14:19, 14:19, 3] == 255))
+        self.assertTrue(np.all(result[14:19, 14:19, :3] == (42, 49, 57)))
+        self.assertEqual(int(result[2, 2, 3]), 0,
+            "transparent non-person background must stay transparent")
+        self.assertEqual(tuple(result[8, 8]), (40, 48, 58, 255),
+            "original non-hole body pixels must remain pixel-identical")
+        self.assertEqual(report["pixels_restored"], 25)
+        self.assertTrue(report["original_alpha_preserved_outside_holes"])
 
     def test_ignores_low_confidence_transparent_background(self):
         width, height = 40, 40
