@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 from PIL import Image
 
+from create_full_body_performance_preview import _build_preview_music_sync
 from full_body_performance_rig import (
     _authored_performance_layers,
     _build_segmented_source_base,
@@ -197,11 +198,11 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         pixels[15, 7] = (162, 163, 161, 153)
         # A genuine warm skin edge and a protected pale prop edge must remain unchanged.
         pixels[16, 7] = (190, 126, 91, 255)
-        pixels[17, 7] = (238, 232, 218, 255)
+        pixels[22, 7] = (238, 232, 218, 255)
 
         source = Image.fromarray(pixels, mode="RGBA")
         protected = np.zeros((32, 32), dtype=bool)
-        protected[17, 7] = True
+        protected[22, 7] = True
         cleaned, report = _decontaminate_edge_matte_rgb(
             source,
             protected_masks=(protected,),
@@ -216,12 +217,23 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             "semi-transparent fringe RGB should also be decontaminated")
         self.assertEqual(tuple(result[16, 7]), (190, 126, 91, 255),
             "warm skin edge colour must not be changed")
-        self.assertEqual(tuple(result[17, 7]), (238, 232, 218, 255),
+        self.assertEqual(tuple(result[22, 7]), (238, 232, 218, 255),
             "known prop highlight must remain unchanged")
         np.testing.assert_array_equal(result[:, :, 3], pixels[:, :, 3])
         self.assertTrue(report["source_alpha_preserved"])
         self.assertTrue(report["source_silhouette_geometry_preserved"])
 
+
+    def test_preview_music_sync_uses_explicit_tempo_grid_when_no_audio_is_attached(self):
+        timing = _build_preview_music_sync(8, bpm=100)
+        self.assertEqual(timing["status"], "preview_grid")
+        self.assertEqual(timing["source"], "preview_tempo_grid_no_audio_asset")
+        self.assertFalse(timing["audio_attached"])
+        self.assertEqual(timing["bpm"], 100)
+        self.assertAlmostEqual(timing["beat_times"][0], 0.0)
+        self.assertAlmostEqual(timing["beat_times"][1], 0.6)
+        self.assertEqual(timing["downbeats"], timing["beat_times"][::4])
+        self.assertGreater(len(timing["onsets"]), 0)
 
     def test_segmented_source_base_preserves_untouched_pixels_and_alpha(self):
         import tempfile
