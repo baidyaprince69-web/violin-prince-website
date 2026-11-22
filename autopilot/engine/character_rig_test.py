@@ -129,7 +129,7 @@ def build_rig_preview_project(bundle_dir: str | Path, output_dir: str | Path) ->
     staged["scene_actions"] = scene_actions
 
     titles = [
-        ("scene-neutral", "Neutral rig", "Nine independently separated character layers"),
+        ("scene-neutral", "Neutral rig", "Full-body presenter with separately rigged legs and fingers"),
         ("scene-blink", "Blink expression", "Expression overlay on the separated face layer"),
         ("scene-head-turn", "Head rotation", "Head rotates around the neck joint while the torso counterbalances"),
         ("scene-wave", "Arm wave", "Upper arm and forearm rotate independently at shoulder and elbow pivots"),
@@ -167,7 +167,7 @@ def build_rig_preview_project(bundle_dir: str | Path, output_dir: str | Path) ->
                 "neck_pivot_head_rotation",
                 "shoulder_elbow_wrist_arm_movement",
                 "torso_body_pivot_rotation",
-                *(["hip_knee_ankle_leg_chains", "independent_violin_bow_prop_tracks"]
+                *(["hip_knee_ankle_leg_chains", "independent_fingerboard_finger_tracks", "independent_violin_bow_prop_tracks"]
                   if staged.get("body_scope") == "full_body" and {"violin", "bow"}.issubset(staged.get("props", {})) else []),
             ],
             "body_scope": staged.get("body_scope", "upper_body"),
@@ -189,7 +189,7 @@ def build_rig_preview_project(bundle_dir: str | Path, output_dir: str | Path) ->
     project_path.write_text(json.dumps(project, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     (output_dir / "README.txt").write_text(
         "Isolated articulated character-rig proof only. This is not a production video.\n"
-        "Head, arm chains and torso are animated from separated layers and joint pivots.\n"
+        "Head, arm chains, torso, legs and fingerboard fingers are animated from separated layers and joint pivots.\n"
         "Pose plates are references only and are not used to fake articulation.\n"
         "Review separation-preview.png and separation-report.json before accepting the rig.\n"
         "See character-visual-diagnostics.json for raster-only structural warnings and failures.\n"
