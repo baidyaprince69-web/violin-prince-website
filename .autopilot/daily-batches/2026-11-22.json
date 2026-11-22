@@ -56,7 +56,7 @@
       ],
       "narrative_style": "documentary",
       "cover_payoff": "Use an original sample-bank violin phrase to illustrate a harsh resonance being reduced while the phrase's core tone remains. Keep the example symbolic; it is neither a hands-on pure:smooth test nor a creator-recorded performance.",
-      "narration_script": "Can one knob tame harshness without dulling audio? Sonible's pure:smooth is an AI-powered resonance suppression plugin. Choose a source profile; processing adapts to incoming audio. Difference Monitoring lets you hear exactly what is removed.",
+      "narration_script": "Can one knob tame harshness without dulling audio? Sonible's pure:smooth is an AI-powered resonance suppression plugin. It uses a single Smoothing knob to reduce harsh resonances. Difference Monitoring lets you hear what is removed.",
       "narration_evidence": [
         {
           "sentence_number": 2,
@@ -65,8 +65,8 @@
         },
         {
           "sentence_number": 3,
-          "source_id": "S001",
-          "quote": "After a user selects a source profile, the plugin analyzes the audio and adjusts its processing automatically."
+          "source_id": "S002",
+          "quote": "sonible's pure:smooth is a new AI de-harsher that reduces harsh resonances with a single Smoothing knob."
         },
         {
           "sentence_number": 4,
