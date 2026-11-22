@@ -43,6 +43,51 @@ const character = {
   }
 };
 
+const fullBodyCharacter = {
+  ...character,
+  body_scope: "full_body",
+  layers: [
+    ...character.layers,
+    { id: "left_thigh", role: "left_thigh", x: 30, y: 50, width: 20, height: 25 },
+    { id: "left_shin", role: "left_shin", x: 32, y: 72, width: 18, height: 22 },
+    { id: "left_foot", role: "left_foot", x: 28, y: 90, width: 23, height: 9 },
+    { id: "right_thigh", role: "right_thigh", x: 50, y: 50, width: 20, height: 25 },
+    { id: "right_shin", role: "right_shin", x: 52, y: 72, width: 18, height: 22 },
+    { id: "right_foot", role: "right_foot", x: 51, y: 90, width: 23, height: 9 }
+  ],
+  joints: {
+    ...character.joints,
+    left_hip: { x: 0.40, y: 0.51 },
+    left_knee: { x: 0.40, y: 0.73 },
+    left_ankle: { x: 0.40, y: 0.91 },
+    right_hip: { x: 0.60, y: 0.51 },
+    right_knee: { x: 0.60, y: 0.73 },
+    right_ankle: { x: 0.60, y: 0.91 }
+  },
+  props: {
+    violin: { src: "violin.webp", x: 8, y: 22, width: 44, height: 18, pivot_x: 0.22, pivot_y: 0.5 },
+    bow: { src: "bow.webp", x: 40, y: 8, width: 8, height: 48, pivot_x: 0.035, pivot_y: 0.976 }
+  },
+  scene_actions: {
+    "violin-performance": {
+      gesture: "violin_performance",
+      expression: "neutral",
+      loop: true,
+      cycle_duration_seconds: 1.35
+    }
+  }
+};
+
+function fullBodyTracks(sceneId) {
+  return compileMotionTracks({
+    fps: 25,
+    width: 100,
+    height: 100,
+    scenes: [{ id: sceneId, start: 0, duration: 1.35 }],
+    characters: [fullBodyCharacter]
+  });
+}
+
 test("selected expression plate replaces the static base face cut-out", () => {
   const renderer = readFileSync(new URL("../build.mjs", import.meta.url), "utf8");
   assert.ok(
@@ -167,6 +212,47 @@ test("left and right pointing gestures use repeated articulated emphasis beats",
     assert.ok(deltas.some(value => value < -0.0001),
       sceneId + " must include a return/re-emphasis movement, not a single settle into a held pose");
   }
+});
+
+test("violin performance animates full-body leg chains and both independent instrument props", () => {
+  const tracks = fullBodyTracks("violin-performance");
+  const target = (role) => "violin-performance-violin-prince-part-" + role;
+  const transformed = new Set(tracks.filter(track => track.property === "transform").map(track => track.target));
+
+  for (const role of [
+    "left_thigh", "left_shin", "left_foot",
+    "right_thigh", "right_shin", "right_foot"
+  ]) {
+    assert.ok(transformed.has(target(role)), "missing articulated motion track for " + role);
+  }
+  for (const prop of ["violin", "bow"]) {
+    const propTrack = tracks.find(track =>
+      track.target === "violin-performance-violin-prince-prop-" + prop &&
+      track.property === "transform"
+    );
+    assert.ok(propTrack, "missing independent transform track for " + prop);
+    assert.ok(new Set(propTrack.values).size > 1, prop + " must visibly move over time");
+  }
+});
+
+test("hip-knee-ankle transforms preserve connected full-body joints", () => {
+  const tracks = fullBodyTracks("violin-performance");
+  const byTarget = new Map(tracks.map(track => [track.target, track]));
+  const layer = role => fullBodyCharacter.layers.find(item => item.role === role);
+  const matrix = role => byTarget.get("violin-performance-violin-prince-part-" + role);
+  const frameIndex = Math.floor(matrix("left_thigh").values.length * 0.58);
+
+  const leftKnee = { x: 40, y: 73 };
+  const kneeFromThigh = transformPoint(globalMatrix(matrix("left_thigh"), layer("left_thigh"), frameIndex), leftKnee);
+  const kneeFromShin = transformPoint(globalMatrix(matrix("left_shin"), layer("left_shin"), frameIndex), leftKnee);
+  assert.ok(Math.hypot(kneeFromThigh.x - kneeFromShin.x, kneeFromThigh.y - kneeFromShin.y) < 0.02,
+    "left knee pivot must remain connected");
+
+  const leftAnkle = { x: 40, y: 91 };
+  const ankleFromShin = transformPoint(globalMatrix(matrix("left_shin"), layer("left_shin"), frameIndex), leftAnkle);
+  const ankleFromFoot = transformPoint(globalMatrix(matrix("left_foot"), layer("left_foot"), frameIndex), leftAnkle);
+  assert.ok(Math.hypot(ankleFromShin.x - ankleFromFoot.x, ankleFromShin.y - ankleFromFoot.y) < 0.02,
+    "left ankle pivot must remain connected");
 });
 
 test("generated rig project wires real scene actions into frame-seekable motion tracks", {
