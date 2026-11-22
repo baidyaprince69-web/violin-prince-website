@@ -121,6 +121,10 @@ test("violin and bow are separately transformed and bow receives a stroke cycle"
 
 test("modular head expressions and angle plates are separately rendered and frame-seekable", () => {
   const tracks = compileMotionTracks(project, { fps: 25 });
+  assert.equal(tracks.some(track =>
+    track.target === "playing-violin-prince-expression-neutral" &&
+    track.property === "opacity"
+  ), false, "legacy face expression overlays must stay disabled when full head plates are active");
   for (const name of ["happy", "focused", "surprised", "neutral"]) {
     assert.ok(tracks.some(track =>
       track.target === "playing-violin-prince-head-variant-" + name &&
