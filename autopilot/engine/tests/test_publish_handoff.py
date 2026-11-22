@@ -29,7 +29,7 @@ class PublishMetadataTests(unittest.TestCase):
         self.assertEqual(value["tags"], ["Violin", "Music", "Acoustics"])
         self.assertEqual(value["category_id"], "10")
         self.assertEqual(value["default_language"], "en")
-        self.assertEqual(value["privacy_status"], "public")
+        self.assertEqual(value["privacy_status"], "private")
         self.assertIs(value["made_for_kids"], False)
         self.assertTrue(result["audience_confirmed"])
         self.assertTrue(result["valid"])
@@ -43,14 +43,24 @@ class PublishMetadataTests(unittest.TestCase):
                 "tags": ["Violin", "Music", "Sound"],
                 "category_id": "10",
                 "default_language": "en-IN",
-                "privacy_status": "unlisted",
+                "privacy_status": "private",
                 "made_for_kids": True,
             },
         })
         self.assertEqual(result["value"]["title"], "Chosen title")
         self.assertEqual(result["value"]["default_language"], "en-IN")
-        self.assertEqual(result["value"]["privacy_status"], "unlisted")
+        self.assertEqual(result["value"]["privacy_status"], "private")
         self.assertIs(result["value"]["made_for_kids"], True)
+
+    def test_rejects_public_and_unlisted_visibility(self):
+        for visibility in ("public", "unlisted"):
+            with self.subTest(visibility=visibility):
+                with self.assertRaisesRegex(ValueError, "private-preview-only"):
+                    validate_publish_metadata({
+                        "title": "Valid title",
+                        "description": "Description",
+                        "privacy_status": visibility,
+                    })
 
     def test_rejects_title_over_youtube_limit(self):
         with self.assertRaisesRegex(ValueError, "title exceeds 100"):
