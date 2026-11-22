@@ -348,8 +348,17 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
           sourceTracks.filter(track => track.target === id && track.property === "rotate")
         );
       }
+      const props = character.props || {};
+      for (const [name] of Object.entries(props)) {
+        const id = prefix + "-prop-" + name;
+        rotationTracks.set(
+          name,
+          sourceTracks.filter(track => track.target === id && track.property === "rotate")
+        );
+      }
 
       const hasRotation = role => (rotationTracks.get(role) || []).length > 0;
+      const animatedPropNames = Object.keys(props).filter(hasRotation);
       const dependencies = {
         torso: ["torso"],
         head: ["torso", "head"],
@@ -380,7 +389,8 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
       }
       const expressionNames = Object.keys(character.expressions || {});
       const needsExpressionTransform = hasRotation("torso") || hasRotation("head");
-      if (!rolesToAnimate.size && !(needsExpressionTransform && expressionNames.length)) continue;
+      if (!rolesToAnimate.size && !animatedPropNames.length &&
+          !(needsExpressionTransform && expressionNames.length)) continue;
 
       const pivotFor = (jointName, layerRole) =>
         layerPivot(layerByRole.get(layerRole), joints[jointName], sourceWidth, sourceHeight);
@@ -412,6 +422,7 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
 
       const sampledMatrices = new Map([...rolesToAnimate].map(role => [role, []]));
       const sampledExpressionMatrices = new Map(expressionNames.map(name => [name, []]));
+      const sampledPropMatrices = new Map(animatedPropNames.map(name => [name, []]));
 
       for (const offset of sampleOffsets) {
         const time = sceneStart + offset * sceneDuration;
@@ -518,6 +529,20 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
             localCssMatrix(headWorld, character.expressions[name], scale)
           );
         }
+        for (const name of animatedPropNames) {
+          const prop = props[name];
+          const parentRole = String(prop.attach_to || "torso");
+          const parentWorld = worldByRole[parentRole] || torsoWorld;
+          const propPivot = {
+            x: Number(prop.x || 0) + Number(prop.width || 1) * Number(prop.pivot_x ?? 0.5),
+            y: Number(prop.y || 0) + Number(prop.height || 1) * Number(prop.pivot_y ?? 0.5)
+          };
+          const propWorld = multiplyMatrix(
+            parentWorld,
+            aroundPivot(propPivot, localAngle(name, time))
+          );
+          sampledPropMatrices.get(name).push(localCssMatrix(propWorld, prop, scale));
+        }
       }
 
       for (const role of rolesToAnimate) {
@@ -543,6 +568,17 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
             easing: "linear"
           });
         }
+      }
+      for (const name of animatedPropNames) {
+        transformTracks.push({
+          target: prefix + "-prop-" + name,
+          property: "transform",
+          values: sampledPropMatrices.get(name),
+          offsets: sampleOffsets,
+          start: sceneStart,
+          duration: sceneDuration,
+          easing: "linear"
+        });
       }
     }
   }
