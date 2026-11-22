@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "canvas": {"width": 441, "height": 755},
+  "props": {
+    "violin": {
+      "src": "violin-prop.webp",
+      "x": 164,
+      "y": 132,
+      "width": 269,
+      "height": 91,
+      "pivot_x": 0.18587360594795538,
+      "pivot_y": 0.46153846153846156,
+      "z_index": 25,
+      "attach_to": "torso"
+    },
+    "bow": {
+      "src": "bow-prop.webp",
+      "x": 147,
+      "y": 44,
+      "width": 191,
+      "height": 254,
+      "pivot_x": 0.16230366492146597,
+      "pivot_y": 0.952755905511811,
+      "z_index": 35,
+      "attach_to": "left_hand"
+    }
+  }
+}
