@@ -133,6 +133,8 @@ def prepare_character_assets(
             "joints": character["joints"],
             "expressions": expressions,
             "pose_assets": pose_assets,
+            "props": props,
+            "body_scope": character.get("body_scope", "upper_body"),
             "poses": character["poses"],
             "gestures": character["gestures"],
             "scene_actions": scene_actions,
