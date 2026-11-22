@@ -364,7 +364,7 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
 
       const rolesToAnimate = new Set();
       for (const [role, ancestors] of Object.entries(dependencies)) {
-        if (ancestors.some(hasRotation) && (layerByRole.has(role) || role === "face")) {
+        if (ancestors.some(hasRotation) && layerByRole.has(role)) {
           rolesToAnimate.add(role);
         }
       }

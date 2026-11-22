@@ -107,6 +107,11 @@ test("stagecraft enters the real Motion composition with independent loop tracks
     assert.ok(html.includes("night-drive-stagecraft-traffic-a"));
     assert.ok(html.includes("night-drive-stagecraft-object-foreground-note"));
     assert.ok(html.includes('"loop":true'), "composition must preserve looping track metadata");
+
+    const lint = spawnSync(resolve(engineDirectory, "node_modules/.bin/hyperframes"), [
+      "lint", outputDirectory
+    ], { cwd: engineDirectory, encoding: "utf8" });
+    assert.equal(lint.status, 0, lint.stderr || lint.stdout || "HyperFrames rejected the procedural stagecraft composition");
   } finally {
     rmSync(temporary, { recursive: true, force: true });
   }
