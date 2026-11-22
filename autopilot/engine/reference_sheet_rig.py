@@ -207,18 +207,18 @@ def build_reference_sheet_rig(
     expression_components = _four_ordered_components(
         expression_sheet_path, minimum_area_ratio=0.012
     )
-    head_variants = {}
-    for name, component in zip(EXPRESSION_ORDER, expression_components, strict=True):
-        filename = f"head-variant-{name}.png"
-        _save_component(component, bundle / filename)
-        head_variants[name] = {"src": filename, **head_bounds}
-
     angle_components = _four_ordered_components(
         head_angle_sheet_path,
         minimum_area_ratio=0.009,
         top_region_ratio=0.62,
     )
     head_bounds = _head_plate_bounds(character)
+
+    head_variants = {}
+    for name, component in zip(EXPRESSION_ORDER, expression_components, strict=True):
+        filename = f"head-variant-{name}.png"
+        _save_component(component, bundle / filename)
+        head_variants[name] = {"src": filename, **head_bounds}
 
     head_angles = {}
     for name, component in zip(HEAD_ANGLE_ORDER, angle_components, strict=True):
