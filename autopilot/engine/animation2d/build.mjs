@@ -727,6 +727,7 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.rig-part[data-role="face"]{opacity:0}' +
   '.character-rig[data-head-plates="true"]:not([data-pose-active="true"]) .rig-part[data-role="head"],.character-rig[data-head-plates="true"]:not([data-pose-active="true"]) .rig-part[data-role="face"]{opacity:0}' +
   '.character-rig[data-head-plates="true"] .rig-expression{opacity:0}' +
+  '.character-rig[data-pose-active="true"] .rig-head-variant,.character-rig[data-pose-active="true"] .rig-head-angle{opacity:0!important}' +
   '.rig-head-variant,.rig-head-angle{pointer-events:none}' +
   '.character-rig[data-pose-active="true"] .rig-part{opacity:0}' +
   '.character-rig[data-pose-active="true"]:not([data-pose-name="resting_hands"]) .rig-expression{opacity:0}' +
