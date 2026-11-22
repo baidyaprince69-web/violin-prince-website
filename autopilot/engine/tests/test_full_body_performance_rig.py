@@ -235,6 +235,58 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         self.assertEqual(timing["downbeats"], timing["beat_times"][::4])
         self.assertGreater(len(timing["onsets"]), 0)
 
+    def test_preview_music_sync_validates_sampled_violin_audio_against_note_event_map(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as folder:
+            audio_path = Path(folder) / "sampled-violin.wav"
+            audio_path.write_bytes(b"mock audio payload")
+            music_map = {
+                "audio_source": "sampled_violin_cc0",
+                "license": "CC0-1.0",
+                "attribution": "Versilian Studios",
+                "duration_seconds": 24.0,
+                "bpm": 80.0,
+                "beat_times": [round(index * 0.75, 4) for index in range(32)],
+                "downbeats": [round(index * 0.75, 4) for index in range(0, 32, 4)],
+                "onsets": [0.0, 1.5, 3.0, 4.5, 6.0, 7.5, 9.0],
+            }
+            verified_analysis = {
+                "status": "metadata_verified",
+                "source": "declared_bpm_and_arrangement_event_map",
+                "decode_backend": "soundfile",
+                "duration_seconds": 24.0,
+                "bpm": 80.0,
+                "confidence": 1.0,
+                "beat_times": music_map["beat_times"],
+                "downbeats": music_map["downbeats"],
+                "onsets": music_map["onsets"],
+            }
+            with patch("audio_analysis.analyse_audio_file", return_value=verified_analysis) as analyse:
+                timing = _build_preview_music_sync(
+                    8, audio_path=audio_path, music_map=music_map
+                )
+
+            analyse.assert_called_once_with(
+                audio_path,
+                known_bpm=80.0,
+                known_beat_times=music_map["beat_times"],
+                known_downbeats=music_map["downbeats"],
+                known_onsets=music_map["onsets"],
+            )
+            self.assertEqual(timing["status"], "metadata_verified")
+            self.assertEqual(timing["source"], "sampled_violin_cc0")
+            self.assertTrue(timing["audio_attached"])
+            self.assertEqual(timing["audio_license"], "CC0-1.0")
+            self.assertEqual(timing["event_map_source"], "sampled_violin_arrangement_note_events")
+            self.assertEqual(timing["bpm"], 80.0)
+            self.assertEqual(timing["beat_times"], music_map["beat_times"][:11])
+            self.assertEqual(timing["downbeats"], [0.0, 3.0, 6.0])
+            self.assertEqual(timing["onsets"], music_map["onsets"][:6])
+            self.assertEqual(timing["decode_backend"], "soundfile")
+
     def test_segmented_source_base_preserves_untouched_pixels_and_alpha(self):
         import tempfile
         from pathlib import Path
