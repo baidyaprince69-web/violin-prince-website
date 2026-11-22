@@ -93,13 +93,13 @@ def _foot_mask(
     # Shoes are the darkest connected foreground components in the bottom band.
     # The connected-component requirement prevents stray trouser pixels becoming feet.
     dark = rgb.max(axis=2) <= 132
-    candidate = (alpha > 12) & dark & screen_side & (yy >= int(height * 0.91))
-    candidate = _morph(candidate, 2, "close")
+    candidate = (alpha > 12) & dark & screen_side & (yy >= int(height * 0.935))
+    candidate = _morph(_morph(candidate, 2, "dilate"), 2, "erode")
     component = _largest_component(candidate)
     if int(component.sum()) < 70:
-        # A slightly higher band accommodates artwork with a longer shoe cuff.
-        candidate = (alpha > 12) & dark & screen_side & (yy >= int(height * 0.885))
-        candidate = _morph(candidate, 2, "close")
+        # A slightly higher band accommodates footwear with a taller upper.
+        candidate = (alpha > 12) & dark & screen_side & (yy >= int(height * 0.92))
+        candidate = _morph(_morph(candidate, 2, "dilate"), 2, "erode")
         component = _largest_component(candidate)
     if int(component.sum()) < 70:
         raise ManualReviewRequired(
@@ -174,7 +174,7 @@ def _leg_layers(
         # Slight underlaps at hips, knees and ankles keep connected parts sealed during rotation.
         thigh = thigh | (_morph(torso, 4, "dilate") & thigh_all & side_mask)
         calf = calf | (_morph(thigh, 6, "dilate") & calf_all & side_mask)
-        foot = foot | (_morph(calf, 5, "dilate") & foot & (np.indices(foot.shape)[0] <= fy0 + 12))
+        # The shoe sprite carries a small source-colour overlap above its ankle pivot.
 
         for role, mask in (
             (f"{side}_thigh", thigh),
