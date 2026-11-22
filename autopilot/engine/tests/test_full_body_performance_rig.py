@@ -2,7 +2,12 @@ import unittest
 import numpy as np
 from PIL import Image
 
-from full_body_performance_rig import _foot_mask, _leg_layers
+from full_body_performance_rig import (
+    _authored_performance_layers,
+    _build_segmented_source_base,
+    _foot_mask,
+    _leg_layers,
+)
 
 
 class FullBodyPerformanceRigTests(unittest.TestCase):
@@ -76,6 +81,97 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                 x0, y0, _x1, _y1 = result["bow_grip_hand"]["bbox"]
                 self.assertEqual(hand_rgba.getpixel((26 - x0, 29 - y0))[3], 0,
                     "the bright bow hair must not be baked into the hand overlay")
+
+    def test_source_aligned_manifest_extracts_twelve_independent_limb_layers(self):
+        import json
+        import tempfile
+        from pathlib import Path
+
+        asset_root = (
+            Path(__file__).resolve().parents[1]
+            / "assets" / "characters" / "violin-prince-performance"
+        )
+        source_path = asset_root / "master-character-performance.webp"
+        manifest_path = asset_root / "performance-regions.json"
+        prop_manifest = json.loads(
+            (asset_root / "instrument-props.json").read_text(encoding="utf-8")
+        )
+        with Image.open(source_path) as opened:
+            source = opened.convert("RGBA")
+
+        prop_masks = {}
+        for name, specification in prop_manifest["props"].items():
+            with Image.open(asset_root / specification["src"]) as opened:
+                prop_alpha = np.asarray(opened.convert("RGBA").getchannel("A"), dtype=np.uint8)
+            canvas = np.zeros((source.height, source.width), dtype=np.uint8)
+            x, y = int(specification["x"]), int(specification["y"])
+            canvas[y:y + prop_alpha.shape[0], x:x + prop_alpha.shape[1]] = prop_alpha
+            prop_masks[name] = canvas
+
+        with tempfile.TemporaryDirectory() as folder:
+            layers, joints, report, moving = _authored_performance_layers(
+                source,
+                Path(folder),
+                regions_manifest_path=manifest_path,
+                prop_masks=prop_masks,
+            )
+            self.assertEqual(len(layers), 12)
+            self.assertEqual(report["independent_layer_count"], 12)
+            self.assertEqual(set(report["parts"]), {
+                "left_upper_arm", "left_forearm", "left_hand",
+                "right_upper_arm", "right_forearm", "right_hand",
+                "left_thigh", "left_calf", "left_foot",
+                "right_thigh", "right_calf", "right_foot",
+            })
+            self.assertEqual(len(joints), 12)
+            self.assertGreater(int(moving.sum()), 30000)
+            self.assertLessEqual(max(report["joint_overlap_pixels"].values()), 500)
+            self.assertGreater(report["parts"]["left_hand"]["pixel_area"], 500)
+            self.assertGreater(report["parts"]["right_hand"]["pixel_area"], 700)
+            self.assertTrue(all((Path(folder) / layer["src"]).is_file() for layer in layers))
+
+    def test_segmented_source_base_preserves_untouched_pixels_and_alpha(self):
+        import tempfile
+        from pathlib import Path
+        import cv2
+
+        source = Image.new("RGBA", (80, 80), (42, 48, 55, 255))
+        pixels = np.asarray(source, dtype=np.uint8).copy()
+        pixels[12:68, 12:68, :3] = (30, 35, 40)
+        pixels[12:68, 12:68, 3] = 255
+        source = Image.fromarray(pixels, mode="RGBA")
+        original = np.asarray(source, dtype=np.uint8)
+
+        moving = np.zeros((80, 80), dtype=bool)
+        moving[22:52, 20:35] = True
+        bow = np.zeros((80, 80), dtype=np.uint8)
+        bow[18:58, 38:41] = 255
+        protected = np.zeros((80, 80), dtype=bool)
+        protected[34:46, 36:44] = True
+
+        with tempfile.TemporaryDirectory() as folder:
+            report = _build_segmented_source_base(
+                source,
+                Path(folder),
+                bow_canvas_alpha=bow,
+                moving_mask=moving,
+                protected_mask=protected,
+            )
+            with Image.open(Path(folder) / report["src"]) as opened:
+                output = np.asarray(opened.convert("RGBA"), dtype=np.uint8)
+
+        self.assertEqual(report["mode"], "segmented_source_body")
+        self.assertGreater(report["pixels_cut_from_source"], 900)
+        np.testing.assert_array_equal(output[:, :, 3], original[:, :, 3])
+        untouched = np.ones((80, 80), dtype=bool)
+        cut = cv2.dilate((moving | (bow > 12)).astype(np.uint8), np.ones((5, 5), dtype=np.uint8)) > 0
+        cut &= original[:, :, 3] > 12
+        cut &= ~protected
+        untouched &= ~cut
+        np.testing.assert_array_equal(output[untouched], original[untouched])
+        np.testing.assert_array_equal(output[protected], original[protected])
+        self.assertTrue(report["source_alpha_preserved"])
+        self.assertTrue(report["source_pixels_outside_cut_mask_preserved"])
 
     def test_shoe_mask_isolated_from_trouser_and_connected_to_bottom(self):
         width, height, split_x = 100, 120, 50
