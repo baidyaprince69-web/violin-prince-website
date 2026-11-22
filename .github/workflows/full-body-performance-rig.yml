@@ -79,26 +79,31 @@ jobs:
             --bundle work/full-body-rig/bundle \
             --prop-dir autopilot/engine/assets/characters/violin-prince-performance \
             --instrument-manifest autopilot/engine/assets/characters/violin-prince-performance/instrument-props.json \
+            --performance-regions autopilot/engine/assets/characters/violin-prince-performance/performance-regions.json \
             --finger-manifest autopilot/engine/assets/characters/violin-prince-performance/finger-regions.json \
             --rigging-sheet autopilot/engine/assets/characters/violin-prince-performance/reference-sheets/Gemini_Generated_Image_7xpc647xpc647xpc.png \
             --expression-sheet autopilot/engine/assets/characters/violin-prince-performance/reference-sheets/four-core-expressions.jpeg \
             --head-angle-sheet autopilot/engine/assets/characters/violin-prince-performance/reference-sheets/multi-angle-heads-facial-parts.jpeg
 
-      - name: Verify instrument overlays preserve all body plates
+      - name: Verify source-aligned limb segmentation and preserve the violin
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
           report = json.loads(Path("work/full-body-rig/bundle/full-body-performance-report.json").read_text())
           base = report.get("composite_base", {})
-          assert base.get("mode") == "intact_full_body_with_bow_and_finger_cutouts", report
-          assert base.get("preserves_original_arms_hands_legs_and_head") is True, report
-          assert base.get("bow_pixels_reconstructed", 0) > 0, report
-          assert base.get("finger_pixels_separated", 0) > 0, report
-          hand = base.get("bow_grip_hand", {})
-          assert hand.get("skin_pixels", 0) > 180, report
-          assert hand.get("excludes_original_bow_pixels") is True, report
-          print("Complete source body preserved; clean bow-grip hand and four finger sprites are separate.")
+          limbs = report.get("limb_report", {})
+          assert base.get("mode") == "segmented_source_body", report
+          assert base.get("source_alpha_preserved") is True, report
+          assert base.get("source_pixels_outside_cut_mask_preserved") is True, report
+          assert base.get("pixels_cut_from_source", 0) > 25000, report
+          assert limbs.get("method") == "authored_source_aligned_polygon_regions_v1", report
+          assert limbs.get("independent_layer_count") == 12, report
+          assert len(limbs.get("parts", {})) == 12, report
+          assert all(part["pixel_area"] > part["minimum_pixels"] for part in limbs["parts"].values()), report
+          assert max(limbs.get("joint_overlap_pixels", {}).values()) <= 500, report
+          assert report.get("finger_layer_count") == 4, report
+          print("All twelve source-aligned limb/hand layers extracted; untouched pixels and violin protected.")
           PY
 
       - name: Build the isolated 8-second performance project
@@ -143,14 +148,16 @@ jobs:
           report = json.loads(Path("work/full-body-rig/composition/motion-report.json").read_text())
           assert report.get("full_body_performance_scene_count") == 1, report
           assert report.get("preserved_composite_base_count") == 1, report
-          assert report.get("animated_full_body_part_count") == 0, report
+          assert report.get("animated_full_body_part_count") == 6, report
+          assert report.get("animated_limb_segment_count") == 12, report
           assert report.get("animated_fingering_control_count") == 4, report
           assert report.get("animated_instrument_prop_count") == 1, report
           scene = report["scenes"][0]
-          assert scene.get("full_body_visual_mode") == "intact_composite_base", scene
+          assert scene.get("full_body_visual_mode") == "segmented_source_body", scene
           print(json.dumps({
               "full_body_scenes": report["full_body_performance_scene_count"],
               "independent_leg_parts": report["animated_full_body_part_count"],
+              "independent_limb_segments": report["animated_limb_segment_count"],
               "preserved_composite_bases": report["preserved_composite_base_count"],
               "finger_controls": report["animated_fingering_control_count"],
               "instrument_props": report["animated_instrument_prop_count"],
