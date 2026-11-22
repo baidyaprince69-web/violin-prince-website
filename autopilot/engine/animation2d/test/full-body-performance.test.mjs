@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { compileMotionTracks } from "../src/motion-build.mjs";
+import {
+  buildMusicSynchronizedPerformanceTracks,
+  compileMotionTracks
+} from "../src/motion-build.mjs";
 
 const roles = [
   "torso", "head", "face",
@@ -80,6 +83,39 @@ const project = {
   }],
   characters: [character]
 };
+
+test("music-synchronized performance keyframes follow beat and onset timestamps", () => {
+  const tracks = buildMusicSynchronizedPerformanceTracks({
+    targetPrefix: "playing-violin-prince",
+    start: 0.12,
+    duration: 3.88,
+    bpm: 120,
+    beatTimes: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5],
+    downbeats: [0, 2],
+    onsets: [0.25, 0.75, 1.25, 1.75, 2.25],
+    confidence: 1
+  });
+  const find = target => tracks.find(track => track.target === target);
+  const bow = find("playing-violin-prince-prop-bow");
+  const elbow = find("playing-violin-prince-part-left_forearm");
+  const indexFinger = find("playing-violin-prince-part-finger_index");
+  const middleFinger = find("playing-violin-prince-part-finger_middle");
+
+  assert.ok(bow && elbow && indexFinger && middleFinger);
+  assert.equal(bow.start, 0.12);
+  assert.deepEqual(bow.key_times.slice(0, 4), [0, 0.08, 0.58, 1.08]);
+  assert.equal(bow.key_times.at(-1), 3.88);
+  assert.ok(bow.values.some((value, index) => index > 1 && value !== bow.values[index - 1]));
+  assert.ok(indexFinger.key_times.includes(0.275));
+  assert.ok(middleFinger.key_times.includes(0.775));
+
+  assert.deepEqual(buildMusicSynchronizedPerformanceTracks({
+    targetPrefix: "playing-violin-prince",
+    bpm: 120,
+    beatTimes: [0, 0.5, 1],
+    confidence: 0.1
+  }), [], "low-confidence audio analysis must not drive the rig");
+});
 
 test("full-body gesture animates thigh, knee, ankle and all four fingering controls", () => {
   const tracks = compileMotionTracks(project, { fps: 25 });
