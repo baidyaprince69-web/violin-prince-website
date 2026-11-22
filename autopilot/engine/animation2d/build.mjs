@@ -44,9 +44,26 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
     "transform:translateY(28px) scale(" + characterScale + ")",
     "transform-origin:top left"
   ].join(";");
-  const hasHeadPlates =
+  const compositeBase = Boolean(character.base_art && character.base_art.src);
+  const hasHeadPlates = !compositeBase && (
     Object.keys(character.head_variants || {}).length > 0 ||
-    Object.keys(character.head_angles || {}).length > 0;
+    Object.keys(character.head_angles || {}).length > 0);
+  const baseArt = compositeBase ? (() => {
+    const asset = character.base_art;
+    const style = [
+      "position:absolute",
+      "left:" + (layout.offsetX + Number(asset.x || 0) * layout.scale) + "px",
+      "top:" + (layout.offsetY + Number(asset.y || 0) * layout.scale) + "px",
+      "width:" + (Number(asset.width) * layout.scale) + "px",
+      "height:" + (Number(asset.height) * layout.scale) + "px",
+      "object-fit:contain",
+      "transform-origin:0 0",
+      "z-index:" + Number(asset.z_index ?? 10)
+    ].join(";");
+    return '<img class="rig-base-art" id="' + escapeHtml(scene.id + "-" + character.id + "-base-art") +
+      '" alt="" draggable="false" src="' + escapeHtml(asset.src) +
+      '" style="' + style + '">';
+  })() : "";
   const jointForRole = {
     head: "neck",
     face: "neck",
@@ -67,7 +84,10 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
     finger_ring: "right_ring_base",
     finger_little: "right_little_base"
   };
-  const layers = (character.layers || []).map((layer) => {
+  const layers = (character.layers || [])
+    .filter(layer => !compositeBase ||
+      layer.role === "left_hand" || String(layer.role || "").startsWith("finger_"))
+    .map((layer) => {
     const jointName = jointForRole[layer.role];
     const joint = jointName ? (character.joints || {})[jointName] : null;
     const pivotX = joint
@@ -96,7 +116,9 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       '" style="' + styleText + '">';
   }).join("");
 
-  const props = Object.values(character.props || {}).map((prop) => {
+  const props = Object.values(character.props || {})
+    .filter(prop => !compositeBase || prop.id === "bow")
+    .map((prop) => {
     const style = [
       "left:" + (layout.offsetX + Number(prop.x) * layout.scale) + "px",
       "top:" + (layout.offsetY + Number(prop.y) * layout.scale) + "px",
@@ -117,7 +139,7 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
   const poseIsActive = Boolean(selectedPose && character.pose_assets &&
     Object.prototype.hasOwnProperty.call(character.pose_assets, selectedPose));
   const face = (character.layers || []).find((layer) => layer.role === "face") || {};
-  const expressions = Object.entries(character.expressions || {}).map(([name, expression]) => {
+  const expressions = compositeBase ? "" : Object.entries(character.expressions || {}).map(([name, expression]) => {
     const neck = (character.joints || {}).neck;
     const expressionX = Number(expression.x ?? face.x ?? 0);
     const expressionY = Number(expression.y ?? face.y ?? 0);
@@ -149,7 +171,7 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       '" style="' + style + ";" + initial + '">';
   }).join("");
 
-  const poseAssets = Object.entries(character.pose_assets || {}).map(([name, pose]) => {
+  const poseAssets = compositeBase ? "" : Object.entries(character.pose_assets || {}).map(([name, pose]) => {
     const style = [
       "left:0px", "top:0px",
       "width:" + canvasWidth + "px",
@@ -168,7 +190,7 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
   const selectedHeadExpression = String(action.head_expression || action.expression || "neutral").toLowerCase();
   const headVariantEntries = Object.entries(character.head_variants || {});
   const headAngleEntries = Object.entries(character.head_angles || {});
-  const headVariants = headVariantEntries.map(([name, variant]) => {
+  const headVariants = compositeBase ? "" : headVariantEntries.map(([name, variant]) => {
     const style = [
       "position:absolute",
       "left:" + (layout.offsetX + Number(variant.x) * layout.scale) + "px",
@@ -186,7 +208,7 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       '" alt="" draggable="false" src="' + escapeHtml(variant.src) +
       '" style="' + style + '">';
   }).join("");
-  const headAngles = headAngleEntries.map(([name, angle]) => {
+  const headAngles = compositeBase ? "" : headAngleEntries.map(([name, angle]) => {
     const style = [
       "position:absolute",
       "left:" + (layout.offsetX + Number(angle.x) * layout.scale) + "px",
@@ -214,7 +236,7 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
     '" data-track-index="' + (40 + sceneIndex * 100 + characterIndex) +
     '" style="' + wrapperStyle + '"><div class="character-motion" id="' +
     escapeHtml(scene.id + "-" + character.id + "-motion") + '">' +
-    layers + expressions + props + poseAssets + headVariants + headAngles + '</div></div>';
+    baseArt + layers + expressions + props + poseAssets + headVariants + headAngles + '</div></div>';
 }
 
 
@@ -700,6 +722,7 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.scene-stagecraft{position:absolute;inset:0;width:100%;height:100%;z-index:2;overflow:hidden;pointer-events:none;mix-blend-mode:screen}' +
   '.scene-stagecraft svg{display:block;width:100%;height:100%;overflow:visible}' +
   '.stagecraft-node{transform-box:fill-box;transform-origin:center;will-change:transform,opacity}' +
+  '.rig-base-art{position:absolute;object-fit:contain;max-width:none;pointer-events:none;will-change:transform}' +
   '.rig-part,.rig-expression,.rig-pose,.rig-prop{position:absolute;object-fit:contain;max-width:none;pointer-events:none}' +
   '.motion-graphic{position:absolute;left:auto;top:auto;right:auto;bottom:auto;width:86%;height:auto;z-index:34;overflow:visible;color:#f4ead9;opacity:0;padding:24px 20px;border:1px solid rgba(190,151,91,.48);border-left:3px solid #bf985e;background:linear-gradient(145deg,rgba(5,13,22,.97),rgba(9,27,35,.95));box-shadow:0 22px 64px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,244,220,.07);border-radius:9px}' +
   '.motion-graphic--full{left:7%;top:23%;width:86%;min-height:380px}' +
