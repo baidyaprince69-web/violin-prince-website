@@ -37,6 +37,18 @@ class BlockedSlotWorkflowTests(unittest.TestCase):
         self.assertIn("No narration, MP4 render or YouTube upload was attempted.", content)
         self.assertIn("  report_readiness_blocked:", content)
 
+    def test_manual_run_now_uses_the_same_public_queue_as_scheduled_runs(self):
+        content = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("run_pending_public_queue:", content)
+        self.assertIn("PUBLIC_QUEUE_RUN:", content)
+        self.assertIn("github.event_name == 'workflow_dispatch' && inputs.run_pending_public_queue == true", content)
+        self.assertIn('PUBLIC_QUEUE_REQUESTED: ${{ inputs.run_pending_public_queue }}', content)
+        self.assertIn('The public queue must be launched from the main branch.', content)
+        self.assertIn("python autopilot/engine/select_public_queue.py", content)
+        self.assertIn("python autopilot/engine/run_daily_plan.py", content)
+        self.assertIn("python autopilot/engine/upload_public_short_uploadpost.py", content)
+        self.assertNotIn("upload_private_preview_uploadpost.py", content)
+
     def test_ready_scheduled_slot_uploads_a_public_youtube_video(self):
         content = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("select_public_queue.py", content)
