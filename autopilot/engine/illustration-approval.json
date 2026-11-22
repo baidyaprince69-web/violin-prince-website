@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "status": "approved_for_publication",
+  "status": "approved_for_preview",
   "provider": "local_vector",
-  "scope": "public_youtube",
+  "scope": "preview_video_only",
   "renderer_version": "violin-prince-vector-illustrator-v1",
   "approval_date": "2026-11-22",
-  "publishing_enabled": true,
+  "publishing_enabled": false,
   "test_evidence": {
     "workflow_name": "Local vector illustration preview",
     "workflow_run_id": 44524124774,
@@ -30,8 +30,8 @@
     "contact_sheet_sha256": "3e5149c69edc83c6862c4a8b123a80fd485bccfc3fc2cb323a0847d1190c4d1e"
   },
   "visual_review": {
-    "status": "tested_style_approved_for_public_use_by_creator",
-    "result": "The creator approved public use of the tested deterministic Violin Prince illustration style without a private preview.",
+    "status": "tested_style_approved_for_private_preview_by_creator",
+    "result": "Creator approval is limited to private preview generation. Public YouTube publishing is disabled.",
     "inspected_assets": [
       "contact-sheet.jpg",
       "studio-room.jpg",
@@ -41,16 +41,8 @@
     "limitations": [
       "The artwork is deterministic vector-style editorial illustration, not photorealism.",
       "Diagrams remain conceptual and must not imply unmeasured values.",
-      "Each upload remains subject to factual, rights, media-quality, channel and duplicate-publication checks.",
-      "The creator has expressly requested direct public YouTube publication without a private video copy."
+      "Every generated video remains subject to factual, rights and media-quality checks.",
+      "Scheduled YouTube uploads must use privacyStatus=private; public publication is disabled."
     ]
-  },
-  "creator_publication_approval": {
-    "approved": true,
-    "platform": "youtube",
-    "privacy_status": "public",
-    "no_private_preview_required": true,
-    "approval_statement": "The creator authorizes automatic public uploads of approved Violin Prince videos to YouTube without private-preview copies.",
-    "approval_source": "Explicit creator authorization in ChatGPT, reconfirmed on 2026-11-22."
   }
 }
