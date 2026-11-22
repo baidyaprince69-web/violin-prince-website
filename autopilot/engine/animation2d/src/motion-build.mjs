@@ -444,7 +444,8 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
       };
 
       const compositeStaticRoles = new Set([
-        "head", "left_upper_arm", "left_forearm", "right_upper_arm", "right_forearm", "right_hand",
+        "head", "left_upper_arm", "left_forearm", "left_hand",
+        "right_upper_arm", "right_forearm", "right_hand",
         "left_thigh", "left_calf", "left_foot", "right_thigh", "right_calf", "right_foot"
       ]);
       const localAngle = (role, time) => {
