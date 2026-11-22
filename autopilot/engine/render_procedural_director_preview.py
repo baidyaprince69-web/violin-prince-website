@@ -184,6 +184,8 @@ def render_preview(
     require_valid_director_plan(plan)
     if plan.get("render_mode") != "procedural_2d":
         raise PreviewRenderError("The preview runner accepts procedural_2d plans only.")
+    plan_path = plan_path.expanduser().resolve()
+    output_dir = output_dir.expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
     production_context = plan.get("production_context") or {}
