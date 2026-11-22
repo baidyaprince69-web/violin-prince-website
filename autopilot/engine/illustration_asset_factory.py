@@ -120,6 +120,16 @@ def prepare_character_assets(
                 "src": _copy_image(src, target, source_root, work_root),
             }
 
+        base_art = None
+        if character.get("base_art"):
+            asset = character["base_art"]
+            src = asset["src"]
+            target = character_folder / ("performance-base" + Path(src).suffix.lower())
+            base_art = {
+                **asset,
+                "src": _copy_image(src, target, source_root, work_root),
+            }
+
         props = {}
         for name, prop in character.get("props", {}).items():
             src = prop["src"]
@@ -160,6 +170,8 @@ def prepare_character_assets(
             "head_variants": modular_head_assets["head_variants"],
             "head_angles": modular_head_assets["head_angles"],
             "head_plate_bounds": character.get("head_plate_bounds"),
+            "base_art": base_art,
+            "performance_base_mode": character.get("performance_base_mode"),
             "performance": character.get("performance"),
             "poses": character["poses"],
             "gestures": character["gestures"],
