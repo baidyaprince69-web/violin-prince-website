@@ -555,7 +555,7 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.scene-title{top:18%;max-width:86%;color:var(--vp-secondary,#fbf0df);font:400 50px/.99 DMSerifDisplay,Georgia,serif;letter-spacing:-.025em}' +
   '.scene-caption{top:18.5%;color:var(--vp-accent,#e8c98d);font:700 15px/1.25 DMSans,Arial,sans-serif;letter-spacing:.17em;text-transform:uppercase;max-width:82%}' +
   '.scene-caption--intro{top:31%;max-width:86%;font-size:14px;letter-spacing:.19em}' +
-  '.scene-title--with-presenter{left:5%;right:auto;width:43%;font-size:35px}' +
+  '.scene-title--with-presenter{left:5%;right:auto;top:14%;width:43%;font-size:28px;line-height:1.02}' +
   '.scene-caption--with-presenter{left:5%;right:auto;top:18.5%;width:41%;max-width:41%;font-size:13px;letter-spacing:.12em}' +
   '.character-rig{position:absolute;width:100%;height:100%;opacity:0;transform-origin:top left;z-index:38}' +
   '.character-motion{position:absolute;inset:0;width:100%;height:100%;transform-origin:50% 70%;will-change:transform}' +
@@ -565,7 +565,7 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.rig-part,.rig-expression,.rig-pose{position:absolute;object-fit:contain;max-width:none;pointer-events:none}' +
   '.motion-graphic{position:absolute;left:auto;top:auto;right:auto;bottom:auto;width:86%;height:auto;z-index:34;overflow:visible;color:#f4ead9;opacity:0;padding:24px 20px;border:1px solid rgba(190,151,91,.48);border-left:3px solid #bf985e;background:linear-gradient(145deg,rgba(5,13,22,.97),rgba(9,27,35,.95));box-shadow:0 22px 64px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,244,220,.07);border-radius:9px}' +
   '.motion-graphic--full{left:7%;top:23%;width:86%;min-height:380px}' +
-  '.motion-graphic--with-presenter{left:5%;top:22.5%;width:41%;min-height:400px;padding:22px 18px}' +
+  '.motion-graphic--with-presenter{left:5%;top:25%;width:41%;min-height:400px;padding:20px 16px}' +
   '.graphic-eyebrow{margin:0 0 11px;color:var(--vp-secondary,#70b9b2);font:700 11px/1.2 DMSans,Arial,sans-serif;letter-spacing:.21em;text-transform:uppercase}' +
   '.graphic-heading{margin:0;color:var(--vp-secondary,#fbf0df);font:400 25px/1.08 DMSerifDisplay,Georgia,serif;letter-spacing:-.01em}' +
   '.graphic-detail{margin:12px 0 0;color:#b9c7c9;font:400 14px/1.38 DMSans,Arial,sans-serif;letter-spacing:.01em}' +
