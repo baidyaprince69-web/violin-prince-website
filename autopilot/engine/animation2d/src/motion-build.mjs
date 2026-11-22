@@ -41,6 +41,7 @@ export function buildMusicSynchronizedPerformanceTracks({
   beatTimes = [],
   downbeats = [],
   onsets = [],
+  noteEvents = [],
   confidence = 1,
   fps = 25
 } = {}) {
@@ -61,6 +62,20 @@ export function buildMusicSynchronizedPerformanceTracks({
   const bars = cleanTimes(downbeats);
   const strongBeats = bars.length ? bars : beats.filter((_time, index) => index % 4 === 0);
   const attacks = cleanTimes(onsets);
+  const events = (Array.isArray(noteEvents) ? noteEvents : [])
+    .map(event => ({
+      time: Number(event?.time),
+      note: Number(event?.note),
+      velocity: Number(event?.velocity ?? 76),
+      durationSeconds: Number(event?.duration_seconds ?? event?.durationSeconds ?? 0.2)
+    }))
+    .filter(event =>
+      Number.isFinite(event.time) && event.time >= 0 && event.time <= total &&
+      Number.isInteger(event.note) && event.note >= 0 && event.note <= 127 &&
+      Number.isFinite(event.velocity) && event.velocity >= 1 && event.velocity <= 127 &&
+      Number.isFinite(event.durationSeconds) && event.durationSeconds > 0
+    )
+    .sort((a, b) => a.time - b.time);
 
   const makeTrack = (target, points) => {
     const valuesByTime = new Map([[0, 0], [total, 0]]);
@@ -81,48 +96,125 @@ export function buildMusicSynchronizedPerformanceTracks({
       easing: "linear"
     };
   };
+  const pulse = (target, times, amplitude, releaseSeconds, sign = 1) => {
+    const points = [];
+    times.forEach((time, index) => {
+      const hit = Math.min(total, time + 0.035);
+      const release = Math.min(total, hit + releaseSeconds);
+      const side = typeof sign === "function" ? sign(index, time) : sign;
+      points.push(
+        { time: hit, value: (index % 2 === 0 ? -1 : 1) * amplitude * side },
+        { time: release, value: 0 }
+      );
+    });
+    return makeTrack(target, points);
+  };
 
-  const beatDelay = Math.min(0.08, period * 0.12);
+  const isDownbeat = time => bars.some(value => Math.abs(value - time) < 0.025);
+  const beatDelay = Math.min(0.07, period * 0.10);
   const bowStrokes = beats.map((time, index) => ({
     time: time + beatDelay,
-    value: index % 2 === 0 ? -6.5 : 6.5
+    value: (index % 2 === 0 ? -1 : 1) * (isDownbeat(time) ? 10.5 : 8.8)
   }));
-  const elbowStrokes = beats.map((time, index) => ({
+  const bowShoulderStrokes = beats.map((time, index) => ({
     time: time + beatDelay,
-    value: index % 2 === 0 ? -7.8 : 7.8
+    value: (index % 2 === 0 ? -1 : 1) * (isDownbeat(time) ? 5.2 : 3.8)
   }));
-  const wristStrokes = beats.map((time, index) => ({
+  const bowElbowStrokes = beats.map((time, index) => ({
     time: time + beatDelay,
-    value: index % 2 === 0 ? 2.6 : -2.6
+    value: (index % 2 === 0 ? -1 : 1) * (isDownbeat(time) ? 15.2 : 12.8)
+  }));
+  const bowWristStrokes = beats.map((time, index) => ({
+    time: time + beatDelay,
+    value: (index % 2 === 0 ? 1 : -1) * (isDownbeat(time) ? 5.4 : 4.3)
   }));
 
   const torsoPulses = [];
   const headPulses = [];
   strongBeats.forEach((time, index) => {
     const hit = Math.min(total, time + beatDelay);
-    const release = Math.min(total, hit + Math.min(0.18, period * 0.28));
+    const release = Math.min(total, hit + Math.min(0.24, period * 0.34));
     torsoPulses.push(
-      { time: hit, value: index % 2 === 0 ? -0.95 : 0.7 },
+      { time: hit, value: index % 2 === 0 ? -2.35 : 1.85 },
       { time: release, value: 0 }
     );
     headPulses.push(
-      { time: hit, value: index % 2 === 0 ? -1.7 : 1.1 },
-      { time: Math.min(total, hit + Math.min(0.14, period * 0.22)), value: 0 }
+      { time: Math.min(total, hit + 0.07), value: index % 2 === 0 ? -3.0 : 2.1 },
+      { time: Math.min(total, hit + Math.min(0.31, period * 0.42)), value: 0 }
     );
   });
 
   const fingerNames = ["finger_index", "finger_middle", "finger_ring", "finger_little"];
   const fingerPulses = Object.fromEntries(fingerNames.map(name => [name, []]));
-  attacks.forEach((time, index) => {
-    const finger = fingerNames[index % fingerNames.length];
-    const pulse = time + 0.025;
-    const release = Math.min(total, pulse + Math.min(0.11, period * 0.18));
-    const amplitude = [5.2, -4.4, 4.8, -3.8][index % fingerNames.length];
-    fingerPulses[finger].push(
-      { time: pulse, value: amplitude },
-      { time: release, value: 0 }
-    );
-  });
+  const forearmPulses = [];
+  const wristPulses = [];
+  if (events.length) {
+    const pitches = events.map(event => event.note);
+    const minimumPitch = Math.min(...pitches);
+    const pitchRange = Math.max(1, Math.max(...pitches) - minimumPitch);
+    for (const event of events) {
+      // Relative pitch register selects one of the four authored finger layers.
+      // This is a phrase-specific visual fingering cue, not a full violin fingering chart.
+      const fingerIndex = Math.min(3, Math.max(0,
+        Math.round(((event.note - minimumPitch) / pitchRange) * 3)));
+      const finger = fingerNames[fingerIndex];
+      const strength = 0.88 + (event.velocity / 127) * 0.2;
+      const amplitude = [7.2, -6.5, 6.8, -6.0][fingerIndex] * strength;
+      const hit = Math.min(total, event.time + 0.018);
+      const hold = Math.min(0.30, Math.max(0.13, event.durationSeconds * 0.30));
+      const release = Math.min(total, hit + hold);
+      const settle = Math.min(total, release + 0.075);
+      fingerPulses[finger].push(
+        { time: hit, value: amplitude },
+        { time: release, value: amplitude * 0.62 },
+        { time: settle, value: 0 }
+      );
+      const contour = ((event.note - minimumPitch) / pitchRange) * 2 - 1;
+      forearmPulses.push(
+        { time: hit, value: contour * 3.4 },
+        { time: release, value: 0 }
+      );
+      wristPulses.push(
+        { time: hit, value: contour * 2.6 },
+        { time: release, value: 0 }
+      );
+    }
+  } else {
+    attacks.forEach((time, index) => {
+      const finger = fingerNames[index % fingerNames.length];
+      const hit = Math.min(total, time + 0.025);
+      const release = Math.min(total, hit + Math.min(0.15, period * 0.22));
+      const amplitude = [6.0, -5.5, 5.8, -5.0][index % fingerNames.length];
+      fingerPulses[finger].push(
+        { time: hit, value: amplitude },
+        { time: release, value: 0 }
+      );
+      forearmPulses.push(
+        { time: hit, value: (index % 2 ? -1 : 1) * 1.8 },
+        { time: release, value: 0 }
+      );
+      wristPulses.push(
+        { time: hit, value: (index % 2 ? 1 : -1) * 1.4 },
+        { time: release, value: 0 }
+      );
+    });
+  }
+
+  // Gentle lower-body counterbalance keeps the player grounded; it is weight transfer,
+  // not a walking or dance cycle.
+  const weightBeats = beats.filter((_time, index) => index % 2 === 0);
+  const weightTrack = (target, amplitude, side = 1) => {
+    const points = [];
+    weightBeats.forEach((time, index) => {
+      const hit = Math.min(total, time + beatDelay);
+      const release = Math.min(total, hit + Math.min(0.28, period * 0.38));
+      points.push(
+        { time: hit, value: (index % 2 === 0 ? -1 : 1) * amplitude * side },
+        { time: release, value: 0 }
+      );
+    });
+    return makeTrack(target, points);
+  };
 
   const prefix = String(targetPrefix);
   const frameRate = Math.max(1, Number(fps) || 25);
@@ -130,9 +222,10 @@ export function buildMusicSynchronizedPerformanceTracks({
     { time: 0, x: 0, y: 0 },
     ...beats.map((time, index) => ({
       time: time + beatDelay,
-      x: index % 2 === 0 ? -18 : 18,
-      y: index % 2 === 0 ? -2.5 : 2.5
-    }))
+      x: index % 2 === 0 ? -27 : 27,
+      y: index % 2 === 0 ? -4.2 : 4.2
+    })),
+    { time: total, x: 0, y: 0 }
   ].filter(point => point.time <= total).sort((a, b) => a.time - b.time);
   const bowTranslateValues = [];
   const frameCount = Math.max(2, Math.ceil(total * frameRate) + 1);
@@ -146,14 +239,17 @@ export function buildMusicSynchronizedPerformanceTracks({
     const to = translatePoints[Math.min(translatePoints.length - 1, segment + 1)];
     const span = Math.max(0.0001, to.time - from.time);
     const progress = Math.min(1, Math.max(0, (time - from.time) / span));
-    const x = from.x + (to.x - from.x) * progress;
-    const y = from.y + (to.y - from.y) * progress;
+    const eased = progress * progress * (3 - 2 * progress);
+    const x = from.x + (to.x - from.x) * eased;
+    const y = from.y + (to.y - from.y) * eased;
     bowTranslateValues.push(x.toFixed(2) + "px " + y.toFixed(2) + "px");
   }
 
   return [
-    makeTrack(prefix + "-part-left_forearm", elbowStrokes),
-    makeTrack(prefix + "-part-left_hand", wristStrokes),
+    // Screen-left arm is the bow arm; screen-right arm holds the violin neck.
+    makeTrack(prefix + "-part-left_upper_arm", bowShoulderStrokes),
+    makeTrack(prefix + "-part-left_forearm", bowElbowStrokes),
+    makeTrack(prefix + "-part-left_hand", bowWristStrokes),
     makeTrack(prefix + "-prop-bow", bowStrokes),
     {
       target: prefix + "-prop-bow",
@@ -163,12 +259,20 @@ export function buildMusicSynchronizedPerformanceTracks({
       duration: total,
       easing: "linear"
     },
+    pulse(prefix + "-part-right_upper_arm", strongBeats, 2.0, 0.22),
+    makeTrack(prefix + "-part-right_forearm", forearmPulses),
+    makeTrack(prefix + "-part-right_hand", wristPulses),
     makeTrack(prefix + "-part-torso", torsoPulses),
     makeTrack(prefix + "-part-head", headPulses),
+    weightTrack(prefix + "-part-left_thigh", 1.8, 1),
+    weightTrack(prefix + "-part-right_thigh", 1.8, -1),
+    weightTrack(prefix + "-part-left_calf", 1.25, -1),
+    weightTrack(prefix + "-part-right_calf", 1.25, 1),
+    weightTrack(prefix + "-part-left_foot", 0.72, 1),
+    weightTrack(prefix + "-part-right_foot", 0.72, -1),
     ...fingerNames.map(name => makeTrack(prefix + "-part-" + name, fingerPulses[name]))
   ];
 }
-
 
 function cssKeyframeValues(property, values) {
   if (property === "rotate") {
@@ -1124,6 +1228,10 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
           beatTimes: toActionTimes(sync.beat_times),
           downbeats: toActionTimes(sync.downbeats),
           onsets: toActionTimes(sync.onsets),
+          noteEvents: (Array.isArray(sync.note_events) ? sync.note_events : []).map(event => ({
+            ...event,
+            time: Number(event.time) - actionOffset
+          })),
           confidence: sync.confidence,
           fps
         });
