@@ -146,16 +146,16 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         moving[22:52, 20:35] = True
         bow = np.zeros((80, 80), dtype=np.uint8)
         bow[18:58, 38:41] = 255
-        protected = np.zeros((80, 80), dtype=bool)
-        protected[34:46, 36:44] = True
+        violin = np.zeros((80, 80), dtype=np.uint8)
+        violin[28:50, 48:63] = 255
 
         with tempfile.TemporaryDirectory() as folder:
             report = _build_segmented_source_base(
                 source,
                 Path(folder),
                 bow_canvas_alpha=bow,
+                violin_canvas_alpha=violin,
                 moving_mask=moving,
-                protected_mask=protected,
             )
             with Image.open(Path(folder) / report["src"]) as opened:
                 output = np.asarray(opened.convert("RGBA"), dtype=np.uint8)
@@ -164,12 +164,15 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         self.assertGreater(report["pixels_cut_from_source"], 900)
         np.testing.assert_array_equal(output[:, :, 3], original[:, :, 3])
         untouched = np.ones((80, 80), dtype=bool)
-        cut = cv2.dilate((moving | (bow > 12)).astype(np.uint8), np.ones((5, 5), dtype=np.uint8)) > 0
+        cut = cv2.dilate(
+            (moving | (bow > 12) | (violin > 12)).astype(np.uint8),
+            np.ones((5, 5), dtype=np.uint8),
+        ) > 0
         cut &= original[:, :, 3] > 12
-        cut &= ~protected
         untouched &= ~cut
         np.testing.assert_array_equal(output[untouched], original[untouched])
-        np.testing.assert_array_equal(output[protected], original[protected])
+        self.assertGreater(report["violin_pixels_reconstructed"], 0)
+        self.assertGreater(report["bow_pixels_reconstructed"], 0)
         self.assertTrue(report["source_alpha_preserved"])
         self.assertTrue(report["source_pixels_outside_cut_mask_preserved"])
 
