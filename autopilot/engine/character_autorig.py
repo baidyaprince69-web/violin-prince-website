@@ -581,7 +581,6 @@ def _split_finger_regions(
     claimed = np.zeros(hand_mask.shape, dtype=bool)
     extracted: dict[str, np.ndarray] = {}
     palm = np.asarray(hand_mask, dtype=bool).copy()
-    pivots: dict[str, tuple[float, float]] = {}
 
     for name in required:
         item = finger_regions[name]
@@ -621,7 +620,6 @@ def _split_finger_regions(
         joint_overlap = _joint_disk(hand_mask.shape, (px, py), radius=5)
         palm &= ~(finger & ~joint_overlap)
         extracted[f"right_{name}_finger"] = finger
-        pivots[f"right_{name}_finger"] = (px, py)
 
     # Attach the pivot map to the ndarray subclass-free return via a reserved
     # attribute is not reliable; callers calculate anchors from the manifest.
@@ -782,6 +780,10 @@ def _save_mask_preview(image: Image.Image, masks: dict[str, np.ndarray], path: P
         "left_upper_arm": (70, 160, 250), "right_upper_arm": (90, 150, 245),
         "left_forearm": (80, 210, 140), "right_forearm": (90, 205, 135),
         "left_hand": (180, 110, 245), "right_hand": (195, 105, 235),
+        "right_index_finger": (245, 90, 80),
+        "right_middle_finger": (80, 210, 130),
+        "right_ring_finger": (90, 135, 245),
+        "right_little_finger": (240, 205, 70),
         "left_thigh": (240, 130, 70), "right_thigh": (220, 110, 65),
         "left_shin": (170, 95, 210), "right_shin": (155, 85, 195),
         "left_foot": (90, 170, 220), "right_foot": (75, 155, 205),
@@ -1522,7 +1524,7 @@ def create_character_bundle(
         "pose_reference_count": len(reference_poses),
         "pose_asset_count": len(pose_assets),
         "full_body_layer_count": 6,
-        "finger_layer_count": len(finger_masks),
+        "finger_layer_count": len(report.get("finger_separation", {}).get("separated_fingers", [])),
         "instrument_prop_count": len(props),
         "joint_count": len(joints),
         "expression_registration": registration_reports,
