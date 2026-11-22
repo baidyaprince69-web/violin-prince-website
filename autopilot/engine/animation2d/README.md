@@ -101,3 +101,9 @@ wrapper prevents character travel from overriding the rig's entry and scale tran
 This is procedural 2D animation—not photorealistic AI-generated footage. The animation-only
 production approval gate remains closed until a rendered sample is reviewed and the new
 renderer is connected to the guarded production path.
+
+
+For looping rig choreography, set `loop: true` on the character scene action. The default
+cycle is 1.8 seconds; set `cycle_duration_seconds` to choose a different cycle length.
+The hierarchical joint sampler repeats the articulated rotations at that cycle boundary,
+not just the outer wrapper animation.

@@ -269,7 +269,11 @@ function sampleRotationTrack(track, time) {
   if (values.length < 2) return numericCssValue(values[0] || 0);
   const duration = Math.max(0.001, Number(track.duration) || 0.001);
   const rawProgress = (Number(time) - Number(track.start || 0)) / duration;
-  const progress = Math.min(1, Math.max(0, rawProgress));
+  // Repeat articulated movement on an exact cycle boundary. Before the
+  // action starts, hold the first pose rather than wrapping negative time.
+  const progress = track.loop === true
+    ? (rawProgress <= 0 ? 0 : rawProgress % 1)
+    : Math.min(1, Math.max(0, rawProgress));
   const segmentPosition = progress * (values.length - 1);
   const segment = Math.min(values.length - 2, Math.floor(segmentPosition));
   const localProgress = segmentPosition - segment;
@@ -703,7 +707,13 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
       };
       const gestureLoop = action.loop === true;
       const gestureDuration = gestureLoop
-        ? Math.max(0.5, sceneDuration - Math.max(0, actionStart - sceneStart))
+        ? Math.max(
+            0.5,
+            Math.min(
+              sceneDuration,
+              Number(action.cycle_duration_seconds) || 1.8
+            )
+          )
         : (Number(action.duration) || 1.35);
       for (const [role, properties] of Object.entries(gestures)) {
         addRigKeyframes(role, properties, actionStart + 0.10, gestureDuration, gestureLoop);
