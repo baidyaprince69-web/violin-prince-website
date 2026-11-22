@@ -626,7 +626,7 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
       easing: "linear"
     });
   };
-  const addKeyframes = (target, properties, start, durationSeconds, easing = "ease-in-out", loop = false) => {
+  const addKeyframes = (target, properties, start, durationSeconds, easing = "ease-in-out", loop = false, keyframeEasing = null) => {
     if (!properties || typeof properties !== "object") return;
     for (const [property, rawValues] of Object.entries(properties)) {
       if (!Array.isArray(rawValues) || rawValues.length < 2) continue;
@@ -637,6 +637,7 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
         start: Math.max(0, Number(start) || 0),
         duration: Math.max(0.08, Number(durationSeconds) || 0.8),
         easing,
+        ...(keyframeEasing ? { keyframeEasing } : {}),
         ...(loop ? { loop: true } : {})
       });
     }
@@ -938,13 +939,13 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
               angle === "front" && name === selectedExpression ? 1 : 0
             );
             addKeyframes(prefix + "-head-variant-" + name,
-              { opacity: values }, actionStart, cycleDuration, "linear", sequenceLoop);
+              { opacity: values }, actionStart, cycleDuration, "linear", sequenceLoop, "steps(1, end)");
           }
           for (const name of headAngleNames) {
             if (name === "front") continue;
             const values = sequence.map(angle => angle === name ? 1 : 0);
             addKeyframes(prefix + "-head-angle-" + name,
-              { opacity: values }, actionStart, cycleDuration, "linear", sequenceLoop);
+              { opacity: values }, actionStart, cycleDuration, "linear", sequenceLoop, "steps(1, end)");
           }
         } else {
           for (const name of headVariantNames) {
