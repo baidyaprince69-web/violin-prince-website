@@ -30,12 +30,12 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         labels[48:126, 92:148] = 2
         pixels[120:186, 88:116] = (35, 35, 38, 255)
         pixels[120:186, 126:154] = (35, 35, 38, 255)
-        labels[120:186, 88:116] = 6
-        labels[120:186, 126:154] = 6
+        labels[120:186, 88:116] = 5
+        labels[120:186, 126:154] = 5
         pixels[180:270, 88:112] = (32, 33, 35, 255)
         pixels[180:270, 132:156] = (32, 33, 35, 255)
-        labels[180:270, 88:112] = 5
-        labels[180:270, 132:156] = 5
+        labels[180:270, 88:112] = 6
+        labels[180:270, 132:156] = 6
         pixels[267:299, 72:115] = (18, 18, 20, 255)
         pixels[267:299, 130:173] = (18, 18, 20, 255)
         source = Image.fromarray(pixels, mode="RGBA")
