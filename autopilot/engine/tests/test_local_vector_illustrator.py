@@ -76,7 +76,7 @@ class LocalVectorIllustratorTests(unittest.TestCase):
                 self.assertEqual(image.size, (1024, 1792))
 
 
-    def test_illustration_gate_requires_explicit_scope_for_publication(self):
+    def test_illustration_gate_accepts_preview_scope_and_rejects_public_scope(self):
         import json
         valid = {
             "schema_version": 1,
@@ -121,10 +121,6 @@ class LocalVectorIllustratorTests(unittest.TestCase):
                     "approval_statement": "Creator explicitly requested public YouTube publishing.",
                 },
             })
-            approval.write_text(json.dumps(public), encoding="utf-8")
-            pipeline.require_approved_illustration_provider(approval)
-
-            public["creator_publication_approval"]["no_private_preview_required"] = False
             approval.write_text(json.dumps(public), encoding="utf-8")
             with self.assertRaisesRegex(pipeline.PipelineError, "explicit creator scope"):
                 pipeline.require_approved_illustration_provider(approval)
