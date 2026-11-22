@@ -1013,6 +1013,7 @@ def main() -> int:
     parser.add_argument("--bundle", required=True, help="Existing upper-body character bundle.")
     parser.add_argument("--prop-dir", required=True, help="Folder containing the violin and bow assets.")
     parser.add_argument("--instrument-manifest", required=True)
+    parser.add_argument("--performance-regions", required=True)
     parser.add_argument("--finger-manifest", default="")
     parser.add_argument("--neutral-apose", default="")
     parser.add_argument("--rigging-sheet", default="")
@@ -1023,6 +1024,7 @@ def main() -> int:
         args.source, args.bundle,
         prop_dir=args.prop_dir,
         instrument_manifest_path=args.instrument_manifest,
+        performance_regions_path=args.performance_regions,
         finger_manifest_path=args.finger_manifest or None,
         neutral_apose_path=args.neutral_apose or None,
     )
