@@ -53,7 +53,11 @@ const fullBodyCharacter = {
     { id: "left_foot", role: "left_foot", x: 28, y: 90, width: 23, height: 9 },
     { id: "right_thigh", role: "right_thigh", x: 50, y: 50, width: 20, height: 25 },
     { id: "right_shin", role: "right_shin", x: 52, y: 72, width: 18, height: 22 },
-    { id: "right_foot", role: "right_foot", x: 51, y: 90, width: 23, height: 9 }
+    { id: "right_foot", role: "right_foot", x: 51, y: 90, width: 23, height: 9 },
+    { id: "right_index_finger", role: "right_index_finger", x: 83, y: 60, width: 8, height: 22 },
+    { id: "right_middle_finger", role: "right_middle_finger", x: 86, y: 58, width: 8, height: 24 },
+    { id: "right_ring_finger", role: "right_ring_finger", x: 89, y: 58, width: 8, height: 23 },
+    { id: "right_little_finger", role: "right_little_finger", x: 93, y: 61, width: 7, height: 21 }
   ],
   joints: {
     ...character.joints,
@@ -62,7 +66,11 @@ const fullBodyCharacter = {
     left_ankle: { x: 0.40, y: 0.91 },
     right_hip: { x: 0.60, y: 0.51 },
     right_knee: { x: 0.60, y: 0.73 },
-    right_ankle: { x: 0.60, y: 0.91 }
+    right_ankle: { x: 0.60, y: 0.91 },
+    right_index_knuckle: { x: 0.85, y: 0.81 },
+    right_middle_knuckle: { x: 0.89, y: 0.81 },
+    right_ring_knuckle: { x: 0.92, y: 0.81 },
+    right_little_knuckle: { x: 0.96, y: 0.80 }
   },
   props: {
     violin: { src: "violin.webp", x: 8, y: 22, width: 44, height: 18, pivot_x: 0.22, pivot_y: 0.5 },
@@ -225,6 +233,14 @@ test("violin performance animates full-body leg chains and both independent inst
   ]) {
     assert.ok(transformed.has(target(role)), "missing articulated motion track for " + role);
   }
+  for (const role of [
+    "right_index_finger", "right_middle_finger",
+    "right_ring_finger", "right_little_finger"
+  ]) {
+    const fingerTrack = tracks.find(track => track.target === target(role));
+    assert.ok(fingerTrack, "missing independent fingering track for " + role);
+    assert.ok(new Set(fingerTrack.values).size > 1, role + " must move independently");
+  }
   for (const prop of ["violin", "bow"]) {
     const propTrack = tracks.find(track =>
       track.target === "violin-performance-violin-prince-prop-" + prop &&
@@ -232,6 +248,29 @@ test("violin performance animates full-body leg chains and both independent inst
     );
     assert.ok(propTrack, "missing independent transform track for " + prop);
     assert.ok(new Set(propTrack.values).size > 1, prop + " must visibly move over time");
+  }
+});
+
+test("individual violin fingers stay attached to the rotating palm at their knuckles", () => {
+  const tracks = fullBodyTracks("violin-performance");
+  const byTarget = new Map(tracks.map(track => [track.target, track]));
+  const roleLayer = role => fullBodyCharacter.layers.find(layer => layer.role === role);
+  const roleTrack = role => byTarget.get("violin-performance-violin-prince-part-" + role);
+  const frameIndex = Math.floor(roleTrack("right_middle_finger").values.length * 0.58);
+  for (const name of ["index", "middle", "ring", "little"]) {
+    const role = "right_" + name + "_finger";
+    const joint = fullBodyCharacter.joints["right_" + name + "_knuckle"];
+    const point = { x: joint.x * 100, y: joint.y * 100 };
+    const palmPoint = transformPoint(globalMatrix(
+      roleTrack("right_hand"), roleLayer("right_hand"), frameIndex
+    ), point);
+    const fingerPoint = transformPoint(globalMatrix(
+      roleTrack(role), roleLayer(role), frameIndex
+    ), point);
+    assert.ok(
+      Math.hypot(palmPoint.x - fingerPoint.x, palmPoint.y - fingerPoint.y) < 0.02,
+      role + " must stay connected to the palm at its knuckle pivot"
+    );
   }
 });
 
