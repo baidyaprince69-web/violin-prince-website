@@ -157,7 +157,7 @@
         ],
         "category_id": "10",
         "default_language": "en",
-        "privacy_status": "public",
+        "privacy_status": "private",
         "made_for_kids": false
       }
     },
@@ -290,7 +290,7 @@
         ],
         "category_id": "10",
         "default_language": "en",
-        "privacy_status": "public",
+        "privacy_status": "private",
         "made_for_kids": false
       }
     },
