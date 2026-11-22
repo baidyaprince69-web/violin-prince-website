@@ -418,6 +418,17 @@ def configure_slot_workspace(workspace_root: Path, *, run_id: str) -> None:
     engine.RUN_ID = str(run_id)
 
 
+def enforce_private_preview_visibility(plan: dict[str, Any]) -> dict[str, Any]:
+    """Force every automatic production handoff to private YouTube visibility."""
+    if not isinstance(plan, dict):
+        raise engine.PipelineError("The daily production plan must be a JSON object.")
+    supplied_metadata = plan.get("publish_metadata")
+    supplied_metadata = supplied_metadata if isinstance(supplied_metadata, dict) else {}
+    plan["privacy_status"] = "private"
+    plan["publish_metadata"] = {**supplied_metadata, "privacy_status": "private"}
+    return plan
+
+
 def run_daily_plan(
     plan_path: Path,
     *,
@@ -449,32 +460,9 @@ def run_daily_plan(
             raise engine.PipelineError("The daily batch snapshot SHA-256 is malformed.")
         production_identity["batch_snapshot_sha256"] = batch_snapshot_sha256
     plan, verified_sources = validate_and_enrich_plan(plan)
-    scheduled_public_upload = bool(batch_snapshot_sha256)
-    if scheduled_public_upload:
-        # The creator has explicitly approved direct public YouTube uploads.
-        # Re-check the approval file in the production process itself; do not
-        # rely only on a workflow environment flag or a batch plan field.
-        approval_path = Path(__file__).resolve().parent / "illustration-approval.json"
-        try:
-            approval = json.loads(approval_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            raise engine.PipelineError("Public YouTube upload approval is missing or invalid.") from exc
-        public_approval = approval.get("creator_publication_approval") if isinstance(approval, dict) else None
-        if not (
-            approval.get("status") == "approved_for_publication"
-            and approval.get("scope") == "public_youtube"
-            and approval.get("publishing_enabled") is True
-            and isinstance(public_approval, dict)
-            and public_approval.get("approved") is True
-            and public_approval.get("platform") == "youtube"
-            and public_approval.get("privacy_status") == "public"
-            and public_approval.get("no_private_preview_required") is True
-            and str(public_approval.get("approval_statement") or "").strip()
-        ):
-            raise engine.PipelineError("Creator's explicit public YouTube publishing approval is not valid.")
-        supplied_metadata = plan.get("publish_metadata")
-        supplied_metadata = supplied_metadata if isinstance(supplied_metadata, dict) else {}
-        plan["publish_metadata"] = {**supplied_metadata, "privacy_status": "public"}
+    # The production runner is private-preview-only. A legacy plan or approval
+    # record requesting public visibility can never override this invariant.
+    plan = enforce_private_preview_visibility(plan)
     engine.WORK.mkdir(parents=True, exist_ok=True)
     engine.OUT.mkdir(parents=True, exist_ok=True)
     paths = engine._package_paths()
