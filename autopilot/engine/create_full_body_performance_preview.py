@@ -196,32 +196,36 @@ def build_preview_project(
             "character_rig": "segmented_source_aligned_limbs" if segmented_body_mode else
                 ("intact_full_body_composite_review" if composite_base_mode else "segmented_full_body"),
             "instrument_performance": "candidate_requires_visual_review",
+            "music_sync_source": music_sync["source"],
+            "music_sync_bpm": music_sync["bpm"],
         },
     }
     (output / "project.json").write_text(
         json.dumps(project, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+    rig_note = (
+        "Non-publishing source-aligned full-body rig preview. Both arm chains, "
+        "both hand overlays, both thigh/calf/foot chains and four finger controls "
+        "are separate frame-seekable layers cut from the intact performance source. "
+        "Small joint overlaps seal elbows, wrists, knees and ankles. The original "
+        "head, torso and violin stay on the source-aligned underpaint base. "
+        if segmented_body_mode else
+        "Non-publishing complete-body review preview. The original source body "
+        "is preserved while the bow and finger controls are tested. "
+        if composite_base_mode else
+        "Non-publishing segmented full-body rig preview. Inspect all layers "
+        "and motion before any production use. "
+    )
+    music_note = (
+        f"Beat/onset timing analysed from attached audio ({music_sync['source']}) "
+        f"at {music_sync['bpm']:.1f} BPM. "
+        if music_sync["audio_attached"] else
+        f"Preview timing uses a declared {music_sync['bpm']:.1f} BPM grid; "
+        "no song audio is attached. "
+    )
     (output / "README.txt").write_text(
-        (
-            "Non-publishing source-aligned full-body rig preview. Both arm chains, "
-            "both hand overlays, both thigh/calf/foot chains and four finger controls "
-            "are separate frame-seekable layers cut from the intact performance source. "
-            "Small joint overlaps seal elbows, wrists, knees and ankles. The original "
-            "head, torso and violin stay on the source-aligned underpaint base. "
-            "every seam and the bow grip before production use. Music timing source: "
-            + str(music_sync["source"]) + f" at {music_sync['bpm']:.1f} BPM. "
-            "No song audio is attached when using the preview tempo grid. Publishing and "
-            "scheduling are disabled.\n"
-            if segmented_body_mode else
-            "Non-publishing complete-body review preview. The original source body "
-            "is preserved while the bow and finger controls are tested. Publishing "
-            "and scheduling are disabled.\n"
-            if composite_base_mode else
-            "Non-publishing segmented full-body rig preview. Inspect all layers "
-            "and motion before any production use. Publishing and scheduling are "
-            "disabled.\n"
-        ),
+        rig_note + music_note + "Publishing and scheduling are disabled.\n",
         encoding="utf-8",
     )
     return {
