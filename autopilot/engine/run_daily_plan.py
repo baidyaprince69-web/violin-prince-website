@@ -30,6 +30,7 @@ from voiceover import require_approved_own_voice, synthesize_voiceover  # noqa: 
 from publish_handoff import validate_publish_metadata, write_handoff_files  # noqa: E402
 from illustration_asset_factory import prepare_character_assets  # noqa: E402
 from hyperframes_pipeline import render_daily_plan  # noqa: E402
+from visual_quality import build_visual_quality_report  # noqa: E402
 from character_presenter import (  # noqa: E402
     PresenterIntegrationError,
     attach_violin_prince_presenter,
@@ -599,6 +600,27 @@ def run_daily_plan(
         encoding="utf-8",
     )
 
+    # Stop bad, repeated or incorrectly framed artwork before any Motion/HyperFrames work.
+    from local_vector_illustrator import _scene_profile
+    visual_quality_report = build_visual_quality_report(
+        plan["scenes"],
+        images,
+        story_profile=_scene_profile(plan),
+    )
+    if visual_quality_report.get("status") != "passed":
+        raise engine.PipelineError(
+            "Visual quality gate failed: "
+            + json.dumps(visual_quality_report.get("errors", []), ensure_ascii=False)
+        )
+    plan["visual_quality"] = visual_quality_report
+    (engine.PACKAGE / "visual-quality-report.json").write_text(
+        json.dumps(visual_quality_report, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    paths["plan"].write_text(
+        json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
     character_assets = prepare_character_assets(
         plan,
         source_root=engine.PACKAGE,
@@ -616,6 +638,7 @@ def run_daily_plan(
         "production_identity": production_identity,
         "stage": "illustrations_and_character_assets_ready",
         "visual_engine": "Motion + HyperFrames 2D",
+        "visual_quality_gate": visual_quality_report,
         "character_count": len(character_assets),
         "visuals_run_id": engine.RUN_ID,
         "story_review": {

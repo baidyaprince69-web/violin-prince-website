@@ -8,6 +8,13 @@ on:
       - "autopilot/engine/local_vector_illustrator.py"
       - "autopilot/engine/tests/render_local_vector_preview.py"
       - ".github/workflows/local-vector-illustration-preview.yml"
+  pull_request:
+    paths:
+      - "autopilot/engine/local_vector_illustrator.py"
+      - "autopilot/engine/visual_quality.py"
+      - "autopilot/engine/tests/test_visual_quality.py"
+      - "autopilot/engine/tests/render_local_vector_preview.py"
+      - ".github/workflows/local-vector-illustration-preview.yml"
   workflow_dispatch:
 
 permissions:
@@ -36,6 +43,9 @@ jobs:
 
       - name: Run local illustrator regression tests
         run: python autopilot/engine/tests/test_local_vector_illustrator.py
+
+      - name: Run visual asset quality gate tests
+        run: python autopilot/engine/tests/test_visual_quality.py
 
       - name: Render all six local illustration modes
         run: python autopilot/engine/tests/render_local_vector_preview.py work/local-vector-preview

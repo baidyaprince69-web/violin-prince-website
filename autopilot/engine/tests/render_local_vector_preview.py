@@ -5,9 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 import sys
+import textwrap
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 ENGINE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ENGINE))
@@ -92,9 +93,10 @@ def render_preview(output_dir: Path) -> dict:
     ]
     all_records = records + studio_records
 
-    # Produce a contact sheet that is easy to inspect inside the Actions artifact.
+    # Use a bundled Pillow font and plain ASCII labels. The previous default
+    # bitmap font could not render the long dash, and one-line captions clipped.
     tile_w, tile_h = 320, 560
-    margin, gap, label_h = 32, 24, 64
+    margin, gap, label_h = 32, 24, 94
     cols = 3
     rows = (len(all_records) + cols - 1) // cols
     sheet = Image.new(
@@ -104,6 +106,7 @@ def render_preview(output_dir: Path) -> dict:
         (8, 17, 30),
     )
     draw = ImageDraw.Draw(sheet)
+    label_font = ImageFont.load_default(size=16)
     for i, record in enumerate(all_records):
         image_path = output_dir / record["path"]
         with Image.open(image_path) as image:
@@ -114,9 +117,18 @@ def render_preview(output_dir: Path) -> dict:
         sheet.paste(tile, (left, top))
         draw.rectangle((left, top, left + tile_w - 1, top + tile_h - 1),
                        outline=(226, 190, 122), width=2)
-        draw.text((left, top + tile_h + 12),
-                  record["id"] + " — " + record["caption"],
-                  fill=(242, 229, 199))
+        heading = record["id"].replace("-", " ").replace("_", " ").upper()
+        caption_lines = textwrap.wrap(
+            " ".join(str(record["caption"]).split()),
+            width=35,
+            break_long_words=False,
+            break_on_hyphens=False,
+        )[:2]
+        draw.text((left, top + tile_h + 7), heading,
+                  font=label_font, fill=(226, 190, 122))
+        for line_index, line in enumerate(caption_lines):
+            draw.text((left, top + tile_h + 31 + line_index * 20), line,
+                      font=label_font, fill=(242, 229, 199))
     contact_path = output_dir / "contact-sheet.jpg"
     sheet.save(contact_path, "JPEG", quality=90, optimize=True)
 
