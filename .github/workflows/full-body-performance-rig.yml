@@ -108,6 +108,10 @@ jobs:
           hand_cleanup = report.get("violin_hand_overlap_cleanup", {})
           assert hand_cleanup.get("pixels_removed", 0) > 100, report
           assert hand_cleanup.get("method") == "source_hand_alpha_cutout_plus_one_pixel_seam", report
+          edge_cleanup = report.get("source_edge_color_decontamination", {})
+          assert edge_cleanup.get("pixels_recoloured", 0) > 0, report
+          assert edge_cleanup.get("source_alpha_preserved") is True, report
+          assert edge_cleanup.get("source_silhouette_geometry_preserved") is True, report
           print("All twelve source-aligned limb/hand layers extracted; duplicate fretting-hand pixels removed from the violin prop.")
           PY
 
@@ -117,7 +121,8 @@ jobs:
         run: |
           python autopilot/engine/create_full_body_performance_preview.py \
             --bundle work/full-body-rig/bundle \
-            --output work/full-body-rig
+            --output work/full-body-rig \
+            --bpm 100
 
       - name: Set up Node.js 22
         uses: actions/setup-node@v4
@@ -151,6 +156,13 @@ jobs:
           from pathlib import Path
 
           report = json.loads(Path("work/full-body-rig/composition/motion-report.json").read_text())
+          project = json.loads(Path("work/full-body-rig/project.json").read_text())
+          action = project["scenes"][0]["character_actions"]["violin-prince"]
+          sync = action.get("music_sync", {})
+          assert sync.get("source") == "preview_tempo_grid_no_audio_asset", sync
+          assert sync.get("bpm") == 100, sync
+          assert len(sync.get("beat_times", [])) >= 10, sync
+          assert len(sync.get("onsets", [])) > 0, sync
           assert report.get("full_body_performance_scene_count") == 1, report
           assert report.get("preserved_composite_base_count") == 1, report
           assert report.get("animated_full_body_part_count") == 6, report
