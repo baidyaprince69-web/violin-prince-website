@@ -97,6 +97,8 @@ jobs:
           assert base.get("source_alpha_preserved") is True, report
           assert base.get("source_pixels_outside_cut_mask_preserved") is True, report
           assert base.get("pixels_cut_from_source", 0) > 25000, report
+          assert base.get("bow_pixels_reconstructed", 0) > 0, report
+          assert base.get("violin_pixels_reconstructed", 0) > 0, report
           assert limbs.get("method") == "authored_source_aligned_polygon_regions_v1", report
           assert limbs.get("independent_layer_count") == 12, report
           assert len(limbs.get("parts", {})) == 12, report
@@ -151,7 +153,7 @@ jobs:
           assert report.get("animated_full_body_part_count") == 6, report
           assert report.get("animated_limb_segment_count") == 12, report
           assert report.get("animated_fingering_control_count") == 4, report
-          assert report.get("animated_instrument_prop_count") == 1, report
+          assert report.get("animated_instrument_prop_count") == 2, report
           scene = report["scenes"][0]
           assert scene.get("full_body_visual_mode") == "segmented_source_body", scene
           print(json.dumps({
