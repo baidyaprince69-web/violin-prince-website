@@ -97,12 +97,19 @@ test("music-synchronized performance keyframes follow beat and onset timestamps"
   });
   const find = target => tracks.find(track => track.target === target);
   const bow = find("playing-violin-prince-prop-bow");
+  const bowTranslation = tracks.find(track =>
+    track.target === "playing-violin-prince-prop-bow" && track.property === "translate"
+  );
   const elbow = find("playing-violin-prince-part-left_forearm");
   const indexFinger = find("playing-violin-prince-part-finger_index");
   const middleFinger = find("playing-violin-prince-part-finger_middle");
 
-  assert.ok(bow && elbow && indexFinger && middleFinger);
+  assert.ok(bow && bowTranslation && elbow && indexFinger && middleFinger);
   assert.equal(bow.start, 0.12);
+  assert.ok(bowTranslation.values.length > 80,
+    "bow travel is sampled at composition frame rate");
+  assert.ok(new Set(bowTranslation.values).size > 3,
+    "bow travel moves continuously between beat reversals");
   assert.deepEqual(bow.key_times.slice(0, 4), [0, 0.08, 0.58, 1.08]);
   assert.equal(bow.key_times.at(-1), 3.88);
   assert.ok(bow.values.some((value, index) => index > 1 && value !== bow.values[index - 1]));
