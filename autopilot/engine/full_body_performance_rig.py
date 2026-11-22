@@ -389,7 +389,12 @@ def _build_bow_grip_hand_overlay(
     ] + [hand_layer]
     return {
         "src": geometry["src"],
-        "bbox": geometry["bbox"],
+        "bbox": [
+            int(geometry["x"]),
+            int(geometry["y"]),
+            int(geometry["x"]) + int(geometry["width"]),
+            int(geometry["y"]) + int(geometry["height"]),
+        ],
         "skin_pixels": hand_area,
         "method": "warm_skin_mask_with_one_pixel_outline_dilation",
         "excludes_original_bow_pixels": True,
