@@ -803,7 +803,6 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
         partIdByRole.set(name, prefix + "-prop-" + name);
       }
 
-      const propNames = new Set(Object.keys(character.props || {}));
       const addRigKeyframes = (role, properties, start, duration, loop = false) => {
         const target = partIdByRole.get(role);
         if (target) {
