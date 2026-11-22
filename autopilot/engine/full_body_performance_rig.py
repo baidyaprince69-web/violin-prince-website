@@ -678,7 +678,7 @@ def _build_segmented_source_base(
         "y": 0,
         "width": width,
         "height": height,
-        "z_index": 10,
+        "z_index": 1,
         "mode": "segmented_source_body",
         "pixels_cut_from_source": int(cut.sum()),
         "moving_region_pixels": int(moving.sum()),
