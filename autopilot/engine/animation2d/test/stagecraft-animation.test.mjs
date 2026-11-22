@@ -107,6 +107,8 @@ test("stagecraft enters the real Motion composition with independent loop tracks
     assert.ok(html.includes("night-drive-stagecraft-traffic-a"));
     assert.ok(html.includes("night-drive-stagecraft-object-foreground-note"));
     assert.ok(html.includes('"loop":true'), "composition must preserve looping track metadata");
+    assert.ok(html.includes('id="night-drive-camera-world"'), "the environment must be placed in a camera-controlled scene world");
+    assert.ok(html.includes('"target":"night-drive-camera-world"'), "camera motion must target the complete scene world");
 
     const lint = spawnSync(resolve(engineDirectory, "node_modules/.bin/hyperframes"), [
       "lint", outputDirectory

@@ -539,7 +539,7 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
       const cameraDuration = Math.max(0.08, Number(scene.camera_motion_duration) || sceneDuration);
       const cameraFrames = directorCameraKeyframes(camera, Number(scene.editorial_index) || 0);
       addKeyframes(
-        backgroundId,
+        scene.id + "-camera-world",
         { transform: cameraFrames },
         cameraStart,
         cameraDuration,
@@ -574,7 +574,7 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
         : visualMode === "waveform" || visualMode === "mechanism_illustration"
           ? ["scale(1.055) translateY(8px)", "scale(1.105) translateY(-8px)", "scale(1.115) translateY(-12px)"]
           : ["scale(1.055) translateX(-9px)", "scale(1.105) translateX(7px)", "scale(1.12) translateX(12px)"];
-      addKeyframes(backgroundId, { transform: cameraKeyframes },
+      addKeyframes(scene.id + "-camera-world", { transform: cameraKeyframes },
         sceneStart, sceneDuration, "ease-in-out");
     }
 

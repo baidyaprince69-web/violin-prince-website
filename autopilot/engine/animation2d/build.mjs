@@ -525,7 +525,9 @@ const markup = project.scenes.map((scene, index) => {
   const characters = (project.characters || []).map((character, characterIndex) =>
     renderCharacter(character, scene, index, characterIndex, width, height)
   ).join("");
-  return background + grade + brand + title + caption + graphic + atmosphere + stagecraftMarkup + characters;
+  const cameraWorld = '<div class="scene-camera-world" id="' + escapeHtml(scene.id + "-camera-world") + '">' +
+    background + grade + atmosphere + stagecraftMarkup + characters + '</div>';
+  return cameraWorld + brand + title + caption + graphic;
 }).join("");
 
 const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
@@ -539,6 +541,7 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   'html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050b13}' +
   '#root{position:relative;width:' + width + 'px;height:' + height + 'px;overflow:hidden;background:var(--vp-dominant,#050b13);color:var(--vp-secondary,#f4ead9)}' +
   '.scene-background{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.06);will-change:transform,opacity}' +
+  '.scene-camera-world{position:absolute;inset:0;width:100%;height:100%;z-index:1;transform-origin:50% 50%;will-change:transform}' +
   '.scene-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;will-change:transform,opacity,filter;transform-origin:50% 50%}' +
   '.scene-layer:not(.scene-layer--background){opacity:0;object-position:center center}' +
   '.scene-background--presenter-layout{filter:brightness(.42) saturate(.90) blur(1.5px)}' +

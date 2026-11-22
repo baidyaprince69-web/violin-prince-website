@@ -65,8 +65,10 @@ test("shot projects compile the director transition and camera timing into frame
   assert.ok(background.some((track) => track.property === "clipPath"));
   assert.ok(background.some((track) => track.property === "opacity" &&
     track.values[0] === 1 && track.values.at(-1) === 1));
-  const camera = background.find((track) => track.property === "transform");
-  assert.ok(camera);
+  const camera = tracks.find((track) =>
+    track.target === "shot-02-camera-world" && track.property === "transform"
+  );
+  assert.ok(camera, "camera choreography must move the complete scene world");
   assert.equal(camera.start, 4);
   assert.equal(camera.duration, 4);
   assert.ok(camera.values.at(-1).includes("scale(1.225)"));
