@@ -849,6 +849,83 @@ def _authored_performance_layers(
     return layers, joints, report, moving_union
 
 
+def _remove_embedded_props_from_static_layers(
+    bundle_dir: Path,
+    character: dict[str, Any],
+    prop_masks: dict[str, np.ndarray],
+) -> dict[str, Any]:
+    """Remove source-baked violin/bow pixels from static head and torso plates.
+
+    The original playing reference is a composite: the semantic torso/head
+    plates can contain the original violin and bow even though separate,
+    independently animated prop sprites are also added. Leaving those pixels
+    in the static plates creates a visible second bow/violin in the render.
+
+    Remove only the source-aligned prop alpha (plus a one-pixel seam) from
+    static body layers. The cleaned parent plate behind these layers provides
+    the reconstructed body underneath, while the separate props are rendered
+    at their intended depth. Moving limb/hand layers are handled independently.
+    """
+    try:
+        import cv2
+    except ImportError as exc:
+        raise AutoRigError("OpenCV is required to remove embedded instrument pixels from static layers.") from exc
+
+    roles_to_clean = {"torso", "head", "face"}
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    report: dict[str, Any] = {
+        "method": "source_aligned_prop_alpha_removed_from_static_body_plates",
+        "layers": {},
+        "total_pixels_removed": 0,
+        "automatic_layer_replacement": False,
+        "source_alpha_geometry_preserved": True,
+    }
+
+    for layer in character.get("layers", []):
+        role = str(layer.get("role") or "")
+        if role not in roles_to_clean:
+            continue
+        asset_path = bundle_dir / str(layer.get("src") or "")
+        if not asset_path.is_file():
+            raise AutoRigError(f"Missing static body plate for prop cleanup: {asset_path.name}")
+        with Image.open(asset_path) as opened:
+            plate = opened.convert("RGBA")
+        pixels = np.asarray(plate, dtype=np.uint8).copy()
+        alpha = pixels[:, :, 3]
+        x, y = int(round(float(layer["x"]))), int(round(float(layer["y"])))
+        height, width = alpha.shape
+
+        role_report: dict[str, int] = {}
+        remove_union = np.zeros((height, width), dtype=bool)
+        for prop_name, canvas_mask in prop_masks.items():
+            mask = np.asarray(canvas_mask, dtype=bool)
+            if mask.ndim != 2:
+                raise AutoRigError(f"The {prop_name} prop mask must be a two-dimensional canvas.")
+            local = mask[y:y + height, x:x + width]
+            if local.shape != (height, width):
+                raise AutoRigError(
+                    f"The {prop_name} prop mask does not fit static layer {role}."
+                )
+            expanded = cv2.dilate(local.astype(np.uint8), kernel, iterations=1) > 0
+            count = int(np.count_nonzero((alpha > 12) & expanded))
+            role_report[f"{prop_name}_pixels_removed"] = count
+            remove_union |= expanded
+
+        removed = int(np.count_nonzero((alpha > 12) & remove_union))
+        if removed:
+            alpha[remove_union] = 0
+            pixels[:, :, 3] = alpha
+            Image.fromarray(pixels, mode="RGBA").save(asset_path, format="PNG", optimize=True)
+        role_report["total_pixels_removed"] = removed
+        role_report["asset"] = asset_path.name
+        report["layers"][role] = role_report
+        report["total_pixels_removed"] += removed
+
+    report["layers_cleaned"] = sorted(report["layers"])
+    report["separate_instrument_props_preserved"] = True
+    return report
+
+
 def _build_segmented_source_base(
     source: Image.Image,
     bundle_dir: Path,
@@ -1156,6 +1233,14 @@ def extend_full_body_character(
             "attach_to": props[prop_id]["attach_to"],
         }
 
+    # Remove source-baked instrument pixels from semantic static layers. The
+    # separate violin/bow sprites are the only prop instances used at render time.
+    static_layer_prop_cleanup = _remove_embedded_props_from_static_layers(
+        bundle,
+        character,
+        prop_masks,
+    )
+
     # Recolour inherited neutral backdrop spill through a narrow distance band.
     # Instrument pixels are protected; alpha and silhouette geometry stay intact.
     source, edge_decontamination = _decontaminate_edge_matte_rgb(
@@ -1264,6 +1349,7 @@ def extend_full_body_character(
         "joint_additions": sorted(limb_joints.keys() | finger_joints.keys()),
         "limb_report": limb_report,
         "source_edge_color_decontamination": edge_decontamination,
+        "static_layer_prop_cleanup": static_layer_prop_cleanup,
         "violin_hand_overlap_cleanup": violin_hand_cleanup,
         "finger_pixel_areas": finger_areas,
         "prop_report": prop_report,
