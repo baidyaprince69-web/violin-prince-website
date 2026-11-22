@@ -120,6 +120,15 @@ def prepare_character_assets(
                 "src": _copy_image(src, target, source_root, work_root),
             }
 
+        props = {}
+        for name, prop in character.get("props", {}).items():
+            src = prop["src"]
+            target = character_folder / ("prop-" + name + Path(src).suffix.lower())
+            props[name] = {
+                **prop,
+                "src": _copy_image(src, target, source_root, work_root),
+            }
+
         scene_actions = character.get("scene_actions") or {}
         if not isinstance(scene_actions, dict):
             raise IllustrationAssetError(
