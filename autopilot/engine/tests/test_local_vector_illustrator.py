@@ -161,7 +161,7 @@ class LocalVectorIllustratorTests(unittest.TestCase):
             }
             target = illustrator.render_scene(scene, 0, {"image_prompt": "also ignore"}, Path(folder) / "safe.jpg")
             self.assertTrue(target.is_file())
-            self.assertEqual(illustrator.RENDERER_VERSION, "violin-prince-vector-illustrator-v1")
+            self.assertEqual(illustrator.RENDERER_VERSION, "violin-prince-vector-illustrator-v2")
 
 
 if __name__ == "__main__":
