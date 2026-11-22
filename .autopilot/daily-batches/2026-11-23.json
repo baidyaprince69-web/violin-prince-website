@@ -6,13 +6,13 @@
       "production_date": "2026-11-23",
       "slot_id": "music-secrets",
       "slot_status": "blocked",
-      "blocked_reason": "SOURCE GATE: only the Medical Xpress article page was readable and verified (19 November 2026). The related Science Advances publisher page returned an access error in this research run, so it is not counted as a second verified direct publisher page; secondary summaries were not accepted as substitutes. GLOBAL SAFETY HOLD: main's scheduled route is public, not private-preview-only. The workflow selects a public-ready batch item and invokes autopilot/engine/upload_public_short_uploadpost.py with YOUTUBE_PRIVACY_STATUS=public. run_daily_plan.py forces privacy_status=public for --batch runs and validates the committed public approval (no_private_preview_required=true). PUBLISH_ENABLED=false only disables generic adapters; it does not disable this dedicated public uploader. The required autopilot/engine/animation-production-approval.json is absent, so the animation-production gate is also unsatisfied. Keep this slot blocked until the scheduled route is changed and verified private-only and the animation approval gate is valid.",
+      "blocked_reason": "GLOBAL SAFETY HOLD: autopilot/README.md and GLOBAL_CONTENT_STRATEGY.md describe private-preview commissioning, but main's actual .github/workflows/violin-prince-autopilot.yml selects public-ready plans and invokes upload_public_short_uploadpost.py with YOUTUBE_PRIVACY_STATUS=public. test_workflow_privacy_contract.py explicitly asserts that public route. run_daily_plan.py also validates illustration-approval.json as public_youtube/no_private_preview_required=true and forces privacy_status=public for --batch runs. The private uploader exists but is not wired into the scheduled workflow. Separately, autopilot/engine/animation-production-approval.json is absent, so the genuine-animation gate fails closed before plan validation. This conflicts with the required private-preview-only commissioning sequence. Keep blocked until the scheduled route is verified private-only and genuine-animation approval evidence exists. SOURCE STATUS: two readable direct publisher article pages from separate publisher families were opened and date-checked (19–20 November); both cover the same Science Advances claim. The Science Advances publisher page itself returned HTTP 403 and is not counted as a source.",
       "story_type": "sound_and_perception",
-      "topic": "How acoustic timing and frequency patterns help listeners distinguish speech from music, using a continuous film soundtrack as the listening context.",
-      "core_claim": "The auditory cortex can use spectrotemporal acoustic patterns to support listeners' distinction between speech and music.",
-      "title": "How the Brain Separates Music from Speech",
-      "hook": "How does your brain separate music from speech?",
-      "description": "A Medical Xpress report dated 19 November describes a Science Advances study using the Harry Potter soundtrack to examine how acoustic timing and frequency patterns support speech/music categorization. The Science Advances publisher page could not be opened during this research run, so this candidate remains blocked until a second direct publisher article page is verified.",
+      "topic": "How the auditory cortex uses spectrotemporal acoustic patterns to help listeners distinguish speech from music, using a continuous film soundtrack as the research context.",
+      "core_claim": "The study reports that temporal acoustic patterns carry information useful for speech judgments while spectral patterns carry information useful for music judgments; it does not establish that these are the brain's only categorization mechanisms.",
+      "title": "How the Brain Separates Speech and Music",
+      "hook": "How does your brain separate speech from music?",
+      "description": "Medical Xpress (19 November 2026) and MedicalPress (20 November 2026) report on the same Science Advances study. It links speech judgments with rapid temporal changes and music judgments with detailed frequency patterns. The original film soundtrack is research context only; no film audio or footage will be used.",
       "hashtags": [
         "#MusicScience",
         "#AuditoryPerception",
@@ -29,7 +29,7 @@
         "Violin Prince"
       ],
       "narrative_style": "documentary",
-      "cover_payoff": "If the source gate is later satisfied, use a short original violin motif to demonstrate a clear rhythmic contour and a contrasting sustained melodic phrase. Do not use Harry Potter soundtrack audio, film footage or copyrighted score material.",
+      "cover_payoff": "Use an original violin phrase twice: first with a clear rhythmic contour, then with a contrasting sustained phrase. Explain timing and frequency patterns with readable, non-numeric graphics; do not use Harry Potter soundtrack audio or film footage.",
       "sources": [
         {
           "source_id": "S001",
@@ -38,21 +38,64 @@
           "publisher_domain": "medicalxpress.com",
           "publisher_name": "Medical Xpress",
           "date": "2026-11-19"
+        },
+        {
+          "source_id": "S002",
+          "title": "Cómo distingue el cerebro la voz de la música: el papel del córtex auditivo",
+          "url": "https://www.medicalpress.es/cerebro-distingue-voz-musica-corteza-auditiva-science-advances/",
+          "publisher_domain": "medicalpress.es",
+          "publisher_name": "MedicalPress",
+          "date": "2026-11-20"
         }
       ],
-      "timeline": []
+      "timeline": [],
+      "narration_script": "How does your brain separate speech and music? Medical Xpress says auditory cortex uses acoustic patterns to distinguish them. MedicalPress links speech with timing, music with frequency patterns. Researchers tested listeners with a film soundtrack.",
+      "narration_evidence": [
+        {
+          "sentence_number": 2,
+          "source_id": "S001",
+          "quote": "the brain's auditory cortex differentiates between speech and music using patterns that describe how acoustic energy changes over time and across frequencies."
+        },
+        {
+          "sentence_number": 3,
+          "source_id": "S002",
+          "quote": "Habla: los juicios dependían sobre todo de los cambios rápidos del sonido a lo largo del tiempo. Música: los juicios dependían sobre todo de los patrones detallados entre frecuencias."
+        },
+        {
+          "sentence_number": 4,
+          "source_id": "S001",
+          "quote": "11 epilepsy patients with clinically implanted electrodes listened to nearly eight minutes of the French-dubbed soundtrack of \"Harry Potter and the Philosopher's Stone.\""
+        }
+      ],
+      "performance_feedback": {
+        "sample_window": "Metricool YouTube evolution, 2026-10-23 to 2026-11-22 (brand timezone Asia/Calcutta): 1,877 channel views across 27 returned daily view rows; subscriber values ranged from 516 to 517 in returned records; the returned daily rows totalled 5 gained and 2 lost. For 2026-11-15 to 2026-11-22, published-video rows were empty; the all-videos and country connectors also returned empty rows.",
+        "sample_count": 0,
+        "confidence": "Low for topic or format ranking: no per-video view, average-view-duration, retention, engaged-view, traffic-source or country rows were available. The public channel index surfaced older Bengali, Hindi and English cover examples, but it is not a current upload or preference signal.",
+        "strengths_to_preserve": [
+          "Keep the violin-first channel identity and an original musical payoff.",
+          "Bengali and Indian repertoire remain part of a worldwide channel rather than a geographic limit."
+        ],
+        "one_change_to_test": "Use one clear first-second curiosity hook, one source-backed visual explanation and a distinct original violin phrase payoff.",
+        "measurement_for_next_upload": "Capture 24-hour and seven-day views, engaged views, average view duration, average percentage viewed, stayed-to-watch, likes, comments, shares, traffic sources and country data if available."
+      },
+      "narration_asr_hotwords": [
+        "auditory cortex",
+        "spectrotemporal",
+        "Medical Xpress",
+        "MedicalPress"
+      ]
     },
     {
       "production_date": "2026-11-23",
       "slot_id": "production-tech",
       "slot_status": "blocked",
-      "blocked_reason": "GLOBAL SAFETY HOLD: main's scheduled route is public, not private-preview-only. The workflow selects a public-ready batch item and invokes autopilot/engine/upload_public_short_uploadpost.py with YOUTUBE_PRIVACY_STATUS=public. run_daily_plan.py forces privacy_status=public for --batch runs and validates the committed public approval (no_private_preview_required=true). PUBLISH_ENABLED=false only disables generic adapters; it does not disable this dedicated public uploader. The required autopilot/engine/animation-production-approval.json is absent, so the animation-production gate is also unsatisfied. Keep this slot blocked until the scheduled route is changed and verified private-only and the animation approval gate is valid.",
+      "blocked_reason": "GLOBAL SAFETY HOLD: autopilot/README.md and GLOBAL_CONTENT_STRATEGY.md describe private-preview commissioning, but main's actual .github/workflows/violin-prince-autopilot.yml selects public-ready plans and invokes upload_public_short_uploadpost.py with YOUTUBE_PRIVACY_STATUS=public. test_workflow_privacy_contract.py explicitly asserts that public route. run_daily_plan.py also validates illustration-approval.json as public_youtube/no_private_preview_required=true and forces privacy_status=public for --batch runs. The private uploader exists but is not wired into the scheduled workflow. Separately, autopilot/engine/animation-production-approval.json is absent, so the genuine-animation gate fails closed before plan validation. This conflicts with the required private-preview-only commissioning sequence. Keep blocked until the scheduled route is verified private-only and genuine-animation approval evidence exists. SOURCE STATUS: two readable direct publisher article pages from separate publisher families were opened and date-checked (19 November).",
       "story_type": "music_technology",
-      "topic": "Steinberg's free Chromaspheres turns imported user samples into playable sounds through four synthesis engines and 30 sound-shaping modes.",
-      "core_claim": "Steinberg's free Chromaspheres turns user samples into playable instruments through four synthesis engines and 30 sound-shaping modes.",
+      "topic": "Steinberg's free Chromaspheres instrument turns imported samples into playable sounds through wavetable, granular, spectral and sample-based synthesis.",
+      "core_claim": "Chromaspheres accepts imported audio and offers four synthesis engines with 30 sound-shaping modes inside the free HALion Sonic player.",
       "title": "Turn One Sample Into a Playable Instrument",
-      "hook": "Can one recording become a playable instrument now?",
-      "description": "Steinberg's free Chromaspheres accepts audio samples and reshapes them through wavetable, granular, spectral and sample-based synthesis. Production Expert and Synthtopia independently report the sample-to-instrument workflow and playable sound transformations. A Violin Prince demonstration would use an approved CC0 violin sample, clearly labelled as sample-based rather than a live creator performance.",
+      "hook": "Can one recording become a playable instrument?",
+      "description": "Production Expert and Synth News independently report Steinberg's free Chromaspheres release, its four synthesis engines and 30 sound-shaping modes. A later demonstration could use an approved CC0 violin sample, clearly disclosed as sample-based rather than a live Violin Prince performance.",
       "hashtags": [
         "#MusicProduction",
         "#SoundDesign",
@@ -72,8 +115,8 @@
         "Violin Prince"
       ],
       "narrative_style": "documentary",
-      "cover_payoff": "Use a short approved CC0 violin sample as the source. Demonstrate several distinct transformations, then finish with a new two-bar violin motif. Label the audio as a sample-based demonstration; never present it as a live creator take.",
-      "narration_script": "Can one recording become a playable instrument now? Production Expert reports Chromaspheres turns audio samples into instruments. Synthtopia says imported samples become playable textures and rhythmic material. Your own samples can become new instruments, too.",
+      "cover_payoff": "If the creative gate later accepts it, use a clearly disclosed CC0 violin sample to demonstrate distinct transformations, then play an original short motif. Never label the sample as a creator-recorded performance.",
+      "narration_script": "Can one recording become a playable instrument? Production Expert says Chromaspheres turns dropped samples into playable sounds. Synth News lists four engines and thirty sound-shaping modes. Its free HALion Sonic player needs no Cubase licence.",
       "narration_evidence": [
         {
           "sentence_number": 2,
@@ -83,12 +126,12 @@
         {
           "sentence_number": 3,
           "source_id": "S002",
-          "quote": "transforms imported audio into playable sounds, textures and rhythmic material"
+          "quote": "four engines (wavetable, granular, spectral, sample), 30 modes and MPE."
         },
         {
           "sentence_number": 4,
           "source_id": "S001",
-          "quote": "build new source material from their own recordings"
+          "quote": "It runs in the free HALion Sonic player, so no Cubase or full HALion licence is needed."
         }
       ],
       "sources": [
@@ -102,102 +145,42 @@
         },
         {
           "source_id": "S002",
-          "title": "Free Steinberg Chromaspheres Turns Your Samples Into Wavetable, Granular And Spectral Sounds",
-          "url": "https://www.synthtopia.com/content/2026/11/21/free-steinberg-chromaspheres-turns-your-samples-into-wavetable-granular-and-spectral-sounds/",
-          "publisher_domain": "synthtopia.com",
-          "publisher_name": "Synthtopia",
-          "date": "2026-11-21"
+          "title": "Steinberg Chromaspheres: a free instrument that turns your samples into new sounds",
+          "url": "https://www.synth-news.com/en/software/free-open-source/steinberg-chromaspheres-free-sample-synth-released/",
+          "publisher_domain": "synth-news.com",
+          "publisher_name": "Synth News",
+          "date": "2026-11-19"
         }
       ],
       "timeline": [],
-      "scenes": [
-        {
-          "id": "sample-to-instrument",
-          "title": "A sample enters the instrument",
-          "caption": "ONE SAMPLE, MANY POSSIBILITIES",
-          "image_prompt": "Vertical 9:16 premium 2D editorial illustration: an original violin sample represented by a clean waveform travels into a stylised sound-design instrument, then emerges as a playable tone ribbon. Show a believable amber-walnut violin silhouette with correct body, bridge, neck, fingerboard, strings and bow proportions. Midnight navy background, muted teal signal path, antique-gold accents, warm ivory labels rendered later by the editor. No product UI, logos, text, stock imagery or copied artwork.",
-          "visual_mode": "macro_illustration",
-          "graphic_label": "THE HOOK",
-          "graphic_detail": "An original violin sample enters a sound-design instrument.",
-          "graphic_data": {
-            "type": "process_flow",
-            "title": "SAMPLE TO INSTRUMENT",
-            "items": [
-              "Load an audio sample",
-              "Choose a synthesis engine",
-              "Play a reshaped sound"
-            ]
-          },
-          "narration_sentence_indexes": [
-            0
-          ]
-        },
-        {
-          "id": "four-engine-options",
-          "title": "Four ways to reshape the sample",
-          "caption": "FOUR SYNTHESIS ENGINE OPTIONS",
-          "image_prompt": "Vertical 9:16 clean editorial 2D comparison graphic with four parallel animated lanes: wavetable scanning, granular particles, spectral stretching and recognisable sample playback. Each lane begins from the same small source waveform and ends with a distinct abstract sound shape. Make the lanes clearly parallel alternatives, not a sequential chain. Midnight navy, muted teal, antique gold and warm ivory. No readable software interface, logos or borrowed audio imagery.",
-          "visual_mode": "comparison",
-          "graphic_label": "THE KEY DETAIL",
-          "graphic_detail": "Wavetable, granular, spectral and sample-based engines reshape imported audio.",
-          "graphic_data": {
-            "type": "process_flow",
-            "title": "FOUR ENGINE PATHS",
-            "items": [
-              "Wavetable scan",
-              "Granular grains",
-              "Spectral stretch",
-              "Sample playback"
-            ]
-          },
-          "narration_sentence_indexes": [
-            1,
-            2
-          ]
-        },
-        {
-          "id": "original-violin-payoff",
-          "title": "A new sample-based violin phrase",
-          "caption": "A NEW TWO-BAR VIOLIN TEXTURE",
-          "image_prompt": "Vertical 9:16 symbolic Violin Prince musical payoff: a complete amber-walnut violin and bow with non-identifiable hands, correct instrument geometry and clear string/bow contact. Four original sound ribbons converge into a short new violin motif. The image must read as an illustration of a sample-based demonstration, not a photograph or claim of a live creator take. Midnight navy, muted teal, antique gold and warm ivory. No logos, text or copied melody notation.",
-          "visual_mode": "cover_performance",
-          "graphic_label": "THE PAYOFF",
-          "graphic_detail": "An original CC0 sample becomes a new violin texture.",
-          "narration_sentence_indexes": [
-            3
-          ]
-        }
-      ],
       "performance_feedback": {
-        "sample_window": "Metricool connected YouTube data, 2026-10-23 to 2026-11-22: 1,877 channel-level views across 27 returned daily view rows; 517 subscribers on 2026-11-20 and 2026-11-21. Three recent uploads reviewed; per-video view/retention fields were null.",
+        "sample_window": "Metricool YouTube evolution, 2026-10-23 to 2026-11-22 (brand timezone Asia/Calcutta): 1,877 channel views across 27 returned daily view rows; subscriber values ranged from 516 to 517 in returned records; the returned daily rows totalled 5 gained and 2 lost. For 2026-11-15 to 2026-11-22, published-video rows were empty; the all-videos and country connectors also returned empty rows.",
         "sample_count": 0,
-        "confidence": "Low for ranking content formats: no usable per-video views, retention fields or country rows were returned. The three recent uploads are a repertoire observation, not proof of audience preference.",
+        "confidence": "Low for topic or format ranking: no per-video view, average-view-duration, retention, engaged-view, traffic-source or country rows were available. The public channel index surfaced older Bengali, Hindi and English cover examples, but it is not a current upload or preference signal.",
         "strengths_to_preserve": [
-          "Keep the violin-first channel identity and an original musical payoff; the recent upload list contains three Kal Ho Naa Ho violin uploads, but no preference inference is made."
+          "Keep the violin-first channel identity and an original musical payoff.",
+          "Bengali and Indian repertoire remain part of a worldwide channel rather than a geographic limit."
         ],
-        "one_change_to_test": "Use one clear first-second curiosity hook, one source-backed visual explanation and a distinct original violin payoff.",
+        "one_change_to_test": "Use one clear first-second curiosity hook, one source-backed visual explanation and a distinct original violin phrase payoff.",
         "measurement_for_next_upload": "Capture 24-hour and seven-day views, engaged views, average view duration, average percentage viewed, stayed-to-watch, likes, comments, shares, traffic sources and country data if available."
       },
       "narration_asr_hotwords": [
         "Chromaspheres",
-        "HALion",
-        "wavetable",
-        "granular",
-        "spectral",
-        "sample-based"
+        "Steinberg",
+        "HALion Sonic"
       ]
     },
     {
       "production_date": "2026-11-23",
       "slot_id": "melody-stories",
       "slot_status": "blocked",
-      "blocked_reason": "GLOBAL SAFETY HOLD: main's scheduled route is public, not private-preview-only. The workflow selects a public-ready batch item and invokes autopilot/engine/upload_public_short_uploadpost.py with YOUTUBE_PRIVACY_STATUS=public. run_daily_plan.py forces privacy_status=public for --batch runs and validates the committed public approval (no_private_preview_required=true). PUBLISH_ENABLED=false only disables generic adapters; it does not disable this dedicated public uploader. The required autopilot/engine/animation-production-approval.json is absent, so the animation-production gate is also unsatisfied. Keep this slot blocked until the scheduled route is changed and verified private-only and the animation approval gate is valid.",
+      "blocked_reason": "GLOBAL SAFETY HOLD: autopilot/README.md and GLOBAL_CONTENT_STRATEGY.md describe private-preview commissioning, but main's actual .github/workflows/violin-prince-autopilot.yml selects public-ready plans and invokes upload_public_short_uploadpost.py with YOUTUBE_PRIVACY_STATUS=public. test_workflow_privacy_contract.py explicitly asserts that public route. run_daily_plan.py also validates illustration-approval.json as public_youtube/no_private_preview_required=true and forces privacy_status=public for --batch runs. The private uploader exists but is not wired into the scheduled workflow. Separately, autopilot/engine/animation-production-approval.json is absent, so the genuine-animation gate fails closed before plan validation. This conflicts with the required private-preview-only commissioning sequence. Keep blocked until the scheduled route is verified private-only and genuine-animation approval evidence exists. SOURCE STATUS: two readable direct publisher article pages from separate publisher families were opened and date-checked (20 November).",
       "story_type": "melody_and_composition",
-      "topic": "Tems releases African Love Story as the lead single from Children of Blood and Bone while serving as the soundtrack's executive music producer and curator.",
-      "core_claim": "Tems's African Love Story is the lead single from Children of Blood and Bone, and she serves as the soundtrack's executive music producer and curator.",
+      "topic": "Tems released African Love Story as the lead single from Children of Blood and Bone and serves as the soundtrack's executive music producer.",
+      "core_claim": "African Love Story is the lead single from Children of Blood and Bone, whose soundtrack is executive-produced and curated by Tems.",
       "title": "Tems Leads the Sound of Children of Blood and Bone",
-      "hook": "Can a song introduce an entire film world?",
-      "description": "Tems released African Love Story as the lead single from the Children of Blood and Bone soundtrack. She also serves as its executive music producer and curator. A Violin Prince payoff would use a newly composed, unrelated violin theme; no soundtrack audio, lyrics, film stills or artist likenesses would be used.",
+      "hook": "Can one song introduce a film's musical world?",
+      "description": "Stereogum and THEWILL independently report the release of Tems's African Love Story as the film soundtrack's lead single and her wider executive music-production role. The video would use an original, unrelated Violin Prince theme, not the film soundtrack or its lyrics.",
       "hashtags": [
         "#Tems",
         "#AfricanLoveStory",
@@ -216,8 +199,8 @@
         "Violin Prince"
       ],
       "narrative_style": "cinematic_story",
-      "cover_payoff": "Compose a new original violin theme that begins with an intimate phrase and expands into a call-and-response texture. Do not imitate or sample Tems's melody, soundtrack recordings or lyrics.",
-      "narration_script": "Can a song introduce an entire film world? Stereogum identifies Tems as the soundtrack's executive music producer. StupidDope names her new song the film's lead single. She also helps shape the wider film soundtrack, too.",
+      "cover_payoff": "Compose an original, unrelated violin theme with an intimate opening phrase and a wider call-and-response payoff. Do not imitate or sample Tems's melody, soundtrack recordings, lyrics, film stills or artist likeness.",
+      "narration_script": "Can one song introduce a film's musical world? Stereogum reports Tems executive-produces the Children of Blood and Bone soundtrack. THEWILL identifies African Love Story as its lead single. Her role includes wider soundtrack curation, too.",
       "narration_evidence": [
         {
           "sentence_number": 2,
@@ -227,18 +210,18 @@
         {
           "sentence_number": 3,
           "source_id": "S002",
-          "quote": "Tems has released African Love Story, the lead single from Children of Blood and Bone"
+          "quote": "Tems has released “African Love Story”, the lead single from the soundtrack of Children of Blood and Bone"
         },
         {
           "sentence_number": 4,
           "source_id": "S002",
-          "quote": "she also serves as the soundtrack executive music producer and curator"
+          "quote": "she personally curated the music and would be bringing new material from herself and other artists to the project"
         }
       ],
       "sources": [
         {
           "source_id": "S001",
-          "title": "Tems – African Love Story",
+          "title": "Tems Shares New Single \"African Love Story\": Listen",
           "url": "https://stereogum.com/2518836/tems-african-love-story/music",
           "publisher_domain": "stereogum.com",
           "publisher_name": "Stereogum",
@@ -246,77 +229,48 @@
         },
         {
           "source_id": "S002",
-          "title": "Tems ‘African Love Story’: Lead Single From Children of Blood and Bone Is Out Now",
-          "url": "https://stupiddope.com/2026/11/tems-african-love-story-lead-single-from-children-of-blood-and-bone-is-out-now/",
-          "publisher_domain": "stupiddope.com",
-          "publisher_name": "stupidDOPE",
+          "title": "Tems Releases African Love Story, Lead Single From ‘Children Of Blood And Bone’ Soundtrack",
+          "url": "https://thewillnews.com/tems-releases-african-love-story-lead-single-from-children-of-blood-and-bone-soundtrack/",
+          "publisher_domain": "thewillnews.com",
+          "publisher_name": "THEWILL",
           "date": "2026-11-20"
         }
       ],
       "timeline": [],
-      "scenes": [
-        {
-          "id": "song-opens-world",
-          "title": "A song introduces a world",
-          "caption": "THE FIRST MUSICAL IMPRESSION",
-          "image_prompt": "Vertical 9:16 original 2D editorial illustration of a fictional landscape emerging from one flowing musical ribbon, suggesting how a lead single can introduce a story world. No film stills, actors, characters, official artwork, lyrics or logos. Midnight navy, muted teal, antique gold and warm ivory, with layered painted forms and clear negative space.",
-          "visual_mode": "macro_illustration",
-          "graphic_label": "THE HOOK",
-          "graphic_detail": "A lead single can introduce a wider fictional world.",
-          "narration_sentence_indexes": [
-            0
-          ]
-        },
-        {
-          "id": "lead-single-soundtrack",
-          "title": "Lead single and soundtrack curation",
-          "caption": "ONE SINGLE, A WIDER SOUNDTRACK",
-          "image_prompt": "Vertical 9:16 premium 2D conceptual comparison: one central original musical motif branches into several distinct abstract sound textures, representing a lead single within a wider soundtrack. Keep the branches balanced and readable. No real melody, album cover, artist likeness, film character, logo or text. Midnight navy, muted teal, antique gold and warm ivory.",
-          "visual_mode": "comparison",
-          "graphic_label": "THE KEY DETAIL",
-          "graphic_detail": "Tems is both lead artist and soundtrack executive music producer.",
-          "narration_sentence_indexes": [
-            1,
-            2
-          ]
-        },
-        {
-          "id": "violin-prince-original-theme",
-          "title": "An original Violin Prince theme",
-          "caption": "A NEW THEME FOR AN IMAGINED WORLD",
-          "image_prompt": "Vertical 9:16 symbolic Violin Prince studio payoff: a complete amber-walnut violin and bow with non-identifiable hands, correct bridge, strings, fingerboard and bow geometry. A new original violin motif expands into a soft constellation of musical shapes. No Tems likeness, soundtrack melody, recording, film artwork, lyrics or logos. Midnight navy, muted teal, antique gold and warm ivory.",
-          "visual_mode": "cover_performance",
-          "graphic_label": "THE PAYOFF",
-          "graphic_detail": "A new, unrelated violin theme closes the story.",
-          "narration_sentence_indexes": [
-            3
-          ]
-        }
-      ],
       "performance_feedback": {
-        "sample_window": "Metricool connected YouTube data, 2026-10-23 to 2026-11-22: 1,877 channel-level views across 27 returned daily view rows; 517 subscribers on 2026-11-20 and 2026-11-21. Three recent uploads reviewed; per-video view/retention fields were null.",
+        "sample_window": "Metricool YouTube evolution, 2026-10-23 to 2026-11-22 (brand timezone Asia/Calcutta): 1,877 channel views across 27 returned daily view rows; subscriber values ranged from 516 to 517 in returned records; the returned daily rows totalled 5 gained and 2 lost. For 2026-11-15 to 2026-11-22, published-video rows were empty; the all-videos and country connectors also returned empty rows.",
         "sample_count": 0,
-        "confidence": "Low for ranking content formats: no usable per-video views, retention fields or country rows were returned. The three recent uploads are a repertoire observation, not proof of audience preference.",
+        "confidence": "Low for topic or format ranking: no per-video view, average-view-duration, retention, engaged-view, traffic-source or country rows were available. The public channel index surfaced older Bengali, Hindi and English cover examples, but it is not a current upload or preference signal.",
         "strengths_to_preserve": [
-          "Keep the violin-first channel identity and an original musical payoff; the recent upload list contains three Kal Ho Naa Ho violin uploads, but no preference inference is made."
+          "Keep the violin-first channel identity and an original musical payoff.",
+          "Bengali and Indian repertoire remain part of a worldwide channel rather than a geographic limit."
         ],
-        "one_change_to_test": "Use one clear first-second curiosity hook, one source-backed visual explanation and a distinct original violin payoff.",
+        "one_change_to_test": "Use one clear first-second curiosity hook, one source-backed visual explanation and a distinct original violin phrase payoff.",
         "measurement_for_next_upload": "Capture 24-hour and seven-day views, engaged views, average view duration, average percentage viewed, stayed-to-watch, likes, comments, shares, traffic sources and country data if available."
       },
       "narration_asr_hotwords": [
         "Tems",
         "African Love Story",
-        "Children of Blood and Bone",
-        "Burna Boy",
-        "RCA Records"
+        "Children of Blood and Bone"
       ]
     },
     {
       "production_date": "2026-11-23",
       "slot_id": "real-performance",
       "slot_status": "blocked",
-      "topic": "Creator-recorded violin performance is required; no approved clip is accessible to the unattended runner.",
-      "blocked_reason": "No approved creator-recorded violin clip is accessible to the runner. No sample-based technique explainer was selected because no qualifying fresh independent source pair and accepted creative-gate route were verified. Generated artwork or synthetic/sample audio must not be presented as a live Violin Prince performance. GLOBAL SAFETY HOLD: main's scheduled route is public, not private-preview-only. The workflow selects a public-ready batch item and invokes autopilot/engine/upload_public_short_uploadpost.py with YOUTUBE_PRIVACY_STATUS=public. run_daily_plan.py forces privacy_status=public for --batch runs and validates the committed public approval (no_private_preview_required=true). PUBLISH_ENABLED=false only disables generic adapters; it does not disable this dedicated public uploader. The required autopilot/engine/animation-production-approval.json is absent, so the animation-production gate is also unsatisfied. Keep this slot blocked until the scheduled route is changed and verified private-only and the animation approval gate is valid."
+      "topic": "A genuine Violin Prince performance or a separately approved, clearly disclosed technique explainer; no qualifying fresh evidence pair or creator recording was available for 23 November.",
+      "blocked_reason": "GLOBAL SAFETY HOLD: autopilot/README.md and GLOBAL_CONTENT_STRATEGY.md describe private-preview commissioning, but main's actual .github/workflows/violin-prince-autopilot.yml selects public-ready plans and invokes upload_public_short_uploadpost.py with YOUTUBE_PRIVACY_STATUS=public. test_workflow_privacy_contract.py explicitly asserts that public route. run_daily_plan.py also validates illustration-approval.json as public_youtube/no_private_preview_required=true and forces privacy_status=public for --batch runs. The private uploader exists but is not wired into the scheduled workflow. Separately, autopilot/engine/animation-production-approval.json is absent, so the genuine-animation gate fails closed before plan validation. This conflicts with the required private-preview-only commissioning sequence. Keep blocked until the scheduled route is verified private-only and genuine-animation approval evidence exists. PERFORMANCE/SOURCE STATUS: no approved creator-recorded violin clip is accessible to the unattended runner. The VioTech violin-technique preprint found during research is dated 2 November 2026 (outside the 168-hour window) and no second fresh direct publisher article from an independent publisher family was verified. No generated image, character or synthetic/sample audio may be presented as Prince performing live.",
+      "performance_feedback": {
+        "sample_window": "Metricool YouTube evolution, 2026-10-23 to 2026-11-22 (brand timezone Asia/Calcutta): 1,877 channel views across 27 returned daily view rows; subscriber values ranged from 516 to 517 in returned records; the returned daily rows totalled 5 gained and 2 lost. For 2026-11-15 to 2026-11-22, published-video rows were empty; the all-videos and country connectors also returned empty rows.",
+        "sample_count": 0,
+        "confidence": "Low for topic or format ranking: no per-video view, average-view-duration, retention, engaged-view, traffic-source or country rows were available. The public channel index surfaced older Bengali, Hindi and English cover examples, but it is not a current upload or preference signal.",
+        "strengths_to_preserve": [
+          "Keep the violin-first channel identity and an original musical payoff.",
+          "Bengali and Indian repertoire remain part of a worldwide channel rather than a geographic limit."
+        ],
+        "one_change_to_test": "Use one clear first-second curiosity hook, one source-backed visual explanation and a distinct original violin phrase payoff.",
+        "measurement_for_next_upload": "Capture 24-hour and seven-day views, engaged views, average view duration, average percentage viewed, stayed-to-watch, likes, comments, shares, traffic sources and country data if available."
+      }
     }
   ]
 }
