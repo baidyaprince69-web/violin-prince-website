@@ -57,6 +57,13 @@ jobs:
           PYTHONPATH: autopilot/engine
         run: python -m unittest discover -s autopilot/engine/tests -p "test_hyperframes_pipeline.py" -v
 
+      - name: Run scheduled slot date and exact-batch regression tests
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python -m unittest discover -s autopilot/engine/tests -p "test_scheduled_slot_date.py" -v
+          python -m unittest discover -s autopilot/engine/tests -p "test_select_public_queue.py" -v
+
       - name: Verify public YouTube Upload-Post and private voice credentials are configured
         env:
           UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
