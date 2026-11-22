@@ -95,7 +95,10 @@ jobs:
           assert base.get("preserves_original_arms_hands_legs_and_head") is True, report
           assert base.get("bow_pixels_reconstructed", 0) > 0, report
           assert base.get("finger_pixels_separated", 0) > 0, report
-          print("Complete source body preserved; bow and four fingering sprites are separate.")
+          hand = base.get("bow_grip_hand", {})
+          assert hand.get("skin_pixels", 0) > 180, report
+          assert hand.get("excludes_original_bow_pixels") is True, report
+          print("Complete source body preserved; clean bow-grip hand and four finger sprites are separate.")
           PY
 
       - name: Build the isolated 8-second performance project
