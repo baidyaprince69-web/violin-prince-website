@@ -18,6 +18,7 @@ from character_autorig import (
     AutoRigError,
     ManualReviewRequired,
     PASCAL_MODEL,
+    PASCAL_REVISION,
     SCHPOnnxParser,
     _bbox,
     _joint_between,
@@ -330,7 +331,7 @@ def extend_full_body_character(
     # Feed a clean white-composited copy to the real-person parser; keep alpha for final cutouts.
     parse_plate = Image.new("RGBA", source.size, (255, 255, 255, 255))
     parse_plate.alpha_composite(source)
-    parser = SCHPOnnxParser(*PASCAL_MODEL)
+    parser = SCHPOnnxParser(*PASCAL_MODEL, revision=PASCAL_REVISION)
     labels, confidence = parser.parse(parse_plate.convert("RGB"))
     _ = confidence
 
