@@ -9,6 +9,7 @@ from full_body_performance_rig import (
     _foot_mask,
     _leg_layers,
     _skin_material_mask,
+    _decontaminate_edge_matte_rgb,
 )
 
 
@@ -185,6 +186,42 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                 "overlapping fretting-hand pixels must be transparent in the violin sprite")
             self.assertEqual(int(result[0, 0, 3]), 255,
                 "the violin body outside the hand overlap must remain opaque")
+
+    def test_edge_matte_rgb_repair_preserves_alpha_and_protected_props(self):
+        pixels = np.zeros((32, 32, 4), dtype=np.uint8)
+        pixels[:, :, :3] = (232, 234, 236)  # transparent pixels retain a pale source matte
+        pixels[8:25, 8:25] = (34, 40, 43, 255)
+
+        # Matte-contaminated edge pixels: fully opaque and partially antialiased.
+        pixels[14, 7] = (184, 184, 182, 255)
+        pixels[15, 7] = (162, 163, 161, 153)
+        # A genuine warm skin edge and a protected pale prop edge must remain unchanged.
+        pixels[16, 7] = (190, 126, 91, 255)
+        pixels[17, 7] = (238, 232, 218, 255)
+
+        source = Image.fromarray(pixels, mode="RGBA")
+        protected = np.zeros((32, 32), dtype=bool)
+        protected[17, 7] = True
+        cleaned, report = _decontaminate_edge_matte_rgb(
+            source,
+            protected_masks=(protected,),
+        )
+        result = np.asarray(cleaned, dtype=np.uint8)
+
+        self.assertEqual(report["method"], "boundary_neutral_matte_rgb_decontamination")
+        self.assertGreater(report["pixels_recoloured"], 0)
+        self.assertLess(int(result[14, 7, :3].mean()), 100,
+            "neutral matte colour should be replaced by adjacent interior colour")
+        self.assertLess(int(result[15, 7, :3].mean()), 100,
+            "semi-transparent fringe RGB should also be decontaminated")
+        self.assertEqual(tuple(result[16, 7]), (190, 126, 91, 255),
+            "warm skin edge colour must not be changed")
+        self.assertEqual(tuple(result[17, 7]), (238, 232, 218, 255),
+            "known prop highlight must remain unchanged")
+        np.testing.assert_array_equal(result[:, :, 3], pixels[:, :, 3])
+        self.assertTrue(report["source_alpha_preserved"])
+        self.assertTrue(report["source_silhouette_geometry_preserved"])
+
 
     def test_segmented_source_base_preserves_untouched_pixels_and_alpha(self):
         import tempfile
