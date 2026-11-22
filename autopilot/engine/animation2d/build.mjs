@@ -52,7 +52,13 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
     left_hand: "left_wrist",
     right_upper_arm: "right_shoulder",
     right_forearm: "right_elbow",
-    right_hand: "right_wrist"
+    right_hand: "right_wrist",
+    left_thigh: "left_hip",
+    left_shin: "left_knee",
+    left_foot: "left_ankle",
+    right_thigh: "right_hip",
+    right_shin: "right_knee",
+    right_foot: "right_ankle"
   };
   const layers = (character.layers || []).map((layer) => {
     const jointName = jointForRole[layer.role];
@@ -579,7 +585,7 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.scene-stagecraft{position:absolute;inset:0;width:100%;height:100%;z-index:2;overflow:hidden;pointer-events:none;mix-blend-mode:screen}' +
   '.scene-stagecraft svg{display:block;width:100%;height:100%;overflow:visible}' +
   '.stagecraft-node{transform-box:fill-box;transform-origin:center;will-change:transform,opacity}' +
-  '.rig-part,.rig-expression,.rig-pose{position:absolute;object-fit:contain;max-width:none;pointer-events:none}' +
+  '.rig-part,.rig-expression,.rig-pose,.rig-prop{position:absolute;object-fit:contain;max-width:none;pointer-events:none;transform-box:fill-box}' +
   '.motion-graphic{position:absolute;left:auto;top:auto;right:auto;bottom:auto;width:86%;height:auto;z-index:34;overflow:visible;color:#f4ead9;opacity:0;padding:24px 20px;border:1px solid rgba(190,151,91,.48);border-left:3px solid #bf985e;background:linear-gradient(145deg,rgba(5,13,22,.97),rgba(9,27,35,.95));box-shadow:0 22px 64px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,244,220,.07);border-radius:9px}' +
   '.motion-graphic--full{left:7%;top:23%;width:86%;min-height:380px}' +
   '.motion-graphic--with-presenter{left:5%;top:25%;width:41%;min-height:400px;padding:20px 16px}' +
