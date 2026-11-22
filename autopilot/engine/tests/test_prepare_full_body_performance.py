@@ -20,7 +20,7 @@ class FullBodyPerformancePreparationTests(unittest.TestCase):
             references.mkdir()
 
             master = Image.new("RGBA", (441, 755), (40, 40, 45, 255))
-            Image.new("RGBA", (580, 762), (20, 20, 25, 0)).save(neutral)
+            Image.new("RGBA", (580, 762), (20, 20, 25, 255)).save(neutral)
             master.save(source)
 
             result = prepare(source, neutral, output, references)
