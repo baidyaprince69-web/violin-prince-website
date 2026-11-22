@@ -156,8 +156,9 @@ class MasterDirectorJobTests(unittest.TestCase):
             self.assertEqual(saved_plan["production_context"]["research_gate"], (
                 "passed_existing_two_publisher_quote_narration_and_story_coherence_checks"
             ))
-            brief = json.loads((output / "shot-layer-generation-brief.json").read_text(encoding="utf-8"))
+            brief = json.loads((output / "procedural-stagecraft-brief.json").read_text(encoding="utf-8"))
             self.assertEqual(brief["shot_count"], 8)
+            self.assertEqual(brief["status"], "procedural_scene_plan_ready")
             self.assertEqual(brief["render_mode"], "procedural_2d")
             self.assertEqual(len(brief["shots"][0]["environment"]["objects"]), 2)
             self.assertTrue(brief["shots"][0]["character_action"]["loop"])
@@ -186,7 +187,7 @@ class MasterDirectorJobTests(unittest.TestCase):
                 patch("create_master_director_plan.validate_and_enrich_plan", return_value=(enriched, sources)),
                 patch("create_master_director_plan.generate_director_plan", return_value=fake_director_plan()),
                 patch("create_master_director_plan.write_director_plan", side_effect=lambda plan, dest: (
-                    Path(dest).parent.mkdir(parents=True, exist_ok=True) or Path(dest).write_text(json.dumps(plan)) or Path(dest)
+                    (Path(dest).parent.mkdir(parents=True, exist_ok=True), Path(dest).write_text(json.dumps(plan)), Path(dest))[-1]
                 )),
             ):
                 create_master_director_plan(batch, "music-secrets", output)

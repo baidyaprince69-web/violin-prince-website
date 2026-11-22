@@ -145,7 +145,13 @@ def create_master_director_plan(
     contract_version = str((provider_metadata or {}).get("contract_version") or "")
     if contract_version != "violin-prince-master-director-v3":
         raise DirectorJobError(
-            "Copilot returned a director plan from an unexpected contract version; expected v2."
+            "Copilot returned a director plan from an unexpected contract version; expected v3."
+        )
+
+    if director_plan.get("render_mode") != "procedural_2d":
+        raise DirectorJobError(
+            "Master Director v3 must return render_mode='procedural_2d'; "
+            "image-layer plans are not accepted by this renderer."
         )
 
     director_plan["production_context"] = {
