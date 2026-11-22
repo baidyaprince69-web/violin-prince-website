@@ -532,7 +532,7 @@ def _decontaminate_edge_matte_rgb(
     padded_rgb = np.pad(rgb, ((1, 1), (1, 1), (0, 0)), mode="edge")
     padded_luminance = np.pad(luminance, ((1, 1), (1, 1)), mode="edge")
     padded_visible = np.pad(visible & ~protected, ((1, 1), (1, 1)), mode="constant")
-    padded_candidates = np.pad(matte_candidates, ((1, 1), (1, 1)), mode="constant")
+    padded_neutral_edge = np.pad(neutral_edge, ((1, 1), (1, 1)), mode="constant")
     for dy in (-1, 0, 1):
         for dx in (-1, 0, 1):
             if dx == 0 and dy == 0:
@@ -542,14 +542,11 @@ def _decontaminate_edge_matte_rgb(
             neighbour_rgb = padded_rgb[y0:y0 + height, x0:x0 + width]
             neighbour_luma = padded_luminance[y0:y0 + height, x0:x0 + width]
             neighbour_visible = padded_visible[y0:y0 + height, x0:x0 + width]
-            neighbour_candidate = padded_candidates[y0:y0 + height, x0:x0 + width]
+            neighbour_neutral_edge = padded_neutral_edge[y0:y0 + height, x0:x0 + width]
             valid = (
                 matte_candidates
                 & neighbour_visible
-                & ~neutral_edge[
-                    np.clip(np.arange(height)[:, None] + dy, 0, height - 1),
-                    np.clip(np.arange(width)[None, :] + dx, 0, width - 1),
-                ]
+                & ~neighbour_neutral_edge
                 & (neighbour_luma <= luminance - float(minimum_interior_contrast) * 0.5)
             )
             sample_rgb.append(neighbour_rgb.astype(np.float32))
