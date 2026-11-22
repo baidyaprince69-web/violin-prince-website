@@ -30,6 +30,7 @@ def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dic
 
     character = json.loads(character_path.read_text(encoding="utf-8"))
     composite_base_mode = bool(character.get("base_art"))
+    segmented_body_mode = composite_base_mode and character.get("performance_base_mode") == "segmented_source_body"
     if composite_base_mode:
         character["base_art"]["src"] = stage_asset(bundle, asset_root, character["base_art"]["src"])
     if character.get("performance", {}).get("instrument_performance") is not True:
@@ -105,7 +106,8 @@ def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dic
         "diagnostics": {
             "publishing": "disabled",
             "preview_only": True,
-            "character_rig": "intact_full_body_composite_review" if composite_base_mode else "segmented_full_body",
+            "character_rig": "segmented_source_aligned_limbs" if segmented_body_mode else
+                ("intact_full_body_composite_review" if composite_base_mode else "segmented_full_body"),
             "instrument_performance": "candidate_requires_visual_review",
         },
     }
@@ -115,13 +117,17 @@ def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dic
     )
     (output / "README.txt").write_text(
         (
-            "Non-publishing complete-body review preview. The original full-body "
-            "source plate preserves both arms, both hands, shirt, trousers and shoes. "
-            "The bow and four finger controls are separate animated overlays. "
-            "Independent arm, leg and head motion is intentionally paused while the "
-            "segmentation masks are rebuilt. Inspect the bow grip, finger seams and "
-            "full-body silhouette before any production use. Publishing and "
+            "Non-publishing source-aligned full-body rig preview. Both arm chains, "
+            "both hand overlays, both thigh/calf/foot chains and four finger controls "
+            "are separate frame-seekable layers cut from the intact performance source. "
+            "Small joint overlaps seal elbows, wrists, knees and ankles. The original "
+            "head, torso and violin stay on the source-aligned underpaint base. Inspect "
+            "every seam and the bow grip before production use. Publishing and "
             "scheduling are disabled.\n"
+            if segmented_body_mode else
+            "Non-publishing complete-body review preview. The original source body "
+            "is preserved while the bow and finger controls are tested. Publishing "
+            "and scheduling are disabled.\n"
             if composite_base_mode else
             "Non-publishing segmented full-body rig preview. Inspect all layers "
             "and motion before any production use. Publishing and scheduling are "
@@ -140,8 +146,11 @@ def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dic
         "head_angle_ids": sorted((character.get("head_angles") or {}).keys())
         if not composite_base_mode else [],
         "composite_base_mode": composite_base_mode,
-        "full_body_visual_mode": "intact_composite_base" if composite_base_mode else "segmented_limb_rig",
-        "bow_hand_mode": "original_source_hand_overlay" if composite_base_mode else "segmented",
+        "segmented_body_mode": segmented_body_mode,
+        "full_body_visual_mode": "segmented_source_body" if segmented_body_mode else
+            ("intact_composite_base" if composite_base_mode else "segmented_limb_rig"),
+        "bow_hand_mode": "source_aligned_independent_hand_layer" if segmented_body_mode else
+            ("original_source_hand_overlay" if composite_base_mode else "segmented"),
         "publishing": "disabled",
         "preview_only": True,
     }
