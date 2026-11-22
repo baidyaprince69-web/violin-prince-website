@@ -2,7 +2,7 @@
 import unittest
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from character_autorig import (
     AutoRigError,
