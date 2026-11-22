@@ -258,8 +258,14 @@ jobs:
           if performance.get("animated_presenter_count", 0) < 1:
               raise SystemExit("The stage scene did not animate the articulated Violin Prince rig.")
           if performance.get("presenter_gesture_keyframes", 0) < 4:
-              raise SystemExit("The articulated dance gesture did not generate joint keyframes.")
-          print("Verified 7 authored poses plus a live procedural stage, 4 moving props and an articulated presenter.")
+              raise SystemExit("The articulated violin performance did not generate joint keyframes.")
+          if performance.get("animated_full_body_joint_count", 0) < 10:
+              raise SystemExit("The violin performance is missing hip/knee/ankle or finger-joint motion.")
+          if performance.get("animated_finger_count", 0) < 4:
+              raise SystemExit("All four fingerboard fingers must have independent motion tracks.")
+          if performance.get("animated_instrument_prop_count", 0) < 2:
+              raise SystemExit("The violin and bow must have independent moving transform tracks.")
+          print("Verified 7 authored poses, full-body finger and leg articulation, separate violin/bow motion, and animated stagecraft.")
           PY
 
       - name: Lint the daily-pipeline portrait composition
