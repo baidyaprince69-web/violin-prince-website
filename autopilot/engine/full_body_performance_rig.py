@@ -27,7 +27,8 @@ from character_autorig import (
 from character_rig import validate_character_spec
 
 
-LEG_LABELS = {"lower_leg": 5, "upper_leg": 6}
+# SCHP PASCAL-person-part label map: 5=upper legs, 6=lower legs.
+LEG_LABELS = {"upper_leg": 5, "lower_leg": 6}
 LEG_ROLE_Z = {
     "left_foot": 4, "right_foot": 5,
     "left_calf": 6, "right_calf": 7,
@@ -90,22 +91,44 @@ def _foot_mask(
     height, width = alpha.shape
     yy, xx = np.mgrid[:height, :width]
     screen_side = xx < split_x if side == "left" else xx >= split_x
-    # Shoes are the darkest connected foreground components in the bottom band.
-    # The connected-component requirement prevents stray trouser pixels becoming feet.
-    dark = rgb.max(axis=2) <= 132
-    candidate = (alpha > 12) & dark & screen_side & (yy >= int(height * 0.935))
+    # Shoes are darker and substantially wider than the trouser cuff. Locate
+    # the largest bottom-connected dark component, then find the row where its
+    # silhouette widens into footwear. This retains the complete shoe rather
+    # than cropping only the bottom half.
+    dark = rgb.max(axis=2) <= 145
+    candidate = (alpha > 12) & dark & screen_side & (yy >= int(height * 0.875))
     candidate = _morph(_morph(candidate, 2, "dilate"), 2, "erode")
     component = _largest_component(candidate)
-    if int(component.sum()) < 70:
-        # A slightly higher band accommodates footwear with a taller upper.
-        candidate = (alpha > 12) & dark & screen_side & (yy >= int(height * 0.92))
-        candidate = _morph(_morph(candidate, 2, "dilate"), 2, "erode")
-        component = _largest_component(candidate)
     if int(component.sum()) < 70:
         raise ManualReviewRequired(
             f"Could not isolate the {side} shoe from the full-body reference."
         )
-    return _morph(component, 1, "dilate") & (alpha > 0)
+
+    row_width = np.zeros(height, dtype=np.int32)
+    for row in range(int(height * 0.875), height):
+        xs = np.where(component[row])[0]
+        row_width[row] = int(xs.max() - xs.min() + 1) if xs.size else 0
+    foot_top = None
+    for row in range(int(height * 0.89), height - 4):
+        previous = row_width[max(0, row - 18):max(0, row - 5)]
+        previous = previous[previous > 0]
+        current = row_width[row:row + 5]
+        current = current[current > 0]
+        if previous.size >= 5 and current.size >= 3:
+            cuff_width = float(np.median(previous))
+            shoe_width = float(np.median(current))
+            if cuff_width > 0 and shoe_width >= cuff_width * 1.32:
+                foot_top = row
+                break
+    if foot_top is None:
+        foot_top = int(height * 0.925)
+    shoe = component & (yy >= max(0, foot_top - 2))
+    shoe = _morph(shoe, 1, "dilate") & (alpha > 0)
+    if int(shoe.sum()) < 70:
+        raise ManualReviewRequired(
+            f"The {side} shoe-width transition was too ambiguous for a safe ankle cut."
+        )
+    return shoe
 
 
 def _leg_layers(
@@ -333,7 +356,7 @@ def extend_full_body_character(
             **specification,
             "id": prop_id,
             "src": target_name,
-            "attach_to": str(specification.get("attach_to") or ("right_hand" if prop_id == "bow" else "torso")),
+            "attach_to": str(specification.get("attach_to") or ("left_hand" if prop_id == "bow" else "torso")),
         }
         with Image.open(src_path) as opened:
             prop_alpha = np.asarray(opened.convert("RGBA").getchannel("A"), dtype=np.uint8)
