@@ -8,8 +8,8 @@ from full_body_performance_rig import (
     _clip_hand_from_violin_prop,
     _foot_mask,
     _leg_layers,
+    _skin_material_mask,
 )
-from character_autorig import _skin_material_mask
 
 
 class FullBodyPerformanceRigTests(unittest.TestCase):
