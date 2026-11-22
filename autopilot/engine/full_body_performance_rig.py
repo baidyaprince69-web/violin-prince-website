@@ -306,6 +306,347 @@ def _prepare_fingers(
     return layers, joints, areas
 
 
+def _polygon_mask(
+    shape: tuple[int, int],
+    polygon: list[list[float]] | list[tuple[float, float]],
+) -> np.ndarray:
+    """Rasterize one source-aligned polygon into a full-canvas boolean mask."""
+    height, width = shape
+    if len(polygon) < 3:
+        raise ManualReviewRequired("Every authored performance region needs at least three polygon points.")
+    points = []
+    for point in polygon:
+        if not isinstance(point, (list, tuple)) or len(point) != 2:
+            raise ManualReviewRequired("Performance region polygon points must be [x, y] pairs.")
+        x, y = float(point[0]), float(point[1])
+        if not np.isfinite(x) or not np.isfinite(y):
+            raise ManualReviewRequired("Performance region polygon coordinates must be finite.")
+        if not 0 <= x < width or not 0 <= y < height:
+            raise ManualReviewRequired(
+                f"Performance region point ({x:.1f}, {y:.1f}) lies outside the {width}x{height} source."
+            )
+        points.append((round(x), round(y)))
+    canvas = Image.new("L", (width, height), 0)
+    ImageDraw.Draw(canvas).polygon(points, fill=255)
+    return np.asarray(canvas, dtype=np.uint8) > 0
+
+
+def _skin_material_mask(
+    source: Image.Image,
+    allowed: np.ndarray,
+    *,
+    thresholds: dict[str, Any],
+    excluded: tuple[np.ndarray, ...] = (),
+) -> np.ndarray:
+    """Find skin only inside a reviewed hand polygon, excluding prop silhouettes."""
+    rgba = np.asarray(source.convert("RGBA"), dtype=np.uint8)
+    red, green, blue = (rgba[:, :, index].astype(np.int16) for index in range(3))
+    red_min = int(thresholds.get("red_min", 90))
+    red_max = int(thresholds.get("red_max", 240))
+    green_min = int(thresholds.get("green_min", 45))
+    red_green_min = int(thresholds.get("red_minus_green_min", 20))
+    green_blue_min = int(thresholds.get("green_minus_blue_min", 10))
+    red_blue_min = int(thresholds.get("red_minus_blue_min", 35))
+    skin = (
+        (red >= red_min) & (red <= red_max) &
+        (green >= green_min) &
+        ((red - green) >= red_green_min) &
+        ((green - blue) >= green_blue_min) &
+        ((red - blue) >= red_blue_min) &
+        (rgba[:, :, 3] > 12) &
+        np.asarray(allowed, dtype=bool)
+    )
+    for blocked in excluded:
+        skin &= ~np.asarray(blocked, dtype=bool)
+    try:
+        import cv2
+    except ImportError as exc:
+        raise AutoRigError("OpenCV is required for source-aligned hand segmentation.") from exc
+    skin = cv2.morphologyEx(
+        skin.astype(np.uint8),
+        cv2.MORPH_CLOSE,
+        np.ones((3, 3), dtype=np.uint8),
+    ) > 0
+    # Retain a narrow outline fringe without expanding into nearby instrument pixels.
+    skin = cv2.dilate(
+        skin.astype(np.uint8),
+        np.ones((3, 3), dtype=np.uint8),
+        iterations=1,
+    ) > 0
+    skin &= np.asarray(allowed, dtype=bool) & (rgba[:, :, 3] > 12)
+    for blocked in excluded:
+        skin &= ~np.asarray(blocked, dtype=bool)
+    return skin
+
+
+def _authored_performance_layers(
+    source: Image.Image,
+    bundle_dir: Path,
+    *,
+    regions_manifest_path: Path,
+    prop_masks: dict[str, np.ndarray],
+) -> tuple[list[dict[str, Any]], dict[str, dict[str, float]], dict[str, Any], np.ndarray]:
+    """Extract limb layers from reviewed, source-aligned polygons, not human-parser guesses.
+
+    The manifest is tied to the exact 441x755 source canvas and keeps the hand,
+    sleeve, thigh, calf and shoe boundaries editable and auditable.
+    """
+    manifest = json.loads(regions_manifest_path.read_text(encoding="utf-8"))
+    canvas = manifest.get("canvas") or {}
+    width, height = source.size
+    if int(canvas.get("width", 0)) != width or int(canvas.get("height", 0)) != height:
+        raise ManualReviewRequired(
+            "The authored performance-region manifest canvas does not match the intact source."
+        )
+    if int(manifest.get("schema_version", 0)) != 1:
+        raise ManualReviewRequired("Unsupported performance-region manifest schema.")
+    regions = manifest.get("regions") or {}
+    required_roles = {
+        "left_upper_arm", "left_forearm", "left_hand",
+        "right_upper_arm", "right_forearm", "right_hand",
+        "left_thigh", "left_calf", "left_foot",
+        "right_thigh", "right_calf", "right_foot",
+    }
+    missing = sorted(required_roles - set(regions))
+    if missing:
+        raise ManualReviewRequired("Performance-region manifest is missing: " + ", ".join(missing))
+
+    source_rgba = source.convert("RGBA")
+    pixels = np.asarray(source_rgba, dtype=np.uint8)
+    alpha = pixels[:, :, 3]
+    rgb = pixels[:, :, :3]
+    shape = alpha.shape
+    blocked_props = tuple(
+        np.asarray(mask, dtype=bool)
+        for name, mask in prop_masks.items()
+        if name in {"violin", "bow"}
+    )
+    skin_thresholds = manifest.get("skin_mask") or {}
+    polygon_masks: dict[str, np.ndarray] = {}
+    for role, specification in regions.items():
+        method = str(specification.get("method") or "polygon")
+        if method == "dark_connected_bottom_component":
+            continue
+        polygon_masks[role] = _polygon_mask(shape, specification.get("polygon") or [])
+
+    screen_split_x = float(manifest.get("screen_side_split_x", width / 2))
+    if not 0 < screen_split_x < width:
+        raise ManualReviewRequired("The performance-region screen-side split is outside the source canvas.")
+
+    moving_masks: dict[str, np.ndarray] = {}
+    hand_masks: dict[str, np.ndarray] = {}
+    for role in ("left_hand", "right_hand"):
+        specification = regions[role]
+        allowed = polygon_masks[role]
+        hand_masks[role] = _skin_material_mask(
+            source_rgba,
+            allowed,
+            thresholds=skin_thresholds,
+            excluded=blocked_props,
+        )
+        minimum = int(specification.get("minimum_pixels", 200))
+        if int(hand_masks[role].sum()) < minimum:
+            raise ManualReviewRequired(
+                f"The {role} source-aligned skin mask contains only {int(hand_masks[role].sum())} pixels."
+            )
+
+    layers: list[dict[str, Any]] = []
+    joints: dict[str, dict[str, float]] = {}
+    report: dict[str, Any] = {
+        "method": "authored_source_aligned_polygon_regions_v1",
+        "manifest": regions_manifest_path.name,
+        "canvas": [width, height],
+        "screen_side_split_x": round(screen_split_x, 2),
+        "parts": {},
+        "joint_anchors_px": manifest.get("joints") or {},
+        "review_required": True,
+    }
+
+    # Upper arm polygons stop at the elbow. The distal polygon owns the
+    # forearm; a small circular overlap is retained under the child segment.
+    for side in ("left", "right"):
+        upper_role = f"{side}_upper_arm"
+        forearm_role = f"{side}_forearm"
+        upper_spec = regions[upper_role]
+        forearm_spec = regions[forearm_role]
+        upper_region = polygon_masks[upper_role]
+        forearm_region = polygon_masks[forearm_role]
+        anchor = (manifest.get("joints") or {}).get(f"{side}_elbow")
+        if not anchor or len(anchor) != 2:
+            raise ManualReviewRequired(f"The {side} elbow anchor must be authored as [x, y].")
+        ex, ey = float(anchor[0]), float(anchor[1])
+        overlap_radius = int(upper_spec.get("elbow_overlap_radius", 8))
+        yy, xx = np.ogrid[:height, :width]
+        joint_underlap = (xx - ex) ** 2 + (yy - ey) ** 2 <= overlap_radius ** 2
+        upper_region = upper_region & (~forearm_region | joint_underlap)
+        for role, region in (
+            (upper_role, upper_region),
+            (forearm_role, forearm_region),
+        ):
+            mask = region & (alpha > 12)
+            mask &= ~hand_masks[f"{side}_hand"]
+            for blocked in blocked_props:
+                mask &= ~blocked
+            minimum = int(regions[role].get("minimum_pixels", 100))
+            area = int(mask.sum())
+            if area < minimum:
+                raise ManualReviewRequired(
+                    f"The {role} source-aligned sleeve mask contains only {area} pixels."
+                )
+            moving_masks[role] = mask
+
+    for role, mask in hand_masks.items():
+        moving_masks[role] = mask
+
+    # Trouser regions are independent of SCHP's broad upper/lower-leg labels.
+    for side in ("left", "right"):
+        for segment in ("thigh", "calf"):
+            role = f"{side}_{segment}"
+            specification = regions[role]
+            mask = polygon_masks[role] & (alpha > 12)
+            minimum = int(specification.get("minimum_pixels", 500))
+            if int(mask.sum()) < minimum:
+                raise ManualReviewRequired(
+                    f"The {role} source-aligned trouser mask contains only {int(mask.sum())} pixels."
+                )
+            moving_masks[role] = mask
+
+        foot_role = f"{side}_foot"
+        foot_spec = regions[foot_role]
+        if str(foot_spec.get("method") or "") != "dark_connected_bottom_component":
+            foot_mask = polygon_masks[foot_role] & (alpha > 12)
+        else:
+            foot_mask = _foot_mask(
+                rgb,
+                alpha,
+                side=side,
+                split_x=screen_split_x,
+            )
+        if int(foot_mask.sum()) < int(foot_spec.get("minimum_pixels", 500)):
+            raise ManualReviewRequired(
+                f"The {foot_role} shoe mask contains only {int(foot_mask.sum())} pixels."
+            )
+        moving_masks[foot_role] = foot_mask
+
+    # Save all twelve independently controllable limb/hand layers.
+    z_defaults = {
+        "left_upper_arm": 20, "right_upper_arm": 21,
+        "left_forearm": 30, "right_forearm": 31,
+        "left_hand": 40, "right_hand": 42,
+        "left_thigh": 4, "right_thigh": 5,
+        "left_calf": 6, "right_calf": 7,
+        "left_foot": 8, "right_foot": 9,
+    }
+    for role in sorted(required_roles, key=lambda item: z_defaults[item]):
+        mask = moving_masks[role]
+        specification = regions[role]
+        geometry = _save_rgba_layer(
+            source_rgba,
+            mask,
+            bundle_dir / f"{role}.png",
+            padding=6,
+        )
+        layer = {
+            "id": role,
+            "role": role,
+            **geometry,
+            "pivot_x": 0.5,
+            "pivot_y": 0.5,
+            "z_index": int(specification.get("z_index", z_defaults[role])),
+        }
+        layers.append(layer)
+        ys, xs = np.where(mask)
+        report["parts"][role] = {
+            "pixel_area": int(mask.sum()),
+            "bbox": [int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1],
+            "material": "skin" if role.endswith("_hand") else "source_rgba",
+            "minimum_pixels": int(specification.get("minimum_pixels", 0)),
+        }
+
+    # Validate that the elbow cut is local rather than copying most of a sleeve.
+    for side in ("left", "right"):
+        overlap = moving_masks[f"{side}_upper_arm"] & moving_masks[f"{side}_forearm"]
+        overlap_pixels = int(overlap.sum())
+        if overlap_pixels > 500:
+            raise ManualReviewRequired(
+                f"The {side} elbow underlap is too broad ({overlap_pixels} pixels); refine the elbow boundary."
+            )
+        report.setdefault("joint_overlap_pixels", {})[f"{side}_elbow"] = overlap_pixels
+
+    joint_manifest = manifest.get("joints") or {}
+    expected_joints = (
+        "left_shoulder", "left_elbow", "left_wrist",
+        "right_shoulder", "right_elbow", "right_wrist",
+        "left_hip", "left_knee", "left_ankle",
+        "right_hip", "right_knee", "right_ankle",
+    )
+    for name in expected_joints:
+        point = joint_manifest.get(name)
+        if not isinstance(point, (list, tuple)) or len(point) != 2:
+            raise ManualReviewRequired(f"Missing authored joint anchor {name}.")
+        x, y = float(point[0]), float(point[1])
+        if not 0 <= x < width or not 0 <= y < height:
+            raise ManualReviewRequired(f"Joint anchor {name} lies outside the source canvas.")
+        joints[name] = _normalise_joint((x, y), width, height)
+
+    moving_union = np.zeros(shape, dtype=bool)
+    for mask in moving_masks.values():
+        moving_union |= mask
+    report["moving_region_pixels"] = int(moving_union.sum())
+    report["independent_layer_count"] = len(layers)
+    report["visual_review_required"] = True
+    return layers, joints, report, moving_union
+
+
+def _build_segmented_source_base(
+    source: Image.Image,
+    bundle_dir: Path,
+    *,
+    bow_canvas_alpha: np.ndarray,
+    moving_mask: np.ndarray,
+) -> dict[str, Any]:
+    """Inpaint limb cutouts into a source-aligned parent plate behind moving layers."""
+    try:
+        import cv2
+    except ImportError as exc:
+        raise AutoRigError("OpenCV is required to create the segmented source parent plate.") from exc
+
+    rgba = np.asarray(source.convert("RGBA"), dtype=np.uint8).copy()
+    height, width = rgba.shape[:2]
+    bow = np.asarray(bow_canvas_alpha, dtype=np.uint8) > 12
+    moving = np.asarray(moving_mask, dtype=bool)
+    if bow.shape != (height, width) or moving.shape != (height, width):
+        raise AutoRigError("The bow and moving-region masks must match the source canvas.")
+    # Slightly expand each cut so antialiased edges travel with the sprite.
+    cut = _morph(moving | bow, 2, "dilate") & (rgba[:, :, 3] > 12)
+    if int(cut.sum()) < 1000:
+        raise ManualReviewRequired("The source-aligned limb/prop cutout is unexpectedly small.")
+    repaired = cv2.inpaint(
+        rgba[:, :, :3],
+        cut.astype(np.uint8) * 255,
+        5,
+        cv2.INPAINT_TELEA,
+    )
+    rgba[cut, :3] = repaired[cut]
+    destination = bundle_dir / "performance-segmented-base.png"
+    Image.fromarray(rgba, mode="RGBA").save(destination, format="PNG", optimize=True)
+    return {
+        "src": destination.name,
+        "x": 0,
+        "y": 0,
+        "width": width,
+        "height": height,
+        "z_index": 10,
+        "mode": "segmented_source_body",
+        "pixels_cut_from_source": int(cut.sum()),
+        "moving_region_pixels": int(moving.sum()),
+        "bow_pixels_reconstructed": int((bow & cut).sum()),
+        "source_alpha_preserved": True,
+        "source_pixels_outside_cut_mask_preserved": True,
+        "inpaint": "opencv_telea_radius_5",
+    }
+
+
 def _build_bow_grip_hand_overlay(
     source: Image.Image,
     bundle_dir: Path,
