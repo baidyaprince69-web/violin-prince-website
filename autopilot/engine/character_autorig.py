@@ -37,6 +37,9 @@ POSE_FILES = {
     "point_right": "pose-point-right.jpg",
 }
 ROLE_Z = {
+    "left_thigh": 4, "right_thigh": 5,
+    "left_shin": 6, "right_shin": 7,
+    "left_foot": 8, "right_foot": 9,
     "torso": 10,
     "left_upper_arm": 20, "right_upper_arm": 21,
     "left_forearm": 30, "right_forearm": 31,
@@ -51,6 +54,12 @@ JOINT_FOR_ROLE = {
     "right_upper_arm": "right_shoulder",
     "right_forearm": "right_elbow",
     "right_hand": "right_wrist",
+    "left_thigh": "left_hip",
+    "left_shin": "left_knee",
+    "left_foot": "left_ankle",
+    "right_thigh": "right_hip",
+    "right_shin": "right_knee",
+    "right_foot": "right_ankle",
 }
 
 
@@ -454,6 +463,89 @@ def _recover_hand_fingers_from_skin(
     return result, added
 
 
+def _split_full_body_legs(
+    body_labels: np.ndarray,
+    detail_labels: np.ndarray,
+    torso: np.ndarray,
+) -> tuple[dict[str, np.ndarray], str, str]:
+    """Split semantic upper/lower legs and shoes into screen-left/right rig parts.
+
+    Pascal person-part labels 5/6 are upper/lower legs. ATR labels 12/13
+    disambiguate the two sides, while labels 9/10 provide shoe masks. If the
+    ATR side labels are ambiguous, a torso-centre split is used and reported.
+    """
+    upper_all = _mask(body_labels, 5)
+    lower_all = _mask(body_labels, 6)
+    if int(upper_all.sum()) < 100 or int(lower_all.sum()) < 100:
+        raise ManualReviewRequired(
+            "The full-body parser did not identify both upper- and lower-leg regions."
+        )
+
+    side_candidates = []
+    for label_id in (12, 13):
+        candidate = _clean_segmentation_specks(_mask(detail_labels, label_id), size=5)
+        if int(candidate.sum()) >= 60:
+            side_candidates.append((float(np.where(candidate)[1].mean()), candidate))
+    if len(side_candidates) == 2:
+        side_candidates.sort(key=lambda item: item[0])
+        side_masks = {"left": side_candidates[0][1], "right": side_candidates[1][1]}
+        side_source = "atr_left_right_leg_labels"
+    else:
+        tx0, _, tx1, _ = _bbox(torso)
+        centre = (tx0 + tx1) / 2
+        xgrid = np.broadcast_to(np.arange(torso.shape[1])[None, :], torso.shape)
+        all_legs = upper_all | lower_all
+        side_masks = {
+            "left": all_legs & (xgrid < centre),
+            "right": all_legs & (xgrid >= centre),
+        }
+        side_source = "pascal_leg_labels_split_at_torso_midline"
+
+    legs: dict[str, np.ndarray] = {}
+    for side in ("left", "right"):
+        side_mask = _morph(side_masks[side], 4, "dilate")
+        thigh = upper_all & side_mask
+        shin = lower_all & side_mask
+        if int(thigh.sum()) < 60 or int(shin.sum()) < 60:
+            raise ManualReviewRequired(
+                f"Could not reliably separate the {side} thigh and shin. "
+                "A clearer full-body reference is required."
+            )
+        legs[f"{side}_thigh"] = thigh
+        legs[f"{side}_shin"] = shin
+
+    shoe_candidates = []
+    for label_id in (9, 10):
+        candidate = _clean_segmentation_specks(_mask(detail_labels, label_id), size=3)
+        if int(candidate.sum()) >= 25:
+            shoe_candidates.append((float(np.where(candidate)[1].mean()), candidate))
+    foot_source = "atr_left_right_shoe_labels"
+    if len(shoe_candidates) == 2:
+        shoe_candidates.sort(key=lambda item: item[0])
+        legs["left_foot"] = shoe_candidates[0][1]
+        legs["right_foot"] = shoe_candidates[1][1]
+    else:
+        # Some stylised shoe drawings are classified as lower-leg pixels. Use
+        # only the terminal portion of each side mask and record the fallback.
+        foot_source = "terminal_lower_leg_region_fallback"
+        for side in ("left", "right"):
+            lower_y = np.where(legs[f"{side}_shin"])[0]
+            if len(lower_y) < 60:
+                raise ManualReviewRequired(f"Could not locate the {side} ankle/foot region.")
+            threshold = float(np.percentile(lower_y, 88))
+            yy = np.broadcast_to(np.arange(torso.shape[0])[:, None], torso.shape)
+            terminal = legs[f"{side}_shin"] & (yy >= threshold)
+            if int(terminal.sum()) < 25:
+                raise ManualReviewRequired(f"Could not derive the {side} foot from the lower-leg silhouette.")
+            legs[f"{side}_foot"] = terminal
+            legs[f"{side}_shin"] &= ~terminal
+
+    for side in ("left", "right"):
+        if int(legs[f"{side}_foot"].sum()) < 25:
+            raise ManualReviewRequired(f"The {side} shoe segmentation is too small.")
+    return legs, side_source, foot_source
+
+
 def _joint_disk(
     shape: tuple[int, int],
     point: tuple[float, float],
@@ -672,7 +764,12 @@ def separate_from_parsing(
 
     coarse_arms = upper_all | lower_all
     sides, arm_side_source = _screen_side_masks(detail_labels, coarse_arms, torso)
-    masks: dict[str, np.ndarray] = {"torso": torso, "head": head, "face": face}
+    leg_masks, leg_side_source, foot_source = _split_full_body_legs(
+        body_labels, detail_labels, torso
+    )
+    masks: dict[str, np.ndarray] = {
+        "torso": torso, "head": head, "face": face, **leg_masks
+    }
     hand_recovery_pixels: dict[str, int] = {}
     joint_reference_masks: dict[str, tuple[np.ndarray, np.ndarray]] = {}
     joint_centers: dict[str, dict[str, tuple[float, float]]] = {}
@@ -746,6 +843,16 @@ def separate_from_parsing(
         "neck": _normalise_joint(_joint_between(head, masks["torso"]), image.width, image.height)
     }
     for side in ("left", "right"):
+        joints[f"{side}_hip"] = _normalise_joint(
+            _joint_between(masks["torso"], masks[f"{side}_thigh"]), image.width, image.height
+        )
+        joints[f"{side}_knee"] = _normalise_joint(
+            _joint_between(masks[f"{side}_thigh"], masks[f"{side}_shin"]), image.width, image.height
+        )
+        joints[f"{side}_ankle"] = _normalise_joint(
+            _joint_between(masks[f"{side}_shin"], masks[f"{side}_foot"]), image.width, image.height
+        )
+    for side in ("left", "right"):
         joints[f"{side}_shoulder"] = _normalise_joint(
             _joint_between(masks["torso"], masks[f"{side}_upper_arm"]), image.width, image.height
         )
@@ -765,6 +872,12 @@ def separate_from_parsing(
         "face_mean": round(float(detail_confidence[face].mean()), 4),
         "left_arm_mean": round(float(side_confidence[sides["left"]].mean()), 4),
         "right_arm_mean": round(float(side_confidence[sides["right"]].mean()), 4),
+        "left_leg_mean": round(float(body_confidence[
+            masks["left_thigh"] | masks["left_shin"]
+        ].mean()), 4),
+        "right_leg_mean": round(float(body_confidence[
+            masks["right_thigh"] | masks["right_shin"]
+        ].mean()), 4),
     }
     if min(confidence.values()) < 0.20:
         raise ManualReviewRequired(
@@ -781,6 +894,12 @@ def separate_from_parsing(
         },
         "side_convention": "left and right refer to the viewer's screen sides",
         "arm_side_source": arm_side_source,
+        "leg_side_source": leg_side_source,
+        "foot_source": foot_source,
+        "full_body_parts": [
+            "left_thigh", "left_shin", "left_foot",
+            "right_thigh", "right_shin", "right_foot",
+        ],
         "hand_split": "distal lower-arm split with connected warm-skin finger recovery; not a dedicated hand detector",
         "hand_split_fraction": float(hand_fraction),
         "face_edge_blend": {
@@ -1127,7 +1246,10 @@ def create_character_bundle(
         raise AutoRigError("The master image or character reference directory is missing.")
 
     with Image.open(source_path) as opened:
-        image = opened.convert("RGB")
+        rgba = opened.convert("RGBA")
+        white = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
+        white.alpha_composite(rgba)
+        image = white.convert("RGB")
     body_parser, detail_parser = _download_parsers(cache_dir)
     body_labels, body_conf = body_parser.parse(image)
     detail_labels, detail_conf = detail_parser.parse(image)
@@ -1140,7 +1262,9 @@ def create_character_bundle(
     layers = []
     face_alpha_full = _soft_alpha_from_mask(masks["face"], blur_radius=1.2)
     ordered_roles = (
-        "torso", "left_upper_arm", "right_upper_arm",
+        "left_thigh", "right_thigh", "left_shin", "right_shin",
+        "left_foot", "right_foot", "torso",
+        "left_upper_arm", "right_upper_arm",
         "left_forearm", "right_forearm", "left_hand", "right_hand", "head", "face",
     )
     for role in ordered_roles:
@@ -1208,12 +1332,42 @@ def create_character_bundle(
         plate_name = f"pose-{name}.png"
         _save_pose_plate(reference_dir / filename, output_dir / plate_name)
         pose_assets[name] = {"src": plate_name}
+    props = {}
+    prop_manifest_path = reference_dir / "instrument-props.json"
+    if prop_manifest_path.is_file():
+        try:
+            prop_manifest = json.loads(prop_manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise AutoRigError("The instrument prop manifest is unreadable.") from exc
+        declared_canvas = prop_manifest.get("canvas") or {}
+        if (int(declared_canvas.get("width", -1)) != image.width
+                or int(declared_canvas.get("height", -1)) != image.height):
+            raise ManualReviewRequired(
+                "The violin/bow prop manifest canvas does not match the cropped performance reference."
+            )
+        for name, prop in (prop_manifest.get("props") or {}).items():
+            if not isinstance(prop, dict):
+                raise AutoRigError(f"Instrument prop {name} must be an object.")
+            prop_source = (reference_dir / str(prop.get("src") or "")).resolve(strict=True)
+            if reference_dir.resolve() not in prop_source.parents:
+                raise AutoRigError(f"Instrument prop {name} points outside the reference directory.")
+            with Image.open(prop_source) as prop_image:
+                if prop_image.width < 8 or prop_image.height < 8:
+                    raise ManualReviewRequired(f"Instrument prop {name} image is too small.")
+            target = output_dir / prop_source.name
+            shutil.copy2(prop_source, target)
+            props[str(name)] = {**prop, "src": target.name}
+        if not {"violin", "bow"}.issubset(props):
+            raise ManualReviewRequired("Full-body performance rig requires separate violin and bow image layers.")
+
     character = {
         "id": character_id,
         "name": "Violin Prince presenter",
+        "body_scope": "full_body",
         "canvas": {"width": image.width, "height": image.height},
         "layers": layers,
         "joints": joints,
+        "props": props,
         "expressions": expressions,
         "poses": {},
         "gestures": {},
@@ -1232,6 +1386,8 @@ def create_character_bundle(
         "expression_count": len(expressions),
         "pose_reference_count": len(reference_poses),
         "pose_asset_count": len(pose_assets),
+        "full_body_layer_count": 6,
+        "instrument_prop_count": len(props),
         "joint_count": len(joints),
         "expression_registration": registration_reports,
     })
