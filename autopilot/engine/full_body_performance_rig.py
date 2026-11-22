@@ -421,13 +421,8 @@ def _authored_performance_layers(
         for name, mask in prop_masks.items()
         if name in {"violin", "bow"}
     )
-    # The bow hair can cross the grip; retain source skin there so the hand
-    # can be composited above the independently moving bow.
-    blocked_skin_props = tuple(
-        np.asarray(mask, dtype=bool)
-        for name, mask in prop_masks.items()
-        if name == "violin"
-    )
+    # Hand polygons are narrow and material-filtered; retain skin over both
+    # instrument props so the hands can be composited in front of violin and bow.
     skin_thresholds = manifest.get("skin_mask") or {}
     polygon_masks: dict[str, np.ndarray] = {}
     for role, specification in regions.items():
@@ -449,7 +444,7 @@ def _authored_performance_layers(
             source_rgba,
             allowed,
             thresholds=skin_thresholds,
-            excluded=blocked_skin_props,
+            excluded=(),
         )
         minimum = int(specification.get("minimum_pixels", 200))
         if int(hand_masks[role].sum()) < minimum:
@@ -644,8 +639,8 @@ def _build_segmented_source_base(
     bundle_dir: Path,
     *,
     bow_canvas_alpha: np.ndarray,
+    violin_canvas_alpha: np.ndarray,
     moving_mask: np.ndarray,
-    protected_mask: np.ndarray,
 ) -> dict[str, Any]:
     """Inpaint limb cutouts into a source-aligned parent plate behind moving layers."""
     try:
@@ -656,14 +651,15 @@ def _build_segmented_source_base(
     rgba = np.asarray(source.convert("RGBA"), dtype=np.uint8).copy()
     height, width = rgba.shape[:2]
     bow = np.asarray(bow_canvas_alpha, dtype=np.uint8) > 12
+    violin = np.asarray(violin_canvas_alpha, dtype=np.uint8) > 12
     moving = np.asarray(moving_mask, dtype=bool)
-    protected = np.asarray(protected_mask, dtype=bool)
-    if any(mask.shape != (height, width) for mask in (bow, moving, protected)):
-        raise AutoRigError("Bow, moving-region and protected masks must match the source canvas.")
-    # Slightly expand each cut so antialiased edges travel with the sprite.
-    # The violin remains untouched even where an arm mask approaches its edge.
-    cut = _morph(moving | bow, 2, "dilate")
-    cut &= (rgba[:, :, 3] > 12) & ~protected
+    if any(mask.shape != (height, width) for mask in (bow, violin, moving)):
+        raise AutoRigError("Bow, violin and moving-region masks must match the source canvas.")
+    # The violin and bow are both separate sprites. Remove their source pixels
+    # from the underpaint so each prop can sit at the correct depth between
+    # upper arms, forearms and hands.
+    cut = _morph(moving | bow | violin, 2, "dilate")
+    cut &= rgba[:, :, 3] > 12
     if int(cut.sum()) < 1000:
         raise ManualReviewRequired("The source-aligned limb/prop cutout is unexpectedly small.")
     repaired = cv2.inpaint(
@@ -686,6 +682,7 @@ def _build_segmented_source_base(
         "pixels_cut_from_source": int(cut.sum()),
         "moving_region_pixels": int(moving.sum()),
         "bow_pixels_reconstructed": int((bow & cut).sum()),
+        "violin_pixels_reconstructed": int((violin & cut).sum()),
         "source_alpha_preserved": True,
         "source_pixels_outside_cut_mask_preserved": True,
         "inpaint": "opencv_telea_radius_5",
@@ -985,8 +982,8 @@ def extend_full_body_character(
         source,
         bundle,
         bow_canvas_alpha=prop_masks["bow"],
+        violin_canvas_alpha=prop_masks["violin"],
         moving_mask=moving_mask,
-        protected_mask=prop_masks["violin"],
     )
     character["base_art"] = composite_base
     character["performance_base_mode"] = "segmented_source_body"
