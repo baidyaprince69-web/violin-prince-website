@@ -19,6 +19,7 @@ from character_autorig import (
     _face_expression_crop_box,
     _face_plate,
     _register_expression_to_neutral,
+    _split_arm,
     separate_from_parsing,
 )
 
@@ -405,6 +406,36 @@ class CharacterAutoRigTests(unittest.TestCase):
                 self.assertEqual(result.getpixel((4, 4))[3], 0)
                 self.assertGreater(result.getpixel((68, 58))[3], 240)
                 self.assertGreater(result.getpixel((66, 51))[3], 240)
+
+    def test_missing_upper_arm_class_uses_only_identified_side_arm_mask(self):
+        side_mask = np.zeros((110, 80), dtype=bool)
+        side_mask[15:94, 16:34] = True
+        upper_all = np.zeros_like(side_mask)
+        lower_all = np.zeros_like(side_mask)
+        lower_all[56:94, 16:34] = True
+
+        upper, forearm, hand, used_fallback = _split_arm(
+            side_mask, upper_all, lower_all, "left", hand_fraction=0.72
+        )
+
+        self.assertTrue(used_fallback)
+        self.assertGreaterEqual(int(upper.sum()), 30)
+        self.assertGreaterEqual(int(forearm.sum()), 20)
+        self.assertGreaterEqual(int(hand.sum()), 20)
+        self.assertFalse(np.any(upper & hand))
+        self.assertTrue(np.all((upper | forearm | hand) <= side_mask))
+
+    def test_upper_arm_fallback_fails_closed_without_a_lower_arm_seed(self):
+        side_mask = np.zeros((100, 80), dtype=bool)
+        side_mask[20:85, 15:32] = True
+        with self.assertRaisesRegex(ManualReviewRequired, "upper arm"):
+            _split_arm(
+                side_mask,
+                np.zeros_like(side_mask),
+                np.zeros_like(side_mask),
+                "right",
+                hand_fraction=0.72,
+            )
 
     def test_parser_maps_must_match_master_canvas(self):
         body, body_conf, detail, detail_conf = self.synthetic_maps()
