@@ -27,7 +27,7 @@ DEFAULT_LANGUAGE = "en"
 # The connected Violin Prince channel's audience setting was explicitly
 # confirmed as not made for kids in the existing ChatGPT production instructions.
 DEFAULT_MADE_FOR_KIDS = False
-VALID_PRIVACY = {"public", "unlisted", "private"}
+VALID_PRIVACY = {"private"}
 
 
 def _strip_controls(value: Any, *, multiline: bool = False) -> str:
@@ -136,10 +136,10 @@ def validate_publish_metadata(plan: dict[str, Any]) -> dict[str, Any]:
         source.get("privacy_status")
         or source.get("youtube_privacy")
         or plan.get("privacy_status")
-        or "public"
+        or "private"
     ).strip().lower()
     if privacy not in VALID_PRIVACY:
-        errors.append("YouTube privacy status must be public, unlisted, or private.")
+        errors.append("Automatic Violin Prince publishing is private-preview-only; YouTube privacy status must be private.")
 
     audience = source.get("made_for_kids")
     if audience is None:
