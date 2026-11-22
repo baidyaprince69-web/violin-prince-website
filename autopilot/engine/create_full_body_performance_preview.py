@@ -29,6 +29,8 @@ def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dic
         raise FileNotFoundError("The full-body rig bundle does not contain character.json.")
 
     character = json.loads(character_path.read_text(encoding="utf-8"))
+    if character.get("base_art"):
+        character["base_art"]["src"] = stage_asset(bundle, asset_root, character["base_art"]["src"])
     if character.get("performance", {}).get("instrument_performance") is not True:
         raise ValueError("The candidate character bundle is not marked as an instrument-performance rig.")
     for layer in character.get("layers", []):
@@ -121,7 +123,10 @@ def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dic
         "layer_count": len(character.get("layers", [])),
         "prop_ids": sorted((character.get("props") or {}).keys()),
         "head_variant_ids": sorted((character.get("head_variants") or {}).keys()),
-        "head_angle_ids": sorted((character.get("head_angles") or {}).keys()),
+        "head_angle_ids": sorted((character.get("head_angles") or {}).keys())
+        if not character.get("base_art") else [],
+        "composite_base_mode": bool(character.get("base_art")),
+        "bow_hand_mode": "preserved_original_hand_plate" if character.get("base_art") else "segmented",
         "publishing": "disabled",
         "preview_only": True,
     }
