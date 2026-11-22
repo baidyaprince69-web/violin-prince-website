@@ -41,7 +41,8 @@ export function buildMusicSynchronizedPerformanceTracks({
   beatTimes = [],
   downbeats = [],
   onsets = [],
-  confidence = 1
+  confidence = 1,
+  fps = 25
 } = {}) {
   const total = Math.max(0.08, Number(duration) || 0.08);
   const tempo = Number(bpm);
@@ -124,10 +125,44 @@ export function buildMusicSynchronizedPerformanceTracks({
   });
 
   const prefix = String(targetPrefix);
+  const frameRate = Math.max(1, Number(fps) || 25);
+  const translatePoints = [
+    { time: 0, x: 0, y: 0 },
+    ...beats.map((time, index) => ({
+      time: time + beatDelay,
+      x: index % 2 === 0 ? -18 : 18,
+      y: index % 2 === 0 ? -2.5 : 2.5
+    }))
+  ].filter(point => point.time <= total).sort((a, b) => a.time - b.time);
+  const bowTranslateValues = [];
+  const frameCount = Math.max(2, Math.ceil(total * frameRate) + 1);
+  for (let frame = 0; frame < frameCount; frame += 1) {
+    const time = Math.min(total, frame / frameRate);
+    let segment = 0;
+    while (segment < translatePoints.length - 2 && time > translatePoints[segment + 1].time) {
+      segment += 1;
+    }
+    const from = translatePoints[segment];
+    const to = translatePoints[Math.min(translatePoints.length - 1, segment + 1)];
+    const span = Math.max(0.0001, to.time - from.time);
+    const progress = Math.min(1, Math.max(0, (time - from.time) / span));
+    const x = from.x + (to.x - from.x) * progress;
+    const y = from.y + (to.y - from.y) * progress;
+    bowTranslateValues.push(x.toFixed(2) + "px " + y.toFixed(2) + "px");
+  }
+
   return [
     makeTrack(prefix + "-part-left_forearm", elbowStrokes),
     makeTrack(prefix + "-part-left_hand", wristStrokes),
     makeTrack(prefix + "-prop-bow", bowStrokes),
+    {
+      target: prefix + "-prop-bow",
+      property: "translate",
+      values: bowTranslateValues,
+      start: Math.max(0, Number(start) || 0),
+      duration: total,
+      easing: "linear"
+    },
     makeTrack(prefix + "-part-torso", torsoPulses),
     makeTrack(prefix + "-part-head", headPulses),
     ...fingerNames.map(name => makeTrack(prefix + "-part-" + name, fingerPulses[name]))
@@ -1039,6 +1074,11 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
 
       const instrumentPerformance = action.instrument_performance === true ||
         String(action.gesture || "").toLowerCase() === "violin_performance";
+      const syncCandidate = action.music_sync && typeof action.music_sync === "object"
+        ? action.music_sync : null;
+      const musicSyncReady = instrumentPerformance && syncCandidate &&
+        Number(syncCandidate.confidence) >= 0.28 &&
+        Array.isArray(syncCandidate.beat_times) && syncCandidate.beat_times.length >= 2;
       for (const prop of Object.values(character.props || {})) {
         const authored = (action.prop_keyframes || {})[prop.id];
         let propFrames = authored;
@@ -1048,6 +1088,11 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
         } else if (!propFrames && instrumentPerformance && prop.id === "violin") {
           // The violin follows the torso with a restrained responsive tilt.
           propFrames = { rotate: [0, -0.55, 0.35, 0.55, 0] };
+        }
+        if (musicSyncReady && prop.id === "bow" && propFrames && propFrames.translate) {
+          // Replace the legacy uniform bow slide with per-frame beat-sampled translation below.
+          propFrames = { ...propFrames };
+          delete propFrames.translate;
         }
         if (propFrames) {
           addKeyframes(
@@ -1064,8 +1109,8 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
       // Optional real-audio timing overrides the generic loop with exact beat,
       // downbeat and onset events. Low-confidence/invalid analysis stays on the
       // existing authored performance loop instead of inventing a beat grid.
-      if (instrumentPerformance && action.music_sync && typeof action.music_sync === "object") {
-        const sync = action.music_sync;
+      if (musicSyncReady) {
+        const sync = syncCandidate;
         const actionOffset = Math.max(0, actionStart - sceneStart);
         const toActionTimes = values => (Array.isArray(values) ? values : [])
           .map(value => Number(value) - actionOffset)
@@ -1079,7 +1124,8 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
           beatTimes: toActionTimes(sync.beat_times),
           downbeats: toActionTimes(sync.downbeats),
           onsets: toActionTimes(sync.onsets),
-          confidence: sync.confidence
+          confidence: sync.confidence,
+          fps
         });
         tracks.push(...timedPerformanceTracks);
       }
