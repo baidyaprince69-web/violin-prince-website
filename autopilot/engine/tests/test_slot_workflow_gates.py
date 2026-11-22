@@ -37,22 +37,21 @@ class BlockedSlotWorkflowTests(unittest.TestCase):
         self.assertIn("No narration, MP4 render or YouTube upload was attempted.", content)
         self.assertIn("  report_readiness_blocked:", content)
 
-    def test_ready_scheduled_slot_uploads_a_public_youtube_video(self):
+    def test_ready_scheduled_slot_uses_private_preview_route_only(self):
         content = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("select_public_queue.py", content)
-        self.assertIn("Select the next unused public-ready story from the rolling backlog", content)
-        self.assertIn("group: violin-prince-public-youtube-queue", content)
+        self.assertIn("Select the next unused ready story from the scheduled date's batch", content)
+        self.assertIn("group: violin-prince-private-preview-queue", content)
         self.assertIn("production_date: ${{ steps.batch.outputs.production_date }}", content)
-        self.assertIn("- name: Publish approved daily slot PUBLICLY to YouTube via Upload-Post", content)
-        self.assertIn("python autopilot/engine/upload_public_short_uploadpost.py", content)
-        self.assertIn('YOUTUBE_PRIVACY_STATUS: "public"', content)
+        self.assertIn("- name: Upload the scheduled slot as a PRIVATE YouTube preview via Upload-Post", content)
+        self.assertIn("python autopilot/engine/upload_private_preview_uploadpost.py", content)
+        self.assertIn('YOUTUBE_PRIVACY_STATUS: "private"', content)
         self.assertIn('PUBLISH_ENABLED: "false"', content)
         self.assertIn("needs.daily_readiness.outputs.slot_status == 'ready'", content)
-        self.assertIn("Retain scheduled YouTube upload artifact for recovery", content)
+        self.assertIn("Retain scheduled private-preview artifact for recovery", content)
         self.assertIn("creative_plan.json", content)
-        self.assertNotIn("python autopilot/engine/upload_private_preview_uploadpost.py", content)
-        self.assertNotIn("publish_daily_short.py", content)
-        self.assertNotIn('YOUTUBE_PRIVACY_STATUS: "private"', content)
+        self.assertNotIn("upload_public_short_uploadpost.py", content)
+        self.assertNotIn('YOUTUBE_PRIVACY_STATUS: "public"', content)
 
 
 if __name__ == "__main__":
