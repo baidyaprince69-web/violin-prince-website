@@ -69,6 +69,16 @@ class AnimationProductionGateTests(unittest.TestCase):
             with self.assertRaises(AnimationProductionGateError):
                 require_approved_animation_production(path)
 
+    def test_legacy_daily_runner_stops_before_voice_or_image_work(self):
+        from unittest.mock import patch
+
+        import run_daily_plan as daily
+
+        with patch.object(daily, "require_approved_own_voice") as own_voice:
+            with self.assertRaisesRegex(daily.engine.PipelineError, "Genuine-animation production blocked"):
+                daily.run_daily_plan(Path("missing-plan.json"))
+            own_voice.assert_not_called()
+
     def test_low_motion_coverage_is_rejected(self):
         approval = valid_approval()
         approval["test_evidence"]["motion_coverage"] = 0.20
