@@ -8,7 +8,7 @@ from typing import Any
 from PIL import Image, ImageDraw, ImageFilter
 
 WIDTH, HEIGHT = 1024, 1792
-RENDERER_VERSION = "violin-prince-vector-illustrator-v1"
+RENDERER_VERSION = "violin-prince-vector-illustrator-v2"
 MODES = {
     "macro_illustration", "mechanism_illustration", "waveform",
     "melody_map", "comparison", "cover_performance",
@@ -22,6 +22,27 @@ GOLD_LIGHT = (226, 190, 122)
 IVORY = (226, 211, 178)
 WOOD = (156, 105, 61)
 WOOD_DARK = (78, 52, 37)
+
+# One reusable visual bible for every locally rendered scene. Scene-specific
+# lighting and composition may change; the instrument and brand anchors do not.
+VISUAL_STYLE_BIBLE = {
+    "background": "midnight_navy",
+    "secondary": "oxidised_teal",
+    "highlight": "antique_gold",
+    "instrument": "warm_amber_wood",
+    "supporting_type": "warm_ivory",
+    "art_direction": "premium_illustrated_music_documentary",
+    "typography": "separate_overlay_not_baked_into_artwork",
+}
+INSTRUMENT_SPEC = {
+    "instrument": "violin",
+    "string_count": 4,
+    "tuning_peg_count": 4,
+    "bridge_count": 1,
+    "bow_required_for_performance": True,
+}
+VIOLIN_STRING_X = (494, 506, 518, 530)
+VIOLIN_TUNING_PEG_Y = (142, 208)
 
 
 def _background() -> Image.Image:
@@ -95,9 +116,39 @@ def _draw_violin(image: Image.Image, center=(512, 1050), scale=1.0, angle=0.0):
     ImageDraw.Draw(shadow).polygon([(x+15, y+22) for x, y in mapped(body)],
                                   fill=(0, 0, 0, 110))
     layer.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(20)))
+    # Paint the body as warm varnished maple rather than pale ivory. A vertical
+    # amber-to-sienna gradient plus the existing grain lines gives every scene
+    # the same recognizable instrument finish.
+    body_mask = Image.new("L", (WIDTH, HEIGHT), 0)
+    ImageDraw.Draw(body_mask).polygon(mapped(body), fill=255)
+    wood_strip = Image.new("RGB", (1, HEIGHT))
+    wood_draw = ImageDraw.Draw(wood_strip)
+    wood_stops = (
+        (0.00, (191, 126, 67)),
+        (0.28, (173, 96, 48)),
+        (0.62, (148, 75, 39)),
+        (1.00, (113, 55, 31)),
+    )
+    for y in range(HEIGHT):
+        t = y / max(1, HEIGHT - 1)
+        for stop_index in range(len(wood_stops) - 1):
+            start_t, start_rgb = wood_stops[stop_index]
+            end_t, end_rgb = wood_stops[stop_index + 1]
+            if start_t <= t <= end_t:
+                blend = (t - start_t) / (end_t - start_t)
+                color = tuple(
+                    round(start_rgb[channel] * (1 - blend) + end_rgb[channel] * blend)
+                    for channel in range(3)
+                )
+                break
+        wood_draw.point((0, y), fill=color)
+    wood_gradient = wood_strip.resize((WIDTH, HEIGHT), Image.Resampling.BICUBIC)
+    layer.paste(wood_gradient, (0, 0), body_mask)
     d = ImageDraw.Draw(layer, "RGBA")
-    d.polygon(mapped(body), fill=(*IVORY, 255), outline=(*GOLD_LIGHT, 255), width=9)
-    d.line(mapped(body + [body[0]]), fill=(*WOOD_DARK, 220), width=4, joint="curve")
+    d.line(mapped(body + [body[0]]), fill=(*GOLD_LIGHT, 255), width=9, joint="curve")
+    d.line(mapped(body + [body[0]]), fill=(*WOOD_DARK, 235), width=4, joint="curve")
+    upper_bout_glint = _curve((390, 610), (438, 570), (480, 575), (512, 592))
+    d.line(mapped(upper_bout_glint), fill=(255, 207, 139, 105), width=7, joint="curve")
 
     inner = [(512,585),(430,565),(370,625),(395,740),(380,845),(395,980),
              (450,1095),(512,1120),(574,1095),(629,980),(644,845),(629,740),
@@ -136,7 +187,7 @@ def _draw_violin(image: Image.Image, center=(512, 1050), scale=1.0, angle=0.0):
     d.line(mapped(spiral), fill=(111,79,52,255), width=5, joint="curve")
 
     for side in (-1, 1):
-        for y in (115, 155, 195, 235):
+        # Four pegs total: two on each side of the scroll, as on a real violin.\n        for y in VIOLIN_TUNING_PEG_Y:
             x = 512 + side * 56
             p1, p2 = tr(x, y), tr(x + side * 38, y)
             d.line((p1, p2), fill=(65,45,35,255), width=8)
@@ -152,7 +203,7 @@ def _draw_violin(image: Image.Image, center=(512, 1050), scale=1.0, angle=0.0):
     d.polygon(mapped(tail), fill=(55,42,37,255), outline=(*GOLD,255), width=4)
 
     # The number and placement of strings are fixed: exactly four.
-    for x in (494, 506, 518, 530):
+    for x in VIOLIN_STRING_X:
         line = mapped([(x,150),(x-2,340),(x-2,560),(x,760),(x+1,940),(x,1090)])
         d.line(line, fill=(231,218,188,225), width=3)
         d.line(line, fill=(247,236,209,125), width=1)
