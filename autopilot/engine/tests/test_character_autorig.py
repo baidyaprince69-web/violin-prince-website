@@ -14,6 +14,7 @@ from character_autorig import (
     _dark_garment_underlap,
     _joint_disk,
     _recover_hand_fingers_from_skin,
+    _split_finger_regions,
     _save_pose_plate,
     _face_region_from_head,
     _face_expression_crop_box,
@@ -185,6 +186,33 @@ class CharacterAutoRigTests(unittest.TestCase):
         self.assertGreater(added, 0)
         self.assertTrue(recovered[150, 50], "distal fingertip must be included")
         self.assertFalse(recovered[10, 10], "unrelated white background must stay transparent")
+
+    def test_four_finger_layers_are_split_from_the_fingerboard_palm(self):
+        width, height = 80, 80
+        image = Image.new("RGB", (width, height), (255, 255, 255))
+        draw = ImageDraw.Draw(image)
+        skin = (205, 140, 100)
+        draw.rectangle((8, 30, 50, 62), fill=skin)
+        finger_regions = {
+            "index": {"polygon": [[10, 10], [18, 10], [18, 38], [10, 38]], "pivot": [14, 38]},
+            "middle": {"polygon": [[20, 8], [28, 8], [28, 38], [20, 38]], "pivot": [24, 38]},
+            "ring": {"polygon": [[30, 12], [38, 12], [38, 38], [30, 38]], "pivot": [34, 38]},
+            "little": {"polygon": [[40, 16], [48, 16], [48, 38], [40, 38]], "pivot": [44, 38]},
+        }
+        for item in finger_regions.values():
+            draw.polygon([tuple(point) for point in item["polygon"]], fill=skin)
+        hand = np.zeros((height, width), dtype=bool)
+        hand[8:63, 8:51] = True
+
+        fingers, palm = _split_finger_regions(image, hand, finger_regions)
+        self.assertEqual(set(fingers), {
+            "right_index_finger", "right_middle_finger",
+            "right_ring_finger", "right_little_finger",
+        })
+        for role, mask in fingers.items():
+            self.assertGreater(int(mask.sum()), 22, role)
+        self.assertTrue(palm[38, 14], "a small knuckle overlap must remain on the palm")
+        self.assertFalse(palm[20, 14], "the distal finger must be independently movable")
 
     def test_joint_disk_stays_bounded_around_pivot(self):
         disk = _joint_disk((80, 100), (50, 40), radius=12)
