@@ -6,6 +6,7 @@ on:
       - main
       - feature/character-articulated-rig-validation
       - feat/four-slot-production-foundation-20261121
+      - feat/full-body-violin-performance-rig
     paths:
       - "autopilot/**"
       - "voice-vault/voice-package.mjs"
