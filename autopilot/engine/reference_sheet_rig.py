@@ -46,12 +46,13 @@ def _keyed_sheet(path: str | Path) -> tuple[Image.Image, np.ndarray]:
         (red > 125) & (blue > 125) &
         (green < 170) & ((red - green) > 48) & ((blue - green) > 48)
     )
-    # The sheet's anti-aliased guide contour is a darker purple than the
-    # background key (for example RGB 129, 8, 124). Catch that fringe too.
+    # The sheet's anti-aliased guide contour ranges from bright magenta
+    # to very dark purple. Detect it by hue/saturation, not RGB brightness.
+    hsv = cv2.cvtColor(rgba[:, :, :3], cv2.COLOR_RGB2HSV)
+    hue, saturation, value = hsv[:, :, 0], hsv[:, :, 1], hsv[:, :, 2]
     purple_guide = (
-        (np.minimum(red, blue) > 70) &
-        (green < 125) &
-        ((np.minimum(red, blue) - green) > 38)
+        (hue >= 125) & (hue <= 177) &
+        (saturation >= 80) & (value >= 30)
     )
     guide_pixels = magenta_like | purple_guide
     alpha = np.full((height, width), 255, dtype=np.uint8)
@@ -259,7 +260,7 @@ def build_reference_sheet_rig(
         ],
         "reference_parts_mapping": "unassigned_review_required",
         "alignment": "all head plates share the extracted head-and-face anchor bounds",
-        "magenta_key": "hot-magenta background and dark-purple anti-aliased cutline removed; source alpha preserved",
+        "magenta_key": "magenta/purple guide pixels removed by hue and saturation; source alpha preserved",
         "visual_review_required": True,
         "publishing": "disabled",
     }
