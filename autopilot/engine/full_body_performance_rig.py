@@ -454,16 +454,24 @@ def _decontaminate_edge_matte_rgb(
     source: Image.Image,
     *,
     protected_masks: tuple[np.ndarray, ...] = (),
-    minimum_brightness: int = 120,
-    maximum_channel_spread: int = 50,
-    minimum_interior_contrast: int = 30,
+    minimum_brightness: int = 105,
+    maximum_channel_spread: int = 65,
+    minimum_interior_contrast: int = 24,
+    edge_band_radius: float = 3.2,
+    sample_radius: int = 4,
 ) -> tuple[Image.Image, dict[str, Any]]:
-    """Recolour bright neutral matte spill on the silhouette boundary only.
+    """Remove pale matte spill several pixels inside the silhouette boundary.
 
-    Alpha and geometry are never changed. Candidate pixels must touch exterior
-    transparency, be nearly neutral and bright, and sit beside a visibly darker
-    source-interior pixel. Known instrument-prop masks are excluded so pale bow
-    hair and violin highlights cannot be mistaken for backdrop contamination.
+    The previous pass considered only pixels touching transparency. That left
+    multi-pixel white fringes on dark hair, jacket edges and shoes untouched.
+    This pass measures distance from the exterior alpha boundary, then replaces
+    only bright, nearly neutral edge pixels whose local interior is materially
+    darker. It samples nearby *interior* character pixels, not the backdrop.
+
+    Alpha and silhouette geometry are never changed. Instrument masks and a
+    small perimeter around them are protected so bow hair and violin highlights
+    remain source-faithful. Genuine interior highlights are outside the edge
+    band and are therefore preserved.
     """
     if not 0 <= int(minimum_brightness) <= 255:
         raise ValueError("Matte brightness threshold must be between zero and 255.")
@@ -471,6 +479,10 @@ def _decontaminate_edge_matte_rgb(
         raise ValueError("Matte channel spread must be between zero and 255.")
     if not 1 <= int(minimum_interior_contrast) <= 180:
         raise ValueError("Interior contrast threshold must be between one and 180.")
+    if not np.isfinite(edge_band_radius) or edge_band_radius <= 0:
+        raise ValueError("Edge band radius must be a positive finite value.")
+    if not 1 <= int(sample_radius) <= 12:
+        raise ValueError("Matte sample radius must be between one and twelve.")
 
     import cv2
 
@@ -496,79 +508,74 @@ def _decontaminate_edge_matte_rgb(
             iterations=1,
         ) > 0
 
-    exterior = alpha == 0
-    touches_exterior = cv2.dilate(
-        exterior.astype(np.uint8), np.ones((3, 3), dtype=np.uint8), iterations=1
-    ) > 0
-    edge = visible & touches_exterior
-
+    # The alpha distance transform also finds edges around enclosed transparent
+    # holes, where background-removal tools sometimes leave pale islands.
+    interior_distance = cv2.distanceTransform(
+        visible.astype(np.uint8), cv2.DIST_L2, 5
+    )
     minimum = rgb.min(axis=2).astype(np.int16)
     maximum = rgb.max(axis=2).astype(np.int16)
     luminance = rgb.astype(np.float32).mean(axis=2)
 
-    # Find the darkest visible, unprotected pixel in the immediate interior
-    # neighborhood. A bright edge pixel is suspect only when it is strongly
-    # inconsistent with the character colour directly beside it.
-    neutral_edge = (
-        edge
+    neutral_edge_band = (
+        visible
         & ~protected
+        & (interior_distance <= float(edge_band_radius))
         & (minimum >= int(minimum_brightness))
         & ((maximum - minimum) <= int(maximum_channel_spread))
     )
-    interior_luminance = np.where(
-        visible & ~protected & ~neutral_edge, luminance, 255
-    ).astype(np.uint8)
-    local_interior_minimum = cv2.erode(
-        interior_luminance, np.ones((3, 3), dtype=np.uint8), iterations=1
-    ).astype(np.int16)
-    contrast = luminance - local_interior_minimum
-    matte_candidates = neutral_edge & (contrast >= int(minimum_interior_contrast))
+    candidate_y, candidate_x = np.where(neutral_edge_band)
+    matte_candidates = np.zeros((height, width), dtype=bool)
+    changed = 0
+    radius = int(sample_radius)
 
-    # Replace RGB with the median of adjacent visible interior samples that
-    # are materially darker than the edge pixel. This is a local colour repair,
-    # not mask erosion, feathering, or a layer-specific geometry operation.
-    sample_rgb = []
-    sample_valid = []
-    padded_rgb = np.pad(rgb, ((1, 1), (1, 1), (0, 0)), mode="edge")
-    padded_luminance = np.pad(luminance, ((1, 1), (1, 1)), mode="edge")
-    padded_visible = np.pad(visible & ~protected, ((1, 1), (1, 1)), mode="constant")
-    padded_neutral_edge = np.pad(neutral_edge, ((1, 1), (1, 1)), mode="constant")
-    for dy in (-1, 0, 1):
-        for dx in (-1, 0, 1):
-            if dx == 0 and dy == 0:
-                continue
-            y0 = 1 + dy
-            x0 = 1 + dx
-            neighbour_rgb = padded_rgb[y0:y0 + height, x0:x0 + width]
-            neighbour_luma = padded_luminance[y0:y0 + height, x0:x0 + width]
-            neighbour_visible = padded_visible[y0:y0 + height, x0:x0 + width]
-            neighbour_neutral_edge = padded_neutral_edge[y0:y0 + height, x0:x0 + width]
-            valid = (
-                matte_candidates
-                & neighbour_visible
-                & ~neighbour_neutral_edge
-                & (neighbour_luma <= luminance - float(minimum_interior_contrast) * 0.5)
-            )
-            sample_rgb.append(neighbour_rgb.astype(np.float32))
-            sample_valid.append(valid)
+    # Inspect only the relatively small set of pale edge candidates. A
+    # candidate is corrected only when its local interior samples are darker
+    # by the configured contrast threshold; warm skin and actual highlights
+    # are not blanket-colour-shifted.
+    for y, x in zip(candidate_y.tolist(), candidate_x.tolist()):
+        y0 = max(0, y - radius)
+        y1 = min(height, y + radius + 1)
+        x0 = max(0, x - radius)
+        x1 = min(width, x + radius + 1)
 
-    stack = np.stack(sample_rgb, axis=0)
-    valid_stack = np.stack(sample_valid, axis=0)
-    masked_stack = np.where(valid_stack[:, :, :, None], stack, np.nan)
-    with np.errstate(all="ignore"):
-        replacement = np.nanmedian(masked_stack, axis=0)
-    usable = matte_candidates & np.isfinite(replacement).all(axis=2)
-    changed = int(usable.sum())
-    if changed:
-        pixels[usable, :3] = np.clip(np.rint(replacement[usable]), 0, 255).astype(np.uint8)
+        local_visible = visible[y0:y1, x0:x1]
+        local_protected = protected[y0:y1, x0:x1]
+        local_distance = interior_distance[y0:y1, x0:x1]
+        local_candidates = neutral_edge_band[y0:y1, x0:x1]
+        local_rgb = rgb[y0:y1, x0:x1]
+
+        # Move inward relative to this sample's distance from the exterior.
+        # Excluding other pale candidates prevents a multi-pixel halo from
+        # contaminating its own replacement colour.
+        local_interior = (
+            local_visible
+            & ~local_protected
+            & ~local_candidates
+            & (local_distance >= float(interior_distance[y, x]) + 1.0)
+        )
+        if int(local_interior.sum()) < 3:
+            continue
+
+        interior_rgb = local_rgb[local_interior].astype(np.float32)
+        replacement = np.median(interior_rgb, axis=0)
+        interior_luminance = float(replacement.mean())
+        if float(luminance[y, x]) < interior_luminance + float(minimum_interior_contrast):
+            continue
+
+        pixels[y, x, :3] = np.clip(np.rint(replacement), 0, 255).astype(np.uint8)
+        matte_candidates[y, x] = True
+        changed += 1
 
     # A source-level invariant: this pass must preserve the complete alpha plane.
     if not np.array_equal(pixels[:, :, 3], alpha):
         raise AutoRigError("Edge matte colour repair unexpectedly changed source alpha.")
 
     report = {
-        "method": "boundary_neutral_matte_rgb_decontamination",
-        "candidate_pixels": int(matte_candidates.sum()),
+        "method": "distance_aware_neutral_matte_decontamination",
+        "edge_band_radius": float(edge_band_radius),
+        "sample_radius": int(sample_radius),
+        "candidate_pixels": int(neutral_edge_band.sum()),
         "pixels_recoloured": changed,
         "protected_prop_pixels": int(protected.sum()),
         "minimum_brightness": int(minimum_brightness),
@@ -577,10 +584,10 @@ def _decontaminate_edge_matte_rgb(
         "source_alpha_preserved": True,
         "source_silhouette_geometry_preserved": True,
         "instrument_props_protected": True,
+        "interior_highlights_preserved": True,
         "visual_review_required": True,
     }
     return Image.fromarray(pixels, mode="RGBA"), report
-
 
 def _authored_performance_layers(
     source: Image.Image,
