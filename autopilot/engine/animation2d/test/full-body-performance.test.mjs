@@ -124,6 +124,39 @@ test("music-synchronized performance keyframes follow beat and onset timestamps"
   }), [], "low-confidence audio analysis must not drive the rig");
 });
 
+test("compileMotionTracks consumes audio beat maps for bow, arm and finger motion", () => {
+  const musicProject = structuredClone(project);
+  musicProject.scenes[0].character_actions["violin-prince"].music_sync = {
+    source: "decoded_audio_spectral_flux_autocorrelation",
+    bpm: 120,
+    confidence: 0.84,
+    beat_times: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5],
+    downbeats: [0, 2],
+    onsets: [0.25, 0.75, 1.25, 1.75, 2.25, 2.75, 3.25]
+  };
+
+  const regularTracks = compileMotionTracks(project, { fps: 25 });
+  const musicTracks = compileMotionTracks(musicProject, { fps: 25 });
+  const getTrack = (tracks, target, property = "transform") =>
+    tracks.find(track => track.target === target && track.property === property);
+
+  for (const target of [
+    "playing-violin-prince-prop-bow",
+    "playing-violin-prince-part-left_forearm",
+    "playing-violin-prince-part-finger_index"
+  ]) {
+    const regular = getTrack(regularTracks, target);
+    const synchronized = getTrack(musicTracks, target);
+    assert.ok(regular && synchronized, target + " must compile in both modes");
+    assert.notDeepEqual(synchronized.values, regular.values,
+      target + " must use the audio event map instead of the generic loop");
+  }
+
+  const bowTravel = getTrack(musicTracks, "playing-violin-prince-prop-bow", "translate");
+  assert.ok(bowTravel && bowTravel.values.length > 80);
+  assert.ok(new Set(bowTravel.values).size > 3);
+});
+
 test("full-body gesture animates thigh, knee, ankle and all four fingering controls", () => {
   const tracks = compileMotionTracks(project, { fps: 25 });
   const changed = new Set(tracks
