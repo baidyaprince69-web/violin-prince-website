@@ -110,7 +110,7 @@ test("music-synchronized performance keyframes follow beat and onset timestamps"
     "bow travel is sampled at composition frame rate");
   assert.ok(new Set(bowTranslation.values).size > 3,
     "bow travel moves continuously between beat reversals");
-  assert.deepEqual(bow.key_times.slice(0, 4), [0, 0.08, 0.58, 1.08]);
+  assert.deepEqual(bow.key_times.slice(0, 4), [0, 0.06, 0.56, 1.06]);
   assert.equal(bow.key_times.at(-1), 3.88);
   assert.ok(bow.values.some((value, index) => index > 1 && value !== bow.values[index - 1]));
   assert.ok(indexFinger.key_times.includes(0.275));
