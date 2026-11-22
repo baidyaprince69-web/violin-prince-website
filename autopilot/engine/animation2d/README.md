@@ -107,3 +107,11 @@ For looping rig choreography, set `loop: true` on the character scene action. Th
 cycle is 1.8 seconds; set `cycle_duration_seconds` to choose a different cycle length.
 The hierarchical joint sampler repeats the articulated rotations at that cycle boundary,
 not just the outer wrapper animation.
+
+
+Camera choreography targets a shared `scene-camera-world` wrapper that contains the
+background, procedural SVG environment and articulated character rig. Therefore a Master
+Director dolly, truck, arc, orbit, crane or other supported camera move travels with the
+whole scene rather than moving only a background plate. A procedural scene can set
+`director_camera`, `camera_motion_start_offset`, `camera_motion_duration` and
+`camera_easing`; titles and motion-graphic cards remain screen-space overlays.

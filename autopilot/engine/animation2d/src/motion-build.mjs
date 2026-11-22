@@ -569,13 +569,18 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
         }
       }
     } else {
-      const cameraKeyframes = visualMode === "cover_performance"
-        ? ["scale(1.055) translateX(12px)", "scale(1.105) translateX(-8px)", "scale(1.12) translateX(-13px)"]
-        : visualMode === "waveform" || visualMode === "mechanism_illustration"
-          ? ["scale(1.055) translateY(8px)", "scale(1.105) translateY(-8px)", "scale(1.115) translateY(-12px)"]
-          : ["scale(1.055) translateX(-9px)", "scale(1.105) translateX(7px)", "scale(1.12) translateX(12px)"];
+      const hasDirectedCamera = Boolean(scene.director_camera && scene.director_camera.movement);
+      const cameraKeyframes = hasDirectedCamera
+        ? directorCameraKeyframes(scene.director_camera, Number(scene.editorial_index) || 0)
+        : visualMode === "cover_performance"
+          ? ["scale(1.055) translateX(12px)", "scale(1.105) translateX(-8px)", "scale(1.12) translateX(-13px)"]
+          : visualMode === "waveform" || visualMode === "mechanism_illustration"
+            ? ["scale(1.055) translateY(8px)", "scale(1.105) translateY(-8px)", "scale(1.115) translateY(-12px)"]
+            : ["scale(1.055) translateX(-9px)", "scale(1.105) translateX(7px)", "scale(1.12) translateX(12px)"];
+      const cameraStart = sceneStart + Math.max(0, Number(scene.camera_motion_start_offset) || 0);
+      const cameraDuration = Math.max(0.08, Number(scene.camera_motion_duration) || sceneDuration);
       addKeyframes(scene.id + "-camera-world", { transform: cameraKeyframes },
-        sceneStart, sceneDuration, "ease-in-out");
+        cameraStart, cameraDuration, scene.camera_easing || "ease-in-out");
     }
 
     const brandId = scene.id + "-brand";
