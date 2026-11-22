@@ -100,11 +100,18 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Select the next unused public-ready story from the rolling backlog
+      - name: Resolve scheduled IST batch date from the triggering cron slot
+        id: schedule_context
+        env:
+          SCHEDULE_CRON: ${{ github.event.schedule }}
+        run: python autopilot/engine/scheduled_slot_date.py --cron "$SCHEDULE_CRON"
+
+      - name: Select the next unused public-ready story from the scheduled date's batch
         id: batch
         env:
           PYTHONPATH: autopilot/engine
-        run: python autopilot/engine/select_public_queue.py --root .
+          SCHEDULED_PRODUCTION_DATE: ${{ steps.schedule_context.outputs.production_date }}
+        run: python autopilot/engine/select_public_queue.py --root . --production-date "$SCHEDULED_PRODUCTION_DATE"
 
       - name: Check production and public-publishing gates for the selected batch
         id: readiness
