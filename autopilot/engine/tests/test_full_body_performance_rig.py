@@ -52,6 +52,10 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                     self.assertGreaterEqual(joints[side + "_" + joint]["x"], 0)
                     self.assertLessEqual(joints[side + "_" + joint]["x"], 1)
             self.assertTrue(report["review_required"])
+            z_by_role = {layer["role"]: layer["z_index"] for layer in layers}
+            for side in ("left", "right"):
+                self.assertLess(z_by_role[side + "_thigh"], z_by_role[side + "_calf"])
+                self.assertLess(z_by_role[side + "_calf"], z_by_role[side + "_foot"])
             self.assertTrue(all((Path(folder) / layer["src"]).is_file() for layer in layers))
 
 
