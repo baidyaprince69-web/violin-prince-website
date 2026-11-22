@@ -85,6 +85,11 @@ jobs:
           PYTHONPATH: autopilot/engine
         run: python -m unittest discover -s autopilot/engine/tests -p "test_master_creative_director.py" -v
 
+      - name: Test procedural Master Director rendering handoff
+        env:
+          PYTHONPATH: autopilot/engine
+        run: python -m unittest discover -s autopilot/engine/tests -p "test_procedural_director_renderer.py" -v
+
       - name: Run GitHub Copilot Master Director provider tests
         env:
           PYTHONPATH: autopilot/engine

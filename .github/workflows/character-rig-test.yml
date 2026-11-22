@@ -25,6 +25,13 @@ on:
       - autopilot/engine/animation2d/src/character-layout.mjs
       - autopilot/engine/animation2d/src/contract.mjs
       - autopilot/engine/animation2d/src/motion-build.mjs
+      - autopilot/engine/animation2d/src/stagecraft.mjs
+      - autopilot/engine/procedural_director_renderer.py
+      - autopilot/engine/render_procedural_director_preview.py
+      - autopilot/engine/tests/fixtures/master-director-procedural-demo.json
+      - autopilot/engine/tests/test_procedural_director_renderer.py
+      - autopilot/engine/tests/test_master_creative_director.py
+      - autopilot/engine/tests/test_create_master_director_plan.py
       - autopilot/engine/animation2d/test/character-layout.test.mjs
       - autopilot/engine/animation2d/test/articulated-rig.test.mjs
       - autopilot/engine/tests/test_character_autorig.py
@@ -54,6 +61,13 @@ on:
       - autopilot/engine/animation2d/src/character-layout.mjs
       - autopilot/engine/animation2d/src/contract.mjs
       - autopilot/engine/animation2d/src/motion-build.mjs
+      - autopilot/engine/animation2d/src/stagecraft.mjs
+      - autopilot/engine/procedural_director_renderer.py
+      - autopilot/engine/render_procedural_director_preview.py
+      - autopilot/engine/tests/fixtures/master-director-procedural-demo.json
+      - autopilot/engine/tests/test_procedural_director_renderer.py
+      - autopilot/engine/tests/test_master_creative_director.py
+      - autopilot/engine/tests/test_create_master_director_plan.py
       - autopilot/engine/animation2d/test/character-layout.test.mjs
       - autopilot/engine/animation2d/test/articulated-rig.test.mjs
       - autopilot/engine/tests/test_character_autorig.py
@@ -169,7 +183,8 @@ jobs:
       - name: Install FFmpeg and FFprobe for MP4 rendering
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          sudo apt-get install -y ffmpeg espeak-ng
+          python -m pip install --disable-pip-version-check "fonttools[woff]>=4.50,<5"
 
       - name: Render isolated rig preview (not production)
         working-directory: work/character-rig-test/composition
@@ -238,6 +253,43 @@ jobs:
         working-directory: work/character-rig-test/daily-integration/composition
         run: $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes render --output ../character-rig-portrait-preview.mp4 --fps 25 --quality standard
 
+      - name: Render complete procedural Master Director short (preview only)
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python autopilot/engine/render_procedural_director_preview.py \
+            --plan autopilot/engine/tests/fixtures/master-director-procedural-demo.json \
+            --output-dir work/character-rig-test/master-director-procedural \
+            --rig-bundle-dir work/character-autorig/violin-prince
+
+      - name: Verify procedural Master Director MP4 and motion coverage
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("work/character-rig-test/master-director-procedural")
+          report = json.loads((root / "procedural-preview-report.json").read_text(encoding="utf-8"))
+          motion = report["motion_report"]
+          if report.get("status") != "passed" or report.get("publishable") is not False:
+              raise SystemExit("Procedural Master Director preview must pass and remain non-publishable.")
+          if report.get("shot_count") != 8 or abs(float(report.get("duration_seconds", 0)) - 32.0) > 0.5:
+              raise SystemExit("Rendered preview does not match the eight-shot, 32-second storyboard.")
+          if motion.get("animated_stagecraft_scene_count") != 8:
+              raise SystemExit("All eight Director scenes must have their own animated environment.")
+          if motion.get("animated_stagecraft_object_count", 0) < 16:
+              raise SystemExit("Procedural preview is missing story-authored moving objects.")
+          if motion.get("animated_presenter_count", 0) < 3:
+              raise SystemExit("Procedural preview must include multiple articulated presenter scenes.")
+          if motion.get("rendered_layer_count") != 0:
+              raise SystemExit("Procedural preview unexpectedly used legacy picture layers.")
+          for name in ("master-director-preview.mp4", "master-director-contact-sheet.jpg"):
+              file = root / name
+              if not file.is_file() or file.stat().st_size < 10000:
+                  raise SystemExit(f"Missing or invalid rendered proof: {file}")
+          print("Verified the complete procedural short, scene motion, presenter articulation, MP4 and contact sheet.")
+          PY
+
       - name: Save the tested rig bundle for the main animation pipeline
         if: success() && (github.ref_name == 'baidyaprince69-web-patch-1' || github.ref_name == 'feature/character-articulated-rig-validation')
         shell: bash
@@ -297,5 +349,6 @@ jobs:
           path: |
             work/character-autorig/violin-prince/
             work/character-rig-test/
+            work/character-rig-test/master-director-procedural/
           if-no-files-found: error
           retention-days: 14
