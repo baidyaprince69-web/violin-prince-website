@@ -16,7 +16,7 @@ def stage_asset(bundle: Path, asset_root: Path, source: str) -> str:
     destination = asset_root / source_path.name
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source_path, destination)
-    return destination.relative_to(asset_root.parent.parent).as_posix()
+    return destination.relative_to(asset_root.parent.parent.parent).as_posix()
 
 
 def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dict[str, Any]:
