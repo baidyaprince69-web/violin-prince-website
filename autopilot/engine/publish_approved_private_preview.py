@@ -238,6 +238,9 @@ def summary(message: str):
             handle.write(message + "\n")
 
 def main() -> int:
+    raise PublishBlocked(
+        "Public YouTube publication is disabled. Private previews must remain private."
+    )
     request = json.loads((ROOT / ".autopilot/approved-preview-publication.json").read_text(encoding="utf-8"))
     plan_path = ROOT / ".autopilot/daily-production-plan.json"
     if request.get("schema_version") != 1 or request.get("mode") != "approved_private_preview_publication" or request.get("publish_to_youtube") is not True:
