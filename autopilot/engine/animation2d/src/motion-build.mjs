@@ -334,6 +334,8 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
 
       const prefix = scene.id + "-" + character.id;
       const compositeBaseMode = Boolean(character.base_art && character.base_art.src);
+      const segmentedBodyBaseMode = compositeBaseMode &&
+        character.performance_base_mode === "segmented_source_body";
       const layers = character.layers || [];
       const props = Object.values(character.props || {});
       const layerByRole = new Map(layers.map(layer => [layer.role, layer]));
@@ -381,10 +383,9 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
         finger_ring: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_ring"],
         finger_little: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_little"]
       };
-      if (compositeBaseMode) {
-        // The source composite already contains complete arms and legs. Keep
-        // those pixels together; animate only the preserved bow hand and the
-        // four separately cut finger sprites over the complete-body plate.
+      if (compositeBaseMode && !segmentedBodyBaseMode) {
+        // Legacy intact-composite preview: only the bow hand and finger sprites
+        // are independent while the parser-derived arm and leg masks are reviewed.
         dependencies.left_hand = ["torso"];
         dependencies.finger_index = ["finger_index"];
         dependencies.finger_middle = ["finger_middle"];
@@ -398,7 +399,7 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
           rolesToAnimate.add(role);
         }
       }
-      if (compositeBaseMode) {
+      if (compositeBaseMode && !segmentedBodyBaseMode) {
         for (const role of [...rolesToAnimate]) {
           if (role !== "torso" && role !== "left_hand" && !role.startsWith("finger_")) {
             rolesToAnimate.delete(role);
@@ -443,7 +444,7 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
         finger_little: pivotFor("right_little_base", "finger_little")
       };
 
-      const compositeStaticRoles = new Set([
+      const compositeStaticRoles = segmentedBodyBaseMode ? new Set() : new Set([
         "head", "left_upper_arm", "left_forearm", "left_hand",
         "right_upper_arm", "right_forearm", "right_hand",
         "left_thigh", "left_calf", "left_foot", "right_thigh", "right_calf", "right_foot"
