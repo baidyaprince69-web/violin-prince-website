@@ -1,4 +1,4 @@
-const ENVIRONMENTS = new Set(["city_night", "forest_dusk", "space", "concert_stage"]);
+const ENVIRONMENTS = new Set(["city_night", "forest_dusk", "space", "concert_stage", "laboratory", "abstract"]);
 const KINDS = new Set(["orb", "spark", "leaf", "light_streak", "music_note", "gear", "ring", "comet", "particle"]);
 const MOTIONS = new Set(["float", "drift", "orbit", "rotate", "pulse", "flicker", "sway", "travel_left", "travel_right", "bob"]);
 
@@ -97,7 +97,7 @@ function environmentFor(scene, width, height) {
     add("comet-b", .92, .61, '<path d="M-80 0 Q-30 -10 0 0" fill="none" stroke="#d5a8ff" stroke-width="7" opacity=".5"/>' +
       '<circle r="5" fill="#fff"/>', "travel_left", width * .58, 7);
     add("stardust", .49, .75, '<path d="M0 -18 L5 -5 L18 0 L5 5 L0 18 L-5 5 L-18 0 L-5 -5Z" fill="#e0e4ff"/>', "pulse", 13, 2.2);
-  } else {
+  } else if (theme === "concert_stage") {
     top = "#080c18"; bottom = "#281b2b"; accent = "#e5c38b";
     base += '<path d="M0 0 H' + width * .18 + ' Q' + width * .29 + ' ' + height * .3 + ' ' +
       width * .17 + ' ' + height + ' H0Z M' + width + ' 0 H' + width * .82 + ' Q' +
@@ -115,6 +115,33 @@ function environmentFor(scene, width, height) {
     }
     add("stage-beat-ring", .5, .75, '<ellipse rx="' + width * .2 + '" ry="' + height * .04 +
       '" fill="none" stroke="#d7b77d" stroke-width="4" opacity=".65"/>', "pulse", 24, 2.2);
+  } else if (theme === "laboratory") {
+    top = "#071a29"; bottom = "#17404a"; accent = "#62d7d1";
+    for (let x = 0; x <= width; x += 48) base += '<path d="M' + x + ' 0 V' + height + '" stroke="#9ad7d5" stroke-opacity=".12"/>';
+    for (let y = 0; y <= height; y += 48) base += '<path d="M0 ' + y + ' H' + width + '" stroke="#9ad7d5" stroke-opacity=".12"/>';
+    base += '<rect x="' + width * .08 + '" y="' + height * .2 + '" width="' + width * .84 +
+      '" height="' + height * .5 + '" rx="26" fill="#092a3a" fill-opacity=".55" stroke="#80d7d2" stroke-opacity=".38"/>';
+    add("molecule-core", .5, .44, '<circle r="24" fill="#f0d08d"/><circle r="52" fill="none" stroke="#65d4d0" stroke-width="4"/>', "pulse", 13, 2.8);
+    add("molecule-orbit-a", .5, .44, '<ellipse rx="132" ry="54" fill="none" stroke="#74d2cc" stroke-width="3"/><circle cx="132" cy="0" r="13" fill="#baf3e6"/>', "rotate", 360, 5.2);
+    add("molecule-orbit-b", .5, .44, '<ellipse rx="184" ry="78" fill="none" stroke="#dfc58c" stroke-width="3"/><circle cx="-184" cy="0" r="11" fill="#efd398"/>', "rotate", -360, 6.5);
+    add("signal-pulse", .5, .77, '<path d="M-238 0 H-112 L-72 -38 L-32 34 L12 -18 L54 0 H238" fill="none" stroke="#62d7d1" stroke-width="5" stroke-linejoin="round"/>', "drift", width * .08, 3.8);
+    add("data-beacon", .86, .18, '<circle r="11" fill="#b6f3df"/><circle r="34" fill="none" stroke="#b6f3df" stroke-width="3"/>', "flicker", 10, 1.7);
+  } else {
+    top = "#080c1e"; bottom = "#172943"; accent = "#68d0cf";
+    base += '<circle cx="' + width * .5 + '" cy="' + height * .47 + '" r="' + width * .26 +
+      '" fill="none" stroke="#65cbc7" stroke-opacity=".2" stroke-width="2"/>' +
+      '<circle cx="' + width * .5 + '" cy="' + height * .47 + '" r="' + width * .36 +
+      '" fill="none" stroke="#e5c58d" stroke-opacity=".18" stroke-width="2"/>';
+    add("abstract-ring-a", .5, .47, '<ellipse rx="' + width * .24 + '" ry="' + height * .12 +
+      '" fill="none" stroke="#62d7d1" stroke-width="3" opacity=".55"/>', "rotate", 360, 17);
+    add("abstract-ring-b", .5, .47, '<ellipse rx="' + width * .3 + '" ry="' + height * .19 +
+      '" fill="none" stroke="#e4bd7d" stroke-width="2" stroke-dasharray="9 18" opacity=".5"/>', "rotate", -360, 23);
+    for (let i = 0; i < 6; i += 1) {
+      add("abstract-orb-" + i, .12 + i * .15, .27 + (i % 2) * .42,
+        '<circle r="' + (10 + i * 2) + '" fill="#68d2cd"/><circle r="' + (25 + i * 3) +
+        '" fill="#68d2cd" opacity=".17"/>', "orbit", 24 + i * 7, 3.1 + i * .45);
+    }
+    add("abstract-wave", .5, .79, '<path d="M-300 0 Q-220 -45 -140 0 T20 0 T180 0 T340 0" fill="none" stroke="#f0cd8d" stroke-width="4"/>', "float", 24, 3.6);
   }
 
   const defs = '<defs><linearGradient id="' + sceneId + '-sky" x1="0" y1="0" x2="0" y2="1">' +
@@ -179,11 +206,16 @@ export function stagecraftNodeCounts(scene) {
   const { env, objects } = allSceneNodes(scene, 720, 1280);
   return { environment: env.nodes.length, objects: objects.length, total: env.nodes.length + objects.length };
 }
-export function renderStagecraftMarkup(scene, width = 720, height = 1280) {
+export function renderStagecraftMarkup(scene, width = 720, height = 1280, sceneIndex = 0) {
   if (!scene?.stagecraft) return "";
   const { env, objects } = allSceneNodes(scene, width, height);
   const nodes = [...env.nodes, ...objects].map(nodeMarkup).join("");
-  return '<div class="scene-stagecraft scene-stagecraft--' + env.theme + '" aria-hidden="true">' +
+  const start = Math.max(0, Number(scene.start) || 0);
+  const duration = Math.max(.1, Number(scene.duration) || 1);
+  const elementId = safeId(scene.id) + "-stagecraft";
+  return '<div class="clip scene-stagecraft scene-stagecraft--' + env.theme +
+    '" id="' + elementId + '" data-start="' + start + '" data-duration="' + duration +
+    '" data-track-index="' + (5 + sceneIndex * 3) + '" aria-hidden="true">' +
     '<svg viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="xMidYMid slice">' +
     env.defs + env.base + nodes + '</svg></div>';
 }

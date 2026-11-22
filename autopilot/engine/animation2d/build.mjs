@@ -521,7 +521,7 @@ const markup = project.scenes.map((scene, index) => {
     '" data-track-index="' + (8 + index * 3) + '"></div>';
   const graphic = renderMotionGraphic(scene);
   const atmosphere = renderAmbientMotif(scene);
-  const stagecraftMarkup = renderStagecraftMarkup(scene, width, height);
+  const stagecraftMarkup = renderStagecraftMarkup(scene, width, height, index);
   const characters = (project.characters || []).map((character, characterIndex) =>
     renderCharacter(character, scene, index, characterIndex, width, height)
   ).join("");

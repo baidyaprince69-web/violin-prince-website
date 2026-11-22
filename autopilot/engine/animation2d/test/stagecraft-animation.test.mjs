@@ -12,7 +12,7 @@ import {
   stagecraftNodeCounts
 } from "../src/stagecraft.mjs";
 
-for (const environment of ["city_night", "forest_dusk", "space", "concert_stage"]) {
+for (const environment of ["city_night", "forest_dusk", "space", "concert_stage", "laboratory", "abstract"]) {
   test(environment + " produces a moving vector environment", () => {
     const scene = { id: "stage-test", start: 1, duration: 6, stagecraft: { environment } };
     const markup = renderStagecraftMarkup(scene);
@@ -20,6 +20,9 @@ for (const environment of ["city_night", "forest_dusk", "space", "concert_stage"
     const tracks = buildStagecraftMotion(scene);
     assert.ok(markup.includes("<svg"));
     assert.ok(markup.includes("scene-stagecraft--" + environment));
+    assert.ok(markup.includes('class="clip scene-stagecraft'));
+    assert.ok(markup.includes('data-start="1"'));
+    assert.ok(markup.includes('data-duration="6"'));
     assert.ok(ids.length >= 3);
     for (const id of ids) {
       const track = tracks.find(item => item.target === id && item.property === "transform");

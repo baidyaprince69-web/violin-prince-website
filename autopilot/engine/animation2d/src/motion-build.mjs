@@ -516,10 +516,12 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
     const captionId = scene.id + "-caption";
     const visualMode = String(scene.visual_mode || "").toLowerCase();
     const isDirectorShot = visualMode === "director_shot";
+    const isProceduralScene = visualMode === "procedural_2d";
+    const isDirectedScene = isDirectorShot || isProceduralScene;
     tracks.push(...buildStagecraftMotion(scene, { fps }));
     const transitionIn = String(scene.transition_in || "cut").toLowerCase();
     const transitionDuration = Math.max(0, Number(scene.transition_in_duration) || 0);
-    if (isDirectorShot) {
+    if (isDirectedScene) {
       const transition = directorTransitionSpec(transitionIn, transitionDuration);
       if (transition.property !== "opacity") {
         addKeyframes(backgroundId, { opacity: [1, 1] }, sceneStart, Math.max(0.08, transitionDuration || 0.08), "linear");
@@ -533,7 +535,7 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
     const gradeId = scene.id + "-grade";
     addSpring(gradeId, "opacity", 0, 1, sceneStart + 0.02, 420);
 
-    if (isDirectorShot) {
+    if (isDirectedScene) {
       const camera = scene.director_camera || {};
       const cameraStart = sceneStart + Math.max(0, Number(scene.camera_motion_start_offset) || 0);
       const cameraDuration = Math.max(0.08, Number(scene.camera_motion_duration) || sceneDuration);
@@ -546,7 +548,8 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
         scene.camera_easing || "ease-in-out"
       );
 
-      const visualLayers = Array.isArray(scene.visual_layers) ? scene.visual_layers : [];
+      const visualLayers = isDirectorShot && Array.isArray(scene.visual_layers)
+        ? scene.visual_layers : [];
       for (const layer of visualLayers) {
         const role = String(layer.role || "").toLowerCase();
         if (role === "background") continue;
