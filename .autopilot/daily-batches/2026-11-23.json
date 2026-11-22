@@ -5,280 +5,199 @@
     {
       "production_date": "2026-11-23",
       "slot_id": "music-secrets",
-      "slot_status": "ready",
-      "story_type": "music_culture",
-      "topic": "The launch of Grand Theft Auto VI: The Album, its 34 original songs and how the standalone album relates to the wider music heard in the game.",
-      "core_claim": "Grand Theft Auto VI: The Album launched in partnership with Atlantic Records with 34 original songs, while reporting notes that the game's wider music extends beyond the standalone tracklist.",
-      "title": "GTA VI's 34-Track Album: A Soundtrack Beyond the Game",
-      "hook": "Can a game soundtrack stand on its own?",
-      "description": "A source-checked look at Grand Theft Auto VI: The Album: Rockstar describes a 34-song release created with Atlantic Records, while Stereogum notes that the album covers only part of the game's wider musical world. Violin Prince adds a newly composed, unrelated violin motif; no game footage, soundtrack recordings, existing melodies or lyrics are used.",
+      "slot_status": "blocked",
+      "blocked_reason": "SOURCE GATE: only the Medical Xpress article page was readable and verified (19 November 2026). The related Science Advances publisher page returned an access error in this research run, so it is not counted as a second verified direct publisher page; secondary summaries were not accepted as substitutes. GLOBAL SAFETY HOLD: main's scheduled route is public, not private-preview-only. The workflow selects a public-ready batch item and invokes autopilot/engine/upload_public_short_uploadpost.py with YOUTUBE_PRIVACY_STATUS=public. run_daily_plan.py forces privacy_status=public for --batch runs and validates the committed public approval (no_private_preview_required=true). PUBLISH_ENABLED=false only disables generic adapters; it does not disable this dedicated public uploader. The required autopilot/engine/animation-production-approval.json is absent, so the animation-production gate is also unsatisfied. Keep this slot blocked until the scheduled route is changed and verified private-only and the animation approval gate is valid.",
+      "story_type": "sound_and_perception",
+      "topic": "How acoustic timing and frequency patterns help listeners distinguish speech from music, using a continuous film soundtrack as the listening context.",
+      "core_claim": "The auditory cortex can use spectrotemporal acoustic patterns to support listeners' distinction between speech and music.",
+      "title": "How the Brain Separates Music from Speech",
+      "hook": "How does your brain separate music from speech?",
+      "description": "A Medical Xpress report dated 19 November describes a Science Advances study using the Harry Potter soundtrack to examine how acoustic timing and frequency patterns support speech/music categorization. The Science Advances publisher page could not be opened during this research run, so this candidate remains blocked until a second direct publisher article page is verified.",
       "hashtags": [
-        "#GameSoundtracks",
-        "#MusicCulture",
-        "#Soundtrack",
+        "#MusicScience",
+        "#AuditoryPerception",
+        "#MusicAndSpeech",
         "#ViolinPrince"
       ],
       "tags": [
-        "Grand Theft Auto VI",
-        "GTA VI soundtrack",
-        "video game music",
-        "Rockstar Games",
-        "Atlantic Records",
-        "music culture",
-        "soundtrack album",
+        "music perception",
+        "speech and music",
+        "auditory cortex",
+        "spectrotemporal patterns",
+        "music science",
+        "film soundtrack",
         "Violin Prince"
       ],
       "narrative_style": "documentary",
-      "cover_payoff": "Create an original, unrelated violin motif that moves through three contrasting imagined radio moods. Do not imitate or sample any soundtrack song; do not use game footage, logos, character likenesses or lyrics.",
-      "narration_script": "Can a game soundtrack stand alone? Rockstar says its 34-song official album pairs with Atlantic Records. Stereogum notes those tracks represent only a small fraction of the game's music. A separate score is also planned.",
-      "narration_evidence": [
-        {
-          "sentence_number": 2,
-          "source_id": "S001",
-          "quote": "Grand Theft Auto VI: The Album, the official soundtrack album created in partnership with Atlantic Records, is available everywhere now. With 34 original songs"
-        },
-        {
-          "sentence_number": 3,
-          "source_id": "S002",
-          "quote": "But the 34 tracks on Grand Theft Auto VI: The Album represent only a small fraction of the music featured in the game itself."
-        },
-        {
-          "sentence_number": 4,
-          "source_id": "S001",
-          "quote": "For the full tracklist and much more, including details on the Original Score composed by Justice coming December 11"
-        }
-      ],
+      "cover_payoff": "If the source gate is later satisfied, use a short original violin motif to demonstrate a clear rhythmic contour and a contrasting sustained melodic phrase. Do not use Harry Potter soundtrack audio, film footage or copyrighted score material.",
       "sources": [
         {
           "source_id": "S001",
-          "title": "Grand Theft Auto VI: The Album Now Available",
-          "url": "https://www.rockstargames.com/newswire/article/k4a8955a93o747/grand-theft-auto-vi-the-album-now-available",
-          "publisher_domain": "rockstargames.com",
-          "date": "2026-11-20"
-        },
-        {
-          "source_id": "S002",
-          "title": "GTA VI Unveils Soundtrack Album, Game Includes Surprise Songs And Cameos",
-          "url": "https://stereogum.com/2518780/gta-vi-unveils-soundtrack-album-game-includes-surprise-songs-and-cameos/news",
-          "publisher_domain": "stereogum.com",
-          "date": "2026-11-20"
+          "title": "The Harry Potter soundtrack helps researchers test how the brain differentiates speech and background music",
+          "url": "https://medicalxpress.com/news/2026-11-harry-potter-soundtrack-brain-differentiates.html",
+          "publisher_domain": "medicalxpress.com",
+          "publisher_name": "Medical Xpress",
+          "date": "2026-11-19"
         }
       ],
-      "timeline": [],
-      "scenes": [
-        {
-          "id": "soundtrack-world",
-          "title": "A soundtrack opens a world",
-          "caption": "34 ORIGINAL SONGS, ONE GAME WORLD",
-          "image_prompt": "Vertical 9:16 original editorial 2D illustration of a fictional coastal night city, a simple record disc and abstract radio-wave ribbons travelling between distant rooftops. No recognizable game city, logo, character, album cover or text. Premium clean linework, high visual clarity, restrained cinematic light, generous negative space.",
-          "visual_mode": "waveform",
-          "narration_sentence_indexes": [
-            0
-          ]
-        },
-        {
-          "id": "album-vs-world",
-          "title": "The album and the wider game",
-          "caption": "THE ALBUM IS ONLY ONE LAYER",
-          "image_prompt": "Vertical 9:16 premium 2D comparison graphic: one neat row of abstract album discs on one side and a much broader network of small, distinct radio-wave symbols on the other, visually explaining a soundtrack album beside a larger in-game music world. No real track names, artist likenesses, game interface or logos. Clean midnight-studio illustration with legible shapes.",
-          "visual_mode": "comparison",
-          "narration_sentence_indexes": [
-            1,
-            2
-          ]
-        },
-        {
-          "id": "violin-prince-payoff",
-          "title": "An original Violin Prince theme",
-          "caption": "ONE NEW MOTIF, MANY MUSICAL MOODS",
-          "image_prompt": "Vertical 9:16 symbolic Violin Prince payoff: a complete amber-walnut violin and bow with expressive non-identifiable hands, surrounded by three original abstract sound ribbons with distinct moods. No recognizable existing song notation, artwork, artist likeness, game references, text or logos. Premium illustrated finish.",
-          "visual_mode": "cover_performance",
-          "narration_sentence_indexes": [
-            3
-          ]
-        }
-      ],
-      "performance_feedback": {
-        "sample_window": "No mature Violin Prince analytics sample exists for this newly introduced story format.",
-        "sample_count": 0,
-        "confidence": "Editorial selection is based on two independent publisher articles; no measured audience-performance comparison or hands-on performance claim is made.",
-        "strengths_to_preserve": [
-          "Connect a current international music story to one clear musical idea through an original violin-led example."
-        ],
-        "one_change_to_test": "Keep the distinction between the 34-song album and the game's broader music clear; use only original visual symbols and an unrelated violin motif.",
-        "measurement_for_next_upload": "After publication, compare 24-hour and seven-day views, engaged views, average view duration, average percentage viewed, stayed-to-watch, likes, comments and shares."
-      },
-      "narration_asr_hotwords": [
-        "Grand Theft Auto VI",
-        "GTA VI",
-        "Rockstar Games",
-        "Atlantic Records",
-        "soundtrack",
-        "original score"
-      ],
-      "publish_metadata": {
-        "title": "GTA VI's 34-Track Album: A Soundtrack Beyond the Game",
-        "description": "A source-checked look at Grand Theft Auto VI: The Album: Rockstar describes a 34-song release created with Atlantic Records, while Stereogum notes that the album covers only part of the game's wider musical world. Violin Prince adds a newly composed, unrelated violin motif; no game footage, soundtrack recordings, existing melodies or lyrics are used.",
-        "tags": [
-          "Grand Theft Auto VI",
-          "GTA VI soundtrack",
-          "video game music",
-          "Rockstar Games",
-          "Atlantic Records",
-          "music culture",
-          "soundtrack album",
-          "Violin Prince"
-        ],
-        "category_id": "10",
-        "default_language": "en",
-        "privacy_status": "public",
-        "made_for_kids": false
-      },
-      "one_change_to_test": "Keep the distinction between the 34-song album and the game's broader music clear; use only original visual symbols and an unrelated violin motif."
+      "timeline": []
     },
     {
       "production_date": "2026-11-23",
       "slot_id": "production-tech",
-      "slot_status": "ready",
-      "story_type": "arrangement_and_sound_design",
-      "topic": "How Hans Zimmer and RÜFÜS DU SOL reimagined Innerbloom XI as a nine-minute orchestral arrangement for the original song's eleventh anniversary.",
-      "core_claim": "Hans Zimmer reimagined RÜFÜS DU SOL's Innerbloom as a nine-minute orchestral arrangement for its eleventh anniversary, retaining the original vocals.",
-      "title": "Hans Zimmer Reimagines RÜFÜS DU SOL's 'Innerbloom'",
-      "hook": "What changes when an electronic song meets an orchestra?",
-      "description": "A sourced arrangement breakdown of Innerbloom XI: Variety reports the RÜFÜS DU SOL and Hans Zimmer collaboration, while DJ Mag describes its nine-minute orchestral treatment and retained original vocals. The Violin Prince payoff uses a newly composed, unrelated motif to demonstrate how orchestral layers change texture without borrowing the source melody or recording.",
+      "slot_status": "blocked",
+      "blocked_reason": "GLOBAL SAFETY HOLD: main's scheduled route is public, not private-preview-only. The workflow selects a public-ready batch item and invokes autopilot/engine/upload_public_short_uploadpost.py with YOUTUBE_PRIVACY_STATUS=public. run_daily_plan.py forces privacy_status=public for --batch runs and validates the committed public approval (no_private_preview_required=true). PUBLISH_ENABLED=false only disables generic adapters; it does not disable this dedicated public uploader. The required autopilot/engine/animation-production-approval.json is absent, so the animation-production gate is also unsatisfied. Keep this slot blocked until the scheduled route is changed and verified private-only and the animation approval gate is valid.",
+      "story_type": "music_technology",
+      "topic": "Steinberg's free Chromaspheres turns imported user samples into playable sounds through four synthesis engines and 30 sound-shaping modes.",
+      "core_claim": "Steinberg's free Chromaspheres turns user samples into playable instruments through four synthesis engines and 30 sound-shaping modes.",
+      "title": "Turn One Sample Into a Playable Instrument",
+      "hook": "Can one recording become a playable instrument now?",
+      "description": "Steinberg's free Chromaspheres accepts audio samples and reshapes them through wavetable, granular, spectral and sample-based synthesis. Production Expert and Synthtopia independently report the sample-to-instrument workflow and playable sound transformations. A Violin Prince demonstration would use an approved CC0 violin sample, clearly labelled as sample-based rather than a live creator performance.",
       "hashtags": [
-        "#HansZimmer",
-        "#RufusDuSol",
-        "#MusicArrangement",
+        "#MusicProduction",
+        "#SoundDesign",
+        "#Chromaspheres",
         "#ViolinPrince"
       ],
       "tags": [
-        "Hans Zimmer",
-        "RÜFÜS DU SOL",
-        "Innerbloom XI",
-        "orchestral arrangement",
-        "electronic music",
+        "Steinberg",
+        "Chromaspheres",
+        "HALion Sonic",
+        "sample-based synthesis",
+        "wavetable synthesis",
+        "granular synthesis",
+        "spectral synthesis",
         "music production",
         "sound design",
         "Violin Prince"
       ],
-      "narrative_style": "cinematic_story",
-      "cover_payoff": "Compose a new violin phrase that begins as a restrained repeating pulse, then gains original string counterlines and percussion-like accents. Do not quote, imitate or sample Innerbloom, its vocal or its melody.",
-      "narration_script": "Can an electronic classic become orchestral? Variety says Zimmer joins RÜFÜS DU SOL to reimagine Innerbloom. DJ Mag describes a nine-minute orchestral arrangement retaining the original vocals. The release marks exactly the song's eleventh anniversary.",
+      "narrative_style": "documentary",
+      "cover_payoff": "Use a short approved CC0 violin sample as the source. Demonstrate several distinct transformations, then finish with a new two-bar violin motif. Label the audio as a sample-based demonstration; never present it as a live creator take.",
+      "narration_script": "Can one recording become a playable instrument now? Production Expert reports Chromaspheres turns audio samples into instruments. Synthtopia says imported samples become playable textures and rhythmic material. Your own samples can become new instruments, too.",
       "narration_evidence": [
         {
           "sentence_number": 2,
           "source_id": "S001",
-          "quote": "Australia’s RÜFÜS DU SOL have teamed with legendary composer Hans Zimmer for a reimagining of their classic track, “Innerbloom”."
+          "quote": "turns any sample dropped onto it into a playable sound"
         },
         {
           "sentence_number": 3,
           "source_id": "S002",
-          "quote": "The nine-minute orchestral arrangement transforms the Australian trio’s emotive electronic classic into a cinematic composition, while retaining the original vocals from Tyrone Lindqvist."
+          "quote": "transforms imported audio into playable sounds, textures and rhythmic material"
         },
         {
           "sentence_number": 4,
           "source_id": "S001",
-          "quote": "The reimagined version, “Innerbloom XI”, comes out exactly on the 11th anniversary of the original song’s release, which featured on their second studio album, Bloom."
+          "quote": "build new source material from their own recordings"
         }
       ],
       "sources": [
         {
           "source_id": "S001",
-          "title": "Hans Zimmer Joins Forces With RÜFÜS DU SOL For ‘Innerbloom’ Reimagining",
-          "url": "https://au.variety.com/2026/music/news/hans-zimmer-rufus-du-sol-innerbloom-reimagining-42774/",
-          "publisher_domain": "au.variety.com",
-          "date": "2026-11-20"
+          "title": "Steinberg's Free Chromaspheres Builds Synths From Your Samples",
+          "url": "https://www.production-expert.com/production-expert-1/steinbergs-free-chromaspheres-builds-synths-from-your-samples",
+          "publisher_domain": "production-expert.com",
+          "publisher_name": "Production Expert",
+          "date": "2026-11-19"
         },
         {
           "source_id": "S002",
-          "title": "Listen to Hans Zimmer’s rework of RÜFÜS DU SOL’s ‘Innerbloom’",
-          "url": "https://djmag.asia/news/listen-hans-zimmers-rework-of-rufus-du-sols-innerbloom",
-          "publisher_domain": "djmag.asia",
-          "date": "2026-11-20"
+          "title": "Free Steinberg Chromaspheres Turns Your Samples Into Wavetable, Granular And Spectral Sounds",
+          "url": "https://www.synthtopia.com/content/2026/11/21/free-steinberg-chromaspheres-turns-your-samples-into-wavetable-granular-and-spectral-sounds/",
+          "publisher_domain": "synthtopia.com",
+          "publisher_name": "Synthtopia",
+          "date": "2026-11-21"
         }
       ],
       "timeline": [],
       "scenes": [
         {
-          "id": "electronic-pulse",
-          "title": "The original electronic shape",
-          "caption": "A PATIENT ELECTRONIC BUILD",
-          "image_prompt": "Vertical 9:16 original 2D editorial illustration of a single abstract electronic pulse moving through a dark open sound space, with a restrained repeating wave and one glowing central line. No source-song notation, album art, artist likeness, logos or text. Premium illustrated linework and balanced negative space.",
-          "visual_mode": "waveform",
+          "id": "sample-to-instrument",
+          "title": "A sample enters the instrument",
+          "caption": "ONE SAMPLE, MANY POSSIBILITIES",
+          "image_prompt": "Vertical 9:16 premium 2D editorial illustration: an original violin sample represented by a clean waveform travels into a stylised sound-design instrument, then emerges as a playable tone ribbon. Show a believable amber-walnut violin silhouette with correct body, bridge, neck, fingerboard, strings and bow proportions. Midnight navy background, muted teal signal path, antique-gold accents, warm ivory labels rendered later by the editor. No product UI, logos, text, stock imagery or copied artwork.",
+          "visual_mode": "macro_illustration",
+          "graphic_label": "THE HOOK",
+          "graphic_detail": "An original violin sample enters a sound-design instrument.",
+          "graphic_data": {
+            "type": "process_flow",
+            "title": "SAMPLE TO INSTRUMENT",
+            "items": [
+              "Load an audio sample",
+              "Choose a synthesis engine",
+              "Play a reshaped sound"
+            ]
+          },
           "narration_sentence_indexes": [
             0
           ]
         },
         {
-          "id": "orchestral-reframe",
-          "title": "The orchestral reimagining",
-          "caption": "STRINGS EXPAND THE TEXTURE",
-          "image_prompt": "Vertical 9:16 clean 2D comparison of one abstract musical pulse expanding into layered original string shapes, horn-like arcs and soft percussion circles. Retain the same central pulse while showing richer orchestral texture. No existing melody, vocals, sheet music, logos or artist likeness. Use clear visual hierarchy and premium editorial illustration.",
+          "id": "four-engine-options",
+          "title": "Four ways to reshape the sample",
+          "caption": "FOUR SYNTHESIS ENGINE OPTIONS",
+          "image_prompt": "Vertical 9:16 clean editorial 2D comparison graphic with four parallel animated lanes: wavetable scanning, granular particles, spectral stretching and recognisable sample playback. Each lane begins from the same small source waveform and ends with a distinct abstract sound shape. Make the lanes clearly parallel alternatives, not a sequential chain. Midnight navy, muted teal, antique gold and warm ivory. No readable software interface, logos or borrowed audio imagery.",
           "visual_mode": "comparison",
+          "graphic_label": "THE KEY DETAIL",
+          "graphic_detail": "Wavetable, granular, spectral and sample-based engines reshape imported audio.",
+          "graphic_data": {
+            "type": "process_flow",
+            "title": "FOUR ENGINE PATHS",
+            "items": [
+              "Wavetable scan",
+              "Granular grains",
+              "Spectral stretch",
+              "Sample playback"
+            ]
+          },
           "narration_sentence_indexes": [
             1,
             2
           ]
         },
         {
-          "id": "violin-payoff",
-          "title": "The Violin Prince arrangement",
-          "caption": "KEEP THE PULSE, EXPAND THE COLOURS",
-          "image_prompt": "Vertical 9:16 symbolic Violin Prince studio scene with complete amber-walnut violin and bow, non-identifiable playing hands, and an original musical ribbon growing from a simple pulse into layered string-like arcs. No Innerbloom motif, recording, lyrics, artist likeness or album art. Premium conceptual illustration.",
+          "id": "original-violin-payoff",
+          "title": "A new sample-based violin phrase",
+          "caption": "A NEW TWO-BAR VIOLIN TEXTURE",
+          "image_prompt": "Vertical 9:16 symbolic Violin Prince musical payoff: a complete amber-walnut violin and bow with non-identifiable hands, correct instrument geometry and clear string/bow contact. Four original sound ribbons converge into a short new violin motif. The image must read as an illustration of a sample-based demonstration, not a photograph or claim of a live creator take. Midnight navy, muted teal, antique gold and warm ivory. No logos, text or copied melody notation.",
           "visual_mode": "cover_performance",
+          "graphic_label": "THE PAYOFF",
+          "graphic_detail": "An original CC0 sample becomes a new violin texture.",
           "narration_sentence_indexes": [
             3
           ]
         }
       ],
       "performance_feedback": {
-        "sample_window": "No mature Violin Prince analytics sample exists for this newly introduced story format.",
+        "sample_window": "Metricool connected YouTube data, 2026-10-23 to 2026-11-22: 1,877 channel-level views across 27 returned daily view rows; 517 subscribers on 2026-11-20 and 2026-11-21. Three recent uploads reviewed; per-video view/retention fields were null.",
         "sample_count": 0,
-        "confidence": "Editorial selection is based on two independent publisher articles; no measured audience-performance comparison or hands-on performance claim is made.",
+        "confidence": "Low for ranking content formats: no usable per-video views, retention fields or country rows were returned. The three recent uploads are a repertoire observation, not proof of audience preference.",
         "strengths_to_preserve": [
-          "Connect a current international music story to one clear musical idea through an original violin-led example."
+          "Keep the violin-first channel identity and an original musical payoff; the recent upload list contains three Kal Ho Naa Ho violin uploads, but no preference inference is made."
         ],
-        "one_change_to_test": "Explain the arrangement change through texture and orchestration, not imitation of the original song; keep the violin payoff fully original.",
-        "measurement_for_next_upload": "After publication, compare 24-hour and seven-day views, engaged views, average view duration, average percentage viewed, stayed-to-watch, likes, comments and shares."
+        "one_change_to_test": "Use one clear first-second curiosity hook, one source-backed visual explanation and a distinct original violin payoff.",
+        "measurement_for_next_upload": "Capture 24-hour and seven-day views, engaged views, average view duration, average percentage viewed, stayed-to-watch, likes, comments, shares, traffic sources and country data if available."
       },
       "narration_asr_hotwords": [
-        "RÜFÜS DU SOL",
-        "Hans Zimmer",
-        "Innerbloom XI",
-        "Bleeding Fingers",
-        "orchestral arrangement"
-      ],
-      "publish_metadata": {
-        "title": "Hans Zimmer Reimagines RÜFÜS DU SOL's 'Innerbloom'",
-        "description": "A sourced arrangement breakdown of Innerbloom XI: Variety reports the RÜFÜS DU SOL and Hans Zimmer collaboration, while DJ Mag describes its nine-minute orchestral treatment and retained original vocals. The Violin Prince payoff uses a newly composed, unrelated motif to demonstrate how orchestral layers change texture without borrowing the source melody or recording.",
-        "tags": [
-          "Hans Zimmer",
-          "RÜFÜS DU SOL",
-          "Innerbloom XI",
-          "orchestral arrangement",
-          "electronic music",
-          "music production",
-          "sound design",
-          "Violin Prince"
-        ],
-        "category_id": "10",
-        "default_language": "en",
-        "privacy_status": "public",
-        "made_for_kids": false
-      },
-      "one_change_to_test": "Explain the arrangement change through texture and orchestration, not imitation of the original song; keep the violin payoff fully original."
+        "Chromaspheres",
+        "HALion",
+        "wavetable",
+        "granular",
+        "spectral",
+        "sample-based"
+      ]
     },
     {
       "production_date": "2026-11-23",
       "slot_id": "melody-stories",
-      "slot_status": "ready",
+      "slot_status": "blocked",
+      "blocked_reason": "GLOBAL SAFETY HOLD: main's scheduled route is public, not private-preview-only. The workflow selects a public-ready batch item and invokes autopilot/engine/upload_public_short_uploadpost.py with YOUTUBE_PRIVACY_STATUS=public. run_daily_plan.py forces privacy_status=public for --batch runs and validates the committed public approval (no_private_preview_required=true). PUBLISH_ENABLED=false only disables generic adapters; it does not disable this dedicated public uploader. The required autopilot/engine/animation-production-approval.json is absent, so the animation-production gate is also unsatisfied. Keep this slot blocked until the scheduled route is changed and verified private-only and the animation approval gate is valid.",
       "story_type": "melody_and_composition",
-      "topic": "Tems releases African Love Story as the lead single from the Children of Blood and Bone soundtrack while serving as its executive music producer and curator.",
-      "core_claim": "Tems released African Love Story as the lead single from the Children of Blood and Bone soundtrack and serves as its executive music producer, with Burna Boy as executive music consultant.",
-      "title": "Tems Launches 'African Love Story' for a Film Soundtrack",
-      "hook": "Can a song introduce a film's world?",
-      "description": "A source-checked look at Tems' African Love Story, the lead single from the Children of Blood and Bone soundtrack, and her role as executive music producer. The Violin Prince musical payoff will be a newly composed, unrelated motif suggesting a fictional world; no soundtrack melody, recording, lyrics, film artwork or character likeness is used.",
+      "topic": "Tems releases African Love Story as the lead single from Children of Blood and Bone while serving as the soundtrack's executive music producer and curator.",
+      "core_claim": "Tems's African Love Story is the lead single from Children of Blood and Bone, and she serves as the soundtrack's executive music producer and curator.",
+      "title": "Tems Leads the Sound of Children of Blood and Bone",
+      "hook": "Can a song introduce an entire film world?",
+      "description": "Tems released African Love Story as the lead single from the Children of Blood and Bone soundtrack. She also serves as its executive music producer and curator. A Violin Prince payoff would use a newly composed, unrelated violin theme; no soundtrack audio, lyrics, film stills or artist likenesses would be used.",
       "hashtags": [
         "#Tems",
         "#AfricanLoveStory",
@@ -290,37 +209,39 @@
         "African Love Story",
         "Children of Blood and Bone",
         "film soundtrack",
-        "Burna Boy",
         "Afrobeats",
+        "Nigerian music",
+        "soundtrack curation",
         "music composition",
         "Violin Prince"
       ],
-      "narrative_style": "documentary",
-      "cover_payoff": "Compose a new, unrelated motif that moves from an intimate phrase to a wider call-and-response texture, suggesting a fictional world. Do not imitate Tems' tune or use any source soundtrack audio or lyrics.",
-      "narration_script": "Can a song introduce a film's world? Stereogum says Tems executive-produces its soundtrack and released the lead single. StupidDope confirms African Love Story arrived through RCA November twentieth. Burna Boy is its executive music consultant.",
+      "narrative_style": "cinematic_story",
+      "cover_payoff": "Compose a new original violin theme that begins with an intimate phrase and expands into a call-and-response texture. Do not imitate or sample Tems's melody, soundtrack recordings or lyrics.",
+      "narration_script": "Can a song introduce an entire film world? Stereogum identifies Tems as the soundtrack's executive music producer. StupidDope names her new song the film's lead single. She also helps shape the wider film soundtrack, too.",
       "narration_evidence": [
         {
           "sentence_number": 2,
           "source_id": "S001",
-          "quote": "It'll also have a soundtrack executive produced by the Nigerian star Tems, and her first single is out today."
+          "quote": "She's the executive music producer of Children Of Blood And Bone"
         },
         {
           "sentence_number": 3,
           "source_id": "S002",
-          "quote": "Tems has released African Love Story, the lead single from Children of Blood and Bone (Original Motion Picture Soundtrack), out now on November 20, 2026, via RCA Records."
+          "quote": "Tems has released African Love Story, the lead single from Children of Blood and Bone"
         },
         {
           "sentence_number": 4,
           "source_id": "S002",
-          "quote": "Tems wrote and performs the song, and she also serves as the soundtrack executive music producer and curator, with Burna Boy as executive music consultant."
+          "quote": "she also serves as the soundtrack executive music producer and curator"
         }
       ],
       "sources": [
         {
           "source_id": "S001",
-          "title": "Tems Shares New Single “African Love Story”: Listen",
+          "title": "Tems – African Love Story",
           "url": "https://stereogum.com/2518836/tems-african-love-story/music",
           "publisher_domain": "stereogum.com",
+          "publisher_name": "Stereogum",
           "date": "2026-11-20"
         },
         {
@@ -328,52 +249,59 @@
           "title": "Tems ‘African Love Story’: Lead Single From Children of Blood and Bone Is Out Now",
           "url": "https://stupiddope.com/2026/11/tems-african-love-story-lead-single-from-children-of-blood-and-bone-is-out-now/",
           "publisher_domain": "stupiddope.com",
+          "publisher_name": "stupidDOPE",
           "date": "2026-11-20"
         }
       ],
       "timeline": [],
       "scenes": [
         {
-          "id": "film-music-world",
+          "id": "song-opens-world",
           "title": "A song introduces a world",
           "caption": "THE FIRST MUSICAL IMPRESSION",
-          "image_prompt": "Vertical 9:16 original 2D editorial illustration of a fictional landscape emerging from a single abstract music ribbon, suggesting how a soundtrack can introduce a world. No movie stills, actors, characters, official artwork, lyrics or logos. Use elegant original shapes and a premium illustrated finish.",
-          "visual_mode": "melody_map",
+          "image_prompt": "Vertical 9:16 original 2D editorial illustration of a fictional landscape emerging from one flowing musical ribbon, suggesting how a lead single can introduce a story world. No film stills, actors, characters, official artwork, lyrics or logos. Midnight navy, muted teal, antique gold and warm ivory, with layered painted forms and clear negative space.",
+          "visual_mode": "macro_illustration",
+          "graphic_label": "THE HOOK",
+          "graphic_detail": "A lead single can introduce a wider fictional world.",
           "narration_sentence_indexes": [
             0
           ]
         },
         {
-          "id": "soundtrack-lead",
-          "title": "The lead single and soundtrack",
-          "caption": "ONE VOICE, A WIDER MUSICAL WORLD",
-          "image_prompt": "Vertical 9:16 premium 2D conceptual comparison: one clear central musical motif branches into several distinct abstract sound textures, representing a lead single within a larger ensemble soundtrack. No real melody, album cover, artist likeness, film character or text. Keep the composition calm and readable.",
+          "id": "lead-single-soundtrack",
+          "title": "Lead single and soundtrack curation",
+          "caption": "ONE SINGLE, A WIDER SOUNDTRACK",
+          "image_prompt": "Vertical 9:16 premium 2D conceptual comparison: one central original musical motif branches into several distinct abstract sound textures, representing a lead single within a wider soundtrack. Keep the branches balanced and readable. No real melody, album cover, artist likeness, film character, logo or text. Midnight navy, muted teal, antique gold and warm ivory.",
           "visual_mode": "comparison",
+          "graphic_label": "THE KEY DETAIL",
+          "graphic_detail": "Tems is both lead artist and soundtrack executive music producer.",
           "narration_sentence_indexes": [
             1,
             2
           ]
         },
         {
-          "id": "violin-prince-theme",
+          "id": "violin-prince-original-theme",
           "title": "An original Violin Prince theme",
           "caption": "A NEW THEME FOR AN IMAGINED WORLD",
-          "image_prompt": "Vertical 9:16 symbolic Violin Prince studio payoff: a complete amber-walnut violin and bow with non-identifiable hands, playing a new original motif that expands into a soft constellation of musical shapes. No Tems likeness, soundtrack melody, recording, film artwork, lyrics or logos.",
+          "image_prompt": "Vertical 9:16 symbolic Violin Prince studio payoff: a complete amber-walnut violin and bow with non-identifiable hands, correct bridge, strings, fingerboard and bow geometry. A new original violin motif expands into a soft constellation of musical shapes. No Tems likeness, soundtrack melody, recording, film artwork, lyrics or logos. Midnight navy, muted teal, antique gold and warm ivory.",
           "visual_mode": "cover_performance",
+          "graphic_label": "THE PAYOFF",
+          "graphic_detail": "A new, unrelated violin theme closes the story.",
           "narration_sentence_indexes": [
             3
           ]
         }
       ],
       "performance_feedback": {
-        "sample_window": "No mature Violin Prince analytics sample exists for this newly introduced story format.",
+        "sample_window": "Metricool connected YouTube data, 2026-10-23 to 2026-11-22: 1,877 channel-level views across 27 returned daily view rows; 517 subscribers on 2026-11-20 and 2026-11-21. Three recent uploads reviewed; per-video view/retention fields were null.",
         "sample_count": 0,
-        "confidence": "Editorial selection is based on two independent publisher articles; no measured audience-performance comparison or hands-on performance claim is made.",
+        "confidence": "Low for ranking content formats: no usable per-video views, retention fields or country rows were returned. The three recent uploads are a repertoire observation, not proof of audience preference.",
         "strengths_to_preserve": [
-          "Connect a current international music story to one clear musical idea through an original violin-led example."
+          "Keep the violin-first channel identity and an original musical payoff; the recent upload list contains three Kal Ho Naa Ho violin uploads, but no preference inference is made."
         ],
-        "one_change_to_test": "Make the producer and consultant roles clear without overloading the story; use a fully original Violin Prince motif rather than the soundtrack music.",
-        "measurement_for_next_upload": "After publication, compare 24-hour and seven-day views, engaged views, average view duration, average percentage viewed, stayed-to-watch, likes, comments and shares."
+        "one_change_to_test": "Use one clear first-second curiosity hook, one source-backed visual explanation and a distinct original violin payoff.",
+        "measurement_for_next_upload": "Capture 24-hour and seven-day views, engaged views, average view duration, average percentage viewed, stayed-to-watch, likes, comments, shares, traffic sources and country data if available."
       },
       "narration_asr_hotwords": [
         "Tems",
@@ -381,32 +309,14 @@
         "Children of Blood and Bone",
         "Burna Boy",
         "RCA Records"
-      ],
-      "publish_metadata": {
-        "title": "Tems Launches 'African Love Story' for a Film Soundtrack",
-        "description": "A source-checked look at Tems' African Love Story, the lead single from the Children of Blood and Bone soundtrack, and her role as executive music producer. The Violin Prince musical payoff will be a newly composed, unrelated motif suggesting a fictional world; no soundtrack melody, recording, lyrics, film artwork or character likeness is used.",
-        "tags": [
-          "Tems",
-          "African Love Story",
-          "Children of Blood and Bone",
-          "film soundtrack",
-          "Burna Boy",
-          "Afrobeats",
-          "music composition",
-          "Violin Prince"
-        ],
-        "category_id": "10",
-        "default_language": "en",
-        "privacy_status": "public",
-        "made_for_kids": false
-      },
-      "one_change_to_test": "Make the producer and consultant roles clear without overloading the story; use a fully original Violin Prince motif rather than the soundtrack music."
+      ]
     },
     {
       "production_date": "2026-11-23",
       "slot_id": "real-performance",
       "slot_status": "blocked",
-      "blocked_reason": "No approved creator-recorded violin performance clip is available in the production assets for this batch. This slot remains blocked rather than presenting generated imagery as a real Violin Prince performance."
+      "topic": "Creator-recorded violin performance is required; no approved clip is accessible to the unattended runner.",
+      "blocked_reason": "No approved creator-recorded violin clip is accessible to the runner. No sample-based technique explainer was selected because no qualifying fresh independent source pair and accepted creative-gate route were verified. Generated artwork or synthetic/sample audio must not be presented as a live Violin Prince performance. GLOBAL SAFETY HOLD: main's scheduled route is public, not private-preview-only. The workflow selects a public-ready batch item and invokes autopilot/engine/upload_public_short_uploadpost.py with YOUTUBE_PRIVACY_STATUS=public. run_daily_plan.py forces privacy_status=public for --batch runs and validates the committed public approval (no_private_preview_required=true). PUBLISH_ENABLED=false only disables generic adapters; it does not disable this dedicated public uploader. The required autopilot/engine/animation-production-approval.json is absent, so the animation-production gate is also unsatisfied. Keep this slot blocked until the scheduled route is changed and verified private-only and the animation approval gate is valid."
     }
   ]
 }
