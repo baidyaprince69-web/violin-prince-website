@@ -311,7 +311,6 @@ def _build_preserved_composite_base(
     bundle_dir: Path,
     *,
     bow_canvas_alpha: np.ndarray,
-    character: dict[str, Any],
     finger_manifest_path: Path | None,
 ) -> dict[str, Any]:
     """Build an intact full-body safety plate while modular limb masks are reworked.
@@ -337,24 +336,10 @@ def _build_preserved_composite_base(
     if int(bow_pixels.sum()) < 40:
         raise ManualReviewRequired("The bow mask is too small to prepare a complete-body plate.")
 
-    # Preserve the source bow-grip hand above the independently animated bow.
-    # The hand layer is an exact crop of the supplied performance illustration.
-    hand_layer = next(
-        (layer for layer in character.get("layers", []) if layer.get("role") == "left_hand"),
-        None,
-    )
-    hand_protect = np.zeros((height, width), dtype=bool)
-    if hand_layer:
-        hand_path = bundle_dir / str(hand_layer["src"])
-        with Image.open(hand_path) as opened:
-            hand_alpha = np.asarray(opened.convert("RGBA").getchannel("A"), dtype=np.uint8)
-        hx, hy = int(hand_layer["x"]), int(hand_layer["y"])
-        h, w = hand_alpha.shape
-        hand_protect[hy:hy + h, hx:hx + w] = hand_alpha > 12
-    bow_clear = bow_pixels & ~hand_protect
-    # A one-pixel edge expansion prevents a dark source outline from remaining
-    # behind the moving bow. The authored grip hand is kept intact.
-    bow_clear = _morph(bow_clear, 1, "dilate") & ~hand_protect
+    # Remove the bow from the entire source, including pixels crossing the
+    # grip. The original left_hand cutout is composited above the new bow prop
+    # in the renderer, restoring the hand in front of the moving bow.
+    bow_clear = _morph(bow_pixels, 1, "dilate")
     rgb = rgba[:, :, :3]
     repaired_rgb = cv2.inpaint(
         rgb,
@@ -486,7 +471,6 @@ def extend_full_body_character(
         source,
         bundle,
         bow_canvas_alpha=prop_masks["bow"],
-        character=character,
         finger_manifest_path=finger_path,
     )
     character["base_art"] = composite_base
