@@ -79,7 +79,10 @@ jobs:
             --bundle work/full-body-rig/bundle \
             --prop-dir autopilot/engine/assets/characters/violin-prince-performance \
             --instrument-manifest autopilot/engine/assets/characters/violin-prince-performance/instrument-props.json \
-            --finger-manifest autopilot/engine/assets/characters/violin-prince-performance/finger-regions.json
+            --finger-manifest autopilot/engine/assets/characters/violin-prince-performance/finger-regions.json \
+            --rigging-sheet autopilot/engine/assets/characters/violin-prince-performance/reference-sheets/Gemini_Generated_Image_7xpc647xpc647xpc.png \
+            --expression-sheet autopilot/engine/assets/characters/violin-prince-performance/reference-sheets/four-core-expressions.jpeg \
+            --head-angle-sheet autopilot/engine/assets/characters/violin-prince-performance/reference-sheets/multi-angle-heads-facial-parts.jpeg
 
       - name: Verify instrument overlays preserve all body plates
         run: |
@@ -198,6 +201,8 @@ jobs:
             work/full-body-rig/full-body-violin-performance.mp4
             work/full-body-rig/full-body-performance-contact-sheet.jpg
             work/full-body-rig/bundle/full-body-performance-report.json
+            work/full-body-rig/bundle/reference-sheets-report.json
+            work/full-body-rig/bundle/reference-parts-contact-sheet.png
             work/full-body-rig/bundle/separation-report.json
             work/full-body-rig/composition/motion-report.json
             work/full-body-rig/bundle/separation-preview.png
