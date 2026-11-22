@@ -457,8 +457,8 @@ def _decontaminate_edge_matte_rgb(
     minimum_brightness: int = 105,
     maximum_channel_spread: int = 65,
     minimum_interior_contrast: int = 24,
-    edge_band_radius: float = 3.2,
-    sample_radius: int = 4,
+    edge_band_radius: float = 4.2,
+    sample_radius: int = 5,
 ) -> tuple[Image.Image, dict[str, Any]]:
     """Remove pale matte spill several pixels inside the silhouette boundary.
 
@@ -1152,8 +1152,8 @@ def extend_full_body_character(
             "attach_to": props[prop_id]["attach_to"],
         }
 
-    # Recolour inherited neutral backdrop spill only at the outer source edge.
-    # Instrument pixels are protected from this pass; alpha and limb masks stay intact.
+    # Recolour inherited neutral backdrop spill through a narrow distance band.
+    # Instrument pixels are protected; alpha and silhouette geometry stay intact.
     source, edge_decontamination = _decontaminate_edge_matte_rgb(
         source,
         protected_masks=tuple(prop_masks.values()),
