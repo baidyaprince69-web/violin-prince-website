@@ -119,8 +119,18 @@ class ReferenceSheetRigTests(unittest.TestCase):
                 "front", "three_quarter", "profile_right", "profile_left"
             })
             self.assertGreaterEqual(report["reference_part_count"], 12)
-            self.assertEqual(report["reference_parts_mapping"], "unassigned_review_required")
+            self.assertEqual(report["reference_parts_mapping"], "curated_role_catalogue_review_only")
             self.assertTrue((root / "reference-parts-contact-sheet.png").is_file())
+            mapping = json.loads((root / "reference-part-map.json").read_text(encoding="utf-8"))
+            self.assertEqual(len(mapping["parts"]), report["reference_part_count"])
+            self.assertFalse(mapping["automatic_body_part_replacement"])
+            self.assertTrue(all(
+                part["use_policy"] == "reference_only_until_manual_alignment_review"
+                for part in mapping["parts"]
+            ))
+            self.assertEqual(mapping["parts"][0]["reference_role"], "head_portrait")
+            self.assertEqual(mapping["parts"][0]["suggested_rig_role"], "head")
+            self.assertEqual(mapping["parts"][2]["reference_role"], "jacket_torso")
             for asset in list(character["head_variants"].values()) + list(character["head_angles"].values()):
                 image = Image.open(root / asset["src"]).convert("RGBA")
                 self.assertEqual(image.getchannel("A").getextrema()[0], 0)
