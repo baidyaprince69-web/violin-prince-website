@@ -20,6 +20,58 @@ from character_rig import validate_character_spec
 EXPRESSION_ORDER = ("happy", "focused", "surprised", "neutral")
 HEAD_ANGLE_ORDER = ("front", "three_quarter", "profile_right", "profile_left")
 
+# The rigging sheet is a labelled visual catalogue, not a pixel-aligned rig.
+# These semantic labels were assigned from the contact-sheet order; they
+# describe what each crop depicts and do not cause automatic layer replacement.
+REFERENCE_PART_ROLE_MAP = {
+    1: ("head_portrait", "head", "high"),
+    2: ("hair_shape", "head", "high"),
+    3: ("jacket_torso", "torso", "high"),
+    4: ("sleeve_panel", "arm_costume_reference", "medium"),
+    5: ("sleeve_panel", "arm_costume_reference", "medium"),
+    6: ("sleeve_panel", "arm_costume_reference", "medium"),
+    7: ("eye_detail", "face", "high"),
+    8: ("eye_detail", "face", "high"),
+    9: ("nose_detail", "face", "high"),
+    10: ("eye_detail", "face", "high"),
+    11: ("eye_detail", "face", "high"),
+    12: ("jacket_torso_variant", "torso", "high"),
+    13: ("nose_detail", "face", "high"),
+    14: ("trouser_lower_leg", "leg_costume_reference", "medium"),
+    15: ("trouser_lower_leg", "leg_costume_reference", "medium"),
+    16: ("trouser_lower_leg", "leg_costume_reference", "medium"),
+    17: ("hand_pose", "hand_pose_reference", "high"),
+    18: ("hand_pose", "hand_pose_reference", "high"),
+    19: ("hand_pose", "hand_pose_reference", "high"),
+    20: ("hand_pose", "hand_pose_reference", "high"),
+    21: ("hand_pose", "hand_pose_reference", "high"),
+    22: ("hand_pose", "hand_pose_reference", "high"),
+    23: ("hand_pose", "hand_pose_reference", "high"),
+    24: ("trouser_waist", "pelvis_costume_reference", "high"),
+    25: ("violin_prop", "violin", "high"),
+    26: ("bow_prop", "bow", "high"),
+    27: ("trouser_thigh", "thigh_costume_reference", "medium"),
+    28: ("trouser_thigh", "thigh_costume_reference", "medium"),
+    29: ("trouser_waist_variant", "pelvis_costume_reference", "high"),
+    30: ("trouser_leg", "leg_costume_reference", "medium"),
+    31: ("trouser_leg", "leg_costume_reference", "medium"),
+    32: ("shoe", "foot_costume_reference", "high"),
+    33: ("shoe", "foot_costume_reference", "high"),
+}
+
+
+def _reference_part_mapping(part_number: int) -> dict[str, str]:
+    reference_role, suggested_rig_role, confidence = REFERENCE_PART_ROLE_MAP.get(
+        int(part_number),
+        ("unclassified_reference_part", "manual_review", "low"),
+    )
+    return {
+        "reference_role": reference_role,
+        "suggested_rig_role": suggested_rig_role,
+        "mapping_confidence": confidence,
+        "use_policy": "reference_only_until_manual_alignment_review",
+    }
+
 
 class ReferenceSheetError(ValueError):
     """Raised when a reference sheet cannot be separated reliably."""
@@ -170,8 +222,13 @@ def _write_component_contact_sheet(
         part.thumbnail((cell_width - 16, cell_height - 42), Image.Resampling.LANCZOS)
         tile = Image.new("RGBA", part.size, (31, 42, 58, 255))
         tile.alpha_composite(part)
-        sheet.paste(tile.convert("RGB"), (x + (cell_width - part.width) // 2, y + 28))
-        draw.text((x + 8, y + 8), record["part_id"], fill=(245, 238, 224))
+        sheet.paste(tile.convert("RGB"), (x + (cell_width - part.width) // 2, y + 38))
+        draw.text((x + 8, y + 6), record["part_id"], fill=(245, 238, 224))
+        draw.text(
+            (x + 8, y + 19),
+            str(record.get("reference_role") or "unclassified"),
+            fill=(160, 190, 210),
+        )
     destination.parent.mkdir(parents=True, exist_ok=True)
     sheet.save(destination, format="PNG", optimize=True)
 
@@ -203,11 +260,13 @@ def build_reference_sheet_rig(
         part_id = f"reference-part-{index:03d}"
         destination = bundle / f"{part_id}.png"
         geometry = _save_component(component, destination)
+        mapping = _reference_part_mapping(index)
         part_records.append({
             "part_id": part_id,
             "path": destination,
             "source_bbox": geometry["bbox"],
             "source_pixel_area": geometry["pixel_area"],
+            **mapping,
         })
     _write_component_contact_sheet(
         part_records, bundle / "reference-parts-contact-sheet.png"
@@ -255,17 +314,46 @@ def build_reference_sheet_rig(
                 "part_id": item["part_id"],
                 "source_bbox": item["source_bbox"],
                 "source_pixel_area": item["source_pixel_area"],
+                "reference_role": item["reference_role"],
+                "suggested_rig_role": item["suggested_rig_role"],
+                "mapping_confidence": item["mapping_confidence"],
+                "use_policy": item["use_policy"],
             }
             for item in part_records
         ],
-        "reference_parts_mapping": "unassigned_review_required",
-        "alignment": "all head plates share the extracted head-and-face anchor bounds",
+        "reference_parts_mapping": "curated_role_catalogue_review_only",
+        "reference_part_mapping_file": "reference-part-map.json",
+        "alignment": "head plates use shared head anchors; modular body assets remain reference-only pending manual joint alignment",
+        "automatic_body_part_replacement": False,
         "magenta_key": "magenta/purple guide pixels removed by hue and saturation; source alpha preserved",
         "visual_review_required": True,
         "publishing": "disabled",
     }
     (bundle / "reference-sheets-report.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    mapping_payload = {
+        "schema_version": 1,
+        "source_sheet": Path(rigging_sheet_path).name,
+        "alignment_policy": "reference_only_until_manual_alignment_review",
+        "automatic_body_part_replacement": False,
+        "parts": [
+            {
+                "part_id": item["part_id"],
+                "src": Path(item["path"]).name,
+                "source_bbox": item["source_bbox"],
+                "source_pixel_area": item["source_pixel_area"],
+                "reference_role": item["reference_role"],
+                "suggested_rig_role": item["suggested_rig_role"],
+                "mapping_confidence": item["mapping_confidence"],
+                "use_policy": item["use_policy"],
+            }
+            for item in part_records
+        ],
+    }
+    (bundle / "reference-part-map.json").write_text(
+        json.dumps(mapping_payload, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
     return report
