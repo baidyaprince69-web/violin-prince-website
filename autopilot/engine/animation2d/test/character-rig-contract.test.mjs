@@ -3,13 +3,13 @@ import assert from "node:assert/strict";
 import { gestureKeyframes } from "../src/contract.mjs";
 
 test("character rig preview gestures resolve to independently animated parts", () => {
-  for (const name of ["wave", "explain", "point_left", "point_right", "open_palms"]) {
+  for (const name of ["wave", "explain", "point_left", "point_right", "open_palms", "idle_breath", "talking", "violin_bow", "walk_cycle", "dance_groove"]) {
     const gesture = gestureKeyframes(name);
     assert.ok(Object.keys(gesture).length > 0, name + " should have keyframes");
     for (const [role, properties] of Object.entries(gesture)) {
       assert.ok(
         role.endsWith("arm") || role.endsWith("forearm") ||
-        role.endsWith("hand") || role === "head",
+        role.endsWith("hand") || role === "head" || role === "torso",
         role + " should be an articulated arm, hand or head layer"
       );
       for (const values of Object.values(properties)) {

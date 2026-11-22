@@ -63,3 +63,41 @@ A character is animated only when all required separated illustration layers are
 ## Development checks
 
 Node.js 22 or later is required. Run npm test, node build.mjs and hyperframes lint. The validation job does not render a production video or publish anything.
+
+
+## Procedural stagecraft and character choreography
+
+A scene can define a `stagecraft` object. The renderer builds a native SVG environment
+from deterministic vector geometry and adds independently animated elements; it does not
+flatten the environment into a picture. Built-in environments are `city_night`,
+`forest_dusk`, `space` and `concert_stage`. Each environment includes multiple animated
+elements (for example traffic trails and haze, leaves and fireflies, comets and orbiting
+bodies, or sweeping spotlights and drifting stage dust).
+
+A scene can add up to 24 moving objects: `orb`, `spark`, `leaf`, `light_streak`,
+`music_note`, `gear`, `ring`, `comet` and `particle`. Each object has an id, normalized
+x/y position, size, color and a supported motion type. All stagecraft objects are required
+to have their own looping transform animation; a missing track fails the build.
+
+Example:
+
+```json
+{
+  "stagecraft": {
+    "environment": "city_night",
+    "objects": [
+      {"id":"music-note","kind":"music_note","x":0.8,"y":0.35,"size":30,"color":"#e8c98f","motion":"float"},
+      {"id":"passing-light","kind":"light_streak","x":0.25,"y":0.82,"size":70,"color":"#66d9d5","motion":"travel_right"}
+    ]
+  }
+}
+```
+
+Character actions support continuous `loop: true` articulation plus `root_motion`
+(`walk_cycle`, `sway`, `hover` or `float`). New articulated presets are `idle_breath`,
+`talking`, `violin_bow`, `walk_cycle` and `dance_groove`. A separate inner motion
+wrapper prevents character travel from overriding the rig's entry and scale transform.
+
+This is procedural 2D animation—not photorealistic AI-generated footage. The animation-only
+production approval gate remains closed until a rendered sample is reviewed and the new
+renderer is connected to the guarded production path.

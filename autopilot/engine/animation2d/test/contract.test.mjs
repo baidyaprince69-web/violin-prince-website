@@ -54,4 +54,7 @@ test("gesture presets include arms and head movement", () => {
   assert.ok(wave.right_forearm);
   assert.ok(gestureKeyframes("nod").head);
   assert.deepEqual(gestureKeyframes("unknown"), {});
+  for (const name of ["idle_breath", "talking", "violin_bow", "walk_cycle", "dance_groove"]) {
+    assert.ok(Object.keys(gestureKeyframes(name)).length >= 2, name + " should animate multiple rig parts");
+  }
 });
