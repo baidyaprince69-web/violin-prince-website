@@ -1,0 +1,101 @@
+name: Violin Prince Motion-first Prototype
+
+on:
+  push:
+    branches:
+      - animation/hyperframes-motion-prototype
+    paths:
+      - "motion-prototype/**"
+      - ".github/workflows/motion-prototype.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "motion-prototype/**"
+      - ".github/workflows/motion-prototype.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: motion-prototype-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    name: Build and render 10-second Motion / HyperFrames preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: motion-prototype
+    steps:
+      - name: Check out prototype branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          ffmpeg -version | head -n 1
+
+      - name: Install pinned JavaScript dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Bundle local fonts and Motion animation code
+        run: npm run build
+
+      - name: Validate the composition contract
+        run: npm test
+
+      - name: Report HyperFrames composition lint
+        run: npx hyperframes lint || true
+
+      - name: Render MP4 with HyperFrames
+        run: npm run render
+
+      - name: Verify encoded MP4
+        run: |
+          ffprobe -v error \
+            -show_entries format=duration \
+            -show_entries stream=codec_type,codec_name,width,height,r_frame_rate \
+            -of json renders/violin-prince-motion-prototype.mp4 > renders/probe.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          probe = json.loads(Path("renders/probe.json").read_text())
+          video = next((s for s in probe["streams"] if s.get("codec_type") == "video"), None)
+          assert video is not None, "MP4 has no video stream"
+          assert video.get("codec_name") == "h264", f"Expected H.264, got {video.get('codec_name')}"
+          assert (video.get("width"), video.get("height")) == (720, 1280), (
+              f"Unexpected dimensions: {video.get('width')}x{video.get('height')}"
+          )
+          assert video.get("r_frame_rate") == "30/1", f"Unexpected frame rate: {video.get('r_frame_rate')}"
+          duration = float(probe["format"]["duration"])
+          assert 9.85 <= duration <= 10.15, f"Expected 10-second video, got {duration:.3f}s"
+          print(f"Verified H.264 vertical MP4: 720x1280, 30fps, {duration:.3f}s")
+          PY
+
+      - name: Create visual contact sheet
+        run: |
+          ffmpeg -y -i renders/violin-prince-motion-prototype.mp4 \
+            -vf "fps=1/2,scale=180:320,tile=5x1:padding=12:margin=12" \
+            -frames:v 1 renders/contact-sheet.png
+
+      - name: Upload rendered preview and evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: violin-prince-motion-prototype-${{ github.run_number }}
+          path: |
+            motion-prototype/renders/violin-prince-motion-prototype.mp4
+            motion-prototype/renders/contact-sheet.png
+            motion-prototype/renders/probe.json
+          if-no-files-found: error
+          retention-days: 14
