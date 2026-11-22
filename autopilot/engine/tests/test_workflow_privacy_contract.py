@@ -18,6 +18,7 @@ class WorkflowPublicationContractTests(unittest.TestCase):
         cls.public_upload_code = (ENGINE / "upload_public_short_uploadpost.py").read_text(encoding="utf-8")
         cls.router_code = (ENGINE / "publisher_router.py").read_text(encoding="utf-8")
         cls.approved_preview_code = (ENGINE / "publish_approved_private_preview.py").read_text(encoding="utf-8")
+        cls.legacy_daily_publisher_code = (ENGINE / "publish_daily_short.py").read_text(encoding="utf-8")
 
     def test_scheduled_ready_slots_upload_private_previews_only(self):
         self.assertIn("group: violin-prince-private-preview-queue", self.autopilot)
@@ -52,6 +53,10 @@ class WorkflowPublicationContractTests(unittest.TestCase):
 
     def test_legacy_approved_preview_publication_script_is_hard_disabled(self):
         self.assertIn("Public YouTube publication is disabled", self.approved_preview_code)
+
+    def test_legacy_direct_daily_publisher_is_hard_disabled(self):
+        self.assertIn("Direct public YouTube publication is disabled", self.legacy_daily_publisher_code)
+        self.assertIn("private-preview-only", self.legacy_daily_publisher_code)
 
     def test_one_off_push_requests_cannot_enable_public_publishing(self):
         self.assertIn("Direct public publishing from this one-off handoff route is disabled", self.autopilot)
