@@ -210,8 +210,9 @@ test("segmented source base keeps twelve independent limb/hand layers and the bo
   const bow = findTrack("playing-violin-prince-prop-bow");
   assert.ok(bow, "the bow attaches to the source-aligned bow hand");
   assert.ok(bow.values.some(value => value !== bow.values[0]));
-  assert.equal(findTrack("playing-violin-prince-prop-violin"), undefined,
-    "the original violin stays embedded in the preserved source base");
+  const violin = findTrack("playing-violin-prince-prop-violin");
+  assert.ok(violin, "the violin remains independently layered between upper arms and forearms");
+  assert.ok(violin.values.some(value => value !== violin.values[0]));
 });
 
 test("modular head expressions and angle plates are separately rendered and frame-seekable", () => {
