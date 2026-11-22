@@ -187,8 +187,9 @@ class DailyPlanEvidenceTests(unittest.TestCase):
     def test_workflow_exposes_four_non_cancelling_six_hour_slots(self):
         workflow_path = ENGINE_DIR.parents[1] / ".github" / "workflows" / "violin-prince-autopilot.yml"
         workflow = workflow_path.read_text(encoding="utf-8")
-        for cron in ('"0 0 * * *"', '"0 6 * * *"', '"0 12 * * *"', '"0 18 * * *"'):
+        for cron in ('"30 5 * * *"', '"30 11 * * *"', '"30 17 * * *"', '"30 23 * * *"'):
             self.assertIn(f"- cron: {cron}", workflow)
+        self.assertEqual(workflow.count('timezone: "Asia/Kolkata"'), 4)
         self.assertIn("select_public_queue.py", workflow)
         self.assertIn("Select the next unused public-ready story from the scheduled date's batch", workflow)
         self.assertIn("group: violin-prince-public-youtube-queue", workflow)

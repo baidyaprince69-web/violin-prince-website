@@ -8,11 +8,15 @@ on:
       - ".autopilot/prepare-request.json"
       - ".autopilot/daily-production-plan.json"
   schedule:
-    # Four six-hour slots, expressed in UTC (the corresponding IST times are 05:30, 11:30, 17:30 and 23:30).
-    - cron: "0 0 * * *"
-    - cron: "0 6 * * *"
-    - cron: "0 12 * * *"
-    - cron: "0 18 * * *"
+    # Four six-hour slots in India time. Minute 30 avoids GitHub's busy top-of-hour window.
+    - cron: "30 5 * * *"
+      timezone: "Asia/Kolkata"
+    - cron: "30 11 * * *"
+      timezone: "Asia/Kolkata"
+    - cron: "30 17 * * *"
+      timezone: "Asia/Kolkata"
+    - cron: "30 23 * * *"
+      timezone: "Asia/Kolkata"
   workflow_dispatch:
     inputs:
       stage:
@@ -117,6 +121,7 @@ jobs:
         id: batch
         env:
           PYTHONPATH: autopilot/engine
+          UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
           SCHEDULED_PRODUCTION_DATE: ${{ steps.schedule_context.outputs.production_date }}
         run: python autopilot/engine/select_public_queue.py --root . --production-date "$SCHEDULED_PRODUCTION_DATE"
 

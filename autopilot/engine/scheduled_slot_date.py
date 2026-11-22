@@ -2,7 +2,7 @@
 """Resolve the intended Asia/Kolkata batch date for a delayed scheduled run.
 
 GitHub's schedule event exposes the cron expression, not the original scheduled
-timestamp. The four cron expressions map to fixed IST slots six hours apart.
+timestamp. The four offset cron expressions map to fixed IST slots six hours apart.
 The nearest preceding slot is therefore unambiguous only while the run is less
 than six hours late. Older/ambiguous runs fail closed instead of choosing a
 different day's batch.
@@ -18,10 +18,10 @@ TIMEZONE = "Asia/Kolkata"
 IST = ZoneInfo(TIMEZONE)
 SLOT_INTERVAL = timedelta(hours=6)
 CRON_TO_IST_SLOT = {
-    "0 0 * * *": time(5, 30),
-    "0 6 * * *": time(11, 30),
-    "0 12 * * *": time(17, 30),
-    "0 18 * * *": time(23, 30),
+    "30 5 * * *": time(5, 30),
+    "30 11 * * *": time(11, 30),
+    "30 17 * * *": time(17, 30),
+    "30 23 * * *": time(23, 30),
 }
 
 

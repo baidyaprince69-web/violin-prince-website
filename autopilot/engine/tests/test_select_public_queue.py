@@ -86,6 +86,52 @@ class ExactProductionDateQueueTests(unittest.TestCase):
                     production_date="2026-11-21",
                 )
 
+    def test_channel_duplicate_is_skipped_before_production(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._write_batch(root, "2026-11-22", "production-tech")
+            existing = {"production & audio tech story for 2026-11-22"}
+
+            result = select_next_public_plan(
+                root,
+                production_date="2026-11-22",
+                existing_titles=existing,
+            )
+
+        self.assertFalse(result["ready"])
+        self.assertEqual(len(result["duplicate_channel_matches"]), 1)
+        self.assertIn("already present", result["blocked_reason"].lower())
+
+    def test_selector_moves_to_next_ready_story_when_first_title_already_exists(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            batch = self._batch("2026-11-22", "production-tech")
+            for plan in batch["plans"]:
+                if plan["slot_id"] == "melody-stories":
+                    plan.update({
+                        "slot_status": "ready",
+                        "title": "Melody Stories story for 2026-11-22",
+                        "narration_script": "A complete four-sentence narration script.",
+                        "publish_metadata": {
+                            "privacy_status": "public",
+                            "title": "Melody Stories story for 2026-11-22",
+                        },
+                    })
+            path = root / ".autopilot" / "daily-batches" / "2026-11-22.json"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(batch), encoding="utf-8")
+            existing = {"production & audio tech story for 2026-11-22"}
+
+            result = select_next_public_plan(
+                root,
+                production_date="2026-11-22",
+                existing_titles=existing,
+            )
+
+        self.assertTrue(result["ready"])
+        self.assertEqual(result["slot_id"], "melody-stories")
+        self.assertEqual(len(result["duplicate_channel_matches"]), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

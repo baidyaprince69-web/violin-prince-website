@@ -12,6 +12,8 @@ import hashlib
 import json
 import os
 import re
+import sys
+import unicodedata
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -24,6 +26,32 @@ TIMEZONE = "Asia/Kolkata"
 
 def _identity(production_date: str, slot_id: str) -> str:
     return re.sub(r"[^A-Za-z0-9_-]+", "-", f"{production_date}-{slot_id}").strip("-")
+
+
+def _normalise_title(value: str) -> str:
+    return re.sub(r"\s+", " ", unicodedata.normalize("NFKC", str(value or ""))).strip().casefold()
+
+
+def _scan_youtube_history(api_key: str) -> tuple[set[str], dict[str, Any]]:
+    """Read the connected channel's complete Upload-Post media history before choosing a story."""
+    if not api_key:
+        raise RuntimeError("UPLOAD_POST_API_KEY is required for the pre-selection YouTube history audit.")
+    import requests
+    from upload_private_preview_uploadpost import (
+        DEFAULT_UPLOAD_POST_USER,
+        _scan_existing_titles,
+    )
+
+    with requests.Session() as session:
+        audit = _scan_existing_titles(
+            session,
+            {"Authorization": "Apikey " + api_key},
+            DEFAULT_UPLOAD_POST_USER,
+        )
+    titles = audit.pop("_normalised_titles", None)
+    if not isinstance(titles, set):
+        raise RuntimeError("The YouTube history audit returned no usable title index.")
+    return titles, audit
 
 
 def _write_outputs(values: dict[str, str]) -> None:
@@ -49,6 +77,7 @@ def select_next_public_plan(
     batches_dir: str = ".autopilot/daily-batches",
     attempts_dir: str = ".autopilot/public-youtube-attempts",
     receipts_dir: str = ".autopilot/public-youtube-receipts",
+    existing_titles: set[str] | None = None,
 ) -> dict[str, Any]:
     """Return the earliest ready, public, unused plan for an exact date or lower bound."""
     root = Path(root).resolve()
@@ -76,6 +105,11 @@ def select_next_public_plan(
 
     candidates: list[dict[str, Any]] = []
     ignored_batches: list[str] = []
+    duplicate_channel_matches: list[str] = []
+    existing_titles = {
+        _normalise_title(value) for value in (existing_titles or set())
+        if _normalise_title(value)
+    }
     checked_batches = 0
 
     for batch_path in sorted(batch_root.glob("????-??-??.json")) if batch_root.is_dir() else []:
@@ -107,6 +141,17 @@ def select_next_public_plan(
             if not isinstance(metadata, dict) or str(metadata.get("privacy_status") or "").lower() != "public":
                 continue
 
+            title = str(metadata.get("title") or plan.get("title") or "").strip()
+            topic = str(plan.get("topic") or "").strip()
+            core_claim = str(plan.get("core_claim") or "").strip()
+            if any(
+                _normalise_title(candidate) in existing_titles
+                for candidate in (title, topic, core_claim)
+                if candidate
+            ):
+                duplicate_channel_matches.append(f"{batch_date}/{slot_id}: {title}")
+                continue
+
             identity = _identity(batch_date, slot_id)
             attempt_path = attempt_root / f"{identity}.json"
             receipt_path = receipt_root / f"{identity}.json"
@@ -126,20 +171,27 @@ def select_next_public_plan(
             })
 
     if not candidates:
+        blocked_reason = (
+            f"No unused, public-ready story exists in the exact {production_date} batch. "
+            "The scheduled run will not fall forward into another production date."
+            if production_date else
+            "No unused, public-ready story exists in today's or any later prepared batch. "
+            "Prepare another source-checked batch to refill the rolling queue."
+        )
+        if duplicate_channel_matches:
+            blocked_reason += (
+                f" {len(duplicate_channel_matches)} candidate title/topic match(es) "
+                "were already present in the connected YouTube channel and were skipped."
+            )
         return {
             "ready": False,
             "slot_status": "blocked",
             "production_date": production_date or "",
-            "blocked_reason": (
-                f"No unused, public-ready story exists in the exact {production_date} batch. "
-                "The scheduled run will not fall forward into another production date."
-                if production_date else
-                "No unused, public-ready story exists in today's or any later prepared batch. "
-                "Prepare another source-checked batch to refill the rolling queue."
-            ),
+            "blocked_reason": blocked_reason,
             "checked_batches": checked_batches,
             "remaining_ready_count": 0,
             "ignored_batches": ignored_batches,
+            "duplicate_channel_matches": duplicate_channel_matches,
         }
 
     chosen = candidates[0]
@@ -151,6 +203,7 @@ def select_next_public_plan(
         "checked_batches": checked_batches,
         "remaining_ready_count": len(candidates),
         "ignored_batches": ignored_batches,
+        "duplicate_channel_matches": duplicate_channel_matches,
     }
 
 
@@ -167,9 +220,23 @@ def main(argv: list[str] | None = None) -> int:
         from datetime import datetime
         after_date = datetime.now(ZoneInfo(TIMEZONE)).date().isoformat()
 
+    try:
+        existing_titles, youtube_history = _scan_youtube_history(
+            os.environ.get("UPLOAD_POST_API_KEY", "").strip()
+        )
+    except Exception as exc:
+        message = "YouTube history audit failed; no story was selected: " + str(exc)[:500]
+        _write_summary("## YouTube history audit blocked\n\n" + message)
+        print(message, file=sys.stderr)
+        return 2
+
     result = select_next_public_plan(
-        args.root, after_date=after_date, production_date=args.production_date
+        args.root,
+        after_date=after_date,
+        production_date=args.production_date,
+        existing_titles=existing_titles,
     )
+    result["youtube_history"] = youtube_history
     outputs = {
         "slot_status": str(result.get("slot_status") or "blocked"),
         "slot_id": str(result.get("slot_id") or ""),
@@ -180,6 +247,9 @@ def main(argv: list[str] | None = None) -> int:
         "blocked_reason": str(result.get("blocked_reason") or ""),
         "queue_remaining": str(result.get("remaining_ready_count") or 0),
         "selected_title": str(result.get("title") or ""),
+        "youtube_history_status": str(youtube_history.get("status") or ""),
+        "youtube_uploads_examined": str(youtube_history.get("uploads_examined") or 0),
+        "youtube_titles_indexed": str(youtube_history.get("title_count") or 0),
     }
     _write_outputs(outputs)
 
@@ -191,13 +261,17 @@ def main(argv: list[str] | None = None) -> int:
             f"- **Batch date:** {result['production_date']}",
             f"- **Content slot:** {result['slot_id']}",
             f"- **Unused ready stories in queue, including this one:** {result['remaining_ready_count']}",
-            "- Blocked stories were skipped; started or uncertain upload attempts are not retried.",
+            f"- **YouTube uploads checked before selection:** {youtube_history['uploads_examined']} across {youtube_history['pages_checked']} page(s)",
+            f"- **Already-uploaded title/topic matches skipped:** {len(result.get('duplicate_channel_matches', []))}",
+            "- The publisher repeats the duplicate audit immediately before upload.",
         ]
     else:
         summary = [
             "## Rolling YouTube queue is empty",
             "",
             f"- {result['blocked_reason']}",
+            f"- YouTube history audit passed: {youtube_history['uploads_examined']} uploads examined.",
+            f"- Already-uploaded title/topic matches skipped: {len(result.get('duplicate_channel_matches', []))}.",
         ]
     if result.get("ignored_batches"):
         summary.extend(["", "### Invalid batches ignored"])
