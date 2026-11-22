@@ -371,6 +371,100 @@ def _restore_person_holes_in_source(
     return Image.fromarray(result, mode="RGBA"), summary
 
 
+def _clean_inherited_edge_matte(
+    source_rgba: Image.Image,
+    *,
+    minimum_brightness: int = 180,
+    maximum_channel_spread: int = 18,
+    exterior_band_px: int = 2,
+    maximum_component_pixels: int = 3,
+) -> tuple[Image.Image, dict[str, Any]]:
+    """Remove tiny neutral matte specks attached to the outside source edge.
+
+    This is deliberately not a silhouette erosion or alpha feather. Only small,
+    nearly-neutral bright components that sit within a narrow band of
+    border-connected transparency are cleared. Interior highlights, warm skin,
+    the existing partial-alpha antialias edge, and larger connected light
+    details remain unchanged.
+    """
+    if not 1 <= int(exterior_band_px) <= 4:
+        raise ValueError("Exterior matte cleanup band must be between one and four pixels.")
+    if not 1 <= int(maximum_component_pixels) <= 12:
+        raise ValueError("Matte speck component limit must be between one and twelve pixels.")
+    if not 0 <= int(minimum_brightness) <= 255:
+        raise ValueError("Matte brightness threshold must be between zero and 255.")
+    if not 0 <= int(maximum_channel_spread) <= 255:
+        raise ValueError("Matte channel-spread threshold must be between zero and 255.")
+
+    rgba = source_rgba.convert("RGBA")
+    pixels = np.asarray(rgba, dtype=np.uint8).copy()
+    rgb, alpha = pixels[:, :, :3], pixels[:, :, 3]
+    height, width = alpha.shape
+
+    # Flood-fill only transparency connected to the canvas border. Enclosed
+    # transparent holes are not treated as exterior and cannot expand cleanup.
+    transparent = Image.fromarray((alpha == 0).astype(np.uint8) * 255, mode="L")
+    padded = Image.new("L", (width + 2, height + 2), 255)
+    padded.paste(transparent, (1, 1))
+    ImageDraw.floodfill(padded, (0, 0), 128, thresh=0)
+    exterior = np.asarray(padded, dtype=np.uint8)[1:-1, 1:-1] == 128
+
+    edge_image = Image.fromarray(exterior.astype(np.uint8) * 255, mode="L")
+    edge_image = edge_image.filter(
+        ImageFilter.MaxFilter(int(exterior_band_px) * 2 + 1)
+    )
+    exterior_edge_band = (
+        (np.asarray(edge_image, dtype=np.uint8) > 0) & (alpha >= 250)
+    )
+
+    minimum = rgb.min(axis=2).astype(np.int16)
+    spread = rgb.max(axis=2).astype(np.int16) - minimum
+    candidate = (
+        exterior_edge_band
+        & (minimum >= int(minimum_brightness))
+        & (spread <= int(maximum_channel_spread))
+    )
+
+    try:
+        import cv2
+    except ImportError as exc:
+        raise AutoRigError(
+            "OpenCV is required for connected-component source-edge matte cleanup."
+        ) from exc
+
+    labels, component_map, stats, _centroids = cv2.connectedComponentsWithStats(
+        candidate.astype(np.uint8), connectivity=8
+    )
+    remove = np.zeros((height, width), dtype=bool)
+    removed_components = 0
+    for component_id in range(1, labels):
+        area = int(stats[component_id, cv2.CC_STAT_AREA])
+        if 0 < area <= int(maximum_component_pixels):
+            remove |= component_map == component_id
+            removed_components += 1
+
+    removed_pixels = int(remove.sum())
+    if removed_pixels:
+        # Clear RGB as well as alpha so resampling cannot pull bright matte
+        # colours back into the transparent texels.
+        pixels[remove] = (0, 0, 0, 0)
+
+    report = {
+        "method": "border_connected_neutral_edge_speck_cleanup",
+        "pixels_removed": removed_pixels,
+        "components_removed": removed_components,
+        "minimum_brightness": int(minimum_brightness),
+        "maximum_channel_spread": int(maximum_channel_spread),
+        "exterior_band_px": int(exterior_band_px),
+        "maximum_component_pixels": int(maximum_component_pixels),
+        "interior_details_preserved": True,
+        "partial_alpha_edge_preserved": True,
+        "source_alpha_changed_only_for_isolated_edge_specks": True,
+        "visual_review_required": True,
+    }
+    return Image.fromarray(pixels, mode="RGBA"), report
+
+
 def _bbox(mask: np.ndarray) -> tuple[int, int, int, int]:
     ys, xs = np.where(mask)
     if len(xs) == 0:
@@ -1302,6 +1396,8 @@ def create_character_bundle(
     preserved_source, preserved_source_report = _restore_person_holes_in_source(
         rgba, image, source_alpha, body_labels, body_conf
     )
+    preserved_source, edge_matte_report = _clean_inherited_edge_matte(preserved_source)
+    preserved_source_report["edge_matte_cleanup"] = edge_matte_report
     preserved_source.save(output_dir / "preserved-full-body-source.png", format="PNG", optimize=True)
     masks, repaired_torso, report, joints = separate_from_parsing(
         image, body_labels, body_conf, detail_labels, detail_conf,
@@ -1415,6 +1511,7 @@ def create_character_bundle(
     report.update({
         "source_transparency_repair": transparency_report,
         "preserved_full_body_source": preserved_source_report,
+        "edge_matte_cleanup": edge_matte_report,
         "character_id": character_id,
         "status": "candidate_ready_for_visual_review",
         "layer_count": len(layers),
