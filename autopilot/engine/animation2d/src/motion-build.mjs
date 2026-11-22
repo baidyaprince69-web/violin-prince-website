@@ -111,7 +111,7 @@ export function buildMusicSynchronizedPerformanceTracks({
   };
 
   const isDownbeat = time => bars.some(value => Math.abs(value - time) < 0.025);
-  const beatDelay = Math.min(0.07, period * 0.10);
+  const beatDelay = Math.min(0.08, period * 0.12);
   const bowStrokes = beats.map((time, index) => ({
     time: time + beatDelay,
     value: (index % 2 === 0 ? -1 : 1) * (isDownbeat(time) ? 10.5 : 8.8)
