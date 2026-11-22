@@ -306,12 +306,103 @@ def _prepare_fingers(
     return layers, joints, areas
 
 
+def _build_bow_grip_hand_overlay(
+    source: Image.Image,
+    bundle_dir: Path,
+    character: dict[str, Any],
+) -> dict[str, Any]:
+    """Extract the bow hand's warm-skin silhouette without carrying the old bow."""
+    try:
+        import cv2
+    except ImportError as exc:
+        raise AutoRigError("OpenCV is required to prepare the bow-grip hand overlay.") from exc
+
+    original_layer = next(
+        (layer for layer in character.get("layers", []) if layer.get("role") == "left_hand"),
+        None,
+    )
+    if original_layer is None:
+        raise ManualReviewRequired("The complete-body preview requires a source left-hand region.")
+
+    width, height = source.size
+    x0 = max(0, int(original_layer["x"]) - 12)
+    y0 = max(0, int(original_layer["y"]) - 12)
+    x1 = min(width, int(original_layer["x"]) + int(original_layer["width"]) + 12)
+    y1 = min(height, int(original_layer["y"]) + int(original_layer["height"]) + 12)
+    rgba = np.asarray(source.convert("RGBA"), dtype=np.uint8)
+    red = rgba[:, :, 0].astype(np.int16)
+    green = rgba[:, :, 1].astype(np.int16)
+    blue = rgba[:, :, 2].astype(np.int16)
+
+    region = np.zeros((height, width), dtype=bool)
+    region[y0:y1, x0:x1] = True
+    # Restrict the hand extraction to warm skin pixels. The bow shaft and
+    # pale bow hair are intentionally excluded, even where they cross fingers.
+    skin = (
+        (red >= 135) & (green >= 65) &
+        ((red - green) >= 15) & ((green - blue) >= 10) &
+        ((red - blue) >= 40) & region &
+        (rgba[:, :, 3] > 16)
+    )
+    skin = cv2.morphologyEx(
+        skin.astype(np.uint8),
+        cv2.MORPH_CLOSE,
+        np.ones((3, 3), dtype=np.uint8),
+    ) > 0
+    hand_mask = cv2.dilate(
+        skin.astype(np.uint8),
+        np.ones((3, 3), dtype=np.uint8),
+        iterations=1,
+    ) > 0
+    hand_mask &= region & (rgba[:, :, 3] > 16)
+    hand_area = int(hand_mask.sum())
+    if hand_area < 180:
+        raise ManualReviewRequired(
+            f"Bow-grip skin extraction is too small ({hand_area} pixels); inspect the hand reference."
+        )
+
+    geometry = _save_rgba_layer(
+        source,
+        hand_mask,
+        bundle_dir / "bow-grip-hand.png",
+        padding=3,
+    )
+    joints = character.get("joints") or {}
+    wrist = joints.get("left_wrist") or {"x": 0.5, "y": 0.5}
+    pivot_x = (
+        float(wrist["x"]) * width - float(geometry["x"])
+    ) / max(1.0, float(geometry["width"]))
+    pivot_y = (
+        float(wrist["y"]) * height - float(geometry["y"])
+    ) / max(1.0, float(geometry["height"]))
+    hand_layer = {
+        "id": "left_hand",
+        "role": "left_hand",
+        **geometry,
+        "pivot_x": round(min(1.0, max(0.0, pivot_x)), 6),
+        "pivot_y": round(min(1.0, max(0.0, pivot_y)), 6),
+        "z_index": FINGER_Z.get("left_hand", 40),
+    }
+    character["layers"] = [
+        layer for layer in character.get("layers", [])
+        if layer.get("role") != "left_hand"
+    ] + [hand_layer]
+    return {
+        "src": geometry["src"],
+        "bbox": geometry["bbox"],
+        "skin_pixels": hand_area,
+        "method": "warm_skin_mask_with_one_pixel_outline_dilation",
+        "excludes_original_bow_pixels": True,
+    }
+
+
 def _build_preserved_composite_base(
     source: Image.Image,
     bundle_dir: Path,
     *,
     bow_canvas_alpha: np.ndarray,
     finger_manifest_path: Path | None,
+    character: dict[str, Any],
 ) -> dict[str, Any]:
     """Build an intact full-body plate with a separate bow and fingering sprites.
 
@@ -327,6 +418,7 @@ def _build_preserved_composite_base(
             "OpenCV is required to prepare the complete-body review plate."
         ) from exc
 
+    hand_report = _build_bow_grip_hand_overlay(source, bundle, character)
     rgba = np.asarray(source.convert("RGBA"), dtype=np.uint8).copy()
     height, width = rgba.shape[:2]
     bow_mask = np.asarray(bow_canvas_alpha, dtype=np.uint8)
@@ -336,10 +428,9 @@ def _build_preserved_composite_base(
     if int(bow_pixels.sum()) < 40:
         raise ManualReviewRequired("The bow mask is too small to prepare a complete-body plate.")
 
-    # Remove the bow from the entire source, including pixels crossing the
-    # grip. The original left_hand cutout is composited above the new bow prop
-    # in the renderer, restoring the hand in front of the moving bow.
-    bow_clear = _morph(bow_pixels, 1, "dilate")
+    # Remove the shaft and its pale bow-hair edge from the source. The
+    # skin-only hand overlay is then composited above the animated bow.
+    bow_clear = _morph(bow_pixels, 3, "dilate")
     rgb = rgba[:, :, :3]
     repaired_rgb = cv2.inpaint(
         rgb,
@@ -378,6 +469,7 @@ def _build_preserved_composite_base(
         "mode": "intact_full_body_with_bow_and_finger_cutouts",
         "bow_pixels_reconstructed": int(bow_clear.sum()),
         "finger_pixels_separated": int(finger_cut.sum()),
+        "bow_grip_hand": hand_report,
         "preserves_original_arms_hands_legs_and_head": True,
     }
 
@@ -474,6 +566,7 @@ def extend_full_body_character(
         bundle,
         bow_canvas_alpha=prop_masks["bow"],
         finger_manifest_path=finger_path,
+        character=character,
     )
     character["base_art"] = composite_base
     character["performance_base_mode"] = "composite_full_body_review"
