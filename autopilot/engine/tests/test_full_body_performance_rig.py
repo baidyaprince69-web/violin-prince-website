@@ -25,6 +25,10 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             original_hand_pixel = source.getpixel((14, 30))
             bow_alpha = np.zeros((64, 64), dtype=np.uint8)
             bow_alpha[6:58, 29:34] = 255
+            bow_line = Image.new("L", (64, 64), 0)
+            ImageDraw.Draw(bow_line).line((26, 22, 21, 42), fill=255, width=3)
+            bow_alpha = np.maximum(bow_alpha, np.asarray(bow_line, dtype=np.uint8))
+            source.crop((8, 20, 26, 42)).save(root / "left_hand.png")
 
             finger_manifest = root / "fingers.json"
             finger_manifest.write_text(json.dumps({
