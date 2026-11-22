@@ -110,7 +110,7 @@ def validate_daily_bundle(
     expected_slot_id: str,
     production_date: str | None = None,
     video_probe: dict[str, Any] | None = None,
-    expected_privacy_status: str = "public",
+    expected_privacy_status: str = "private",
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], Path, dict[str, Any]]:
     """Validate the exact rendered asset, editorial provenance and requested YouTube visibility."""
     output = Path(output_dir)
@@ -133,8 +133,8 @@ def validate_daily_bundle(
         blockers = (preflight or {}).get("blockers") or []
         raise PublishBlocked("Publisher preflight is not ready: " + json.dumps(blockers, ensure_ascii=False))
     expected_privacy = str(expected_privacy_status or "").strip().lower()
-    if expected_privacy not in {"public", "private"}:
-        raise PublishBlocked("The daily uploader supports only public or private YouTube visibility.")
+    if expected_privacy != "private":
+        raise PublishBlocked("Automatic Violin Prince publication is private-preview-only; public or unlisted visibility is disabled.")
     manifest_privacy = str(manifest.get("youtube_privacy") or "").strip().lower()
     if manifest_privacy != expected_privacy:
         raise PublishBlocked(
