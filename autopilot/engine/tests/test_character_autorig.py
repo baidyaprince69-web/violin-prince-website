@@ -133,7 +133,7 @@ class CharacterAutoRigTests(unittest.TestCase):
         pixels[6, 20] = (38, 42, 46, 153)
         # A short five-pixel neutral-grey remnant is also matte contamination,
         # not a deliberate highlight or part of the body outline.
-        pixels[6:11, 22] = np.array([
+        pixels[14:19, 6] = np.array([
             (145, 145, 143, 255),
             (152, 152, 150, 255),
             (160, 160, 158, 255),
@@ -150,7 +150,7 @@ class CharacterAutoRigTests(unittest.TestCase):
         self.assertEqual(report["components_removed"], 3)
         self.assertEqual(tuple(result[6, 10]), (0, 0, 0, 0))
         self.assertTrue(np.all(result[6, 12:14, 3] == 0))
-        self.assertTrue(np.all(result[6:11, 22, 3] == 0),
+        self.assertTrue(np.all(result[14:19, 6, 3] == 0),
             "small neutral-grey matte remnants on the outside alpha edge must be cleared")
         self.assertEqual(tuple(result[6, 16]), (220, 150, 120, 255))
         self.assertEqual(tuple(result[12, 12]), (248, 246, 240, 255))
