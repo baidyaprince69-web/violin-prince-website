@@ -359,7 +359,13 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
         left_hand: ["torso", "left_upper_arm", "left_forearm", "left_hand"],
         right_upper_arm: ["torso", "right_upper_arm"],
         right_forearm: ["torso", "right_upper_arm", "right_forearm"],
-        right_hand: ["torso", "right_upper_arm", "right_forearm", "right_hand"]
+        right_hand: ["torso", "right_upper_arm", "right_forearm", "right_hand"],
+        left_thigh: ["torso", "left_thigh"],
+        left_shin: ["torso", "left_thigh", "left_shin"],
+        left_foot: ["torso", "left_thigh", "left_shin", "left_foot"],
+        right_thigh: ["torso", "right_thigh"],
+        right_shin: ["torso", "right_thigh", "right_shin"],
+        right_foot: ["torso", "right_thigh", "right_shin", "right_foot"]
       };
 
       const rolesToAnimate = new Set();
@@ -382,6 +388,12 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
       const rightShoulder = pivotFor("right_shoulder", "right_upper_arm");
       const rightElbow = pivotFor("right_elbow", "right_forearm");
       const rightWrist = pivotFor("right_wrist", "right_hand");
+      const leftHip = pivotFor("left_hip", "left_thigh");
+      const leftKnee = pivotFor("left_knee", "left_shin");
+      const leftAnkle = pivotFor("left_ankle", "left_foot");
+      const rightHip = pivotFor("right_hip", "right_thigh");
+      const rightKnee = pivotFor("right_knee", "right_shin");
+      const rightAnkle = pivotFor("right_ankle", "right_foot");
 
       const localAngle = (role, time) => {
         const candidates = rotationTracks.get(role) || [];
@@ -426,6 +438,30 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
           rightForearmWorld,
           aroundPivot(rightWrist, localAngle("right_hand", time))
         );
+        const leftThighWorld = multiplyMatrix(
+          torsoWorld,
+          aroundPivot(leftHip, localAngle("left_thigh", time))
+        );
+        const leftShinWorld = multiplyMatrix(
+          leftThighWorld,
+          aroundPivot(leftKnee, localAngle("left_shin", time))
+        );
+        const leftFootWorld = multiplyMatrix(
+          leftShinWorld,
+          aroundPivot(leftAnkle, localAngle("left_foot", time))
+        );
+        const rightThighWorld = multiplyMatrix(
+          torsoWorld,
+          aroundPivot(rightHip, localAngle("right_thigh", time))
+        );
+        const rightShinWorld = multiplyMatrix(
+          rightThighWorld,
+          aroundPivot(rightKnee, localAngle("right_shin", time))
+        );
+        const rightFootWorld = multiplyMatrix(
+          rightShinWorld,
+          aroundPivot(rightAnkle, localAngle("right_foot", time))
+        );
 
         const worldByRole = {
           torso: torsoWorld,
@@ -436,7 +472,13 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
           left_hand: leftHandWorld,
           right_upper_arm: rightUpperWorld,
           right_forearm: rightForearmWorld,
-          right_hand: rightHandWorld
+          right_hand: rightHandWorld,
+          left_thigh: leftThighWorld,
+          left_shin: leftShinWorld,
+          left_foot: leftFootWorld,
+          right_thigh: rightThighWorld,
+          right_shin: rightShinWorld,
+          right_foot: rightFootWorld
         };
         for (const role of rolesToAnimate) {
           sampledMatrices.get(role).push(
@@ -693,9 +735,13 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
         const target = prefix + "-part-" + layer.id;
         partIdByRole.set(layer.role, target);
       }
+      for (const [name] of Object.entries(character.props || {})) {
+        partIdByRole.set(name, prefix + "-prop-" + name);
+      }
 
       const addRigKeyframes = (role, properties, start, duration, loop = false) => {
-        addKeyframes(partIdByRole.get(role), properties, start, duration, "ease-in-out", loop);
+        const target = partIdByRole.get(role);
+        if (target) addKeyframes(target, properties, start, duration, "ease-in-out", loop);
         // The face cut-out and expression overlays are separate images, but
         // they must inherit the head's neck-pivot motion to stay registered.
         if (role === "head") {
