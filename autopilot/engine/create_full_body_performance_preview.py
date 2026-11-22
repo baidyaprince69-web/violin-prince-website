@@ -41,7 +41,7 @@ def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dic
         "id": "full-body-violin-performance",
         "start": 0,
         "duration": 8,
-        "visual_mode": "cover_performance",
+        "visual_mode": "full_body_performance",
         "background_color": "#08111b",
         "graphic_label": "FULL-BODY RIG TEST",
         "title": "",
@@ -60,10 +60,10 @@ def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dic
                 "start_offset": 0.12,
                 "prop_keyframes": {
                     "bow": {
-                        "rotate": [0, -2.5, 2.5, -2.5, 2.5, 0],
+                        "rotate": [0, -3.5, 3.5, -3.5, 3.5, 0],
                         "translate": [
-                            "-12px -3px", "12px 3px", "-12px -3px",
-                            "12px 3px", "-12px -3px", "0px 0px"
+                            "-18px -4px", "18px 4px", "-18px -4px",
+                            "18px 4px", "-18px -4px", "0px 0px"
                         ]
                     },
                     "violin": {"rotate": [0, -0.45, 0.35, 0.45, 0]},
@@ -73,7 +73,7 @@ def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dic
     }
     project = {
         "schema_version": 4,
-        "title": "Violin Prince — Full-Body Performance Rig Preview",
+        "title": "",
         "width": 720,
         "height": 1280,
         "fps": 25,
