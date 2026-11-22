@@ -357,6 +357,56 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     throw new Error("Scene " + scene.id +
       " requires articulated presenter motion; pointing gestures must contain multiple emphasis beats.");
   }
+  const hasChangingTransform = (target) => project.motion_tracks.some((track) =>
+    track.target === target &&
+    track.property === "transform" &&
+    Array.isArray(track.values) &&
+    track.values.some(value => value !== track.values[0])
+  );
+  const animatedFullBodyJointCount = visibleCharacters.reduce((total, character) => {
+    if (character.body_scope !== "full_body") return total;
+    const roles = new Set([
+      "left_thigh", "left_shin", "left_foot",
+      "right_thigh", "right_shin", "right_foot",
+      "right_index_finger", "right_middle_finger",
+      "right_ring_finger", "right_little_finger"
+    ]);
+    return total + (character.layers || []).filter(layer =>
+      roles.has(layer.role) &&
+      hasChangingTransform(scene.id + "-" + character.id + "-part-" + layer.id)
+    ).length;
+  }, 0);
+  const animatedFingerCount = visibleCharacters.reduce((total, character) => {
+    const names = ["right_index_finger", "right_middle_finger", "right_ring_finger", "right_little_finger"];
+    return total + names.filter(name =>
+      (character.layers || []).some(layer =>
+        layer.role === name &&
+        hasChangingTransform(scene.id + "-" + character.id + "-part-" + layer.id)
+      )
+    ).length;
+  }, 0);
+  const animatedInstrumentPropCount = visibleCharacters.reduce((total, character) => {
+    const names = ["violin", "bow"];
+    return total + names.filter(name =>
+      Object.prototype.hasOwnProperty.call(character.props || {}, name) &&
+      hasChangingTransform(scene.id + "-" + character.id + "-prop-" + name)
+    ).length;
+  }, 0);
+  const performanceActions = visibleCharacters.map(character =>
+    (character.scene_actions || {})[scene.id] ||
+    ((scene.character_actions || {})[character.id] || {})
+  );
+  if (performanceActions.some(action => String(action.gesture || "").toLowerCase() === "violin_performance")) {
+    if (animatedFullBodyJointCount < 10 || animatedFingerCount < 4 || animatedInstrumentPropCount < 2) {
+      throw new Error(
+        "Violin performance requires 6 lower-body joints, 4 independently moving fingering fingers, "
+        + "and separate moving violin/bow props; observed " +
+        animatedFullBodyJointCount + " full-body layers, " + animatedFingerCount +
+        " fingers and " + animatedInstrumentPropCount + " instrument props."
+      );
+    }
+  }
+
   const presenterPoseAssets = visibleCharacters.flatMap((character) => {
     const action = (character.scene_actions || {})[scene.id] ||
       ((scene.character_actions || {})[character.id] || {});
@@ -439,6 +489,9 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     animated_graphic_items: graphicMotionCount,
     visible_character_count: visibleCharacters.length,
     animated_presenter_count: animatedPresenterCount,
+    animated_full_body_joint_count: animatedFullBodyJointCount,
+    animated_finger_count: animatedFingerCount,
+    animated_instrument_prop_count: animatedInstrumentPropCount,
     presenter_gesture_keyframes: visibleCharacters.reduce((maximum, character) => {
       const action = (character.scene_actions || {})[scene.id] ||
         ((scene.character_actions || {})[character.id] || {});
