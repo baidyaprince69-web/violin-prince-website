@@ -70,6 +70,7 @@ jobs:
           python -m unittest discover -s autopilot/engine/tests -p "test_scheduled_slot_date.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_select_public_queue.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_slot_batch_readiness.py" -v
+          python -m unittest discover -s autopilot/engine/tests -p "test_animation_production_gate.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_slot_workflow_gates.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_workflow_privacy_contract.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_upload_public_short_uploadpost.py" -v

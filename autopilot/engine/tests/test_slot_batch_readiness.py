@@ -49,6 +49,27 @@ class SlotBatchReadinessTests(unittest.TestCase):
                           "mechanism_illustration", "melody_map", "waveform"],
             },
         }))
+        self._write(root, "autopilot/engine/animation-production-approval.json", json.dumps({
+            "schema_version": 1,
+            "status": "approved",
+            "mode": "animation_only",
+            "provider": "test_video_provider",
+            "renderer": "master_director_video",
+            "static_image_fallback_allowed": False,
+            "test_evidence": {
+                "workflow_run_id": 123456,
+                "workflow_status": "success",
+                "director_shot_count": 8,
+                "generated_video_asset_count": 8,
+                "downloaded_video_asset_count": 8,
+                "all_shots_have_video_assets": True,
+                "actual_motion_verified": True,
+                "static_image_only_shot_count": 0,
+                "motion_coverage": 0.85,
+                "final_video_verified": True,
+            },
+            "creator_review": {"approved": True},
+        }))
 
     def _batch(self, date: str):
         return {"production_date": date, "plans": [
@@ -127,6 +148,31 @@ class SlotBatchReadinessTests(unittest.TestCase):
             self.assertEqual(plan["publish_metadata"]["privacy_status"], "public", plan["slot_id"])
             self.assertEqual({item["sentence_number"] for item in plan["narration_evidence"]}, {2, 3, 4})
             self.assertGreaterEqual(len(plan["sources"]), 2)
+
+    def test_missing_animation_approval_blocks_old_picture_pipeline(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._root(root)
+            (root / "autopilot/engine/animation-production-approval.json").unlink()
+            self._write(root, ".autopilot/daily-batches/2026-11-22.json",
+                        json.dumps(self._batch("2026-11-22")))
+            result = evaluate_daily_batch_readiness(root, today="2026-11-22")
+        self.assertFalse(result["ready"])
+        self.assertTrue(any("Animation-only production is locked" in item for item in result["blockers"]))
+
+    def test_static_image_fallback_cannot_be_approved_as_animation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._root(root)
+            approval_path = root / "autopilot/engine/animation-production-approval.json"
+            approval = json.loads(approval_path.read_text(encoding="utf-8"))
+            approval["static_image_fallback_allowed"] = True
+            approval_path.write_text(json.dumps(approval), encoding="utf-8")
+            self._write(root, ".autopilot/daily-batches/2026-11-22.json",
+                        json.dumps(self._batch("2026-11-22")))
+            result = evaluate_daily_batch_readiness(root, today="2026-11-22")
+        self.assertFalse(result["ready"])
+        self.assertTrue(any("Static-image fallback" in item for item in result["blockers"]))
 
     def test_wrong_date_batch_is_blocked(self):
         with tempfile.TemporaryDirectory() as temporary:

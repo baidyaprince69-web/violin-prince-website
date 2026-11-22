@@ -128,6 +128,15 @@ def upload_public_short(
     if os.environ.get("PUBLISH_ENABLED", "false").strip().lower() == "true":
         raise PublishBlocked("Generic publishing adapters must remain disabled for this YouTube-only route.")
 
+    from animation_production_gate import (
+        AnimationProductionGateError,
+        require_approved_animation_production,
+    )
+    try:
+        require_approved_animation_production()
+    except AnimationProductionGateError as exc:
+        raise PublishBlocked(str(exc)) from exc
+
     _require_public_creator_approval()
     api_key = os.environ.get("UPLOAD_POST_API_KEY", "").strip()
     if not api_key:

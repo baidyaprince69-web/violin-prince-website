@@ -424,9 +424,17 @@ def run_daily_plan(
     workspace_root: Path | None = None,
     batch_snapshot_sha256: str = "",
 ) -> int:
-    # Stop before plan validation, research fetches, soundtrack work or image generation.
+    # Stop before plan validation, research fetches, soundtrack work or visuals.
+    # The former still-illustration route is no longer an acceptable production fallback.
+    from animation_production_gate import (
+        AnimationProductionGateError,
+        require_approved_animation_production,
+    )
+    try:
+        require_approved_animation_production()
+    except AnimationProductionGateError as exc:
+        raise engine.PipelineError(str(exc)) from exc
     require_approved_own_voice()
-    engine.require_approved_illustration_provider()
     plan_path = Path(plan_path)
     if workspace_root is not None:
         configure_slot_workspace(workspace_root, run_id=os.environ.get("RUN_ID", engine.RUN_ID))
