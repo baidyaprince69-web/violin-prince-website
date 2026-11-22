@@ -57,10 +57,10 @@ const project = {
         cycle_duration_seconds: 2,
         prop_keyframes: {
           bow: {
-            rotate: [0, -2.5, 2.5, -2.5, 2.5, 0],
+            rotate: [0, -3.5, 3.5, -3.5, 3.5, 0],
             translate: [
-              "-12px -3px", "12px 3px", "-12px -3px",
-              "12px 3px", "-12px -3px", "0px 0px"
+              "-18px -4px", "18px 4px", "-18px -4px",
+              "18px 4px", "-18px -4px", "0px 0px"
             ]
           },
           violin: { rotate: [0, -0.45, 0.35, 0.45, 0] }
