@@ -130,6 +130,8 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             self.assertEqual(len(joints), 12)
             self.assertGreater(int(moving.sum()), 30000)
             self.assertLessEqual(max(report["joint_overlap_pixels"].values()), 500)
+            self.assertLessEqual(report["joint_overlap_pixels"]["left_ankle"], 200)
+            self.assertLessEqual(report["joint_overlap_pixels"]["right_ankle"], 200)
             self.assertGreater(report["parts"]["left_hand"]["pixel_area"], 500)
             self.assertGreater(report["parts"]["right_hand"]["pixel_area"], 700)
             self.assertTrue(all((Path(folder) / layer["src"]).is_file() for layer in layers))
