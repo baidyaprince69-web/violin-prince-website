@@ -400,7 +400,9 @@ def extend_full_body_character(
     if not character_path.is_file():
         raise AutoRigError("The base Auto-Rig bundle must contain character.json.")
 
-    with Image.open(source_path) as opened:
+    preserved_source_path = bundle / "preserved-full-body-source.png"
+    source_input = preserved_source_path if preserved_source_path.is_file() else source_path
+    with Image.open(source_input) as opened:
         source = opened.convert("RGBA")
     rgba = np.asarray(source, dtype=np.uint8)
     alpha = rgba[:, :, 3]
@@ -523,6 +525,7 @@ def extend_full_body_character(
         "body_plate_prop_pixels_removed": removed_by_role,
         "prop_compositing": "intact_full_body_composite_base_with_separate_bow_and_fingers",
         "composite_base": composite_base,
+        "composite_source": "preserved-full-body-source.png" if source_input == preserved_source_path else source_path.name,
         "segmented_limb_masks_status": "retained_for_rework_not_rendered_in_preview",
         "neutral_apose_reference": neutral_report,
         "publishing": "disabled",
