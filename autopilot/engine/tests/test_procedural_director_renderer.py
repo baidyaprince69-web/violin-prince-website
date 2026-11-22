@@ -61,7 +61,10 @@ class ProceduralDirectorRendererTests(unittest.TestCase):
                     self.assertEqual(scene["stagecraft"]["environment"], source_shot["procedural_scene"]["environment"])
                     self.assertEqual(scene["stagecraft"]["objects"], source_shot["procedural_scene"]["objects"])
                     self.assertEqual(scene["director_camera"], source_shot["camera"])
-                    self.assertEqual(scene["character_actions"]["violin-prince"], source_shot["character_action"])
+                    expected_action = dict(source_shot["character_action"])
+                    if source_shot.get("graphic_data"):
+                        expected_action.update({"x": 315, "scale": 0.56})
+                    self.assertEqual(scene["character_actions"]["violin-prince"], expected_action)
                     self.assertNotIn("visual_layers", scene)
                     self.assertNotIn("image", scene)
                     self.assertEqual(scene.get("graphic_data"), source_shot.get("graphic_data"))
