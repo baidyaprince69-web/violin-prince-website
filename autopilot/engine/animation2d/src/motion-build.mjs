@@ -412,7 +412,7 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
       const needsExpressionTransform = !compositeBaseMode &&
         (hasRotation("torso") || hasRotation("head"));
       const animatedProps = props.filter(prop => {
-        if (compositeBaseMode && prop.id !== "bow") return false;
+        if (compositeBaseMode && !segmentedBodyBaseMode && prop.id !== "bow") return false;
         const parentRole = String(prop.attach_to || "torso");
         const parentDependencies = dependencies[parentRole] || [parentRole];
         return parentDependencies.some(hasRotation) || hasRotation("prop:" + prop.id);
