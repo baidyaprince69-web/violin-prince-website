@@ -1127,7 +1127,13 @@ def create_character_bundle(
         raise AutoRigError("The master image or character reference directory is missing.")
 
     with Image.open(source_path) as opened:
-        image = opened.convert("RGB")
+        rgba = opened.convert("RGBA")
+    # Transparent AI cutouts can retain arbitrary RGB values below alpha=0.
+    # Composite on white before semantic parsing so the model never sees
+    # checkerboard/matte pixels as part of the body.
+    image = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
+    image.alpha_composite(rgba)
+    image = image.convert("RGB")
     body_parser, detail_parser = _download_parsers(cache_dir)
     body_labels, body_conf = body_parser.parse(image)
     detail_labels, detail_conf = detail_parser.parse(image)
