@@ -19,7 +19,88 @@ def stage_asset(bundle: Path, asset_root: Path, source: str) -> str:
     return destination.relative_to(asset_root.parent.parent.parent).as_posix()
 
 
-def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dict[str, Any]:
+def _build_preview_music_sync(
+    duration_seconds: float,
+    *,
+    bpm: float | None = 100.0,
+    audio_path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Create a validated beat map from real audio, or an explicitly labelled preview grid."""
+    duration = float(duration_seconds)
+    if not 0 < duration <= 600:
+        raise ValueError("Music-sync duration must be between zero and 600 seconds.")
+
+    if audio_path:
+        from audio_analysis import analyse_audio_file
+
+        analysis = analyse_audio_file(audio_path, known_bpm=bpm)
+        beats = [
+            float(value) for value in analysis.get("beat_times", [])
+            if 0 <= float(value) < duration
+        ]
+        downbeats = [
+            float(value) for value in analysis.get("downbeats", [])
+            if 0 <= float(value) < duration
+        ]
+        onsets = [
+            float(value) for value in analysis.get("onsets", [])
+            if 0 <= float(value) < duration
+        ]
+        if analysis.get("status") == "low_confidence" or len(beats) < 2:
+            raise ValueError(
+                "Audio beat analysis did not produce a reliable beat map. "
+                "Supply a clearer audio source or a verified BPM."
+            )
+        if not onsets and beats:
+            beat_period = 60.0 / float(analysis["bpm"])
+            onsets = [
+                round(time + beat_period * 0.5, 4)
+                for time in beats
+                if time + beat_period * 0.5 < duration
+            ]
+        return {
+            "status": analysis.get("status", "analysed"),
+            "source": analysis.get("source", "decoded_audio"),
+            "audio_attached": True,
+            "bpm": float(analysis["bpm"]),
+            "confidence": float(analysis.get("confidence", 0.0)),
+            "duration_seconds": duration,
+            "beat_times": [round(value, 4) for value in beats],
+            "downbeats": [round(value, 4) for value in downbeats],
+            "onsets": [round(value, 4) for value in onsets],
+        }
+
+    tempo = 100.0 if bpm is None else float(bpm)
+    if not 40 <= tempo <= 240:
+        raise ValueError("Preview BPM must be between 40 and 240.")
+    period = 60.0 / tempo
+    count = int(duration / period) + 1
+    beats = [round(index * period, 4) for index in range(count) if index * period < duration]
+    onsets = [
+        round(time + period * 0.5, 4)
+        for time in beats
+        if time + period * 0.5 < duration
+    ]
+    return {
+        "status": "preview_grid",
+        "source": "preview_tempo_grid_no_audio_asset",
+        "audio_attached": False,
+        "bpm": tempo,
+        "confidence": 1.0,
+        "duration_seconds": duration,
+        "beat_times": beats,
+        "downbeats": beats[::4],
+        "onsets": onsets,
+    }
+
+
+def build_preview_project(
+    bundle_dir: str | Path,
+    output_dir: str | Path,
+    *,
+    audio_path: str | Path | None = None,
+    bpm: float | None = 100.0,
+) -> dict[str, Any]:
     bundle = Path(bundle_dir).resolve(strict=True)
     output = Path(output_dir).resolve()
     asset_root = output / "assets" / "characters" / "violin-prince"
@@ -41,6 +122,11 @@ def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dic
         for asset in (character.get(collection_name) or {}).values():
             asset["src"] = stage_asset(bundle, asset_root, asset["src"])
 
+    music_sync = _build_preview_music_sync(
+        8,
+        bpm=bpm,
+        audio_path=audio_path,
+    )
     scene = {
         "id": "full-body-violin-performance",
         "start": 0,
@@ -67,6 +153,7 @@ def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dic
                 "loop": True,
                 "cycle_duration_seconds": 2.4,
                 "start_offset": 0.12,
+                "music_sync": music_sync,
                 "prop_keyframes": {
                     "bow": {
                         "rotate": [0, -3.5, 3.5, -3.5, 3.5, 0],
@@ -121,8 +208,10 @@ def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dic
             "both hand overlays, both thigh/calf/foot chains and four finger controls "
             "are separate frame-seekable layers cut from the intact performance source. "
             "Small joint overlaps seal elbows, wrists, knees and ankles. The original "
-            "head, torso and violin stay on the source-aligned underpaint base. Inspect "
-            "every seam and the bow grip before production use. Publishing and "
+            "head, torso and violin stay on the source-aligned underpaint base. "
+            "every seam and the bow grip before production use. Music timing source: "
+            + str(music_sync["source"]) + f" at {music_sync['bpm']:.1f} BPM. "
+            "No song audio is attached when using the preview tempo grid. Publishing and "
             "scheduling are disabled.\n"
             if segmented_body_mode else
             "Non-publishing complete-body review preview. The original source body "
@@ -153,6 +242,7 @@ def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dic
             ("original_source_hand_overlay" if composite_base_mode else "segmented"),
         "publishing": "disabled",
         "preview_only": True,
+        "music_sync": music_sync,
     }
 
 
@@ -160,8 +250,16 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bundle", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--audio", default="", help="Optional real audio track for beat/onset analysis.")
+    parser.add_argument("--bpm", type=float, default=100.0,
+                        help="Verified tempo for the preview grid or optional audio phase alignment.")
     args = parser.parse_args()
-    result = build_preview_project(args.bundle, args.output)
+    result = build_preview_project(
+        args.bundle,
+        args.output,
+        audio_path=args.audio or None,
+        bpm=args.bpm,
+    )
     print("FULL_BODY_PREVIEW_PROJECT=" + json.dumps(result, ensure_ascii=False))
     return 0
 
