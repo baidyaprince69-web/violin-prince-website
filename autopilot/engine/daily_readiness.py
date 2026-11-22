@@ -132,27 +132,15 @@ def evaluate_daily_readiness(
             "melody_map",
             "waveform",
         ]
-        public_approval = illustration.get("creator_publication_approval")
         preview_scope_valid = (
             illustration.get("status") == "approved_for_preview"
             and illustration.get("scope") == "preview_video_only"
             and illustration.get("publishing_enabled") is False
         )
-        public_scope_valid = (
-            illustration.get("status") == "approved_for_publication"
-            and illustration.get("scope") == "public_youtube"
-            and illustration.get("publishing_enabled") is True
-            and isinstance(public_approval, dict)
-            and public_approval.get("approved") is True
-            and public_approval.get("platform") == "youtube"
-            and public_approval.get("privacy_status") == "public"
-            and public_approval.get("no_private_preview_required") is True
-            and bool(str(public_approval.get("approval_statement") or "").strip())
-        )
         if (
             illustration.get("schema_version") != 1
             or illustration.get("provider") != "local_vector"
-            or not (preview_scope_valid or public_scope_valid)
+            or not preview_scope_valid
             or illustration.get("renderer_version") != "violin-prince-vector-illustrator-v1"
             or not isinstance(evidence, dict)
             or not isinstance(evidence.get("workflow_run_id"), int)
@@ -236,27 +224,15 @@ def evaluate_daily_batch_readiness(
             "comparison", "cover_performance", "macro_illustration",
             "mechanism_illustration", "melody_map", "waveform",
         ]
-        public_approval = illustration.get("creator_publication_approval")
         preview_scope_valid = (
             illustration.get("status") == "approved_for_preview"
             and illustration.get("scope") == "preview_video_only"
             and illustration.get("publishing_enabled") is False
         )
-        public_scope_valid = (
-            illustration.get("status") == "approved_for_publication"
-            and illustration.get("scope") == "public_youtube"
-            and illustration.get("publishing_enabled") is True
-            and isinstance(public_approval, dict)
-            and public_approval.get("approved") is True
-            and public_approval.get("platform") == "youtube"
-            and public_approval.get("privacy_status") == "public"
-            and public_approval.get("no_private_preview_required") is True
-            and bool(str(public_approval.get("approval_statement") or "").strip())
-        )
         if (
             illustration.get("schema_version") != 1
             or illustration.get("provider") != "local_vector"
-            or not (preview_scope_valid or public_scope_valid)
+            or not preview_scope_valid
             or illustration.get("renderer_version") != "violin-prince-vector-illustrator-v1"
             or not isinstance(evidence, dict)
             or not isinstance(evidence.get("workflow_run_id"), int)
