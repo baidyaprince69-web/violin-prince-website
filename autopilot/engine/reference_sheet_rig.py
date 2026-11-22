@@ -178,7 +178,6 @@ def build_reference_sheet_rig(
     character_path = Path(character_path).resolve(strict=True)
     bundle = Path(bundle_dir).resolve(strict=True)
     character = json.loads(character_path.read_text(encoding="utf-8"))
-    head_bounds = _head_plate_bounds(character)
 
     # Extract independent components from the general rigging sheet. They are
     # catalogued for review rather than assigned to limbs by an unverified guess.
@@ -219,6 +218,8 @@ def build_reference_sheet_rig(
         minimum_area_ratio=0.009,
         top_region_ratio=0.62,
     )
+    head_bounds = _head_plate_bounds(character)
+
     head_angles = {}
     for name, component in zip(HEAD_ANGLE_ORDER, angle_components, strict=True):
         filename = f"head-angle-{name}.png"
