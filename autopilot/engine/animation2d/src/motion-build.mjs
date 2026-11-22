@@ -913,7 +913,10 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
       const activePoseAsset = String(action.pose_asset || "").toLowerCase();
       // Full-body pose plates already contain their own face. Animate
       // expression overlays only while the separated body-part rig is active.
-      if (!activePoseAsset) {
+      const hasHeadPlates =
+        Object.keys(character.head_variants || {}).length > 0 ||
+        Object.keys(character.head_angles || {}).length > 0;
+      if (!activePoseAsset && !hasHeadPlates) {
         for (const name of Object.keys(character.expressions || {})) {
           addSpring(prefix + "-expression-" + name, "opacity",
             name === selectedExpression ? 0 : 1,
