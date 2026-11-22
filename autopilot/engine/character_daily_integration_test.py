@@ -49,6 +49,76 @@ def build_daily_portrait_project(
             for index, (scene_id, title, caption, pose) in enumerate(scenes)
         ],
     }
+    # A final procedural performance shot exercises real vector scenery,
+    # moving stage objects, articulated character motion and director camera
+    # movement in the same portrait render used for the daily integration proof.
+    plan["scenes"].append({
+        "id": "scene-procedural-performance",
+        "start": 7.85,
+        "duration": 2.2,
+        "title": "The stage comes alive",
+        "caption": "Procedural animation integration proof",
+        "background_color": "#080c18",
+        "visual_mode": "cover_performance",
+        "director_camera": {"movement": "dolly_in", "shot_size": "medium"},
+        "camera_motion_start_offset": 0.0,
+        "camera_motion_duration": 2.2,
+        "stagecraft": {
+            "environment": "concert_stage",
+            "objects": [
+                {
+                    "id": "rising-music-note",
+                    "kind": "music_note",
+                    "x": 0.18,
+                    "y": 0.34,
+                    "size": 28,
+                    "color": "#e5c38b",
+                    "motion": "float",
+                    "period_seconds": 1.7,
+                },
+                {
+                    "id": "passing-light",
+                    "kind": "light_streak",
+                    "x": 0.16,
+                    "y": 0.82,
+                    "size": 62,
+                    "color": "#72cdd3",
+                    "motion": "travel_right",
+                    "period_seconds": 2.0,
+                },
+                {
+                    "id": "accent-spark",
+                    "kind": "spark",
+                    "x": 0.83,
+                    "y": 0.42,
+                    "size": 18,
+                    "color": "#f3d59a",
+                    "motion": "pulse",
+                    "period_seconds": 1.1,
+                },
+                {
+                    "id": "rotating-ring",
+                    "kind": "ring",
+                    "x": 0.78,
+                    "y": 0.68,
+                    "size": 42,
+                    "color": "#78d6d0",
+                    "motion": "rotate",
+                    "period_seconds": 3.0,
+                },
+            ],
+        },
+        "character_actions": {
+            "violin-prince": {
+                "visible": True,
+                "gesture": "dance_groove",
+                "expression": "smile",
+                "loop": True,
+                "cycle_duration_seconds": 1.25,
+                "root_motion": {"type": "sway", "intensity": 0.38},
+            }
+        },
+    })
     plan = attach_violin_prince_presenter(
         plan,
         package_dir=package_dir,
@@ -94,7 +164,7 @@ def build_daily_portrait_project(
         "width": 720,
         "height": 1280,
         "fps": 25,
-        "duration_seconds": 8.2,
+        "duration_seconds": 10.05,
         "scenes": plan["scenes"],
         "characters": staged,
         "diagnostics": {
@@ -113,8 +183,9 @@ def build_daily_portrait_project(
     )
     (output_dir / "README.txt").write_text(
         "Portrait-size integration test of the daily Motion + HyperFrames character path.\n"
-        "The project uses the saved auto-rig bundle, daily asset factory, authored pose plates,\n"
-        "and 720x1280 character layout. It is not a production Short and is not published.\n",
+        "The project uses the saved auto-rig bundle, authored presenter poses, articulated gestures,\n"
+        "procedural concert-stage environment, moving vector props, camera choreography and\n"
+        "animated spectrum graphics at 720x1280. It is not a production Short and is not published.\n",
         encoding="utf-8",
     )
     return project_path

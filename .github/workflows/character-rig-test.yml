@@ -201,13 +201,33 @@ jobs:
               ["open_palms"],
               ["resting_hands"],
           ]
-          actual = [scene.get("presenter_pose_assets", []) for scene in report.get("scenes", [])]
+          scene_reports = report.get("scenes", [])
+          actual = [scene.get("presenter_pose_assets", []) for scene in scene_reports[:len(expected)]]
           if report.get("presenter_pose_asset_count") != len(expected) or actual != expected:
               raise SystemExit(
                   "Daily portrait composition did not select every requested presenter pose asset: "
                   + json.dumps(actual)
               )
-          print("Verified all 7 requested presenter pose assets reached the Motion composition.")
+
+          performance = next(
+              (scene for scene in scene_reports if scene.get("scene_id") == "scene-procedural-performance"),
+              None,
+          )
+          if not performance:
+              raise SystemExit("The procedural performance scene is missing from the Motion report.")
+          if performance.get("stagecraft_environment") != "concert_stage":
+              raise SystemExit("The procedural stage environment did not reach the Motion composition.")
+          if performance.get("animated_stagecraft_environment_nodes", 0) < 9:
+              raise SystemExit("The concert environment lacks independently animated stagecraft nodes.")
+          if performance.get("animated_stagecraft_objects", 0) != 4:
+              raise SystemExit("Not all four story-specific stage objects were animated.")
+          if performance.get("animated_stagecraft_nodes", 0) < 13:
+              raise SystemExit("The procedural stage is missing one or more motion tracks.")
+          if performance.get("animated_presenter_count", 0) < 1:
+              raise SystemExit("The stage scene did not animate the articulated Violin Prince rig.")
+          if performance.get("presenter_gesture_keyframes", 0) < 4:
+              raise SystemExit("The articulated dance gesture did not generate joint keyframes.")
+          print("Verified 7 authored poses plus a live procedural stage, 4 moving props and an articulated presenter.")
           PY
 
       - name: Lint the daily-pipeline portrait composition
