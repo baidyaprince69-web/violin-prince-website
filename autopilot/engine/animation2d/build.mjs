@@ -503,9 +503,6 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     }
   }
 
-    }
-  }
-
   const presenterPoseAssets = visibleCharacters.flatMap((character) => {
     const action = (character.scene_actions || {})[scene.id] ||
       ((scene.character_actions || {})[character.id] || {});
