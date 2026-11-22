@@ -581,6 +581,7 @@ def _split_finger_regions(
     claimed = np.zeros(hand_mask.shape, dtype=bool)
     extracted: dict[str, np.ndarray] = {}
     palm = np.asarray(hand_mask, dtype=bool).copy()
+    allowed_hand = _morph(palm, 2, "dilate")
 
     for name in required:
         item = finger_regions[name]
@@ -609,7 +610,6 @@ def _split_finger_regions(
         skin_seed = polygon_mask & skin
         recovered_skin = _morph(skin_seed, 1, "dilate")
         allowed_contour = _morph(polygon_mask, 1, "dilate")
-        allowed_hand = _morph(palm, 2, "dilate")
         finger = recovered_skin & allowed_contour & allowed_hand & ~claimed
         if int(finger.sum()) < 22:
             raise ManualReviewRequired(
@@ -621,8 +621,6 @@ def _split_finger_regions(
         palm &= ~(finger & ~joint_overlap)
         extracted[f"right_{name}_finger"] = finger
 
-    # Attach the pivot map to the ndarray subclass-free return via a reserved
-    # attribute is not reliable; callers calculate anchors from the manifest.
     return extracted, palm
 
 
