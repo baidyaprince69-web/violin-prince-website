@@ -450,6 +450,136 @@ def _clip_hand_from_violin_prop(
     }
 
 
+def _decontaminate_edge_matte_rgb(
+    source: Image.Image,
+    *,
+    protected_masks: tuple[np.ndarray, ...] = (),
+    minimum_brightness: int = 120,
+    maximum_channel_spread: int = 50,
+    minimum_interior_contrast: int = 30,
+) -> tuple[Image.Image, dict[str, Any]]:
+    """Recolour bright neutral matte spill on the silhouette boundary only.
+
+    Alpha and geometry are never changed. Candidate pixels must touch exterior
+    transparency, be nearly neutral and bright, and sit beside a visibly darker
+    source-interior pixel. Known instrument-prop masks are excluded so pale bow
+    hair and violin highlights cannot be mistaken for backdrop contamination.
+    """
+    if not 0 <= int(minimum_brightness) <= 255:
+        raise ValueError("Matte brightness threshold must be between zero and 255.")
+    if not 0 <= int(maximum_channel_spread) <= 255:
+        raise ValueError("Matte channel spread must be between zero and 255.")
+    if not 1 <= int(minimum_interior_contrast) <= 180:
+        raise ValueError("Interior contrast threshold must be between one and 180.")
+
+    import cv2
+
+    rgba = source.convert("RGBA")
+    pixels = np.asarray(rgba, dtype=np.uint8).copy()
+    rgb = pixels[:, :, :3]
+    alpha = pixels[:, :, 3]
+    height, width = alpha.shape
+    visible = alpha > 12
+
+    protected = np.zeros((height, width), dtype=bool)
+    for mask in protected_masks:
+        candidate_mask = np.asarray(mask, dtype=bool)
+        if candidate_mask.shape != (height, width):
+            raise AutoRigError("A protected matte-cleanup region does not match the source canvas.")
+        protected |= candidate_mask
+
+    # Protect the immediate prop perimeter as well as visible prop pixels.
+    if protected.any():
+        protected = cv2.dilate(
+            protected.astype(np.uint8),
+            cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)),
+            iterations=1,
+        ) > 0
+
+    exterior = alpha == 0
+    touches_exterior = cv2.dilate(
+        exterior.astype(np.uint8), np.ones((3, 3), dtype=np.uint8), iterations=1
+    ) > 0
+    edge = visible & touches_exterior
+
+    minimum = rgb.min(axis=2).astype(np.int16)
+    maximum = rgb.max(axis=2).astype(np.int16)
+    luminance = rgb.astype(np.float32).mean(axis=2)
+
+    # Find the darkest visible, unprotected pixel in the immediate interior
+    # neighborhood. A bright edge pixel is suspect only when it is strongly
+    # inconsistent with the character colour directly beside it.
+    interior_luminance = np.where(visible & ~protected, luminance, 255).astype(np.uint8)
+    local_interior_minimum = cv2.erode(
+        interior_luminance, np.ones((3, 3), dtype=np.uint8), iterations=1
+    ).astype(np.int16)
+    contrast = luminance - local_interior_minimum
+    matte_candidates = (
+        edge
+        & ~protected
+        & (minimum >= int(minimum_brightness))
+        & ((maximum - minimum) <= int(maximum_channel_spread))
+        & (contrast >= int(minimum_interior_contrast))
+    )
+
+    # Replace RGB with the median of adjacent visible interior samples that
+    # are materially darker than the edge pixel. This is a local colour repair,
+    # not mask erosion, feathering, or a layer-specific geometry operation.
+    sample_rgb = []
+    sample_valid = []
+    padded_rgb = np.pad(rgb, ((1, 1), (1, 1), (0, 0)), mode="edge")
+    padded_luminance = np.pad(luminance, ((1, 1), (1, 1)), mode="edge")
+    padded_visible = np.pad(visible & ~protected, ((1, 1), (1, 1)), mode="constant")
+    padded_candidates = np.pad(matte_candidates, ((1, 1), (1, 1)), mode="constant")
+    for dy in (-1, 0, 1):
+        for dx in (-1, 0, 1):
+            if dx == 0 and dy == 0:
+                continue
+            y0 = 1 + dy
+            x0 = 1 + dx
+            neighbour_rgb = padded_rgb[y0:y0 + height, x0:x0 + width]
+            neighbour_luma = padded_luminance[y0:y0 + height, x0:x0 + width]
+            neighbour_visible = padded_visible[y0:y0 + height, x0:x0 + width]
+            neighbour_candidate = padded_candidates[y0:y0 + height, x0:x0 + width]
+            valid = (
+                matte_candidates
+                & neighbour_visible
+                & ~neighbour_candidate
+                & (neighbour_luma <= luminance - float(minimum_interior_contrast) * 0.5)
+            )
+            sample_rgb.append(neighbour_rgb.astype(np.float32))
+            sample_valid.append(valid)
+
+    stack = np.stack(sample_rgb, axis=0)
+    valid_stack = np.stack(sample_valid, axis=0)
+    masked_stack = np.where(valid_stack[:, :, :, None], stack, np.nan)
+    with np.errstate(all="ignore"):
+        replacement = np.nanmedian(masked_stack, axis=0)
+    usable = matte_candidates & np.isfinite(replacement).all(axis=2)
+    changed = int(usable.sum())
+    if changed:
+        pixels[usable, :3] = np.clip(np.rint(replacement[usable]), 0, 255).astype(np.uint8)
+
+    # A source-level invariant: this pass must preserve the complete alpha plane.
+    if not np.array_equal(pixels[:, :, 3], alpha):
+        raise AutoRigError("Edge matte colour repair unexpectedly changed source alpha.")
+
+    report = {
+        "method": "boundary_neutral_matte_rgb_decontamination",
+        "candidate_pixels": int(matte_candidates.sum()),
+        "pixels_recoloured": changed,
+        "protected_prop_pixels": int(protected.sum()),
+        "minimum_brightness": int(minimum_brightness),
+        "maximum_channel_spread": int(maximum_channel_spread),
+        "minimum_interior_contrast": int(minimum_interior_contrast),
+        "source_alpha_preserved": True,
+        "source_silhouette_geometry_preserved": True,
+        "instrument_props_protected": True,
+        "visual_review_required": True,
+    }
+    return Image.fromarray(pixels, mode="RGBA"), report
+
+
 def _authored_performance_layers(
     source: Image.Image,
     bundle_dir: Path,
@@ -1013,6 +1143,15 @@ def extend_full_body_character(
             "attach_to": props[prop_id]["attach_to"],
         }
 
+    # Recolour inherited neutral backdrop spill only at the outer source edge.
+    # Instrument pixels are protected from this pass; alpha and limb masks stay intact.
+    source, edge_decontamination = _decontaminate_edge_matte_rgb(
+        source,
+        protected_masks=tuple(prop_masks.values()),
+    )
+    clean_source_path = bundle / "preserved-full-body-source.png"
+    source.save(clean_source_path, format="PNG", optimize=True)
+
     # Replace the unreliable SCHP limb masks with reviewed source-pixel regions.
     limb_layers, limb_joints, limb_report, moving_mask = _authored_performance_layers(
         source,
@@ -1111,6 +1250,7 @@ def extend_full_body_character(
         "finger_layer_count": len(finger_layers),
         "joint_additions": sorted(limb_joints.keys() | finger_joints.keys()),
         "limb_report": limb_report,
+        "source_edge_color_decontamination": edge_decontamination,
         "violin_hand_overlap_cleanup": violin_hand_cleanup,
         "finger_pixel_areas": finger_areas,
         "prop_report": prop_report,
