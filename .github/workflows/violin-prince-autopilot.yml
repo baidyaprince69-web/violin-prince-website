@@ -26,11 +26,6 @@ on:
         default: full
         options:
           - full
-      run_pending_public_queue:
-        description: "Run the next unused story from today's public YouTube queue now. Use this for missed slots."
-        required: false
-        type: boolean
-        default: false
 
 permissions:
   contents: write
@@ -95,7 +90,7 @@ jobs:
           PY
 
   daily_readiness:
-    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_pending_public_queue == true) }}
+    if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
     outputs:
       ready: ${{ steps.readiness.outputs.ready }}
@@ -116,27 +111,11 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Resolve the IST batch date for the scheduled or manual queue run
+      - name: Resolve scheduled IST batch date from the triggering cron slot
         id: schedule_context
         env:
           SCHEDULE_CRON: ${{ github.event.schedule }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ "$GITHUB_EVENT_NAME" == "schedule" ]]; then
-            python autopilot/engine/scheduled_slot_date.py --cron "$SCHEDULE_CRON"
-          else
-            python - <<'PY'
-            import os
-            from datetime import datetime
-            from zoneinfo import ZoneInfo
-
-            production_date = datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
-            with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-                output.write("production_date=" + production_date + "\n")
-            print("Manual public queue date: " + production_date + " Asia/Kolkata")
-            PY
-          fi
+        run: python autopilot/engine/scheduled_slot_date.py --cron "$SCHEDULE_CRON"
 
       - name: Select the next unused public-ready story from the scheduled date's batch
         id: batch
@@ -156,7 +135,7 @@ jobs:
 
   report_blocked_slot:
     needs: [daily_readiness]
-    if: ${{ always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_pending_public_queue == true)) && needs.daily_readiness.result == 'success' && needs.daily_readiness.outputs.slot_status == 'blocked' }}
+    if: ${{ always() && github.event_name == 'schedule' && needs.daily_readiness.result == 'success' && needs.daily_readiness.outputs.slot_status == 'blocked' }}
     runs-on: ubuntu-latest
     steps:
       - name: Report safely skipped slot
@@ -174,7 +153,7 @@ jobs:
 
   report_readiness_blocked:
     needs: [daily_readiness]
-    if: ${{ always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_pending_public_queue == true)) && needs.daily_readiness.result == 'success' && needs.daily_readiness.outputs.ready != 'true' && needs.daily_readiness.outputs.slot_status != 'blocked' }}
+    if: ${{ always() && github.event_name == 'schedule' && needs.daily_readiness.result == 'success' && needs.daily_readiness.outputs.ready != 'true' && needs.daily_readiness.outputs.slot_status != 'blocked' }}
     runs-on: ubuntu-latest
     steps:
       - name: Report failed production preflight
@@ -193,13 +172,12 @@ jobs:
 
   produce:
     needs: [daily_readiness, fast_preflight]
-    if: ${{ always() && needs.fast_preflight.result == 'success' && (((github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_pending_public_queue == true)) && needs.daily_readiness.result == 'success' && needs.daily_readiness.outputs.ready == 'true' && needs.daily_readiness.outputs.slot_status == 'ready') || (github.event_name != 'schedule' && inputs.run_pending_public_queue != true)) }}
+    if: ${{ always() && needs.fast_preflight.result == 'success' && (github.event_name != 'schedule' || (needs.daily_readiness.result == 'success' && needs.daily_readiness.outputs.ready == 'true' && needs.daily_readiness.outputs.slot_status == 'ready')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
       RUN_ID: ${{ github.run_id }}
-      RUN_MODE: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_pending_public_queue == true)) && 'public_queue' || 'manual' }}
-      PUBLIC_QUEUE_RUN: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_pending_public_queue == true) }}
+      RUN_MODE: ${{ github.event_name == 'schedule' && 'scheduled' || 'manual' }}
       PIPELINE_STAGE: ${{ inputs.stage || 'full' }}
       SEO_LEARNING_REPORT_PATH: work/seo-learning-data/seo-learning/latest.enc.json
       VIOLIN_PRINCE_PRESENTER_ENABLED: "true"
@@ -209,15 +187,9 @@ jobs:
         shell: bash
         env:
           SELECTED_STAGE: ${{ inputs.stage || 'full' }}
-          PUBLIC_QUEUE_REQUESTED: ${{ inputs.run_pending_public_queue }}
-          SELECTED_BRANCH: ${{ github.ref_name }}
         run: |
           if [[ "$SELECTED_STAGE" != "full" ]]; then
             echo "::error::Only the complete production path is enabled. Intermediate partial-stage runs are paused until their package continuity and validation contract is complete."
-            exit 1
-          fi
-          if [[ "$PUBLIC_QUEUE_REQUESTED" == "true" && "$SELECTED_BRANCH" != "main" ]]; then
-            echo "::error::The public queue must be launched from the main branch."
             exit 1
           fi
 
@@ -309,14 +281,14 @@ jobs:
           key: violin-prince-cc0-solo-violin-v1
 
       - name: Install preparation dependencies
-        if: (env.PIPELINE_STAGE == 'prepare' || env.PIPELINE_STAGE == 'full') && env.PUBLIC_QUEUE_RUN != 'true'
+        if: (env.PIPELINE_STAGE == 'prepare' || env.PIPELINE_STAGE == 'full') && github.event_name != 'schedule'
         run: |
           python -m pip install --upgrade pip
           pip install --index-url https://download.pytorch.org/whl/cpu torch
           pip install -r autopilot/engine/requirements.txt
 
       - name: Install scheduled daily-plan dependencies
-        if: env.PUBLIC_QUEUE_RUN == 'true'
+        if: github.event_name == 'schedule'
         run: |
           python -m pip install --upgrade pip
           pip install -r autopilot/engine/requirements.txt
@@ -336,13 +308,13 @@ jobs:
           pip install "requests>=2.32,<3" "Pillow>=10.4,<12"
 
       - name: Set up Node.js 22 for Motion + HyperFrames
-        if: github.event_name == 'push' || env.PUBLIC_QUEUE_RUN == 'true'
+        if: github.event_name == 'push' || github.event_name == 'schedule'
         uses: actions/setup-node@v4
         with:
           node-version: "22"
 
       - name: Install Motion + HyperFrames dependencies
-        if: github.event_name == 'push' || env.PUBLIC_QUEUE_RUN == 'true'
+        if: github.event_name == 'push' || github.event_name == 'schedule'
         working-directory: autopilot/engine/animation2d
         run: npm install --no-audit --no-fund
 
@@ -359,7 +331,7 @@ jobs:
         run: python autopilot/engine/run.py --stage render
 
       - name: Run the selected ChatGPT-directed slot through Motion + HyperFrames
-        if: env.PIPELINE_STAGE == 'full' && (steps.daily_request.outputs.plan_path != '' || env.PUBLIC_QUEUE_RUN == 'true') && (env.PUBLIC_QUEUE_RUN != 'true' || needs.daily_readiness.outputs.slot_status != 'blocked')
+        if: env.PIPELINE_STAGE == 'full' && (steps.daily_request.outputs.plan_path != '' || github.event_name == 'schedule') && (github.event_name != 'schedule' || needs.daily_readiness.outputs.slot_status != 'blocked')
         env:
           RUN_ID: ${{ github.run_id }}
           GITHUB_RUN_ID: ${{ github.run_id }}
@@ -375,7 +347,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "$PUBLIC_QUEUE_RUN" == "true" ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == "schedule" ]]; then
             python autopilot/engine/run_daily_plan.py \
               --batch "$SLOT_BATCH_PATH" \
               --slot-id "$SLOT_ID" \
@@ -398,13 +370,13 @@ jobs:
           retention-days: 3
 
       - name: Run complete Prepare → Visuals → Render sequence
-        if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path == '' && env.PUBLIC_QUEUE_RUN != 'true'
+        if: env.PIPELINE_STAGE == 'full' && steps.daily_request.outputs.plan_path == '' && github.event_name != 'schedule'
         env:
           PRIVATE_VOICE_REPO_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
         run: python autopilot/engine/run.py --stage full
 
       - name: Retain scheduled YouTube upload artifact for recovery
-        if: success() && env.PUBLIC_QUEUE_RUN == 'true' && env.PIPELINE_STAGE == 'full' && needs.daily_readiness.outputs.slot_status == 'ready'
+        if: success() && github.event_name == 'schedule' && env.PIPELINE_STAGE == 'full' && needs.daily_readiness.outputs.slot_status == 'ready'
         uses: actions/upload-artifact@v4
         with:
           name: violin-prince-youtube-upload-${{ github.run_number }}
@@ -418,7 +390,7 @@ jobs:
           retention-days: 3
 
       - name: Publish approved daily slot PUBLICLY to YouTube via Upload-Post
-        if: success() && env.PUBLIC_QUEUE_RUN == 'true' && env.PIPELINE_STAGE == 'full' && needs.daily_readiness.outputs.slot_status == 'ready'
+        if: success() && github.event_name == 'schedule' && env.PIPELINE_STAGE == 'full' && needs.daily_readiness.outputs.slot_status == 'ready'
         env:
           UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
           UPLOAD_POST_USER: "default"

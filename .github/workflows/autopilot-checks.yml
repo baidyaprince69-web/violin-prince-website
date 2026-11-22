@@ -150,6 +150,7 @@ jobs:
               ".github/workflows/autopilot-checks.yml",
               ".github/workflows/master-creative-director.yml",
               ".github/workflows/violin-prince-autopilot.yml",
+              ".github/workflows/violin-prince-run-now.yml",
               ".github/workflows/publisher-fallback.yml",
               ".github/workflows/youtube-connection-check.yml",
               ".github/workflows/private-qwen3-bridge-test.yml",
@@ -168,6 +169,7 @@ jobs:
       - name: Check production workflow and voice test templates exist
         run: |
           test -s .github/workflows/violin-prince-autopilot.yml
+          test -s .github/workflows/violin-prince-run-now.yml
           test -s autopilot/engine/animation2d/package.json
           test -s autopilot/engine/animation2d/build.mjs
           test -s autopilot/engine/hyperframes_pipeline.py

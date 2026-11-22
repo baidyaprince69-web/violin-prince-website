@@ -1,0 +1,198 @@
+name: Violin Prince — Run Pending Public Video Now
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: violin-prince-public-youtube-queue
+  cancel-in-progress: false
+
+jobs:
+  run_next_public_video:
+    name: Produce and publish the next pending public YouTube video
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+      actions: read
+    env:
+      RUN_ID: ${{ github.run_id }}
+      RUN_MODE: public_queue
+      PRIVATE_VOICE_REPO_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
+      UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
+      UPLOAD_POST_USER: "default"
+      YOUTUBE_EXPECTED_CHANNEL_ID: ${{ vars.YOUTUBE_EXPECTED_CHANNEL_ID }}
+      YOUTUBE_PRIVACY_STATUS: "public"
+      SEO_LEARNING_REPORT_PATH: work/seo-learning-data/seo-learning/latest.enc.json
+      VIOLIN_PRINCE_PRESENTER_ENABLED: "true"
+    steps:
+      - name: Require the main branch
+        env:
+          SELECTED_BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [[ "$SELECTED_BRANCH" != "main" ]]; then
+            echo "::error::Select the main branch before running the public queue."
+            exit 1
+          fi
+
+      - name: Check out the production branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: autopilot/engine/requirements.txt
+
+      - name: Verify public upload and private voice credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          required = (
+              "UPLOAD_POST_API_KEY",
+              "YOUTUBE_EXPECTED_CHANNEL_ID",
+              "PRIVATE_VOICE_REPO_TOKEN",
+          )
+          missing = [key for key in required if not os.environ.get(key, "").strip()]
+          if missing:
+              raise SystemExit("Required production configuration is missing: " + ", ".join(missing))
+          print("Public YouTube and private Qwen3 voice configuration is present.")
+          PY
+
+      - name: Install production dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r autopilot/engine/requirements.txt
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
+          pip install "requests>=2.32,<3" "Pillow>=10.4,<12" "fonttools[woff]>=4.50,<5"
+
+      - name: Set up Node.js 22 for Motion and HyperFrames
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Motion and HyperFrames dependencies
+        working-directory: autopilot/engine/animation2d
+        run: npm install --no-audit --no-fund
+
+      - name: Resolve today's India production date
+        id: production_date
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+
+          value = datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write("production_date=" + value + "\n")
+          print("Public queue date: " + value + " Asia/Kolkata")
+          PY
+
+      - name: Check YouTube history and select the next unused public-ready story
+        id: batch
+        env:
+          PYTHONPATH: autopilot/engine
+          PRODUCTION_DATE: ${{ steps.production_date.outputs.production_date }}
+        run: |
+          python autopilot/engine/select_public_queue.py \
+            --root . \
+            --production-date "$PRODUCTION_DATE"
+
+      - name: Validate source, voice and illustration readiness
+        id: readiness
+        if: steps.batch.outputs.slot_status == 'ready'
+        env:
+          SLOT_BATCH_PATH: ${{ steps.batch.outputs.batch_path }}
+          PRODUCTION_DATE: ${{ steps.batch.outputs.production_date }}
+        run: |
+          python autopilot/engine/daily_readiness.py \
+            --batch "$SLOT_BATCH_PATH" \
+            --today "$PRODUCTION_DATE"
+
+      - name: Report that no public-ready story is available
+        if: steps.batch.outputs.slot_status != 'ready'
+        env:
+          REASON: ${{ steps.batch.outputs.blocked_reason }}
+        run: |
+          {
+            echo "## Public queue did not find an eligible story"
+            echo ""
+            echo "- $REASON"
+            echo "- YouTube history was checked before selection."
+            echo "- No video was rendered or uploaded."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Report a failed production preflight
+        if: steps.batch.outputs.slot_status == 'ready' && steps.readiness.outputs.ready != 'true'
+        run: |
+          {
+            echo "## Public queue production preflight blocked this story"
+            echo ""
+            echo "- See the readiness step above for the specific blocker."
+            echo "- No video was rendered or uploaded."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Produce the selected story through Motion and HyperFrames
+        if: steps.readiness.outputs.ready == 'true'
+        env:
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          EXPECTED_BATCH_SHA256: ${{ steps.batch.outputs.batch_sha256 }}
+          SLOT_ID: ${{ steps.batch.outputs.slot_id }}
+          SLOT_WORKSPACE_ROOT: ${{ steps.batch.outputs.workspace_root }}
+          SLOT_BATCH_PATH: ${{ steps.batch.outputs.batch_path }}
+          PRODUCTION_EVENT_SHA: ${{ github.sha }}
+          PUBLISH_ENABLED: "false"
+        shell: bash
+        run: |
+          set -euo pipefail
+          python autopilot/engine/run_daily_plan.py \
+            --batch "$SLOT_BATCH_PATH" \
+            --slot-id "$SLOT_ID" \
+            --workspace-root "$SLOT_WORKSPACE_ROOT"
+
+      - name: Retain the validated production package
+        if: success() && steps.readiness.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: violin-prince-public-queue-${{ github.run_number }}
+          path: |
+            ${{ format('{0}/output/violin-prince-short.mp4', steps.batch.outputs.workspace_root) }}
+            ${{ format('{0}/output/publish-manifest.json', steps.batch.outputs.workspace_root) }}
+            ${{ format('{0}/output/asset-provenance.json', steps.batch.outputs.workspace_root) }}
+            ${{ format('{0}/output/slot-receipt.json', steps.batch.outputs.workspace_root) }}
+            ${{ format('{0}/package/creative_plan.json', steps.batch.outputs.workspace_root) }}
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Publish the validated video PUBLICLY to YouTube
+        if: success() && steps.readiness.outputs.ready == 'true'
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          OUTPUT_DIR: ${{ format('{0}/output', steps.batch.outputs.workspace_root) }}
+          PLAN_PATH: ${{ format('{0}/package/creative_plan.json', steps.batch.outputs.workspace_root) }}
+          SLOT_ID: ${{ steps.batch.outputs.slot_id }}
+          PRODUCTION_DATE: ${{ steps.batch.outputs.production_date }}
+          PUBLISH_ENABLED: "false"
+        shell: bash
+        run: |
+          set -euo pipefail
+          python autopilot/engine/upload_public_short_uploadpost.py \
+            --output-dir "$OUTPUT_DIR" \
+            --plan "$PLAN_PATH" \
+            --run-id "$GITHUB_RUN_ID" \
+            --slot-id "$SLOT_ID" \
+            --production-date "$PRODUCTION_DATE"
