@@ -84,9 +84,15 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
     finger_ring: "right_ring_base",
     finger_little: "right_little_base"
   };
+  const articulatedCompositeRoles = new Set([
+    "left_upper_arm", "left_forearm", "left_hand",
+    "right_upper_arm", "right_forearm", "right_hand",
+    "left_thigh", "left_calf", "left_foot",
+    "right_thigh", "right_calf", "right_foot",
+    "finger_index", "finger_middle", "finger_ring", "finger_little"
+  ]);
   const layers = (character.layers || [])
-    .filter(layer => !compositeBase ||
-      layer.role === "left_hand" || String(layer.role || "").startsWith("finger_"))
+    .filter(layer => !compositeBase || articulatedCompositeRoles.has(String(layer.role || "")))
     .map((layer) => {
     const jointName = jointForRole[layer.role];
     const joint = jointName ? (character.joints || {})[jointName] : null;
@@ -448,15 +454,25 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     const requiredFingers = [
       "finger_index", "finger_middle", "finger_ring", "finger_little"
     ];
+    const articulatedArmRoles = [
+      "left_upper_arm", "left_forearm", "left_hand",
+      "right_upper_arm", "right_forearm", "right_hand"
+    ];
     const requiredRoles = compositeBaseMode
-      ? ["left_hand", ...requiredFingers]
+      ? [...articulatedArmRoles, ...requiredLegs, ...requiredFingers]
       : [...requiredLegs, ...requiredFingers];
     const roleSet = new Set((character.layers || []).map((layer) => String(layer.role || "")));
     const propSet = new Set(Object.keys(character.props || {}));
     if (compositeBaseMode) {
       preservedCompositeBaseCount += 1;
-      if (character.base_art.mode !== "intact_full_body_with_bow_and_finger_cutouts") {
-        throw new Error("Scene " + scene.id + " composite base must preserve the intact source illustration.");
+      if (character.performance_base_mode === "segmented_source_body") {
+        if (character.base_art.mode !== "segmented_source_body" ||
+            character.base_art.source_alpha_preserved !== true ||
+            character.base_art.source_pixels_outside_cut_mask_preserved !== true) {
+          throw new Error("Scene " + scene.id + " segmented base must preserve source alpha and untouched pixels.");
+        }
+      } else if (character.base_art.mode !== "intact_full_body_with_bow_and_finger_cutouts") {
+        throw new Error("Scene " + scene.id + " composite base has an unsupported source mode.");
       }
     }
     for (const role of requiredRoles) {
@@ -492,6 +508,9 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
       }
       animatedInstrumentPropCount += 1;
     }
+    const animatedLimbSegmentCount = requiredRoles.filter(role =>
+      [...articulatedArmRoles, ...requiredLegs].includes(role)
+    ).length;
     if (compositeBaseMode) {
       const baseTarget = scene.id + "-" + character.id + "-base-art";
       if (!project.motion_tracks.some((item) =>
@@ -597,7 +616,11 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     animated_fingering_controls: animatedFingeringControlCount,
     animated_instrument_props: animatedInstrumentPropCount,
     preserved_composite_base_count: preservedCompositeBaseCount,
-    full_body_visual_mode: preservedCompositeBaseCount > 0 ? "intact_composite_base" : "segmented_limb_rig",
+    animated_limb_segment_count: animatedLimbSegmentCount || 0,
+    full_body_visual_mode: preservedCompositeBaseCount > 0
+      ? (fullBodyPerformanceCharacters.some(character => character.performance_base_mode === "segmented_source_body")
+        ? "segmented_source_body" : "intact_composite_base")
+      : "segmented_limb_rig",
     independent_layer_motion_count: independentLayerMotionCount,
     rendered_layer_count: visualLayers.length,
     stagecraft_environment: scene.stagecraft?.environment || "",
@@ -619,6 +642,7 @@ const motionReport = {
   animated_fingering_control_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_fingering_controls, 0),
   animated_instrument_prop_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_instrument_props, 0),
   preserved_composite_base_count: motionSceneReports.reduce((sum, scene) => sum + scene.preserved_composite_base_count, 0),
+  animated_limb_segment_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_limb_segment_count, 0),
   independent_layer_motion_count: motionSceneReports.reduce((sum, scene) => sum + scene.independent_layer_motion_count, 0),
   rendered_layer_count: motionSceneReports.reduce((sum, scene) => sum + scene.rendered_layer_count, 0),
   animated_stagecraft_environment_node_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_stagecraft_environment_nodes, 0),
