@@ -1,4 +1,4 @@
-name: Disabled — public release from a private preview
+name: Disabled — public release from private preview
 
 on:
   push:
@@ -8,69 +8,13 @@ on:
       - ".autopilot/approved-preview-publication.json"
 
 permissions:
-  contents: write
-  actions: read
-
-concurrency:
-  group: violin-prince-approved-preview-publication
-  cancel-in-progress: false
+  contents: read
 
 jobs:
   publish_approved_preview:
-    # Public publishing is disabled; this workflow must never upload.
+    name: Public release disabled
     if: false
-    name: Disabled — public publishing
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    permissions:
-      contents: write
-      actions: read
-    env:
-      GITHUB_TOKEN: ${{ github.token }}
-      PRIVATE_VOICE_REPO_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
-      YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
-      YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
-      YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-      EXPECTED_YOUTUBE_CHANNEL_ID: "UCGCfZij4Fn3Ga2j2HiCT45w"
-      YOUTUBE_PRIVACY_STATUS: "public"
     steps:
-      - name: Check out approved main-branch request
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          persist-credentials: true
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install media inspection tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
-
-      - name: Install the existing publisher dependency
-        run: python -m pip install --disable-pip-version-check 'requests>=2.32,<3'
-
-      - name: Verify provenance, check the actual channel for duplicates, and upload the exact preview
-        run: python autopilot/engine/publish_approved_private_preview.py
-
-      - name: Confirm publication is receipt-backed
-        if: always()
-        shell: bash
-        run: |
-          source_run_id="$(python -c 'import json; print(json.load(open(".autopilot/approved-preview-publication.json", encoding="utf-8"))["source_workflow_run_id"])')"
-          receipt=".autopilot/publication-receipts/${source_run_id}.json"
-          if [[ -s "$receipt" ]]; then
-            python - "$receipt" <<'PY'
-          import json
-          import sys
-          from pathlib import Path
-          data = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-          print("Receipt status:", data.get("status"))
-          print("YouTube video:", data.get("youtube_video_url"))
-          PY
-          else
-            echo "No completed publication receipt exists. Do not retry automatically."
-          fi
+      - name: Explain disabled publication route
+        run: echo "Public YouTube publishing is disabled. Private previews must remain private."
