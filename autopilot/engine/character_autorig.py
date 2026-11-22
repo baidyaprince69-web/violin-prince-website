@@ -329,6 +329,48 @@ def _repair_transparent_person_holes(
     return Image.fromarray(repaired.astype(np.uint8)), summary
 
 
+def _restore_person_holes_in_source(
+    original_rgba: Image.Image,
+    repaired_rgb: Image.Image,
+    source_alpha: np.ndarray,
+    body_labels: np.ndarray,
+    body_confidence: np.ndarray,
+    *,
+    confidence_floor: float = 0.25,
+) -> tuple[Image.Image, dict[str, Any]]:
+    """Restore only parser-confirmed transparent holes in the complete source.
+
+    The repaired torso used by the old segmented rig is not sufficient for a
+    full-body composite. This creates a source plate that retains the original
+    alpha everywhere except transparent pixels confidently classified as the
+    character, where the inpainted RGB is restored.
+    """
+    width, height = original_rgba.size
+    expected = (height, width)
+    if source_alpha.shape != expected or body_labels.shape != expected or body_confidence.shape != expected:
+        raise AutoRigError("Preserved source alpha and parser maps must match the source dimensions.")
+    if repaired_rgb.size != original_rgba.size:
+        raise AutoRigError("Repaired RGB plate must match the original full-body source dimensions.")
+
+    holes = (
+        (np.asarray(source_alpha, dtype=np.uint8) <= 16)
+        & np.isin(body_labels, (1, 2, 3, 4, 5, 6))
+        & (np.asarray(body_confidence, dtype=np.float32) >= confidence_floor)
+    )
+    result = np.asarray(original_rgba.convert("RGBA"), dtype=np.uint8).copy()
+    if holes.any():
+        repaired = np.asarray(repaired_rgb.convert("RGB"), dtype=np.uint8)
+        result[holes, :3] = repaired[holes]
+        result[holes, 3] = 255
+    summary = {
+        "pixels_restored": int(holes.sum()),
+        "method": "restore_parser_confirmed_transparent_person_holes",
+        "confidence_floor": float(confidence_floor),
+        "original_alpha_preserved_outside_holes": True,
+    }
+    return Image.fromarray(result, mode="RGBA"), summary
+
+
 def _bbox(mask: np.ndarray) -> tuple[int, int, int, int]:
     ys, xs = np.where(mask)
     if len(xs) == 0:
@@ -1257,6 +1299,10 @@ def create_character_bundle(
     image, transparency_report = _repair_transparent_person_holes(
         image, source_alpha, body_labels, body_conf
     )
+    preserved_source, preserved_source_report = _restore_person_holes_in_source(
+        rgba, image, source_alpha, body_labels, body_conf
+    )
+    preserved_source.save(output_dir / "preserved-full-body-source.png", format="PNG", optimize=True)
     masks, repaired_torso, report, joints = separate_from_parsing(
         image, body_labels, body_conf, detail_labels, detail_conf,
         hand_fraction=hand_fraction,
@@ -1368,6 +1414,7 @@ def create_character_bundle(
     _save_mask_preview(image, masks, output_dir / "separation-preview.png")
     report.update({
         "source_transparency_repair": transparency_report,
+        "preserved_full_body_source": preserved_source_report,
         "character_id": character_id,
         "status": "candidate_ready_for_visual_review",
         "layer_count": len(layers),
