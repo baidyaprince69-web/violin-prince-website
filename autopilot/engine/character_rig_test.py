@@ -81,6 +81,18 @@ def build_rig_preview_project(bundle_dir: str | Path, output_dir: str | Path) ->
         staged["pose_assets"][name] = {
             "src": target.relative_to(output_dir).as_posix(),
         }
+    staged["props"] = {}
+    for name, prop in character.get("props", {}).items():
+        source = bundle_dir / prop["src"]
+        if not source.is_file():
+            raise RigPreviewError(f"Missing instrument prop: {source.name}")
+        target = asset_dir / source.name
+        shutil.copy2(source, target)
+        staged["props"][name] = {
+            **prop,
+            "src": target.relative_to(output_dir).as_posix(),
+        }
+    staged["body_scope"] = character.get("body_scope", "upper_body")
 
     # These actions deliberately animate the separated image layers through
     # their joint pivots. Pose plates remain reference assets, but are not used
@@ -104,6 +116,15 @@ def build_rig_preview_project(bundle_dir: str | Path, output_dir: str | Path) ->
             "expression": "neutral", "duration": 1.3,
             "keyframes": {"torso": {"rotate": [0, -3, 3, 0]}},
         },
+        **({
+            "scene-violin-performance": {
+                "expression": "neutral",
+                "gesture": "violin_performance",
+                "duration": 1.35,
+                "loop": True,
+                "cycle_duration_seconds": 1.35,
+            }
+        } if staged.get("body_scope") == "full_body" and {"violin", "bow"}.issubset(staged.get("props", {})) else {}),
     }
     staged["scene_actions"] = scene_actions
 
@@ -117,6 +138,8 @@ def build_rig_preview_project(bundle_dir: str | Path, output_dir: str | Path) ->
         ("scene-right", "Right point", "Right arm chain and hand rotate on their joint pivots"),
         ("scene-palms", "Open palms", "Both arm chains move into a presenting gesture"),
         ("scene-body", "Body articulation", "Torso rotates around its body pivot"),
+        *([("scene-violin-performance", "Violin performance", "Leg joints, left-hand fingering gestures, and independent bow strokes")]
+          if staged.get("body_scope") == "full_body" and {"violin", "bow"}.issubset(staged.get("props", {})) else []),
     ]
     scenes = []
     for index, (scene_id, title, caption) in enumerate(titles):
@@ -133,7 +156,7 @@ def build_rig_preview_project(bundle_dir: str | Path, output_dir: str | Path) ->
         "width": int(character["canvas"]["width"]),
         "height": int(character["canvas"]["height"]),
         "fps": 25,
-        "duration_seconds": 12.4,
+        "duration_seconds": max(12.4, len(titles) * 1.35),
         "scenes": scenes,
         "characters": [staged],
         "diagnostics": {
@@ -144,7 +167,11 @@ def build_rig_preview_project(bundle_dir: str | Path, output_dir: str | Path) ->
                 "neck_pivot_head_rotation",
                 "shoulder_elbow_wrist_arm_movement",
                 "torso_body_pivot_rotation",
+                *(["hip_knee_ankle_leg_chains", "independent_violin_bow_prop_tracks"]
+                  if staged.get("body_scope") == "full_body" and {"violin", "bow"}.issubset(staged.get("props", {})) else []),
             ],
+            "body_scope": staged.get("body_scope", "upper_body"),
+            "instrument_prop_count": len(staged.get("props") or {}),
             "pose_plates_used_for_articulation": False,
             "raster_diagnostics": {
                 "scope": "layer_raster_joint_alignment_and_occlusion_only",
