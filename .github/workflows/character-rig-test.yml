@@ -184,7 +184,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg espeak-ng
-          python -m pip install --disable-pip-version-check "fonttools[woff]>=4.50,<5"
+          python -m pip install --disable-pip-version-check "fonttools[woff]>=4.50,<5" "cryptography>=43,<48"
 
       - name: Render isolated rig preview (not production)
         working-directory: work/character-rig-test/composition
