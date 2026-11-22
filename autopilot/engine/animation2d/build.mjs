@@ -79,6 +79,23 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       '" style="' + style + '">';
   }).join("");
 
+  const props = Object.entries(character.props || {}).map(([name, prop]) => {
+    const style = [
+      "left:" + (layout.offsetX + Number(prop.x || 0) * layout.scale) + "px",
+      "top:" + (layout.offsetY + Number(prop.y || 0) * layout.scale) + "px",
+      "width:" + (Number(prop.width) * layout.scale) + "px",
+      "height:" + (Number(prop.height) * layout.scale) + "px",
+      "transform-origin:" + (Number(prop.pivot_x ?? 0.5) * 100) + "% " +
+        (Number(prop.pivot_y ?? 0.5) * 100) + "%",
+      "z-index:" + Number(prop.z_index ?? 50)
+    ].join(";");
+    const propId = scene.id + "-" + character.id + "-prop-" + name;
+    return '<img class="rig-prop" id="' + escapeHtml(propId) +
+      '" data-role="prop-' + escapeHtml(name) +
+      '" alt="" draggable="false" src="' + escapeHtml(prop.src) +
+      '" style="' + style + '">';
+  }).join("");
+
   const selectedPose = String(action.pose_asset || "").toLowerCase();
   const poseIsActive = Boolean(selectedPose && character.pose_assets &&
     Object.prototype.hasOwnProperty.call(character.pose_assets, selectedPose));
@@ -137,7 +154,7 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
     '" data-track-index="' + (40 + sceneIndex * 100 + characterIndex) +
     '" style="' + wrapperStyle + '"><div class="character-motion" id="' +
     escapeHtml(scene.id + "-" + character.id + "-motion") + '">' +
-    layers + expressions + poseAssets + '</div></div>';
+    layers + props + expressions + poseAssets + '</div></div>';
 }
 
 
