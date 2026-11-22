@@ -700,6 +700,9 @@ def _save_mask_preview(image: Image.Image, masks: dict[str, np.ndarray], path: P
         "left_upper_arm": (70, 160, 250), "right_upper_arm": (90, 150, 245),
         "left_forearm": (80, 210, 140), "right_forearm": (90, 205, 135),
         "left_hand": (180, 110, 245), "right_hand": (195, 105, 235),
+        "left_thigh": (240, 130, 70), "right_thigh": (220, 110, 65),
+        "left_shin": (170, 95, 210), "right_shin": (155, 85, 195),
+        "left_foot": (90, 170, 220), "right_foot": (75, 155, 205),
     }
     colour = np.zeros((image.height, image.width, 3), dtype=np.uint8)
     for name, region in masks.items():
