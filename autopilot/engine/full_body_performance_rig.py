@@ -482,6 +482,7 @@ def _authored_performance_layers(
         joint_underlap = (xx - ex) ** 2 + (yy - ey) ** 2 <= overlap_radius ** 2
         upper_region = upper_region & (~forearm_region | joint_underlap)
         forearm_mask = forearm_region & (alpha > 12)
+        forearm_mask &= ~hand_masks[f"{side}_hand"]
         wrist = (manifest.get("joints") or {}).get(f"{side}_wrist")
         if not wrist or len(wrist) != 2:
             raise ManualReviewRequired(f"The {side} wrist anchor must be authored as [x, y].")
