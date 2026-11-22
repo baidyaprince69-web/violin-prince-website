@@ -18,10 +18,14 @@ REQUIRED_JOINTS = frozenset({
 FULL_BODY_LAYER_ROLES = frozenset({
     "left_thigh", "left_shin", "left_foot",
     "right_thigh", "right_shin", "right_foot",
+    "right_index_finger", "right_middle_finger",
+    "right_ring_finger", "right_little_finger",
 })
 FULL_BODY_JOINTS = frozenset({
     "left_hip", "left_knee", "left_ankle",
     "right_hip", "right_knee", "right_ankle",
+    "right_index_knuckle", "right_middle_knuckle",
+    "right_ring_knuckle", "right_little_knuckle",
 })
 
 
