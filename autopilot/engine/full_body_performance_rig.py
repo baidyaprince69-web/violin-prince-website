@@ -344,12 +344,13 @@ def _skin_material_mask(
     red_min = int(thresholds.get("red_min", 90))
     red_max = int(thresholds.get("red_max", 240))
     green_min = int(thresholds.get("green_min", 45))
+    blue_min = int(thresholds.get("blue_min", 0))
     red_green_min = int(thresholds.get("red_minus_green_min", 20))
     green_blue_min = int(thresholds.get("green_minus_blue_min", 10))
     red_blue_min = int(thresholds.get("red_minus_blue_min", 35))
     skin = (
         (red >= red_min) & (red <= red_max) &
-        (green >= green_min) &
+        (green >= green_min) & (blue >= blue_min) &
         ((red - green) >= red_green_min) &
         ((green - blue) >= green_blue_min) &
         ((red - blue) >= red_blue_min) &
@@ -377,6 +378,76 @@ def _skin_material_mask(
     for blocked in excluded:
         skin &= ~np.asarray(blocked, dtype=bool)
     return skin
+
+
+def _clip_hand_from_violin_prop(
+    bundle_dir: Path,
+    *,
+    violin_specification: dict[str, Any],
+    hand_layer: dict[str, Any],
+    dilation_radius: int = 1,
+) -> dict[str, int | str]:
+    """Remove source-derived fretting-hand pixels from the violin sprite.
+
+    The prop crop can contain the original hand because the supplied violin
+    artwork was cut from a composite image. The independently extracted hand
+    is rendered above the violin; clipping its exact alpha footprint (plus a
+    one-pixel seam) prevents the prop from drawing a second, offset hand.
+    """
+    if dilation_radius < 0 or dilation_radius > 3:
+        raise ValueError("Hand/violin overlap dilation must be between zero and three pixels.")
+    try:
+        import cv2
+    except ImportError as exc:
+        raise AutoRigError("OpenCV is required to clean the violin/hand overlap.") from exc
+
+    hand_path = bundle_dir / str(hand_layer["src"])
+    violin_path = bundle_dir / f"prop-violin{Path(str(violin_specification['src'])).suffix.lower()}"
+    if not hand_path.is_file() or not violin_path.is_file():
+        raise AutoRigError("The source-derived hand or violin prop asset is missing.")
+    with Image.open(hand_path) as opened:
+        hand_alpha = np.asarray(opened.convert("RGBA").getchannel("A"), dtype=np.uint8)
+    with Image.open(violin_path) as opened:
+        violin_image = opened.convert("RGBA")
+    violin_rgba = np.asarray(violin_image, dtype=np.uint8).copy()
+
+    x = int(violin_specification["x"])
+    y = int(violin_specification["y"])
+    hand_x = int(hand_layer["x"])
+    hand_y = int(hand_layer["y"])
+    height, width = hand_alpha.shape
+    vx0, vy0 = max(x, hand_x), max(y, hand_y)
+    vx1 = min(x + violin_image.width, hand_x + width)
+    vy1 = min(y + violin_image.height, hand_y + height)
+    if vx1 <= vx0 or vy1 <= vy0:
+        return {"method": "no_overlap", "pixels_removed": 0, "hand_pixels": int(np.count_nonzero(hand_alpha))}
+
+    global_hand = np.zeros((y + violin_image.height, x + violin_image.width), dtype=np.uint8)
+    gx0, gy0 = max(0, hand_x), max(0, hand_y)
+    gx1, gy1 = min(global_hand.shape[1], hand_x + width), min(global_hand.shape[0], hand_y + height)
+    if gx1 <= gx0 or gy1 <= gy0:
+        raise ManualReviewRequired("The fretting-hand overlay lies outside the violin prop coordinate frame.")
+    global_hand[gy0:gy1, gx0:gx1] = hand_alpha[
+        gy0 - hand_y:gy1 - hand_y,
+        gx0 - hand_x:gx1 - hand_x,
+    ]
+    local_hand = global_hand[y:y + violin_image.height, x:x + violin_image.width] > 12
+    if dilation_radius:
+        kernel = np.ones((dilation_radius * 2 + 1, dilation_radius * 2 + 1), dtype=np.uint8)
+        local_hand = cv2.dilate(local_hand.astype(np.uint8), kernel, iterations=1) > 0
+
+    before = violin_rgba[:, :, 3].copy()
+    violin_rgba[local_hand, 3] = 0
+    removed = int(np.count_nonzero((before > 12) & (violin_rgba[:, :, 3] <= 12)))
+    violin_image = Image.fromarray(violin_rgba, mode="RGBA")
+    violin_image.save(violin_path, format="WEBP", quality=98, method=6)
+    return {
+        "method": "source_hand_alpha_cutout_plus_one_pixel_seam",
+        "pixels_removed": removed,
+        "hand_pixels": int(np.count_nonzero(hand_alpha)),
+        "dilation_radius": int(dilation_radius),
+        "asset": violin_path.name,
+    }
 
 
 def _authored_performance_layers(
@@ -962,6 +1033,14 @@ def extend_full_body_character(
     ]
     character["layers"].extend(limb_layers)
     character.setdefault("joints", {}).update(limb_joints)
+    right_hand_layer = next(layer for layer in limb_layers if layer["role"] == "right_hand")
+    violin_hand_cleanup = _clip_hand_from_violin_prop(
+        bundle,
+        violin_specification=(prop_manifest.get("props") or {})["violin"],
+        hand_layer=right_hand_layer,
+        dilation_radius=1,
+    )
+    limb_report["violin_hand_overlap_cleanup"] = violin_hand_cleanup
 
     # Finger polygons are extracted from the source-aligned right-hand layer.
     finger_layers, finger_joints, finger_areas = _prepare_fingers(
@@ -1032,6 +1111,7 @@ def extend_full_body_character(
         "finger_layer_count": len(finger_layers),
         "joint_additions": sorted(limb_joints.keys() | finger_joints.keys()),
         "limb_report": limb_report,
+        "violin_hand_overlap_cleanup": violin_hand_cleanup,
         "finger_pixel_areas": finger_areas,
         "prop_report": prop_report,
         "body_plate_prop_pixels_removed": {"torso": 0, "arms": 0},
