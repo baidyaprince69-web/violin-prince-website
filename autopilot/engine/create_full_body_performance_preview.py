@@ -75,7 +75,7 @@ def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dic
                             "18px 4px", "-18px -4px", "0px 0px"
                         ]
                     },
-                    **({} if composite_base_mode else {
+                    **({} if composite_base_mode and not segmented_body_mode else {
                         "violin": {"rotate": [0, -0.45, 0.35, 0.45, 0]},
                     }),
                 },
