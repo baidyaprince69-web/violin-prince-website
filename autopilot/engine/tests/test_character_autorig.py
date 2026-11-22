@@ -19,6 +19,7 @@ from character_autorig import (
     _face_expression_crop_box,
     _face_plate,
     _register_expression_to_neutral,
+    _split_full_body_legs,
     separate_from_parsing,
 )
 
@@ -41,6 +42,39 @@ class CharacterAutoRigTests(unittest.TestCase):
         body_conf = np.full((height, width), 0.94, dtype=np.float32)
         detail_conf = np.full((height, width), 0.92, dtype=np.float32)
         return body, body_conf, detail, detail_conf
+
+    def test_full_body_leg_parser_separates_thigh_shin_and_shoes(self):
+        height, width = 180, 120
+        body = np.zeros((height, width), dtype=np.uint8)
+        detail = np.zeros((height, width), dtype=np.uint8)
+        torso = np.zeros((height, width), dtype=bool)
+        torso[30:99, 44:76] = True
+
+        # Pascal Human Parts labels: 5 upper legs, 6 lower legs.
+        body[5, 86:122, 38:57] = 5
+        body[5, 86:122, 63:82] = 5
+        body[6, 118:151, 40:57] = 6
+        body[6, 118:151, 63:80] = 6
+
+        # ATR labels: 9/10 shoes and 12/13 left/right leg-side masks.
+        detail[12, 86:151, 36:59] = 12
+        detail[13, 86:151, 61:84] = 13
+        detail[9, 145:164, 35:58] = 9
+        detail[10, 145:164, 62:85] = 10
+
+        masks, side_source, foot_source = _split_full_body_legs(body, detail, torso)
+        self.assertEqual(side_source, "atr_left_right_leg_labels")
+        self.assertEqual(foot_source, "atr_left_right_shoe_labels")
+        self.assertEqual(set(masks), {
+            "left_thigh", "left_shin", "left_foot",
+            "right_thigh", "right_shin", "right_foot",
+        })
+        for name, mask in masks.items():
+            self.assertGreater(int(mask.sum()), 25, name)
+        self.assertLess(float(np.where(masks["left_thigh"])[1].mean()),
+                        float(np.where(masks["right_thigh"])[1].mean()))
+        self.assertLess(float(np.where(masks["left_foot"])[1].mean()),
+                        float(np.where(masks["right_foot"])[1].mean()))
 
     def test_creates_nine_nonempty_layers_and_seven_joint_anchors(self):
         body, body_conf, detail, detail_conf = self.synthetic_maps()
