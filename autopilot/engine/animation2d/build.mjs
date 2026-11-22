@@ -52,7 +52,17 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
     left_hand: "left_wrist",
     right_upper_arm: "right_shoulder",
     right_forearm: "right_elbow",
-    right_hand: "right_wrist"
+    right_hand: "right_wrist",
+    left_thigh: "left_hip",
+    left_calf: "left_knee",
+    left_foot: "left_ankle",
+    right_thigh: "right_hip",
+    right_calf: "right_knee",
+    right_foot: "right_ankle",
+    finger_index: "right_index_base",
+    finger_middle: "right_middle_base",
+    finger_ring: "right_ring_base",
+    finger_little: "right_little_base"
   };
   const layers = (character.layers || []).map((layer) => {
     const jointName = jointForRole[layer.role];
@@ -76,6 +86,23 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       '" data-role="' + escapeHtml(layer.role) +
       '" data-joint="' + escapeHtml(jointName || "") +
       '" alt="" draggable="false" src="' + escapeHtml(layer.src) +
+      '" style="' + style + '">';
+  }).join("");
+
+  const props = Object.values(character.props || {}).map((prop) => {
+    const style = [
+      "left:" + (layout.offsetX + Number(prop.x) * layout.scale) + "px",
+      "top:" + (layout.offsetY + Number(prop.y) * layout.scale) + "px",
+      "width:" + (Number(prop.width) * layout.scale) + "px",
+      "height:" + (Number(prop.height) * layout.scale) + "px",
+      "transform-origin:0 0",
+      "z-index:" + Number(prop.z_index ?? 25)
+    ].join(";");
+    const propId = scene.id + "-" + character.id + "-prop-" + prop.id;
+    return '<img class="rig-prop" id="' + escapeHtml(propId) +
+      '" data-prop="' + escapeHtml(prop.id) +
+      '" data-attached-to="' + escapeHtml(prop.attach_to || "torso") +
+      '" alt="" draggable="false" src="' + escapeHtml(prop.src) +
       '" style="' + style + '">';
   }).join("");
 
@@ -137,7 +164,7 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
     '" data-track-index="' + (40 + sceneIndex * 100 + characterIndex) +
     '" style="' + wrapperStyle + '"><div class="character-motion" id="' +
     escapeHtml(scene.id + "-" + character.id + "-motion") + '">' +
-    layers + expressions + poseAssets + '</div></div>';
+    layers + expressions + props + poseAssets + '</div></div>';
 }
 
 
@@ -562,7 +589,7 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.scene-stagecraft{position:absolute;inset:0;width:100%;height:100%;z-index:2;overflow:hidden;pointer-events:none;mix-blend-mode:screen}' +
   '.scene-stagecraft svg{display:block;width:100%;height:100%;overflow:visible}' +
   '.stagecraft-node{transform-box:fill-box;transform-origin:center;will-change:transform,opacity}' +
-  '.rig-part,.rig-expression,.rig-pose{position:absolute;object-fit:contain;max-width:none;pointer-events:none}' +
+  '.rig-part,.rig-expression,.rig-pose,.rig-prop{position:absolute;object-fit:contain;max-width:none;pointer-events:none}' +
   '.motion-graphic{position:absolute;left:auto;top:auto;right:auto;bottom:auto;width:86%;height:auto;z-index:34;overflow:visible;color:#f4ead9;opacity:0;padding:24px 20px;border:1px solid rgba(190,151,91,.48);border-left:3px solid #bf985e;background:linear-gradient(145deg,rgba(5,13,22,.97),rgba(9,27,35,.95));box-shadow:0 22px 64px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,244,220,.07);border-radius:9px}' +
   '.motion-graphic--full{left:7%;top:23%;width:86%;min-height:380px}' +
   '.motion-graphic--with-presenter{left:5%;top:25%;width:41%;min-height:400px;padding:20px 16px}' +
