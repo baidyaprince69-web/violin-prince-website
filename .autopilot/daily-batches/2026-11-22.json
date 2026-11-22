@@ -65,13 +65,13 @@
         },
         {
           "sentence_number": 3,
-          "source_id": "S002",
-          "quote": "You pick a source profile, and pure:smooth studies the incoming signal to learn where its energy sits"
+          "source_id": "S001",
+          "quote": "After a user selects a source profile, the plugin analyzes the audio and adjusts its processing automatically."
         },
         {
           "sentence_number": 4,
-          "source_id": "S002",
-          "quote": "Difference Monitoring lets you solo the removed frequency components and hear only what the plugin is taking out"
+          "source_id": "S001",
+          "quote": "With Difference Monitoring, users can listen to exactly what is being removed."
         }
       ],
       "sources": [
