@@ -43,19 +43,29 @@ def build_preview_project(bundle_dir: str | Path, output_dir: str | Path) -> dic
         "duration": 8,
         "visual_mode": "cover_performance",
         "background_color": "#08111b",
-        "title": "FULL-BODY VIOLIN PERFORMANCE",
-        "caption": "ARTICULATED BODY · FINGERING · BOW STROKES",
+        "graphic_label": "FULL-BODY RIG TEST",
+        "title": "",
+        "caption": "",
         "character_actions": {
             "violin-prince": {
                 "visible": True,
                 "gesture": "violin_performance",
                 "instrument_performance": True,
                 "expression": "neutral",
+                "x": 46,
+                "y": 58,
+                "scale": 0.84,
                 "loop": True,
                 "cycle_duration_seconds": 2.4,
                 "start_offset": 0.12,
                 "prop_keyframes": {
-                    "bow": {"rotate": [0, -6, 6, -6, 6, 0]},
+                    "bow": {
+                        "rotate": [0, -2.5, 2.5, -2.5, 2.5, 0],
+                        "translate": [
+                            "-12px -3px", "12px 3px", "-12px -3px",
+                            "12px 3px", "-12px -3px", "0px 0px"
+                        ]
+                    },
                     "violin": {"rotate": [0, -0.45, 0.35, 0.45, 0]},
                 },
             }
