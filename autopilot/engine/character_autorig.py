@@ -991,7 +991,14 @@ def separate_from_parsing(
     repaired, repair_method, hidden_ratio = _repair_hidden_area(
         image, hidden, max_local_ratio=max_local_inpaint_ratio
     )
-    masks["torso"] = torso | hidden
+
+    # The torso plate is the static parent behind the independently animated
+    # arms. Remove source arm pixels from that plate so they cannot reappear as
+    # frozen hand/sleeve ghosts when the real limb sprites move. Retain only the
+    # exact hidden overlap region as a reconstructed underlay behind those arms.
+    arm_pixels_removed_from_static_torso = int((torso & arm_union).sum())
+    torso_backplate_mask = (torso & ~arm_union) | hidden
+    masks["torso"] = torso_backplate_mask
 
     joints = {
         "neck": _normalise_joint(_joint_between(head, masks["torso"]), image.width, image.height)
@@ -1068,6 +1075,13 @@ def separate_from_parsing(
             "fraction_of_source": round(hidden_ratio, 6),
             "mask_asset": hidden_mask_asset,
             "mask_saved": hidden_mask_asset is not None,
+        },
+        "torso_backplate_arm_overlap": {
+            "method": "remove_source_arm_pixels_from_static_torso_keep_hidden_underlay",
+            "source_arm_pixels_removed": arm_pixels_removed_from_static_torso,
+            "hidden_underlay_pixels_retained": int(hidden.sum()),
+            "independent_limb_assets_modified": 0,
+            "hand_animation_data_modified": False,
         },
         "mean_confidence": confidence,
         "edge_connected_background_removal": {
