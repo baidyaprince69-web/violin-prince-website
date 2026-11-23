@@ -518,6 +518,9 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
   let animatedInstrumentPropCount = 0;
   let preservedCompositeBaseCount = 0;
   let animatedLimbSegmentCount = 0;
+  let sourceJointSurfaceLayerCount = 0;
+  let deformableBodyLayerCount = 0;
+  let deformationMeshTriangleTrackCount = 0;
   for (const character of fullBodyPerformanceCharacters) {
     const compositeBaseMode = Boolean(character.base_art && character.base_art.src);
     const requiredLegs = [
@@ -608,6 +611,75 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     animatedLimbSegmentCount += requiredRoles.filter(role =>
       [...articulatedArmRoles, ...requiredLegs].includes(role)
     ).length;
+
+    const deformableRoles = [
+      "torso",
+      "left_upper_arm", "left_forearm", "right_upper_arm", "right_forearm",
+      "left_thigh", "left_calf", "right_thigh", "right_calf"
+    ];
+    for (const role of deformableRoles) {
+      const layer = (character.layers || []).find(item => item.role === role);
+      if (!layer?.mesh_deformation) {
+        throw new Error("Scene " + scene.id + " body surface " + role +
+          " is missing its source-mesh deformation profile.");
+      }
+      const expectedPrefix = scene.id + "-" + character.id + "-part-" + layer.id + "-mesh-triangle-";
+      const triangleTracks = project.motion_tracks.filter(item =>
+        String(item.target || "").startsWith(expectedPrefix) &&
+        item.property === "transform" && Array.isArray(item.values) && item.values.length > 1
+      );
+      const expectedTriangles = Number(layer.mesh_deformation.columns) *
+        Number(layer.mesh_deformation.rows) * 2;
+      if (triangleTracks.length !== expectedTriangles) {
+        throw new Error("Scene " + scene.id + " mesh " + role + " expected " +
+          expectedTriangles + " triangle tracks but got " + triangleTracks.length + ".");
+      }
+      deformableBodyLayerCount += 1;
+      deformationMeshTriangleTrackCount += triangleTracks.length;
+    }
+    const forbiddenMeshRoles = new Set([
+      "left_hand", "right_hand", "finger_index", "finger_middle",
+      "finger_ring", "finger_little", "left_foot", "right_foot"
+    ]);
+    if ((character.layers || []).some(layer =>
+      forbiddenMeshRoles.has(String(layer.role || "")) && layer.mesh_deformation
+    )) {
+      throw new Error("Hand, finger and foot artwork must remain outside the continuous body mesh.");
+    }
+    const jointSurfaceLayers = (character.layers || []).filter(layer => layer.joint_surface);
+    const expectedJointSurfaceNames = new Set([
+      "joint_surface_left_shoulder", "joint_surface_left_elbow", "joint_surface_right_elbow",
+      "joint_surface_left_hip", "joint_surface_right_hip",
+      "joint_surface_left_knee", "joint_surface_right_knee",
+      "joint_surface_left_ankle", "joint_surface_right_ankle"
+    ]);
+    const actualJointSurfaceNames = new Set(jointSurfaceLayers.map(layer => String(layer.role)));
+    if (jointSurfaceLayers.length !== 9 ||
+        [...expectedJointSurfaceNames].some(role => !actualJointSurfaceNames.has(role)) ||
+        actualJointSurfaceNames.has("joint_surface_right_shoulder")) {
+      throw new Error("Scene " + scene.id +
+        " must render nine source-aligned joint caps while keeping the violin-covered right shoulder protected.");
+    }
+    for (const layer of jointSurfaceLayers) {
+      const surface = layer.joint_surface;
+      if (!surface?.parent_role || !surface?.child_role ||
+          !roleSet.has(surface.parent_role) || !roleSet.has(surface.child_role)) {
+        throw new Error("Scene " + scene.id + " joint surface " + layer.role +
+          " is missing its articulated parent/child contract.");
+      }
+      const target = scene.id + "-" + character.id + "-part-" + layer.id;
+      if (!project.motion_tracks.some(item =>
+        item.target === target && item.property === "transform" &&
+        item.values.some(value => value !== item.values[0])
+      )) {
+        throw new Error("Scene " + scene.id + " joint surface " + layer.role +
+          " is not following its parent/child articulated transforms.");
+      }
+    }
+    sourceJointSurfaceLayerCount += jointSurfaceLayers.length;
+    if (deformableBodyLayerCount !== 9 || deformationMeshTriangleTrackCount < 150) {
+      throw new Error("Scene " + scene.id + " did not produce the expected continuous source-mesh deformation tracks.");
+    }
     if (compositeBaseMode) {
       const baseTarget = scene.id + "-" + character.id + "-base-art";
       if (!project.motion_tracks.some((item) =>
@@ -715,6 +787,9 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     animated_instrument_props: animatedInstrumentPropCount,
     preserved_composite_base_count: preservedCompositeBaseCount,
     animated_limb_segment_count: animatedLimbSegmentCount || 0,
+    source_joint_surface_layer_count: sourceJointSurfaceLayerCount,
+    deformable_body_layer_count: deformableBodyLayerCount,
+    deformation_mesh_triangle_track_count: deformationMeshTriangleTrackCount,
     full_body_visual_mode: preservedCompositeBaseCount > 0
       ? (fullBodyPerformanceCharacters.some(character => character.performance_base_mode === "segmented_source_body")
         ? "segmented_source_body" : "intact_composite_base")
@@ -742,6 +817,9 @@ const motionReport = {
   animated_instrument_prop_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_instrument_props, 0),
   preserved_composite_base_count: motionSceneReports.reduce((sum, scene) => sum + scene.preserved_composite_base_count, 0),
   animated_limb_segment_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_limb_segment_count, 0),
+  source_joint_surface_layer_count: motionSceneReports.reduce((sum, scene) => sum + scene.source_joint_surface_layer_count, 0),
+  deformable_body_layer_count: motionSceneReports.reduce((sum, scene) => sum + scene.deformable_body_layer_count, 0),
+  deformation_mesh_triangle_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.deformation_mesh_triangle_track_count, 0),
   independent_layer_motion_count: motionSceneReports.reduce((sum, scene) => sum + scene.independent_layer_motion_count, 0),
   rendered_layer_count: motionSceneReports.reduce((sum, scene) => sum + scene.rendered_layer_count, 0),
   animated_stagecraft_environment_node_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_stagecraft_environment_nodes, 0),
