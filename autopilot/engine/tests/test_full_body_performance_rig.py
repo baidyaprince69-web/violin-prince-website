@@ -178,7 +178,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             self.assertTrue(mask[34, 34])
             self.assertFalse(mask[2, 2])
             self.assertFalse(mask[60, 60])
-            self.assertEqual(int(mask.sum()), 850)
+            self.assertEqual(int(np.count_nonzero(mask)), 850)
 
     def test_finger_sprites_are_clipped_to_the_source_aligned_skin_hand(self):
         import json
