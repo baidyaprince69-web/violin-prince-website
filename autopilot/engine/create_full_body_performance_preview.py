@@ -310,9 +310,9 @@ def build_preview_project(
                 **({} if composite_base_mode else {
                     "head_angle": "front",
                     "head_angle_sequence": [
-                        "front", "three_quarter", "profile_right",
-                        "three_quarter", "front", "three_quarter",
-                        "profile_left", "three_quarter", "front"
+                        "front", "three_quarter", "front",
+                        "profile_right", "front", "three_quarter",
+                        "front", "profile_left", "front"
                     ],
                     "head_angle_cycle_duration_seconds": 8.0,
                     "head_expression_sequence": _build_head_expression_sequence(music_sync),
