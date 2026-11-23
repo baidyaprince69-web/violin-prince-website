@@ -1316,20 +1316,48 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
 
       const headVariantNames = Object.keys(character.head_variants || {});
       const headAngleNames = Object.keys(character.head_angles || {});
+      const selectedHeadAngle = String(action.head_angle || "front").toLowerCase();
+      const headAngleSequence = Array.isArray(action.head_angle_sequence)
+        ? action.head_angle_sequence.map(value => String(value).toLowerCase())
+          .filter(value => value === "front" || headAngleNames.includes(value))
+        : [];
       const headExpressionSequence = Array.isArray(action.head_expression_sequence)
         ? action.head_expression_sequence.map(value => String(value).toLowerCase())
           .filter(value => headVariantNames.includes(value))
         : [];
+
       if (!activePoseAsset && headVariantNames.length) {
-        if (headExpressionSequence.length > 1) {
-          const sequence = [...headExpressionSequence, headExpressionSequence[0]];
+        // Expression plates and head-angle plates share one phase clock. A
+        // front-facing expression must be hidden while a side-angle plate is
+        // active, preventing two complete heads from being composited together.
+        const anglePlayback = headAngleSequence.length > 1
+          ? [...headAngleSequence, headAngleSequence[0]]
+          : [selectedHeadAngle];
+        const expressionPlayback = headExpressionSequence.length > 1
+          ? [...headExpressionSequence, headExpressionSequence[0]]
+          : [selectedExpression];
+        const stepCount = Math.max(anglePlayback.length, expressionPlayback.length);
+        if (stepCount > 1) {
+          const sampleStep = (values, index) => {
+            const valueIndex = Math.min(values.length - 1,
+              Math.floor((index / stepCount) * values.length));
+            return values[valueIndex];
+          };
           const cycleDuration = Math.max(
             0.08,
-            Number(action.head_expression_cycle_duration_seconds) || gestureDuration
+            Number(action.head_expression_cycle_duration_seconds) ||
+              Number(action.head_angle_cycle_duration_seconds) ||
+              gestureDuration
           );
-          const sequenceLoop = action.head_expression_loop !== false;
+          const sequenceLoop = headExpressionSequence.length > 1
+            ? action.head_expression_loop !== false
+            : action.head_angle_loop !== false;
           for (const name of headVariantNames) {
-            const values = sequence.map(expression => expression === name ? 1 : 0);
+            const values = Array.from({ length: stepCount }, (_unused, index) => {
+              const angle = sampleStep(anglePlayback, index);
+              const expression = sampleStep(expressionPlayback, index);
+              return angle === "front" && expression === name ? 1 : 0;
+            });
             addKeyframes(
               prefix + "-head-variant-" + name,
               { opacity: values },
@@ -1342,18 +1370,13 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
           }
         } else {
           for (const name of headVariantNames) {
-            const active = name === selectedExpression;
+            const active = selectedHeadAngle === "front" && name === selectedExpression;
             addSpring(prefix + "-head-variant-" + name, "opacity",
               active ? 0 : 1, active ? 1 : 0, actionStart, 140);
           }
         }
       }
 
-      const selectedHeadAngle = String(action.head_angle || "front").toLowerCase();
-      const headAngleSequence = Array.isArray(action.head_angle_sequence)
-        ? action.head_angle_sequence.map(value => String(value).toLowerCase())
-          .filter(value => value === "front" || headAngleNames.includes(value))
-        : [];
       if (!activePoseAsset && headAngleNames.length) {
         if (headAngleSequence.length > 1) {
           const sequence = [...headAngleSequence, headAngleSequence[0]];
