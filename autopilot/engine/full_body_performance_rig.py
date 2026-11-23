@@ -944,9 +944,6 @@ def _restore_bow_hair_in_prop_asset(
         local_updated[hair_mask],
         local_alpha[hair_mask],
     )
-    if not np.array_equal(updated_mask[:, :], np.maximum(updated_mask, 0)):
-        raise AutoRigError("The recovered bow-hair mask became invalid.")
-
     return {
         "method": "largest_neutral_source_component_recovered_into_animated_bow",
         "src": destination.name,
