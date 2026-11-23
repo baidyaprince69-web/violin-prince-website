@@ -264,6 +264,16 @@ def _prepare_fingers(
         hand_image = opened.convert("RGBA")
     hand_alpha = np.asarray(hand_image.getchannel("A"), dtype=np.uint8).copy()
     hx, hy = int(hand_layer["x"]), int(hand_layer["y"])
+    hand_canvas_alpha = np.zeros((height, width), dtype=np.uint8)
+    hand_y1 = min(height, hy + hand_image.height)
+    hand_x1 = min(width, hx + hand_image.width)
+    hand_y0, hand_x0 = max(0, hy), max(0, hx)
+    if hand_x1 <= hand_x0 or hand_y1 <= hand_y0:
+        raise ManualReviewRequired(f"The {hand_role} layer lies outside the source canvas.")
+    hand_canvas_alpha[hand_y0:hand_y1, hand_x0:hand_x1] = hand_alpha[
+        hand_y0 - hy:hand_y1 - hy,
+        hand_x0 - hx:hand_x1 - hx,
+    ]
     layers, joints, areas = [], {}, {}
 
     for index, (name, specification) in enumerate((manifest.get("fingers") or {}).items()):
@@ -275,10 +285,14 @@ def _prepare_fingers(
         region = Image.new("L", (width, height), 0)
         ImageDraw.Draw(region).polygon([tuple(point) for point in polygon], fill=255)
         region_mask = np.asarray(region, dtype=np.uint8) > 0
-        source_alpha = np.asarray(source.getchannel("A"), dtype=np.uint8)
-        finger_mask = region_mask & (source_alpha > 0)
+        # The finger outline must be a subset of the independently extracted
+        # skin hand. This excludes violin/bow fragments and jacket/edge pixels
+        # that may intersect an authored polygon on the original composite.
+        finger_mask = region_mask & (hand_canvas_alpha > 12)
         if int(finger_mask.sum()) < 20:
-            raise ManualReviewRequired(f"Finger region {name} does not overlap visible character pixels.")
+            raise ManualReviewRequired(
+                f"Finger region {name} does not overlap the source-aligned {hand_role} skin mask."
+            )
         geometry = _save_rgba_layer(
             source, finger_mask, bundle_dir / f"{role}.png", padding=3
         )
@@ -297,7 +311,7 @@ def _prepare_fingers(
         x1 = min(hx + hand_image.width, int(geometry["x"]) + int(geometry["width"]))
         y1 = min(hy + hand_image.height, int(geometry["y"]) + int(geometry["height"]))
         if x1 > x0 and y1 > y0:
-            cut = region_mask[y0:y1, x0:x1]
+            cut = finger_mask[y0:y1, x0:x1]
             local = hand_alpha[y0 - hy:y1 - hy, x0 - hx:x1 - hx]
             local[cut] = 0
 
@@ -1035,6 +1049,40 @@ def _remove_embedded_props_from_static_layers(
     return report
 
 
+def _canvas_alpha_mask_for_layers(
+    bundle_dir: Path,
+    layers: list[dict[str, Any]],
+    *,
+    canvas_width: int,
+    canvas_height: int,
+    roles: tuple[str, ...],
+) -> np.ndarray:
+    """Combine selected cropped layer alpha planes into a source-canvas mask."""
+    result = np.zeros((canvas_height, canvas_width), dtype=np.uint8)
+    selected = [layer for layer in layers if str(layer.get("role") or "") in set(roles)]
+    if not selected:
+        raise ManualReviewRequired(
+            "A segmented full-body plate requires source-aligned head and face layers."
+        )
+    for layer in selected:
+        asset_path = bundle_dir / str(layer.get("src") or "")
+        if not asset_path.is_file():
+            raise AutoRigError(f"Missing source-aligned {layer.get('role')} plate: {asset_path.name}")
+        with Image.open(asset_path) as opened:
+            alpha = np.asarray(opened.convert("RGBA").getchannel("A"), dtype=np.uint8)
+        x, y = int(round(float(layer["x"]))), int(round(float(layer["y"])))
+        height, width = alpha.shape
+        x0, y0 = max(0, x), max(0, y)
+        x1, y1 = min(canvas_width, x + width), min(canvas_height, y + height)
+        if x1 <= x0 or y1 <= y0:
+            continue
+        local = alpha[y0 - y:y1 - y, x0 - x:x1 - x]
+        result[y0:y1, x0:x1] = np.maximum(result[y0:y1, x0:x1], local)
+    if int((result > 12).sum()) < 500:
+        raise ManualReviewRequired("The source-aligned head/face cutout is too small to replace safely.")
+    return result
+
+
 def _build_segmented_source_base(
     source: Image.Image,
     bundle_dir: Path,
@@ -1042,6 +1090,7 @@ def _build_segmented_source_base(
     bow_canvas_alpha: np.ndarray,
     violin_canvas_alpha: np.ndarray,
     moving_mask: np.ndarray,
+    head_canvas_alpha: np.ndarray | None = None,
 ) -> dict[str, Any]:
     """Inpaint limb cutouts into a source-aligned parent plate behind moving layers."""
     try:
@@ -1054,12 +1103,17 @@ def _build_segmented_source_base(
     bow = np.asarray(bow_canvas_alpha, dtype=np.uint8) > 12
     violin = np.asarray(violin_canvas_alpha, dtype=np.uint8) > 12
     moving = np.asarray(moving_mask, dtype=bool)
-    if any(mask.shape != (height, width) for mask in (bow, violin, moving)):
-        raise AutoRigError("Bow, violin and moving-region masks must match the source canvas.")
-    # The violin and bow are both separate sprites. Remove their source pixels
-    # from the underpaint so each prop can sit at the correct depth between
-    # upper arms, forearms and hands.
-    cut = _morph(moving | bow | violin, 2, "dilate")
+    head = (
+        np.asarray(head_canvas_alpha, dtype=np.uint8) > 12
+        if head_canvas_alpha is not None
+        else np.zeros((height, width), dtype=bool)
+    )
+    if any(mask.shape != (height, width) for mask in (bow, violin, moving, head)):
+        raise AutoRigError("Bow, violin, head and moving-region masks must match the source canvas.")
+    # The head/face layers are replaced by the reference-sheet plates at render
+    # time. Clear their source pixels from the parent art so expression/angle
+    # changes cannot create doubled eyes, hairlines or ghost faces.
+    cut = _morph(moving | bow | violin | head, 2, "dilate")
     cut &= rgba[:, :, 3] > 12
     if int(cut.sum()) < 1000:
         raise ManualReviewRequired("The source-aligned limb/prop cutout is unexpectedly small.")
@@ -1091,6 +1145,9 @@ def _build_segmented_source_base(
         "moving_region_pixels": int(moving.sum()),
         "bow_pixels_reconstructed": int((bow & cut).sum()),
         "violin_pixels_reconstructed": int((violin & cut).sum()),
+        "head_pixels_reconstructed": int((head & cut).sum()),
+        "head_plate_replacement_enabled": bool(head.any()),
+        "head_cutout_method": "source_aligned_autorig_head_and_face_alpha",
         "source_alpha_preserved": True,
         "source_pixels_outside_cut_mask_preserved": True,
         "inpaint": "opencv_telea_radius_5_alpha_aware",
@@ -1431,12 +1488,20 @@ def extend_full_body_character(
             )
         moving_mask |= finger_union & (np.asarray(source.getchannel("A")) > 12)
 
+    head_canvas_alpha = _canvas_alpha_mask_for_layers(
+        bundle,
+        character.get("layers", []),
+        canvas_width=source.width,
+        canvas_height=source.height,
+        roles=("head", "face"),
+    )
     composite_base = _build_segmented_source_base(
         source,
         bundle,
         bow_canvas_alpha=prop_masks["bow"],
         violin_canvas_alpha=prop_masks["violin"],
         moving_mask=moving_mask,
+        head_canvas_alpha=head_canvas_alpha,
     )
     character["base_art"] = composite_base
     character["performance_base_mode"] = "segmented_source_body"
