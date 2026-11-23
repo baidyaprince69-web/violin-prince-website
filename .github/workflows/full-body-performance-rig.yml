@@ -150,6 +150,7 @@ jobs:
           joint_art = report.get("source_aligned_joint_surface_art", {})
           assert joint_art.get("method") == "source_pixel_joint_caps_from_anchor_relative_authored_polygons", report
           assert joint_art.get("joint_surface_layer_count") == 9, report
+          assert joint_art.get("joint_surface_mesh_layer_count") == 9, report
           assert joint_art.get("source_pixels_transferred", 0) > 2500, report
           assert joint_art.get("prop_pixels_excluded", 0) > 0, report
           assert joint_art.get("hand_assets_modified") == 0, report
@@ -387,10 +388,12 @@ jobs:
           assert report.get("animated_instrument_prop_count") == 2, report
           assert report.get("source_joint_surface_layer_count") == 9, report
           assert report.get("deformable_body_layer_count") == 9, report
-          assert report.get("deformation_mesh_triangle_track_count", 0) >= 150, report
+          assert report.get("deformation_mesh_triangle_track_count", 0) >= 230, report
+          assert report.get("joint_surface_mesh_triangle_track_count") == 72, report
           assert scene.get("source_joint_surface_layer_count") == 9, scene
           assert scene.get("deformable_body_layer_count") == 9, scene
-          assert scene.get("deformation_mesh_triangle_track_count", 0) >= 150, scene
+          assert scene.get("deformation_mesh_triangle_track_count", 0) >= 230, scene
+          assert scene.get("joint_surface_mesh_triangle_track_count") == 72, scene
           assert scene.get("full_body_visual_mode") == "segmented_source_body", scene
           print(json.dumps({
               "full_body_scenes": report["full_body_performance_scene_count"],
