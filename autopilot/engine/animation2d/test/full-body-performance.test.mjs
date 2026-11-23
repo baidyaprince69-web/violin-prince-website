@@ -68,16 +68,6 @@ const project = {
         head_angle_cycle_duration_seconds: 3,
         loop: true,
         cycle_duration_seconds: 2,
-        prop_keyframes: {
-          bow: {
-            rotate: [0, -3.5, 3.5, -3.5, 3.5, 0],
-            translate: [
-              "-18px -4px", "18px 4px", "-18px -4px",
-              "18px 4px", "-18px -4px", "0px 0px"
-            ]
-          },
-          violin: { rotate: [0, -0.45, 0.35, 0.45, 0] }
-        }
       }
     }
   }],
@@ -102,34 +92,26 @@ test("music-synchronized performance keyframes follow beat and onset timestamps"
     confidence: 1
   });
   const find = target => tracks.find(track => track.target === target);
-  const bow = find("playing-violin-prince-prop-bow");
-  const bowTranslation = tracks.find(track =>
-    track.target === "playing-violin-prince-prop-bow" && track.property === "translate"
-  );
+  const bowPropTracks = tracks.filter(track => track.target === "playing-violin-prince-prop-bow");
   const bowShoulder = find("playing-violin-prince-part-left_upper_arm");
   const elbow = find("playing-violin-prince-part-left_forearm");
   const wrist = find("playing-violin-prince-part-left_hand");
-  const fingerboardForearm = find("playing-violin-prince-part-right_forearm");
-  const fingerboardHand = find("playing-violin-prince-part-right_hand");
+  const fingerboardArmTracks = tracks.filter(track =>
+    /playing-violin-prince-part-right_(upper_arm|forearm|hand)$/.test(track.target)
+  );
   const indexFinger = find("playing-violin-prince-part-finger_index");
   const ringFinger = find("playing-violin-prince-part-finger_ring");
   const littleFinger = find("playing-violin-prince-part-finger_little");
 
-  assert.ok(bow && bowTranslation && bowShoulder && elbow && wrist);
-  assert.ok(fingerboardForearm && fingerboardHand && indexFinger && ringFinger && littleFinger);
-  assert.equal(bow.start, 0.12);
-  assert.ok(bowTranslation.values.length > 80,
-    "bow travel is sampled at composition frame rate");
-  assert.ok(new Set(bowTranslation.values).size > 3,
-    "bow travel moves continuously between beat reversals");
-  assert.deepEqual(bow.key_times.slice(0, 4), [0, 0.06, 0.56, 1.06]);
-  assert.equal(bow.key_times.at(-1), 3.88);
-  assert.ok(bow.values.some((value, index) => index > 1 && value !== bow.values[index - 1]));
+  assert.ok(bowShoulder && elbow && wrist);
+  assert.equal(bowPropTracks.length, 0,
+    "bow motion must come from the grip's shoulder-elbow-wrist chain");
+  assert.equal(fingerboardArmTracks.length, 0,
+    "the violin-neck arm must not drift away from its contact point");
+  assert.ok(indexFinger && ringFinger && littleFinger);
   assert.ok(indexFinger.key_times.includes(0.268));
   assert.ok(ringFinger.key_times.includes(1.286));
   assert.ok(littleFinger.key_times.includes(1.795));
-  assert.ok(fingerboardForearm.key_times.includes(0.268));
-  assert.ok(fingerboardHand.key_times.includes(0.268));
   assert.ok(bowShoulder.values.some(value => Math.abs(value) >= 3.8));
   assert.ok(elbow.values.some(value => Math.abs(value) >= 12.8));
   assert.ok(wrist.values.some(value => Math.abs(value) >= 4.3));
@@ -172,8 +154,6 @@ test("compileMotionTracks consumes audio beat maps for bow, arm and finger motio
     "playing-violin-prince-part-left_upper_arm",
     "playing-violin-prince-part-left_forearm",
     "playing-violin-prince-part-left_hand",
-    "playing-violin-prince-part-right_forearm",
-    "playing-violin-prince-part-right_hand",
     "playing-violin-prince-part-finger_index",
     "playing-violin-prince-part-finger_ring"
   ]) {
@@ -184,9 +164,11 @@ test("compileMotionTracks consumes audio beat maps for bow, arm and finger motio
       target + " must use the audio event map instead of the generic loop");
   }
 
-  const bowTravel = getTrack(musicTracks, "playing-violin-prince-prop-bow", "translate");
-  assert.ok(bowTravel && bowTravel.values.length > 80);
-  assert.ok(new Set(bowTravel.values).size > 3);
+  const bowTransform = getTrack(musicTracks, "playing-violin-prince-prop-bow", "transform");
+  assert.ok(bowTransform && bowTransform.values.some(value => value !== bowTransform.values[0]),
+    "bow follows the articulated bowing-hand parent");
+  assert.equal(getTrack(musicTracks, "playing-violin-prince-prop-bow", "translate"), undefined,
+    "bow must not receive a second independent slide");
 });
 
 test("sampled note pitches select finger layers and music cues counterbalance the full body", () => {
@@ -208,7 +190,6 @@ test("sampled note pitches select finger layers and music cues counterbalance th
   const targets = new Set(tracks.map(track => track.target));
   for (const role of [
     "left_upper_arm", "left_forearm", "left_hand",
-    "right_upper_arm", "right_forearm", "right_hand",
     "torso", "head", "left_thigh", "right_thigh",
     "left_calf", "right_calf", "left_foot", "right_foot",
     "finger_index", "finger_middle", "finger_ring", "finger_little"
@@ -232,7 +213,7 @@ test("full-body gesture animates thigh, knee, ankle and all four fingering contr
   }
 });
 
-test("violin and bow are separately transformed and bow receives a stroke cycle", () => {
+test("violin stays torso-mounted and bow follows the bowing-hand chain", () => {
   const tracks = compileMotionTracks(project, { fps: 25 });
   for (const id of ["violin", "bow"]) {
     const track = tracks.find(item =>
@@ -249,9 +230,14 @@ test("violin and bow are separately transformed and bow receives a stroke cycle"
     item.target === "playing-violin-prince-prop-bow" &&
     item.property === "translate"
   );
-  assert.ok(bowTranslation, "bow receives an explicit reciprocal translation along the strings");
-  assert.ok(bowTranslation.values.some(value => value !== bowTranslation.values[0]),
-    "bow translation must change during each stroke");
+  const bowRotation = tracks.find(item =>
+    item.target === "playing-violin-prince-prop-bow" &&
+    item.property === "rotate"
+  );
+  assert.equal(bowTranslation, undefined,
+    "bow position is inherited from the hand grip and arm pivots");
+  assert.equal(bowRotation, undefined,
+    "bow angle is inherited from the wrist instead of a second prop pivot");
 });
 
 
@@ -276,7 +262,7 @@ test("intact full-body composite keeps limbs together while bow and fingers anim
   assert.ok(base.values.some(value => value !== base.values[0]));
 
   const bow = findTrack("playing-violin-prince-prop-bow");
-  assert.ok(bow, "bow remains independently animated over the intact body");
+  assert.ok(bow, "bow remains aligned to its grip while following the intact body");
   assert.ok(bow.values.some(value => value !== bow.values[0]));
   assert.equal(findTrack("playing-violin-prince-prop-violin"), undefined,
     "the original violin stays in the preserved source illustration");
