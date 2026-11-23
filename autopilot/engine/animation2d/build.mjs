@@ -669,12 +669,11 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
           " is missing its articulated parent/child contract.");
       }
       const target = scene.id + "-" + character.id + "-part-" + layer.id;
-      if (!project.motion_tracks.some(item =>
-        item.target === target && item.property === "transform" &&
-        item.values.some(value => value !== item.values[0])
+      if (project.motion_tracks.some(item =>
+        item.target === target && item.property === "transform"
       )) {
         throw new Error("Scene " + scene.id + " joint surface " + layer.role +
-          " is not following its parent/child articulated transforms.");
+          " must be deformed by its blend mesh only; a second rigid transform would double-apply motion.");
       }
       if (layer.mesh_deformation?.profile !== "joint_surface") {
         throw new Error("Scene " + scene.id + " joint surface " + layer.role +
