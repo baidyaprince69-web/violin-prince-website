@@ -369,6 +369,12 @@ test("modular head expressions and angle plates are separately rendered and fram
     assert.ok(variantOpacity, "head expression " + name + " has an independent visibility track");
     assert.equal(variantOpacity.keyframeEasing, "steps(1, end)",
       "full-head expression plates must switch without overlapping ghost faces");
+    if (name === "focused") {
+      assert.ok(variantOpacity.values.includes(1) && variantOpacity.values.includes(0));
+    } else {
+      assert.ok(variantOpacity.values.every(value => value === 0),
+        "non-selected expression plates stay hidden while the default expression is active");
+    }
   }
   for (const name of ["three_quarter", "profile_right", "profile_left"]) {
     assert.ok(tracks.some(track =>
@@ -393,7 +399,7 @@ test("head expression sequence switches plates independently of head-angle seque
   action.head_expression_sequence = ["focused", "neutral", "surprised", "happy"];
   action.head_expression_cycle_duration_seconds = 4;
   action.head_expression_loop = true;
-  action.head_angle_sequence = ["front", "three_quarter", "front", "profile_left", "front"];
+  action.head_angle_sequence = ["front", "three_quarter", "front", "profile_right", "front", "three_quarter", "front", "profile_left", "front"];
   action.head_angle_cycle_duration_seconds = 4;
 
   const tracks = compileMotionTracks(expressionProject, { fps: 25 });
