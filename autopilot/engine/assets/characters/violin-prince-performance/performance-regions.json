@@ -705,6 +705,10 @@
             -10,
             7
           ]
+        ],
+        "blend_axis_joints": [
+          "neck",
+          "left_elbow"
         ]
       },
       "right_shoulder": {
@@ -755,7 +759,11 @@
             7
           ]
         ],
-        "expected_prop_occlusion": "violin"
+        "expected_prop_occlusion": "violin",
+        "blend_axis_joints": [
+          "neck",
+          "right_elbow"
+        ]
       },
       "left_elbow": {
         "anchor": "left_elbow",
@@ -800,6 +808,10 @@
             -10,
             4
           ]
+        ],
+        "blend_axis_joints": [
+          "left_shoulder",
+          "left_wrist"
         ]
       },
       "right_elbow": {
@@ -845,6 +857,10 @@
             -10,
             4
           ]
+        ],
+        "blend_axis_joints": [
+          "right_shoulder",
+          "right_wrist"
         ]
       },
       "left_hip": {
@@ -894,6 +910,10 @@
             -15,
             4
           ]
+        ],
+        "blend_axis_joints": [
+          "neck",
+          "left_knee"
         ]
       },
       "right_hip": {
@@ -943,6 +963,10 @@
             -15,
             4
           ]
+        ],
+        "blend_axis_joints": [
+          "neck",
+          "right_knee"
         ]
       },
       "left_knee": {
@@ -988,6 +1012,10 @@
             -11,
             3
           ]
+        ],
+        "blend_axis_joints": [
+          "left_hip",
+          "left_ankle"
         ]
       },
       "right_knee": {
@@ -1033,6 +1061,10 @@
             -11,
             3
           ]
+        ],
+        "blend_axis_joints": [
+          "right_hip",
+          "right_ankle"
         ]
       },
       "left_ankle": {
@@ -1074,6 +1106,10 @@
             -8,
             4
           ]
+        ],
+        "blend_axis_joints": [
+          "left_knee",
+          "left_ankle"
         ]
       },
       "right_ankle": {
@@ -1115,6 +1151,10 @@
             -8,
             4
           ]
+        ],
+        "blend_axis_joints": [
+          "right_knee",
+          "right_ankle"
         ]
       }
     }
