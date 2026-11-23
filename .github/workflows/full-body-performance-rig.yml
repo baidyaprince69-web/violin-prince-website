@@ -117,6 +117,9 @@ jobs:
           assert base.get("mode") == "segmented_source_body", report
           assert base.get("source_alpha_preserved") is True, report
           assert base.get("source_pixels_outside_cut_mask_preserved") is True, report
+          assert base.get("inpaint") == "opencv_telea_radius_5_alpha_aware", report
+          assert base.get("transparent_rgb_excluded_from_reconstruction") is True, report
+          assert base.get("transparent_source_pixels_excluded_from_inpaint", 0) > 100000, report
           assert base.get("pixels_cut_from_source", 0) > 25000, report
           assert base.get("bow_pixels_reconstructed", 0) > 0, report
           assert base.get("violin_pixels_reconstructed", 0) > 0, report
