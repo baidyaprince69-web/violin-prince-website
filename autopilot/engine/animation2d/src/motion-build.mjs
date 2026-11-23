@@ -566,6 +566,126 @@ function localCssMatrix(world, layer, scale) {
   ].map(value => Number(value.toFixed(6))).join(",") + ")";
 }
 
+function transformPoint(matrix, point) {
+  return {
+    x: matrix.a * point.x + matrix.c * point.y + matrix.e,
+    y: matrix.b * point.x + matrix.d * point.y + matrix.f
+  };
+}
+
+function affineTriangleMatrix(source, target) {
+  const [p0, p1, p2] = source;
+  const [q0, q1, q2] = target;
+  const sx1 = p1.x - p0.x;
+  const sy1 = p1.y - p0.y;
+  const sx2 = p2.x - p0.x;
+  const sy2 = p2.y - p0.y;
+  const determinant = sx1 * sy2 - sx2 * sy1;
+  if (Math.abs(determinant) < 1e-7) {
+    throw new TypeError("A source-mesh triangle has degenerate geometry.");
+  }
+  const qx1 = q1.x - q0.x;
+  const qy1 = q1.y - q0.y;
+  const qx2 = q2.x - q0.x;
+  const qy2 = q2.y - q0.y;
+  const a = (qx1 * sy2 - qx2 * sy1) / determinant;
+  const c = (sx1 * qx2 - sx2 * qx1) / determinant;
+  const b = (qy1 * sy2 - qy2 * sy1) / determinant;
+  const d = (sy1 * qy2 - sy2 * qy1) / determinant;
+  const e = q0.x - a * p0.x - c * p0.y;
+  const f = q0.y - b * p0.x - d * p0.y;
+  return "matrix(" + [a, b, c, d, e, f]
+    .map(value => Number(value.toFixed(6))).join(",") + ")";
+}
+
+function createSourceMeshGrid(layer, specification) {
+  const columns = Math.max(2, Math.min(8, Number(specification.columns) || 2));
+  const rows = Math.max(2, Math.min(12, Number(specification.rows) || 2));
+  const width = Number(layer.width);
+  const height = Number(layer.height);
+  const vertices = [];
+  for (let row = 0; row <= rows; row += 1) {
+    for (let column = 0; column <= columns; column += 1) {
+      vertices.push({
+        x: width * column / columns,
+        y: height * row / rows,
+        u: column / columns,
+        v: row / rows
+      });
+    }
+  }
+  const triangles = [];
+  const at = (column, row) => row * (columns + 1) + column;
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      const tl = at(column, row);
+      const tr = at(column + 1, row);
+      const bl = at(column, row + 1);
+      const br = at(column + 1, row + 1);
+      triangles.push([tl, tr, br], [tl, br, bl]);
+    }
+  }
+  return { vertices, triangles, columns, rows };
+}
+
+function deformSourceMeshVertices(layer, specification, grid, angleDegrees) {
+  const start = specification.axis_start.map(Number);
+  const end = specification.axis_end.map(Number);
+  const width = Number(layer.width);
+  const height = Number(layer.height);
+  const ax = start[0] * width;
+  const ay = start[1] * height;
+  const bx = end[0] * width;
+  const by = end[1] * height;
+  const dx = bx - ax;
+  const dy = by - ay;
+  const lengthSquared = dx * dx + dy * dy;
+  const length = Math.max(1e-6, Math.sqrt(lengthSquared));
+  const unitX = dx / length;
+  const unitY = dy / length;
+  const normalX = -unitY;
+  const normalY = unitX;
+  const cornerDistances = [
+    0,
+    width * normalX,
+    height * normalY,
+    width * normalX + height * normalY
+  ];
+  const maxCross = Math.max(1, ...cornerDistances.map(value => Math.abs(value)));
+  const maxAngle = Math.max(0.1, Number(specification.max_angle_deg) || 1);
+  const maxDisplacement = Math.max(0, Number(specification.max_displacement_px) || 0);
+  const amount = Math.max(-1, Math.min(1, Number(angleDegrees) / maxAngle));
+  const profile = String(specification.profile || "limb_joint");
+  const influence = String(specification.influence || "center");
+  const direction = influence === "proximal" ? -1 : 1;
+
+  return grid.vertices.map(point => {
+    const projection = ((point.x - ax) * dx + (point.y - ay) * dy) / lengthSquared;
+    const t = Math.max(0, Math.min(1, projection));
+    const cross = ((point.x - ax) * normalX + (point.y - ay) * normalY);
+    const crossNorm = Math.max(-1, Math.min(1, cross / maxCross));
+    const edgeFade = Math.pow(
+      Math.max(0, Math.sin(Math.PI * point.u) * Math.sin(Math.PI * point.v)),
+      0.28
+    );
+    let envelope;
+    if (profile === "torso" || influence === "center") {
+      envelope = Math.pow(Math.max(0, Math.sin(Math.PI * t)), 1.25);
+    } else {
+      const center = influence === "distal" ? 0.82 : 0.18;
+      envelope = Math.exp(-Math.pow((t - center) / 0.25, 2)) *
+        Math.pow(Math.max(0, Math.sin(Math.PI * t)), 0.35);
+    }
+    const magnitude = amount * maxDisplacement * envelope * edgeFade;
+    const normalOffset = direction * magnitude * (1 - 0.42 * crossNorm * crossNorm);
+    const axialOffset = -magnitude * 0.18 * crossNorm;
+    return {
+      x: point.x + normalX * normalOffset + unitX * axialOffset,
+      y: point.y + normalY * normalOffset + unitY * axialOffset
+    };
+  });
+}
+
 function addHierarchicalTransformTracks(project, sourceTracks, fps) {
   const transformTracks = [];
   const width = Math.max(1, Number(project.width) || 720);
@@ -646,6 +766,14 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
         finger_little_middle: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_little", "finger_little_middle"],
         finger_little_tip: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_little", "finger_little_middle", "finger_little_tip"]
       };
+      for (const layer of layers) {
+        if (layer.joint_surface) {
+          dependencies[layer.role] = [
+            String(layer.joint_surface.parent_role),
+            String(layer.joint_surface.child_role)
+          ];
+        }
+      }
       if (compositeBaseMode && !segmentedBodyBaseMode) {
         // Legacy intact-composite preview: only the bow hand and finger sprites
         // are independent while the parser-derived arm and leg masks are reviewed.
@@ -742,6 +870,20 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
       };
 
       const sampledMatrices = new Map([...rolesToAnimate].map(role => [role, []]));
+      const meshDefinitions = layers
+        .filter(layer => layer.mesh_deformation)
+        .map(layer => ({
+          layer,
+          specification: layer.mesh_deformation,
+          grid: createSourceMeshGrid(layer, layer.mesh_deformation)
+        }));
+      const sampledMeshTriangleMatrices = new Map();
+      for (const definition of meshDefinitions) {
+        sampledMeshTriangleMatrices.set(
+          definition.layer.role,
+          definition.grid.triangles.map(() => [])
+        );
+      }
       const sampledBaseArtMatrices = compositeBaseMode ? [] : null;
       const sampledExpressionMatrices = new Map(expressionNames.map(name => [name, []]));
       const sampledHeadVariantMatrices = new Map(headVariants.map(([name]) => [name, []]));
@@ -831,6 +973,38 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
           right_calf: rightCalfWorld,
           right_foot: rightFootWorld
         };
+        for (const layer of layers) {
+          const surface = layer.joint_surface;
+          if (!surface) continue;
+          const parentWorld = worldByRole[String(surface.parent_role)] || torsoWorld;
+          const childWorld = worldByRole[String(surface.child_role)] || parentWorld;
+          const point = {
+            x: Number(joints[String(surface.joint)]?.x) * sourceWidth,
+            y: Number(joints[String(surface.joint)]?.y) * sourceHeight
+          };
+          const parentAngle = Math.atan2(parentWorld.b, parentWorld.a);
+          const childAngle = Math.atan2(childWorld.b, childWorld.a);
+          const delta = Math.atan2(
+            Math.sin(childAngle - parentAngle),
+            Math.cos(childAngle - parentAngle)
+          );
+          const blend = Math.max(0, Math.min(1, Number(surface.blend_weight ?? 0.5)));
+          const jointAngle = parentAngle + delta * blend;
+          const parentPoint = transformPoint(parentWorld, point);
+          const childPoint = transformPoint(childWorld, point);
+          const jointPoint = {
+            x: parentPoint.x + (childPoint.x - parentPoint.x) * blend,
+            y: parentPoint.y + (childPoint.y - parentPoint.y) * blend
+          };
+          worldByRole[layer.role] = multiplyMatrix(
+            multiplyMatrix(
+              translateMatrix(jointPoint.x, jointPoint.y),
+              rotateMatrix(jointAngle * 180 / Math.PI)
+            ),
+            translateMatrix(-point.x, -point.y)
+          );
+        }
+
         for (const [role, pivots] of Object.entries(fingerPivots)) {
           const middleRole = role + "_middle";
           const tipRole = role + "_tip";
@@ -849,6 +1023,22 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
           worldByRole[role] = baseWorld;
           worldByRole[middleRole] = middleWorld;
           worldByRole[tipRole] = tipWorld;
+        }
+
+        for (const definition of meshDefinitions) {
+          const { layer, specification, grid } = definition;
+          const driverAngle = localAngle(String(specification.driver_role), time);
+          const deformedVertices = deformSourceMeshVertices(
+            layer, specification, grid, driverAngle
+          );
+          const triangleSamples = sampledMeshTriangleMatrices.get(layer.role);
+          grid.triangles.forEach((triangle, triangleIndex) => {
+            const sourceTriangle = triangle.map(index => grid.vertices[index]);
+            const targetTriangle = triangle.map(index => deformedVertices[index]);
+            triangleSamples[triangleIndex].push(
+              affineTriangleMatrix(sourceTriangle, targetTriangle)
+            );
+          });
         }
 
         for (const role of rolesToAnimate) {
@@ -902,6 +1092,21 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
           start: sceneStart,
           duration: sceneDuration,
           easing: "linear"
+        });
+      }
+      for (const definition of meshDefinitions) {
+        const role = definition.layer.role;
+        const triangleSamples = sampledMeshTriangleMatrices.get(role);
+        triangleSamples.forEach((values, triangleIndex) => {
+          transformTracks.push({
+            target: prefix + "-part-" + definition.layer.id + "-mesh-triangle-" + triangleIndex,
+            property: "transform",
+            values,
+            offsets: sampleOffsets,
+            start: sceneStart,
+            duration: sceneDuration,
+            easing: "linear"
+          });
         });
       }
       if (needsExpressionTransform) {
