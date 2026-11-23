@@ -32,6 +32,16 @@ FINGER_JOINTS = frozenset({
     "right_index_base", "right_middle_base",
     "right_ring_base", "right_little_base",
 })
+FINGER_PHALANGE_ROLES = frozenset(
+    f"finger_{finger}_{segment}"
+    for finger in ("index", "middle", "ring", "little")
+    for segment in ("middle", "tip")
+)
+FINGER_PHALANGE_JOINTS = frozenset(
+    f"right_{finger}_{joint}"
+    for finger in ("index", "middle", "ring", "little")
+    for joint in ("pip", "dip")
+)
 
 
 class CharacterRigError(ValueError):
@@ -107,6 +117,11 @@ def validate_character_spec(character: dict[str, Any]) -> dict[str, Any]:
         raise CharacterRigError(
             f"Character {character_id} must provide all four finger layers when enabling finger articulation."
         )
+    present_phalange_roles = roles & FINGER_PHALANGE_ROLES
+    if present_phalange_roles and present_phalange_roles != FINGER_PHALANGE_ROLES:
+        raise CharacterRigError(
+            f"Character {character_id} must provide both middle and tip segments for all four articulated fingers."
+        )
 
     joints = character.get("joints")
     if not isinstance(joints, dict):
@@ -116,6 +131,8 @@ def validate_character_spec(character: dict[str, Any]) -> dict[str, Any]:
         conditional_joints.update(LEG_JOINTS)
     if present_finger_roles:
         conditional_joints.update(FINGER_JOINTS)
+    if present_phalange_roles:
+        conditional_joints.update(FINGER_PHALANGE_JOINTS)
     missing_joints = sorted((REQUIRED_JOINTS | conditional_joints) - set(joints))
     if missing_joints:
         raise CharacterRigError(
