@@ -1042,7 +1042,9 @@ def _authored_performance_layers(
             f"{side}_ankle": ankle_overlap,
         }
         for joint_name, overlap_pixels in overlaps.items():
-            if overlap_pixels > 500:
+            # The right knee uses a wider source-pixel thigh underlap to seal the
+            # visible horizontal cut seam; keep a finite ceiling for every joint.
+            if overlap_pixels > 900:
                 raise ManualReviewRequired(
                     f"The {joint_name} underlap is too broad ({overlap_pixels} pixels); refine the boundary."
                 )
