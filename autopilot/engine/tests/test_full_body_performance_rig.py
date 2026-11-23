@@ -120,7 +120,11 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             (root / "left_hand.png").write_bytes(hand_bytes)
             character = {
                 "canvas": {"width": 100, "height": 100},
-                "joints": {"elbow": {"x": 0.45, "y": 0.45}},
+                "joints": {
+                    "elbow": {"x": 0.45, "y": 0.45},
+                    "left_shoulder": {"x": 0.30, "y": 0.35},
+                    "left_wrist": {"x": 0.60, "y": 0.60},
+                },
                 "layers": [
                     {"role": "parent", "src": "parent.png", "x": 30, "y": 30, "width": 28, "height": 28},
                     {"role": "child", "src": "child.png", "x": 40, "y": 30, "width": 28, "height": 28},
@@ -137,6 +141,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                             "anchor": "elbow",
                             "parent_role": "parent",
                             "child_role": "child",
+                            "blend_axis_joints": ["left_shoulder", "left_wrist"],
                             "z_index": 10,
                             "minimum_pixels": 40,
                             "polygon": [
