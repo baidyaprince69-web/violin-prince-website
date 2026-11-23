@@ -154,9 +154,12 @@ jobs:
           assert len(performance.get("fingering_segment_roles", [])) == 12, performance
           assert len(performance.get("fingering_parts", [])) == 4, performance
           hand_cleanup = report.get("violin_hand_overlap_cleanup", {})
-          assert hand_cleanup.get("pixels_reconstructed", 0) > 100, report
-          assert hand_cleanup.get("method") == "source_hand_overlap_rgb_inpaint_alpha_preserved", report
-          assert hand_cleanup.get("alpha_preserved") is True, report
+          assert hand_cleanup.get("backplate_pixels_added", 0) > 100, report
+          assert hand_cleanup.get("hand_hole_pixels_filled", 0) > 20, report
+          assert hand_cleanup.get("source_hand_pixels_reconstructed", 0) > 20, report
+          assert hand_cleanup.get("method") == "source_aligned_fingerboard_backplate_rgb_reconstruction", report
+          assert hand_cleanup.get("prop_alpha_extended") is True, report
+          assert hand_cleanup.get("parent_prop_mask_updated") is True, report
           edge_cleanup = report.get("source_edge_color_decontamination", {})
           assert edge_cleanup.get("method") == "distance_aware_neutral_matte_decontamination", report
           assert edge_cleanup.get("edge_band_radius", 0) >= 4.0, report
