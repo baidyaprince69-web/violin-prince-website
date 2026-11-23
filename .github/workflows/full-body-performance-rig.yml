@@ -111,8 +111,27 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
-          report = json.loads(Path("work/full-body-rig/bundle/full-body-performance-report.json").read_text())
-          character = json.loads(Path("work/full-body-rig/bundle/character.json").read_text())
+          bundle = Path("work/full-body-rig/bundle")
+          report = json.loads((bundle / "full-body-performance-report.json").read_text())
+          character = json.loads((bundle / "character.json").read_text())
+          separation = json.loads((bundle / "separation-report.json").read_text())
+          hidden = separation.get("hidden_area_reconstruction", {})
+          assert hidden.get("mask_saved") is True, separation
+          assert hidden.get("mask_asset") == "torso-hidden-overlap-mask.png", separation
+          from PIL import Image
+          hidden_mask = Image.open(bundle / hidden["mask_asset"]).convert("L")
+          assert sum(value > 0 for value in hidden_mask.getdata()) == hidden.get("pixels_reconstructed"), separation
+          restoration = report.get("torso_reference_restoration", {})
+          assert restoration.get("method") == "aligned_supplied_jacket_reference_on_exact_hidden_torso_mask", report
+          assert restoration.get("reference_asset") == "reference-part-003.png", report
+          assert restoration.get("pixels_restored", 0) >= 100, report
+          assert restoration.get("layer_alpha_preserved") is True, report
+          assert restoration.get("torso_crop_geometry_preserved") is True, report
+          assert restoration.get("hand_forearm_assets_modified") == 0, report
+          assert restoration.get("hand_animation_data_modified") is False, report
+          assert restoration.get("source_pixels_outside_restoration_mask_preserved") is True, report
+          restoration_mask = Image.open(bundle / restoration["restoration_mask_asset"]).convert("L")
+          assert sum(value > 0 for value in restoration_mask.getdata()) == restoration.get("pixels_restored"), report
           performance = character.get("performance", {})
           base = report.get("composite_base", {})
           limbs = report.get("limb_report", {})
