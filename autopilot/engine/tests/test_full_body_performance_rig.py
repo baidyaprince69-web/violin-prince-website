@@ -9,7 +9,7 @@ from create_full_body_performance_preview import (
 from full_body_performance_rig import (
     _authored_performance_layers,
     _build_segmented_source_base,
-    _clip_hand_from_violin_prop,
+    _reconstruct_violin_fingerboard_backplate,
     _foot_mask,
     _leg_layers,
     _skin_material_mask,
@@ -372,49 +372,74 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         self.assertTrue(mask[15, 14], "skin pixels must remain in the source-derived hand")
         self.assertFalse(mask[15, 43], "low-blue violin wood must not be classified as a finger")
 
-    def test_reconstructs_source_hand_overlap_inside_violin_prop_and_preserves_alpha(self):
+    def test_restores_missing_fingerboard_alpha_under_fretting_hand(self):
         import tempfile
         from pathlib import Path
 
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
-            hand = Image.new("RGBA", (18, 16), (170, 115, 85, 0))
+            canvas = Image.new("RGBA", (64, 48), (32, 42, 50, 0))
+            canvas_pixels = np.asarray(canvas, dtype=np.uint8).copy()
+            # A source-aligned fingerboard strip with the original hand drawn
+            # over it. The violin prop below deliberately has an alpha hole
+            # at that same location, reproducing the preview defect.
+            canvas_pixels[15:23, 17:38] = (112, 62, 34, 255)
+            canvas_pixels[18:23, 22:34] = (188, 126, 91, 255)
+            canvas = Image.fromarray(canvas_pixels, mode="RGBA")
+            hand = Image.new("RGBA", (15, 15), (188, 126, 91, 0))
             hand_pixels = np.asarray(hand, dtype=np.uint8).copy()
-            hand_pixels[4:13, 5:16, 3] = 255
+            hand_pixels[0:8, 0:12, 3] = 255
             hand = Image.fromarray(hand_pixels, mode="RGBA")
             hand.save(root / "right_hand.png")
 
-            # The composite prop contains the original skin tone where the
-            # source hand crossed the instrument. Rebuild violin texture there.
-            violin = Image.new("RGBA", (30, 20), (125, 62, 30, 255))
-            violin_pixels = np.asarray(violin, dtype=np.uint8).copy()
-            violin_pixels[9:14, 12:23, :3] = (178, 120, 88)
-            violin = Image.fromarray(violin_pixels, mode="RGBA")
-            original_alpha = np.asarray(violin.getchannel("A"), dtype=np.uint8).copy()
-            violin.save(root / "prop-violin.webp", format="WEBP", lossless=True)
+            prop = canvas.crop((12, 10, 42, 30)).convert("RGBA")
+            prop_pixels = np.asarray(prop, dtype=np.uint8).copy()
+            original_alpha = prop_pixels[:, :, 3].copy()
+            prop_pixels[8:13, 10:22, 3] = 0
+            prop = Image.fromarray(prop_pixels, mode="RGBA")
+            prop.save(root / "prop-violin.webp", format="WEBP", lossless=True)
 
-            report = _clip_hand_from_violin_prop(
+            violin_canvas_alpha = np.zeros((48, 64), dtype=np.uint8)
+            violin_canvas_alpha[10:30, 12:42] = np.asarray(
+                prop.getchannel("A"), dtype=np.uint8
+            )
+            report = _reconstruct_violin_fingerboard_backplate(
+                canvas,
                 root,
-                violin_specification={"src": "violin-prop.webp", "x": 20, "y": 15},
+                violin_specification={
+                    "src": "violin-prop.webp", "x": 12, "y": 10,
+                    "hand_backplate_polygon": [
+                        [5, 5], [25, 7], [27, 14], [5, 12]
+                    ],
+                },
                 hand_layer={
                     "src": "right_hand.png",
-                    "x": 27, "y": 20,
-                    "width": 18, "height": 16,
+                    "x": 22, "y": 18,
+                    "width": 15, "height": 15,
                 },
-                dilation_radius=1,
+                violin_canvas_alpha=violin_canvas_alpha,
+                dilation_radius=0,
+                inpaint_radius=6,
             )
             with Image.open(root / "prop-violin.webp") as opened:
                 result = np.asarray(opened.convert("RGBA"), dtype=np.uint8)
 
-            self.assertEqual(report["method"], "source_hand_overlap_rgb_inpaint_alpha_preserved")
-            self.assertGreater(report["pixels_reconstructed"], 40)
-            self.assertTrue(report["alpha_preserved"])
-            self.assertTrue(np.array_equal(result[:, :, 3], original_alpha),
-                "the violin silhouette and transparent regions must not change")
-            self.assertLess(int(result[13, 15, 0]), 150,
-                "source skin colour at the hand/violin seam must be replaced with local violin texture")
-            self.assertEqual(int(result[0, 0, 3]), 255,
-                "the violin body outside the hand overlap must remain opaque")
+            self.assertEqual(
+                report["method"],
+                "source_aligned_fingerboard_backplate_rgb_reconstruction",
+            )
+            self.assertGreater(report["backplate_pixels_added"], 80)
+            self.assertGreater(report["hand_hole_pixels_filled"], 20)
+            self.assertTrue(report["prop_alpha_extended"])
+            self.assertTrue(report["parent_prop_mask_updated"])
+            self.assertGreater(int(result[10, 15, 3]), 12,
+                "the missing fingerboard plate must become opaque beneath the fretting hand")
+            self.assertLess(int(result[10, 15, 0]), 170,
+                "source skin colour must be reconstructed as adjacent instrument texture")
+            self.assertGreater(
+                int(violin_canvas_alpha[20, 27]), 12,
+                "the parent cut mask must include the restored fingerboard pixels",
+            )
 
     def test_edge_matte_rgb_repair_preserves_alpha_and_protected_props(self):
         pixels = np.zeros((32, 32, 4), dtype=np.uint8)
