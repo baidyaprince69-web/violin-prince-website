@@ -731,11 +731,18 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         self.assertGreaterEqual(report["pixels_cut_from_source"], 900)
         np.testing.assert_array_equal(output[:, :, 3], original[:, :, 3])
         untouched = np.ones((80, 80), dtype=bool)
-        cut = (moving | (bow > 12) | (violin > 12))
+        cut = (moving | (bow > 12))
         cut &= original[:, :, 3] > 12
         untouched &= ~cut
         np.testing.assert_array_equal(output[untouched], original[untouched])
-        self.assertGreater(report["violin_pixels_reconstructed"], 0)
+        np.testing.assert_array_equal(
+            output[violin > 12],
+            original[violin > 12],
+            "the torso-mounted violin must remain original source artwork, not inpainted pixels",
+        )
+        self.assertEqual(report["violin_pixels_reconstructed"], 0)
+        self.assertTrue(report["violin_source_underlay_preserved"])
+        self.assertGreater(report["violin_source_pixels_preserved"], 100)
         self.assertGreater(report["bow_pixels_reconstructed"], 0)
         self.assertEqual(report["head_pixels_reconstructed"], 0)
         self.assertEqual(
@@ -755,7 +762,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         self.assertGreater(report["expanded_halo_pixels_excluded"], 0)
         self.assertEqual(
             report["underpaint_quality"],
-            "source_aligned_exact_mask_inpaint_no_expanded_halo",
+            "source_aligned_static_violin_preserved_no_violin_inpaint",
             "the parent plate must not inpaint a halo beyond the extracted source masks",
         )
         np.testing.assert_array_equal(
