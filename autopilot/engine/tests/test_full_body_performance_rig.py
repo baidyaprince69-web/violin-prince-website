@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 from PIL import Image
 
-from create_full_body_performance_preview import _build_preview_music_sync
+from create_full_body_performance_preview import (\n    _build_preview_music_sync,\n    _build_head_expression_sequence,\n)
 from full_body_performance_rig import (
     _authored_performance_layers,
     _build_segmented_source_base,
@@ -425,6 +425,23 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         self.assertTrue(report["source_silhouette_geometry_preserved"])
         self.assertTrue(report["interior_highlights_preserved"])
 
+
+
+    def test_head_expression_sequence_uses_phrase_peaks_and_note_energy(self):
+        sequence = _build_head_expression_sequence({
+            "note_events": [
+                {"time": 0.0, "note": 60, "velocity": 72, "duration_seconds": 0.3},
+                {"time": 0.7, "note": 61, "velocity": 55, "duration_seconds": 0.25},
+                {"time": 1.5, "note": 72, "velocity": 90, "duration_seconds": 0.3},
+                {"time": 2.2, "note": 74, "velocity": 80, "duration_seconds": 1.0},
+            ]
+        })
+        self.assertEqual(sequence, ["focused", "neutral", "surprised", "happy"])
+        self.assertLessEqual(len(sequence), 8)
+        self.assertEqual(
+            _build_head_expression_sequence({"note_events": []}),
+            ["focused", "neutral", "focused", "happy"],
+        )
 
     def test_preview_music_sync_uses_explicit_tempo_grid_when_no_audio_is_attached(self):
         timing = _build_preview_music_sync(8, bpm=100)
