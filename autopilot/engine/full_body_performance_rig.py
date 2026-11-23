@@ -1527,6 +1527,304 @@ def _build_segmented_source_base(
     }
 
 
+
+def _canvas_alpha_mask_for_layer(
+    bundle_dir: Path, layer: dict[str, Any], *, canvas_width: int, canvas_height: int
+) -> np.ndarray:
+    """Project one cropped layer alpha plane back into source-canvas coordinates."""
+    asset = bundle_dir / str(layer.get("src") or "")
+    if not asset.is_file():
+        raise AutoRigError(f"Missing joint-surface source layer: {asset.name}")
+    with Image.open(asset) as opened:
+        alpha = np.asarray(opened.convert("RGBA").getchannel("A"), dtype=np.uint8)
+    x, y = int(round(float(layer["x"]))), int(round(float(layer["y"])))
+    height, width = alpha.shape
+    result = np.zeros((canvas_height, canvas_width), dtype=bool)
+    x0, y0 = max(0, x), max(0, y)
+    x1, y1 = min(canvas_width, x + width), min(canvas_height, y + height)
+    if x1 > x0 and y1 > y0:
+        result[y0:y1, x0:x1] = alpha[y0 - y:y1 - y, x0 - x:x1 - x] > 12
+    return result
+
+
+def _erase_canvas_mask_from_layer(
+    bundle_dir: Path, layer: dict[str, Any], canvas_mask: np.ndarray
+) -> int:
+    """Transfer source pixels out of a parent/child sprite without changing other RGB."""
+    asset = bundle_dir / str(layer.get("src") or "")
+    with Image.open(asset) as opened:
+        image = opened.convert("RGBA")
+    pixels = np.asarray(image, dtype=np.uint8).copy()
+    x, y = int(round(float(layer["x"]))), int(round(float(layer["y"])))
+    height, width = pixels.shape[:2]
+    canvas_height, canvas_width = canvas_mask.shape
+    x0, y0 = max(0, x), max(0, y)
+    x1, y1 = min(canvas_width, x + width), min(canvas_height, y + height)
+    if x1 <= x0 or y1 <= y0:
+        return 0
+    local_mask = np.asarray(canvas_mask, dtype=bool)[y0:y1, x0:x1]
+    local = pixels[y0 - y:y1 - y, x0 - x:x1 - x]
+    removed = int(np.count_nonzero(local_mask & (local[:, :, 3] > 12)))
+    local[local_mask, 3] = 0
+    Image.fromarray(pixels, mode="RGBA").save(asset, format="PNG", optimize=True)
+    return removed
+
+
+def _extract_source_aligned_joint_surfaces(
+    source: Image.Image,
+    bundle_dir: Path,
+    *,
+    regions_manifest_path: Path,
+    character: dict[str, Any],
+    prop_masks: dict[str, np.ndarray],
+) -> tuple[list[dict[str, Any]], np.ndarray, dict[str, Any]]:
+    """Cut source-faithful joint caps from the preserved character artwork."""
+    manifest = json.loads(regions_manifest_path.read_text(encoding="utf-8"))
+    specification = manifest.get("joint_surfaces") or {}
+    if int(specification.get("schema_version", 0)) != 1:
+        raise ManualReviewRequired("Joint-surface manifest schema version 1 is required.")
+    width, height = source.size
+    canvas = manifest.get("canvas") or {}
+    if [width, height] != [int(canvas.get("width", 0)), int(canvas.get("height", 0))]:
+        raise ManualReviewRequired("Joint-surface canvas does not match the preserved source.")
+    source_rgba = source.convert("RGBA")
+    source_pixels = np.asarray(source_rgba, dtype=np.uint8)
+    visible = source_pixels[:, :, 3] > 12
+    layer_by_role = {str(layer.get("role") or ""): layer for layer in character.get("layers", [])}
+    forbidden = {
+        "left_hand", "right_hand", "finger_index", "finger_middle",
+        "finger_ring", "finger_little",
+    }
+    prop_union = np.zeros((height, width), dtype=bool)
+    for mask in prop_masks.values():
+        candidate = np.asarray(mask, dtype=np.uint8)
+        if candidate.shape != (height, width):
+            raise AutoRigError("Instrument mask does not match the joint-surface canvas.")
+        prop_union |= candidate > 12
+    joints = character.get("joints") or {}
+    claimed = np.zeros((height, width), dtype=bool)
+    layers: list[dict[str, Any]] = []
+    report: dict[str, Any] = {
+        "method": "source_pixel_joint_caps_from_anchor_relative_authored_polygons",
+        "manifest": regions_manifest_path.name,
+        "coordinate_space": "joint_anchor_relative_source_pixels",
+        "regions": {},
+        "joint_surface_layer_count": 0,
+        "source_pixels_transferred": 0,
+        "parent_child_alpha_pixels_removed": 0,
+        "prop_pixels_excluded": 0,
+        "hand_assets_modified": 0,
+        "hand_animation_data_modified": False,
+        "right_shoulder_policy": "skipped_where_source_junction_is_covered_by_violin",
+        "visual_review_required": True,
+    }
+    for joint_name, item in (specification.get("regions") or {}).items():
+        anchor_name = str(item.get("anchor") or joint_name)
+        parent_role, child_role = str(item.get("parent_role") or ""), str(item.get("child_role") or "")
+        if parent_role in forbidden or child_role in forbidden:
+            raise ManualReviewRequired(f"Joint surface {joint_name} cannot modify a hand or finger layer.")
+        if parent_role not in layer_by_role or child_role not in layer_by_role:
+            raise ManualReviewRequired(f"Joint surface {joint_name} refers to a missing parent or child.")
+        anchor = joints.get(anchor_name)
+        if not isinstance(anchor, dict):
+            raise ManualReviewRequired(f"Joint surface {joint_name} has no source joint anchor.")
+        center_x, center_y = float(anchor["x"]) * width, float(anchor["y"]) * height
+        canvas_polygon = [
+            [center_x + float(point[0]), center_y + float(point[1])]
+            for point in (item.get("polygon") or [])
+        ]
+        authored = _polygon_mask((height, width), canvas_polygon)
+        parent_mask = _canvas_alpha_mask_for_layer(
+            bundle_dir, layer_by_role[parent_role],
+            canvas_width=width, canvas_height=height,
+        )
+        child_mask = _canvas_alpha_mask_for_layer(
+            bundle_dir, layer_by_role[child_role],
+            canvas_width=width, canvas_height=height,
+        )
+        eligible = authored & visible & (parent_mask | child_mask)
+        prop_overlap = eligible & prop_union
+        report["prop_pixels_excluded"] += int(prop_overlap.sum())
+        eligible &= ~prop_union & ~claimed
+        area = int(eligible.sum())
+        minimum = int(item.get("minimum_pixels", 80))
+        if area < minimum:
+            report["regions"][joint_name] = {
+                "status": "skipped",
+                "reason": "prop_occluded" if int(prop_overlap.sum()) else "insufficient_source_overlap",
+                "source_pixels_available": area,
+                "prop_pixels_excluded": int(prop_overlap.sum()),
+                "parent_role": parent_role,
+                "child_role": child_role,
+            }
+            continue
+        role = "joint_surface_" + str(joint_name)
+        geometry = _save_rgba_layer(source_rgba, eligible, bundle_dir / f"{role}.png", padding=5)
+        layer = {
+            "id": role, "role": role, **geometry,
+            "pivot_x": min(1.0, max(0.0, (center_x - geometry["x"]) / geometry["width"])),
+            "pivot_y": min(1.0, max(0.0, (center_y - geometry["y"]) / geometry["height"])),
+            "z_index": int(item.get("z_index", 32)),
+            "joint_surface": {
+                "joint": anchor_name,
+                "parent_role": parent_role,
+                "child_role": child_role,
+                "blend_weight": 0.5,
+            },
+        }
+        layers.append(layer)
+        parent_removed = _erase_canvas_mask_from_layer(bundle_dir, layer_by_role[parent_role], eligible)
+        child_removed = _erase_canvas_mask_from_layer(bundle_dir, layer_by_role[child_role], eligible)
+        claimed |= eligible
+        report["regions"][joint_name] = {
+            "status": "source_patch_created", "role": role,
+            "source_pixels": area, "parent_role": parent_role, "child_role": child_role,
+            "parent_alpha_pixels_removed": parent_removed,
+            "child_alpha_pixels_removed": child_removed,
+            "prop_pixels_excluded": int(prop_overlap.sum()),
+            "joint_anchor_px": [round(center_x, 3), round(center_y, 3)],
+        }
+        report["source_pixels_transferred"] += area
+        report["parent_child_alpha_pixels_removed"] += parent_removed + child_removed
+    report["joint_surface_layer_count"] = len(layers)
+    report["moving_mask_pixels"] = int(claimed.sum())
+    Image.fromarray(claimed.astype(np.uint8) * 255, mode="L").save(
+        bundle_dir / "joint-surface-moving-mask.png", format="PNG", optimize=True
+    )
+    return layers, claimed, report
+
+
+def _configure_continuous_body_meshes(character: dict[str, Any]) -> dict[str, Any]:
+    """Attach frame-sampled source-mesh profiles to torso and eight limb surfaces."""
+    layer_by_role = {str(layer.get("role") or ""): layer for layer in character.get("layers", [])}
+    joints = character.get("joints") or {}
+    canvas = character.get("canvas") or {}
+    canvas_width, canvas_height = int(canvas.get("width", 0)), int(canvas.get("height", 0))
+    if canvas_width <= 0 or canvas_height <= 0:
+        raise AutoRigError("Continuous body mesh requires a valid source canvas.")
+    profiles = [
+        ("torso", "torso", "neck", None, "center", 2.2, 2.4, 3, 5),
+        ("left_upper_arm", "left_upper_arm", "left_shoulder", "left_elbow", "distal", 2.6, 2.8, 2, 4),
+        ("left_forearm", "left_forearm", "left_elbow", "left_wrist", "proximal", 2.6, 2.8, 2, 4),
+        ("right_upper_arm", "right_upper_arm", "right_shoulder", "right_elbow", "distal", 2.6, 2.8, 2, 4),
+        ("right_forearm", "right_forearm", "right_elbow", "right_wrist", "proximal", 2.6, 2.8, 2, 4),
+        ("left_thigh", "left_thigh", "left_hip", "left_knee", "distal", 2.8, 2.6, 2, 4),
+        ("left_calf", "left_calf", "left_knee", "left_ankle", "proximal", 2.8, 2.6, 2, 4),
+        ("right_thigh", "right_thigh", "right_hip", "right_knee", "distal", 2.8, 2.6, 2, 4),
+        ("right_calf", "right_calf", "right_knee", "right_ankle", "proximal", 2.8, 2.6, 2, 4),
+    ]
+    configured = []
+    for role, driver_role, start_name, end_name, influence, max_angle, displacement, columns, rows in profiles:
+        layer = layer_by_role.get(role)
+        if layer is None:
+            raise ManualReviewRequired(f"Continuous body mesh requires the {role} source layer.")
+        if end_name:
+            start_joint, end_joint = joints.get(start_name), joints.get(end_name)
+            if not start_joint or not end_joint:
+                raise ManualReviewRequired(f"Continuous body mesh requires {start_name} and {end_name} joints.")
+            points = [
+                [float(start_joint["x"]) * canvas_width, float(start_joint["y"]) * canvas_height],
+                [float(end_joint["x"]) * canvas_width, float(end_joint["y"]) * canvas_height],
+            ]
+        else:
+            neck = joints.get(start_name)
+            if not neck:
+                raise ManualReviewRequired("Torso mesh deformation requires the neck pivot.")
+            points = [
+                [float(neck["x"]) * canvas_width, float(neck["y"]) * canvas_height],
+                [float(layer["x"]) + float(layer["width"]) * 0.52,
+                 float(layer["y"]) + float(layer["height"]) * 0.96],
+            ]
+        local_points = [[
+            min(1.0, max(0.0, (point[0] - float(layer["x"])) / float(layer["width"]))),
+            min(1.0, max(0.0, (point[1] - float(layer["y"])) / float(layer["height"]))),
+        ] for point in points]
+        if float(np.hypot(
+            local_points[1][0] - local_points[0][0],
+            local_points[1][1] - local_points[0][1],
+        )) < 0.08:
+            raise ManualReviewRequired(f"Continuous body mesh axis is too short for {role}.")
+        layer["mesh_deformation"] = {
+            "profile": "torso" if role == "torso" else "limb_joint",
+            "driver_role": driver_role,
+            "axis_start": local_points[0], "axis_end": local_points[1],
+            "influence": influence, "columns": columns, "rows": rows,
+            "max_angle_deg": max_angle, "max_displacement_px": displacement,
+        }
+        configured.append(role)
+    forbidden = {
+        "left_hand", "right_hand", "finger_index", "finger_middle",
+        "finger_ring", "finger_little", "left_foot", "right_foot",
+    }
+    accidental = sorted(
+        str(layer.get("role")) for layer in character.get("layers", [])
+        if layer.get("mesh_deformation") and str(layer.get("role")) in forbidden
+    )
+    if accidental:
+        raise AutoRigError("Mesh deformation must not be attached to hands, fingers or feet: " + ", ".join(accidental))
+    return {
+        "method": "frame_sampled_piecewise_affine_source_texture_mesh",
+        "deformable_roles": configured,
+        "deformable_layer_count": len(configured),
+        "mesh_profiles": {role: layer_by_role[role]["mesh_deformation"] for role in configured},
+        "hand_assets_modified": 0, "hand_animation_data_modified": False,
+        "finger_layers_modified": 0, "instrument_props_modified": 0,
+        "visual_review_required": True,
+    }
+
+
+def _partition_torso_and_joint_surfaces_from_base(
+    bundle_dir: Path,
+    character: dict[str, Any],
+    base_art: dict[str, Any],
+    joint_surface_mask: np.ndarray,
+) -> dict[str, Any]:
+    """Move torso and joint-cap alpha ownership into their independent live surfaces."""
+    torso_layer = next(
+        (layer for layer in character.get("layers", []) if layer.get("role") == "torso"),
+        None,
+    )
+    if torso_layer is None:
+        raise ManualReviewRequired("A separate source-aligned torso surface is required for mesh deformation.")
+    canvas = character.get("canvas") or {}
+    width, height = int(canvas.get("width", 0)), int(canvas.get("height", 0))
+    torso_mask = _canvas_alpha_mask_for_layer(
+        bundle_dir, torso_layer, canvas_width=width, canvas_height=height
+    )
+    joint_mask = np.asarray(joint_surface_mask, dtype=bool)
+    if joint_mask.shape != (height, width):
+        raise AutoRigError("Joint-surface mask does not match the character canvas.")
+    transfer = torso_mask | joint_mask
+    base_path = bundle_dir / str(base_art.get("src") or "")
+    if not base_path.is_file():
+        raise AutoRigError("The segmented base-art asset is missing during surface partition.")
+    with Image.open(base_path) as opened:
+        base = opened.convert("RGBA")
+    pixels = np.asarray(base, dtype=np.uint8).copy()
+    if pixels.shape[:2] != (height, width):
+        raise AutoRigError("The base-art asset is not a full-canvas source plate.")
+    before_alpha = pixels[:, :, 3].copy()
+    cleared = int(np.count_nonzero((before_alpha > 12) & transfer))
+    pixels[transfer, 3] = 0
+    Image.fromarray(pixels, mode="RGBA").save(base_path, format="PNG", optimize=True)
+    transfer_path = bundle_dir / "torso-joint-surface-transfer-mask.png"
+    Image.fromarray(transfer.astype(np.uint8) * 255, mode="L").save(
+        transfer_path, format="PNG", optimize=True
+    )
+    return {
+        "method": "source_alpha_partitioned_into_static_torso_and_joint_surfaces",
+        "torso_source_pixels_transferred": int(torso_mask.sum()),
+        "joint_surface_source_pixels_transferred": int(joint_mask.sum()),
+        "base_alpha_pixels_cleared": cleared,
+        "transfer_mask_asset": transfer_path.name,
+        "base_alpha_unchanged_outside_transfer_mask": bool(
+            np.array_equal(pixels[:, :, 3][~transfer], before_alpha[~transfer])
+        ),
+        "composition_source_alpha_reconstituted_by_surface_layers": True,
+        "hand_assets_modified": 0, "hand_animation_data_modified": False,
+    }
+
+
 def _restore_torso_hidden_overlap_from_reference(
     bundle_dir: Path,
     character: dict[str, Any],
@@ -2037,6 +2335,16 @@ def extend_full_body_character(
             )
         moving_mask |= finger_union & (np.asarray(source.getchannel("A")) > 12)
 
+    joint_surface_layers, joint_surface_mask, joint_surface_report = (
+        _extract_source_aligned_joint_surfaces(
+            source, bundle, regions_manifest_path=regions_path,
+            character=character, prop_masks=prop_masks,
+        )
+    )
+    character["layers"].extend(joint_surface_layers)
+    moving_mask |= joint_surface_mask
+    continuous_body_deformation = _configure_continuous_body_meshes(character)
+
     moving_mask_path = bundle / "full-body-moving-mask.png"
     Image.fromarray(moving_mask.astype(np.uint8) * 255, mode="L").save(
         moving_mask_path, format="PNG", optimize=True
@@ -2074,6 +2382,9 @@ def extend_full_body_character(
         violin_canvas_alpha=prop_masks["violin"],
         moving_mask=moving_mask,
         head_canvas_alpha=head_canvas_alpha,
+    )
+    torso_surface_partition = _partition_torso_and_joint_surfaces_from_base(
+        bundle, character, composite_base, joint_surface_mask
     )
     character["base_art"] = composite_base
     character["performance_base_mode"] = "segmented_source_body"
@@ -2126,6 +2437,9 @@ def extend_full_body_character(
         "finger_joint_count": len(finger_joints),
         "joint_additions": sorted(limb_joints.keys() | finger_joints.keys()),
         "limb_report": limb_report,
+        "source_aligned_joint_surface_art": joint_surface_report,
+        "continuous_body_deformation": continuous_body_deformation,
+        "torso_surface_partition": torso_surface_partition,
         "source_edge_color_decontamination": edge_decontamination,
         "bow_hair_restoration": bow_hair_restoration,
         "static_layer_prop_cleanup": static_layer_prop_cleanup,
@@ -2156,12 +2470,14 @@ def extend_full_body_character(
             "underpaint": "approximate_nonsemantic_inpaint",
             "head": "normalized_plate_crossfades_not_continuous_mesh_deformation",
             "hands": "four_source_aligned_three_segment_finger_chains_with_joint_overlap_not_deformable_art",
-            "body": "rigid_segment_transforms_without_mesh_deformation",
+            "body": "frame_sampled_piecewise_affine_source_texture_mesh_on_torso_and_eight_limb_surfaces",
+            "joint_surfaces": "nine_source_pixel_caps_from_authored_anchor_relative_regions; right_shoulder_skipped_where_violin_occludes_source_art",
+            "hands": "untouched_rigid_source_sprites_with_existing_finger_animation",
             "release_blockers": [
-                "manually reconstructed hidden neck shoulder clothing and instrument backplates",
-                "anatomically aligned head neck and facial feature rig",
-                "artist-reconstructed joint-surface skin and deformable bow-grip artwork",
-                "continuous deformable body rig and full-frame visual QA",
+                "artist review of source-pixel joint caps across the full performance range",
+                "anatomically aligned head neck and facial feature deformation",
+                "deformable bow-grip and finger-surface artwork; hand animation intentionally unchanged",
+                "pose-range and full-frame visual QA after mesh deformation",
             ],
         },
     }
