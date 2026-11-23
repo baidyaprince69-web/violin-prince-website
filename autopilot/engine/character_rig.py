@@ -148,6 +148,63 @@ def validate_character_spec(character: dict[str, Any]) -> dict[str, Any]:
             raise CharacterRigError(f"Joint {name} coordinates must be normalised from 0 to 1.")
         normalised_joints[str(name)] = {"x": x, "y": y}
 
+    # Optional source-mesh deformation and joint-surface metadata is validated
+    # here so malformed geometry never reaches the frame-sampled renderer.
+    for layer in normalised_layers:
+        role = layer["role"]
+        mesh = layer.get("mesh_deformation")
+        if mesh is not None:
+            if not isinstance(mesh, dict):
+                raise CharacterRigError(f"{character_id}.{role}.mesh_deformation must be an object.")
+            profile = str(mesh.get("profile") or "").strip().casefold()
+            if profile not in {"torso", "limb_joint"}:
+                raise CharacterRigError(f"{character_id}.{role} has an unsupported mesh profile.")
+            driver_role = str(mesh.get("driver_role") or "").strip().casefold()
+            if driver_role not in roles:
+                raise CharacterRigError(f"{character_id}.{role} mesh driver_role is not a rig layer.")
+            axes = {}
+            for field in ("axis_start", "axis_end"):
+                point = mesh.get(field)
+                if not isinstance(point, (list, tuple)) or len(point) != 2:
+                    raise CharacterRigError(f"{character_id}.{role} mesh {field} must be a two-value point.")
+                values = [_finite_number(point[index], f"{character_id}.{role}.{field}[{index}]")
+                          for index in range(2)]
+                if any(value < 0 or value > 1 for value in values):
+                    raise CharacterRigError(f"{character_id}.{role} mesh {field} must be normalized from 0 to 1.")
+                axes[field] = values
+            if math.hypot(
+                axes["axis_end"][0] - axes["axis_start"][0],
+                axes["axis_end"][1] - axes["axis_start"][1],
+            ) < 0.08:
+                raise CharacterRigError(f"{character_id}.{role} mesh axis is too short.")
+            columns = int(mesh.get("columns", 0))
+            rows = int(mesh.get("rows", 0))
+            if not 2 <= columns <= 8 or not 2 <= rows <= 12:
+                raise CharacterRigError(f"{character_id}.{role} mesh grid dimensions are outside supported limits.")
+            influence = str(mesh.get("influence") or "").strip().casefold()
+            if influence not in {"center", "proximal", "distal"}:
+                raise CharacterRigError(f"{character_id}.{role} mesh influence must be center, proximal or distal.")
+            max_angle = _finite_number(mesh.get("max_angle_deg"), f"{character_id}.{role}.max_angle_deg")
+            max_displacement = _finite_number(
+                mesh.get("max_displacement_px"), f"{character_id}.{role}.max_displacement_px"
+            )
+            if not 0 < max_angle <= 45 or not 0 < max_displacement <= 8:
+                raise CharacterRigError(f"{character_id}.{role} mesh deformation limits are unsafe.")
+        surface = layer.get("joint_surface")
+        if surface is not None:
+            if not isinstance(surface, dict):
+                raise CharacterRigError(f"{character_id}.{role}.joint_surface must be an object.")
+            joint_name = str(surface.get("joint") or "").strip()
+            parent_role = str(surface.get("parent_role") or "").strip().casefold()
+            child_role = str(surface.get("child_role") or "").strip().casefold()
+            if joint_name not in normalised_joints:
+                raise CharacterRigError(f"{character_id}.{role} joint surface refers to an unknown joint.")
+            if parent_role not in roles or child_role not in roles or parent_role == child_role:
+                raise CharacterRigError(f"{character_id}.{role} joint surface needs distinct parent/child rig roles.")
+            blend = _finite_number(surface.get("blend_weight", 0.5), f"{character_id}.{role}.blend_weight")
+            if not 0 <= blend <= 1:
+                raise CharacterRigError(f"{character_id}.{role} joint-surface blend_weight must be 0 to 1.")
+
     expressions = character.get("expressions")
     if not isinstance(expressions, dict) or "neutral" not in expressions or len(expressions) < 2:
         raise CharacterRigError(
