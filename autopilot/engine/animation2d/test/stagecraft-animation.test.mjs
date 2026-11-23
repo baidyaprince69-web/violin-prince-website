@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import {
   buildStagecraftMotion,
   renderStagecraftMarkup,
+  renderStagecraftForegroundMarkup,
   stagecraftMotionNodeIds,
   stagecraftNodeCounts
 } from "../src/stagecraft.mjs";
@@ -21,6 +22,16 @@ for (const environment of ["city_night", "forest_dusk", "space", "concert_stage"
     assert.ok(markup.includes("<svg"));
     assert.ok(markup.includes("scene-stagecraft--" + environment));
     assert.ok(markup.includes('class="clip scene-stagecraft'));
+    if (environment === "concert_stage") {
+      assert.ok(markup.includes('class="concert-stage-architecture"'));
+      assert.ok(markup.includes("beam-teal"), "concert hall must include volumetric light shafts");
+      assert.ok(markup.includes("velvet"), "concert hall must include velvet curtain material");
+      assert.ok(stagecraftNodeCounts(scene).environment >= 14,
+        "premium concert stage must animate lighting and atmospheric depth");
+      const foreground = renderStagecraftForegroundMarkup(scene);
+      assert.ok(foreground.includes('class="clip scene-stagecraft-foreground"'));
+      assert.ok(foreground.includes("audience-fade"), "foreground audience plate must establish cinematic depth");
+    }
     assert.ok(markup.includes('data-start="1"'));
     assert.ok(markup.includes('data-duration="6"'));
     assert.ok(ids.length >= 3);

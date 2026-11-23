@@ -110,39 +110,42 @@ export function buildMusicSynchronizedPerformanceTracks({
     return makeTrack(target, points);
   };
 
-  const isDownbeat = time => bars.some(value => Math.abs(value - time) < 0.025);
-  const beatDelay = Math.min(0.08, period * 0.12);
-  // Counter-rotate the shoulder, elbow and wrist so the grip traces a shallow
-  // path along the strings while the bow keeps a stable angle in the hand.
-  // The screen-left joint labels represent the player's anatomical right arm.
-  const bowShoulderStrokes = beats.map((time, index) => ({
-    time: time + beatDelay,
-    value: (index % 2 === 0 ? -1 : 1) * (isDownbeat(time) ? 7.0 : 6.0)
+  const strokeTimes = cleanTimes([
+    0,total,
+    ...beats.flatMap((beat,index)=>{
+      const next=beats[index+1] ?? (beat+period), span=Math.max(.08,next-beat);
+      return [beat,beat+span*.25,beat+span*.5,beat+span*.75];
+    })
+  ]);
+  const beatPhaseAt = time => {
+    let index=0;
+    while(index+1<beats.length && beats[index+1]<=time) index+=1;
+    const beatStart=beats[index] ?? 0, beatEnd=beats[index+1] ?? (beatStart+period);
+    const progress=Math.max(0,Math.min(1,(time-beatStart)/Math.max(.08,beatEnd-beatStart)));
+    return Math.PI*(index+progress);
+  };
+  const downbeatAccentAt = time => bars.reduce((strength,beat)=>Math.max(
+    strength,Math.exp(-Math.pow((time-beat)/.22,2))
+  ),0);
+  // Quarter-beat samples create a continuous reciprocal bow path. The joints
+  // counter-rotate together to keep the bow stable in the player's grip.
+  const bowShoulderStrokes=strokeTimes.map(time=>({
+    time,value:(5.15+downbeatAccentAt(time)*.22)*Math.cos(beatPhaseAt(time))
   }));
-  const bowElbowStrokes = beats.map((time, index) => ({
-    time: time + beatDelay,
-    value: (index % 2 === 0 ? 1 : -1) * (isDownbeat(time) ? 0.6 : 0.5)
+  const bowElbowStrokes=strokeTimes.map((time,index)=>({
+    time,value:-bowShoulderStrokes[index].value*.085
   }));
-  const bowWristStrokes = beats.map((time, index) => ({
-    time: time + beatDelay,
-    value: (index % 2 === 0 ? 1 : -1) * (isDownbeat(time) ? 6.4 : 5.5)
+  const bowWristStrokes=strokeTimes.map((time,index)=>({
+    time,value:-bowShoulderStrokes[index].value-bowElbowStrokes[index].value
   }));
-
-  const torsoPulses = [];
-  const headPulses = [];
-  strongBeats.forEach((time, index) => {
-    const hit = Math.min(total, time + beatDelay);
-    const release = Math.min(total, hit + Math.min(0.24, period * 0.34));
-    torsoPulses.push(
-      { time: hit, value: index % 2 === 0 ? -2.35 : 1.85 },
-      { time: release, value: 0 }
-    );
-    headPulses.push(
-      { time: Math.min(total, hit + 0.07), value: index % 2 === 0 ? -3.0 : 2.1 },
-      { time: Math.min(total, hit + Math.min(0.31, period * 0.42)), value: 0 }
-    );
-  });
-
+  // Gentle phrase-level weight shift and delayed head follow-through.
+  const torsoPulses=strokeTimes.map(time=>({
+    time,value:.92*Math.sin((time/Math.max(.2,period*4))*Math.PI*2)+downbeatAccentAt(time)*.12
+  }));
+  const headPulses=strokeTimes.map(time=>({
+    time,value:-.38*Math.sin(((time-.065)/Math.max(.2,period*4))*Math.PI*2)+
+      .12*Math.sin((time/Math.max(.2,period*8))*Math.PI*2)
+  }));
   const fingerNames = ["finger_index", "finger_middle", "finger_ring", "finger_little"];
   const fingerIntervals = Object.fromEntries(fingerNames.map(name => [name, []]));
   if (events.length) {
@@ -212,19 +215,12 @@ export function buildMusicSynchronizedPerformanceTracks({
 
   // Gentle lower-body counterbalance keeps the player grounded; it is weight transfer,
   // not a walking or dance cycle.
-  const weightBeats = beats.filter((_time, index) => index % 2 === 0);
-  const weightTrack = (target, amplitude, side = 1) => {
-    const points = [];
-    weightBeats.forEach((time, index) => {
-      const hit = Math.min(total, time + beatDelay);
-      const release = Math.min(total, hit + Math.min(0.28, period * 0.38));
-      points.push(
-        { time: hit, value: (index % 2 === 0 ? -1 : 1) * amplitude * side },
-        { time: release, value: 0 }
-      );
-    });
-    return makeTrack(target, points);
-  };
+  const weightTrack = (target, amplitude, side = 1) => makeTrack(
+    target,
+    strokeTimes.map(time=>({
+      time,value:Math.sin((time/Math.max(.2,period*4))*Math.PI*2)*amplitude*side
+    }))
+  );
 
   const prefix = String(targetPrefix);
   const frameRate = Math.max(1, Number(fps) || 25);
@@ -280,6 +276,12 @@ export function directorCameraKeyframes(camera, shotIndex = 0) {
   const up = direction === "down" ? -1 : 1;
   const scale = value => "scale(" + value.toFixed(3) + ")";
   switch (movement) {
+    case "cinematic_push":
+      return [
+        scale(baseScale + 0.012) + " translate3d(-5px,9px,0) rotate(-0.08deg)",
+        scale(baseScale + 0.034) + " translate3d(2px,1px,0) rotate(0.04deg)",
+        scale(baseScale + 0.052) + " translate3d(0px,-8px,0)"
+      ];
     case "dolly_in":
       return [scale(baseScale) + " translateY(8px)", scale(baseScale + 0.085) + " translateY(-8px)"];
     case "dolly_out":

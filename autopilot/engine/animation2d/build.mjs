@@ -4,7 +4,7 @@ import { build as bundle } from "esbuild";
 import { compileMotionTracks } from "./src/motion-build.mjs";
 import { gestureKeyframes } from "./src/contract.mjs";
 import { fitCharacterToCanvas } from "./src/character-layout.mjs";
-import { renderStagecraftMarkup, stagecraftMotionNodeIds, stagecraftNodeCounts } from "./src/stagecraft.mjs";
+import { renderStagecraftMarkup, renderStagecraftForegroundMarkup, stagecraftMotionNodeIds, stagecraftNodeCounts } from "./src/stagecraft.mjs";
 
 function parseArgs(argv) {
   const result = {};
@@ -743,8 +743,9 @@ const markup = project.scenes.map((scene, index) => {
   const characters = (project.characters || []).map((character, characterIndex) =>
     renderCharacter(character, scene, index, characterIndex, width, height)
   ).join("");
+  const foregroundStagecraft = renderStagecraftForegroundMarkup(scene, width, height, index);
   const cameraWorld = '<div class="scene-camera-world" id="' + escapeHtml(scene.id + "-camera-world") + '">' +
-    background + grade + atmosphere + stagecraftMarkup + characters + '</div>';
+    background + grade + atmosphere + stagecraftMarkup + characters + foregroundStagecraft + '</div>';
   return cameraWorld + brand + title + caption + graphic;
 }).join("");
 
@@ -763,8 +764,8 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.scene-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;will-change:transform,opacity,filter;transform-origin:50% 50%}' +
   '.scene-layer:not(.scene-layer--background){opacity:0;object-position:center center}' +
   '.scene-background--presenter-layout{filter:brightness(.42) saturate(.90) blur(1.5px)}' +
-  '.scene-grade{position:absolute;inset:0;z-index:5;pointer-events:none;background:radial-gradient(ellipse at 52% 42%,rgba(0,0,0,0) 36%,rgba(2,7,13,.34) 100%),linear-gradient(180deg,rgba(3,8,15,.44) 0%,rgba(3,8,15,.06) 26%,rgba(3,8,15,0) 62%,rgba(3,8,15,.34) 100%)}' +
-  '.scene-brand{position:absolute;left:0;right:0;top:0;height:174px;z-index:18;display:flex;align-items:flex-start;gap:12px;padding:34px 7% 0;box-sizing:border-box;background:linear-gradient(180deg,rgba(4,10,18,.96) 0%,rgba(4,10,18,.86) 52%,rgba(4,10,18,0) 100%);color:var(--vp-accent,#e7d4ad);font:700 12px/1 DMSans,Arial,sans-serif;letter-spacing:.19em;text-transform:uppercase;opacity:0}' +
+  '.scene-grade{position:absolute;inset:0;z-index:5;pointer-events:none;background:radial-gradient(ellipse at 50% 43%,rgba(238,199,143,.10) 0%,rgba(238,199,143,0) 40%),radial-gradient(ellipse at 18% 61%,rgba(78,145,154,.09) 0%,rgba(78,145,154,0) 42%),radial-gradient(ellipse at 84% 57%,rgba(177,122,82,.09) 0%,rgba(177,122,82,0) 40%),radial-gradient(ellipse at 50% 44%,rgba(0,0,0,0) 34%,rgba(2,5,12,.42) 100%),linear-gradient(180deg,rgba(3,7,14,.25) 0%,rgba(3,8,15,.02) 34%,rgba(3,8,15,.08) 68%,rgba(3,8,15,.44) 100%)}' +
+  '.scene-brand{position:absolute;left:0;right:0;top:0;height:112px;z-index:48;display:flex;align-items:flex-start;gap:12px;padding:36px 7% 0;box-sizing:border-box;background:linear-gradient(180deg,rgba(4,8,16,.66) 0%,rgba(4,10,18,.24) 58%,rgba(4,10,18,0) 100%);color:var(--vp-accent,#e7d4ad);font:700 10px/1 DMSans,Arial,sans-serif;letter-spacing:.22em;text-transform:uppercase;text-shadow:0 2px 12px rgba(0,0,0,.75);opacity:0}' +
   '.scene-brand__name{color:var(--vp-secondary,#f6ead6)}' +
   '.scene-brand__separator{width:1px;height:13px;background:var(--vp-accent,rgba(190,151,91,.7));margin-top:-1px}' +
   '.scene-brand__chapter{color:var(--vp-accent,#c7aa79);font-weight:500;letter-spacing:.15em}' +
@@ -779,6 +780,8 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.character-motion{position:absolute;inset:0;width:100%;height:100%;transform-origin:50% 70%;will-change:transform}' +
   '.scene-stagecraft{position:absolute;inset:0;width:100%;height:100%;z-index:2;overflow:hidden;pointer-events:none;mix-blend-mode:screen}' +
   '.scene-stagecraft svg{display:block;width:100%;height:100%;overflow:visible}' +
+  '.scene-stagecraft-foreground{position:absolute;inset:0;width:100%;height:100%;z-index:45;overflow:hidden;pointer-events:none}' +
+  '.scene-stagecraft-foreground svg{display:block;width:100%;height:100%;overflow:visible}' +
   '.stagecraft-node{transform-box:fill-box;transform-origin:center;will-change:transform,opacity}' +
   '.rig-base-art{position:absolute;object-fit:contain;max-width:none;pointer-events:none;will-change:transform}' +
   '.rig-part,.rig-expression,.rig-pose,.rig-prop{position:absolute;object-fit:contain;max-width:none;pointer-events:none}' +

@@ -9,7 +9,7 @@ import {
 
 test("Master Director camera vocabulary produces distinct directed frame moves", () => {
   const movements = [
-    "dolly_in", "dolly_out", "truck_left", "truck_right", "pan", "tilt",
+    "dolly_in", "cinematic_push", "dolly_out", "truck_left", "truck_right", "pan", "tilt",
     "orbit", "crane_up", "crane_down", "whip_pan", "controlled_handheld",
     "arc", "parallax_track", "tracking", "zoom_in", "zoom_out", "locked_off"
   ];
@@ -22,6 +22,10 @@ test("Master Director camera vocabulary produces distinct directed frame moves",
   assert.ok(new Set(frames.map((value) => JSON.stringify(value))).size >= 12);
   assert.ok(directorCameraKeyframes({movement:"zoom_in",shot_size:"macro"})[0]
     .includes("scale(1.140)"));
+  const cinematicFrames = directorCameraKeyframes({movement:"cinematic_push",shot_size:"wide"});
+  assert.equal(cinematicFrames.length, 3, "cinematic push uses a three-point dolly/arc path");
+  assert.ok(cinematicFrames[1].includes("translate3d"));
+  assert.ok(cinematicFrames[2].includes("scale(1.092)"));
   assert.throws(
     () => directorCameraKeyframes({movement:"teleport",shot_size:"wide"}),
     /Unsupported Master Director camera movement/

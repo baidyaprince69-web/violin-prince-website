@@ -115,11 +115,13 @@ test("music-synchronized performance keyframes follow beat and onset timestamps"
   assert.ok(Math.max(...bowShoulder.values.map(Math.abs)) <= 7.0);
   assert.ok(Math.max(...elbow.values.map(Math.abs)) <= 0.6);
   assert.ok(Math.max(...wrist.values.map(Math.abs)) <= 6.4);
-  assert.ok(bowShoulder.values.some(value => Math.abs(value) >= 6.0));
-  assert.ok(elbow.values.some(value => Math.abs(value) >= 0.5));
-  assert.ok(wrist.values.some(value => Math.abs(value) >= 5.5));
+  assert.ok(bowShoulder.values.some(value => Math.abs(value) >= 5.0));
+  assert.ok(elbow.values.some(value => Math.abs(value) >= 0.4));
+  assert.ok(wrist.values.some(value => Math.abs(value) >= 4.5));
   assert.equal(bowShoulder.values.length, elbow.values.length);
   assert.equal(elbow.values.length, wrist.values.length);
+  assert.ok(bowShoulder.values.length > 12,
+    "bow path should be smoothly sampled between beats instead of snapping at beats");
   for (let i = 0; i < bowShoulder.values.length; i += 1) {
     assert.ok(Math.abs(
       bowShoulder.values[i] + elbow.values[i] + wrist.values[i]

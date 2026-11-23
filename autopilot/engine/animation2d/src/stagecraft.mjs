@@ -98,23 +98,55 @@ function environmentFor(scene, width, height) {
       '<circle r="5" fill="#fff"/>', "travel_left", width * .58, 7);
     add("stardust", .49, .75, '<path d="M0 -18 L5 -5 L18 0 L5 5 L0 18 L-5 5 L-18 0 L-5 -5Z" fill="#e0e4ff"/>', "pulse", 13, 2.2);
   } else if (theme === "concert_stage") {
-    top = "#080c18"; bottom = "#281b2b"; accent = "#e5c38b";
-    base += '<path d="M0 0 H' + width * .18 + ' Q' + width * .29 + ' ' + height * .3 + ' ' +
-      width * .17 + ' ' + height + ' H0Z M' + width + ' 0 H' + width * .82 + ' Q' +
-      width * .71 + ' ' + height * .3 + ' ' + width * .83 + ' ' + height + ' H' + width + 'Z" fill="#351f33"/>' +
-      '<path d="M0 ' + height * .9 + ' Q' + width * .5 + ' ' + height * .75 + ' ' + width +
-      ' ' + height * .9 + ' V' + height + ' H0Z" fill="#0c111d"/>';
-    add("spotlight-left", .28, .02, '<path d="M-20 0 L-235 ' + height * .83 + ' H235Z" fill="#8ed6dc" opacity=".17"/>' +
-      '<circle r="22" fill="#eaffff" opacity=".8"/>', "sway", 24, 5.1);
-    add("spotlight-right", .72, .02, '<path d="M-18 0 L-210 ' + height * .83 + ' H210Z" fill="#f1ca8a" opacity=".17"/>' +
-      '<circle r="20" fill="#fff0ce" opacity=".8"/>', "sway", 20, 4.4);
-    for (let i = 0; i < 6; i += 1) {
-      add("stage-dust-" + i, .1 + i * .15, .46 + (i % 3) * .12,
-        '<circle r="' + (3 + i % 3) + '" fill="#f4dfb5"/><circle r="17" fill="#edc98f" opacity=".2"/>',
-        "float", 24 + i * 2, 2.4 + i * .25);
+    // Architectural hall with velvet wings, acoustic panels and a reflective deck.
+    top = "#050711"; bottom = "#171421"; accent = "#dfbd83";
+    base += '<rect width="100%" height="100%" fill="#070a13"/>' +
+      '<ellipse cx="' + width*.5 + '" cy="' + height*.43 + '" rx="' + width*.53 + '" ry="' + height*.44 +
+      '" fill="url(#' + sceneId + '-hall-glow)"/>';
+    base += '<path d="M0 0 H' + width*.22 + ' C' + width*.3 + ' ' + height*.2 + ' ' + width*.2 + ' ' + height*.59 + ' ' + width*.13 + ' ' + height +
+      ' H0Z M' + width + ' 0 H' + width*.78 + ' C' + width*.7 + ' ' + height*.2 + ' ' + width*.8 + ' ' + height*.59 + ' ' + width*.87 + ' ' + height +
+      ' H' + width + 'Z" fill="url(#' + sceneId + '-velvet)"/>';
+    for(let i=0;i<10;i+=1){
+      const x=width*(.018+i*.018), curve=10+(i%3)*7, op=.07+(i%3)*.025, mirror=width-x;
+      base += '<path d="M'+x.toFixed(1)+' 0 C'+(x+curve)+' '+height*.28+' '+(x-curve*.4)+' '+height*.7+' '+(x-width*.01)+' '+height+
+        '" fill="none" stroke="#c08a78" stroke-opacity="'+op+'" stroke-width="2"/>' +
+        '<path d="M'+mirror.toFixed(1)+' 0 C'+(mirror-curve)+' '+height*.28+' '+(mirror+curve*.4)+' '+height*.7+' '+(mirror+width*.01)+' '+height+
+        '" fill="none" stroke="#c08a78" stroke-opacity="'+op+'" stroke-width="2"/>';
     }
-    add("stage-beat-ring", .5, .75, '<ellipse rx="' + width * .2 + '" ry="' + height * .04 +
-      '" fill="none" stroke="#d7b77d" stroke-width="4" opacity=".65"/>', "pulse", 24, 2.2);
+    base += '<path d="M'+width*.15+' '+height*.81+' V'+height*.28+' Q'+width*.5+' '+height*.06+' '+width*.85+' '+height*.28+
+      ' V'+height*.81+'Z" fill="#0b101d" stroke="#9d805f" stroke-opacity=".34" stroke-width="3"/>' +
+      '<path d="M'+width*.205+' '+height*.77+' V'+height*.31+' Q'+width*.5+' '+height*.12+' '+width*.795+' '+height*.31+
+      ' V'+height*.77+'" fill="none" stroke="#c6a06d" stroke-opacity=".32" stroke-width="2"/>';
+    for(let i=0;i<17;i+=1){
+      const x=width*(.235+i*.033);
+      base += '<path d="M'+x.toFixed(1)+' '+height*.32+' V'+height*.76+'" stroke="'+(i%2?"#789295":"#b18d63")+'" stroke-opacity=".13" stroke-width="2"/>';
+    }
+    base += '<path d="M'+width*.035+' '+height*.085+' H'+width*.965+' M'+width*.055+' '+height*.12+' H'+width*.945+
+      '" fill="none" stroke="#9b8c7e" stroke-opacity=".45" stroke-width="5"/>';
+    for(let i=0;i<9;i+=1){
+      const x=width*(.12+i*.095);
+      base += '<circle cx="'+x.toFixed(1)+'" cy="'+height*.085+'" r="'+(4+i%3)+'" fill="'+(i%2?"#f5d9a8":"#b7e3e0")+
+        '" opacity=".82" filter="url(#'+sceneId+'-soft-glow)"/>';
+    }
+    base += '<path d="M'+width*.285+' '+height*.11+' L'+width*.08+' '+height*.84+' Q'+width*.5+' '+height*.74+' '+width*.45+' '+height*.84+'Z" fill="url(#'+sceneId+'-beam-teal)"/>' +
+      '<path d="M'+width*.715+' '+height*.11+' L'+width*.92+' '+height*.84+' Q'+width*.5+' '+height*.74+' '+width*.55+' '+height*.84+'Z" fill="url(#'+sceneId+'-beam-amber)"/>' +
+      '<path d="M'+width*.5+' '+height*.11+' L'+width*.29+' '+height*.81+' Q'+width*.5+' '+height*.72+' '+width*.71+' '+height*.81+'Z" fill="url(#'+sceneId+'-beam-center)"/>' +
+      '<ellipse cx="'+width*.5+'" cy="'+height*.79+'" rx="'+width*.34+'" ry="'+height*.075+'" fill="url(#'+sceneId+'-floor-wash)"/>' +
+      '<path d="M0 '+height*.83+' Q'+width*.5+' '+height*.77+' '+width+' '+height*.83+' V'+height+' H0Z" fill="url(#'+sceneId+'-floor)"/>';
+    base = '<g class="concert-stage-architecture">' + base + '</g>';
+    add("spotlight-left",.285,.105,'<path d="M0 0 L-205 '+height*.73+' Q0 '+height*.65+' 205 '+height*.73+'Z" fill="url(#'+sceneId+'-beam-teal)" opacity=".7"/><circle r="11" fill="#e9ffff" opacity=".9" filter="url(#'+sceneId+'-soft-glow)"/>',"sway",1.8,7.2);
+    add("spotlight-right",.715,.105,'<path d="M0 0 L-205 '+height*.73+' Q0 '+height*.65+' 205 '+height*.73+'Z" fill="url(#'+sceneId+'-beam-amber)" opacity=".7"/><circle r="11" fill="#fff0cf" opacity=".9" filter="url(#'+sceneId+'-soft-glow)"/>',"sway",2,7.8);
+    add("center-wash",.5,.21,'<ellipse rx="'+width*.25+'" ry="'+height*.24+'" fill="url(#'+sceneId+'-hall-glow)" opacity=".5"/>',"float",3.5,8.5);
+    add("haze-left",.17,.64,'<ellipse rx="'+width*.22+'" ry="'+height*.035+'" fill="#8bc9ca" opacity=".22" filter="url(#'+sceneId+'-haze)"/>',"drift",12,10.5);
+    add("haze-right",.82,.67,'<ellipse rx="'+width*.2+'" ry="'+height*.03+'" fill="#d8b88d" opacity=".18" filter="url(#'+sceneId+'-haze)"/>',"drift",15,12);
+    for(let i=0;i<7;i+=1){
+      add("stage-dust-"+i,.12+i*.125,.38+(i%3)*.105,
+        '<circle r="'+(2+i%3)+'" fill="#f5e4c6"/><circle r="13" fill="#eac990" opacity=".14" filter="url(#'+sceneId+'-soft-glow)"/>',
+        "float",8+i*1.2,4.1+i*.36);
+    }
+    add("floor-reflection",.5,.855,'<ellipse rx="'+width*.22+'" ry="'+height*.012+'" fill="#d9bd91" opacity=".2" filter="url(#'+sceneId+'-soft-glow)"/>',"pulse",2.6,6.5);
+    add("warm-practical",.12,.27,'<circle r="6" fill="#f0d3a5"/><circle r="24" fill="#e3ba7a" opacity=".2" filter="url(#'+sceneId+'-soft-glow)"/>',"flicker",2.2,6.2);
+    add("cool-practical",.88,.3,'<circle r="6" fill="#d3f2ef"/><circle r="22" fill="#80c7c5" opacity=".18" filter="url(#'+sceneId+'-soft-glow)"/>',"flicker",2,6.6);
   } else if (theme === "laboratory") {
     top = "#071a29"; bottom = "#17404a"; accent = "#62d7d1";
     for (let x = 0; x <= width; x += 48) base += '<path d="M' + x + ' 0 V' + height + '" stroke="#9ad7d5" stroke-opacity=".12"/>';
@@ -144,9 +176,18 @@ function environmentFor(scene, width, height) {
     add("abstract-wave", .5, .79, '<path d="M-300 0 Q-220 -45 -140 0 T20 0 T180 0 T340 0" fill="none" stroke="#f0cd8d" stroke-width="4"/>', "float", 24, 3.6);
   }
 
-  const defs = '<defs><linearGradient id="' + sceneId + '-sky" x1="0" y1="0" x2="0" y2="1">' +
-    '<stop offset="0%" stop-color="' + top + '"/><stop offset="100%" stop-color="' + bottom + '"/></linearGradient>' +
-    '<filter id="' + sceneId + '-blur" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="9"/></filter></defs>';
+  const defs = '<defs>' +
+    '<linearGradient id="' + sceneId + '-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + top + '"/><stop offset="100%" stop-color="' + bottom + '"/></linearGradient>' +
+    '<linearGradient id="' + sceneId + '-velvet" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#120d1b"/><stop offset="34%" stop-color="#3a202c"/><stop offset="52%" stop-color="#211323"/><stop offset="100%" stop-color="#0d0d18"/></linearGradient>' +
+    '<radialGradient id="' + sceneId + '-hall-glow" cx="50%" cy="48%" r="62%"><stop offset="0%" stop-color="#e8c58d" stop-opacity=".26"/><stop offset="48%" stop-color="#7ea8aa" stop-opacity=".10"/><stop offset="100%" stop-color="#0a0d18" stop-opacity="0"/></radialGradient>' +
+    '<linearGradient id="' + sceneId + '-beam-teal" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#bdf4ef" stop-opacity=".32"/><stop offset="100%" stop-color="#6cabb0" stop-opacity="0"/></linearGradient>' +
+    '<linearGradient id="' + sceneId + '-beam-amber" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ffe5b3" stop-opacity=".34"/><stop offset="100%" stop-color="#c99a65" stop-opacity="0"/></linearGradient>' +
+    '<linearGradient id="' + sceneId + '-beam-center" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f5e8d0" stop-opacity=".16"/><stop offset="100%" stop-color="#d8c09d" stop-opacity="0"/></linearGradient>' +
+    '<radialGradient id="' + sceneId + '-floor-wash"><stop offset="0%" stop-color="#e5c48c" stop-opacity=".26"/><stop offset="100%" stop-color="#e5c48c" stop-opacity="0"/></radialGradient>' +
+    '<linearGradient id="' + sceneId + '-floor" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#171a25"/><stop offset="100%" stop-color="#05070d"/></linearGradient>' +
+    '<filter id="' + sceneId + '-blur" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="9"/></filter>' +
+    '<filter id="' + sceneId + '-haze" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="24"/></filter>' +
+    '<filter id="' + sceneId + '-soft-glow" x="-120%" y="-120%" width="340%" height="340%"><feGaussianBlur stdDeviation="10"/></filter></defs>';
   return { theme, nodes, base: '<rect width="100%" height="100%" fill="url(#' + sceneId + '-sky)"/>' + base, defs };
 }
 function objectShape(kind, size, colour) {
@@ -219,6 +260,26 @@ export function renderStagecraftMarkup(scene, width = 720, height = 1280, sceneI
     '<svg viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="xMidYMid slice">' +
     env.defs + env.base + nodes + '</svg></div>';
 }
+export function renderStagecraftForegroundMarkup(scene, width = 720, height = 1280, sceneIndex = 0) {
+  if (String(scene?.stagecraft?.environment || "").toLowerCase() !== "concert_stage") return "";
+  const sceneId=safeId(scene.id), start=Math.max(0,Number(scene.start)||0), duration=Math.max(.1,Number(scene.duration)||1);
+  const audience=[[-26,1192,78,94],[78,1214,76,82],[198,1195,82,98],[324,1221,74,76],[455,1198,84,92],[584,1214,78,82],[706,1190,82,98]];
+  const silhouettes=audience.map(([cx,cy,rx,ry],i)=>{
+    const hx=cx+(i%2?6:-4),hy=cy-ry*.55;
+    return '<ellipse cx="'+hx+'" cy="'+hy+'" rx="'+(17+i%3*2)+'" ry="'+(21+i%2*2)+'"/>' +
+      '<path d="M'+(cx-rx)+' '+height+' Q'+(cx-rx*.96)+' '+(cy-10)+' '+cx+' '+(cy-8)+' Q'+(cx+rx*.96)+' '+(cy-10)+' '+(cx+rx)+' '+height+'Z"/>';
+  }).join("");
+  const bokeh=[[40,1100,3],[142,1121,2],[283,1106,3],[505,1108,2],[642,1124,3],[690,1088,2]]
+    .map(([x,y,r],i)=>'<circle cx="'+x+'" cy="'+y+'" r="'+r+'" fill="'+(i%2?"#c9e6df":"#e9c891")+'" opacity=".52"/>').join("");
+  return '<div class="clip scene-stagecraft-foreground" id="'+sceneId+'-stagecraft-foreground" data-start="'+start+'" data-duration="'+duration+'" data-track-index="'+(6+sceneIndex*3)+'" aria-hidden="true">' +
+    '<svg viewBox="0 0 '+width+' '+height+'" preserveAspectRatio="xMidYMid slice"><defs>' +
+    '<linearGradient id="'+sceneId+'-audience-fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#070912" stop-opacity="0"/><stop offset="58%" stop-color="#070912" stop-opacity=".46"/><stop offset="100%" stop-color="#02040a" stop-opacity=".98"/></linearGradient>' +
+    '<filter id="'+sceneId+'-audience-soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3.2"/></filter></defs>' +
+    '<g fill="#03050b" opacity=".9" filter="url(#'+sceneId+'-audience-soft)">'+silhouettes+'</g>' +
+    '<rect x="0" y="'+height*.84+'" width="'+width+'" height="'+height*.16+'" fill="url(#'+sceneId+'-audience-fade)"/>' +
+    '<g filter="url(#'+sceneId+'-audience-soft)">'+bokeh+'</g></svg></div>';
+}
+
 function motionFrames(type, amount) {
   const a = Math.max(2, Number(amount) || 16);
   switch (type) {
