@@ -1660,16 +1660,46 @@ def _extract_source_aligned_joint_surfaces(
             continue
         role = "joint_surface_" + str(joint_name)
         geometry = _save_rgba_layer(source_rgba, eligible, bundle_dir / f"{role}.png", padding=5)
+        blend_axis_names = item.get("blend_axis_joints") or []
+        if len(blend_axis_names) != 2:
+            raise ManualReviewRequired(f"Joint surface {joint_name} needs two authored blend-axis anchors.")
+        blend_start_joint, blend_end_joint = (
+            joints.get(str(blend_axis_names[0])),
+            joints.get(str(blend_axis_names[1])),
+        )
+        if not blend_start_joint or not blend_end_joint:
+            raise ManualReviewRequired(f"Joint surface {joint_name} has an incomplete blend axis.")
+        axis_dx = (float(blend_end_joint["x"]) - float(blend_start_joint["x"])) * width
+        axis_dy = (float(blend_end_joint["y"]) - float(blend_start_joint["y"])) * height
+        axis_length = float(np.hypot(axis_dx, axis_dy))
+        if axis_length < 4:
+            raise ManualReviewRequired(f"Joint surface {joint_name} blend axis is too short.")
+        unit_x, unit_y = axis_dx / axis_length, axis_dy / axis_length
+        blend_axis_start = [
+            (center_x - unit_x * 16) / width,
+            (center_y - unit_y * 16) / height,
+        ]
+        blend_axis_end = [
+            (center_x + unit_x * 16) / width,
+            (center_y + unit_y * 16) / height,
+        ]
         layer = {
             "id": role, "role": role, **geometry,
             "pivot_x": min(1.0, max(0.0, (center_x - geometry["x"]) / geometry["width"])),
             "pivot_y": min(1.0, max(0.0, (center_y - geometry["y"]) / geometry["height"])),
             "z_index": int(item.get("z_index", 32)),
+            "mesh_deformation": {
+                "profile": "joint_surface",
+                "columns": 2,
+                "rows": 2,
+            },
             "joint_surface": {
                 "joint": anchor_name,
                 "parent_role": parent_role,
                 "child_role": child_role,
                 "blend_weight": 0.5,
+                "blend_axis_start": blend_axis_start,
+                "blend_axis_end": blend_axis_end,
             },
         }
         layers.append(layer)
@@ -1687,6 +1717,7 @@ def _extract_source_aligned_joint_surfaces(
         report["source_pixels_transferred"] += area
         report["parent_child_alpha_pixels_removed"] += parent_removed + child_removed
     report["joint_surface_layer_count"] = len(layers)
+    report["joint_surface_mesh_layer_count"] = sum(bool(layer.get("mesh_deformation")) for layer in layers)
     report["moving_mask_pixels"] = int(claimed.sum())
     Image.fromarray(claimed.astype(np.uint8) * 255, mode="L").save(
         bundle_dir / "joint-surface-moving-mask.png", format="PNG", optimize=True
