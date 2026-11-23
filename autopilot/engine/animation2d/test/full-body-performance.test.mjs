@@ -443,3 +443,42 @@ test("segmented composite body keeps modular head plates attached to neck motion
     assert.ok(track.values.some(value => value !== track.values[0]));
   }
 });
+
+
+test("fingerboard notes retain lower-finger contact and sustain presses for note duration", () => {
+  const tracks = buildMusicSynchronizedPerformanceTracks({
+    targetPrefix: "finger-test",
+    duration: 2,
+    bpm: 120,
+    beatTimes: [0, 0.5, 1, 1.5],
+    downbeats: [0, 1],
+    onsets: [0.1, 0.6],
+    noteEvents: [
+      { time: 0.1, note: 60, velocity: 64, duration_seconds: 0.25 },
+      { time: 0.6, note: 72, velocity: 88, duration_seconds: 0.8 }
+    ],
+    confidence: 1
+  });
+  const getFinger = name => tracks.find(track =>
+    track.target === "finger-test-part-" + name
+  );
+  const index = getFinger("finger_index");
+  const middle = getFinger("finger_middle");
+  const ring = getFinger("finger_ring");
+  const little = getFinger("finger_little");
+  assert.ok(index && middle && ring && little);
+
+  // The high register note prepares/presses the index, middle, ring and
+  // little fingers together rather than flicking a single arbitrary finger.
+  for (const track of [index, middle, ring, little]) {
+    assert.ok(track.key_times.some(time => time >= 0.60 && time <= 0.66));
+    assert.ok(track.values.some(value => Math.abs(Number(value)) > 4));
+  }
+  // The second note is sustained; its press/release cycle must outlast the short note.
+  const indexLateKeys = index.key_times.filter(time => time > 0.7);
+  assert.ok(indexLateKeys.some(time => time > 1.1),
+    "long note holds the finger position before the release and settle");
+  assert.ok(middle.values.some(value => value !== 0));
+  assert.ok(ring.values.some(value => value !== 0));
+  assert.ok(little.values.some(value => value !== 0));
+});
