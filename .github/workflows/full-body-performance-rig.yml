@@ -118,6 +118,12 @@ jobs:
           hidden = separation.get("hidden_area_reconstruction", {})
           assert hidden.get("mask_saved") is True, separation
           assert hidden.get("mask_asset") == "torso-hidden-overlap-mask.png", separation
+          torso_overlap = separation.get("torso_backplate_arm_overlap", {})
+          assert torso_overlap.get("method") == "remove_source_arm_pixels_from_static_torso_keep_hidden_underlay", separation
+          assert torso_overlap.get("source_arm_pixels_removed", 0) > 0, separation
+          assert torso_overlap.get("hidden_underlay_pixels_retained") == hidden.get("pixels_reconstructed"), separation
+          assert torso_overlap.get("independent_limb_assets_modified") == 0, separation
+          assert torso_overlap.get("hand_animation_data_modified") is False, separation
           from PIL import Image
           hidden_mask = Image.open(bundle / hidden["mask_asset"]).convert("L")
           assert sum(value > 0 for value in hidden_mask.getdata()) == hidden.get("pixels_reconstructed"), separation
