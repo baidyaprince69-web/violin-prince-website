@@ -279,7 +279,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         from pathlib import Path
 
         source_pixels = np.full((80, 100, 4), (42, 58, 71, 255), dtype=np.uint8)
-        source_pixels[20:36, 30:70, :3] = (160, 92, 48)
+        source_pixels[18:42, 28:78, :3] = (160, 92, 48)
         source = Image.fromarray(source_pixels, mode="RGBA")
 
         torso_pixels = source.crop((10, 10, 30, 30)).convert("RGBA")
@@ -290,12 +290,12 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             "pivot_x": 0.5, "pivot_y": 0.5, "z_index": 10,
         }]}
         violin = np.zeros((80, 100), dtype=np.uint8)
-        violin[20:36, 30:70] = 255
+        violin[18:42, 28:78] = 255
         violin[24, 46] = 0  # one-pixel source-alpha pinhole to be closed
         bow = np.zeros_like(violin)
-        bow[20:36, 50:52] = 255
+        bow[18:42, 50:52] = 255
         moving = np.zeros((80, 100), dtype=bool)
-        moving[20:36, 56:59] = True
+        moving[18:42, 56:59] = True
 
         with tempfile.TemporaryDirectory() as folder:
             torso_pixels.save(Path(folder) / "torso.png")
