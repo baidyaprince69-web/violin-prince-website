@@ -2182,9 +2182,19 @@ def main() -> int:
             head_angle_sheet_path=args.head_angle_sheet,
         )
         result["reference_sheet_rig"] = reference_report
+        character_path = bundle / "character.json"
+        restoration_character = json.loads(
+            character_path.read_text(encoding="utf-8")
+        )
+        torso_restoration = _restore_torso_hidden_overlap_from_reference(
+            bundle,
+            restoration_character,
+        )
+        result["torso_reference_restoration"] = torso_restoration
         report_path = bundle / "full-body-performance-report.json"
         report = json.loads(report_path.read_text(encoding="utf-8"))
         report["reference_sheet_rig"] = reference_report
+        report["torso_reference_restoration"] = torso_restoration
         report_path.write_text(
             json.dumps(report, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
