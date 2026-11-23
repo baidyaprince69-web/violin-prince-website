@@ -20,10 +20,79 @@ from full_body_performance_rig import (
     _prepare_fingers,
     _largest_component,
     _canvas_alpha_mask_for_layers,
+    _restore_torso_hidden_overlap_from_reference,
 )
 
 
 class FullBodyPerformanceRigTests(unittest.TestCase):
+    def test_restores_only_hidden_torso_pixels_from_aligned_reference(self):
+        import json
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            torso = Image.new("RGBA", (30, 30), (20, 40, 60, 255))
+            torso.putpixel((5, 5), (20, 40, 60, 0))
+            torso.save(root / "torso.png")
+            hand_bytes = b"hand-animation-asset-must-remain-untouched"
+            (root / "left_hand.png").write_bytes(hand_bytes)
+
+            reference = Image.new("RGBA", (8, 8), (210, 30, 45, 255))
+            for y in range(4):
+                for x in range(4):
+                    reference.putpixel((x, y), (0, 0, 0, 0))
+            reference.save(root / "reference-part-003.png")
+
+            hidden = np.zeros((40, 40), dtype=np.uint8)
+            hidden[10:22, 10:22] = 255
+            Image.fromarray(hidden, mode="L").save(
+                root / "torso-hidden-overlap-mask.png"
+            )
+
+            prop = Image.new("RGBA", (4, 4), (90, 90, 90, 255))
+            prop.save(root / "prop-violin.png")
+            character = {
+                "canvas": {"width": 40, "height": 40},
+                "layers": [
+                    {
+                        "id": "torso", "role": "torso", "src": "torso.png",
+                        "x": 4, "y": 4, "width": 30, "height": 30,
+                    },
+                    {
+                        "id": "left_hand", "role": "left_hand", "src": "left_hand.png",
+                        "x": 4, "y": 4, "width": 30, "height": 30,
+                    },
+                ],
+                "props": {
+                    "violin": {
+                        "src": "prop-violin.png", "x": 14, "y": 14,
+                        "width": 4, "height": 4,
+                    },
+                },
+            }
+
+            before = np.asarray(Image.open(root / "torso.png").convert("RGBA"))
+            result = _restore_torso_hidden_overlap_from_reference(
+                root, character, reference_transform=(8, 8, 16, 16)
+            )
+            after = np.asarray(Image.open(root / "torso.png").convert("RGBA"))
+            restoration_mask = np.asarray(
+                Image.open(root / "torso-reference-restoration-mask.png").convert("L")
+            ) > 0
+            local_mask = restoration_mask[4:34, 4:34]
+
+            self.assertGreater(result["pixels_restored"], 100)
+            self.assertEqual(result["hand_forearm_assets_modified"], 0)
+            self.assertFalse(result["hand_animation_data_modified"])
+            self.assertTrue(result["layer_alpha_preserved"])
+            self.assertTrue(result["source_pixels_outside_restoration_mask_preserved"])
+            self.assertTrue(np.array_equal(after[:, :, 3], before[:, :, 3]))
+            self.assertTrue(np.array_equal(after[~local_mask], before[~local_mask]))
+            self.assertGreater(int(np.count_nonzero(after[local_mask, 0] == 210)), 100)
+            self.assertEqual((root / "left_hand.png").read_bytes(), hand_bytes)
+            self.assertEqual(result["prop_pixels_excluded"], 16)
+
     def test_largest_component_removes_detached_alpha_specks(self):
         mask = np.zeros((32, 32), dtype=np.uint8)
         mask[6:25, 6:25] = 1
