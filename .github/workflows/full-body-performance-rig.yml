@@ -255,6 +255,10 @@ jobs:
           angle_sequence = action.get("head_angle_sequence", [])
           assert {"three_quarter", "profile_right", "profile_left"}.issubset(set(angle_sequence)), action
           character = json.loads(Path("work/full-body-rig/bundle/character.json").read_text())
+          props = character.get("props", {})
+          assert props.get("bow", {}).get("attach_to") == "left_hand", props
+          assert props.get("violin", {}).get("attach_to") == "torso", props
+          assert not action.get("prop_keyframes"), action
           assert len(character.get("head_variants", {})) == 4, character
           assert len(character.get("head_angles", {})) == 4, character
           assert scene.get("stagecraft_environment") == "concert_stage", scene
