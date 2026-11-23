@@ -179,8 +179,8 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             self.assertTrue(moving.any())
             self.assertGreater(int(np.count_nonzero(cap[:, :, 3] > 12)), 40)
             self.assertEqual(int(cap[:, :, 3].max()), 255)
-            self.assertEqual(int(parent_alpha[12, 14]), 0)
-            self.assertEqual(int(child_alpha[12, 4]), 0)
+            self.assertEqual(int(parent_alpha[9, 12]), 0)
+            self.assertEqual(int(child_alpha[9, 2]), 0)
 
     def test_continuous_body_mesh_profiles_exclude_hands_fingers_and_feet(self):
         roles = [
