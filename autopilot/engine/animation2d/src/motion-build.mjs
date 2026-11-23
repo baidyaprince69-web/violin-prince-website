@@ -702,7 +702,7 @@ function invertAffineMatrix(matrix) {
 }
 
 function deformJointSurfaceVertices(
-  layer, surface, grid, parentWorld, childWorld, outerWorld, sourceWidth, sourceHeight
+  layer, surface, grid, parentWorld, childWorld, sourceWidth, sourceHeight
 ) {
   const start = surface.blend_axis_start.map(Number);
   const end = surface.blend_axis_end.map(Number);
@@ -714,7 +714,6 @@ function deformJointSurfaceVertices(
   if (axisLengthSquared < 1) {
     throw new TypeError("A joint-surface blend axis is too short for deformation.");
   }
-  const inverseOuter = invertAffineMatrix(outerWorld);
   const xOffset = Number(layer.x || 0);
   const yOffset = Number(layer.y || 0);
   const smoothStep = (value, low, high) => {
@@ -740,10 +739,12 @@ function deformJointSurfaceVertices(
       x: parentPoint.x + (childPoint.x - parentPoint.x) * blend,
       y: parentPoint.y + (childPoint.y - parentPoint.y) * blend
     };
-    const localPoint = transformPoint(inverseOuter, deformedWorld);
+    // The outer SVG remains source-positioned and untransformed. This
+    // mesh maps the source crop directly to the blended parent/child world
+    // positions, avoiding a second transform on the joint surface.
     return {
-      x: localPoint.x - xOffset,
-      y: localPoint.y - yOffset
+      x: deformedWorld.x - xOffset,
+      y: deformedWorld.y - yOffset
     };
   });
 }
@@ -851,7 +852,10 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
 
       const rolesToAnimate = new Set();
       for (const [role, ancestors] of Object.entries(dependencies)) {
-        if (ancestors.some(hasRotation) && layerByRole.has(role)) {
+        // Joint caps are deformed directly by their per-triangle parent/child
+        // blend mesh; adding an outer rigid transform would apply motion twice.
+        if (ancestors.some(hasRotation) && layerByRole.has(role) &&
+            !layerByRole.get(role)?.joint_surface) {
           rolesToAnimate.add(role);
         }
       }
@@ -1037,38 +1041,6 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
           right_calf: rightCalfWorld,
           right_foot: rightFootWorld
         };
-        for (const layer of layers) {
-          const surface = layer.joint_surface;
-          if (!surface) continue;
-          const parentWorld = worldByRole[String(surface.parent_role)] || torsoWorld;
-          const childWorld = worldByRole[String(surface.child_role)] || parentWorld;
-          const point = {
-            x: Number(joints[String(surface.joint)]?.x) * sourceWidth,
-            y: Number(joints[String(surface.joint)]?.y) * sourceHeight
-          };
-          const parentAngle = Math.atan2(parentWorld.b, parentWorld.a);
-          const childAngle = Math.atan2(childWorld.b, childWorld.a);
-          const delta = Math.atan2(
-            Math.sin(childAngle - parentAngle),
-            Math.cos(childAngle - parentAngle)
-          );
-          const blend = Math.max(0, Math.min(1, Number(surface.blend_weight ?? 0.5)));
-          const jointAngle = parentAngle + delta * blend;
-          const parentPoint = transformPoint(parentWorld, point);
-          const childPoint = transformPoint(childWorld, point);
-          const jointPoint = {
-            x: parentPoint.x + (childPoint.x - parentPoint.x) * blend,
-            y: parentPoint.y + (childPoint.y - parentPoint.y) * blend
-          };
-          worldByRole[layer.role] = multiplyMatrix(
-            multiplyMatrix(
-              translateMatrix(jointPoint.x, jointPoint.y),
-              rotateMatrix(jointAngle * 180 / Math.PI)
-            ),
-            translateMatrix(-point.x, -point.y)
-          );
-        }
-
         for (const [role, pivots] of Object.entries(fingerPivots)) {
           const middleRole = role + "_middle";
           const tipRole = role + "_tip";
@@ -1096,9 +1068,8 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
             const surface = layer.joint_surface || {};
             const parentWorld = worldByRole[String(surface.parent_role)] || torsoWorld;
             const childWorld = worldByRole[String(surface.child_role)] || parentWorld;
-            const outerWorld = worldByRole[layer.role] || parentWorld;
             deformedVertices = deformJointSurfaceVertices(
-              layer, surface, grid, parentWorld, childWorld, outerWorld,
+              layer, surface, grid, parentWorld, childWorld,
               sourceWidth, sourceHeight
             );
           } else {
