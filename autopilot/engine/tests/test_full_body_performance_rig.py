@@ -508,7 +508,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         # The cut reaches the outer silhouette, where transparent white RGB
         # used to seed Telea and create a pale streak in the reconstructed plate.
         bow = np.zeros((64, 64), dtype=np.uint8)
-        bow[18:46, 4:8] = 255
+        bow[8:56, 4:27] = 255
         violin = np.zeros((64, 64), dtype=np.uint8)
         moving = np.zeros((64, 64), dtype=bool)
 
@@ -525,10 +525,12 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
 
         # Check all visible pixels reconstructed from the cut; they should
         # remain in the dark character range, never pick up the white matte.
-        cut = np.zeros((64, 64), dtype=bool)
-        cut[18:46, 4:8] = True
         import cv2
-        cut = cv2.dilate(cut.astype(np.uint8), np.ones((5, 5), np.uint8), iterations=1) > 0
+        cut = cv2.dilate(
+            (bow > 12).astype(np.uint8),
+            np.ones((5, 5), np.uint8),
+            iterations=1,
+        ) > 0
         cut &= pixels[:, :, 3] > 12
         self.assertGreater(int(cut.sum()), 100)
         self.assertLess(float(result[cut, :3].mean()), 100.0)
