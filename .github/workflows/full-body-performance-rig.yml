@@ -120,6 +120,11 @@ jobs:
           assert base.get("pixels_cut_from_source", 0) > 25000, report
           assert base.get("bow_pixels_reconstructed", 0) > 0, report
           assert base.get("violin_pixels_reconstructed", 0) > 0, report
+          static_props = report.get("static_layer_prop_cleanup", {})
+          assert static_props.get("method") == "source_aligned_prop_alpha_removed_from_static_body_plates", report
+          assert static_props.get("total_pixels_removed", 0) > 1000, report
+          assert static_props.get("layers", {}).get("torso", {}).get("violin_pixels_removed", 0) > 1000, report
+          assert static_props.get("layers", {}).get("torso", {}).get("bow_pixels_removed", 0) > 300, report
           assert limbs.get("method") == "authored_source_aligned_polygon_regions_v1", report
           assert limbs.get("independent_layer_count") == 12, report
           assert len(limbs.get("parts", {})) == 12, report
