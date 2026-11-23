@@ -112,10 +112,6 @@ export function buildMusicSynchronizedPerformanceTracks({
 
   const isDownbeat = time => bars.some(value => Math.abs(value - time) < 0.025);
   const beatDelay = Math.min(0.08, period * 0.12);
-  const bowStrokes = beats.map((time, index) => ({
-    time: time + beatDelay,
-    value: (index % 2 === 0 ? -1 : 1) * (isDownbeat(time) ? 10.5 : 8.8)
-  }));
   const bowShoulderStrokes = beats.map((time, index) => ({
     time: time + beatDelay,
     value: (index % 2 === 0 ? -1 : 1) * (isDownbeat(time) ? 5.2 : 3.8)
@@ -146,8 +142,6 @@ export function buildMusicSynchronizedPerformanceTracks({
 
   const fingerNames = ["finger_index", "finger_middle", "finger_ring", "finger_little"];
   const fingerIntervals = Object.fromEntries(fingerNames.map(name => [name, []]));
-  const forearmPulses = [];
-  const wristPulses = [];
   if (events.length) {
     const pitches = events.map(event => event.note);
     const minimumPitch = Math.min(...pitches);
@@ -178,15 +172,6 @@ export function buildMusicSynchronizedPerformanceTracks({
           amplitude: amplitudes[fingerPosition] * strength
         });
       }
-      const contour = ((event.note - minimumPitch) / pitchRange) * 2 - 1;
-      forearmPulses.push(
-        { time: hit, value: contour * 3.4 },
-        { time: release, value: 0 }
-      );
-      wristPulses.push(
-        { time: hit, value: contour * 2.6 },
-        { time: release, value: 0 }
-      );
     }
   } else {
     attacks.forEach((time, index) => {
@@ -200,14 +185,6 @@ export function buildMusicSynchronizedPerformanceTracks({
       fingerIntervals[fingerNames[fingerIndex]].push({
         start: hit, end: release, settle, amplitude
       });
-      forearmPulses.push(
-        { time: hit, value: (index % 2 ? -1 : 1) * 1.8 },
-        { time: release, value: 0 }
-      );
-      wristPulses.push(
-        { time: hit, value: (index % 2 ? 1 : -1) * 1.4 },
-        { time: release, value: 0 }
-      );
     });
   }
 
@@ -248,50 +225,17 @@ export function buildMusicSynchronizedPerformanceTracks({
 
   const prefix = String(targetPrefix);
   const frameRate = Math.max(1, Number(fps) || 25);
-  const translatePoints = [
-    { time: 0, x: 0, y: 0 },
-    ...beats.map((time, index) => ({
-      time: time + beatDelay,
-      x: index % 2 === 0 ? -27 : 27,
-      y: index % 2 === 0 ? -4.2 : 4.2
-    })),
-    { time: total, x: 0, y: 0 }
-  ].filter(point => point.time <= total).sort((a, b) => a.time - b.time);
-  const bowTranslateValues = [];
-  const frameCount = Math.max(2, Math.ceil(total * frameRate) + 1);
-  for (let frame = 0; frame < frameCount; frame += 1) {
-    const time = Math.min(total, frame / frameRate);
-    let segment = 0;
-    while (segment < translatePoints.length - 2 && time > translatePoints[segment + 1].time) {
-      segment += 1;
-    }
-    const from = translatePoints[segment];
-    const to = translatePoints[Math.min(translatePoints.length - 1, segment + 1)];
-    const span = Math.max(0.0001, to.time - from.time);
-    const progress = Math.min(1, Math.max(0, (time - from.time) / span));
-    const eased = progress * progress * (3 - 2 * progress);
-    const x = from.x + (to.x - from.x) * eased;
-    const y = from.y + (to.y - from.y) * eased;
-    bowTranslateValues.push(x.toFixed(2) + "px " + y.toFixed(2) + "px");
-  }
-
   return [
-    // Screen-left arm is the bow arm; screen-right arm holds the violin neck.
+    // The screen-left chain is the player's anatomical right bowing arm.
+    // The bow prop is attached at its grip point to left_hand, so it inherits
+    // the shoulder -> elbow -> wrist motion as one rigid object. It must not
+    // receive a second independent translate/rotate track.
     makeTrack(prefix + "-part-left_upper_arm", bowShoulderStrokes),
     makeTrack(prefix + "-part-left_forearm", bowElbowStrokes),
     makeTrack(prefix + "-part-left_hand", bowWristStrokes),
-    makeTrack(prefix + "-prop-bow", bowStrokes),
-    {
-      target: prefix + "-prop-bow",
-      property: "translate",
-      values: bowTranslateValues,
-      start: Math.max(0, Number(start) || 0),
-      duration: total,
-      easing: "linear"
-    },
-    pulse(prefix + "-part-right_upper_arm", strongBeats, 2.0, 0.22),
-    makeTrack(prefix + "-part-right_forearm", forearmPulses),
-    makeTrack(prefix + "-part-right_hand", wristPulses),
+    // The screen-right chain is the player's anatomical left fretting arm.
+    // Keep its wrist/forearm planted on the violin neck; the finger sprites
+    // carry the note articulation without dragging the whole hand off contact.
     makeTrack(prefix + "-part-torso", torsoPulses),
     makeTrack(prefix + "-part-head", headPulses),
     weightTrack(prefix + "-part-left_thigh", 1.8, 1),
