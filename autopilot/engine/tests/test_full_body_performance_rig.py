@@ -49,6 +49,9 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             Image.fromarray(hidden, mode="L").save(
                 root / "torso-hidden-overlap-mask.png"
             )
+            Image.fromarray(hidden, mode="L").save(
+                root / "full-body-moving-mask.png"
+            )
 
             prop = Image.new("RGBA", (4, 4), (90, 90, 90, 255))
             prop.save(root / "prop-violin.png")
