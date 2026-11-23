@@ -15,6 +15,7 @@ from full_body_performance_rig import (
     _skin_material_mask,
     _decontaminate_edge_matte_rgb,
     _remove_embedded_props_from_static_layers,
+    _extend_torso_layer_with_violin_backplate,
     _restore_bow_hair_in_prop_asset,
     _prepare_fingers,
     _largest_component,
@@ -272,6 +273,60 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                 palm_alpha = np.asarray(opened.convert("RGBA").getchannel("A"), dtype=np.uint8)
                 self.assertEqual(int(palm_alpha[5, 5]), 0,
                     "only parent-hand pixels assigned to the finger are removed from the palm")
+
+    def test_torso_backplate_expands_to_full_violin_mask_and_preserves_pivot(self):
+        import tempfile
+        from pathlib import Path
+
+        source_pixels = np.full((80, 100, 4), (42, 58, 71, 255), dtype=np.uint8)
+        source_pixels[20:36, 30:70, :3] = (160, 92, 48)
+        source = Image.fromarray(source_pixels, mode="RGBA")
+
+        torso_pixels = source.crop((10, 10, 30, 30)).convert("RGBA")
+        torso_pixels.putalpha(Image.new("L", torso_pixels.size, 255))
+        character = {"layers": [{
+            "id": "torso", "role": "torso", "src": "torso.png",
+            "x": 10, "y": 10, "width": 20, "height": 20,
+            "pivot_x": 0.5, "pivot_y": 0.5, "z_index": 10,
+        }]}
+        violin = np.zeros((80, 100), dtype=np.uint8)
+        violin[20:36, 30:70] = 255
+        violin[24, 46] = 0  # one-pixel source-alpha pinhole to be closed
+        bow = np.zeros_like(violin)
+        bow[20:36, 50:52] = 255
+        moving = np.zeros((80, 100), dtype=bool)
+        moving[20:36, 56:59] = True
+
+        with tempfile.TemporaryDirectory() as folder:
+            torso_pixels.save(Path(folder) / "torso.png")
+            report = _extend_torso_layer_with_violin_backplate(
+                source,
+                Path(folder),
+                character,
+                {"violin": violin, "bow": bow},
+                moving_mask=moving,
+            )
+            layer = character["layers"][0]
+            with Image.open(Path(folder) / layer["src"]) as opened:
+                extended = np.asarray(opened.convert("RGBA"), dtype=np.uint8)
+
+        self.assertEqual(report["method"], "source_aligned_full_violin_underlay_in_extended_torso_plate")
+        self.assertGreater(report["pixels_added"], 400)
+        self.assertGreater(report["violin_backplate_pixels"], 400)
+        self.assertGreater(report["bow_pixels_excluded"], 0)
+        self.assertGreater(report["moving_part_pixels_excluded"], 0)
+        self.assertEqual(report["alpha_pinholes_closed"], 1)
+        self.assertTrue(report["torso_pivot_preserved"])
+        self.assertEqual(layer["x"], 10)
+        self.assertEqual(layer["y"], 10)
+        self.assertGreater(layer["width"], 20)
+        self.assertEqual(int(extended[15, 15, 3]), 255,
+            "the original torso plate must remain intact")
+        # Source violin pixels are added in the extended crop; bow and moving
+        # pixels are excluded so the backplate cannot create stationary ghosts.
+        self.assertEqual(tuple(extended[15, 35, :3]), (160, 92, 48))
+        self.assertEqual(int(extended[15, 40, 3]), 0)
+        self.assertEqual(int(extended[15, 46, 3]), 0)
 
     def test_removes_embedded_violin_and_bow_from_static_torso_and_head_plates(self):
         import tempfile

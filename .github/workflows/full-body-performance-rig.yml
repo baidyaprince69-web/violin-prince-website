@@ -143,6 +143,13 @@ jobs:
           static_props = report.get("static_layer_prop_cleanup", {})
           assert static_props.get("method") == "mobile_bow_removed_static_violin_retained_as_torso_underlay", report
           assert static_props.get("violin_backplate_policy") == "source_aligned_torso_underlay_behind_attached_violin_prop", report
+          torso_extension = static_props.get("torso_backplate_extension", {})
+          assert torso_extension.get("method") == "source_aligned_full_violin_underlay_in_extended_torso_plate", report
+          assert torso_extension.get("violin_backplate_pixels", 0) > 5000, report
+          assert torso_extension.get("pixels_added", 0) > 4000, report
+          assert torso_extension.get("bow_pixels_excluded", 0) > 0, report
+          assert torso_extension.get("moving_part_pixels_excluded", 0) > 0, report
+          assert torso_extension.get("torso_pivot_preserved") is True, report
           assert static_props.get("total_pixels_removed", 0) > 500, report
           assert static_props.get("layers", {}).get("torso", {}).get("violin_pixels_removed", 999) == 0, report
           assert static_props.get("layers", {}).get("torso", {}).get("violin_backplate_pixels_preserved", 0) > 1000, report

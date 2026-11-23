@@ -1182,6 +1182,138 @@ def _restore_bow_hair_in_prop_asset(
     }, updated_mask
 
 
+def _extend_torso_layer_with_violin_backplate(
+    source: Image.Image,
+    bundle_dir: Path,
+    character: dict[str, Any],
+    prop_masks: dict[str, np.ndarray],
+    *,
+    moving_mask: np.ndarray,
+) -> dict[str, Any]:
+    """Extend the torso plate with source-faithful violin pixels behind its prop.
+
+    The violin is torso-mounted, so its source pixels can remain on the torso
+    plate beneath the separate violin sprite. This restores the complete
+    instrument underlay (including pixels beyond the old torso crop) and
+    closes tiny alpha pinholes using original source RGB rather than inpaint.
+    Bow and independently moving body pixels are excluded to prevent ghost
+    copies. The torso's absolute pivot is preserved when its crop is extended.
+    """
+    try:
+        import cv2
+    except ImportError as exc:
+        raise AutoRigError("OpenCV is required to extend the violin source backplate.") from exc
+
+    torso_layer = next(
+        (layer for layer in character.get("layers", []) if layer.get("role") == "torso"),
+        None,
+    )
+    if torso_layer is None:
+        raise ManualReviewRequired("A torso layer is required for the violin source backplate.")
+    if "violin" not in prop_masks or "bow" not in prop_masks:
+        raise ManualReviewRequired("Both violin and bow source masks are required for the torso backplate.")
+
+    source_rgba = source.convert("RGBA")
+    source_pixels = np.asarray(source_rgba, dtype=np.uint8)
+    height, width = source_pixels.shape[:2]
+    source_alpha = source_pixels[:, :, 3]
+    violin = np.asarray(prop_masks["violin"], dtype=np.uint8) > 12
+    bow = np.asarray(prop_masks["bow"], dtype=np.uint8) > 12
+    moving = np.asarray(moving_mask, dtype=bool)
+    if any(mask.shape != (height, width) for mask in (violin, bow, moving)):
+        raise AutoRigError("Violin, bow and moving masks must match the source canvas.")
+
+    asset_path = bundle_dir / str(torso_layer.get("src") or "")
+    if not asset_path.is_file():
+        raise AutoRigError(f"Missing torso source plate: {asset_path.name}")
+    with Image.open(asset_path) as opened:
+        original_torso = opened.convert("RGBA")
+
+    old_x = int(round(float(torso_layer["x"])))
+    old_y = int(round(float(torso_layer["y"])))
+    old_width, old_height = original_torso.size
+    old_pivot_x = float(torso_layer.get("pivot_x", 0.5))
+    old_pivot_y = float(torso_layer.get("pivot_y", 0.5))
+    pivot_source_x = old_x + old_width * old_pivot_x
+    pivot_source_y = old_y + old_height * old_pivot_y
+
+    # Close only very small holes inside the extracted violin silhouette.
+    # The resulting pixels still come from the original full-body source.
+    closed_violin = cv2.morphologyEx(
+        violin.astype(np.uint8),
+        cv2.MORPH_CLOSE,
+        np.ones((3, 3), dtype=np.uint8),
+    ) > 0
+    bow_overlap_pixels = int(np.count_nonzero(closed_violin & bow))
+    moving_overlap_pixels = int(np.count_nonzero(closed_violin & moving))
+    backplate_mask = (
+        closed_violin &
+        (source_alpha > 12) &
+        ~bow &
+        ~moving
+    )
+    backplate_pixels = int(np.count_nonzero(backplate_mask))
+    if backplate_pixels < 1000:
+        raise ManualReviewRequired(
+            f"The source-aligned violin backplate is too small ({backplate_pixels} pixels)."
+        )
+
+    full_canvas = source_pixels.copy()
+    full_canvas[:, :, 3] = 0
+    old_view = full_canvas[
+        old_y:old_y + old_height,
+        old_x:old_x + old_width,
+    ]
+    if old_view.shape[:2] != (old_height, old_width):
+        raise ManualReviewRequired("The original torso crop lies outside the source canvas.")
+    old_view[:, :, :] = np.asarray(original_torso, dtype=np.uint8)
+
+    previous_alpha = full_canvas[:, :, 3].copy()
+    added_mask = backplate_mask & (previous_alpha <= 12)
+    full_canvas[backplate_mask, :3] = source_pixels[backplate_mask, :3]
+    full_canvas[backplate_mask, 3] = source_alpha[backplate_mask]
+    full_mask = full_canvas[:, :, 3] > 12
+    if not full_mask.any():
+        raise ManualReviewRequired("The extended torso backplate is empty.")
+
+    x0, y0, x1, y1 = _bbox(full_mask)
+    destination = bundle_dir / "torso-with-violin-backplate.png"
+    Image.fromarray(full_canvas[y0:y1, x0:x1], mode="RGBA").save(
+        destination, format="PNG", optimize=True
+    )
+
+    new_width, new_height = x1 - x0, y1 - y0
+    new_pivot_x = (pivot_source_x - x0) / max(1.0, new_width)
+    new_pivot_y = (pivot_source_y - y0) / max(1.0, new_height)
+    torso_layer.update({
+        "src": destination.name,
+        "x": x0,
+        "y": y0,
+        "width": new_width,
+        "height": new_height,
+        "pivot_x": round(new_pivot_x, 6),
+        "pivot_y": round(new_pivot_y, 6),
+        "pixel_area": int(full_mask.sum()),
+    })
+
+    return {
+        "method": "source_aligned_full_violin_underlay_in_extended_torso_plate",
+        "asset": destination.name,
+        "violin_backplate_pixels": backplate_pixels,
+        "pixels_added": int(added_mask.sum()),
+        "bow_pixels_excluded": bow_overlap_pixels,
+        "moving_part_pixels_excluded": moving_overlap_pixels,
+        "alpha_pinholes_closed": int(np.count_nonzero(closed_violin & ~violin)),
+        "original_bbox": [old_x, old_y, old_x + old_width, old_y + old_height],
+        "extended_bbox": [x0, y0, x1, y1],
+        "torso_pivot_preserved": bool(
+            abs((x0 + new_width * new_pivot_x) - pivot_source_x) < 0.01 and
+            abs((y0 + new_height * new_pivot_y) - pivot_source_y) < 0.01
+        ),
+        "backplate_policy": "torso_parented_source_violin_underlay_beneath_attached_violin_prop",
+    }
+
+
 def _remove_embedded_props_from_static_layers(
     bundle_dir: Path,
     character: dict[str, Any],
@@ -1662,14 +1794,7 @@ def extend_full_body_character(
     props["bow"]["src"] = bow_hair_restoration["src"]
     prop_report["bow"]["src"] = bow_hair_restoration["src"]
 
-    # Remove source-baked violin, bow stick and bow hair from semantic static
-    # layers. The separate animated prop sprites are the only render instances.
-    static_layer_prop_cleanup = _remove_embedded_props_from_static_layers(
-        bundle,
-        character,
-        prop_masks,
-    )
-
+    # Keep the decontaminated source image available for QA and layer rebuilds.
     clean_source_path = bundle / "preserved-full-body-source.png"
     source.save(clean_source_path, format="PNG", optimize=True)
 
@@ -1720,6 +1845,24 @@ def extend_full_body_character(
                 specification.get("polygon") or [],
             )
         moving_mask |= finger_union & (np.asarray(source.getchannel("A")) > 12)
+
+    # Restore a source-faithful underlay across the full torso-mounted violin
+    # footprint after all moving hand/finger masks are known. The violin sprite
+    # and this underlay share the torso parent/pivot, so alpha pinholes reveal
+    # original illustration pixels instead of smudged inpaint.
+    torso_backplate_extension = _extend_torso_layer_with_violin_backplate(
+        source,
+        bundle,
+        character,
+        prop_masks,
+        moving_mask=moving_mask,
+    )
+    static_layer_prop_cleanup = _remove_embedded_props_from_static_layers(
+        bundle,
+        character,
+        prop_masks,
+    )
+    static_layer_prop_cleanup["torso_backplate_extension"] = torso_backplate_extension
 
     head_canvas_alpha = _canvas_alpha_mask_for_layers(
         bundle,
