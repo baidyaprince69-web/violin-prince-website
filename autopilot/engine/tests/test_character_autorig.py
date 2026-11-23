@@ -213,6 +213,29 @@ class CharacterAutoRigTests(unittest.TestCase):
             )
         self.assertTrue(report["joint_underlap"]["joint_anchors_use_unexpanded_masks"])
         self.assertEqual(report["joint_underlap"]["wrist_patch"], "localized_around_joint_anchor_only")
+        torso_overlap = report["torso_backplate_arm_overlap"]
+        self.assertEqual(
+            torso_overlap["method"],
+            "remove_source_arm_pixels_from_static_torso_keep_hidden_underlay",
+        )
+        self.assertGreater(torso_overlap["source_arm_pixels_removed"], 0)
+        self.assertEqual(
+            torso_overlap["independent_limb_assets_modified"], 0
+        )
+        self.assertFalse(torso_overlap["hand_animation_data_modified"])
+        arm_union = np.zeros_like(masks["torso"], dtype=bool)
+        for role in (
+            "left_upper_arm", "right_upper_arm",
+            "left_forearm", "right_forearm",
+            "left_hand", "right_hand",
+        ):
+            arm_union |= masks[role]
+        # The only arm pixels retained in the static torso are the explicitly
+        # reconstructed underlay, not frozen copies of the source arms.
+        self.assertEqual(
+            int((masks["torso"] & arm_union).sum()),
+            torso_overlap["hidden_underlay_pixels_retained"],
+        )
         self.assertLess(
             max(report["joint_underlap"]["overlap_pixels"].values()),
             2500,
