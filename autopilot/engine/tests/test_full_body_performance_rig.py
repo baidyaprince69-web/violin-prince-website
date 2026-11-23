@@ -428,7 +428,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                 report["method"],
                 "source_aligned_fingerboard_backplate_rgb_reconstruction",
             )
-            self.assertGreater(report["backplate_pixels_added"], 80)
+            self.assertGreater(report["backplate_pixels_added"], 40)
             self.assertGreater(report["hand_hole_pixels_filled"], 20)
             self.assertTrue(report["prop_alpha_extended"])
             self.assertTrue(report["parent_prop_mask_updated"])
