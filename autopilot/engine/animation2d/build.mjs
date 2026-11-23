@@ -31,6 +31,58 @@ function gestureKeyframeCount(name) {
   }, 0);
 }
 
+function renderSourceMeshLayer(layer, partId, styleText) {
+  const mesh = layer.mesh_deformation || {};
+  const columns = Math.max(2, Math.min(8, Number(mesh.columns) || 2));
+  const rows = Math.max(2, Math.min(12, Number(mesh.rows) || 2));
+  const width = Number(layer.width);
+  const height = Number(layer.height);
+  const vertices = [];
+  for (let row = 0; row <= rows; row += 1) {
+    for (let column = 0; column <= columns; column += 1) {
+      vertices.push({
+        x: width * column / columns,
+        y: height * row / rows
+      });
+    }
+  }
+  const triangles = [];
+  const at = (column, row) => row * (columns + 1) + column;
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      const topLeft = at(column, row);
+      const topRight = at(column + 1, row);
+      const bottomLeft = at(column, row + 1);
+      const bottomRight = at(column + 1, row + 1);
+      triangles.push([topLeft, topRight, bottomRight], [topLeft, bottomRight, bottomLeft]);
+    }
+  }
+  const defs = triangles.map((indices, index) => {
+    const points = indices.map(vertexIndex => {
+      const point = vertices[vertexIndex];
+      return point.x.toFixed(3) + "," + point.y.toFixed(3);
+    }).join(" ");
+    const clipId = partId + "-mesh-clip-" + index;
+    return '<clipPath id="' + escapeHtml(clipId) +
+      '" clipPathUnits="userSpaceOnUse"><polygon points="' + points + '"></polygon></clipPath>';
+  }).join("");
+  const source = '<image href="' + escapeHtml(layer.src) +
+    '" x="0" y="0" width="' + width + '" height="' + height +
+    '" preserveAspectRatio="none"></image>';
+  const groups = triangles.map((_triangle, index) => {
+    const clipId = partId + "-mesh-clip-" + index;
+    return '<g id="' + escapeHtml(partId + "-mesh-triangle-" + index) +
+      '" clip-path="url(#' + escapeHtml(clipId) +
+      ')" style="transform-box:view-box;transform-origin:0 0">' + source + '</g>';
+  }).join("");
+  return '<svg class="rig-part rig-part--mesh" id="' + escapeHtml(partId) +
+    '" data-role="' + escapeHtml(layer.role) +
+    '" data-mesh-triangles="' + triangles.length +
+    '" aria-hidden="true" viewBox="0 0 ' + width + ' ' + height +
+    '" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" style="' +
+    styleText + '">' + '<defs>' + defs + '</defs>' + groups + '</svg>';
+}
+
 function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWidth, canvasHeight) {
   const action = (character.scene_actions || {})[scene.id] ||
     ((scene.character_actions || {})[character.id] || {});
@@ -106,7 +158,8 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
     "finger_little", "finger_little_middle", "finger_little_tip"
   ]);
   const layers = (character.layers || [])
-    .filter(layer => !compositeBase || articulatedCompositeRoles.has(String(layer.role || "")))
+    .filter(layer => !compositeBase || articulatedCompositeRoles.has(String(layer.role || "")) ||
+      (segmentedBodyMode && layer.role === "torso") || Boolean(layer.joint_surface))
     .map((layer) => {
     const jointName = jointForRole[layer.role];
     const joint = jointName ? (character.joints || {})[jointName] : null;
@@ -129,6 +182,9 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
     }
     const styleText = style.join(";");
     const partId = scene.id + "-" + character.id + "-part-" + layer.id;
+    if (layer.mesh_deformation) {
+      return renderSourceMeshLayer(layer, partId, styleText);
+    }
     return '<img class="rig-part" id="' + escapeHtml(partId) +
       '" data-role="' + escapeHtml(layer.role) +
       '" data-joint="' + escapeHtml(jointName || "") +
@@ -818,6 +874,7 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.stagecraft-node{transform-box:fill-box;transform-origin:center;will-change:transform,opacity}' +
   '.rig-base-art{position:absolute;object-fit:contain;max-width:none;pointer-events:none;will-change:transform}' +
   '.rig-part,.rig-expression,.rig-pose,.rig-prop{position:absolute;object-fit:contain;max-width:none;pointer-events:none}' +
+  '.rig-part--mesh{display:block;overflow:visible}' +
   '.motion-graphic{position:absolute;left:auto;top:auto;right:auto;bottom:auto;width:86%;height:auto;z-index:34;overflow:visible;color:#f4ead9;opacity:0;padding:24px 20px;border:1px solid rgba(190,151,91,.48);border-left:3px solid #bf985e;background:linear-gradient(145deg,rgba(5,13,22,.97),rgba(9,27,35,.95));box-shadow:0 22px 64px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,244,220,.07);border-radius:9px}' +
   '.motion-graphic--full{left:7%;top:23%;width:86%;min-height:380px}' +
   '.motion-graphic--with-presenter{left:5%;top:25%;width:41%;min-height:400px;padding:20px 16px}' +
