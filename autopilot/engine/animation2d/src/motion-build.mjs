@@ -1161,6 +1161,9 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
       if (Array.isArray(character.scene_ids) && !character.scene_ids.includes(scene.id)) continue;
       if (action.visible === false) continue;
       const prefix = scene.id + "-" + character.id;
+      const compositeBaseMode = Boolean(character.base_art && character.base_art.src);
+      const segmentedBodyBaseMode = compositeBaseMode &&
+        character.performance_base_mode === "segmented_source_body";
       const actionStart = sceneStart + Math.max(0, Number(action.start_offset) || 0);
       addSpring(prefix, "opacity", 0, 1, actionStart, 650);
       const presenterScale = Number(action.scale ?? character.scale ?? 1);
