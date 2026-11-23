@@ -133,9 +133,11 @@ test("source texture meshes deform continuously and joint caps follow both paren
     "torso triangle vertices must receive changing frame-sampled affine transforms");
   assert.ok(upperArmMesh.some(track => track.values.some(value => value !== track.values[0])),
     "limb surface must deform in addition to its parent rotation");
-  const jointTrack = find("playing-violin-prince-part-joint_surface_left_elbow");
-  assert.ok(jointTrack, "joint cap must receive its own parent/child blended transform track");
-  assert.ok(jointTrack.values.some(value => value !== jointTrack.values[0]));
+  assert.equal(
+    find("playing-violin-prince-part-joint_surface_left_elbow"),
+    undefined,
+    "joint caps must not also receive a rigid outer transform"
+  );
   const jointMesh = tracks.filter(track =>
     track.target.startsWith("playing-violin-prince-part-joint_surface_left_elbow-mesh-triangle-")
   );
