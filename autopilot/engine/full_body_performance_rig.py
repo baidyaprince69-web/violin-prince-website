@@ -37,10 +37,10 @@ LEG_ROLE_Z = {
     "left_foot": 8, "right_foot": 9,
 }
 FINGER_Z = {
-    "finger_index": 43,
-    "finger_middle": 44,
-    "finger_ring": 45,
-    "finger_little": 46,
+    "finger_index": 43, "finger_index_middle": 44, "finger_index_tip": 45,
+    "finger_middle": 46, "finger_middle_middle": 47, "finger_middle_tip": 48,
+    "finger_ring": 49, "finger_ring_middle": 50, "finger_ring_tip": 51,
+    "finger_little": 52, "finger_little_middle": 53, "finger_little_tip": 54,
 }
 
 
@@ -275,9 +275,11 @@ def _prepare_fingers(
         hand_x0 - hx:hand_x1 - hx,
     ]
     layers, joints, areas = [], {}, {}
+    yy, xx = np.mgrid[:height, :width]
 
-    for index, (name, specification) in enumerate((manifest.get("fingers") or {}).items()):
-        role = "finger_" + str(name).strip().casefold()
+    for name, specification in (manifest.get("fingers") or {}).items():
+        finger_name = str(name).strip().casefold()
+        role = "finger_" + finger_name
         polygon = specification.get("polygon") or []
         pivot = specification.get("pivot") or []
         if len(polygon) < 3 or len(pivot) != 2:
@@ -285,31 +287,94 @@ def _prepare_fingers(
         region = Image.new("L", (width, height), 0)
         ImageDraw.Draw(region).polygon([tuple(point) for point in polygon], fill=255)
         region_mask = np.asarray(region, dtype=np.uint8) > 0
-        # The finger outline must be a subset of the independently extracted
-        # skin hand. This excludes violin/bow fragments and jacket/edge pixels
-        # that may intersect an authored polygon on the original composite.
+        # Every articulated pixel must belong to the independently extracted
+        # skin hand. This excludes violin/bow and jacket pixels from the rig.
         finger_mask = region_mask & (hand_canvas_alpha > 12)
         if int(finger_mask.sum()) < 20:
             raise ManualReviewRequired(
                 f"Finger region {name} does not overlap the source-aligned {hand_role} skin mask."
             )
-        geometry = _save_rgba_layer(
-            source, finger_mask, bundle_dir / f"{role}.png", padding=3
-        )
-        layers.append({
-            "id": role, "role": role, **geometry,
-            "pivot_x": 0.5, "pivot_y": 0.5,
-            "z_index": FINGER_Z.get(role, 46),
-        })
-        px, py = float(pivot[0]), float(pivot[1])
-        joints[f"right_{name}_base"] = _normalise_joint((px, py), width, height)
+
+        joint_spec = specification.get("joints") or {}
+        if all(len(joint_spec.get(key) or []) == 2 for key in ("pip", "dip", "tip")):
+            base_point = (float(pivot[0]), float(pivot[1]))
+            pip_point = (float(joint_spec["pip"][0]), float(joint_spec["pip"][1]))
+            dip_point = (float(joint_spec["dip"][0]), float(joint_spec["dip"][1]))
+            tip_point = (float(joint_spec["tip"][0]), float(joint_spec["tip"][1]))
+            axis_x = base_point[0] - tip_point[0]
+            axis_y = base_point[1] - tip_point[1]
+            axis_length_squared = axis_x * axis_x + axis_y * axis_y
+            if axis_length_squared < 16:
+                raise ManualReviewRequired(f"Finger {name} phalanx landmarks are too close together.")
+            pip_t = (
+                (pip_point[0] - tip_point[0]) * axis_x +
+                (pip_point[1] - tip_point[1]) * axis_y
+            ) / axis_length_squared
+            dip_t = (
+                (dip_point[0] - tip_point[0]) * axis_x +
+                (dip_point[1] - tip_point[1]) * axis_y
+            ) / axis_length_squared
+            if not 0.08 < dip_t < pip_t < 0.94:
+                raise ManualReviewRequired(
+                    f"Finger {name} joints must progress from fingertip through DIP and PIP to palm."
+                )
+            projection = (
+                (xx - tip_point[0]) * axis_x +
+                (yy - tip_point[1]) * axis_y
+            ) / axis_length_squared
+            # Small duplicated seam bands prevent cracks between phalanges
+            # when adjacent pieces rotate around their own knuckle pivots.
+            overlap = 0.055
+            segment_specs = [
+                (role, (projection >= pip_t - overlap), base_point),
+                (
+                    role + "_middle",
+                    (projection >= dip_t - overlap) & (projection <= pip_t + overlap),
+                    pip_point,
+                ),
+                (role + "_tip", (projection <= dip_t + overlap), dip_point),
+            ]
+            joints[f"right_{finger_name}_base"] = _normalise_joint(base_point, width, height)
+            joints[f"right_{finger_name}_pip"] = _normalise_joint(pip_point, width, height)
+            joints[f"right_{finger_name}_dip"] = _normalise_joint(dip_point, width, height)
+            for segment_role, projection_mask, segment_pivot in segment_specs:
+                segment_mask = finger_mask & projection_mask
+                if int(segment_mask.sum()) < 12:
+                    raise ManualReviewRequired(
+                        f"Finger {name} {segment_role.rsplit('_', 1)[-1]} segment is too small to articulate safely."
+                    )
+                geometry = _save_rgba_layer(
+                    source,
+                    segment_mask,
+                    bundle_dir / f"{segment_role}.png",
+                    padding=3,
+                )
+                layers.append({
+                    "id": segment_role, "role": segment_role, **geometry,
+                    "pivot_x": 0.5, "pivot_y": 0.5,
+                    "z_index": FINGER_Z.get(segment_role, 54),
+                })
+        else:
+            # Backwards-compatible one-piece finger for older hand manifests.
+            geometry = _save_rgba_layer(
+                source, finger_mask, bundle_dir / f"{role}.png", padding=3
+            )
+            layers.append({
+                "id": role, "role": role, **geometry,
+                "pivot_x": 0.5, "pivot_y": 0.5,
+                "z_index": FINGER_Z.get(role, 46),
+            })
+            joints[f"right_{finger_name}_base"] = _normalise_joint(
+                (float(pivot[0]), float(pivot[1])), width, height
+            )
+
         areas[role] = int(finger_mask.sum())
 
-        # Remove the same finger pixels from the stationary palm plate.
-        lx0, ly0 = max(0, hx), max(0, hy)
-        x0, y0 = max(lx0, int(geometry["x"])), max(ly0, int(geometry["y"]))
-        x1 = min(hx + hand_image.width, int(geometry["x"]) + int(geometry["width"]))
-        y1 = min(hy + hand_image.height, int(geometry["y"]) + int(geometry["height"]))
+        # Remove the complete original finger silhouette from the stationary
+        # palm; the source pixels are then supplied by the overlapping phalanges.
+        fx0, fy0, fx1, fy1 = _bbox(finger_mask)
+        x0, y0 = max(hx, fx0), max(hy, fy0)
+        x1, y1 = min(hx + hand_image.width, fx1), min(hy + hand_image.height, fy1)
         if x1 > x0 and y1 > y0:
             cut = finger_mask[y0:y1, x0:x1]
             local = hand_alpha[y0 - hy:y1 - hy, x0 - hx:x1 - hx]
