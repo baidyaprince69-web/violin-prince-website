@@ -686,21 +686,6 @@ function deformSourceMeshVertices(layer, specification, grid, angleDegrees) {
   });
 }
 
-function invertAffineMatrix(matrix) {
-  const determinant = matrix.a * matrix.d - matrix.b * matrix.c;
-  if (Math.abs(determinant) < 1e-9) {
-    throw new TypeError("A joint-surface outer transform is not invertible.");
-  }
-  return {
-    a: matrix.d / determinant,
-    b: -matrix.b / determinant,
-    c: -matrix.c / determinant,
-    d: matrix.a / determinant,
-    e: (matrix.c * matrix.f - matrix.d * matrix.e) / determinant,
-    f: (matrix.b * matrix.e - matrix.a * matrix.f) / determinant
-  };
-}
-
 function deformJointSurfaceVertices(
   layer, surface, grid, parentWorld, childWorld, sourceWidth, sourceHeight
 ) {
