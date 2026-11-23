@@ -467,13 +467,15 @@ def _clip_hand_from_violin_prop(
     violin_specification: dict[str, Any],
     hand_layer: dict[str, Any],
     dilation_radius: int = 1,
-) -> dict[str, int | str]:
-    """Remove source-derived fretting-hand pixels from the violin sprite.
+) -> dict[str, int | str | bool]:
+    """Reconstruct violin pixels hidden by the original fretting hand.
 
-    The prop crop can contain the original hand because the supplied violin
-    artwork was cut from a composite image. The independently extracted hand
-    is rendered above the violin; clipping its exact alpha footprint (plus a
-    one-pixel seam) prevents the prop from drawing a second, offset hand.
+    The violin prop is cropped from a composite source, so a small part of its
+    visible texture contains the source hand. The independent hand and finger
+    layers render above the violin. Replace only those baked hand RGB pixels
+    with locally reconstructed violin texture, while preserving the prop alpha
+    plane; making those pixels transparent exposes the approximate underpaint
+    and produces a visible hole when the fingers articulate.
     """
     if dilation_radius < 0 or dilation_radius > 3:
         raise ValueError("Hand/violin overlap dilation must be between zero and three pixels.")
@@ -501,7 +503,14 @@ def _clip_hand_from_violin_prop(
     vx1 = min(x + violin_image.width, hand_x + width)
     vy1 = min(y + violin_image.height, hand_y + height)
     if vx1 <= vx0 or vy1 <= vy0:
-        return {"method": "no_overlap", "pixels_removed": 0, "hand_pixels": int(np.count_nonzero(hand_alpha))}
+        return {
+            "method": "no_overlap",
+            "pixels_reconstructed": 0,
+            "hand_pixels": int(np.count_nonzero(hand_alpha)),
+            "dilation_radius": int(dilation_radius),
+            "alpha_preserved": True,
+            "asset": violin_path.name,
+        }
 
     global_hand = np.zeros((y + violin_image.height, x + violin_image.width), dtype=np.uint8)
     gx0, gy0 = max(0, hand_x), max(0, hand_y)
@@ -517,16 +526,31 @@ def _clip_hand_from_violin_prop(
         kernel = np.ones((dilation_radius * 2 + 1, dilation_radius * 2 + 1), dtype=np.uint8)
         local_hand = cv2.dilate(local_hand.astype(np.uint8), kernel, iterations=1) > 0
 
-    before = violin_rgba[:, :, 3].copy()
-    violin_rgba[local_hand, 3] = 0
-    removed = int(np.count_nonzero((before > 12) & (violin_rgba[:, :, 3] <= 12)))
-    violin_image = Image.fromarray(violin_rgba, mode="RGBA")
-    violin_image.save(violin_path, format="WEBP", quality=98, method=6)
+    original_alpha = violin_rgba[:, :, 3].copy()
+    # Only repair pixels already inside the authored violin silhouette. This
+    # removes source-baked skin colour without growing the instrument outline.
+    repair_mask = local_hand & (original_alpha > 12)
+    pixels_reconstructed = int(repair_mask.sum())
+    if pixels_reconstructed:
+        repaired_rgb = cv2.inpaint(
+            violin_rgba[:, :, :3],
+            repair_mask.astype(np.uint8) * 255,
+            3,
+            cv2.INPAINT_TELEA,
+        )
+        violin_rgba[repair_mask, :3] = repaired_rgb[repair_mask]
+    alpha_preserved = bool(np.array_equal(original_alpha, violin_rgba[:, :, 3]))
+    if not alpha_preserved:
+        raise AutoRigError("Violin hand-overlap repair unexpectedly changed the prop alpha plane.")
+    Image.fromarray(violin_rgba, mode="RGBA").save(
+        violin_path, format="WEBP", quality=98, method=6
+    )
     return {
-        "method": "source_hand_alpha_cutout_plus_one_pixel_seam",
-        "pixels_removed": removed,
+        "method": "source_hand_overlap_rgb_inpaint_alpha_preserved",
+        "pixels_reconstructed": pixels_reconstructed,
         "hand_pixels": int(np.count_nonzero(hand_alpha)),
         "dilation_radius": int(dilation_radius),
+        "alpha_preserved": alpha_preserved,
         "asset": violin_path.name,
     }
 
