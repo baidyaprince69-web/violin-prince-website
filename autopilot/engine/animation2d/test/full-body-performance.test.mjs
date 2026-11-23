@@ -385,3 +385,61 @@ test("modular head expressions and angle plates are separately rendered and fram
       "full-head angle plates must switch without overlapping ghost faces");
   }
 });
+
+
+test("head expression sequence switches plates independently of head-angle sequence", () => {
+  const expressionProject = structuredClone(project);
+  const action = expressionProject.scenes[0].character_actions["violin-prince"];
+  action.head_expression_sequence = ["focused", "neutral", "surprised", "happy"];
+  action.head_expression_cycle_duration_seconds = 4;
+  action.head_expression_loop = true;
+  action.head_angle_sequence = ["front", "three_quarter", "front", "profile_left", "front"];
+  action.head_angle_cycle_duration_seconds = 4;
+
+  const tracks = compileMotionTracks(expressionProject, { fps: 25 });
+  const find = (target, property) => tracks.find(track =>
+    track.target === target && track.property === property
+  );
+
+  for (const name of ["focused", "neutral", "surprised", "happy"]) {
+    const opacity = find("playing-violin-prince-head-variant-" + name, "opacity");
+    assert.ok(opacity, name + " expression gets an independent live visibility track");
+    assert.ok(opacity.values.includes(1) && opacity.values.includes(0));
+    assert.equal(opacity.keyframeEasing, "steps(1, end)");
+    assert.equal(opacity.duration, 4);
+  }
+  for (const name of ["three_quarter", "profile_left"]) {
+    const opacity = find("playing-violin-prince-head-angle-" + name, "opacity");
+    assert.ok(opacity, name + " head angle retains its own visibility track");
+    assert.ok(opacity.values.includes(1) && opacity.values.includes(0));
+    assert.equal(opacity.keyframeEasing, "steps(1, end)");
+  }
+});
+
+test("segmented composite body keeps modular head plates attached to neck motion", () => {
+  const segmentedProject = structuredClone(project);
+  const segmentedCharacter = segmentedProject.characters[0];
+  segmentedCharacter.performance_base_mode = "segmented_source_body";
+  segmentedCharacter.base_art = {
+    src: "performance-segmented-base.png",
+    x: 0, y: 0, width: 441, height: 755, z_index: 1
+  };
+  const tracks = compileMotionTracks(segmentedProject, { fps: 25 });
+  const find = (target, property = "transform") => tracks.find(track =>
+    track.target === target && track.property === property
+  );
+
+  assert.ok(find("playing-violin-prince-base-art"),
+    "the segmented parent plate continues to follow the torso");
+  for (const name of ["happy", "focused", "surprised", "neutral"]) {
+    const track = find("playing-violin-prince-head-variant-" + name);
+    assert.ok(track, name + " full-head expression plate follows the neck and torso");
+    assert.ok(track.values.some(value => value !== track.values[0]));
+  }
+  for (const name of ["front", "three_quarter", "profile_right", "profile_left"]) {
+    if (name === "front") continue;
+    const track = find("playing-violin-prince-head-angle-" + name);
+    assert.ok(track, name + " head-angle plate follows the neck pivot");
+    assert.ok(track.values.some(value => value !== track.values[0]));
+  }
+});
