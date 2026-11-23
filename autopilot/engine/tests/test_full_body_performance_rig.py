@@ -206,7 +206,12 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                 "fingers": {
                     "index": {
                         "polygon": [[14, 14], [28, 14], [28, 27], [14, 27]],
-                        "pivot": [24, 24]
+                        "pivot": [24, 24],
+                        "joints": {
+                            "pip": [21, 20],
+                            "dip": [19, 17],
+                            "tip": [18, 14]
+                        }
                     }
                 }
             }
@@ -223,14 +228,25 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             layers, joints, areas = _prepare_fingers(
                 source, root, character, manifest_path
             )
-            self.assertEqual(len(layers), 1)
-            self.assertIn("right_index_base", joints)
+            self.assertEqual(
+                {layer["role"] for layer in layers},
+                {"finger_index", "finger_index_middle", "finger_index_tip"},
+            )
+            for joint in ("right_index_base", "right_index_pip", "right_index_dip"):
+                self.assertIn(joint, joints)
             self.assertEqual(areas["finger_index"], 100)
-            with Image.open(root / layers[0]["src"]) as opened:
-                finger = np.asarray(opened.convert("RGBA"), dtype=np.uint8)
-                # The red prop pixels inside the polygon are not part of the finger cutout.
-                self.assertEqual(int(finger[:, :, 3][finger[:, :, 0] > 210].sum()), 0)
-                self.assertEqual(int(np.count_nonzero(finger[:, :, 3])), 100)
+            total_segments = 0
+            for layer in layers:
+                with Image.open(root / layer["src"]) as opened:
+                    finger = np.asarray(opened.convert("RGBA"), dtype=np.uint8)
+                    # The red prop pixels inside the polygon are never part of a phalanx.
+                    self.assertEqual(int(finger[:, :, 3][finger[:, :, 0] > 210].sum()), 0)
+                    self.assertGreater(int(np.count_nonzero(finger[:, :, 3])), 12)
+                    total_segments += int(np.count_nonzero(finger[:, :, 3]))
+            self.assertGreaterEqual(
+                total_segments, 100,
+                "overlapping phalanx seams must preserve the full source finger silhouette",
+            )
 
             with Image.open(root / "right-hand.png") as opened:
                 palm_alpha = np.asarray(opened.convert("RGBA").getchannel("A"), dtype=np.uint8)
