@@ -866,8 +866,14 @@ def separate_from_parsing(
     *,
     hand_fraction: float = 0.72,
     max_local_inpaint_ratio: float = 0.025,
+    hidden_mask_path: Path | None = None,
 ):
-    """Convert Pascal and ATR pixel labels into nine overlapping rig masks."""
+    """Convert Pascal and ATR pixel labels into nine overlapping rig masks.
+
+    When requested, export the exact full-canvas mask of arm pixels requiring
+    torso underpaint so later source-art restoration can target only those
+    hidden jacket pixels.
+    """
     expected = (image.height, image.width)
     if any(array.shape != expected for array in (
         body_labels, body_confidence, detail_labels, detail_confidence
@@ -974,6 +980,14 @@ def separate_from_parsing(
     zone[max(0, y0 - 4):min(image.height, y1 + 4),
          max(0, x0 - 4):min(image.width, x1 + 4)] = True
     hidden = arm_union & _morph(torso, 8, "dilate") & zone
+    hidden_mask_asset = None
+    if hidden_mask_path is not None:
+        hidden_path = Path(hidden_mask_path)
+        hidden_path.parent.mkdir(parents=True, exist_ok=True)
+        Image.fromarray(hidden.astype(np.uint8) * 255, mode="L").save(
+            hidden_path, format="PNG", optimize=True
+        )
+        hidden_mask_asset = hidden_path.name
     repaired, repair_method, hidden_ratio = _repair_hidden_area(
         image, hidden, max_local_ratio=max_local_inpaint_ratio
     )
@@ -1052,6 +1066,8 @@ def separate_from_parsing(
             "method": repair_method,
             "pixels_reconstructed": int(hidden.sum()),
             "fraction_of_source": round(hidden_ratio, 6),
+            "mask_asset": hidden_mask_asset,
+            "mask_saved": hidden_mask_asset is not None,
         },
         "mean_confidence": confidence,
         "edge_connected_background_removal": {
@@ -1403,6 +1419,7 @@ def create_character_bundle(
         image, body_labels, body_conf, detail_labels, detail_conf,
         hand_fraction=hand_fraction,
         max_local_inpaint_ratio=max_local_inpaint_ratio,
+        hidden_mask_path=output_dir / "torso-hidden-overlap-mask.png",
     )
 
     layers = []
