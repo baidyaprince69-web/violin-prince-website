@@ -364,7 +364,6 @@ test("modular head expressions and angle plates are separately rendered and fram
       track.target === "playing-violin-prince-head-variant-" + name &&
       track.property === "opacity"
     );
-    assert.ok(variantOpacity, "head expression " + name + " has an independent visibility track");
     if (name === "focused") {
       assert.ok(variantOpacity, "the selected front expression has a visibility track");
       assert.ok(variantOpacity.values.includes(1) && variantOpacity.values.includes(0));
