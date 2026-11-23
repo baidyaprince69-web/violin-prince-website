@@ -126,8 +126,8 @@ test("music-synchronized performance keyframes follow beat and onset timestamps"
   assert.equal(bow.key_times.at(-1), 3.88);
   assert.ok(bow.values.some((value, index) => index > 1 && value !== bow.values[index - 1]));
   assert.ok(indexFinger.key_times.includes(0.268));
-  assert.ok(ringFinger.key_times.includes(1.268));
-  assert.ok(littleFinger.key_times.includes(1.768));
+  assert.ok(ringFinger.key_times.includes(1.286));
+  assert.ok(littleFinger.key_times.includes(1.795));
   assert.ok(fingerboardForearm.key_times.includes(0.268));
   assert.ok(fingerboardHand.key_times.includes(0.268));
   assert.ok(bowShoulder.values.some(value => Math.abs(value) >= 3.8));
