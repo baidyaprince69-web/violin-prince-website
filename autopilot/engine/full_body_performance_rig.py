@@ -2034,6 +2034,11 @@ def extend_full_body_character(
             )
         moving_mask |= finger_union & (np.asarray(source.getchannel("A")) > 12)
 
+    moving_mask_path = bundle / "full-body-moving-mask.png"
+    Image.fromarray(moving_mask.astype(np.uint8) * 255, mode="L").save(
+        moving_mask_path, format="PNG", optimize=True
+    )
+
     # Restore a source-faithful underlay across the full torso-mounted violin
     # footprint after all moving hand/finger masks are known. The violin sprite
     # and this underlay share the torso parent/pivot, so alpha pinholes reveal
@@ -2130,6 +2135,12 @@ def extend_full_body_character(
         "composite_base": composite_base,
         "composite_source": source_input.name,
         "segmented_limb_masks_status": "source_aligned_polygon_regions_active_in_preview",
+        "full_body_moving_mask": {
+            "asset": moving_mask_path.name,
+            "pixels": int(moving_mask.sum()),
+            "source": "authored_performance_polygons_and_finger_manifest",
+            "hand_animation_data_modified": False,
+        },
         "neutral_apose_reference": neutral_report,
         "publishing": "disabled",
         "preview_only": True,
