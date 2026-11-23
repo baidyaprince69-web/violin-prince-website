@@ -246,9 +246,16 @@ def _prepare_fingers(
     bundle_dir: Path,
     character: dict[str, Any],
     finger_manifest_path: Path,
-) -> tuple[list[dict[str, Any]], dict[str, dict[str, float]], dict[str, int]]:
+) -> tuple[
+    list[dict[str, Any]],
+    dict[str, dict[str, float]],
+    dict[str, int],
+    dict[str, Any],
+]:
     if not finger_manifest_path.is_file():
-        return [], {}, {}
+        return [], {}, {}, {}
+    import cv2
+
     manifest = json.loads(finger_manifest_path.read_text(encoding="utf-8"))
     width, height = source.size
     canvas = manifest.get("canvas") or {}
@@ -275,6 +282,9 @@ def _prepare_fingers(
         hand_x0 - hx:hand_x1 - hx,
     ]
     layers, joints, areas = [], {}, {}
+    segment_pixel_areas: dict[str, int] = {}
+    joint_overlap_pixels: dict[str, int] = {}
+    chain_segment_counts: dict[str, int] = {}
     yy, xx = np.mgrid[:height, :width]
 
     for name, specification in (manifest.get("fingers") or {}).items():
@@ -287,9 +297,17 @@ def _prepare_fingers(
         region = Image.new("L", (width, height), 0)
         ImageDraw.Draw(region).polygon([tuple(point) for point in polygon], fill=255)
         region_mask = np.asarray(region, dtype=np.uint8) > 0
+        # Expand the authored outline by one source pixel, then clip it back to
+        # the existing hand alpha. This recovers narrow contour pixels without
+        # painting new skin or crossing into the violin, bow or jacket.
+        region_mask = cv2.dilate(
+            region_mask.astype(np.uint8),
+            np.ones((3, 3), dtype=np.uint8),
+            iterations=1,
+        ) > 0
         # Every articulated pixel must belong to the independently extracted
         # skin hand. This excludes violin/bow and jacket pixels from the rig.
-        finger_mask = region_mask & (hand_canvas_alpha > 12)
+        finger_mask = _largest_component(region_mask & (hand_canvas_alpha > 12))
         if int(finger_mask.sum()) < 20:
             raise ManualReviewRequired(
                 f"Finger region {name} does not overlap the source-aligned {hand_role} skin mask."
@@ -322,9 +340,12 @@ def _prepare_fingers(
                 (xx - tip_point[0]) * axis_x +
                 (yy - tip_point[1]) * axis_y
             ) / axis_length_squared
-            # Small duplicated seam bands prevent cracks between phalanges
-            # when adjacent pieces rotate around their own knuckle pivots.
-            overlap = 0.08
+            # Use a measured source-pixel seam band. The previous fixed 8%
+            # overlap left the short little-finger tip with only eight opaque
+            # pixels; a 2.8 px target keeps adjacent phalanges connected while
+            # respecting the different lengths of the four source fingers.
+            axis_length = float(np.sqrt(axis_length_squared))
+            overlap = min(0.20, max(0.08, 2.8 / axis_length))
             segment_specs = [
                 (role, (projection >= pip_t - overlap), base_point),
                 (
@@ -337,9 +358,13 @@ def _prepare_fingers(
             joints[f"right_{finger_name}_base"] = _normalise_joint(base_point, width, height)
             joints[f"right_{finger_name}_pip"] = _normalise_joint(pip_point, width, height)
             joints[f"right_{finger_name}_dip"] = _normalise_joint(dip_point, width, height)
+            segment_masks: dict[str, np.ndarray] = {}
+            chain_segment_counts[finger_name] = len(segment_specs)
             for segment_role, projection_mask, segment_pivot in segment_specs:
                 segment_mask = finger_mask & projection_mask
+                segment_masks[segment_role] = segment_mask
                 segment_pixels = int(segment_mask.sum())
+                segment_pixel_areas[segment_role] = segment_pixels
                 if segment_pixels < 4:
                     raise ManualReviewRequired(
                         f"Finger {name} {segment_role.rsplit('_', 1)[-1]} segment has only "
@@ -356,6 +381,15 @@ def _prepare_fingers(
                     "pivot_x": 0.5, "pivot_y": 0.5,
                     "z_index": FINGER_Z.get(segment_role, 54),
                 })
+            base_role, middle_role, tip_role = (
+                role, role + "_middle", role + "_tip"
+            )
+            joint_overlap_pixels[f"{finger_name}_mcp_pip"] = int(np.count_nonzero(
+                segment_masks[base_role] & segment_masks[middle_role]
+            ))
+            joint_overlap_pixels[f"{finger_name}_pip_dip"] = int(np.count_nonzero(
+                segment_masks[middle_role] & segment_masks[tip_role]
+            ))
         else:
             # Backwards-compatible one-piece finger for older hand manifests.
             geometry = _save_rgba_layer(
@@ -366,6 +400,8 @@ def _prepare_fingers(
                 "pivot_x": 0.5, "pivot_y": 0.5,
                 "z_index": FINGER_Z.get(role, 46),
             })
+            segment_pixel_areas[role] = int(finger_mask.sum())
+            chain_segment_counts[finger_name] = 1
             joints[f"right_{finger_name}_base"] = _normalise_joint(
                 (float(pivot[0]), float(pivot[1])), width, height
             )
@@ -382,9 +418,42 @@ def _prepare_fingers(
             local = hand_alpha[y0 - hy:y1 - hy, x0 - hx:x1 - hx]
             local[cut] = 0
 
+    # The stationary palm should be one connected source silhouette. Remove
+    # detached alpha fragments left by the original cutout after all four
+    # fingers have been moved to their own articulated layers.
+    palm_binary = (hand_alpha > 12).astype(np.uint8)
+    palm_component_total, _palm_labels, _palm_stats, _palm_centroids = (
+        cv2.connectedComponentsWithStats(palm_binary, connectivity=8)
+    )
+    palm_components_before = max(0, int(palm_component_total) - 1)
+    palm_pixels_before = int(np.count_nonzero(palm_binary))
+    palm_keep = _largest_component(palm_binary) if palm_components_before else np.zeros_like(
+        palm_binary, dtype=bool
+    )
+    palm_alpha_after = np.where(palm_keep, hand_alpha, 0).astype(np.uint8)
+    palm_pixels_after = int(np.count_nonzero(palm_alpha_after))
+    hand_alpha = palm_alpha_after
+    palm_components_after = 1 if palm_pixels_after else 0
+
     hand_image.putalpha(Image.fromarray(hand_alpha, mode="L"))
     hand_image.save(hand_path, format="PNG", optimize=True)
-    return layers, joints, areas
+    quality = {
+        "method": "one_pixel_source_mask_expansion_metric_joint_seams_connected_palm_cleanup",
+        "polygon_expansion_radius_px": 1,
+        "target_joint_overlap_px": 2.8,
+        "chain_count": len(chain_segment_counts),
+        "segments_per_chain": chain_segment_counts,
+        "minimum_segment_pixels": min(segment_pixel_areas.values(), default=0),
+        "minimum_joint_overlap_pixels": min(joint_overlap_pixels.values(), default=0),
+        "little_fingertip_pixels": segment_pixel_areas.get("finger_little_tip", 0),
+        "segment_pixel_areas": segment_pixel_areas,
+        "joint_overlap_pixels": joint_overlap_pixels,
+        "palm_components_before_cleanup": palm_components_before,
+        "palm_components_after_cleanup": palm_components_after,
+        "palm_speckle_components_removed": max(0, palm_components_before - palm_components_after),
+        "palm_speckle_pixels_removed": max(0, palm_pixels_before - palm_pixels_after),
+    }
+    return layers, joints, areas, quality
 
 
 def _polygon_mask(
@@ -1618,9 +1687,9 @@ def extend_full_body_character(
     limb_report["violin_hand_overlap_cleanup"] = violin_hand_cleanup
 
     # Finger polygons are extracted from the source-aligned right-hand layer.
-    finger_layers, finger_joints, finger_areas = _prepare_fingers(
+    finger_layers, finger_joints, finger_areas, finger_quality = _prepare_fingers(
         source, bundle, character, finger_path
-    ) if finger_path else ([], {}, {})
+    ) if finger_path else ([], {}, {}, {})
     character["layers"].extend(finger_layers)
     character["joints"].update(finger_joints)
     if finger_layers:
@@ -1704,6 +1773,7 @@ def extend_full_body_character(
         "static_layer_prop_cleanup": static_layer_prop_cleanup,
         "violin_hand_overlap_cleanup": violin_hand_cleanup,
         "finger_pixel_areas": finger_areas,
+        "finger_segment_quality": finger_quality,
         "prop_report": prop_report,
         "body_plate_prop_pixels_removed": {"torso": 0, "arms": 0},
         "prop_compositing": "source_aligned_body_base_with_separate_limb_and_prop_layers",
@@ -1721,12 +1791,12 @@ def extend_full_body_character(
             "status": "blocked_pending_character_art_reconstruction",
             "underpaint": "approximate_nonsemantic_inpaint",
             "head": "normalized_plate_crossfades_not_continuous_mesh_deformation",
-            "hands": "one_rigid_sprite_per_finger_no_phalanx_or_knuckle_rig",
+            "hands": "four_source_aligned_three_segment_finger_chains_with_joint_overlap_not_deformable_art",
             "body": "rigid_segment_transforms_without_mesh_deformation",
             "release_blockers": [
                 "manually reconstructed hidden neck shoulder clothing and instrument backplates",
                 "anatomically aligned head neck and facial feature rig",
-                "multi-joint finger and deformable bow grip artwork",
+                "artist-reconstructed joint-surface skin and deformable bow-grip artwork",
                 "continuous deformable body rig and full-frame visual QA",
             ],
         },

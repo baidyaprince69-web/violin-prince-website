@@ -151,6 +151,15 @@ jobs:
           assert report.get("finger_segment_count") == 12, report
           assert report.get("finger_digit_count") == 4, report
           assert report.get("finger_joint_count") == 12, report
+          finger_quality = report.get("finger_segment_quality", {})
+          assert finger_quality.get("method") == "one_pixel_source_mask_expansion_metric_joint_seams_connected_palm_cleanup", report
+          assert finger_quality.get("chain_count") == 4, report
+          assert set(finger_quality.get("segments_per_chain", {}).values()) == {3}, report
+          assert finger_quality.get("minimum_segment_pixels", 0) >= 12, report
+          assert finger_quality.get("minimum_joint_overlap_pixels", 0) >= 12, report
+          assert finger_quality.get("little_fingertip_pixels", 0) >= 12, report
+          assert finger_quality.get("palm_components_after_cleanup") == 1, report
+          assert finger_quality.get("palm_speckle_components_removed", 0) > 0, report
           assert len(performance.get("fingering_segment_roles", [])) == 12, performance
           assert len(performance.get("fingering_parts", [])) == 4, performance
           hand_cleanup = report.get("violin_hand_overlap_cleanup", {})

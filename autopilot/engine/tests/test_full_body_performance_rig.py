@@ -17,11 +17,27 @@ from full_body_performance_rig import (
     _remove_embedded_props_from_static_layers,
     _restore_bow_hair_in_prop_asset,
     _prepare_fingers,
+    _largest_component,
     _canvas_alpha_mask_for_layers,
 )
 
 
 class FullBodyPerformanceRigTests(unittest.TestCase):
+    def test_largest_component_removes_detached_alpha_specks(self):
+        mask = np.zeros((32, 32), dtype=np.uint8)
+        mask[6:25, 6:25] = 1
+        mask[1, 1] = 1
+        mask[29, 2] = 1
+        mask[26:28, 26:28] = 1
+
+        cleaned = _largest_component(mask)
+
+        self.assertEqual(int(np.count_nonzero(cleaned)), 19 * 19)
+        self.assertTrue(cleaned[10, 10])
+        self.assertFalse(cleaned[1, 1])
+        self.assertFalse(cleaned[29, 2])
+        self.assertFalse(cleaned[26, 26])
+
     def test_preserved_composite_keeps_body_and_cuts_only_bow_and_finger_regions(self):
         import json
         import tempfile
@@ -225,7 +241,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                 }]
             }
 
-            layers, joints, areas = _prepare_fingers(
+            layers, joints, areas, quality = _prepare_fingers(
                 source, root, character, manifest_path
             )
             self.assertEqual(
@@ -235,6 +251,10 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             for joint in ("right_index_base", "right_index_pip", "right_index_dip"):
                 self.assertIn(joint, joints)
             self.assertEqual(areas["finger_index"], 100)
+            self.assertGreaterEqual(quality["minimum_segment_pixels"], 12)
+            self.assertGreaterEqual(quality["minimum_joint_overlap_pixels"], 12)
+            self.assertEqual(quality["segments_per_chain"], {"index": 3})
+            self.assertLessEqual(quality["palm_components_after_cleanup"], 1)
             total_segments = 0
             for layer in layers:
                 with Image.open(root / layer["src"]) as opened:
