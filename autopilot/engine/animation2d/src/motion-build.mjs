@@ -1275,10 +1275,10 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
           .filter(value => headVariantNames.includes(value))
         : [];
 
-      if (!activePoseAsset && headVariantNames.length) {
-        // Expression plates and head-angle plates share one phase clock. A
-        // front-facing expression must be hidden while a side-angle plate is
-        // active, preventing two complete heads from being composited together.
+      if (!activePoseAsset && (headVariantNames.length || headAngleNames.length)) {
+        // Build one phase sequence of visible head plates. The old implementation
+        // used steps(1,end), replacing complete drawings in a single frame.
+        // Sample opacity crossfades at the composition frame rate instead.
         const anglePlayback = headAngleSequence.length > 1
           ? [...headAngleSequence, headAngleSequence[0]]
           : [selectedHeadAngle];
@@ -1286,10 +1286,13 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
           ? [...headExpressionSequence, headExpressionSequence[0]]
           : [selectedExpression];
         const stepCount = Math.max(anglePlayback.length, expressionPlayback.length);
+
         if (stepCount > 1) {
           const sampleStep = (values, index) => {
-            const valueIndex = Math.min(values.length - 1,
-              Math.floor((index / stepCount) * values.length));
+            const valueIndex = Math.min(
+              values.length - 1,
+              Math.floor((index / stepCount) * values.length)
+            );
             return values[valueIndex];
           };
           const sampledAngles = Array.from(
@@ -1299,6 +1302,29 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
           const frontIndices = sampledAngles
             .map((angle, index) => angle === "front" ? index : -1)
             .filter(index => index >= 0);
+          const activePlates = Array.from({ length: stepCount }, (_unused, index) => {
+            if (sampledAngles[index] !== "front") {
+              const angle = sampledAngles[index];
+              return headAngleNames.includes(angle) && angle !== "front"
+                ? "angle:" + angle : null;
+            }
+            if (!frontIndices.length || !headVariantNames.length) return null;
+            const frontOrdinal = frontIndices.indexOf(index);
+            const expressionIndex = Math.min(
+              expressionPlayback.length - 1,
+              Math.floor((frontOrdinal / frontIndices.length) * expressionPlayback.length)
+            );
+            const expression = expressionPlayback[expressionIndex];
+            return headVariantNames.includes(expression)
+              ? "variant:" + expression : null;
+          });
+
+          // Keep the loop seam identical even when the two source sequences
+          // have different lengths and their sampled endpoints do not match.
+          if (activePlates.at(-1) !== activePlates[0]) {
+            activePlates.push(activePlates[0]);
+          }
+          const intervalCount = activePlates.length - 1;
           const cycleDuration = Math.max(
             0.08,
             Number(action.head_expression_cycle_duration_seconds) ||
@@ -1308,25 +1334,70 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
           const sequenceLoop = headExpressionSequence.length > 1
             ? action.head_expression_loop !== false
             : action.head_angle_loop !== false;
-          for (const name of headVariantNames) {
-            const values = Array.from({ length: stepCount }, (_unused, index) => {
-              if (sampledAngles[index] !== "front" || !frontIndices.length) return 0;
-              const frontOrdinal = frontIndices.indexOf(index);
-              const expressionIndex = Math.min(
-                expressionPlayback.length - 1,
-                Math.floor((frontOrdinal / frontIndices.length) * expressionPlayback.length)
+          const sampleCount = Math.max(2, Math.ceil(cycleDuration * fps) + 1);
+          const offsets = Array.from(
+            { length: sampleCount },
+            (_unused, index) => index / (sampleCount - 1)
+          );
+          const fadeSeconds = Math.min(
+            0.18,
+            cycleDuration / Math.max(1, intervalCount) * 0.45
+          );
+          const halfFade = fadeSeconds / (2 * cycleDuration);
+          const plateNames = [
+            ...headVariantNames.map(name => "variant:" + name),
+            ...headAngleNames
+              .filter(name => name !== "front")
+              .map(name => "angle:" + name)
+          ];
+
+          for (const plateName of plateNames) {
+            const values = offsets.map(offset => {
+              const activeIndex = Math.min(
+                intervalCount,
+                Math.floor(offset * intervalCount)
               );
-              return expressionPlayback[expressionIndex] === name ? 1 : 0;
+              let active = activePlates[activeIndex] || null;
+              let opacity = active === plateName ? 1 : 0;
+
+              // Transitions are centred on phase boundaries. The overlap is
+              // deliberately short and frame-sampled so the renderer can seek
+              // every frame deterministically.
+              for (let boundaryIndex = 1; boundaryIndex < intervalCount; boundaryIndex += 1) {
+                const boundary = boundaryIndex / intervalCount;
+                const fadeStart = boundary - halfFade;
+                const fadeEnd = boundary + halfFade;
+                if (offset < fadeStart || offset > fadeEnd) continue;
+                const outgoing = activePlates[boundaryIndex - 1] || null;
+                const incoming = activePlates[boundaryIndex] || null;
+                if (outgoing === incoming) break;
+                const progress = Math.max(
+                  0,
+                  Math.min(1, (offset - fadeStart) / Math.max(1e-6, fadeEnd - fadeStart))
+                );
+                opacity = (outgoing === plateName ? 1 - progress : 0) +
+                  (incoming === plateName ? progress : 0);
+                active = null;
+                break;
+              }
+              return Number(opacity.toFixed(4));
             });
-            addKeyframes(
-              prefix + "-head-variant-" + name,
-              { opacity: values },
-              actionStart,
-              cycleDuration,
-              "linear",
-              sequenceLoop,
-              "steps(1, end)"
-            );
+
+            if (values.some(value => value > 0) &&
+                values.some(value => value < 1)) {
+              tracks.push({
+                target: prefix + "-head-" +
+                  (plateName.startsWith("variant:") ? "variant-" : "angle-") +
+                  plateName.split(":")[1],
+                property: "opacity",
+                values,
+                offsets,
+                start: actionStart,
+                duration: cycleDuration,
+                easing: "linear",
+                ...(sequenceLoop ? { loop: true } : {})
+              });
+            }
           }
         } else {
           for (const name of headVariantNames) {
@@ -1334,31 +1405,6 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
             addSpring(prefix + "-head-variant-" + name, "opacity",
               active ? 0 : 1, active ? 1 : 0, actionStart, 140);
           }
-        }
-      }
-
-      if (!activePoseAsset && headAngleNames.length) {
-        if (headAngleSequence.length > 1) {
-          const sequence = [...headAngleSequence, headAngleSequence[0]];
-          const cycleDuration = Math.max(
-            0.08,
-            Number(action.head_angle_cycle_duration_seconds) || gestureDuration
-          );
-          const sequenceLoop = action.head_angle_loop !== false;
-          for (const name of headAngleNames) {
-            if (name === "front") continue;
-            const values = sequence.map(angle => angle === name ? 1 : 0);
-            addKeyframes(
-              prefix + "-head-angle-" + name,
-              { opacity: values },
-              actionStart,
-              cycleDuration,
-              "linear",
-              sequenceLoop,
-              "steps(1, end)"
-            );
-          }
-        } else {
           for (const name of headAngleNames) {
             if (name === "front") continue;
             const active = selectedHeadAngle === name;
