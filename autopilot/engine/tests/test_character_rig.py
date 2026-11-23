@@ -114,7 +114,10 @@ class CharacterRigContractTests(unittest.TestCase):
         extra_roles = [
             "left_thigh", "left_calf", "left_foot",
             "right_thigh", "right_calf", "right_foot",
-            "finger_index", "finger_middle", "finger_ring", "finger_little",
+            "finger_index", "finger_index_middle", "finger_index_tip",
+            "finger_middle", "finger_middle_middle", "finger_middle_tip",
+            "finger_ring", "finger_ring_middle", "finger_ring_tip",
+            "finger_little", "finger_little_middle", "finger_little_tip",
         ]
         for role in extra_roles:
             character["layers"].append({
@@ -124,8 +127,10 @@ class CharacterRigContractTests(unittest.TestCase):
         for name in (
             "left_hip", "left_knee", "left_ankle",
             "right_hip", "right_knee", "right_ankle",
-            "right_index_base", "right_middle_base",
-            "right_ring_base", "right_little_base",
+            "right_index_base", "right_index_pip", "right_index_dip",
+            "right_middle_base", "right_middle_pip", "right_middle_dip",
+            "right_ring_base", "right_ring_pip", "right_ring_dip",
+            "right_little_base", "right_little_pip", "right_little_dip",
         ):
             character["joints"][name] = {"x": 0.5, "y": 0.5}
         character["props"] = {
