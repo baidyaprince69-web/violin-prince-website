@@ -11,7 +11,10 @@ const roles = [
   "right_upper_arm", "right_forearm", "right_hand",
   "left_thigh", "left_calf", "left_foot",
   "right_thigh", "right_calf", "right_foot",
-  "finger_index", "finger_middle", "finger_ring", "finger_little"
+  "finger_index", "finger_index_middle", "finger_index_tip",
+  "finger_middle", "finger_middle_middle", "finger_middle_tip",
+  "finger_ring", "finger_ring_middle", "finger_ring_tip",
+  "finger_little", "finger_little_middle", "finger_little_tip"
 ];
 
 const jointNames = [
@@ -19,7 +22,10 @@ const jointNames = [
   "right_shoulder", "right_elbow", "right_wrist",
   "left_hip", "left_knee", "left_ankle",
   "right_hip", "right_knee", "right_ankle",
-  "right_index_base", "right_middle_base", "right_ring_base", "right_little_base"
+  "right_index_base", "right_index_pip", "right_index_dip",
+  "right_middle_base", "right_middle_pip", "right_middle_dip",
+  "right_ring_base", "right_ring_pip", "right_ring_dip",
+  "right_little_base", "right_little_pip", "right_little_dip"
 ];
 
 const character = {
@@ -167,7 +173,11 @@ test("compileMotionTracks consumes audio beat maps for bow, arm and finger motio
     "playing-violin-prince-part-left_forearm",
     "playing-violin-prince-part-left_hand",
     "playing-violin-prince-part-finger_index",
-    "playing-violin-prince-part-finger_ring"
+    "playing-violin-prince-part-finger_index_middle",
+    "playing-violin-prince-part-finger_index_tip",
+    "playing-violin-prince-part-finger_ring",
+    "playing-violin-prince-part-finger_ring_middle",
+    "playing-violin-prince-part-finger_ring_tip"
   ]) {
     const regular = getTrack(regularTracks, target);
     const synchronized = getTrack(musicTracks, target);
@@ -204,7 +214,10 @@ test("sampled note pitches select finger layers and music cues counterbalance th
     "left_upper_arm", "left_forearm", "left_hand",
     "torso", "head", "left_thigh", "right_thigh",
     "left_calf", "right_calf", "left_foot", "right_foot",
-    "finger_index", "finger_middle", "finger_ring", "finger_little"
+    "finger_index", "finger_index_middle", "finger_index_tip",
+    "finger_middle", "finger_middle_middle", "finger_middle_tip",
+    "finger_ring", "finger_ring_middle", "finger_ring_tip",
+    "finger_little", "finger_little_middle", "finger_little_tip"
   ]) {
     assert.ok(targets.has("playing-violin-prince-part-" + role), role + " must receive its own synchronized cue");
   }
@@ -219,7 +232,10 @@ test("full-body gesture animates thigh, knee, ankle and all four fingering contr
   for (const role of [
     "left_thigh", "left_calf", "left_foot",
     "right_thigh", "right_calf", "right_foot",
-    "finger_index", "finger_middle", "finger_ring", "finger_little"
+    "finger_index", "finger_index_middle", "finger_index_tip",
+    "finger_middle", "finger_middle_middle", "finger_middle_tip",
+    "finger_ring", "finger_ring_middle", "finger_ring_tip",
+    "finger_little", "finger_little_middle", "finger_little_tip"
   ]) {
     assert.ok(changed.has("playing-violin-prince-part-" + role), role + " should have its own changing transform track");
   }
@@ -485,18 +501,31 @@ test("fingerboard notes retain lower-finger contact and sustain presses for note
   const getFinger = name => tracks.find(track =>
     track.target === "finger-test-part-" + name
   );
-  const index = getFinger("finger_index");
-  const middle = getFinger("finger_middle");
-  const ring = getFinger("finger_ring");
-  const little = getFinger("finger_little");
-  assert.ok(index && middle && ring && little);
+  const digits = ["index", "middle", "ring", "little"];
+  const fingerSegments = digits.flatMap(name => [
+    getFinger("finger_" + name),
+    getFinger("finger_" + name + "_middle"),
+    getFinger("finger_" + name + "_tip")
+  ]);
+  assert.ok(fingerSegments.every(Boolean), "all four fingers need base, middle and tip tracks");
 
   // The high register note prepares/presses the index, middle, ring and
   // little fingers together rather than flicking a single arbitrary finger.
-  for (const track of [index, middle, ring, little]) {
+  for (const track of fingerSegments) {
     assert.ok(track.key_times.some(time => time >= 0.60 && time <= 0.66));
-    assert.ok(track.values.some(value => Math.abs(Number(value)) > 4));
+    assert.ok(track.values.some(value => Math.abs(Number(value)) > 0.5));
   }
+  for (const digit of digits) {
+    const base = getFinger("finger_" + digit);
+    const middle = getFinger("finger_" + digit + "_middle");
+    const tip = getFinger("finger_" + digit + "_tip");
+    const maxCombinedCurl = Math.max(...base.values.map((value, i) =>
+      Math.abs(Number(value)) + Math.abs(Number(middle.values[i] || 0)) +
+      Math.abs(Number(tip.values[i] || 0))
+    ));
+    assert.ok(maxCombinedCurl > 4, digit + " phalanges should combine to a visible press");
+  }
+  const index = getFinger("finger_index");
   // The second note is sustained; its press/release cycle must outlast the short note.
   const indexLateKeys = index.key_times.filter(time => time > 0.7);
   assert.ok(indexLateKeys.some(time => time > 1.1),
