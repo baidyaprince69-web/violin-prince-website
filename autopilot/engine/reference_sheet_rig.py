@@ -205,6 +205,46 @@ def _head_plate_bounds(character: dict[str, Any]) -> dict[str, float]:
     }
 
 
+def _save_neck_anchored_head_plate(
+    component: dict[str, Any],
+    destination: Path,
+    bounds: dict[str, float],
+) -> dict[str, Any]:
+    """Normalize a head plate to one shared canvas and neck pivot.
+
+    This removes per-image scale/placement jumps between supplied plates. It
+    does not create a continuous 3D turn or replace missing anatomical artwork.
+    """
+    geometry = _save_component(component, destination)
+    with Image.open(destination) as opened:
+        plate = opened.convert("RGBA")
+
+    target_width = max(1, int(round(float(bounds["width"]))))
+    target_height = max(1, int(round(float(bounds["height"]))))
+    scale = min(target_width / plate.width, target_height / plate.height)
+    scaled_width = max(1, min(target_width, int(round(plate.width * scale))))
+    scaled_height = max(1, min(target_height, int(round(plate.height * scale))))
+    resized = plate.resize(
+        (scaled_width, scaled_height),
+        Image.Resampling.LANCZOS,
+    )
+
+    anchor_x = float(bounds.get("pivot_x", 0.5))
+    anchor_y = float(bounds.get("pivot_y", 0.92))
+    left = int(round(anchor_x * target_width - anchor_x * scaled_width))
+    top = int(round(anchor_y * target_height - anchor_y * scaled_height))
+    canvas = Image.new("RGBA", (target_width, target_height), (0, 0, 0, 0))
+    canvas.alpha_composite(resized, (left, top))
+    canvas.save(destination, format="PNG", optimize=True)
+    return {
+        **geometry,
+        "normalized_canvas": [target_width, target_height],
+        "shared_anchor": [anchor_x, anchor_y],
+        "placement": [left, top],
+        "scale": round(scale, 6),
+    }
+
+
 def _write_component_contact_sheet(
     component_records: list[dict[str, Any]],
     destination: Path,
@@ -281,17 +321,25 @@ def build_reference_sheet_rig(
         top_region_ratio=0.62,
     )
     head_bounds = _head_plate_bounds(character)
+    # All eight plates share one exact pixel canvas and the same bottom-centre
+    # neck anchor; source component dimensions no longer drive renderer scale.
+    head_bounds["width"] = float(max(1, int(round(head_bounds["width"]))))
+    head_bounds["height"] = float(max(1, int(round(head_bounds["height"]))))
 
     head_variants = {}
     for name, component in zip(EXPRESSION_ORDER, expression_components, strict=True):
         filename = f"head-variant-{name}.png"
-        _save_component(component, bundle / filename)
+        _save_neck_anchored_head_plate(
+            component, bundle / filename, head_bounds
+        )
         head_variants[name] = {"src": filename, **head_bounds}
 
     head_angles = {}
     for name, component in zip(HEAD_ANGLE_ORDER, angle_components, strict=True):
         filename = f"head-angle-{name}.png"
-        _save_component(component, bundle / filename)
+        _save_neck_anchored_head_plate(
+            component, bundle / filename, head_bounds
+        )
         head_angles[name] = {"src": filename, **head_bounds}
 
     character["head_plate_bounds"] = head_bounds
@@ -323,7 +371,11 @@ def build_reference_sheet_rig(
         ],
         "reference_parts_mapping": "curated_role_catalogue_review_only",
         "reference_part_mapping_file": "reference-part-map.json",
-        "alignment": "head plates use shared head anchors; modular body assets remain reference-only pending manual joint alignment",
+        "alignment": "all expression and angle plates normalized to one shared canvas and bottom-centre neck anchor; body assets remain reference-only pending manual joint alignment",
+        "head_plate_normalization": "fixed_canvas_bottom_centre_neck_anchor",
+        "head_plate_canvas": [
+            int(head_bounds["width"]), int(head_bounds["height"])
+        ],
         "automatic_body_part_replacement": False,
         "magenta_key": "magenta/purple guide pixels removed by hue and saturation; source alpha preserved",
         "visual_review_required": True,
