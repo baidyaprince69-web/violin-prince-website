@@ -545,7 +545,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         np.testing.assert_array_equal(output[:, :, 3], original[:, :, 3])
         untouched = np.ones((80, 80), dtype=bool)
         cut = cv2.dilate(
-            (moving | (bow > 12) | (violin > 12)).astype(np.uint8),
+            (moving | (bow > 12) | (violin > 12) | (head > 12)).astype(np.uint8),
             np.ones((5, 5), dtype=np.uint8),
         ) > 0
         cut &= original[:, :, 3] > 12
