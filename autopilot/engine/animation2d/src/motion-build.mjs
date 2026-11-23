@@ -114,15 +114,15 @@ export function buildMusicSynchronizedPerformanceTracks({
   const beatDelay = Math.min(0.08, period * 0.12);
   const bowShoulderStrokes = beats.map((time, index) => ({
     time: time + beatDelay,
-    value: (index % 2 === 0 ? -1 : 1) * (isDownbeat(time) ? 5.2 : 3.8)
+    value: (index % 2 === 0 ? -1 : 1) * (isDownbeat(time) ? 2.1 : 1.5)
   }));
   const bowElbowStrokes = beats.map((time, index) => ({
     time: time + beatDelay,
-    value: (index % 2 === 0 ? -1 : 1) * (isDownbeat(time) ? 15.2 : 12.8)
+    value: (index % 2 === 0 ? -1 : 1) * (isDownbeat(time) ? 6.1 : 5.1)
   }));
   const bowWristStrokes = beats.map((time, index) => ({
     time: time + beatDelay,
-    value: (index % 2 === 0 ? 1 : -1) * (isDownbeat(time) ? 5.4 : 4.3)
+    value: (index % 2 === 0 ? 1 : -1) * (isDownbeat(time) ? 2.2 : 1.8)
   }));
 
   const torsoPulses = [];
