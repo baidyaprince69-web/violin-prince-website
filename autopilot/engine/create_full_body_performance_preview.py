@@ -329,18 +329,6 @@ def build_preview_project(
                 "cycle_duration_seconds": 2.4,
                 "start_offset": 0.12,
                 "music_sync": music_sync,
-                "prop_keyframes": {
-                    "bow": {
-                        "rotate": [0, -3.5, 3.5, -3.5, 3.5, 0],
-                        "translate": [
-                            "-18px -4px", "18px 4px", "-18px -4px",
-                            "18px 4px", "-18px -4px", "0px 0px"
-                        ]
-                    },
-                    **({} if composite_base_mode and not segmented_body_mode else {
-                        "violin": {"rotate": [0, -0.45, 0.35, 0.45, 0]},
-                    }),
-                },
             }
         },
     }
