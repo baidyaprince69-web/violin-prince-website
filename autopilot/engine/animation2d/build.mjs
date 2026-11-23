@@ -83,16 +83,27 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
     right_calf: "right_knee",
     right_foot: "right_ankle",
     finger_index: "right_index_base",
+    finger_index_middle: "right_index_pip",
+    finger_index_tip: "right_index_dip",
     finger_middle: "right_middle_base",
+    finger_middle_middle: "right_middle_pip",
+    finger_middle_tip: "right_middle_dip",
     finger_ring: "right_ring_base",
-    finger_little: "right_little_base"
+    finger_ring_middle: "right_ring_pip",
+    finger_ring_tip: "right_ring_dip",
+    finger_little: "right_little_base",
+    finger_little_middle: "right_little_pip",
+    finger_little_tip: "right_little_dip"
   };
   const articulatedCompositeRoles = new Set([
     "left_upper_arm", "left_forearm", "left_hand",
     "right_upper_arm", "right_forearm", "right_hand",
     "left_thigh", "left_calf", "left_foot",
     "right_thigh", "right_calf", "right_foot",
-    "finger_index", "finger_middle", "finger_ring", "finger_little"
+    "finger_index", "finger_index_middle", "finger_index_tip",
+    "finger_middle", "finger_middle_middle", "finger_middle_tip",
+    "finger_ring", "finger_ring_middle", "finger_ring_tip",
+    "finger_little", "finger_little_middle", "finger_little_tip"
   ]);
   const layers = (character.layers || [])
     .filter(layer => !compositeBase || articulatedCompositeRoles.has(String(layer.role || "")))
