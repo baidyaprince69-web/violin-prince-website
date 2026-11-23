@@ -12,6 +12,7 @@ from full_body_performance_rig import (
     _skin_material_mask,
     _decontaminate_edge_matte_rgb,
     _remove_embedded_props_from_static_layers,
+    _restore_bow_hair_in_prop_asset,
 )
 
 
@@ -87,6 +88,59 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                 self.assertEqual(hand_rgba.getpixel((26 - x0, 29 - y0))[3], 0,
                     "the bright bow hair must not be baked into the hand overlay")
 
+
+
+    def test_recovers_source_bow_hair_into_the_same_animated_prop(self):
+        import tempfile
+        from pathlib import Path
+        from PIL import ImageDraw
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(source)
+            # A dark bow shaft already exists in the extracted prop.
+            draw.line((34, 230, 214, 20), fill=(92, 52, 30, 255), width=4)
+            # The pale hair strand is source-baked and runs parallel, 5 px away.
+            draw.line((39, 230, 219, 20), fill=(224, 224, 220, 255), width=2)
+            # A separate bright spot near the bow corridor must not be selected.
+            draw.rectangle((70, 130, 72, 132), fill=(230, 230, 230, 255))
+
+            x, y, width, height = 28, 10, 195, 235
+            prop = source.crop((x, y, x + width, y + height))
+            prop_pixels = np.asarray(prop, dtype=np.uint8).copy()
+            # Keep only the dark shaft in the currently extracted sprite.
+            shaft = (
+                (prop_pixels[:, :, 3] > 12)
+                & (prop_pixels[:, :, 0] < 150)
+                & (prop_pixels[:, :, 1] < 130)
+            )
+            prop_pixels[~shaft, 3] = 0
+            Image.fromarray(prop_pixels, mode="RGBA").save(root / "prop-bow.webp", format="WEBP", quality=98)
+
+            bow_mask = np.zeros((256, 256), dtype=np.uint8)
+            bow_mask[y:y + height, x:x + width] = np.asarray(
+                Image.open(root / "prop-bow.webp").convert("RGBA").getchannel("A"),
+                dtype=np.uint8,
+            )
+            report, updated_mask = _restore_bow_hair_in_prop_asset(
+                source,
+                root,
+                {"src": "prop-bow.webp", "x": x, "y": y},
+                bow_mask,
+            )
+
+            with Image.open(root / report["src"]) as opened:
+                result = np.asarray(opened.convert("RGBA"), dtype=np.uint8)
+            hair_added = int(np.count_nonzero(
+                (result[:, :, 3] > 12) & (prop_pixels[:, :, 3] <= 12)
+            ))
+            self.assertEqual(report["method"], "largest_neutral_source_component_recovered_into_animated_bow")
+            self.assertGreater(report["pixels_added"], 250)
+            self.assertEqual(report["selected_component_count"], 1)
+            self.assertTrue(report["shared_bow_transform"])
+            self.assertGreater(hair_added, 250)
+            self.assertGreater(int((updated_mask > 12).sum()), int((bow_mask > 12).sum()))
 
     def test_removes_embedded_violin_and_bow_from_static_torso_and_head_plates(self):
         import tempfile
