@@ -372,7 +372,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         self.assertTrue(mask[15, 14], "skin pixels must remain in the source-derived hand")
         self.assertFalse(mask[15, 43], "low-blue violin wood must not be classified as a finger")
 
-    def test_clips_source_hand_from_violin_prop_without_changing_other_alpha(self):
+    def test_reconstructs_source_hand_overlap_inside_violin_prop_and_preserves_alpha(self):
         import tempfile
         from pathlib import Path
 
@@ -384,7 +384,13 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             hand = Image.fromarray(hand_pixels, mode="RGBA")
             hand.save(root / "right_hand.png")
 
+            # The composite prop contains the original skin tone where the
+            # source hand crossed the instrument. Rebuild violin texture there.
             violin = Image.new("RGBA", (30, 20), (125, 62, 30, 255))
+            violin_pixels = np.asarray(violin, dtype=np.uint8).copy()
+            violin_pixels[9:14, 12:23, :3] = (178, 120, 88)
+            violin = Image.fromarray(violin_pixels, mode="RGBA")
+            original_alpha = np.asarray(violin.getchannel("A"), dtype=np.uint8).copy()
             violin.save(root / "prop-violin.webp", format="WEBP", lossless=True)
 
             report = _clip_hand_from_violin_prop(
@@ -400,10 +406,13 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             with Image.open(root / "prop-violin.webp") as opened:
                 result = np.asarray(opened.convert("RGBA"), dtype=np.uint8)
 
-            self.assertEqual(report["method"], "source_hand_alpha_cutout_plus_one_pixel_seam")
-            self.assertGreater(report["pixels_removed"], 40)
-            self.assertEqual(int(result[13, 15, 3]), 0,
-                "overlapping fretting-hand pixels must be transparent in the violin sprite")
+            self.assertEqual(report["method"], "source_hand_overlap_rgb_inpaint_alpha_preserved")
+            self.assertGreater(report["pixels_reconstructed"], 40)
+            self.assertTrue(report["alpha_preserved"])
+            self.assertTrue(np.array_equal(result[:, :, 3], original_alpha),
+                "the violin silhouette and transparent regions must not change")
+            self.assertLess(int(result[13, 15, 0]), 150,
+                "source skin colour at the hand/violin seam must be replaced with local violin texture")
             self.assertEqual(int(result[0, 0, 3]), 255,
                 "the violin body outside the hand overlap must remain opaque")
 
