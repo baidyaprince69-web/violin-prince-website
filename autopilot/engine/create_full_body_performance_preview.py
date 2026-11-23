@@ -371,8 +371,9 @@ def build_preview_project(
     )
     rig_note = (
         "Non-publishing source-aligned full-body rig preview. Both arm chains, "
-        "both hand overlays, both thigh/calf/foot chains and four finger controls "
-        "are separate frame-seekable layers cut from the intact performance source. "
+        "both hand overlays, both thigh/calf/foot chains and four note-driven finger chains "
+        "with separate proximal, middle and fingertip sprites are frame-seekable source layers. "
+        "This is an illustrative 2D fingering rig, not a verified biomechanical fingering model. "
         "Small joint overlaps seal elbows, wrists, knees and ankles. The original "
         "head, torso and violin stay on the source-aligned underpaint base. "
         if segmented_body_mode else
