@@ -311,7 +311,7 @@ def build_preview_project(
                 "gesture": "violin_performance",
                 "instrument_performance": True,
                 "expression": "focused",
-                **({} if composite_base_mode else {
+                **({} if (composite_base_mode and not segmented_body_mode) else {
                     "head_angle": "front",
                     "head_angle_sequence": [
                         "front", "three_quarter", "front",
