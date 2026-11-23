@@ -147,6 +147,40 @@ jobs:
           performance = character.get("performance", {})
           base = report.get("composite_base", {})
           limbs = report.get("limb_report", {})
+          joint_art = report.get("source_aligned_joint_surface_art", {})
+          assert joint_art.get("method") == "source_pixel_joint_caps_from_anchor_relative_authored_polygons", report
+          assert joint_art.get("joint_surface_layer_count") == 9, report
+          assert joint_art.get("source_pixels_transferred", 0) > 2500, report
+          assert joint_art.get("prop_pixels_excluded", 0) > 0, report
+          assert joint_art.get("hand_assets_modified") == 0, report
+          assert joint_art.get("hand_animation_data_modified") is False, report
+          assert joint_art.get("regions", {}).get("right_shoulder", {}).get("reason") == "prop_occluded", report
+          surface_roles = {layer["role"] for layer in character.get("layers", []) if layer.get("joint_surface")}
+          expected_surface_roles = {
+              "joint_surface_left_shoulder", "joint_surface_left_elbow", "joint_surface_right_elbow",
+              "joint_surface_left_hip", "joint_surface_right_hip",
+              "joint_surface_left_knee", "joint_surface_right_knee",
+              "joint_surface_left_ankle", "joint_surface_right_ankle",
+          }
+          assert surface_roles == expected_surface_roles, surface_roles
+          mesh_report = report.get("continuous_body_deformation", {})
+          expected_mesh_roles = {
+              "torso", "left_upper_arm", "left_forearm", "right_upper_arm", "right_forearm",
+              "left_thigh", "left_calf", "right_thigh", "right_calf",
+          }
+          assert mesh_report.get("method") == "frame_sampled_piecewise_affine_source_texture_mesh", report
+          assert set(mesh_report.get("deformable_roles", [])) == expected_mesh_roles, report
+          assert mesh_report.get("deformable_layer_count") == 9, report
+          assert mesh_report.get("hand_assets_modified") == 0, report
+          assert mesh_report.get("hand_animation_data_modified") is False, report
+          partition = report.get("torso_surface_partition", {})
+          assert partition.get("method") == "source_alpha_partitioned_into_static_torso_and_joint_surfaces", report
+          assert partition.get("base_alpha_unchanged_outside_transfer_mask") is True, report
+          assert partition.get("composition_source_alpha_reconstituted_by_surface_layers") is True, report
+          assert partition.get("hand_assets_modified") == 0, report
+          assert partition.get("hand_animation_data_modified") is False, report
+          assert base.get("source_alpha_partitioned_into_surface_layers") is True, report
+          assert base.get("composition_source_alpha_reconstituted") is True, report
           assert base.get("mode") == "segmented_source_body", report
           assert base.get("source_alpha_preserved") is True, report
           assert base.get("source_pixels_outside_cut_mask_preserved") is True, report
@@ -351,6 +385,12 @@ jobs:
           assert report.get("animated_finger_segment_count") == 12, report
           assert scene.get("animated_finger_segments") == 12, scene
           assert report.get("animated_instrument_prop_count") == 2, report
+          assert report.get("source_joint_surface_layer_count") == 9, report
+          assert report.get("deformable_body_layer_count") == 9, report
+          assert report.get("deformation_mesh_triangle_track_count", 0) >= 150, report
+          assert scene.get("source_joint_surface_layer_count") == 9, scene
+          assert scene.get("deformable_body_layer_count") == 9, scene
+          assert scene.get("deformation_mesh_triangle_track_count", 0) >= 150, scene
           assert scene.get("full_body_visual_mode") == "segmented_source_body", scene
           print(json.dumps({
               "full_body_scenes": report["full_body_performance_scene_count"],
