@@ -131,10 +131,29 @@ class ReferenceSheetRigTests(unittest.TestCase):
             self.assertEqual(mapping["parts"][0]["reference_role"], "head_portrait")
             self.assertEqual(mapping["parts"][0]["suggested_rig_role"], "head")
             self.assertEqual(mapping["parts"][2]["reference_role"], "jacket_torso")
+            self.assertEqual(
+                report["head_plate_normalization"],
+                "fixed_canvas_bottom_centre_neck_anchor",
+            )
+            plate_sizes = []
             for asset in list(character["head_variants"].values()) + list(character["head_angles"].values()):
                 image = Image.open(root / asset["src"]).convert("RGBA")
                 self.assertEqual(image.getchannel("A").getextrema()[0], 0)
                 self.assertGreater(image.getchannel("A").getextrema()[1], 0)
+                plate_sizes.append(image.size)
+                alpha_bounds = image.getchannel("A").getbbox()
+                self.assertIsNotNone(alpha_bounds)
+                left, top, right, bottom = alpha_bounds
+                expected_x = asset["pivot_x"] * image.width
+                expected_y = asset["pivot_y"] * image.height
+                actual_x = (left + right - 1) / 2
+                actual_y = bottom - 1
+                self.assertLessEqual(abs(actual_x - expected_x), 1.5)
+                self.assertLessEqual(abs(actual_y - expected_y), 1.5)
+            self.assertEqual(
+                len(set(plate_sizes)), 1,
+                "all expression and head-angle plates must use the same pixel canvas",
+            )
 
     def test_rejects_expression_sheet_without_four_separate_heads(self):
         with tempfile.TemporaryDirectory() as temporary:
