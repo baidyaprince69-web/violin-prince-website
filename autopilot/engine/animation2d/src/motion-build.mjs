@@ -145,30 +145,39 @@ export function buildMusicSynchronizedPerformanceTracks({
   });
 
   const fingerNames = ["finger_index", "finger_middle", "finger_ring", "finger_little"];
-  const fingerPulses = Object.fromEntries(fingerNames.map(name => [name, []]));
+  const fingerIntervals = Object.fromEntries(fingerNames.map(name => [name, []]));
   const forearmPulses = [];
   const wristPulses = [];
   if (events.length) {
     const pitches = events.map(event => event.note);
     const minimumPitch = Math.min(...pitches);
     const pitchRange = Math.max(1, Math.max(...pitches) - minimumPitch);
-    for (const event of events) {
-      // Relative pitch register selects one of the four authored finger layers.
-      // This is a phrase-specific visual fingering cue, not a full violin fingering chart.
+    for (let eventIndex = 0; eventIndex < events.length; eventIndex += 1) {
+      const event = events[eventIndex];
+      // Relative pitch register chooses a first-position-like visual hand shape.
+      // Lower fingers remain softly prepared as higher fingers are added; this
+      // is a phrase-specific illustration cue, not a formal fingering chart.
       const fingerIndex = Math.min(3, Math.max(0,
         Math.round(((event.note - minimumPitch) / pitchRange) * 3)));
-      const finger = fingerNames[fingerIndex];
       const strength = 0.88 + (event.velocity / 127) * 0.2;
-      const amplitude = [7.2, -6.5, 6.8, -6.0][fingerIndex] * strength;
       const hit = Math.min(total, event.time + 0.018);
-      const hold = Math.min(0.30, Math.max(0.13, event.durationSeconds * 0.30));
-      const release = Math.min(total, hit + hold);
-      const settle = Math.min(total, release + 0.075);
-      fingerPulses[finger].push(
-        { time: hit, value: amplitude },
-        { time: release, value: amplitude * 0.62 },
-        { time: settle, value: 0 }
-      );
+      const nextHit = events[eventIndex + 1]
+        ? Math.min(total, events[eventIndex + 1].time + 0.018)
+        : total;
+      const hold = Math.min(0.82, Math.max(0.15, event.durationSeconds * 0.72));
+      const release = Math.min(total, hit + hold, nextHit);
+      const settle = Math.min(total, release + 0.08, nextHit);
+      for (let fingerPosition = 0; fingerPosition <= fingerIndex; fingerPosition += 1) {
+        const finger = fingerNames[fingerPosition];
+        const amplitudes = [7.2, -6.5, 6.8, -6.0];
+        const stagger = fingerPosition * 0.009;
+        fingerIntervals[finger].push({
+          start: Math.min(total, hit + stagger),
+          end: release,
+          settle,
+          amplitude: amplitudes[fingerPosition] * strength
+        });
+      }
       const contour = ((event.note - minimumPitch) / pitchRange) * 2 - 1;
       forearmPulses.push(
         { time: hit, value: contour * 3.4 },
@@ -181,14 +190,16 @@ export function buildMusicSynchronizedPerformanceTracks({
     }
   } else {
     attacks.forEach((time, index) => {
-      const finger = fingerNames[index % fingerNames.length];
+      const fingerIndex = index % fingerNames.length;
       const hit = Math.min(total, time + 0.025);
-      const release = Math.min(total, hit + Math.min(0.15, period * 0.22));
-      const amplitude = [6.0, -5.5, 5.8, -5.0][index % fingerNames.length];
-      fingerPulses[finger].push(
-        { time: hit, value: amplitude },
-        { time: release, value: 0 }
-      );
+      const nextHit = attacks[index + 1] === undefined
+        ? total : Math.min(total, attacks[index + 1] + 0.025);
+      const release = Math.min(total, hit + Math.min(0.22, period * 0.3), nextHit);
+      const settle = Math.min(total, release + 0.075, nextHit);
+      const amplitude = [6.0, -5.5, 5.8, -5.0][fingerIndex];
+      fingerIntervals[fingerNames[fingerIndex]].push({
+        start: hit, end: release, settle, amplitude
+      });
       forearmPulses.push(
         { time: hit, value: (index % 2 ? -1 : 1) * 1.8 },
         { time: release, value: 0 }
@@ -199,6 +210,25 @@ export function buildMusicSynchronizedPerformanceTracks({
       );
     });
   }
+
+  const fingerTracks = fingerNames.map(name => {
+    const intervals = fingerIntervals[name];
+    const boundaries = cleanTimes([
+      0, total,
+      ...intervals.flatMap(interval => [interval.start, interval.end, interval.settle])
+    ]);
+    const points = boundaries.map(time => {
+      const active = intervals
+        .filter(interval => time >= interval.start && time < interval.end)
+        .sort((a, b) => b.start - a.start);
+      if (active.length) return { time, value: active[0].amplitude };
+      const releasing = intervals
+        .filter(interval => time >= interval.end && time < interval.settle)
+        .sort((a, b) => b.start - a.start);
+      return { time, value: releasing.length ? releasing[0].amplitude * 0.24 : 0 };
+    });
+    return makeTrack(prefix + "-part-" + name, points);
+  });
 
   // Gentle lower-body counterbalance keeps the player grounded; it is weight transfer,
   // not a walking or dance cycle.
@@ -270,7 +300,7 @@ export function buildMusicSynchronizedPerformanceTracks({
     weightTrack(prefix + "-part-right_calf", 1.25, 1),
     weightTrack(prefix + "-part-left_foot", 0.72, 1),
     weightTrack(prefix + "-part-right_foot", 0.72, -1),
-    ...fingerNames.map(name => makeTrack(prefix + "-part-" + name, fingerPulses[name]))
+    ...fingerTracks
   ];
 }
 
