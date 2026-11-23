@@ -1533,10 +1533,11 @@ def _restore_torso_hidden_overlap_from_reference(
 ) -> dict[str, Any]:
     """Replace locally inpainted hidden jacket pixels with aligned source artwork.
 
-    The patch is restricted to the exact arm/torso overlap mask exported by the
-    character parser, and to opaque pixels from the supplied jacket reference.
-    The violin and bow footprints are excluded. Only torso RGB is changed:
-    alpha, crop geometry, limb/hand sprites and their animation data stay intact.
+    The patch is restricted to the union of the exact parser hidden-overlap
+    mask and the authored full-body moving-limb mask, and to opaque pixels from
+    the supplied jacket reference. The violin and bow footprints are excluded.
+    Only torso RGB is changed: alpha, crop geometry, limb/hand sprites and
+    their animation data stay intact.
     """
     canvas_spec = character.get("canvas", {})
     canvas_width = int(canvas_spec.get("width", 0))
