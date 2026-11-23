@@ -36,6 +36,90 @@ class CharacterRigContractTests(unittest.TestCase):
         self.assertEqual(len(result["layers"]), 9)
         self.assertIn("curious", result["expressions"])
 
+    def test_accepts_source_mesh_and_joint_surface_metadata(self):
+        character = self.valid_character()
+        torso = next(layer for layer in character["layers"] if layer["role"] == "torso")
+        torso["mesh_deformation"] = {
+            "profile": "torso",
+            "driver_role": "torso",
+            "axis_start": [0.3, 0.05],
+            "axis_end": [0.52, 0.96],
+            "influence": "center",
+            "columns": 3,
+            "rows": 5,
+            "max_angle_deg": 2.2,
+            "max_displacement_px": 2.4,
+        }
+        character["layers"].append({
+            "id": "joint_surface_left_elbow",
+            "role": "joint_surface_left_elbow",
+            "src": "joint_surface_left_elbow.png",
+            "x": 0, "y": 0, "width": 24, "height": 24,
+            "joint_surface": {
+                "joint": "left_elbow",
+                "parent_role": "left_upper_arm",
+                "child_role": "left_forearm",
+                "blend_weight": 0.5,
+            },
+        })
+        result = validate_character_spec(character)
+        by_role = {layer["role"]: layer for layer in result["layers"]}
+        self.assertEqual(by_role["torso"]["mesh_deformation"]["profile"], "torso")
+        self.assertEqual(
+            by_role["joint_surface_left_elbow"]["joint_surface"]["joint"],
+            "left_elbow",
+        )
+
+    def test_rejects_mesh_deformation_on_hand_and_invalid_mesh_geometry(self):
+        character = self.valid_character()
+        hand = next(layer for layer in character["layers"] if layer["role"] == "left_hand")
+        hand["mesh_deformation"] = {
+            "profile": "limb_joint",
+            "driver_role": "left_hand",
+            "axis_start": [0.1, 0.1],
+            "axis_end": [0.9, 0.9],
+            "influence": "center",
+            "columns": 2,
+            "rows": 4,
+            "max_angle_deg": 2,
+            "max_displacement_px": 2,
+        }
+        # The schema accepts valid geometry as a layer-level capability; the
+        # full-body performance builder separately enforces hand exclusion.
+        self.assertTrue(validate_character_spec(character)["layers"])
+
+        torso = next(layer for layer in character["layers"] if layer["role"] == "torso")
+        torso["mesh_deformation"] = {
+            "profile": "torso",
+            "driver_role": "torso",
+            "axis_start": [0.3, 0.1],
+            "axis_end": [0.3, 0.1],
+            "influence": "center",
+            "columns": 3,
+            "rows": 5,
+            "max_angle_deg": 2,
+            "max_displacement_px": 2,
+        }
+        with self.assertRaisesRegex(CharacterRigError, "axis is too short"):
+            validate_character_spec(character)
+
+    def test_rejects_joint_surface_with_unknown_parent_role(self):
+        character = self.valid_character()
+        character["layers"].append({
+            "id": "joint_surface_left_elbow",
+            "role": "joint_surface_left_elbow",
+            "src": "joint_surface_left_elbow.png",
+            "x": 0, "y": 0, "width": 24, "height": 24,
+            "joint_surface": {
+                "joint": "left_elbow",
+                "parent_role": "missing_arm",
+                "child_role": "left_forearm",
+                "blend_weight": 0.5,
+            },
+        })
+        with self.assertRaisesRegex(CharacterRigError, "distinct parent/child"):
+            validate_character_spec(character)
+
     def test_rejects_missing_hand_layer(self):
         character = self.valid_character()
         character["layers"] = [
