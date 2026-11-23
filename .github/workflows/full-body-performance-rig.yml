@@ -255,12 +255,10 @@ jobs:
           assert len(sync.get("beat_times", [])) >= 10, sync
           assert len(sync.get("onsets", [])) > 0, sync
           assert len(sync.get("note_events", [])) >= 4, sync
-          expressions = action.get("head_expression_sequence", [])
-          assert len(expressions) >= 3, action
-          assert {"focused", "happy"}.issubset(set(expressions)), action
-          assert set(expressions).issubset({"focused", "happy", "surprised", "neutral"}), action
-          angle_sequence = action.get("head_angle_sequence", [])
-          assert {"three_quarter", "profile_right", "profile_left"}.issubset(set(angle_sequence)), action
+          assert action.get("head_angle") == "front", action
+          assert action.get("head_expression") == "focused", action
+          assert not action.get("head_angle_sequence"), action
+          assert not action.get("head_expression_sequence"), action
           character = json.loads(Path("work/full-body-rig/bundle/character.json").read_text())
           props = character.get("props", {})
           assert props.get("bow", {}).get("attach_to") == "left_hand", props
