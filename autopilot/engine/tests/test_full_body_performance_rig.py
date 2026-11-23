@@ -110,6 +110,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             bow = np.zeros(source_size, dtype=bool)
             violin[26:36, 20:34] = True
             bow[8:32, 25:28] = True
+            bow[8:32, 37:40] = True
 
             report = _remove_embedded_props_from_static_layers(
                 root,
@@ -134,6 +135,8 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                 "source violin pixels must be cleared from the static torso plate")
             self.assertEqual(int(torso_after[12, 16, 3]), 0,
                 "source bow pixels must be cleared from the static torso plate")
+            self.assertEqual(int(head_after[12, 8, 3]), 0,
+                "source bow pixels must be cleared from the static head plate")
 
     def test_source_aligned_manifest_extracts_twelve_independent_limb_layers(self):
         import json
