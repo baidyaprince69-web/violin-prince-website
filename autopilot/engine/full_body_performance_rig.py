@@ -1706,8 +1706,8 @@ def _configure_continuous_body_meshes(character: dict[str, Any]) -> dict[str, An
         ("torso", "torso", "neck", None, "center", 2.2, 2.4, 3, 5),
         ("left_upper_arm", "left_upper_arm", "left_shoulder", "left_elbow", "distal", 2.6, 2.8, 2, 4),
         ("left_forearm", "left_forearm", "left_elbow", "left_wrist", "proximal", 2.6, 2.8, 2, 4),
-        ("right_upper_arm", "right_upper_arm", "right_shoulder", "right_elbow", "distal", 2.6, 2.8, 2, 4),
-        ("right_forearm", "right_forearm", "right_elbow", "right_wrist", "proximal", 2.6, 2.8, 2, 4),
+        ("right_upper_arm", "torso", "right_shoulder", "right_elbow", "distal", 2.6, 2.8, 2, 4),
+        ("right_forearm", "torso", "right_elbow", "right_wrist", "proximal", 2.6, 2.8, 2, 4),
         ("left_thigh", "left_thigh", "left_hip", "left_knee", "distal", 2.8, 2.6, 2, 4),
         ("left_calf", "left_calf", "left_knee", "left_ankle", "proximal", 2.8, 2.6, 2, 4),
         ("right_thigh", "right_thigh", "right_hip", "right_knee", "distal", 2.8, 2.6, 2, 4),
@@ -2386,12 +2386,17 @@ def extend_full_body_character(
     torso_surface_partition = _partition_torso_and_joint_surfaces_from_base(
         bundle, character, composite_base, joint_surface_mask
     )
+    composite_base["source_alpha_partitioned_into_surface_layers"] = True
+    composite_base["composition_source_alpha_reconstituted"] = True
+    composite_base["surface_partition_method"] = torso_surface_partition["method"]
     character["base_art"] = composite_base
     character["performance_base_mode"] = "segmented_source_body"
     character["props"] = props
     character["performance"] = {
-        "schema": "violin-prince-fullbody-performance-v2",
+        "schema": "violin-prince-fullbody-performance-v3",
         "instrument_performance": True,
+        "joint_surface_roles": sorted(layer["role"] for layer in joint_surface_layers),
+        "continuous_body_deformation": continuous_body_deformation["method"],
         "fingering_parts": sorted(finger_areas),
         "fingering_segment_roles": sorted(layer["role"] for layer in finger_layers),
         "fingering_joint_count": len(finger_joints),
