@@ -210,8 +210,12 @@ def _build_head_expression_sequence(music_sync: dict[str, Any]) -> list[str]:
             sequence.append(expression)
         previous_note = note
 
-    if len(sequence) == 1:
-        sequence.append("happy" if sequence[0] == "focused" else "focused")
+    if "neutral" not in sequence:
+        sequence.insert(1, "neutral")
+    if "happy" not in sequence:
+        sequence.append("happy")
+    if len(set(sequence)) < 3:
+        sequence.append("surprised")
     return sequence[:8]
 
 def build_preview_project(
