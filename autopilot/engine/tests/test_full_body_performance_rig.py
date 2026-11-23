@@ -154,10 +154,10 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
-            head = np.zeros((8, 9, 4), dtype=np.uint8)
-            head[1:6, 2:7] = (30, 40, 50, 255)
-            face = np.zeros((7, 6, 4), dtype=np.uint8)
-            face[2:6, 1:5] = (180, 120, 90, 255)
+            head = np.zeros((40, 40, 4), dtype=np.uint8)
+            head[2:27, 2:27] = (30, 40, 50, 255)
+            face = np.zeros((30, 30, 4), dtype=np.uint8)
+            face[5:20, 5:20] = (180, 120, 90, 255)
             Image.fromarray(head, mode="RGBA").save(root / "head.png")
             Image.fromarray(face, mode="RGBA").save(root / "face.png")
 
@@ -165,21 +165,20 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                 root,
                 [
                     {"role": "head", "src": "head.png", "x": 4, "y": 3},
-                    {"role": "face", "src": "face.png", "x": 9, "y": 8},
+                    {"role": "face", "src": "face.png", "x": 28, "y": 28},
                     {"role": "torso", "src": "head.png", "x": 0, "y": 0},
                 ],
-                canvas_width=24,
-                canvas_height=24,
+                canvas_width=72,
+                canvas_height=72,
                 roles=("head", "face"),
             )
 
-            self.assertEqual(mask.shape, (24, 24))
-            self.assertTrue(mask[4, 6])
-            self.assertTrue(mask[10, 10])
+            self.assertEqual(mask.shape, (72, 72))
+            self.assertTrue(mask[5, 6])
+            self.assertTrue(mask[34, 34])
             self.assertFalse(mask[2, 2])
-            self.assertFalse(mask[10, 18])
-            self.assertEqual(int(mask.sum()), 41)
-
+            self.assertFalse(mask[60, 60])
+            self.assertEqual(int(mask.sum()), 850)
 
     def test_finger_sprites_are_clipped_to_the_source_aligned_skin_hand(self):
         import json
