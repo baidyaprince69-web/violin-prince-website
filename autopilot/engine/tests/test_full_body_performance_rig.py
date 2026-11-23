@@ -676,13 +676,18 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         self.assertGreaterEqual(report["pixels_cut_from_source"], 900)
         np.testing.assert_array_equal(output[:, :, 3], original[:, :, 3])
         untouched = np.ones((80, 80), dtype=bool)
-        cut = (moving | (bow > 12) | (violin > 12) | (head > 12))
+        cut = (moving | (bow > 12) | (violin > 12))
         cut &= original[:, :, 3] > 12
         untouched &= ~cut
         np.testing.assert_array_equal(output[untouched], original[untouched])
         self.assertGreater(report["violin_pixels_reconstructed"], 0)
         self.assertGreater(report["bow_pixels_reconstructed"], 0)
         self.assertEqual(report["head_pixels_reconstructed"], 0)
+        self.assertEqual(
+            tuple(output[16, 16, :3]),
+            tuple(original[16, 16, :3]),
+            "the preserved source head backplate must retain its original artwork",
+        )
         self.assertGreater(report["head_backplate_pixels_preserved"], 100)
         self.assertTrue(report["head_source_backplate_preserved"])
         self.assertTrue(report["head_plate_replacement_enabled"])

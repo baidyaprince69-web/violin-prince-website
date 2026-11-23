@@ -1339,8 +1339,8 @@ def _build_segmented_source_base(
     exact_source_union = source_aligned_cut & (rgba[:, :, 3] > 12)
     expanded_halo_pixels_excluded = int(np.count_nonzero(legacy_expanded & ~exact_source_union))
     head_backplate_pixels_preserved = int(np.count_nonzero(head & (rgba[:, :, 3] > 12)))
-    if int(cut.sum()) < 1000:
-        raise ManualReviewRequired("The source-aligned limb/prop cutout is unexpectedly small.")
+    if int(exact_source_union.sum()) < 1000:
+        raise ManualReviewRequired("The complete source-aligned limb/prop/head coverage is unexpectedly small.")
     # Fully transparent pixels may still retain white/striped RGB from the
     # original matte. Never allow those pixels to seed inpainting at a cutout
     # near the silhouette edge: classify them as unknown during reconstruction.
