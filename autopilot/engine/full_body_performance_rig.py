@@ -1545,10 +1545,11 @@ def _restore_torso_hidden_overlap_from_reference(
         raise AutoRigError("Torso source-art restoration requires a valid character canvas.")
 
     hidden_path = bundle_dir / "torso-hidden-overlap-mask.png"
+    moving_path = bundle_dir / "full-body-moving-mask.png"
     reference_path = bundle_dir / "reference-part-003.png"
-    if not hidden_path.is_file():
+    if not hidden_path.is_file() or not moving_path.is_file():
         raise ManualReviewRequired(
-            "The exact torso hidden-overlap mask is missing; source-art restoration cannot proceed safely."
+            "The exact parser and full-body moving masks are required for safe torso source-art restoration."
         )
     if not reference_path.is_file():
         raise ManualReviewRequired(
@@ -1557,13 +1558,20 @@ def _restore_torso_hidden_overlap_from_reference(
 
     with Image.open(hidden_path) as opened:
         hidden_image = opened.convert("L")
+    with Image.open(moving_path) as opened:
+        moving_image = opened.convert("L")
     if hidden_image.size != (canvas_width, canvas_height):
         raise AutoRigError("The torso hidden-overlap mask does not match the character canvas.")
+    if moving_image.size != (canvas_width, canvas_height):
+        raise AutoRigError("The full-body moving mask does not match the character canvas.")
     hidden = np.asarray(hidden_image, dtype=np.uint8) > 0
+    moving = np.asarray(moving_image, dtype=np.uint8) > 0
     hidden_count = int(hidden.sum())
-    if hidden_count < 100:
+    moving_count = int(moving.sum())
+    restoration_source_mask = hidden | moving
+    if hidden_count < 100 or moving_count < 1000:
         raise ManualReviewRequired(
-            f"The hidden torso overlap mask contains only {hidden_count} pixels; refusing an unreliable patch."
+            "The parser hidden-overlap or authored moving-region mask is too small for reliable torso restoration."
         )
 
     torso_layer = next(
@@ -1635,13 +1643,15 @@ def _restore_torso_hidden_overlap_from_reference(
         raise AutoRigError("The torso backplate crop lies outside the character canvas.")
 
     local_hidden = hidden[y0:y1, x0:x1]
+    local_moving = moving[y0:y1, x0:x1]
+    local_source_mask = restoration_source_mask[y0:y1, x0:x1]
     local_reference_alpha = reference_canvas[y0:y1, x0:x1, 3]
     local_reference_rgb = reference_canvas[y0:y1, x0:x1, :3]
     local_prop_mask = prop_mask[y0:y1, x0:x1]
     local_visible_torso = original_alpha > 12
 
     restoration_mask = (
-        local_hidden
+        local_source_mask
         & (local_reference_alpha >= 240)
         & local_visible_torso
         & ~local_prop_mask
@@ -1649,7 +1659,7 @@ def _restore_torso_hidden_overlap_from_reference(
     restored_pixels = int(restoration_mask.sum())
     if restored_pixels < 100:
         raise ManualReviewRequired(
-            f"Only {restored_pixels} hidden torso pixels align with the jacket reference; refusing a weak patch."
+            f"Only {restored_pixels} hidden or moving torso pixels align with the jacket reference; refusing a weak patch."
         )
 
     torso_pixels[restoration_mask, :3] = local_reference_rgb[restoration_mask]
@@ -1672,7 +1682,7 @@ def _restore_torso_hidden_overlap_from_reference(
     )
 
     return {
-        "method": "aligned_supplied_jacket_reference_on_exact_hidden_torso_mask",
+        "method": "aligned_supplied_jacket_reference_on_authored_moving_and_hidden_torso_masks",
         "reference_asset": reference_path.name,
         "reference_transform": {
             "x": ref_x, "y": ref_y,
@@ -1681,10 +1691,11 @@ def _restore_torso_hidden_overlap_from_reference(
         },
         "restoration_mask_asset": "torso-reference-restoration-mask.png",
         "hidden_overlap_pixels": hidden_count,
-        "reference_covered_hidden_pixels": int(
-            np.count_nonzero(hidden & (reference_canvas[:, :, 3] >= 240))
+        "authored_moving_region_pixels": moving_count,
+        "reference_covered_moving_and_hidden_pixels": int(
+            np.count_nonzero(restoration_source_mask & (reference_canvas[:, :, 3] >= 240))
         ),
-        "prop_pixels_excluded": int(np.count_nonzero(hidden & prop_mask)),
+        "prop_pixels_excluded": int(np.count_nonzero(restoration_source_mask & prop_mask)),
         "pixels_restored": restored_pixels,
         "layer_alpha_preserved": True,
         "torso_crop_geometry_preserved": True,
