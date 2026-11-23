@@ -652,5 +652,471 @@
       "minimum_pixels": 800,
       "z_index": 9
     }
+  },
+  "joint_surfaces": {
+    "schema_version": 1,
+    "coordinate_space": "joint_anchor_relative_source_pixels",
+    "note": "Source-pixel caps are cut from the preserved character artwork, not painted or resampled. Right shoulder is intentionally prop-protected where the violin covers the junction.",
+    "regions": {
+      "left_shoulder": {
+        "anchor": "left_shoulder",
+        "parent_role": "torso",
+        "child_role": "left_upper_arm",
+        "z_index": 22,
+        "minimum_pixels": 180,
+        "polygon": [
+          [
+            -14,
+            -4
+          ],
+          [
+            -12,
+            -10
+          ],
+          [
+            -5,
+            -14
+          ],
+          [
+            4,
+            -14
+          ],
+          [
+            11,
+            -10
+          ],
+          [
+            15,
+            -3
+          ],
+          [
+            13,
+            5
+          ],
+          [
+            7,
+            11
+          ],
+          [
+            -2,
+            12
+          ],
+          [
+            -10,
+            7
+          ]
+        ]
+      },
+      "right_shoulder": {
+        "anchor": "right_shoulder",
+        "parent_role": "torso",
+        "child_role": "right_upper_arm",
+        "z_index": 22,
+        "minimum_pixels": 180,
+        "polygon": [
+          [
+            -14,
+            -4
+          ],
+          [
+            -12,
+            -10
+          ],
+          [
+            -5,
+            -14
+          ],
+          [
+            4,
+            -14
+          ],
+          [
+            11,
+            -10
+          ],
+          [
+            15,
+            -3
+          ],
+          [
+            13,
+            5
+          ],
+          [
+            7,
+            11
+          ],
+          [
+            -2,
+            12
+          ],
+          [
+            -10,
+            7
+          ]
+        ],
+        "expected_prop_occlusion": "violin"
+      },
+      "left_elbow": {
+        "anchor": "left_elbow",
+        "parent_role": "left_upper_arm",
+        "child_role": "left_forearm",
+        "z_index": 33,
+        "minimum_pixels": 160,
+        "polygon": [
+          [
+            -11,
+            -4
+          ],
+          [
+            -8,
+            -10
+          ],
+          [
+            -1,
+            -12
+          ],
+          [
+            7,
+            -10
+          ],
+          [
+            11,
+            -4
+          ],
+          [
+            10,
+            4
+          ],
+          [
+            5,
+            10
+          ],
+          [
+            -3,
+            10
+          ],
+          [
+            -10,
+            4
+          ]
+        ]
+      },
+      "right_elbow": {
+        "anchor": "right_elbow",
+        "parent_role": "right_upper_arm",
+        "child_role": "right_forearm",
+        "z_index": 33,
+        "minimum_pixels": 120,
+        "polygon": [
+          [
+            -11,
+            -4
+          ],
+          [
+            -8,
+            -10
+          ],
+          [
+            -1,
+            -12
+          ],
+          [
+            7,
+            -10
+          ],
+          [
+            11,
+            -4
+          ],
+          [
+            10,
+            4
+          ],
+          [
+            5,
+            10
+          ],
+          [
+            -3,
+            10
+          ],
+          [
+            -10,
+            4
+          ]
+        ]
+      },
+      "left_hip": {
+        "anchor": "left_hip",
+        "parent_role": "torso",
+        "child_role": "left_thigh",
+        "z_index": 12,
+        "minimum_pixels": 180,
+        "polygon": [
+          [
+            -15,
+            -5
+          ],
+          [
+            -12,
+            -11
+          ],
+          [
+            -4,
+            -14
+          ],
+          [
+            6,
+            -13
+          ],
+          [
+            14,
+            -7
+          ],
+          [
+            16,
+            1
+          ],
+          [
+            11,
+            9
+          ],
+          [
+            2,
+            12
+          ],
+          [
+            -8,
+            10
+          ],
+          [
+            -15,
+            4
+          ]
+        ]
+      },
+      "right_hip": {
+        "anchor": "right_hip",
+        "parent_role": "torso",
+        "child_role": "right_thigh",
+        "z_index": 12,
+        "minimum_pixels": 180,
+        "polygon": [
+          [
+            -15,
+            -5
+          ],
+          [
+            -12,
+            -11
+          ],
+          [
+            -4,
+            -14
+          ],
+          [
+            6,
+            -13
+          ],
+          [
+            14,
+            -7
+          ],
+          [
+            16,
+            1
+          ],
+          [
+            11,
+            9
+          ],
+          [
+            2,
+            12
+          ],
+          [
+            -8,
+            10
+          ],
+          [
+            -15,
+            4
+          ]
+        ]
+      },
+      "left_knee": {
+        "anchor": "left_knee",
+        "parent_role": "left_thigh",
+        "child_role": "left_calf",
+        "z_index": 10,
+        "minimum_pixels": 160,
+        "polygon": [
+          [
+            -12,
+            -5
+          ],
+          [
+            -8,
+            -11
+          ],
+          [
+            0,
+            -13
+          ],
+          [
+            8,
+            -10
+          ],
+          [
+            12,
+            -3
+          ],
+          [
+            10,
+            5
+          ],
+          [
+            4,
+            11
+          ],
+          [
+            -5,
+            10
+          ],
+          [
+            -11,
+            3
+          ]
+        ]
+      },
+      "right_knee": {
+        "anchor": "right_knee",
+        "parent_role": "right_thigh",
+        "child_role": "right_calf",
+        "z_index": 10,
+        "minimum_pixels": 160,
+        "polygon": [
+          [
+            -12,
+            -5
+          ],
+          [
+            -8,
+            -11
+          ],
+          [
+            0,
+            -13
+          ],
+          [
+            8,
+            -10
+          ],
+          [
+            12,
+            -3
+          ],
+          [
+            10,
+            5
+          ],
+          [
+            4,
+            11
+          ],
+          [
+            -5,
+            10
+          ],
+          [
+            -11,
+            3
+          ]
+        ]
+      },
+      "left_ankle": {
+        "anchor": "left_ankle",
+        "parent_role": "left_calf",
+        "child_role": "left_foot",
+        "z_index": 11,
+        "minimum_pixels": 100,
+        "polygon": [
+          [
+            -9,
+            -4
+          ],
+          [
+            -6,
+            -8
+          ],
+          [
+            1,
+            -10
+          ],
+          [
+            8,
+            -6
+          ],
+          [
+            10,
+            1
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            -1,
+            9
+          ],
+          [
+            -8,
+            4
+          ]
+        ]
+      },
+      "right_ankle": {
+        "anchor": "right_ankle",
+        "parent_role": "right_calf",
+        "child_role": "right_foot",
+        "z_index": 11,
+        "minimum_pixels": 100,
+        "polygon": [
+          [
+            -9,
+            -4
+          ],
+          [
+            -6,
+            -8
+          ],
+          [
+            1,
+            -10
+          ],
+          [
+            8,
+            -6
+          ],
+          [
+            10,
+            1
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            -1,
+            9
+          ],
+          [
+            -8,
+            4
+          ]
+        ]
+      }
+    }
   }
 }
