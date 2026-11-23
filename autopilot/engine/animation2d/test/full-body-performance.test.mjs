@@ -112,12 +112,19 @@ test("music-synchronized performance keyframes follow beat and onset timestamps"
   assert.ok(indexFinger.key_times.includes(0.268));
   assert.ok(ringFinger.key_times.includes(1.286));
   assert.ok(littleFinger.key_times.includes(1.795));
-  assert.ok(Math.max(...bowShoulder.values.map(Math.abs)) <= 2.1);
-  assert.ok(Math.max(...elbow.values.map(Math.abs)) <= 6.1);
-  assert.ok(Math.max(...wrist.values.map(Math.abs)) <= 2.2);
-  assert.ok(bowShoulder.values.some(value => Math.abs(value) >= 1.5));
-  assert.ok(elbow.values.some(value => Math.abs(value) >= 5.1));
-  assert.ok(wrist.values.some(value => Math.abs(value) >= 1.8));
+  assert.ok(Math.max(...bowShoulder.values.map(Math.abs)) <= 7.0);
+  assert.ok(Math.max(...elbow.values.map(Math.abs)) <= 0.6);
+  assert.ok(Math.max(...wrist.values.map(Math.abs)) <= 6.4);
+  assert.ok(bowShoulder.values.some(value => Math.abs(value) >= 6.0));
+  assert.ok(elbow.values.some(value => Math.abs(value) >= 0.5));
+  assert.ok(wrist.values.some(value => Math.abs(value) >= 5.5));
+  assert.equal(bowShoulder.values.length, elbow.values.length);
+  assert.equal(elbow.values.length, wrist.values.length);
+  for (let i = 0; i < bowShoulder.values.length; i += 1) {
+    assert.ok(Math.abs(
+      bowShoulder.values[i] + elbow.values[i] + wrist.values[i]
+    ) < 1e-6, "the three joints should counter-rotate without changing bow angle");
+  }
 
   assert.deepEqual(buildMusicSynchronizedPerformanceTracks({
     targetPrefix: "playing-violin-prince",
