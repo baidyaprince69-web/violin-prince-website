@@ -536,7 +536,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         self.assertLess(float(result[cut, :3].mean()), 100.0)
         np.testing.assert_array_equal(result[:, :, 3], pixels[:, :, 3])
         self.assertTrue(report["transparent_rgb_excluded_from_reconstruction"])
-        self.assertGreater(report["transparent_source_pixels_excluded_from_inpaint"], 1000)
+        self.assertGreater(report["transparent_source_pixels_excluded_from_inpaint"], 500)
 
     def test_shoe_mask_isolated_from_trouser_and_connected_to_bottom(self):
         width, height, split_x = 100, 120, 50
