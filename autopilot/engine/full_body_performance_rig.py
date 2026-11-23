@@ -1525,6 +1525,176 @@ def _build_segmented_source_base(
     }
 
 
+def _restore_torso_hidden_overlap_from_reference(
+    bundle_dir: Path,
+    character: dict[str, Any],
+    *,
+    reference_transform: tuple[int, int, int, int] = (76, 148, 210, 262),
+) -> dict[str, Any]:
+    """Replace locally inpainted hidden jacket pixels with aligned source artwork.
+
+    The patch is restricted to the exact arm/torso overlap mask exported by the
+    character parser, and to opaque pixels from the supplied jacket reference.
+    The violin and bow footprints are excluded. Only torso RGB is changed:
+    alpha, crop geometry, limb/hand sprites and their animation data stay intact.
+    """
+    canvas_spec = character.get("canvas", {})
+    canvas_width = int(canvas_spec.get("width", 0))
+    canvas_height = int(canvas_spec.get("height", 0))
+    if canvas_width <= 0 or canvas_height <= 0:
+        raise AutoRigError("Torso source-art restoration requires a valid character canvas.")
+
+    hidden_path = bundle_dir / "torso-hidden-overlap-mask.png"
+    reference_path = bundle_dir / "reference-part-003.png"
+    if not hidden_path.is_file():
+        raise ManualReviewRequired(
+            "The exact torso hidden-overlap mask is missing; source-art restoration cannot proceed safely."
+        )
+    if not reference_path.is_file():
+        raise ManualReviewRequired(
+            "The supplied jacket torso reference is missing; source-art restoration cannot proceed safely."
+        )
+
+    with Image.open(hidden_path) as opened:
+        hidden_image = opened.convert("L")
+    if hidden_image.size != (canvas_width, canvas_height):
+        raise AutoRigError("The torso hidden-overlap mask does not match the character canvas.")
+    hidden = np.asarray(hidden_image, dtype=np.uint8) > 0
+    hidden_count = int(hidden.sum())
+    if hidden_count < 100:
+        raise ManualReviewRequired(
+            f"The hidden torso overlap mask contains only {hidden_count} pixels; refusing an unreliable patch."
+        )
+
+    torso_layer = next(
+        (layer for layer in character.get("layers", []) if layer.get("role") == "torso"),
+        None,
+    )
+    if torso_layer is None:
+        raise ManualReviewRequired("A torso layer is required for hidden jacket restoration.")
+
+    torso_path = bundle_dir / str(torso_layer["src"])
+    if not torso_path.is_file():
+        raise ManualReviewRequired("The active torso backplate asset is missing.")
+    torso_x = int(round(float(torso_layer["x"])))
+    torso_y = int(round(float(torso_layer["y"])))
+    with Image.open(torso_path) as opened:
+        torso_image = opened.convert("RGBA")
+    expected_size = (
+        int(round(float(torso_layer["width"]))),
+        int(round(float(torso_layer["height"]))),
+    )
+    if torso_image.size != expected_size:
+        raise AutoRigError("Torso backplate dimensions disagree with the character layer geometry.")
+    torso_pixels = np.asarray(torso_image, dtype=np.uint8).copy()
+    original_alpha = torso_pixels[:, :, 3].copy()
+    original_pixels = torso_pixels.copy()
+
+    ref_x, ref_y, ref_width, ref_height = (
+        int(value) for value in reference_transform
+    )
+    if min(ref_width, ref_height) <= 0 or ref_x < 0 or ref_y < 0:
+        raise ValueError("The jacket reference transform must be a positive in-canvas rectangle.")
+    if ref_x + ref_width > canvas_width or ref_y + ref_height > canvas_height:
+        raise ManualReviewRequired("The jacket reference transform extends beyond the character canvas.")
+
+    with Image.open(reference_path) as opened:
+        reference = opened.convert("RGBA")
+    reference = reference.resize(
+        (ref_width, ref_height), Image.Resampling.LANCZOS
+    )
+    reference_canvas = np.zeros((canvas_height, canvas_width, 4), dtype=np.uint8)
+    reference_canvas[ref_y:ref_y + ref_height, ref_x:ref_x + ref_width] = np.asarray(
+        reference, dtype=np.uint8
+    )
+
+    # Keep the instrument's source pixels authoritative; do not replace any
+    # violin or bow pixel with the jacket reference, even where masks overlap.
+    prop_mask = np.zeros((canvas_height, canvas_width), dtype=bool)
+    for prop in character.get("props", {}).values():
+        prop_src = prop.get("src")
+        if not prop_src:
+            continue
+        prop_path = bundle_dir / str(prop_src)
+        if not prop_path.is_file():
+            raise ManualReviewRequired(f"A prop needed for the torso exclusion mask is missing: {prop_src}")
+        px, py = int(round(float(prop.get("x", 0)))), int(round(float(prop.get("y", 0))))
+        pw, ph = int(round(float(prop.get("width", 0)))), int(round(float(prop.get("height", 0))))
+        if pw <= 0 or ph <= 0 or px < 0 or py < 0 or px + pw > canvas_width or py + ph > canvas_height:
+            raise ManualReviewRequired(f"Prop {prop_src} has invalid source-canvas geometry.")
+        with Image.open(prop_path) as opened:
+            sprite = opened.convert("RGBA").resize(
+                (pw, ph), Image.Resampling.LANCZOS
+            )
+        alpha = np.asarray(sprite.getchannel("A"), dtype=np.uint8)
+        prop_mask[py:py + ph, px:px + pw] |= alpha > 12
+
+    x0, y0 = torso_x, torso_y
+    x1, y1 = x0 + torso_pixels.shape[1], y0 + torso_pixels.shape[0]
+    if x0 < 0 or y0 < 0 or x1 > canvas_width or y1 > canvas_height:
+        raise AutoRigError("The torso backplate crop lies outside the character canvas.")
+
+    local_hidden = hidden[y0:y1, x0:x1]
+    local_reference_alpha = reference_canvas[y0:y1, x0:x1, 3]
+    local_reference_rgb = reference_canvas[y0:y1, x0:x1, :3]
+    local_prop_mask = prop_mask[y0:y1, x0:x1]
+    local_visible_torso = original_alpha > 12
+
+    restoration_mask = (
+        local_hidden
+        & (local_reference_alpha >= 240)
+        & local_visible_torso
+        & ~local_prop_mask
+    )
+    restored_pixels = int(restoration_mask.sum())
+    if restored_pixels < 100:
+        raise ManualReviewRequired(
+            f"Only {restored_pixels} hidden torso pixels align with the jacket reference; refusing a weak patch."
+        )
+
+    torso_pixels[restoration_mask, :3] = local_reference_rgb[restoration_mask]
+    if not np.array_equal(torso_pixels[:, :, 3], original_alpha):
+        raise AutoRigError("Torso source-art restoration unexpectedly changed the layer alpha.")
+    if not np.array_equal(
+        torso_pixels[~restoration_mask], original_pixels[~restoration_mask]
+    ):
+        raise AutoRigError("Torso source-art restoration modified pixels outside its approved mask.")
+
+    Image.fromarray(torso_pixels, mode="RGBA").save(
+        torso_path, format="PNG", optimize=True
+    )
+    full_restoration_mask = np.zeros((canvas_height, canvas_width), dtype=np.uint8)
+    full_restoration_mask[y0:y1, x0:x1] = restoration_mask.astype(np.uint8) * 255
+    Image.fromarray(full_restoration_mask, mode="L").save(
+        bundle_dir / "torso-reference-restoration-mask.png",
+        format="PNG",
+        optimize=True,
+    )
+
+    return {
+        "method": "aligned_supplied_jacket_reference_on_exact_hidden_torso_mask",
+        "reference_asset": reference_path.name,
+        "reference_transform": {
+            "x": ref_x, "y": ref_y,
+            "width": ref_width, "height": ref_height,
+            "resampling": "lanczos",
+        },
+        "restoration_mask_asset": "torso-reference-restoration-mask.png",
+        "hidden_overlap_pixels": hidden_count,
+        "reference_covered_hidden_pixels": int(
+            np.count_nonzero(hidden & (reference_canvas[:, :, 3] >= 240))
+        ),
+        "prop_pixels_excluded": int(np.count_nonzero(hidden & prop_mask)),
+        "pixels_restored": restored_pixels,
+        "layer_alpha_preserved": True,
+        "torso_crop_geometry_preserved": True,
+        "hand_forearm_assets_modified": 0,
+        "hand_animation_data_modified": False,
+        "source_pixels_outside_restoration_mask_preserved": True,
+        "visual_review_required": True,
+    }
+
+
 def _build_bow_grip_hand_overlay(
     source: Image.Image,
     bundle_dir: Path,
