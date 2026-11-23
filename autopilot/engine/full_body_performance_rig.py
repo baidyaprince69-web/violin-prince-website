@@ -1465,12 +1465,17 @@ def _build_segmented_source_base(
     # same image, so retaining it fills any small plate-alpha gaps with real
     # illustration pixels instead of a broad inpainted face/neck smear.
     # The moving limbs and props still need their own parent underpaint.
-    source_aligned_cut = moving | bow | violin | head
-    cut = (moving | bow | violin) & (rgba[:, :, 3] > 12)
+    # The violin is fixed to the torso and has an exact source-pixel underlay
+    # in the extended torso plate. Do not erase or inpaint it in this parent
+    # plate: the original pixels remain a clean fallback beneath the prop and
+    # close any mask pinholes without smudged reconstruction.
+    source_aligned_cut = moving | bow | head
+    cut = (moving | bow) & (rgba[:, :, 3] > 12)
     legacy_expanded = _morph(source_aligned_cut, 2, "dilate") & (rgba[:, :, 3] > 12)
     exact_source_union = source_aligned_cut & (rgba[:, :, 3] > 12)
     expanded_halo_pixels_excluded = int(np.count_nonzero(legacy_expanded & ~exact_source_union))
     head_backplate_pixels_preserved = int(np.count_nonzero(head & (rgba[:, :, 3] > 12)))
+    violin_source_pixels_preserved = int(np.count_nonzero(violin & (rgba[:, :, 3] > 12)))
     if int(exact_source_union.sum()) < 1000:
         raise ManualReviewRequired("The complete source-aligned limb/prop/head coverage is unexpectedly small.")
     # Fully transparent pixels may still retain white/striped RGB from the
@@ -1503,7 +1508,9 @@ def _build_segmented_source_base(
         "expanded_halo_pixels_excluded": expanded_halo_pixels_excluded,
         "cutout_boundary_method": "exact_source_aligned_alpha_union",
         "bow_pixels_reconstructed": int((bow & cut).sum()),
-        "violin_pixels_reconstructed": int((violin & cut).sum()),
+        "violin_pixels_reconstructed": 0,
+        "violin_source_underlay_preserved": True,
+        "violin_source_pixels_preserved": violin_source_pixels_preserved,
         "head_pixels_reconstructed": 0,
         "head_backplate_pixels_preserved": head_backplate_pixels_preserved,
         "head_source_backplate_preserved": bool(head_backplate_pixels_preserved > 0),
@@ -1512,7 +1519,7 @@ def _build_segmented_source_base(
         "source_alpha_preserved": True,
         "source_pixels_outside_cut_mask_preserved": True,
         "inpaint": "opencv_telea_radius_5_alpha_aware",
-        "underpaint_quality": "source_aligned_exact_mask_inpaint_no_expanded_halo",
+        "underpaint_quality": "source_aligned_static_violin_preserved_no_violin_inpaint",
         "transparent_source_pixels_excluded_from_inpaint": int((~visible_source).sum()),
         "transparent_rgb_excluded_from_reconstruction": True,
     }
