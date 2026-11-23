@@ -227,7 +227,7 @@ export function buildMusicSynchronizedPerformanceTracks({
         .sort((a, b) => b.start - a.start);
       return { time, value: releasing.length ? releasing[0].amplitude * 0.24 : 0 };
     });
-    return makeTrack(prefix + "-part-" + name, points);
+    return makeTrack(String(targetPrefix) + "-part-" + name, points);
   });
 
   // Gentle lower-body counterbalance keeps the player grounded; it is weight transfer,
