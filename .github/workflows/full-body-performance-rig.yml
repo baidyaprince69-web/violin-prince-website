@@ -120,6 +120,10 @@ jobs:
           assert base.get("source_alpha_preserved") is True, report
           assert base.get("source_pixels_outside_cut_mask_preserved") is True, report
           assert base.get("inpaint") == "opencv_telea_radius_5_alpha_aware", report
+          assert base.get("cutout_mask_dilation_px") == 0, report
+          assert base.get("cutout_boundary_method") == "exact_source_aligned_alpha_union", report
+          assert base.get("expanded_halo_pixels_excluded", 0) > 0, report
+          assert base.get("underpaint_quality") == "source_aligned_exact_mask_inpaint_no_expanded_halo", report
           assert base.get("transparent_rgb_excluded_from_reconstruction") is True, report
           assert base.get("transparent_source_pixels_excluded_from_inpaint", 0) > 100000, report
           assert base.get("pixels_cut_from_source", 0) > 25000, report

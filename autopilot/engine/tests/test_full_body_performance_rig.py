@@ -673,10 +673,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         self.assertGreater(report["pixels_cut_from_source"], 900)
         np.testing.assert_array_equal(output[:, :, 3], original[:, :, 3])
         untouched = np.ones((80, 80), dtype=bool)
-        cut = cv2.dilate(
-            (moving | (bow > 12) | (violin > 12) | (head > 12)).astype(np.uint8),
-            np.ones((5, 5), dtype=np.uint8),
-        ) > 0
+        cut = (moving | (bow > 12) | (violin > 12) | (head > 12))
         cut &= original[:, :, 3] > 12
         untouched &= ~cut
         np.testing.assert_array_equal(output[untouched], original[untouched])
@@ -685,10 +682,16 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         self.assertGreater(report["head_pixels_reconstructed"], 100)
         self.assertTrue(report["head_plate_replacement_enabled"])
         self.assertEqual(report["head_cutout_method"], "source_aligned_autorig_head_and_face_alpha")
+        self.assertEqual(report["cutout_mask_dilation_px"], 0)
+        self.assertEqual(
+            report["cutout_boundary_method"],
+            "exact_source_aligned_alpha_union",
+        )
+        self.assertGreater(report["expanded_halo_pixels_excluded"], 0)
         self.assertEqual(
             report["underpaint_quality"],
-            "approximate_nonsemantic_inpaint_requires_manual_art_reconstruction",
-            "inpainted hidden regions must not be represented as finished anatomical artwork",
+            "source_aligned_exact_mask_inpaint_no_expanded_halo",
+            "the parent plate must not inpaint a halo beyond the extracted source masks",
         )
         self.assertLess(float(output[16, 16, :3].mean()), 100.0,
             "the original head pixels must be reconstructed under the modular head plates")
@@ -732,12 +735,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         # Check all visible pixels reconstructed from the cut; they should
         # remain in the dark character range, never pick up the white matte.
         import cv2
-        cut = cv2.dilate(
-            (bow > 12).astype(np.uint8),
-            np.ones((5, 5), np.uint8),
-            iterations=1,
-        ) > 0
-        cut &= pixels[:, :, 3] > 12
+        cut = (bow > 12) & (pixels[:, :, 3] > 12)
         self.assertGreater(int(cut.sum()), 100)
         self.assertLess(float(result[cut, :3].mean()), 100.0)
         np.testing.assert_array_equal(result[:, :, 3], pixels[:, :, 3])

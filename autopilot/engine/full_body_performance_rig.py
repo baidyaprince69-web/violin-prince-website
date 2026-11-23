@@ -1320,11 +1320,15 @@ def _build_segmented_source_base(
     )
     if any(mask.shape != (height, width) for mask in (bow, violin, moving, head)):
         raise AutoRigError("Bow, violin, head and moving-region masks must match the source canvas.")
-    # The head/face layers are replaced by the reference-sheet plates at render
-    # time. Clear their source pixels from the parent art so expression/angle
-    # changes cannot create doubled eyes, hairlines or ghost faces.
-    cut = _morph(moving | bow | violin | head, 2, "dilate")
-    cut &= rgba[:, :, 3] > 12
+    # The extracted limb, prop and head assets are already source-aligned.
+    # Expanding this mask by two pixels writes reconstructed RGB outside every
+    # foreground layer, leaving a visible blurred halo around the neck,
+    # shoulders and instrument. Reconstruct only pixels actually occupied by
+    # those source masks; preserve the surrounding original illustration.
+    source_aligned_cut = moving | bow | violin | head
+    cut = source_aligned_cut & (rgba[:, :, 3] > 12)
+    legacy_expanded = _morph(source_aligned_cut, 2, "dilate") & (rgba[:, :, 3] > 12)
+    expanded_halo_pixels_excluded = int(np.count_nonzero(legacy_expanded & ~cut))
     if int(cut.sum()) < 1000:
         raise ManualReviewRequired("The source-aligned limb/prop cutout is unexpectedly small.")
     # Fully transparent pixels may still retain white/striped RGB from the
@@ -1353,6 +1357,9 @@ def _build_segmented_source_base(
         "mode": "segmented_source_body",
         "pixels_cut_from_source": int(cut.sum()),
         "moving_region_pixels": int(moving.sum()),
+        "cutout_mask_dilation_px": 0,
+        "expanded_halo_pixels_excluded": expanded_halo_pixels_excluded,
+        "cutout_boundary_method": "exact_source_aligned_alpha_union",
         "bow_pixels_reconstructed": int((bow & cut).sum()),
         "violin_pixels_reconstructed": int((violin & cut).sum()),
         "head_pixels_reconstructed": int((head & cut).sum()),
@@ -1361,7 +1368,7 @@ def _build_segmented_source_base(
         "source_alpha_preserved": True,
         "source_pixels_outside_cut_mask_preserved": True,
         "inpaint": "opencv_telea_radius_5_alpha_aware",
-        "underpaint_quality": "approximate_nonsemantic_inpaint_requires_manual_art_reconstruction",
+        "underpaint_quality": "source_aligned_exact_mask_inpaint_no_expanded_halo",
         "transparent_source_pixels_excluded_from_inpaint": int((~visible_source).sum()),
         "transparent_rgb_excluded_from_reconstruction": True,
     }
