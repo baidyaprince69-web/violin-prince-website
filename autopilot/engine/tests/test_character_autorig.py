@@ -223,6 +223,35 @@ class CharacterAutoRigTests(unittest.TestCase):
             self.assertTrue(0 <= point["y"] <= 1)
         self.assertTrue(report["needs_visual_review"])
 
+    def test_exports_exact_hidden_overlap_mask_when_requested(self):
+        import tempfile
+        from pathlib import Path
+
+        body, body_conf, detail, detail_conf = self.synthetic_maps()
+        image = Image.new("RGB", (160, 112), (30, 30, 36))
+        with tempfile.TemporaryDirectory() as folder:
+            mask_path = Path(folder) / "torso-hidden-overlap-mask.png"
+            _masks, _repaired, report, _joints = separate_from_parsing(
+                image, body, body_conf, detail, detail_conf,
+                hand_fraction=0.62,
+                max_local_inpaint_ratio=0.12,
+                hidden_mask_path=mask_path,
+            )
+            self.assertTrue(mask_path.is_file())
+            with Image.open(mask_path) as opened:
+                exported = np.asarray(opened.convert("L"), dtype=np.uint8) > 0
+            self.assertEqual(exported.shape, (112, 160))
+            self.assertGreater(int(exported.sum()), 0)
+            self.assertEqual(
+                int(exported.sum()),
+                report["hidden_area_reconstruction"]["pixels_reconstructed"],
+            )
+            self.assertEqual(
+                report["hidden_area_reconstruction"]["mask_asset"],
+                "torso-hidden-overlap-mask.png",
+            )
+            self.assertTrue(report["hidden_area_reconstruction"]["mask_saved"])
+
     def test_coarse_arm_side_fallback_when_atr_detects_only_one_side(self):
         body, body_conf, detail, detail_conf = self.synthetic_maps()
         detail[39:58, 102:142] = 0
