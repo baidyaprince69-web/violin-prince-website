@@ -112,6 +112,8 @@ jobs:
           import json
           from pathlib import Path
           report = json.loads(Path("work/full-body-rig/bundle/full-body-performance-report.json").read_text())
+          character = json.loads(Path("work/full-body-rig/bundle/character.json").read_text())
+          performance = character.get("performance", {})
           base = report.get("composite_base", {})
           limbs = report.get("limb_report", {})
           assert base.get("mode") == "segmented_source_body", report
@@ -149,8 +151,8 @@ jobs:
           assert report.get("finger_segment_count") == 12, report
           assert report.get("finger_digit_count") == 4, report
           assert report.get("finger_joint_count") == 12, report
-          assert len(report.get("fingering_segment_roles", [])) == 12, report
-          assert len(report.get("fingering_parts", [])) == 4, report
+          assert len(performance.get("fingering_segment_roles", [])) == 12, performance
+          assert len(performance.get("fingering_parts", [])) == 4, performance
           hand_cleanup = report.get("violin_hand_overlap_cleanup", {})
           assert hand_cleanup.get("pixels_removed", 0) > 100, report
           assert hand_cleanup.get("method") == "source_hand_alpha_cutout_plus_one_pixel_seam", report
