@@ -336,12 +336,18 @@ jobs:
         working-directory: work/full-body-rig/composition
         run: $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes lint
 
-      - name: Install bundled FFmpeg for preview rendering and contact sheet
+      - name: Install bundled FFmpeg and FFprobe for preview rendering
         run: |
-          python -m pip install --disable-pip-version-check "imageio-ffmpeg>=0.4.9,<1"
-          FFMPEG_EXE="$(python -c 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())')"
-          echo "$(dirname "$FFMPEG_EXE")" >> "$GITHUB_PATH"
-          "$FFMPEG_EXE" -version | head -n 1
+          TOOLS_DIR="$RUNNER_TEMP/media-tools"
+          mkdir -p "$TOOLS_DIR"
+          npm install --prefix "$TOOLS_DIR" --no-save --no-package-lock ffmpeg-static ffprobe-static
+          FFMPEG_EXE="$(node -p "require('$TOOLS_DIR/node_modules/ffmpeg-static')")"
+          FFPROBE_EXE="$(node -p "require('$TOOLS_DIR/node_modules/ffprobe-static').path")"
+          ln -sf "$FFMPEG_EXE" "$TOOLS_DIR/ffmpeg"
+          ln -sf "$FFPROBE_EXE" "$TOOLS_DIR/ffprobe"
+          echo "$TOOLS_DIR" >> "$GITHUB_PATH"
+          "$TOOLS_DIR/ffmpeg" -version | head -n 1
+          "$TOOLS_DIR/ffprobe" -version | head -n 1
 
       - name: Render the non-publishing full-body performance preview
         working-directory: work/full-body-rig/composition
