@@ -49,7 +49,9 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             Image.fromarray(hidden, mode="L").save(
                 root / "torso-hidden-overlap-mask.png"
             )
-            Image.fromarray(hidden, mode="L").save(
+            moving = np.zeros((40, 40), dtype=np.uint8)
+            moving[4:36, 4:36] = 255
+            Image.fromarray(moving, mode="L").save(
                 root / "full-body-moving-mask.png"
             )
 
