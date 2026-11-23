@@ -80,6 +80,59 @@ const project = {
   characters: [character]
 };
 
+test("source texture meshes deform continuously and joint caps follow both parent and child chains", () => {
+  const meshProject = structuredClone(project);
+  const meshCharacter = meshProject.characters[0];
+  const byRole = new Map(meshCharacter.layers.map(layer => [layer.role, layer]));
+  byRole.get("torso").mesh_deformation = {
+    profile: "torso", driver_role: "torso",
+    axis_start: [0.3, 0.08], axis_end: [0.55, 0.94],
+    influence: "center", columns: 2, rows: 2,
+    max_angle_deg: 1.2, max_displacement_px: 2.4
+  };
+  byRole.get("left_upper_arm").mesh_deformation = {
+    profile: "limb_joint", driver_role: "left_upper_arm",
+    axis_start: [0.8, 0.2], axis_end: [0.2, 0.8],
+    influence: "distal", columns: 2, rows: 4,
+    max_angle_deg: 5, max_displacement_px: 2.8
+  };
+  meshCharacter.layers.push({
+    id: "joint_surface_left_elbow",
+    role: "joint_surface_left_elbow",
+    src: "joint_surface_left_elbow.png",
+    x: 16, y: 20, width: 48, height: 48,
+    pivot_x: 0.5, pivot_y: 0.5, z_index: 33,
+    joint_surface: {
+      joint: "left_elbow",
+      parent_role: "left_upper_arm",
+      child_role: "left_forearm",
+      blend_weight: 0.5
+    }
+  });
+
+  const tracks = compileMotionTracks(meshProject, { fps: 25 });
+  const find = target => tracks.find(track =>
+    track.target === target && track.property === "transform"
+  );
+  const torsoMesh = tracks.filter(track =>
+    track.target.startsWith("playing-violin-prince-part-torso-mesh-triangle-")
+  );
+  const upperArmMesh = tracks.filter(track =>
+    track.target.startsWith("playing-violin-prince-part-left_upper_arm-mesh-triangle-")
+  );
+  assert.equal(torsoMesh.length, 8);
+  assert.equal(upperArmMesh.length, 16);
+  assert.ok(torsoMesh.some(track => track.values.some(value => value !== track.values[0])),
+    "torso triangle vertices must receive changing frame-sampled affine transforms");
+  assert.ok(upperArmMesh.some(track => track.values.some(value => value !== track.values[0])),
+    "limb surface must deform in addition to its parent rotation");
+  const jointTrack = find("playing-violin-prince-part-joint_surface_left_elbow");
+  assert.ok(jointTrack, "joint cap must receive its own parent/child blended transform track");
+  assert.ok(jointTrack.values.some(value => value !== jointTrack.values[0]));
+  assert.ok(!meshCharacter.layers.find(layer => layer.role === "left_hand").mesh_deformation);
+  assert.ok(!meshCharacter.layers.find(layer => layer.role === "finger_index").mesh_deformation);
+});
+
 test("music-synchronized performance keyframes follow beat and onset timestamps", () => {
   const tracks = buildMusicSynchronizedPerformanceTracks({
     targetPrefix: "playing-violin-prince",
