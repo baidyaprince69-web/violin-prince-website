@@ -686,6 +686,68 @@ function deformSourceMeshVertices(layer, specification, grid, angleDegrees) {
   });
 }
 
+function invertAffineMatrix(matrix) {
+  const determinant = matrix.a * matrix.d - matrix.b * matrix.c;
+  if (Math.abs(determinant) < 1e-9) {
+    throw new TypeError("A joint-surface outer transform is not invertible.");
+  }
+  return {
+    a: matrix.d / determinant,
+    b: -matrix.b / determinant,
+    c: -matrix.c / determinant,
+    d: matrix.a / determinant,
+    e: (matrix.c * matrix.f - matrix.d * matrix.e) / determinant,
+    f: (matrix.b * matrix.e - matrix.a * matrix.f) / determinant
+  };
+}
+
+function deformJointSurfaceVertices(
+  layer, surface, grid, parentWorld, childWorld, outerWorld, sourceWidth, sourceHeight
+) {
+  const start = surface.blend_axis_start.map(Number);
+  const end = surface.blend_axis_end.map(Number);
+  const ax = start[0] * sourceWidth;
+  const ay = start[1] * sourceHeight;
+  const dx = (end[0] - start[0]) * sourceWidth;
+  const dy = (end[1] - start[1]) * sourceHeight;
+  const axisLengthSquared = dx * dx + dy * dy;
+  if (axisLengthSquared < 1) {
+    throw new TypeError("A joint-surface blend axis is too short for deformation.");
+  }
+  const inverseOuter = invertAffineMatrix(outerWorld);
+  const xOffset = Number(layer.x || 0);
+  const yOffset = Number(layer.y || 0);
+  const smoothStep = (value, low, high) => {
+    const t = Math.max(0, Math.min(1, (value - low) / (high - low)));
+    return t * t * (3 - 2 * t);
+  };
+
+  return grid.vertices.map(point => {
+    const sourcePoint = {
+      x: xOffset + point.x,
+      y: yOffset + point.y
+    };
+    const projection = (
+      (sourcePoint.x - ax) * dx +
+      (sourcePoint.y - ay) * dy
+    ) / axisLengthSquared;
+    // The proximal half follows the parent; the distal half follows the child.
+    // Smoothstep keeps position and first derivative continuous through the joint.
+    const blend = smoothStep(projection, 0.2, 0.8);
+    const parentPoint = transformPoint(parentWorld, sourcePoint);
+    const childPoint = transformPoint(childWorld, sourcePoint);
+    const deformedWorld = {
+      x: parentPoint.x + (childPoint.x - parentPoint.x) * blend,
+      y: parentPoint.y + (childPoint.y - parentPoint.y) * blend
+    };
+    const localPoint = transformPoint(inverseOuter, deformedWorld);
+    return {
+      x: localPoint.x - xOffset,
+      y: localPoint.y - yOffset
+    };
+  });
+}
+
 function addHierarchicalTransformTracks(project, sourceTracks, fps) {
   const transformTracks = [];
   const width = Math.max(1, Number(project.width) || 720);
@@ -1029,10 +1091,22 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
 
         for (const definition of meshDefinitions) {
           const { layer, specification, grid } = definition;
-          const driverAngle = localAngle(String(specification.driver_role), time);
-          const deformedVertices = deformSourceMeshVertices(
-            layer, specification, grid, driverAngle
-          );
+          let deformedVertices;
+          if (String(specification.profile || "") === "joint_surface") {
+            const surface = layer.joint_surface || {};
+            const parentWorld = worldByRole[String(surface.parent_role)] || torsoWorld;
+            const childWorld = worldByRole[String(surface.child_role)] || parentWorld;
+            const outerWorld = worldByRole[layer.role] || parentWorld;
+            deformedVertices = deformJointSurfaceVertices(
+              layer, surface, grid, parentWorld, childWorld, outerWorld,
+              sourceWidth, sourceHeight
+            );
+          } else {
+            const driverAngle = localAngle(String(specification.driver_role), time);
+            deformedVertices = deformSourceMeshVertices(
+              layer, specification, grid, driverAngle
+            );
+          }
           const triangleSamples = sampledMeshTriangleMatrices.get(layer.role);
           grid.triangles.forEach((triangle, triangleIndex) => {
             const sourceTriangle = triangle.map(index => grid.vertices[index]);
