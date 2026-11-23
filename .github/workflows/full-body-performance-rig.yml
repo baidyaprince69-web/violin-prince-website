@@ -336,14 +336,12 @@ jobs:
         working-directory: work/full-body-rig/composition
         run: $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes lint
 
-      - name: Ensure FFmpeg is available for preview rendering and contact sheet
+      - name: Install bundled FFmpeg for preview rendering and contact sheet
         run: |
-          if command -v ffmpeg >/dev/null 2>&1; then
-            ffmpeg -version | head -n 1
-          else
-            sudo apt-get update
-            sudo apt-get install -y ffmpeg
-          fi
+          python -m pip install --disable-pip-version-check "imageio-ffmpeg>=0.4.9,<1"
+          FFMPEG_EXE="$(python -c 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())')"
+          echo "$(dirname "$FFMPEG_EXE")" >> "$GITHUB_PATH"
+          "$FFMPEG_EXE" -version | head -n 1
 
       - name: Render the non-publishing full-body performance preview
         working-directory: work/full-body-rig/composition
