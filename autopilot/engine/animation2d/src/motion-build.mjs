@@ -112,17 +112,20 @@ export function buildMusicSynchronizedPerformanceTracks({
 
   const isDownbeat = time => bars.some(value => Math.abs(value - time) < 0.025);
   const beatDelay = Math.min(0.08, period * 0.12);
+  // Counter-rotate the shoulder, elbow and wrist so the grip traces a shallow
+  // path along the strings while the bow keeps a stable angle in the hand.
+  // The screen-left joint labels represent the player's anatomical right arm.
   const bowShoulderStrokes = beats.map((time, index) => ({
     time: time + beatDelay,
-    value: (index % 2 === 0 ? -1 : 1) * (isDownbeat(time) ? 2.1 : 1.5)
+    value: (index % 2 === 0 ? -1 : 1) * (isDownbeat(time) ? 7.0 : 6.0)
   }));
   const bowElbowStrokes = beats.map((time, index) => ({
     time: time + beatDelay,
-    value: (index % 2 === 0 ? -1 : 1) * (isDownbeat(time) ? 6.1 : 5.1)
+    value: (index % 2 === 0 ? 1 : -1) * (isDownbeat(time) ? 0.6 : 0.5)
   }));
   const bowWristStrokes = beats.map((time, index) => ({
     time: time + beatDelay,
-    value: (index % 2 === 0 ? 1 : -1) * (isDownbeat(time) ? 2.2 : 1.8)
+    value: (index % 2 === 0 ? 1 : -1) * (isDownbeat(time) ? 6.4 : 5.5)
   }));
 
   const torsoPulses = [];
