@@ -849,6 +849,118 @@ def _authored_performance_layers(
     return layers, joints, report, moving_union
 
 
+def _restore_bow_hair_in_prop_asset(
+    source: Image.Image,
+    bundle_dir: Path,
+    bow_specification: dict[str, Any],
+    bow_canvas_alpha: np.ndarray,
+) -> dict[str, Any]:
+    """Move the pale bow-hair strand into the same animated sprite as its stick.
+
+    The source illustration contains both the wooden bow stick and a separate
+    near-white hair strand. The existing extracted prop only captured the
+    stick, leaving the hair baked into static torso pixels. Extract the largest
+    bright neutral component in a narrow band beside the stick, add those exact
+    source pixels to the bow sprite, and extend the source-clear mask so both
+    parts receive identical transforms at render time.
+    """
+    try:
+        import cv2
+    except ImportError as exc:
+        raise AutoRigError("OpenCV is required to separate the pale bow-hair strand.") from exc
+
+    source_rgba = source.convert("RGBA")
+    source_pixels = np.asarray(source_rgba, dtype=np.uint8)
+    height, width = source_pixels.shape[:2]
+    bow_mask = np.asarray(bow_canvas_alpha, dtype=np.uint8) > 12
+    if bow_mask.shape != (height, width):
+        raise AutoRigError("The bow mask must match the source canvas.")
+
+    x, y = int(round(float(bow_specification["x"]))), int(round(float(bow_specification["y"])))
+    prop_path = bundle_dir / str(bow_specification["src"])
+    if not prop_path.is_file():
+        raise AutoRigError(f"Missing extracted bow sprite: {prop_path.name}")
+    with Image.open(prop_path) as opened:
+        bow_sprite = opened.convert("RGBA")
+    sprite_width, sprite_height = bow_sprite.size
+    if x < 0 or y < 0 or x + sprite_width > width or y + sprite_height > height:
+        raise ManualReviewRequired("The bow sprite does not fit the full-body source coordinate frame.")
+
+    source_crop = source_rgba.crop((x, y, x + sprite_width, y + sprite_height))
+    local_rgb = source_pixels[y:y + sprite_height, x:x + sprite_width, :3].astype(np.int16)
+    local_alpha = source_pixels[y:y + sprite_height, x:x + sprite_width, 3]
+    local_bow = bow_mask[y:y + sprite_height, x:x + sprite_width]
+
+    distance = cv2.distanceTransform(
+        (~bow_mask).astype(np.uint8),
+        cv2.DIST_L2,
+        5,
+    )[y:y + sprite_height, x:x + sprite_width]
+    luminance = local_rgb.mean(axis=2)
+    channel_spread = local_rgb.max(axis=2) - local_rgb.min(axis=2)
+    candidates = (
+        (local_alpha > 12)
+        & ~local_bow
+        & (distance >= 1.0)
+        & (distance <= 6.0)
+        & (luminance >= 150.0)
+        & (channel_spread <= 90)
+    )
+
+    component_count, labels, stats, _centroids = cv2.connectedComponentsWithStats(
+        candidates.astype(np.uint8),
+        8,
+    )
+    if component_count <= 1:
+        raise ManualReviewRequired("No separate bright bow-hair strand was found beside the bow stick.")
+    largest_index = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
+    hair_pixels = int(stats[largest_index, cv2.CC_STAT_AREA])
+    if hair_pixels < 250:
+        raise ManualReviewRequired(
+            f"The extracted bow-hair component is too small ({hair_pixels} pixels)."
+        )
+    hair_mask = labels == largest_index
+    ys, xs = np.where(hair_mask)
+    hair_bbox = [
+        int(xs.min()) + x,
+        int(ys.min()) + y,
+        int(xs.max()) + x + 1,
+        int(ys.max()) + y + 1,
+    ]
+
+    hair_pixels_rgba = np.zeros_like(np.asarray(bow_sprite, dtype=np.uint8))
+    hair_pixels_rgba[hair_mask] = np.asarray(source_crop, dtype=np.uint8)[hair_mask]
+    hair_layer = Image.fromarray(hair_pixels_rgba, mode="RGBA")
+    combined = Image.alpha_composite(bow_sprite, hair_layer)
+
+    destination = bundle_dir / "prop-bow-with-hair.png"
+    combined.save(destination, format="PNG", optimize=True)
+
+    # Extend the source-coordinate mask with the recovered hair so static
+    # plates, underpaint and limb extraction all remove the same original pixels.
+    updated_mask = np.asarray(bow_canvas_alpha, dtype=np.uint8).copy()
+    local_updated = updated_mask[y:y + sprite_height, x:x + sprite_width]
+    local_updated[hair_mask] = np.maximum(
+        local_updated[hair_mask],
+        local_alpha[hair_mask],
+    )
+    if not np.array_equal(updated_mask[:, :], np.maximum(updated_mask, 0)):
+        raise AutoRigError("The recovered bow-hair mask became invalid.")
+
+    return {
+        "method": "largest_neutral_source_component_recovered_into_animated_bow",
+        "src": destination.name,
+        "pixels_added": hair_pixels,
+        "candidate_pixels": int(candidates.sum()),
+        "selected_component_count": 1,
+        "hair_bbox": hair_bbox,
+        "source_alpha_preserved": True,
+        "shared_bow_transform": True,
+        "source_mask_extended": True,
+        "review_required": True,
+    }, updated_mask
+
+
 def _remove_embedded_props_from_static_layers(
     bundle_dir: Path,
     character: dict[str, Any],
@@ -1233,20 +1345,33 @@ def extend_full_body_character(
             "attach_to": props[prop_id]["attach_to"],
         }
 
-    # Remove source-baked instrument pixels from semantic static layers. The
-    # separate violin/bow sprites are the only prop instances used at render time.
-    static_layer_prop_cleanup = _remove_embedded_props_from_static_layers(
-        bundle,
-        character,
-        prop_masks,
-    )
-
     # Recolour inherited neutral backdrop spill through a narrow distance band.
     # Instrument pixels are protected; alpha and silhouette geometry stay intact.
     source, edge_decontamination = _decontaminate_edge_matte_rgb(
         source,
         protected_masks=tuple(prop_masks.values()),
     )
+
+    # The extracted bow sprite contains its dark wooden stick but not the
+    # original source's pale hair strand. Recover that strand and composite it
+    # into the same sprite before clearing the source-baked prop from static art.
+    bow_hair_restoration, prop_masks["bow"] = _restore_bow_hair_in_prop_asset(
+        source,
+        bundle,
+        props["bow"],
+        prop_masks["bow"],
+    )
+    props["bow"]["src"] = bow_hair_restoration["src"]
+    prop_report["bow"]["src"] = bow_hair_restoration["src"]
+
+    # Remove source-baked violin, bow stick and bow hair from semantic static
+    # layers. The separate animated prop sprites are the only render instances.
+    static_layer_prop_cleanup = _remove_embedded_props_from_static_layers(
+        bundle,
+        character,
+        prop_masks,
+    )
+
     clean_source_path = bundle / "preserved-full-body-source.png"
     source.save(clean_source_path, format="PNG", optimize=True)
 
@@ -1349,6 +1474,7 @@ def extend_full_body_character(
         "joint_additions": sorted(limb_joints.keys() | finger_joints.keys()),
         "limb_report": limb_report,
         "source_edge_color_decontamination": edge_decontamination,
+        "bow_hair_restoration": bow_hair_restoration,
         "static_layer_prop_cleanup": static_layer_prop_cleanup,
         "violin_hand_overlap_cleanup": violin_hand_cleanup,
         "finger_pixel_areas": finger_areas,
