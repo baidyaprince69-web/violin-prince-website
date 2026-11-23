@@ -286,6 +286,8 @@ jobs:
           assert report.get("animated_full_body_part_count") == 6, report
           assert report.get("animated_limb_segment_count") == 12, report
           assert report.get("animated_fingering_control_count") == 4, report
+          assert report.get("animated_finger_segment_count") == 12, report
+          assert scene.get("animated_finger_segments") == 12, scene
           assert report.get("animated_instrument_prop_count") == 2, report
           assert scene.get("full_body_visual_mode") == "segmented_source_body", scene
           print(json.dumps({
@@ -294,6 +296,7 @@ jobs:
               "independent_limb_segments": report["animated_limb_segment_count"],
               "preserved_composite_bases": report["preserved_composite_base_count"],
               "finger_controls": report["animated_fingering_control_count"],
+              "finger_phalanx_segments": report["animated_finger_segment_count"],
               "instrument_props": report["animated_instrument_prop_count"],
               "motion_tracks": report["total_motion_tracks"],
           }, indent=2))
