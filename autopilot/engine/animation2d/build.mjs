@@ -458,6 +458,7 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
   });
   let animatedFullBodyPartCount = 0;
   let animatedFingeringControlCount = 0;
+  let animatedFingerSegmentCount = 0;
   let animatedInstrumentPropCount = 0;
   let preservedCompositeBaseCount = 0;
   let animatedLimbSegmentCount = 0;
@@ -470,6 +471,9 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     const requiredFingers = [
       "finger_index", "finger_middle", "finger_ring", "finger_little"
     ];
+    const requiredFingerSegments = requiredFingers.flatMap(role => [
+      role, role + "_middle", role + "_tip"
+    ]);
     const articulatedArmRoles = [
       "left_upper_arm", "left_forearm", "left_hand",
       "right_upper_arm", "right_forearm", "right_hand"
@@ -504,7 +508,7 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
         (character.layers || []).find((layer) => layer.role === role).id;
       const track = project.motion_tracks.find((item) =>
         item.target === target && item.property === "transform" &&
-        item.values.some((value) => value !== item.values[0])
+        item.values.some(value => value !== item.values[0])
       );
       if (!track) {
         throw new Error("Scene " + scene.id + " full-body performance part " + role +
@@ -512,6 +516,22 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
       }
       if (requiredLegs.includes(role)) animatedFullBodyPartCount += 1;
       if (requiredFingers.includes(role)) animatedFingeringControlCount += 1;
+    }
+    for (const role of requiredFingerSegments) {
+      if (!roleSet.has(role)) {
+        throw new Error("Scene " + scene.id + " fretting hand is missing phalanx layer " + role + ".");
+      }
+      const layer = (character.layers || []).find(item => item.role === role);
+      const target = scene.id + "-" + character.id + "-part-" + layer.id;
+      const track = project.motion_tracks.find(item =>
+        item.target === target && item.property === "transform" &&
+        item.values.some(value => value !== item.values[0])
+      );
+      if (!track) {
+        throw new Error("Scene " + scene.id + " fretting phalanx " + role +
+          " has no changing frame-seekable transform track.");
+      }
+      animatedFingerSegmentCount += 1;
     }
     const requiredProps = compositeBaseMode ? ["violin", "bow"] : ["violin", "bow"];
     for (const propId of requiredProps) {
@@ -635,6 +655,7 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     full_body_performance_character_count: fullBodyPerformanceCharacters.length,
     animated_full_body_parts: animatedFullBodyPartCount,
     animated_fingering_controls: animatedFingeringControlCount,
+    animated_finger_segments: animatedFingerSegmentCount,
     animated_instrument_props: animatedInstrumentPropCount,
     preserved_composite_base_count: preservedCompositeBaseCount,
     animated_limb_segment_count: animatedLimbSegmentCount || 0,
@@ -661,6 +682,7 @@ const motionReport = {
   full_body_performance_scene_count: motionSceneReports.filter((scene) => scene.full_body_performance_character_count > 0).length,
   animated_full_body_part_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_full_body_parts, 0),
   animated_fingering_control_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_fingering_controls, 0),
+  animated_finger_segment_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_finger_segments, 0),
   animated_instrument_prop_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_instrument_props, 0),
   preserved_composite_base_count: motionSceneReports.reduce((sum, scene) => sum + scene.preserved_composite_base_count, 0),
   animated_limb_segment_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_limb_segment_count, 0),
