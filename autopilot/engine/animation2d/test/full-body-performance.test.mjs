@@ -299,7 +299,12 @@ test("intact full-body composite keeps limbs together while bow and fingers anim
   assert.ok(bowHand, "the original bow-grip hand remains aligned above the bow");
   assert.ok(bowHand.values.some(value => value !== bowHand.values[0]));
 
-  for (const role of ["finger_index", "finger_middle", "finger_ring", "finger_little"]) {
+  for (const role of [
+    "finger_index", "finger_index_middle", "finger_index_tip",
+    "finger_middle", "finger_middle_middle", "finger_middle_tip",
+    "finger_ring", "finger_ring_middle", "finger_ring_tip",
+    "finger_little", "finger_little_middle", "finger_little_tip"
+  ]) {
     const track = findTrack("playing-violin-prince-part-" + role);
     assert.ok(track, role + " retains its own transform track");
     assert.ok(track.values.some(value => value !== track.values[0]));
@@ -351,7 +356,12 @@ test("segmented source base keeps twelve independent limb/hand layers and the bo
     assert.ok(track.values.some(value => value !== track.values[0]),
       role + " must have changing frame-seekable movement");
   }
-  for (const role of ["finger_index", "finger_middle", "finger_ring", "finger_little"]) {
+  for (const role of [
+    "finger_index", "finger_index_middle", "finger_index_tip",
+    "finger_middle", "finger_middle_middle", "finger_middle_tip",
+    "finger_ring", "finger_ring_middle", "finger_ring_tip",
+    "finger_little", "finger_little_middle", "finger_little_tip"
+  ]) {
     const track = findTrack("playing-violin-prince-part-" + role);
     assert.ok(track, role + " remains an independent fingering layer");
     assert.ok(track.values.some(value => value !== track.values[0]));
