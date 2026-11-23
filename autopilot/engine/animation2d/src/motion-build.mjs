@@ -194,7 +194,7 @@ export function buildMusicSynchronizedPerformanceTracks({
     });
   }
 
-  const fingerTracks = fingerNames.map(name => {
+  const fingerTracks = fingerNames.flatMap(name => {
     const intervals = fingerIntervals[name];
     const boundaries = cleanTimes([
       0, total,
@@ -210,7 +210,18 @@ export function buildMusicSynchronizedPerformanceTracks({
         .sort((a, b) => b.start - a.start);
       return { time, value: releasing.length ? releasing[0].amplitude * 0.24 : 0 };
     });
-    return makeTrack(String(targetPrefix) + "-part-" + name, points);
+    // Preserve the earlier one-sprite curl as an approximate total rotation,
+    // but distribute it across MCP, PIP and DIP joints for a connected finger.
+    const scalePoints = factor => points.map(point => ({
+      time: point.time,
+      value: point.value * factor
+    }));
+    const prefix = String(targetPrefix) + "-part-";
+    return [
+      makeTrack(prefix + name, scalePoints(0.42)),
+      makeTrack(prefix + name + "_middle", scalePoints(0.38)),
+      makeTrack(prefix + name + "_tip", scalePoints(0.20))
+    ];
   });
 
   // Gentle lower-body counterbalance keeps the player grounded; it is weight transfer,
@@ -623,18 +634,27 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
         right_calf: ["torso", "right_thigh", "right_calf"],
         right_foot: ["torso", "right_thigh", "right_calf", "right_foot"],
         finger_index: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_index"],
+        finger_index_middle: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_index", "finger_index_middle"],
+        finger_index_tip: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_index", "finger_index_middle", "finger_index_tip"],
         finger_middle: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_middle"],
+        finger_middle_middle: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_middle", "finger_middle_middle"],
+        finger_middle_tip: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_middle", "finger_middle_middle", "finger_middle_tip"],
         finger_ring: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_ring"],
-        finger_little: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_little"]
+        finger_ring_middle: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_ring", "finger_ring_middle"],
+        finger_ring_tip: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_ring", "finger_ring_middle", "finger_ring_tip"],
+        finger_little: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_little"],
+        finger_little_middle: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_little", "finger_little_middle"],
+        finger_little_tip: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_little", "finger_little_middle", "finger_little_tip"]
       };
       if (compositeBaseMode && !segmentedBodyBaseMode) {
         // Legacy intact-composite preview: only the bow hand and finger sprites
         // are independent while the parser-derived arm and leg masks are reviewed.
         dependencies.left_hand = ["torso"];
-        dependencies.finger_index = ["finger_index"];
-        dependencies.finger_middle = ["finger_middle"];
-        dependencies.finger_ring = ["finger_ring"];
-        dependencies.finger_little = ["finger_little"];
+        for (const name of ["finger_index", "finger_middle", "finger_ring", "finger_little"]) {
+          dependencies[name] = [name];
+          dependencies[name + "_middle"] = [name, name + "_middle"];
+          dependencies[name + "_tip"] = [name, name + "_middle", name + "_tip"];
+        }
       }
 
       const rolesToAnimate = new Set();
@@ -686,10 +706,26 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
       const rightKnee = pivotFor("right_knee", "right_calf");
       const rightAnkle = pivotFor("right_ankle", "right_foot");
       const fingerPivots = {
-        finger_index: pivotFor("right_index_base", "finger_index"),
-        finger_middle: pivotFor("right_middle_base", "finger_middle"),
-        finger_ring: pivotFor("right_ring_base", "finger_ring"),
-        finger_little: pivotFor("right_little_base", "finger_little")
+        finger_index: {
+          base: pivotFor("right_index_base", "finger_index"),
+          pip: pivotFor("right_index_pip", "finger_index_middle"),
+          dip: pivotFor("right_index_dip", "finger_index_tip")
+        },
+        finger_middle: {
+          base: pivotFor("right_middle_base", "finger_middle"),
+          pip: pivotFor("right_middle_pip", "finger_middle_middle"),
+          dip: pivotFor("right_middle_dip", "finger_middle_tip")
+        },
+        finger_ring: {
+          base: pivotFor("right_ring_base", "finger_ring"),
+          pip: pivotFor("right_ring_pip", "finger_ring_middle"),
+          dip: pivotFor("right_ring_dip", "finger_ring_tip")
+        },
+        finger_little: {
+          base: pivotFor("right_little_base", "finger_little"),
+          pip: pivotFor("right_little_pip", "finger_little_middle"),
+          dip: pivotFor("right_little_dip", "finger_little_tip")
+        }
       };
 
       const compositeStaticRoles = segmentedBodyBaseMode ? new Set() : new Set([
@@ -795,11 +831,24 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
           right_calf: rightCalfWorld,
           right_foot: rightFootWorld
         };
-        for (const [role, pivot] of Object.entries(fingerPivots)) {
-          worldByRole[role] = multiplyMatrix(
+        for (const [role, pivots] of Object.entries(fingerPivots)) {
+          const middleRole = role + "_middle";
+          const tipRole = role + "_tip";
+          const baseWorld = multiplyMatrix(
             rightHandWorld,
-            aroundPivot(pivot, localAngle(role, time))
+            aroundPivot(pivots.base, localAngle(role, time))
           );
+          const middleWorld = multiplyMatrix(
+            baseWorld,
+            aroundPivot(pivots.pip, localAngle(middleRole, time))
+          );
+          const tipWorld = multiplyMatrix(
+            middleWorld,
+            aroundPivot(pivots.dip, localAngle(tipRole, time))
+          );
+          worldByRole[role] = baseWorld;
+          worldByRole[middleRole] = middleWorld;
+          worldByRole[tipRole] = tipWorld;
         }
 
         for (const role of rolesToAnimate) {
