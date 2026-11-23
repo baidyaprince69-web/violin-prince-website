@@ -1063,9 +1063,16 @@ def _build_segmented_source_base(
     cut &= rgba[:, :, 3] > 12
     if int(cut.sum()) < 1000:
         raise ManualReviewRequired("The source-aligned limb/prop cutout is unexpectedly small.")
+    # Fully transparent pixels may still retain white/striped RGB from the
+    # original matte. Never allow those pixels to seed inpainting at a cutout
+    # near the silhouette edge: classify them as unknown during reconstruction.
+    # Keep the original alpha plane untouched and copy reconstructed RGB only
+    # into the visible cut region.
+    visible_source = rgba[:, :, 3] > 12
+    reconstruction_mask = cut | ~visible_source
     repaired = cv2.inpaint(
         rgba[:, :, :3],
-        cut.astype(np.uint8) * 255,
+        reconstruction_mask.astype(np.uint8) * 255,
         5,
         cv2.INPAINT_TELEA,
     )
@@ -1086,7 +1093,9 @@ def _build_segmented_source_base(
         "violin_pixels_reconstructed": int((violin & cut).sum()),
         "source_alpha_preserved": True,
         "source_pixels_outside_cut_mask_preserved": True,
-        "inpaint": "opencv_telea_radius_5",
+        "inpaint": "opencv_telea_radius_5_alpha_aware",
+        "transparent_source_pixels_excluded_from_inpaint": int((~visible_source).sum()),
+        "transparent_rgb_excluded_from_reconstruction": True,
     }
 
 
@@ -1239,9 +1248,14 @@ def _build_preserved_composite_base(
     # skin-only hand overlay is then composited above the animated bow.
     bow_clear = _morph(bow_pixels, 3, "dilate")
     rgb = rgba[:, :, :3]
+    # Transparent source pixels can retain the original striped/white matte
+    # RGB. Exclude them as inpainting samples so a cleared bow cannot turn into
+    # a pale reconstruction streak along the presenter.
+    visible_source = rgba[:, :, 3] > 12
+    reconstruction_mask = bow_clear | ~visible_source
     repaired_rgb = cv2.inpaint(
         rgb,
-        bow_clear.astype(np.uint8) * 255,
+        reconstruction_mask.astype(np.uint8) * 255,
         3,
         cv2.INPAINT_TELEA,
     )
