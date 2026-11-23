@@ -308,16 +308,19 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             with Image.open(root / "head.png") as opened:
                 head_after = np.asarray(opened.convert("RGBA"), dtype=np.uint8)
 
-            self.assertGreater(report["layers"]["torso"]["violin_pixels_removed"], 50)
+            self.assertEqual(report["layers"]["torso"]["violin_pixels_removed"], 0)
+            self.assertGreater(
+                report["layers"]["torso"]["violin_backplate_pixels_preserved"], 50
+            )
             self.assertGreater(report["layers"]["torso"]["bow_pixels_removed"], 10)
             self.assertGreater(report["layers"]["head"]["bow_pixels_removed"], 10)
-            self.assertGreater(report["total_pixels_removed"], 100)
+            self.assertGreater(report["total_pixels_removed"], 50)
             self.assertEqual(int(torso_after[5, 5, 3]), 255,
                 "unrelated torso pixels must remain opaque")
             self.assertEqual(int(head_after[2, 2, 3]), 255,
                 "unrelated head pixels must remain opaque")
-            self.assertEqual(int(torso_after[8, 12, 3]), 0,
-                "source violin pixels must be cleared from the static torso plate")
+            self.assertEqual(int(torso_after[8, 12, 3]), 255,
+                "source violin pixels must remain as the clean torso-mounted backplate")
             self.assertEqual(int(torso_after[12, 16, 3]), 0,
                 "source bow pixels must be cleared from the static torso plate")
             self.assertEqual(int(head_after[12, 8, 3]), 0,

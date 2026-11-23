@@ -1187,17 +1187,16 @@ def _remove_embedded_props_from_static_layers(
     character: dict[str, Any],
     prop_masks: dict[str, np.ndarray],
 ) -> dict[str, Any]:
-    """Remove source-baked violin/bow pixels from static head and torso plates.
+    """Remove mobile bow pixels while retaining the torso-mounted violin backplate.
 
-    The original playing reference is a composite: the semantic torso/head
-    plates can contain the original violin and bow even though separate,
-    independently animated prop sprites are also added. Leaving those pixels
-    in the static plates creates a visible second bow/violin in the render.
+    The violin prop is attached to the torso and has no independent movement.
+    Keep its exact source pixels in the static torso plate underneath the
+    separate violin sprite. This source-aligned underlay fills tiny alpha gaps
+    in the extracted prop without leaving Telea-smudged wood/strings visible.
 
-    Remove only the source-aligned prop alpha (plus a one-pixel seam) from
-    static body layers. The cleaned parent plate behind these layers provides
-    the reconstructed body underneath, while the separate props are rendered
-    at their intended depth. Moving limb/hand layers are handled independently.
+    The bow is attached to the moving left hand, so its original baked pixels
+    must still be removed from static plates to prevent a second stationary bow.
+    Moving limb/hand layers are handled independently.
     """
     try:
         import cv2
@@ -1207,11 +1206,12 @@ def _remove_embedded_props_from_static_layers(
     roles_to_clean = {"torso", "head", "face"}
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
     report: dict[str, Any] = {
-        "method": "source_aligned_prop_alpha_removed_from_static_body_plates",
+        "method": "mobile_bow_removed_static_violin_retained_as_torso_underlay",
         "layers": {},
         "total_pixels_removed": 0,
         "automatic_layer_replacement": False,
         "source_alpha_geometry_preserved": True,
+        "violin_backplate_policy": "source_aligned_torso_underlay_behind_attached_violin_prop",
     }
 
     for layer in character.get("layers", []):
@@ -1241,6 +1241,14 @@ def _remove_embedded_props_from_static_layers(
                 )
             expanded = cv2.dilate(local.astype(np.uint8), kernel, iterations=1) > 0
             count = int(np.count_nonzero((alpha > 12) & expanded))
+            if role == "torso" and prop_name == "violin":
+                # This prop is torso-mounted and does not move independently.
+                # Keep the original source pixels underneath it as a crisp
+                # backplate, so alpha gaps reveal the real illustration rather
+                # than reconstructed/inpainted colour smears.
+                role_report["violin_pixels_removed"] = 0
+                role_report["violin_backplate_pixels_preserved"] = count
+                continue
             role_report[f"{prop_name}_pixels_removed"] = count
             remove_union |= expanded
 
