@@ -55,11 +55,18 @@ class CharacterRigContractTests(unittest.TestCase):
             "role": "joint_surface_left_elbow",
             "src": "joint_surface_left_elbow.png",
             "x": 0, "y": 0, "width": 24, "height": 24,
+            "mesh_deformation": {
+                "profile": "joint_surface",
+                "columns": 2,
+                "rows": 2,
+            },
             "joint_surface": {
                 "joint": "left_elbow",
                 "parent_role": "left_upper_arm",
                 "child_role": "left_forearm",
                 "blend_weight": 0.5,
+                "blend_axis_start": [0.35, 0.4],
+                "blend_axis_end": [0.65, 0.6],
             },
         })
         result = validate_character_spec(character)
@@ -68,6 +75,14 @@ class CharacterRigContractTests(unittest.TestCase):
         self.assertEqual(
             by_role["joint_surface_left_elbow"]["joint_surface"]["joint"],
             "left_elbow",
+        )
+        self.assertEqual(
+            by_role["joint_surface_left_elbow"]["mesh_deformation"]["profile"],
+            "joint_surface",
+        )
+        self.assertEqual(
+            by_role["joint_surface_left_elbow"]["joint_surface"]["blend_axis_start"],
+            [0.35, 0.4],
         )
 
     def test_rejects_degenerate_mesh_geometry_and_preserves_valid_layer_mesh_contract(self):
