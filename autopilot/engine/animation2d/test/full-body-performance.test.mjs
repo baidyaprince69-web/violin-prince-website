@@ -365,13 +365,19 @@ test("modular head expressions and angle plates are separately rendered and fram
       track.property === "opacity"
     );
     assert.ok(variantOpacity, "head expression " + name + " has an independent visibility track");
-    assert.equal(variantOpacity.keyframeEasing, "steps(1, end)",
-      "full-head expression plates must switch without overlapping ghost faces");
     if (name === "focused") {
+      assert.ok(variantOpacity, "the selected front expression has a visibility track");
       assert.ok(variantOpacity.values.includes(1) && variantOpacity.values.includes(0));
+      assert.ok(variantOpacity.values.some(value => value > 0 && value < 1),
+        "front expression changes use sampled opacity crossfades");
+      assert.ok(Array.isArray(variantOpacity.offsets));
+      assert.equal(variantOpacity.offsets.length, variantOpacity.values.length);
+      assert.equal(variantOpacity.offsets[0], 0);
+      assert.equal(variantOpacity.offsets.at(-1), 1);
+      assert.equal(variantOpacity.keyframeEasing, undefined);
     } else {
-      assert.ok(variantOpacity.values.every(value => value === 0),
-        "non-selected expression plates stay hidden while the default expression is active");
+      assert.equal(variantOpacity, undefined,
+        "unused expression plates do not receive empty opacity animations");
     }
   }
   for (const name of ["three_quarter", "profile_right", "profile_left"]) {
@@ -385,8 +391,13 @@ test("modular head expressions and angle plates are separately rendered and fram
     );
     assert.ok(opacity, "head angle " + name + " has a frame-seekable swap track");
     assert.ok(opacity.values.includes(1) && opacity.values.includes(0));
-    assert.equal(opacity.keyframeEasing, "steps(1, end)",
-      "full-head angle plates must switch without overlapping ghost faces");
+    assert.ok(opacity.values.some(value => value > 0 && value < 1),
+      "head angle changes use sampled opacity crossfades");
+    assert.ok(Array.isArray(opacity.offsets));
+    assert.equal(opacity.offsets.length, opacity.values.length);
+    assert.equal(opacity.offsets[0], 0);
+    assert.equal(opacity.offsets.at(-1), 1);
+    assert.equal(opacity.keyframeEasing, undefined);
   }
 });
 
@@ -409,14 +420,23 @@ test("head expression sequence switches plates independently of head-angle seque
     const opacity = find("playing-violin-prince-head-variant-" + name, "opacity");
     assert.ok(opacity, name + " expression gets an independent live visibility track");
     assert.ok(opacity.values.includes(1) && opacity.values.includes(0));
-    assert.equal(opacity.keyframeEasing, "steps(1, end)");
+    assert.ok(opacity.values.some(value => value > 0 && value < 1),
+      name + " expression should blend through intermediate opacity values");
+    assert.ok(Array.isArray(opacity.offsets));
+    assert.equal(opacity.offsets.length, opacity.values.length);
+    assert.equal(opacity.offsets[0], 0);
+    assert.equal(opacity.offsets.at(-1), 1);
+    assert.equal(opacity.keyframeEasing, undefined);
     assert.equal(opacity.duration, 4);
   }
   for (const name of ["three_quarter", "profile_left"]) {
     const opacity = find("playing-violin-prince-head-angle-" + name, "opacity");
     assert.ok(opacity, name + " head angle retains its own visibility track");
     assert.ok(opacity.values.includes(1) && opacity.values.includes(0));
-    assert.equal(opacity.keyframeEasing, "steps(1, end)");
+    assert.ok(opacity.values.some(value => value > 0 && value < 1));
+    assert.ok(Array.isArray(opacity.offsets));
+    assert.equal(opacity.offsets.length, opacity.values.length);
+    assert.equal(opacity.keyframeEasing, undefined);
   }
 });
 
