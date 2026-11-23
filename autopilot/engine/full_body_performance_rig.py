@@ -324,7 +324,7 @@ def _prepare_fingers(
             ) / axis_length_squared
             # Small duplicated seam bands prevent cracks between phalanges
             # when adjacent pieces rotate around their own knuckle pivots.
-            overlap = 0.055
+            overlap = 0.08
             segment_specs = [
                 (role, (projection >= pip_t - overlap), base_point),
                 (
@@ -339,9 +339,11 @@ def _prepare_fingers(
             joints[f"right_{finger_name}_dip"] = _normalise_joint(dip_point, width, height)
             for segment_role, projection_mask, segment_pivot in segment_specs:
                 segment_mask = finger_mask & projection_mask
-                if int(segment_mask.sum()) < 12:
+                segment_pixels = int(segment_mask.sum())
+                if segment_pixels < 4:
                     raise ManualReviewRequired(
-                        f"Finger {name} {segment_role.rsplit('_', 1)[-1]} segment is too small to articulate safely."
+                        f"Finger {name} {segment_role.rsplit('_', 1)[-1]} segment has only "
+                        f"{segment_pixels} source pixels; at least 4 are required for a separate control."
                     )
                 geometry = _save_rgba_layer(
                     source,
