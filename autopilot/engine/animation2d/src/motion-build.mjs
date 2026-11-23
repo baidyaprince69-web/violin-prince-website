@@ -1343,6 +1343,13 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
               Math.floor((index / stepCount) * values.length));
             return values[valueIndex];
           };
+          const sampledAngles = Array.from(
+            { length: stepCount },
+            (_unused, index) => sampleStep(anglePlayback, index)
+          );
+          const frontIndices = sampledAngles
+            .map((angle, index) => angle === "front" ? index : -1)
+            .filter(index => index >= 0);
           const cycleDuration = Math.max(
             0.08,
             Number(action.head_expression_cycle_duration_seconds) ||
@@ -1354,9 +1361,13 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
             : action.head_angle_loop !== false;
           for (const name of headVariantNames) {
             const values = Array.from({ length: stepCount }, (_unused, index) => {
-              const angle = sampleStep(anglePlayback, index);
-              const expression = sampleStep(expressionPlayback, index);
-              return angle === "front" && expression === name ? 1 : 0;
+              if (sampledAngles[index] !== "front" || !frontIndices.length) return 0;
+              const frontOrdinal = frontIndices.indexOf(index);
+              const expressionIndex = Math.min(
+                expressionPlayback.length - 1,
+                Math.floor((frontOrdinal / frontIndices.length) * expressionPlayback.length)
+              );
+              return expressionPlayback[expressionIndex] === name ? 1 : 0;
             });
             addKeyframes(
               prefix + "-head-variant-" + name,
