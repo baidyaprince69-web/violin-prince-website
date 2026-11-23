@@ -489,6 +489,53 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         self.assertTrue(report["source_alpha_preserved"])
         self.assertTrue(report["source_pixels_outside_cut_mask_preserved"])
 
+
+    def test_segmented_underpaint_does_not_sample_white_transparent_matte_pixels(self):
+        import tempfile
+        from pathlib import Path
+
+        pixels = np.full((64, 64, 4), (246, 246, 246, 0), dtype=np.uint8)
+        # A dark source character sits directly against transparent white RGB.
+        yy, xx = np.mgrid[:64, :64]
+        visible = (xx >= 4) & (xx < 60) & (yy >= 4) & (yy < 60)
+        shade = (30 + ((xx + yy) % 18)).astype(np.uint8)
+        pixels[visible, 0] = shade[visible]
+        pixels[visible, 1] = (shade[visible] + 5)
+        pixels[visible, 2] = (shade[visible] + 9)
+        pixels[visible, 3] = 255
+        source = Image.fromarray(pixels, mode="RGBA")
+        
+        # The cut reaches the outer silhouette, where transparent white RGB
+        # used to seed Telea and create a pale streak in the reconstructed plate.
+        bow = np.zeros((64, 64), dtype=np.uint8)
+        bow[18:46, 4:8] = 255
+        violin = np.zeros((64, 64), dtype=np.uint8)
+        moving = np.zeros((64, 64), dtype=bool)
+
+        with tempfile.TemporaryDirectory() as folder:
+            report = _build_segmented_source_base(
+                source,
+                Path(folder),
+                bow_canvas_alpha=bow,
+                violin_canvas_alpha=violin,
+                moving_mask=moving,
+            )
+            with Image.open(Path(folder) / report["src"]) as opened:
+                result = np.asarray(opened.convert("RGBA"), dtype=np.uint8)
+
+        # Check all visible pixels reconstructed from the cut; they should
+        # remain in the dark character range, never pick up the white matte.
+        cut = np.zeros((64, 64), dtype=bool)
+        cut[18:46, 4:8] = True
+        import cv2
+        cut = cv2.dilate(cut.astype(np.uint8), np.ones((5, 5), np.uint8), iterations=1) > 0
+        cut &= pixels[:, :, 3] > 12
+        self.assertGreater(int(cut.sum()), 100)
+        self.assertLess(float(result[cut, :3].mean()), 100.0)
+        np.testing.assert_array_equal(result[:, :, 3], pixels[:, :, 3])
+        self.assertTrue(report["transparent_rgb_excluded_from_reconstruction"])
+        self.assertGreater(report["transparent_source_pixels_excluded_from_inpaint"], 1000)
+
     def test_shoe_mask_isolated_from_trouser_and_connected_to_bottom(self):
         width, height, split_x = 100, 120, 50
         rgb = np.full((height, width, 3), 220, dtype=np.uint8)
