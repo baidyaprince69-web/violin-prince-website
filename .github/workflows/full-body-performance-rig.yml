@@ -130,8 +130,10 @@ jobs:
           assert base.get("bow_pixels_reconstructed", 0) > 0, report
           assert base.get("violin_pixels_reconstructed", 0) > 0, report
           assert base.get("head_plate_replacement_enabled") is True, report
-          assert base.get("head_cutout_method") == "source_aligned_autorig_head_and_face_alpha", report
-          assert base.get("head_pixels_reconstructed", 0) > 500, report
+          assert base.get("head_cutout_method") == "source_aligned_head_backplate_preserved", report
+          assert base.get("head_pixels_reconstructed", 0) == 0, report
+          assert base.get("head_source_backplate_preserved") is True, report
+          assert base.get("head_backplate_pixels_preserved", 0) > 500, report
           bow_hair = report.get("bow_hair_restoration", {})
           assert bow_hair.get("method") == "largest_neutral_source_component_recovered_into_animated_bow", report
           assert bow_hair.get("pixels_added", 0) > 250, report

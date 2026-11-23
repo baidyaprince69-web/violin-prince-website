@@ -1328,15 +1328,17 @@ def _build_segmented_source_base(
     )
     if any(mask.shape != (height, width) for mask in (bow, violin, moving, head)):
         raise AutoRigError("Bow, violin, head and moving-region masks must match the source canvas.")
-    # The extracted limb, prop and head assets are already source-aligned.
-    # Expanding this mask by two pixels writes reconstructed RGB outside every
-    # foreground layer, leaving a visible blurred halo around the neck,
-    # shoulders and instrument. Reconstruct only pixels actually occupied by
-    # those source masks; preserve the surrounding original illustration.
+    # Keep the original source head/face artwork as a static backplate behind
+    # the source-aligned head and face plates. Their artwork comes from this
+    # same image, so retaining it fills any small plate-alpha gaps with real
+    # illustration pixels instead of a broad inpainted face/neck smear.
+    # The moving limbs and props still need their own parent underpaint.
     source_aligned_cut = moving | bow | violin | head
-    cut = source_aligned_cut & (rgba[:, :, 3] > 12)
+    cut = (moving | bow | violin) & (rgba[:, :, 3] > 12)
     legacy_expanded = _morph(source_aligned_cut, 2, "dilate") & (rgba[:, :, 3] > 12)
-    expanded_halo_pixels_excluded = int(np.count_nonzero(legacy_expanded & ~cut))
+    exact_source_union = source_aligned_cut & (rgba[:, :, 3] > 12)
+    expanded_halo_pixels_excluded = int(np.count_nonzero(legacy_expanded & ~exact_source_union))
+    head_backplate_pixels_preserved = int(np.count_nonzero(head & (rgba[:, :, 3] > 12)))
     if int(cut.sum()) < 1000:
         raise ManualReviewRequired("The source-aligned limb/prop cutout is unexpectedly small.")
     # Fully transparent pixels may still retain white/striped RGB from the
@@ -1370,9 +1372,11 @@ def _build_segmented_source_base(
         "cutout_boundary_method": "exact_source_aligned_alpha_union",
         "bow_pixels_reconstructed": int((bow & cut).sum()),
         "violin_pixels_reconstructed": int((violin & cut).sum()),
-        "head_pixels_reconstructed": int((head & cut).sum()),
+        "head_pixels_reconstructed": 0,
+        "head_backplate_pixels_preserved": head_backplate_pixels_preserved,
+        "head_source_backplate_preserved": bool(head_backplate_pixels_preserved > 0),
         "head_plate_replacement_enabled": bool(head.any()),
-        "head_cutout_method": "source_aligned_autorig_head_and_face_alpha",
+        "head_cutout_method": "source_aligned_head_backplate_preserved",
         "source_alpha_preserved": True,
         "source_pixels_outside_cut_mask_preserved": True,
         "inpaint": "opencv_telea_radius_5_alpha_aware",

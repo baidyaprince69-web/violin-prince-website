@@ -673,7 +673,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         self.assertEqual(report["mode"], "segmented_source_body")
         self.assertLess(report["z_index"], 4,
             "the underpaint must remain behind the thigh/calf/foot sprites")
-        self.assertGreater(report["pixels_cut_from_source"], 900)
+        self.assertGreaterEqual(report["pixels_cut_from_source"], 900)
         np.testing.assert_array_equal(output[:, :, 3], original[:, :, 3])
         untouched = np.ones((80, 80), dtype=bool)
         cut = (moving | (bow > 12) | (violin > 12) | (head > 12))
@@ -682,9 +682,11 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         np.testing.assert_array_equal(output[untouched], original[untouched])
         self.assertGreater(report["violin_pixels_reconstructed"], 0)
         self.assertGreater(report["bow_pixels_reconstructed"], 0)
-        self.assertGreater(report["head_pixels_reconstructed"], 100)
+        self.assertEqual(report["head_pixels_reconstructed"], 0)
+        self.assertGreater(report["head_backplate_pixels_preserved"], 100)
+        self.assertTrue(report["head_source_backplate_preserved"])
         self.assertTrue(report["head_plate_replacement_enabled"])
-        self.assertEqual(report["head_cutout_method"], "source_aligned_autorig_head_and_face_alpha")
+        self.assertEqual(report["head_cutout_method"], "source_aligned_head_backplate_preserved")
         self.assertEqual(report["cutout_mask_dilation_px"], 0)
         self.assertEqual(
             report["cutout_boundary_method"],
@@ -696,8 +698,11 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             "source_aligned_exact_mask_inpaint_no_expanded_halo",
             "the parent plate must not inpaint a halo beyond the extracted source masks",
         )
-        self.assertLess(float(output[16, 16, :3].mean()), 100.0,
-            "the original head pixels must be reconstructed under the modular head plates")
+        np.testing.assert_array_equal(
+            output[16, 16, :3],
+            original[16, 16, :3],
+            "the original source head artwork must remain as the clean backplate",
+        )
         self.assertTrue(report["source_alpha_preserved"])
         self.assertTrue(report["source_pixels_outside_cut_mask_preserved"])
 
