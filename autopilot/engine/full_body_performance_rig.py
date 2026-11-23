@@ -1151,6 +1151,7 @@ def _build_segmented_source_base(
         "source_alpha_preserved": True,
         "source_pixels_outside_cut_mask_preserved": True,
         "inpaint": "opencv_telea_radius_5_alpha_aware",
+        "underpaint_quality": "approximate_nonsemantic_inpaint_requires_manual_art_reconstruction",
         "transparent_source_pixels_excluded_from_inpaint": int((~visible_source).sum()),
         "transparent_rgb_excluded_from_reconstruction": True,
     }
@@ -1564,6 +1565,22 @@ def extend_full_body_character(
         "publishing": "disabled",
         "preview_only": True,
         "visual_review_required": True,
+        # Do not describe this rig as premium-ready while the source art lacks
+        # clean hidden backplates, joint-aligned multi-part hands and deformable
+        # anatomy. A passing render is only a render/engineering check.
+        "premium_character_quality_gate": {
+            "status": "blocked_pending_character_art_reconstruction",
+            "underpaint": "approximate_nonsemantic_inpaint",
+            "head": "normalized_plate_crossfades_not_continuous_mesh_deformation",
+            "hands": "one_rigid_sprite_per_finger_no_phalanx_or_knuckle_rig",
+            "body": "rigid_segment_transforms_without_mesh_deformation",
+            "release_blockers": [
+                "manually reconstructed hidden neck shoulder clothing and instrument backplates",
+                "anatomically aligned head neck and facial feature rig",
+                "multi-joint finger and deformable bow grip artwork",
+                "continuous deformable body rig and full-frame visual QA",
+            ],
+        },
     }
     (bundle / "full-body-performance-report.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2) + "\n",
