@@ -311,16 +311,13 @@ def build_preview_project(
                 "gesture": "violin_performance",
                 "instrument_performance": True,
                 "expression": "focused",
+                # Keep one aligned front-facing plate in this preview. The
+                # supplied side-angle plates are complete static drawings;
+                # dissolving between them creates visible double-face ghosting.
+                # Subtle head rotation still comes from the neck-pivot rig.
                 **({} if (composite_base_mode and not segmented_body_mode) else {
                     "head_angle": "front",
-                    "head_angle_sequence": [
-                        "front", "three_quarter", "front",
-                        "profile_right", "front", "three_quarter",
-                        "front", "profile_left", "front"
-                    ],
-                    "head_angle_cycle_duration_seconds": 8.0,
-                    "head_expression_sequence": _build_head_expression_sequence(music_sync),
-                    "head_expression_cycle_duration_seconds": 8.0,
+                    "head_expression": "focused",
                 }),
                 "x": 46,
                 "y": 58,
