@@ -615,6 +615,11 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         self.assertGreater(report["head_pixels_reconstructed"], 100)
         self.assertTrue(report["head_plate_replacement_enabled"])
         self.assertEqual(report["head_cutout_method"], "source_aligned_autorig_head_and_face_alpha")
+        self.assertEqual(
+            report["underpaint_quality"],
+            "approximate_nonsemantic_inpaint_requires_manual_art_reconstruction",
+            "inpainted hidden regions must not be represented as finished anatomical artwork",
+        )
         self.assertLess(float(output[16, 16, :3].mean()), 100.0,
             "the original head pixels must be reconstructed under the modular head plates")
         self.assertTrue(report["source_alpha_preserved"])
