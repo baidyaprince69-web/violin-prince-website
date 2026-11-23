@@ -45,7 +45,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             reference.save(root / "reference-part-003.png")
 
             hidden = np.zeros((40, 40), dtype=np.uint8)
-            hidden[10:22, 10:22] = 255
+            hidden[8:24, 8:24] = 255
             Image.fromarray(hidden, mode="L").save(
                 root / "torso-hidden-overlap-mask.png"
             )
