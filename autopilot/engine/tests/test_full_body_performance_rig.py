@@ -477,6 +477,13 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             _build_head_expression_sequence({"note_events": []}),
             ["focused", "neutral", "focused", "happy"],
         )
+        short_phrase = _build_head_expression_sequence({
+            "note_events": [
+                {"time": 0.0, "note": 64, "velocity": 110, "duration_seconds": 0.2},
+                {"time": 0.5, "note": 65, "velocity": 100, "duration_seconds": 0.2},
+            ]
+        })
+        self.assertEqual(short_phrase, ["focused", "neutral", "happy"])
 
     def test_preview_music_sync_uses_explicit_tempo_grid_when_no_audio_is_attached(self):
         timing = _build_preview_music_sync(8, bpm=100)
