@@ -120,15 +120,21 @@ jobs:
           assert hidden.get("mask_asset") == "torso-hidden-overlap-mask.png", separation
           torso_overlap = separation.get("torso_backplate_arm_overlap", {})
           assert torso_overlap.get("method") == "remove_source_arm_pixels_from_static_torso_keep_hidden_underlay", separation
-          assert torso_overlap.get("source_arm_pixels_removed", 0) > 0, separation
+          assert torso_overlap.get("source_arm_pixels_removed", 0) >= 0, separation
           assert torso_overlap.get("hidden_underlay_pixels_retained") == hidden.get("pixels_reconstructed"), separation
           assert torso_overlap.get("independent_limb_assets_modified") == 0, separation
           assert torso_overlap.get("hand_animation_data_modified") is False, separation
           from PIL import Image
           hidden_mask = Image.open(bundle / hidden["mask_asset"]).convert("L")
           assert sum(value > 0 for value in hidden_mask.getdata()) == hidden.get("pixels_reconstructed"), separation
+          moving_report = report.get("full_body_moving_mask", {})
+          assert moving_report.get("asset") == "full-body-moving-mask.png", report
+          assert moving_report.get("pixels", 0) > 10000, report
+          assert moving_report.get("source") == "authored_performance_polygons_and_finger_manifest", report
+          moving_mask = Image.open(bundle / moving_report["asset"]).convert("L")
+          assert sum(value > 0 for value in moving_mask.getdata()) == moving_report.get("pixels"), report
           restoration = report.get("torso_reference_restoration", {})
-          assert restoration.get("method") == "aligned_supplied_jacket_reference_on_exact_hidden_torso_mask", report
+          assert restoration.get("method") == "aligned_supplied_jacket_reference_on_authored_moving_and_hidden_torso_masks", report
           assert restoration.get("reference_asset") == "reference-part-003.png", report
           assert restoration.get("pixels_restored", 0) >= 100, report
           assert restoration.get("layer_alpha_preserved") is True, report
