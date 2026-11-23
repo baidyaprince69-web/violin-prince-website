@@ -2,7 +2,10 @@ import unittest
 import numpy as np
 from PIL import Image
 
-from create_full_body_performance_preview import (\n    _build_preview_music_sync,\n    _build_head_expression_sequence,\n)
+from create_full_body_performance_preview import (
+    _build_preview_music_sync,
+    _build_head_expression_sequence,
+)
 from full_body_performance_rig import (
     _authored_performance_layers,
     _build_segmented_source_base,
@@ -143,6 +146,39 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             self.assertTrue(report["shared_bow_transform"])
             self.assertGreater(hair_added, 250)
             self.assertGreater(int((updated_mask > 12).sum()), int((bow_mask > 12).sum()))
+
+
+    def test_canvas_head_mask_combines_source_aligned_head_and_face_alpha(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            head = np.zeros((8, 9, 4), dtype=np.uint8)
+            head[1:6, 2:7] = (30, 40, 50, 255)
+            face = np.zeros((7, 6, 4), dtype=np.uint8)
+            face[2:6, 1:5] = (180, 120, 90, 255)
+            Image.fromarray(head, mode="RGBA").save(root / "head.png")
+            Image.fromarray(face, mode="RGBA").save(root / "face.png")
+
+            mask = _canvas_alpha_mask_for_layers(
+                root,
+                [
+                    {"role": "head", "src": "head.png", "x": 4, "y": 3},
+                    {"role": "face", "src": "face.png", "x": 9, "y": 8},
+                    {"role": "torso", "src": "head.png", "x": 0, "y": 0},
+                ],
+                canvas_width=24,
+                canvas_height=24,
+                roles=("head", "face"),
+            )
+
+            self.assertEqual(mask.shape, (24, 24))
+            self.assertTrue(mask[4, 6])
+            self.assertTrue(mask[10, 10])
+            self.assertFalse(mask[2, 2])
+            self.assertFalse(mask[10, 18])
+            self.assertEqual(int(mask.sum()), 41)
 
 
     def test_finger_sprites_are_clipped_to_the_source_aligned_skin_hand(self):
