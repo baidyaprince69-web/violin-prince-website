@@ -768,10 +768,12 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
       };
       for (const layer of layers) {
         if (layer.joint_surface) {
-          dependencies[layer.role] = [
-            String(layer.joint_surface.parent_role),
-            String(layer.joint_surface.child_role)
-          ];
+          const parentRole = String(layer.joint_surface.parent_role);
+          const childRole = String(layer.joint_surface.child_role);
+          dependencies[layer.role] = [...new Set([
+            ...(dependencies[parentRole] || [parentRole]),
+            ...(dependencies[childRole] || [childRole])
+          ])];
         }
       }
       if (compositeBaseMode && !segmentedBodyBaseMode) {
