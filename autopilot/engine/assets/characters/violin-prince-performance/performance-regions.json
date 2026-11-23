@@ -535,6 +535,7 @@
         ]
       ],
       "minimum_pixels": 4500,
+      "knee_overlap_radius": 30,
       "z_index": 5
     },
     "left_calf": {

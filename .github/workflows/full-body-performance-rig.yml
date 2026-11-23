@@ -192,7 +192,8 @@ jobs:
           assert len(limbs.get("parts", {})) == 12, report
           assert all(part["pixel_area"] > part["minimum_pixels"] for part in limbs["parts"].values()), report
           overlaps = limbs.get("joint_overlap_pixels", {})
-          assert max(overlaps.values()) <= 500, report
+          assert max(overlaps.values()) <= 900, report
+          assert overlaps.get("right_knee", 0) >= 700, report
           assert overlaps.get("left_ankle", 999) <= 200, report
           assert overlaps.get("right_ankle", 999) <= 200, report
           assert report.get("finger_layer_count") == 12, report
