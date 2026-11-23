@@ -45,7 +45,10 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
     "transform-origin:top left"
   ].join(";");
   const compositeBase = Boolean(character.base_art && character.base_art.src);
-  const hasHeadPlates = !compositeBase && (
+  const segmentedBodyMode = compositeBase &&
+    character.performance_base_mode === "segmented_source_body";
+  const canRenderHeadPlates = !compositeBase || segmentedBodyMode;
+  const hasHeadPlates = canRenderHeadPlates && (
     Object.keys(character.head_variants || {}).length > 0 ||
     Object.keys(character.head_angles || {}).length > 0);
   const baseArt = compositeBase ? (() => {
@@ -197,7 +200,7 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
   const selectedHeadExpression = String(action.head_expression || action.expression || "neutral").toLowerCase();
   const headVariantEntries = Object.entries(character.head_variants || {});
   const headAngleEntries = Object.entries(character.head_angles || {});
-  const headVariants = compositeBase ? "" : headVariantEntries.map(([name, variant]) => {
+  const headVariants = canRenderHeadPlates ? headVariantEntries.map(([name, variant]) => {
     const style = [
       "position:absolute",
       "left:" + (layout.offsetX + Number(variant.x) * layout.scale) + "px",
@@ -214,8 +217,8 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       '" data-head-variant="' + escapeHtml(name) +
       '" alt="" draggable="false" src="' + escapeHtml(variant.src) +
       '" style="' + style + '">';
-  }).join("");
-  const headAngles = compositeBase ? "" : headAngleEntries.map(([name, angle]) => {
+  }).join("") : "";
+  const headAngles = canRenderHeadPlates ? headAngleEntries.map(([name, angle]) => {
     const style = [
       "position:absolute",
       "left:" + (layout.offsetX + Number(angle.x) * layout.scale) + "px",
@@ -232,7 +235,7 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       '" data-head-angle="' + escapeHtml(name) +
       '" alt="" draggable="false" src="' + escapeHtml(angle.src) +
       '" style="' + style + '">';
-  }).join("");
+  }).join("") : "";
 
   return '<div class="clip character-rig" id="' + escapeHtml(scene.id + "-" + character.id) +
     '" data-pose-active="' + (poseIsActive ? "true" : "false") +
