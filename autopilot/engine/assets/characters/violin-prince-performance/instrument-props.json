@@ -1,6 +1,9 @@
 {
   "schema_version": 1,
-  "canvas": {"width": 441, "height": 755},
+  "canvas": {
+    "width": 441,
+    "height": 755
+  },
   "props": {
     "violin": {
       "src": "violin-prop.webp",
@@ -11,7 +14,33 @@
       "pivot_x": 0.18587360594795538,
       "pivot_y": 0.46153846153846156,
       "z_index": 25,
-      "attach_to": "torso"
+      "attach_to": "torso",
+      "hand_backplate_polygon": [
+        [
+          150,
+          32
+        ],
+        [
+          225,
+          49
+        ],
+        [
+          247,
+          64
+        ],
+        [
+          243,
+          72
+        ],
+        [
+          222,
+          60
+        ],
+        [
+          148,
+          44
+        ]
+      ]
     },
     "bow": {
       "src": "bow-prop.webp",
