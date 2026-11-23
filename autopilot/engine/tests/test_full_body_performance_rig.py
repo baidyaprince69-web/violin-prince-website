@@ -705,7 +705,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         source = Image.fromarray(pixels, mode="RGBA")
         original = np.asarray(source, dtype=np.uint8)
         moving = np.zeros((80, 80), dtype=bool)
-        moving[22:52, 20:35] = True
+        moving[22:62, 20:40] = True
         head = np.zeros((80, 80), dtype=np.uint8)
         head[10:24, 10:24] = 255
         bow = np.zeros((80, 80), dtype=np.uint8)
