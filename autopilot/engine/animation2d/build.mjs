@@ -521,6 +521,7 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
   let sourceJointSurfaceLayerCount = 0;
   let deformableBodyLayerCount = 0;
   let deformationMeshTriangleTrackCount = 0;
+  let jointSurfaceMeshTriangleTrackCount = 0;
   for (const character of fullBodyPerformanceCharacters) {
     const compositeBaseMode = Boolean(character.base_art && character.base_art.src);
     const requiredLegs = [
@@ -675,9 +676,28 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
         throw new Error("Scene " + scene.id + " joint surface " + layer.role +
           " is not following its parent/child articulated transforms.");
       }
+      if (layer.mesh_deformation?.profile !== "joint_surface") {
+        throw new Error("Scene " + scene.id + " joint surface " + layer.role +
+          " is missing its two-sided blend mesh.");
+      }
+      const expectedJointTriangles = Number(layer.mesh_deformation.columns) *
+        Number(layer.mesh_deformation.rows) * 2;
+      const jointTrianglePrefix = target + "-mesh-triangle-";
+      const jointTriangles = project.motion_tracks.filter(item =>
+        String(item.target || "").startsWith(jointTrianglePrefix) &&
+        item.property === "transform" && Array.isArray(item.values) &&
+        item.values.length > 1
+      );
+      if (jointTriangles.length !== expectedJointTriangles) {
+        throw new Error("Scene " + scene.id + " joint surface " + layer.role +
+          " expected " + expectedJointTriangles + " blend triangles but got " +
+          jointTriangles.length + ".");
+      }
+      jointSurfaceMeshTriangleTrackCount += jointTriangles.length;
+      deformationMeshTriangleTrackCount += jointTriangles.length;
     }
     sourceJointSurfaceLayerCount += jointSurfaceLayers.length;
-    if (deformableBodyLayerCount !== 9 || deformationMeshTriangleTrackCount < 150) {
+    if (deformableBodyLayerCount !== 9 || jointSurfaceMeshTriangleTrackCount !== 72 || deformationMeshTriangleTrackCount < 230) {
       throw new Error("Scene " + scene.id + " did not produce the expected continuous source-mesh deformation tracks.");
     }
     if (compositeBaseMode) {
@@ -790,6 +810,7 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     source_joint_surface_layer_count: sourceJointSurfaceLayerCount,
     deformable_body_layer_count: deformableBodyLayerCount,
     deformation_mesh_triangle_track_count: deformationMeshTriangleTrackCount,
+    joint_surface_mesh_triangle_track_count: jointSurfaceMeshTriangleTrackCount,
     full_body_visual_mode: preservedCompositeBaseCount > 0
       ? (fullBodyPerformanceCharacters.some(character => character.performance_base_mode === "segmented_source_body")
         ? "segmented_source_body" : "intact_composite_base")
@@ -820,6 +841,7 @@ const motionReport = {
   source_joint_surface_layer_count: motionSceneReports.reduce((sum, scene) => sum + scene.source_joint_surface_layer_count, 0),
   deformable_body_layer_count: motionSceneReports.reduce((sum, scene) => sum + scene.deformable_body_layer_count, 0),
   deformation_mesh_triangle_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.deformation_mesh_triangle_track_count, 0),
+  joint_surface_mesh_triangle_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.joint_surface_mesh_triangle_track_count, 0),
   independent_layer_motion_count: motionSceneReports.reduce((sum, scene) => sum + scene.independent_layer_motion_count, 0),
   rendered_layer_count: motionSceneReports.reduce((sum, scene) => sum + scene.rendered_layer_count, 0),
   animated_stagecraft_environment_node_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_stagecraft_environment_nodes, 0),
