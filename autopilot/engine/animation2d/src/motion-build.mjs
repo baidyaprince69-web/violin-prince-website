@@ -672,9 +672,13 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
         }
       }
       const expressionNames = compositeBaseMode ? [] : Object.keys(character.expressions || {});
-      const headVariants = compositeBaseMode ? [] : Object.entries(character.head_variants || {});
-      const headAngles = compositeBaseMode ? [] : Object.entries(character.head_angles || {});
-      const needsExpressionTransform = !compositeBaseMode &&
+      // Segmented full-body base art has its original head cleared from the
+      // underpaint. Its modular reference plates therefore remain independently
+      // animatable even though the body itself is composited.
+      const canAnimateHeadPlates = !compositeBaseMode || segmentedBodyBaseMode;
+      const headVariants = canAnimateHeadPlates ? Object.entries(character.head_variants || {}) : [];
+      const headAngles = canAnimateHeadPlates ? Object.entries(character.head_angles || {}) : [];
+      const needsExpressionTransform = canAnimateHeadPlates &&
         (hasRotation("torso") || hasRotation("head"));
       const animatedProps = props.filter(prop => {
         if (compositeBaseMode && !segmentedBodyBaseMode && prop.id !== "bow") return false;
@@ -1258,13 +1262,16 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
         }
         addKeyframes(prefix + "-motion", { transform: rootFrames }, actionStart, gestureDuration, "ease-in-out", true);
       }
-      const selectedExpression = String(action.expression || "neutral").toLowerCase();
+      const selectedExpression = String(
+        action.head_expression || action.expression || "neutral"
+      ).toLowerCase();
       const activePoseAsset = String(action.pose_asset || "").toLowerCase();
-      // Full-body pose plates already contain their own face. Animate
-      // expression overlays only while the separated body-part rig is active.
+      // Full-body poses and the modular head plates each contain their own face.
+      // Never layer the legacy face-only crop over either complete illustration.
       const hasHeadPlates =
-        Object.keys(character.head_variants || {}).length > 0 ||
-        Object.keys(character.head_angles || {}).length > 0;
+        (!compositeBaseMode || segmentedBodyBaseMode) &&
+        (Object.keys(character.head_variants || {}).length > 0 ||
+         Object.keys(character.head_angles || {}).length > 0);
       if (!activePoseAsset && !hasHeadPlates) {
         for (const name of Object.keys(character.expressions || {})) {
           addSpring(prefix + "-expression-" + name, "opacity",
@@ -1273,40 +1280,72 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
             actionStart, 140);
         }
       }
-      const selectedHeadAngle = String(action.head_angle || "front").toLowerCase();
+
       const headVariantNames = Object.keys(character.head_variants || {});
       const headAngleNames = Object.keys(character.head_angles || {});
+      const headExpressionSequence = Array.isArray(action.head_expression_sequence)
+        ? action.head_expression_sequence.map(value => String(value).toLowerCase())
+          .filter(value => headVariantNames.includes(value))
+        : [];
+      if (!activePoseAsset && headVariantNames.length) {
+        if (headExpressionSequence.length > 1) {
+          const sequence = [...headExpressionSequence, headExpressionSequence[0]];
+          const cycleDuration = Math.max(
+            0.08,
+            Number(action.head_expression_cycle_duration_seconds) || gestureDuration
+          );
+          const sequenceLoop = action.head_expression_loop !== false;
+          for (const name of headVariantNames) {
+            const values = sequence.map(expression => expression === name ? 1 : 0);
+            addKeyframes(
+              prefix + "-head-variant-" + name,
+              { opacity: values },
+              actionStart,
+              cycleDuration,
+              "linear",
+              sequenceLoop,
+              "steps(1, end)"
+            );
+          }
+        } else {
+          for (const name of headVariantNames) {
+            const active = name === selectedExpression;
+            addSpring(prefix + "-head-variant-" + name, "opacity",
+              active ? 0 : 1, active ? 1 : 0, actionStart, 140);
+          }
+        }
+      }
+
+      const selectedHeadAngle = String(action.head_angle || "front").toLowerCase();
       const headAngleSequence = Array.isArray(action.head_angle_sequence)
         ? action.head_angle_sequence.map(value => String(value).toLowerCase())
           .filter(value => value === "front" || headAngleNames.includes(value))
         : [];
-      if (headVariantNames.length || headAngleNames.length) {
+      if (!activePoseAsset && headAngleNames.length) {
         if (headAngleSequence.length > 1) {
           const sequence = [...headAngleSequence, headAngleSequence[0]];
-          const cycleDuration = Math.max(0.08,
-            Number(action.head_angle_cycle_duration_seconds) || gestureDuration);
+          const cycleDuration = Math.max(
+            0.08,
+            Number(action.head_angle_cycle_duration_seconds) || gestureDuration
+          );
           const sequenceLoop = action.head_angle_loop !== false;
-          for (const name of headVariantNames) {
-            const values = sequence.map(angle =>
-              angle === "front" && name === selectedExpression ? 1 : 0
-            );
-            addKeyframes(prefix + "-head-variant-" + name,
-              { opacity: values }, actionStart, cycleDuration, "linear", sequenceLoop, "steps(1, end)");
-          }
           for (const name of headAngleNames) {
             if (name === "front") continue;
             const values = sequence.map(angle => angle === name ? 1 : 0);
-            addKeyframes(prefix + "-head-angle-" + name,
-              { opacity: values }, actionStart, cycleDuration, "linear", sequenceLoop, "steps(1, end)");
+            addKeyframes(
+              prefix + "-head-angle-" + name,
+              { opacity: values },
+              actionStart,
+              cycleDuration,
+              "linear",
+              sequenceLoop,
+              "steps(1, end)"
+            );
           }
         } else {
-          for (const name of headVariantNames) {
-            const active = selectedHeadAngle === "front" && name === selectedExpression;
-            addSpring(prefix + "-head-variant-" + name, "opacity",
-              active ? 0 : 1, active ? 1 : 0, actionStart, 140);
-          }
           for (const name of headAngleNames) {
-            const active = selectedHeadAngle === name && name !== "front";
+            if (name === "front") continue;
+            const active = selectedHeadAngle === name;
             addSpring(prefix + "-head-angle-" + name, "opacity",
               active ? 0 : 1, active ? 1 : 0, actionStart, 140);
           }
