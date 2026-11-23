@@ -336,8 +336,14 @@ jobs:
         working-directory: work/full-body-rig/composition
         run: $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes lint
 
-      - name: Install FFmpeg for preview rendering and contact sheet
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Ensure FFmpeg is available for preview rendering and contact sheet
+        run: |
+          if command -v ffmpeg >/dev/null 2>&1; then
+            ffmpeg -version | head -n 1
+          else
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
 
       - name: Render the non-publishing full-body performance preview
         working-directory: work/full-body-rig/composition
