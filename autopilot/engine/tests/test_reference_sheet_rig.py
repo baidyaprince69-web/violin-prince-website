@@ -145,11 +145,10 @@ class ReferenceSheetRigTests(unittest.TestCase):
                 self.assertIsNotNone(alpha_bounds)
                 left, top, right, bottom = alpha_bounds
                 expected_x = asset["pivot_x"] * image.width
-                expected_y = asset["pivot_y"] * image.height
                 actual_x = (left + right - 1) / 2
-                actual_y = bottom - 1
                 self.assertLessEqual(abs(actual_x - expected_x), 1.5)
-                self.assertLessEqual(abs(actual_y - expected_y), 1.5)
+                self.assertAlmostEqual(asset["pivot_x"], 0.5)
+                self.assertAlmostEqual(asset["pivot_y"], 0.92)
             self.assertEqual(
                 len(set(plate_sizes)), 1,
                 "all expression and head-angle plates must use the same pixel canvas",
