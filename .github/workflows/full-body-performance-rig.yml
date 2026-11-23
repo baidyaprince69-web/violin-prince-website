@@ -123,6 +123,9 @@ jobs:
           assert base.get("pixels_cut_from_source", 0) > 25000, report
           assert base.get("bow_pixels_reconstructed", 0) > 0, report
           assert base.get("violin_pixels_reconstructed", 0) > 0, report
+          assert base.get("head_plate_replacement_enabled") is True, report
+          assert base.get("head_cutout_method") == "source_aligned_autorig_head_and_face_alpha", report
+          assert base.get("head_pixels_reconstructed", 0) > 500, report
           bow_hair = report.get("bow_hair_restoration", {})
           assert bow_hair.get("method") == "largest_neutral_source_component_recovered_into_animated_bow", report
           assert bow_hair.get("pixels_added", 0) > 250, report
@@ -245,6 +248,15 @@ jobs:
           assert len(sync.get("beat_times", [])) >= 10, sync
           assert len(sync.get("onsets", [])) > 0, sync
           assert len(sync.get("note_events", [])) >= 4, sync
+          expressions = action.get("head_expression_sequence", [])
+          assert len(expressions) >= 3, action
+          assert {"focused", "happy"}.issubset(set(expressions)), action
+          assert set(expressions).issubset({"focused", "happy", "surprised", "neutral"}), action
+          angle_sequence = action.get("head_angle_sequence", [])
+          assert {"three_quarter", "profile_right", "profile_left"}.issubset(set(angle_sequence)), action
+          character = json.loads(Path("work/full-body-rig/bundle/character.json").read_text())
+          assert len(character.get("head_variants", {})) == 4, character
+          assert len(character.get("head_angles", {})) == 4, character
           assert scene.get("stagecraft_environment") == "concert_stage", scene
           assert report.get("animated_stagecraft_scene_count") == 1, report
           assert report.get("animated_stagecraft_node_count", 0) > 0, report
