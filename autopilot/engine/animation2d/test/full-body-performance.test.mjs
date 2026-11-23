@@ -102,11 +102,18 @@ test("source texture meshes deform continuously and joint caps follow both paren
     src: "joint_surface_left_elbow.png",
     x: 16, y: 20, width: 48, height: 48,
     pivot_x: 0.5, pivot_y: 0.5, z_index: 33,
+    mesh_deformation: {
+      profile: "joint_surface",
+      columns: 2,
+      rows: 2
+    },
     joint_surface: {
       joint: "left_elbow",
       parent_role: "left_upper_arm",
       child_role: "left_forearm",
-      blend_weight: 0.5
+      blend_weight: 0.5,
+      blend_axis_start: [0.30, 0.35],
+      blend_axis_end: [0.60, 0.65]
     }
   });
 
@@ -129,6 +136,13 @@ test("source texture meshes deform continuously and joint caps follow both paren
   const jointTrack = find("playing-violin-prince-part-joint_surface_left_elbow");
   assert.ok(jointTrack, "joint cap must receive its own parent/child blended transform track");
   assert.ok(jointTrack.values.some(value => value !== jointTrack.values[0]));
+  const jointMesh = tracks.filter(track =>
+    track.target.startsWith("playing-violin-prince-part-joint_surface_left_elbow-mesh-triangle-")
+  );
+  assert.equal(jointMesh.length, 8,
+    "a joint cap must have its own 2x2 piecewise-affine blend mesh");
+  assert.ok(jointMesh.some(track => track.values.some(value => value !== track.values[0])),
+    "joint cap triangles must deform as the parent and child segments move");
   assert.ok(!meshCharacter.layers.find(layer => layer.role === "left_hand").mesh_deformation);
   assert.ok(!meshCharacter.layers.find(layer => layer.role === "finger_index").mesh_deformation);
 });
