@@ -70,7 +70,7 @@ class CharacterRigContractTests(unittest.TestCase):
             "left_elbow",
         )
 
-    def test_rejects_mesh_deformation_on_hand_and_invalid_mesh_geometry(self):
+    def test_rejects_degenerate_mesh_geometry_and_preserves_valid_layer_mesh_contract(self):
         character = self.valid_character()
         hand = next(layer for layer in character["layers"] if layer["role"] == "left_hand")
         hand["mesh_deformation"] = {
