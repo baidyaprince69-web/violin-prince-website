@@ -13,6 +13,8 @@ from full_body_performance_rig import (
     _decontaminate_edge_matte_rgb,
     _remove_embedded_props_from_static_layers,
     _restore_bow_hair_in_prop_asset,
+    _prepare_fingers,
+    _canvas_alpha_mask_for_layers,
 )
 
 
@@ -141,6 +143,64 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             self.assertTrue(report["shared_bow_transform"])
             self.assertGreater(hair_added, 250)
             self.assertGreater(int((updated_mask > 12).sum()), int((bow_mask > 12).sum()))
+
+
+    def test_finger_sprites_are_clipped_to_the_source_aligned_skin_hand(self):
+        import json
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            pixels = np.zeros((64, 64, 4), dtype=np.uint8)
+            pixels[15:25, 15:25] = (190, 128, 91, 255)
+            # A bright prop/edge fragment intrudes into the authored finger polygon.
+            pixels[15:25, 25:28] = (225, 35, 40, 255)
+            source = Image.fromarray(pixels, mode="RGBA")
+
+            hand_image = source.crop((10, 10, 30, 30)).convert("RGBA")
+            hand_alpha = np.zeros((20, 20), dtype=np.uint8)
+            hand_alpha[5:15, 5:15] = 255
+            hand_image.putalpha(Image.fromarray(hand_alpha, mode="L"))
+            hand_image.save(root / "right-hand.png")
+
+            manifest = {
+                "schema_version": 1,
+                "canvas": {"width": 64, "height": 64},
+                "side": "right",
+                "fingers": {
+                    "index": {
+                        "polygon": [[14, 14], [28, 14], [28, 27], [14, 27]],
+                        "pivot": [24, 24]
+                    }
+                }
+            }
+            manifest_path = root / "finger-regions.json"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            character = {
+                "layers": [{
+                    "id": "right_hand", "role": "right_hand", "src": "right-hand.png",
+                    "x": 10, "y": 10, "width": 20, "height": 20,
+                    "pivot_x": .5, "pivot_y": .5
+                }]
+            }
+
+            layers, joints, areas = _prepare_fingers(
+                source, root, character, manifest_path
+            )
+            self.assertEqual(len(layers), 1)
+            self.assertIn("right_index_base", joints)
+            self.assertEqual(areas["finger_index"], 100)
+            with Image.open(root / layers[0]["src"]) as opened:
+                finger = np.asarray(opened.convert("RGBA"), dtype=np.uint8)
+                # The red prop pixels inside the polygon are not part of the finger cutout.
+                self.assertEqual(int(finger[:, :, 3][finger[:, :, 0] > 210].sum()), 0)
+                self.assertEqual(int(np.count_nonzero(finger[:, :, 3])), 100)
+
+            with Image.open(root / "right-hand.png") as opened:
+                palm_alpha = np.asarray(opened.convert("RGBA").getchannel("A"), dtype=np.uint8)
+                self.assertEqual(int(palm_alpha[5, 5]), 0,
+                    "only parent-hand pixels assigned to the finger are removed from the palm")
 
     def test_removes_embedded_violin_and_bow_from_static_torso_and_head_plates(self):
         import tempfile
@@ -453,8 +513,14 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         source = Image.fromarray(pixels, mode="RGBA")
         original = np.asarray(source, dtype=np.uint8)
 
+        # A source-colour head patch is replaced by modular reference head plates.
+        pixels[10:24, 10:24, :3] = (214, 168, 132)
+        source = Image.fromarray(pixels, mode="RGBA")
+        original = np.asarray(source, dtype=np.uint8)
         moving = np.zeros((80, 80), dtype=bool)
         moving[22:52, 20:35] = True
+        head = np.zeros((80, 80), dtype=np.uint8)
+        head[10:24, 10:24] = 255
         bow = np.zeros((80, 80), dtype=np.uint8)
         bow[18:58, 38:41] = 255
         violin = np.zeros((80, 80), dtype=np.uint8)
@@ -467,6 +533,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                 bow_canvas_alpha=bow,
                 violin_canvas_alpha=violin,
                 moving_mask=moving,
+                head_canvas_alpha=head,
             )
             with Image.open(Path(folder) / report["src"]) as opened:
                 output = np.asarray(opened.convert("RGBA"), dtype=np.uint8)
@@ -486,6 +553,11 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         np.testing.assert_array_equal(output[untouched], original[untouched])
         self.assertGreater(report["violin_pixels_reconstructed"], 0)
         self.assertGreater(report["bow_pixels_reconstructed"], 0)
+        self.assertGreater(report["head_pixels_reconstructed"], 100)
+        self.assertTrue(report["head_plate_replacement_enabled"])
+        self.assertEqual(report["head_cutout_method"], "source_aligned_autorig_head_and_face_alpha")
+        self.assertLess(float(output[16, 16, :3].mean()), 100.0,
+            "the original head pixels must be reconstructed under the modular head plates")
         self.assertTrue(report["source_alpha_preserved"])
         self.assertTrue(report["source_pixels_outside_cut_mask_preserved"])
 
