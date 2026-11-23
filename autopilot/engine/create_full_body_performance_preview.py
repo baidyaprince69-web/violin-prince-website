@@ -159,6 +159,61 @@ def _build_preview_music_sync(
     }
 
 
+
+def _build_head_expression_sequence(music_sync: dict[str, Any]) -> list[str]:
+    """Turn phrase-level note changes into restrained live facial expression cues.
+
+    These are performance-direction cues rather than emotion inference: phrase
+    peaks can receive a brief surprised accent, sustained notes a warm smile,
+    low-energy notes a neutral rest, and the remaining time stays focused.
+    """
+    raw_events = music_sync.get("note_events") if isinstance(music_sync, dict) else None
+    events = []
+    for event in raw_events if isinstance(raw_events, list) else []:
+        try:
+            note = int(event["note"])
+            velocity = int(event.get("velocity", 76))
+            duration = float(event.get("duration_seconds", 0.2))
+        except (KeyError, TypeError, ValueError):
+            continue
+        if 0 <= note <= 127 and 1 <= velocity <= 127 and duration > 0:
+            events.append({
+                "note": note,
+                "velocity": velocity,
+                "duration": duration,
+            })
+    if not events:
+        return ["focused", "neutral", "focused", "happy"]
+
+    velocity_order = sorted(item["velocity"] for item in events)
+    low_velocity_threshold = velocity_order[int((len(velocity_order) - 1) * 0.2)]
+    peak_velocity = max(velocity_order)
+    sequence = ["focused"]
+    previous_note = None
+    for event in events:
+        note = event["note"]
+        velocity = event["velocity"]
+        duration = event["duration"]
+        if (
+            previous_note is not None
+            and abs(note - previous_note) >= 7
+            and velocity >= max(74, peak_velocity - 2)
+        ):
+            expression = "surprised"
+        elif duration >= 0.85 and velocity >= 70:
+            expression = "happy"
+        elif velocity <= low_velocity_threshold:
+            expression = "neutral"
+        else:
+            expression = "focused"
+        if expression != sequence[-1]:
+            sequence.append(expression)
+        previous_note = note
+
+    if len(sequence) == 1:
+        sequence.append("happy" if sequence[0] == "focused" else "focused")
+    return sequence[:8]
+
 def build_preview_project(
     bundle_dir: str | Path,
     output_dir: str | Path,
@@ -254,8 +309,14 @@ def build_preview_project(
                 "expression": "focused",
                 **({} if composite_base_mode else {
                     "head_angle": "front",
-                    "head_angle_sequence": ["front", "three_quarter", "profile_right", "profile_left", "front"],
-                    "head_angle_cycle_duration_seconds": 7.2,
+                    "head_angle_sequence": [
+                        "front", "three_quarter", "profile_right",
+                        "three_quarter", "front", "three_quarter",
+                        "profile_left", "three_quarter", "front"
+                    ],
+                    "head_angle_cycle_duration_seconds": 8.0,
+                    "head_expression_sequence": _build_head_expression_sequence(music_sync),
+                    "head_expression_cycle_duration_seconds": 8.0,
                 }),
                 "x": 46,
                 "y": 58,
