@@ -120,6 +120,12 @@ jobs:
           assert base.get("pixels_cut_from_source", 0) > 25000, report
           assert base.get("bow_pixels_reconstructed", 0) > 0, report
           assert base.get("violin_pixels_reconstructed", 0) > 0, report
+          bow_hair = report.get("bow_hair_restoration", {})
+          assert bow_hair.get("method") == "largest_neutral_source_component_recovered_into_animated_bow", report
+          assert bow_hair.get("pixels_added", 0) > 250, report
+          assert bow_hair.get("source_mask_extended") is True, report
+          assert bow_hair.get("shared_bow_transform") is True, report
+          assert report.get("prop_report", {}).get("bow", {}).get("src") == bow_hair.get("src"), report
           static_props = report.get("static_layer_prop_cleanup", {})
           assert static_props.get("method") == "source_aligned_prop_alpha_removed_from_static_body_plates", report
           assert static_props.get("total_pixels_removed", 0) > 1000, report
