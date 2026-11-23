@@ -259,6 +259,18 @@ jobs:
           assert props.get("bow", {}).get("attach_to") == "left_hand", props
           assert props.get("violin", {}).get("attach_to") == "torso", props
           assert not action.get("prop_keyframes"), action
+          joints = character.get("joints", {})
+          width, height = character["canvas"]["width"], character["canvas"]["height"]
+          left_wrist = joints["left_wrist"]
+          right_wrist = joints["right_wrist"]
+          assert abs(left_wrist["x"] * width - 116) <= 1.5, left_wrist
+          assert abs(left_wrist["y"] * height - 231) <= 1.5, left_wrist
+          assert abs(right_wrist["x"] * width - 350) <= 1.5, right_wrist
+          assert abs(right_wrist["y"] * height - 239) <= 1.5, right_wrist
+          bow = props["bow"]
+          grip_x = bow["x"] + bow["pivot_x"] * bow["width"]
+          grip_y = bow["y"] + bow["pivot_y"] * bow["height"]
+          assert abs(grip_x - 178) <= 1.5 and abs(grip_y - 242) <= 1.5, (grip_x, grip_y)
           assert len(character.get("head_variants", {})) == 4, character
           assert len(character.get("head_angles", {})) == 4, character
           assert scene.get("stagecraft_environment") == "concert_stage", scene
