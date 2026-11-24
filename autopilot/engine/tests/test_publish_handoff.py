@@ -407,6 +407,16 @@ class AssetProvenanceTests(unittest.TestCase):
                 "bundle_sha256": "a" * 64,
                 "approval_sha256": "b" * 64,
             },
+            "music_sync_report": {
+                "status": "passed",
+                "motion_report_status": "passed",
+                "cue_count": 3,
+                "rendered_motion_track_count": 3,
+                "cues": [
+                    {"time_seconds": float(index * 8), "event": f"Accent {index}", "reason": "The visual reveal lands on the measured beat.", "timing_source": "decoded_audio_beat_grid", "alignment_error_seconds": 0.0}
+                    for index in range(1, 4)
+                ],
+            },
         })
         self.plan["procedural_director_manifest"] = {
             "rendered_layer_count": 0,
@@ -456,6 +466,8 @@ class AssetProvenanceTests(unittest.TestCase):
         self.assertTrue(manifest["publish_ready"])
         self.assertEqual(manifest["render_mode"], "procedural_2d")
         self.assertEqual(manifest["shot_count"], 8)
+        self.assertTrue(provenance["assets"]["music_sync"]["status"] == "passed")
+        self.assertEqual(manifest["music_sync_event_count"], 3)
 
 
 if __name__ == "__main__":

@@ -77,6 +77,14 @@ def animation_production_blockers(
             blockers.append("Procedural animation evidence must include an articulated presenter in at least three shots.")
         if evidence.get("rendered_layer_count") != 0:
             blockers.append("Procedural animation evidence must contain zero generated still-image layers.")
+        cue_count = evidence.get("music_sync_cue_count")
+        rendered_cue_count = evidence.get("music_sync_event_count")
+        if (
+            not isinstance(cue_count, int) or cue_count < 2
+            or not isinstance(rendered_cue_count, int) or rendered_cue_count != cue_count
+            or evidence.get("measured_audio_sync_verified") is not True
+        ):
+            blockers.append("Procedural animation evidence must verify at least two measured audio-sync cues and matching Motion event tracks.")
     elif pipeline == "generated_video_assets":
         for field in ("generated_video_asset_count", "downloaded_video_asset_count"):
             value = evidence.get(field)

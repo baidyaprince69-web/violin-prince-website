@@ -218,6 +218,39 @@ def validate_daily_bundle(
             or not re.fullmatch(r"[0-9a-f]{64}", str(rig.get("approval_sha256") or ""))
         ):
             raise PublishBlocked("The procedural presenter rig does not have a valid creator-approved asset fingerprint.")
+        music_sync = assets.get("music_sync")
+        cue_count = int(music_sync.get("cue_count") or 0) if isinstance(music_sync, dict) else 0
+        rendered_count = int(music_sync.get("rendered_motion_track_count") or 0) if isinstance(music_sync, dict) else 0
+        sync_cues = music_sync.get("cues") if isinstance(music_sync, dict) else None
+        if (
+            not isinstance(music_sync, dict)
+            or music_sync.get("status") != "passed"
+            or music_sync.get("motion_report_status") != "passed"
+            or cue_count < 2
+            or rendered_count != cue_count
+            or manifest.get("music_sync_event_count") != cue_count
+            or not isinstance(sync_cues, list)
+            or len(sync_cues) != cue_count
+        ):
+            raise PublishBlocked("Procedural animation must prove measured music-sync timing and one rendered Motion track per cue.")
+        last_sync_time = -1.0
+        for cue in sync_cues:
+            if not isinstance(cue, dict):
+                raise PublishBlocked("Procedural music-sync provenance contains an invalid cue.")
+            cue_time = cue.get("time_seconds")
+            alignment_error = cue.get("alignment_error_seconds")
+            if (
+                not isinstance(cue_time, (int, float)) or isinstance(cue_time, bool)
+                or not 0 <= float(cue_time) < float(manifest.get("duration_seconds") or 0)
+                or float(cue_time) <= last_sync_time
+                or cue.get("timing_source") not in {"decoded_audio_beat_grid", "decoded_audio_onset"}
+                or not isinstance(alignment_error, (int, float)) or isinstance(alignment_error, bool)
+                or not 0 <= float(alignment_error) <= 0.45
+                or not str(cue.get("event") or "").strip()
+                or not str(cue.get("reason") or "").strip()
+            ):
+                raise PublishBlocked("Procedural music-sync cues are not ordered, measured, or within the allowed alignment error.")
+            last_sync_time = float(cue_time)
     else:
         if not isinstance(scene_images, list) or len(scene_images) != 3:
             raise PublishBlocked("Legacy illustration provenance must describe the three rendered scene illustrations.")

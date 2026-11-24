@@ -299,7 +299,18 @@ class DailyPublicPublisherTests(unittest.TestCase):
                 "bundle_sha256": "a" * 64,
                 "approval_sha256": "b" * 64,
             },
+            "music_sync": {
+                "status": "passed",
+                "motion_report_status": "passed",
+                "cue_count": 2,
+                "rendered_motion_track_count": 2,
+                "cues": [
+                    {"time_seconds": 8.0, "event": "First beat", "reason": "The first reveal lands.", "timing_source": "decoded_audio_beat_grid", "alignment_error_seconds": 0.0},
+                    {"time_seconds": 16.0, "event": "Second beat", "reason": "The second reveal lands.", "timing_source": "decoded_audio_beat_grid", "alignment_error_seconds": 0.02},
+                ],
+            },
         })
+        self.manifest["music_sync_event_count"] = 2
         self.quality["duration_seconds"] = 32.0
         (self.output / "publish-manifest.json").write_text(json.dumps(self.manifest), encoding="utf-8")
         (self.output / "asset-provenance.json").write_text(json.dumps(self.provenance), encoding="utf-8")
@@ -330,6 +341,20 @@ class DailyPublicPublisherTests(unittest.TestCase):
         self.provenance["assets"]["character_rig"]["bundle_sha256"] = ""
         (self.output / "asset-provenance.json").write_text(json.dumps(self.provenance), encoding="utf-8")
         with self.assertRaisesRegex(daily.PublishBlocked, "creator-approved asset fingerprint"):
+            self.validate()
+
+    def test_procedural_publisher_rejects_missing_music_sync_motion_tracks(self):
+        self._make_procedural_bundle()
+        self.provenance["assets"]["music_sync"]["rendered_motion_track_count"] = 1
+        (self.output / "asset-provenance.json").write_text(json.dumps(self.provenance), encoding="utf-8")
+        with self.assertRaisesRegex(daily.PublishBlocked, "measured music-sync timing"):
+            self.validate()
+
+    def test_procedural_publisher_rejects_guessed_music_timing(self):
+        self._make_procedural_bundle()
+        self.provenance["assets"]["music_sync"]["cues"][0]["timing_source"] = "estimated_by_model"
+        (self.output / "asset-provenance.json").write_text(json.dumps(self.provenance), encoding="utf-8")
+        with self.assertRaisesRegex(daily.PublishBlocked, "not ordered, measured"):
             self.validate()
 
     def test_procedural_publisher_accepts_up_to_sixty_seconds(self):

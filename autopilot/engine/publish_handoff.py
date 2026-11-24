@@ -348,6 +348,7 @@ def build_asset_provenance(
             "scene_images": scene_assets,
             "procedural_scenes": procedural_scenes,
             "render_mode": "procedural_2d" if procedural else "layered_images",
+            "music_sync": video_quality.get("music_sync_report") or {},
             "character_rig": {
                 "character_count": int(video_quality.get("character_count") or 0),
                 "description": str(video_quality.get("character_rigging") or "not used in this production"),
@@ -412,6 +413,20 @@ def build_publish_manifest(
         blockers.append("Final MP4 quality validation did not return the expected vertical H.264/audio contract.")
     if not metadata_check.get("audience_confirmed"):
         blockers.append("Confirm made_for_kids as true or false before scheduling or publishing.")
+    if str(video_quality.get("render_mode") or "").casefold() == "procedural_2d":
+        music_sync = video_quality.get("music_sync_report")
+        cue_count = int(music_sync.get("cue_count") or 0) if isinstance(music_sync, dict) else 0
+        rendered_count = int(music_sync.get("rendered_motion_track_count") or 0) if isinstance(music_sync, dict) else 0
+        if (
+            not isinstance(music_sync, dict)
+            or music_sync.get("status") != "passed"
+            or music_sync.get("motion_report_status") != "passed"
+            or cue_count < 2
+            or rendered_count != cue_count
+            or not isinstance(music_sync.get("cues"), list)
+            or len(music_sync["cues"]) != cue_count
+        ):
+            blockers.append("Procedural animation requires measured music-sync cues and one verified Motion track per cue.")
     audio_rights = provenance.get("assets", {}).get("soundtrack", {}).get("rights_status")
     if audio_rights == "rights_review_required":
         blockers.append("Soundtrack origin or license needs review before publication.")
@@ -454,6 +469,7 @@ def build_publish_manifest(
         "duration_seconds": video_quality.get("duration_seconds", 24),
         "render_mode": str(video_quality.get("render_mode") or "layered_images"),
         "shot_count": int(video_quality.get("shot_count") or 0),
+        "music_sync_event_count": int((video_quality.get("music_sync_report") or {}).get("cue_count") or 0),
         "format": "9:16",
         "video_type": "short",
         "sources": [
