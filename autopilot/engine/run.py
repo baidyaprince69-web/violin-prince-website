@@ -2774,11 +2774,17 @@ def build_story_quality_report(plan, selected_sources, date_check, as_of=None):
 
 
 def require_approved_text_provider():
-    """Fail before research until an approved text-planning provider is configured."""
-    raise PipelineError(
-        "No approved text-generation provider is configured. "
-        "The Prepare stage is disabled until a replacement provider is selected and tested."
-    )
+    """Require the isolated Copilot text planner before any live story is commissioned."""
+    if not os.environ.get("COPILOT_GITHUB_TOKEN", "").strip():
+        raise PipelineError(
+            "Live research planning is blocked: configure COPILOT_GITHUB_TOKEN as a repository Actions secret."
+        )
+    if not shutil.which("copilot"):
+        raise PipelineError(
+            "Live research planning is blocked: GitHub Copilot CLI is not installed in this runner."
+        )
+
+
 
 
 ILLUSTRATION_APPROVAL_FILE = Path(__file__).with_name("illustration-approval.json")
@@ -2848,18 +2854,62 @@ def require_approved_illustration_provider(approval_file=None):
 
 
 def ai(model, payload, timeout=180):
-    """Fail closed for remote AI; the approved local vector renderer has its own path."""
-    del payload, timeout
+    """Use isolated Copilot JSON planning; image generation remains a separate gated system."""
     if "image" in str(model).lower() or "illustration" in str(model).lower():
         raise PipelineError(
             "Remote image generation is disabled; approved scene plates must use the local vector illustrator."
         )
     require_approved_text_provider()
+    try:
+        from copilot_text_provider import (
+            CopilotTextProviderError,
+            generate_text_completion,
+        )
+        response = generate_text_completion(payload, timeout_seconds=int(timeout))
+    except (CopilotTextProviderError, TypeError, ValueError) as exc:
+        raise PipelineError("Isolated Copilot text planning failed: " + str(exc)[:1000]) from exc
+    return {"response": response}
 
 
 def recent_topics():
-    """Return no persisted history until a local, provider-independent store is implemented."""
-    return []
+    """Read durable researched subjects so blocked and published stories are both avoided."""
+    repository_root = Path(__file__).resolve().parents[2]
+    topics: list[str] = []
+    seen: set[str] = set()
+
+    def add(value: object) -> None:
+        text_value = re.sub(r"\\s+", " ", str(value or "")).strip()
+        key = re.sub(r"[^a-z0-9]+", " ", text_value.casefold()).strip()
+        if text_value and key and key not in seen:
+            seen.add(key)
+            topics.append(text_value[:240])
+
+    batch_root = repository_root / ".autopilot" / "daily-batches"
+    for batch_path in sorted(batch_root.glob("????-??-??.json")) if batch_root.is_dir() else []:
+        try:
+            payload = json.loads(batch_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        for plan in payload.get("plans", []) if isinstance(payload, dict) else []:
+            if not isinstance(plan, dict):
+                continue
+            add(plan.get("topic"))
+            add(plan.get("core_claim"))
+
+    for directory_name in ("public-youtube-attempts", "public-youtube-receipts"):
+        directory = repository_root / ".autopilot" / directory_name
+        for record_path in sorted(directory.glob("*.json")) if directory.is_dir() else []:
+            try:
+                record = json.loads(record_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if isinstance(record, dict):
+                add(record.get("topic"))
+                add(record.get("title"))
+
+    # The selector performs an exhaustive hard check against the entire batch
+    # archive before rendering. This prompt-side list is capped to control tokens.
+    return topics[-100:]
 
 
 def parse_planner_result(result):
