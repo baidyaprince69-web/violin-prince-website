@@ -429,5 +429,54 @@ class PrivatePreviewPublisherTests(unittest.TestCase):
         upload.assert_not_called()
 
 
+class DurableGitCommitTests(unittest.TestCase):
+    def _run_with_return_codes(self, return_codes):
+        commands = []
+        remaining = iter(return_codes)
+
+        def fake_run(command, **kwargs):
+            commands.append(list(command))
+            code = next(remaining, 0)
+            return type("Completed", (), {"returncode": code, "stdout": "", "stderr": ""})()
+
+        return commands, fake_run
+
+    def test_commit_stages_and_commits_receipt_before_fetch_and_rebase(self):
+        commands, fake_run = self._run_with_return_codes([0, 0, 0, 1, 0, 0, 0, 0])
+        paths = [".autopilot/public-youtube-attempts/test.json", ".autopilot/public-youtube-receipts/test.json"]
+        with patch.object(daily.subprocess, "run", side_effect=fake_run):
+            daily._git_commit(paths, "Record public upload receipt")
+        add_index = commands.index(["git", "add", "--", *paths])
+        commit_index = commands.index(["git", "commit", "-m", "Record public upload receipt"])
+        fetch_index = commands.index(["git", "fetch", "origin", "main"])
+        rebase_index = commands.index(["git", "rebase", "origin/main"])
+        push_index = commands.index(["git", "push", "origin", "HEAD:main"])
+        self.assertLess(add_index, commit_index)
+        self.assertLess(commit_index, fetch_index)
+        self.assertLess(fetch_index, rebase_index)
+        self.assertLess(rebase_index, push_index)
+
+    def test_failed_push_retries_only_after_fetch_and_rebase(self):
+        commands, fake_run = self._run_with_return_codes([0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0])
+        with patch.object(daily.subprocess, "run", side_effect=fake_run):
+            daily._git_commit([".autopilot/public-youtube-receipts/test.json"], "Record receipt")
+        pushes = [index for index, command in enumerate(commands) if command[:2] == ["git", "push"]]
+        self.assertEqual(len(pushes), 2)
+        first_fetch = commands.index(["git", "fetch", "origin", "main"], 0)
+        first_rebase = commands.index(["git", "rebase", "origin/main"], first_fetch)
+        self.assertLess(first_rebase, pushes[0])
+        retry_fetch = commands.index(["git", "fetch", "origin", "main"], pushes[0])
+        retry_rebase = commands.index(["git", "rebase", "origin/main"], retry_fetch)
+        self.assertLess(pushes[0], retry_fetch)
+        self.assertLess(retry_fetch, retry_rebase)
+        self.assertLess(retry_rebase, pushes[1])
+
+    def test_no_staged_receipt_stops_before_fetch_or_push(self):
+        commands, fake_run = self._run_with_return_codes([0, 0, 0, 0])
+        with patch.object(daily.subprocess, "run", side_effect=fake_run):
+            with self.assertRaisesRegex(daily.PublishBlocked, "No durable publication record was staged"):
+                daily._git_commit([".autopilot/public-youtube-receipts/test.json"], "Record receipt")
+        self.assertFalse(any(command[:2] in (["git", "fetch"], ["git", "rebase"], ["git", "push"]) for command in commands))
+
 if __name__ == "__main__":
     unittest.main()
