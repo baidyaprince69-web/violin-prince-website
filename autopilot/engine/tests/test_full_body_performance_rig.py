@@ -313,9 +313,32 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             self.assertEqual((root / "left_hand.png").read_bytes(), hand_bytes)
             after_parent = np.asarray(Image.open(root / "left_thigh.png").convert("RGBA"))
             after_child = np.asarray(Image.open(root / "left_calf.png").convert("RGBA"))
-            removed_local = moving[20:80, 20:80]
+            patch_alpha = np.asarray(
+                Image.open(root / "joint_surface_left_knee.png").convert("RGBA").getchannel("A")
+            )
+            patch_meta = layers[0]
+            patch_x, patch_y = int(patch_meta["x"]), int(patch_meta["y"])
+            patch_h, patch_w = patch_alpha.shape
+            patch_alpha_canvas = np.zeros((100, 100), dtype=np.uint8)
+            patch_alpha_canvas[
+                patch_y:patch_y + patch_h, patch_x:patch_x + patch_w
+            ] = patch_alpha
+            core_canvas = moving & (patch_alpha_canvas >= 254)
+            feather_canvas = moving & (patch_alpha_canvas > 12) & (patch_alpha_canvas < 254)
+            self.assertGreater(int(feather_canvas.sum()), 0,
+                "the source patch must have a soft alpha band inside its approved polygon")
+            self.assertGreater(int(core_canvas.sum()), 0,
+                "the patch must retain an opaque source-pixel core")
+            self.assertEqual(
+                report["regions"]["left_knee"]["feathered_boundary_source_pixels"],
+                int((moving & ~core_canvas).sum()),
+            )
+            removed_local = core_canvas[20:80, 20:80]
+            retained_underlap_local = feather_canvas[20:80, 20:80]
             self.assertTrue(np.all(after_parent[:, :, 3][removed_local] == 0))
             self.assertTrue(np.all(after_child[:, :, 3][removed_local] == 0))
+            self.assertTrue(np.all(after_parent[:, :, 3][retained_underlap_local] > 12))
+            self.assertTrue(np.all(after_child[:, :, 3][retained_underlap_local] > 12))
             self.assertTrue(np.array_equal(
                 parent_before[:, :, 3][~removed_local],
                 after_parent[:, :, 3][~removed_local],
@@ -330,6 +353,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                 Image.open(root / "joint_surface_left_knee.png").convert("RGBA").getchannel("A")
             )
             self.assertEqual(int(np.count_nonzero(patch_alpha)), int(moving.sum()))
+            self.assertTrue(np.any((patch_alpha > 12) & (patch_alpha < 254)))
             patch_pixels = np.asarray(
                 Image.open(root / "joint_surface_left_knee.png").convert("RGBA")
             )

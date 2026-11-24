@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 from character_autorig import (
     AutoRigError,
@@ -1727,6 +1727,28 @@ def _validate_artist_joint_polygon(
 
     return [[float(x), float(y)] for x, y in points]
 
+def _feather_source_mask_inside_polygon(
+    mask: np.ndarray,
+    feather_radius_px: float,
+) -> np.ndarray:
+    """Create an inward-only alpha ramp; never paints or expands source pixels."""
+    radius = float(feather_radius_px)
+    if not np.isfinite(radius) or not 0.5 <= radius <= 6.0:
+        raise ManualReviewRequired(
+            "Joint surface edge feather radius must be between 0.5 and 6 source pixels."
+        )
+    binary = np.asarray(mask, dtype=bool)
+    image = Image.fromarray(binary.astype(np.uint8) * 255, mode="L")
+    blurred = np.asarray(
+        image.filter(ImageFilter.GaussianBlur(radius=radius)),
+        dtype=np.float32,
+    ) / 255.0
+    # Feather only the interior. Do not create/paint pixels outside the approved
+    # polygon or outside the original visible parent/child source-alpha masks.
+    blurred[~binary] = 0.0
+    return np.clip(blurred, 0.0, 1.0)
+
+
 def _extract_source_aligned_joint_surfaces(
     source: Image.Image,
     bundle_dir: Path,
@@ -1795,6 +1817,13 @@ def _extract_source_aligned_joint_surfaces(
         "joint_surface_mesh_layer_count": 0,
         "joint_surface_articulated_layer_count": 0,
         "joint_surface_mode": "approved_artist_polygons_only_no_generated_caps",
+        "edge_feathering": {
+            "method": "inward_source_alpha_gaussian_ramp_with_parent_child_underlap",
+            "default_radius_px": 2.5,
+            "source_rgb_modified": False,
+            "outside_polygon_pixels_created": 0,
+            "parent_child_underlap_retained_in_feather_band": True,
+        },
         "source_pixels_transferred": 0,
         "parent_child_alpha_pixels_removed": 0,
         "prop_pixels_excluded": 0,
@@ -2014,15 +2043,47 @@ def _extract_source_aligned_joint_surfaces(
             }
             continue
 
-        role = "joint_surface_" + joint_name
-        geometry = _save_rgba_layer(
-            source_rgba, eligible, bundle_dir / f"{role}.png", padding=0
+        edge_feather_px = float(item.get("edge_feather_px", 2.5))
+        feather_alpha = _feather_source_mask_inside_polygon(
+            eligible, edge_feather_px
         )
+        # Transfer opaque source pixels only from the interior. The feather
+        # band stays duplicated beneath the joint patch in its original
+        # parent/child layers, so soft alpha edges blend source artwork rather
+        # than reveal transparency or a generated pad.
+        core_eligible = eligible & (feather_alpha >= 0.995)
+        core_area = int(core_eligible.sum())
+        if core_area < max(24, minimum // 3):
+            raise ManualReviewRequired(
+                f"Joint surface {joint_name} has too few opaque core source pixels after edge feathering."
+            )
+
+        role = "joint_surface_" + joint_name
+        patch_path = bundle_dir / f"{role}.png"
+        geometry = _save_rgba_layer(
+            source_rgba, eligible, patch_path, padding=0
+        )
+        patch_pixels = np.asarray(Image.open(patch_path).convert("RGBA"), dtype=np.uint8)
+        patch_x, patch_y = int(geometry["x"]), int(geometry["y"])
+        patch_h, patch_w = patch_pixels.shape[:2]
+        local_source_alpha = source_pixels[
+            patch_y:patch_y + patch_h, patch_x:patch_x + patch_w, 3
+        ].astype(np.float32)
+        local_feather = feather_alpha[
+            patch_y:patch_y + patch_h, patch_x:patch_x + patch_w
+        ]
+        patch_pixels[:, :, 3] = np.rint(
+            local_source_alpha * local_feather
+        ).clip(0, 255).astype(np.uint8)
+        Image.fromarray(patch_pixels, mode="RGBA").save(
+            patch_path, format="PNG", optimize=True
+        )
+
         parent_removed = _erase_canvas_mask_from_layer(
-            bundle_dir, layer_by_role[parent_role], eligible
+            bundle_dir, layer_by_role[parent_role], core_eligible
         )
         child_removed = _erase_canvas_mask_from_layer(
-            bundle_dir, layer_by_role[child_role], eligible
+            bundle_dir, layer_by_role[child_role], core_eligible
         )
         half_length = float(item.get("blend_axis_half_length_px", 18.0))
         if not 6 <= half_length <= 56:
@@ -2059,6 +2120,8 @@ def _extract_source_aligned_joint_surfaces(
                 "surface_outline_profile": "artist_source_polygon",
                 "artist_artwork_status": "artist_approved",
                 "source_space_polygon": polygon_points,
+                "edge_feather_px": edge_feather_px,
+                "edge_blend": "original_parent_child_underlap_retained",
             },
         }
         layers.append(layer)
@@ -2067,6 +2130,9 @@ def _extract_source_aligned_joint_surfaces(
             "status": "artist_source_polygon_patch_created",
             "role": role,
             "source_pixels": area,
+            "opaque_core_source_pixels": core_area,
+            "feathered_boundary_source_pixels": area - core_area,
+            "edge_feather_px": edge_feather_px,
             "parent_overlap_pixels": int(parent_overlap.sum()),
             "child_overlap_pixels": int(child_overlap.sum()),
             "parent_role": parent_role,
