@@ -65,8 +65,10 @@ test("shot projects compile the director transition and camera timing into frame
   assert.ok(background.some((track) => track.property === "clipPath"));
   assert.ok(background.some((track) => track.property === "opacity" &&
     track.values[0] === 1 && track.values.at(-1) === 1));
-  const camera = background.find((track) => track.property === "transform");
-  assert.ok(camera);
+  const camera = tracks.find((track) =>
+    track.target === "shot-02-camera-world" && track.property === "transform"
+  );
+  assert.ok(camera, "camera choreography must move the complete scene world");
   assert.equal(camera.start, 4);
   assert.equal(camera.duration, 4);
   assert.ok(camera.values.at(-1).includes("scale(1.225)"));
@@ -117,4 +119,29 @@ test("independent subject and foreground layers receive different timed Motion t
     subject.find((track) => track.property === "transform").values,
     foreground.find((track) => track.property === "transform").values
   );
+});
+
+
+test("Master Director camera moves can direct a procedural stagecraft scene", () => {
+  const tracks = compileMotionTracks({
+    duration_seconds: 5,
+    scenes: [{
+      id: "procedural-forest",
+      start: 1,
+      duration: 4,
+      visual_mode: "procedural_2d",
+      stagecraft: { environment: "forest_dusk" },
+      director_camera: { movement: "truck_left", shot_size: "wide" },
+      camera_motion_start_offset: 0.25,
+      camera_motion_duration: 3.2
+    }],
+    characters: []
+  }, { fps: 25 });
+  const camera = tracks.find(track =>
+    track.target === "procedural-forest-camera-world" && track.property === "transform"
+  );
+  assert.ok(camera, "procedural scene must receive the Master Director camera track");
+  assert.equal(camera.start, 1.25);
+  assert.equal(camera.duration, 3.2);
+  assert.ok(new Set(camera.values).size > 1, "camera track must move the whole scene");
 });

@@ -30,20 +30,32 @@ class DailyPresenterPoseSelectionTests(unittest.TestCase):
             project_path = build_daily_portrait_project(bundle_dir, temporary)
             project = json.loads(project_path.read_text(encoding="utf-8"))
 
-        self.assertEqual(len(project["scenes"]), len(expected))
+        self.assertEqual(len(project["scenes"]), len(expected) + 1)
         character = next(
             item for item in project["characters"]
             if item.get("id") == "violin-prince"
         )
         available_poses = set(character.get("pose_assets") or {})
 
-        for scene, expected_pose in zip(project["scenes"], expected, strict=True):
+        for scene, expected_pose in zip(project["scenes"][:len(expected)], expected, strict=True):
             with self.subTest(scene=scene["id"]):
                 action = scene["character_actions"]["violin-prince"]
                 self.assertTrue(action["visible"])
                 self.assertEqual(action["pose_asset"], expected_pose)
                 self.assertIn(action["pose_asset"], available_poses)
                 self.assertNotIn("presenter_pose", scene)
+
+        performance = project["scenes"][-1]
+        self.assertEqual(performance["id"], "scene-procedural-performance")
+        self.assertEqual(performance["stagecraft"]["environment"], "concert_stage")
+        self.assertEqual(len(performance["stagecraft"]["objects"]), 4)
+        self.assertEqual(performance["director_camera"]["movement"], "dolly_in")
+        action = performance["character_actions"]["violin-prince"]
+        self.assertTrue(action["visible"])
+        self.assertEqual(action["gesture"], "dance_groove")
+        self.assertTrue(action["loop"])
+        self.assertEqual(action["root_motion"]["type"], "sway")
+        self.assertNotIn("pose_asset", action)
 
 
 if __name__ == "__main__":

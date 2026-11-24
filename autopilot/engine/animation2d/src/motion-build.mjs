@@ -1,6 +1,7 @@
 import { spring } from "motion";
 import { gestureKeyframes } from "./contract.mjs";
 import { fitCharacterToCanvas } from "./character-layout.mjs";
+import { buildStagecraftMotion } from "./stagecraft.mjs";
 
 export function sampleMotionSpring(from, to, fps = 25, maxMs = 1400) {
   const frameRate = Math.max(1, Number(fps) || 25);
@@ -268,7 +269,11 @@ function sampleRotationTrack(track, time) {
   if (values.length < 2) return numericCssValue(values[0] || 0);
   const duration = Math.max(0.001, Number(track.duration) || 0.001);
   const rawProgress = (Number(time) - Number(track.start || 0)) / duration;
-  const progress = Math.min(1, Math.max(0, rawProgress));
+  // Repeat articulated movement on an exact cycle boundary. Before the
+  // action starts, hold the first pose rather than wrapping negative time.
+  const progress = track.loop === true
+    ? (rawProgress <= 0 ? 0 : rawProgress % 1)
+    : Math.min(1, Math.max(0, rawProgress));
   const segmentPosition = progress * (values.length - 1);
   const segment = Math.min(values.length - 2, Math.floor(segmentPosition));
   const localProgress = segmentPosition - segment;
@@ -359,7 +364,7 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
 
       const rolesToAnimate = new Set();
       for (const [role, ancestors] of Object.entries(dependencies)) {
-        if (ancestors.some(hasRotation) && (layerByRole.has(role) || role === "face")) {
+        if (ancestors.some(hasRotation) && layerByRole.has(role)) {
           rolesToAnimate.add(role);
         }
       }
@@ -487,7 +492,7 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
       easing: "linear"
     });
   };
-  const addKeyframes = (target, properties, start, durationSeconds, easing = "ease-in-out") => {
+  const addKeyframes = (target, properties, start, durationSeconds, easing = "ease-in-out", loop = false) => {
     if (!properties || typeof properties !== "object") return;
     for (const [property, rawValues] of Object.entries(properties)) {
       if (!Array.isArray(rawValues) || rawValues.length < 2) continue;
@@ -497,7 +502,8 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
         values: cssKeyframeValues(property, rawValues),
         start: Math.max(0, Number(start) || 0),
         duration: Math.max(0.08, Number(durationSeconds) || 0.8),
-        easing
+        easing,
+        ...(loop ? { loop: true } : {})
       });
     }
   };
@@ -510,9 +516,12 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
     const captionId = scene.id + "-caption";
     const visualMode = String(scene.visual_mode || "").toLowerCase();
     const isDirectorShot = visualMode === "director_shot";
+    const isProceduralScene = visualMode === "procedural_2d";
+    const isDirectedScene = isDirectorShot || isProceduralScene;
+    tracks.push(...buildStagecraftMotion(scene, { fps }));
     const transitionIn = String(scene.transition_in || "cut").toLowerCase();
     const transitionDuration = Math.max(0, Number(scene.transition_in_duration) || 0);
-    if (isDirectorShot) {
+    if (isDirectedScene) {
       const transition = directorTransitionSpec(transitionIn, transitionDuration);
       if (transition.property !== "opacity") {
         addKeyframes(backgroundId, { opacity: [1, 1] }, sceneStart, Math.max(0.08, transitionDuration || 0.08), "linear");
@@ -526,20 +535,21 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
     const gradeId = scene.id + "-grade";
     addSpring(gradeId, "opacity", 0, 1, sceneStart + 0.02, 420);
 
-    if (isDirectorShot) {
+    if (isDirectedScene) {
       const camera = scene.director_camera || {};
       const cameraStart = sceneStart + Math.max(0, Number(scene.camera_motion_start_offset) || 0);
       const cameraDuration = Math.max(0.08, Number(scene.camera_motion_duration) || sceneDuration);
       const cameraFrames = directorCameraKeyframes(camera, Number(scene.editorial_index) || 0);
       addKeyframes(
-        backgroundId,
+        scene.id + "-camera-world",
         { transform: cameraFrames },
         cameraStart,
         cameraDuration,
         scene.camera_easing || "ease-in-out"
       );
 
-      const visualLayers = Array.isArray(scene.visual_layers) ? scene.visual_layers : [];
+      const visualLayers = isDirectorShot && Array.isArray(scene.visual_layers)
+        ? scene.visual_layers : [];
       for (const layer of visualLayers) {
         const role = String(layer.role || "").toLowerCase();
         if (role === "background") continue;
@@ -562,13 +572,18 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
         }
       }
     } else {
-      const cameraKeyframes = visualMode === "cover_performance"
-        ? ["scale(1.055) translateX(12px)", "scale(1.105) translateX(-8px)", "scale(1.12) translateX(-13px)"]
-        : visualMode === "waveform" || visualMode === "mechanism_illustration"
-          ? ["scale(1.055) translateY(8px)", "scale(1.105) translateY(-8px)", "scale(1.115) translateY(-12px)"]
-          : ["scale(1.055) translateX(-9px)", "scale(1.105) translateX(7px)", "scale(1.12) translateX(12px)"];
-      addKeyframes(backgroundId, { transform: cameraKeyframes },
-        sceneStart, sceneDuration, "ease-in-out");
+      const hasDirectedCamera = Boolean(scene.director_camera && scene.director_camera.movement);
+      const cameraKeyframes = hasDirectedCamera
+        ? directorCameraKeyframes(scene.director_camera, Number(scene.editorial_index) || 0)
+        : visualMode === "cover_performance"
+          ? ["scale(1.055) translateX(12px)", "scale(1.105) translateX(-8px)", "scale(1.12) translateX(-13px)"]
+          : visualMode === "waveform" || visualMode === "mechanism_illustration"
+            ? ["scale(1.055) translateY(8px)", "scale(1.105) translateY(-8px)", "scale(1.115) translateY(-12px)"]
+            : ["scale(1.055) translateX(-9px)", "scale(1.105) translateX(7px)", "scale(1.12) translateX(12px)"];
+      const cameraStart = sceneStart + Math.max(0, Number(scene.camera_motion_start_offset) || 0);
+      const cameraDuration = Math.max(0.08, Number(scene.camera_motion_duration) || sceneDuration);
+      addKeyframes(scene.id + "-camera-world", { transform: cameraKeyframes },
+        cameraStart, cameraDuration, scene.camera_easing || "ease-in-out");
     }
 
     const brandId = scene.id + "-brand";
@@ -679,14 +694,14 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
         partIdByRole.set(layer.role, target);
       }
 
-      const addRigKeyframes = (role, properties, start, duration) => {
-        addKeyframes(partIdByRole.get(role), properties, start, duration);
+      const addRigKeyframes = (role, properties, start, duration, loop = false) => {
+        addKeyframes(partIdByRole.get(role), properties, start, duration, "ease-in-out", loop);
         // The face cut-out and expression overlays are separate images, but
         // they must inherit the head's neck-pivot motion to stay registered.
         if (role === "head") {
-          addKeyframes(partIdByRole.get("face"), properties, start, duration);
+          addKeyframes(partIdByRole.get("face"), properties, start, duration, "ease-in-out", loop);
           for (const name of Object.keys(character.expressions || {})) {
-            addKeyframes(prefix + "-expression-" + name, properties, start, duration);
+            addKeyframes(prefix + "-expression-" + name, properties, start, duration, "ease-in-out", loop);
           }
         }
       };
@@ -698,11 +713,41 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
         ...gestureKeyframes(action.gesture),
         ...((character.gestures || {})[action.gesture] || {})
       };
+      const gestureLoop = action.loop === true;
+      const gestureDuration = gestureLoop
+        ? Math.max(
+            0.5,
+            Math.min(
+              sceneDuration,
+              Number(action.cycle_duration_seconds) || 1.8
+            )
+          )
+        : (Number(action.duration) || 1.35);
       for (const [role, properties] of Object.entries(gestures)) {
-        addRigKeyframes(role, properties, actionStart + 0.10, Number(action.duration) || 1.35);
+        addRigKeyframes(role, properties, actionStart + 0.10, gestureDuration, gestureLoop);
       }
       for (const [role, properties] of Object.entries(action.keyframes || {})) {
-        addRigKeyframes(role, properties, actionStart, Number(action.duration) || 1);
+        addRigKeyframes(role, properties, actionStart, gestureDuration, gestureLoop);
+      }
+      if (action.root_motion) {
+        const kind = typeof action.root_motion === "string" ? action.root_motion : String(action.root_motion.type || "");
+        const intensity = typeof action.root_motion === "object"
+          ? Math.max(0, Math.min(1, Number(action.root_motion.intensity) || 0.45)) : 0.45;
+        const distance = Math.round(12 + intensity * 44);
+        let rootFrames = null;
+        if (kind === "walk" || kind === "walk_cycle") {
+          rootFrames = ["translateX(0px) translateY(0px)", "translateX(" + distance + "px) translateY(-7px)",
+            "translateX(0px) translateY(0px)", "translateX(-" + distance + "px) translateY(-7px)",
+            "translateX(0px) translateY(0px)"];
+        } else if (kind === "sway") {
+          rootFrames = ["translateX(-" + distance * .35 + "px) rotate(-1.5deg)",
+            "translateX(" + distance * .35 + "px) rotate(1.5deg)", "translateX(-" + distance * .35 + "px) rotate(-1.5deg)"];
+        } else if (kind === "float" || kind === "hover") {
+          rootFrames = ["translateY(7px)", "translateY(-" + distance + "px)", "translateY(7px)"];
+        } else {
+          throw new TypeError("Unsupported character root_motion: " + kind);
+        }
+        addKeyframes(prefix + "-motion", { transform: rootFrames }, actionStart, gestureDuration, "ease-in-out", true);
       }
       const selectedExpression = String(action.expression || "neutral").toLowerCase();
       const activePoseAsset = String(action.pose_asset || "").toLowerCase();

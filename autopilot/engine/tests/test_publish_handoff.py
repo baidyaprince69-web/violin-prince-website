@@ -375,19 +375,6 @@ class AssetProvenanceTests(unittest.TestCase):
         self.assertEqual(manifest["description"], "Verified source-led music explanation.")
         self.assertEqual(manifest["external_asset_credits"], [])
 
-
-    def test_real_performance_records_the_creator_supplied_violin_take(self):
-        self.plan = {**self.plan, "slot_id": "real-performance"}
-        creator_audio = {
-            "audio_source": "creator_recorded_violin",
-            "filename": "violin-performance.wav",
-        }
-        provenance = self._provenance(creator_audio)
-        performance = provenance["assets"]["creator_supplied_performance"]
-        self.assertTrue(performance["included"])
-        self.assertEqual(performance["reason"], "The real-performance slot uses the creator-supplied PCM violin recording.")
-        self.assertEqual(performance["audio_sha256"], provenance["assets"]["soundtrack"]["sha256"])
-        self.assertEqual(provenance["assets"]["soundtrack"]["rights_status"], "creator_supplied_original_recording")
     def test_unknown_soundtrack_license_blocks_publication(self):
         check = validate_publish_metadata({
             "title": self.plan["title"],
@@ -408,6 +395,94 @@ class AssetProvenanceTests(unittest.TestCase):
         self.assertFalse(manifest["publish_ready"])
         self.assertTrue(any("Soundtrack origin" in item for item in manifest["publisher_preflight"]["blockers"]))
 
+
+    def test_procedural_provenance_records_eight_animated_shots_without_scene_images(self):
+        self.video_quality.update({
+            "render_mode": "procedural_2d",
+            "shot_count": 8,
+            "character_count": 1,
+            "character_rigging": "Creator-approved Violin Prince presenter rig",
+            "presenter_rig_approval": {
+                "status": "approved",
+                "bundle_sha256": "a" * 64,
+                "approval_sha256": "b" * 64,
+            },
+            "music_sync_report": {
+                "status": "passed",
+                "motion_report_status": "passed",
+                "cue_count": 3,
+                "rendered_motion_track_count": 3,
+                "measured_audio_sync_verified": True,
+                "cues": [
+                    {"time_seconds": float(index * 6 + 2), "event": f"Accent {index}", "reason": "The visual reveal lands on the measured beat.", "timing_source": "decoded_audio_beat_grid", "alignment_error_seconds": 0.0}
+                    for index in range(1, 4)
+                ],
+            },
+        })
+        self.plan["procedural_director_manifest"] = {
+            "rendered_layer_count": 0,
+            "shots": [
+                {
+                    "shot_id": f"shot-{index + 1:02d}",
+                    "environment": "laboratory",
+                    "animated_object_count": 3,
+                    "character_visible": index < 5,
+                }
+                for index in range(8)
+            ],
+        }
+        provenance = build_asset_provenance(
+            plan=self.plan,
+            verified_sources=self.sources,
+            audio_asset=self.audio_asset,
+            audio_path=self.audio,
+            narration_info=self.narration_info,
+            narration_path=self.narration,
+            image_paths=[],
+            final_video_path=self.video,
+            video_quality=self.video_quality,
+            run_id="procedural-test-run",
+        )
+        self.assertEqual(provenance["assets"]["render_mode"], "procedural_2d")
+        self.assertEqual(provenance["assets"]["scene_images"], [])
+        self.assertEqual(len(provenance["assets"]["procedural_scenes"]), 8)
+        self.assertEqual(provenance["assets"]["procedural_scenes"][0]["origin"], "native_motion_hyperframes_procedural_scene")
+        self.assertEqual(provenance["assets"]["character_rig"]["approval_status"], "approved")
+        self.assertEqual(provenance["assets"]["character_rig"]["bundle_sha256"], "a" * 64)
+
+        metadata_check = validate_publish_metadata({
+            "title": self.plan["title"],
+            "description": "A verified procedural animation explainer.",
+            "tags": ["Violin", "Music", "Acoustics"],
+            "made_for_kids": False,
+            "privacy_status": "public",
+        })
+        manifest = build_publish_manifest(
+            plan=self.plan,
+            metadata_check=metadata_check,
+            video_quality=self.video_quality,
+            provenance=provenance,
+            run_id="procedural-test-run",
+        )
+        self.assertTrue(manifest["publish_ready"])
+        self.assertEqual(manifest["render_mode"], "procedural_2d")
+        self.assertEqual(manifest["shot_count"], 8)
+        self.assertTrue(provenance["assets"]["music_sync"]["status"] == "passed")
+        self.assertEqual(manifest["music_sync_event_count"], 3)
+
+
+    def test_real_performance_records_the_creator_supplied_violin_take(self):
+        self.plan = {**self.plan, "slot_id": "real-performance"}
+        creator_audio = {
+            "audio_source": "creator_recorded_violin",
+            "filename": "violin-performance.wav",
+        }
+        provenance = self._provenance(creator_audio)
+        performance = provenance["assets"]["creator_supplied_performance"]
+        self.assertTrue(performance["included"])
+        self.assertEqual(performance["reason"], "The real-performance slot uses the creator-supplied PCM violin recording.")
+        self.assertEqual(performance["audio_sha256"], provenance["assets"]["soundtrack"]["sha256"])
+        self.assertEqual(provenance["assets"]["soundtrack"]["rights_status"], "creator_supplied_original_recording")
 
 if __name__ == "__main__":
     unittest.main()

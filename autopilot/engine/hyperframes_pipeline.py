@@ -191,15 +191,17 @@ def render_master_director_video(
     project_dir: Path,
     output_video: Path,
     layer_assets: dict[str, dict[str, Path]] | None = None,
+    rig_bundle_dir: Path | None = None,
+    production_mode: bool = False,
 ) -> dict[str, Any]:
-    """Render a complete shot-led Master Director composition and mix its audio.
+    """Render a Master Director composition and mix its audio.
 
-    This path consumes the director's full 8–18 shot timeline. Every shot must
-    have its own unique, verified image. Camera and transition tracks are
-    rendered by Motion; the director's subject/environment/depth action remains
-    recorded in the project until separated visual layers are supplied.
+    Procedural v3 plans build environments and objects as independent
+    vector/Motion elements and use the articulated presenter rig. Legacy v2
+    layered-image plans continue through the image-layer renderer.
     """
     from director_shot_renderer import build_director_hyperframes_project
+    from procedural_director_renderer import build_procedural_director_project
 
     root = Path(project_dir).resolve()
     output = Path(output_video).resolve()
@@ -208,15 +210,32 @@ def render_master_director_video(
     root.mkdir(parents=True, exist_ok=True)
     output.parent.mkdir(parents=True, exist_ok=True)
 
-    project = build_director_hyperframes_project(
-        director_plan,
-        shot_images,
-        root,
-        layer_assets=layer_assets,
-        width=int(engine.W),
-        height=int(engine.H),
-        fps=int(engine.FPS),
-    )
+    render_mode = str(director_plan.get("render_mode") or "layered_images").casefold()
+    if render_mode == "procedural_2d":
+        if shot_images or layer_assets:
+            raise HyperFramesRenderError(
+                "Procedural Director mode refuses generated scene plates or cutout image layers."
+            )
+        project = build_procedural_director_project(
+            director_plan,
+            root,
+            width=int(engine.W),
+            height=int(engine.H),
+            fps=int(engine.FPS),
+            rig_bundle_dir=rig_bundle_dir,
+        )
+    elif render_mode == "layered_images":
+        project = build_director_hyperframes_project(
+            director_plan,
+            shot_images,
+            root,
+            layer_assets=layer_assets,
+            width=int(engine.W),
+            height=int(engine.H),
+            fps=int(engine.FPS),
+        )
+    else:
+        raise HyperFramesRenderError("Unsupported Master Director render_mode: " + render_mode)
     duration = float(project["duration_seconds"])
 
     brand_fonts = engine._ensure_brand_fonts()
@@ -338,7 +357,8 @@ def render_master_director_video(
     })
     report = {
         "status": "passed",
-        "renderer": "Motion + HyperFrames Master Director shot renderer",
+        "renderer": ("Motion + HyperFrames procedural Master Director" if render_mode == "procedural_2d" else "Motion + HyperFrames Master Director layered-image renderer"),
+        "render_mode": render_mode,
         "contract_version": project.get("director_contract"),
         "duration_seconds": duration,
         "shot_count": len(project.get("scenes") or []),
@@ -350,6 +370,8 @@ def render_master_director_video(
         "transitions": project.get("director_transition_summary", []),
         "story_palette": project.get("director_palette", {}),
         "music_sync_cues": project.get("director_music_sync_cues", []),
+        "music_sync_report": project.get("music_sync_report", {}),
+        "music_sync_event_count": int(motion_report.get("music_sync_event_count") or 0),
         "motion_report": motion_report,
         "visual_only_qa": visual_qa,
         "final_video_qa": final_qa,
@@ -357,11 +379,20 @@ def render_master_director_video(
         "independent_layer_motion_count": int(motion_report.get("independent_layer_motion_count") or 0),
         "rendered_layer_count": int(motion_report.get("rendered_layer_count") or 0),
         "shot_layer_manifest": project.get("shot_asset_manifest", []),
-        "publish_ready": False,
+        "animated_stagecraft_scene_count": int(motion_report.get("animated_stagecraft_scene_count") or 0),
+        "animated_stagecraft_node_count": int(motion_report.get("animated_stagecraft_node_count") or 0),
+        "animated_stagecraft_object_count": int(motion_report.get("animated_stagecraft_object_count") or 0),
+        "animated_presenter_count": int(motion_report.get("animated_presenter_count") or 0),
+        "publish_ready": bool(production_mode),
+        "production_mode": bool(production_mode),
         "publish_blocker": (
-            "The automated cinematic image-generation provider is not connected to the scheduled "
-            "production workflow yet. This render path accepts and animates verified separated layers, "
-            "but the production pipeline still needs to generate and verify those assets automatically."
+            None if production_mode else (
+                "This is an engineering preview. Daily production approvals must pass before public release."
+                if render_mode == "procedural_2d"
+                else "The automated cinematic image-generation provider is not connected to the scheduled "
+                "production workflow yet. This render path accepts and animates verified separated layers, "
+                "but the production pipeline still needs to generate and verify those assets automatically."
+            )
         ),
         "output": str(output),
     }

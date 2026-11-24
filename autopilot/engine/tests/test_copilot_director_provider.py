@@ -98,8 +98,23 @@ def valid_plan():
             "music_cue": f"Music cue {index + 1}",
             "sound_effects": [],
         })
+    for index, shot in enumerate(shots):
+        shot.pop("visual_layers", None)
+        shot["procedural_scene"] = {
+            "environment": ["concert_stage", "laboratory", "space", "forest_dusk"][index % 4],
+            "objects": [
+                {"id": "source", "kind": "orb", "x": 0.35, "y": 0.45, "size": 26, "color": "#D95D39", "motion": "pulse", "period_seconds": 1.8},
+                {"id": "wave", "kind": "ring", "x": 0.7, "y": 0.58, "size": 34, "color": "#EACB8B", "motion": "orbit", "period_seconds": 3.2},
+            ],
+        }
+        shot["character_action"] = {
+            "visible": True, "gesture": "talking", "expression": "speaking",
+            "loop": True, "cycle_duration_seconds": 1.8,
+        }
+        shot["graphic_data"] = None
     return {
         "schema_version": 2,
+        "render_mode": "procedural_2d",
         "story_understanding": {
             "central_truth": "One grounded music fact.",
             "viewer_question": "Why does this sound happen?",
@@ -182,6 +197,7 @@ class CopilotDirectorProviderTests(unittest.TestCase):
         self.assertEqual(child_env["COPILOT_GITHUB_TOKEN"], "test-token")
         self.assertNotIn("GITHUB_TOKEN", child_env)
         self.assertNotIn("GH_TOKEN", child_env)
+        self.assertEqual(result["render_mode"], "procedural_2d")
         self.assertEqual(result["_director_provider"]["provider"], "github-copilot-cli")
         self.assertNotIn("test-token", " ".join(command))
 

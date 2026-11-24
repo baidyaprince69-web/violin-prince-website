@@ -184,19 +184,92 @@ def validate_daily_bundle(
     if manifest.get("contains_synthetic_media") is not synthetic.get("contains_synthetic_media"):
         raise PublishBlocked("Manifest and asset provenance synthetic-media declarations do not match.")
     assets = provenance.get("assets") or {}
+    manifest_render_mode = str(manifest.get("render_mode") or "").casefold()
+    asset_render_mode = str(assets.get("render_mode") or "").casefold()
+    if manifest_render_mode and asset_render_mode and manifest_render_mode != asset_render_mode:
+        raise PublishBlocked("Publisher manifest and asset provenance render modes do not match.")
+    # Earlier public handoff manifests predate the explicit render_mode field.
+    # Preserve their validated three-image contract as the legacy mode.
+    render_mode = manifest_render_mode or asset_render_mode or "layered_images"
+    if render_mode not in {"procedural_2d", "layered_images"}:
+        raise PublishBlocked("Publisher manifest and asset provenance render modes are unsupported.")
     scene_images = assets.get("scene_images")
-    if not isinstance(scene_images, list) or len(scene_images) != 3:
-        raise PublishBlocked("Provenance must describe the three rendered scene illustrations.")
-    for image_record in scene_images:
+    if render_mode == "procedural_2d":
+        if not isinstance(scene_images, list) or scene_images:
+            raise PublishBlocked("Procedural animation must not contain generated scene-image assets.")
+        procedural_scenes = assets.get("procedural_scenes")
+        expected_shots = int(manifest.get("shot_count") or 0)
+        if not isinstance(procedural_scenes, list) or not 8 <= expected_shots <= 18 or len(procedural_scenes) != expected_shots:
+            raise PublishBlocked("Procedural provenance must describe all 8–18 rendered animated scenes.")
+        for scene_record in procedural_scenes:
+            if (
+                not isinstance(scene_record, dict)
+                or scene_record.get("origin") != "native_motion_hyperframes_procedural_scene"
+                or scene_record.get("provider") != "Violin Prince procedural 2D renderer"
+                or scene_record.get("rights_status") != "original_procedural_vector_animation"
+                or int(scene_record.get("animated_object_count") or 0) < 2
+                or not str(scene_record.get("environment") or "")
+            ):
+                raise PublishBlocked("A procedural scene is missing its authored motion or environment provenance.")
+        rig = assets.get("character_rig") or {}
         if (
-            not isinstance(image_record, dict)
-            or image_record.get("origin") != "locally_generated_vector_artwork"
-            or image_record.get("provider") != "Violin Prince local vector illustrator"
-            or image_record.get("model") != "violin-prince-vector-illustrator-v1"
-            or image_record.get("rights_status") != "original_locally_generated_vector_artwork"
-            or not re.fullmatch(r"[0-9a-f]{64}", str(image_record.get("sha256") or ""))
+            rig.get("approval_status") != "approved"
+            or not re.fullmatch(r"[0-9a-f]{64}", str(rig.get("bundle_sha256") or ""))
+            or not re.fullmatch(r"[0-9a-f]{64}", str(rig.get("approval_sha256") or ""))
         ):
-            raise PublishBlocked("Scene illustration provenance does not match the creator-approved local vector renderer.")
+            raise PublishBlocked("The procedural presenter rig does not have a valid creator-approved asset fingerprint.")
+        music_sync = assets.get("music_sync")
+        cue_count = int(music_sync.get("cue_count") or 0) if isinstance(music_sync, dict) else 0
+        rendered_count = int(music_sync.get("rendered_motion_track_count") or 0) if isinstance(music_sync, dict) else 0
+        sync_cues = music_sync.get("cues") if isinstance(music_sync, dict) else None
+        if (
+            not isinstance(music_sync, dict)
+            or music_sync.get("status") != "passed"
+            or music_sync.get("motion_report_status") != "passed"
+            or music_sync.get("measured_audio_sync_verified") is not True
+            or cue_count < 2
+            or rendered_count != cue_count
+            or manifest.get("music_sync_event_count") != cue_count
+            or not isinstance(sync_cues, list)
+            or len(sync_cues) != cue_count
+        ):
+            raise PublishBlocked("Procedural animation must prove measured music-sync timing and one rendered Motion track per cue.")
+        last_sync_time = -1.0
+        for cue in sync_cues:
+            if not isinstance(cue, dict):
+                raise PublishBlocked("Procedural music-sync provenance contains an invalid cue.")
+            cue_time = cue.get("time_seconds")
+            alignment_error = cue.get("alignment_error_seconds")
+            if (
+                not isinstance(cue_time, (int, float)) or isinstance(cue_time, bool)
+                or not 0 <= float(cue_time) < float(manifest.get("duration_seconds") or 0) - 0.08
+                or float(cue_time) <= last_sync_time
+                or cue.get("timing_source") not in {
+                    "decoded_audio_beat_grid",
+                    "decoded_audio_phase_grid",
+                    "decoded_audio_onset",
+                    "verified_audio_arrangement_event_map",
+                }
+                or not isinstance(alignment_error, (int, float)) or isinstance(alignment_error, bool)
+                or not 0 <= float(alignment_error) <= 0.45
+                or not str(cue.get("event") or "").strip()
+                or not str(cue.get("reason") or "").strip()
+            ):
+                raise PublishBlocked("Procedural music-sync cues are not ordered, measured, or within the allowed alignment error.")
+            last_sync_time = float(cue_time)
+    else:
+        if not isinstance(scene_images, list) or len(scene_images) != 3:
+            raise PublishBlocked("Legacy illustration provenance must describe the three rendered scene illustrations.")
+        for image_record in scene_images:
+            if (
+                not isinstance(image_record, dict)
+                or image_record.get("origin") != "locally_generated_vector_artwork"
+                or image_record.get("provider") != "Violin Prince local vector illustrator"
+                or image_record.get("model") != "violin-prince-vector-illustrator-v1"
+                or image_record.get("rights_status") != "original_locally_generated_vector_artwork"
+                or not re.fullmatch(r"[0-9a-f]{64}", str(image_record.get("sha256") or ""))
+            ):
+                raise PublishBlocked("Scene illustration provenance does not match the creator-approved local vector renderer.")
     soundtrack = assets.get("soundtrack") or {}
     if soundtrack.get("rights_status") not in {
         "cc0_license_recorded_from_pinned_sample_manifest",
@@ -214,10 +287,11 @@ def validate_daily_bundle(
     quality = video_probe if video_probe is not None else probe_video(video)
     if quality.get("status") != "passed":
         raise PublishBlocked("Independent final-video inspection did not pass.")
+    maximum_duration = 60 if render_mode == "procedural_2d" else 25
     if (
         quality.get("width") != 720 or quality.get("height") != 1280
         or quality.get("video_codec") != "h264"
-        or not 20 <= float(quality.get("duration_seconds") or 0) <= 25
+        or not 20 <= float(quality.get("duration_seconds") or 0) <= maximum_duration
     ):
         raise PublishBlocked("Independent final-video inspection does not match the Shorts format contract.")
 
@@ -276,6 +350,7 @@ def _git_commit(paths: list[str], message: str) -> None:
         subprocess.run(["git", "fetch", "origin", "main"], cwd=ROOT, check=True)
         subprocess.run(["git", "rebase", "origin/main"], cwd=ROOT, check=True)
     raise PublishBlocked("Could not persist the publication guard/receipt to main: " + last_error)
+
 
 def _summary(text: str) -> None:
     path = os.environ.get("GITHUB_STEP_SUMMARY")

@@ -53,56 +53,54 @@ def _read_ready_story(batch_path: Path, slot_id: str) -> tuple[dict[str, Any], l
     return selected, plans, batch_date, batch_sha256
 
 
-def _build_layer_generation_brief(
+def _build_procedural_stagecraft_brief(
     director_plan: dict[str, Any],
     *,
     batch_date: str,
     slot_id: str,
     batch_sha256: str,
 ) -> dict[str, Any]:
-    shots = director_plan["storyboard"]["shots"]
-    shot_requests = []
-    for shot in shots:
-        layers = []
-        for layer in shot["visual_layers"]:
-            layers.append({
-                "layer_id": layer["id"],
-                "role": layer["role"],
-                "z_index": layer["z_index"],
-                "asset_mode": layer["asset_mode"],
-                "description": layer["description"],
-                "generation_prompt": layer["generation_prompt"],
-                "motion": dict(layer["motion"]),
-                "technical_output": (
-                    "Full-frame opaque RGB image, portrait 9:16."
-                    if layer["asset_mode"] == "opaque"
-                    else "Portrait 9:16 PNG cutout with real transparency and non-opaque pixels; do not paint a background."
-                ),
-            })
-        shot_requests.append({
+    """Summarize the executable scene instructions; request no generated image assets."""
+    shots = []
+    for shot in director_plan["storyboard"]["shots"]:
+        shots.append({
             "shot_id": shot["id"],
             "start_seconds": shot["start_seconds"],
             "end_seconds": shot["end_seconds"],
-            "visual_subject": shot["visual_subject"],
+            "purpose": shot["purpose"],
             "setting": shot["setting"],
-            "composition": shot["composition"],
+            "visual_subject": shot["visual_subject"],
             "camera": dict(shot["camera"]),
-            "layers": layers,
+            "environment": dict(shot["procedural_scene"]),
+            "character_action": dict(shot["character_action"]),
+            "graphic_data": dict(shot["graphic_data"]) if shot.get("graphic_data") else None,
+            "animation": dict(shot["animation"]),
+            "transition_to_next": shot["transition_to_next"],
+            "narration_cue": shot["narration_cue"],
+            "music_cue": shot["music_cue"],
         })
-
     return {
-        "schema_version": 1,
-        "status": "generation_brief_ready_provider_not_connected",
+        "schema_version": 2,
+        "status": "procedural_scene_plan_ready",
         "production_date": batch_date,
         "slot_id": slot_id,
         "batch_sha256": batch_sha256,
         "director_contract_version": director_plan.get("_director_provider", {}).get("contract_version"),
+        "render_mode": "procedural_2d",
         "visual_concept": director_plan["visual_concept"],
-        "shot_count": len(shot_requests),
-        "shots": shot_requests,
-        "provider_requirement": (
-            "A permitted cinematic scene-generation provider must generate each listed layer as a distinct asset. "
-            "Do not use the legacy local vector illustrator, reuse assets, or fake transparent cutouts."
+        "shot_count": len(shots),
+        "shots": shots,
+        "asset_policy": {
+            "mode": "procedural_vectors_and_articulated_rig",
+            "generated_scene_images": 0,
+            "generated_transparent_cutouts": 0,
+            "environment_renderer": "procedural SVG + Motion",
+            "character_renderer": "existing articulated Violin Prince upper-body rig",
+            "static_image_fallback_allowed": False,
+        },
+        "note": (
+            "The shot instructions are executed directly by Motion + HyperFrames. "
+            "No image-generation provider or generated background/cutout pictures are required."
         ),
     }
 
@@ -146,9 +144,15 @@ def create_master_director_plan(
 
     provider_metadata = director_plan.get("_director_provider")
     contract_version = str((provider_metadata or {}).get("contract_version") or "")
-    if contract_version != "violin-prince-master-director-v2":
+    if contract_version != "violin-prince-master-director-v3":
         raise DirectorJobError(
-            "Copilot returned a director plan from an unexpected contract version; expected v2."
+            "Copilot returned a director plan from an unexpected contract version; expected v3."
+        )
+
+    if director_plan.get("render_mode") != "procedural_2d":
+        raise DirectorJobError(
+            "Master Director v3 must return render_mode='procedural_2d'; "
+            "image-layer plans are not accepted by this renderer."
         )
 
     director_plan["production_context"] = {
@@ -158,6 +162,7 @@ def create_master_director_plan(
         "batch_sha256": batch_sha256,
         "original_title": str(verified_plan.get("title") or ""),
         "topic": str(verified_plan.get("topic") or ""),
+        "narration_script": str(verified_plan.get("narration_script") or ""),
         "source_ids": [str(source.get("source_id") or "") for source in verified_sources],
         "source_publishers": sorted({
             str(source.get("publisher_domain") or "")
@@ -174,13 +179,13 @@ def create_master_director_plan(
         director_plan,
         destination / "master-director-plan.json",
     )
-    brief = _build_layer_generation_brief(
+    brief = _build_procedural_stagecraft_brief(
         director_plan,
         batch_date=batch_date,
         slot_id=slot_id,
         batch_sha256=batch_sha256,
     )
-    brief_path = destination / "shot-layer-generation-brief.json"
+    brief_path = destination / "procedural-stagecraft-brief.json"
     temporary = brief_path.with_suffix(".json.tmp")
     temporary.write_text(
         json.dumps(brief, ensure_ascii=False, indent=2) + "\n",
@@ -199,10 +204,10 @@ def create_master_director_plan(
         "palette": director_plan["visual_concept"]["palette"],
         "source_count": len(verified_sources),
         "master_director_plan": str(plan_path),
-        "layer_generation_brief": str(brief_path),
+        "procedural_stagecraft_brief": str(brief_path),
         "rendered": False,
         "published": False,
-        "next_dependency": "eligible cinematic layered image-generation provider",
+        "next_dependency": "render_and_inspect_procedural_preview_then_obtain_creator_approval",
     }
     print("MASTER_DIRECTOR_RESULT=" + json.dumps(summary, ensure_ascii=False), flush=True)
     return summary
@@ -210,7 +215,7 @@ def create_master_director_plan(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Generate a source-verified Master Creative Director v2 plan with GitHub Copilot."
+        description="Generate a source-verified procedural Master Creative Director v3 plan with GitHub Copilot."
     )
     parser.add_argument("--batch", required=True, help="Path to the immutable four-slot daily batch JSON.")
     parser.add_argument("--slot-id", required=True, choices=tuple(SLOT_CATALOG))
