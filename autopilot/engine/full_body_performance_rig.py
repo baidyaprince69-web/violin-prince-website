@@ -1577,7 +1577,6 @@ def _extract_source_aligned_joint_surfaces(
     regions_manifest_path: Path,
     character: dict[str, Any],
     prop_masks: dict[str, np.ndarray],
-    *,
     generate_caps: bool = False,
 ) -> tuple[list[dict[str, Any]], np.ndarray, dict[str, Any]]:
     """Optionally extract experimental joint caps; production defers them.
