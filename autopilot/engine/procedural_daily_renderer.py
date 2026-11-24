@@ -93,7 +93,7 @@ def require_approved_presenter_rig(
     ):
         if not path.is_file():
             raise ProceduralDailyRenderError(
-                f"Production presenter gate is closed: missing {label} ({path.name})."
+                f"Production {'full-body ' if is_real_performance else ''}presenter gate is closed: missing {label} ({path.name})."
             )
 
     try:
