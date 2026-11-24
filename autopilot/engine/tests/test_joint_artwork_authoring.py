@@ -31,7 +31,10 @@ class JointArtworkAuthoringTests(unittest.TestCase):
             character = {
                 "canvas": {"width": 64, "height": 80},
                 "joints": {
-                    name: {"x": 0.25 + index * 0.1, "y": 0.5}
+                    name: {
+                        "x": 0.0 if name == "left_hip" else 0.25 + index * 0.1,
+                        "y": 0.5,
+                    }
                     for index, name in enumerate(lower_joints)
                 },
                 "layers": [
@@ -83,6 +86,13 @@ class JointArtworkAuthoringTests(unittest.TestCase):
                 "the review sheet must render parent-surface contours in cyan")
             self.assertGreater(amber_boundary_pixels, 20,
                 "the review sheet must render child-surface contours in amber")
+            magenta_candidate_pixels = np.count_nonzero(
+                (contact[:, :, 0] > 180)
+                & (contact[:, :, 2] > 150)
+                & (contact[:, :, 1] < 165)
+            )
+            self.assertGreater(magenta_candidate_pixels, 10,
+                "shared source-pixel candidates must be outlined in magenta")
             self.assertEqual(template["joint_surfaces"]["regions"]["left_knee"]["artist_source_polygon"], [])
             self.assertEqual(template["joint_surfaces"]["regions"]["left_knee"]["artwork_status"], "awaiting_artist_alignment")
             candidate = template["joint_surfaces"]["regions"]["left_knee"]
@@ -97,6 +107,7 @@ class JointArtworkAuthoringTests(unittest.TestCase):
             self.assertEqual(hip_candidate["candidate_status"],
                 "manual_seam_trace_required_no_shared_parent_child_pixels")
             self.assertFalse(hip_candidate["candidate_is_production_art"])
+            self.assertIsNone(hip_candidate["candidate_parent_child_gap_px"])
             self.assertGreater(result["candidate_joint_polygons"], 0)
             self.assertGreater(result["manual_seam_trace_required"], 0)
             self.assertEqual(result["candidate_polygons_artist_approved"], 0)

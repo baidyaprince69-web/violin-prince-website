@@ -74,6 +74,8 @@ def build_joint_artwork_review_pack(
             "Do not use circles, capsules, ellipses, rounded rectangles or generic joint pads.",
             "The polygon must overlap both named parent_role and child_role source masks.",
             "Mark artwork_status as artist_approved only after visual review of the traced source boundary.",
+            "candidate_source_polygon is only a tracing suggestion from exact shared source-alpha pixels; never copy it to artist_source_polygon without visual approval.",
+            "Magenta contours in the contact sheet indicate draft candidates; they are not production art.",
             "The extraction stage copies original source pixels only; it does not paint or invent texture.",
         ],
         "protected_scope": {
@@ -344,6 +346,9 @@ def main() -> int:
         "status": report["status"],
         "joint_count": report["joint_count"],
         "production_art_assets_created": report["production_art_assets_created"],
+        "candidate_joint_polygons": report["candidate_joint_polygons"],
+        "manual_seam_trace_required": report["manual_seam_trace_required"],
+        "candidate_polygons_artist_approved": report["candidate_polygons_artist_approved"],
         "contact_sheet": report["contact_sheet"],
         "template": report["template"],
     }, indent=2))
