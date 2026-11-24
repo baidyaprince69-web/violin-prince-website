@@ -120,6 +120,8 @@ jobs:
           assert report.get("candidate_joint_polygons") == candidate_count, report
           assert report.get("manual_seam_trace_required") == manual_trace_count, report
           assert report.get("candidate_polygons_artist_approved") == 0, report
+          assert report.get("annotator") == "joint-artwork-annotator.html", report
+          assert (root / report["annotator"]).is_file(), report
           assert report.get("production_art_assets_created") == 0, report
           assert candidate_count >= 1, report
           assert manual_trace_count >= 1, report
@@ -604,6 +606,7 @@ jobs:
             work/full-body-rig/joint-artwork-review/joint-artwork-contact-sheet.jpg
             work/full-body-rig/joint-artwork-review/joint-artwork-template.json
             work/full-body-rig/joint-artwork-review/joint-artwork-review-report.json
+            work/full-body-rig/joint-artwork-review/joint-artwork-annotator.html
             work/full-body-rig/bundle/full-body-performance-report.json
             work/full-body-rig/bundle/reference-sheets-report.json
             work/full-body-rig/bundle/reference-part-map.json

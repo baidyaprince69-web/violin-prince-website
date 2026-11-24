@@ -75,10 +75,21 @@ class JointArtworkAuthoringTests(unittest.TestCase):
                 crop_radius=16, scale=2,
             )
             template = json.loads((output / "joint-artwork-template.json").read_text(encoding="utf-8"))
+            annotator_path = output / "joint-artwork-annotator.html"
+            annotator = annotator_path.read_text(encoding="utf-8")
 
             self.assertEqual(result["status"], "review_pack_created")
             self.assertEqual(result["joint_count"], 6)
             self.assertEqual(result["production_art_assets_created"], 0)
+            self.assertEqual(result["annotator"], "joint-artwork-annotator.html")
+            self.assertTrue(annotator_path.is_file())
+            self.assertIn("annotator-canvas", annotator)
+            self.assertIn("Export reviewed JSON", annotator)
+            self.assertIn("artist_source_polygon", annotator)
+            self.assertIn("candidate_source_polygon", annotator)
+            self.assertIn("artist_approved", annotator)
+            self.assertIn("../bundle/preserved-full-body-source.png", annotator)
+            self.assertNotIn("fetch(", annotator)
             contact_path = output / "joint-artwork-contact-sheet.jpg"
             self.assertTrue(contact_path.is_file())
             contact = np.asarray(Image.open(contact_path).convert("RGB"))
