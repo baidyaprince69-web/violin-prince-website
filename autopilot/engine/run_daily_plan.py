@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Run a ChatGPT-authored, source-checked daily plan through the 2D engine.
+"""Run one verified Violin Prince story through the daily production renderer.
 
-ChatGPT supplies the story, narration and scene direction. This runner verifies
-publisher evidence, creates scene illustrations, stages original character art,
-animates through Motion and renders frame-accurate scenes through HyperFrames.
-Existing FFmpeg finishing and quality assurance remain in place.
-This script never publishes; it creates the quality-gated release handoff only.
+Scheduled four-slot batches use the procedural Master Creative Director,
+hash-pinned creator-approved presenter art, Motion/HyperFrames animation and
+independent MP4 QA. Legacy one-off handoffs retain their existing renderer.
+This script never publishes; the dedicated public YouTube uploader consumes
+the finished quality-gated handoff as the final production step.
 """
 from __future__ import annotations
 
@@ -501,7 +501,8 @@ def run_daily_plan(
         raise engine.PipelineError("YouTube publisher preflight blocked the plan: " + str(exc)) from exc
     plan["publish_metadata"] = dict(metadata_check["value"])
     # Keep generic multi-destination adapters disabled. Scheduled four-slot
-    # runs are uploaded only as private previews by a separate fail-closed step.
+    # runs reach the dedicated public YouTube uploader only after the rendered
+    # MP4, source evidence, asset provenance and publication receipt gates pass.
     os.environ["PUBLISH_ENABLED"] = "false"
 
     real_performance_slot = str(plan.get("slot_id") or "") == "real-performance"
@@ -509,7 +510,10 @@ def run_daily_plan(
         prefer_creator_assets=real_performance_slot,
         allow_fallback=not real_performance_slot,
     )
-    if real_performance_slot and str(audio_asset.get("kind") or "") != "uploaded_recording":
+    if real_performance_slot and (
+        not isinstance(audio_asset, dict)
+        or str(audio_asset.get("kind") or "") != "uploaded_recording"
+    ):
         raise engine.PipelineError(
             "Real Performance requires the creator's actual uploaded violin recording; "
             "generated or sampled guide audio is not an acceptable substitute."
