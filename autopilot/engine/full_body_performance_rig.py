@@ -1987,7 +1987,7 @@ def _extract_source_aligned_joint_surfaces(
         area = int(eligible.sum())
         minimum = int(item.get("minimum_pixels", 80))
         minimum_side_overlap = max(
-            1, int(item.get("minimum_parent_child_overlap_pixels", 4))
+            4, int(item.get("minimum_parent_child_overlap_pixels", 4))
         )
         parent_overlap_pixels = int(parent_overlap.sum())
         child_overlap_pixels = int(child_overlap.sum())
