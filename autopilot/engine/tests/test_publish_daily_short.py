@@ -304,6 +304,7 @@ class DailyPublicPublisherTests(unittest.TestCase):
                 "motion_report_status": "passed",
                 "cue_count": 2,
                 "rendered_motion_track_count": 2,
+                "measured_audio_sync_verified": True,
                 "cues": [
                     {"time_seconds": 8.0, "event": "First beat", "reason": "The first reveal lands.", "timing_source": "decoded_audio_beat_grid", "alignment_error_seconds": 0.0},
                     {"time_seconds": 16.0, "event": "Second beat", "reason": "The second reveal lands.", "timing_source": "decoded_audio_beat_grid", "alignment_error_seconds": 0.02},

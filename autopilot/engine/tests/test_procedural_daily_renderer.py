@@ -193,6 +193,7 @@ class ProceduralDailyRendererTests(unittest.TestCase):
             self.assertEqual(result["render_mode"], "procedural_2d")
             self.assertEqual(result["duration_seconds"], 32.0)
             self.assertEqual(result["music_sync_report"]["rendered_motion_track_count"], 3)
+            self.assertTrue(result["music_sync_report"]["measured_audio_sync_verified"])
             self.assertEqual(plan["procedural_director_manifest"]["rendered_layer_count"], 0)
             self.assertTrue((package / "master-director" / "master-director-plan.json").is_file())
             self.assertTrue((output / "master-director-render-report.json").is_file())

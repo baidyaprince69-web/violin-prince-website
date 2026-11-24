@@ -421,6 +421,7 @@ def build_publish_manifest(
             not isinstance(music_sync, dict)
             or music_sync.get("status") != "passed"
             or music_sync.get("motion_report_status") != "passed"
+            or music_sync.get("measured_audio_sync_verified") is not True
             or cue_count < 2
             or rendered_count != cue_count
             or not isinstance(music_sync.get("cues"), list)

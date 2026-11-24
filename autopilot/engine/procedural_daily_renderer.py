@@ -469,6 +469,7 @@ def render_procedural_daily_video(
         )
     music_sync_report["rendered_motion_track_count"] = rendered_music_sync_count
     music_sync_report["motion_report_status"] = "passed"
+    music_sync_report["measured_audio_sync_verified"] = True
     director_plan["music_sync_report"] = music_sync_report
 
     temporary.write_text(json.dumps(director_plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

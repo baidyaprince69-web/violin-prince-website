@@ -226,6 +226,7 @@ def validate_daily_bundle(
             not isinstance(music_sync, dict)
             or music_sync.get("status") != "passed"
             or music_sync.get("motion_report_status") != "passed"
+            or music_sync.get("measured_audio_sync_verified") is not True
             or cue_count < 2
             or rendered_count != cue_count
             or manifest.get("music_sync_event_count") != cue_count
@@ -241,7 +242,7 @@ def validate_daily_bundle(
             alignment_error = cue.get("alignment_error_seconds")
             if (
                 not isinstance(cue_time, (int, float)) or isinstance(cue_time, bool)
-                or not 0 <= float(cue_time) < float(manifest.get("duration_seconds") or 0)
+                or not 0 <= float(cue_time) < float(manifest.get("duration_seconds") or 0) - 0.08
                 or float(cue_time) <= last_sync_time
                 or cue.get("timing_source") not in {"decoded_audio_beat_grid", "decoded_audio_onset"}
                 or not isinstance(alignment_error, (int, float)) or isinstance(alignment_error, bool)
