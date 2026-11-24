@@ -19,6 +19,13 @@ from PIL import Image, ImageDraw, ImageFilter
 
 PASCAL_MODEL = ("pirocheto/schp-pascal-7", "onnx/schp-pascal-7-int8-static.onnx")
 ATR_MODEL = ("pirocheto/schp-atr-18", "onnx/schp-atr-18-int8-static.onnx")
+# Pin the custom processor code and ONNX weights to immutable revisions.
+PASCAL_REVISION = "e97480b846bf0f23a9f9b7ab673dc1c86af89467"
+ATR_REVISION = "a54fa65e7e4f27f21011f652ffc0053ebb24b292"
+MODEL_REVISIONS = {
+    PASCAL_MODEL[0]: PASCAL_REVISION,
+    ATR_MODEL[0]: ATR_REVISION,
+}
 
 EXPRESSION_FILES = {
     "neutral": "face-neutral.jpg",
@@ -65,7 +72,14 @@ class ManualReviewRequired(AutoRigError):
 class SCHPOnnxParser:
     """CPU ONNX wrapper using the model card's Hugging Face image processor."""
 
-    def __init__(self, model_id: str, filename: str, *, cache_dir: str | Path | None = None):
+    def __init__(
+        self,
+        model_id: str,
+        filename: str,
+        *,
+        revision: str | None = None,
+        cache_dir: str | Path | None = None,
+    ):
         try:
             import onnxruntime as ort
             from huggingface_hub import hf_hub_download
@@ -76,13 +90,19 @@ class SCHPOnnxParser:
                 "autopilot/engine/requirements-character.txt."
             ) from exc
 
+        model_revision = revision or MODEL_REVISIONS.get(model_id)
+        if not model_revision:
+            raise AutoRigError(f"No immutable model revision is configured for {model_id}.")
         try:
             self.processor = AutoImageProcessor.from_pretrained(
-                model_id, trust_remote_code=True
+                model_id,
+                revision=model_revision,
+                trust_remote_code=True,
             )
             model_path = hf_hub_download(
                 repo_id=model_id,
                 filename=filename,
+                revision=model_revision,
                 cache_dir=str(cache_dir) if cache_dir else None,
             )
             options = ort.SessionOptions()
@@ -105,6 +125,7 @@ class SCHPOnnxParser:
             outputs[0].name,
         )
         self.model_id = model_id
+        self.revision = model_revision
 
     def parse(self, image: Image.Image) -> tuple[np.ndarray, np.ndarray]:
         try:
@@ -140,8 +161,8 @@ class SCHPOnnxParser:
 
 def _download_parsers(cache_dir: str | Path | None = None):
     return (
-        SCHPOnnxParser(*PASCAL_MODEL, cache_dir=cache_dir),
-        SCHPOnnxParser(*ATR_MODEL, cache_dir=cache_dir),
+        SCHPOnnxParser(*PASCAL_MODEL, revision=PASCAL_REVISION, cache_dir=cache_dir),
+        SCHPOnnxParser(*ATR_MODEL, revision=ATR_REVISION, cache_dir=cache_dir),
     )
 
 
@@ -239,6 +260,211 @@ def _remove_edge_connected_near_white(
     return cleaned, round(float(background.mean()), 6)
 
 
+def _repair_transparent_person_holes(
+    image: Image.Image,
+    source_alpha: np.ndarray,
+    body_labels: np.ndarray,
+    body_confidence: np.ndarray,
+    *,
+    confidence_floor: float = 0.25,
+    maximum_fraction: float = 0.025,
+) -> tuple[Image.Image, dict[str, Any]]:
+    """Reconstruct transparent cutout holes only where the parser sees a person.
+
+    Transparent pixels inside a confidently detected head/torso/limb region are
+    often accidental holes left by background-removal tools. Keep ordinary
+    transparent background untouched, but inpaint those internal person pixels
+    before extracting rig plates.
+    """
+    expected = (image.height, image.width)
+    if source_alpha.shape != expected or body_labels.shape != expected or body_confidence.shape != expected:
+        raise AutoRigError("Source alpha and parser maps must match the master image dimensions.")
+    if not 0 <= confidence_floor <= 1:
+        raise ValueError("Transparent-hole confidence floor must be between 0 and 1.")
+    if not np.isfinite(maximum_fraction) or not 0 <= maximum_fraction <= 1:
+        raise ValueError("Transparent-hole maximum fraction must be between 0 and 1.")
+
+    transparent = np.asarray(source_alpha, dtype=np.uint8) <= 16
+    person_class = np.isin(body_labels, (1, 2, 3, 4, 5, 6))
+    confident_person = np.asarray(body_confidence, dtype=np.float32) >= confidence_floor
+    holes = transparent & person_class & confident_person
+    pixel_count = int(holes.sum())
+    fraction = pixel_count / max(1, holes.size)
+    summary = {
+        "method": "not_required",
+        "pixels_reconstructed": 0,
+        "fraction_of_source": 0.0,
+        "confidence_floor": float(confidence_floor),
+        "visual_review_required": True,
+    }
+    if not pixel_count:
+        return image, summary
+    if fraction > maximum_fraction:
+        raise ManualReviewRequired(
+            f"Transparent cutout holes inside parsed body regions cover {fraction:.1%} "
+            "of the image. Use a cleaner master image or review the cutout before rigging."
+        )
+
+    try:
+        import cv2
+    except ImportError as exc:
+        raise ManualReviewRequired(
+            "OpenCV is required to reconstruct transparent pixels inside parsed body regions."
+        ) from exc
+
+    rgb = np.asarray(image.convert("RGB"), dtype=np.uint8)
+    repaired = cv2.inpaint(
+        rgb,
+        holes.astype(np.uint8) * 255,
+        inpaintRadius=5,
+        flags=cv2.INPAINT_TELEA,
+    )
+    if repaired.shape != rgb.shape or not np.isfinite(repaired).all():
+        raise ManualReviewRequired("Transparent body-hole reconstruction produced invalid pixels.")
+    summary.update({
+        "method": "opencv_telea_semantic_alpha_holes",
+        "pixels_reconstructed": pixel_count,
+        "fraction_of_source": round(fraction, 6),
+    })
+    return Image.fromarray(repaired.astype(np.uint8)), summary
+
+
+def _restore_person_holes_in_source(
+    original_rgba: Image.Image,
+    repaired_rgb: Image.Image,
+    source_alpha: np.ndarray,
+    body_labels: np.ndarray,
+    body_confidence: np.ndarray,
+    *,
+    confidence_floor: float = 0.25,
+) -> tuple[Image.Image, dict[str, Any]]:
+    """Restore only parser-confirmed transparent holes in the complete source.
+
+    The repaired torso used by the old segmented rig is not sufficient for a
+    full-body composite. This creates a source plate that retains the original
+    alpha everywhere except transparent pixels confidently classified as the
+    character, where the inpainted RGB is restored.
+    """
+    width, height = original_rgba.size
+    expected = (height, width)
+    if source_alpha.shape != expected or body_labels.shape != expected or body_confidence.shape != expected:
+        raise AutoRigError("Preserved source alpha and parser maps must match the source dimensions.")
+    if repaired_rgb.size != original_rgba.size:
+        raise AutoRigError("Repaired RGB plate must match the original full-body source dimensions.")
+
+    holes = (
+        (np.asarray(source_alpha, dtype=np.uint8) <= 16)
+        & np.isin(body_labels, (1, 2, 3, 4, 5, 6))
+        & (np.asarray(body_confidence, dtype=np.float32) >= confidence_floor)
+    )
+    result = np.asarray(original_rgba.convert("RGBA"), dtype=np.uint8).copy()
+    if holes.any():
+        repaired = np.asarray(repaired_rgb.convert("RGB"), dtype=np.uint8)
+        result[holes, :3] = repaired[holes]
+        result[holes, 3] = 255
+    summary = {
+        "pixels_restored": int(holes.sum()),
+        "method": "restore_parser_confirmed_transparent_person_holes",
+        "confidence_floor": float(confidence_floor),
+        "original_alpha_preserved_outside_holes": True,
+    }
+    return Image.fromarray(result, mode="RGBA"), summary
+
+
+def _clean_inherited_edge_matte(
+    source_rgba: Image.Image,
+    *,
+    minimum_brightness: int = 120,
+    maximum_channel_spread: int = 30,
+    exterior_band_px: int = 2,
+    maximum_component_pixels: int = 8,
+) -> tuple[Image.Image, dict[str, Any]]:
+    """Remove tiny neutral matte specks attached to the outside source edge.
+
+    This is deliberately not a silhouette erosion or alpha feather. Only small,
+    nearly-neutral bright components that sit within a narrow band of
+    border-connected transparency are cleared. Interior highlights, warm skin,
+    the existing partial-alpha antialias edge, and larger connected light
+    details remain unchanged.
+    """
+    if not 1 <= int(exterior_band_px) <= 4:
+        raise ValueError("Exterior matte cleanup band must be between one and four pixels.")
+    if not 1 <= int(maximum_component_pixels) <= 12:
+        raise ValueError("Matte speck component limit must be between one and twelve pixels.")
+    if not 0 <= int(minimum_brightness) <= 255:
+        raise ValueError("Matte brightness threshold must be between zero and 255.")
+    if not 0 <= int(maximum_channel_spread) <= 255:
+        raise ValueError("Matte channel-spread threshold must be between zero and 255.")
+
+    rgba = source_rgba.convert("RGBA")
+    pixels = np.asarray(rgba, dtype=np.uint8).copy()
+    rgb, alpha = pixels[:, :, :3], pixels[:, :, 3]
+    height, width = alpha.shape
+
+    # Flood-fill only transparency connected to the canvas border. Enclosed
+    # transparent holes are not treated as exterior and cannot expand cleanup.
+    transparent = Image.fromarray((alpha == 0).astype(np.uint8) * 255, mode="L")
+    padded = Image.new("L", (width + 2, height + 2), 255)
+    padded.paste(transparent, (1, 1))
+    ImageDraw.floodfill(padded, (0, 0), 128, thresh=0)
+    exterior = np.asarray(padded, dtype=np.uint8)[1:-1, 1:-1] == 128
+
+    edge_image = Image.fromarray(exterior.astype(np.uint8) * 255, mode="L")
+    edge_image = edge_image.filter(
+        ImageFilter.MaxFilter(int(exterior_band_px) * 2 + 1)
+    )
+    exterior_edge_band = (
+        (np.asarray(edge_image, dtype=np.uint8) > 0) & (alpha >= 250)
+    )
+
+    minimum = rgb.min(axis=2).astype(np.int16)
+    spread = rgb.max(axis=2).astype(np.int16) - minimum
+    candidate = (
+        exterior_edge_band
+        & (minimum >= int(minimum_brightness))
+        & (spread <= int(maximum_channel_spread))
+    )
+
+    try:
+        import cv2
+    except ImportError as exc:
+        raise AutoRigError(
+            "OpenCV is required for connected-component source-edge matte cleanup."
+        ) from exc
+
+    labels, component_map, stats, _centroids = cv2.connectedComponentsWithStats(
+        candidate.astype(np.uint8), connectivity=8
+    )
+    remove = np.zeros((height, width), dtype=bool)
+    removed_components = 0
+    for component_id in range(1, labels):
+        area = int(stats[component_id, cv2.CC_STAT_AREA])
+        if 0 < area <= int(maximum_component_pixels):
+            remove |= component_map == component_id
+            removed_components += 1
+
+    removed_pixels = int(remove.sum())
+    if removed_pixels:
+        # Clear RGB as well as alpha so resampling cannot pull bright matte
+        # colours back into the transparent texels.
+        pixels[remove] = (0, 0, 0, 0)
+
+    report = {
+        "method": "border_connected_neutral_edge_speck_cleanup",
+        "pixels_removed": removed_pixels,
+        "components_removed": removed_components,
+        "minimum_brightness": int(minimum_brightness),
+        "maximum_channel_spread": int(maximum_channel_spread),
+        "exterior_band_px": int(exterior_band_px),
+        "maximum_component_pixels": int(maximum_component_pixels),
+        "interior_details_preserved": True,
+        "partial_alpha_edge_preserved": True,
+        "source_alpha_changed_only_for_isolated_edge_specks": True,
+        "visual_review_required": True,
+    }
+    return Image.fromarray(pixels, mode="RGBA"), report
+
+
 def _bbox(mask: np.ndarray) -> tuple[int, int, int, int]:
     ys, xs = np.where(mask)
     if len(xs) == 0:
@@ -321,12 +547,20 @@ def _split_arm(
     side: str,
     *,
     hand_fraction: float,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, bool]:
     near_side = _morph(side_mask, 4, "dilate")
     upper = upper_all & near_side
     lower = lower_all & near_side
+    upper_mask_fallback = False
     if int(upper.sum()) < 30:
-        raise ManualReviewRequired(f"Could not isolate the {side} upper arm.")
+        # Recover only the proximal portion of the already identified
+        # side-specific arm silhouette. Fail closed without a reliable
+        # lower-arm seed instead of inferring an arm from unrelated pixels.
+        proximal = side_mask & ~_morph(lower, 5, "dilate")
+        if int(proximal.sum()) < 30 or int(lower.sum()) < 45:
+            raise ManualReviewRequired(f"Could not isolate the {side} upper arm.")
+        upper = proximal
+        upper_mask_fallback = True
     if int(lower.sum()) < 45:
         # A coarse fallback is allowed only when the ATR side mask remains clear.
         lower = side_mask & ~_morph(upper, 3, "dilate")
@@ -355,7 +589,7 @@ def _split_arm(
         raise ManualReviewRequired(
             f"The {side} hand/forearm split is unreliable. Review the hand split or source artwork."
         )
-    return upper, forearm, hand
+    return upper, forearm, hand, upper_mask_fallback
 
 
 def _dilate3(mask: np.ndarray) -> np.ndarray:
@@ -632,8 +866,14 @@ def separate_from_parsing(
     *,
     hand_fraction: float = 0.72,
     max_local_inpaint_ratio: float = 0.025,
+    hidden_mask_path: Path | None = None,
 ):
-    """Convert Pascal and ATR pixel labels into nine overlapping rig masks."""
+    """Convert Pascal and ATR pixel labels into nine overlapping rig masks.
+
+    When requested, export the exact full-canvas mask of arm pixels requiring
+    torso underpaint so later source-art restoration can target only those
+    hidden jacket pixels.
+    """
     expected = (image.height, image.width)
     if any(array.shape != expected for array in (
         body_labels, body_confidence, detail_labels, detail_confidence
@@ -677,10 +917,13 @@ def separate_from_parsing(
     joint_reference_masks: dict[str, tuple[np.ndarray, np.ndarray]] = {}
     joint_centers: dict[str, dict[str, tuple[float, float]]] = {}
     joint_overlap_pixels: dict[str, int] = {}
+    arm_upper_mask_fallback_sides: list[str] = []
     for side in ("left", "right"):
-        upper, forearm, hand = _split_arm(
+        upper, forearm, hand, used_upper_fallback = _split_arm(
             sides[side], upper_all, lower_all, side, hand_fraction=hand_fraction
         )
+        if used_upper_fallback:
+            arm_upper_mask_fallback_sides.append(side)
         hand, recovered_pixels = _recover_hand_fingers_from_skin(image, hand, upper)
         hand_recovery_pixels[side] = recovered_pixels
         forearm &= ~hand
@@ -737,10 +980,25 @@ def separate_from_parsing(
     zone[max(0, y0 - 4):min(image.height, y1 + 4),
          max(0, x0 - 4):min(image.width, x1 + 4)] = True
     hidden = arm_union & _morph(torso, 8, "dilate") & zone
+    hidden_mask_asset = None
+    if hidden_mask_path is not None:
+        hidden_path = Path(hidden_mask_path)
+        hidden_path.parent.mkdir(parents=True, exist_ok=True)
+        Image.fromarray(hidden.astype(np.uint8) * 255, mode="L").save(
+            hidden_path, format="PNG", optimize=True
+        )
+        hidden_mask_asset = hidden_path.name
     repaired, repair_method, hidden_ratio = _repair_hidden_area(
         image, hidden, max_local_ratio=max_local_inpaint_ratio
     )
-    masks["torso"] = torso | hidden
+
+    # The torso plate is the static parent behind the independently animated
+    # arms. Remove source arm pixels from that plate so they cannot reappear as
+    # frozen hand/sleeve ghosts when the real limb sprites move. Retain only the
+    # exact hidden overlap region as a reconstructed underlay behind those arms.
+    arm_pixels_removed_from_static_torso = int((torso & arm_union).sum())
+    torso_backplate_mask = (torso & ~arm_union) | hidden
+    masks["torso"] = torso_backplate_mask
 
     joints = {
         "neck": _normalise_joint(_joint_between(head, masks["torso"]), image.width, image.height)
@@ -781,6 +1039,11 @@ def separate_from_parsing(
         },
         "side_convention": "left and right refer to the viewer's screen sides",
         "arm_side_source": arm_side_source,
+        "arm_upper_mask_fallback_sides": arm_upper_mask_fallback_sides,
+        "model_revisions": {
+            "body_parts": PASCAL_REVISION,
+            "face_hair_and_arm_sides": ATR_REVISION,
+        },
         "hand_split": "distal lower-arm split with connected warm-skin finger recovery; not a dedicated hand detector",
         "hand_split_fraction": float(hand_fraction),
         "face_edge_blend": {
@@ -810,6 +1073,15 @@ def separate_from_parsing(
             "method": repair_method,
             "pixels_reconstructed": int(hidden.sum()),
             "fraction_of_source": round(hidden_ratio, 6),
+            "mask_asset": hidden_mask_asset,
+            "mask_saved": hidden_mask_asset is not None,
+        },
+        "torso_backplate_arm_overlap": {
+            "method": "remove_source_arm_pixels_from_static_torso_keep_hidden_underlay",
+            "source_arm_pixels_removed": arm_pixels_removed_from_static_torso,
+            "hidden_underlay_pixels_retained": int(hidden.sum()),
+            "independent_limb_assets_modified": 0,
+            "hand_animation_data_modified": False,
         },
         "mean_confidence": confidence,
         "edge_connected_background_removal": {
@@ -823,6 +1095,8 @@ def separate_from_parsing(
             "Hand masks combine a distal lower-arm split with bounded skin-colour finger recovery; there is no dedicated semantic hand class.",
             "Review layer edges, hand/finger completeness, joint seams and reconstructed torso pixels.",
         ] + ([
+            "An upper-arm semantic mask was missing; the proximal region was recovered only inside the identified screen-side arm silhouette."
+        ] if arm_upper_mask_fallback_sides else []) + ([
             "ATR did not resolve both arm-side labels; side masks were derived from the coarse Pascal arm segmentation."
         ] if arm_side_source != "atr_arm_labels" else []),
     }
@@ -1109,6 +1383,14 @@ def _save_pose_plate(source_path: Path, destination: Path) -> None:
     plate.save(destination, format="PNG", optimize=True)
 
 
+def _copy_neutral_expression_fallback(source_path: str | Path, destination: str | Path) -> None:
+    """Copy the exact extracted neutral face when a preview-only expression cannot be aligned."""
+    source = Path(source_path).resolve(strict=True)
+    target = Path(destination).resolve()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, target)
+
+
 def create_character_bundle(
     source_path: str | Path,
     reference_dir: str | Path,
@@ -1118,6 +1400,7 @@ def create_character_bundle(
     cache_dir: str | Path | None = None,
     hand_fraction: float = 0.72,
     max_local_inpaint_ratio: float = 0.025,
+    allow_expression_fallback: bool = False,
 ) -> dict[str, Any]:
     source_path = Path(source_path).resolve(strict=True)
     reference_dir = Path(reference_dir).resolve(strict=True)
@@ -1127,14 +1410,30 @@ def create_character_bundle(
         raise AutoRigError("The master image or character reference directory is missing.")
 
     with Image.open(source_path) as opened:
-        image = opened.convert("RGB")
+        rgba = opened.convert("RGBA")
+    source_alpha = np.asarray(rgba.getchannel("A"), dtype=np.uint8)
+    # Composite on white for semantic parsing, then restore any transparent
+    # cutout holes that the body parser still confidently classifies as person.
+    image = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
+    image.alpha_composite(rgba)
+    image = image.convert("RGB")
     body_parser, detail_parser = _download_parsers(cache_dir)
     body_labels, body_conf = body_parser.parse(image)
     detail_labels, detail_conf = detail_parser.parse(image)
+    image, transparency_report = _repair_transparent_person_holes(
+        image, source_alpha, body_labels, body_conf
+    )
+    preserved_source, preserved_source_report = _restore_person_holes_in_source(
+        rgba, image, source_alpha, body_labels, body_conf
+    )
+    preserved_source, edge_matte_report = _clean_inherited_edge_matte(preserved_source)
+    preserved_source_report["edge_matte_cleanup"] = edge_matte_report
+    preserved_source.save(output_dir / "preserved-full-body-source.png", format="PNG", optimize=True)
     masks, repaired_torso, report, joints = separate_from_parsing(
         image, body_labels, body_conf, detail_labels, detail_conf,
         hand_fraction=hand_fraction,
         max_local_inpaint_ratio=max_local_inpaint_ratio,
+        hidden_mask_path=output_dir / "torso-hidden-overlap-mask.png",
     )
 
     layers = []
@@ -1173,7 +1472,8 @@ def create_character_bundle(
     if "neutral" not in expression_paths:
         raise AutoRigError("face-neutral.jpg is required in the reference directory.")
     expressions = {}
-    registration_reports: dict[str, dict[str, float | int]] = {}
+    registration_reports: dict[str, dict[str, Any]] = {}
+    expression_fallbacks: list[str] = []
     face_x, face_y = int(face_layer["x"]), int(face_layer["y"])
     face_width, face_height = int(face_layer["width"]), int(face_layer["height"])
     face_alpha = face_alpha_full[
@@ -1188,15 +1488,29 @@ def create_character_bundle(
             # master face. Re-cropping another portrait introduces drift.
             shutil.copy2(output_dir / "face.png", destination)
         else:
-            registration = _face_plate(
-                path,
-                (face_width, face_height),
-                destination,
-                alpha_mask=face_alpha,
-                base_face_path=output_dir / "face.png",
-            )
-            if registration is not None:
-                registration_reports[name] = registration
+            try:
+                registration = _face_plate(
+                    path,
+                    (face_width, face_height),
+                    destination,
+                    alpha_mask=face_alpha,
+                    base_face_path=output_dir / "face.png",
+                )
+                if registration is not None:
+                    registration_reports[name] = registration
+            except ManualReviewRequired as exc:
+                if not allow_expression_fallback:
+                    raise
+                # Preview-only full-body art may use a face style that does
+                # not register to legacy expression sheets. Reuse the exact
+                # extracted neutral plate, retain the failed reason in QA,
+                # and do not synthesize a false alternate facial expression.
+                _copy_neutral_expression_fallback(output_dir / "face.png", destination)
+                expression_fallbacks.append(name)
+                registration_reports[name] = {
+                    "fallback": "neutral_face_reused",
+                    "reason": str(exc),
+                }
         expressions[name] = {"src": plate_name}
 
     reference_poses = {
@@ -1226,6 +1540,9 @@ def create_character_bundle(
     )
     _save_mask_preview(image, masks, output_dir / "separation-preview.png")
     report.update({
+        "source_transparency_repair": transparency_report,
+        "preserved_full_body_source": preserved_source_report,
+        "edge_matte_cleanup": edge_matte_report,
         "character_id": character_id,
         "status": "candidate_ready_for_visual_review",
         "layer_count": len(layers),
@@ -1234,6 +1551,11 @@ def create_character_bundle(
         "pose_asset_count": len(pose_assets),
         "joint_count": len(joints),
         "expression_registration": registration_reports,
+        "expression_registration_fallbacks": expression_fallbacks,
+        "expression_fallback_policy": (
+            "neutral_face_reuse_for_preview_only" if allow_expression_fallback
+            else "strict_alignment_required"
+        ),
     })
     (output_dir / "separation-report.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
@@ -1252,6 +1574,11 @@ def main() -> int:
     parser.add_argument("--cache-dir", default=None)
     parser.add_argument("--hand-fraction", type=float, default=0.72)
     parser.add_argument("--max-local-inpaint-ratio", type=float, default=0.025)
+    parser.add_argument(
+        "--allow-expression-fallback",
+        action="store_true",
+        help="For review-only previews, reuse the extracted neutral face when an alternate expression cannot be registered.",
+    )
     args = parser.parse_args()
     try:
         result = create_character_bundle(
@@ -1259,6 +1586,7 @@ def main() -> int:
             character_id=args.id, cache_dir=args.cache_dir,
             hand_fraction=args.hand_fraction,
             max_local_inpaint_ratio=args.max_local_inpaint_ratio,
+            allow_expression_fallback=args.allow_expression_fallback,
         )
     except Exception as exc:
         print("CHARACTER_AUTO_RIG_FAILED=" + str(exc)[:1500], file=sys.stderr)

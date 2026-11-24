@@ -4,7 +4,7 @@ import { build as bundle } from "esbuild";
 import { compileMotionTracks } from "./src/motion-build.mjs";
 import { gestureKeyframes } from "./src/contract.mjs";
 import { fitCharacterToCanvas } from "./src/character-layout.mjs";
-import { renderStagecraftMarkup, stagecraftMotionNodeIds, stagecraftNodeCounts } from "./src/stagecraft.mjs";
+import { renderStagecraftMarkup, renderStagecraftForegroundMarkup, stagecraftMotionNodeIds, stagecraftNodeCounts } from "./src/stagecraft.mjs";
 
 function parseArgs(argv) {
   const result = {};
@@ -31,6 +31,58 @@ function gestureKeyframeCount(name) {
   }, 0);
 }
 
+function renderSourceMeshLayer(layer, partId, styleText) {
+  const mesh = layer.mesh_deformation || {};
+  const columns = Math.max(2, Math.min(8, Number(mesh.columns) || 2));
+  const rows = Math.max(2, Math.min(12, Number(mesh.rows) || 2));
+  const width = Number(layer.width);
+  const height = Number(layer.height);
+  const vertices = [];
+  for (let row = 0; row <= rows; row += 1) {
+    for (let column = 0; column <= columns; column += 1) {
+      vertices.push({
+        x: width * column / columns,
+        y: height * row / rows
+      });
+    }
+  }
+  const triangles = [];
+  const at = (column, row) => row * (columns + 1) + column;
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      const topLeft = at(column, row);
+      const topRight = at(column + 1, row);
+      const bottomLeft = at(column, row + 1);
+      const bottomRight = at(column + 1, row + 1);
+      triangles.push([topLeft, topRight, bottomRight], [topLeft, bottomRight, bottomLeft]);
+    }
+  }
+  const defs = triangles.map((indices, index) => {
+    const points = indices.map(vertexIndex => {
+      const point = vertices[vertexIndex];
+      return point.x.toFixed(3) + "," + point.y.toFixed(3);
+    }).join(" ");
+    const clipId = partId + "-mesh-clip-" + index;
+    return '<clipPath id="' + escapeHtml(clipId) +
+      '" clipPathUnits="userSpaceOnUse"><polygon points="' + points + '"></polygon></clipPath>';
+  }).join("");
+  const source = '<image href="' + escapeHtml(layer.src) +
+    '" x="0" y="0" width="' + width + '" height="' + height +
+    '" preserveAspectRatio="none"></image>';
+  const groups = triangles.map((_triangle, index) => {
+    const clipId = partId + "-mesh-clip-" + index;
+    return '<g id="' + escapeHtml(partId + "-mesh-triangle-" + index) +
+      '" clip-path="url(#' + escapeHtml(clipId) +
+      ')" style="transform-box:view-box;transform-origin:0 0">' + source + '</g>';
+  }).join("");
+  return '<svg class="rig-part rig-part--mesh" id="' + escapeHtml(partId) +
+    '" data-role="' + escapeHtml(layer.role) +
+    '" data-mesh-triangles="' + triangles.length +
+    '" aria-hidden="true" viewBox="0 0 ' + width + ' ' + height +
+    '" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" style="' +
+    styleText + '">' + '<defs>' + defs + '</defs>' + groups + '</svg>';
+}
+
 function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWidth, canvasHeight) {
   const action = (character.scene_actions || {})[scene.id] ||
     ((scene.character_actions || {})[character.id] || {});
@@ -44,6 +96,29 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
     "transform:translateY(28px) scale(" + characterScale + ")",
     "transform-origin:top left"
   ].join(";");
+  const compositeBase = Boolean(character.base_art && character.base_art.src);
+  const segmentedBodyMode = compositeBase &&
+    character.performance_base_mode === "segmented_source_body";
+  const canRenderHeadPlates = !compositeBase || segmentedBodyMode;
+  const hasHeadPlates = canRenderHeadPlates && (
+    Object.keys(character.head_variants || {}).length > 0 ||
+    Object.keys(character.head_angles || {}).length > 0);
+  const baseArt = compositeBase ? (() => {
+    const asset = character.base_art;
+    const style = [
+      "position:absolute",
+      "left:" + (layout.offsetX + Number(asset.x || 0) * layout.scale) + "px",
+      "top:" + (layout.offsetY + Number(asset.y || 0) * layout.scale) + "px",
+      "width:" + (Number(asset.width) * layout.scale) + "px",
+      "height:" + (Number(asset.height) * layout.scale) + "px",
+      "object-fit:contain",
+      "transform-origin:0 0",
+      "z-index:" + Number(asset.z_index ?? 10)
+    ].join(";");
+    return '<img class="rig-base-art" id="' + escapeHtml(scene.id + "-" + character.id + "-base-art") +
+      '" alt="" draggable="false" src="' + escapeHtml(asset.src) +
+      '" style="' + style + '">';
+  })() : "";
   const jointForRole = {
     head: "neck",
     face: "neck",
@@ -52,9 +127,40 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
     left_hand: "left_wrist",
     right_upper_arm: "right_shoulder",
     right_forearm: "right_elbow",
-    right_hand: "right_wrist"
+    right_hand: "right_wrist",
+    left_thigh: "left_hip",
+    left_calf: "left_knee",
+    left_foot: "left_ankle",
+    right_thigh: "right_hip",
+    right_calf: "right_knee",
+    right_foot: "right_ankle",
+    finger_index: "right_index_base",
+    finger_index_middle: "right_index_pip",
+    finger_index_tip: "right_index_dip",
+    finger_middle: "right_middle_base",
+    finger_middle_middle: "right_middle_pip",
+    finger_middle_tip: "right_middle_dip",
+    finger_ring: "right_ring_base",
+    finger_ring_middle: "right_ring_pip",
+    finger_ring_tip: "right_ring_dip",
+    finger_little: "right_little_base",
+    finger_little_middle: "right_little_pip",
+    finger_little_tip: "right_little_dip"
   };
-  const layers = (character.layers || []).map((layer) => {
+  const articulatedCompositeRoles = new Set([
+    "left_upper_arm", "left_forearm", "left_hand",
+    "right_upper_arm", "right_forearm", "right_hand",
+    "left_thigh", "left_calf", "left_foot",
+    "right_thigh", "right_calf", "right_foot",
+    "finger_index", "finger_index_middle", "finger_index_tip",
+    "finger_middle", "finger_middle_middle", "finger_middle_tip",
+    "finger_ring", "finger_ring_middle", "finger_ring_tip",
+    "finger_little", "finger_little_middle", "finger_little_tip"
+  ]);
+  const layers = (character.layers || [])
+    .filter(layer => !compositeBase || articulatedCompositeRoles.has(String(layer.role || "")) ||
+      (segmentedBodyMode && layer.role === "torso") || Boolean(layer.joint_surface))
+    .map((layer) => {
     const jointName = jointForRole[layer.role];
     const joint = jointName ? (character.joints || {})[jointName] : null;
     const pivotX = joint
@@ -70,12 +176,39 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       "height:" + (Number(layer.height) * layout.scale) + "px",
       "transform-origin:0 0",
       "z-index:" + Number(layer.z_index ?? 1)
-    ].join(";");
+    ];
+    if (hasHeadPlates && (layer.role === "head" || layer.role === "face")) {
+      style.push("opacity:0");
+    }
+    const styleText = style.join(";");
     const partId = scene.id + "-" + character.id + "-part-" + layer.id;
+    if (layer.mesh_deformation) {
+      return renderSourceMeshLayer(layer, partId, styleText);
+    }
     return '<img class="rig-part" id="' + escapeHtml(partId) +
       '" data-role="' + escapeHtml(layer.role) +
       '" data-joint="' + escapeHtml(jointName || "") +
       '" alt="" draggable="false" src="' + escapeHtml(layer.src) +
+      '" style="' + styleText + '">';
+  }).join("");
+
+  const props = Object.values(character.props || {})
+    .filter(prop => !compositeBase || prop.id === "bow" ||
+      (character.performance_base_mode === "segmented_source_body" && prop.id === "violin"))
+    .map((prop) => {
+    const style = [
+      "left:" + (layout.offsetX + Number(prop.x) * layout.scale) + "px",
+      "top:" + (layout.offsetY + Number(prop.y) * layout.scale) + "px",
+      "width:" + (Number(prop.width) * layout.scale) + "px",
+      "height:" + (Number(prop.height) * layout.scale) + "px",
+      "transform-origin:0 0",
+      "z-index:" + Number(prop.z_index ?? 25)
+    ].join(";");
+    const propId = scene.id + "-" + character.id + "-prop-" + prop.id;
+    return '<img class="rig-prop" id="' + escapeHtml(propId) +
+      '" data-prop="' + escapeHtml(prop.id) +
+      '" data-attached-to="' + escapeHtml(prop.attach_to || "torso") +
+      '" alt="" draggable="false" src="' + escapeHtml(prop.src) +
       '" style="' + style + '">';
   }).join("");
 
@@ -83,7 +216,7 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
   const poseIsActive = Boolean(selectedPose && character.pose_assets &&
     Object.prototype.hasOwnProperty.call(character.pose_assets, selectedPose));
   const face = (character.layers || []).find((layer) => layer.role === "face") || {};
-  const expressions = Object.entries(character.expressions || {}).map(([name, expression]) => {
+  const expressions = compositeBase ? "" : Object.entries(character.expressions || {}).map(([name, expression]) => {
     const neck = (character.joints || {}).neck;
     const expressionX = Number(expression.x ?? face.x ?? 0);
     const expressionY = Number(expression.y ?? face.y ?? 0);
@@ -105,7 +238,7 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
     ].join(";");
     // Full-body pose plates already contain their own face. Never layer
     // the master-face expression crop over a complete pose illustration.
-    const initial = poseIsActive
+    const initial = (poseIsActive || hasHeadPlates)
       ? "opacity:0;"
       : (name === "neutral" ? "opacity:1;" : "opacity:0;");
     const expressionId = scene.id + "-" + character.id + "-expression-" + name;
@@ -115,7 +248,7 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       '" style="' + style + ";" + initial + '">';
   }).join("");
 
-  const poseAssets = Object.entries(character.pose_assets || {}).map(([name, pose]) => {
+  const poseAssets = compositeBase ? "" : Object.entries(character.pose_assets || {}).map(([name, pose]) => {
     const style = [
       "left:0px", "top:0px",
       "width:" + canvasWidth + "px",
@@ -130,14 +263,57 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       '" alt="" draggable="false" src="' + escapeHtml(pose.src) +
       '" style="' + style + '">';
   }).join("");
+  const selectedHeadAngle = String(action.head_angle || "front").toLowerCase();
+  const selectedHeadExpression = String(action.head_expression || action.expression || "neutral").toLowerCase();
+  const headVariantEntries = Object.entries(character.head_variants || {});
+  const headAngleEntries = Object.entries(character.head_angles || {});
+  const headVariants = canRenderHeadPlates ? headVariantEntries.map(([name, variant]) => {
+    const style = [
+      "position:absolute",
+      "left:" + (layout.offsetX + Number(variant.x) * layout.scale) + "px",
+      "top:" + (layout.offsetY + Number(variant.y) * layout.scale) + "px",
+      "width:" + (Number(variant.width) * layout.scale) + "px",
+      "height:" + (Number(variant.height) * layout.scale) + "px",
+      "object-fit:contain",
+      "transform-origin:0 0",
+      "z-index:" + Number(variant.z_index ?? 85),
+      "opacity:" + (!poseIsActive && selectedHeadAngle === "front" && name === selectedHeadExpression ? "1" : "0")
+    ].join(";");
+    const variantId = scene.id + "-" + character.id + "-head-variant-" + name;
+    return '<img class="rig-head-variant" id="' + escapeHtml(variantId) +
+      '" data-head-variant="' + escapeHtml(name) +
+      '" alt="" draggable="false" src="' + escapeHtml(variant.src) +
+      '" style="' + style + '">';
+  }).join("") : "";
+  const headAngles = canRenderHeadPlates ? headAngleEntries.map(([name, angle]) => {
+    const style = [
+      "position:absolute",
+      "left:" + (layout.offsetX + Number(angle.x) * layout.scale) + "px",
+      "top:" + (layout.offsetY + Number(angle.y) * layout.scale) + "px",
+      "width:" + (Number(angle.width) * layout.scale) + "px",
+      "height:" + (Number(angle.height) * layout.scale) + "px",
+      "object-fit:contain",
+      "transform-origin:0 0",
+      "z-index:" + Number(angle.z_index ?? 85),
+      "opacity:" + (!poseIsActive && selectedHeadAngle === name && name !== "front" ? "1" : "0")
+    ].join(";");
+    const angleId = scene.id + "-" + character.id + "-head-angle-" + name;
+    return '<img class="rig-head-angle" id="' + escapeHtml(angleId) +
+      '" data-head-angle="' + escapeHtml(name) +
+      '" alt="" draggable="false" src="' + escapeHtml(angle.src) +
+      '" style="' + style + '">';
+  }).join("") : "";
+
   return '<div class="clip character-rig" id="' + escapeHtml(scene.id + "-" + character.id) +
     '" data-pose-active="' + (poseIsActive ? "true" : "false") +
     '" data-pose-name="' + escapeHtml(poseIsActive ? selectedPose : "") +
+    '" data-head-plates="' + (hasHeadPlates ? "true" : "false") +
+    '" data-head-angle="' + escapeHtml(selectedHeadAngle) +
     '" data-start="' + Number(scene.start) + '" data-duration="' + Number(scene.duration) +
     '" data-track-index="' + (40 + sceneIndex * 100 + characterIndex) +
     '" style="' + wrapperStyle + '"><div class="character-motion" id="' +
     escapeHtml(scene.id + "-" + character.id + "-motion") + '">' +
-    layers + expressions + poseAssets + '</div></div>';
+    baseArt + layers + expressions + props + poseAssets + headVariants + headAngles + '</div></div>';
 }
 
 
@@ -330,6 +506,216 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     throw new Error("Scene " + scene.id +
       " requires articulated presenter motion; pointing gestures must contain multiple emphasis beats.");
   }
+  const fullBodyPerformanceCharacters = visibleCharacters.filter((character) => {
+    const action = (character.scene_actions || {})[scene.id] ||
+      ((scene.character_actions || {})[character.id] || {});
+    return action.instrument_performance === true ||
+      String(action.gesture || "").trim().toLowerCase() === "violin_performance";
+  });
+  let animatedFullBodyPartCount = 0;
+  let animatedFingeringControlCount = 0;
+  let animatedFingerSegmentCount = 0;
+  let animatedInstrumentPropCount = 0;
+  let preservedCompositeBaseCount = 0;
+  let animatedLimbSegmentCount = 0;
+  let sourceJointSurfaceLayerCount = 0;
+  let deformableBodyLayerCount = 0;
+  let deformationMeshTriangleTrackCount = 0;
+  let jointSurfaceMeshTriangleTrackCount = 0;
+  let jointSurfaceTransformTrackCount = 0;
+  for (const character of fullBodyPerformanceCharacters) {
+    const compositeBaseMode = Boolean(character.base_art && character.base_art.src);
+    const requiredLegs = [
+      "left_thigh", "left_calf", "left_foot",
+      "right_thigh", "right_calf", "right_foot"
+    ];
+    const requiredFingers = [
+      "finger_index", "finger_middle", "finger_ring", "finger_little"
+    ];
+    const requiredFingerSegments = requiredFingers.flatMap(role => [
+      role, role + "_middle", role + "_tip"
+    ]);
+    const articulatedArmRoles = [
+      "left_upper_arm", "left_forearm", "left_hand",
+      "right_upper_arm", "right_forearm", "right_hand"
+    ];
+    const requiredRoles = compositeBaseMode
+      ? [...articulatedArmRoles, ...requiredLegs, ...requiredFingers]
+      : [...requiredLegs, ...requiredFingers];
+    const roleSet = new Set((character.layers || []).map((layer) => String(layer.role || "")));
+    const propSet = new Set(Object.keys(character.props || {}));
+    if (compositeBaseMode) {
+      preservedCompositeBaseCount += 1;
+      if (character.performance_base_mode === "segmented_source_body") {
+        const minimumLimbZ = Math.min(...(character.layers || [])
+          .filter(layer => articulatedArmRoles.includes(layer.role) ||
+            requiredLegs.includes(layer.role) || requiredFingers.includes(layer.role))
+          .map(layer => Number(layer.z_index ?? 0)));
+        if (character.base_art.mode !== "segmented_source_body" ||
+            Number(character.base_art.z_index ?? 999) >= minimumLimbZ ||
+            character.base_art.source_alpha_preserved !== true ||
+            character.base_art.source_pixels_outside_cut_mask_preserved !== true) {
+          throw new Error("Scene " + scene.id + " segmented base must preserve source alpha and untouched pixels.");
+        }
+      } else if (character.base_art.mode !== "intact_full_body_with_bow_and_finger_cutouts") {
+        throw new Error("Scene " + scene.id + " composite base has an unsupported source mode.");
+      }
+    }
+    for (const role of requiredRoles) {
+      if (!roleSet.has(role)) {
+        throw new Error("Scene " + scene.id + " full-body performance rig is missing layer " + role + ".");
+      }
+      const target = scene.id + "-" + character.id + "-part-" +
+        (character.layers || []).find((layer) => layer.role === role).id;
+      const track = project.motion_tracks.find((item) =>
+        item.target === target && item.property === "transform" &&
+        item.values.some(value => value !== item.values[0])
+      );
+      if (!track) {
+        throw new Error("Scene " + scene.id + " full-body performance part " + role +
+          " has no changing frame-seekable transform track.");
+      }
+      if (requiredLegs.includes(role)) animatedFullBodyPartCount += 1;
+      if (requiredFingers.includes(role)) animatedFingeringControlCount += 1;
+    }
+    for (const role of requiredFingerSegments) {
+      if (!roleSet.has(role)) {
+        throw new Error("Scene " + scene.id + " fretting hand is missing phalanx layer " + role + ".");
+      }
+      const layer = (character.layers || []).find(item => item.role === role);
+      const target = scene.id + "-" + character.id + "-part-" + layer.id;
+      const track = project.motion_tracks.find(item =>
+        item.target === target && item.property === "transform" &&
+        item.values.some(value => value !== item.values[0])
+      );
+      if (!track) {
+        throw new Error("Scene " + scene.id + " fretting phalanx " + role +
+          " has no changing frame-seekable transform track.");
+      }
+      animatedFingerSegmentCount += 1;
+    }
+    const requiredProps = compositeBaseMode ? ["violin", "bow"] : ["violin", "bow"];
+    for (const propId of requiredProps) {
+      if (!propSet.has(propId)) {
+        throw new Error("Scene " + scene.id + " full-body performance is missing the " + propId + " prop.");
+      }
+      const target = scene.id + "-" + character.id + "-prop-" + propId;
+      const track = project.motion_tracks.find((item) =>
+        item.target === target && item.property === "transform" &&
+        item.values.some((value) => value !== item.values[0])
+      );
+      if (!track) {
+        throw new Error("Scene " + scene.id + " instrument prop " + propId +
+          " has no changing attachment/performance transform track.");
+      }
+      animatedInstrumentPropCount += 1;
+    }
+    animatedLimbSegmentCount += requiredRoles.filter(role =>
+      [...articulatedArmRoles, ...requiredLegs].includes(role)
+    ).length;
+
+    const deformableRoles = [
+      "torso",
+      "left_upper_arm", "left_forearm", "right_upper_arm", "right_forearm",
+      "left_thigh", "left_calf", "right_thigh", "right_calf"
+    ];
+    for (const role of deformableRoles) {
+      const layer = (character.layers || []).find(item => item.role === role);
+      if (!layer?.mesh_deformation) {
+        throw new Error("Scene " + scene.id + " body surface " + role +
+          " is missing its source-mesh deformation profile.");
+      }
+      const expectedPrefix = scene.id + "-" + character.id + "-part-" + layer.id + "-mesh-triangle-";
+      const triangleTracks = project.motion_tracks.filter(item =>
+        String(item.target || "").startsWith(expectedPrefix) &&
+        item.property === "transform" && Array.isArray(item.values) && item.values.length > 1
+      );
+      const expectedTriangles = Number(layer.mesh_deformation.columns) *
+        Number(layer.mesh_deformation.rows) * 2;
+      if (triangleTracks.length !== expectedTriangles) {
+        throw new Error("Scene " + scene.id + " mesh " + role + " expected " +
+          expectedTriangles + " triangle tracks but got " + triangleTracks.length + ".");
+      }
+      if (!triangleTracks.some(track =>
+        track.values.some(value => value !== track.values[0])
+      )) {
+        throw new Error("Scene " + scene.id + " mesh " + role +
+          " has triangle tracks but no frame-sampled deformation.");
+      }
+      deformableBodyLayerCount += 1;
+      deformationMeshTriangleTrackCount += triangleTracks.length;
+    }
+    const forbiddenMeshRoles = new Set([
+      "left_hand", "right_hand", "finger_index", "finger_middle",
+      "finger_ring", "finger_little", "left_foot", "right_foot"
+    ]);
+    if ((character.layers || []).some(layer =>
+      forbiddenMeshRoles.has(String(layer.role || "")) && layer.mesh_deformation
+    )) {
+      throw new Error("Hand, finger and foot artwork must remain outside the continuous body mesh.");
+    }
+    const jointSurfaceLayers = (character.layers || []).filter(layer => layer.joint_surface);
+    const unexpectedJointSurfaceLayers = (character.layers || []).filter(layer =>
+      String(layer.role || "").startsWith("joint_surface_")
+    );
+    const allowedJointPairs = {
+      left_hip: ["torso", "left_thigh"],
+      right_hip: ["torso", "right_thigh"],
+      left_knee: ["left_thigh", "left_calf"],
+      right_knee: ["right_thigh", "right_calf"],
+      left_ankle: ["left_calf", "left_foot"],
+      right_ankle: ["right_calf", "right_foot"]
+    };
+    const invalidJointSurfaceLayers = jointSurfaceLayers.filter(layer => {
+      const surface = layer.joint_surface || {};
+      const role = String(layer.role || "");
+      const jointName = role.startsWith("joint_surface_")
+        ? role.slice("joint_surface_".length) : "";
+      const expectedPair = allowedJointPairs[jointName];
+      const polygon = surface.source_space_polygon;
+      return !expectedPair ||
+        surface.surface_outline_profile !== "artist_source_polygon" ||
+        surface.artist_artwork_status !== "artist_approved" ||
+        !Array.isArray(polygon) || polygon.length < 3 ||
+        surface.parent_role !== expectedPair[0] ||
+        surface.child_role !== expectedPair[1] ||
+        Boolean(layer.mesh_deformation);
+    });
+    if (invalidJointSurfaceLayers.length !== 0 ||
+        unexpectedJointSurfaceLayers.length !== jointSurfaceLayers.length) {
+      throw new Error("Scene " + scene.id +
+        " contains a joint surface that is not an approved lower-body source-pixel polygon; capsules and protected upper-body/hand joints are forbidden.");
+    }
+    const jointSurfaceTracks = project.motion_tracks.filter(item =>
+      String(item.target || "").includes("-part-joint_surface_") &&
+      item.property === "transform"
+    );
+    jointSurfaceTransformTrackCount = jointSurfaceTracks.length;
+    if (jointSurfaceTracks.length !== jointSurfaceLayers.length ||
+        jointSurfaceLayers.some(layer => !jointSurfaceTracks.some(track =>
+          String(track.target || "").endsWith("-part-" + layer.role)
+        ))) {
+      throw new Error("Scene " + scene.id +
+        " approved source-polygon joint surfaces must each have exactly one blended parent/child transform track.");
+    }
+    sourceJointSurfaceLayerCount += jointSurfaceLayers.length;
+    if (deformableBodyLayerCount !== 9 ||
+        jointSurfaceMeshTriangleTrackCount !== 0 ||
+        deformationMeshTriangleTrackCount !== 158) {
+      throw new Error("Scene " + scene.id +
+        " did not produce nine continuously deforming body surfaces while preserving the approved source-polygon joint artwork.");
+    }
+    if (compositeBaseMode) {
+      const baseTarget = scene.id + "-" + character.id + "-base-art";
+      if (!project.motion_tracks.some((item) =>
+        item.target === baseTarget && item.property === "transform" &&
+        item.values.some((value) => value !== item.values[0])
+      )) {
+        throw new Error("Scene " + scene.id + " complete-body base has no coordinated breathing/sway transform.");
+      }
+    }
+  }
+
   const presenterPoseAssets = visibleCharacters.flatMap((character) => {
     const action = (character.scene_actions || {})[scene.id] ||
       ((scene.character_actions || {})[character.id] || {});
@@ -431,6 +817,22 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     }, 0),
     presenter_pose_asset_count: presenterPoseAssets.length,
     presenter_pose_assets: presenterPoseAssets,
+    full_body_performance_character_count: fullBodyPerformanceCharacters.length,
+    animated_full_body_parts: animatedFullBodyPartCount,
+    animated_fingering_controls: animatedFingeringControlCount,
+    animated_finger_segments: animatedFingerSegmentCount,
+    animated_instrument_props: animatedInstrumentPropCount,
+    preserved_composite_base_count: preservedCompositeBaseCount,
+    animated_limb_segment_count: animatedLimbSegmentCount || 0,
+    source_joint_surface_layer_count: sourceJointSurfaceLayerCount,
+    deformable_body_layer_count: deformableBodyLayerCount,
+    deformation_mesh_triangle_track_count: deformationMeshTriangleTrackCount,
+    joint_surface_mesh_triangle_track_count: jointSurfaceMeshTriangleTrackCount,
+    joint_surface_transform_track_count: jointSurfaceTransformTrackCount,
+    full_body_visual_mode: preservedCompositeBaseCount > 0
+      ? (fullBodyPerformanceCharacters.some(character => character.performance_base_mode === "segmented_source_body")
+        ? "segmented_source_body" : "intact_composite_base")
+      : "segmented_limb_rig",
     independent_layer_motion_count: independentLayerMotionCount,
     rendered_layer_count: visualLayers.length,
     stagecraft_environment: scene.stagecraft?.environment || "",
@@ -449,6 +851,18 @@ const motionReport = {
   animated_graphic_item_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_graphic_items, 0),
   animated_presenter_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_presenter_count, 0),
   presenter_pose_asset_count: motionSceneReports.reduce((sum, scene) => sum + scene.presenter_pose_asset_count, 0),
+  full_body_performance_scene_count: motionSceneReports.filter((scene) => scene.full_body_performance_character_count > 0).length,
+  animated_full_body_part_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_full_body_parts, 0),
+  animated_fingering_control_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_fingering_controls, 0),
+  animated_finger_segment_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_finger_segments, 0),
+  animated_instrument_prop_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_instrument_props, 0),
+  preserved_composite_base_count: motionSceneReports.reduce((sum, scene) => sum + scene.preserved_composite_base_count, 0),
+  animated_limb_segment_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_limb_segment_count, 0),
+  source_joint_surface_layer_count: motionSceneReports.reduce((sum, scene) => sum + scene.source_joint_surface_layer_count, 0),
+  deformable_body_layer_count: motionSceneReports.reduce((sum, scene) => sum + scene.deformable_body_layer_count, 0),
+  deformation_mesh_triangle_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.deformation_mesh_triangle_track_count, 0),
+  joint_surface_mesh_triangle_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.joint_surface_mesh_triangle_track_count, 0),
+  joint_surface_transform_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.joint_surface_transform_track_count, 0),
   independent_layer_motion_count: motionSceneReports.reduce((sum, scene) => sum + scene.independent_layer_motion_count, 0),
   rendered_layer_count: motionSceneReports.reduce((sum, scene) => sum + scene.rendered_layer_count, 0),
   animated_stagecraft_environment_node_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_stagecraft_environment_nodes, 0),
@@ -541,8 +955,9 @@ const markup = project.scenes.map((scene, index) => {
   const characters = (project.characters || []).map((character, characterIndex) =>
     renderCharacter(character, scene, index, characterIndex, width, height)
   ).join("");
+  const foregroundStagecraft = renderStagecraftForegroundMarkup(scene, width, height, index);
   const cameraWorld = '<div class="scene-camera-world" id="' + escapeHtml(scene.id + "-camera-world") + '">' +
-    background + grade + atmosphere + stagecraftMarkup + characters + '</div>';
+    background + grade + atmosphere + stagecraftMarkup + characters + foregroundStagecraft + '</div>';
   return cameraWorld + brand + title + caption + graphic;
 }).join("");
 
@@ -561,8 +976,8 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.scene-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;will-change:transform,opacity,filter;transform-origin:50% 50%}' +
   '.scene-layer:not(.scene-layer--background){opacity:0;object-position:center center}' +
   '.scene-background--presenter-layout{filter:brightness(.42) saturate(.90) blur(1.5px)}' +
-  '.scene-grade{position:absolute;inset:0;z-index:5;pointer-events:none;background:radial-gradient(ellipse at 52% 42%,rgba(0,0,0,0) 36%,rgba(2,7,13,.34) 100%),linear-gradient(180deg,rgba(3,8,15,.44) 0%,rgba(3,8,15,.06) 26%,rgba(3,8,15,0) 62%,rgba(3,8,15,.34) 100%)}' +
-  '.scene-brand{position:absolute;left:0;right:0;top:0;height:174px;z-index:18;display:flex;align-items:flex-start;gap:12px;padding:34px 7% 0;box-sizing:border-box;background:linear-gradient(180deg,rgba(4,10,18,.96) 0%,rgba(4,10,18,.86) 52%,rgba(4,10,18,0) 100%);color:var(--vp-accent,#e7d4ad);font:700 12px/1 DMSans,Arial,sans-serif;letter-spacing:.19em;text-transform:uppercase;opacity:0}' +
+  '.scene-grade{position:absolute;inset:0;z-index:5;pointer-events:none;background:radial-gradient(ellipse at 50% 43%,rgba(238,199,143,.10) 0%,rgba(238,199,143,0) 40%),radial-gradient(ellipse at 18% 61%,rgba(78,145,154,.09) 0%,rgba(78,145,154,0) 42%),radial-gradient(ellipse at 84% 57%,rgba(177,122,82,.09) 0%,rgba(177,122,82,0) 40%),radial-gradient(ellipse at 50% 44%,rgba(0,0,0,0) 34%,rgba(2,5,12,.42) 100%),linear-gradient(180deg,rgba(3,7,14,.25) 0%,rgba(3,8,15,.02) 34%,rgba(3,8,15,.08) 68%,rgba(3,8,15,.44) 100%)}' +
+  '.scene-brand{position:absolute;left:0;right:0;top:0;height:112px;z-index:48;display:flex;align-items:flex-start;gap:12px;padding:36px 7% 0;box-sizing:border-box;background:linear-gradient(180deg,rgba(4,8,16,.66) 0%,rgba(4,10,18,.24) 58%,rgba(4,10,18,0) 100%);color:var(--vp-accent,#e7d4ad);font:700 10px/1 DMSans,Arial,sans-serif;letter-spacing:.22em;text-transform:uppercase;text-shadow:0 2px 12px rgba(0,0,0,.75);opacity:0}' +
   '.scene-brand__name{color:var(--vp-secondary,#f6ead6)}' +
   '.scene-brand__separator{width:1px;height:13px;background:var(--vp-accent,rgba(190,151,91,.7));margin-top:-1px}' +
   '.scene-brand__chapter{color:var(--vp-accent,#c7aa79);font-weight:500;letter-spacing:.15em}' +
@@ -577,8 +992,12 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.character-motion{position:absolute;inset:0;width:100%;height:100%;transform-origin:50% 70%;will-change:transform}' +
   '.scene-stagecraft{position:absolute;inset:0;width:100%;height:100%;z-index:2;overflow:hidden;pointer-events:none;mix-blend-mode:screen}' +
   '.scene-stagecraft svg{display:block;width:100%;height:100%;overflow:visible}' +
+  '.scene-stagecraft-foreground{position:absolute;inset:0;width:100%;height:100%;z-index:45;overflow:hidden;pointer-events:none}' +
+  '.scene-stagecraft-foreground svg{display:block;width:100%;height:100%;overflow:visible}' +
   '.stagecraft-node{transform-box:fill-box;transform-origin:center;will-change:transform,opacity}' +
-  '.rig-part,.rig-expression,.rig-pose{position:absolute;object-fit:contain;max-width:none;pointer-events:none}' +
+  '.rig-base-art{position:absolute;object-fit:contain;max-width:none;pointer-events:none;will-change:transform}' +
+  '.rig-part,.rig-expression,.rig-pose,.rig-prop{position:absolute;object-fit:contain;max-width:none;pointer-events:none}' +
+  '.rig-part--mesh{display:block;overflow:visible}' +
   '.motion-graphic{position:absolute;left:auto;top:auto;right:auto;bottom:auto;width:86%;height:auto;z-index:34;overflow:visible;color:#f4ead9;opacity:0;padding:24px 20px;border:1px solid rgba(190,151,91,.48);border-left:3px solid #bf985e;background:linear-gradient(145deg,rgba(5,13,22,.97),rgba(9,27,35,.95));box-shadow:0 22px 64px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,244,220,.07);border-radius:9px}' +
   '.motion-graphic--full{left:7%;top:23%;width:86%;min-height:380px}' +
   '.motion-graphic--with-presenter{left:5%;top:25%;width:41%;min-height:400px;padding:20px 16px}' +
@@ -609,6 +1028,10 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.visualizer-bar{display:block;flex:1;max-width:17px;border-radius:9px 9px 3px 3px;transform:scaleY(.22);transform-origin:center bottom;background:linear-gradient(180deg,#f7f1e6 0%,#ebca8b 42%,#4abeb9 100%);box-shadow:0 0 14px rgba(74,190,185,.24)}' +
   // Expression plates replace the base face crop; showing both creates a ghosted double face.
   '.rig-part[data-role="face"]{opacity:0}' +
+  '.character-rig[data-head-plates="true"]:not([data-pose-active="true"]) .rig-part[data-role="head"],.character-rig[data-head-plates="true"]:not([data-pose-active="true"]) .rig-part[data-role="face"]{opacity:0}' +
+  '.character-rig[data-head-plates="true"] .rig-expression{opacity:0}' +
+  '.character-rig[data-pose-active="true"] .rig-head-variant,.character-rig[data-pose-active="true"] .rig-head-angle{opacity:0!important}' +
+  '.rig-head-variant,.rig-head-angle{pointer-events:none}' +
   '.character-rig[data-pose-active="true"] .rig-part{opacity:0}' +
   '.character-rig[data-pose-active="true"]:not([data-pose-name="resting_hands"]) .rig-expression{opacity:0}' +
   '</style></head><body><div id="root" data-composition-id="root" data-start="0"' +

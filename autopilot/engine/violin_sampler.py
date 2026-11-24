@@ -276,7 +276,17 @@ def create_sampled_violin_bed(
         "downbeats": [round(index * BEAT_SECONDS, 4) for index in range(0, 32, 4)],
         "onsets": [
             round(start_beat * BEAT_SECONDS, 4)
-            for _note, _velocity, start_beat, _duration in _events(seed_text)
+            for _note, _velocity, start_beat, _duration in events
+        ],
+        "note_events": [
+            {
+                "time": round(start_beat * BEAT_SECONDS, 4),
+                "note": int(note),
+                "velocity": int(velocity),
+                "duration_beats": int(duration_beats),
+                "duration_seconds": round(duration_beats * BEAT_SECONDS, 4),
+            }
+            for note, velocity, start_beat, duration_beats in events
         ],
     }
     return target, info

@@ -1,0 +1,689 @@
+name: Full-Body Violin Performance Rig Preview
+
+on:
+  push:
+    branches:
+      - feat/fullbody-violin-performance-rig
+    paths:
+      - "autopilot/engine/**"
+      - ".github/workflows/full-body-performance-rig.yml"
+  pull_request:
+    branches:
+      - feat/procedural-2d-animation-engine
+    paths:
+      - "autopilot/engine/**"
+      - ".github/workflows/full-body-performance-rig.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: full-body-performance-preview-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  render-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      PUBLISH_ENABLED: "false"
+      AUTOPILOT_ENABLED: "false"
+      HYPERFRAMES_NO_UPDATE_CHECK: "1"
+      CI: "true"
+    steps:
+      - name: Check out the isolated full-body rig branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            autopilot/engine/requirements-character.txt
+
+      - name: Install CPU-only semantic parsing dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
+          pip install -r autopilot/engine/requirements-character.txt
+          pip install "Pillow>=10.4,<12" "numpy>=1.24,<3" "cryptography>=42,<47" "soundfile>=0.12,<1" "requests>=2.31,<3"
+
+      - name: Run full-body leg and instrument rig unit tests
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python -m unittest discover -s autopilot/engine/tests -p "test_pose_range_visual_qa.py" -v
+          python -m unittest discover -s autopilot/engine/tests -p "test_create_full_body_performance_preview.py" -v
+          python -m unittest discover -s autopilot/engine/tests -p "test_joint_artwork_authoring.py" -v
+          python -m unittest discover -s autopilot/engine/tests -p "test_reference_sheet_rig.py" -v
+          python -m unittest discover -s autopilot/engine/tests -p "test_full_body_performance_rig.py" -v
+          python -m unittest discover -s autopilot/engine/tests -p "test_character_rig.py" -v
+          python -m unittest discover -s autopilot/engine/tests -p "test_character_autorig.py" -v
+
+      - name: Run Auto-Rig and create base articulated body layers
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python autopilot/engine/character_autorig.py \
+            --source autopilot/engine/assets/characters/violin-prince-performance/master-character-performance.webp \
+            --reference-dir autopilot/engine/assets/characters/violin-prince-reference \
+            --output work/full-body-rig/bundle \
+            --id violin-prince \
+            --allow-expression-fallback
+
+      - name: Preserve complete body and add separate bow and fingering controls
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python autopilot/engine/full_body_performance_rig.py \
+            --source autopilot/engine/assets/characters/violin-prince-performance/master-character-performance.webp \
+            --bundle work/full-body-rig/bundle \
+            --prop-dir autopilot/engine/assets/characters/violin-prince-performance \
+            --instrument-manifest autopilot/engine/assets/characters/violin-prince-performance/instrument-props.json \
+            --performance-regions autopilot/engine/assets/characters/violin-prince-performance/performance-regions.json \
+            --finger-manifest autopilot/engine/assets/characters/violin-prince-performance/finger-regions.json \
+            --rigging-sheet autopilot/engine/assets/characters/violin-prince-performance/reference-sheets/Gemini_Generated_Image_7xpc647xpc647xpc.png \
+            --expression-sheet autopilot/engine/assets/characters/violin-prince-performance/reference-sheets/four-core-expressions.jpeg \
+            --head-angle-sheet autopilot/engine/assets/characters/violin-prince-performance/reference-sheets/multi-angle-heads-facial-parts.jpeg
+
+      - name: Prepare source-aligned lower-body joint artwork review pack
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python autopilot/engine/joint_artwork_authoring.py \
+            --source work/full-body-rig/bundle/preserved-full-body-source.png \
+            --bundle work/full-body-rig/bundle \
+            --regions autopilot/engine/assets/characters/violin-prince-performance/performance-regions.json \
+            --out-dir work/full-body-rig/joint-artwork-review
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("work/full-body-rig/joint-artwork-review")
+          report = json.loads((root / "joint-artwork-review-report.json").read_text())
+          template = json.loads((root / "joint-artwork-template.json").read_text())
+          assert report["joint_count"] == 6, report
+          assert report["production_art_assets_created"] == 0, report
+          assert report["rig_layers_modified"] == 0, report
+          assert report["upper_body_and_hand_assets_touched"] is False, report
+          assert len(template["joint_surfaces"]["regions"]) == 6, template
+          joint_items = list(template["joint_surfaces"]["regions"].values())
+          candidate_count = sum(bool(item.get("candidate_source_polygon")) for item in joint_items)
+          manual_trace_count = sum(not bool(item.get("candidate_source_polygon")) for item in joint_items)
+          assert all(
+              item["artwork_status"] == "awaiting_artist_alignment"
+              and item["artist_source_polygon"] == []
+              and item["candidate_is_production_art"] is False
+              for item in joint_items
+          ), template
+          assert report.get("candidate_joint_polygons") == candidate_count, report
+          assert report.get("manual_seam_trace_required") == manual_trace_count, report
+          assert report.get("candidate_polygons_artist_approved") == 0, report
+          assert report.get("annotator") == "joint-artwork-annotator.html", report
+          assert (root / report["annotator"]).is_file(), report
+          assert report.get("production_art_assets_created") == 0, report
+          assert candidate_count >= 1, report
+          assert manual_trace_count >= 1, report
+          assert all(
+              item.get("candidate_geometry_kind") == "shared_alpha_overlap_evidence_only_not_full_joint_surface"
+              and item["candidate_is_production_art"] is False
+              for item in joint_items
+          ), template
+          assert all(
+              item.get("candidate_status") in {
+                  "source_alpha_overlap_evidence_only_not_full_joint_surface",
+                  "manual_seam_trace_required_no_shared_parent_child_pixels",
+              }
+              for item in joint_items
+          ), template
+          assert all(
+              0 < item.get("anchor_measure_radius_px", 0) <= 24
+              for item in joint_items
+          ), template
+          assert all(
+              item.get("closest_parent_source_pixel") is not None
+              and item.get("closest_child_source_pixel") is not None
+              and item.get("candidate_parent_child_gap_px", 0) > 0
+              for item in joint_items
+              if item.get("manual_trace_reason") == "source_layers_separated_near_anchor"
+          ), template
+          assert all(
+              item.get("parent_pixels_near_anchor", 0) == 0
+              for item in joint_items
+              if item.get("manual_trace_reason") == "parent_source_pixels_absent_near_anchor"
+          ), template
+          print(
+              f"Prepared six source-aligned joint reviews: {candidate_count} shared-pixel draft contours, "
+              f"{manual_trace_count} manual seam traces; zero approved production patches."
+          )
+          PY
+
+      - name: Validate the blank joint export against preserved source pixels
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python autopilot/engine/joint_artwork_authoring.py \
+            --source work/full-body-rig/bundle/preserved-full-body-source.png \
+            --bundle work/full-body-rig/bundle \
+            --validate-reviewed-export work/full-body-rig/joint-artwork-review/joint-artwork-template.json \
+            > work/full-body-rig/joint-artwork-review/export-validation.json
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          bundle = Path("work/full-body-rig/bundle")
+          report_path = Path("work/full-body-rig/joint-artwork-review/export-validation.json")
+          report = json.loads(report_path.read_text())
+          assert report.get("status") == "no_artist_approved_joint_polygons", report
+          assert report.get("approved_polygon_count") == 0, report
+          assert report.get("draft_polygon_count") == 0, report
+          assert report.get("bundle_modified") is False, report
+          assert set(report.get("regions", {})) == {
+              "left_hip", "right_hip", "left_knee",
+              "right_knee", "left_ankle", "right_ankle",
+          }, report
+          assert all(
+              region.get("status") == "draft_not_activated"
+              for region in report["regions"].values()
+          ), report
+          assert not list(bundle.glob("joint_surface_*.png")), report
+          print("Original source hash and six blank review regions validated; no production artwork activated.")
+          PY
+
+      - name: Verify mapped character reference catalogue
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("work/full-body-rig/bundle")
+          report = json.loads((root / "reference-sheets-report.json").read_text())
+          mapping = json.loads((root / "reference-part-map.json").read_text())
+          assert report.get("reference_parts_mapping") == "curated_role_catalogue_review_only", report
+          parts = mapping.get("parts", [])
+          assert len(parts) == 33, mapping
+          assert mapping.get("automatic_body_part_replacement") is False, mapping
+          assert all(part.get("reference_role") != "unclassified_reference_part" for part in parts), mapping
+          assert all(part.get("use_policy") == "reference_only_until_manual_alignment_review" for part in parts), mapping
+          assert any(part.get("reference_role") == "hair_shape" for part in parts), mapping
+          assert any(part.get("reference_role") == "hand_pose" for part in parts), mapping
+          assert any(part.get("reference_role") == "violin_prop" for part in parts), mapping
+          assert any(part.get("reference_role") == "bow_prop" for part in parts), mapping
+          print(f"Validated {len(parts)} reference assets with explicit roles; no unaligned asset is auto-applied.")
+          PY
+
+      - name: Verify source-aligned limb segmentation and preserve the violin
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          bundle = Path("work/full-body-rig/bundle")
+          report = json.loads((bundle / "full-body-performance-report.json").read_text())
+          character = json.loads((bundle / "character.json").read_text())
+          separation = json.loads((bundle / "separation-report.json").read_text())
+          hidden = separation.get("hidden_area_reconstruction", {})
+          assert hidden.get("mask_saved") is True, separation
+          assert hidden.get("mask_asset") == "torso-hidden-overlap-mask.png", separation
+          torso_overlap = separation.get("torso_backplate_arm_overlap", {})
+          assert torso_overlap.get("method") == "remove_source_arm_pixels_from_static_torso_keep_hidden_underlay", separation
+          assert torso_overlap.get("source_arm_pixels_removed", 0) >= 0, separation
+          assert torso_overlap.get("hidden_underlay_pixels_retained") == hidden.get("pixels_reconstructed"), separation
+          assert torso_overlap.get("independent_limb_assets_modified") == 0, separation
+          assert torso_overlap.get("hand_animation_data_modified") is False, separation
+          from PIL import Image
+          hidden_mask = Image.open(bundle / hidden["mask_asset"]).convert("L")
+          assert sum(value > 0 for value in hidden_mask.getdata()) == hidden.get("pixels_reconstructed"), separation
+          moving_report = report.get("full_body_moving_mask", {})
+          assert moving_report.get("asset") == "full-body-moving-mask.png", report
+          assert moving_report.get("pixels", 0) > 10000, report
+          assert moving_report.get("source") == "authored_performance_polygons_and_finger_manifest", report
+          moving_mask = Image.open(bundle / moving_report["asset"]).convert("L")
+          assert sum(value > 0 for value in moving_mask.getdata()) == moving_report.get("pixels"), report
+          restoration = report.get("torso_reference_restoration", {})
+          assert restoration.get("method") == "aligned_supplied_jacket_reference_on_authored_moving_and_hidden_torso_masks", report
+          assert restoration.get("reference_asset") == "reference-part-003.png", report
+          assert restoration.get("pixels_restored", 0) >= 100, report
+          assert restoration.get("layer_alpha_preserved") is True, report
+          assert restoration.get("torso_crop_geometry_preserved") is True, report
+          assert restoration.get("hand_forearm_assets_modified") == 0, report
+          assert restoration.get("hand_animation_data_modified") is False, report
+          assert restoration.get("source_pixels_outside_restoration_mask_preserved") is True, report
+          restoration_mask = Image.open(bundle / restoration["restoration_mask_asset"]).convert("L")
+          assert sum(value > 0 for value in restoration_mask.getdata()) == restoration.get("pixels_restored"), report
+          performance = character.get("performance", {})
+          base = report.get("composite_base", {})
+          limbs = report.get("limb_report", {})
+          joint_art = report.get("source_aligned_joint_surface_art", {})
+          assert joint_art.get("method") == "artist_approved_absolute_source_polygon_joint_surfaces_only", report
+          assert joint_art.get("coordinate_space") == "absolute_source_pixels_top_left", report
+          assert joint_art.get("joint_surface_mode") == "approved_artist_polygons_only_no_generated_caps", report
+          assert joint_art.get("hand_assets_modified") == 0, report
+          assert joint_art.get("hand_animation_data_modified") is False, report
+          assert joint_art.get("protected_upper_body_assets_modified") == 0, report
+          lower_body_joints = {
+              "left_hip", "right_hip", "left_knee",
+              "right_knee", "left_ankle", "right_ankle",
+          }
+          protected_joints = {
+              "left_shoulder", "right_shoulder", "left_elbow", "right_elbow",
+          }
+          joint_regions = joint_art.get("regions", {})
+          assert set(joint_regions) == lower_body_joints | protected_joints, joint_art
+          created_regions = {
+              name for name, region in joint_regions.items()
+              if region.get("status") == "artist_source_polygon_patch_created"
+          }
+          assert created_regions <= lower_body_joints, joint_regions
+          for name in protected_joints:
+              region = joint_regions[name]
+              assert region.get("status") == "skipped"
+              assert region.get("reason") == "protected_upper_body_joint_asset_out_of_scope", joint_regions
+          for name in lower_body_joints - created_regions:
+              region = joint_regions[name]
+              assert region.get("status") == "skipped"
+              assert region.get("reason") in {
+                  "artist_aligned_joint_surface_art_required",
+                  "artist_polygon_does_not_bridge_both_source_surfaces",
+              }, joint_regions
+          for name in created_regions:
+              region = joint_regions[name]
+              assert region.get("source_pixels", 0) >= 80, region
+              assert region.get("parent_overlap_pixels", 0) >= 4, region
+              assert region.get("child_overlap_pixels", 0) >= 4, region
+              assert region.get("parent_alpha_pixels_removed", 0) > 0, region
+              assert region.get("child_alpha_pixels_removed", 0) > 0, region
+          expected_surface_roles = {"joint_surface_" + name for name in created_regions}
+          surface_roles = {
+              layer["role"] for layer in character.get("layers", [])
+              if layer.get("joint_surface")
+          }
+          assert surface_roles == expected_surface_roles, surface_roles
+          patch_files = {path.stem for path in bundle.glob("joint_surface_*.png")}
+          assert patch_files == expected_surface_roles, patch_files
+          assert joint_art.get("joint_surface_layer_count") == len(created_regions), joint_art
+          assert joint_art.get("joint_surface_mesh_layer_count") == 0, joint_art
+          assert joint_art.get("joint_surface_articulated_layer_count") == len(created_regions), joint_art
+          transferred_pixels = sum(
+              joint_regions[name].get("source_pixels", 0) for name in created_regions
+          )
+          removed_pixels = sum(
+              joint_regions[name].get("parent_alpha_pixels_removed", 0)
+              + joint_regions[name].get("child_alpha_pixels_removed", 0)
+              for name in created_regions
+          )
+          assert joint_art.get("source_pixels_transferred", 0) == transferred_pixels, joint_art
+          assert joint_art.get("moving_mask_pixels", 0) == transferred_pixels, joint_art
+          assert joint_art.get("parent_child_alpha_pixels_removed", 0) == removed_pixels, joint_art
+          mesh_report = report.get("continuous_body_deformation", {})
+          expected_mesh_roles = {
+              "torso", "left_upper_arm", "left_forearm", "right_upper_arm", "right_forearm",
+              "left_thigh", "left_calf", "right_thigh", "right_calf",
+          }
+          assert mesh_report.get("method") == "frame_sampled_piecewise_affine_source_texture_mesh", report
+          assert set(mesh_report.get("deformable_roles", [])) == expected_mesh_roles, report
+          assert mesh_report.get("deformable_layer_count") == 9, report
+          assert mesh_report.get("hand_assets_modified") == 0, report
+          assert mesh_report.get("hand_animation_data_modified") is False, report
+          partition = report.get("torso_surface_partition", {})
+          if created_regions:
+              assert partition.get("method") == "source_alpha_partitioned_into_static_torso_and_joint_surfaces", report
+              assert partition.get("joint_surface_source_pixels_transferred") == transferred_pixels, report
+              assert partition.get("transfer_mask_asset") == "torso-joint-surface-transfer-mask.png", report
+          else:
+              assert partition.get("method") == "source_alpha_partitioned_into_live_torso_surface", report
+              assert partition.get("joint_surface_source_pixels_transferred", 999) == 0
+              assert partition.get("transfer_mask_asset") == "torso-live-surface-transfer-mask.png", report
+          assert partition.get("base_alpha_unchanged_outside_transfer_mask") is True, report
+          assert partition.get("composition_source_alpha_reconstituted_by_surface_layers") is True, report
+          assert partition.get("hand_assets_modified") == 0, report
+          assert partition.get("hand_animation_data_modified") is False, report
+          assert base.get("source_alpha_partitioned_into_surface_layers") is True, report
+          assert base.get("composition_source_alpha_reconstituted") is True, report
+          assert base.get("mode") == "segmented_source_body", report
+          assert base.get("source_alpha_preserved") is True, report
+          assert base.get("source_pixels_outside_cut_mask_preserved") is True, report
+          assert base.get("inpaint") == "opencv_telea_radius_5_alpha_aware", report
+          assert base.get("cutout_mask_dilation_px") == 0, report
+          assert base.get("cutout_boundary_method") == "exact_source_aligned_alpha_union", report
+          assert base.get("expanded_halo_pixels_excluded", 0) > 0, report
+          assert base.get("underpaint_quality") == "source_aligned_static_violin_preserved_no_violin_inpaint", report
+          assert base.get("transparent_rgb_excluded_from_reconstruction") is True, report
+          assert base.get("transparent_source_pixels_excluded_from_inpaint", 0) > 100000, report
+          assert base.get("pixels_cut_from_source", 0) > 25000, report
+          assert base.get("bow_pixels_reconstructed", 0) > 0, report
+          assert base.get("violin_pixels_reconstructed", 0) == 0, report
+          assert base.get("violin_source_underlay_preserved") is True, report
+          assert base.get("violin_source_pixels_preserved", 0) > 5000, report
+          assert base.get("head_plate_replacement_enabled") is True, report
+          assert base.get("head_cutout_method") == "source_aligned_head_backplate_preserved", report
+          assert base.get("head_pixels_reconstructed", 0) == 0, report
+          assert base.get("head_source_backplate_preserved") is True, report
+          assert base.get("head_backplate_pixels_preserved", 0) > 500, report
+          bow_hair = report.get("bow_hair_restoration", {})
+          assert bow_hair.get("method") == "largest_neutral_source_component_recovered_into_animated_bow", report
+          assert bow_hair.get("pixels_added", 0) > 250, report
+          assert bow_hair.get("source_mask_extended") is True, report
+          assert bow_hair.get("shared_bow_transform") is True, report
+          assert report.get("prop_report", {}).get("bow", {}).get("src") == bow_hair.get("src"), report
+          static_props = report.get("static_layer_prop_cleanup", {})
+          assert static_props.get("method") == "mobile_bow_removed_static_violin_retained_as_torso_underlay", report
+          assert static_props.get("violin_backplate_policy") == "source_aligned_torso_underlay_behind_attached_violin_prop", report
+          torso_extension = static_props.get("torso_backplate_extension", {})
+          assert torso_extension.get("method") == "source_aligned_full_violin_underlay_in_extended_torso_plate", report
+          assert torso_extension.get("violin_backplate_pixels", 0) > 5000, report
+          assert torso_extension.get("pixels_added", 0) > 4000, report
+          assert torso_extension.get("bow_pixels_excluded", 0) > 0, report
+          assert torso_extension.get("moving_part_pixels_excluded", 0) > 0, report
+          assert torso_extension.get("torso_pivot_preserved") is True, report
+          assert static_props.get("total_pixels_removed", 0) > 500, report
+          assert static_props.get("layers", {}).get("torso", {}).get("violin_pixels_removed", 999) == 0, report
+          assert static_props.get("layers", {}).get("torso", {}).get("violin_backplate_pixels_preserved", 0) > 1000, report
+          assert static_props.get("layers", {}).get("torso", {}).get("bow_pixels_removed", 0) > 300, report
+          assert limbs.get("method") == "authored_source_aligned_polygon_regions_v1", report
+          assert limbs.get("independent_layer_count") == 12, report
+          assert len(limbs.get("parts", {})) == 12, report
+          assert all(part["pixel_area"] > part["minimum_pixels"] for part in limbs["parts"].values()), report
+          overlaps = limbs.get("joint_overlap_pixels", {})
+          assert max(overlaps.values()) <= 900, report
+          assert overlaps.get("right_knee", 0) >= 700, report
+          assert overlaps.get("left_ankle", 999) <= 200, report
+          assert overlaps.get("right_ankle", 999) <= 200, report
+          assert report.get("finger_layer_count") == 12, report
+          assert report.get("finger_segment_count") == 12, report
+          assert report.get("finger_digit_count") == 4, report
+          assert report.get("finger_joint_count") == 12, report
+          finger_quality = report.get("finger_segment_quality", {})
+          assert finger_quality.get("method") == "one_pixel_source_mask_expansion_metric_joint_seams_connected_palm_cleanup", report
+          assert finger_quality.get("chain_count") == 4, report
+          assert set(finger_quality.get("segments_per_chain", {}).values()) == {3}, report
+          assert finger_quality.get("minimum_segment_pixels", 0) >= 12, report
+          assert finger_quality.get("minimum_joint_overlap_pixels", 0) >= 12, report
+          assert finger_quality.get("little_fingertip_pixels", 0) >= 12, report
+          assert finger_quality.get("palm_components_after_cleanup") == 1, report
+          assert finger_quality.get("palm_speckle_components_removed", 0) > 0, report
+          assert len(performance.get("fingering_segment_roles", [])) == 12, performance
+          assert len(performance.get("fingering_parts", [])) == 4, performance
+          hand_cleanup = report.get("violin_hand_overlap_cleanup", {})
+          assert hand_cleanup.get("backplate_pixels_added", 0) > 100, report
+          assert hand_cleanup.get("hand_hole_pixels_filled", 0) > 20, report
+          assert hand_cleanup.get("source_hand_pixels_reconstructed", 0) > 20, report
+          assert hand_cleanup.get("method") == "source_aligned_fingerboard_backplate_rgb_reconstruction", report
+          assert hand_cleanup.get("prop_alpha_extended") is True, report
+          assert hand_cleanup.get("parent_prop_mask_updated") is True, report
+          edge_cleanup = report.get("source_edge_color_decontamination", {})
+          assert edge_cleanup.get("method") == "distance_aware_neutral_matte_decontamination", report
+          assert edge_cleanup.get("edge_band_radius", 0) >= 4.0, report
+          assert edge_cleanup.get("pixels_recoloured", 0) > 400, report
+          assert edge_cleanup.get("source_alpha_preserved") is True, report
+          assert edge_cleanup.get("source_silhouette_geometry_preserved") is True, report
+          print("All twelve limb segments and twelve fretting phalanx sprites extracted; duplicate fretting-hand pixels removed from the violin prop.")
+          PY
+
+      - name: Generate the CC0 sampled solo-violin phrase and note event map
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          mkdir -p work/full-body-rig/audio
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from violin_sampler import create_sampled_violin_bed
+
+          audio_path, music_map = create_sampled_violin_bed(
+              "work/full-body-rig/audio/violin-prince-cc0-solo-violin.wav",
+              seed_text="violin-prince-full-body-performance-preview",
+          )
+          if music_map.get("license") != "CC0-1.0":
+              raise SystemExit("The generated violin audio did not pass its CC0 licence check.")
+          if float(music_map.get("bpm", 0)) != 80.0:
+              raise SystemExit("The sampled-violin arrangement tempo does not match its event map.")
+          if len(music_map.get("beat_times", [])) != 32 or not music_map.get("onsets"):
+              raise SystemExit("The sampled-violin arrangement did not provide a complete beat/onset map.")
+          map_path = Path("work/full-body-rig/audio/violin-prince-cc0-solo-violin.music-map.json")
+          map_path.write_text(json.dumps(music_map, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps({
+              "audio_file": str(audio_path),
+              "audio_source": music_map["audio_source"],
+              "license": music_map["license"],
+              "source_library": music_map["source_library"],
+              "duration_seconds": music_map["duration_seconds"],
+              "bpm": music_map["bpm"],
+              "beats": len(music_map["beat_times"]),
+              "note_onsets": len(music_map["onsets"]),
+          }, indent=2))
+          PY
+
+      - name: Build the isolated 8-second performance project using sampled-violin timing
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python autopilot/engine/create_full_body_performance_preview.py \
+            --bundle work/full-body-rig/bundle \
+            --output work/full-body-rig \
+            --audio work/full-body-rig/audio/violin-prince-cc0-solo-violin.wav \
+            --music-map work/full-body-rig/audio/violin-prince-cc0-solo-violin.music-map.json
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Motion and HyperFrames
+        working-directory: autopilot/engine/animation2d
+        run: npm install --no-audit --no-fund
+
+      - name: Run all animation contract and full-body motion tests
+        working-directory: autopilot/engine/animation2d
+        run: npm test
+
+      - name: Build the full-body composition
+        working-directory: autopilot/engine/animation2d
+        run: |
+          node build.mjs \
+            --project ../../../work/full-body-rig/project.json \
+            --out-dir ../../../work/full-body-rig/composition
+          mkdir -p ../../../work/full-body-rig/composition/assets/characters
+          cp -R ../../../work/full-body-rig/assets/characters/violin-prince \
+            ../../../work/full-body-rig/composition/assets/characters/
+          cp ../../../work/full-body-rig/bundle/full-body-performance-report.json \
+            ../../../work/full-body-rig/
+
+      - name: Verify full-body motion QA gate
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("work/full-body-rig/composition/motion-report.json").read_text())
+          project = json.loads(Path("work/full-body-rig/project.json").read_text())
+          action = project["scenes"][0]["character_actions"]["violin-prince"]
+          sync = action.get("music_sync", {})
+          scene = report["scenes"][0]
+          assert sync.get("source") == "sampled_violin_cc0", sync
+          assert sync.get("audio_attached") is True, sync
+          assert sync.get("audio_license") == "CC0-1.0", sync
+          assert sync.get("event_map_source") == "sampled_violin_arrangement_note_events", sync
+          assert sync.get("analysis_status") == "metadata_verified", sync
+          assert sync.get("decode_backend") in {"soundfile", "ffmpeg"}, sync
+          assert sync.get("bpm") == 80, sync
+          assert len(sync.get("beat_times", [])) >= 10, sync
+          assert len(sync.get("onsets", [])) > 0, sync
+          assert len(sync.get("note_events", [])) >= 4, sync
+          assert action.get("head_angle") == "front", action
+          assert action.get("head_expression") == "focused", action
+          assert action.get("visible") is True, action
+          assert float(action.get("start_offset", -1)) == 0.0, action
+          assert not action.get("head_angle_sequence"), action
+          assert not action.get("head_expression_sequence"), action
+          character = json.loads(Path("work/full-body-rig/bundle/character.json").read_text())
+          props = character.get("props", {})
+          assert props.get("bow", {}).get("attach_to") == "left_hand", props
+          assert props.get("violin", {}).get("attach_to") == "torso", props
+          assert not action.get("prop_keyframes"), action
+          joints = character.get("joints", {})
+          width, height = character["canvas"]["width"], character["canvas"]["height"]
+          left_wrist = joints["left_wrist"]
+          right_wrist = joints["right_wrist"]
+          assert abs(left_wrist["x"] * width - 116) <= 1.5, left_wrist
+          assert abs(left_wrist["y"] * height - 231) <= 1.5, left_wrist
+          assert abs(right_wrist["x"] * width - 350) <= 1.5, right_wrist
+          assert abs(right_wrist["y"] * height - 239) <= 1.5, right_wrist
+          bow = props["bow"]
+          grip_x = bow["x"] + bow["pivot_x"] * bow["width"]
+          grip_y = bow["y"] + bow["pivot_y"] * bow["height"]
+          assert abs(grip_x - 178) <= 1.5 and abs(grip_y - 242) <= 1.5, (grip_x, grip_y)
+          assert len(character.get("head_variants", {})) == 4, character
+          assert len(character.get("head_angles", {})) == 4, character
+          assert scene.get("stagecraft_environment") == "concert_stage", scene
+          assert report.get("animated_stagecraft_scene_count") == 1, report
+          assert report.get("animated_stagecraft_node_count", 0) > 0, report
+          assert report.get("full_body_performance_scene_count") == 1, report
+          assert report.get("preserved_composite_base_count") == 1, report
+          assert report.get("animated_full_body_part_count") == 6, report
+          assert report.get("animated_limb_segment_count") == 12, report
+          assert report.get("animated_fingering_control_count") == 4, report
+          assert report.get("animated_finger_segment_count") == 12, report
+          assert scene.get("animated_finger_segments") == 12, scene
+          assert report.get("animated_instrument_prop_count") == 2, report
+          rig_report = json.loads(Path("work/full-body-rig/bundle/full-body-performance-report.json").read_text())
+          joint_art = rig_report.get("source_aligned_joint_surface_art", {})
+          joint_layers = [layer for layer in character.get("layers", []) if layer.get("joint_surface")]
+          allowed_joint_roles = {
+              "joint_surface_left_hip", "joint_surface_right_hip",
+              "joint_surface_left_knee", "joint_surface_right_knee",
+              "joint_surface_left_ankle", "joint_surface_right_ankle",
+          }
+          assert all(layer.get("role") in allowed_joint_roles for layer in joint_layers), joint_layers
+          assert all(
+              layer["joint_surface"].get("surface_outline_profile") == "artist_source_polygon"
+              and layer["joint_surface"].get("artist_artwork_status") == "artist_approved"
+              and len(layer["joint_surface"].get("source_space_polygon", [])) >= 3
+              for layer in joint_layers
+          ), joint_layers
+          assert joint_art.get("joint_surface_layer_count") == len(joint_layers), joint_art
+          assert joint_art.get("hand_assets_modified") == 0, joint_art
+          assert joint_art.get("hand_animation_data_modified") is False, joint_art
+          assert joint_art.get("protected_upper_body_assets_modified") == 0, joint_art
+          assert report.get("source_joint_surface_layer_count") == len(joint_layers), report
+          assert report.get("deformable_body_layer_count") == 9, report
+          assert report.get("deformation_mesh_triangle_track_count") == 158, report
+          assert report.get("joint_surface_mesh_triangle_track_count") == 0, report
+          assert report.get("joint_surface_transform_track_count") == len(joint_layers), report
+          assert scene.get("source_joint_surface_layer_count") == len(joint_layers), scene
+          assert scene.get("deformable_body_layer_count") == 9, scene
+          assert scene.get("deformation_mesh_triangle_track_count") == 158, scene
+          assert scene.get("joint_surface_mesh_triangle_track_count") == 0, scene
+          assert scene.get("joint_surface_transform_track_count") == len(joint_layers), scene
+          assert scene.get("full_body_visual_mode") == "segmented_source_body", scene
+          print(json.dumps({
+              "full_body_scenes": report["full_body_performance_scene_count"],
+              "independent_leg_parts": report["animated_full_body_part_count"],
+              "independent_limb_segments": report["animated_limb_segment_count"],
+              "preserved_composite_bases": report["preserved_composite_base_count"],
+              "finger_controls": report["animated_fingering_control_count"],
+              "finger_phalanx_segments": report["animated_finger_segment_count"],
+              "instrument_props": report["animated_instrument_prop_count"],
+              "motion_tracks": report["total_motion_tracks"],
+          }, indent=2))
+          PY
+
+      - name: Lint the built HyperFrames composition
+        working-directory: work/full-body-rig/composition
+        run: $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes lint
+
+      - name: Install bundled FFmpeg and FFprobe for preview rendering
+        run: |
+          TOOLS_DIR="$RUNNER_TEMP/media-tools"
+          mkdir -p "$TOOLS_DIR"
+          npm install --prefix "$TOOLS_DIR" --no-save --no-package-lock ffmpeg-static ffprobe-static
+          FFMPEG_EXE="$(node -p "require('$TOOLS_DIR/node_modules/ffmpeg-static')")"
+          FFPROBE_EXE="$(node -p "require('$TOOLS_DIR/node_modules/ffprobe-static').path")"
+          ln -sf "$FFMPEG_EXE" "$TOOLS_DIR/ffmpeg"
+          ln -sf "$FFPROBE_EXE" "$TOOLS_DIR/ffprobe"
+          echo "$TOOLS_DIR" >> "$GITHUB_PATH"
+          "$TOOLS_DIR/ffmpeg" -version | head -n 1
+          "$TOOLS_DIR/ffprobe" -version | head -n 1
+
+      - name: Render the non-publishing full-body performance preview
+        working-directory: work/full-body-rig/composition
+        run: |
+          $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes render \
+            --output ../full-body-violin-performance-video-only.mp4 \
+            --fps 25 \
+            --quality standard
+
+      - name: Mix the synchronized sampled violin audio into the review MP4
+        run: |
+          ffmpeg -hide_banner -loglevel error -y \
+            -i work/full-body-rig/full-body-violin-performance-video-only.mp4 \
+            -i work/full-body-rig/audio/violin-prince-cc0-solo-violin.wav \
+            -map 0:v:0 -map 1:a:0 -t 8 \
+            -c:v copy -c:a aac -b:a 192k -shortest -movflags +faststart \
+            work/full-body-rig/full-body-violin-performance.mp4
+
+      - name: Generate dense pose-range review evidence
+        run: |
+          python autopilot/engine/pose_range_visual_qa.py \
+            --video work/full-body-rig/full-body-violin-performance.mp4 \
+            --out-dir work/full-body-rig/pose-range-qa \
+            --duration 8 \
+            --fps 4 \
+            --columns 5
+
+      - name: Create a visual review contact sheet
+        run: |
+          mkdir -p work/full-body-rig/frames
+          for t in 0.5 2.0 3.5 5.0 6.5 7.5; do
+            ffmpeg -hide_banner -loglevel error \
+              -ss "$t" -i work/full-body-rig/full-body-violin-performance.mp4 \
+              -frames:v 1 -q:v 2 "work/full-body-rig/frames/frame-$t.jpg"
+          done
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageDraw
+          files = sorted(Path("work/full-body-rig/frames").glob("*.jpg"))
+          if len(files) != 6:
+              raise SystemExit(f"Expected six sampled frames, got {len(files)}")
+          thumbs = []
+          for path in files:
+              image = Image.open(path).convert("RGB")
+              image.thumbnail((240, 426))
+              thumbs.append((path.stem, image.copy()))
+          canvas = Image.new("RGB", (240 * 3, 452 * 2), (12, 18, 28))
+          draw = ImageDraw.Draw(canvas)
+          for index, (label, image) in enumerate(thumbs):
+              x = (index % 3) * 240
+              y = (index // 3) * 452
+              canvas.paste(image, (x, y + 24))
+              draw.text((x + 8, y + 6), label, fill=(240, 230, 210))
+          canvas.save("work/full-body-rig/full-body-performance-contact-sheet.jpg", quality=94)
+          PY
+
+      - name: Upload preview and QA evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-body-violin-performance-preview-${{ github.run_number }}
+          path: |
+            work/full-body-rig/full-body-violin-performance.mp4
+            work/full-body-rig/full-body-performance-contact-sheet.jpg
+            work/full-body-rig/pose-range-qa/pose-range-visual-qa.json
+            work/full-body-rig/pose-range-qa/full-body-pose-range-contact-sheet.jpg
+            work/full-body-rig/joint-artwork-review/joint-artwork-contact-sheet.jpg
+            work/full-body-rig/joint-artwork-review/joint-artwork-template.json
+            work/full-body-rig/joint-artwork-review/joint-artwork-review-report.json
+            work/full-body-rig/joint-artwork-review/joint-artwork-annotator.html
+            work/full-body-rig/bundle/full-body-performance-report.json
+            work/full-body-rig/bundle/reference-sheets-report.json
+            work/full-body-rig/bundle/reference-part-map.json
+            work/full-body-rig/bundle/reference-parts-contact-sheet.png
+            work/full-body-rig/bundle/separation-report.json
+            work/full-body-rig/composition/motion-report.json
+            work/full-body-rig/bundle/separation-preview.png
+            work/full-body-rig/bundle/character.json
+            work/full-body-rig/bundle/*.png
+            work/full-body-rig/bundle/*.webp
+            work/full-body-rig/project.json
+            work/full-body-rig/audio/violin-prince-cc0-solo-violin.wav
+            work/full-body-rig/audio/violin-prince-cc0-solo-violin.music-map.json
+          if-no-files-found: error
+          retention-days: 7

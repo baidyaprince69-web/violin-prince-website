@@ -33,6 +33,231 @@ export function sampleMotionSpring(from, to, fps = 25, maxMs = 1400) {
   };
 }
 
+export function buildMusicSynchronizedPerformanceTracks({
+  targetPrefix,
+  start = 0,
+  duration = 1,
+  bpm,
+  beatTimes = [],
+  downbeats = [],
+  onsets = [],
+  noteEvents = [],
+  confidence = 1,
+  fps = 25
+} = {}) {
+  const total = Math.max(0.08, Number(duration) || 0.08);
+  const tempo = Number(bpm);
+  const certainty = Number(confidence);
+  if (!targetPrefix || !Number.isFinite(tempo) || tempo < 40 || tempo > 240 ||
+      !Number.isFinite(certainty) || certainty < 0.28) return [];
+
+  const cleanTimes = values => [...new Set((Array.isArray(values) ? values : [])
+    .map(value => Number(value))
+    .filter(value => Number.isFinite(value) && value >= 0 && value <= total)
+    .map(value => Math.round(value * 10000) / 10000))]
+    .sort((a, b) => a - b);
+  const beats = cleanTimes(beatTimes);
+  if (beats.length < 2) return [];
+  const period = 60 / tempo;
+  const bars = cleanTimes(downbeats);
+  const strongBeats = bars.length ? bars : beats.filter((_time, index) => index % 4 === 0);
+  const attacks = cleanTimes(onsets);
+  const events = (Array.isArray(noteEvents) ? noteEvents : [])
+    .map(event => ({
+      time: Number(event?.time),
+      note: Number(event?.note),
+      velocity: Number(event?.velocity ?? 76),
+      durationSeconds: Number(event?.duration_seconds ?? event?.durationSeconds ?? 0.2)
+    }))
+    .filter(event =>
+      Number.isFinite(event.time) && event.time >= 0 && event.time <= total &&
+      Number.isInteger(event.note) && event.note >= 0 && event.note <= 127 &&
+      Number.isFinite(event.velocity) && event.velocity >= 1 && event.velocity <= 127 &&
+      Number.isFinite(event.durationSeconds) && event.durationSeconds > 0
+    )
+    .sort((a, b) => a.time - b.time);
+
+  const makeTrack = (target, points) => {
+    const valuesByTime = new Map([[0, 0], [total, 0]]);
+    for (const point of points) {
+      const time = Number(point.time);
+      const value = Number(point.value);
+      if (!Number.isFinite(time) || !Number.isFinite(value) || time < 0 || time > total) continue;
+      valuesByTime.set(Math.round(time * 10000) / 10000, value);
+    }
+    const ordered = [...valuesByTime.entries()].sort((a, b) => a[0] - b[0]);
+    return {
+      target,
+      property: "rotate",
+      values: ordered.map(point => point[1]),
+      key_times: ordered.map(point => point[0]),
+      start: Math.max(0, Number(start) || 0),
+      duration: total,
+      easing: "linear"
+    };
+  };
+  const pulse = (target, times, amplitude, releaseSeconds, sign = 1) => {
+    const points = [];
+    times.forEach((time, index) => {
+      const hit = Math.min(total, time + 0.035);
+      const release = Math.min(total, hit + releaseSeconds);
+      const side = typeof sign === "function" ? sign(index, time) : sign;
+      points.push(
+        { time: hit, value: (index % 2 === 0 ? -1 : 1) * amplitude * side },
+        { time: release, value: 0 }
+      );
+    });
+    return makeTrack(target, points);
+  };
+
+  const strokeTimes = cleanTimes([
+    0,total,
+    ...beats.flatMap((beat,index)=>{
+      const next=beats[index+1] ?? (beat+period), span=Math.max(.08,next-beat);
+      return [beat,beat+span*.25,beat+span*.5,beat+span*.75];
+    })
+  ]);
+  const beatPhaseAt = time => {
+    let index=0;
+    while(index+1<beats.length && beats[index+1]<=time) index+=1;
+    const beatStart=beats[index] ?? 0, beatEnd=beats[index+1] ?? (beatStart+period);
+    const progress=Math.max(0,Math.min(1,(time-beatStart)/Math.max(.08,beatEnd-beatStart)));
+    return Math.PI*(index+progress);
+  };
+  const downbeatAccentAt = time => bars.reduce((strength,beat)=>Math.max(
+    strength,Math.exp(-Math.pow((time-beat)/.22,2))
+  ),0);
+  // Quarter-beat samples create a continuous reciprocal bow path. The joints
+  // counter-rotate together to keep the bow stable in the player's grip.
+  const bowShoulderStrokes=strokeTimes.map(time=>({
+    time,value:(5.15+downbeatAccentAt(time)*.22)*Math.cos(beatPhaseAt(time))
+  }));
+  const bowElbowStrokes=strokeTimes.map((time,index)=>({
+    time,value:-bowShoulderStrokes[index].value*.085
+  }));
+  const bowWristStrokes=strokeTimes.map((time,index)=>({
+    time,value:-bowShoulderStrokes[index].value-bowElbowStrokes[index].value
+  }));
+  // Gentle phrase-level weight shift and delayed head follow-through.
+  const torsoPulses=strokeTimes.map(time=>({
+    time,value:.92*Math.sin((time/Math.max(.2,period*4))*Math.PI*2)+downbeatAccentAt(time)*.12
+  }));
+  const headPulses=strokeTimes.map(time=>({
+    time,value:-.38*Math.sin(((time-.065)/Math.max(.2,period*4))*Math.PI*2)+
+      .12*Math.sin((time/Math.max(.2,period*8))*Math.PI*2)
+  }));
+  const fingerNames = ["finger_index", "finger_middle", "finger_ring", "finger_little"];
+  const fingerIntervals = Object.fromEntries(fingerNames.map(name => [name, []]));
+  if (events.length) {
+    const pitches = events.map(event => event.note);
+    const minimumPitch = Math.min(...pitches);
+    const pitchRange = Math.max(1, Math.max(...pitches) - minimumPitch);
+    for (let eventIndex = 0; eventIndex < events.length; eventIndex += 1) {
+      const event = events[eventIndex];
+      // Relative pitch register chooses a first-position-like visual hand shape.
+      // Lower fingers remain softly prepared as higher fingers are added; this
+      // is a phrase-specific illustration cue, not a formal fingering chart.
+      const fingerIndex = Math.min(3, Math.max(0,
+        Math.round(((event.note - minimumPitch) / pitchRange) * 3)));
+      const strength = 0.88 + (event.velocity / 127) * 0.2;
+      const hit = Math.min(total, event.time + 0.018);
+      const nextHit = events[eventIndex + 1]
+        ? Math.min(total, events[eventIndex + 1].time + 0.018)
+        : total;
+      const hold = Math.min(0.82, Math.max(0.15, event.durationSeconds * 0.72));
+      const release = Math.min(total, hit + hold, nextHit);
+      const settle = Math.min(total, release + 0.08, nextHit);
+      for (let fingerPosition = 0; fingerPosition <= fingerIndex; fingerPosition += 1) {
+        const finger = fingerNames[fingerPosition];
+        const amplitudes = [7.2, -6.5, 6.8, -6.0];
+        const stagger = fingerPosition * 0.009;
+        fingerIntervals[finger].push({
+          start: Math.min(total, hit + stagger),
+          end: release,
+          settle,
+          amplitude: amplitudes[fingerPosition] * strength
+        });
+      }
+    }
+  } else {
+    attacks.forEach((time, index) => {
+      const fingerIndex = index % fingerNames.length;
+      const hit = Math.min(total, time + 0.025);
+      const nextHit = attacks[index + 1] === undefined
+        ? total : Math.min(total, attacks[index + 1] + 0.025);
+      const release = Math.min(total, hit + Math.min(0.22, period * 0.3), nextHit);
+      const settle = Math.min(total, release + 0.075, nextHit);
+      const amplitude = [6.0, -5.5, 5.8, -5.0][fingerIndex];
+      fingerIntervals[fingerNames[fingerIndex]].push({
+        start: hit, end: release, settle, amplitude
+      });
+    });
+  }
+
+  const fingerTracks = fingerNames.flatMap(name => {
+    const intervals = fingerIntervals[name];
+    const boundaries = cleanTimes([
+      0, total,
+      ...intervals.flatMap(interval => [interval.start, interval.end, interval.settle])
+    ]);
+    const points = boundaries.map(time => {
+      const active = intervals
+        .filter(interval => time >= interval.start && time < interval.end)
+        .sort((a, b) => b.start - a.start);
+      if (active.length) return { time, value: active[0].amplitude };
+      const releasing = intervals
+        .filter(interval => time >= interval.end && time < interval.settle)
+        .sort((a, b) => b.start - a.start);
+      return { time, value: releasing.length ? releasing[0].amplitude * 0.24 : 0 };
+    });
+    // Preserve the earlier one-sprite curl as an approximate total rotation,
+    // but distribute it across MCP, PIP and DIP joints for a connected finger.
+    const scalePoints = factor => points.map(point => ({
+      time: point.time,
+      value: point.value * factor
+    }));
+    const prefix = String(targetPrefix) + "-part-";
+    return [
+      makeTrack(prefix + name, scalePoints(0.42)),
+      makeTrack(prefix + name + "_middle", scalePoints(0.38)),
+      makeTrack(prefix + name + "_tip", scalePoints(0.20))
+    ];
+  });
+
+  // Gentle lower-body counterbalance keeps the player grounded; it is weight transfer,
+  // not a walking or dance cycle.
+  const weightTrack = (target, amplitude, side = 1) => makeTrack(
+    target,
+    strokeTimes.map(time=>({
+      time,value:Math.sin((time/Math.max(.2,period*4))*Math.PI*2)*amplitude*side
+    }))
+  );
+
+  const prefix = String(targetPrefix);
+  const frameRate = Math.max(1, Number(fps) || 25);
+  return [
+    // The screen-left chain is the player's anatomical right bowing arm.
+    // The bow prop is attached at its grip point to left_hand, so it inherits
+    // the shoulder -> elbow -> wrist motion as one rigid object. It must not
+    // receive a second independent translate/rotate track.
+    makeTrack(prefix + "-part-left_upper_arm", bowShoulderStrokes),
+    makeTrack(prefix + "-part-left_forearm", bowElbowStrokes),
+    makeTrack(prefix + "-part-left_hand", bowWristStrokes),
+    // The screen-right chain is the player's anatomical left fretting arm.
+    // Keep its wrist/forearm planted on the violin neck; the finger sprites
+    // carry the note articulation without dragging the whole hand off contact.
+    makeTrack(prefix + "-part-torso", torsoPulses),
+    makeTrack(prefix + "-part-head", headPulses),
+    weightTrack(prefix + "-part-left_thigh", 1.8, 1),
+    weightTrack(prefix + "-part-right_thigh", 1.8, -1),
+    weightTrack(prefix + "-part-left_calf", 1.25, -1),
+    weightTrack(prefix + "-part-right_calf", 1.25, 1),
+    weightTrack(prefix + "-part-left_foot", 0.72, 1),
+    weightTrack(prefix + "-part-right_foot", 0.72, -1),
+    ...fingerTracks
+  ];
+}
+
 function cssKeyframeValues(property, values) {
   if (property === "rotate") {
     return values.map(value => typeof value === "number" ? value + "deg" : String(value));
@@ -62,6 +287,12 @@ export function directorCameraKeyframes(camera, shotIndex = 0) {
   const up = direction === "down" ? -1 : 1;
   const scale = value => "scale(" + value.toFixed(3) + ")";
   switch (movement) {
+    case "cinematic_push":
+      return [
+        scale(baseScale + 0.012) + " translate3d(-5px,9px,0) rotate(-0.08deg)",
+        scale(baseScale + 0.034) + " translate3d(2px,1px,0) rotate(0.04deg)",
+        scale(baseScale + 0.052) + " translate3d(0px,-8px,0)"
+      ];
     case "dolly_in":
       return [scale(baseScale) + " translateY(8px)", scale(baseScale + 0.085) + " translateY(-8px)"];
     case "dolly_out":
@@ -268,15 +499,39 @@ function sampleRotationTrack(track, time) {
   const values = track.values || [];
   if (values.length < 2) return numericCssValue(values[0] || 0);
   const duration = Math.max(0.001, Number(track.duration) || 0.001);
-  const rawProgress = (Number(time) - Number(track.start || 0)) / duration;
-  // Repeat articulated movement on an exact cycle boundary. Before the
-  // action starts, hold the first pose rather than wrapping negative time.
-  const progress = track.loop === true
-    ? (rawProgress <= 0 ? 0 : rawProgress % 1)
-    : Math.min(1, Math.max(0, rawProgress));
-  const segmentPosition = progress * (values.length - 1);
-  const segment = Math.min(values.length - 2, Math.floor(segmentPosition));
-  const localProgress = segmentPosition - segment;
+  const keyTimes = track.key_times;
+  const hasTimedKeys = Array.isArray(keyTimes) &&
+    keyTimes.length === values.length &&
+    keyTimes.every((value, index) => Number.isFinite(Number(value)) &&
+      (index === 0 || Number(value) > Number(keyTimes[index - 1])));
+
+  let segment;
+  let localProgress;
+  if (hasTimedKeys) {
+    const elapsed = Number(time) - Number(track.start || 0);
+    if (elapsed <= Number(keyTimes[0])) return numericCssValue(values[0]);
+    if (elapsed >= Number(keyTimes.at(-1))) return numericCssValue(values.at(-1));
+    segment = 0;
+    while (segment < keyTimes.length - 2 && elapsed > Number(keyTimes[segment + 1])) {
+      segment += 1;
+    }
+    const segmentDuration = Math.max(
+      0.0001,
+      Number(keyTimes[segment + 1]) - Number(keyTimes[segment])
+    );
+    localProgress = (elapsed - Number(keyTimes[segment])) / segmentDuration;
+  } else {
+    const rawProgress = (Number(time) - Number(track.start || 0)) / duration;
+    // Repeat articulated movement on an exact cycle boundary. Before the
+    // action starts, hold the first pose rather than wrapping negative time.
+    const progress = track.loop === true
+      ? (rawProgress <= 0 ? 0 : rawProgress % 1)
+      : Math.min(1, Math.max(0, rawProgress));
+    const segmentPosition = progress * (values.length - 1);
+    segment = Math.min(values.length - 2, Math.floor(segmentPosition));
+    localProgress = segmentPosition - segment;
+  }
+
   const eased = track.easing === "linear"
     ? localProgress
     : cubicBezierProgress(localProgress);
@@ -311,6 +566,126 @@ function localCssMatrix(world, layer, scale) {
   ].map(value => Number(value.toFixed(6))).join(",") + ")";
 }
 
+function transformPoint(matrix, point) {
+  return {
+    x: matrix.a * point.x + matrix.c * point.y + matrix.e,
+    y: matrix.b * point.x + matrix.d * point.y + matrix.f
+  };
+}
+
+function affineTriangleMatrix(source, target) {
+  const [p0, p1, p2] = source;
+  const [q0, q1, q2] = target;
+  const sx1 = p1.x - p0.x;
+  const sy1 = p1.y - p0.y;
+  const sx2 = p2.x - p0.x;
+  const sy2 = p2.y - p0.y;
+  const determinant = sx1 * sy2 - sx2 * sy1;
+  if (Math.abs(determinant) < 1e-7) {
+    throw new TypeError("A source-mesh triangle has degenerate geometry.");
+  }
+  const qx1 = q1.x - q0.x;
+  const qy1 = q1.y - q0.y;
+  const qx2 = q2.x - q0.x;
+  const qy2 = q2.y - q0.y;
+  const a = (qx1 * sy2 - qx2 * sy1) / determinant;
+  const c = (sx1 * qx2 - sx2 * qx1) / determinant;
+  const b = (qy1 * sy2 - qy2 * sy1) / determinant;
+  const d = (sy1 * qy2 - sy2 * qy1) / determinant;
+  const e = q0.x - a * p0.x - c * p0.y;
+  const f = q0.y - b * p0.x - d * p0.y;
+  return "matrix(" + [a, b, c, d, e, f]
+    .map(value => Number(value.toFixed(6))).join(",") + ")";
+}
+
+function createSourceMeshGrid(layer, specification) {
+  const columns = Math.max(2, Math.min(8, Number(specification.columns) || 2));
+  const rows = Math.max(2, Math.min(12, Number(specification.rows) || 2));
+  const width = Number(layer.width);
+  const height = Number(layer.height);
+  const vertices = [];
+  for (let row = 0; row <= rows; row += 1) {
+    for (let column = 0; column <= columns; column += 1) {
+      vertices.push({
+        x: width * column / columns,
+        y: height * row / rows,
+        u: column / columns,
+        v: row / rows
+      });
+    }
+  }
+  const triangles = [];
+  const at = (column, row) => row * (columns + 1) + column;
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      const tl = at(column, row);
+      const tr = at(column + 1, row);
+      const bl = at(column, row + 1);
+      const br = at(column + 1, row + 1);
+      triangles.push([tl, tr, br], [tl, br, bl]);
+    }
+  }
+  return { vertices, triangles, columns, rows };
+}
+
+function deformSourceMeshVertices(layer, specification, grid, angleDegrees) {
+  const start = specification.axis_start.map(Number);
+  const end = specification.axis_end.map(Number);
+  const width = Number(layer.width);
+  const height = Number(layer.height);
+  const ax = start[0] * width;
+  const ay = start[1] * height;
+  const bx = end[0] * width;
+  const by = end[1] * height;
+  const dx = bx - ax;
+  const dy = by - ay;
+  const lengthSquared = dx * dx + dy * dy;
+  const length = Math.max(1e-6, Math.sqrt(lengthSquared));
+  const unitX = dx / length;
+  const unitY = dy / length;
+  const normalX = -unitY;
+  const normalY = unitX;
+  const cornerDistances = [
+    0,
+    width * normalX,
+    height * normalY,
+    width * normalX + height * normalY
+  ];
+  const maxCross = Math.max(1, ...cornerDistances.map(value => Math.abs(value)));
+  const maxAngle = Math.max(0.1, Number(specification.max_angle_deg) || 1);
+  const maxDisplacement = Math.max(0, Number(specification.max_displacement_px) || 0);
+  const amount = Math.max(-1, Math.min(1, Number(angleDegrees) / maxAngle));
+  const profile = String(specification.profile || "limb_joint");
+  const influence = String(specification.influence || "center");
+  const direction = influence === "proximal" ? -1 : 1;
+
+  return grid.vertices.map(point => {
+    const projection = ((point.x - ax) * dx + (point.y - ay) * dy) / lengthSquared;
+    const t = Math.max(0, Math.min(1, projection));
+    const cross = ((point.x - ax) * normalX + (point.y - ay) * normalY);
+    const crossNorm = Math.max(-1, Math.min(1, cross / maxCross));
+    const edgeFade = Math.pow(
+      Math.max(0, Math.sin(Math.PI * point.u) * Math.sin(Math.PI * point.v)),
+      0.28
+    );
+    let envelope;
+    if (profile === "torso" || influence === "center") {
+      envelope = Math.pow(Math.max(0, Math.sin(Math.PI * t)), 1.25);
+    } else {
+      const center = influence === "distal" ? 0.82 : 0.18;
+      envelope = Math.exp(-Math.pow((t - center) / 0.25, 2)) *
+        Math.pow(Math.max(0, Math.sin(Math.PI * t)), 0.35);
+    }
+    const magnitude = amount * maxDisplacement * envelope * edgeFade;
+    const normalOffset = direction * magnitude * (1 - 0.42 * crossNorm * crossNorm);
+    const axialOffset = -magnitude * 0.18 * crossNorm;
+    return {
+      x: point.x + normalX * normalOffset + unitX * axialOffset,
+      y: point.y + normalY * normalOffset + unitY * axialOffset
+    };
+  });
+}
+
 function addHierarchicalTransformTracks(project, sourceTracks, fps) {
   const transformTracks = [];
   const width = Math.max(1, Number(project.width) || 720);
@@ -333,8 +708,13 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
       if (action.visible === false) continue;
 
       const prefix = scene.id + "-" + character.id;
+      const compositeBaseMode = Boolean(character.base_art && character.base_art.src);
+      const segmentedBodyBaseMode = compositeBaseMode &&
+        character.performance_base_mode === "segmented_source_body";
       const layers = character.layers || [];
+      const props = Object.values(character.props || {});
       const layerByRole = new Map(layers.map(layer => [layer.role, layer]));
+      const propById = new Map(props.map(prop => [prop.id, prop]));
       const sourceWidth = Number(character.canvas?.width) || width;
       const sourceHeight = Number(character.canvas?.height) || height;
       const { scale } = fitCharacterToCanvas(character, width, height);
@@ -345,6 +725,13 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
         const id = prefix + "-part-" + layer.id;
         rotationTracks.set(
           layer.role,
+          sourceTracks.filter(track => track.target === id && track.property === "rotate")
+        );
+      }
+      for (const prop of props) {
+        const id = prefix + "-prop-" + prop.id;
+        rotationTracks.set(
+          "prop:" + prop.id,
           sourceTracks.filter(track => track.target === id && track.property === "rotate")
         );
       }
@@ -359,18 +746,81 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
         left_hand: ["torso", "left_upper_arm", "left_forearm", "left_hand"],
         right_upper_arm: ["torso", "right_upper_arm"],
         right_forearm: ["torso", "right_upper_arm", "right_forearm"],
-        right_hand: ["torso", "right_upper_arm", "right_forearm", "right_hand"]
+        right_hand: ["torso", "right_upper_arm", "right_forearm", "right_hand"],
+        left_thigh: ["torso", "left_thigh"],
+        left_calf: ["torso", "left_thigh", "left_calf"],
+        left_foot: ["torso", "left_thigh", "left_calf", "left_foot"],
+        right_thigh: ["torso", "right_thigh"],
+        right_calf: ["torso", "right_thigh", "right_calf"],
+        right_foot: ["torso", "right_thigh", "right_calf", "right_foot"],
+        finger_index: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_index"],
+        finger_index_middle: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_index", "finger_index_middle"],
+        finger_index_tip: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_index", "finger_index_middle", "finger_index_tip"],
+        finger_middle: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_middle"],
+        finger_middle_middle: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_middle", "finger_middle_middle"],
+        finger_middle_tip: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_middle", "finger_middle_middle", "finger_middle_tip"],
+        finger_ring: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_ring"],
+        finger_ring_middle: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_ring", "finger_ring_middle"],
+        finger_ring_tip: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_ring", "finger_ring_middle", "finger_ring_tip"],
+        finger_little: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_little"],
+        finger_little_middle: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_little", "finger_little_middle"],
+        finger_little_tip: ["torso", "right_upper_arm", "right_forearm", "right_hand", "finger_little", "finger_little_middle", "finger_little_tip"]
       };
+      for (const layer of layers) {
+        if (layer.joint_surface) {
+          const parentRole = String(layer.joint_surface.parent_role);
+          const childRole = String(layer.joint_surface.child_role);
+          dependencies[layer.role] = [...new Set([
+            ...(dependencies[parentRole] || [parentRole]),
+            ...(dependencies[childRole] || [childRole])
+          ])];
+        }
+      }
+      if (compositeBaseMode && !segmentedBodyBaseMode) {
+        // Legacy intact-composite preview: only the bow hand and finger sprites
+        // are independent while the parser-derived arm and leg masks are reviewed.
+        dependencies.left_hand = ["torso"];
+        for (const name of ["finger_index", "finger_middle", "finger_ring", "finger_little"]) {
+          dependencies[name] = [name];
+          dependencies[name + "_middle"] = [name, name + "_middle"];
+          dependencies[name + "_tip"] = [name, name + "_middle", name + "_tip"];
+        }
+      }
 
       const rolesToAnimate = new Set();
       for (const [role, ancestors] of Object.entries(dependencies)) {
+        // Source-authored joint plates use one blended parent/child transform.
+        // Their own source pixels remain unwarped; continuous deformation is
+        // handled by the torso and eight limb-surface meshes.
         if (ancestors.some(hasRotation) && layerByRole.has(role)) {
           rolesToAnimate.add(role);
         }
       }
-      const expressionNames = Object.keys(character.expressions || {});
-      const needsExpressionTransform = hasRotation("torso") || hasRotation("head");
-      if (!rolesToAnimate.size && !(needsExpressionTransform && expressionNames.length)) continue;
+      if (compositeBaseMode && !segmentedBodyBaseMode) {
+        for (const role of [...rolesToAnimate]) {
+          if (role !== "torso" && role !== "left_hand" && !role.startsWith("finger_")) {
+            rolesToAnimate.delete(role);
+          }
+        }
+      }
+      const expressionNames = compositeBaseMode ? [] : Object.keys(character.expressions || {});
+      // Segmented full-body base art has its original head cleared from the
+      // underpaint. Its modular reference plates therefore remain independently
+      // animatable even though the body itself is composited.
+      const canAnimateHeadPlates = !compositeBaseMode || segmentedBodyBaseMode;
+      const headVariants = canAnimateHeadPlates ? Object.entries(character.head_variants || {}) : [];
+      const headAngles = canAnimateHeadPlates ? Object.entries(character.head_angles || {}) : [];
+      const needsExpressionTransform = canAnimateHeadPlates &&
+        (hasRotation("torso") || hasRotation("head"));
+      const animatedProps = props.filter(prop => {
+        if (compositeBaseMode && !segmentedBodyBaseMode && prop.id !== "bow") return false;
+        const parentRole = String(prop.attach_to || "torso");
+        const parentDependencies = dependencies[parentRole] || [parentRole];
+        return parentDependencies.some(hasRotation) || hasRotation("prop:" + prop.id);
+      });
+      const hasHeadPlates = headVariants.length > 0 || headAngles.length > 0;
+      if (!rolesToAnimate.size && !animatedProps.length &&
+          !(needsExpressionTransform && (expressionNames.length || hasHeadPlates))) continue;
 
       const pivotFor = (jointName, layerRole) =>
         layerPivot(layerByRole.get(layerRole), joints[jointName], sourceWidth, sourceHeight);
@@ -382,8 +832,42 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
       const rightShoulder = pivotFor("right_shoulder", "right_upper_arm");
       const rightElbow = pivotFor("right_elbow", "right_forearm");
       const rightWrist = pivotFor("right_wrist", "right_hand");
+      const leftHip = pivotFor("left_hip", "left_thigh");
+      const leftKnee = pivotFor("left_knee", "left_calf");
+      const leftAnkle = pivotFor("left_ankle", "left_foot");
+      const rightHip = pivotFor("right_hip", "right_thigh");
+      const rightKnee = pivotFor("right_knee", "right_calf");
+      const rightAnkle = pivotFor("right_ankle", "right_foot");
+      const fingerPivots = {
+        finger_index: {
+          base: pivotFor("right_index_base", "finger_index"),
+          pip: pivotFor("right_index_pip", "finger_index_middle"),
+          dip: pivotFor("right_index_dip", "finger_index_tip")
+        },
+        finger_middle: {
+          base: pivotFor("right_middle_base", "finger_middle"),
+          pip: pivotFor("right_middle_pip", "finger_middle_middle"),
+          dip: pivotFor("right_middle_dip", "finger_middle_tip")
+        },
+        finger_ring: {
+          base: pivotFor("right_ring_base", "finger_ring"),
+          pip: pivotFor("right_ring_pip", "finger_ring_middle"),
+          dip: pivotFor("right_ring_dip", "finger_ring_tip")
+        },
+        finger_little: {
+          base: pivotFor("right_little_base", "finger_little"),
+          pip: pivotFor("right_little_pip", "finger_little_middle"),
+          dip: pivotFor("right_little_dip", "finger_little_tip")
+        }
+      };
 
+      const compositeStaticRoles = segmentedBodyBaseMode ? new Set() : new Set([
+        "head", "left_upper_arm", "left_forearm", "left_hand",
+        "right_upper_arm", "right_forearm", "right_hand",
+        "left_thigh", "left_calf", "left_foot", "right_thigh", "right_calf", "right_foot"
+      ]);
       const localAngle = (role, time) => {
+        if (compositeBaseMode && compositeStaticRoles.has(role)) return 0;
         const candidates = rotationTracks.get(role) || [];
         if (!candidates.length) return 0;
         const selected = candidates[candidates.length - 1];
@@ -391,11 +875,36 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
       };
 
       const sampledMatrices = new Map([...rolesToAnimate].map(role => [role, []]));
+      const meshDefinitions = layers
+        .filter(layer => layer.mesh_deformation)
+        .map(layer => ({
+          layer,
+          specification: layer.mesh_deformation,
+          grid: createSourceMeshGrid(layer, layer.mesh_deformation)
+        }));
+      const sampledMeshTriangleMatrices = new Map();
+      for (const definition of meshDefinitions) {
+        sampledMeshTriangleMatrices.set(
+          definition.layer.role,
+          definition.grid.triangles.map(() => [])
+        );
+      }
+      const sampledBaseArtMatrices = compositeBaseMode ? [] : null;
       const sampledExpressionMatrices = new Map(expressionNames.map(name => [name, []]));
+      const sampledHeadVariantMatrices = new Map(headVariants.map(([name]) => [name, []]));
+      const sampledHeadAngleMatrices = new Map(headAngles.map(([name]) => [name, []]));
+      const sampledPropMatrices = new Map(animatedProps.map(prop => [prop.id, []]));
 
       for (const offset of sampleOffsets) {
         const time = sceneStart + offset * sceneDuration;
         const torsoWorld = aroundPivot(torsoPivot, localAngle("torso", time));
+        if (compositeBaseMode) {
+          sampledBaseArtMatrices.push(localCssMatrix(
+            torsoWorld,
+            { x: 0, y: 0, width: sourceWidth, height: sourceHeight },
+            scale
+          ));
+        }
         const headWorld = multiplyMatrix(
           torsoWorld,
           aroundPivot(neckPivot, localAngle("head", time))
@@ -427,6 +936,31 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
           aroundPivot(rightWrist, localAngle("right_hand", time))
         );
 
+        const leftThighWorld = multiplyMatrix(
+          torsoWorld,
+          aroundPivot(leftHip, localAngle("left_thigh", time))
+        );
+        const leftCalfWorld = multiplyMatrix(
+          leftThighWorld,
+          aroundPivot(leftKnee, localAngle("left_calf", time))
+        );
+        const leftFootWorld = multiplyMatrix(
+          leftCalfWorld,
+          aroundPivot(leftAnkle, localAngle("left_foot", time))
+        );
+        const rightThighWorld = multiplyMatrix(
+          torsoWorld,
+          aroundPivot(rightHip, localAngle("right_thigh", time))
+        );
+        const rightCalfWorld = multiplyMatrix(
+          rightThighWorld,
+          aroundPivot(rightKnee, localAngle("right_calf", time))
+        );
+        const rightFootWorld = multiplyMatrix(
+          rightCalfWorld,
+          aroundPivot(rightAnkle, localAngle("right_foot", time))
+        );
+
         const worldByRole = {
           torso: torsoWorld,
           head: headWorld,
@@ -436,8 +970,93 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
           left_hand: leftHandWorld,
           right_upper_arm: rightUpperWorld,
           right_forearm: rightForearmWorld,
-          right_hand: rightHandWorld
+          right_hand: rightHandWorld,
+          left_thigh: leftThighWorld,
+          left_calf: leftCalfWorld,
+          left_foot: leftFootWorld,
+          right_thigh: rightThighWorld,
+          right_calf: rightCalfWorld,
+          right_foot: rightFootWorld
         };
+        for (const layer of layers) {
+          const surface = layer.joint_surface;
+          if (!surface || layer.mesh_deformation) continue;
+          const parentWorld = worldByRole[String(surface.parent_role)] || torsoWorld;
+          const childWorld = worldByRole[String(surface.child_role)] || parentWorld;
+          const point = {
+            x: Number(joints[String(surface.joint)]?.x) * sourceWidth,
+            y: Number(joints[String(surface.joint)]?.y) * sourceHeight
+          };
+          const parentAngle = Math.atan2(parentWorld.b, parentWorld.a);
+          const childAngle = Math.atan2(childWorld.b, childWorld.a);
+          const delta = Math.atan2(
+            Math.sin(childAngle - parentAngle),
+            Math.cos(childAngle - parentAngle)
+          );
+          const blend = Math.max(0, Math.min(1, Number(surface.blend_weight ?? 0.5)));
+          const jointAngle = parentAngle + delta * blend;
+          const parentPoint = transformPoint(parentWorld, point);
+          const childPoint = transformPoint(childWorld, point);
+          const jointPoint = {
+            x: parentPoint.x + (childPoint.x - parentPoint.x) * blend,
+            y: parentPoint.y + (childPoint.y - parentPoint.y) * blend
+          };
+          worldByRole[layer.role] = multiplyMatrix(
+            multiplyMatrix(
+              translateMatrix(jointPoint.x, jointPoint.y),
+              rotateMatrix(jointAngle * 180 / Math.PI)
+            ),
+            translateMatrix(-point.x, -point.y)
+          );
+        }
+
+        for (const [role, pivots] of Object.entries(fingerPivots)) {
+          const middleRole = role + "_middle";
+          const tipRole = role + "_tip";
+          const baseWorld = multiplyMatrix(
+            rightHandWorld,
+            aroundPivot(pivots.base, localAngle(role, time))
+          );
+          const middleWorld = multiplyMatrix(
+            baseWorld,
+            aroundPivot(pivots.pip, localAngle(middleRole, time))
+          );
+          const tipWorld = multiplyMatrix(
+            middleWorld,
+            aroundPivot(pivots.dip, localAngle(tipRole, time))
+          );
+          worldByRole[role] = baseWorld;
+          worldByRole[middleRole] = middleWorld;
+          worldByRole[tipRole] = tipWorld;
+        }
+
+        for (const definition of meshDefinitions) {
+          const { layer, specification, grid } = definition;
+          let deformedVertices;
+          if (String(specification.profile || "") === "joint_surface") {
+            const surface = layer.joint_surface || {};
+            const parentWorld = worldByRole[String(surface.parent_role)] || torsoWorld;
+            const childWorld = worldByRole[String(surface.child_role)] || parentWorld;
+            deformedVertices = deformJointSurfaceVertices(
+              layer, surface, grid, parentWorld, childWorld,
+              sourceWidth, sourceHeight
+            );
+          } else {
+            const driverAngle = localAngle(String(specification.driver_role), time);
+            deformedVertices = deformSourceMeshVertices(
+              layer, specification, grid, driverAngle
+            );
+          }
+          const triangleSamples = sampledMeshTriangleMatrices.get(layer.role);
+          grid.triangles.forEach((triangle, triangleIndex) => {
+            const sourceTriangle = triangle.map(index => grid.vertices[index]);
+            const targetTriangle = triangle.map(index => deformedVertices[index]);
+            triangleSamples[triangleIndex].push(
+              affineTriangleMatrix(sourceTriangle, targetTriangle)
+            );
+          });
+        }
+
         for (const role of rolesToAnimate) {
           sampledMatrices.get(role).push(
             localCssMatrix(worldByRole[role], layerByRole.get(role), scale)
@@ -448,17 +1067,62 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
             localCssMatrix(headWorld, character.expressions[name], scale)
           );
         }
+        for (const [name, plate] of headVariants) {
+          sampledHeadVariantMatrices.get(name).push(
+            localCssMatrix(headWorld, plate, scale)
+          );
+        }
+        for (const [name, plate] of headAngles) {
+          sampledHeadAngleMatrices.get(name).push(
+            localCssMatrix(headWorld, plate, scale)
+          );
+        }
+        for (const prop of animatedProps) {
+          const parentWorld = worldByRole[String(prop.attach_to || "torso")] || torsoWorld;
+          const pivot = layerPivot(prop, null, sourceWidth, sourceHeight);
+          const propWorld = multiplyMatrix(
+            parentWorld,
+            aroundPivot(pivot, localAngle("prop:" + prop.id, time))
+          );
+          sampledPropMatrices.get(prop.id).push(localCssMatrix(propWorld, prop, scale));
+        }
       }
 
+      if (compositeBaseMode) {
+        transformTracks.push({
+          target: prefix + "-base-art",
+          property: "transform",
+          values: sampledBaseArtMatrices,
+          offsets: sampleOffsets,
+          start: sceneStart,
+          duration: sceneDuration,
+          easing: "linear"
+        });
+      }
       for (const role of rolesToAnimate) {
         transformTracks.push({
-          target: prefix + "-part-" + (layerByRole.get(role).id),
+          target: prefix + "-part-" + layerByRole.get(role).id,
           property: "transform",
           values: sampledMatrices.get(role),
           offsets: sampleOffsets,
           start: sceneStart,
           duration: sceneDuration,
           easing: "linear"
+        });
+      }
+      for (const definition of meshDefinitions) {
+        const role = definition.layer.role;
+        const triangleSamples = sampledMeshTriangleMatrices.get(role);
+        triangleSamples.forEach((values, triangleIndex) => {
+          transformTracks.push({
+            target: prefix + "-part-" + definition.layer.id + "-mesh-triangle-" + triangleIndex,
+            property: "transform",
+            values,
+            offsets: sampleOffsets,
+            start: sceneStart,
+            duration: sceneDuration,
+            easing: "linear"
+          });
         });
       }
       if (needsExpressionTransform) {
@@ -474,11 +1138,45 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
           });
         }
       }
+      if (needsExpressionTransform) {
+        for (const [name] of headVariants) {
+          transformTracks.push({
+            target: prefix + "-head-variant-" + name,
+            property: "transform",
+            values: sampledHeadVariantMatrices.get(name),
+            offsets: sampleOffsets,
+            start: sceneStart,
+            duration: sceneDuration,
+            easing: "linear"
+          });
+        }
+        for (const [name] of headAngles) {
+          transformTracks.push({
+            target: prefix + "-head-angle-" + name,
+            property: "transform",
+            values: sampledHeadAngleMatrices.get(name),
+            offsets: sampleOffsets,
+            start: sceneStart,
+            duration: sceneDuration,
+            easing: "linear"
+          });
+        }
+      }
+      for (const prop of animatedProps) {
+        transformTracks.push({
+          target: prefix + "-prop-" + prop.id,
+          property: "transform",
+          values: sampledPropMatrices.get(prop.id),
+          offsets: sampleOffsets,
+          start: sceneStart,
+          duration: sceneDuration,
+          easing: "linear"
+        });
+      }
     }
   }
   return transformTracks;
 }
-
 export function compileMotionTracks(project, { fps = 25 } = {}) {
   const tracks = [];
   const addSpring = (target, property, from, to, start, maxMs) => {
@@ -492,7 +1190,7 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
       easing: "linear"
     });
   };
-  const addKeyframes = (target, properties, start, durationSeconds, easing = "ease-in-out", loop = false) => {
+  const addKeyframes = (target, properties, start, durationSeconds, easing = "ease-in-out", loop = false, keyframeEasing = null) => {
     if (!properties || typeof properties !== "object") return;
     for (const [property, rawValues] of Object.entries(properties)) {
       if (!Array.isArray(rawValues) || rawValues.length < 2) continue;
@@ -503,6 +1201,7 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
         start: Math.max(0, Number(start) || 0),
         duration: Math.max(0.08, Number(durationSeconds) || 0.8),
         easing,
+        ...(keyframeEasing ? { keyframeEasing } : {}),
         ...(loop ? { loop: true } : {})
       });
     }
@@ -681,8 +1380,17 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
       if (Array.isArray(character.scene_ids) && !character.scene_ids.includes(scene.id)) continue;
       if (action.visible === false) continue;
       const prefix = scene.id + "-" + character.id;
+      const compositeBaseMode = Boolean(character.base_art && character.base_art.src);
+      const segmentedBodyBaseMode = compositeBaseMode &&
+        character.performance_base_mode === "segmented_source_body";
       const actionStart = sceneStart + Math.max(0, Number(action.start_offset) || 0);
-      addSpring(prefix, "opacity", 0, 1, actionStart, 650);
+      if (action.appear_immediately === true) {
+        // Performance presenters must be fully visible on the opening frame;
+        // retain the legacy entrance spring for every other presenter action.
+        addKeyframes(prefix, { opacity: [1, 1] }, actionStart, 0.08, "linear");
+      } else {
+        addSpring(prefix, "opacity", 0, 1, actionStart, 650);
+      }
       const presenterScale = Number(action.scale ?? character.scale ?? 1);
       addSpring(prefix, "transform", 28, 0, actionStart, 720);
       tracks[tracks.length - 1].values = tracks[tracks.length - 1].values.map(
@@ -729,6 +1437,69 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
       for (const [role, properties] of Object.entries(action.keyframes || {})) {
         addRigKeyframes(role, properties, actionStart, gestureDuration, gestureLoop);
       }
+
+      const instrumentPerformance = action.instrument_performance === true ||
+        String(action.gesture || "").toLowerCase() === "violin_performance";
+      const syncCandidate = action.music_sync && typeof action.music_sync === "object"
+        ? action.music_sync : null;
+      const musicSyncReady = instrumentPerformance && syncCandidate &&
+        Number(syncCandidate.confidence) >= 0.28 &&
+        Array.isArray(syncCandidate.beat_times) && syncCandidate.beat_times.length >= 2;
+      for (const prop of Object.values(character.props || {})) {
+        const authored = (action.prop_keyframes || {})[prop.id];
+        let propFrames = authored;
+        if (!propFrames && instrumentPerformance && prop.id === "bow") {
+          // Frame-seekable alternating bow strokes around the player's grip pivot.
+          propFrames = { rotate: [0, -5.5, 5.5, -5.5, 5.5, 0] };
+        } else if (!propFrames && instrumentPerformance && prop.id === "violin") {
+          // The violin follows the torso with a restrained responsive tilt.
+          propFrames = { rotate: [0, -0.55, 0.35, 0.55, 0] };
+        }
+        if (musicSyncReady && prop.id === "bow" && propFrames && propFrames.translate) {
+          // Replace the legacy uniform bow slide with per-frame beat-sampled translation below.
+          propFrames = { ...propFrames };
+          delete propFrames.translate;
+        }
+        if (propFrames) {
+          addKeyframes(
+            prefix + "-prop-" + prop.id,
+            propFrames,
+            actionStart + 0.10,
+            gestureDuration,
+            "ease-in-out",
+            gestureLoop
+          );
+        }
+      }
+
+      // Optional real-audio timing overrides the generic loop with exact beat,
+      // downbeat and onset events. Low-confidence/invalid analysis stays on the
+      // existing authored performance loop instead of inventing a beat grid.
+      if (musicSyncReady) {
+        const sync = syncCandidate;
+        const actionOffset = Math.max(0, actionStart - sceneStart);
+        const toActionTimes = values => (Array.isArray(values) ? values : [])
+          .map(value => Number(value) - actionOffset)
+          .filter(value => Number.isFinite(value) && value >= 0)
+          .map(value => Math.min(sceneDuration - actionOffset, value));
+        const timedPerformanceTracks = buildMusicSynchronizedPerformanceTracks({
+          targetPrefix: prefix,
+          start: actionStart,
+          duration: Math.max(0.08, sceneDuration - actionOffset),
+          bpm: sync.bpm,
+          beatTimes: toActionTimes(sync.beat_times),
+          downbeats: toActionTimes(sync.downbeats),
+          onsets: toActionTimes(sync.onsets),
+          noteEvents: (Array.isArray(sync.note_events) ? sync.note_events : []).map(event => ({
+            ...event,
+            time: Number(event.time) - actionOffset
+          })),
+          confidence: sync.confidence,
+          fps
+        });
+        tracks.push(...timedPerformanceTracks);
+      }
+
       if (action.root_motion) {
         const kind = typeof action.root_motion === "string" ? action.root_motion : String(action.root_motion.type || "");
         const intensity = typeof action.root_motion === "object"
@@ -749,11 +1520,17 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
         }
         addKeyframes(prefix + "-motion", { transform: rootFrames }, actionStart, gestureDuration, "ease-in-out", true);
       }
-      const selectedExpression = String(action.expression || "neutral").toLowerCase();
+      const selectedExpression = String(
+        action.head_expression || action.expression || "neutral"
+      ).toLowerCase();
       const activePoseAsset = String(action.pose_asset || "").toLowerCase();
-      // Full-body pose plates already contain their own face. Animate
-      // expression overlays only while the separated body-part rig is active.
-      if (!activePoseAsset) {
+      // Full-body poses and the modular head plates each contain their own face.
+      // Never layer the legacy face-only crop over either complete illustration.
+      const hasHeadPlates =
+        (!compositeBaseMode || segmentedBodyBaseMode) &&
+        (Object.keys(character.head_variants || {}).length > 0 ||
+         Object.keys(character.head_angles || {}).length > 0);
+      if (!activePoseAsset && !hasHeadPlates) {
         for (const name of Object.keys(character.expressions || {})) {
           addSpring(prefix + "-expression-" + name, "opacity",
             name === selectedExpression ? 0 : 1,
@@ -761,6 +1538,166 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
             actionStart, 140);
         }
       }
+
+      const headVariantNames = Object.keys(character.head_variants || {});
+      const headAngleNames = Object.keys(character.head_angles || {});
+      const selectedHeadAngle = String(action.head_angle || "front").toLowerCase();
+      const headAngleSequence = Array.isArray(action.head_angle_sequence)
+        ? action.head_angle_sequence.map(value => String(value).toLowerCase())
+          .filter(value => value === "front" || headAngleNames.includes(value))
+        : [];
+      const headExpressionSequence = Array.isArray(action.head_expression_sequence)
+        ? action.head_expression_sequence.map(value => String(value).toLowerCase())
+          .filter(value => headVariantNames.includes(value))
+        : [];
+
+      if (!activePoseAsset && (headVariantNames.length || headAngleNames.length)) {
+        // Build one phase sequence of visible head plates. The old implementation
+        // used steps(1,end), replacing complete drawings in a single frame.
+        // Sample opacity crossfades at the composition frame rate instead.
+        const anglePlayback = headAngleSequence.length > 1
+          ? [...headAngleSequence, headAngleSequence[0]]
+          : [selectedHeadAngle];
+        const expressionPlayback = headExpressionSequence.length > 1
+          ? [...headExpressionSequence, headExpressionSequence[0]]
+          : [selectedExpression];
+        const stepCount = Math.max(anglePlayback.length, expressionPlayback.length);
+
+        if (stepCount > 1) {
+          const sampleStep = (values, index) => {
+            const valueIndex = Math.min(
+              values.length - 1,
+              Math.floor((index / stepCount) * values.length)
+            );
+            return values[valueIndex];
+          };
+          const sampledAngles = Array.from(
+            { length: stepCount },
+            (_unused, index) => sampleStep(anglePlayback, index)
+          );
+          const frontIndices = sampledAngles
+            .map((angle, index) => angle === "front" ? index : -1)
+            .filter(index => index >= 0);
+          const activePlates = Array.from({ length: stepCount }, (_unused, index) => {
+            if (sampledAngles[index] !== "front") {
+              const angle = sampledAngles[index];
+              return headAngleNames.includes(angle) && angle !== "front"
+                ? "angle:" + angle : null;
+            }
+            if (!frontIndices.length || !headVariantNames.length) return null;
+            const frontOrdinal = frontIndices.indexOf(index);
+            const expressionIndex = Math.min(
+              expressionPlayback.length - 1,
+              Math.floor((frontOrdinal / frontIndices.length) * expressionPlayback.length)
+            );
+            const expression = expressionPlayback[expressionIndex];
+            return headVariantNames.includes(expression)
+              ? "variant:" + expression : null;
+          });
+
+          // Keep the loop seam identical even when the two source sequences
+          // have different lengths and their sampled endpoints do not match.
+          if (activePlates.at(-1) !== activePlates[0]) {
+            activePlates.push(activePlates[0]);
+          }
+          const intervalCount = activePlates.length - 1;
+          const cycleDuration = Math.max(
+            0.08,
+            Number(action.head_expression_cycle_duration_seconds) ||
+              Number(action.head_angle_cycle_duration_seconds) ||
+              gestureDuration
+          );
+          const sequenceLoop = headExpressionSequence.length > 1
+            ? action.head_expression_loop !== false
+            : action.head_angle_loop !== false;
+          const sampleCount = Math.max(2, Math.ceil(cycleDuration * fps) + 1);
+          const offsets = Array.from(
+            { length: sampleCount },
+            (_unused, index) => index / (sampleCount - 1)
+          );
+          const fadeSeconds = Math.min(
+            0.18,
+            cycleDuration / Math.max(1, intervalCount) * 0.45
+          );
+          const halfFade = fadeSeconds / (2 * cycleDuration);
+          const plateNames = [
+            ...headVariantNames.map(name => "variant:" + name),
+            ...headAngleNames
+              .filter(name => name !== "front")
+              .map(name => "angle:" + name)
+          ];
+
+          for (const plateName of plateNames) {
+            const values = offsets.map(offset => {
+              const activeIndex = Math.min(
+                intervalCount,
+                Math.floor(offset * intervalCount)
+              );
+              let active = activePlates[activeIndex] || null;
+              let opacity = active === plateName ? 1 : 0;
+
+              // Transitions are centred on phase boundaries. The overlap is
+              // deliberately short and frame-sampled so the renderer can seek
+              // every frame deterministically.
+              for (let boundaryIndex = 1; boundaryIndex < intervalCount; boundaryIndex += 1) {
+                const boundary = boundaryIndex / intervalCount;
+                const fadeStart = boundary - halfFade;
+                const fadeEnd = boundary + halfFade;
+                if (offset < fadeStart || offset > fadeEnd) continue;
+                const outgoing = activePlates[boundaryIndex - 1] || null;
+                const incoming = activePlates[boundaryIndex] || null;
+                if (outgoing === incoming) break;
+                const progress = Math.max(
+                  0,
+                  Math.min(1, (offset - fadeStart) / Math.max(1e-6, fadeEnd - fadeStart))
+                );
+                opacity = (outgoing === plateName ? 1 - progress : 0) +
+                  (incoming === plateName ? progress : 0);
+                active = null;
+                break;
+              }
+              return Number(opacity.toFixed(4));
+            });
+
+            if (values.some(value => value > 0) &&
+                values.some(value => value < 1)) {
+              tracks.push({
+                target: prefix + "-head-" +
+                  (plateName.startsWith("variant:") ? "variant-" : "angle-") +
+                  plateName.split(":")[1],
+                property: "opacity",
+                values,
+                offsets,
+                start: actionStart,
+                duration: cycleDuration,
+                easing: "linear",
+                ...(sequenceLoop ? { loop: true } : {})
+              });
+            }
+          }
+        } else {
+          const addHeadPlateOpacity = (target, active) => {
+            if (action.appear_immediately === true) {
+              const value = active ? 1 : 0;
+              addKeyframes(target, { opacity: [value, value] },
+                actionStart, 0.08, "linear");
+            } else {
+              addSpring(target, "opacity",
+                active ? 0 : 1, active ? 1 : 0, actionStart, 140);
+            }
+          };
+          for (const name of headVariantNames) {
+            const active = selectedHeadAngle === "front" && name === selectedExpression;
+            addHeadPlateOpacity(prefix + "-head-variant-" + name, active);
+          }
+          for (const name of headAngleNames) {
+            if (name === "front") continue;
+            const active = selectedHeadAngle === name;
+            addHeadPlateOpacity(prefix + "-head-angle-" + name, active);
+          }
+        }
+      }
+
       const eyeTarget = partIdByRole.get("eyes");
       if (eyeTarget) {
         addKeyframes(eyeTarget, { scaleY: [1, 0.12, 1] },

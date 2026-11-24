@@ -8,7 +8,9 @@ for (const track of tracks) {
   if (!element || !Array.isArray(track.values) || track.values.length < 2) continue;
   const keyframes = track.values.map((value, index) => ({
     [track.property]: value,
-    ...(Array.isArray(track.offsets) ? { offset: track.offsets[index] } : {})
+    ...(Array.isArray(track.offsets) ? { offset: track.offsets[index] } : {}),
+    ...(track.keyframeEasing && index < track.values.length - 1
+      ? { easing: track.keyframeEasing } : {})
   }));
   const animation = element.animate(keyframes, {
     duration: Math.max(1, Number(track.duration) * 1000),

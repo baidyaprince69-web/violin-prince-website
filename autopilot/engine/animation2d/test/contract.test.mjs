@@ -48,6 +48,19 @@ test("scene and character animations compile to native WAAPI tracks", () => {
   assert.ok(tracks.every(track => track.values.length >= 2 && track.duration > 0));
 });
 
+test("violin performance has controlled articulation at elbow, wrist, knee and ankle joints", () => {
+  const performance = gestureKeyframes("violin_performance");
+  const amplitude = role => Math.max(...performance[role].rotate.map(value => Math.abs(value)));
+  assert.ok(amplitude("left_forearm") >= 12, "left elbow flex should be visible but restrained");
+  assert.ok(amplitude("right_forearm") >= 10, "right elbow flex should be visible but restrained");
+  assert.ok(amplitude("left_hand") >= 2, "left wrist should have a distinct cue");
+  assert.ok(amplitude("right_hand") >= 3, "right wrist should have a distinct cue");
+  assert.ok(amplitude("left_calf") >= 2.5, "left knee should articulate");
+  assert.ok(amplitude("right_calf") >= 2.5, "right knee should articulate");
+  assert.ok(amplitude("left_foot") >= 1.2, "left ankle should articulate");
+  assert.ok(amplitude("right_foot") >= 1.2, "right ankle should articulate");
+});
+
 test("gesture presets include arms and head movement", () => {
   const wave = gestureKeyframes("wave");
   assert.ok(wave.right_upper_arm);
