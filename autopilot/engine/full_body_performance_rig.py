@@ -1599,6 +1599,14 @@ def _extract_source_aligned_joint_surfaces(
         "left_hip", "right_hip", "left_knee",
         "right_knee", "left_ankle", "right_ankle",
     }
+    expected_role_pairs = {
+        "left_hip": ("torso", "left_thigh"),
+        "right_hip": ("torso", "right_thigh"),
+        "left_knee": ("left_thigh", "left_calf"),
+        "right_knee": ("right_thigh", "right_calf"),
+        "left_ankle": ("left_calf", "left_foot"),
+        "right_ankle": ("right_calf", "right_foot"),
+    }
     forbidden_roles = {
         "left_upper_arm", "right_upper_arm", "left_forearm", "right_forearm",
         "left_hand", "right_hand", "finger_index", "finger_middle",
@@ -1664,6 +1672,10 @@ def _extract_source_aligned_joint_surfaces(
         if parent_role in forbidden_roles or child_role in forbidden_roles:
             raise ManualReviewRequired(
                 f"Joint surface {joint_name} references a protected hand, arm or instrument role."
+            )
+        if (parent_role, child_role) != expected_role_pairs[joint_name]:
+            raise ManualReviewRequired(
+                f"Joint surface {joint_name} does not use its approved lower-body parent/child pair."
             )
         if parent_role not in layer_by_role or child_role not in layer_by_role:
             raise ManualReviewRequired(
@@ -2619,7 +2631,7 @@ def extend_full_body_character(
             "head": "normalized_plate_crossfades_not_continuous_mesh_deformation",
             "hands": "four_source_aligned_three_segment_finger_chains_with_joint_overlap_not_deformable_art",
             "body": "frame_sampled_piecewise_affine_source_texture_mesh_on_torso_and_eight_limb_surfaces",
-            "joint_surfaces": "automatic_capsule_overlays_disabled_after_visual_QA; original parent_child source pixels are preserved pending artist_aligned joint artwork",
+            "joint_surfaces": "only artist-approved absolute source-pixel polygons may be extracted; no capsule or generated joint pads; upper-body and hand assets are protected",
             "hands": "untouched_rigid_source_sprites_with_existing_finger_animation",
             "release_blockers": [
                 "artist-authored source-aligned joint-surface artwork; automatic capsule overlays are not accepted",

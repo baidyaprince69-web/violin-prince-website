@@ -424,16 +424,35 @@ jobs:
           assert report.get("animated_finger_segment_count") == 12, report
           assert scene.get("animated_finger_segments") == 12, scene
           assert report.get("animated_instrument_prop_count") == 2, report
-          assert report.get("source_joint_surface_layer_count") == 0, report
+          rig_report = json.loads(Path("work/full-body-rig/bundle/full-body-performance-report.json").read_text())
+          joint_art = rig_report.get("source_aligned_joint_surface_art", {})
+          joint_layers = [layer for layer in character.get("layers", []) if layer.get("joint_surface")]
+          allowed_joint_roles = {
+              "joint_surface_left_hip", "joint_surface_right_hip",
+              "joint_surface_left_knee", "joint_surface_right_knee",
+              "joint_surface_left_ankle", "joint_surface_right_ankle",
+          }
+          assert all(layer.get("role") in allowed_joint_roles for layer in joint_layers), joint_layers
+          assert all(
+              layer["joint_surface"].get("surface_outline_profile") == "artist_source_polygon"
+              and layer["joint_surface"].get("artist_artwork_status") == "artist_approved"
+              and len(layer["joint_surface"].get("source_space_polygon", [])) >= 3
+              for layer in joint_layers
+          ), joint_layers
+          assert joint_art.get("joint_surface_layer_count") == len(joint_layers), joint_art
+          assert joint_art.get("hand_assets_modified") == 0, joint_art
+          assert joint_art.get("hand_animation_data_modified") is False, joint_art
+          assert joint_art.get("protected_upper_body_assets_modified") == 0, joint_art
+          assert report.get("source_joint_surface_layer_count") == len(joint_layers), report
           assert report.get("deformable_body_layer_count") == 9, report
           assert report.get("deformation_mesh_triangle_track_count") == 158, report
           assert report.get("joint_surface_mesh_triangle_track_count") == 0, report
-          assert report.get("joint_surface_transform_track_count") == 0, report
-          assert scene.get("source_joint_surface_layer_count") == 0, scene
+          assert report.get("joint_surface_transform_track_count") == len(joint_layers), report
+          assert scene.get("source_joint_surface_layer_count") == len(joint_layers), scene
           assert scene.get("deformable_body_layer_count") == 9, scene
           assert scene.get("deformation_mesh_triangle_track_count") == 158, scene
           assert scene.get("joint_surface_mesh_triangle_track_count") == 0, scene
-          assert scene.get("joint_surface_transform_track_count") == 0, scene
+          assert scene.get("joint_surface_transform_track_count") == len(joint_layers), scene
           assert scene.get("full_body_visual_mode") == "segmented_source_body", scene
           print(json.dumps({
               "full_body_scenes": report["full_body_performance_scene_count"],

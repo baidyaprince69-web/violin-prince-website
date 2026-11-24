@@ -658,25 +658,52 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     const unexpectedJointSurfaceLayers = (character.layers || []).filter(layer =>
       String(layer.role || "").startsWith("joint_surface_")
     );
-    if (jointSurfaceLayers.length !== 0 || unexpectedJointSurfaceLayers.length !== 0) {
+    const allowedJointPairs = {
+      left_hip: ["torso", "left_thigh"],
+      right_hip: ["torso", "right_thigh"],
+      left_knee: ["left_thigh", "left_calf"],
+      right_knee: ["right_thigh", "right_calf"],
+      left_ankle: ["left_calf", "left_foot"],
+      right_ankle: ["right_calf", "right_foot"]
+    };
+    const invalidJointSurfaceLayers = jointSurfaceLayers.filter(layer => {
+      const surface = layer.joint_surface || {};
+      const role = String(layer.role || "");
+      const jointName = role.startsWith("joint_surface_")
+        ? role.slice("joint_surface_".length) : "";
+      const expectedPair = allowedJointPairs[jointName];
+      const polygon = surface.source_space_polygon;
+      return !expectedPair ||
+        surface.surface_outline_profile !== "artist_source_polygon" ||
+        surface.artist_artwork_status !== "artist_approved" ||
+        !Array.isArray(polygon) || polygon.length < 3 ||
+        surface.parent_role !== expectedPair[0] ||
+        surface.child_role !== expectedPair[1] ||
+        Boolean(layer.mesh_deformation);
+    });
+    if (invalidJointSurfaceLayers.length !== 0 ||
+        unexpectedJointSurfaceLayers.length !== jointSurfaceLayers.length) {
       throw new Error("Scene " + scene.id +
-        " must preserve the original source-clothing overlaps; automatic capsule joint overlays are deferred until artist-aligned surface artwork exists.");
+        " contains a joint surface that is not an approved lower-body source-pixel polygon; capsules and protected upper-body/hand joints are forbidden.");
     }
     const jointSurfaceTracks = project.motion_tracks.filter(item =>
       String(item.target || "").includes("-part-joint_surface_") &&
       item.property === "transform"
     );
-    if (jointSurfaceTracks.length !== 0) {
+    jointSurfaceTransformTrackCount = jointSurfaceTracks.length;
+    if (jointSurfaceTracks.length !== jointSurfaceLayers.length ||
+        jointSurfaceLayers.some(layer => !jointSurfaceTracks.some(track =>
+          String(track.target || "").endsWith("-part-" + layer.role)
+        ))) {
       throw new Error("Scene " + scene.id +
-        " contains joint-surface motion tracks without approved artist-aligned joint artwork.");
+        " approved source-polygon joint surfaces must each have exactly one blended parent/child transform track.");
     }
     sourceJointSurfaceLayerCount += jointSurfaceLayers.length;
     if (deformableBodyLayerCount !== 9 ||
-        jointSurfaceTransformTrackCount !== 0 ||
         jointSurfaceMeshTriangleTrackCount !== 0 ||
         deformationMeshTriangleTrackCount !== 158) {
       throw new Error("Scene " + scene.id +
-        " did not produce nine continuously deforming body surfaces while preserving the original joint source pixels.");
+        " did not produce nine continuously deforming body surfaces while preserving the approved source-polygon joint artwork.");
     }
     if (compositeBaseMode) {
       const baseTarget = scene.id + "-" + character.id + "-base-art";
