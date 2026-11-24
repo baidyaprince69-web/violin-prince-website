@@ -212,10 +212,8 @@ def select_next_public_plan(
         for plan in plans:
             slot_id = str(plan.get("slot_id") or "")
             metadata = plan.get("publish_metadata")
-            title = str(
-                (metadata or {}).get("title") if isinstance(metadata, dict)
-                else plan.get("title") or ""
-            ).strip()
+            metadata_title = metadata.get("title") if isinstance(metadata, dict) else ""
+            title = str(metadata_title or plan.get("title") or "").strip()
             topic = str(plan.get("topic") or "").strip()
             core_claim = str(plan.get("core_claim") or "").strip()
             identity = _identity(batch_date, slot_id)
@@ -293,7 +291,6 @@ def select_next_public_plan(
             "remaining_ready_count": 0,
             "ignored_batches": ignored_batches,
             "duplicate_channel_matches": duplicate_channel_matches,
-        "duplicate_topic_matches": duplicate_topic_matches,
             "duplicate_topic_matches": duplicate_topic_matches,
         }
 
@@ -307,6 +304,7 @@ def select_next_public_plan(
         "remaining_ready_count": len(candidates),
         "ignored_batches": ignored_batches,
         "duplicate_channel_matches": duplicate_channel_matches,
+        "duplicate_topic_matches": duplicate_topic_matches,
     }
 
 
@@ -353,6 +351,7 @@ def main(argv: list[str] | None = None) -> int:
         "youtube_history_status": str(youtube_history.get("status") or ""),
         "youtube_uploads_examined": str(youtube_history.get("uploads_examined") or 0),
         "youtube_titles_indexed": str(youtube_history.get("title_count") or 0),
+        "duplicate_topic_matches": str(len(result.get("duplicate_topic_matches", []))),
     }
     _write_outputs(outputs)
 
