@@ -138,13 +138,15 @@ class ScheduledStoryBuilderTests(unittest.TestCase):
 
 
     def test_previously_researched_article_headlines_are_skipped_and_recorded(self):
-        with patch.object(engine, "all_researched_topics", return_value=["Violin bridge resonance and tone"]), \\
-             patch.object(engine, "research", return_value=[{
-                 "title": "Violin bridge resonance and tone explained",
-                 "url": "https://example.org/bridge",
-                 "publisher_domain": "example.org",
-             }]), \\
-             patch.object(engine, "discover_source_first_story_groups", return_value=[]) as discover:
+        with (
+            patch.object(engine, "all_researched_topics", return_value=["Violin bridge resonance and tone"]),
+            patch.object(engine, "research", return_value=[{
+                "title": "Violin bridge resonance and tone explained",
+                "url": "https://example.org/bridge",
+                "publisher_domain": "example.org",
+            }]),
+            patch.object(engine, "discover_source_first_story_groups", return_value=[]) as discover,
+        ):
             result = build_scheduled_batch(
                 self.root,
                 production_date="2026-11-24",
