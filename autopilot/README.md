@@ -21,7 +21,7 @@ The global editorial direction is documented in [GLOBAL_CONTENT_STRATEGY.md](GLO
 
 PR [#115](https://github.com/baidyaprince69-web/violin-prince-website/pull/115) is merged. The daily runner accepts date-specific four-plan batches, assigns a separate date/slot identity and workspace to each production, records a slot receipt, and gives the publisher handoff slot-specific duplicate protection.
 
-GitHub Actions runs four cron slots at 00:00, 06:00, 12:00 and 18:00 UTC (05:30, 11:30, 17:30 and 23:30 Asia/Kolkata). ChatGPT remains the global creative director and prepares the next day's batch at approximately 18:00 Asia/Kolkata. The first batch for 22 November is committed; blocked slots are skipped safely rather than filled with invented content.
+Historical baseline only: the first 22 November batch was manually prepared ahead of the new per-trigger research builder. The current mainline no longer depends on a single daily prebuilt batch; each IST cron now researches and commissions its own assigned category before selection.
 
 **Commissioning status (updated 24 November 2026):** the approved publishing route is public YouTube only; private preview copies are not part of the workflow. A `ready` plan is only the content-plan gate: each run must still pass narration, source, asset, animation, provenance, MP4, channel-identity and upload-receipt checks. The 22 November batch had only one confirmed public upload; its other slots were not completed.
 
