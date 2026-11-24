@@ -13,6 +13,35 @@ class WorkflowPublicationContractTests(unittest.TestCase):
     def setUpClass(cls):
         cls.workflow_text = WORKFLOW.read_text(encoding="utf-8")
 
+
+    def test_four_ist_cron_slots_are_declared_once(self):
+        expected = [
+            '    - cron: "30 5 * * *"',
+            '    - cron: "30 11 * * *"',
+            '    - cron: "30 17 * * *"',
+            '    - cron: "30 23 * * *"',
+        ]
+        schedule = self.workflow_text.split("  schedule:\\n", 1)[1].split(
+            "  workflow_dispatch:", 1
+        )[0]
+        self.assertEqual(
+            [line for line in schedule.splitlines() if "- cron:" in line],
+            expected,
+        )
+        self.assertEqual(schedule.count('timezone: "Asia/Kolkata"'), 4)
+        self.assertIn("cancel-in-progress: false", self.workflow_text)
+
+    def test_daily_readiness_exposes_ready_output_once(self):
+        job = self.workflow_text.split("  daily_readiness:\\n", 1)[1].split(
+            "\\n  report_blocked_slot:", 1
+        )[0]
+        outputs = job.split("    steps:\\n", 1)[0]
+        ready_outputs = [
+            line for line in outputs.splitlines()
+            if line.startswith("      ready:")
+        ]
+        self.assertEqual(len(ready_outputs), 1, outputs)
+
     def test_scheduled_youtube_upload_artifact_is_retained_for_recovery(self):
         self.assertIn("actions/upload-artifact@v4", self.workflow_text)
         self.assertIn("Retain scheduled YouTube upload artifact for recovery", self.workflow_text)
