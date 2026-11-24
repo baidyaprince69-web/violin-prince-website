@@ -96,6 +96,26 @@ test("source texture meshes deform continuously and a lower-body knee surface fo
     influence: "distal", columns: 2, rows: 4,
     max_angle_deg: 5, max_displacement_px: 2.8
   };
+  // Make the knee test patch overlap the source rectangles of both leg
+  // surfaces, so the joint warp exercises their actual local mesh fields.
+  for (const role of ["left_thigh", "left_calf"]) {
+    const layer = byRole.get(role);
+    layer.x = 90;
+    layer.y = 520;
+    layer.width = 60;
+    layer.height = 80;
+    layer.mesh_deformation = {
+      profile: "limb_joint",
+      driver_role: role,
+      axis_start: [0.5, 0.1],
+      axis_end: [0.5, 0.9],
+      influence: role === "left_thigh" ? "distal" : "proximal",
+      columns: 2,
+      rows: 4,
+      max_angle_deg: 5,
+      max_displacement_px: 2.8
+    };
+  }
   meshCharacter.layers.push({
     id: "joint_surface_left_knee",
     role: "joint_surface_left_knee",
@@ -112,8 +132,8 @@ test("source texture meshes deform continuously and a lower-body knee surface fo
       parent_role: "left_thigh",
       child_role: "left_calf",
       blend_weight: 0.5,
-      blend_axis_start: [0.14, 0.40],
-      blend_axis_end: [0.19, 0.48]
+      blend_axis_start: [0.263, 0.689],
+      blend_axis_end: [0.263, 0.808]
     }
   });
 
