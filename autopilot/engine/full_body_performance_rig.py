@@ -1440,6 +1440,7 @@ def _build_source_motion_backplate(
     source: Image.Image,
     bundle_dir: Path,
     joints: dict[str, Any],
+    torso_layer: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Create a source-faithful underlay behind independently moving body sprites.
 
@@ -1524,6 +1525,27 @@ def _build_source_motion_backplate(
     pelvis_y = (left_hip[1] + right_hip[1]) * 0.5 + 5.0
     coverage |= ((xx - pelvis_x) / 43.0) ** 2 + ((yy - pelvis_y) / 29.0) ** 2 <= 1.0
 
+    torso_source_pixels = 0
+    if torso_layer:
+        torso_mask = _canvas_alpha_mask_for_layer(
+            bundle_dir, torso_layer, canvas_width=width, canvas_height=height
+        ).astype(np.uint8)
+        if torso_mask.shape != (height, width):
+            raise AutoRigError("The torso source mask does not match the full-body canvas.")
+        # Close small parser/prop cutouts inside the jacket silhouette, then
+        # expand the underlay slightly beyond its edge. The moving torso image
+        # and violin/bow sprites remain above this source-faithful plate.
+        closed_torso = cv2.morphologyEx(
+            torso_mask, cv2.MORPH_CLOSE, np.ones((31, 31), dtype=np.uint8)
+        )
+        expanded_torso = cv2.dilate(
+            closed_torso, np.ones((11, 11), dtype=np.uint8), iterations=1
+        ) > 0
+        coverage |= expanded_torso
+        torso_source_pixels = int(np.count_nonzero(
+            expanded_torso & (pixels[:, :, 3] > 12)
+        ))
+
     soft_coverage = cv2.GaussianBlur(
         coverage.astype(np.uint8) * 255, (0, 0), sigmaX=1.25
     )
@@ -1555,6 +1577,8 @@ def _build_source_motion_backplate(
         "asset": destination.name,
         "bone_corridor_count": len(segments),
         "joint_coverage_count": len(joint_radii),
+        "torso_underlay_added": bool(torso_layer),
+        "torso_source_pixels_covered": torso_source_pixels,
         "source_pixels_preserved": visible_pixels,
         "source_alpha_respected": True,
         "source_rgb_preserved": True,
@@ -3001,8 +3025,13 @@ def extend_full_body_character(
     character["layers"].extend(joint_surface_layers)
     moving_mask |= joint_surface_mask
     continuous_body_deformation = _configure_continuous_body_meshes(character)
+    torso_layer_for_backplate = next(
+        (layer for layer in character.get("layers", []) if layer.get("role") == "torso"),
+        None,
+    )
     source_motion_backplate_layer, source_motion_backplate_report = _build_source_motion_backplate(
-        source, bundle, character.get("joints") or {}
+        source, bundle, character.get("joints") or {},
+        torso_layer=torso_layer_for_backplate,
     )
     character["layers"].append(source_motion_backplate_layer)
 
