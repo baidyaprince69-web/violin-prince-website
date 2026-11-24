@@ -157,7 +157,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
 
             self.assertEqual(layers, [])
             self.assertFalse(moving.any())
-            self.assertEqual(report["method"], "deferred_source_pixel_joint_caps_pending_artist_aligned_art")
+            self.assertEqual(report["method"], "artist_approved_absolute_source_polygon_joint_surfaces_only")
             self.assertEqual(report["joint_surface_layer_count"], 0)
             self.assertEqual(report["source_pixels_transferred"], 0)
             self.assertEqual(report["parent_child_alpha_pixels_removed"], 0)
@@ -170,6 +170,86 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             self.assertEqual((root / "left_hand.png").read_bytes(), hand_bytes)
             self.assertFalse((root / "joint_surface_left_elbow.png").exists())
 
+
+    def test_artist_approved_source_polygon_extracts_only_original_lower_body_pixels(self):
+        import json
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source_pixels = np.zeros((100, 100, 4), dtype=np.uint8)
+            source_pixels[20:80, 20:80] = (86, 54, 38, 255)
+            source = Image.fromarray(source_pixels, mode="RGBA")
+            Image.new("RGBA", (60, 60), (86, 54, 38, 255)).save(root / "parent.png")
+            Image.new("RGBA", (60, 60), (86, 54, 38, 255)).save(root / "child.png")
+            hand_bytes = b"protected-hand-asset-bytes"
+            (root / "left_hand.png").write_bytes(hand_bytes)
+            parent_before = np.asarray(Image.open(root / "parent.png").convert("RGBA")).copy()
+            child_before = np.asarray(Image.open(root / "child.png").convert("RGBA")).copy()
+            character = {
+                "canvas": {"width": 100, "height": 100},
+                "joints": {
+                    "elbow": {"x": 0.50, "y": 0.50},
+                    "proximal": {"x": 0.30, "y": 0.50},
+                    "distal": {"x": 0.70, "y": 0.50},
+                },
+                "layers": [
+                    {"role": "parent", "src": "parent.png", "x": 20, "y": 20, "width": 60, "height": 60},
+                    {"role": "child", "src": "child.png", "x": 20, "y": 20, "width": 60, "height": 60},
+                    {"role": "left_hand", "src": "left_hand.png", "x": 20, "y": 20, "width": 12, "height": 12},
+                ],
+            }
+            polygon = [[40, 40], [60, 40], [60, 60], [40, 60]]
+            manifest = {
+                "schema_version": 1,
+                "canvas": {"width": 100, "height": 100},
+                "joint_surfaces": {
+                    "schema_version": 1,
+                    "regions": {
+                        "left_knee": {
+                            "anchor": "elbow",
+                            "parent_role": "parent",
+                            "child_role": "child",
+                            "blend_axis_joints": ["proximal", "distal"],
+                            "minimum_pixels": 40,
+                            "artist_source_polygon": polygon,
+                            "artwork_status": "artist_approved",
+                        },
+                        "left_elbow": {
+                            "anchor": "elbow",
+                            "parent_role": "parent",
+                            "child_role": "child",
+                            "artist_source_polygon": polygon,
+                            "artwork_status": "artist_approved",
+                        },
+                    },
+                },
+            }
+            manifest_path = root / "regions.json"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            prop = np.zeros((100, 100), dtype=np.uint8)
+            prop[45:48, 45:48] = 255
+
+            layers, moving, report = _extract_source_aligned_joint_surfaces(
+                source, root, regions_manifest_path=manifest_path,
+                character=character, prop_masks={"violin": prop},
+            )
+
+            self.assertEqual(len(layers), 1)
+            self.assertEqual(layers[0]["joint_surface"]["surface_outline_profile"], "artist_source_polygon")
+            self.assertEqual(layers[0]["joint_surface"]["artist_artwork_status"], "artist_approved")
+            self.assertTrue(moving.any())
+            self.assertEqual(report["regions"]["left_elbow"]["reason"], "protected_upper_body_joint_asset_out_of_scope")
+            self.assertGreater(report["prop_pixels_excluded"], 0)
+            self.assertEqual((root / "left_hand.png").read_bytes(), hand_bytes)
+            after_parent = np.asarray(Image.open(root / "parent.png").convert("RGBA"))
+            after_child = np.asarray(Image.open(root / "child.png").convert("RGBA"))
+            removed = moving
+            self.assertTrue(np.all(after_parent[:, :, 3][removed] == 0))
+            self.assertTrue(np.all(after_child[:, :, 3][removed] == 0))
+            self.assertTrue(np.array_equal(parent_before[:, :, :3], after_parent[:, :, :3]))
+            self.assertTrue(np.array_equal(child_before[:, :, :3], after_child[:, :, :3]))
 
     def test_continuous_body_mesh_profiles_exclude_hands_fingers_and_feet(self):
         roles = [

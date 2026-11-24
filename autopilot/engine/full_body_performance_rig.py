@@ -1577,14 +1577,14 @@ def _extract_source_aligned_joint_surfaces(
     regions_manifest_path: Path,
     character: dict[str, Any],
     prop_masks: dict[str, np.ndarray],
-    generate_caps: bool = False,
 ) -> tuple[list[dict[str, Any]], np.ndarray, dict[str, Any]]:
-    """Optionally extract experimental joint caps; production defers them.
+    """Extract only manually approved, source-coordinate joint polygons.
 
-    A geometric capsule can cut source clothing into a detached-looking dark
-    patch even when every sampled pixel is genuine. Keep the original parent
-    and child artwork intact by default until artist-aligned joint surfaces
-    are supplied and visually approved.
+    Generic capsules and anchor-centred pads are intentionally unsupported.
+    The artwork polygon must be traced against the original illustration and
+    explicitly approved. Only lower-body joints are eligible in this stage;
+    arm, forearm, shoulder, elbow, wrist, hand, finger and instrument assets
+    remain outside the edit scope.
     """
     manifest = json.loads(regions_manifest_path.read_text(encoding="utf-8"))
     specification = manifest.get("joint_surfaces") or {}
@@ -1594,165 +1594,135 @@ def _extract_source_aligned_joint_surfaces(
     canvas = manifest.get("canvas") or {}
     if [width, height] != [int(canvas.get("width", 0)), int(canvas.get("height", 0))]:
         raise ManualReviewRequired("Joint-surface canvas does not match the preserved source.")
+
+    allowed_joints = {
+        "left_hip", "right_hip", "left_knee",
+        "right_knee", "left_ankle", "right_ankle",
+    }
+    forbidden_roles = {
+        "left_upper_arm", "right_upper_arm", "left_forearm", "right_forearm",
+        "left_hand", "right_hand", "finger_index", "finger_middle",
+        "finger_ring", "finger_little", "bow", "violin",
+    }
     source_rgba = source.convert("RGBA")
     source_pixels = np.asarray(source_rgba, dtype=np.uint8)
     visible = source_pixels[:, :, 3] > 12
-    layer_by_role = {str(layer.get("role") or ""): layer for layer in character.get("layers", [])}
-    forbidden = {
-        "left_hand", "right_hand", "finger_index", "finger_middle",
-        "finger_ring", "finger_little",
+    layer_by_role = {
+        str(layer.get("role") or ""): layer
+        for layer in character.get("layers", [])
     }
+    joints = character.get("joints") or {}
     prop_union = np.zeros((height, width), dtype=bool)
     for mask in prop_masks.values():
         candidate = np.asarray(mask, dtype=np.uint8)
         if candidate.shape != (height, width):
             raise AutoRigError("Instrument mask does not match the joint-surface canvas.")
         prop_union |= candidate > 12
-    joints = character.get("joints") or {}
+
     claimed = np.zeros((height, width), dtype=bool)
     layers: list[dict[str, Any]] = []
     report: dict[str, Any] = {
-        "method": "deferred_source_pixel_joint_caps_pending_artist_aligned_art",
+        "method": "artist_approved_absolute_source_polygon_joint_surfaces_only",
         "manifest": regions_manifest_path.name,
-        "coordinate_space": "joint_anchor_relative_source_pixels",
+        "coordinate_space": "absolute_source_pixels_top_left",
         "regions": {},
         "joint_surface_layer_count": 0,
         "joint_surface_mesh_layer_count": 0,
         "joint_surface_articulated_layer_count": 0,
-        "joint_surface_mode": "no_generated_caps_original_parent_child_source_pixels_preserved",
+        "joint_surface_mode": "approved_artist_polygons_only_no_generated_caps",
         "source_pixels_transferred": 0,
         "parent_child_alpha_pixels_removed": 0,
         "prop_pixels_excluded": 0,
         "hand_assets_modified": 0,
         "hand_animation_data_modified": False,
-        "right_shoulder_policy": "no_generated_patch_where_source_junction_is_covered_by_violin",
+        "protected_upper_body_assets_modified": 0,
         "visual_review_required": True,
     }
-    if not generate_caps:
-        # Preserve the original source clothing. Do not replace its natural
-        # joint silhouette with a geometric capsule overlay.
-        for joint_name, item in (specification.get("regions") or {}).items():
-            reason = (
-                "prop_occluded" if joint_name == "right_shoulder"
-                else "artist_aligned_joint_surface_art_required"
-            )
+
+    for joint_name, item in (specification.get("regions") or {}).items():
+        parent_role = str(item.get("parent_role") or "")
+        child_role = str(item.get("child_role") or "")
+        if joint_name not in allowed_joints:
             report["regions"][joint_name] = {
                 "status": "skipped",
-                "reason": reason,
+                "reason": "protected_upper_body_joint_asset_out_of_scope",
                 "source_pixels_available": 0,
-                "parent_role": str(item.get("parent_role") or ""),
-                "child_role": str(item.get("child_role") or ""),
+                "parent_role": parent_role,
+                "child_role": child_role,
             }
-        empty_mask = np.zeros((height, width), dtype=bool)
-        Image.fromarray(empty_mask.astype(np.uint8) * 255, mode="L").save(
-            bundle_dir / "joint-surface-moving-mask.png", format="PNG", optimize=True
-        )
-        report["moving_mask_pixels"] = 0
-        return [], empty_mask, report
-
-    report["method"] = "experimental_artist_authored_tapered_source_pixel_joint_surfaces"
-    report["joint_surface_mode"] = "experimental_source_pixel_capsule_overlays_with_blended_parent_child_transforms"
-    for joint_name, item in (specification.get("regions") or {}).items():
-        anchor_name = str(item.get("anchor") or joint_name)
-        parent_role, child_role = str(item.get("parent_role") or ""), str(item.get("child_role") or "")
-        if parent_role in forbidden or child_role in forbidden:
-            raise ManualReviewRequired(f"Joint surface {joint_name} cannot modify a hand or finger layer.")
+            continue
+        polygon = item.get("artist_source_polygon")
+        if item.get("artwork_status") != "artist_approved" or not isinstance(polygon, list) or len(polygon) < 3:
+            report["regions"][joint_name] = {
+                "status": "skipped",
+                "reason": "artist_aligned_joint_surface_art_required",
+                "source_pixels_available": 0,
+                "parent_role": parent_role,
+                "child_role": child_role,
+            }
+            continue
+        if parent_role in forbidden_roles or child_role in forbidden_roles:
+            raise ManualReviewRequired(
+                f"Joint surface {joint_name} references a protected hand, arm or instrument role."
+            )
         if parent_role not in layer_by_role or child_role not in layer_by_role:
-            raise ManualReviewRequired(f"Joint surface {joint_name} refers to a missing parent or child.")
+            raise ManualReviewRequired(
+                f"Joint surface {joint_name} refers to a missing parent or child layer."
+            )
+
+        anchor_name = str(item.get("anchor") or joint_name)
         anchor = joints.get(anchor_name)
         if not isinstance(anchor, dict):
             raise ManualReviewRequired(f"Joint surface {joint_name} has no source joint anchor.")
         center_x, center_y = float(anchor["x"]) * width, float(anchor["y"]) * height
-        outline = item.get("outline") or {}
-        if str(outline.get("profile") or "") == "tapered_source_capsule":
-            blend_axis_names = item.get("blend_axis_joints") or []
-            if len(blend_axis_names) != 2:
-                raise ManualReviewRequired(f"Joint surface {joint_name} needs proximal and distal axis anchors.")
-            proximal_joint, distal_joint = (
-                joints.get(str(blend_axis_names[0])),
-                joints.get(str(blend_axis_names[1])),
-            )
-            if not proximal_joint or not distal_joint:
-                raise ManualReviewRequired(f"Joint surface {joint_name} has an incomplete anatomical chain.")
-            proximal_dx = center_x - float(proximal_joint["x"]) * width
-            proximal_dy = center_y - float(proximal_joint["y"]) * height
-            distal_dx = float(distal_joint["x"]) * width - center_x
-            distal_dy = float(distal_joint["y"]) * height - center_y
-            proximal_length = float(np.hypot(proximal_dx, proximal_dy))
-            distal_length = float(np.hypot(distal_dx, distal_dy))
-            if proximal_length < 2:
-                raise ManualReviewRequired(f"Joint surface {joint_name} has no proximal bone direction.")
-            proximal_unit = np.array([proximal_dx, proximal_dy], dtype=np.float64) / proximal_length
-            if distal_length < 2:
-                # Ankles have no separate toe joint. Continue the lower-leg
-                # tangent through the ankle so the blend axis still crosses
-                # the exact ankle anchor instead of terminating on it.
-                distal_unit = proximal_unit.copy()
-            else:
-                distal_unit = np.array([distal_dx, distal_dy], dtype=np.float64) / distal_length
-            tangent = proximal_unit + distal_unit
-            tangent_length = float(np.linalg.norm(tangent))
-            if tangent_length < 0.15:
-                tangent = proximal_unit
-                tangent_length = float(np.linalg.norm(tangent))
-            tangent /= max(tangent_length, 1e-8)
-            normal = np.array([-tangent[1], tangent[0]], dtype=np.float64)
-            half_length = float(outline.get("half_length_px", 20))
-            half_width = float(outline.get("half_width_px", 16))
-            if not 8 <= half_length <= 48 or not 8 <= half_width <= 36:
-                raise ManualReviewRequired(f"Joint surface {joint_name} outline dimensions are outside safe limits.")
-            # Authored tapered capsule: elongated along the anatomical chain,
-            # with broad middle coverage and narrowed ends. Its texture comes
-            # only from the preserved source illustration.
-            shape = [
-                (-1.00, -0.45), (-0.78, -0.88), (-0.42, -1.00),
-                (0.28, -0.94), (0.76, -0.72), (1.00, -0.30),
-                (1.00, 0.30), (0.76, 0.72), (0.28, 0.94),
-                (-0.42, 1.00), (-0.78, 0.88), (-1.00, 0.45),
-            ]
-            canvas_polygon = []
-            for along, across in shape:
-                point = (
-                    np.array([center_x, center_y], dtype=np.float64)
-                    + tangent * (along * half_length)
-                    + normal * (across * half_width)
+        polygon_points: list[list[float]] = []
+        for point in polygon:
+            if not isinstance(point, (list, tuple)) or len(point) != 2:
+                raise ManualReviewRequired(
+                    f"Artist polygon for {joint_name} must contain [x, y] pairs."
                 )
-                canvas_polygon.append([float(point[0]), float(point[1])])
-        else:
-            # Legacy polygon support remains for isolated synthetic fixtures,
-            # but its deformation axis is still centred on the joint anchor.
-            blend_axis_names = item.get("blend_axis_joints") or []
-            if len(blend_axis_names) != 2:
-                raise ManualReviewRequired(f"Joint surface {joint_name} needs proximal and distal axis anchors.")
-            proximal_joint, distal_joint = (
-                joints.get(str(blend_axis_names[0])),
-                joints.get(str(blend_axis_names[1])),
+            px, py = float(point[0]), float(point[1])
+            if not np.isfinite(px) or not np.isfinite(py) or not (0 <= px < width and 0 <= py < height):
+                raise ManualReviewRequired(
+                    f"Artist polygon for {joint_name} contains an invalid source coordinate."
+                )
+            polygon_points.append([px, py])
+
+        axis_names = item.get("blend_axis_joints") or []
+        if len(axis_names) != 2:
+            raise ManualReviewRequired(
+                f"Artist joint surface {joint_name} needs proximal/distal blend-axis joints."
             )
-            if not proximal_joint or not distal_joint:
-                raise ManualReviewRequired(f"Joint surface {joint_name} has an incomplete anatomical chain.")
-            proximal_dx = center_x - float(proximal_joint["x"]) * width
-            proximal_dy = center_y - float(proximal_joint["y"]) * height
-            distal_dx = float(distal_joint["x"]) * width - center_x
-            distal_dy = float(distal_joint["y"]) * height - center_y
-            proximal_length = float(np.hypot(proximal_dx, proximal_dy))
-            distal_length = float(np.hypot(distal_dx, distal_dy))
-            if proximal_length < 2:
-                raise ManualReviewRequired(f"Joint surface {joint_name} has no proximal bone direction.")
-            proximal_unit = np.array([proximal_dx, proximal_dy], dtype=np.float64) / proximal_length
-            distal_unit = (
-                np.array([distal_dx, distal_dy], dtype=np.float64) / distal_length
-                if distal_length >= 2 else proximal_unit.copy()
+        proximal, distal = joints.get(str(axis_names[0])), joints.get(str(axis_names[1]))
+        if not isinstance(proximal, dict) or not isinstance(distal, dict):
+            raise ManualReviewRequired(
+                f"Artist joint surface {joint_name} has incomplete blend-axis anchors."
             )
-            tangent = proximal_unit + distal_unit
-            tangent_length = float(np.linalg.norm(tangent))
-            if tangent_length < 0.15:
-                tangent, tangent_length = proximal_unit, float(np.linalg.norm(proximal_unit))
-            tangent /= max(tangent_length, 1e-8)
-            canvas_polygon = [
-                [center_x + float(point[0]), center_y + float(point[1])]
-                for point in (item.get("polygon") or [])
-            ]
-        authored = _polygon_mask((height, width), canvas_polygon)
+        proximal_vector = np.array([
+            center_x - float(proximal["x"]) * width,
+            center_y - float(proximal["y"]) * height,
+        ], dtype=np.float64)
+        distal_vector = np.array([
+            float(distal["x"]) * width - center_x,
+            float(distal["y"]) * height - center_y,
+        ], dtype=np.float64)
+        proximal_length = float(np.linalg.norm(proximal_vector))
+        distal_length = float(np.linalg.norm(distal_vector))
+        if proximal_length < 2:
+            raise ManualReviewRequired(
+                f"Artist joint surface {joint_name} has no proximal bone direction."
+            )
+        proximal_unit = proximal_vector / proximal_length
+        distal_unit = (
+            distal_vector / distal_length if distal_length >= 2 else proximal_unit.copy()
+        )
+        tangent = proximal_unit + distal_unit
+        tangent_length = float(np.linalg.norm(tangent))
+        if tangent_length < 0.15:
+            tangent, tangent_length = proximal_unit, 1.0
+        tangent /= max(tangent_length, 1e-8)
+
+        authored = _polygon_mask((height, width), polygon_points)
         parent_mask = _canvas_alpha_mask_for_layer(
             bundle_dir, layer_by_role[parent_role],
             canvas_width=width, canvas_height=height,
@@ -1761,40 +1731,60 @@ def _extract_source_aligned_joint_surfaces(
             bundle_dir, layer_by_role[child_role],
             canvas_width=width, canvas_height=height,
         )
-        eligible = authored & visible & (parent_mask | child_mask)
-        prop_overlap = eligible & prop_union
+        parent_overlap = authored & visible & parent_mask
+        child_overlap = authored & visible & child_mask
+        prop_overlap = authored & visible & (parent_mask | child_mask) & prop_union
         report["prop_pixels_excluded"] += int(prop_overlap.sum())
-        eligible &= ~prop_union & ~claimed
+        eligible = (
+            authored & visible & (parent_mask | child_mask)
+            & ~prop_union & ~claimed
+        )
         area = int(eligible.sum())
-        minimum = int(outline.get("minimum_pixels", item.get("minimum_pixels", 80)))
-        if area < minimum:
+        minimum = int(item.get("minimum_pixels", 80))
+        if (
+            area < minimum
+            or int(parent_overlap.sum()) == 0
+            or int(child_overlap.sum()) == 0
+        ):
             report["regions"][joint_name] = {
                 "status": "skipped",
-                "reason": "prop_occluded" if int(prop_overlap.sum()) else "insufficient_source_overlap",
+                "reason": "artist_polygon_does_not_bridge_both_source_surfaces",
                 "source_pixels_available": area,
+                "parent_overlap_pixels": int(parent_overlap.sum()),
+                "child_overlap_pixels": int(child_overlap.sum()),
                 "prop_pixels_excluded": int(prop_overlap.sum()),
                 "parent_role": parent_role,
                 "child_role": child_role,
             }
             continue
-        role = "joint_surface_" + str(joint_name)
-        geometry = _save_rgba_layer(source_rgba, eligible, bundle_dir / f"{role}.png", padding=5)
-        # Blend axis is centred exactly on the joint. The direction is
-        # the bisector of the proximal and distal segment tangents, avoiding
-        # the off-anchor line that previously pushed the cap onto one segment.
-        blend_axis_half_length = (
-            float(outline.get("half_length_px", 20)) if outline else 16.0
-        ) * 1.08
-        blend_axis_start = [
-            (center_x - tangent[0] * blend_axis_half_length) / width,
-            (center_y - tangent[1] * blend_axis_half_length) / height,
+
+        role = "joint_surface_" + joint_name
+        geometry = _save_rgba_layer(
+            source_rgba, eligible, bundle_dir / f"{role}.png", padding=0
+        )
+        parent_removed = _erase_canvas_mask_from_layer(
+            bundle_dir, layer_by_role[parent_role], eligible
+        )
+        child_removed = _erase_canvas_mask_from_layer(
+            bundle_dir, layer_by_role[child_role], eligible
+        )
+        half_length = float(item.get("blend_axis_half_length_px", 18.0))
+        if not 6 <= half_length <= 56:
+            raise ManualReviewRequired(
+                f"Joint surface {joint_name} blend-axis length is outside safe limits."
+            )
+        axis_start = [
+            (center_x - tangent[0] * half_length) / width,
+            (center_y - tangent[1] * half_length) / height,
         ]
-        blend_axis_end = [
-            (center_x + tangent[0] * blend_axis_half_length) / width,
-            (center_y + tangent[1] * blend_axis_half_length) / height,
+        axis_end = [
+            (center_x + tangent[0] * half_length) / width,
+            (center_y + tangent[1] * half_length) / height,
         ]
         layer = {
-            "id": role, "role": role, **geometry,
+            "id": role,
+            "role": role,
+            **geometry,
             "pivot_x": min(1.0, max(0.0, (center_x - geometry["x"]) / geometry["width"])),
             "pivot_y": min(1.0, max(0.0, (center_y - geometry["y"]) / geometry["height"])),
             "z_index": int(item.get("z_index", 32)),
@@ -1803,38 +1793,34 @@ def _extract_source_aligned_joint_surfaces(
                 "parent_role": parent_role,
                 "child_role": child_role,
                 "blend_weight": 0.5,
-                "blend_axis_start": blend_axis_start,
-                "blend_axis_end": blend_axis_end,
-                "surface_outline_profile": str(outline.get("profile") or "legacy_polygon"),
-                "surface_half_length_px": float(outline.get("half_length_px", 16)),
-                "surface_half_width_px": float(outline.get("half_width_px", 12)),
+                "blend_axis_start": axis_start,
+                "blend_axis_end": axis_end,
+                "surface_outline_profile": "artist_source_polygon",
+                "artist_artwork_status": "artist_approved",
+                "source_space_polygon": polygon_points,
             },
         }
         layers.append(layer)
-        parent_removed = _erase_canvas_mask_from_layer(bundle_dir, layer_by_role[parent_role], eligible)
-        child_removed = _erase_canvas_mask_from_layer(bundle_dir, layer_by_role[child_role], eligible)
         claimed |= eligible
         report["regions"][joint_name] = {
-            "status": "source_patch_created", "role": role,
-            "source_pixels": area, "parent_role": parent_role, "child_role": child_role,
+            "status": "artist_source_polygon_patch_created",
+            "role": role,
+            "source_pixels": area,
+            "parent_overlap_pixels": int(parent_overlap.sum()),
+            "child_overlap_pixels": int(child_overlap.sum()),
+            "parent_role": parent_role,
+            "child_role": child_role,
             "parent_alpha_pixels_removed": parent_removed,
             "child_alpha_pixels_removed": child_removed,
             "prop_pixels_excluded": int(prop_overlap.sum()),
             "joint_anchor_px": [round(center_x, 3), round(center_y, 3)],
-            "outline_profile": str(outline.get("profile") or "legacy_polygon"),
-            "outline_half_length_px": float(outline.get("half_length_px", 16)),
-            "outline_half_width_px": float(outline.get("half_width_px", 12)),
-            "blend_axis_midpoint_error_px": round(float(np.hypot(
-                ((blend_axis_start[0] + blend_axis_end[0]) * 0.5 * width) - center_x,
-                ((blend_axis_start[1] + blend_axis_end[1]) * 0.5 * height) - center_y,
-            )), 6),
+            "polygon_vertex_count": len(polygon_points),
         }
         report["source_pixels_transferred"] += area
         report["parent_child_alpha_pixels_removed"] += parent_removed + child_removed
+
     report["joint_surface_layer_count"] = len(layers)
-    report["joint_surface_mesh_layer_count"] = 0
     report["joint_surface_articulated_layer_count"] = len(layers)
-    report["joint_surface_mode"] = "source_pixel_capsule_overlays_with_blended_parent_child_segment_transforms"
     report["moving_mask_pixels"] = int(claimed.sum())
     Image.fromarray(claimed.astype(np.uint8) * 255, mode="L").save(
         bundle_dir / "joint-surface-moving-mask.png", format="PNG", optimize=True
