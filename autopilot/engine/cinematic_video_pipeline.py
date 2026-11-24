@@ -223,7 +223,7 @@ def _filtergraph(t: dict[str, Any], audio_offset: int) -> str:
         start, end = layer["start"], layer["end"]
         video_chain = (
             f"[{n}:v]trim=start={layer['source_in']:.4f}:duration={layer['length']:.4f},"
-            f"setpts=PTS-STARTPTS+{start:.4f}/TB,{_scale(layer)},format=rgba,"
+            f"setpts=PTS-STARTPTS,{_scale(layer)},format=rgba,"
             f"colorchannelmixer=aa={layer['opacity']:.4f}"
         )
         if layer.get("fade_in", 0):
@@ -231,6 +231,7 @@ def _filtergraph(t: dict[str, Any], audio_offset: int) -> str:
         if layer.get("fade_out", 0):
             fade_start = max(0.0, layer["length"]-layer["fade_out"])
             video_chain += f",fade=t=out:st={fade_start:.4f}:d={layer['fade_out']:.4f}:alpha=1"
+        video_chain += f",setpts=PTS+{start:.4f}/TB"
         filters.append(video_chain + f"[ov{n}]")
         out = f"v{n}"
         filters.append(
