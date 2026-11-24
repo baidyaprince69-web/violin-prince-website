@@ -8,6 +8,8 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+from PIL import Image, ImageDraw, ImageFont
 from typing import Any
 
 
@@ -90,6 +92,8 @@ def validate_timeline(data: dict[str, Any], root: str | Path) -> dict[str, Any]:
             "y": int(_number(item.get("y", 0), f"{ident}.y", -height, height)),
             "width": w, "height": h, "fit": fit,
             "opacity": _number(item.get("opacity", 1), f"{ident}.opacity", 0, 1),
+            "fade_in": _number(item.get("fade_in_seconds", 0), f"{ident}.fade_in_seconds", 0, end-start),
+            "fade_out": _number(item.get("fade_out_seconds", 0), f"{ident}.fade_out_seconds", 0, end-start),
             "role": str(item.get("role") or ("base" if i == 0 else "overlay")),
         })
     first = layers[0]
@@ -118,8 +122,10 @@ def validate_timeline(data: dict[str, Any], root: str | Path) -> dict[str, Any]:
         color = str(item.get("color") or "#FFFFFF")
         if not _HEX.fullmatch(color):
             raise CompositionError(f"{ident}: color must be a six-digit hex value")
+        fade_in = _number(item.get("fade_in_seconds", 0), f"{ident}.fade_in_seconds", 0, end-start)
+        fade_out = _number(item.get("fade_out_seconds", 0), f"{ident}.fade_out_seconds", 0, end-start)
         text_layers.append({
-            "id": ident, "text": content, "start": start, "end": end,
+            "id": ident, "text": content, "start": start, "end": end, "fade_in": fade_in, "fade_out": fade_out,
             "x": int(item.get("x", 40)), "y": int(item.get("y", height-170)),
             "size": int(_number(item.get("font_size", 40), f"{ident}.font_size", 10, 180)),
             "color": "0x"+color.lstrip("#").upper(),
@@ -215,23 +221,21 @@ def _filtergraph(t: dict[str, Any], audio_offset: int) -> str:
     current = "v0"
     for n, layer in enumerate(t["layers"][1:], 1):
         start, end = layer["start"], layer["end"]
-        filters.append(
+        video_chain = (
             f"[{n}:v]trim=start={layer['source_in']:.4f}:duration={layer['length']:.4f},"
             f"setpts=PTS-STARTPTS+{start:.4f}/TB,{_scale(layer)},format=rgba,"
-            f"colorchannelmixer=aa={layer['opacity']:.4f}[ov{n}]"
+            f"colorchannelmixer=aa={layer['opacity']:.4f}"
         )
+        if layer.get("fade_in", 0):
+            video_chain += f",fade=t=in:st=0:d={layer['fade_in']:.4f}:alpha=1"
+        if layer.get("fade_out", 0):
+            fade_start = max(0.0, layer["length"]-layer["fade_out"])
+            video_chain += f",fade=t=out:st={fade_start:.4f}:d={layer['fade_out']:.4f}:alpha=1"
+        filters.append(video_chain + f"[ov{n}]")
         out = f"v{n}"
         filters.append(
             f"[{current}][ov{n}]overlay=x={layer['x']}:y={layer['y']}:eof_action=pass:"
             f"shortest=0:repeatlast=0:enable='between(t,{start:.4f},{end:.4f})'[{out}]"
-        )
-        current = out
-    for n, item in enumerate(t["text"], 1):
-        out = f"vt{n}"
-        filters.append(
-            f"[{current}]drawtext=text='{_esc(item['text'])}':fontcolor={item['color']}@{item['alpha']:.3f}:"
-            f"fontsize={item['size']}:x={item['x']}:y={item['y']}:borderw={item['border']}:"
-            f"bordercolor=black@0.55:enable='between(t,{item['start']:.4f},{item['end']:.4f})'[{out}]"
         )
         current = out
     filters.append(f"[{current}]format=yuv420p[vout]")
@@ -281,6 +285,49 @@ def _filtergraph(t: dict[str, Any], audio_offset: int) -> str:
     return ";".join(filters)
 
 
+def _rasterize_text_layers(t: dict[str, Any], destination: Path) -> list[dict[str, Any]]:
+    """Rasterise title/caption layers so text works with FFmpeg builds lacking drawtext."""
+    records = []
+    width, height = t["width"], t["height"]
+    for item in t["text"]:
+        canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(canvas)
+        font_candidates = [
+            Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+            Path("/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"),
+            Path("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"),
+        ]
+        font_path = next((value for value in font_candidates if value.is_file()), None)
+        try:
+            font = ImageFont.truetype(str(font_path), item["size"]) if font_path else ImageFont.load_default()
+        except OSError:
+            font = ImageFont.load_default()
+        hex_value = item["color"].removeprefix("0x")
+        rgb = tuple(int(hex_value[index:index+2], 16) for index in (0, 2, 4))
+        alpha = round(item["alpha"] * 255)
+        draw.text(
+            (item["x"], item["y"]),
+            item["text"],
+            font=font,
+            fill=(*rgb, alpha),
+            stroke_width=item["border"],
+            stroke_fill=(0, 0, 0, round(0.58 * alpha)),
+            spacing=max(2, round(item["size"] * 0.18)),
+        )
+        image_path = destination / f".vp-text-layer-{item['id']}.png"
+        canvas.save(image_path)
+        records.append({
+            "id": item["id"], "kind": "image", "path": image_path,
+            "start": item["start"], "end": item["end"],
+            "length": item["end"]-item["start"], "source_in": 0.0,
+            "x": 0, "y": 0, "width": width, "height": height,
+            "fit": "stretch", "opacity": 1.0,
+            "fade_in": item["fade_in"], "fade_out": item["fade_out"],
+            "role": "text",
+        })
+    return records
+
+
 def compose_video(manifest_path: str | Path, output_path: str | Path,
                   report_path: str | Path | None = None) -> dict[str, Any]:
     manifest = Path(manifest_path).expanduser().resolve(strict=True)
@@ -291,6 +338,9 @@ def compose_video(manifest_path: str | Path, output_path: str | Path,
     except (OSError, json.JSONDecodeError) as exc:
         raise CompositionError("Timeline manifest is not readable JSON") from exc
     t = validate_timeline(data, manifest.parent)
+    text_layer_report = list(t["text"])
+    t["layers"].extend(_rasterize_text_layers(t, output.parent))
+    t["text"] = []
     ffmpeg, ffprobe = shutil.which("ffmpeg"), shutil.which("ffprobe")
     if not ffmpeg or not ffprobe:
         raise CompositionError("FFmpeg and FFprobe must be installed on PATH")
@@ -359,7 +409,9 @@ def compose_video(manifest_path: str | Path, output_path: str | Path,
         "audio_sample_rate": int(audio.get("sample_rate") or 0),
         "video_layers": [{"id": x["id"], "role": x["role"], "kind": x["kind"],
                           "start_seconds": x["start"], "end_seconds": x["end"]} for x in t["layers"]],
-        "text_layers": [{"id": x["id"], "start_seconds": x["start"], "end_seconds": x["end"]} for x in t["text"]],
+        "text_layers": [{"id": x["id"], "start_seconds": x["start"], "end_seconds": x["end"],
+                         "fade_in_seconds": x["fade_in"], "fade_out_seconds": x["fade_out"]}
+                        for x in text_layer_report],
         "audio_tracks": [{"id": x["id"], "role": x["role"], "private_source": x["private"]} for x in t["audio"]],
         "audio_mix": {"voice_present": True,
                       "music_present": any(x["role"] == "music" for x in t["audio"]),
