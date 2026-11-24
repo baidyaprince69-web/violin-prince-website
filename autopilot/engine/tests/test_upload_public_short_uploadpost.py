@@ -37,6 +37,47 @@ class PublicUploadApprovalTests(unittest.TestCase):
         self.root_patch.stop()
         self.temp.cleanup()
 
+
+    def test_blocks_same_mp4_hash_in_another_slot_receipt(self):
+        history = self.root / ".autopilot" / "public-youtube-receipts"
+        history.mkdir(parents=True)
+        (history / "2026-11-21-production-tech.json").write_text(
+            json.dumps({"status": "uploaded_public", "sha256": "abc123"}),
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(publisher.PublishBlocked, "exact MP4 asset already appears"):
+            publisher._reject_reused_asset_hash("abc123", "2026-11-22-melody-stories")
+
+    def test_blocks_same_mp4_hash_in_an_uncertain_attempt(self):
+        history = self.root / ".autopilot" / "public-youtube-attempts"
+        history.mkdir(parents=True)
+        (history / "2026-11-21-production-tech.json").write_text(
+            json.dumps({"status": "outcome_unknown", "sha256": "abc123"}),
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(publisher.PublishBlocked, "exact MP4 asset already appears"):
+            publisher._reject_reused_asset_hash("abc123", "2026-11-22-melody-stories")
+
+    def test_ignores_same_identity_and_different_media_hash(self):
+        history = self.root / ".autopilot" / "public-youtube-receipts"
+        history.mkdir(parents=True)
+        (history / "2026-11-22-melody-stories.json").write_text(
+            json.dumps({"status": "uploaded_public", "sha256": "abc123"}),
+            encoding="utf-8",
+        )
+        (history / "2026-11-21-production-tech.json").write_text(
+            json.dumps({"status": "uploaded_public", "sha256": "different"}),
+            encoding="utf-8",
+        )
+        publisher._reject_reused_asset_hash("abc123", "2026-11-22-melody-stories")
+        publisher._reject_reused_asset_hash("new-hash", "2026-11-23-melody-stories")
+
+    def test_corrupt_public_upload_history_fails_closed(self):
+        history = self.root / ".autopilot" / "public-youtube-attempts"
+        history.mkdir(parents=True)
+        (history / "broken.json").write_text("{", encoding="utf-8")
+        with self.assertRaisesRegex(publisher.PublishBlocked, "unreadable record"):
+            publisher._reject_reused_asset_hash("abc123", "2026-11-22-melody-stories")
     def test_accepts_explicit_public_youtube_approval(self):
         result = publisher._require_public_creator_approval()
         self.assertEqual(result["platform"], "youtube")

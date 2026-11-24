@@ -101,7 +101,6 @@ jobs:
       batch_sha256: ${{ steps.batch.outputs.batch_sha256 }}
       slot_status: ${{ steps.batch.outputs.slot_status }}
       blocked_reason: ${{ steps.batch.outputs.blocked_reason }}
-      ready: ${{ steps.readiness.outputs.ready }}
     steps:
       - name: Check out the project
         uses: actions/checkout@v4

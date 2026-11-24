@@ -8,6 +8,18 @@
 
 This document records the complete intended Violin Prince production lifecycle and maps it to the implementation that exists in this repository. Use it as the baseline when explaining the workflow, planning milestones, debugging stages, or implementing upgrades. When code changes, update this document so the architecture and implementation status stay aligned.
 
+## Current operating truth — updated 24 November 2026
+
+This section is authoritative and supersedes older commissioning and private-preview descriptions later in this document.
+
+- **Publishing policy:** direct public YouTube publishing only. The creator explicitly authorised `privacy_status=public` and no private preview is required. The scheduled workflow uses `upload_public_short_uploadpost.py` after the public creator-approval and production gates pass.
+- **Schedule:** four Asia/Kolkata cron events are declared at 05:30, 11:30, 17:30 and 23:30. The shared non-cancelling queue lock prevents overlapping runs from claiming the same slot.
+- **Current scheduler boundary:** each event currently selects an unused, public-ready plan from a previously prepared daily batch. It does not yet search the web and author a fresh story plan inside every scheduled run.
+- **Research boundary:** the legacy `run.py` path has GDELT, Google News, Bing and DuckDuckGo discovery plus direct-publisher evidence verification, but `require_approved_text_provider()` currently stops Prepare until a tested text provider is configured. The Copilot-based Master Creative Director is manually dispatched and is not yet wired into every scheduled cycle.
+- **No-repeat controls:** the queue checks prior date-batches for topics and core claims, including blocked plans; the public uploader checks YouTube title history, date/slot attempt records and exact MP4 SHA-256 values across all prior attempts and receipts. Uncertain uploads are never blindly retried.
+- **Genuine-animation gate:** public release still requires real animation-production approval, tested motion coverage, verified final MP4 and creator review. Do not fabricate approval, substitute a still-image slideshow, or bypass the gate.
+- **Daily target:** four distinct completed videos and four independently verified public upload receipts per production day. Cron triggers and ready batch plans alone do not satisfy that target.
+
 ## 1. How to read implementation status
 
 - **Implemented — daily route:** Part of the ChatGPT-triggered cloud production path.

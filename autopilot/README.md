@@ -6,19 +6,17 @@ A cloud-first short-video production pipeline. GitHub-hosted runners do the prod
 
 The global editorial direction is documented in [GLOBAL_CONTENT_STRATEGY.md](GLOBAL_CONTENT_STRATEGY.md). It defines four content pillars for a worldwide music audience and a target of four distinct Shorts per day, approximately six hours apart. Bengali and Indian repertoire remain part of the channel's identity, not a geographic boundary.
 
-Base `main` is verified at merge commit `cc95cc2592c159e044521ab35a203d4e94a065eb` after PR #118 merged on 21 November 2026. The private-preview commissioning workflow is active on `main`.
+**Current operating contract — updated 24 November 2026:** the creator has explicitly authorised direct public YouTube uploads without private-preview copies. The scheduled workflow on `main` uses the dedicated Upload-Post public publisher and sets YouTube visibility to `public`. The confirmed 22 November Sonible upload demonstrates that the public route can complete, although the daily four-slot system is not yet fully autonomous.
 
-- GitHub Actions retains four scheduled UTC cron triggers, mapped to 05:30, 11:30, 17:30 and 23:30 Asia/Kolkata. Each event selects one canonical slot, uses its date-specific batch and has run-specific, non-cancelling concurrency.
-- ChatGPT remains the Global Director. It prepares the next day's four-plan batch at approximately 18:00 Asia/Kolkata and commits only `.autopilot/daily-batches/YYYY-MM-DD.json`; this path is not a push trigger.
-- Blocked slots are skipped independently; the runner does not invent replacement scripts or performances.
-- On `main`, each ready scheduled slot runs the existing renderer and then `autopilot/engine/upload_private_preview.py`. YouTube upload visibility is explicitly `private`; the scheduled workflow does not invoke the public daily publisher.
-- The batch runner forces `publish_metadata.privacy_status=private` for scheduled plans before producing the publisher manifest. The private uploader revalidates source/asset provenance, narration, MP4 quality, SHA-256, configured channel identity and exact-title duplicates.
-- A durable attempt marker is committed before the YouTube request. A receipt is committed only after YouTube confirms `private`. Uncertain outcomes and visibility mismatches are recorded as no-retry states.
-- The workflow rejects legacy `publish_to_youtube: true` requests while private-preview commissioning is active. The existing public publisher module remains separate and is not called by the scheduled route.
-- Existing approval records and GitHub secrets are unchanged. The local illustration approval's `public_youtube` scope does not override the scheduled workflow's explicit private-visibility requirement.
-- The private Qwen3 voice worker remains a narration service; the new private-preview step uploads the finished video to the verified YouTube channel.
-- Private video IDs and URLs are never written to this public repository or Actions summary. Review the accumulated previews in YouTube Studio → Content → Private, matched by title and production date.
+- The workflow declares four Asia/Kolkata cron events: 05:30, 11:30, 17:30 and 23:30. A global non-cancelling queue lock prevents overlapping runs from claiming the same slot.
+- Each scheduled run currently selects the next unused, public-ready plan from `.autopilot/daily-batches/YYYY-MM-DD.json`. The date-specific batch is prepared separately; the four-slot workflow does **not yet** perform live internet research and create a replacement story package within every cron run.
+- Research, article verification and story planning exist in the legacy `run.py` Prepare path, but its text-planning provider is explicitly disabled. The Master Creative Director workflow is a separate manually dispatched storyboard step and requires its Copilot token. These are integration blockers, not completed daily automation.
+- Public publishing remains behind the factual-source, voice, artwork, genuine-animation, provenance, media-quality, channel-identity and duplicate checks. A blocked slot must stop safely; no approval file may be fabricated to force a release.
+- The public uploader records a durable date/slot attempt before the API request and will not blindly retry an uncertain outcome. This change adds cross-slot MP4 SHA-256 protection. The public queue also checks earlier date-batches for already-researched topics, including blocked research plans.
+- The production target remains four different completed Shorts per day. A cron event or a plan marked `ready` is not proof that a finished video was rendered or published.
+- The existing character and full-body violin rig must be genuinely integrated into the cinematic renderer. A still-image slideshow or sampled audio presented as the creator's live playing is not an acceptable substitute.
 
+**Important implementation status:** the four cron entries and public-only publishing route exist, but live per-trigger research, story selection, full cinematic production and four successful public receipts per day have not yet been proven as one autonomous loop. Earlier private-preview commissioning notes below are historical and are superseded by this operating contract.
 ## Four-slot production and ChatGPT director — PR #115 merged
 
 PR [#115](https://github.com/baidyaprince69-web/violin-prince-website/pull/115) is merged. The daily runner accepts date-specific four-plan batches, assigns a separate date/slot identity and workspace to each production, records a slot receipt, and gives the publisher handoff slot-specific duplicate protection.

@@ -1,7 +1,17 @@
 # Violin Prince — Global four-pillar content strategy
 
 **Prepared:** 21 November 2026  
-**Status:** Global editorial direction and four-slot schedule are on main. GitHub cron is active for private-preview runs; public publishing is NOT enabled.
+**Status:** Four daily public YouTube slots are the intended operating contract. The creator has explicitly approved public uploads without private-preview copies. The actual scheduled workflow routes approved media through the public Upload-Post publisher.
+
+## Current automation contract — updated 24 November 2026
+
+The target is four complete, independent production cycles at 05:30, 11:30, 17:30 and 23:30 Asia/Kolkata. Each cycle must research fresh developments, verify direct publisher evidence, reject previously researched subjects, write its story and narration, direct and animate original scenes with the existing Violin Prince character, mix and edit the finished Short, validate the encoded media, upload publicly, verify YouTube visibility and persist an immutable attempt/receipt record.
+
+No topic, finished MP4 or upload may be repeated. A failed or uncertain upload is terminal until reconciled. A prior blocked plan still counts as a researched subject for future topic selection. An exact MP4 SHA-256 already present in any other date/slot attempt or receipt blocks another upload.
+
+**Current implementation boundary:** GitHub Actions has four IST cron entries and currently consumes a prepared date-specific batch; it does not yet perform the full live research-to-script commissioning step on every trigger. The repository contains research discovery and evidence-verification code, but the legacy text planner is disabled pending an approved provider. The Master Creative Director is separately dispatched and is not yet connected as an automatic per-trigger step. Genuine animation approval remains a hard release gate.
+
+Private YouTube preview copies are not part of the approved publishing path. Historical commissioning notes below are retained as engineering history only and do not override the creator's public-only instruction.
 
 ## 1. Channel positioning
 

@@ -69,6 +69,36 @@ def _identity(production_date: str, slot_id: str) -> str:
     return value
 
 
+def _reject_reused_asset_hash(sha256: str, identity: str) -> None:
+    """Block exact media reuse across all date/slot identities before public upload."""
+    if not sha256:
+        raise PublishBlocked("A non-empty MP4 SHA-256 is required for duplicate-media protection.")
+    for directory_name in ("public-youtube-attempts", "public-youtube-receipts"):
+        directory = ROOT / ".autopilot" / directory_name
+        if not directory.is_dir():
+            continue
+        for record_path in sorted(directory.glob("*.json")):
+            if record_path.stem == identity:
+                continue
+            try:
+                record = json.loads(record_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                raise PublishBlocked(
+                    "Public upload history contains an unreadable record; refusing upload until it is reconciled: "
+                    + str(record_path.relative_to(ROOT))
+                ) from exc
+            if not isinstance(record, dict):
+                raise PublishBlocked(
+                    "Public upload history contains a non-object record; refusing upload: "
+                    + str(record_path.relative_to(ROOT))
+                )
+            recorded_hash = str(record.get("sha256") or "").strip().lower()
+            if recorded_hash and recorded_hash == sha256.strip().lower():
+                raise PublishBlocked(
+                    "This exact MP4 asset already appears in another public-upload attempt or receipt "
+                    f"({record_path.relative_to(ROOT)}). Duplicate publication is blocked."
+                )
+
 def _record_unknown(
     *,
     attempt_path: Path,
@@ -186,6 +216,8 @@ def upload_public_short(
             "A durable public-upload attempt already exists for this production date and slot without a matching success receipt. "
             "Inspect YouTube Studio manually; automatic retries are blocked."
         )
+
+    _reject_reused_asset_hash(audit["sha256"], identity)
 
     headers = {"Authorization": "Apikey " + api_key}
     session = requests.Session()

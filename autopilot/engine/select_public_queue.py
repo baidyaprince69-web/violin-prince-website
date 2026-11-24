@@ -8,6 +8,7 @@ records and are never selected automatically again.
 from __future__ import annotations
 
 import argparse
+import difflib
 import hashlib
 import json
 import os
@@ -30,6 +31,67 @@ def _identity(production_date: str, slot_id: str) -> str:
 
 def _normalise_title(value: str) -> str:
     return re.sub(r"\s+", " ", unicodedata.normalize("NFKC", str(value or ""))).strip().casefold()
+
+
+TOPIC_STOPWORDS = {
+    "a", "an", "and", "are", "as", "at", "can", "does", "for", "from",
+    "how", "in", "into", "is", "it", "of", "on", "or", "the", "this",
+    "that", "to", "what", "when", "why", "with", "music", "song",
+}
+
+
+def _topic_tokens(value: str) -> set[str]:
+    tokens = re.findall(r"[a-z0-9]{3,}", _normalise_title(value))
+    return {token for token in tokens if token not in TOPIC_STOPWORDS}
+
+
+def _same_story_topic(left: str, right: str) -> bool:
+    """Conservatively detect exact and strong paraphrase matches between story subjects."""
+    left_text = _normalise_title(left)
+    right_text = _normalise_title(right)
+    if not left_text or not right_text:
+        return False
+    if left_text == right_text:
+        return True
+    left_tokens = _topic_tokens(left_text)
+    right_tokens = _topic_tokens(right_text)
+    if min(len(left_tokens), len(right_tokens)) < 4:
+        return False
+    shared = len(left_tokens.intersection(right_tokens))
+    overlap_over_smaller = shared / min(len(left_tokens), len(right_tokens))
+    overlap_over_larger = shared / max(len(left_tokens), len(right_tokens))
+    text_similarity = difflib.SequenceMatcher(
+        None, left_text, right_text, autojunk=False
+    ).ratio()
+    return (
+        text_similarity >= 0.88
+        or (overlap_over_smaller >= 0.80 and overlap_over_larger >= 0.78)
+    )
+
+
+def _story_descriptors(plan: dict[str, Any]) -> list[str]:
+    values = []
+    for field in ("topic", "core_claim"):
+        value = str(plan.get(field) or "").strip()
+        if value:
+            values.append(value)
+    return values
+
+
+def _find_topic_history_match(
+    plan: dict[str, Any],
+    history_plans: list[dict[str, Any]],
+) -> str:
+    for candidate in _story_descriptors(plan):
+        for previous in history_plans:
+            for recorded in _story_descriptors(previous):
+                if _same_story_topic(candidate, recorded):
+                    return str(
+                        previous.get("topic")
+                        or previous.get("core_claim")
+                        or "previously researched story"
+                    )
+    return ""
 
 
 def _scan_youtube_history(api_key: str) -> tuple[set[str], dict[str, Any]]:
@@ -106,25 +168,38 @@ def select_next_public_plan(
     candidates: list[dict[str, Any]] = []
     ignored_batches: list[str] = []
     duplicate_channel_matches: list[str] = []
+    duplicate_topic_matches: list[str] = []
     existing_titles = {
         _normalise_title(value) for value in (existing_titles or set())
         if _normalise_title(value)
     }
     checked_batches = 0
 
-    for batch_path in sorted(batch_root.glob("????-??-??.json")) if batch_root.is_dir() else []:
+    history_plans: list[dict[str, Any]] = []
+    batch_paths = sorted(batch_root.glob("????-??-??.json")) if batch_root.is_dir() else []
+    history_floor = production_date or after_date
+
+    for batch_path in batch_paths:
         batch_date = batch_path.stem
         try:
             date.fromisoformat(batch_date)
         except ValueError:
             continue
-        if production_date is not None:
-            # Scheduled runs must be pinned to the date implied by their cron slot.
-            # Never fall forward into a later day when that batch is exhausted or absent.
-            if batch_date != production_date:
-                continue
-        elif batch_date < after_date:
+
+        # Blocked entries count as researched topics even when no video was produced.
+        if batch_date < history_floor:
+            try:
+                old_plans = load_daily_batch(batch_path, expected_date=batch_date)
+                history_plans.extend(old_plans)
+            except (SlotContractError, OSError, ValueError) as exc:
+                ignored_batches.append(f"{batch_path.name}: {str(exc)[:180]}")
             continue
+
+        if production_date is not None and batch_date != production_date:
+            continue
+        if production_date is None and batch_date < after_date:
+            continue
+
         checked_batches += 1
         try:
             plans = load_daily_batch(batch_path, expected_date=batch_date)
@@ -133,42 +208,62 @@ def select_next_public_plan(
             continue
 
         batch_sha256 = hashlib.sha256(batch_path.read_bytes()).hexdigest()
+        same_date_history: list[dict[str, Any]] = []
         for plan in plans:
             slot_id = str(plan.get("slot_id") or "")
-            if str(plan.get("slot_status") or "ready").strip().lower() != "ready":
-                continue
             metadata = plan.get("publish_metadata")
-            if not isinstance(metadata, dict) or str(metadata.get("privacy_status") or "").lower() != "public":
-                continue
-
-            title = str(metadata.get("title") or plan.get("title") or "").strip()
+            metadata_title = metadata.get("title") if isinstance(metadata, dict) else ""
+            title = str(metadata_title or plan.get("title") or "").strip()
             topic = str(plan.get("topic") or "").strip()
             core_claim = str(plan.get("core_claim") or "").strip()
+            identity = _identity(batch_date, slot_id)
+
+            # Check older batch files and earlier slots from this same date.
+            history_match = _find_topic_history_match(
+                plan, history_plans + same_date_history
+            )
+            if history_match:
+                duplicate_topic_matches.append(
+                    f"{batch_date}/{slot_id}: {topic or title} matches prior topic: {history_match}"
+                )
+                same_date_history.append(plan)
+                continue
+
+            if str(plan.get("slot_status") or "ready").strip().lower() != "ready":
+                same_date_history.append(plan)
+                continue
+            if not isinstance(metadata, dict) or str(metadata.get("privacy_status") or "").lower() != "public":
+                same_date_history.append(plan)
+                continue
+
             if any(
                 _normalise_title(candidate) in existing_titles
                 for candidate in (title, topic, core_claim)
                 if candidate
             ):
                 duplicate_channel_matches.append(f"{batch_date}/{slot_id}: {title}")
+                same_date_history.append(plan)
                 continue
 
-            identity = _identity(batch_date, slot_id)
             attempt_path = attempt_root / f"{identity}.json"
             receipt_path = receipt_root / f"{identity}.json"
             # Any durable attempt marker is terminal for automatic queueing.
-            # This includes uncertain outcomes, which must be reconciled manually.
             if attempt_path.exists() or receipt_path.exists():
+                same_date_history.append(plan)
                 continue
 
             candidates.append({
                 "production_date": batch_date,
                 "slot_id": slot_id,
-                "title": str(metadata.get("title") or plan.get("title") or "").strip(),
+                "title": title,
+                "topic": topic,
                 "batch_path": str(batch_path.relative_to(root)),
                 "batch_sha256": batch_sha256,
                 "workspace_root": str(slot_workspace(Path("work/slots"), batch_date, slot_id)),
                 "identity": identity,
             })
+            same_date_history.append(plan)
+        history_plans.extend(same_date_history)
 
     if not candidates:
         blocked_reason = (
@@ -178,6 +273,10 @@ def select_next_public_plan(
             "No unused, public-ready story exists in today's or any later prepared batch. "
             "Prepare another source-checked batch to refill the rolling queue."
         )
+        if duplicate_topic_matches:
+            blocked_reason += (
+                f" {len(duplicate_topic_matches)} candidate topic(s) matched the saved research history and were skipped."
+            )
         if duplicate_channel_matches:
             blocked_reason += (
                 f" {len(duplicate_channel_matches)} candidate title/topic match(es) "
@@ -192,6 +291,7 @@ def select_next_public_plan(
             "remaining_ready_count": 0,
             "ignored_batches": ignored_batches,
             "duplicate_channel_matches": duplicate_channel_matches,
+            "duplicate_topic_matches": duplicate_topic_matches,
         }
 
     chosen = candidates[0]
@@ -204,6 +304,7 @@ def select_next_public_plan(
         "remaining_ready_count": len(candidates),
         "ignored_batches": ignored_batches,
         "duplicate_channel_matches": duplicate_channel_matches,
+        "duplicate_topic_matches": duplicate_topic_matches,
     }
 
 
@@ -250,6 +351,7 @@ def main(argv: list[str] | None = None) -> int:
         "youtube_history_status": str(youtube_history.get("status") or ""),
         "youtube_uploads_examined": str(youtube_history.get("uploads_examined") or 0),
         "youtube_titles_indexed": str(youtube_history.get("title_count") or 0),
+        "duplicate_topic_matches": str(len(result.get("duplicate_topic_matches", []))),
     }
     _write_outputs(outputs)
 
@@ -271,7 +373,8 @@ def main(argv: list[str] | None = None) -> int:
             "",
             f"- {result['blocked_reason']}",
             f"- YouTube history audit passed: {youtube_history['uploads_examined']} uploads examined.",
-            f"- Already-uploaded title/topic matches skipped: {len(result.get('duplicate_channel_matches', []))}.",
+            f"- Already-uploaded title matches skipped: {len(result.get('duplicate_channel_matches', []))}.",
+            f"- Previously researched topic matches skipped: {len(result.get('duplicate_topic_matches', []))}.",
         ]
     if result.get("ignored_batches"):
         summary.extend(["", "### Invalid batches ignored"])
