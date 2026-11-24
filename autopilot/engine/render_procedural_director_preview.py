@@ -227,6 +227,13 @@ def render_preview(
         raise PreviewRenderError("The rendered short contains too few articulated presenter scenes.")
     if int(motion.get("rendered_layer_count") or 0) != 0:
         raise PreviewRenderError("Procedural v3 unexpectedly staged legacy picture layers.")
+
+    expected_music_events = len(plan.get("edit_direction", {}).get("music_sync_cues") or [])
+    rendered_music_events = int(motion.get("music_sync_event_count") or 0)
+    if rendered_music_events != expected_music_events:
+        raise PreviewRenderError(
+            "The procedural preview did not render one timed Motion accent for each synthetic preview music cue."
+        )
     preview_video = output_dir / "master-director-preview.mp4"
     contact_sheet = output_dir / "master-director-contact-sheet.jpg"
     _make_contact_sheet(preview_video, plan["storyboard"]["shots"], contact_sheet)
@@ -240,6 +247,13 @@ def render_preview(
         "shot_count": expected_shots,
         "duration_seconds": report.get("duration_seconds"),
         "motion_report": motion,
+        "music_sync": {
+            "status": "preview_only",
+            "method": "synthetic_preview_beat_grid",
+            "cue_count": expected_music_events,
+            "rendered_motion_track_count": rendered_music_events,
+            "measured_audio_sync_verified": False,
+        },
         "final_video_qa": report.get("final_video_qa"),
         "contact_sheet": str(contact_sheet),
         "audio_preview": {

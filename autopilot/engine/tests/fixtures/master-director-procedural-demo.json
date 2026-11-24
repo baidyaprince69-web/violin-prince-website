@@ -643,17 +643,32 @@
       {
         "time_seconds": 8,
         "event": "Shorter-string reveal and upward pitch marker",
-        "reason": "The change in visual movement introduces the pitch relationship."
+        "reason": "The change in visual movement introduces the pitch relationship.",
+        "requested_time_seconds": 8,
+        "source_time_seconds": 8,
+        "audio_loop_index": 0,
+        "timing_source": "preview_generated_beat_grid",
+        "alignment_error_seconds": 0
       },
       {
         "time_seconds": 16,
         "event": "Soundpost connection visual",
-        "reason": "A three-part diagram reveals how motion couples through the body."
+        "reason": "A three-part diagram reveals how motion couples through the body.",
+        "requested_time_seconds": 16,
+        "source_time_seconds": 16,
+        "audio_loop_index": 0,
+        "timing_source": "preview_generated_beat_grid",
+        "alignment_error_seconds": 0
       },
       {
         "time_seconds": 28,
         "event": "Final orbit resolves",
-        "reason": "A sustained chord supports the concise final truth."
+        "reason": "A sustained chord supports the concise final truth.",
+        "requested_time_seconds": 28,
+        "source_time_seconds": 28,
+        "audio_loop_index": 0,
+        "timing_source": "preview_generated_beat_grid",
+        "alignment_error_seconds": 0
       }
     ],
     "final_payoff": "The string initiates the process, but the complete violin body makes the note audible."
@@ -684,6 +699,45 @@
         "publisher_domain": "phys.unsw.edu.au",
         "title": "Violin acoustics: an introduction",
         "url": "https://www.phys.unsw.edu.au/jw/violintro.html"
+      }
+    ]
+  },
+  "music_sync_report": {
+    "status": "preview_only",
+    "method": "synthetic_preview_beat_grid",
+    "cue_count": 3,
+    "rendered_motion_track_count": 0,
+    "measured_audio_sync_verified": false,
+    "cues": [
+      {
+        "time_seconds": 8,
+        "event": "Shorter-string reveal and upward pitch marker",
+        "reason": "The change in visual movement introduces the pitch relationship.",
+        "requested_time_seconds": 8,
+        "source_time_seconds": 8,
+        "audio_loop_index": 0,
+        "timing_source": "preview_generated_beat_grid",
+        "alignment_error_seconds": 0
+      },
+      {
+        "time_seconds": 16,
+        "event": "Soundpost connection visual",
+        "reason": "A three-part diagram reveals how motion couples through the body.",
+        "requested_time_seconds": 16,
+        "source_time_seconds": 16,
+        "audio_loop_index": 0,
+        "timing_source": "preview_generated_beat_grid",
+        "alignment_error_seconds": 0
+      },
+      {
+        "time_seconds": 28,
+        "event": "Final orbit resolves",
+        "reason": "A sustained chord supports the concise final truth.",
+        "requested_time_seconds": 28,
+        "source_time_seconds": 28,
+        "audio_loop_index": 0,
+        "timing_source": "preview_generated_beat_grid",
+        "alignment_error_seconds": 0
       }
     ]
   }
