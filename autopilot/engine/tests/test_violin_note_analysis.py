@@ -15,7 +15,12 @@ class ViolinNoteAnalysisTests(unittest.TestCase):
         sample_rate = 22050
         duration = 2.2
         samples = np.zeros(int(sample_rate * duration), dtype=np.float32)
-        for start, end, frequency in ((0.15, 0.95, 440.0), (1.15, 1.95, 659.255)):
+        for start, end, frequency in (
+            (0.08, 0.43, 440.0),
+            (0.55, 0.90, 493.883),
+            (1.02, 1.37, 587.330),
+            (1.49, 1.84, 659.255),
+        ):
             left = int(start * sample_rate)
             right = int(end * sample_rate)
             time = np.arange(right - left, dtype=np.float32) / sample_rate
