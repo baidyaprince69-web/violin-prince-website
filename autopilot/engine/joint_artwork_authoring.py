@@ -145,7 +145,9 @@ def build_joint_artwork_review_pack(
             (parent_mask, (48, 220, 236, 255)),
             (child_mask, (255, 172, 63, 255)),
         ):
-            local = (mask[y0:y1, x0:x1] > 12).astype(np.uint8)
+            # _canvas_alpha_mask_for_layer already returns a boolean mask.
+            # Comparing booleans with 12 would erase every contour.
+            local = mask[y0:y1, x0:x1].astype(np.uint8)
             contours, _ = cv2.findContours(
                 local, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
             )

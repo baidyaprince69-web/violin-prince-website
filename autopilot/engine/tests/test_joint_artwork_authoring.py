@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from PIL import Image
+import numpy as np
 
 from joint_artwork_authoring import build_joint_artwork_review_pack
 
@@ -65,7 +66,23 @@ class JointArtworkAuthoringTests(unittest.TestCase):
             self.assertEqual(result["status"], "review_pack_created")
             self.assertEqual(result["joint_count"], 6)
             self.assertEqual(result["production_art_assets_created"], 0)
-            self.assertTrue((output / "joint-artwork-contact-sheet.jpg").is_file())
+            contact_path = output / "joint-artwork-contact-sheet.jpg"
+            self.assertTrue(contact_path.is_file())
+            contact = np.asarray(Image.open(contact_path).convert("RGB"))
+            cyan_boundary_pixels = np.count_nonzero(
+                (contact[:, :, 1] > 180)
+                & (contact[:, :, 2] > 180)
+                & (contact[:, :, 0] < 150)
+            )
+            amber_boundary_pixels = np.count_nonzero(
+                (contact[:, :, 0] > 180)
+                & (contact[:, :, 1] > 110)
+                & (contact[:, :, 2] < 140)
+            )
+            self.assertGreater(cyan_boundary_pixels, 20,
+                "the review sheet must render parent-surface contours in cyan")
+            self.assertGreater(amber_boundary_pixels, 20,
+                "the review sheet must render child-surface contours in amber")
             self.assertEqual(template["joint_surfaces"]["regions"]["left_knee"]["artist_source_polygon"], [])
             self.assertEqual(template["joint_surfaces"]["regions"]["left_knee"]["artwork_status"], "awaiting_artist_alignment")
             self.assertEqual((bundle / "parent.png").read_bytes(), parent_before)
