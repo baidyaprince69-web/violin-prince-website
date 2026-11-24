@@ -291,7 +291,7 @@ jobs:
           PY
 
       - name: Save the tested rig bundle for the main animation pipeline
-        if: success() && (github.ref_name == 'baidyaprince69-web-patch-1' || github.ref_name == 'feature/character-articulated-rig-validation')
+        if: success() && (github.ref_name == 'baidyaprince69-web-patch-1' || github.ref_name == 'feature/character-articulated-rig-validation' || github.ref_name == 'feat/procedural-2d-animation-engine')
         shell: bash
         run: |
           set -euo pipefail
