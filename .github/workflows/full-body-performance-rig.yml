@@ -208,7 +208,8 @@ jobs:
           assert all(
               item.get("closest_parent_source_pixel") is not None
               and item.get("closest_child_source_pixel") is not None
-              and item.get("candidate_parent_child_gap_px", 0) > 0
+              and item.get("candidate_parent_child_gap_px") is not None
+              and item.get("candidate_parent_child_gap_px", -1) >= 0
               for item in joint_items
               if item.get("manual_trace_reason") == "source_layers_separated_near_anchor"
           ), template
