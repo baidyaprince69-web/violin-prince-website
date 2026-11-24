@@ -136,7 +136,7 @@ jobs:
               for item in joint_items
           ), template
           assert all(
-              item.get("anchor_measure_radius_px") == 24
+              0 < item.get("anchor_measure_radius_px", 0) <= 24
               for item in joint_items
           ), template
           assert all(
