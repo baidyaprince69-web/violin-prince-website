@@ -709,7 +709,13 @@
         "blend_axis_joints": [
           "neck",
           "left_elbow"
-        ]
+        ],
+        "outline": {
+          "profile": "tapered_source_capsule",
+          "half_length_px": 24,
+          "half_width_px": 18,
+          "minimum_pixels": 350
+        }
       },
       "right_shoulder": {
         "anchor": "right_shoulder",
@@ -812,7 +818,13 @@
         "blend_axis_joints": [
           "left_shoulder",
           "left_wrist"
-        ]
+        ],
+        "outline": {
+          "profile": "tapered_source_capsule",
+          "half_length_px": 23,
+          "half_width_px": 18,
+          "minimum_pixels": 300
+        }
       },
       "right_elbow": {
         "anchor": "right_elbow",
@@ -861,7 +873,13 @@
         "blend_axis_joints": [
           "right_shoulder",
           "right_wrist"
-        ]
+        ],
+        "outline": {
+          "profile": "tapered_source_capsule",
+          "half_length_px": 23,
+          "half_width_px": 18,
+          "minimum_pixels": 250
+        }
       },
       "left_hip": {
         "anchor": "left_hip",
@@ -914,7 +932,13 @@
         "blend_axis_joints": [
           "neck",
           "left_knee"
-        ]
+        ],
+        "outline": {
+          "profile": "tapered_source_capsule",
+          "half_length_px": 27,
+          "half_width_px": 23,
+          "minimum_pixels": 500
+        }
       },
       "right_hip": {
         "anchor": "right_hip",
@@ -967,7 +991,13 @@
         "blend_axis_joints": [
           "neck",
           "right_knee"
-        ]
+        ],
+        "outline": {
+          "profile": "tapered_source_capsule",
+          "half_length_px": 27,
+          "half_width_px": 23,
+          "minimum_pixels": 500
+        }
       },
       "left_knee": {
         "anchor": "left_knee",
@@ -1016,7 +1046,13 @@
         "blend_axis_joints": [
           "left_hip",
           "left_ankle"
-        ]
+        ],
+        "outline": {
+          "profile": "tapered_source_capsule",
+          "half_length_px": 23,
+          "half_width_px": 18,
+          "minimum_pixels": 350
+        }
       },
       "right_knee": {
         "anchor": "right_knee",
@@ -1065,7 +1101,13 @@
         "blend_axis_joints": [
           "right_hip",
           "right_ankle"
-        ]
+        ],
+        "outline": {
+          "profile": "tapered_source_capsule",
+          "half_length_px": 23,
+          "half_width_px": 18,
+          "minimum_pixels": 350
+        }
       },
       "left_ankle": {
         "anchor": "left_ankle",
@@ -1110,7 +1152,13 @@
         "blend_axis_joints": [
           "left_knee",
           "left_ankle"
-        ]
+        ],
+        "outline": {
+          "profile": "tapered_source_capsule",
+          "half_length_px": 18,
+          "half_width_px": 14,
+          "minimum_pixels": 250
+        }
       },
       "right_ankle": {
         "anchor": "right_ankle",
@@ -1155,7 +1203,13 @@
         "blend_axis_joints": [
           "right_knee",
           "right_ankle"
-        ]
+        ],
+        "outline": {
+          "profile": "tapered_source_capsule",
+          "half_length_px": 18,
+          "half_width_px": 14,
+          "minimum_pixels": 250
+        }
       }
     }
   }
