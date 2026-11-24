@@ -1878,6 +1878,10 @@ def _extract_source_aligned_joint_surfaces(
             raise ManualReviewRequired(
                 f"Artist joint surface {preflight_name} has non-finite blend-axis anchors."
             )
+        if not all(0.0 <= value <= 1.0 for value in preflight_axis_values):
+            raise ManualReviewRequired(
+                f"Artist joint surface {preflight_name} has blend-axis anchors outside the normalized source canvas."
+            )
         preflight_proximal_length = float(np.hypot(
             preflight_center_x - preflight_axis_values[0] * width,
             preflight_center_y - preflight_axis_values[1] * height,
@@ -1985,7 +1989,7 @@ def _extract_source_aligned_joint_surfaces(
             & ~prop_union & ~claimed
         )
         area = int(eligible.sum())
-        minimum = int(item.get("minimum_pixels", 80))
+        minimum = max(80, int(item.get("minimum_pixels", 80)))
         minimum_side_overlap = max(
             4, int(item.get("minimum_parent_child_overlap_pixels", 4))
         )
