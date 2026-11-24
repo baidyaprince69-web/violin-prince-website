@@ -102,11 +102,6 @@ test("source texture meshes deform continuously and joint caps follow both paren
     src: "joint_surface_left_elbow.png",
     x: 16, y: 20, width: 48, height: 48,
     pivot_x: 0.5, pivot_y: 0.5, z_index: 33,
-    mesh_deformation: {
-      profile: "joint_surface",
-      columns: 2,
-      rows: 2
-    },
     joint_surface: {
       joint: "left_elbow",
       parent_role: "left_upper_arm",
@@ -133,18 +128,16 @@ test("source texture meshes deform continuously and joint caps follow both paren
     "torso triangle vertices must receive changing frame-sampled affine transforms");
   assert.ok(upperArmMesh.some(track => track.values.some(value => value !== track.values[0])),
     "limb surface must deform in addition to its parent rotation");
-  assert.equal(
-    find("playing-violin-prince-part-joint_surface_left_elbow"),
-    undefined,
-    "joint caps must not also receive a rigid outer transform"
-  );
+  const jointTransform = find("playing-violin-prince-part-joint_surface_left_elbow");
+  assert.ok(jointTransform,
+    "a source-art joint cap must receive its blended parent/child transform");
+  assert.ok(jointTransform.values.some(value => value !== jointTransform.values[0]),
+    "the blended joint transform must change as its parent and child segments move");
   const jointMesh = tracks.filter(track =>
     track.target.startsWith("playing-violin-prince-part-joint_surface_left_elbow-mesh-triangle-")
   );
-  assert.equal(jointMesh.length, 8,
-    "a joint cap must have its own 2x2 piecewise-affine blend mesh");
-  assert.ok(jointMesh.some(track => track.values.some(value => value !== track.values[0])),
-    "joint cap triangles must deform as the parent and child segments move");
+  assert.equal(jointMesh.length, 0,
+    "source-art joint caps must not receive a second mesh warp");
   assert.ok(!meshCharacter.layers.find(layer => layer.role === "left_hand").mesh_deformation);
   assert.ok(!meshCharacter.layers.find(layer => layer.role === "finger_index").mesh_deformation);
 });

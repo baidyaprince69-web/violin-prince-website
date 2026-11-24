@@ -522,6 +522,7 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
   let deformableBodyLayerCount = 0;
   let deformationMeshTriangleTrackCount = 0;
   let jointSurfaceMeshTriangleTrackCount = 0;
+  let jointSurfaceTransformTrackCount = 0;
   for (const character of fullBodyPerformanceCharacters) {
     const compositeBaseMode = Boolean(character.base_art && character.base_art.src);
     const requiredLegs = [
@@ -635,6 +636,12 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
         throw new Error("Scene " + scene.id + " mesh " + role + " expected " +
           expectedTriangles + " triangle tracks but got " + triangleTracks.length + ".");
       }
+      if (!triangleTracks.some(track =>
+        track.values.some(value => value !== track.values[0])
+      )) {
+        throw new Error("Scene " + scene.id + " mesh " + role +
+          " has triangle tracks but no frame-sampled deformation.");
+      }
       deformableBodyLayerCount += 1;
       deformationMeshTriangleTrackCount += triangleTracks.length;
     }
@@ -669,35 +676,36 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
           " is missing its articulated parent/child contract.");
       }
       const target = scene.id + "-" + character.id + "-part-" + layer.id;
-      if (project.motion_tracks.some(item =>
-        item.target === target && item.property === "transform"
-      )) {
+      const jointTransforms = project.motion_tracks.filter(item =>
+        item.target === target && item.property === "transform" &&
+        Array.isArray(item.values) && item.values.length > 1
+      );
+      if (jointTransforms.length !== 1 ||
+          !jointTransforms[0].values.some(value => value !== jointTransforms[0].values[0])) {
         throw new Error("Scene " + scene.id + " joint surface " + layer.role +
-          " must be deformed by its blend mesh only; a second rigid transform would double-apply motion.");
+          " must have exactly one changing blended parent/child transform track.");
       }
-      if (layer.mesh_deformation?.profile !== "joint_surface") {
+      if (layer.mesh_deformation) {
         throw new Error("Scene " + scene.id + " joint surface " + layer.role +
-          " is missing its two-sided blend mesh.");
+          " must retain its source pixels and must not receive a second mesh warp.");
       }
-      const expectedJointTriangles = Number(layer.mesh_deformation.columns) *
-        Number(layer.mesh_deformation.rows) * 2;
       const jointTrianglePrefix = target + "-mesh-triangle-";
       const jointTriangles = project.motion_tracks.filter(item =>
         String(item.target || "").startsWith(jointTrianglePrefix) &&
-        item.property === "transform" && Array.isArray(item.values) &&
-        item.values.length > 1
+        item.property === "transform"
       );
-      if (jointTriangles.length !== expectedJointTriangles) {
+      if (jointTriangles.length !== 0) {
         throw new Error("Scene " + scene.id + " joint surface " + layer.role +
-          " expected " + expectedJointTriangles + " blend triangles but got " +
-          jointTriangles.length + ".");
+          " unexpectedly has mesh triangles in addition to its blended transform.");
       }
-      jointSurfaceMeshTriangleTrackCount += jointTriangles.length;
-      deformationMeshTriangleTrackCount += jointTriangles.length;
+      jointSurfaceTransformTrackCount += 1;
     }
     sourceJointSurfaceLayerCount += jointSurfaceLayers.length;
-    if (deformableBodyLayerCount !== 9 || jointSurfaceMeshTriangleTrackCount !== 72 || deformationMeshTriangleTrackCount < 230) {
-      throw new Error("Scene " + scene.id + " did not produce the expected continuous source-mesh deformation tracks.");
+    if (deformableBodyLayerCount !== 9 ||
+        jointSurfaceTransformTrackCount !== 9 ||
+        jointSurfaceMeshTriangleTrackCount !== 0 ||
+        deformationMeshTriangleTrackCount !== 158) {
+      throw new Error("Scene " + scene.id + " did not produce nine continuously deforming body surfaces and nine blended source-art joint surfaces.");
     }
     if (compositeBaseMode) {
       const baseTarget = scene.id + "-" + character.id + "-base-art";
@@ -810,6 +818,7 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     deformable_body_layer_count: deformableBodyLayerCount,
     deformation_mesh_triangle_track_count: deformationMeshTriangleTrackCount,
     joint_surface_mesh_triangle_track_count: jointSurfaceMeshTriangleTrackCount,
+    joint_surface_transform_track_count: jointSurfaceTransformTrackCount,
     full_body_visual_mode: preservedCompositeBaseCount > 0
       ? (fullBodyPerformanceCharacters.some(character => character.performance_base_mode === "segmented_source_body")
         ? "segmented_source_body" : "intact_composite_base")
@@ -841,6 +850,7 @@ const motionReport = {
   deformable_body_layer_count: motionSceneReports.reduce((sum, scene) => sum + scene.deformable_body_layer_count, 0),
   deformation_mesh_triangle_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.deformation_mesh_triangle_track_count, 0),
   joint_surface_mesh_triangle_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.joint_surface_mesh_triangle_track_count, 0),
+  joint_surface_transform_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.joint_surface_transform_track_count, 0),
   independent_layer_motion_count: motionSceneReports.reduce((sum, scene) => sum + scene.independent_layer_motion_count, 0),
   rendered_layer_count: motionSceneReports.reduce((sum, scene) => sum + scene.rendered_layer_count, 0),
   animated_stagecraft_environment_node_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_stagecraft_environment_nodes, 0),
