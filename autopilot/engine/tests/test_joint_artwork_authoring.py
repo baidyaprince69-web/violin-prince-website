@@ -88,7 +88,7 @@ class JointArtworkAuthoringTests(unittest.TestCase):
             self.assertIn("artist_source_polygon", annotator)
             self.assertIn("candidate_source_polygon", annotator)
             self.assertIn("artist_approved", annotator)
-            self.assertIn("../bundle/preserved-full-body-source.png", annotator)
+            self.assertIn('source.src="../bundle/source.png"', annotator)
             self.assertNotIn("fetch(", annotator)
             contact_path = output / "joint-artwork-contact-sheet.jpg"
             self.assertTrue(contact_path.is_file())
