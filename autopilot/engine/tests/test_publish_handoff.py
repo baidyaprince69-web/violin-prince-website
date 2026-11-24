@@ -413,7 +413,7 @@ class AssetProvenanceTests(unittest.TestCase):
                 "cue_count": 3,
                 "rendered_motion_track_count": 3,
                 "cues": [
-                    {"time_seconds": float(index * 8), "event": f"Accent {index}", "reason": "The visual reveal lands on the measured beat.", "timing_source": "decoded_audio_beat_grid", "alignment_error_seconds": 0.0}
+                    {"time_seconds": float(index * 6 + 2), "event": f"Accent {index}", "reason": "The visual reveal lands on the measured beat.", "timing_source": "decoded_audio_beat_grid", "alignment_error_seconds": 0.0}
                     for index in range(1, 4)
                 ],
             },
