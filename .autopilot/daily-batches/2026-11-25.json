@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "production_date": "2026-11-25",
+  "plans": [
+    {
+      "production_date": "2026-11-25",
+      "slot_id": "music-secrets",
+      "slot_status": "blocked",
+      "blocked_reason": "Private-preview-only commissioning is not enforceable on main: the scheduled workflow invokes upload_public_short_uploadpost.py with YOUTUBE_PRIVACY_STATUS=public, and run_daily_plan.py forces public visibility for --batch runs. The daily readiness gate also requires the missing animation-production-approval.json."
+    },
+    {
+      "production_date": "2026-11-25",
+      "slot_id": "production-tech",
+      "slot_status": "blocked",
+      "blocked_reason": "Private-preview-only commissioning is not enforceable on main: the scheduled workflow invokes upload_public_short_uploadpost.py with YOUTUBE_PRIVACY_STATUS=public, and run_daily_plan.py forces public visibility for --batch runs. The daily readiness gate also requires the missing animation-production-approval.json."
+    },
+    {
+      "production_date": "2026-11-25",
+      "slot_id": "melody-stories",
+      "slot_status": "blocked",
+      "blocked_reason": "Private-preview-only commissioning is not enforceable on main: the scheduled workflow invokes upload_public_short_uploadpost.py with YOUTUBE_PRIVACY_STATUS=public, and run_daily_plan.py forces public visibility for --batch runs. The daily readiness gate also requires the missing animation-production-approval.json."
+    },
+    {
+      "production_date": "2026-11-25",
+      "slot_id": "real-performance",
+      "slot_status": "blocked",
+      "blocked_reason": "Private-preview-only commissioning is not enforceable on main: the scheduled workflow invokes upload_public_short_uploadpost.py with YOUTUBE_PRIVACY_STATUS=public, and run_daily_plan.py forces public visibility for --batch runs. The daily readiness gate also requires the missing animation-production-approval.json. No approved creator-recorded violin clip is accessible to the unattended runner."
+    }
+  ]
+}
