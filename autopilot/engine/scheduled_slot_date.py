@@ -22,7 +22,9 @@ CRON_TO_IST_SLOT = {
     "30 11 * * *": time(11, 30),
     "30 17 * * *": time(17, 30),
     "30 23 * * *": time(23, 30),
-}CRON_TO_SLOT_ID = {
+}
+
+CRON_TO_SLOT_ID = {
     "30 5 * * *": "music-secrets",
     "30 11 * * *": "production-tech",
     "30 17 * * *": "melody-stories",
