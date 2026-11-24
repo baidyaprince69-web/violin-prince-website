@@ -65,7 +65,7 @@ def _same_story_topic(left: str, right: str) -> bool:
     ).ratio()
     return (
         text_similarity >= 0.88
-        or (overlap_over_smaller >= 0.92 and overlap_over_larger >= 0.78)
+        or (overlap_over_smaller >= 0.80 and overlap_over_larger >= 0.78)
     )
 
 
