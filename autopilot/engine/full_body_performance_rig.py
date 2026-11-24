@@ -1819,7 +1819,7 @@ def _extract_source_aligned_joint_surfaces(
         "joint_surface_mode": "approved_artist_polygons_only_no_generated_caps",
         "edge_feathering": {
             "method": "inward_source_alpha_gaussian_ramp_with_parent_child_underlap",
-            "default_radius_px": 2.5,
+            "default_radius_px": 0.5,
             "source_rgb_modified": False,
             "outside_polygon_pixels_created": 0,
             "parent_child_underlap_retained_in_feather_band": True,
@@ -2043,7 +2043,7 @@ def _extract_source_aligned_joint_surfaces(
             }
             continue
 
-        edge_feather_px = float(item.get("edge_feather_px", 2.5))
+        edge_feather_px = float(item.get("edge_feather_px", 0.5))
         feather_alpha = _feather_source_mask_inside_polygon(
             eligible, edge_feather_px
         )

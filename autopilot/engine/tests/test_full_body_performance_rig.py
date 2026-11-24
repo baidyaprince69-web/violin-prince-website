@@ -277,6 +277,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                             "child_role": "left_calf",
                             "blend_axis_joints": ["proximal", "distal"],
                             "minimum_pixels": 40,
+                            "edge_feather_px": 0.5,
                             "artist_source_polygon": polygon,
                             "artwork_status": "artist_approved",
                         },
@@ -307,6 +308,14 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                 "profile": "joint_surface", "columns": 3, "rows": 3
             })
             self.assertEqual(report["joint_surface_mesh_layer_count"], 1)
+            self.assertEqual(layers[0]["joint_surface"]["edge_feather_px"], 0.5)
+            knee_report = report["regions"]["left_knee"]
+            self.assertEqual(knee_report["edge_feather_px"], 0.5)
+            self.assertGreaterEqual(
+                knee_report["opaque_core_source_pixels"] / knee_report["source_pixels"],
+                0.70,
+                "the moving joint patch must keep a substantial opaque source-pixel core",
+            )
             self.assertTrue(moving.any())
             self.assertEqual(report["regions"]["left_elbow"]["reason"], "protected_upper_body_joint_asset_out_of_scope")
             self.assertGreater(report["prop_pixels_excluded"], 0)

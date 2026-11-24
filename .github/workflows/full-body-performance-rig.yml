@@ -122,6 +122,7 @@ jobs:
               runtime["anchor_px"] = reviewed["anchor_px"]
               runtime["minimum_parent_child_overlap_pixels"] = 4
               runtime["blend_axis_half_length_px"] = reviewed["blend_axis_half_length_px"]
+              runtime["edge_feather_px"] = float(reviewed.get("edge_feather_px", 0.5))
               runtime["approval_provenance"] = reviewed["approval_provenance"]
               runtime["candidate_is_production_art"] = False
               runtime.pop("polygon", None)
@@ -264,7 +265,12 @@ jobs:
                   + item.get("child_alpha_pixels_removed", 0)
               ) > 0, (name, item)
               assert item.get("feathered_boundary_source_pixels", 0) > 0, (name, item)
-              assert item.get("opaque_core_source_pixels", 0) >= 24, (name, item)
+              assert item.get("edge_feather_px") == 0.5, (name, item)
+              assert (
+                  item.get("opaque_core_source_pixels", 0)
+                  / max(1, item.get("source_pixels", 0))
+              ) >= 0.70, (name, item)
+              # Keep a narrow soft boundary while most approved source pixels remain opaque.
           assert joint_art.get("edge_feathering", {}).get("method") == (
               "inward_source_alpha_gaussian_ramp_with_parent_child_underlap"
           ), joint_art

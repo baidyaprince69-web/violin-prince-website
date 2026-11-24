@@ -132,7 +132,8 @@
           "approval_basis": "The user explicitly approved all six joint regions.",
           "polygon_origin": "AI-assisted source-coordinate draft outline, accepted without coordinate edits."
         },
-        "draft_authoring_note": "AI-assisted source-coordinate outline explicitly approved by the user; original source pixels only, with no generated texture."
+        "draft_authoring_note": "AI-assisted source-coordinate outline explicitly approved by the user; original source pixels only, with no generated texture.",
+        "edge_feather_px": 0.5
       },
       "right_hip": {
         "anchor": "right_hip",
@@ -213,7 +214,8 @@
           "approval_basis": "The user explicitly approved all six joint regions.",
           "polygon_origin": "AI-assisted source-coordinate draft outline, accepted without coordinate edits."
         },
-        "draft_authoring_note": "AI-assisted source-coordinate outline explicitly approved by the user; original source pixels only, with no generated texture."
+        "draft_authoring_note": "AI-assisted source-coordinate outline explicitly approved by the user; original source pixels only, with no generated texture.",
+        "edge_feather_px": 0.5
       },
       "left_knee": {
         "anchor": "left_knee",
@@ -290,7 +292,8 @@
           "approval_basis": "The user explicitly approved all six joint regions.",
           "polygon_origin": "AI-assisted source-coordinate draft outline, accepted without coordinate edits."
         },
-        "draft_authoring_note": "AI-assisted source-coordinate outline explicitly approved by the user; original source pixels only, with no generated texture."
+        "draft_authoring_note": "AI-assisted source-coordinate outline explicitly approved by the user; original source pixels only, with no generated texture.",
+        "edge_feather_px": 0.5
       },
       "right_knee": {
         "anchor": "right_knee",
@@ -367,7 +370,8 @@
           "approval_basis": "The user explicitly approved all six joint regions.",
           "polygon_origin": "AI-assisted source-coordinate draft outline, accepted without coordinate edits."
         },
-        "draft_authoring_note": "AI-assisted source-coordinate outline explicitly approved by the user; original source pixels only, with no generated texture."
+        "draft_authoring_note": "AI-assisted source-coordinate outline explicitly approved by the user; original source pixels only, with no generated texture.",
+        "edge_feather_px": 0.5
       },
       "left_ankle": {
         "anchor": "left_ankle",
@@ -440,7 +444,8 @@
           "approval_basis": "The user explicitly approved all six joint regions.",
           "polygon_origin": "AI-assisted source-coordinate draft outline, accepted without coordinate edits."
         },
-        "draft_authoring_note": "AI-assisted source-coordinate outline explicitly approved by the user; original source pixels only, with no generated texture."
+        "draft_authoring_note": "AI-assisted source-coordinate outline explicitly approved by the user; original source pixels only, with no generated texture.",
+        "edge_feather_px": 0.5
       },
       "right_ankle": {
         "anchor": "right_ankle",
@@ -513,7 +518,8 @@
           "approval_basis": "The user explicitly approved all six joint regions.",
           "polygon_origin": "AI-assisted source-coordinate draft outline, accepted without coordinate edits."
         },
-        "draft_authoring_note": "AI-assisted source-coordinate outline explicitly approved by the user; original source pixels only, with no generated texture."
+        "draft_authoring_note": "AI-assisted source-coordinate outline explicitly approved by the user; original source pixels only, with no generated texture.",
+        "edge_feather_px": 0.5
       }
     }
   },
