@@ -2044,6 +2044,11 @@ def _extract_source_aligned_joint_surfaces(
             "pivot_x": min(1.0, max(0.0, (center_x - geometry["x"]) / geometry["width"])),
             "pivot_y": min(1.0, max(0.0, (center_y - geometry["y"]) / geometry["height"])),
             "z_index": int(item.get("z_index", 32)),
+            "mesh_deformation": {
+                "profile": "joint_surface",
+                "columns": 3,
+                "rows": 3,
+            },
             "joint_surface": {
                 "joint": anchor_name,
                 "parent_role": parent_role,
@@ -2076,6 +2081,9 @@ def _extract_source_aligned_joint_surfaces(
         report["parent_child_alpha_pixels_removed"] += parent_removed + child_removed
 
     report["joint_surface_layer_count"] = len(layers)
+    report["joint_surface_mesh_layer_count"] = sum(
+        1 for layer in layers if layer.get("mesh_deformation")
+    )
     report["joint_surface_articulated_layer_count"] = len(layers)
     report["moving_mask_pixels"] = int(claimed.sum())
     Image.fromarray(claimed.astype(np.uint8) * 255, mode="L").save(
@@ -2949,13 +2957,13 @@ def extend_full_body_character(
             "hands": "four_source_aligned_three_segment_finger_chains_with_joint_overlap_not_deformable_art",
             "body": "frame_sampled_piecewise_affine_source_texture_mesh_on_torso_and_eight_limb_surfaces",
             "joint_surfaces": (
-                "six explicitly user-approved absolute source-pixel polygons extracted; no generated joint pads; upper-body and hand assets are protected"
+                "six user-approved original-source pixel patches with parent/child blended mesh deformation; no generated pads; upper-body and hand assets are protected"
                 if len(joint_surface_layers) == 6
                 else "only explicitly approved absolute source-pixel polygons may be extracted; no generated joint pads; upper-body and hand assets are protected"
             ),
             "hands": "untouched_rigid_source_sprites_with_existing_finger_animation",
             "release_blockers": [
-                "artist-authored source-aligned joint-surface artwork; automatic capsule overlays are not accepted",
+                "visual seam, silhouette and occlusion review of six approved lower-body source-pixel surfaces after blended mesh deformation; generated joint pads are not accepted",
                 "anatomically aligned head neck and facial feature deformation",
                 "deformable bow-grip and finger-surface artwork; hand animation intentionally unchanged",
                 "pose-range and full-frame visual QA after mesh deformation",

@@ -303,6 +303,10 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             self.assertEqual(len(layers), 1)
             self.assertEqual(layers[0]["joint_surface"]["surface_outline_profile"], "artist_source_polygon")
             self.assertEqual(layers[0]["joint_surface"]["artist_artwork_status"], "artist_approved")
+            self.assertEqual(layers[0]["mesh_deformation"], {
+                "profile": "joint_surface", "columns": 3, "rows": 3
+            })
+            self.assertEqual(report["joint_surface_mesh_layer_count"], 1)
             self.assertTrue(moving.any())
             self.assertEqual(report["regions"]["left_elbow"]["reason"], "protected_upper_body_joint_asset_out_of_scope")
             self.assertGreater(report["prop_pixels_excluded"], 0)
