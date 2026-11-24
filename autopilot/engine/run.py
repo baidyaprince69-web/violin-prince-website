@@ -2927,7 +2927,7 @@ def recent_topics():
     seen: set[str] = set()
 
     def add(value: object) -> None:
-        text_value = re.sub(r"\\s+", " ", str(value or "")).strip()
+        text_value = re.sub(r"\s+", " ", str(value or "")).strip()
         key = re.sub(r"[^a-z0-9]+", " ", text_value.casefold()).strip()
         if text_value and key and key not in seen:
             seen.add(key)
