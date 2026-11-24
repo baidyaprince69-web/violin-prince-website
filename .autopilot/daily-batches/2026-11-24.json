@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "production_date": "2026-11-24",
+  "plans": [
+    {
+      "production_date": "2026-11-24",
+      "slot_id": "music-secrets",
+      "slot_status": "blocked",
+      "topic": "Cross-cultural music-evoked emotion: a fresh global citizen-science preprint reports strong similarities in listeners' emotional responses, while individual and song-specific differences exceeded country-level differences.",
+      "blocked_reason": "Only the 18 November arXiv preprint was directly verified; it is not a second independent publisher article. The candidate news page could not be opened. The scheduled workflow also routes ready slots to public YouTube rather than private previews."
+    },
+    {
+      "production_date": "2026-11-24",
+      "slot_id": "production-tech",
+      "slot_status": "blocked",
+      "topic": "Shrub, a free Serum-derived wavetable synthesizer for the M-VAVE FM-1, including a browser editor and a four-note polyphony constraint.",
+      "blocked_reason": "Two fresh direct publisher pages were verified, but main's scheduled route invokes the public Upload-Post uploader with YOUTUBE_PRIVACY_STATUS=public; the committed creator approval explicitly authorizes public uploads without private previews."
+    },
+    {
+      "production_date": "2026-11-24",
+      "slot_id": "melody-stories",
+      "slot_status": "blocked",
+      "topic": "Aditya Rikhari and Shreya Ghoshal's Nazr-E-Karam, a new collaboration from Between Distances; Billboard India describes the arrangement's flute, keyboard, electronic-percussion and sargam elements.",
+      "blocked_reason": "Two fresh direct publisher pages were verified for the release and collaboration, but the scheduled route would publish publicly rather than create the required private preview."
+    },
+    {
+      "production_date": "2026-11-24",
+      "slot_id": "real-performance",
+      "slot_status": "blocked",
+      "topic": "Genuine creator-recorded violin performance; a disclosed sample-based bow-technique explainer is only a fallback candidate.",
+      "blocked_reason": "No approved creator-recorded violin clip is accessible to the unattended runner, and no fresh independent two-publisher source pair was verified for a sample-based technique explainer. The scheduled route also publishes publicly rather than privately."
+    }
+  ]
+}
