@@ -389,7 +389,7 @@ jobs:
           patch_files = {path.stem for path in bundle.glob("joint_surface_*.png")}
           assert patch_files == expected_surface_roles, patch_files
           assert joint_art.get("joint_surface_layer_count") == len(created_regions), joint_art
-          assert joint_art.get("joint_surface_mesh_layer_count") == 0, joint_art
+          assert joint_art.get("joint_surface_mesh_layer_count") == len(created_regions), joint_art
           assert joint_art.get("joint_surface_articulated_layer_count") == len(created_regions), joint_art
           transferred_pixels = sum(
               joint_regions[name].get("source_pixels", 0) for name in created_regions
@@ -655,13 +655,13 @@ jobs:
           assert report.get("source_joint_surface_layer_count") == len(joint_layers), report
           assert report.get("deformable_body_layer_count") == 9, report
           assert report.get("deformation_mesh_triangle_track_count") == 158, report
-          assert report.get("joint_surface_mesh_triangle_track_count") == 0, report
-          assert report.get("joint_surface_transform_track_count") == len(joint_layers), report
+          assert report.get("joint_surface_mesh_triangle_track_count") == 108, report
+          assert report.get("joint_surface_transform_track_count") == 0, report
           assert scene.get("source_joint_surface_layer_count") == len(joint_layers), scene
           assert scene.get("deformable_body_layer_count") == 9, scene
           assert scene.get("deformation_mesh_triangle_track_count") == 158, scene
-          assert scene.get("joint_surface_mesh_triangle_track_count") == 0, scene
-          assert scene.get("joint_surface_transform_track_count") == len(joint_layers), scene
+          assert scene.get("joint_surface_mesh_triangle_track_count") == 108, scene
+          assert scene.get("joint_surface_transform_track_count") == 0, scene
           assert scene.get("full_body_visual_mode") == "segmented_source_body", scene
           print(json.dumps({
               "full_body_scenes": report["full_body_performance_scene_count"],
