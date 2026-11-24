@@ -1,6 +1,7 @@
 import unittest
 import numpy as np
 from PIL import Image
+from character_autorig import ManualReviewRequired
 
 from create_full_body_performance_preview import (
     _build_preview_music_sync,
@@ -22,12 +23,75 @@ from full_body_performance_rig import (
     _canvas_alpha_mask_for_layers,
     _restore_torso_hidden_overlap_from_reference,
     _extract_source_aligned_joint_surfaces,
+    _validate_artist_joint_polygon,
     _configure_continuous_body_meshes,
     _partition_torso_and_joint_surfaces_from_base,
 )
 
 
 class FullBodyPerformanceRigTests(unittest.TestCase):
+    def test_artist_joint_polygon_validator_normalizes_closed_source_pixel_path(self):
+        normalized = _validate_artist_joint_polygon(
+            "left_knee",
+            [[20.2, 20.1], [80, 20], [80, 80], [20, 80], [20.2, 20.1]],
+            canvas_width=100,
+            canvas_height=100,
+            anchor_x=50,
+            anchor_y=50,
+        )
+        self.assertEqual(normalized, [[20.0, 20.0], [80.0, 20.0], [80.0, 80.0], [20.0, 80.0]])
+
+    def test_artist_joint_polygon_validator_rejects_self_intersection(self):
+        with self.assertRaisesRegex(ManualReviewRequired, "self-intersects"):
+            _validate_artist_joint_polygon(
+                "left_knee",
+                [[20, 20], [80, 80], [20, 80], [80, 20]],
+                canvas_width=100,
+                canvas_height=100,
+                anchor_x=50,
+                anchor_y=50,
+            )
+
+    def test_artist_joint_polygon_validator_rejects_degenerate_area(self):
+        with self.assertRaisesRegex(ManualReviewRequired, "degenerate"):
+            _validate_artist_joint_polygon(
+                "left_ankle",
+                [[20, 20], [30, 30], [40, 40]],
+                canvas_width=100,
+                canvas_height=100,
+                anchor_x=30,
+                anchor_y=30,
+            )
+
+    def test_artist_joint_polygon_validator_requires_joint_pivot_inside_surface(self):
+        with self.assertRaisesRegex(ManualReviewRequired, "does not contain its mapped joint pivot"):
+            _validate_artist_joint_polygon(
+                "right_hip",
+                [[10, 10], [30, 10], [30, 30], [10, 30]],
+                canvas_width=100,
+                canvas_height=100,
+                anchor_x=50,
+                anchor_y=50,
+            )
+
+    def test_artist_joint_polygon_validator_rejects_out_of_bounds_and_duplicate_vertices(self):
+        common = {
+            "canvas_width": 100,
+            "canvas_height": 100,
+            "anchor_x": 50,
+            "anchor_y": 50,
+        }
+        with self.assertRaisesRegex(ManualReviewRequired, "outside the source canvas"):
+            _validate_artist_joint_polygon(
+                "right_knee", [[-1, 20], [80, 20], [80, 80]], **common
+            )
+        with self.assertRaisesRegex(ManualReviewRequired, "repeats a non-closing vertex"):
+            _validate_artist_joint_polygon(
+                "right_knee",
+                [[20, 20], [80, 20], [80, 80], [20, 80], [80, 20]],
+                **common,
+            )
+
     def test_restores_only_hidden_torso_pixels_from_aligned_reference(self):
         import json
         import tempfile
@@ -262,6 +326,13 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                 Image.open(root / "joint_surface_left_knee.png").convert("RGBA").getchannel("A")
             )
             self.assertEqual(int(np.count_nonzero(patch_alpha)), int(moving.sum()))
+            patch_pixels = np.asarray(
+                Image.open(root / "joint_surface_left_knee.png").convert("RGBA")
+            )
+            patch_visible = patch_pixels[:, :, 3] > 12
+            self.assertTrue(np.all(patch_pixels[patch_visible, :3] == np.array([86, 54, 38])))
+            self.assertFalse(moving[45:48, 45:48].any(),
+                "original violin/prop pixels must never be transferred into a joint patch")
 
     def test_continuous_body_mesh_profiles_exclude_hands_fingers_and_feet(self):
         roles = [
