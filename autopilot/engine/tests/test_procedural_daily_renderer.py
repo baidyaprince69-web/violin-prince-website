@@ -257,7 +257,7 @@ class ProceduralDailyRendererTests(unittest.TestCase):
                     "final_video_qa": {"status": "passed"},
                 }
             engine = SimpleNamespace(W=720,H=1280,FPS=25,PACKAGE=package,OUT=output,WORK=work)
-            with self.assertRaisesRegex(ProceduralDailyRenderError, "zero generated still-image layers"):
+            with self.assertRaisesRegex(ProceduralDailyRenderError, "must not contain generated still-image layers"):
                 render_procedural_daily_video(
                     engine,
                     {"production_date":"2026-11-24","slot_id":"production-tech","title":"Title","topic":"Topic","narration_script":"Script"},
