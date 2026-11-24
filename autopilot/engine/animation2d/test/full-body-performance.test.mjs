@@ -80,7 +80,7 @@ const project = {
   characters: [character]
 };
 
-test("source texture meshes deform continuously and joint caps follow both parent and child chains", () => {
+test("source texture meshes deform continuously and a lower-body knee surface follows thigh and calf chains", () => {
   const meshProject = structuredClone(project);
   const meshCharacter = meshProject.characters[0];
   const byRole = new Map(meshCharacter.layers.map(layer => [layer.role, layer]));
@@ -97,15 +97,15 @@ test("source texture meshes deform continuously and joint caps follow both paren
     max_angle_deg: 5, max_displacement_px: 2.8
   };
   meshCharacter.layers.push({
-    id: "joint_surface_left_elbow",
-    role: "joint_surface_left_elbow",
-    src: "joint_surface_left_elbow.png",
-    x: 16, y: 20, width: 48, height: 48,
-    pivot_x: 0.5, pivot_y: 0.5, z_index: 33,
+    id: "joint_surface_left_knee",
+    role: "joint_surface_left_knee",
+    src: "joint_surface_left_knee.png",
+    x: 92, y: 540, width: 48, height: 48,
+    pivot_x: 0.5, pivot_y: 0.5, z_index: 12,
     joint_surface: {
-      joint: "left_elbow",
-      parent_role: "left_upper_arm",
-      child_role: "left_forearm",
+      joint: "left_knee",
+      parent_role: "left_thigh",
+      child_role: "left_calf",
       blend_weight: 0.5,
       blend_axis_start: [0.30, 0.35],
       blend_axis_end: [0.60, 0.65]
@@ -128,16 +128,22 @@ test("source texture meshes deform continuously and joint caps follow both paren
     "torso triangle vertices must receive changing frame-sampled affine transforms");
   assert.ok(upperArmMesh.some(track => track.values.some(value => value !== track.values[0])),
     "limb surface must deform in addition to its parent rotation");
-  const jointTransform = find("playing-violin-prince-part-joint_surface_left_elbow");
+  const thighTransform = find("playing-violin-prince-part-left_thigh");
+  const calfTransform = find("playing-violin-prince-part-left_calf");
+  assert.ok(thighTransform?.values.some(value => value !== thighTransform.values[0]),
+    "the proximal thigh must move during the violin-performance cycle");
+  assert.ok(calfTransform?.values.some(value => value !== calfTransform.values[0]),
+    "the distal calf must move during the violin-performance cycle");
+  const jointTransform = find("playing-violin-prince-part-joint_surface_left_knee");
   assert.ok(jointTransform,
-    "a source-art joint cap must receive its blended parent/child transform");
+    "the approved lower-body source surface must receive its blended thigh/calf transform");
   assert.ok(jointTransform.values.some(value => value !== jointTransform.values[0]),
-    "the blended joint transform must change as its parent and child segments move");
+    "the knee surface transform must follow changing thigh and calf poses");
   const jointMesh = tracks.filter(track =>
-    track.target.startsWith("playing-violin-prince-part-joint_surface_left_elbow-mesh-triangle-")
+    track.target.startsWith("playing-violin-prince-part-joint_surface_left_knee-mesh-triangle-")
   );
   assert.equal(jointMesh.length, 0,
-    "source-art joint caps must not receive a second mesh warp");
+    "source-art lower-body joint surfaces must not receive a second mesh warp");
   assert.ok(!meshCharacter.layers.find(layer => layer.role === "left_hand").mesh_deformation);
   assert.ok(!meshCharacter.layers.find(layer => layer.role === "finger_index").mesh_deformation);
 });
