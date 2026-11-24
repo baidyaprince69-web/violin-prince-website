@@ -47,7 +47,7 @@ The complete creative/production architecture is broader than the currently auto
 ChatGPT daily operator / explicit production request
                     |
                     v
-       .autopilot production plan + request
+       Scheduled slot identity + durable research claim
                     |
                     v
           GitHub Actions cloud runner
@@ -59,16 +59,19 @@ ChatGPT daily operator / explicit production request
        Script, narration and scene direction
                     |
                     v
-     Soundtrack + scene illustration generation
+      Copilot Master Director storyboard
                     |
                     v
-       Character asset staging and validation
+     Procedural 2D scene/stagecraft direction
+                    |
+                    v
+       Existing presenter rig + prop validation
           |                         |
-          |                 Optional separate path
-          |                 master artwork -> auto-rig
-          |                 -> rig proof -> visual review
+          |                 Full-body instrument rig
+          |                 is a separate draft/review path
+          |                 and remains release-blocked
           v
-       Motion + HyperFrames 2D animation
+       Motion + HyperFrames procedural animation
                     |
                     v
        FFmpeg finishing, captions and encoding
@@ -77,16 +80,16 @@ ChatGPT daily operator / explicit production request
          Media QA + provenance + manifest
                     |
                     v
-        Verified PRIVATE YouTube preview
+       Public Upload-Post publisher (public)
                     |
                     v
-       Creator reviews at night / weekly
+       YouTube visibility + title verification
                     |
                     v
-    Separate explicit public-publishing approval
+        Durable public upload receipt
                     |
                     v
-      Future public schedule (disabled in commissioning)
+       YouTube analytics and performance review
                     |
                     v
       YouTube analytics and performance review
@@ -96,22 +99,18 @@ ChatGPT daily operator / explicit production request
 
 ## 4. Production triggers and orchestration
 
-### 4.1 Daily trigger — implemented
+### 4.1 Daily trigger — implemented on main
 
-- ChatGPT is the daily scheduler and production operator.
-- ChatGPT prepares the source-checked JSON production plan.
-- The plan is saved on `main` and `.autopilot/prepare-request.json` is updated.
-- A push affecting that request file triggers `.github/workflows/violin-prince-autopilot.yml`.
-- Do not introduce an additional scheduler; ChatGPT is the operator and its request-file push is the only automatic trigger.
+- GitHub Actions is the only scheduler. It runs at 05:30, 11:30, 17:30 and 23:30 Asia/Kolkata, with a non-cancelling concurrency group.
+- Each cron maps to one fixed category: Music Secrets, Production Tech, Melody Stories or Real Performance.
+- `scheduled_story_builder.py` commits a durable research identity before network discovery, fetches fresh leads, verifies direct publisher articles and dates, checks persistent topic/source history, and uses the isolated Copilot text planner to commission only that slot's story. It then commits the updated four-slot batch and research ledger before exact-slot selection.
+- The producer job checks out the newly committed batch, validates the slot identity, and invokes the scheduled production runner. The runner obtains a shot-led Master Creative Director plan from the isolated Copilot provider and renders procedural 2D scenes with Motion + HyperFrames; it does not accept a static-image slideshow as a substitute.
+- After Qwen3 voice, source/provenance, animation, measured audio-sync, MP4, channel-identity and duplicate checks pass, the scheduled route calls the Upload-Post public YouTube publisher. It verifies the resulting YouTube details and commits the slot attempt/receipt. Uncertain uploads are terminal until reconciled.
+- `workflow_dispatch` and the `.autopilot/prepare-request.json` push remain separate recovery/manual routes; they are not a second daily scheduler. Direct public uploads are performed by the approved scheduled slot route only.
 
-### 4.2 Manual/recovery trigger — implemented
+### 4.2 Manual/recovery trigger — limited
 
-The same GitHub Actions workflow exposes `workflow_dispatch` with four stage choices:
-
-- `full`: legacy Prepare → Visuals → Render sequence.
-- `prepare`: research, story, narration and soundtrack preparation.
-- `visuals`: generate scene art and storyboard using an earlier prepared package.
-- `render`: render an earlier saved package without repeating AI generation.
+The workflow still contains a request-file push path for manually prepared recovery packages. Scheduled production uses the four cron routes above. The public publishing step is not exposed as an unrestricted manual upload button; it is reached only after the exact scheduled slot and all production gates pass. Partial legacy Prepare/Visuals/Render staging is not the live scheduled route.
 
 Visuals and Render recovery require the earlier GitHub Actions run ID. Preserve successful run IDs while their artifacts are needed. Artifacts are retained for 14 days.
 
