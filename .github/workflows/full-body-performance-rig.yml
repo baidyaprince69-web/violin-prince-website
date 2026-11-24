@@ -222,36 +222,52 @@ jobs:
           )
           PY
 
-      - name: Validate the blank joint export against preserved source pixels
-        env:
-          PYTHONPATH: autopilot/engine
+      - name: Verify six approved lower-body joint patches
         run: |
-          python autopilot/engine/joint_artwork_authoring.py \
-            --source work/full-body-rig/bundle/preserved-full-body-source.png \
-            --bundle work/full-body-rig/bundle \
-            --validate-reviewed-export work/full-body-rig/joint-artwork-review/joint-artwork-template.json \
-            > work/full-body-rig/joint-artwork-review/export-validation.json
           python - <<'PY'
-          import hashlib
           import json
           from pathlib import Path
+
           bundle = Path("work/full-body-rig/bundle")
-          report_path = Path("work/full-body-rig/joint-artwork-review/export-validation.json")
-          report = json.loads(report_path.read_text())
-          assert report.get("status") == "no_artist_approved_joint_polygons", report
-          assert report.get("approved_polygon_count") == 0, report
-          assert report.get("draft_polygon_count") == 0, report
-          assert report.get("bundle_modified") is False, report
-          assert set(report.get("regions", {})) == {
+          report = json.loads((bundle / "full-body-performance-report.json").read_text())
+          character = json.loads((bundle / "character.json").read_text())
+          expected = {
               "left_hip", "right_hip", "left_knee",
               "right_knee", "left_ankle", "right_ankle",
-          }, report
-          assert all(
-              region.get("status") == "draft_not_activated"
-              for region in report["regions"].values()
-          ), report
-          assert not list(bundle.glob("joint_surface_*.png")), report
-          print("Original source hash and six blank review regions validated; no production artwork activated.")
+          }
+          approval = report.get("joint_artwork_approval", {})
+          joint_art = report.get("source_aligned_joint_surface_art", {})
+          regions = joint_art.get("regions", {})
+          created = {
+              name for name, item in regions.items()
+              if item.get("status") == "artist_source_polygon_patch_created"
+          }
+          assert approval.get("status") == "six_user_approved_source_polygons_activated", report
+          assert approval.get("approved_joint_count") == 6, report
+          assert approval.get("source_sha256_verified") is True, report
+          assert created == expected, joint_art
+          assert joint_art.get("joint_surface_layer_count") == 6, joint_art
+          assert joint_art.get("joint_surface_articulated_layer_count") == 6, joint_art
+          assert joint_art.get("source_pixels_transferred") == 5114, joint_art
+          assert joint_art.get("hand_assets_modified") == 0, joint_art
+          assert joint_art.get("hand_animation_data_modified") is False, joint_art
+          assert joint_art.get("protected_upper_body_assets_modified") == 0, joint_art
+          for name in sorted(expected):
+              item = regions[name]
+              assert item.get("source_pixels", 0) >= 80, (name, item)
+              assert item.get("parent_overlap_pixels", 0) >= 4, (name, item)
+              assert item.get("child_overlap_pixels", 0) >= 4, (name, item)
+              assert item.get("parent_alpha_pixels_removed", 0) > 0, (name, item)
+              assert item.get("child_alpha_pixels_removed", 0) > 0, (name, item)
+          surface_roles = {
+              layer["role"] for layer in character.get("layers", [])
+              if layer.get("joint_surface")
+          }
+          expected_roles = {"joint_surface_" + name for name in expected}
+          assert surface_roles == expected_roles, surface_roles
+          patch_files = {path.stem for path in bundle.glob("joint_surface_*.png")}
+          assert patch_files == expected_roles, patch_files
+          print("Verified six approved lower-body joint patches: 5,114 original pixels transferred; protected hands, fingers, arms and props unchanged.")
           PY
 
       - name: Verify mapped character reference catalogue
