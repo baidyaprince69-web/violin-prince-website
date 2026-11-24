@@ -258,8 +258,20 @@ jobs:
               assert item.get("source_pixels", 0) >= 80, (name, item)
               assert item.get("parent_overlap_pixels", 0) >= 4, (name, item)
               assert item.get("child_overlap_pixels", 0) >= 4, (name, item)
-              assert item.get("parent_alpha_pixels_removed", 0) > 0, (name, item)
-              assert item.get("child_alpha_pixels_removed", 0) > 0, (name, item)
+              # The feather band intentionally retains parent/child underlap.
+              assert (
+                  item.get("parent_alpha_pixels_removed", 0)
+                  + item.get("child_alpha_pixels_removed", 0)
+              ) > 0, (name, item)
+              assert item.get("feathered_boundary_source_pixels", 0) > 0, (name, item)
+              assert item.get("opaque_core_source_pixels", 0) >= 24, (name, item)
+          assert joint_art.get("edge_feathering", {}).get("method") == (
+              "inward_source_alpha_gaussian_ramp_with_parent_child_underlap"
+          ), joint_art
+          assert joint_art.get("edge_feathering", {}).get("source_rgb_modified") is False, joint_art
+          assert joint_art.get("edge_feathering", {}).get(
+              "parent_child_underlap_retained_in_feather_band"
+          ) is True, joint_art
           surface_roles = {
               layer["role"] for layer in character.get("layers", [])
               if layer.get("joint_surface")
