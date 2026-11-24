@@ -1436,6 +1436,135 @@ def _canvas_alpha_mask_for_layers(
     return result
 
 
+def _build_source_motion_backplate(
+    source: Image.Image,
+    bundle_dir: Path,
+    joints: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Create a source-faithful underlay behind independently moving body sprites.
+
+    The underlay is restricted to narrow corridors along the original arms and
+    legs plus their anatomical connections. Moving sprites stay above it. This
+    restores real source pixels at seams instead of filling visible gaps with
+    non-semantic inpainting.
+    """
+    try:
+        import cv2
+    except ImportError as exc:
+        raise AutoRigError("OpenCV is required to create the source-faithful motion backplate.") from exc
+
+    pixels = np.asarray(source.convert("RGBA"), dtype=np.uint8).copy()
+    height, width = pixels.shape[:2]
+    yy, xx = np.ogrid[:height, :width]
+    coverage = np.zeros((height, width), dtype=bool)
+
+    def point(name: str) -> tuple[float, float]:
+        value = (joints or {}).get(name)
+        if not isinstance(value, dict):
+            raise ManualReviewRequired(
+                f"Source-faithful motion backplate requires the {name} joint anchor."
+            )
+        try:
+            x, y = float(value["x"]) * width, float(value["y"]) * height
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ManualReviewRequired(
+                f"The {name} joint anchor is incomplete."
+            ) from exc
+        if not np.isfinite(x) or not np.isfinite(y) or not (0 <= x < width and 0 <= y < height):
+            raise ManualReviewRequired(f"The {name} joint anchor is outside the source canvas.")
+        return x, y
+
+    anchors = {
+        name: point(name) for name in (
+            "neck",
+            "left_shoulder", "left_elbow", "left_wrist",
+            "right_shoulder", "right_elbow", "right_wrist",
+            "left_hip", "left_knee", "left_ankle",
+            "right_hip", "right_knee", "right_ankle",
+        )
+    }
+
+    segments = [
+        ("neck", "left_shoulder", 18.0),
+        ("left_shoulder", "left_elbow", 17.0),
+        ("left_elbow", "left_wrist", 15.0),
+        ("neck", "right_shoulder", 18.0),
+        ("right_shoulder", "right_elbow", 17.0),
+        ("right_elbow", "right_wrist", 15.0),
+        ("left_hip", "left_knee", 22.0),
+        ("left_knee", "left_ankle", 18.0),
+        ("right_hip", "right_knee", 22.0),
+        ("right_knee", "right_ankle", 18.0),
+        ("left_hip", "right_hip", 23.0),
+    ]
+    for start_name, end_name, radius in segments:
+        ax, ay = anchors[start_name]
+        bx, by = anchors[end_name]
+        vx, vy = bx - ax, by - ay
+        denominator = max(1e-6, vx * vx + vy * vy)
+        projection = np.clip(((xx - ax) * vx + (yy - ay) * vy) / denominator, 0.0, 1.0)
+        distance_squared = (xx - (ax + projection * vx)) ** 2 + (yy - (ay + projection * vy)) ** 2
+        coverage |= distance_squared <= radius * radius
+
+    joint_radii = {
+        "left_shoulder": (22.0, 21.0), "right_shoulder": (22.0, 21.0),
+        "left_elbow": (21.0, 20.0), "right_elbow": (21.0, 20.0),
+        "left_wrist": (18.0, 18.0), "right_wrist": (18.0, 18.0),
+        "left_hip": (29.0, 27.0), "right_hip": (29.0, 27.0),
+        "left_knee": (24.0, 22.0), "right_knee": (24.0, 22.0),
+        "left_ankle": (20.0, 19.0), "right_ankle": (20.0, 19.0),
+    }
+    for name, (radius_x, radius_y) in joint_radii.items():
+        cx, cy = anchors[name]
+        coverage |= ((xx - cx) / radius_x) ** 2 + ((yy - cy) / radius_y) ** 2 <= 1.0
+
+    # A wider, source-faithful pelvis bridge closes the jacket/trouser seam.
+    left_hip, right_hip = anchors["left_hip"], anchors["right_hip"]
+    pelvis_x = (left_hip[0] + right_hip[0]) * 0.5
+    pelvis_y = (left_hip[1] + right_hip[1]) * 0.5 + 5.0
+    coverage |= ((xx - pelvis_x) / 43.0) ** 2 + ((yy - pelvis_y) / 29.0) ** 2 <= 1.0
+
+    soft_coverage = cv2.GaussianBlur(
+        coverage.astype(np.uint8) * 255, (0, 0), sigmaX=1.25
+    )
+    original_alpha = pixels[:, :, 3].copy()
+    pixels[:, :, 3] = np.rint(
+        original_alpha.astype(np.float32) * (soft_coverage.astype(np.float32) / 255.0)
+    ).astype(np.uint8)
+    pixels[pixels[:, :, 3] == 0, :3] = 0
+
+    destination = bundle_dir / "source-motion-backplate.png"
+    Image.fromarray(pixels, mode="RGBA").save(destination, format="PNG", optimize=True)
+    visible_pixels = int(np.count_nonzero(pixels[:, :, 3] > 0))
+    layer = {
+        "id": "source_motion_backplate",
+        "role": "source_motion_backplate",
+        "src": destination.name,
+        "x": 0,
+        "y": 0,
+        "width": width,
+        "height": height,
+        "pivot_x": 0.5,
+        "pivot_y": 0.5,
+        "z_index": 2,
+        "source_art_underlay": True,
+    }
+    report = {
+        "status": "created",
+        "method": "source_faithful_arm_leg_corridors_and_joint_overlaps",
+        "asset": destination.name,
+        "bone_corridor_count": len(segments),
+        "joint_coverage_count": len(joint_radii),
+        "source_pixels_preserved": visible_pixels,
+        "source_alpha_respected": True,
+        "source_rgb_preserved": True,
+        "layer_role": layer["role"],
+        "z_index": layer["z_index"],
+        "render_policy": "static_underlay_behind_source_aligned_moving_sprites",
+    }
+    return layer, report
+
+
 def _build_segmented_source_base(
     source: Image.Image,
     bundle_dir: Path,
@@ -2872,6 +3001,10 @@ def extend_full_body_character(
     character["layers"].extend(joint_surface_layers)
     moving_mask |= joint_surface_mask
     continuous_body_deformation = _configure_continuous_body_meshes(character)
+    source_motion_backplate_layer, source_motion_backplate_report = _build_source_motion_backplate(
+        source, bundle, character.get("joints") or {}
+    )
+    character["layers"].append(source_motion_backplate_layer)
 
     moving_mask_path = bundle / "full-body-moving-mask.png"
     Image.fromarray(moving_mask.astype(np.uint8) * 255, mode="L").save(
@@ -2990,6 +3123,7 @@ def extend_full_body_character(
             "actual_source_sha256": actual_source_hash,
         },
         "continuous_body_deformation": continuous_body_deformation,
+        "source_motion_backplate": source_motion_backplate_report,
         "torso_surface_partition": torso_surface_partition,
         "source_edge_color_decontamination": edge_decontamination,
         "bow_hair_restoration": bow_hair_restoration,

@@ -239,6 +239,34 @@ jobs:
           bundle = Path("work/full-body-rig/bundle")
           report = json.loads((bundle / "full-body-performance-report.json").read_text())
           character = json.loads((bundle / "character.json").read_text())
+          import numpy as np
+          from PIL import Image
+          backplate_layers = [
+              layer for layer in character.get("layers", [])
+              if layer.get("role") == "source_motion_backplate"
+          ]
+          assert len(backplate_layers) == 1, backplate_layers
+          backplate_report = report.get("source_motion_backplate", {})
+          assert backplate_report.get("status") == "created", backplate_report
+          assert backplate_report.get("method") == (
+              "source_faithful_arm_leg_corridors_and_joint_overlaps"
+          ), backplate_report
+          assert backplate_report.get("source_alpha_respected") is True, backplate_report
+          assert backplate_report.get("source_rgb_preserved") is True, backplate_report
+          assert backplate_layers[0].get("z_index") == 2, backplate_layers[0]
+          with Image.open(bundle / backplate_layers[0]["src"]) as opened:
+              backplate_pixels = np.asarray(opened.convert("RGBA"), dtype=np.uint8)
+          with Image.open(bundle / "preserved-full-body-source.png") as opened:
+              source_pixels = np.asarray(opened.convert("RGBA"), dtype=np.uint8)
+          assert backplate_pixels.shape == source_pixels.shape, backplate_pixels.shape
+          underlay_visible = backplate_pixels[:, :, 3] > 0
+          assert int(underlay_visible.sum()) == backplate_report.get("source_pixels_preserved"), backplate_report
+          assert int(underlay_visible.sum()) > 3000, backplate_report
+          assert np.all(backplate_pixels[:, :, 3] <= source_pixels[:, :, 3]), backplate_report
+          assert np.array_equal(
+              backplate_pixels[underlay_visible, :3],
+              source_pixels[underlay_visible, :3],
+          ), "The joint/limb backplate must use unchanged pixels from the preserved source artwork."
           expected = {
               "left_hip", "right_hip", "left_knee",
               "right_knee", "left_ankle", "right_ankle",

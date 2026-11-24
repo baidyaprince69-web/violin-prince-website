@@ -545,3 +545,10 @@ create_cinematic_composition_preview.py prepares a safe CI fixture using the cur
 The synthetic narration is only an integration fixture. It proves that a voice track can be positioned and mixed with music/SFX; it is not a test of the creator's actual voice timbre, transcript alignment or final voice approval. Use an approved private voice source only in a private/local rendering path.
 
 **Acceptance for this stage:** the combined 8-second MP4 must contain at least the full-body character layer and a separate animated graphic layer, separate voice/music/SFX tracks, music ducking, and valid H.264/AAC streams. The combined render is sampled by the existing dense pose-range QA. This stage demonstrates video composition; it does not grant visual-quality approval to the underlying character artwork or enable publishing.
+
+
+### Source-faithful body-connection backplate
+
+The segmented performance rig adds a low-z-index source-motion backplate behind its moving arm and leg sprites. It is built from the preserved character source, limited to the neck/shoulder/arm, hip/pelvis/leg corridors and joint overlaps, and feathered only in alpha. It does not invent replacement clothing pixels or replace the articulated layers. CI verifies that every visible backplate RGB pixel is byte-for-byte identical to the preserved source and that its alpha never exceeds source alpha. The backplate is rendered below the independently animated sprites so it can restore source artwork at disconnected seams.
+
+A passing FFmpeg/HyperFrames render is an engineering result, not visual approval. The rig report's `premium_character_quality_gate.status` remains a separate release gate; a blocked character-art reconstruction status must not be described as production-ready. Cinematic approval also requires a multi-shot sequence with visible camera/scene changes and deliberate stagecraft, not merely adding titles or graphic overlays to one uninterrupted character clip.

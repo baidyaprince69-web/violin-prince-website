@@ -26,6 +26,7 @@ from full_body_performance_rig import (
     _validate_artist_joint_polygon,
     _configure_continuous_body_meshes,
     _partition_torso_and_joint_surfaces_from_base,
+    _build_source_motion_backplate,
 )
 
 
@@ -1216,6 +1217,56 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             self.assertEqual(len(timing["note_events"]), 6)
             self.assertEqual(timing["note_events"][0]["note"], 62)
             self.assertEqual(timing["note_events"][-1]["time"], 7.5)
+
+    def test_source_motion_backplate_uses_original_pixels_along_body_connections(self):
+        import tempfile
+        from pathlib import Path
+        from PIL import ImageDraw
+
+        source = Image.new("RGBA", (120, 180), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(source)
+        for start, end in [
+            ((60, 34), (34, 66)), ((34, 66), (25, 88)),
+            ((60, 34), (86, 66)), ((86, 66), (96, 88)),
+            ((47, 100), (43, 137)), ((43, 137), (39, 164)),
+            ((73, 100), (77, 137)), ((77, 137), (82, 164)),
+            ((47, 100), (73, 100)),
+        ]:
+            draw.line((start, end), fill=(24, 30, 38, 255), width=22)
+        draw.ellipse((108, 4, 112, 8), fill=(200, 20, 20, 255))
+        joints = {
+            "neck": {"x": 0.5, "y": 0.18},
+            "left_shoulder": {"x": 0.5, "y": 0.19},
+            "left_elbow": {"x": 0.2833, "y": 0.3667},
+            "left_wrist": {"x": 0.2083, "y": 0.4889},
+            "right_shoulder": {"x": 0.5, "y": 0.19},
+            "right_elbow": {"x": 0.7167, "y": 0.3667},
+            "right_wrist": {"x": 0.8, "y": 0.4889},
+            "left_hip": {"x": 0.3917, "y": 0.5556},
+            "left_knee": {"x": 0.3583, "y": 0.7611},
+            "left_ankle": {"x": 0.325, "y": 0.9111},
+            "right_hip": {"x": 0.6083, "y": 0.5556},
+            "right_knee": {"x": 0.6417, "y": 0.7611},
+            "right_ankle": {"x": 0.6833, "y": 0.9111},
+        }
+        with tempfile.TemporaryDirectory() as folder:
+            layer, report = _build_source_motion_backplate(source, Path(folder), joints)
+            with Image.open(Path(folder) / layer["src"]) as opened:
+                underlay = np.asarray(opened.convert("RGBA"), dtype=np.uint8)
+
+        original = np.asarray(source, dtype=np.uint8)
+        visible = underlay[:, :, 3] > 0
+        self.assertEqual(layer["role"], "source_motion_backplate")
+        self.assertEqual(layer["z_index"], 2)
+        self.assertEqual(report["bone_corridor_count"], 11)
+        self.assertEqual(report["joint_coverage_count"], 12)
+        self.assertGreater(report["source_pixels_preserved"], 1500)
+        self.assertTrue(bool(visible[66, 34]))
+        self.assertTrue(bool(visible[137, 43]))
+        self.assertFalse(bool(visible[6, 110]))
+        np.testing.assert_array_equal(underlay[visible, :3], original[visible, :3])
+        self.assertTrue(np.all(underlay[:, :, 3] <= original[:, :, 3]))
+
 
     def test_segmented_source_base_preserves_untouched_pixels_and_alpha(self):
         import tempfile

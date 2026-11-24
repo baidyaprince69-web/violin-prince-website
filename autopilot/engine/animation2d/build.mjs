@@ -155,7 +155,8 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
     "finger_index", "finger_index_middle", "finger_index_tip",
     "finger_middle", "finger_middle_middle", "finger_middle_tip",
     "finger_ring", "finger_ring_middle", "finger_ring_tip",
-    "finger_little", "finger_little_middle", "finger_little_tip"
+    "finger_little", "finger_little_middle", "finger_little_tip",
+    "source_motion_backplate"
   ]);
   const layers = (character.layers || [])
     .filter(layer => !compositeBase || articulatedCompositeRoles.has(String(layer.role || "")) ||
