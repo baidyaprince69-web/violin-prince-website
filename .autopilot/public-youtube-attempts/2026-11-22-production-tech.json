@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "attempting",
+  "status": "uploaded_public",
   "provider": "upload_post",
   "run_id": "45006495085",
   "production_date": "2026-11-22",
@@ -20,5 +20,17 @@
   },
   "request_id": "violin-prince-public-2026-11-22-production-tech",
   "created_at_utc": "2026-11-22T09:36:12.907046+00:00",
-  "note": "Committed before public upload; uncertain outcomes are never retried automatically."
+  "note": "Reconciled: the existing public YouTube upload is confirmed. Do not retry or upload this production identity again.",
+  "completed_at_utc": "2026-11-22T09:36:21.968Z",
+  "youtube_video_id": "zXso73-0gS0",
+  "youtube_video_url": "https://www.youtube.com/watch?v=zXso73-0gS0",
+  "reconciliation": {
+    "status": "confirmed_existing_public_upload",
+    "receipt_path": ".autopilot/public-youtube-receipts/2026-11-22-production-tech.json",
+    "upload_post_status": "completed",
+    "upload_post_success": true,
+    "youtube_media_timestamp": "2026-11-22T09:36:35Z",
+    "automatic_retry": false,
+    "reason": "The upload succeeded and YouTube details were verified; only the original GitHub success-receipt commit failed."
+  }
 }
