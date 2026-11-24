@@ -70,6 +70,20 @@ def analyse_sampled_frames(images: Sequence[Image.Image], fps: float) -> dict[st
             "All sampled frames are identical; no temporal variation was detected."
         )
 
+    median_adjacent_difference = median(adjacent_differences)
+    opening_interval_difference = adjacent_differences[0]
+    opening_transition_threshold = max(5.0, median_adjacent_difference * 2.0)
+    opening_interval_review = (
+        opening_interval_difference > opening_transition_threshold
+    )
+    review_flags: list[str] = []
+    if opening_interval_review:
+        review_flags.append(
+            "The opening 0.25-second interval changes substantially more than "
+            "the typical adjacent interval; visually confirm whether performer "
+            "visibility is intentionally delayed."
+        )
+
     return {
         "status": "passed",
         "verification_scope": (
@@ -86,9 +100,11 @@ def analyse_sampled_frames(images: Sequence[Image.Image], fps: float) -> dict[st
         "mean_adjacent_frame_difference": round(
             sum(adjacent_differences) / len(adjacent_differences), 4
         ),
-        "median_adjacent_frame_difference": round(
-            median(adjacent_differences), 4
-        ),
+        "median_adjacent_frame_difference": round(median_adjacent_difference, 4),
+        "opening_interval_mean_difference": round(opening_interval_difference, 4),
+        "opening_transition_threshold": round(opening_transition_threshold, 4),
+        "opening_interval_review": "flagged" if opening_interval_review else "clear",
+        "review_flags": review_flags,
         "frames": metrics,
         "limitations": [
             "This report does not assess anatomical joint alignment.",

@@ -44,6 +44,27 @@ class PoseRangeVisualQATests(unittest.TestCase):
                 fps=4.0,
             )
 
+    def test_large_opening_transition_is_flagged_for_visual_review(self):
+        background = Image.new("RGB", (80, 60), (12, 18, 24))
+        draw = ImageDraw.Draw(background)
+        draw.line((0, 12, 79, 12), fill=(80, 84, 100), width=2)
+        draw.ellipse((62, 34, 67, 39), fill=(180, 170, 130))
+        images = [background, _sample_image(0), _sample_image(1), _sample_image(2)]
+
+        report = analyse_sampled_frames(images, fps=4.0)
+
+        self.assertEqual(report["opening_interval_review"], "flagged")
+        self.assertTrue(report["review_flags"])
+        self.assertIn("performer visibility", report["review_flags"][0])
+
+    def test_normal_small_motion_does_not_flag_opening_interval(self):
+        report = analyse_sampled_frames(
+            [_sample_image(offset) for offset in (0, 1, 2, 3)],
+            fps=4.0,
+        )
+        self.assertEqual(report["opening_interval_review"], "clear")
+        self.assertEqual(report["review_flags"], [])
+
     def test_contact_sheet_is_written_with_all_samples(self):
         images = [_sample_image(offset) for offset in (0, 1, 2, 3, 4, 5)]
         with tempfile.TemporaryDirectory() as folder:
