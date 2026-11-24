@@ -21,7 +21,7 @@ class WorkflowPublicationContractTests(unittest.TestCase):
             '    - cron: "30 17 * * *"',
             '    - cron: "30 23 * * *"',
         ]
-        schedule = self.workflow_text.split("  schedule:\\n", 1)[1].split(
+        schedule = self.workflow_text.split("  schedule:\n", 1)[1].split(
             "  workflow_dispatch:", 1
         )[0]
         self.assertEqual(
@@ -32,10 +32,10 @@ class WorkflowPublicationContractTests(unittest.TestCase):
         self.assertIn("cancel-in-progress: false", self.workflow_text)
 
     def test_daily_readiness_exposes_ready_output_once(self):
-        job = self.workflow_text.split("  daily_readiness:\\n", 1)[1].split(
-            "\\n  report_blocked_slot:", 1
+        job = self.workflow_text.split("  daily_readiness:\n", 1)[1].split(
+            "\n  report_blocked_slot:", 1
         )[0]
-        outputs = job.split("    steps:\\n", 1)[0]
+        outputs = job.split("    steps:\n", 1)[0]
         ready_outputs = [
             line for line in outputs.splitlines()
             if line.startswith("      ready:")
