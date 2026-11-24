@@ -174,12 +174,32 @@ def build_procedural_director_project(
             target = character_root / source.name
             shutil.copy2(source, target)
             item["src"] = (Path("assets") / "characters" / "violin-prince" / target.name).as_posix()
-    for section in ("expressions", "pose_assets"):
+    def persist_asset(item: dict[str, Any]) -> None:
+        source = Path(item["src"]).resolve(strict=True)
+        target = character_root / source.name
+        shutil.copy2(source, target)
+        item["src"] = (
+            Path("assets") / "characters" / "violin-prince" / target.name
+        ).as_posix()
+
+    for section in (
+        "expressions", "pose_assets", "props", "head_variants", "head_angles",
+    ):
         for item in (character.get(section) or {}).values():
-            source = Path(item["src"]).resolve(strict=True)
-            target = character_root / source.name
-            shutil.copy2(source, target)
-            item["src"] = (Path("assets") / "characters" / "violin-prince" / target.name).as_posix()
+            persist_asset(item)
+    if isinstance(character.get("base_art"), dict):
+        persist_asset(character["base_art"])
+
+    leg_roles = {
+        "left_thigh", "left_calf", "left_foot",
+        "right_thigh", "right_calf", "right_foot",
+    }
+    staged_roles = {str(item.get("role") or "") for item in character.get("layers", [])}
+    has_full_body_performance = (
+        leg_roles.issubset(staged_roles)
+        and isinstance(character.get("performance"), dict)
+        and {"violin", "bow"}.issubset(set((character.get("props") or {}).keys()))
+    )
 
     for scene in scenes:
         action = (scene.get("character_actions") or {}).get("violin-prince") or {}
@@ -218,18 +238,30 @@ def build_procedural_director_project(
         "diagnostics": {
             "publishing": "disabled",
             "preview_only": True,
-            "rig_scope": "upper_body_only_no_leg_joints_no_attached_violin_or_bow",
+            "rig_scope": (
+                "full_body_violin_performance"
+                if has_full_body_performance
+                else "upper_body_presenter"
+            ),
+            "attached_instrument_props": sorted((character.get("props") or {}).keys()),
         },
     }
     destination = root / "project.json"
     temporary = destination.with_suffix(".json.tmp")
     temporary.write_text(json.dumps(project, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     temporary.replace(destination)
+    rig_description = (
+        "The Violin Prince full-body performance rig includes its leg joints, articulated "
+        "fingers, and attached violin/bow props."
+        if has_full_body_performance else
+        "The Violin Prince upper-body presenter rig is used; this bundle does not include "
+        "the full-body performance rig or attached violin/bow props."
+    )
     (root / "README.txt").write_text(
         "Procedural Master Director preview project. Environments and props are live SVG Motion "
-        "elements, camera movement targets the full scene world, and the Violin Prince upper-body "
-        "rig is articulated per shot. This preview contains no generated scene plates or cutout "
-        "images and cannot be published. The presenter has no leg joints or attached violin/bow.\n",
+        "elements, camera movement targets the full scene world, and the Violin Prince presenter "
+        "is articulated per shot. This preview contains no generated scene plates or cutout "
+        "images and cannot be published. " + rig_description + "\n",
         encoding="utf-8",
     )
     return project

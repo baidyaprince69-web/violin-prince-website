@@ -571,3 +571,10 @@ The Motion report exposes presenter bow-stroke, finger-note, body-balance and we
 The preview compositor supports deterministic frame-seekable camera movement on each video layer: push-in, pull-out, pan, tilt and restrained handheld movement. Movement is intensity-bounded and computed from the shot frame count, so it is reproducible in CI. The cinematic fixture assigns five shot-specific moves (wide push-in, medium handheld drift, instrument push-in, face push-in and hero pull-out).
 
 The public proof render also has two independent transparent atmosphere tracks: soft volumetric stage-light beams and drifting foreground dust/bokeh particles. These sit above the stage plate and camera shots at restrained opacity. CI requires all five camera moves and both atmosphere roles, so a fixed-crop edit with only one graphic cannot pass as the updated cinematic fixture. This remains a stylized camera edit over the approved character render, not generated multi-location source footage. Publishing remains disabled.
+
+
+### Full-body rig asset handoff into the procedural Master Director
+
+The Master Director presenter staging step now stages optional full-body assets alongside the upper-body assets: performance base artwork, violin/bow props, modular head variants and head-angle plates. The procedural project copies every staged collection into its self-contained character asset folder. Its diagnostics and README now describe the actual rig scope instead of always reporting an upper-body-only presenter.
+
+A regression assembles a synthetic full-body bundle from the checked-in illustration, with six leg roles and attached violin/bow props, and verifies that the Master Director project retains all referenced asset files. This checks the asset handoff only. It does not create or imply creator production approval; the Real Performance production approval gate remains mandatory.
