@@ -15,7 +15,11 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-from full_body_performance_rig import _canvas_alpha_mask_for_layer
+from full_body_performance_rig import (
+    _canvas_alpha_mask_for_layer,
+    _polygon_mask,
+    _validate_artist_joint_polygon,
+)
 
 
 LOWER_BODY_JOINTS = (
@@ -348,6 +352,195 @@ loadJoint(activeName);
         .replace("__CHARACTER_JSON__", character_json)
         .replace("__SOURCE_FILENAME__", source_filename)
     )
+
+
+def validate_reviewed_joint_artwork_export(
+    source_path: str | Path,
+    bundle_dir: str | Path,
+    reviewed_export_path: str | Path,
+) -> dict[str, Any]:
+    """Read-only validation of an offline annotator export against its source art.
+
+    This checks the exact original source file hash, rig canvas, six lower-body
+    joint definitions, source-coordinate polygon geometry, mapped pivots and
+    visible parent/child layer-alpha overlap. It never edits the bundle.
+    """
+    source_path = Path(source_path).resolve(strict=True)
+    bundle = Path(bundle_dir).resolve(strict=True)
+    export_path = Path(reviewed_export_path).resolve(strict=True)
+    source_sha256 = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    export = json.loads(export_path.read_text(encoding="utf-8"))
+    if export.get("coordinate_space") != "absolute_source_pixels_top_left":
+        raise ValueError("Reviewed export must use absolute source-pixel coordinates.")
+    if export.get("source_artwork", {}).get("sha256") != source_sha256:
+        raise ValueError(
+            "Reviewed export source SHA-256 does not match the preserved original artwork."
+        )
+
+    with Image.open(source_path) as opened:
+        source = opened.convert("RGBA")
+    source_pixels = np.asarray(source, dtype=np.uint8)
+    width, height = source.size
+    expected_canvas = {"width": width, "height": height}
+    if export.get("canvas") != expected_canvas:
+        raise ValueError("Reviewed export canvas dimensions do not match the original source.")
+    character_path = bundle / "character.json"
+    if not character_path.is_file():
+        raise FileNotFoundError("The rig bundle is missing character.json.")
+    character = json.loads(character_path.read_text(encoding="utf-8"))
+    if character.get("canvas") != expected_canvas:
+        raise ValueError("Rig canvas dimensions do not match the original source.")
+    regions = (export.get("joint_surfaces") or {}).get("regions") or {}
+    if set(regions) != set(LOWER_BODY_JOINTS):
+        raise ValueError("Reviewed export must contain exactly the six supported lower-body joints.")
+
+    expected_pairs = {
+        "left_hip": ("torso", "left_thigh"),
+        "right_hip": ("torso", "right_thigh"),
+        "left_knee": ("left_thigh", "left_calf"),
+        "right_knee": ("right_thigh", "right_calf"),
+        "left_ankle": ("left_calf", "left_foot"),
+        "right_ankle": ("right_calf", "right_foot"),
+    }
+    visible = source_pixels[:, :, 3] > 12
+    layers = {
+        str(layer.get("role") or ""): layer
+        for layer in character.get("layers", [])
+    }
+    joints = character.get("joints") or {}
+    layer_masks: dict[str, np.ndarray] = {}
+    prop_union = np.zeros((height, width), dtype=bool)
+    for prop_name, prop in (character.get("props") or {}).items():
+        if isinstance(prop, dict) and prop.get("src"):
+            prop_union |= _canvas_alpha_mask_for_layer(
+                bundle,
+                {**prop, "role": str(prop_name)},
+                canvas_width=width,
+                canvas_height=height,
+            )
+
+    claimed = np.zeros((height, width), dtype=bool)
+    results: dict[str, Any] = {}
+    approved_count = 0
+    draft_count = 0
+    for joint_name in LOWER_BODY_JOINTS:
+        item = regions[joint_name]
+        status = str(item.get("artwork_status") or "")
+        polygon = item.get("artist_source_polygon")
+        if status not in {"artist_approved", "awaiting_artist_alignment"}:
+            raise ValueError(f"{joint_name} has an unsupported artwork review status.")
+        if status != "artist_approved":
+            if polygon not in (None, []):
+                draft_count += 1
+            results[joint_name] = {
+                "status": "draft_not_activated",
+                "draft_vertex_count": len(polygon) if isinstance(polygon, list) else 0,
+            }
+            continue
+
+        parent_role = str(item.get("parent_role") or "")
+        child_role = str(item.get("child_role") or "")
+        if (parent_role, child_role) != expected_pairs[joint_name]:
+            raise ValueError(
+                f"{joint_name} must use the parent/child pair {expected_pairs[joint_name]}."
+            )
+        for role in (parent_role, child_role):
+            if role not in layers:
+                raise ValueError(f"{joint_name} refers to missing rig layer role: {role}.")
+            if role not in layer_masks:
+                layer_masks[role] = _canvas_alpha_mask_for_layer(
+                    bundle, layers[role],
+                    canvas_width=width, canvas_height=height,
+                )
+
+        anchor_name = str(item.get("anchor") or joint_name)
+        anchor = joints.get(anchor_name)
+        if not isinstance(anchor, dict):
+            raise ValueError(f"{joint_name} has no mapped joint anchor in character.json.")
+        anchor_x = float(anchor["x"]) * width
+        anchor_y = float(anchor["y"]) * height
+        declared_anchor = item.get("anchor_px")
+        if (
+            not isinstance(declared_anchor, list)
+            or len(declared_anchor) != 2
+            or abs(float(declared_anchor[0]) - anchor_x) > 0.01
+            or abs(float(declared_anchor[1]) - anchor_y) > 0.01
+        ):
+            raise ValueError(
+                f"{joint_name} exported pivot does not match the current rig joint anchor."
+            )
+        points = _validate_artist_joint_polygon(
+            joint_name,
+            polygon,
+            canvas_width=width,
+            canvas_height=height,
+            anchor_x=anchor_x,
+            anchor_y=anchor_y,
+        )
+
+        axis_names = item.get("blend_axis_joints") or []
+        if len(axis_names) != 2 or any(str(name) not in joints for name in axis_names):
+            raise ValueError(f"{joint_name} has incomplete proximal/distal blend-axis anchors.")
+        half_length = float(item.get("blend_axis_half_length_px", 18.0))
+        if not np.isfinite(half_length) or not 6 <= half_length <= 56:
+            raise ValueError(f"{joint_name} has an unsafe blend-axis length.")
+        minimum_pixels = int(item.get("minimum_pixels", 80))
+        minimum_overlap = max(4, int(item.get("minimum_parent_child_overlap_pixels", 4)))
+
+        authored = _polygon_mask((height, width), points)
+        parent_mask, child_mask = layer_masks[parent_role], layer_masks[child_role]
+        parent_overlap = authored & visible & parent_mask
+        child_overlap = authored & visible & child_mask
+        prop_overlap = authored & visible & (parent_mask | child_mask) & prop_union
+        eligible = (
+            authored & visible & (parent_mask | child_mask)
+            & ~prop_union & ~claimed
+        )
+        area = int(eligible.sum())
+        parent_count = int(parent_overlap.sum())
+        child_count = int(child_overlap.sum())
+        if area < minimum_pixels:
+            raise ValueError(
+                f"{joint_name} selects only {area} usable original source pixels; "
+                f"minimum is {minimum_pixels}."
+            )
+        if parent_count < minimum_overlap or child_count < minimum_overlap:
+            raise ValueError(
+                f"{joint_name} must overlap at least {minimum_overlap} visible source-alpha "
+                f"pixels from each named layer (parent={parent_count}, child={child_count})."
+            )
+        claimed |= eligible
+        approved_count += 1
+        results[joint_name] = {
+            "status": "validated_for_rig_extraction",
+            "parent_role": parent_role,
+            "child_role": child_role,
+            "polygon_vertex_count": len(points),
+            "polygon_area_px": int(authored.sum()),
+            "usable_original_source_pixels": area,
+            "parent_source_overlap_pixels": parent_count,
+            "child_source_overlap_pixels": child_count,
+            "prop_pixels_excluded": int(prop_overlap.sum()),
+            "source_rgb_sha256": hashlib.sha256(
+                source_pixels[eligible, :3].tobytes()
+            ).hexdigest(),
+            "joint_pivot_px": [round(anchor_x, 3), round(anchor_y, 3)],
+        }
+
+    return {
+        "status": (
+            "reviewed_export_validated"
+            if approved_count else "no_artist_approved_joint_polygons"
+        ),
+        "source_file": source_path.name,
+        "source_sha256": source_sha256,
+        "canvas": expected_canvas,
+        "approved_polygon_count": approved_count,
+        "draft_polygon_count": draft_count,
+        "validated_source_pixels": int(claimed.sum()),
+        "bundle_modified": False,
+        "regions": results,
+    }
 
 
 def build_joint_artwork_review_pack(
@@ -724,9 +917,22 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", required=True, type=Path)
     parser.add_argument("--bundle", required=True, type=Path)
-    parser.add_argument("--regions", required=True, type=Path)
-    parser.add_argument("--out-dir", required=True, type=Path)
+    parser.add_argument("--regions", type=Path)
+    parser.add_argument("--out-dir", type=Path)
+    parser.add_argument(
+        "--validate-reviewed-export",
+        type=Path,
+        help="Read-only validate an exported joint-artwork-template-reviewed.json.",
+    )
     args = parser.parse_args()
+    if args.validate_reviewed_export:
+        report = validate_reviewed_joint_artwork_export(
+            args.source, args.bundle, args.validate_reviewed_export
+        )
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0
+    if args.regions is None or args.out_dir is None:
+        parser.error("Review-pack generation requires both --regions and --out-dir.")
     report = build_joint_artwork_review_pack(
         args.source, args.bundle, args.regions, args.out_dir
     )
