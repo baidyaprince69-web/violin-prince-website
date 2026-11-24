@@ -1605,7 +1605,7 @@ def _extract_source_aligned_joint_surfaces(
     claimed = np.zeros((height, width), dtype=bool)
     layers: list[dict[str, Any]] = []
     report: dict[str, Any] = {
-        "method": "anchor_centered_tapered_source_pixel_joint_surfaces_with_bisector_blend_axes",
+        "method": "artist_authored_tapered_source_pixel_joint_surfaces_with_blended_parent_child_transforms",
         "manifest": regions_manifest_path.name,
         "coordinate_space": "joint_anchor_relative_source_pixels",
         "regions": {},
@@ -1764,11 +1764,6 @@ def _extract_source_aligned_joint_surfaces(
             "pivot_x": min(1.0, max(0.0, (center_x - geometry["x"]) / geometry["width"])),
             "pivot_y": min(1.0, max(0.0, (center_y - geometry["y"]) / geometry["height"])),
             "z_index": int(item.get("z_index", 32)),
-            "mesh_deformation": {
-                "profile": "joint_surface",
-                "columns": 2,
-                "rows": 2,
-            },
             "joint_surface": {
                 "joint": anchor_name,
                 "parent_role": parent_role,
@@ -1803,7 +1798,9 @@ def _extract_source_aligned_joint_surfaces(
         report["source_pixels_transferred"] += area
         report["parent_child_alpha_pixels_removed"] += parent_removed + child_removed
     report["joint_surface_layer_count"] = len(layers)
-    report["joint_surface_mesh_layer_count"] = sum(bool(layer.get("mesh_deformation")) for layer in layers)
+    report["joint_surface_mesh_layer_count"] = 0
+    report["joint_surface_articulated_layer_count"] = len(layers)
+    report["joint_surface_mode"] = "source_pixel_capsule_overlays_with_blended_parent_child_segment_transforms"
     report["moving_mask_pixels"] = int(claimed.sum())
     Image.fromarray(claimed.astype(np.uint8) * 255, mode="L").save(
         bundle_dir / "joint-surface-moving-mask.png", format="PNG", optimize=True
