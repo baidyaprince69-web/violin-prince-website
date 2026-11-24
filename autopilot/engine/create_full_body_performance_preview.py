@@ -324,7 +324,7 @@ def build_preview_project(
                 "scale": 0.84,
                 "loop": True,
                 "cycle_duration_seconds": 2.4,
-                "start_offset": 0.12,
+                "start_offset": 0.0,  # Presenter is on-stage from the first rendered frame.
                 "music_sync": music_sync,
             }
         },

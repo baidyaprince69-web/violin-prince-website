@@ -360,6 +360,8 @@ jobs:
           assert len(sync.get("note_events", [])) >= 4, sync
           assert action.get("head_angle") == "front", action
           assert action.get("head_expression") == "focused", action
+          assert action.get("visible") is True, action
+          assert float(action.get("start_offset", -1)) == 0.0, action
           assert not action.get("head_angle_sequence"), action
           assert not action.get("head_expression_sequence"), action
           character = json.loads(Path("work/full-body-rig/bundle/character.json").read_text())
