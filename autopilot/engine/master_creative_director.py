@@ -137,7 +137,7 @@ DIRECTORIAL THINKING:
 - Direct a transition between shots and explain the editorial rhythm. Choose
   cuts, match cuts, whip pans, dissolves, wipes, speed ramps or other supported
   transitions for a narrative reason; do not apply one transition mechanically.
-- Synchronize visual reveals, transitions, titles and sound-design accents to
+- Use supplied audio_timing data to place music_sync_cues on detected beats when available; never invent beat positions. Synchronize visual reveals, transitions, titles and sound-design accents to
   narration cues and musical beats. Describe the music mood and at least two
   time-coded synchronization events. Never invent a beat position if timing
   analysis is not supplied; mark it as an editorial target to align during edit.
@@ -290,6 +290,9 @@ def build_director_request(
             "verified_sources": sources,
             "core_claim": str(story_context.get("core_claim") or ""),
             "target_duration_seconds": story_context.get("target_duration_seconds"),
+            "slot_id": str(story_context.get("slot_id") or ""),
+            "content_category": str(story_context.get("content_category") or ""),
+            "audio_timing": story_context.get("audio_timing") or {},
             "format": "vertical 9:16 short-form video",
         },
         "creator_preferences": preferences,
