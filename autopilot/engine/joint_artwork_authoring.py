@@ -370,6 +370,14 @@ def validate_reviewed_joint_artwork_export(
     export_path = Path(reviewed_export_path).resolve(strict=True)
     source_sha256 = hashlib.sha256(source_path.read_bytes()).hexdigest()
     export = json.loads(export_path.read_text(encoding="utf-8"))
+    if not isinstance(export, dict) or export.get("schema_version") != 1:
+        raise ValueError("Reviewed export schema version 1 is required.")
+    joint_specification = export.get("joint_surfaces")
+    if (
+        not isinstance(joint_specification, dict)
+        or joint_specification.get("schema_version") != 1
+    ):
+        raise ValueError("Reviewed joint-surfaces schema version 1 is required.")
     if export.get("coordinate_space") != "absolute_source_pixels_top_left":
         raise ValueError("Reviewed export must use absolute source-pixel coordinates.")
     if export.get("source_artwork", {}).get("sha256") != source_sha256:
@@ -390,7 +398,7 @@ def validate_reviewed_joint_artwork_export(
     character = json.loads(character_path.read_text(encoding="utf-8"))
     if character.get("canvas") != expected_canvas:
         raise ValueError("Rig canvas dimensions do not match the original source.")
-    regions = (export.get("joint_surfaces") or {}).get("regions") or {}
+    regions = joint_specification.get("regions") or {}
     if set(regions) != set(LOWER_BODY_JOINTS):
         raise ValueError("Reviewed export must contain exactly the six supported lower-body joints.")
 
@@ -481,10 +489,20 @@ def validate_reviewed_joint_artwork_export(
         axis_names = item.get("blend_axis_joints") or []
         if len(axis_names) != 2 or any(str(name) not in joints for name in axis_names):
             raise ValueError(f"{joint_name} has incomplete proximal/distal blend-axis anchors.")
+        axis_coordinates = [
+            float(joints[str(name)][coordinate])
+            for name in axis_names
+            for coordinate in ("x", "y")
+        ]
+        if not all(
+            np.isfinite(value) and 0.0 <= value <= 1.0
+            for value in axis_coordinates
+        ):
+            raise ValueError(f"{joint_name} has blend-axis anchors outside the normalized source canvas.")
         half_length = float(item.get("blend_axis_half_length_px", 18.0))
         if not np.isfinite(half_length) or not 6 <= half_length <= 56:
             raise ValueError(f"{joint_name} has an unsafe blend-axis length.")
-        minimum_pixels = int(item.get("minimum_pixels", 80))
+        minimum_pixels = max(80, int(item.get("minimum_pixels", 80)))
         minimum_overlap = max(4, int(item.get("minimum_parent_child_overlap_pixels", 4)))
 
         authored = _polygon_mask((height, width), points)
