@@ -88,6 +88,13 @@ jobs:
         env:
           PYTHONPATH: autopilot/engine
         run: python -m unittest discover -s autopilot/engine/tests -p "test_procedural_director_renderer.py" -v
+      - name: Test complete procedural daily rendering and scheduled handoff
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python -m unittest discover -s autopilot/engine/tests -p "test_procedural_daily_renderer.py" -v
+          python -m unittest discover -s autopilot/engine/tests -p "test_scheduled_procedural_daily_path.py" -v
+
 
 
       - name: Run GitHub Copilot Master Director provider tests
