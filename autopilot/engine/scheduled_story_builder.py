@@ -298,21 +298,39 @@ def build_scheduled_batch(
     engine.WORK.mkdir(parents=True, exist_ok=True)
 
     research_items: list[dict[str, Any]] = []
-    story_groups: list[dict[str, Any]] = []
-    recent_topics = engine.recent_topics()
+    discovered_story_groups: list[dict[str, Any]] = []
+    eligible_story_groups: list[dict[str, Any]] = []
+    all_topics = engine.all_researched_topics()
+    recent_topics = all_topics[-100:]
+    skipped_repeated_groups: list[str] = []
     research_error = ""
     try:
         engine.log(f"Starting fresh internet research for {production_date}/{slot_id}.")
         research_items = engine.research()
-        story_groups = engine.discover_source_first_story_groups(
+        discovered_story_groups = engine.discover_source_first_story_groups(
             research_items,
             max_seed_queries=3,
             max_phrases=4,
             as_of=now,
         )
-        if not story_groups:
+        if not discovered_story_groups:
             raise engine.PipelineError(
                 "Research did not find two independent, readable and date-verified publisher sources for an eligible story."
+            )
+
+        from select_public_queue import _same_story_topic
+
+        for group in discovered_story_groups:
+            topic_hint = str(group.get("topic_hint") or "").strip()
+            if topic_hint and any(_same_story_topic(topic_hint, old_topic) for old_topic in all_topics):
+                skipped_repeated_groups.append(topic_hint)
+                continue
+            eligible_story_groups.append(group)
+
+        if not eligible_story_groups:
+            raise engine.PipelineError(
+                "All verified story groups matched subjects or publisher headlines already present in research history. "
+                "No topic was repeated."
             )
 
         if slot_id == "real-performance":
@@ -328,10 +346,15 @@ def build_scheduled_batch(
             slot_id,
             production_date,
             research_items,
-            story_groups,
+            eligible_story_groups,
             recent_topics,
             now,
         )
+        planned_topic = str(plan.get("topic") or plan.get("core_claim") or "").strip()
+        if planned_topic and any(_same_story_topic(planned_topic, old_topic) for old_topic in all_topics):
+            raise engine.PipelineError(
+                "The generated story topic matches the persistent researched-topic archive; refusing duplicate production."
+            )
         batch["plans"] = [
             plan if item["slot_id"] == slot_id else item
             for item in batch["plans"]
@@ -357,6 +380,16 @@ def build_scheduled_batch(
         "status": research_status,
         "reason": research_error,
         "research_record_count": len(research_items),
+        "research_items": [
+            {
+                "title": item.get("title") or item.get("headline") or "",
+                "url": item.get("url") or item.get("link") or "",
+                "publisher_domain": item.get("publisher_domain") or item.get("domain") or item.get("source") or "",
+                "published_at": item.get("published_at") or item.get("published") or item.get("date") or "",
+            }
+            for item in research_items
+            if isinstance(item, dict)
+        ],
         "story_groups": [
             {
                 "group_id": group.get("group_id"),
@@ -372,8 +405,10 @@ def build_scheduled_batch(
                     for source in group.get("sources", [])
                 ],
             }
-            for group in story_groups
+            for group in discovered_story_groups
         ],
+        "eligible_group_count": len(eligible_story_groups),
+        "skipped_repeated_groups": skipped_repeated_groups,
         "selected_topic": next(
             (
                 plan.get("topic")
@@ -398,7 +433,9 @@ def build_scheduled_batch(
         ),
         "blocked_reason": research_error,
         "research_record_count": len(research_items),
-        "verified_story_groups": len(story_groups),
+        "verified_story_groups": len(discovered_story_groups),
+        "eligible_story_groups": len(eligible_story_groups),
+        "skipped_repeated_groups": len(skipped_repeated_groups),
         "batch_sha256": hashlib.sha256(batch_path.read_bytes()).hexdigest() if batch_path.is_file() else "",
         "history_path": str(history_path.relative_to(root)),
     }
