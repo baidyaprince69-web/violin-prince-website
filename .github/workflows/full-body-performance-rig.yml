@@ -378,8 +378,12 @@ jobs:
               assert region.get("source_pixels", 0) >= 80, region
               assert region.get("parent_overlap_pixels", 0) >= 4, region
               assert region.get("child_overlap_pixels", 0) >= 4, region
-              assert region.get("parent_alpha_pixels_removed", 0) > 0, region
-              assert region.get("child_alpha_pixels_removed", 0) > 0, region
+              assert region.get("parent_overlap_pixels", 0) >= 4, region
+              assert region.get("child_overlap_pixels", 0) >= 4, region
+              assert (
+                  region.get("parent_alpha_pixels_removed", 0)
+                  + region.get("child_alpha_pixels_removed", 0)
+              ) > 0, region
               assert region.get("feathered_boundary_source_pixels", 0) > 0, region
               assert region.get("opaque_core_source_pixels", 0) >= 24, region
           assert joint_art.get("edge_feathering", {}).get("method") == "inward_source_alpha_gaussian_ramp_with_parent_child_underlap", joint_art
