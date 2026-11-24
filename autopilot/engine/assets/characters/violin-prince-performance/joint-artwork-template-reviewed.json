@@ -7,7 +7,7 @@
   },
   "source_artwork": {
     "filename": "preserved-full-body-source.png",
-    "sha256": "0a5e31af623f6a3cd1e890d7b56a030c7b4b4ed3c5ad74bd5a0d48aa1e7b4457"
+    "sha256": "a981d79de2026746f8b61589af2946df4ec8f1024130f698575608313b5c1899"
   },
   "authoring_instructions": [
     "The six coordinates originated as AI-assisted source-coordinate draft outlines.",
@@ -516,6 +516,18 @@
     "approved_region_count": 6,
     "polygon_origin": "AI-assisted source-coordinate drafts; explicitly accepted by the user as supplied.",
     "source_integrity": "original preserved source SHA-256 recorded for build-time verification",
-    "note": "This approves the six lower-body outlines only. The complete presenter remains a preview candidate, not premium-quality or production-ready."
+    "note": "Six lower-body outlines remain those explicitly approved by the user. A later Auto-Rig source export differs only at 1,346 RGB edge pixels outside all six joint polygons; alpha is identical and no pixel within any approved polygon changed. The full presenter remains a preview candidate, not premium-quality or production-ready.",
+    "source_hash_reconciliation": {
+      "previous_approved_source_sha256": "0a5e31af623f6a3cd1e890d7b56a030c7b4b4ed3c5ad74bd5a0d48aa1e7b4457",
+      "current_autorig_preserved_source_sha256": "a981d79de2026746f8b61589af2946df4ec8f1024130f698575608313b5c1899",
+      "canvas_unchanged": [
+        441,
+        755
+      ],
+      "alpha_pixels_changed": 0,
+      "rgb_pixels_changed_outside_joint_polygons": 1346,
+      "rgb_pixels_changed_inside_joint_polygons": 0,
+      "verification": "Exact pixel comparison of the two preserved source images; all six joint polygon footprints have zero changed RGB pixels and alpha is identical."
+    }
   }
 }
