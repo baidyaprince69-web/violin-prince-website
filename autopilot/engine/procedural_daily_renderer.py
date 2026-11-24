@@ -358,8 +358,14 @@ def align_director_music_sync_cues(
     edit["music_sync_cues"] = aligned
     return {
         "status": "passed",
-        "method": "measured_audio_beats" if beat_times else "measured_audio_transients",
-        "audio_analysis_status": str(audio_timing.get("status") or "unknown"),
+        "method": {
+            "decoded_audio_beat_grid": "decoded_audio_spectral_flux",
+            "decoded_audio_onset": "decoded_audio_transients",
+            "decoded_audio_phase_grid": "decoded_audio_phase_with_declared_tempo",
+            "verified_audio_arrangement_event_map": "verified_audio_arrangement_event_map",
+        }.get(source_events[0][1], "unknown"),
+        "audio_analysis_status": analysis_status,
+        "audio_analysis_source": analysis_source,
         "audio_duration_seconds": round(audio_duration, 4),
         "storyboard_duration_seconds": round(float(duration), 4),
         "alignment_tolerance_seconds": round(tolerance, 4),
