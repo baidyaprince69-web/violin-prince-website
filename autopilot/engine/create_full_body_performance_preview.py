@@ -308,6 +308,7 @@ def build_preview_project(
         "character_actions": {
             "violin-prince": {
                 "visible": True,
+                "appear_immediately": True,
                 "gesture": "violin_performance",
                 "instrument_performance": True,
                 "expression": "focused",

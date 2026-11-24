@@ -142,6 +142,36 @@ test("source texture meshes deform continuously and joint caps follow both paren
   assert.ok(!meshCharacter.layers.find(layer => layer.role === "finger_index").mesh_deformation);
 });
 
+test("full-body performance can be fully visible on the first composition frame", () => {
+  const immediateProject = structuredClone(project);
+  const action = immediateProject.scenes[0].character_actions["violin-prince"];
+  action.visible = true;
+  action.start_offset = 0;
+  action.appear_immediately = true;
+
+  const tracks = compileMotionTracks(immediateProject, { fps: 25 });
+  const opacityTrack = tracks.find(track =>
+    track.target === "playing-violin-prince" && track.property === "opacity"
+  );
+
+  assert.ok(opacityTrack, "the presenter must receive an explicit opacity track");
+  assert.deepEqual(opacityTrack.values, [1, 1],
+    "the first keyframe must be fully opaque rather than starting at zero");
+  assert.equal(opacityTrack.start, 0,
+    "the fully visible presenter track must start at time zero");
+  assert.equal(opacityTrack.duration, 0.08,
+    "immediate visibility should use a minimal constant-opacity track");
+
+  const legacyTracks = compileMotionTracks(project, { fps: 25 });
+  const legacyOpacity = legacyTracks.find(track =>
+    track.target === "playing-violin-prince" && track.property === "opacity"
+  );
+  assert.ok(legacyOpacity);
+  assert.equal(legacyOpacity.values[0], 0,
+    "presenters without the immediate-visibility flag retain their normal entrance fade");
+  assert.equal(legacyOpacity.values.at(-1), 1);
+});
+
 test("music-synchronized performance keyframes follow beat and onset timestamps", () => {
   const tracks = buildMusicSynchronizedPerformanceTracks({
     targetPrefix: "playing-violin-prince",

@@ -1384,7 +1384,13 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
       const segmentedBodyBaseMode = compositeBaseMode &&
         character.performance_base_mode === "segmented_source_body";
       const actionStart = sceneStart + Math.max(0, Number(action.start_offset) || 0);
-      addSpring(prefix, "opacity", 0, 1, actionStart, 650);
+      if (action.appear_immediately === true) {
+        // Performance presenters must be fully visible on the opening frame;
+        // retain the legacy entrance spring for every other presenter action.
+        addKeyframes(prefix, { opacity: [1, 1] }, actionStart, 0.08, "linear");
+      } else {
+        addSpring(prefix, "opacity", 0, 1, actionStart, 650);
+      }
       const presenterScale = Number(action.scale ?? character.scale ?? 1);
       addSpring(prefix, "transform", 28, 0, actionStart, 720);
       tracks[tracks.length - 1].values = tracks[tracks.length - 1].values.map(
