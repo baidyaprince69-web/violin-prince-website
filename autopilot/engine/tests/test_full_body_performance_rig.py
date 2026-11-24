@@ -334,6 +334,80 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             self.assertFalse(moving[45:48, 45:48].any(),
                 "original violin/prop pixels must never be transferred into a joint patch")
 
+    def test_joint_preflight_rejects_later_invalid_polygon_before_any_source_layer_is_changed(self):
+        import json
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source_pixels = np.zeros((100, 100, 4), dtype=np.uint8)
+            source_pixels[10:90, 10:90] = (86, 54, 38, 255)
+            source = Image.fromarray(source_pixels, mode="RGBA")
+            roles = ("left_thigh", "left_calf", "right_thigh", "right_calf")
+            original_bytes = {}
+            layers = []
+            for role in roles:
+                asset = root / (role + ".png")
+                Image.new("RGBA", (80, 80), (86, 54, 38, 255)).save(asset)
+                original_bytes[role] = asset.read_bytes()
+                layers.append({
+                    "role": role, "src": asset.name,
+                    "x": 10, "y": 10, "width": 80, "height": 80,
+                })
+            character = {
+                "canvas": {"width": 100, "height": 100},
+                "joints": {
+                    "left_knee": {"x": 0.50, "y": 0.50},
+                    "right_knee": {"x": 0.50, "y": 0.50},
+                    "left_hip": {"x": 0.30, "y": 0.50},
+                    "left_ankle": {"x": 0.70, "y": 0.50},
+                    "right_hip": {"x": 0.30, "y": 0.50},
+                    "right_ankle": {"x": 0.70, "y": 0.50},
+                },
+                "layers": layers,
+            }
+            manifest = {
+                "schema_version": 1,
+                "canvas": {"width": 100, "height": 100},
+                "joint_surfaces": {
+                    "schema_version": 1,
+                    "regions": {
+                        "left_knee": {
+                            "anchor": "left_knee",
+                            "parent_role": "left_thigh",
+                            "child_role": "left_calf",
+                            "blend_axis_joints": ["left_hip", "left_ankle"],
+                            "artist_source_polygon": [[30, 30], [70, 30], [70, 70], [30, 70]],
+                            "artwork_status": "artist_approved",
+                            "minimum_pixels": 40,
+                        },
+                        "right_knee": {
+                            "anchor": "right_knee",
+                            "parent_role": "right_thigh",
+                            "child_role": "right_calf",
+                            "blend_axis_joints": ["right_hip", "right_ankle"],
+                            "artist_source_polygon": [[30, 30], [70, 70], [30, 70], [70, 30]],
+                            "artwork_status": "artist_approved",
+                            "minimum_pixels": 40,
+                        },
+                    },
+                },
+            }
+            manifest_path = root / "regions.json"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(ManualReviewRequired, "self-intersects"):
+                _extract_source_aligned_joint_surfaces(
+                    source, root, regions_manifest_path=manifest_path,
+                    character=character, prop_masks={},
+                )
+
+            for role in roles:
+                self.assertEqual((root / (role + ".png")).read_bytes(), original_bytes[role])
+            self.assertFalse((root / "joint_surface_left_knee.png").exists())
+            self.assertFalse((root / "joint-surface-moving-mask.png").exists())
+
     def test_continuous_body_mesh_profiles_exclude_hands_fingers_and_feet(self):
         roles = [
             "torso",
