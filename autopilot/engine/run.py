@@ -2365,9 +2365,19 @@ def select_verified_story_sources(
     return selected
 
 
-def prepare_story_with_source_recovery(items, recent=None, seo_context=None, max_candidates=2, as_of=None, allowed_story_types=None):
-    """Select only from article groups already corroborated by independent publishers."""
-    story_groups = discover_source_first_story_groups(items, as_of=as_of)
+def prepare_story_with_source_recovery(items, recent=None, seo_context=None, max_candidates=2, as_of=None, allowed_story_types=None, story_groups=None):
+    """Select only from fresh article groups not already covered in prior research history."""
+    story_groups = list(story_groups) if story_groups is not None else discover_source_first_story_groups(items, as_of=as_of)
+    if recent:
+        from select_public_queue import _same_story_topic
+        kept_groups = []
+        for group in story_groups:
+            topic_hint = str(group.get("topic_hint") or "").strip()
+            if topic_hint and any(_same_story_topic(topic_hint, previous) for previous in recent):
+                log("Skipping previously researched story group: " + topic_hint[:180])
+                continue
+            kept_groups.append(group)
+        story_groups = kept_groups
     if not story_groups:
         raise PipelineError(
             "Evidence-first research found no story group with at least two independent, "
@@ -2907,6 +2917,24 @@ def recent_topics():
                 continue
             add(plan.get("topic"))
             add(plan.get("core_claim"))
+
+    research_root = repository_root / ".autopilot" / "research-history"
+    for research_path in sorted(research_root.glob("*.json")) if research_root.is_dir() else []:
+        try:
+            history = json.loads(research_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(history, dict):
+            continue
+        groups = history.get("story_groups", [])
+        for group in groups if isinstance(groups, list) else []:
+            if not isinstance(group, dict):
+                continue
+            add(group.get("topic_hint"))
+            sources = group.get("sources", [])
+            for source in sources if isinstance(sources, list) else []:
+                if isinstance(source, dict):
+                    add(source.get("title"))
 
     for directory_name in ("public-youtube-attempts", "public-youtube-receipts"):
         directory = repository_root / ".autopilot" / directory_name
