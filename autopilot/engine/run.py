@@ -2920,8 +2920,8 @@ def ai(model, payload, timeout=180):
     return {"response": response}
 
 
-def recent_topics():
-    """Read durable researched subjects so blocked and published stories are both avoided."""
+def all_researched_topics():
+    """Read every durable researched subject, including unselected and blocked discoveries."""
     repository_root = Path(__file__).resolve().parents[2]
     topics: list[str] = []
     seen: set[str] = set()
@@ -2963,6 +2963,13 @@ def recent_topics():
                 if isinstance(source, dict):
                     add(source.get("title"))
 
+        raw_items = history.get("research_items", [])
+        for item in raw_items if isinstance(raw_items, list) else []:
+            if isinstance(item, dict):
+                add(item.get("title"))
+                add(item.get("topic"))
+                add(item.get("headline"))
+
     for directory_name in ("public-youtube-attempts", "public-youtube-receipts"):
         directory = repository_root / ".autopilot" / directory_name
         for record_path in sorted(directory.glob("*.json")) if directory.is_dir() else []:
@@ -2974,9 +2981,12 @@ def recent_topics():
                 add(record.get("topic"))
                 add(record.get("title"))
 
-    # The selector performs an exhaustive hard check against the entire batch
-    # archive before rendering. This prompt-side list is capped to control tokens.
-    return topics[-100:]
+    return topics
+
+
+def recent_topics():
+    """Return a bounded prompt history; the builder separately checks the full archive."""
+    return all_researched_topics()[-100:]
 
 
 def parse_planner_result(result):
