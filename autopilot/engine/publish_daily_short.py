@@ -250,13 +250,19 @@ def _git_commit(paths: list[str], message: str) -> None:
         ["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"],
         cwd=ROOT, check=True,
     )
-    subprocess.run(["git", "fetch", "origin", "main"], cwd=ROOT, check=True)
-    subprocess.run(["git", "rebase", "origin/main"], cwd=ROOT, check=True)
-    subprocess.run(["git", "add", *paths], cwd=ROOT, check=True)
+    # Stage and commit only the named attempt/receipt files first. A newly
+    # created receipt is untracked, and rebasing before staging/committing it
+    # makes Git abort with "cannot rebase: You have unstaged changes".
+    subprocess.run(["git", "add", "--", *paths], cwd=ROOT, check=True)
     staged = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=ROOT)
     if staged.returncode == 0:
         raise PublishBlocked("No durable publication record was staged; refusing to upload.")
     subprocess.run(["git", "commit", "-m", message], cwd=ROOT, check=True)
+    # The commit leaves the named receipt paths clean. Only then synchronize
+    # with main and push; the API request is not started until the attempt
+    # marker commit has reached the remote branch.
+    subprocess.run(["git", "fetch", "origin", "main"], cwd=ROOT, check=True)
+    subprocess.run(["git", "rebase", "origin/main"], cwd=ROOT, check=True)
 
     last_error = ""
     for _attempt in range(3):
@@ -270,7 +276,6 @@ def _git_commit(paths: list[str], message: str) -> None:
         subprocess.run(["git", "fetch", "origin", "main"], cwd=ROOT, check=True)
         subprocess.run(["git", "rebase", "origin/main"], cwd=ROOT, check=True)
     raise PublishBlocked("Could not persist the publication guard/receipt to main: " + last_error)
-
 
 def _summary(text: str) -> None:
     path = os.environ.get("GITHUB_STEP_SUMMARY")
