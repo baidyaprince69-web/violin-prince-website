@@ -36,7 +36,11 @@ class JointArtworkAuthoringTests(unittest.TestCase):
                 "canvas": {"width": 64, "height": 80},
                 "joints": {
                     name: {
-                        "x": 36 / 64 if name == "left_hip" else 0.25 + index * 0.1,
+                        "x": (
+                            36 / 64 if name == "left_hip"
+                            else 62 / 64 if name == "right_hip"
+                            else 0.25 + index * 0.1
+                        ),
                         "y": 0.5,
                     }
                     for index, name in enumerate(lower_joints)
@@ -54,8 +58,8 @@ class JointArtworkAuthoringTests(unittest.TestCase):
                     "regions": {
                         name: {
                             "anchor": name,
-                            "parent_role": "hip_parent" if name == "left_hip" else "parent",
-                            "child_role": "hip_child" if name == "left_hip" else "child",
+                            "parent_role": "hip_parent" if name in ("left_hip", "right_hip") else "parent",
+                            "child_role": "hip_child" if name in ("left_hip", "right_hip") else "child",
                             "minimum_pixels": 20,
                             "blend_axis_joints": [name, name],
                         }
@@ -114,8 +118,14 @@ class JointArtworkAuthoringTests(unittest.TestCase):
                 "manual_seam_trace_required_no_shared_parent_child_pixels")
             self.assertFalse(hip_candidate["candidate_is_production_art"])
             self.assertGreater(hip_candidate["candidate_parent_child_gap_px"], 0)
+            self.assertEqual(hip_candidate["manual_trace_reason"], "source_layers_separated_near_anchor")
             self.assertIsNotNone(hip_candidate["closest_parent_source_pixel"])
             self.assertIsNotNone(hip_candidate["closest_child_source_pixel"])
+            right_hip_candidate = template["joint_surfaces"]["regions"]["right_hip"]
+            self.assertIsNone(right_hip_candidate["candidate_parent_child_gap_px"])
+            self.assertEqual(right_hip_candidate["manual_trace_reason"], "parent_source_pixels_absent_near_anchor")
+            self.assertEqual(right_hip_candidate["parent_pixels_near_anchor"], 0)
+            self.assertGreater(right_hip_candidate["child_pixels_near_anchor"], 0)
             self.assertGreater(result["candidate_joint_polygons"], 0)
             self.assertGreater(result["manual_seam_trace_required"], 0)
             self.assertEqual(result["candidate_polygons_artist_approved"], 0)

@@ -136,10 +136,20 @@ jobs:
               for item in joint_items
           ), template
           assert all(
+              item.get("anchor_measure_radius_px") == 24
+              for item in joint_items
+          ), template
+          assert all(
               item.get("closest_parent_source_pixel") is not None
               and item.get("closest_child_source_pixel") is not None
+              and item.get("candidate_parent_child_gap_px", 0) > 0
               for item in joint_items
-              if item.get("candidate_status") == "manual_seam_trace_required_no_shared_parent_child_pixels"
+              if item.get("manual_trace_reason") == "source_layers_separated_near_anchor"
+          ), template
+          assert all(
+              item.get("parent_pixels_near_anchor", 0) == 0
+              for item in joint_items
+              if item.get("manual_trace_reason") == "parent_source_pixels_absent_near_anchor"
           ), template
           print(
               f"Prepared six source-aligned joint reviews: {candidate_count} shared-pixel draft contours, "

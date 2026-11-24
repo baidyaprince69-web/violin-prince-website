@@ -205,13 +205,26 @@ def build_joint_artwork_review_pack(
                 else:
                     candidate_source_polygon = []
 
-        local_parent = parent_mask[y0:y1, x0:x1]
-        local_child = child_mask[y0:y1, x0:x1]
+        anchor_measure_radius_px = min(24, crop_radius)
+        ax0, ay0 = max(0, cx - anchor_measure_radius_px), max(0, cy - anchor_measure_radius_px)
+        ax1, ay1 = min(canvas_width, cx + anchor_measure_radius_px), min(canvas_height, cy + anchor_measure_radius_px)
+        local_parent = parent_mask[ay0:ay1, ax0:ax1]
+        local_child = child_mask[ay0:ay1, ax0:ax1]
+        parent_pixels_near_anchor = int(local_parent.sum())
+        child_pixels_near_anchor = int(local_child.sum())
         local_parent_child_gap_px, closest_parent_source_pixel, closest_child_source_pixel = (
             _nearest_parent_child_pixels(
-                local_parent, local_child, offset_x=x0, offset_y=y0
+                local_parent, local_child, offset_x=ax0, offset_y=ay0
             )
         )
+        manual_trace_reason = None
+        if not candidate_source_polygon:
+            if not parent_pixels_near_anchor:
+                manual_trace_reason = "parent_source_pixels_absent_near_anchor"
+            elif not child_pixels_near_anchor:
+                manual_trace_reason = "child_source_pixels_absent_near_anchor"
+            else:
+                manual_trace_reason = "source_layers_separated_near_anchor"
         if candidate_source_polygon:
             candidate_status = "source_alpha_overlap_evidence_only_not_full_joint_surface"
         crop = source.crop((x0, y0, x1, y1))
@@ -315,9 +328,9 @@ def build_joint_artwork_review_pack(
             f"shared pixels: {candidate_source_pixels} | magenta = overlap evidence only"
             if candidate_source_polygon
             else (
-                f"shared pixels: 0 | edge gap: {local_parent_child_gap_px}px | manual seam trace"
+                f"0 shared | edge gap: {local_parent_child_gap_px}px | manual trace"
                 if local_parent_child_gap_px is not None
-                else "shared pixels: 0 | no local parent/child pair"
+                else f"0 shared | {manual_trace_reason.replace('_', ' ')}"
             )
         )
         draw.text(
@@ -340,6 +353,10 @@ def build_joint_artwork_review_pack(
             "candidate_source_pixels": candidate_source_pixels,
             "candidate_status": candidate_status,
             "candidate_parent_child_gap_px": local_parent_child_gap_px,
+            "anchor_measure_radius_px": anchor_measure_radius_px,
+            "parent_pixels_near_anchor": parent_pixels_near_anchor,
+            "child_pixels_near_anchor": child_pixels_near_anchor,
+            "manual_trace_reason": manual_trace_reason,
             "closest_parent_source_pixel": closest_parent_source_pixel,
             "closest_child_source_pixel": closest_child_source_pixel,
             "candidate_geometry_kind": "shared_alpha_overlap_evidence_only_not_full_joint_surface",
@@ -358,6 +375,10 @@ def build_joint_artwork_review_pack(
             "candidate_status": candidate_status,
             "candidate_source_polygon": candidate_source_polygon,
             "candidate_parent_child_gap_px": local_parent_child_gap_px,
+            "anchor_measure_radius_px": anchor_measure_radius_px,
+            "parent_pixels_near_anchor": parent_pixels_near_anchor,
+            "child_pixels_near_anchor": child_pixels_near_anchor,
+            "manual_trace_reason": manual_trace_reason,
             "closest_parent_source_pixel": closest_parent_source_pixel,
             "closest_child_source_pixel": closest_child_source_pixel,
             "candidate_geometry_kind": "shared_alpha_overlap_evidence_only_not_full_joint_surface",
