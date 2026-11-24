@@ -148,6 +148,10 @@ test("full-body performance can be fully visible on the first composition frame"
   action.visible = true;
   action.start_offset = 0;
   action.appear_immediately = true;
+  // The production preview intentionally starts from a fixed front/focused plate.
+  // Sequence transitions are tested separately; this asserts the static entry path.
+  delete action.head_angle_sequence;
+  delete action.head_expression_sequence;
 
   const tracks = compileMotionTracks(immediateProject, { fps: 25 });
   const opacityTrack = tracks.find(track =>
