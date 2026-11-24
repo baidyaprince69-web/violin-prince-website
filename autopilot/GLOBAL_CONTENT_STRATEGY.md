@@ -175,7 +175,7 @@ Use a source mix:
 The current repository is not yet configured for this target. Before enabling public uploads, the implementation needs:
 
 1. **Four-plan batch model:** implemented on main through `.autopilot/daily-batches/YYYY-MM-DD.json`; each date has four canonical slot entries, including explicit blocked state when evidence is insufficient.
-2. **Four triggers:** implemented on main as four UTC cron events. ChatGPT's daily Global Director prepares tomorrow's date-specific batch before the first slot.
+2. **Four triggers:** implemented on main as four Asia/Kolkata cron events. Each trigger researches and commissions only its assigned category, then commits its research identity, topic/source history and updated date batch before exact-slot selection.
 3. **Per-slot duplicate protection:** publisher request IDs, external IDs and idempotency keys now include the date and slot. Confirmed-public-upload ceiling and uncertain-outcome reconciliation remain publication gates.
 4. **One publisher decision:** reconcile the Metricool and Upload-Post routes before enabling scheduling. Metricool reports YouTube, Facebook, Threads and Pinterest connected; Upload-Post currently reports YouTube only. Do not run two schedulers against the same slot.
 5. **Real performance intake:** accept a creator-selected recording, preserve its audio/video provenance, create clip candidates with timecodes, and require creator approval of the edit.
