@@ -2063,7 +2063,7 @@ def _extract_source_aligned_joint_surfaces(
         geometry = _save_rgba_layer(
             source_rgba, eligible, patch_path, padding=0
         )
-        patch_pixels = np.asarray(Image.open(patch_path).convert("RGBA"), dtype=np.uint8)
+        patch_pixels = np.asarray(Image.open(patch_path).convert("RGBA"), dtype=np.uint8).copy()
         patch_x, patch_y = int(geometry["x"]), int(geometry["y"])
         patch_h, patch_w = patch_pixels.shape[:2]
         local_source_alpha = source_pixels[
