@@ -55,6 +55,8 @@ jobs:
           PYTHONPATH: autopilot/engine
         run: |
           python -m unittest discover -s autopilot/engine/tests -p "test_pose_range_visual_qa.py" -v
+          python -m unittest discover -s autopilot/engine/tests -p "test_create_full_body_performance_preview.py" -v
+          python -m unittest discover -s autopilot/engine/tests -p "test_joint_artwork_authoring.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_reference_sheet_rig.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_full_body_performance_rig.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_character_rig.py" -v
@@ -85,6 +87,34 @@ jobs:
             --rigging-sheet autopilot/engine/assets/characters/violin-prince-performance/reference-sheets/Gemini_Generated_Image_7xpc647xpc647xpc.png \
             --expression-sheet autopilot/engine/assets/characters/violin-prince-performance/reference-sheets/four-core-expressions.jpeg \
             --head-angle-sheet autopilot/engine/assets/characters/violin-prince-performance/reference-sheets/multi-angle-heads-facial-parts.jpeg
+
+      - name: Prepare source-aligned lower-body joint artwork review pack
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python autopilot/engine/joint_artwork_authoring.py \
+            --source work/full-body-rig/bundle/preserved-full-body-source.png \
+            --bundle work/full-body-rig/bundle \
+            --regions autopilot/engine/assets/characters/violin-prince-performance/performance-regions.json \
+            --out-dir work/full-body-rig/joint-artwork-review
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("work/full-body-rig/joint-artwork-review")
+          report = json.loads((root / "joint-artwork-review-report.json").read_text())
+          template = json.loads((root / "joint-artwork-template.json").read_text())
+          assert report["joint_count"] == 6, report
+          assert report["production_art_assets_created"] == 0, report
+          assert report["rig_layers_modified"] == 0, report
+          assert report["upper_body_and_hand_assets_touched"] is False, report
+          assert len(template["joint_surfaces"]["regions"]) == 6, template
+          assert all(
+              item["artwork_status"] == "awaiting_artist_alignment"
+              and item["artist_source_polygon"] == []
+              for item in template["joint_surfaces"]["regions"].values()
+          ), template
+          print("Prepared six lower-body source-alignment crops; no rig assets were modified.")
+          PY
 
       - name: Verify mapped character reference catalogue
         run: |
@@ -498,6 +528,9 @@ jobs:
             work/full-body-rig/full-body-performance-contact-sheet.jpg
             work/full-body-rig/pose-range-qa/pose-range-visual-qa.json
             work/full-body-rig/pose-range-qa/full-body-pose-range-contact-sheet.jpg
+            work/full-body-rig/joint-artwork-review/joint-artwork-contact-sheet.jpg
+            work/full-body-rig/joint-artwork-review/joint-artwork-template.json
+            work/full-body-rig/joint-artwork-review/joint-artwork-review-report.json
             work/full-body-rig/bundle/full-body-performance-report.json
             work/full-body-rig/bundle/reference-sheets-report.json
             work/full-body-rig/bundle/reference-part-map.json
