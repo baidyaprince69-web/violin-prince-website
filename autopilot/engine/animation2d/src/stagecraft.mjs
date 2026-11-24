@@ -269,7 +269,13 @@ export function buildStagecraftMotion(scene, { fps = 25, width = 720, height = 1
     if (
       !Number.isFinite(requested) || !Number.isFinite(alignmentError)
       || alignmentError < 0 || alignmentError > 0.45
-      || !["decoded_audio_beat_grid", "decoded_audio_onset", "preview_generated_beat_grid"].includes(timingSource)
+      || ![
+        "decoded_audio_beat_grid",
+        "decoded_audio_phase_grid",
+        "decoded_audio_onset",
+        "verified_audio_arrangement_event_map",
+        "preview_generated_beat_grid"
+      ].includes(timingSource)
     ) {
       throw new TypeError("Music-sync cue must be aligned to a measured audio beat or onset.");
     }

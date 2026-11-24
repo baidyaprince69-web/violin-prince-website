@@ -103,6 +103,7 @@ class ScheduledProceduralDailyPathTests(unittest.TestCase):
             audio_module = SimpleNamespace(
                 analyse_audio_file=lambda *args, **kwargs: {
                     "status": "metadata_verified",
+                    "source": "declared_bpm_and_arrangement_event_map",
                     "duration_seconds": 24.0,
                     "bpm": 120,
                     "beat_times": [index * 0.5 for index in range(48)],

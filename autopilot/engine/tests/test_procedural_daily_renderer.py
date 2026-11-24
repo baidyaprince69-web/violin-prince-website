@@ -92,6 +92,7 @@ class ProceduralDailyRendererTests(unittest.TestCase):
         plan = _valid_director_plan()
         timing = {
             "status": "analysed",
+            "source": "decoded_audio_spectral_flux_autocorrelation",
             "duration_seconds": 24.0,
             "bpm": 120.0,
             "beat_times": [index * 0.5 for index in range(48)],
@@ -107,6 +108,40 @@ class ProceduralDailyRendererTests(unittest.TestCase):
         self.assertEqual(cues[2]["source_time_seconds"], 4.0)
         self.assertTrue(all(cue["timing_source"] == "decoded_audio_beat_grid" for cue in cues))
 
+    def test_music_sync_distinguishes_declared_arrangement_map_from_waveform_analysis(self):
+        plan = _valid_director_plan()
+        timing = {
+            "status": "metadata_verified",
+            "source": "declared_bpm_and_arrangement_event_map",
+            "duration_seconds": 24.0,
+            "bpm": 120.0,
+            "beat_times": [index * 0.5 for index in range(48)],
+            "onsets": [],
+        }
+        report = align_director_music_sync_cues(plan, timing)
+        self.assertEqual(report["method"], "verified_arrangement_event_map")
+        self.assertTrue(all(
+            cue["timing_source"] == "verified_audio_arrangement_event_map"
+            for cue in plan["edit_direction"]["music_sync_cues"]
+        ))
+
+    def test_music_sync_distinguishes_waveform_phase_with_declared_tempo(self):
+        plan = _valid_director_plan()
+        timing = {
+            "status": "metadata_guided",
+            "source": "declared_tempo_with_decoded_audio_phase",
+            "duration_seconds": 24.0,
+            "bpm": 120.0,
+            "beat_times": [index * 0.5 for index in range(48)],
+            "onsets": [],
+        }
+        report = align_director_music_sync_cues(plan, timing)
+        self.assertEqual(report["method"], "decoded_audio_phase")
+        self.assertTrue(all(
+            cue["timing_source"] == "decoded_audio_phase_grid"
+            for cue in plan["edit_direction"]["music_sync_cues"]
+        ))
+
     def test_music_sync_refuses_missing_or_low_evidence_timing(self):
         plan = _valid_director_plan()
         with self.assertRaisesRegex(ProceduralDailyRenderError, "no usable beat grid or transient onsets"):
@@ -116,7 +151,7 @@ class ProceduralDailyRendererTests(unittest.TestCase):
         plan = _valid_director_plan()
         plan["edit_direction"]["music_sync_cues"][0]["time_seconds"] = 8.7
         timing = {
-            "status": "analysed", "duration_seconds": 24.0, "bpm": 30.0,
+            "status": "analysed", "source": "decoded_audio_spectral_flux_autocorrelation", "duration_seconds": 24.0, "bpm": 30.0,
             "beat_times": [0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0, 22.0],
             "onsets": [],
         }
@@ -185,7 +220,7 @@ class ProceduralDailyRendererTests(unittest.TestCase):
                 [{"source_id": "S1", "publisher_domain": "one.example"},
                  {"source_id": "S2", "publisher_domain": "two.example"}],
                 audio, narration, {"subtitle_cues": [], "word_cues": []},
-                beat_analysis={"status":"analysed","duration_seconds":24.0,"bpm":120.0,"beat_times":[index * 0.5 for index in range(48)],"onsets":[]},
+                beat_analysis={"status":"metadata_verified","source":"declared_bpm_and_arrangement_event_map","duration_seconds":24.0,"bpm":120.0,"beat_times":[index * 0.5 for index in range(48)],"onsets":[]},
                 director_generator=generate,
                 render_function=render,
                 rig_bundle_dir=rig,

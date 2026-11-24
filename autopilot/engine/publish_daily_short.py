@@ -244,7 +244,12 @@ def validate_daily_bundle(
                 not isinstance(cue_time, (int, float)) or isinstance(cue_time, bool)
                 or not 0 <= float(cue_time) < float(manifest.get("duration_seconds") or 0) - 0.08
                 or float(cue_time) <= last_sync_time
-                or cue.get("timing_source") not in {"decoded_audio_beat_grid", "decoded_audio_onset"}
+                or cue.get("timing_source") not in {
+                    "decoded_audio_beat_grid",
+                    "decoded_audio_phase_grid",
+                    "decoded_audio_onset",
+                    "verified_audio_arrangement_event_map",
+                }
                 or not isinstance(alignment_error, (int, float)) or isinstance(alignment_error, bool)
                 or not 0 <= float(alignment_error) <= 0.45
                 or not str(cue.get("event") or "").strip()

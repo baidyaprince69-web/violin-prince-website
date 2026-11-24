@@ -248,13 +248,29 @@ def align_director_music_sync_cues(
 
     beat_times = valid_times(audio_timing.get("beat_times"))
     onsets = valid_times(audio_timing.get("onsets"))
-    if beat_times:
-        source_events = [(time, "decoded_audio_beat_grid") for time in beat_times]
-    elif onsets:
-        source_events = [(time, "decoded_audio_onset") for time in onsets]
+    analysis_status = str(audio_timing.get("status") or "")
+    analysis_source = str(audio_timing.get("source") or "")
+    beat_source = ""
+    onset_source = ""
+    if analysis_status == "analysed" and analysis_source == "decoded_audio_spectral_flux_autocorrelation":
+        beat_source = "decoded_audio_beat_grid"
+        onset_source = "decoded_audio_onset"
+    elif analysis_status == "metadata_guided" and analysis_source == "declared_tempo_with_decoded_audio_phase":
+        beat_source = "decoded_audio_phase_grid"
+    elif analysis_status == "metadata_verified" and analysis_source == "declared_bpm_and_arrangement_event_map":
+        beat_source = "verified_audio_arrangement_event_map"
+        onset_source = "verified_audio_arrangement_event_map"
+    elif analysis_status == "low_confidence" and analysis_source == "decoded_audio":
+        onset_source = "decoded_audio_onset"
+
+    if beat_times and beat_source:
+        source_events = [(time, beat_source) for time in beat_times]
+    elif onsets and onset_source:
+        source_events = [(time, onset_source) for time in onsets]
     else:
         raise ProceduralDailyRenderError(
-            "Audio analysis did not find a usable beat grid or transient onsets; music-sync rendering is blocked."
+            "Audio analysis did not provide a supported waveform-derived or verified arrangement timing source; "
+            "music-sync rendering is blocked."
         )
 
     intervals = [
