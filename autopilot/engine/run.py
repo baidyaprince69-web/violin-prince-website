@@ -2949,10 +2949,16 @@ def all_researched_topics():
     for research_path in sorted(research_root.glob("*.json")) if research_root.is_dir() else []:
         try:
             history = json.loads(research_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
+        except (OSError, json.JSONDecodeError) as exc:
+            raise PipelineError(
+                "Research history is unreadable; refusing to risk repeating an old topic: "
+                + str(research_path.relative_to(repository_root))
+            ) from exc
         if not isinstance(history, dict):
-            continue
+            raise PipelineError(
+                "Research history is not a JSON object; refusing to risk repeating an old topic: "
+                + str(research_path.relative_to(repository_root))
+            )
         groups = history.get("story_groups", [])
         for group in groups if isinstance(groups, list) else []:
             if not isinstance(group, dict):
@@ -2975,11 +2981,19 @@ def all_researched_topics():
         for record_path in sorted(directory.glob("*.json")) if directory.is_dir() else []:
             try:
                 record = json.loads(record_path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                continue
+            except (OSError, json.JSONDecodeError) as exc:
+                raise PipelineError(
+                    "Public upload history is unreadable; refusing to select potentially duplicated content: "
+                    + str(record_path.relative_to(repository_root))
+                ) from exc
             if isinstance(record, dict):
                 add(record.get("topic"))
                 add(record.get("title"))
+            else:
+                raise PipelineError(
+                    "Public upload history record is malformed: "
+                    + str(record_path.relative_to(repository_root))
+                )
 
     return topics
 
