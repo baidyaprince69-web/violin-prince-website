@@ -557,3 +557,10 @@ A passing FFmpeg/HyperFrames render is an engineering result, not visual approva
 ### Multi-shot camera edit in the preview compositor
 
 The preview timeline now supports per-layer normalized camera crops, validated framing labels, per-shot colour grading and camera-shot metadata in its render report. The CI cinematic fixture uses a full-body establishing frame, a medium performance frame, a violin/bow/hands close-up, a face/upper-body close-up and a return to the full-body hero frame. The shot layers overlap with alpha fades for dissolves. CI requires all four framing types and at least five declared shots; a title or graphic overlay on one unchanged wide shot is no longer sufficient evidence of a cinematic edit. These shots are a camera edit of the existing character performance, not newly generated source footage.
+
+
+### More visible full-body violin performance articulation
+
+Beat-synchronised presenter tracks distribute bow travel across the shoulder, elbow and wrist instead of leaving almost all visible articulation to the wrist. The wrist counter-rotates to preserve the bow-grip angle while the elbow contributes a visible share of each stroke. Note-driven finger bends are increased modestly and distributed across base, middle and tip sprites. Torso/head follow-through and lower-body counterbalance are also more visible while remaining restrained.
+
+The Motion report exposes presenter bow-stroke, finger-note, body-balance and weight-shift track counts separately from scene-stagecraft music-sync cues. The full-body CI gate requires 23 presenter sync tracks (3 bow, 12 finger segments, 2 body/head balance and 6 lower-body shifts) and records the audio timing source. The stagecraft `music_sync_event_count` must not be confused with presenter track counts.

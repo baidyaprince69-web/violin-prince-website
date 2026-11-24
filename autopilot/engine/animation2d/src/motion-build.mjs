@@ -43,6 +43,7 @@ export function buildMusicSynchronizedPerformanceTracks({
   onsets = [],
   noteEvents = [],
   confidence = 1,
+  timingSource = "validated_audio_event_map",
   fps = 25
 } = {}) {
   const total = Math.max(0.08, Number(duration) || 0.08);
@@ -129,22 +130,24 @@ export function buildMusicSynchronizedPerformanceTracks({
   ),0);
   // Quarter-beat samples create a continuous reciprocal bow path. The joints
   // counter-rotate together to keep the bow stable in the player's grip.
+  // Put a visible share of the bow stroke through the elbow/forearm.
+  // The wrist counter-rotates so the bow grip stays stable while its position travels.
   const bowShoulderStrokes=strokeTimes.map(time=>({
-    time,value:(5.15+downbeatAccentAt(time)*.22)*Math.cos(beatPhaseAt(time))
+    time,value:(7.2+downbeatAccentAt(time)*.55)*Math.cos(beatPhaseAt(time))
   }));
   const bowElbowStrokes=strokeTimes.map((time,index)=>({
-    time,value:-bowShoulderStrokes[index].value*.085
+    time,value:-bowShoulderStrokes[index].value*.48
   }));
   const bowWristStrokes=strokeTimes.map((time,index)=>({
     time,value:-bowShoulderStrokes[index].value-bowElbowStrokes[index].value
   }));
-  // Gentle phrase-level weight shift and delayed head follow-through.
+  // More visible phrase-level body and head follow-through.
   const torsoPulses=strokeTimes.map(time=>({
-    time,value:.92*Math.sin((time/Math.max(.2,period*4))*Math.PI*2)+downbeatAccentAt(time)*.12
+    time,value:1.35*Math.sin((time/Math.max(.2,period*4))*Math.PI*2)+downbeatAccentAt(time)*.18
   }));
   const headPulses=strokeTimes.map(time=>({
-    time,value:-.38*Math.sin(((time-.065)/Math.max(.2,period*4))*Math.PI*2)+
-      .12*Math.sin((time/Math.max(.2,period*8))*Math.PI*2)
+    time,value:-.62*Math.sin(((time-.065)/Math.max(.2,period*4))*Math.PI*2)+
+      .18*Math.sin((time/Math.max(.2,period*8))*Math.PI*2)
   }));
   const fingerNames = ["finger_index", "finger_middle", "finger_ring", "finger_little"];
   const fingerIntervals = Object.fromEntries(fingerNames.map(name => [name, []]));
@@ -169,7 +172,7 @@ export function buildMusicSynchronizedPerformanceTracks({
       const settle = Math.min(total, release + 0.08, nextHit);
       for (let fingerPosition = 0; fingerPosition <= fingerIndex; fingerPosition += 1) {
         const finger = fingerNames[fingerPosition];
-        const amplitudes = [7.2, -6.5, 6.8, -6.0];
+        const amplitudes = [10.2, -9.0, 9.8, -8.8];
         const stagger = fingerPosition * 0.009;
         fingerIntervals[finger].push({
           start: Math.min(total, hit + stagger),
@@ -218,9 +221,9 @@ export function buildMusicSynchronizedPerformanceTracks({
     }));
     const prefix = String(targetPrefix) + "-part-";
     return [
-      makeTrack(prefix + name, scalePoints(0.42)),
-      makeTrack(prefix + name + "_middle", scalePoints(0.38)),
-      makeTrack(prefix + name + "_tip", scalePoints(0.20))
+      makeTrack(prefix + name, scalePoints(0.50)),
+      makeTrack(prefix + name + "_middle", scalePoints(0.32)),
+      makeTrack(prefix + name + "_tip", scalePoints(0.18))
     ];
   });
 
@@ -235,26 +238,27 @@ export function buildMusicSynchronizedPerformanceTracks({
 
   const prefix = String(targetPrefix);
   const frameRate = Math.max(1, Number(fps) || 25);
+  const timing = String(timingSource || "validated_audio_event_map");
+  const tag = (track, event) => ({
+    ...track,
+    music_sync_event: "performer_" + event,
+    music_sync_timing_source: timing
+  });
   return [
-    // The screen-left chain is the player's anatomical right bowing arm.
-    // The bow prop is attached at its grip point to left_hand, so it inherits
-    // the shoulder -> elbow -> wrist motion as one rigid object. It must not
-    // receive a second independent translate/rotate track.
-    makeTrack(prefix + "-part-left_upper_arm", bowShoulderStrokes),
-    makeTrack(prefix + "-part-left_forearm", bowElbowStrokes),
-    makeTrack(prefix + "-part-left_hand", bowWristStrokes),
-    // The screen-right chain is the player's anatomical left fretting arm.
-    // Keep its wrist/forearm planted on the violin neck; the finger sprites
-    // carry the note articulation without dragging the whole hand off contact.
-    makeTrack(prefix + "-part-torso", torsoPulses),
-    makeTrack(prefix + "-part-head", headPulses),
-    weightTrack(prefix + "-part-left_thigh", 1.8, 1),
-    weightTrack(prefix + "-part-right_thigh", 1.8, -1),
-    weightTrack(prefix + "-part-left_calf", 1.25, -1),
-    weightTrack(prefix + "-part-right_calf", 1.25, 1),
-    weightTrack(prefix + "-part-left_foot", 0.72, 1),
-    weightTrack(prefix + "-part-right_foot", 0.72, -1),
-    ...fingerTracks
+    // Bowing arm: the shoulder, elbow and wrist form one continuous chain.
+    tag(makeTrack(prefix + "-part-left_upper_arm", bowShoulderStrokes), "bow_stroke"),
+    tag(makeTrack(prefix + "-part-left_forearm", bowElbowStrokes), "bow_stroke"),
+    tag(makeTrack(prefix + "-part-left_hand", bowWristStrokes), "bow_stroke"),
+    // Keep the fretting wrist planted while note events articulate finger sprites.
+    tag(makeTrack(prefix + "-part-torso", torsoPulses), "body_balance"),
+    tag(makeTrack(prefix + "-part-head", headPulses), "body_balance"),
+    tag(weightTrack(prefix + "-part-left_thigh", 2.6, 1), "weight_shift"),
+    tag(weightTrack(prefix + "-part-right_thigh", 2.6, -1), "weight_shift"),
+    tag(weightTrack(prefix + "-part-left_calf", 1.7, -1), "weight_shift"),
+    tag(weightTrack(prefix + "-part-right_calf", 1.7, 1), "weight_shift"),
+    tag(weightTrack(prefix + "-part-left_foot", 0.95, 1), "weight_shift"),
+    tag(weightTrack(prefix + "-part-right_foot", 0.95, -1), "weight_shift"),
+    ...fingerTracks.map(track => tag(track, "finger_note"))
   ];
 }
 
@@ -1595,6 +1599,7 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
             time: Number(event.time) - actionOffset
           })),
           confidence: sync.confidence,
+          timingSource: sync.source || sync.analysis_source || "validated_audio_event_map",
           fps
         });
         tracks.push(...timedPerformanceTracks);

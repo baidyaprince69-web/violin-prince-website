@@ -259,15 +259,23 @@ test("music-synchronized performance keyframes follow beat and onset timestamps"
   assert.equal(fingerboardArmTracks.length, 0,
     "the violin-neck arm must not drift away from its contact point");
   assert.ok(indexFinger && ringFinger && littleFinger);
+  assert.equal(bowShoulder.music_sync_event, "performer_bow_stroke");
+  assert.equal(elbow.music_sync_event, "performer_bow_stroke");
+  assert.equal(indexFinger.music_sync_event, "performer_finger_note");
+  assert.equal(indexFinger.music_sync_timing_source, "validated_audio_event_map");
+  assert.equal(tracks.filter(track => track.music_sync_event === "performer_bow_stroke").length, 3);
+  assert.equal(tracks.filter(track => track.music_sync_event === "performer_finger_note").length, 12);
+  assert.equal(tracks.filter(track => track.music_sync_event === "performer_weight_shift").length, 6);
   assert.ok(indexFinger.key_times.includes(0.268));
   assert.ok(ringFinger.key_times.includes(1.286));
   assert.ok(littleFinger.key_times.includes(1.795));
-  assert.ok(Math.max(...bowShoulder.values.map(Math.abs)) <= 7.0);
-  assert.ok(Math.max(...elbow.values.map(Math.abs)) <= 0.6);
-  assert.ok(Math.max(...wrist.values.map(Math.abs)) <= 6.4);
-  assert.ok(bowShoulder.values.some(value => Math.abs(value) >= 5.0));
-  assert.ok(elbow.values.some(value => Math.abs(value) >= 0.4));
-  assert.ok(wrist.values.some(value => Math.abs(value) >= 4.5));
+  assert.ok(Math.max(...bowShoulder.values.map(Math.abs)) <= 8.0);
+  assert.ok(Math.max(...elbow.values.map(Math.abs)) <= 4.0);
+  assert.ok(Math.max(...wrist.values.map(Math.abs)) <= 4.5);
+  assert.ok(bowShoulder.values.some(value => Math.abs(value) >= 7.0));
+  assert.ok(elbow.values.some(value => Math.abs(value) >= 3.0),
+    "the elbow must contribute a visible share of each bow stroke");
+  assert.ok(wrist.values.some(value => Math.abs(value) >= 3.0));
   assert.equal(bowShoulder.values.length, elbow.values.length);
   assert.equal(elbow.values.length, wrist.values.length);
   assert.ok(bowShoulder.values.length > 12,

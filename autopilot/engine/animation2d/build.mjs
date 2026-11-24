@@ -757,6 +757,23 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     String(track.target || "").startsWith(stagecraftObjectPrefix) &&
     track.property === "filter" && track.loop !== true
   );
+  const presenterSyncPrefix = scene.id + "-";
+  const presenterMusicSyncTracks = project.motion_tracks.filter(track =>
+    String(track.music_sync_event || "").startsWith("performer_") &&
+    String(track.target || "").startsWith(presenterSyncPrefix)
+  );
+  const presenterBowStrokeTrackCount = presenterMusicSyncTracks.filter(
+    track => track.music_sync_event === "performer_bow_stroke"
+  ).length;
+  const presenterFingerNoteTrackCount = presenterMusicSyncTracks.filter(
+    track => track.music_sync_event === "performer_finger_note"
+  ).length;
+  const presenterBodyBalanceTrackCount = presenterMusicSyncTracks.filter(
+    track => track.music_sync_event === "performer_body_balance"
+  ).length;
+  const presenterWeightShiftTrackCount = presenterMusicSyncTracks.filter(
+    track => track.music_sync_event === "performer_weight_shift"
+  ).length;
   if (musicSyncTracks.length !== expectedMusicSyncCount) {
     throw new Error("Scene " + scene.id + " has " + musicSyncTracks.length +
       " measured music-sync animation tracks for " + expectedMusicSyncCount + " cues.");
@@ -859,7 +876,13 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     animated_stagecraft_objects: stagecraftCounts.objects,
     animated_stagecraft_nodes: animatedStagecraftNodeCount,
     music_sync_event_count: musicSyncTracks.length,
-    music_sync_events: musicSyncTracks.map(track => ({event: track.music_sync_event, time_seconds: track.start, timing_source: track.music_sync_timing_source}))
+    music_sync_events: musicSyncTracks.map(track => ({event: track.music_sync_event, time_seconds: track.start, timing_source: track.music_sync_timing_source})),
+    presenter_music_sync_track_count: presenterMusicSyncTracks.length,
+    presenter_bow_stroke_track_count: presenterBowStrokeTrackCount,
+    presenter_finger_note_track_count: presenterFingerNoteTrackCount,
+    presenter_body_balance_track_count: presenterBodyBalanceTrackCount,
+    presenter_weight_shift_track_count: presenterWeightShiftTrackCount,
+    presenter_sync_timing_sources: [...new Set(presenterMusicSyncTracks.map(track => track.music_sync_timing_source))]
   };
 });
 const motionReport = {
@@ -890,6 +913,12 @@ const motionReport = {
   animated_stagecraft_scene_count: motionSceneReports.filter(scene => scene.animated_stagecraft_nodes > 0).length,
   music_sync_event_count: motionSceneReports.reduce((sum, scene) => sum + scene.music_sync_event_count, 0),
   music_sync_events: motionSceneReports.flatMap(scene => scene.music_sync_events),
+  presenter_music_sync_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.presenter_music_sync_track_count, 0),
+  presenter_bow_stroke_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.presenter_bow_stroke_track_count, 0),
+  presenter_finger_note_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.presenter_finger_note_track_count, 0),
+  presenter_body_balance_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.presenter_body_balance_track_count, 0),
+  presenter_weight_shift_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.presenter_weight_shift_track_count, 0),
+  presenter_sync_timing_sources: [...new Set(motionSceneReports.flatMap(scene => scene.presenter_sync_timing_sources))],
   scenes: motionSceneReports
 };
 
