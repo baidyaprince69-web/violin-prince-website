@@ -224,36 +224,64 @@ jobs:
           joint_art = report.get("source_aligned_joint_surface_art", {})
           assert joint_art.get("method") == "artist_approved_absolute_source_polygon_joint_surfaces_only", report
           assert joint_art.get("coordinate_space") == "absolute_source_pixels_top_left", report
-          assert joint_art.get("joint_surface_layer_count") == 0, report
-          assert joint_art.get("joint_surface_mesh_layer_count") == 0, report
-          assert joint_art.get("joint_surface_articulated_layer_count") == 0, report
           assert joint_art.get("joint_surface_mode") == "approved_artist_polygons_only_no_generated_caps", report
-          assert joint_art.get("source_pixels_transferred", 0) == 0, report
-          assert joint_art.get("parent_child_alpha_pixels_removed", 0) == 0, report
           assert joint_art.get("hand_assets_modified") == 0, report
           assert joint_art.get("hand_animation_data_modified") is False, report
           assert joint_art.get("protected_upper_body_assets_modified") == 0, report
-          expected_joint_reasons = {
-              "left_hip": "artist_aligned_joint_surface_art_required",
-              "right_hip": "artist_aligned_joint_surface_art_required",
-              "left_knee": "artist_aligned_joint_surface_art_required",
-              "right_knee": "artist_aligned_joint_surface_art_required",
-              "left_ankle": "artist_aligned_joint_surface_art_required",
-              "right_ankle": "artist_aligned_joint_surface_art_required",
-              "left_shoulder": "protected_upper_body_joint_asset_out_of_scope",
-              "right_shoulder": "protected_upper_body_joint_asset_out_of_scope",
-              "left_elbow": "protected_upper_body_joint_asset_out_of_scope",
-              "right_elbow": "protected_upper_body_joint_asset_out_of_scope",
+          lower_body_joints = {
+              "left_hip", "right_hip", "left_knee",
+              "right_knee", "left_ankle", "right_ankle",
           }
-          assert set(joint_art.get("regions", {})) == set(expected_joint_reasons), joint_art
-          assert all(
-              region.get("status") == "skipped"
-              and region.get("reason") == expected_joint_reasons[name]
-              for name, region in joint_art.get("regions", {}).items()
-          ), joint_art
-          surface_roles = {layer["role"] for layer in character.get("layers", []) if layer.get("joint_surface")}
-          assert surface_roles == set(), surface_roles
-          assert not list(bundle.glob("joint_surface_*.png")), report
+          protected_joints = {
+              "left_shoulder", "right_shoulder", "left_elbow", "right_elbow",
+          }
+          joint_regions = joint_art.get("regions", {})
+          assert set(joint_regions) == lower_body_joints | protected_joints, joint_art
+          created_regions = {
+              name for name, region in joint_regions.items()
+              if region.get("status") == "artist_source_polygon_patch_created"
+          }
+          assert created_regions <= lower_body_joints, joint_regions
+          for name in protected_joints:
+              region = joint_regions[name]
+              assert region.get("status") == "skipped"
+              assert region.get("reason") == "protected_upper_body_joint_asset_out_of_scope", joint_regions
+          for name in lower_body_joints - created_regions:
+              region = joint_regions[name]
+              assert region.get("status") == "skipped"
+              assert region.get("reason") in {
+                  "artist_aligned_joint_surface_art_required",
+                  "artist_polygon_does_not_bridge_both_source_surfaces",
+              }, joint_regions
+          for name in created_regions:
+              region = joint_regions[name]
+              assert region.get("source_pixels", 0) >= 80, region
+              assert region.get("parent_overlap_pixels", 0) >= 4, region
+              assert region.get("child_overlap_pixels", 0) >= 4, region
+              assert region.get("parent_alpha_pixels_removed", 0) > 0, region
+              assert region.get("child_alpha_pixels_removed", 0) > 0, region
+          expected_surface_roles = {"joint_surface_" + name for name in created_regions}
+          surface_roles = {
+              layer["role"] for layer in character.get("layers", [])
+              if layer.get("joint_surface")
+          }
+          assert surface_roles == expected_surface_roles, surface_roles
+          patch_files = {path.stem for path in bundle.glob("joint_surface_*.png")}
+          assert patch_files == expected_surface_roles, patch_files
+          assert joint_art.get("joint_surface_layer_count") == len(created_regions), joint_art
+          assert joint_art.get("joint_surface_mesh_layer_count") == 0, joint_art
+          assert joint_art.get("joint_surface_articulated_layer_count") == len(created_regions), joint_art
+          transferred_pixels = sum(
+              joint_regions[name].get("source_pixels", 0) for name in created_regions
+          )
+          removed_pixels = sum(
+              joint_regions[name].get("parent_alpha_pixels_removed", 0)
+              + joint_regions[name].get("child_alpha_pixels_removed", 0)
+              for name in created_regions
+          )
+          assert joint_art.get("source_pixels_transferred", 0) == transferred_pixels, joint_art
+          assert joint_art.get("moving_mask_pixels", 0) == transferred_pixels, joint_art
+          assert joint_art.get("parent_child_alpha_pixels_removed", 0) == removed_pixels, joint_art
           mesh_report = report.get("continuous_body_deformation", {})
           expected_mesh_roles = {
               "torso", "left_upper_arm", "left_forearm", "right_upper_arm", "right_forearm",
@@ -265,9 +293,14 @@ jobs:
           assert mesh_report.get("hand_assets_modified") == 0, report
           assert mesh_report.get("hand_animation_data_modified") is False, report
           partition = report.get("torso_surface_partition", {})
-          assert partition.get("method") == "source_alpha_partitioned_into_live_torso_surface", report
-          assert partition.get("joint_surface_source_pixels_transferred", 999) == 0
-          assert partition.get("transfer_mask_asset") == "torso-live-surface-transfer-mask.png", report
+          if created_regions:
+              assert partition.get("method") == "source_alpha_partitioned_into_static_torso_and_joint_surfaces", report
+              assert partition.get("joint_surface_source_pixels_transferred") == transferred_pixels, report
+              assert partition.get("transfer_mask_asset") == "torso-joint-surface-transfer-mask.png", report
+          else:
+              assert partition.get("method") == "source_alpha_partitioned_into_live_torso_surface", report
+              assert partition.get("joint_surface_source_pixels_transferred", 999) == 0
+              assert partition.get("transfer_mask_asset") == "torso-live-surface-transfer-mask.png", report
           assert partition.get("base_alpha_unchanged_outside_transfer_mask") is True, report
           assert partition.get("composition_source_alpha_reconstituted_by_surface_layers") is True, report
           assert partition.get("hand_assets_modified") == 0, report
