@@ -1701,11 +1701,25 @@ def _validate_artist_joint_polygon(
             f"{float(minimum_area_px):.1f} source pixels of area."
         )
 
-    contour = np.asarray(points, dtype=np.float32).reshape((-1, 1, 2))
-    pivot_relation = cv2.pointPolygonTest(
-        contour, (float(anchor_x), float(anchor_y)), False
-    )
-    if pivot_relation < 0:
+    # Ray-cast the pivot against the source-pixel polygon. A point on the
+    # boundary is accepted because an artist may trace directly over the pivot.
+    pivot_inside = False
+    pivot_on_boundary = False
+    for index, (x1, y1) in enumerate(points):
+        x2, y2 = points[(index + 1) % len(points)]
+        cross = (anchor_x - x1) * (y2 - y1) - (anchor_y - y1) * (x2 - x1)
+        if (
+            abs(cross) <= 1e-6
+            and min(x1, x2) - 1e-6 <= anchor_x <= max(x1, x2) + 1e-6
+            and min(y1, y2) - 1e-6 <= anchor_y <= max(y1, y2) + 1e-6
+        ):
+            pivot_on_boundary = True
+            break
+        if (y1 > anchor_y) != (y2 > anchor_y):
+            crossing_x = x1 + (anchor_y - y1) * (x2 - x1) / (y2 - y1)
+            if anchor_x < crossing_x:
+                pivot_inside = not pivot_inside
+    if not pivot_inside and not pivot_on_boundary:
         raise ManualReviewRequired(
             f"Artist polygon for {joint_name} does not contain its mapped joint pivot."
         )
