@@ -743,11 +743,6 @@ jobs:
             -map 0:v:0 -map 1:a:0 -t 8 \
             -c:v copy -c:a aac -b:a 192k -shortest -movflags +faststart \
             work/full-body-rig/full-body-violin-performance.mp4
-            work/full-body-rig/full-body-violin-cinematic-composition.mp4
-            work/full-body-rig/cinematic-composition-report.json
-            work/full-body-rig/cinematic-composition/cinematic-timeline.json
-            work/full-body-rig/cinematic-composition/pose-range-qa/pose-range-visual-qa.json
-            work/full-body-rig/cinematic-composition/pose-range-qa/full-body-pose-range-contact-sheet.jpg
 
       - name: Generate dense pose-range review evidence
         run: |
@@ -847,6 +842,11 @@ jobs:
           name: full-body-violin-performance-preview-${{ github.run_number }}
           path: |
             work/full-body-rig/full-body-violin-performance.mp4
+            work/full-body-rig/full-body-violin-cinematic-composition.mp4
+            work/full-body-rig/cinematic-composition-report.json
+            work/full-body-rig/cinematic-composition/cinematic-timeline.json
+            work/full-body-rig/cinematic-composition/pose-range-qa/pose-range-visual-qa.json
+            work/full-body-rig/cinematic-composition/pose-range-qa/full-body-pose-range-contact-sheet.jpg
             work/full-body-rig/full-body-performance-contact-sheet.jpg
             work/full-body-rig/pose-range-qa/pose-range-visual-qa.json
             work/full-body-rig/pose-range-qa/full-body-pose-range-contact-sheet.jpg
