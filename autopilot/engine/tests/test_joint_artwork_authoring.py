@@ -6,7 +6,10 @@ from pathlib import Path
 from PIL import Image
 import numpy as np
 
-from joint_artwork_authoring import build_joint_artwork_review_pack
+from joint_artwork_authoring import (
+    build_joint_artwork_review_pack,
+    validate_reviewed_joint_artwork_export,
+)
 
 
 class JointArtworkAuthoringTests(unittest.TestCase):
@@ -150,6 +153,98 @@ class JointArtworkAuthoringTests(unittest.TestCase):
             self.assertEqual((bundle / "child.png").read_bytes(), child_before)
             self.assertEqual((bundle / "hip_parent.png").read_bytes(), hip_parent_before)
             self.assertEqual((bundle / "hip_child.png").read_bytes(), hip_child_before)
+
+
+    def test_reviewed_export_validator_checks_source_hash_pivot_and_both_alpha_surfaces(self):
+        import hashlib
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            bundle = root / "bundle"
+            bundle.mkdir()
+            source_path = root / "preserved-source.png"
+            source_pixels = np.zeros((100, 100, 4), dtype=np.uint8)
+            source_pixels[20:80, 20:80] = (86, 54, 38, 255)
+            Image.fromarray(source_pixels, mode="RGBA").save(source_path)
+            for role in ("left_thigh", "left_calf"):
+                Image.new("RGBA", (60, 60), (86, 54, 38, 255)).save(bundle / (role + ".png"))
+            character = {
+                "canvas": {"width": 100, "height": 100},
+                "joints": {
+                    "left_hip": {"x": 0.30, "y": 0.50},
+                    "left_knee": {"x": 0.50, "y": 0.50},
+                    "left_ankle": {"x": 0.70, "y": 0.50},
+                },
+                "layers": [
+                    {"role": "left_thigh", "src": "left_thigh.png", "x": 20, "y": 20, "width": 60, "height": 60},
+                    {"role": "left_calf", "src": "left_calf.png", "x": 20, "y": 20, "width": 60, "height": 60},
+                ],
+            }
+            (bundle / "character.json").write_text(
+                json.dumps(character), encoding="utf-8"
+            )
+            pairs = {
+                "left_hip": ("torso", "left_thigh"),
+                "right_hip": ("torso", "right_thigh"),
+                "left_knee": ("left_thigh", "left_calf"),
+                "right_knee": ("right_thigh", "right_calf"),
+                "left_ankle": ("left_calf", "left_foot"),
+                "right_ankle": ("right_calf", "right_foot"),
+            }
+            regions = {
+                name: {
+                    "anchor": name,
+                    "anchor_px": [50.0, 50.0],
+                    "parent_role": pair[0],
+                    "child_role": pair[1],
+                    "blend_axis_joints": ["left_hip", "left_ankle"],
+                    "minimum_pixels": 80,
+                    "artist_source_polygon": [],
+                    "artwork_status": "awaiting_artist_alignment",
+                }
+                for name, pair in pairs.items()
+            }
+            regions["left_knee"].update({
+                "anchor": "left_knee",
+                "anchor_px": [50.0, 50.0],
+                "artist_source_polygon": [[35, 35], [65, 35], [65, 65], [35, 65]],
+                "artwork_status": "artist_approved",
+            })
+            export = {
+                "schema_version": 1,
+                "coordinate_space": "absolute_source_pixels_top_left",
+                "canvas": {"width": 100, "height": 100},
+                "source_artwork": {
+                    "filename": source_path.name,
+                    "sha256": hashlib.sha256(source_path.read_bytes()).hexdigest(),
+                },
+                "joint_surfaces": {"schema_version": 1, "regions": regions},
+            }
+            export_path = root / "joint-artwork-template-reviewed.json"
+            export_path.write_text(json.dumps(export), encoding="utf-8")
+
+            report = validate_reviewed_joint_artwork_export(
+                source_path, bundle, export_path
+            )
+
+            self.assertEqual(report["status"], "reviewed_export_validated")
+            self.assertEqual(report["approved_polygon_count"], 1)
+            self.assertEqual(report["draft_polygon_count"], 0)
+            self.assertEqual(report["validated_source_pixels"], 961)
+            self.assertFalse(report["bundle_modified"])
+            knee = report["regions"]["left_knee"]
+            self.assertEqual(knee["status"], "validated_for_rig_extraction")
+            self.assertEqual(knee["parent_source_overlap_pixels"], 961)
+            self.assertEqual(knee["child_source_overlap_pixels"], 961)
+            self.assertEqual(knee["joint_pivot_px"], [50.0, 50.0])
+            self.assertEqual(len(knee["source_rgb_sha256"]), 64)
+
+            export["source_artwork"]["sha256"] = "0" * 64
+            export_path.write_text(json.dumps(export), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "SHA-256"):
+                validate_reviewed_joint_artwork_export(
+                    source_path, bundle, export_path
+                )
 
 
 if __name__ == "__main__":
