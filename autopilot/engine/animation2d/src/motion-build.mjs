@@ -136,18 +136,18 @@ export function buildMusicSynchronizedPerformanceTracks({
     time,value:(7.2+downbeatAccentAt(time)*.55)*Math.cos(beatPhaseAt(time))
   }));
   const bowElbowStrokes=strokeTimes.map((time,index)=>({
-    time,value:-bowShoulderStrokes[index].value*.48
+    time,value:-bowShoulderStrokes[index].value*1.1
   }));
   const bowWristStrokes=strokeTimes.map((time,index)=>({
     time,value:-bowShoulderStrokes[index].value-bowElbowStrokes[index].value
   }));
   // More visible phrase-level body and head follow-through.
   const torsoPulses=strokeTimes.map(time=>({
-    time,value:1.35*Math.sin((time/Math.max(.2,period*4))*Math.PI*2)+downbeatAccentAt(time)*.18
+    time,value:1.7*Math.sin((time/Math.max(.2,period*4))*Math.PI*2)+downbeatAccentAt(time)*.22
   }));
   const headPulses=strokeTimes.map(time=>({
-    time,value:-.62*Math.sin(((time-.065)/Math.max(.2,period*4))*Math.PI*2)+
-      .18*Math.sin((time/Math.max(.2,period*8))*Math.PI*2)
+    time,value:-.78*Math.sin(((time-.065)/Math.max(.2,period*4))*Math.PI*2)+
+      .22*Math.sin((time/Math.max(.2,period*8))*Math.PI*2)
   }));
   const fingerNames = ["finger_index", "finger_middle", "finger_ring", "finger_little"];
   const fingerIntervals = Object.fromEntries(fingerNames.map(name => [name, []]));
@@ -172,7 +172,7 @@ export function buildMusicSynchronizedPerformanceTracks({
       const settle = Math.min(total, release + 0.08, nextHit);
       for (let fingerPosition = 0; fingerPosition <= fingerIndex; fingerPosition += 1) {
         const finger = fingerNames[fingerPosition];
-        const amplitudes = [10.2, -9.0, 9.8, -8.8];
+        const amplitudes = [12.8, -11.5, 12.2, -11.2];
         const stagger = fingerPosition * 0.009;
         fingerIntervals[finger].push({
           start: Math.min(total, hit + stagger),
@@ -221,8 +221,8 @@ export function buildMusicSynchronizedPerformanceTracks({
     }));
     const prefix = String(targetPrefix) + "-part-";
     return [
-      makeTrack(prefix + name, scalePoints(0.50)),
-      makeTrack(prefix + name + "_middle", scalePoints(0.32)),
+      makeTrack(prefix + name, scalePoints(0.52)),
+      makeTrack(prefix + name + "_middle", scalePoints(0.30)),
       makeTrack(prefix + name + "_tip", scalePoints(0.18))
     ];
   });
@@ -252,12 +252,12 @@ export function buildMusicSynchronizedPerformanceTracks({
     // Keep the fretting wrist planted while note events articulate finger sprites.
     tag(makeTrack(prefix + "-part-torso", torsoPulses), "body_balance"),
     tag(makeTrack(prefix + "-part-head", headPulses), "body_balance"),
-    tag(weightTrack(prefix + "-part-left_thigh", 2.6, 1), "weight_shift"),
-    tag(weightTrack(prefix + "-part-right_thigh", 2.6, -1), "weight_shift"),
-    tag(weightTrack(prefix + "-part-left_calf", 1.7, -1), "weight_shift"),
-    tag(weightTrack(prefix + "-part-right_calf", 1.7, 1), "weight_shift"),
-    tag(weightTrack(prefix + "-part-left_foot", 0.95, 1), "weight_shift"),
-    tag(weightTrack(prefix + "-part-right_foot", 0.95, -1), "weight_shift"),
+    tag(weightTrack(prefix + "-part-left_thigh", 3.2, 1), "weight_shift"),
+    tag(weightTrack(prefix + "-part-right_thigh", 3.2, -1), "weight_shift"),
+    tag(weightTrack(prefix + "-part-left_calf", 2.1, -1), "weight_shift"),
+    tag(weightTrack(prefix + "-part-right_calf", 2.1, 1), "weight_shift"),
+    tag(weightTrack(prefix + "-part-left_foot", 1.15, 1), "weight_shift"),
+    tag(weightTrack(prefix + "-part-right_foot", 1.15, -1), "weight_shift"),
     ...fingerTracks.map(track => tag(track, "finger_note"))
   ];
 }

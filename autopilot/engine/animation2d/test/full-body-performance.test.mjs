@@ -270,12 +270,12 @@ test("music-synchronized performance keyframes follow beat and onset timestamps"
   assert.ok(ringFinger.key_times.includes(1.286));
   assert.ok(littleFinger.key_times.includes(1.795));
   assert.ok(Math.max(...bowShoulder.values.map(Math.abs)) <= 8.0);
-  assert.ok(Math.max(...elbow.values.map(Math.abs)) <= 4.0);
-  assert.ok(Math.max(...wrist.values.map(Math.abs)) <= 4.5);
+  assert.ok(Math.max(...elbow.values.map(Math.abs)) <= 9.0);
+  assert.ok(Math.max(...wrist.values.map(Math.abs)) <= 1.0);
   assert.ok(bowShoulder.values.some(value => Math.abs(value) >= 7.0));
-  assert.ok(elbow.values.some(value => Math.abs(value) >= 3.0),
-    "the elbow must contribute a visible share of each bow stroke");
-  assert.ok(wrist.values.some(value => Math.abs(value) >= 3.0));
+  assert.ok(elbow.values.some(value => Math.abs(value) >= 8.0),
+    "the forearm must contribute a visibly larger share of each bow stroke");
+  assert.ok(wrist.values.some(value => Math.abs(value) >= 0.5));
   assert.equal(bowShoulder.values.length, elbow.values.length);
   assert.equal(elbow.values.length, wrist.values.length);
   assert.ok(bowShoulder.values.length > 12,
