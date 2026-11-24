@@ -91,6 +91,41 @@ class CinematicTimelineTests(unittest.TestCase):
         self.assertEqual(layers[0]["fade_in"], 0.2)
         self.assertEqual(layers[0]["fade_out"], 0.3)
 
+    def test_camera_crop_and_color_grade_are_compiled(self):
+        data = json.loads(json.dumps(self.manifest))
+        data["video_layers"][0]["camera_crop"] = {
+            "x": 0.1, "y": 0.05, "width": 0.8, "height": 0.8
+        }
+        data["video_layers"][0]["camera_framing"] = "full_body_wide"
+        data["video_layers"][0]["shot_id"] = "shot-wide"
+        data["video_layers"][0]["grade"] = {
+            "contrast": 1.1, "saturation": 0.9, "brightness": -0.02, "gamma": 0.98
+        }
+        data["video_layers"][1]["camera_crop"] = {
+            "x": 0.28, "y": 0.18, "width": 0.64, "height": 0.64
+        }
+        data["video_layers"][1]["camera_framing"] = "instrument_hands_close_up"
+        timeline = validate_timeline(data, self.root)
+        graph = _filtergraph(timeline, audio_offset=len(timeline["layers"]))
+        self.assertIn("crop=w=trunc(iw*0.800000/2)*2", graph)
+        self.assertIn("crop=w=trunc(iw*0.640000/2)*2", graph)
+        self.assertIn("eq=contrast=1.1000:saturation=0.9000", graph)
+        self.assertEqual(timeline["layers"][1]["camera_framing"], "instrument_hands_close_up")
+
+    def test_rejects_camera_crop_outside_source_frame(self):
+        data = json.loads(json.dumps(self.manifest))
+        data["video_layers"][1]["camera_crop"] = {
+            "x": 0.8, "y": 0.1, "width": 0.4, "height": 0.5
+        }
+        with self.assertRaisesRegex(CompositionError, "inside the source frame"):
+            validate_timeline(data, self.root)
+
+    def test_rejects_unknown_camera_framing(self):
+        data = json.loads(json.dumps(self.manifest))
+        data["video_layers"][1]["camera_framing"] = "extreme_zoom"
+        with self.assertRaisesRegex(CompositionError, "unsupported camera_framing"):
+            validate_timeline(data, self.root)
+
     def test_filtergraph_has_independent_video_layers_and_audio_buses(self):
         timeline = validate_timeline(self.manifest, self.root)
         graph = _filtergraph(timeline, audio_offset=len(timeline["layers"]))

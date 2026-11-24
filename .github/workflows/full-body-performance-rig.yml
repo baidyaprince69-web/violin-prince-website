@@ -847,6 +847,17 @@ jobs:
           assert len(report.get("video_layers") or []) >= 2, report
           assert any(item.get("role") == "character_performance" for item in report["video_layers"]), report
           assert any(item.get("role") == "animated_graphic" for item in report["video_layers"]), report
+          camera_shots = report.get("camera_shots") or []
+          framings = set(report.get("distinct_camera_framings") or [])
+          assert len(camera_shots) >= 5, report
+          assert {"full_body_wide", "medium_performance",
+                  "instrument_hands_close_up", "face_close_up"} <= framings, report
+          assert any(
+              item.get("shot_id") == "shot-03-instrument"
+              and item.get("camera_crop") is not None
+              for item in camera_shots
+          ), camera_shots
+          assert all(item.get("fade_in_seconds", 0) >= 0 for item in report["video_layers"]), report
           roles = {item.get("role") for item in report.get("audio_tracks") or []}
           assert {"voice", "music", "sfx"} <= roles, report
           assert report.get("audio_mix", {}).get("music_ducking") is True, report
@@ -854,6 +865,8 @@ jobs:
               "status": report["status"],
               "duration_seconds": report["duration_seconds"],
               "video_layers": len(report["video_layers"]),
+              "camera_shot_count": report["camera_shot_count"],
+              "camera_framings": report["distinct_camera_framings"],
               "audio_roles": sorted(roles),
               "publish_enabled": report["publish_enabled"],
               "public_artifact_allowed": report["public_artifact_allowed"]

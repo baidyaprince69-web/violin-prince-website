@@ -34,7 +34,7 @@ def create_fixture(character_video: Path, music_wav: Path, output_dir: Path) -> 
     if not espeak or not ffmpeg:
         raise RuntimeError("The synthetic smoke preview requires espeak-ng and ffmpeg on PATH.")
     _run([espeak, "-v", "en-us", "-s", "154", "-w", str(voice),
-          "Welcome to Violin Prince. This preview combines the full-body performance with narration, additional animation, music and sound effects."])
+          "Violin Prince. One performance. Five camera shots. A full-body introduction, close details of the violin and bow, the performer, then the final wide shot."])
 
     # Transparent motion-graphic video: an independent animated layer, not a
     # replacement for or edit of the current character performance.
@@ -78,11 +78,46 @@ def create_fixture(character_video: Path, music_wav: Path, output_dir: Path) -> 
         "video_layers": [
             {"id": "full_body_character", "kind": "video", "role": "character_performance",
              "path": str(character_video), "start_seconds": 0, "end_seconds": 8,
-             "x": 0, "y": 0, "width": width, "height": height, "fit": "contain"},
+             "x": 0, "y": 0, "width": width, "height": height, "fit": "contain",
+             "camera_framing": "full_body_wide", "shot_id": "shot-01-wide",
+             "shot_label": "Full-body establishing performance",
+             "grade": {"contrast": 1.08, "saturation": 0.92, "brightness": -0.015, "gamma": 0.98}},
+            {"id": "medium_performance_shot", "kind": "video", "role": "character_performance",
+             "path": str(character_video), "start_seconds": 1.65, "end_seconds": 3.35,
+             "source_in_seconds": 1.6, "x": 0, "y": 0, "width": width, "height": height,
+             "fit": "cover", "camera_crop": {"x": 0.10, "y": 0.05, "width": 0.80, "height": 0.80},
+             "camera_framing": "medium_performance", "shot_id": "shot-02-medium",
+             "shot_label": "Medium performer and instrument shot",
+             "fade_in_seconds": 0.24, "fade_out_seconds": 0.24,
+             "grade": {"contrast": 1.08, "saturation": 0.92, "brightness": -0.015, "gamma": 0.98}},
+            {"id": "instrument_hands_closeup", "kind": "video", "role": "character_performance",
+             "path": str(character_video), "start_seconds": 3.15, "end_seconds": 4.95,
+             "source_in_seconds": 3.0, "x": 0, "y": 0, "width": width, "height": height,
+             "fit": "cover", "camera_crop": {"x": 0.26, "y": 0.17, "width": 0.64, "height": 0.64},
+             "camera_framing": "instrument_hands_close_up", "shot_id": "shot-03-instrument",
+             "shot_label": "Violin, bow and hand close-up",
+             "fade_in_seconds": 0.22, "fade_out_seconds": 0.22,
+             "grade": {"contrast": 1.08, "saturation": 0.92, "brightness": -0.015, "gamma": 0.98}},
+            {"id": "face_performance_closeup", "kind": "video", "role": "character_performance",
+             "path": str(character_video), "start_seconds": 4.75, "end_seconds": 6.45,
+             "source_in_seconds": 4.2, "x": 0, "y": 0, "width": width, "height": height,
+             "fit": "cover", "camera_crop": {"x": 0.19, "y": 0.02, "width": 0.62, "height": 0.62},
+             "camera_framing": "face_close_up", "shot_id": "shot-04-face",
+             "shot_label": "Expression and upper-body close-up",
+             "fade_in_seconds": 0.22, "fade_out_seconds": 0.22,
+             "grade": {"contrast": 1.08, "saturation": 0.92, "brightness": -0.015, "gamma": 0.98}},
+            {"id": "hero_full_body_return", "kind": "video", "role": "character_performance",
+             "path": str(character_video), "start_seconds": 6.25, "end_seconds": 8,
+             "source_in_seconds": 6.0, "x": 0, "y": 0, "width": width, "height": height,
+             "fit": "cover", "camera_crop": {"x": 0.02, "y": 0.02, "width": 0.96, "height": 0.96},
+             "camera_framing": "full_body_wide", "shot_id": "shot-05-hero",
+             "shot_label": "Return to full-body hero performance",
+             "fade_in_seconds": 0.28,
+             "grade": {"contrast": 1.08, "saturation": 0.92, "brightness": -0.015, "gamma": 0.98}},
             {"id": "independent_motion_graphic", "kind": "video", "role": "animated_graphic",
              "path": overlay.name, "start_seconds": 0, "end_seconds": 8,
              "x": 0, "y": 0, "width": width, "height": height, "fit": "contain",
-             "opacity": 0.96}
+             "opacity": 0.72}
         ],
         "text_layers": [
             {"id": "opening_title", "text": "VIOLIN PRINCE", "start_seconds": 0.6,

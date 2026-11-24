@@ -84,6 +84,34 @@ def validate_timeline(data: dict[str, Any], root: str | Path) -> dict[str, Any]:
         fit = str(item.get("fit") or "contain").casefold()
         if fit not in {"contain", "cover", "stretch"}:
             raise CompositionError(f"{ident}: fit must be contain, cover or stretch")
+        crop = item.get("camera_crop")
+        if crop is not None:
+            if not isinstance(crop, dict):
+                raise CompositionError(f"{ident}: camera_crop must be an object")
+            crop_values = {
+                key: _number(crop.get(key), f"{ident}.camera_crop.{key}", 0.01 if key in {"width", "height"} else 0, 1)
+                for key in ("x", "y", "width", "height")
+            }
+            if crop_values["x"] + crop_values["width"] > 1.000001 or crop_values["y"] + crop_values["height"] > 1.000001:
+                raise CompositionError(f"{ident}: camera_crop must remain inside the source frame")
+        else:
+            crop_values = None
+        grade = item.get("grade")
+        if grade is not None and not isinstance(grade, dict):
+            raise CompositionError(f"{ident}: grade must be an object")
+        grade_values = None if grade is None else {
+            "contrast": _number(grade.get("contrast", 1), f"{ident}.grade.contrast", 0.5, 2),
+            "saturation": _number(grade.get("saturation", 1), f"{ident}.grade.saturation", 0, 2),
+            "brightness": _number(grade.get("brightness", 0), f"{ident}.grade.brightness", -1, 1),
+            "gamma": _number(grade.get("gamma", 1), f"{ident}.grade.gamma", 0.1, 3),
+        }
+        framing = str(item.get("camera_framing") or "").casefold()
+        allowed_framings = {"full_body_wide", "medium_performance", "instrument_hands_close_up", "face_close_up"}
+        if framing and framing not in allowed_framings:
+            raise CompositionError(f"{ident}: unsupported camera_framing {framing}")
+        shot_id = str(item.get("shot_id") or "")
+        if shot_id and not _ID.fullmatch(shot_id):
+            raise CompositionError(f"{ident}: invalid shot_id")
         layers.append({
             "id": ident, "kind": kind, "path": _path(item.get("path"), base_dir, ident),
             "start": start, "end": end, "length": end-start,
@@ -95,6 +123,9 @@ def validate_timeline(data: dict[str, Any], root: str | Path) -> dict[str, Any]:
             "fade_in": _number(item.get("fade_in_seconds", 0), f"{ident}.fade_in_seconds", 0, end-start),
             "fade_out": _number(item.get("fade_out_seconds", 0), f"{ident}.fade_out_seconds", 0, end-start),
             "role": str(item.get("role") or ("base" if i == 0 else "overlay")),
+            "camera_crop": crop_values, "camera_framing": framing,
+            "shot_id": shot_id, "shot_label": str(item.get("shot_label") or ""),
+            "grade": grade_values,
         })
     first = layers[0]
     if first["start"] != 0 or first["end"] < duration - 1e-6:
@@ -202,6 +233,28 @@ def _esc(text: str) -> str:
             .replace("]", "\\]").replace(";", "\\;"))
 
 
+def _camera_crop(layer: dict[str, Any]) -> str:
+    crop = layer.get("camera_crop")
+    if not crop:
+        return ""
+    x, y, width, height = (crop[key] for key in ("x", "y", "width", "height"))
+    # Keep the crop aligned to even pixels for stable H.264 4:2:0 output.
+    return (
+        f"crop=w=trunc(iw*{width:.6f}/2)*2:h=trunc(ih*{height:.6f}/2)*2:"
+        f"x=trunc(iw*{x:.6f}/2)*2:y=trunc(ih*{y:.6f}/2)*2"
+    )
+
+
+def _grade(layer: dict[str, Any]) -> str:
+    grade = layer.get("grade")
+    if not grade:
+        return ""
+    return (
+        f"eq=contrast={grade['contrast']:.4f}:saturation={grade['saturation']:.4f}:"
+        f"brightness={grade['brightness']:.4f}:gamma={grade['gamma']:.4f}"
+    )
+
+
 def _scale(layer: dict[str, Any]) -> str:
     w, h, fit = layer["width"], layer["height"], layer["fit"]
     if fit == "stretch":
@@ -213,19 +266,27 @@ def _scale(layer: dict[str, Any]) -> str:
 
 def _filtergraph(t: dict[str, Any], audio_offset: int) -> str:
     d, fps = t["duration"], t["fps"]
-    filters = [
-        f"[0:v]trim=start={t['layers'][0]['source_in']:.4f}:duration={d:.4f},setpts=PTS-STARTPTS,fps={fps},"
-        f"scale={t['width']}:{t['height']}:force_original_aspect_ratio=decrease,"
-        f"pad={t['width']}:{t['height']}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,format=yuv420p[v0]"
+    base = t["layers"][0]
+    base_filters = [
+        f"[0:v]trim=start={base['source_in']:.4f}:duration={d:.4f},setpts=PTS-STARTPTS,fps={fps}"
     ]
+    for expression in (_camera_crop(base), _scale(base), _grade(base)):
+        if expression:
+            base_filters.append(expression)
+    base_filters.append("format=yuv420p[v0]")
+    filters = [",".join(base_filters)]
     current = "v0"
     for n, layer in enumerate(t["layers"][1:], 1):
         start, end = layer["start"], layer["end"]
-        video_chain = (
-            f"[{n}:v]trim=start={layer['source_in']:.4f}:duration={layer['length']:.4f},"
-            f"setpts=PTS-STARTPTS,{_scale(layer)},format=rgba,"
-            f"colorchannelmixer=aa={layer['opacity']:.4f}"
-        )
+        video_steps = [
+            f"[{n}:v]trim=start={layer['source_in']:.4f}:duration={layer['length']:.4f}",
+            "setpts=PTS-STARTPTS",
+        ]
+        for expression in (_camera_crop(layer), _scale(layer), _grade(layer), "format=rgba"):
+            if expression:
+                video_steps.append(expression)
+        video_steps.append(f"colorchannelmixer=aa={layer['opacity']:.4f}")
+        video_chain = ",".join(video_steps)
         if layer.get("fade_in", 0):
             video_chain += f",fade=t=in:st=0:d={layer['fade_in']:.4f}:alpha=1"
         if layer.get("fade_out", 0):
@@ -409,7 +470,18 @@ def compose_video(manifest_path: str | Path, output_path: str | Path,
         "fps": round(measured_fps, 3), "video_codec": "h264", "audio_codec": "aac",
         "audio_sample_rate": int(audio.get("sample_rate") or 0),
         "video_layers": [{"id": x["id"], "role": x["role"], "kind": x["kind"],
-                          "start_seconds": x["start"], "end_seconds": x["end"]} for x in t["layers"]],
+                          "start_seconds": x["start"], "end_seconds": x["end"],
+                          "shot_id": x["shot_id"], "shot_label": x["shot_label"],
+                          "camera_framing": x["camera_framing"],
+                          "camera_crop": x["camera_crop"], "grade": x["grade"]} for x in t["layers"]],
+        "camera_shots": [
+            {"shot_id": x["shot_id"], "label": x["shot_label"], "framing": x["camera_framing"],
+             "start_seconds": x["start"], "end_seconds": x["end"],
+             "camera_crop": x["camera_crop"]}
+            for x in t["layers"] if x["camera_framing"]
+        ],
+        "camera_shot_count": len([x for x in t["layers"] if x["camera_framing"]]),
+        "distinct_camera_framings": sorted({x["camera_framing"] for x in t["layers"] if x["camera_framing"]}),
         "text_layers": [{"id": x["id"], "start_seconds": x["start"], "end_seconds": x["end"],
                          "fade_in_seconds": x["fade_in"], "fade_out_seconds": x["fade_out"]}
                         for x in text_layer_report],
