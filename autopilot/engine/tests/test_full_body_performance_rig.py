@@ -111,18 +111,18 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             source_pixels = np.zeros((100, 100, 4), dtype=np.uint8)
             source_pixels[20:70, 20:70] = (86, 54, 38, 255)
             source = Image.fromarray(source_pixels, mode="RGBA")
-            Image.new("RGBA", (28, 28), (86, 54, 38, 255)).save(root / "parent.png")
-            Image.new("RGBA", (28, 28), (86, 54, 38, 255)).save(root / "child.png")
-            parent_before = (root / "parent.png").read_bytes()
-            child_before = (root / "child.png").read_bytes()
+            Image.new("RGBA", (28, 28), (86, 54, 38, 255)).save(root / "left_thigh.png")
+            Image.new("RGBA", (28, 28), (86, 54, 38, 255)).save(root / "left_calf.png")
+            parent_before = (root / "left_thigh.png").read_bytes()
+            child_before = (root / "left_calf.png").read_bytes()
             hand_bytes = b"protected-hand-asset-bytes"
             (root / "left_hand.png").write_bytes(hand_bytes)
             character = {
                 "canvas": {"width": 100, "height": 100},
                 "joints": {"elbow": {"x": 0.45, "y": 0.45}},
                 "layers": [
-                    {"role": "parent", "src": "parent.png", "x": 30, "y": 30, "width": 28, "height": 28},
-                    {"role": "child", "src": "child.png", "x": 40, "y": 30, "width": 28, "height": 28},
+                    {"role": "left_thigh", "src": "left_thigh.png", "x": 30, "y": 30, "width": 28, "height": 28},
+                    {"role": "left_calf", "src": "left_calf.png", "x": 40, "y": 30, "width": 28, "height": 28},
                     {"role": "left_hand", "src": "left_hand.png", "x": 40, "y": 38, "width": 12, "height": 12},
                 ],
             }
@@ -134,8 +134,8 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                     "regions": {
                         "left_elbow": {
                             "anchor": "elbow",
-                            "parent_role": "parent",
-                            "child_role": "child",
+                            "parent_role": "left_thigh",
+                            "child_role": "left_calf",
                             "outline": {
                                 "profile": "tapered_source_capsule",
                                 "half_length_px": 18,
@@ -165,8 +165,8 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                 report["regions"]["left_elbow"]["reason"],
                 "artist_aligned_joint_surface_art_required",
             )
-            self.assertEqual((root / "parent.png").read_bytes(), parent_before)
-            self.assertEqual((root / "child.png").read_bytes(), child_before)
+            self.assertEqual((root / "left_thigh.png").read_bytes(), parent_before)
+            self.assertEqual((root / "left_calf.png").read_bytes(), child_before)
             self.assertEqual((root / "left_hand.png").read_bytes(), hand_bytes)
             self.assertFalse((root / "joint_surface_left_elbow.png").exists())
 
@@ -181,12 +181,12 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             source_pixels = np.zeros((100, 100, 4), dtype=np.uint8)
             source_pixels[20:80, 20:80] = (86, 54, 38, 255)
             source = Image.fromarray(source_pixels, mode="RGBA")
-            Image.new("RGBA", (60, 60), (86, 54, 38, 255)).save(root / "parent.png")
-            Image.new("RGBA", (60, 60), (86, 54, 38, 255)).save(root / "child.png")
+            Image.new("RGBA", (60, 60), (86, 54, 38, 255)).save(root / "left_thigh.png")
+            Image.new("RGBA", (60, 60), (86, 54, 38, 255)).save(root / "left_calf.png")
             hand_bytes = b"protected-hand-asset-bytes"
             (root / "left_hand.png").write_bytes(hand_bytes)
-            parent_before = np.asarray(Image.open(root / "parent.png").convert("RGBA")).copy()
-            child_before = np.asarray(Image.open(root / "child.png").convert("RGBA")).copy()
+            parent_before = np.asarray(Image.open(root / "left_thigh.png").convert("RGBA")).copy()
+            child_before = np.asarray(Image.open(root / "left_calf.png").convert("RGBA")).copy()
             character = {
                 "canvas": {"width": 100, "height": 100},
                 "joints": {
@@ -195,8 +195,8 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                     "distal": {"x": 0.70, "y": 0.50},
                 },
                 "layers": [
-                    {"role": "parent", "src": "parent.png", "x": 20, "y": 20, "width": 60, "height": 60},
-                    {"role": "child", "src": "child.png", "x": 20, "y": 20, "width": 60, "height": 60},
+                    {"role": "left_thigh", "src": "left_thigh.png", "x": 20, "y": 20, "width": 60, "height": 60},
+                    {"role": "left_calf", "src": "left_calf.png", "x": 20, "y": 20, "width": 60, "height": 60},
                     {"role": "left_hand", "src": "left_hand.png", "x": 20, "y": 20, "width": 12, "height": 12},
                 ],
             }
@@ -209,8 +209,8 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                     "regions": {
                         "left_knee": {
                             "anchor": "elbow",
-                            "parent_role": "parent",
-                            "child_role": "child",
+                            "parent_role": "left_thigh",
+                            "child_role": "left_calf",
                             "blend_axis_joints": ["proximal", "distal"],
                             "minimum_pixels": 40,
                             "artist_source_polygon": polygon,
@@ -218,8 +218,8 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                         },
                         "left_elbow": {
                             "anchor": "elbow",
-                            "parent_role": "parent",
-                            "child_role": "child",
+                            "parent_role": "left_thigh",
+                            "child_role": "left_calf",
                             "artist_source_polygon": polygon,
                             "artwork_status": "artist_approved",
                         },
@@ -243,8 +243,8 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             self.assertEqual(report["regions"]["left_elbow"]["reason"], "protected_upper_body_joint_asset_out_of_scope")
             self.assertGreater(report["prop_pixels_excluded"], 0)
             self.assertEqual((root / "left_hand.png").read_bytes(), hand_bytes)
-            after_parent = np.asarray(Image.open(root / "parent.png").convert("RGBA"))
-            after_child = np.asarray(Image.open(root / "child.png").convert("RGBA"))
+            after_parent = np.asarray(Image.open(root / "left_thigh.png").convert("RGBA"))
+            after_child = np.asarray(Image.open(root / "left_calf.png").convert("RGBA"))
             removed = moving
             self.assertTrue(np.all(after_parent[:, :, 3][removed] == 0))
             self.assertTrue(np.all(after_child[:, :, 3][removed] == 0))

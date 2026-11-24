@@ -23,9 +23,16 @@ class JointArtworkAuthoringTests(unittest.TestCase):
             child.save(bundle / "child.png")
             parent_before = (bundle / "parent.png").read_bytes()
             child_before = (bundle / "child.png").read_bytes()
+            lower_joints = (
+                "left_hip", "right_hip", "left_knee",
+                "right_knee", "left_ankle", "right_ankle",
+            )
             character = {
                 "canvas": {"width": 64, "height": 80},
-                "joints": {"left_knee": {"x": 0.5, "y": 0.5}},
+                "joints": {
+                    name: {"x": 0.25 + index * 0.1, "y": 0.5}
+                    for index, name in enumerate(lower_joints)
+                },
                 "layers": [
                     {"role": "parent", "src": "parent.png", "x": 20, "y": 26, "width": 24, "height": 24},
                     {"role": "child", "src": "child.png", "x": 20, "y": 30, "width": 24, "height": 24},
@@ -35,13 +42,14 @@ class JointArtworkAuthoringTests(unittest.TestCase):
             regions = {
                 "joint_surfaces": {
                     "regions": {
-                        "left_knee": {
-                            "anchor": "left_knee",
+                        name: {
+                            "anchor": name,
                             "parent_role": "parent",
                             "child_role": "child",
                             "minimum_pixels": 20,
-                            "blend_axis_joints": ["left_knee", "left_knee"],
+                            "blend_axis_joints": [name, name],
                         }
+                        for name in lower_joints
                     }
                 }
             }
@@ -55,7 +63,7 @@ class JointArtworkAuthoringTests(unittest.TestCase):
             template = json.loads((output / "joint-artwork-template.json").read_text(encoding="utf-8"))
 
             self.assertEqual(result["status"], "review_pack_created")
-            self.assertEqual(result["joint_count"], 1)
+            self.assertEqual(result["joint_count"], 6)
             self.assertEqual(result["production_art_assets_created"], 0)
             self.assertTrue((output / "joint-artwork-contact-sheet.jpg").is_file())
             self.assertEqual(template["joint_surfaces"]["regions"]["left_knee"]["artist_source_polygon"], [])
