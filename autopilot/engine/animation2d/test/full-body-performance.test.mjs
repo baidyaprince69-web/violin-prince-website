@@ -338,6 +338,24 @@ test("compileMotionTracks consumes audio beat maps for bow, arm and finger motio
       target + " must use the audio event map instead of the generic loop");
   }
 
+  const presenterSyncTracks = musicTracks.filter(track =>
+    String(track.music_sync_event || "").startsWith("performer_")
+  );
+  assert.equal(presenterSyncTracks.length, 23,
+    "all 23 measured presenter transforms must retain sync provenance after hierarchy compilation");
+  assert.equal(presenterSyncTracks.filter(track =>
+    track.music_sync_event === "performer_bow_stroke").length, 3);
+  assert.equal(presenterSyncTracks.filter(track =>
+    track.music_sync_event === "performer_finger_note").length, 12);
+  assert.equal(presenterSyncTracks.filter(track =>
+    track.music_sync_event === "performer_body_balance").length, 2);
+  assert.equal(presenterSyncTracks.filter(track =>
+    track.music_sync_event === "performer_weight_shift").length, 6);
+  assert.ok(presenterSyncTracks.every(track =>
+    track.property === "transform" &&
+    track.music_sync_timing_source === "decoded_audio_spectral_flux_autocorrelation"
+  ), "sync provenance must survive on the final frame-seekable transform tracks");
+
   const bowTransform = getTrack(musicTracks, "playing-violin-prince-prop-bow", "transform");
   assert.ok(bowTransform && bowTransform.values.some(value => value !== bowTransform.values[0]),
     "bow follows the articulated bowing-hand parent");

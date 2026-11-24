@@ -1204,6 +1204,9 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
         });
       }
       for (const role of rolesToAnimate) {
+        const sourceSyncTrack = [...(rotationTracks.get(role) || [])]
+          .reverse()
+          .find(track => String(track.music_sync_event || "").startsWith("performer_"));
         transformTracks.push({
           target: prefix + "-part-" + layerByRole.get(role).id,
           property: "transform",
@@ -1211,7 +1214,11 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
           offsets: sampleOffsets,
           start: sceneStart,
           duration: sceneDuration,
-          easing: "linear"
+          easing: "linear",
+          ...(sourceSyncTrack ? {
+            music_sync_event: sourceSyncTrack.music_sync_event,
+            music_sync_timing_source: sourceSyncTrack.music_sync_timing_source
+          } : {})
         });
       }
       for (const definition of meshDefinitions) {
