@@ -155,7 +155,7 @@ footer{padding:12px 18px;color:var(--muted);font-size:11px;text-align:center}
     <div class="controls" style="padding:10px 0 0;border:0">
       <button id="save" class="approve">Export reviewed JSON</button>
     </div>
-    <p class="small">Exported JSON does not change GitHub or the production rig. Review the file before supplying it to the isolated rig workflow.</p>
+    <p class="small">Switching joints preserves the current draft. Exported JSON does not change GitHub or the production rig.</p>
   </aside>
 </main>
 <footer>Nothing is uploaded. The source image and rig layers are loaded locally from the extracted review-pack folder.</footer>
@@ -243,6 +243,25 @@ async function render(){
   if(Array.isArray(region.candidate_source_polygon)&&region.candidate_source_polygon.length>2){
     linePolygon(region.candidate_source_polygon,"#ff4bdf",3,true);
   }
+  const nearestParent=region.closest_parent_source_pixel;
+  const nearestChild=region.closest_child_source_pixel;
+  if(Array.isArray(nearestParent)&&Array.isArray(nearestChild)){
+    const parentPoint=[
+      (nearestParent[0]-crop.x0)*crop.scale,
+      (nearestParent[1]-crop.y0)*crop.scale
+    ];
+    const childPoint=[
+      (nearestChild[0]-crop.x0)*crop.scale,
+      (nearestChild[1]-crop.y0)*crop.scale
+    ];
+    ctx.save();
+    ctx.strokeStyle="#ffe26a";ctx.fillStyle="#ffe26a";ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.moveTo(parentPoint[0],parentPoint[1]);ctx.lineTo(childPoint[0],childPoint[1]);ctx.stroke();
+    for(const point of [parentPoint,childPoint]){
+      ctx.beginPath();ctx.arc(point[0],point[1],5,0,Math.PI*2);ctx.fill();
+    }
+    ctx.restore();
+  }
   drawAnchor(region);drawPoints();
   const gap=region.candidate_parent_child_gap_px;
   const details=[
@@ -267,7 +286,18 @@ function updateControls(){
   document.getElementById("previous").disabled=names.indexOf(activeName)===0;
   document.getElementById("next").disabled=names.indexOf(activeName)===names.length-1;
 }
+function persistActiveDraft(){
+  const region=regions[activeName];
+  if(!region)return;
+  region.artist_source_polygon=editPoints.map(point=>[Number(point[0]),Number(point[1])]);
+  region.artwork_status=approved&&closed&&editPoints.length>=3
+    ?"artist_approved":"awaiting_artist_alignment";
+  if(editPoints.length){
+    region.authoring_note="Source-coordinate polygon traced in offline review tool; verify original artwork before production extraction.";
+  }
+}
 function loadJoint(name){
+  persistActiveDraft();
   activeName=name;
   const region=regions[name];
   editPoints=Array.isArray(region.artist_source_polygon)?region.artist_source_polygon.map(p=>[Number(p[0]),Number(p[1])]):[];
@@ -298,10 +328,7 @@ document.getElementById("approval").addEventListener("change",event=>{
   render();
 });
 document.getElementById("save").addEventListener("click",()=>{
-  const region=regions[activeName];
-  region.artist_source_polygon=editPoints.map(point=>[Number(point[0]),Number(point[1])]);
-  region.artwork_status=approved&&closed&&editPoints.length>=3?"artist_approved":"awaiting_artist_alignment";
-  region.authoring_note="Source-coordinate polygon traced in offline review tool; verify original artwork before production extraction.";
+  persistActiveDraft();
   const blob=new Blob([JSON.stringify(template,null,2)+"\n"],{type:"application/json"});
   const url=URL.createObjectURL(blob);
   const link=document.createElement("a");

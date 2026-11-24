@@ -88,6 +88,11 @@ class JointArtworkAuthoringTests(unittest.TestCase):
             self.assertIn("artist_source_polygon", annotator)
             self.assertIn("candidate_source_polygon", annotator)
             self.assertIn("artist_approved", annotator)
+            self.assertIn("persistActiveDraft", annotator)
+            self.assertIn("persistActiveDraft();", annotator)
+            self.assertIn("closest_parent_source_pixel", annotator)
+            self.assertIn('strokeStyle="#ffe26a"', annotator)
+            self.assertIn("Switching joints preserves the current draft", annotator)
             self.assertIn('source.src="../bundle/source.png"', annotator)
             self.assertNotIn("fetch(", annotator)
             contact_path = output / "joint-artwork-contact-sheet.jpg"
