@@ -2365,7 +2365,7 @@ def select_verified_story_sources(
     return selected
 
 
-def prepare_story_with_source_recovery(items, recent=None, seo_context=None, max_candidates=2, as_of=None):
+def prepare_story_with_source_recovery(items, recent=None, seo_context=None, max_candidates=2, as_of=None, allowed_story_types=None):
     """Select only from article groups already corroborated by independent publishers."""
     story_groups = discover_source_first_story_groups(items, as_of=as_of)
     if not story_groups:
@@ -2387,6 +2387,7 @@ def prepare_story_with_source_recovery(items, recent=None, seo_context=None, max
                 seo_context=seo_context,
                 story_groups=story_groups,
                 excluded_group_ids=excluded_group_ids,
+                allowed_story_types=allowed_story_types,
             )
             selected_group_id = str((plan.get("source_group") or {}).get("group_id") or "")
             selected_group = next(
@@ -2398,6 +2399,17 @@ def prepare_story_with_source_recovery(items, recent=None, seo_context=None, max
                     "Story quality gate blocked: selected plan is not attached to a verified source group."
                 )
             topic = str(plan.get("topic") or plan.get("title") or selected_group.get("topic_hint") or "untitled story").strip()
+            allowed_types = {str(value).strip() for value in (allowed_story_types or []) if str(value).strip()}
+            if allowed_types and str(plan.get("story_type") or "").strip() not in allowed_types:
+                raise PipelineError(
+                    "Story quality gate blocked: planner returned a story_type outside the scheduled category."
+                )
+            if recent:
+                from select_public_queue import _same_story_topic
+                if any(_same_story_topic(topic, previous) for previous in recent):
+                    raise PipelineError(
+                        "Story quality gate blocked: selected topic matches a previously researched subject."
+                    )
             creative_issues = validate_creative_plan(plan)
             if creative_issues:
                 raise PipelineError(
@@ -3612,7 +3624,7 @@ def compact_seo_discovery(discovery):
     }
 
 
-def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_group_ids=None):
+def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_group_ids=None, allowed_story_types=None):
     groups_by_id = {}
     eligible_story_groups = []
     if story_groups is not None:
@@ -3739,6 +3751,15 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
         "tell one connected story. The graphic_detail may use only sourced facts or the narration; never invent a "
         "number, date, measurement, comparison or statistic. If no suitable music-fact story exists, return skip."
     )
+    if allowed_story_types:
+        allowed_types = [str(value).strip() for value in allowed_story_types if str(value).strip()]
+        if not allowed_types:
+            raise PipelineError("No story types are configured for this scheduled content category.")
+        system += (
+            " This production slot is restricted to these story_type values only: "
+            + ", ".join(allowed_types)
+            + ". Do not choose an adjacent category or stretch the story to fit; return skip if no eligible source group fits."
+        )
     compact = planner_research_items(items)
     if not compact:
         raise PipelineError("Research feeds returned no planner-ready headlines with traceable links.")
