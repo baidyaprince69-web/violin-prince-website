@@ -184,10 +184,16 @@ def validate_daily_bundle(
     if manifest.get("contains_synthetic_media") is not synthetic.get("contains_synthetic_media"):
         raise PublishBlocked("Manifest and asset provenance synthetic-media declarations do not match.")
     assets = provenance.get("assets") or {}
-    render_mode = str(manifest.get("render_mode") or assets.get("render_mode") or "").casefold()
-    scene_images = assets.get("scene_images")
-    if render_mode not in {"procedural_2d", "layered_images"} or str(assets.get("render_mode") or "") != render_mode:
+    manifest_render_mode = str(manifest.get("render_mode") or "").casefold()
+    asset_render_mode = str(assets.get("render_mode") or "").casefold()
+    if manifest_render_mode and asset_render_mode and manifest_render_mode != asset_render_mode:
         raise PublishBlocked("Publisher manifest and asset provenance render modes do not match.")
+    # Earlier public handoff manifests predate the explicit render_mode field.
+    # Preserve their validated three-image contract as the legacy mode.
+    render_mode = manifest_render_mode or asset_render_mode or "layered_images"
+    if render_mode not in {"procedural_2d", "layered_images"}:
+        raise PublishBlocked("Publisher manifest and asset provenance render modes are unsupported.")
+    scene_images = assets.get("scene_images")
     if render_mode == "procedural_2d":
         if not isinstance(scene_images, list) or scene_images:
             raise PublishBlocked("Procedural animation must not contain generated scene-image assets.")
