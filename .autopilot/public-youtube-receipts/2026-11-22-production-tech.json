@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "status": "uploaded_public",
+  "provider": "upload_post",
+  "run_id": "45006495085",
+  "production_date": "2026-11-22",
+  "slot_id": "production-tech",
+  "production_identity": "2026-11-22:production-tech",
+  "youtube_channel_id": "UCGCfZij4Fn3Ga2j2HiCT45w",
+  "upload_post_user": "default",
+  "title": "Sonible pure:smooth: AI De-Harshing Explained",
+  "privacy_status": "public",
+  "sha256": "280e9fc823cd4e6e5986bbcc48e0d3ce6578950e27e534bd9629456839252d20",
+  "size_bytes": 6197854,
+  "duplicate_check": {
+    "status": "passed",
+    "pages_checked": 4,
+    "uploads_examined": 162,
+    "title_count": 159
+  },
+  "factual_provenance": {
+    "independent_publisher_count": 2,
+    "source_count": 2
+  },
+  "youtube_details_verified": true,
+  "uploaded_at_utc": "2026-11-22T09:36:21.968Z",
+  "reconciliation": {
+    "status": "confirmed_existing_public_upload",
+    "upload_post_request_id": "violin-prince-public-2026-11-22-production-tech",
+    "upload_post_status": "completed",
+    "upload_post_success": true,
+    "youtube_video_id": "zXso73-0gS0",
+    "youtube_video_url": "https://www.youtube.com/watch?v=zXso73-0gS0",
+    "youtube_media_timestamp": "2026-11-22T09:36:35Z",
+    "confirmation_basis": [
+      "Upload-Post status endpoint reports one completed successful YouTube result for the exact title and matching 6,197,854-byte asset.",
+      "Connected YouTube media history contains the matching title, video URL and publication timestamp.",
+      "The original uploader's control flow checks YouTube privacyStatus=public, exact title and expected channel before attempting to commit this success receipt.",
+      "The GitHub Actions log shows the attempt marker commit succeeded, then the later receipt commit failed because the old helper rebased before staging the receipt."
+    ],
+    "automatic_retry": false
+  }
+}
