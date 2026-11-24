@@ -44,7 +44,7 @@ The complete creative/production architecture is broader than the currently auto
 ## 3. High-level system map
 
 ```text
-ChatGPT daily operator / explicit production request
+GitHub Actions scheduled IST category trigger
                     |
                     v
        Scheduled slot identity + durable research claim
@@ -90,9 +90,6 @@ ChatGPT daily operator / explicit production request
                     |
                     v
        YouTube analytics and performance review
-                    |
-                    v
-      YouTube analytics and performance review
                     |
                     +------> next production plan
 ```
