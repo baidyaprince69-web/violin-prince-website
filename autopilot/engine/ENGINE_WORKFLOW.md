@@ -518,3 +518,30 @@ The default YouTube Data API quota documents 100 `videos.insert` calls per day f
 - The scheduled workflow does not invoke `publish_daily_short.py`, does not create a public GitHub Release or Upload-Post queue entry, and does not persist private video IDs or URLs in public receipts or logs.
 - Blocked slots and failed production, provenance, media-quality, channel-identity or upload-visibility checks stop that slot's upload.
 - Public publishing remains the final operating goal, but enabling scheduled public visibility requires a separate implementation change after the commissioning cycle and nightly review.
+
+---
+
+## Addendum — full-body multi-layer cinematic composition preview (2026-11-25)
+
+**Status:** Implemented in the isolated full-body preview branch; end-to-end GitHub Actions validation is pending.
+
+The full-body performance MP4 is now a supported visual layer in a separate preview-only composition stage. autopilot/engine/cinematic_video_pipeline.py consumes a versioned JSON timeline and supports:
+
+- A full-frame base video, including the current Violin Prince full-body animation.
+- Additional independently timed video or still-image layers with position, dimensions, fit mode and opacity.
+- Transparent animation clips for motion graphics, plus timed text/caption layers.
+- Separate narration/voice, music and sound-effect audio tracks with trim points, start offsets, gain, fades and optional looping.
+- Voice compression, music side-chain ducking, SFX mixing and a final limiter.
+- FFprobe validation of the final MP4 dimensions, duration, frame rate, H.264 video, AAC audio and audio sample rate.
+
+create_cinematic_composition_preview.py prepares a safe CI fixture using the current full-body preview, a transparent animated accent layer, a synthetic eSpeak NG narration, the generated CC0 sampled-violin guide and a generated whoosh. The public-branch smoke test does **not** use the creator's private voice recording.
+
+**Privacy and publishing boundary:**
+- The timeline must state preview_only=true and publish_enabled=false; the compositor rejects any other configuration.
+- Any audio source marked private_source=true sets private_media=true and public_artifact_allowed=false in the render report.
+- The public Actions preview has a fail-closed artifact check. A private-voice render must not be copied into a public repository artifact.
+- The compositor has no uploader, release, scheduler or publisher integration. PUBLISH_ENABLED=false and AUTOPILOT_ENABLED=false remain set in the preview workflow.
+
+The synthetic narration is only an integration fixture. It proves that a voice track can be positioned and mixed with music/SFX; it is not a test of the creator's actual voice timbre, transcript alignment or final voice approval. Use an approved private voice source only in a private/local rendering path.
+
+**Acceptance for this stage:** the combined 8-second MP4 must contain at least the full-body character layer and a separate animated graphic layer, separate voice/music/SFX tracks, music ducking, and valid H.264/AAC streams. The combined render is sampled by the existing dense pose-range QA. This stage demonstrates video composition; it does not grant visual-quality approval to the underlying character artwork or enable publishing.
