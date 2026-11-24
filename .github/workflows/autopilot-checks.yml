@@ -141,7 +141,7 @@ jobs:
         run: |
           python -m unittest discover -s autopilot/engine/tests -p "test_scheduled_story_builder.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_copilot_text_provider.py" -v
-          python -m unittest discover -s autopilot/engine/tests -p "test_evidence_first_research.py" -v
+          python -m unittest discover -s autopilot/engine/tests -p "test_publisher_quote_bridge.py" -v
 
       - name: Run private voice bridge validation regression tests
         working-directory: autopilot/engine/tests
