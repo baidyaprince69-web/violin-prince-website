@@ -2196,6 +2196,26 @@ def _normalized_narration_claim_tokens(value):
     return normalized
 
 
+def _exact_publisher_quote_for_claim(sentence, source):
+    """Find one verbatim publisher sentence/paragraph containing the narration claim."""
+    body = str(source.get("evidence_text") or "")
+    claim_terms = _normalized_narration_claim_tokens(sentence)
+    if not body or not claim_terms:
+        return ""
+    candidates = []
+    for paragraph in re.split(r"\\n{2,}|(?<=[.!?])\\s+(?=[A-Z0-9])", body):
+        quote = re.sub(r"\\s+", " ", paragraph).strip()
+        if len(quote) < 28:
+            continue
+        matched = claim_terms.intersection(source_tokens(quote))
+        coverage = len(matched) / len(claim_terms)
+        if len(matched) >= min(2, len(claim_terms)) and coverage >= 0.30:
+            candidates.append((coverage, len(matched), -abs(len(quote) - 260), quote))
+    if not candidates:
+        return ""
+    candidates.sort(reverse=True)
+    return candidates[0][3][:700]
+
 def validate_narration_against_sources(plan, verified_sources):
     """Require each factual narration sentence to match a verified article body."""
     sentences = narration_sentences(plan.get("narration_script", ""))
@@ -2274,12 +2294,19 @@ def validate_narration_against_sources(plan, verified_sources):
             )
             continue
 
+        exact_quote = _exact_publisher_quote_for_claim(sentence, source)
+        if not exact_quote:
+            issues.append(
+                f"narration sentence {sentence_number} has no exact publisher quote suitable for production evidence"
+            )
+            continue
         evidence_records.append({
             "sentence_number": sentence_number,
             "sentence": sentence,
             "source_id": str(source.get("source_id") or ""),
             "publisher_name": str(source.get("publisher_name") or source.get("publisher_domain") or ""),
             "publisher_domain": str(source.get("publisher_domain") or ""),
+            "quote": exact_quote,
             "matched_terms": sorted(matched_terms),
             "claim_terms": sorted(claim_tokens),
             "coverage": round(coverage, 3),
