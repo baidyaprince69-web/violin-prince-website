@@ -39,6 +39,7 @@ def analyse_violin_note_events(
             "status": "low_confidence",
             "source": "creator_uploaded_pcm_autocorrelation",
             "duration_seconds": round(duration, 4),
+            "note_event_count": 0,
             "note_events": [],
             "reason": "recording_is_silent_or_too_short",
         }
@@ -55,6 +56,7 @@ def analyse_violin_note_events(
             "status": "low_confidence",
             "source": "creator_uploaded_pcm_autocorrelation",
             "duration_seconds": round(duration, 4),
+            "note_event_count": 0,
             "note_events": [],
             "reason": "recording_is_too_short_for_pitch_analysis",
         }
