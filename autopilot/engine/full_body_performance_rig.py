@@ -2624,6 +2624,17 @@ def extend_full_body_character(
 
     preserved_source_path = bundle / "preserved-full-body-source.png"
     source_input = preserved_source_path if preserved_source_path.is_file() else source_path
+    source_manifest = json.loads(regions_path.read_text(encoding="utf-8"))
+    source_artwork = source_manifest.get("source_artwork") or {}
+    expected_source_hash = str(source_artwork.get("sha256") or "")
+    # Verify the untouched Auto-Rig preserved source before the edge-matte
+    # decontamination below rewrites that PNG with cleaned RGB values.
+    if expected_source_hash:
+        original_input_hash = hashlib.sha256(source_input.read_bytes()).hexdigest()
+        if original_input_hash != expected_source_hash:
+            raise ManualReviewRequired(
+                "Approved joint artwork source SHA-256 does not match the untouched Auto-Rig source input."
+            )
     with Image.open(source_input) as opened:
         source = opened.convert("RGBA")
     character = json.loads(character_path.read_text(encoding="utf-8"))
@@ -2686,15 +2697,6 @@ def extend_full_body_character(
     clean_source_path = bundle / "preserved-full-body-source.png"
     source.save(clean_source_path, format="PNG", optimize=True)
 
-    source_manifest = json.loads(regions_path.read_text(encoding="utf-8"))
-    source_artwork = source_manifest.get("source_artwork") or {}
-    expected_source_hash = str(source_artwork.get("sha256") or "")
-    if expected_source_hash:
-        actual_source_hash = hashlib.sha256(clean_source_path.read_bytes()).hexdigest()
-        if actual_source_hash != expected_source_hash:
-            raise ManualReviewRequired(
-                "Approved joint artwork source SHA-256 does not match the preserved full-body source."
-            )
 
     # Replace the unreliable SCHP limb masks with reviewed source-pixel regions.
     limb_layers, limb_joints, limb_report, moving_mask = _authored_performance_layers(
