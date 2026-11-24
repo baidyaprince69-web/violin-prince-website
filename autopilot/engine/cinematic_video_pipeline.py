@@ -436,7 +436,7 @@ def _rasterize_text_layers(t: dict[str, Any], destination: Path) -> list[dict[st
             "fit": "stretch", "opacity": 1.0,
             "fade_in": item["fade_in"], "fade_out": item["fade_out"],
             "role": "text",
-            "camera_crop": None, "camera_framing": "",
+            "camera_crop": None, "camera_framing": "", "camera_move": None,
             "shot_id": "", "shot_label": "", "grade": None,
         })
     return records
