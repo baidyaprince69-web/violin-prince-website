@@ -124,7 +124,7 @@ jobs:
           config["source_artwork"] = approved["source_artwork"]
           config["review_metadata"] = approved["review_metadata"]
           output_path.parent.mkdir(parents=True, exist_ok=True)
-          output_path.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+          output_path.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
           print("Applied six explicitly user-approved source-coordinate joint polygons to the isolated preview manifest.")
           PY
 
