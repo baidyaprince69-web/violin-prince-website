@@ -18,12 +18,10 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from scheduled_slot_date import CRON_TO_SLOT_ID, resolve_scheduled_production_date
+from scheduled_slot_date import resolve_scheduled_production_date
 from slot_registry import SLOT_CATALOG, SlotContractError, load_daily_batch
 
 ENGINE_DIR = Path(__file__).resolve().parent
-REPOSITORY_ROOT = ENGINE_DIR.parents[1]
-
 SLOT_STORY_TYPES = {
     "music-secrets": ("violin_physics", "instrument_design", "sound_and_perception"),
     "production-tech": ("music_production", "music_technology"),
@@ -157,6 +155,7 @@ def _build_ready_plan(
 
 
 def _persist_records(
+    repository_root: Path,
     batch_path: Path,
     history_path: Path,
     batch: dict[str, Any],
@@ -170,10 +169,10 @@ def _persist_records(
         return
 
     relative_paths = [
-        str(batch_path.relative_to(REPOSITORY_ROOT)),
-        str(history_path.relative_to(REPOSITORY_ROOT)),
+        str(batch_path.relative_to(repository_root)),
+        str(history_path.relative_to(repository_root)),
     ]
-    subprocess.run(["git", "add", "--", *relative_paths], cwd=REPOSITORY_ROOT, check=True)
+    subprocess.run(["git", "add", "--", *relative_paths], cwd=repository_root, check=True)
     staged = subprocess.run(
         ["git", "diff", "--cached", "--quiet"],
         cwd=REPOSITORY_ROOT,
@@ -274,6 +273,24 @@ def build_scheduled_batch(
         }
 
     now = now or datetime.now(timezone.utc)
+
+    # Durable research claim: commit this identity before making any network
+    # calls. If a runner disappears mid-search, the next cron sees the ledger
+    # and refuses to repeat the same research cycle.
+    research_claim = {
+        "schema_version": 1,
+        "production_date": production_date,
+        "slot_id": slot_id,
+        "research_identity": identity,
+        "researched_at_utc": now.astimezone(timezone.utc).isoformat(),
+        "status": "researching",
+        "reason": "Research claim committed before live discovery. Reconcile this identity if the runner stops before completion.",
+        "research_record_count": 0,
+        "story_groups": [],
+        "selected_topic": "",
+    }
+    _persist_records(root, batch_path, history_path, batch, research_claim, dry_run=dry_run)
+
     workspace = root / "work" / "scheduled-research" / production_date / slot_id
     engine.WORK = workspace / "work"
     engine.OUT = workspace / "output"
@@ -366,7 +383,7 @@ def build_scheduled_batch(
             "",
         ),
     }
-    _persist_records(batch_path, history_path, batch, history, dry_run=dry_run)
+    _persist_records(root, batch_path, history_path, batch, history, dry_run=dry_run)
     return {
         "status": research_status,
         "slot_id": slot_id,
