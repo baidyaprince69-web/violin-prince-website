@@ -136,6 +136,7 @@ def select_next_public_plan(
     *,
     after_date: str | None = None,
     production_date: str | None = None,
+    required_slot_id: str | None = None,
     batches_dir: str = ".autopilot/daily-batches",
     attempts_dir: str = ".autopilot/public-youtube-attempts",
     receipts_dir: str = ".autopilot/public-youtube-receipts",
@@ -143,6 +144,8 @@ def select_next_public_plan(
 ) -> dict[str, Any]:
     """Return the earliest ready, public, unused plan for an exact date or lower bound."""
     root = Path(root).resolve()
+    if required_slot_id and required_slot_id not in SLOT_CATALOG:
+        raise ValueError("required_slot_id must be one of the canonical four production slots.")
     if after_date and production_date:
         raise ValueError("Use either production_date for an exact batch or after_date for a rolling lower bound, not both.")
     if production_date:
@@ -211,6 +214,9 @@ def select_next_public_plan(
         same_date_history: list[dict[str, Any]] = []
         for plan in plans:
             slot_id = str(plan.get("slot_id") or "")
+            if required_slot_id and slot_id != required_slot_id:
+                same_date_history.append(plan)
+                continue
             metadata = plan.get("publish_metadata")
             metadata_title = metadata.get("title") if isinstance(metadata, dict) else ""
             title = str(metadata_title or plan.get("title") or "").strip()
@@ -286,6 +292,7 @@ def select_next_public_plan(
             "ready": False,
             "slot_status": "blocked",
             "production_date": production_date or "",
+            "slot_id": required_slot_id or "",
             "blocked_reason": blocked_reason,
             "checked_batches": checked_batches,
             "remaining_ready_count": 0,
@@ -314,6 +321,7 @@ def main(argv: list[str] | None = None) -> int:
     date_group = parser.add_mutually_exclusive_group()
     date_group.add_argument("--after-date", default=None, help="Earliest eligible batch date, inclusive (rolling queue mode).")
     date_group.add_argument("--production-date", default=None, help="Select only this exact Asia/Kolkata production batch; never fall forward.")
+    parser.add_argument("--slot-id", default=None, choices=tuple(SLOT_CATALOG), help="Select only this scheduled content category.")
     args = parser.parse_args(argv)
 
     after_date = args.after_date
@@ -335,12 +343,13 @@ def main(argv: list[str] | None = None) -> int:
         args.root,
         after_date=after_date,
         production_date=args.production_date,
+        required_slot_id=args.slot_id,
         existing_titles=existing_titles,
     )
     result["youtube_history"] = youtube_history
     outputs = {
         "slot_status": str(result.get("slot_status") or "blocked"),
-        "slot_id": str(result.get("slot_id") or ""),
+        "slot_id": str(result.get("slot_id") or args.slot_id or ""),
         "production_date": str(result.get("production_date") or ""),
         "batch_path": str(result.get("batch_path") or ""),
         "batch_sha256": str(result.get("batch_sha256") or ""),

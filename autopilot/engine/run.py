@@ -2196,6 +2196,26 @@ def _normalized_narration_claim_tokens(value):
     return normalized
 
 
+def _exact_publisher_quote_for_claim(sentence, source):
+    """Find one verbatim publisher sentence/paragraph containing the narration claim."""
+    body = str(source.get("evidence_text") or "")
+    claim_terms = _normalized_narration_claim_tokens(sentence)
+    if not body or not claim_terms:
+        return ""
+    candidates = []
+    for paragraph in re.split(r"\n{2,}|(?<=[.!?])\s+(?=[A-Z0-9])", body):
+        quote = re.sub(r"\s+", " ", paragraph).strip()
+        if len(quote) < 28:
+            continue
+        matched = claim_terms.intersection(source_tokens(quote))
+        coverage = len(matched) / len(claim_terms)
+        if len(matched) >= min(2, len(claim_terms)) and coverage >= 0.30:
+            candidates.append((coverage, len(matched), -abs(len(quote) - 260), quote))
+    if not candidates:
+        return ""
+    candidates.sort(reverse=True)
+    return candidates[0][3][:700]
+
 def validate_narration_against_sources(plan, verified_sources):
     """Require each factual narration sentence to match a verified article body."""
     sentences = narration_sentences(plan.get("narration_script", ""))
@@ -2274,12 +2294,19 @@ def validate_narration_against_sources(plan, verified_sources):
             )
             continue
 
+        exact_quote = _exact_publisher_quote_for_claim(sentence, source)
+        if not exact_quote:
+            issues.append(
+                f"narration sentence {sentence_number} has no exact publisher quote suitable for production evidence"
+            )
+            continue
         evidence_records.append({
             "sentence_number": sentence_number,
             "sentence": sentence,
             "source_id": str(source.get("source_id") or ""),
             "publisher_name": str(source.get("publisher_name") or source.get("publisher_domain") or ""),
             "publisher_domain": str(source.get("publisher_domain") or ""),
+            "quote": exact_quote,
             "matched_terms": sorted(matched_terms),
             "claim_terms": sorted(claim_tokens),
             "coverage": round(coverage, 3),
@@ -2365,9 +2392,19 @@ def select_verified_story_sources(
     return selected
 
 
-def prepare_story_with_source_recovery(items, recent=None, seo_context=None, max_candidates=2, as_of=None):
-    """Select only from article groups already corroborated by independent publishers."""
-    story_groups = discover_source_first_story_groups(items, as_of=as_of)
+def prepare_story_with_source_recovery(items, recent=None, seo_context=None, max_candidates=2, as_of=None, allowed_story_types=None, story_groups=None):
+    """Select only from fresh article groups not already covered in prior research history."""
+    story_groups = list(story_groups) if story_groups is not None else discover_source_first_story_groups(items, as_of=as_of)
+    if recent:
+        from select_public_queue import _same_story_topic
+        kept_groups = []
+        for group in story_groups:
+            topic_hint = str(group.get("topic_hint") or "").strip()
+            if topic_hint and any(_same_story_topic(topic_hint, previous) for previous in recent):
+                log("Skipping previously researched story group: " + topic_hint[:180])
+                continue
+            kept_groups.append(group)
+        story_groups = kept_groups
     if not story_groups:
         raise PipelineError(
             "Evidence-first research found no story group with at least two independent, "
@@ -2387,6 +2424,7 @@ def prepare_story_with_source_recovery(items, recent=None, seo_context=None, max
                 seo_context=seo_context,
                 story_groups=story_groups,
                 excluded_group_ids=excluded_group_ids,
+                allowed_story_types=allowed_story_types,
             )
             selected_group_id = str((plan.get("source_group") or {}).get("group_id") or "")
             selected_group = next(
@@ -2398,6 +2436,17 @@ def prepare_story_with_source_recovery(items, recent=None, seo_context=None, max
                     "Story quality gate blocked: selected plan is not attached to a verified source group."
                 )
             topic = str(plan.get("topic") or plan.get("title") or selected_group.get("topic_hint") or "untitled story").strip()
+            allowed_types = {str(value).strip() for value in (allowed_story_types or []) if str(value).strip()}
+            if allowed_types and str(plan.get("story_type") or "").strip() not in allowed_types:
+                raise PipelineError(
+                    "Story quality gate blocked: planner returned a story_type outside the scheduled category."
+                )
+            if recent:
+                from select_public_queue import _same_story_topic
+                if any(_same_story_topic(topic, previous) for previous in recent):
+                    raise PipelineError(
+                        "Story quality gate blocked: selected topic matches a previously researched subject."
+                    )
             creative_issues = validate_creative_plan(plan)
             if creative_issues:
                 raise PipelineError(
@@ -2774,11 +2823,17 @@ def build_story_quality_report(plan, selected_sources, date_check, as_of=None):
 
 
 def require_approved_text_provider():
-    """Fail before research until an approved text-planning provider is configured."""
-    raise PipelineError(
-        "No approved text-generation provider is configured. "
-        "The Prepare stage is disabled until a replacement provider is selected and tested."
-    )
+    """Require the isolated Copilot text planner before any live story is commissioned."""
+    if not os.environ.get("COPILOT_GITHUB_TOKEN", "").strip():
+        raise PipelineError(
+            "Live research planning is blocked: configure COPILOT_GITHUB_TOKEN as a repository Actions secret."
+        )
+    if not shutil.which("copilot"):
+        raise PipelineError(
+            "Live research planning is blocked: GitHub Copilot CLI is not installed in this runner."
+        )
+
+
 
 
 ILLUSTRATION_APPROVAL_FILE = Path(__file__).with_name("illustration-approval.json")
@@ -2848,18 +2903,104 @@ def require_approved_illustration_provider(approval_file=None):
 
 
 def ai(model, payload, timeout=180):
-    """Fail closed for remote AI; the approved local vector renderer has its own path."""
-    del payload, timeout
+    """Use isolated Copilot JSON planning; image generation remains a separate gated system."""
     if "image" in str(model).lower() or "illustration" in str(model).lower():
         raise PipelineError(
             "Remote image generation is disabled; approved scene plates must use the local vector illustrator."
         )
     require_approved_text_provider()
+    try:
+        from copilot_text_provider import (
+            CopilotTextProviderError,
+            generate_text_completion,
+        )
+        response = generate_text_completion(payload, timeout_seconds=int(timeout))
+    except (CopilotTextProviderError, TypeError, ValueError) as exc:
+        raise PipelineError("Isolated Copilot text planning failed: " + str(exc)[:1000]) from exc
+    return {"response": response}
+
+
+def all_researched_topics():
+    """Read every durable researched subject, including unselected and blocked discoveries."""
+    repository_root = Path(__file__).resolve().parents[2]
+    topics: list[str] = []
+    seen: set[str] = set()
+
+    def add(value: object) -> None:
+        text_value = re.sub(r"\s+", " ", str(value or "")).strip()
+        key = re.sub(r"[^a-z0-9]+", " ", text_value.casefold()).strip()
+        if text_value and key and key not in seen:
+            seen.add(key)
+            topics.append(text_value[:240])
+
+    batch_root = repository_root / ".autopilot" / "daily-batches"
+    for batch_path in sorted(batch_root.glob("????-??-??.json")) if batch_root.is_dir() else []:
+        try:
+            payload = json.loads(batch_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        for plan in payload.get("plans", []) if isinstance(payload, dict) else []:
+            if not isinstance(plan, dict):
+                continue
+            add(plan.get("topic"))
+            add(plan.get("core_claim"))
+
+    research_root = repository_root / ".autopilot" / "research-history"
+    for research_path in sorted(research_root.glob("*.json")) if research_root.is_dir() else []:
+        try:
+            history = json.loads(research_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise PipelineError(
+                "Research history is unreadable; refusing to risk repeating an old topic: "
+                + str(research_path.relative_to(repository_root))
+            ) from exc
+        if not isinstance(history, dict):
+            raise PipelineError(
+                "Research history is not a JSON object; refusing to risk repeating an old topic: "
+                + str(research_path.relative_to(repository_root))
+            )
+        groups = history.get("story_groups", [])
+        for group in groups if isinstance(groups, list) else []:
+            if not isinstance(group, dict):
+                continue
+            add(group.get("topic_hint"))
+            sources = group.get("sources", [])
+            for source in sources if isinstance(sources, list) else []:
+                if isinstance(source, dict):
+                    add(source.get("title"))
+
+        raw_items = history.get("research_items", [])
+        for item in raw_items if isinstance(raw_items, list) else []:
+            if isinstance(item, dict):
+                add(item.get("title"))
+                add(item.get("topic"))
+                add(item.get("headline"))
+
+    for directory_name in ("public-youtube-attempts", "public-youtube-receipts"):
+        directory = repository_root / ".autopilot" / directory_name
+        for record_path in sorted(directory.glob("*.json")) if directory.is_dir() else []:
+            try:
+                record = json.loads(record_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                raise PipelineError(
+                    "Public upload history is unreadable; refusing to select potentially duplicated content: "
+                    + str(record_path.relative_to(repository_root))
+                ) from exc
+            if isinstance(record, dict):
+                add(record.get("topic"))
+                add(record.get("title"))
+            else:
+                raise PipelineError(
+                    "Public upload history record is malformed: "
+                    + str(record_path.relative_to(repository_root))
+                )
+
+    return topics
 
 
 def recent_topics():
-    """Return no persisted history until a local, provider-independent store is implemented."""
-    return []
+    """Return a bounded prompt history; the builder separately checks the full archive."""
+    return all_researched_topics()[-100:]
 
 
 def parse_planner_result(result):
@@ -3562,7 +3703,7 @@ def compact_seo_discovery(discovery):
     }
 
 
-def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_group_ids=None):
+def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_group_ids=None, allowed_story_types=None):
     groups_by_id = {}
     eligible_story_groups = []
     if story_groups is not None:
@@ -3689,6 +3830,15 @@ def make_plan(items, recent=None, seo_context=None, story_groups=None, excluded_
         "tell one connected story. The graphic_detail may use only sourced facts or the narration; never invent a "
         "number, date, measurement, comparison or statistic. If no suitable music-fact story exists, return skip."
     )
+    if allowed_story_types:
+        allowed_types = [str(value).strip() for value in allowed_story_types if str(value).strip()]
+        if not allowed_types:
+            raise PipelineError("No story types are configured for this scheduled content category.")
+        system += (
+            " This production slot is restricted to these story_type values only: "
+            + ", ".join(allowed_types)
+            + ". Do not choose an adjacent category or stretch the story to fit; return skip if no eligible source group fits."
+        )
     compact = planner_research_items(items)
     if not compact:
         raise PipelineError("Research feeds returned no planner-ready headlines with traceable links.")

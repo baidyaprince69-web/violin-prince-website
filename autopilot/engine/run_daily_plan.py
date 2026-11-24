@@ -499,13 +499,22 @@ def run_daily_plan(
     except (TypeError, ValueError) as exc:
         raise engine.PipelineError("YouTube publisher preflight blocked the plan: " + str(exc)) from exc
     plan["publish_metadata"] = dict(metadata_check["value"])
-    # Keep generic multi-destination adapters disabled. Scheduled four-slot
-    # runs are uploaded only as private previews by a separate fail-closed step.
+    # Generic multi-destination adapters remain disabled. The scheduled route
+    # publishes only through its separately verified public YouTube uploader.
     os.environ["PUBLISH_ENABLED"] = "false"
 
-    audio_asset, audio_bytes = engine.get_audio(prefer_creator_assets=False)
+    is_real_performance = str(plan.get("slot_id") or "") == "real-performance"
+    audio_asset, audio_bytes = engine.get_audio(
+        prefer_creator_assets=is_real_performance,
+        allow_fallback=not is_real_performance,
+    )
+    if is_real_performance and audio_asset.get("audio_source") != "creator_recorded_violin":
+        raise engine.PipelineError(
+            "Real Performance requires an actual creator-recorded violin WAV. "
+            "Sampled, generated or ambient audio cannot represent the creator's performance."
+        )
     if not audio_bytes or len(audio_bytes) < 4096:
-        raise engine.PipelineError("The free CC0/ambient violin soundtrack could not be prepared.")
+        raise engine.PipelineError("The approved audio source could not be prepared.")
     paths["audio"].write_bytes(audio_bytes)
     from audio_analysis import analyse_audio_file
     known_bpm = (

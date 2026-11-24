@@ -135,6 +135,14 @@ jobs:
           python -m pip install --disable-pip-version-check \
             "numpy>=1.24,<3" "soundfile>=0.12,<1" "requests>=2.31,<3"
 
+      - name: Run live research, topic history and Copilot text provider tests
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python -m unittest discover -s autopilot/engine/tests -p "test_scheduled_story_builder.py" -v
+          python -m unittest discover -s autopilot/engine/tests -p "test_copilot_text_provider.py" -v
+          python -m unittest discover -s autopilot/engine/tests -p "test_publisher_quote_bridge.py" -v
+
       - name: Run private voice bridge validation regression tests
         working-directory: autopilot/engine/tests
         run: python -m unittest -v test_private_voice_client.py

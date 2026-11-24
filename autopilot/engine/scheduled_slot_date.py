@@ -24,6 +24,13 @@ CRON_TO_IST_SLOT = {
     "30 23 * * *": time(23, 30),
 }
 
+CRON_TO_SLOT_ID = {
+    "30 5 * * *": "music-secrets",
+    "30 11 * * *": "production-tech",
+    "30 17 * * *": "melody-stories",
+    "30 23 * * *": "real-performance",
+}
+
 
 def resolve_scheduled_production_date(
     schedule_cron: str,
@@ -60,6 +67,7 @@ def resolve_scheduled_production_date(
         "scheduled_slot_ist": scheduled_local.strftime("%Y-%m-%d %H:%M %Z"),
         "delay_minutes": int(delay.total_seconds() // 60),
         "schedule_cron": cron,
+        "slot_id": CRON_TO_SLOT_ID[cron],
         "timezone": TIMEZONE,
     }
 

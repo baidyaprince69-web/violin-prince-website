@@ -53,7 +53,9 @@ class BlockedSlotWorkflowTests(unittest.TestCase):
     def test_ready_scheduled_slot_uploads_a_public_youtube_video(self):
         content = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("select_public_queue.py", content)
-        self.assertIn("Select the next unused public-ready story from the scheduled date's batch", content)
+        self.assertIn("Research and author this scheduled category", content)
+        self.assertIn("Select the newly researched public-ready story for this exact category", content)
+        self.assertIn('--slot-id "$SCHEDULED_SLOT_ID"', content)
         self.assertIn("group: violin-prince-public-youtube-queue", content)
         self.assertIn("production_date: ${{ steps.batch.outputs.production_date }}", content)
         self.assertIn("- name: Publish approved daily slot PUBLICLY to YouTube via Upload-Post", content)

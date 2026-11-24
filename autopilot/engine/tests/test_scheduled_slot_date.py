@@ -28,15 +28,16 @@ class ScheduledSlotDateTests(unittest.TestCase):
 
     def test_all_four_cron_expressions_map_to_their_ist_slots(self):
         cases = (
-            ("30 5 * * *", datetime(2026, 11, 22, 5, 35, tzinfo=IST), "05:30"),
-            ("30 11 * * *", datetime(2026, 11, 22, 11, 35, tzinfo=IST), "11:30"),
-            ("30 17 * * *", datetime(2026, 11, 22, 17, 35, tzinfo=IST), "17:30"),
-            ("30 23 * * *", datetime(2026, 11, 22, 23, 35, tzinfo=IST), "23:30"),
+            ("30 5 * * *", datetime(2026, 11, 22, 5, 35, tzinfo=IST), "05:30", "music-secrets"),
+            ("30 11 * * *", datetime(2026, 11, 22, 11, 35, tzinfo=IST), "11:30", "production-tech"),
+            ("30 17 * * *", datetime(2026, 11, 22, 17, 35, tzinfo=IST), "17:30", "melody-stories"),
+            ("30 23 * * *", datetime(2026, 11, 22, 23, 35, tzinfo=IST), "23:30", "real-performance"),
         )
-        for cron, now, expected_time in cases:
+        for cron, now, expected_time, expected_slot in cases:
             with self.subTest(cron=cron):
                 result = resolve_scheduled_production_date(cron, now=now)
                 self.assertEqual(result["production_date"], "2026-11-22")
+                self.assertEqual(result["slot_id"], expected_slot)
                 self.assertTrue(str(result["scheduled_slot_ist"]).endswith(expected_time + " IST"))
 
     def test_run_six_hours_late_fails_closed(self):

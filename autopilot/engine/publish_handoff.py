@@ -223,6 +223,8 @@ def build_asset_provenance(
         audio_rights = "cc0_license_recorded_from_pinned_sample_manifest"
     elif audio_source == "generated_ambient_fallback":
         audio_rights = "locally_procedurally_generated_audio"
+    elif audio_source == "creator_recorded_violin":
+        audio_rights = "creator_supplied_original_recording"
     else:
         audio_rights = "rights_review_required"
 
@@ -303,6 +305,11 @@ def build_asset_provenance(
                 "verification": "exact_quote_found_in_verified_publisher_article",
             })
 
+    creator_recording_included = (
+        str(plan.get("slot_id") or "") == "real-performance"
+        and audio_source == "creator_recorded_violin"
+    )
+
     return {
         "schema_version": 1,
         "run_id": str(run_id),
@@ -328,8 +335,13 @@ def build_asset_provenance(
             "soundtrack": soundtrack,
             "final_video": final_video,
             "creator_supplied_performance": {
-                "included": False,
-                "reason": "The ChatGPT daily route does not insert a private creator-uploaded performance asset.",
+                "included": creator_recording_included,
+                "reason": (
+                    "The real-performance slot uses the creator-supplied PCM violin recording."
+                    if creator_recording_included
+                    else "No creator-recorded violin performance is included in this production."
+                ),
+                "audio_sha256": soundtrack.get("sha256") if creator_recording_included else None,
             },
         },
         "synthetic_media": {

@@ -375,6 +375,19 @@ class AssetProvenanceTests(unittest.TestCase):
         self.assertEqual(manifest["description"], "Verified source-led music explanation.")
         self.assertEqual(manifest["external_asset_credits"], [])
 
+
+    def test_real_performance_records_the_creator_supplied_violin_take(self):
+        self.plan = {**self.plan, "slot_id": "real-performance"}
+        creator_audio = {
+            "audio_source": "creator_recorded_violin",
+            "filename": "violin-performance.wav",
+        }
+        provenance = self._provenance(creator_audio)
+        performance = provenance["assets"]["creator_supplied_performance"]
+        self.assertTrue(performance["included"])
+        self.assertEqual(performance["reason"], "The real-performance slot uses the creator-supplied PCM violin recording.")
+        self.assertEqual(performance["audio_sha256"], provenance["assets"]["soundtrack"]["sha256"])
+        self.assertEqual(provenance["assets"]["soundtrack"]["rights_status"], "creator_supplied_original_recording")
     def test_unknown_soundtrack_license_blocks_publication(self):
         check = validate_publish_metadata({
             "title": self.plan["title"],

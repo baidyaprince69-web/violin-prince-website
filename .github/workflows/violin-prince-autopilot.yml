@@ -110,19 +110,46 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install fresh-research dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r autopilot/engine/requirements.txt
+
+      - name: Set up Node.js 22 for GitHub Copilot CLI
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install GitHub Copilot CLI
+        run: npm install --global @github/copilot
+
       - name: Resolve scheduled IST batch date from the triggering cron slot
         id: schedule_context
         env:
           SCHEDULE_CRON: ${{ github.event.schedule }}
         run: python autopilot/engine/scheduled_slot_date.py --cron "$SCHEDULE_CRON"
 
-      - name: Select the next unused public-ready story from the scheduled date's batch
+      - name: Research and author this scheduled category
+        id: research
+        env:
+          PYTHONPATH: autopilot/engine
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          SCHEDULE_CRON: ${{ github.event.schedule }}
+          PRODUCTION_DATE: ${{ steps.schedule_context.outputs.production_date }}
+        run: |
+          python autopilot/engine/scheduled_story_builder.py \
+            --root . \
+            --cron "$SCHEDULE_CRON" \
+            --production-date "$PRODUCTION_DATE"
+
+      - name: Select the newly researched public-ready story for this exact category
         id: batch
         env:
           PYTHONPATH: autopilot/engine
           UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
           SCHEDULED_PRODUCTION_DATE: ${{ steps.schedule_context.outputs.production_date }}
-        run: python autopilot/engine/select_public_queue.py --root . --production-date "$SCHEDULED_PRODUCTION_DATE"
+          SCHEDULED_SLOT_ID: ${{ steps.schedule_context.outputs.slot_id }}
+        run: python autopilot/engine/select_public_queue.py --root . --production-date "$SCHEDULED_PRODUCTION_DATE" --slot-id "$SCHEDULED_SLOT_ID"
 
       - name: Check production and public-publishing gates for the selected batch
         id: readiness
@@ -192,8 +219,10 @@ jobs:
             exit 1
           fi
 
-      - name: Check out the project
+      - name: Check out the latest main branch, including the durable research batch
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Read ChatGPT daily production request
         id: daily_request
@@ -355,11 +384,11 @@ jobs:
             python autopilot/engine/run_daily_plan.py --plan "${{ steps.daily_request.outputs.plan_path }}"
           fi
 
-      - name: Retain creator-requested MP4 for YouTube upload handoff
+      - name: Retain creator-requested MP4 for public YouTube upload handoff
         if: success() && github.event_name == 'push' && steps.daily_request.outputs.plan_path != ''
         uses: actions/upload-artifact@v4
         with:
-          name: violin-prince-private-preview-${{ github.run_number }}
+          name: violin-prince-production-handoff-${{ github.run_number }}
           path: |
             work/output/violin-prince-short.mp4
             work/output/publish-manifest.json
