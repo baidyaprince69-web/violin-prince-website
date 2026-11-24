@@ -90,6 +90,7 @@ class CinematicTimelineTests(unittest.TestCase):
             self.assertEqual(image.size, (720, 1280))
         self.assertEqual(layers[0]["fade_in"], 0.2)
         self.assertEqual(layers[0]["fade_out"], 0.3)
+        self.assertIsNone(layers[0]["camera_move"])
 
     def test_camera_crop_and_color_grade_are_compiled(self):
         data = json.loads(json.dumps(self.manifest))
