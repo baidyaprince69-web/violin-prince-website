@@ -163,7 +163,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             self.assertEqual(report["parent_child_alpha_pixels_removed"], 0)
             self.assertEqual(
                 report["regions"]["left_elbow"]["reason"],
-                "artist_aligned_joint_surface_art_required",
+                "protected_upper_body_joint_asset_out_of_scope",
             )
             self.assertEqual((root / "left_thigh.png").read_bytes(), parent_before)
             self.assertEqual((root / "left_calf.png").read_bytes(), child_before)
