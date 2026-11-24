@@ -1685,7 +1685,35 @@ def _extract_source_aligned_joint_surfaces(
                 )
                 canvas_polygon.append([float(point[0]), float(point[1])])
         else:
-            # Legacy polygon support remains for isolated synthetic fixtures.
+            # Legacy polygon support remains for isolated synthetic fixtures,
+            # but its deformation axis is still centred on the joint anchor.
+            blend_axis_names = item.get("blend_axis_joints") or []
+            if len(blend_axis_names) != 2:
+                raise ManualReviewRequired(f"Joint surface {joint_name} needs proximal and distal axis anchors.")
+            proximal_joint, distal_joint = (
+                joints.get(str(blend_axis_names[0])),
+                joints.get(str(blend_axis_names[1])),
+            )
+            if not proximal_joint or not distal_joint:
+                raise ManualReviewRequired(f"Joint surface {joint_name} has an incomplete anatomical chain.")
+            proximal_dx = center_x - float(proximal_joint["x"]) * width
+            proximal_dy = center_y - float(proximal_joint["y"]) * height
+            distal_dx = float(distal_joint["x"]) * width - center_x
+            distal_dy = float(distal_joint["y"]) * height - center_y
+            proximal_length = float(np.hypot(proximal_dx, proximal_dy))
+            distal_length = float(np.hypot(distal_dx, distal_dy))
+            if proximal_length < 2:
+                raise ManualReviewRequired(f"Joint surface {joint_name} has no proximal bone direction.")
+            proximal_unit = np.array([proximal_dx, proximal_dy], dtype=np.float64) / proximal_length
+            distal_unit = (
+                np.array([distal_dx, distal_dy], dtype=np.float64) / distal_length
+                if distal_length >= 2 else proximal_unit.copy()
+            )
+            tangent = proximal_unit + distal_unit
+            tangent_length = float(np.linalg.norm(tangent))
+            if tangent_length < 0.15:
+                tangent, tangent_length = proximal_unit, float(np.linalg.norm(proximal_unit))
+            tangent /= max(tangent_length, 1e-8)
             canvas_polygon = [
                 [center_x + float(point[0]), center_y + float(point[1])]
                 for point in (item.get("polygon") or [])
