@@ -42,6 +42,8 @@ class ScheduledProceduralDailyPathTests(unittest.TestCase):
         }
         audio_bytes = b"approved decoded soundtrack bytes" * 400
         captured: dict[str, object] = {}
+        make_image_mock = Mock(side_effect=AssertionError("scheduled procedural path must not generate scene images"))
+        storyboard_preview_mock = Mock(side_effect=AssertionError("scheduled procedural path must not build image storyboards"))
 
         class AnimationProductionGateError(RuntimeError):
             pass
@@ -150,9 +152,9 @@ class ScheduledProceduralDailyPathTests(unittest.TestCase):
                     PACKAGE=root / "legacy-package",
                     RUN_ID="procedural-daily-test",
                     get_audio=Mock(return_value=(audio_asset, audio_bytes)),
-                    make_image=Mock(side_effect=AssertionError("scheduled procedural path must not generate scene images")),
+                    make_image=make_image_mock,
                     _write_review_text=Mock(),
-                    make_storyboard_preview=Mock(side_effect=AssertionError("scheduled procedural path must not build image storyboards")),
+                    make_storyboard_preview=storyboard_preview_mock,
                 ),
                 patch.object(daily, "require_approved_own_voice"),
                 patch.object(daily, "validate_and_enrich_plan", side_effect=lambda loaded: (loaded, source_records)),
@@ -181,8 +183,8 @@ class ScheduledProceduralDailyPathTests(unittest.TestCase):
             self.assertEqual(len(captured["procedural_sources"]), 2)
             self.assertTrue(captured["procedural_audio"])
             self.assertEqual(captured["procedural_kwargs"]["beat_analysis"]["status"], "metadata_verified")
-            daily.engine.make_image.assert_not_called()
-            daily.engine.make_storyboard_preview.assert_not_called()
+            make_image_mock.assert_not_called()
+            storyboard_preview_mock.assert_not_called()
             write_receipt.assert_called_once()
             self.assertEqual(write_receipt.call_args.kwargs["status"], "rendered_ready_for_public_youtube_upload")
 
