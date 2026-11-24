@@ -9,9 +9,15 @@ The target is four complete, independent production cycles at 05:30, 11:30, 17:3
 
 No topic, finished MP4 or upload may be repeated. A failed or uncertain upload is terminal until reconciled. A prior blocked plan still counts as a researched subject for future topic selection. An exact MP4 SHA-256 already present in any other date/slot attempt or receipt blocks another upload.
 
-**Current implementation boundary:** the scheduled workflow now calls a per-slot research builder on every cron, uses the isolated Copilot text planner, commits a durable research claim before internet discovery, writes a topic/source history and updates the date batch before selection. The Master Creative Director remains separately dispatched and is not yet connected to every scheduled render. Genuine animation approval remains a hard release gate, and Real Performance additionally requires the creator's real WAV recording.
+**Current implementation boundary — 24 November 2026:** the scheduled workflow calls a per-slot research builder on every cron, uses the isolated Copilot text planner, commits a durable research claim before internet discovery, writes a topic/source history and updates the date batch before exact category selection. The scheduled producer now invokes the Copilot Master Creative Director and procedural Motion + HyperFrames renderer. The mainline upper-body presenter and eight-shot procedural proof passed technical preview validation. Public publishing is still held by the missing animation-production approval and presenter production approval; PR #130's full-body violin/bow/finger rig remains under visual/artwork review. The `Real Performance` slot additionally requires an actual creator-recorded PCM WAV.
 
 Private YouTube preview copies are not part of the approved publishing path. Historical commissioning notes below are retained as engineering history only and do not override the creator's public-only instruction.
+
+## Current engineering status and release gate
+
+The code path from scheduled research to shot-led procedural rendering and public Upload-Post publishing is integrated on `main`, but public release is not yet production-approved. The repository currently has no `animation-production-approval.json` or presenter `production-approval.json`. The procedural preview used synthetic placeholder audio, so its `measured_audio_sync_verified` field is false and it is not a publishable asset. The upper-body presenter is integrated; source-aligned full-body violin/bow/finger performance is still in draft PR #130, with lower-body joint surfaces awaiting artist tracing/approval.
+
+A cron trigger, a research batch, passing software tests, or a preview MP4 does not count as a public Short. Count a daily slot only after a verified public YouTube upload receipt exists.
 
 ## 1. Channel positioning
 
@@ -164,24 +170,24 @@ Use a source mix:
 - No claim of guaranteed reach, monetisation or copyright clearance. Check each upload's restrictions and rights status in YouTube Studio.
 - Mark synthetic elements honestly where required. Never claim AI-generated images or sampled audio show a live recording.
 
-## 8. Required automation changes before four-a-day publishing
+## 8. Four-a-day production readiness
 
 The current repository is not yet configured for this target. Before enabling public uploads, the implementation needs:
 
-1. **Four-plan batch model:** implemented on main through `.autopilot/daily-batches/YYYY-MM-DD.json`; each date has four canonical slot entries, including explicit blocked state when evidence is insufficient.
-2. **Four triggers:** implemented on main as four UTC cron events. ChatGPT's daily Global Director prepares tomorrow's date-specific batch before the first slot.
-3. **Per-slot duplicate protection:** publisher request IDs, external IDs and idempotency keys now include the date and slot. Confirmed-public-upload ceiling and uncertain-outcome reconciliation remain publication gates.
-4. **One publisher decision:** reconcile the Metricool and Upload-Post routes before enabling scheduling. Metricool reports YouTube, Facebook, Threads and Pinterest connected; Upload-Post currently reports YouTube only. Do not run two schedulers against the same slot.
-5. **Real performance intake:** accept a creator-selected recording, preserve its audio/video provenance, create clip candidates with timecodes, and require creator approval of the edit.
-6. **Release gates:** restore a production-ready illustration path, validate the complete rendered video/audio, keep the private Qwen3 voice proof intact, confirm synthetic-media metadata and channel settings, and only then permit public publishing.
-7. **Global analytics loop:** store a receipt per slot and measure results by pillar, language, country, traffic source and posting window. Use actual channel analytics to decide what to localise and where to focus.
+1. **Four-slot batch model:** implemented on `main` through `.autopilot/daily-batches/YYYY-MM-DD.json`, with exactly four canonical category entries and explicit ready/blocked states.
+2. **Per-trigger research:** implemented on all four Asia/Kolkata cron entries. Every trigger researches and commissions only its assigned category, records a durable research identity, and updates topic/source history before exact-slot selection.
+3. **Duplicate protection:** implemented across research history, date/slot identities, connected YouTube title history, Upload-Post idempotency identifiers and exact MP4 SHA-256 values. Uncertain outcomes must be reconciled before retry.
+4. **Public publisher:** the scheduled route uses the direct public Upload-Post YouTube publisher. No private-preview copies are part of the approved path; no parallel Metricool publishing scheduler is enabled.
+5. **Real Performance:** the dedicated slot requires source-aligned full-body violin/bow/finger animation and the creator's actual PCM violin recording. The full-body rig remains in draft PR #130 with lower-body joint surfaces awaiting artist tracing/approval.
+6. **Production release approval:** still blocked. `animation-production-approval.json` and the presenter's `production-approval.json` are absent from `main`. The technical procedural preview used synthetic placeholder audio and does not constitute measured audio-sync verification or creator visual approval.
+7. **Global analytics loop:** the next improvement cycle should store one verified receipt per slot and measure results by pillar, language, country, traffic source and posting window. Use actual channel analytics to guide subsequent topics.
 
-## 9. Verified operational status on 21 November 2026
+## 9. Historical snapshot — verified operational status on 21 November 2026 (superseded 24 November 2026)
 
 - The current .autopilot/prepare-request.json has publish_to_youtube set to false.
-- The main Autopilot workflow has four six-hour UTC cron events and ChatGPT prepares date-specific batches. Scheduled jobs remain private-preview-only.
-- The checked-in illustration approval is approved_for_preview, scoped to preview_video_only, with publishing_enabled set to false.
-- The main daily plan is a single file, .autopilot/daily-production-plan.json.
+- Historical state only: the workflow had four six-hour cron events, consumed prebuilt batches and used private previews. PR #133 later wired live per-slot research, and PR #129 restored the public-only Upload-Post route with procedural rendering behind approval gates.
+- Historical state only: the illustration approval was preview-scoped. The current production release gates are documented at the top of this file and remain closed pending valid creator approvals.
+- Historical state only: production used a single daily plan file; current scheduled runs create/update `.autopilot/daily-batches/YYYY-MM-DD.json` with a separate plan and research identity for each slot.
 - autopilot/engine/upload_post_handoff.py derives request/idempotency identifiers from production_date, so it must be redesigned before multiple same-day uploads can be safely queued.
 - The publisher references need reconciliation: the repository describes Metricool as the primary route in one place and Upload-Post in another.
 - Private fallback preview retention is six hours in the separate violin-prince-private-voice repository. It is a cleanup rule only; it does not schedule production or YouTube uploads.
