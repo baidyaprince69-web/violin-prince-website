@@ -1570,6 +1570,148 @@ def _erase_canvas_mask_from_layer(
     return removed
 
 
+
+def _validate_artist_joint_polygon(
+    joint_name: str,
+    polygon: Any,
+    *,
+    canvas_width: int,
+    canvas_height: int,
+    anchor_x: float,
+    anchor_y: float,
+    minimum_area_px: float = 12.0,
+) -> list[list[float]]:
+    """Validate an artist-traced polygon before it can transfer source pixels.
+
+    Coordinates are normalized to source-pixel centres because the rasterizer
+    rounds to integer pixels. The polygon must be simple, non-degenerate and
+    contain the actual joint pivot. The original source/layer masks are checked
+    separately by the extractor after this geometry gate.
+    """
+    if not isinstance(polygon, list) or len(polygon) < 3:
+        raise ManualReviewRequired(
+            f"Artist polygon for {joint_name} must contain at least three vertices."
+        )
+    if len(polygon) > 256:
+        raise ManualReviewRequired(
+            f"Artist polygon for {joint_name} exceeds the 256-vertex review limit."
+        )
+    if not np.isfinite(anchor_x) or not np.isfinite(anchor_y):
+        raise ManualReviewRequired(f"Joint anchor for {joint_name} is not finite.")
+    if not (0 <= anchor_x < canvas_width and 0 <= anchor_y < canvas_height):
+        raise ManualReviewRequired(
+            f"Joint anchor for {joint_name} lies outside the preserved source canvas."
+        )
+
+    points: list[tuple[int, int]] = []
+    for point in polygon:
+        if not isinstance(point, (list, tuple)) or len(point) != 2:
+            raise ManualReviewRequired(
+                f"Artist polygon for {joint_name} must contain [x, y] pairs."
+            )
+        if isinstance(point[0], bool) or isinstance(point[1], bool):
+            raise ManualReviewRequired(
+                f"Artist polygon for {joint_name} contains a non-numeric source coordinate."
+            )
+        try:
+            px, py = float(point[0]), float(point[1])
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ManualReviewRequired(
+                f"Artist polygon for {joint_name} contains a non-numeric source coordinate."
+            ) from exc
+        if not np.isfinite(px) or not np.isfinite(py):
+            raise ManualReviewRequired(
+                f"Artist polygon for {joint_name} contains a non-finite source coordinate."
+            )
+        if not (0 <= px < canvas_width and 0 <= py < canvas_height):
+            raise ManualReviewRequired(
+                f"Artist polygon for {joint_name} contains a point outside the source canvas."
+            )
+        pixel = (int(round(px)), int(round(py)))
+        if not (0 <= pixel[0] < canvas_width and 0 <= pixel[1] < canvas_height):
+            raise ManualReviewRequired(
+                f"Artist polygon for {joint_name} rounds outside the source canvas."
+            )
+        points.append(pixel)
+
+    # A serialized polygon may repeat its first point to make closure explicit.
+    # Normalize that one common representation, but reject duplicate vertices
+    # elsewhere because they create zero-length edges and ambiguous outlines.
+    if len(points) > 3 and points[-1] == points[0]:
+        points.pop()
+    if len(set(points)) < 3:
+        raise ManualReviewRequired(
+            f"Artist polygon for {joint_name} has fewer than three unique source pixels."
+        )
+    if len(set(points)) != len(points):
+        raise ManualReviewRequired(
+            f"Artist polygon for {joint_name} repeats a non-closing vertex."
+        )
+
+    def orientation(a: tuple[int, int], b: tuple[int, int], c: tuple[int, int]) -> int:
+        value = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+        return 0 if value == 0 else (1 if value > 0 else -1)
+
+    def on_segment(
+        a: tuple[int, int], b: tuple[int, int], point: tuple[int, int]
+    ) -> bool:
+        return (
+            min(a[0], b[0]) <= point[0] <= max(a[0], b[0])
+            and min(a[1], b[1]) <= point[1] <= max(a[1], b[1])
+        )
+
+    def intersects(
+        a: tuple[int, int], b: tuple[int, int],
+        c: tuple[int, int], d: tuple[int, int],
+    ) -> bool:
+        o1, o2 = orientation(a, b, c), orientation(a, b, d)
+        o3, o4 = orientation(c, d, a), orientation(c, d, b)
+        if o1 != o2 and o3 != o4:
+            return True
+        return (
+            (o1 == 0 and on_segment(a, b, c))
+            or (o2 == 0 and on_segment(a, b, d))
+            or (o3 == 0 and on_segment(c, d, a))
+            or (o4 == 0 and on_segment(c, d, b))
+        )
+
+    count = len(points)
+    for first in range(count):
+        a, b = points[first], points[(first + 1) % count]
+        for second in range(first + 1, count):
+            # Consecutive edges share one legitimate endpoint, including the
+            # first/last edge pair. Every other crossing or touch is invalid.
+            if second == first + 1 or (first == 0 and second == count - 1):
+                continue
+            c, d = points[second], points[(second + 1) % count]
+            if intersects(a, b, c, d):
+                raise ManualReviewRequired(
+                    f"Artist polygon for {joint_name} self-intersects or touches itself."
+                )
+
+    twice_area = sum(
+        points[index][0] * points[(index + 1) % count][1]
+        - points[(index + 1) % count][0] * points[index][1]
+        for index in range(count)
+    )
+    area_px = abs(twice_area) / 2.0
+    if area_px < float(minimum_area_px):
+        raise ManualReviewRequired(
+            f"Artist polygon for {joint_name} is degenerate or below "
+            f"{float(minimum_area_px):.1f} source pixels of area."
+        )
+
+    contour = np.asarray(points, dtype=np.float32).reshape((-1, 1, 2))
+    pivot_relation = cv2.pointPolygonTest(
+        contour, (float(anchor_x), float(anchor_y)), False
+    )
+    if pivot_relation < 0:
+        raise ManualReviewRequired(
+            f"Artist polygon for {joint_name} does not contain its mapped joint pivot."
+        )
+
+    return [[float(x), float(y)] for x, y in points]
+
 def _extract_source_aligned_joint_surfaces(
     source: Image.Image,
     bundle_dir: Path,
@@ -1687,18 +1829,14 @@ def _extract_source_aligned_joint_surfaces(
         if not isinstance(anchor, dict):
             raise ManualReviewRequired(f"Joint surface {joint_name} has no source joint anchor.")
         center_x, center_y = float(anchor["x"]) * width, float(anchor["y"]) * height
-        polygon_points: list[list[float]] = []
-        for point in polygon:
-            if not isinstance(point, (list, tuple)) or len(point) != 2:
-                raise ManualReviewRequired(
-                    f"Artist polygon for {joint_name} must contain [x, y] pairs."
-                )
-            px, py = float(point[0]), float(point[1])
-            if not np.isfinite(px) or not np.isfinite(py) or not (0 <= px < width and 0 <= py < height):
-                raise ManualReviewRequired(
-                    f"Artist polygon for {joint_name} contains an invalid source coordinate."
-                )
-            polygon_points.append([px, py])
+        polygon_points = _validate_artist_joint_polygon(
+            joint_name,
+            polygon,
+            canvas_width=width,
+            canvas_height=height,
+            anchor_x=center_x,
+            anchor_y=center_y,
+        )
 
         axis_names = item.get("blend_axis_joints") or []
         if len(axis_names) != 2:
@@ -1753,17 +1891,23 @@ def _extract_source_aligned_joint_surfaces(
         )
         area = int(eligible.sum())
         minimum = int(item.get("minimum_pixels", 80))
+        minimum_side_overlap = max(
+            1, int(item.get("minimum_parent_child_overlap_pixels", 4))
+        )
+        parent_overlap_pixels = int(parent_overlap.sum())
+        child_overlap_pixels = int(child_overlap.sum())
         if (
             area < minimum
-            or int(parent_overlap.sum()) == 0
-            or int(child_overlap.sum()) == 0
+            or parent_overlap_pixels < minimum_side_overlap
+            or child_overlap_pixels < minimum_side_overlap
         ):
             report["regions"][joint_name] = {
                 "status": "skipped",
                 "reason": "artist_polygon_does_not_bridge_both_source_surfaces",
                 "source_pixels_available": area,
-                "parent_overlap_pixels": int(parent_overlap.sum()),
-                "child_overlap_pixels": int(child_overlap.sum()),
+                "parent_overlap_pixels": parent_overlap_pixels,
+                "child_overlap_pixels": child_overlap_pixels,
+                "minimum_parent_child_overlap_pixels": minimum_side_overlap,
                 "prop_pixels_excluded": int(prop_overlap.sum()),
                 "parent_role": parent_role,
                 "child_role": child_role,
