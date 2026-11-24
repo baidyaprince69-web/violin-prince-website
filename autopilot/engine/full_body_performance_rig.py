@@ -2627,16 +2627,59 @@ def extend_full_body_character(
     source_manifest = json.loads(regions_path.read_text(encoding="utf-8"))
     source_artwork = source_manifest.get("source_artwork") or {}
     expected_source_hash = str(source_artwork.get("sha256") or "")
-    # Verify the untouched Auto-Rig preserved source before the edge-matte
-    # decontamination below rewrites that PNG with cleaned RGB values.
-    if expected_source_hash:
-        original_input_hash = hashlib.sha256(source_input.read_bytes()).hexdigest()
-        if original_input_hash != expected_source_hash:
+    expected_joint_region_hashes = source_artwork.get("joint_region_sha256") or {}
+    with Image.open(source_input) as opened:
+        source = opened.convert("RGBA")
+
+    actual_source_hash = hashlib.sha256(source_input.read_bytes()).hexdigest()
+    source_sha256_verified = False
+    joint_region_hashes_verified = False
+    source_validation_mode = "not_configured"
+    if expected_joint_region_hashes:
+        expected_joint_names = {
+            "left_hip", "right_hip", "left_knee",
+            "right_knee", "left_ankle", "right_ankle",
+        }
+        if set(expected_joint_region_hashes) != expected_joint_names:
+            raise ManualReviewRequired(
+                "Approved joint artwork must provide source-pixel hashes for exactly the six lower-body regions."
+            )
+        manifest_regions = (source_manifest.get("joint_surfaces") or {}).get("regions") or {}
+        if not expected_joint_names.issubset(manifest_regions):
+            raise ManualReviewRequired(
+                "Approved joint source-pixel hashes do not have six matching polygon definitions."
+            )
+        source_pixels_for_validation = np.asarray(source, dtype=np.uint8)
+        for joint_name in sorted(expected_joint_names):
+            item = manifest_regions[joint_name]
+            if item.get("artwork_status") != "artist_approved":
+                raise ManualReviewRequired(
+                    f"Joint region {joint_name} is not marked artist_approved in the reviewed source manifest."
+                )
+            polygon = item.get("artist_source_polygon")
+            mask = _polygon_mask(source_pixels_for_validation.shape[:2], polygon)
+            actual_region_hash = hashlib.sha256(
+                source_pixels_for_validation[mask].tobytes()
+            ).hexdigest()
+            expected_region_hash = str(expected_joint_region_hashes[joint_name])
+            if actual_region_hash != expected_region_hash:
+                raise ManualReviewRequired(
+                    f"Approved joint region {joint_name} source-pixel hash does not match the untouched Auto-Rig source."
+                )
+        joint_region_hashes_verified = True
+        source_validation_mode = "joint_region_pixel_sha256"
+        source_sha256_verified = bool(
+            expected_source_hash and actual_source_hash == expected_source_hash
+        )
+    elif expected_source_hash:
+        # Legacy exports without per-joint fingerprints retain strict whole-file
+        # source validation. Never silently relax an older manifest.
+        if actual_source_hash != expected_source_hash:
             raise ManualReviewRequired(
                 "Approved joint artwork source SHA-256 does not match the untouched Auto-Rig source input."
             )
-    with Image.open(source_input) as opened:
-        source = opened.convert("RGBA")
+        source_sha256_verified = True
+        source_validation_mode = "full_file_sha256"
     character = json.loads(character_path.read_text(encoding="utf-8"))
 
     prop_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -2866,7 +2909,11 @@ def extend_full_body_character(
                     "source-coordinate polygons; approval provenance not supplied",
                 )
             ),
-            "source_sha256_verified": bool(expected_source_hash),
+            "source_sha256_verified": source_sha256_verified,
+            "joint_region_hashes_verified": joint_region_hashes_verified,
+            "source_validation_mode": source_validation_mode,
+            "expected_source_sha256": expected_source_hash,
+            "actual_source_sha256": actual_source_hash,
         },
         "continuous_body_deformation": continuous_body_deformation,
         "torso_surface_partition": torso_surface_partition,

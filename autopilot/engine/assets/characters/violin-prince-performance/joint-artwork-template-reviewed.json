@@ -7,7 +7,15 @@
   },
   "source_artwork": {
     "filename": "preserved-full-body-source.png",
-    "sha256": "982c94d1383f25448869c52f440597c6bbc3a40ac792b6fb0b3944fea1aeafca"
+    "sha256": "a981d79de2026746f8b61589af2946df4ec8f1024130f698575608313b5c1899",
+    "joint_region_sha256": {
+      "left_hip": "6c6cb707af5557ce08ccfc4a67a9e97012852229996e129bbe9886a60cf48a0a",
+      "right_hip": "90b54af6fdfadfc4f7b18bea3ca833ebe0822bdacc54493e7128c8c83cf0dcf9",
+      "left_knee": "03c563c3dadeaf7e25aab1aa5ccda11540f13f68ad060682b51d60fae0e435b9",
+      "right_knee": "f170b0365893004c659b5b3754600ac5a405096419b83fffd08736e6cd7e8020",
+      "left_ankle": "ada4befbf47adf6c98056304b0d25facf5595eda0d32bda539b10c6c55f24640",
+      "right_ankle": "4ab78314d45e792a78b339e718e49209489103b9c39165fda17f4ca2cbd43178"
+    }
   },
   "authoring_instructions": [
     "The six coordinates originated as AI-assisted source-coordinate draft outlines.",
@@ -516,19 +524,19 @@
     "approved_region_count": 6,
     "polygon_origin": "AI-assisted source-coordinate drafts; explicitly accepted by the user as supplied.",
     "source_integrity": "original preserved source SHA-256 recorded for build-time verification",
-    "note": "The six lower-body outlines remain the exact coordinates explicitly approved by the user. The current Auto-Rig source snapshot differs only outside all six approved polygon footprints; all approved polygon pixels are identical. This source hash pins the next isolated preview build. The complete presenter remains a review candidate, not premium-quality or production-ready.",
+    "note": "The six lower-body outlines retain the exact coordinates explicitly approved by the user. Each region now pins its complete original RGBA pixel footprint independently. Harmless Auto-Rig RGB/alpha changes outside these six footprints are allowed; any pixel change inside an approved footprint blocks extraction. The complete presenter remains a review candidate, not premium-quality or production-ready.",
     "source_hash_reconciliation": {
-      "previous_approved_source_sha256": "a981d79de2026746f8b61589af2946df4ec8f1024130f698575608313b5c1899",
-      "current_autorig_preserved_source_sha256": "982c94d1383f25448869c52f440597c6bbc3a40ac792b6fb0b3944fea1aeafca",
+      "prior_full_image_sha256": "982c94d1383f25448869c52f440597c6bbc3a40ac792b6fb0b3944fea1aeafca",
+      "current_autorig_preserved_source_sha256": "a981d79de2026746f8b61589af2946df4ec8f1024130f698575608313b5c1899",
       "canvas_unchanged": [
         441,
         755
       ],
-      "alpha_pixels_changed_outside_joint_polygons": 495,
-      "alpha_pixels_changed_inside_joint_polygons": 0,
-      "rgb_pixels_changed_outside_joint_polygons": 1666,
-      "rgb_pixels_changed_inside_joint_polygons": 0,
-      "verification": "Exact pixel comparison against the previous approved source. All six polygon footprints contain zero changed alpha and zero changed RGB pixels. Original coordinates unchanged."
-    }
+      "alpha_pixels_changed_between_snapshots": 0,
+      "rgb_pixels_changed_between_snapshots": 1346,
+      "changed_pixels_inside_all_six_joint_polygons": 0,
+      "activation_rule": "The six exact source-pixel footprints are independently SHA-256 pinned. Changes outside the approved footprints do not invalidate the artwork; any change inside a footprint blocks extraction."
+    },
+    "source_hash_validation_mode": "joint_region_pixel_sha256"
   }
 }

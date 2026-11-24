@@ -244,7 +244,8 @@ jobs:
           }
           assert approval.get("status") == "six_user_approved_source_polygons_activated", report
           assert approval.get("approved_joint_count") == 6, report
-          assert approval.get("source_sha256_verified") is True, report
+          assert approval.get("joint_region_hashes_verified") is True, report
+          assert approval.get("source_validation_mode") == "joint_region_pixel_sha256", report
           assert created == expected, joint_art
           assert joint_art.get("joint_surface_layer_count") == 6, joint_art
           assert joint_art.get("joint_surface_articulated_layer_count") == 6, joint_art

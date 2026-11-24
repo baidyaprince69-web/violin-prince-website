@@ -380,7 +380,10 @@ def validate_reviewed_joint_artwork_export(
         raise ValueError("Reviewed joint-surfaces schema version 1 is required.")
     if export.get("coordinate_space") != "absolute_source_pixels_top_left":
         raise ValueError("Reviewed export must use absolute source-pixel coordinates.")
-    if export.get("source_artwork", {}).get("sha256") != source_sha256:
+    source_artwork = export.get("source_artwork") or {}
+    expected_source_hash = str(source_artwork.get("sha256") or "")
+    expected_joint_region_hashes = source_artwork.get("joint_region_sha256") or {}
+    if not expected_joint_region_hashes and expected_source_hash != source_sha256:
         raise ValueError(
             "Reviewed export source SHA-256 does not match the preserved original artwork."
         )
@@ -401,6 +404,14 @@ def validate_reviewed_joint_artwork_export(
     regions = joint_specification.get("regions") or {}
     if set(regions) != set(LOWER_BODY_JOINTS):
         raise ValueError("Reviewed export must contain exactly the six supported lower-body joints.")
+    approved_names = {
+        name for name, item in regions.items()
+        if item.get("artwork_status") == "artist_approved"
+    }
+    if expected_joint_region_hashes and set(expected_joint_region_hashes) != approved_names:
+        raise ValueError(
+            "Per-joint source-pixel hashes must be provided for every and only artist-approved region."
+        )
 
     expected_pairs = {
         "left_hip": ("torso", "left_thigh"),
@@ -506,6 +517,14 @@ def validate_reviewed_joint_artwork_export(
         minimum_overlap = max(4, int(item.get("minimum_parent_child_overlap_pixels", 4)))
 
         authored = _polygon_mask((height, width), points)
+        if expected_joint_region_hashes:
+            actual_region_hash = hashlib.sha256(
+                source_pixels[authored].tobytes()
+            ).hexdigest()
+            if actual_region_hash != str(expected_joint_region_hashes[joint_name]):
+                raise ValueError(
+                    f"Joint region {joint_name} pixel hash mismatch against the reviewed source artwork."
+                )
         parent_mask, child_mask = layer_masks[parent_role], layer_masks[child_role]
         parent_overlap = authored & visible & parent_mask
         child_overlap = authored & visible & child_mask
@@ -552,6 +571,13 @@ def validate_reviewed_joint_artwork_export(
         ),
         "source_file": source_path.name,
         "source_sha256": source_sha256,
+        "expected_source_sha256": expected_source_hash,
+        "source_sha256_verified": bool(expected_source_hash and source_sha256 == expected_source_hash),
+        "joint_region_hashes_verified": bool(expected_joint_region_hashes),
+        "source_hash_validation_mode": (
+            "joint_region_pixel_sha256" if expected_joint_region_hashes
+            else "full_file_sha256"
+        ),
         "canvas": expected_canvas,
         "approved_polygon_count": approved_count,
         "draft_polygon_count": draft_count,

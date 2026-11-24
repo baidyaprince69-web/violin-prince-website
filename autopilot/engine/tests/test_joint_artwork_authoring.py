@@ -273,6 +273,45 @@ class JointArtworkAuthoringTests(unittest.TestCase):
                     source_path, bundle, export_path
                 )
 
+            # A per-joint fingerprint tolerates unrelated Auto-Rig edge changes
+            # outside the approved artwork, but rejects any source-pixel change
+            # inside the reviewed joint footprint.
+            export["joint_surfaces"]["regions"]["left_knee"].update({
+                "artist_source_polygon": [[35, 35], [65, 35], [65, 65], [35, 65]],
+                "minimum_pixels": 80,
+            })
+            region_mask_image = Image.new("L", (100, 100), 0)
+            from PIL import ImageDraw
+            ImageDraw.Draw(region_mask_image).polygon(
+                [(35, 35), (65, 35), (65, 65), (35, 65)], fill=255
+            )
+            region_mask = np.asarray(region_mask_image, dtype=np.uint8) > 0
+            unrelated_change = source_pixels.copy()
+            unrelated_change[5, 5] = (1, 2, 3, 255)
+            Image.fromarray(unrelated_change, mode="RGBA").save(source_path)
+            export["source_artwork"]["sha256"] = "0" * 64
+            export["source_artwork"]["joint_region_sha256"] = {
+                "left_knee": hashlib.sha256(
+                    unrelated_change[region_mask].tobytes()
+                ).hexdigest()
+            }
+            export_path.write_text(json.dumps(export), encoding="utf-8")
+
+            tolerant_report = validate_reviewed_joint_artwork_export(
+                source_path, bundle, export_path
+            )
+            self.assertEqual(tolerant_report["source_hash_validation_mode"], "joint_region_pixel_sha256")
+            self.assertTrue(tolerant_report["joint_region_hashes_verified"])
+            self.assertFalse(tolerant_report["source_sha256_verified"])
+
+            changed_joint = unrelated_change.copy()
+            changed_joint[50, 50, 0] ^= 1
+            Image.fromarray(changed_joint, mode="RGBA").save(source_path)
+            with self.assertRaisesRegex(ValueError, "Joint region left_knee pixel hash mismatch"):
+                validate_reviewed_joint_artwork_export(
+                    source_path, bundle, export_path
+                )
+
 
 if __name__ == "__main__":
     unittest.main()
