@@ -73,11 +73,39 @@ def fake_director_plan():
             "setting": f"Setting {index + 1}",
             "composition": f"Composition {index + 1}",
             "purpose": "hook" if index == 0 else "ending" if index == 7 else "reveal",
-            "camera": {"movement": "dolly_in", "shot_size": "medium"},
-            "visual_layers": layers,
+            "setting": f"Original setting for shot {index + 1}",
+            "composition": f"Layered composition for shot {index + 1}",
+            "visual_subject": f"Procedural subject {index + 1}",
+            "camera": {"movement": "dolly_in", "shot_size": "medium", "angle": "front", "focus": "moving focal point"},
+            "animation": {
+                "subject_action": "The presenter gestures.",
+                "environment_motion": "The environment breathes.",
+                "graphic_action": "",
+                "depth_motion": "Objects move at different depths.",
+                "motion_rationale": "Motion explains the story beat.",
+            },
+            "procedural_scene": {
+                "environment": ["concert_stage", "laboratory", "space", "forest_dusk"][index % 4],
+                "objects": [
+                    {"id": "moving-a", "kind": "orb", "x": .25, "y": .4, "size": 24, "color": "#DDAA55", "motion": "pulse", "period_seconds": 2.0},
+                    {"id": "moving-b", "kind": "spark", "x": .75, "y": .6, "size": 18, "color": "#AABBCC", "motion": "float", "period_seconds": 2.4},
+                ],
+            },
+            "character_action": {
+                "visible": True,
+                "gesture": "talking",
+                "expression": "speaking",
+                "loop": True,
+                "cycle_duration_seconds": 1.8,
+            },
+            "transition_to_next": "match_cut" if index == 0 else "whip_pan" if index == 1 else "none" if index == 7 else "cut",
+            "narration_cue": f"Narration cue {index + 1}",
+            "music_cue": f"Music cue {index + 1}",
+            "graphic_data": None,
         })
     return {
-        "_director_provider": {"contract_version": "violin-prince-master-director-v2"},
+        "_director_provider": {"contract_version": "violin-prince-master-director-v3"},
+        "render_mode": "procedural_2d",
         "visual_concept": {
             "concept_name": "Story-specific concept",
             "palette": {"dominant": "#112233", "secondary": "#AABBCC", "accent": "#DDAA55"},
@@ -128,11 +156,47 @@ class MasterDirectorJobTests(unittest.TestCase):
             self.assertEqual(saved_plan["production_context"]["research_gate"], (
                 "passed_existing_two_publisher_quote_narration_and_story_coherence_checks"
             ))
-            brief = json.loads((output / "shot-layer-generation-brief.json").read_text(encoding="utf-8"))
+            brief = json.loads((output / "procedural-stagecraft-brief.json").read_text(encoding="utf-8"))
             self.assertEqual(brief["shot_count"], 8)
-            self.assertEqual(len(brief["shots"][0]["layers"]), 3)
-            self.assertEqual(brief["shots"][0]["layers"][1]["asset_mode"], "transparent_png")
-            self.assertIn("real transparency", brief["shots"][0]["layers"][1]["technical_output"])
+            self.assertEqual(brief["status"], "procedural_scene_plan_ready")
+            self.assertEqual(brief["render_mode"], "procedural_2d")
+            self.assertEqual(len(brief["shots"][0]["environment"]["objects"]), 2)
+            self.assertTrue(brief["shots"][0]["character_action"]["loop"])
+            self.assertEqual(brief["asset_policy"]["generated_scene_images"], 0)
+            self.assertEqual(brief["asset_policy"]["generated_transparent_cutouts"], 0)
+            self.assertEqual(summary["procedural_stagecraft_brief"], str(output / "procedural-stagecraft-brief.json"))
+            self.assertEqual(saved_plan["production_context"]["narration_script"], enriched["narration_script"])
+
+    def test_procedural_brief_never_requests_images(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            batch = make_batch(root / "batch.json")
+            output = root / "artifacts"
+            enriched = {
+                "topic": "A verified music story",
+                "title": "A Clear Music Fact",
+                "hook": "Why does it sound this way?",
+                "core_claim": "An evidence-backed claim.",
+                "narration_script": "A verified narration script with four clear sentences.",
+            }
+            sources = [
+                {"source_id": "S1", "publisher_domain": "publisher-one.example"},
+                {"source_id": "S2", "publisher_domain": "publisher-two.example"},
+            ]
+            with (
+                patch("create_master_director_plan.validate_and_enrich_plan", return_value=(enriched, sources)),
+                patch("create_master_director_plan.generate_director_plan", return_value=fake_director_plan()),
+                patch("create_master_director_plan.write_director_plan", side_effect=lambda plan, dest: (
+                    (Path(dest).parent.mkdir(parents=True, exist_ok=True), Path(dest).write_text(json.dumps(plan)), Path(dest))[-1]
+                )),
+            ):
+                create_master_director_plan(batch, "music-secrets", output)
+            brief = json.loads((output / "procedural-stagecraft-brief.json").read_text(encoding="utf-8"))
+            serialized = json.dumps(brief).casefold()
+            self.assertNotIn("generation_prompt", serialized)
+            self.assertNotIn("transparent_png", serialized)
+            self.assertNotIn("asset_mode", serialized)
+            self.assertEqual(brief["asset_policy"]["mode"], "procedural_vectors_and_articulated_rig")
 
     def test_blocked_story_never_calls_research_or_model(self):
         with tempfile.TemporaryDirectory() as temporary:

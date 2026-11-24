@@ -68,25 +68,29 @@ jobs:
           python -m unittest discover -s autopilot/engine/tests -p "test_scheduled_slot_date.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_select_public_queue.py" -v
 
-      - name: Verify public YouTube Upload-Post and private voice credentials are configured
+      - name: Verify public YouTube, private voice and scheduled Master Director credentials
         env:
           UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
           YOUTUBE_EXPECTED_CHANNEL_ID: ${{ vars.YOUTUBE_EXPECTED_CHANNEL_ID }}
           PRIVATE_VOICE_REPO_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           import os
-          required = (
+          required = [
               "UPLOAD_POST_API_KEY",
               "YOUTUBE_EXPECTED_CHANNEL_ID",
               "PRIVATE_VOICE_REPO_TOKEN",
-          )
+          ]
+          if os.environ.get("GITHUB_EVENT_NAME") == "schedule":
+              required.append("COPILOT_GITHUB_TOKEN")
           missing = [name for name in required if not os.environ.get(name, "").strip()]
           if missing:
-              raise SystemExit("Required private-upload/voice configuration is missing: " + ", ".join(missing))
-          print("Upload-Post public YouTube configuration and private Qwen3 voice credentials are present.")
+              raise SystemExit("Required production configuration is missing: " + ", ".join(missing))
+          print("Public YouTube, voice and scheduled Master Director credentials are configured.")
           PY
 
   daily_readiness:
@@ -345,6 +349,9 @@ jobs:
         if: github.event_name == 'push' || github.event_name == 'schedule'
         working-directory: autopilot/engine/animation2d
         run: npm install --no-audit --no-fund
+      - name: Install GitHub Copilot CLI for scheduled Master Director
+        if: github.event_name == 'schedule'
+        run: npm install --global @github/copilot
 
       - name: Prepare research, story, narration and soundtrack
         if: env.PIPELINE_STAGE == 'prepare'
@@ -372,6 +379,7 @@ jobs:
           PRODUCTION_EVENT_SHA: ${{ github.sha }}
           PUBLISH_ENABLED: "false"
           PRIVATE_VOICE_REPO_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
@@ -414,6 +422,8 @@ jobs:
             ${{ format('{0}/output/asset-provenance.json', needs.daily_readiness.outputs.workspace_root) }}
             ${{ format('{0}/output/slot-receipt.json', needs.daily_readiness.outputs.workspace_root) }}
             ${{ format('{0}/package/creative_plan.json', needs.daily_readiness.outputs.workspace_root) }}
+            ${{ format('{0}/package/master-director/master-director-plan.json', needs.daily_readiness.outputs.workspace_root) }}
+            ${{ format('{0}/output/master-director-render-report.json', needs.daily_readiness.outputs.workspace_root) }}
           if-no-files-found: error
           retention-days: 3
 

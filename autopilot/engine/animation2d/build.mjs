@@ -4,6 +4,7 @@ import { build as bundle } from "esbuild";
 import { compileMotionTracks } from "./src/motion-build.mjs";
 import { gestureKeyframes } from "./src/contract.mjs";
 import { fitCharacterToCanvas } from "./src/character-layout.mjs";
+import { renderStagecraftMarkup, stagecraftMotionNodeIds, stagecraftNodeCounts } from "./src/stagecraft.mjs";
 
 function parseArgs(argv) {
   const result = {};
@@ -134,7 +135,9 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
     '" data-pose-name="' + escapeHtml(poseIsActive ? selectedPose : "") +
     '" data-start="' + Number(scene.start) + '" data-duration="' + Number(scene.duration) +
     '" data-track-index="' + (40 + sceneIndex * 100 + characterIndex) +
-    '" style="' + wrapperStyle + '">' + layers + expressions + poseAssets + '</div>';
+    '" style="' + wrapperStyle + '"><div class="character-motion" id="' +
+    escapeHtml(scene.id + "-" + character.id + "-motion") + '">' +
+    layers + expressions + poseAssets + '</div></div>';
 }
 
 
@@ -340,6 +343,27 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     return [selected];
   });
 
+  const stagecraftCounts = stagecraftNodeCounts(scene);
+  const stagecraftObjectPrefix = scene.id + "-stagecraft-object-";
+  const expectedMusicSyncCount = Array.isArray(scene.stagecraft?.music_sync_cues)
+    ? scene.stagecraft.music_sync_cues.length : 0;
+  const musicSyncTracks = project.motion_tracks.filter(track =>
+    Boolean(track.music_sync_event) &&
+    String(track.target || "").startsWith(stagecraftObjectPrefix) &&
+    track.property === "filter" && track.loop !== true
+  );
+  if (musicSyncTracks.length !== expectedMusicSyncCount) {
+    throw new Error("Scene " + scene.id + " has " + musicSyncTracks.length +
+      " measured music-sync animation tracks for " + expectedMusicSyncCount + " cues.");
+  }
+  const stagecraftTargets = new Set(project.motion_tracks
+    .filter(track => track.property === "transform" && track.loop === true)
+    .map(track => track.target));
+  const expectedStagecraftIds = stagecraftMotionNodeIds(scene);
+  const animatedStagecraftNodeCount = expectedStagecraftIds.filter(id => stagecraftTargets.has(id)).length;
+  if (stagecraftCounts.total && animatedStagecraftNodeCount !== stagecraftCounts.total) {
+    throw new Error("Scene " + scene.id + " stagecraft is missing looping motion tracks; static stagecraft is blocked.");
+  }
   const visualLayers = Array.isArray(scene.visual_layers) ? scene.visual_layers : [];
   let independentLayerMotionCount = 0;
   if (String(scene.visual_mode || "").toLowerCase() === "director_shot") {
@@ -408,7 +432,13 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     presenter_pose_asset_count: presenterPoseAssets.length,
     presenter_pose_assets: presenterPoseAssets,
     independent_layer_motion_count: independentLayerMotionCount,
-    rendered_layer_count: visualLayers.length
+    rendered_layer_count: visualLayers.length,
+    stagecraft_environment: scene.stagecraft?.environment || "",
+    animated_stagecraft_environment_nodes: stagecraftCounts.environment,
+    animated_stagecraft_objects: stagecraftCounts.objects,
+    animated_stagecraft_nodes: animatedStagecraftNodeCount,
+    music_sync_event_count: musicSyncTracks.length,
+    music_sync_events: musicSyncTracks.map(track => ({event: track.music_sync_event, time_seconds: track.start, timing_source: track.music_sync_timing_source}))
   };
 });
 const motionReport = {
@@ -421,6 +451,12 @@ const motionReport = {
   presenter_pose_asset_count: motionSceneReports.reduce((sum, scene) => sum + scene.presenter_pose_asset_count, 0),
   independent_layer_motion_count: motionSceneReports.reduce((sum, scene) => sum + scene.independent_layer_motion_count, 0),
   rendered_layer_count: motionSceneReports.reduce((sum, scene) => sum + scene.rendered_layer_count, 0),
+  animated_stagecraft_environment_node_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_stagecraft_environment_nodes, 0),
+  animated_stagecraft_object_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_stagecraft_objects, 0),
+  animated_stagecraft_node_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_stagecraft_nodes, 0),
+  animated_stagecraft_scene_count: motionSceneReports.filter(scene => scene.animated_stagecraft_nodes > 0).length,
+  music_sync_event_count: motionSceneReports.reduce((sum, scene) => sum + scene.music_sync_event_count, 0),
+  music_sync_events: motionSceneReports.flatMap(scene => scene.music_sync_events),
   scenes: motionSceneReports
 };
 
@@ -501,10 +537,13 @@ const markup = project.scenes.map((scene, index) => {
     '" data-track-index="' + (8 + index * 3) + '"></div>';
   const graphic = renderMotionGraphic(scene);
   const atmosphere = renderAmbientMotif(scene);
+  const stagecraftMarkup = renderStagecraftMarkup(scene, width, height, index);
   const characters = (project.characters || []).map((character, characterIndex) =>
     renderCharacter(character, scene, index, characterIndex, width, height)
   ).join("");
-  return background + grade + brand + title + caption + graphic + atmosphere + characters;
+  const cameraWorld = '<div class="scene-camera-world" id="' + escapeHtml(scene.id + "-camera-world") + '">' +
+    background + grade + atmosphere + stagecraftMarkup + characters + '</div>';
+  return cameraWorld + brand + title + caption + graphic;
 }).join("");
 
 const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
@@ -518,6 +557,7 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   'html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050b13}' +
   '#root{position:relative;width:' + width + 'px;height:' + height + 'px;overflow:hidden;background:var(--vp-dominant,#050b13);color:var(--vp-secondary,#f4ead9)}' +
   '.scene-background{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.06);will-change:transform,opacity}' +
+  '.scene-camera-world{position:absolute;inset:0;width:100%;height:100%;z-index:1;transform-origin:50% 50%;will-change:transform}' +
   '.scene-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;will-change:transform,opacity,filter;transform-origin:50% 50%}' +
   '.scene-layer:not(.scene-layer--background){opacity:0;object-position:center center}' +
   '.scene-background--presenter-layout{filter:brightness(.42) saturate(.90) blur(1.5px)}' +
@@ -531,13 +571,17 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.scene-title{top:18%;max-width:86%;color:var(--vp-secondary,#fbf0df);font:400 50px/.99 DMSerifDisplay,Georgia,serif;letter-spacing:-.025em}' +
   '.scene-caption{top:18.5%;color:var(--vp-accent,#e8c98d);font:700 15px/1.25 DMSans,Arial,sans-serif;letter-spacing:.17em;text-transform:uppercase;max-width:82%}' +
   '.scene-caption--intro{top:31%;max-width:86%;font-size:14px;letter-spacing:.19em}' +
-  '.scene-title--with-presenter{left:5%;right:auto;width:43%;font-size:35px}' +
+  '.scene-title--with-presenter{left:5%;right:auto;top:14%;width:43%;font-size:28px;line-height:1.02}' +
   '.scene-caption--with-presenter{left:5%;right:auto;top:18.5%;width:41%;max-width:41%;font-size:13px;letter-spacing:.12em}' +
   '.character-rig{position:absolute;width:100%;height:100%;opacity:0;transform-origin:top left;z-index:38}' +
+  '.character-motion{position:absolute;inset:0;width:100%;height:100%;transform-origin:50% 70%;will-change:transform}' +
+  '.scene-stagecraft{position:absolute;inset:0;width:100%;height:100%;z-index:2;overflow:hidden;pointer-events:none;mix-blend-mode:screen}' +
+  '.scene-stagecraft svg{display:block;width:100%;height:100%;overflow:visible}' +
+  '.stagecraft-node{transform-box:fill-box;transform-origin:center;will-change:transform,opacity}' +
   '.rig-part,.rig-expression,.rig-pose{position:absolute;object-fit:contain;max-width:none;pointer-events:none}' +
   '.motion-graphic{position:absolute;left:auto;top:auto;right:auto;bottom:auto;width:86%;height:auto;z-index:34;overflow:visible;color:#f4ead9;opacity:0;padding:24px 20px;border:1px solid rgba(190,151,91,.48);border-left:3px solid #bf985e;background:linear-gradient(145deg,rgba(5,13,22,.97),rgba(9,27,35,.95));box-shadow:0 22px 64px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,244,220,.07);border-radius:9px}' +
   '.motion-graphic--full{left:7%;top:23%;width:86%;min-height:380px}' +
-  '.motion-graphic--with-presenter{left:5%;top:22.5%;width:41%;min-height:400px;padding:22px 18px}' +
+  '.motion-graphic--with-presenter{left:5%;top:25%;width:41%;min-height:400px;padding:20px 16px}' +
   '.graphic-eyebrow{margin:0 0 11px;color:var(--vp-secondary,#70b9b2);font:700 11px/1.2 DMSans,Arial,sans-serif;letter-spacing:.21em;text-transform:uppercase}' +
   '.graphic-heading{margin:0;color:var(--vp-secondary,#fbf0df);font:400 25px/1.08 DMSerifDisplay,Georgia,serif;letter-spacing:-.01em}' +
   '.graphic-detail{margin:12px 0 0;color:#b9c7c9;font:400 14px/1.38 DMSans,Arial,sans-serif;letter-spacing:.01em}' +

@@ -1,4 +1,4 @@
-name: Master Creative Director
+name: Master Creative Director — Procedural Animation
 
 on:
   workflow_dispatch:
@@ -21,13 +21,15 @@ permissions:
   contents: read
 
 concurrency:
-  group: violin-prince-master-director-${{ inputs.batch_path }}-${{ inputs.slot_id }}
+  group: violin-prince-master-director-procedural-${{ inputs.batch_path }}-${{ inputs.slot_id }}
   cancel-in-progress: false
 
 jobs:
-  direct:
+  direct-and-render:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
+    env:
+      PUBLISH_ENABLED: "false"
     steps:
       - name: Check out the source-verified story batch
         uses: actions/checkout@v4
@@ -39,25 +41,27 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install source validation and image-manifest dependencies
+      - name: Install verification, audio and font dependencies
         run: |
           python -m pip install --disable-pip-version-check \
-            "requests>=2.32,<3" \
-            "Pillow>=10.4,<12" \
-            "soundfile>=0.12,<1" \
-            "numpy>=1.26,<3" \
-            "cryptography>=43,<48" \
-            "fonttools[woff]>=4.50,<5"
+            "requests>=2.32,<3" "Pillow>=10.4,<12" "soundfile>=0.12,<1" \
+            "numpy>=1.26,<3" "cryptography>=43,<48" "fonttools[woff]>=4.50,<5"
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg espeak-ng
 
-      - name: Set up Node.js 22 for GitHub Copilot CLI
+      - name: Set up Node.js 22 for GitHub Copilot CLI and HyperFrames
         uses: actions/setup-node@v4
         with:
           node-version: "22"
 
+      - name: Install Motion and HyperFrames
+        working-directory: autopilot/engine/animation2d
+        run: npm install --no-audit --no-fund
+
       - name: Install GitHub Copilot CLI
         run: npm install --global @github/copilot
 
-      - name: Generate and validate the Master Creative Director v2 plan
+      - name: Generate and validate the Master Creative Director v3 procedural plan
         env:
           PYTHONPATH: autopilot/engine
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
@@ -73,11 +77,21 @@ jobs:
             --slot-id "${{ inputs.slot_id }}" \
             --output-dir "work/master-director/${{ inputs.slot_id }}"
 
-      - name: Summarize the AI director decisions
+      - name: Render complete procedural Master Director preview
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python autopilot/engine/render_procedural_director_preview.py \
+            --plan "work/master-director/${{ inputs.slot_id }}/master-director-plan.json" \
+            --output-dir "work/master-director/${{ inputs.slot_id }}/preview" \
+            --rig-bundle-dir "autopilot/engine/assets/characters/violin-prince-rig"
+
+      - name: Summarize the rendered Master Director short
         if: success()
         env:
           PLAN_PATH: work/master-director/${{ inputs.slot_id }}/master-director-plan.json
-          BRIEF_PATH: work/master-director/${{ inputs.slot_id }}/shot-layer-generation-brief.json
+          BRIEF_PATH: work/master-director/${{ inputs.slot_id }}/procedural-stagecraft-brief.json
+          PREVIEW_PATH: work/master-director/${{ inputs.slot_id }}/preview/procedural-preview-report.json
         run: |
           python - <<'PY'
           import json
@@ -86,33 +100,37 @@ jobs:
 
           plan = json.loads(Path(os.environ["PLAN_PATH"]).read_text(encoding="utf-8"))
           brief = json.loads(Path(os.environ["BRIEF_PATH"]).read_text(encoding="utf-8"))
+          preview = json.loads(Path(os.environ["PREVIEW_PATH"]).read_text(encoding="utf-8"))
           concept = plan["visual_concept"]
           palette = concept["palette"]
           lines = [
-              "## Master Creative Director result",
+              "## Master Creative Director procedural render",
               "",
               f"- Concept: {concept['concept_name']}",
-              f"- Duration: {plan['storyboard']['duration_seconds']} seconds",
-              f"- Shots: {len(plan['storyboard']['shots'])}",
-              f"- Generated layer assets requested: {sum(len(item['layers']) for item in brief['shots'])}",
-              f"- Palette: dominant {palette['dominant']}, secondary {palette['secondary']}, accent {palette['accent']}",
-              f"- Harmony: {palette['harmony']}",
-              "- Rendered: No",
+              f"- Duration: {preview['duration_seconds']} seconds",
+              f"- Shots: {preview['shot_count']}",
+              f"- Renderer: {preview['renderer']}",
+              f"- Moving stagecraft nodes: {preview['motion_report']['animated_stagecraft_node_count']}",
+              f"- Moving authored objects: {preview['motion_report']['animated_stagecraft_object_count']}",
+              f"- Articulated presenter scenes: {preview['motion_report']['animated_presenter_count']}",
+              f"- Palette: {palette['dominant']} / {palette['secondary']} / {palette['accent']}",
+              "- Preview-only synthetic narration and locally synthesised original score",
               "- Published: No",
               "",
-              "The shot-layer generation brief is saved with this run's artifact. No old procedural images were used.",
+              "The MP4 and contact sheet are attached as a workflow artifact. Human visual and audio review is required; this workflow does not approve production or publish.",
           ]
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as handle:
               handle.write("\n".join(lines) + "\n")
           PY
 
-      - name: Retain Master Director plan and cinematic layer-generation brief
+      - name: Retain procedural Master Director MP4, contact sheet and reports
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: master-director-${{ inputs.slot_id }}-${{ github.run_number }}
+          name: master-director-procedural-${{ inputs.slot_id }}-${{ github.run_number }}
           path: |
             work/master-director/${{ inputs.slot_id }}/master-director-plan.json
-            work/master-director/${{ inputs.slot_id }}/shot-layer-generation-brief.json
+            work/master-director/${{ inputs.slot_id }}/procedural-stagecraft-brief.json
+            work/master-director/${{ inputs.slot_id }}/preview/
           if-no-files-found: error
           retention-days: 14

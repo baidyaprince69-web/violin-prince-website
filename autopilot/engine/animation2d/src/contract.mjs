@@ -57,6 +57,43 @@ export function gestureKeyframes(name) {
       head: { rotate: [0, -6] },
       left_upper_arm: { rotate: [0, -36] },
       left_forearm: { rotate: [0, 32] }
+    },
+    idle_breath: {
+      torso: { rotate: [0, -1.1, 0, 1.1, 0] },
+      head: { rotate: [0, -0.6, 0, 0.6, 0] }
+    },
+    talking: {
+      head: { rotate: [0, -2.5, 1.5, -2, 0] },
+      left_upper_arm: { rotate: [0, -7, -2, -9, 0] },
+      left_forearm: { rotate: [0, 8, 2, 9, 0] },
+      right_upper_arm: { rotate: [0, 7, 2, 9, 0] },
+      right_forearm: { rotate: [0, -8, -2, -9, 0] }
+    },
+    violin_bow: {
+      torso: { rotate: [0, -1.4, 0, 1.4, 0] },
+      head: { rotate: [0, -1.2, .5, 1.2, 0] },
+      left_upper_arm: { rotate: [0, -12, -11, -13, 0] },
+      left_forearm: { rotate: [0, 7, 4, 8, 0] },
+      left_hand: { rotate: [0, -3, 1, -3, 0] },
+      right_upper_arm: { rotate: [0, 4, 6, 4, 0] },
+      right_forearm: { rotate: [0, -18, 11, -18, 0] },
+      right_hand: { rotate: [0, 5, -5, 5, 0] }
+    },
+    walk_cycle: {
+      torso: { rotate: [0, -2, 0, 2, 0] },
+      head: { rotate: [0, 1, 0, -1, 0] },
+      left_upper_arm: { rotate: [0, 17, 0, -17, 0] },
+      left_forearm: { rotate: [0, -10, 0, 10, 0] },
+      right_upper_arm: { rotate: [0, -17, 0, 17, 0] },
+      right_forearm: { rotate: [0, 10, 0, -10, 0] }
+    },
+    dance_groove: {
+      torso: { rotate: [0, -5, 0, 5, 0] },
+      head: { rotate: [0, 4, -2, -4, 0] },
+      left_upper_arm: { rotate: [0, -18, 5, -12, 0] },
+      left_forearm: { rotate: [0, 14, -5, 10, 0] },
+      right_upper_arm: { rotate: [0, 18, -5, 12, 0] },
+      right_forearm: { rotate: [0, -14, 5, -10, 0] }
     }
   };
   return gestures[String(name || "").toLowerCase()] || {};

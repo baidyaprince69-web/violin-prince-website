@@ -14,6 +14,7 @@ for (const track of tracks) {
     duration: Math.max(1, Number(track.duration) * 1000),
     delay: Math.max(0, Number(track.start) * 1000),
     easing: track.easing || "linear",
+    iterations: track.loop === true ? Infinity : 1,
     fill: "both"
   });
   animation.pause();

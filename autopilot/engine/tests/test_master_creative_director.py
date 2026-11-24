@@ -1,4 +1,5 @@
 """Offline contract tests for the Master Creative Director."""
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -136,6 +137,14 @@ class MasterCreativeDirectorTests(unittest.TestCase):
         plan = valid_director_plan()
         self.assertEqual(validate_director_plan(plan), [])
         self.assertIs(require_valid_director_plan(plan), plan)
+
+    def test_procedural_demo_fixture_passes_without_image_layers(self):
+        fixture = ENGINE / "tests" / "fixtures" / "master-director-procedural-demo.json"
+        plan = json.loads(fixture.read_text(encoding="utf-8"))
+        self.assertEqual(plan["render_mode"], "procedural_2d")
+        self.assertEqual(validate_director_plan(plan), [])
+        self.assertTrue(all("visual_layers" not in shot for shot in plan["storyboard"]["shots"]))
+        self.assertTrue(all(len(shot["procedural_scene"]["objects"]) >= 2 for shot in plan["storyboard"]["shots"]))
 
     def test_three_picture_slideshow_is_rejected(self):
         plan = valid_director_plan()

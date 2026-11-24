@@ -69,6 +69,76 @@ class AnimationProductionGateTests(unittest.TestCase):
             with self.assertRaises(AnimationProductionGateError):
                 require_approved_animation_production(path)
 
+    def test_complete_procedural_motion_evidence_passes_without_generated_video_assets(self):
+        approval = valid_approval()
+        approval["production_pipeline"] = "procedural_2d"
+        evidence = approval["test_evidence"]
+        evidence.pop("generated_video_asset_count")
+        evidence.pop("downloaded_video_asset_count")
+        evidence.pop("all_shots_have_video_assets")
+        evidence.update({
+            "render_mode": "procedural_2d",
+            "rendered_shot_count": 8,
+            "animated_stagecraft_scene_count": 8,
+            "animated_stagecraft_object_count": 24,
+            "animated_presenter_count": 6,
+            "rendered_layer_count": 0,
+            "music_sync_cue_count": 3,
+            "music_sync_event_count": 3,
+            "measured_audio_sync_verified": True,
+        })
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "animation-production-approval.json"
+            path.write_text(json.dumps(approval), encoding="utf-8")
+            result = require_approved_animation_production(path)
+        self.assertEqual(result["production_pipeline"], "procedural_2d")
+
+    def test_procedural_static_layers_are_rejected(self):
+        approval = valid_approval()
+        approval["production_pipeline"] = "procedural_2d"
+        evidence = approval["test_evidence"]
+        for field in ("generated_video_asset_count", "downloaded_video_asset_count", "all_shots_have_video_assets"):
+            evidence.pop(field, None)
+        evidence.update({
+            "render_mode": "procedural_2d",
+            "rendered_shot_count": 8,
+            "animated_stagecraft_scene_count": 8,
+            "animated_stagecraft_object_count": 24,
+            "animated_presenter_count": 6,
+            "rendered_layer_count": 1,
+            "music_sync_cue_count": 3,
+            "music_sync_event_count": 3,
+            "measured_audio_sync_verified": True,
+        })
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "animation-production-approval.json"
+            path.write_text(json.dumps(approval), encoding="utf-8")
+            blockers = animation_production_blockers(path)
+        self.assertTrue(any("zero generated still-image layers" in item for item in blockers))
+
+    def test_procedural_evidence_without_measured_audio_sync_is_rejected(self):
+        approval = valid_approval()
+        approval["production_pipeline"] = "procedural_2d"
+        evidence = approval["test_evidence"]
+        for field in ("generated_video_asset_count", "downloaded_video_asset_count", "all_shots_have_video_assets"):
+            evidence.pop(field, None)
+        evidence.update({
+            "render_mode": "procedural_2d",
+            "rendered_shot_count": 8,
+            "animated_stagecraft_scene_count": 8,
+            "animated_stagecraft_object_count": 24,
+            "animated_presenter_count": 6,
+            "rendered_layer_count": 0,
+            "music_sync_cue_count": 3,
+            "music_sync_event_count": 2,
+            "measured_audio_sync_verified": False,
+        })
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "animation-production-approval.json"
+            path.write_text(json.dumps(approval), encoding="utf-8")
+            blockers = animation_production_blockers(path)
+        self.assertTrue(any("measured audio-sync cues" in item for item in blockers))
+
     def test_legacy_daily_runner_stops_before_voice_or_image_work(self):
         from unittest.mock import patch
 

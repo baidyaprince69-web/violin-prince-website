@@ -213,8 +213,11 @@ def build_asset_provenance(
     run_id: str,
 ) -> dict[str, Any]:
     """Build a verifiable inventory of generated media and factual evidence."""
-    if len(image_paths) != 3:
-        raise ValueError("The daily production provenance record requires exactly three scene images.")
+    procedural = str(video_quality.get("render_mode") or "").casefold() == "procedural_2d"
+    if procedural and image_paths:
+        raise ValueError("Procedural Master Director provenance must not contain generated scene images.")
+    if not procedural and len(image_paths) != 3:
+        raise ValueError("The legacy image renderer requires exactly three scene images.")
 
     soundtrack = _hash_file(audio_path)
     audio_source = str(audio_asset.get("audio_source") or "unknown")
@@ -257,21 +260,44 @@ def build_asset_provenance(
 
     scenes = plan.get("scenes", [])
     scene_assets = []
-    for index, image_path in enumerate(image_paths):
-        scene = scenes[index] if index < len(scenes) and isinstance(scenes[index], dict) else {}
-        prompt = str(scene.get("image_prompt") or "")
-        asset = _hash_file(image_path)
-        asset.update({
-            "asset_type": "scene_illustration",
-            "scene_number": index + 1,
-            "visual_mode": str(scene.get("visual_mode") or ""),
-            "origin": "locally_generated_vector_artwork",
-            "provider": "Violin Prince local vector illustrator",
-            "model": "violin-prince-vector-illustrator-v1",
-            "scene_prompt_source_sha256": _hash_text(prompt),
-            "rights_status": "original_locally_generated_vector_artwork",
-        })
-        scene_assets.append(asset)
+    procedural_scenes = []
+    if procedural:
+        director_manifest = plan.get("procedural_director_manifest")
+        if not isinstance(director_manifest, dict) or director_manifest.get("rendered_layer_count") != 0:
+            raise ValueError("Procedural scene provenance is missing or permits generated still-image layers.")
+        director_shots = director_manifest.get("shots")
+        if not isinstance(director_shots, list) or len(director_shots) != int(video_quality.get("shot_count") or 0):
+            raise ValueError("Procedural scene provenance does not match the rendered storyboard.")
+        for index, shot in enumerate(director_shots):
+            if not isinstance(shot, dict) or int(shot.get("animated_object_count") or 0) < 2:
+                raise ValueError("Every procedural scene must record at least two moving authored objects.")
+            procedural_scenes.append({
+                "asset_type": "procedural_scene",
+                "scene_number": index + 1,
+                "shot_id": str(shot.get("shot_id") or ""),
+                "environment": str(shot.get("environment") or ""),
+                "animated_object_count": int(shot.get("animated_object_count") or 0),
+                "character_visible": bool(shot.get("character_visible")),
+                "origin": "native_motion_hyperframes_procedural_scene",
+                "provider": "Violin Prince procedural 2D renderer",
+                "rights_status": "original_procedural_vector_animation",
+            })
+    else:
+        for index, image_path in enumerate(image_paths):
+            scene = scenes[index] if index < len(scenes) and isinstance(scenes[index], dict) else {}
+            prompt = str(scene.get("image_prompt") or "")
+            asset = _hash_file(image_path)
+            asset.update({
+                "asset_type": "scene_illustration",
+                "scene_number": index + 1,
+                "visual_mode": str(scene.get("visual_mode") or ""),
+                "origin": "locally_generated_vector_artwork",
+                "provider": "Violin Prince local vector illustrator",
+                "model": "violin-prince-vector-illustrator-v1",
+                "scene_prompt_source_sha256": _hash_text(prompt),
+                "rights_status": "original_locally_generated_vector_artwork",
+            })
+            scene_assets.append(asset)
 
     final_video = _hash_file(final_video_path)
     final_video.update({
@@ -327,9 +353,15 @@ def build_asset_provenance(
         },
         "assets": {
             "scene_images": scene_assets,
+            "procedural_scenes": procedural_scenes,
+            "render_mode": "procedural_2d" if procedural else "layered_images",
+            "music_sync": video_quality.get("music_sync_report") or {},
             "character_rig": {
                 "character_count": int(video_quality.get("character_count") or 0),
                 "description": str(video_quality.get("character_rigging") or "not used in this production"),
+                "approval_status": str((video_quality.get("presenter_rig_approval") or {}).get("status") or "not_applicable"),
+                "bundle_sha256": str((video_quality.get("presenter_rig_approval") or {}).get("bundle_sha256") or ""),
+                "approval_sha256": str((video_quality.get("presenter_rig_approval") or {}).get("approval_sha256") or ""),
             },
             "narration": narration,
             "soundtrack": soundtrack,
@@ -346,9 +378,19 @@ def build_asset_provenance(
         },
         "synthetic_media": {
             "contains_synthetic_media": True,
-            "reason": "The video contains locally generated vector illustrations and AI-generated narration through the creator-authorised private Qwen3 voice path; the narration voice origin and transcript verification are recorded separately.",
+            "reason": (
+                "The video contains native procedural Motion/HyperFrames vector animation and AI-generated narration "
+                "through the creator-authorised private Qwen3 voice path."
+                if procedural else
+                "The video contains locally generated vector illustrations and AI-generated narration through the creator-authorised private Qwen3 voice path; the narration voice origin and transcript verification are recorded separately."
+            ),
         },
         "rights_notice": (
+            "This file records media origins and license metadata available to the pipeline. "
+            "It is not legal advice or blanket rights clearance. Procedural scene objects are original deterministic "
+            "Motion/HyperFrames artwork; the narration is generated through the creator-authorised private Qwen3 "
+            "voice path. Separately supplied character artwork and other assets require their own permission review."
+            if procedural else
             "This file records media origins and license metadata available to the pipeline. "
             "It is not legal advice or blanket rights clearance. Scene plates are original deterministic "
             "local vector artwork; the narration is generated through the creator-authorised private Qwen3 "
@@ -383,6 +425,21 @@ def build_publish_manifest(
         blockers.append("Final MP4 quality validation did not return the expected vertical H.264/audio contract.")
     if not metadata_check.get("audience_confirmed"):
         blockers.append("Confirm made_for_kids as true or false before scheduling or publishing.")
+    if str(video_quality.get("render_mode") or "").casefold() == "procedural_2d":
+        music_sync = video_quality.get("music_sync_report")
+        cue_count = int(music_sync.get("cue_count") or 0) if isinstance(music_sync, dict) else 0
+        rendered_count = int(music_sync.get("rendered_motion_track_count") or 0) if isinstance(music_sync, dict) else 0
+        if (
+            not isinstance(music_sync, dict)
+            or music_sync.get("status") != "passed"
+            or music_sync.get("motion_report_status") != "passed"
+            or music_sync.get("measured_audio_sync_verified") is not True
+            or cue_count < 2
+            or rendered_count != cue_count
+            or not isinstance(music_sync.get("cues"), list)
+            or len(music_sync["cues"]) != cue_count
+        ):
+            blockers.append("Procedural animation requires measured music-sync cues and one verified Motion track per cue.")
     audio_rights = provenance.get("assets", {}).get("soundtrack", {}).get("rights_status")
     if audio_rights == "rights_review_required":
         blockers.append("Soundtrack origin or license needs review before publication.")
@@ -423,6 +480,9 @@ def build_publish_manifest(
         "made_for_kids": metadata["made_for_kids"],
         "contains_synthetic_media": True,
         "duration_seconds": video_quality.get("duration_seconds", 24),
+        "render_mode": str(video_quality.get("render_mode") or "layered_images"),
+        "shot_count": int(video_quality.get("shot_count") or 0),
+        "music_sync_event_count": int((video_quality.get("music_sync_report") or {}).get("cue_count") or 0),
         "format": "9:16",
         "video_type": "short",
         "sources": [
@@ -433,7 +493,7 @@ def build_publish_manifest(
         "publisher": (
             "Violin Prince private-preview YouTube Data API workflow"
             if metadata.get("privacy_status") == "private"
-            else "Violin Prince direct YouTube Data API workflow"
+            else "Violin Prince dedicated public YouTube uploader via Upload-Post"
         ),
         "publishing_enabled_in_github": True,
         "publish_ready": not blockers,
