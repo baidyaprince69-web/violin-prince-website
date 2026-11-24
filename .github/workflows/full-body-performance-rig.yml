@@ -159,6 +159,38 @@ jobs:
           )
           PY
 
+      - name: Validate the blank joint export against preserved source pixels
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python autopilot/engine/joint_artwork_authoring.py \
+            --source work/full-body-rig/bundle/preserved-full-body-source.png \
+            --bundle work/full-body-rig/bundle \
+            --validate-reviewed-export work/full-body-rig/joint-artwork-review/joint-artwork-template.json \
+            > work/full-body-rig/joint-artwork-review/export-validation.json
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          bundle = Path("work/full-body-rig/bundle")
+          report_path = Path("work/full-body-rig/joint-artwork-review/export-validation.json")
+          report = json.loads(report_path.read_text())
+          assert report.get("status") == "no_artist_approved_joint_polygons", report
+          assert report.get("approved_polygon_count") == 0, report
+          assert report.get("draft_polygon_count") == 0, report
+          assert report.get("bundle_modified") is False, report
+          assert set(report.get("regions", {})) == {
+              "left_hip", "right_hip", "left_knee",
+              "right_knee", "left_ankle", "right_ankle",
+          }, report
+          assert all(
+              region.get("status") == "draft_not_activated"
+              for region in report["regions"].values()
+          ), report
+          assert not list(bundle.glob("joint_surface_*.png")), report
+          print("Original source hash and six blank review regions validated; no production artwork activated.")
+          PY
+
       - name: Verify mapped character reference catalogue
         run: |
           python - <<'PY'
