@@ -74,6 +74,60 @@ jobs:
             --id violin-prince \
             --allow-expression-fallback
 
+      - name: Apply explicitly user-approved lower-body joint artwork
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          approved_path = Path("autopilot/engine/assets/characters/violin-prince-performance/joint-artwork-template-reviewed.json")
+          config_path = Path("autopilot/engine/assets/characters/violin-prince-performance/performance-regions.json")
+          output_path = Path("work/full-body-rig/performance-regions-reviewed.json")
+          approved = json.loads(approved_path.read_text(encoding="utf-8"))
+          config = json.loads(config_path.read_text(encoding="utf-8"))
+          expected = {
+              "left_hip", "right_hip", "left_knee",
+              "right_knee", "left_ankle", "right_ankle",
+          }
+          assert approved.get("schema_version") == 1, approved
+          assert approved.get("coordinate_space") == "absolute_source_pixels_top_left", approved
+          assert approved.get("canvas") == config.get("canvas"), approved
+          assert approved.get("review_metadata", {}).get("approved_region_count") == 6, approved
+          assert approved.get("review_metadata", {}).get("status") == "explicit_user_approval", approved
+          approved_regions = approved.get("joint_surfaces", {}).get("regions", {})
+          assert set(approved_regions) == expected, approved_regions
+          runtime_surfaces = config.get("joint_surfaces", {})
+          runtime_regions = runtime_surfaces.get("regions", {})
+          assert set(expected).issubset(runtime_regions), runtime_regions
+
+          for name in sorted(expected):
+              reviewed = approved_regions[name]
+              runtime = runtime_regions[name]
+              assert reviewed.get("artwork_status") == "artist_approved", (name, reviewed)
+              for key in ("anchor", "parent_role", "child_role", "blend_axis_joints"):
+                  assert reviewed.get(key) == runtime.get(key), (name, key, reviewed, runtime)
+              assert len(reviewed.get("artist_source_polygon", [])) >= 3, (name, reviewed)
+              runtime["artist_source_polygon"] = reviewed["artist_source_polygon"]
+              runtime["artwork_status"] = "artist_approved"
+              runtime["anchor_px"] = reviewed["anchor_px"]
+              runtime["minimum_parent_child_overlap_pixels"] = 4
+              runtime["blend_axis_half_length_px"] = reviewed["blend_axis_half_length_px"]
+              runtime["approval_provenance"] = reviewed["approval_provenance"]
+              runtime["candidate_is_production_art"] = False
+              runtime.pop("polygon", None)
+              runtime.pop("outline", None)
+
+          runtime_surfaces["coordinate_space"] = "absolute_source_pixels_top_left"
+          config["joint_surfaces"] = runtime_surfaces
+          config["source_artwork"] = approved["source_artwork"]
+          config["review_metadata"] = approved["review_metadata"]
+          output_path.parent.mkdir(parents=True, exist_ok=True)
+          output_path.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+          print("Applied six explicitly user-approved source-coordinate joint polygons to the isolated preview manifest.")
+          PY
+
       - name: Preserve complete body and add separate bow and fingering controls
         env:
           PYTHONPATH: autopilot/engine
@@ -83,7 +137,7 @@ jobs:
             --bundle work/full-body-rig/bundle \
             --prop-dir autopilot/engine/assets/characters/violin-prince-performance \
             --instrument-manifest autopilot/engine/assets/characters/violin-prince-performance/instrument-props.json \
-            --performance-regions autopilot/engine/assets/characters/violin-prince-performance/performance-regions.json \
+            --performance-regions work/full-body-rig/performance-regions-reviewed.json \
             --finger-manifest autopilot/engine/assets/characters/violin-prince-performance/finger-regions.json \
             --rigging-sheet autopilot/engine/assets/characters/violin-prince-performance/reference-sheets/Gemini_Generated_Image_7xpc647xpc647xpc.png \
             --expression-sheet autopilot/engine/assets/characters/violin-prince-performance/reference-sheets/four-core-expressions.jpeg \
@@ -221,6 +275,18 @@ jobs:
           bundle = Path("work/full-body-rig/bundle")
           report = json.loads((bundle / "full-body-performance-report.json").read_text())
           character = json.loads((bundle / "character.json").read_text())
+          import hashlib
+          approved_export = json.loads(Path("autopilot/engine/assets/characters/violin-prince-performance/joint-artwork-template-reviewed.json").read_text())
+          preserved_source = bundle / "preserved-full-body-source.png"
+          actual_source_hash = hashlib.sha256(preserved_source.read_bytes()).hexdigest()
+          assert actual_source_hash == approved_export["source_artwork"]["sha256"], {
+              "expected": approved_export["source_artwork"]["sha256"],
+              "actual": actual_source_hash,
+          }
+          approval = report.get("joint_artwork_approval", {})
+          assert approval.get("status") == "six_user_approved_source_polygons_activated", report
+          assert approval.get("approved_joint_count") == 6, report
+          assert approval.get("source_sha256_verified") is True, report
           separation = json.loads((bundle / "separation-report.json").read_text())
           hidden = separation.get("hidden_area_reconstruction", {})
           assert hidden.get("mask_saved") is True, separation
@@ -274,7 +340,7 @@ jobs:
               name for name, region in joint_regions.items()
               if region.get("status") == "artist_source_polygon_patch_created"
           }
-          assert created_regions <= lower_body_joints, joint_regions
+          assert created_regions == lower_body_joints, joint_regions
           for name in protected_joints:
               region = joint_regions[name]
               assert region.get("status") == "skipped"

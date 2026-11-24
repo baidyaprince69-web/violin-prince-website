@@ -6,6 +6,7 @@ prop/finger masks are reported for visual review; it never publishes.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import shutil
 from pathlib import Path
@@ -2685,6 +2686,16 @@ def extend_full_body_character(
     clean_source_path = bundle / "preserved-full-body-source.png"
     source.save(clean_source_path, format="PNG", optimize=True)
 
+    source_manifest = json.loads(regions_path.read_text(encoding="utf-8"))
+    source_artwork = source_manifest.get("source_artwork") or {}
+    expected_source_hash = str(source_artwork.get("sha256") or "")
+    if expected_source_hash:
+        actual_source_hash = hashlib.sha256(clean_source_path.read_bytes()).hexdigest()
+        if actual_source_hash != expected_source_hash:
+            raise ManualReviewRequired(
+                "Approved joint artwork source SHA-256 does not match the preserved full-body source."
+            )
+
     # Replace the unreliable SCHP limb masks with reviewed source-pixel regions.
     limb_layers, limb_joints, limb_report, moving_mask = _authored_performance_layers(
         source,
@@ -2841,6 +2852,20 @@ def extend_full_body_character(
         "joint_additions": sorted(limb_joints.keys() | finger_joints.keys()),
         "limb_report": limb_report,
         "source_aligned_joint_surface_art": joint_surface_report,
+        "joint_artwork_approval": {
+            "status": (
+                "six_user_approved_source_polygons_activated"
+                if len(joint_surface_layers) == 6 else "incomplete"
+            ),
+            "approved_joint_count": len(joint_surface_layers),
+            "polygon_origin": str(
+                (source_manifest.get("review_metadata") or {}).get(
+                    "polygon_origin",
+                    "source-coordinate polygons; approval provenance not supplied",
+                )
+            ),
+            "source_sha256_verified": bool(expected_source_hash),
+        },
         "continuous_body_deformation": continuous_body_deformation,
         "torso_surface_partition": torso_surface_partition,
         "source_edge_color_decontamination": edge_decontamination,
@@ -2874,7 +2899,11 @@ def extend_full_body_character(
             "head": "normalized_plate_crossfades_not_continuous_mesh_deformation",
             "hands": "four_source_aligned_three_segment_finger_chains_with_joint_overlap_not_deformable_art",
             "body": "frame_sampled_piecewise_affine_source_texture_mesh_on_torso_and_eight_limb_surfaces",
-            "joint_surfaces": "only artist-approved absolute source-pixel polygons may be extracted; no capsule or generated joint pads; upper-body and hand assets are protected",
+            "joint_surfaces": (
+                "six explicitly user-approved absolute source-pixel polygons extracted; no generated joint pads; upper-body and hand assets are protected"
+                if len(joint_surface_layers) == 6
+                else "only explicitly approved absolute source-pixel polygons may be extracted; no generated joint pads; upper-body and hand assets are protected"
+            ),
             "hands": "untouched_rigid_source_sprites_with_existing_finger_animation",
             "release_blockers": [
                 "artist-authored source-aligned joint-surface artwork; automatic capsule overlays are not accepted",

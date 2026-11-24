@@ -1,0 +1,521 @@
+{
+  "schema_version": 1,
+  "coordinate_space": "absolute_source_pixels_top_left",
+  "canvas": {
+    "width": 441,
+    "height": 755
+  },
+  "source_artwork": {
+    "filename": "preserved-full-body-source.png",
+    "sha256": "0a5e31af623f6a3cd1e890d7b56a030c7b4b4ed3c5ad74bd5a0d48aa1e7b4457"
+  },
+  "authoring_instructions": [
+    "The six coordinates originated as AI-assisted source-coordinate draft outlines.",
+    "The user explicitly approved all six regions in conversation without coordinate edits.",
+    "Extraction may transfer original source pixels only; it must not paint or invent texture.",
+    "Generic capsule, ellipse, rounded-rectangle or generated joint pads are not accepted.",
+    "Upper-body, hands, fingers, bow and violin remain protected."
+  ],
+  "protected_scope": {
+    "included": [
+      "left_hip",
+      "right_hip",
+      "left_knee",
+      "right_knee",
+      "left_ankle",
+      "right_ankle"
+    ],
+    "excluded": [
+      "left_shoulder",
+      "right_shoulder",
+      "left_elbow",
+      "right_elbow",
+      "wrists",
+      "hands",
+      "fingers",
+      "bow",
+      "violin"
+    ]
+  },
+  "joint_surfaces": {
+    "schema_version": 1,
+    "coordinate_space": "absolute_source_pixels_top_left",
+    "regions": {
+      "left_hip": {
+        "anchor": "left_hip",
+        "anchor_px": [
+          132.3,
+          412.546
+        ],
+        "parent_role": "torso",
+        "child_role": "left_thigh",
+        "z_index": 12,
+        "minimum_pixels": 180,
+        "blend_axis_joints": [
+          "neck",
+          "left_knee"
+        ],
+        "blend_axis_half_length_px": 18,
+        "minimum_parent_child_overlap_pixels": 4,
+        "artist_source_polygon": [
+          [
+            99,
+            386
+          ],
+          [
+            109,
+            389
+          ],
+          [
+            120,
+            394
+          ],
+          [
+            129,
+            397
+          ],
+          [
+            139,
+            395
+          ],
+          [
+            150,
+            400
+          ],
+          [
+            153,
+            407
+          ],
+          [
+            147,
+            415
+          ],
+          [
+            139,
+            421
+          ],
+          [
+            129,
+            427
+          ],
+          [
+            117,
+            424
+          ],
+          [
+            108,
+            417
+          ],
+          [
+            100,
+            407
+          ],
+          [
+            96,
+            397
+          ]
+        ],
+        "candidate_source_polygon": [],
+        "candidate_is_production_art": false,
+        "artwork_status": "artist_approved",
+        "approval_provenance": {
+          "approval_source": "explicit_user_approval_in_conversation",
+          "approved_at": "2026-11-24",
+          "approval_basis": "The user explicitly approved all six joint regions.",
+          "polygon_origin": "AI-assisted source-coordinate draft outline, accepted without coordinate edits."
+        },
+        "draft_authoring_note": "AI-assisted source-coordinate outline explicitly approved by the user; original source pixels only, with no generated texture."
+      },
+      "right_hip": {
+        "anchor": "right_hip",
+        "anchor_px": [
+          218.496,
+          412.546
+        ],
+        "parent_role": "torso",
+        "child_role": "right_thigh",
+        "z_index": 12,
+        "minimum_pixels": 180,
+        "blend_axis_joints": [
+          "neck",
+          "right_knee"
+        ],
+        "blend_axis_half_length_px": 18,
+        "minimum_parent_child_overlap_pixels": 4,
+        "artist_source_polygon": [
+          [
+            201,
+            374
+          ],
+          [
+            218,
+            374
+          ],
+          [
+            228,
+            379
+          ],
+          [
+            243,
+            386
+          ],
+          [
+            246,
+            398
+          ],
+          [
+            240,
+            408
+          ],
+          [
+            229,
+            419
+          ],
+          [
+            218,
+            428
+          ],
+          [
+            205,
+            426
+          ],
+          [
+            193,
+            417
+          ],
+          [
+            186,
+            405
+          ],
+          [
+            189,
+            392
+          ],
+          [
+            195,
+            382
+          ]
+        ],
+        "candidate_source_polygon": [],
+        "candidate_is_production_art": false,
+        "artwork_status": "artist_approved",
+        "approval_provenance": {
+          "approval_source": "explicit_user_approval_in_conversation",
+          "approved_at": "2026-11-24",
+          "approval_basis": "The user explicitly approved all six joint regions.",
+          "polygon_origin": "AI-assisted source-coordinate draft outline, accepted without coordinate edits."
+        },
+        "draft_authoring_note": "AI-assisted source-coordinate outline explicitly approved by the user; original source pixels only, with no generated texture."
+      },
+      "left_knee": {
+        "anchor": "left_knee",
+        "anchor_px": [
+          118.268,
+          558.74
+        ],
+        "parent_role": "left_thigh",
+        "child_role": "left_calf",
+        "z_index": 10,
+        "minimum_pixels": 160,
+        "blend_axis_joints": [
+          "left_hip",
+          "left_ankle"
+        ],
+        "blend_axis_half_length_px": 18,
+        "minimum_parent_child_overlap_pixels": 4,
+        "artist_source_polygon": [
+          [
+            101,
+            548
+          ],
+          [
+            109,
+            546
+          ],
+          [
+            119,
+            547
+          ],
+          [
+            128,
+            547
+          ],
+          [
+            135,
+            550
+          ],
+          [
+            133,
+            555
+          ],
+          [
+            135,
+            561
+          ],
+          [
+            130,
+            567
+          ],
+          [
+            119,
+            569
+          ],
+          [
+            110,
+            567
+          ],
+          [
+            103,
+            563
+          ],
+          [
+            99,
+            557
+          ]
+        ],
+        "candidate_source_polygon": [],
+        "candidate_is_production_art": false,
+        "artwork_status": "artist_approved",
+        "approval_provenance": {
+          "approval_source": "explicit_user_approval_in_conversation",
+          "approved_at": "2026-11-24",
+          "approval_basis": "The user explicitly approved all six joint regions.",
+          "polygon_origin": "AI-assisted source-coordinate draft outline, accepted without coordinate edits."
+        },
+        "draft_authoring_note": "AI-assisted source-coordinate outline explicitly approved by the user; original source pixels only, with no generated texture."
+      },
+      "right_knee": {
+        "anchor": "right_knee",
+        "anchor_px": [
+          215.488,
+          557.739
+        ],
+        "parent_role": "right_thigh",
+        "child_role": "right_calf",
+        "z_index": 10,
+        "minimum_pixels": 160,
+        "blend_axis_joints": [
+          "right_hip",
+          "right_ankle"
+        ],
+        "blend_axis_half_length_px": 18,
+        "minimum_parent_child_overlap_pixels": 4,
+        "artist_source_polygon": [
+          [
+            183,
+            549
+          ],
+          [
+            193,
+            546
+          ],
+          [
+            207,
+            546
+          ],
+          [
+            223,
+            547
+          ],
+          [
+            236,
+            550
+          ],
+          [
+            240,
+            555
+          ],
+          [
+            238,
+            562
+          ],
+          [
+            234,
+            568
+          ],
+          [
+            220,
+            569
+          ],
+          [
+            205,
+            568
+          ],
+          [
+            191,
+            566
+          ],
+          [
+            184,
+            561
+          ]
+        ],
+        "candidate_source_polygon": [],
+        "candidate_is_production_art": false,
+        "artwork_status": "artist_approved",
+        "approval_provenance": {
+          "approval_source": "explicit_user_approval_in_conversation",
+          "approved_at": "2026-11-24",
+          "approval_basis": "The user explicitly approved all six joint regions.",
+          "polygon_origin": "AI-assisted source-coordinate draft outline, accepted without coordinate edits."
+        },
+        "draft_authoring_note": "AI-assisted source-coordinate outline explicitly approved by the user; original source pixels only, with no generated texture."
+      },
+      "left_ankle": {
+        "anchor": "left_ankle",
+        "anchor_px": [
+          101.229,
+          696.923
+        ],
+        "parent_role": "left_calf",
+        "child_role": "left_foot",
+        "z_index": 11,
+        "minimum_pixels": 100,
+        "blend_axis_joints": [
+          "left_knee",
+          "left_ankle"
+        ],
+        "blend_axis_half_length_px": 18,
+        "minimum_parent_child_overlap_pixels": 4,
+        "artist_source_polygon": [
+          [
+            86,
+            690
+          ],
+          [
+            93,
+            687
+          ],
+          [
+            104,
+            688
+          ],
+          [
+            114,
+            689
+          ],
+          [
+            121,
+            693
+          ],
+          [
+            120,
+            699
+          ],
+          [
+            115,
+            704
+          ],
+          [
+            105,
+            706
+          ],
+          [
+            95,
+            704
+          ],
+          [
+            87,
+            699
+          ],
+          [
+            84,
+            694
+          ]
+        ],
+        "candidate_source_polygon": [],
+        "candidate_is_production_art": false,
+        "artwork_status": "artist_approved",
+        "approval_provenance": {
+          "approval_source": "explicit_user_approval_in_conversation",
+          "approved_at": "2026-11-24",
+          "approval_basis": "The user explicitly approved all six joint regions.",
+          "polygon_origin": "AI-assisted source-coordinate draft outline, accepted without coordinate edits."
+        },
+        "draft_authoring_note": "AI-assisted source-coordinate outline explicitly approved by the user; original source pixels only, with no generated texture."
+      },
+      "right_ankle": {
+        "anchor": "right_ankle",
+        "anchor_px": [
+          237.538,
+          700.928
+        ],
+        "parent_role": "right_calf",
+        "child_role": "right_foot",
+        "z_index": 11,
+        "minimum_pixels": 100,
+        "blend_axis_joints": [
+          "right_knee",
+          "right_ankle"
+        ],
+        "blend_axis_half_length_px": 18,
+        "minimum_parent_child_overlap_pixels": 4,
+        "artist_source_polygon": [
+          [
+            219,
+            695
+          ],
+          [
+            225,
+            691
+          ],
+          [
+            236,
+            692
+          ],
+          [
+            247,
+            695
+          ],
+          [
+            256,
+            698
+          ],
+          [
+            259,
+            703
+          ],
+          [
+            253,
+            708
+          ],
+          [
+            243,
+            710
+          ],
+          [
+            232,
+            708
+          ],
+          [
+            222,
+            704
+          ],
+          [
+            218,
+            700
+          ]
+        ],
+        "candidate_source_polygon": [],
+        "candidate_is_production_art": false,
+        "artwork_status": "artist_approved",
+        "approval_provenance": {
+          "approval_source": "explicit_user_approval_in_conversation",
+          "approved_at": "2026-11-24",
+          "approval_basis": "The user explicitly approved all six joint regions.",
+          "polygon_origin": "AI-assisted source-coordinate draft outline, accepted without coordinate edits."
+        },
+        "draft_authoring_note": "AI-assisted source-coordinate outline explicitly approved by the user; original source pixels only, with no generated texture."
+      }
+    }
+  },
+  "review_metadata": {
+    "status": "explicit_user_approval",
+    "reviewer": "user_explicit_approval_in_conversation",
+    "approved_at": "2026-11-24",
+    "approved_region_count": 6,
+    "polygon_origin": "AI-assisted source-coordinate drafts; explicitly accepted by the user as supplied.",
+    "source_integrity": "original preserved source SHA-256 recorded for build-time verification",
+    "note": "This approves the six lower-body outlines only. The complete presenter remains a preview candidate, not premium-quality or production-ready."
+  }
+}
