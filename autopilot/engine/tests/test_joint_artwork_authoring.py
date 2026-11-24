@@ -85,6 +85,22 @@ class JointArtworkAuthoringTests(unittest.TestCase):
                 "the review sheet must render child-surface contours in amber")
             self.assertEqual(template["joint_surfaces"]["regions"]["left_knee"]["artist_source_polygon"], [])
             self.assertEqual(template["joint_surfaces"]["regions"]["left_knee"]["artwork_status"], "awaiting_artist_alignment")
+            candidate = template["joint_surfaces"]["regions"]["left_knee"]
+            self.assertGreater(len(candidate["candidate_source_polygon"]), 2)
+            self.assertGreater(candidate["candidate_source_pixels"], 0)
+            self.assertEqual(candidate["candidate_status"],
+                "shared_source_pixel_polygon_candidate_pending_artist_review")
+            self.assertFalse(candidate["candidate_is_production_art"])
+            self.assertEqual(candidate["candidate_parent_child_gap_px"], 0.0)
+            hip_candidate = template["joint_surfaces"]["regions"]["left_hip"]
+            self.assertEqual(hip_candidate["candidate_source_polygon"], [])
+            self.assertEqual(hip_candidate["candidate_status"],
+                "manual_seam_trace_required_no_shared_parent_child_pixels")
+            self.assertFalse(hip_candidate["candidate_is_production_art"])
+            self.assertGreater(result["candidate_joint_polygons"], 0)
+            self.assertGreater(result["manual_seam_trace_required"], 0)
+            self.assertEqual(result["candidate_polygons_artist_approved"], 0)
+            self.assertEqual(result["rig_layers_modified"], 0)
             self.assertEqual((bundle / "parent.png").read_bytes(), parent_before)
             self.assertEqual((bundle / "child.png").read_bytes(), child_before)
 
