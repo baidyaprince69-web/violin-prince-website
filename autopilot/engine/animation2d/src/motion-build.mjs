@@ -1676,16 +1676,24 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
             }
           }
         } else {
+          const addHeadPlateOpacity = (target, active) => {
+            if (action.appear_immediately === true) {
+              const value = active ? 1 : 0;
+              addKeyframes(target, { opacity: [value, value] },
+                actionStart, 0.08, "linear");
+            } else {
+              addSpring(target, "opacity",
+                active ? 0 : 1, active ? 1 : 0, actionStart, 140);
+            }
+          };
           for (const name of headVariantNames) {
             const active = selectedHeadAngle === "front" && name === selectedExpression;
-            addSpring(prefix + "-head-variant-" + name, "opacity",
-              active ? 0 : 1, active ? 1 : 0, actionStart, 140);
+            addHeadPlateOpacity(prefix + "-head-variant-" + name, active);
           }
           for (const name of headAngleNames) {
             if (name === "front") continue;
             const active = selectedHeadAngle === name;
-            addSpring(prefix + "-head-angle-" + name, "opacity",
-              active ? 0 : 1, active ? 1 : 0, actionStart, 140);
+            addHeadPlateOpacity(prefix + "-head-angle-" + name, active);
           }
         }
       }

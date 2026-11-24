@@ -162,6 +162,19 @@ test("full-body performance can be fully visible on the first composition frame"
   assert.equal(opacityTrack.duration, 0.08,
     "immediate visibility should use a minimal constant-opacity track");
 
+  const focusedHeadPlate = tracks.find(track =>
+    track.target === "playing-violin-prince-head-variant-focused" &&
+    track.property === "opacity"
+  );
+  const inactiveHeadPlate = tracks.find(track =>
+    track.target === "playing-violin-prince-head-variant-neutral" &&
+    track.property === "opacity"
+  );
+  assert.deepEqual(focusedHeadPlate?.values, [1, 1],
+    "the selected head plate must be fully opaque on frame zero");
+  assert.deepEqual(inactiveHeadPlate?.values, [0, 0],
+    "unselected head plates must be hidden on frame zero");
+
   const legacyTracks = compileMotionTracks(project, { fps: 25 });
   const legacyOpacity = legacyTracks.find(track =>
     track.target === "playing-violin-prince" && track.property === "opacity"
