@@ -179,22 +179,35 @@ jobs:
           base = report.get("composite_base", {})
           limbs = report.get("limb_report", {})
           joint_art = report.get("source_aligned_joint_surface_art", {})
-          assert joint_art.get("method") == "deferred_source_pixel_joint_caps_pending_artist_aligned_art", report
+          assert joint_art.get("method") == "artist_approved_absolute_source_polygon_joint_surfaces_only", report
+          assert joint_art.get("coordinate_space") == "absolute_source_pixels_top_left", report
           assert joint_art.get("joint_surface_layer_count") == 0, report
           assert joint_art.get("joint_surface_mesh_layer_count") == 0, report
           assert joint_art.get("joint_surface_articulated_layer_count") == 0, report
-          assert joint_art.get("joint_surface_mode") == "no_generated_caps_original_parent_child_source_pixels_preserved", report
+          assert joint_art.get("joint_surface_mode") == "approved_artist_polygons_only_no_generated_caps", report
           assert joint_art.get("source_pixels_transferred", 0) == 0, report
           assert joint_art.get("parent_child_alpha_pixels_removed", 0) == 0, report
           assert joint_art.get("hand_assets_modified") == 0, report
           assert joint_art.get("hand_animation_data_modified") is False, report
-          assert joint_art.get("regions", {}).get("right_shoulder", {}).get("reason") == "prop_occluded", report
-          assert all(region.get("status") == "skipped" for region in joint_art.get("regions", {}).values()), report
+          assert joint_art.get("protected_upper_body_assets_modified") == 0, report
+          expected_joint_reasons = {
+              "left_hip": "artist_aligned_joint_surface_art_required",
+              "right_hip": "artist_aligned_joint_surface_art_required",
+              "left_knee": "artist_aligned_joint_surface_art_required",
+              "right_knee": "artist_aligned_joint_surface_art_required",
+              "left_ankle": "artist_aligned_joint_surface_art_required",
+              "right_ankle": "artist_aligned_joint_surface_art_required",
+              "left_shoulder": "protected_upper_body_joint_asset_out_of_scope",
+              "right_shoulder": "protected_upper_body_joint_asset_out_of_scope",
+              "left_elbow": "protected_upper_body_joint_asset_out_of_scope",
+              "right_elbow": "protected_upper_body_joint_asset_out_of_scope",
+          }
+          assert set(joint_art.get("regions", {})) == set(expected_joint_reasons), joint_art
           assert all(
-              region.get("reason") == "prop_occluded" if name == "right_shoulder"
-              else region.get("reason") == "artist_aligned_joint_surface_art_required"
+              region.get("status") == "skipped"
+              and region.get("reason") == expected_joint_reasons[name]
               for name, region in joint_art.get("regions", {}).items()
-          ), report
+          ), joint_art
           surface_roles = {layer["role"] for layer in character.get("layers", []) if layer.get("joint_surface")}
           assert surface_roles == set(), surface_roles
           assert not list(bundle.glob("joint_surface_*.png")), report
