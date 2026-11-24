@@ -245,11 +245,23 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             self.assertEqual((root / "left_hand.png").read_bytes(), hand_bytes)
             after_parent = np.asarray(Image.open(root / "left_thigh.png").convert("RGBA"))
             after_child = np.asarray(Image.open(root / "left_calf.png").convert("RGBA"))
-            removed = moving
-            self.assertTrue(np.all(after_parent[:, :, 3][removed] == 0))
-            self.assertTrue(np.all(after_child[:, :, 3][removed] == 0))
+            removed_local = moving[20:80, 20:80]
+            self.assertTrue(np.all(after_parent[:, :, 3][removed_local] == 0))
+            self.assertTrue(np.all(after_child[:, :, 3][removed_local] == 0))
+            self.assertTrue(np.array_equal(
+                parent_before[:, :, 3][~removed_local],
+                after_parent[:, :, 3][~removed_local],
+            ))
+            self.assertTrue(np.array_equal(
+                child_before[:, :, 3][~removed_local],
+                after_child[:, :, 3][~removed_local],
+            ))
             self.assertTrue(np.array_equal(parent_before[:, :, :3], after_parent[:, :, :3]))
             self.assertTrue(np.array_equal(child_before[:, :, :3], after_child[:, :, :3]))
+            patch_alpha = np.asarray(
+                Image.open(root / "joint_surface_left_knee.png").convert("RGBA").getchannel("A")
+            )
+            self.assertEqual(int(np.count_nonzero(patch_alpha)), int(moving.sum()))
 
     def test_continuous_body_mesh_profiles_exclude_hands_fingers_and_feet(self):
         roles = [
