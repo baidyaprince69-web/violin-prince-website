@@ -655,57 +655,28 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
       throw new Error("Hand, finger and foot artwork must remain outside the continuous body mesh.");
     }
     const jointSurfaceLayers = (character.layers || []).filter(layer => layer.joint_surface);
-    const expectedJointSurfaceNames = new Set([
-      "joint_surface_left_shoulder", "joint_surface_left_elbow", "joint_surface_right_elbow",
-      "joint_surface_left_hip", "joint_surface_right_hip",
-      "joint_surface_left_knee", "joint_surface_right_knee",
-      "joint_surface_left_ankle", "joint_surface_right_ankle"
-    ]);
-    const actualJointSurfaceNames = new Set(jointSurfaceLayers.map(layer => String(layer.role)));
-    if (jointSurfaceLayers.length !== 9 ||
-        [...expectedJointSurfaceNames].some(role => !actualJointSurfaceNames.has(role)) ||
-        actualJointSurfaceNames.has("joint_surface_right_shoulder")) {
+    const unexpectedJointSurfaceLayers = (character.layers || []).filter(layer =>
+      String(layer.role || "").startsWith("joint_surface_")
+    );
+    if (jointSurfaceLayers.length !== 0 || unexpectedJointSurfaceLayers.length !== 0) {
       throw new Error("Scene " + scene.id +
-        " must render nine source-aligned joint caps while keeping the violin-covered right shoulder protected.");
+        " must preserve the original source-clothing overlaps; automatic capsule joint overlays are deferred until artist-aligned surface artwork exists.");
     }
-    for (const layer of jointSurfaceLayers) {
-      const surface = layer.joint_surface;
-      if (!surface?.parent_role || !surface?.child_role ||
-          !roleSet.has(surface.parent_role) || !roleSet.has(surface.child_role)) {
-        throw new Error("Scene " + scene.id + " joint surface " + layer.role +
-          " is missing its articulated parent/child contract.");
-      }
-      const target = scene.id + "-" + character.id + "-part-" + layer.id;
-      const jointTransforms = project.motion_tracks.filter(item =>
-        item.target === target && item.property === "transform" &&
-        Array.isArray(item.values) && item.values.length > 1
-      );
-      if (jointTransforms.length !== 1 ||
-          !jointTransforms[0].values.some(value => value !== jointTransforms[0].values[0])) {
-        throw new Error("Scene " + scene.id + " joint surface " + layer.role +
-          " must have exactly one changing blended parent/child transform track.");
-      }
-      if (layer.mesh_deformation) {
-        throw new Error("Scene " + scene.id + " joint surface " + layer.role +
-          " must retain its source pixels and must not receive a second mesh warp.");
-      }
-      const jointTrianglePrefix = target + "-mesh-triangle-";
-      const jointTriangles = project.motion_tracks.filter(item =>
-        String(item.target || "").startsWith(jointTrianglePrefix) &&
-        item.property === "transform"
-      );
-      if (jointTriangles.length !== 0) {
-        throw new Error("Scene " + scene.id + " joint surface " + layer.role +
-          " unexpectedly has mesh triangles in addition to its blended transform.");
-      }
-      jointSurfaceTransformTrackCount += 1;
+    const jointSurfaceTracks = project.motion_tracks.filter(item =>
+      String(item.target || "").includes("-part-joint_surface_") &&
+      item.property === "transform"
+    );
+    if (jointSurfaceTracks.length !== 0) {
+      throw new Error("Scene " + scene.id +
+        " contains joint-surface motion tracks without approved artist-aligned joint artwork.");
     }
     sourceJointSurfaceLayerCount += jointSurfaceLayers.length;
     if (deformableBodyLayerCount !== 9 ||
-        jointSurfaceTransformTrackCount !== 9 ||
+        jointSurfaceTransformTrackCount !== 0 ||
         jointSurfaceMeshTriangleTrackCount !== 0 ||
         deformationMeshTriangleTrackCount !== 158) {
-      throw new Error("Scene " + scene.id + " did not produce nine continuously deforming body surfaces and nine blended source-art joint surfaces.");
+      throw new Error("Scene " + scene.id +
+        " did not produce nine continuously deforming body surfaces while preserving the original joint source pixels.");
     }
     if (compositeBaseMode) {
       const baseTarget = scene.id + "-" + character.id + "-base-art";

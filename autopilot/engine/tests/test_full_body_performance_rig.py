@@ -101,7 +101,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             self.assertEqual((root / "left_hand.png").read_bytes(), hand_bytes)
             self.assertEqual(result["prop_pixels_excluded"], 16)
 
-    def test_joint_surface_caps_transfer_only_source_pixels_and_exclude_props_and_hands(self):
+    def test_joint_surface_caps_are_deferred_and_original_source_pixels_stay_on_body_layers(self):
         import json
         import tempfile
         from pathlib import Path
@@ -111,20 +111,15 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             source_pixels = np.zeros((100, 100, 4), dtype=np.uint8)
             source_pixels[20:70, 20:70] = (86, 54, 38, 255)
             source = Image.fromarray(source_pixels, mode="RGBA")
-
-            parent = Image.new("RGBA", (28, 28), (86, 54, 38, 255))
-            child = Image.new("RGBA", (28, 28), (86, 54, 38, 255))
-            parent.save(root / "parent.png")
-            child.save(root / "child.png")
+            Image.new("RGBA", (28, 28), (86, 54, 38, 255)).save(root / "parent.png")
+            Image.new("RGBA", (28, 28), (86, 54, 38, 255)).save(root / "child.png")
+            parent_before = (root / "parent.png").read_bytes()
+            child_before = (root / "child.png").read_bytes()
             hand_bytes = b"protected-hand-asset-bytes"
             (root / "left_hand.png").write_bytes(hand_bytes)
             character = {
                 "canvas": {"width": 100, "height": 100},
-                "joints": {
-                    "elbow": {"x": 0.45, "y": 0.45},
-                    "left_shoulder": {"x": 0.30, "y": 0.35},
-                    "left_wrist": {"x": 0.60, "y": 0.60},
-                },
+                "joints": {"elbow": {"x": 0.45, "y": 0.45}},
                 "layers": [
                     {"role": "parent", "src": "parent.png", "x": 30, "y": 30, "width": 28, "height": 28},
                     {"role": "child", "src": "child.png", "x": 40, "y": 30, "width": 28, "height": 28},
@@ -141,8 +136,6 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                             "anchor": "elbow",
                             "parent_role": "parent",
                             "child_role": "child",
-                            "blend_axis_joints": ["left_shoulder", "left_wrist"],
-                            "z_index": 10,
                             "outline": {
                                 "profile": "tapered_source_capsule",
                                 "half_length_px": 18,
@@ -157,41 +150,26 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
             prop = np.zeros((100, 100), dtype=np.uint8)
             prop[42:47, 42:47] = 255
-
             layers, moving, report = _extract_source_aligned_joint_surfaces(
-                source,
-                root,
-                regions_manifest_path=manifest_path,
-                character=character,
-                prop_masks={"violin": prop},
+                source, root, regions_manifest_path=manifest_path,
+                character=character, prop_masks={"violin": prop},
             )
 
-            self.assertEqual(len(layers), 1)
-            layer = layers[0]
-            self.assertEqual(layer["role"], "joint_surface_left_elbow")
-            self.assertEqual(layer["joint_surface"]["parent_role"], "parent")
-            self.assertEqual(layer["joint_surface"]["child_role"], "child")
-            self.assertGreater(report["source_pixels_transferred"], 40)
-            self.assertGreater(report["prop_pixels_excluded"], 0)
-            self.assertEqual(report["hand_assets_modified"], 0)
-            self.assertFalse(report["hand_animation_data_modified"])
-            region_report = report["regions"]["left_elbow"]
-            self.assertEqual(region_report["outline_profile"], "tapered_source_capsule")
-            self.assertEqual(region_report["outline_half_length_px"], 18)
-            self.assertEqual(region_report["outline_half_width_px"], 12)
-            self.assertLess(region_report["blend_axis_midpoint_error_px"], 1e-6)
+            self.assertEqual(layers, [])
+            self.assertFalse(moving.any())
+            self.assertEqual(report["method"], "deferred_source_pixel_joint_caps_pending_artist_aligned_art")
+            self.assertEqual(report["joint_surface_layer_count"], 0)
+            self.assertEqual(report["source_pixels_transferred"], 0)
+            self.assertEqual(report["parent_child_alpha_pixels_removed"], 0)
+            self.assertEqual(
+                report["regions"]["left_elbow"]["reason"],
+                "artist_aligned_joint_surface_art_required",
+            )
+            self.assertEqual((root / "parent.png").read_bytes(), parent_before)
+            self.assertEqual((root / "child.png").read_bytes(), child_before)
             self.assertEqual((root / "left_hand.png").read_bytes(), hand_bytes)
-            with Image.open(root / "parent.png") as opened:
-                parent_alpha = np.asarray(opened.convert("RGBA").getchannel("A"))
-            with Image.open(root / "child.png") as opened:
-                child_alpha = np.asarray(opened.convert("RGBA").getchannel("A"))
-            with Image.open(root / layer["src"]) as opened:
-                cap = np.asarray(opened.convert("RGBA"))
-            self.assertTrue(moving.any())
-            self.assertGreater(int(np.count_nonzero(cap[:, :, 3] > 12)), 40)
-            self.assertEqual(int(cap[:, :, 3].max()), 255)
-            self.assertEqual(int(parent_alpha[9, 12]), 0)
-            self.assertEqual(int(child_alpha[9, 2]), 0)
+            self.assertFalse((root / "joint_surface_left_elbow.png").exists())
+
 
     def test_continuous_body_mesh_profiles_exclude_hands_fingers_and_feet(self):
         roles = [
@@ -270,6 +248,35 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             self.assertEqual(int(after[5, 5, 3]), int(before[5, 5, 3]))
             self.assertEqual(report["hand_assets_modified"], 0)
             self.assertFalse(report["hand_animation_data_modified"])
+
+    def test_torso_only_partition_uses_explicit_live_torso_transfer_method(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            Image.new("RGBA", (40, 40), (45, 52, 61, 255)).save(root / "base.png")
+            Image.new("RGBA", (20, 20), (120, 76, 48, 255)).save(root / "torso.png")
+            character = {
+                "canvas": {"width": 40, "height": 40},
+                "layers": [{
+                    "role": "torso", "src": "torso.png", "x": 10, "y": 10,
+                    "width": 20, "height": 20,
+                }],
+            }
+            empty_joint_mask = np.zeros((40, 40), dtype=bool)
+            report = _partition_torso_and_joint_surfaces_from_base(
+                root, character, {"src": "base.png"}, empty_joint_mask
+            )
+            with Image.open(root / "base.png") as opened:
+                after = np.asarray(opened.convert("RGBA"))
+            self.assertEqual(report["method"], "source_alpha_partitioned_into_live_torso_surface")
+            self.assertEqual(report["joint_surface_source_pixels_transferred"], 0)
+            self.assertEqual(report["transfer_mask_asset"], "torso-live-surface-transfer-mask.png")
+            self.assertTrue(report["base_alpha_unchanged_outside_transfer_mask"])
+            self.assertTrue(report["composition_source_alpha_reconstituted_by_surface_layers"])
+            self.assertTrue(np.all(after[10:30, 10:30, 3] == 0))
+            self.assertEqual(int(after[5, 5, 3]), 255)
 
     def test_largest_component_removes_detached_alpha_specks(self):
         mask = np.zeros((32, 32), dtype=np.uint8)

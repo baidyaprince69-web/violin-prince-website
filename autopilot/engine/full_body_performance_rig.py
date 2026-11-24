@@ -1577,8 +1577,16 @@ def _extract_source_aligned_joint_surfaces(
     regions_manifest_path: Path,
     character: dict[str, Any],
     prop_masks: dict[str, np.ndarray],
+    *,
+    generate_caps: bool = False,
 ) -> tuple[list[dict[str, Any]], np.ndarray, dict[str, Any]]:
-    """Cut source-faithful joint caps from the preserved character artwork."""
+    """Optionally extract experimental joint caps; production defers them.
+
+    A geometric capsule can cut source clothing into a detached-looking dark
+    patch even when every sampled pixel is genuine. Keep the original parent
+    and child artwork intact by default until artist-aligned joint surfaces
+    are supplied and visually approved.
+    """
     manifest = json.loads(regions_manifest_path.read_text(encoding="utf-8"))
     specification = manifest.get("joint_surfaces") or {}
     if int(specification.get("schema_version", 0)) != 1:
@@ -1605,19 +1613,46 @@ def _extract_source_aligned_joint_surfaces(
     claimed = np.zeros((height, width), dtype=bool)
     layers: list[dict[str, Any]] = []
     report: dict[str, Any] = {
-        "method": "artist_authored_tapered_source_pixel_joint_surfaces_with_blended_parent_child_transforms",
+        "method": "deferred_source_pixel_joint_caps_pending_artist_aligned_art",
         "manifest": regions_manifest_path.name,
         "coordinate_space": "joint_anchor_relative_source_pixels",
         "regions": {},
         "joint_surface_layer_count": 0,
+        "joint_surface_mesh_layer_count": 0,
+        "joint_surface_articulated_layer_count": 0,
+        "joint_surface_mode": "no_generated_caps_original_parent_child_source_pixels_preserved",
         "source_pixels_transferred": 0,
         "parent_child_alpha_pixels_removed": 0,
         "prop_pixels_excluded": 0,
         "hand_assets_modified": 0,
         "hand_animation_data_modified": False,
-        "right_shoulder_policy": "skipped_where_source_junction_is_covered_by_violin",
+        "right_shoulder_policy": "no_generated_patch_where_source_junction_is_covered_by_violin",
         "visual_review_required": True,
     }
+    if not generate_caps:
+        # Preserve the original source clothing. Do not replace its natural
+        # joint silhouette with a geometric capsule overlay.
+        for joint_name, item in (specification.get("regions") or {}).items():
+            reason = (
+                "prop_occluded" if joint_name == "right_shoulder"
+                else "artist_aligned_joint_surface_art_required"
+            )
+            report["regions"][joint_name] = {
+                "status": "skipped",
+                "reason": reason,
+                "source_pixels_available": 0,
+                "parent_role": str(item.get("parent_role") or ""),
+                "child_role": str(item.get("child_role") or ""),
+            }
+        empty_mask = np.zeros((height, width), dtype=bool)
+        Image.fromarray(empty_mask.astype(np.uint8) * 255, mode="L").save(
+            bundle_dir / "joint-surface-moving-mask.png", format="PNG", optimize=True
+        )
+        report["moving_mask_pixels"] = 0
+        return [], empty_mask, report
+
+    report["method"] = "experimental_artist_authored_tapered_source_pixel_joint_surfaces"
+    report["joint_surface_mode"] = "experimental_source_pixel_capsule_overlays_with_blended_parent_child_transforms"
     for joint_name, item in (specification.get("regions") or {}).items():
         anchor_name = str(item.get("anchor") or joint_name)
         parent_role, child_role = str(item.get("parent_role") or ""), str(item.get("child_role") or "")
@@ -1909,6 +1944,15 @@ def _partition_torso_and_joint_surfaces_from_base(
     if joint_mask.shape != (height, width):
         raise AutoRigError("Joint-surface mask does not match the character canvas.")
     transfer = torso_mask | joint_mask
+    has_joint_surfaces = bool(joint_mask.any())
+    partition_method = (
+        "source_alpha_partitioned_into_static_torso_and_joint_surfaces"
+        if has_joint_surfaces else "source_alpha_partitioned_into_live_torso_surface"
+    )
+    transfer_mask_name = (
+        "torso-joint-surface-transfer-mask.png"
+        if has_joint_surfaces else "torso-live-surface-transfer-mask.png"
+    )
     base_path = bundle_dir / str(base_art.get("src") or "")
     if not base_path.is_file():
         raise AutoRigError("The segmented base-art asset is missing during surface partition.")
@@ -1921,12 +1965,12 @@ def _partition_torso_and_joint_surfaces_from_base(
     cleared = int(np.count_nonzero((before_alpha > 12) & transfer))
     pixels[transfer, 3] = 0
     Image.fromarray(pixels, mode="RGBA").save(base_path, format="PNG", optimize=True)
-    transfer_path = bundle_dir / "torso-joint-surface-transfer-mask.png"
+    transfer_path = bundle_dir / transfer_mask_name
     Image.fromarray(transfer.astype(np.uint8) * 255, mode="L").save(
         transfer_path, format="PNG", optimize=True
     )
     return {
-        "method": "source_alpha_partitioned_into_static_torso_and_joint_surfaces",
+        "method": partition_method,
         "torso_source_pixels_transferred": int(torso_mask.sum()),
         "joint_surface_source_pixels_transferred": int(joint_mask.sum()),
         "base_alpha_pixels_cleared": cleared,
@@ -2590,10 +2634,10 @@ def extend_full_body_character(
             "head": "normalized_plate_crossfades_not_continuous_mesh_deformation",
             "hands": "four_source_aligned_three_segment_finger_chains_with_joint_overlap_not_deformable_art",
             "body": "frame_sampled_piecewise_affine_source_texture_mesh_on_torso_and_eight_limb_surfaces",
-            "joint_surfaces": "nine_source_pixel_caps_from_authored_anchor_relative_regions; right_shoulder_skipped_where_violin_occludes_source_art",
+            "joint_surfaces": "automatic_capsule_overlays_disabled_after_visual_QA; original parent_child source pixels are preserved pending artist_aligned joint artwork",
             "hands": "untouched_rigid_source_sprites_with_existing_finger_animation",
             "release_blockers": [
-                "artist review of source-pixel joint caps across the full performance range",
+                "artist-authored source-aligned joint-surface artwork; automatic capsule overlays are not accepted",
                 "anatomically aligned head neck and facial feature deformation",
                 "deformable bow-grip and finger-surface artwork; hand animation intentionally unchanged",
                 "pose-range and full-frame visual QA after mesh deformation",

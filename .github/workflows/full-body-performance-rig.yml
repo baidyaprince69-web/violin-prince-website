@@ -148,28 +148,25 @@ jobs:
           base = report.get("composite_base", {})
           limbs = report.get("limb_report", {})
           joint_art = report.get("source_aligned_joint_surface_art", {})
-          assert joint_art.get("method") == "artist_authored_tapered_source_pixel_joint_surfaces_with_blended_parent_child_transforms", report
-          assert joint_art.get("joint_surface_layer_count") == 9, report
+          assert joint_art.get("method") == "deferred_source_pixel_joint_caps_pending_artist_aligned_art", report
+          assert joint_art.get("joint_surface_layer_count") == 0, report
           assert joint_art.get("joint_surface_mesh_layer_count") == 0, report
-          assert joint_art.get("joint_surface_articulated_layer_count") == 9, report
-          assert joint_art.get("joint_surface_mode") == "source_pixel_capsule_overlays_with_blended_parent_child_segment_transforms", report
-          assert joint_art.get("source_pixels_transferred", 0) > 5000, report
-          assert joint_art.get("prop_pixels_excluded", 0) > 0, report
-          for name, joint_region in joint_art.get("regions", {}).items():
-              if joint_region.get("status") == "source_patch_created":
-                  assert joint_region.get("outline_profile") == "tapered_source_capsule", (name, joint_region)
-                  assert joint_region.get("blend_axis_midpoint_error_px", 1) < 0.001, (name, joint_region)
+          assert joint_art.get("joint_surface_articulated_layer_count") == 0, report
+          assert joint_art.get("joint_surface_mode") == "no_generated_caps_original_parent_child_source_pixels_preserved", report
+          assert joint_art.get("source_pixels_transferred", 0) == 0, report
+          assert joint_art.get("parent_child_alpha_pixels_removed", 0) == 0, report
           assert joint_art.get("hand_assets_modified") == 0, report
           assert joint_art.get("hand_animation_data_modified") is False, report
           assert joint_art.get("regions", {}).get("right_shoulder", {}).get("reason") == "prop_occluded", report
+          assert all(region.get("status") == "skipped" for region in joint_art.get("regions", {}).values()), report
+          assert all(
+              region.get("reason") == "prop_occluded" if name == "right_shoulder"
+              else region.get("reason") == "artist_aligned_joint_surface_art_required"
+              for name, region in joint_art.get("regions", {}).items()
+          ), report
           surface_roles = {layer["role"] for layer in character.get("layers", []) if layer.get("joint_surface")}
-          expected_surface_roles = {
-              "joint_surface_left_shoulder", "joint_surface_left_elbow", "joint_surface_right_elbow",
-              "joint_surface_left_hip", "joint_surface_right_hip",
-              "joint_surface_left_knee", "joint_surface_right_knee",
-              "joint_surface_left_ankle", "joint_surface_right_ankle",
-          }
-          assert surface_roles == expected_surface_roles, surface_roles
+          assert surface_roles == set(), surface_roles
+          assert not list(bundle.glob("joint_surface_*.png")), report
           mesh_report = report.get("continuous_body_deformation", {})
           expected_mesh_roles = {
               "torso", "left_upper_arm", "left_forearm", "right_upper_arm", "right_forearm",
@@ -181,7 +178,9 @@ jobs:
           assert mesh_report.get("hand_assets_modified") == 0, report
           assert mesh_report.get("hand_animation_data_modified") is False, report
           partition = report.get("torso_surface_partition", {})
-          assert partition.get("method") == "source_alpha_partitioned_into_static_torso_and_joint_surfaces", report
+          assert partition.get("method") == "source_alpha_partitioned_into_live_torso_surface", report
+          assert partition.get("joint_surface_source_pixels_transferred", 999) == 0
+          assert partition.get("transfer_mask_asset") == "torso-live-surface-transfer-mask.png", report
           assert partition.get("base_alpha_unchanged_outside_transfer_mask") is True, report
           assert partition.get("composition_source_alpha_reconstituted_by_surface_layers") is True, report
           assert partition.get("hand_assets_modified") == 0, report
@@ -392,16 +391,16 @@ jobs:
           assert report.get("animated_finger_segment_count") == 12, report
           assert scene.get("animated_finger_segments") == 12, scene
           assert report.get("animated_instrument_prop_count") == 2, report
-          assert report.get("source_joint_surface_layer_count") == 9, report
+          assert report.get("source_joint_surface_layer_count") == 0, report
           assert report.get("deformable_body_layer_count") == 9, report
           assert report.get("deformation_mesh_triangle_track_count") == 158, report
           assert report.get("joint_surface_mesh_triangle_track_count") == 0, report
-          assert report.get("joint_surface_transform_track_count") == 9, report
-          assert scene.get("source_joint_surface_layer_count") == 9, scene
+          assert report.get("joint_surface_transform_track_count") == 0, report
+          assert scene.get("source_joint_surface_layer_count") == 0, scene
           assert scene.get("deformable_body_layer_count") == 9, scene
           assert scene.get("deformation_mesh_triangle_track_count") == 158, scene
           assert scene.get("joint_surface_mesh_triangle_track_count") == 0, scene
-          assert scene.get("joint_surface_transform_track_count") == 9, scene
+          assert scene.get("joint_surface_transform_track_count") == 0, scene
           assert scene.get("full_body_visual_mode") == "segmented_source_body", scene
           print(json.dumps({
               "full_body_scenes": report["full_body_performance_scene_count"],
