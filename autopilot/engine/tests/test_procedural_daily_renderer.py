@@ -13,6 +13,7 @@ from procedural_daily_renderer import (
     creator_preferences_for_slot,
     render_procedural_daily_video,
     require_approved_presenter_rig,
+    verify_real_performance_motion_tracks,
     rig_bundle_sha256,
 )
 
@@ -242,6 +243,45 @@ class ProceduralDailyRendererTests(unittest.TestCase):
         with self.assertRaisesRegex(ProceduralDailyRenderError, "no distinct measured audio event"):
             align_director_music_sync_cues(plan, timing)
 
+    def test_real_performance_motion_gate_requires_23_tracks_per_shot(self):
+        shot_count = 5
+        timing_source = "decoded_audio_spectral_flux_autocorrelation"
+        report = {
+            "presenter_music_sync_track_count": shot_count * 23,
+            "presenter_bow_stroke_track_count": shot_count * 3,
+            "presenter_finger_note_track_count": shot_count * 12,
+            "presenter_body_balance_track_count": shot_count * 2,
+            "presenter_weight_shift_track_count": shot_count * 6,
+            "presenter_sync_timing_sources": [timing_source],
+        }
+        verified = verify_real_performance_motion_tracks(
+            report, shot_count=shot_count, timing_source=timing_source
+        )
+        self.assertEqual(verified["status"], "passed")
+        self.assertEqual(verified["presenter_music_sync_track_count"], 115)
+
+        for field in (
+            "presenter_music_sync_track_count",
+            "presenter_bow_stroke_track_count",
+            "presenter_finger_note_track_count",
+            "presenter_body_balance_track_count",
+            "presenter_weight_shift_track_count",
+        ):
+            incomplete = dict(report)
+            incomplete[field] -= 1
+            with self.subTest(field=field):
+                with self.assertRaisesRegex(ProceduralDailyRenderError, field):
+                    verify_real_performance_motion_tracks(
+                        incomplete, shot_count=shot_count, timing_source=timing_source
+                    )
+
+        with self.assertRaisesRegex(ProceduralDailyRenderError, "exact audio timing source"):
+            verify_real_performance_motion_tracks(
+                {**report, "presenter_sync_timing_sources": ["declared_bpm"]},
+                shot_count=shot_count,
+                timing_source=timing_source,
+            )
+
     def test_daily_renderer_uses_verified_story_sources_and_motion_report(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -351,6 +391,12 @@ class ProceduralDailyRendererTests(unittest.TestCase):
                         "animated_presenter_count": len(shots),
                         "rendered_layer_count": 0,
                         "music_sync_event_count": 3,
+                        "presenter_music_sync_track_count": len(shots) * 23,
+                        "presenter_bow_stroke_track_count": len(shots) * 3,
+                        "presenter_finger_note_track_count": len(shots) * 12,
+                        "presenter_body_balance_track_count": len(shots) * 2,
+                        "presenter_weight_shift_track_count": len(shots) * 6,
+                        "presenter_sync_timing_sources": [timing["source"]],
                     },
                     "final_video_qa": {
                         "status": "passed", "width": 720, "height": 1280,
@@ -405,6 +451,13 @@ class ProceduralDailyRendererTests(unittest.TestCase):
             self.assertTrue(all(len(action["music_sync"]["note_events"]) >= 4 for action in actions))
             self.assertGreaterEqual(result["music_sync_report"]["finger_note_event_count"], 4)
             self.assertEqual(result["music_sync_report"]["finger_note_sync_status"], "passed")
+            presenter_sync = result["music_sync_report"]["presenter_motion_track_report"]
+            self.assertEqual(
+                presenter_sync["presenter_music_sync_track_count"], len(actions) * 23
+            )
+            self.assertEqual(
+                presenter_sync["timing_source_verified"], timing["source"]
+            )
 
     def test_daily_renderer_rejects_generated_picture_layers(self):
         with tempfile.TemporaryDirectory() as temporary:

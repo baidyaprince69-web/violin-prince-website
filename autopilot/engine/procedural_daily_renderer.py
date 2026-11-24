@@ -441,6 +441,48 @@ def align_director_music_sync_cues(
         "cues": aligned,
     }
 
+def verify_real_performance_motion_tracks(
+    motion_report: dict[str, Any],
+    *,
+    shot_count: int,
+    timing_source: str,
+) -> dict[str, Any]:
+    """Require the complete beat-synchronised performer rig in every Director shot."""
+    if not isinstance(motion_report, dict) or shot_count < 1:
+        raise ProceduralDailyRenderError("Real Performance has no valid presenter Motion report.")
+    if not str(timing_source or "").strip():
+        raise ProceduralDailyRenderError("Real Performance has no verified audio timing source.")
+
+    per_shot = {
+        "presenter_music_sync_track_count": 23,
+        "presenter_bow_stroke_track_count": 3,
+        "presenter_finger_note_track_count": 12,
+        "presenter_body_balance_track_count": 2,
+        "presenter_weight_shift_track_count": 6,
+    }
+    verified: dict[str, int] = {}
+    for field, required_per_shot in per_shot.items():
+        expected = shot_count * required_per_shot
+        actual = motion_report.get(field)
+        if isinstance(actual, bool) or not isinstance(actual, int) or actual != expected:
+            raise ProceduralDailyRenderError(
+                f"Real Performance Motion report expected {expected} {field} "
+                f"across {shot_count} shots, found {actual!r}."
+            )
+        verified[field] = actual
+
+    sources = motion_report.get("presenter_sync_timing_sources")
+    if not isinstance(sources, list) or timing_source not in sources:
+        raise ProceduralDailyRenderError(
+            "Real Performance presenter motion tracks are not tagged with the exact "
+            f"audio timing source {timing_source!r}."
+        )
+    verified["shot_count"] = shot_count
+    verified["timing_source_verified"] = timing_source
+    verified["status"] = "passed"
+    return verified
+
+
 def render_procedural_daily_video(
     engine: Any,
     plan: dict[str, Any],
@@ -545,6 +587,8 @@ def render_procedural_daily_video(
             raise ProceduralDailyRenderError("Real Performance note events failed validation after audio-loop alignment.")
         performance_sync = {
             "bpm": beat_analysis.get("bpm"),
+            "source": str(beat_analysis.get("source") or "decoded_audio"),
+            "analysis_status": str(beat_analysis.get("status") or ""),
             "beat_times": repeated_times("beat_times"),
             "downbeats": repeated_times("downbeats"),
             "onsets": repeated_times("onsets"),
@@ -643,6 +687,12 @@ def render_procedural_daily_video(
     music_sync_report["rendered_motion_track_count"] = rendered_music_sync_count
     music_sync_report["motion_report_status"] = "passed"
     music_sync_report["measured_audio_sync_verified"] = True
+    if slot_id == "real-performance":
+        music_sync_report["presenter_motion_track_report"] = verify_real_performance_motion_tracks(
+            motion,
+            shot_count=shot_count,
+            timing_source=str(beat_analysis.get("source") or "decoded_audio"),
+        )
     director_plan["music_sync_report"] = music_sync_report
 
     temporary.write_text(json.dumps(director_plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
