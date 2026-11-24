@@ -77,6 +77,47 @@ class ExactProductionDateQueueTests(unittest.TestCase):
         self.assertEqual(result["slot_id"], "production-tech")
         self.assertEqual(result["batch_path"], ".autopilot/daily-batches/2026-11-21.json")
 
+
+    def test_skips_a_topic_already_researched_in_an_older_batch(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._write_batch(root, "2026-11-21", "production-tech")
+            self._write_batch(root, "2026-11-22", "melody-stories")
+            old_path = root / ".autopilot" / "daily-batches" / "2026-11-21.json"
+            old_batch = json.loads(old_path.read_text(encoding="utf-8"))
+            old_plan = next(p for p in old_batch["plans"] if p["slot_id"] == "production-tech")
+            old_plan["topic"] = "How a violin bridge shapes resonance and tone"
+            old_plan["core_claim"] = "A violin bridge shapes resonance and tone."
+            old_path.write_text(json.dumps(old_batch), encoding="utf-8")
+
+            current_path = root / ".autopilot" / "daily-batches" / "2026-11-22.json"
+            current_batch = json.loads(current_path.read_text(encoding="utf-8"))
+            current_plan = next(p for p in current_batch["plans"] if p["slot_id"] == "melody-stories")
+            current_plan["topic"] = "How violin bridge resonance shapes the sound"
+            current_path.write_text(json.dumps(current_batch), encoding="utf-8")
+
+            result = select_next_public_plan(root, production_date="2026-11-22")
+
+        self.assertFalse(result["ready"])
+        self.assertEqual(len(result["duplicate_topic_matches"]), 1)
+        self.assertIn("previous topic", result["duplicate_topic_matches"][0])
+
+    def test_skips_repeated_topic_even_when_previous_slot_was_blocked(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._write_batch(root, "2026-11-22", "production-tech")
+            path = root / ".autopilot" / "daily-batches" / "2026-11-22.json"
+            batch = json.loads(path.read_text(encoding="utf-8"))
+            previous = next(p for p in batch["plans"] if p["slot_id"] == "music-secrets")
+            previous["topic"] = "Why violin bridge resonance shapes the sound"
+            current = next(p for p in batch["plans"] if p["slot_id"] == "production-tech")
+            current["topic"] = "How violin bridge resonance shapes the sound"
+            path.write_text(json.dumps(batch), encoding="utf-8")
+
+            result = select_next_public_plan(root, production_date="2026-11-22")
+
+        self.assertFalse(result["ready"])
+        self.assertEqual(len(result["duplicate_topic_matches"]), 1)
     def test_exact_date_and_rolling_lower_bound_cannot_be_combined(self):
         with tempfile.TemporaryDirectory() as temporary:
             with self.assertRaisesRegex(ValueError, "Use either production_date"):
