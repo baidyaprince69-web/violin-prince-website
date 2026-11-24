@@ -125,6 +125,17 @@ class EvidenceFirstGroupingTests(unittest.TestCase):
         self.assertTrue(all(len(item["evidence_text"]) >= 90 for item in group["sources"]))
 
 
+
+    def test_narration_evidence_bridge_returns_an_exact_article_quote(self):
+        sentence = "MIT engineers developed a physics based computational violin model."
+        quote = pipeline._exact_publisher_quote_for_claim(sentence, MIT_ARTICLE)
+        self.assertTrue(quote)
+        self.assertIn(quote, MIT_ARTICLE["evidence_text"])
+        self.assertGreaterEqual(len(quote), 28)
+
+    def test_narration_evidence_bridge_rejects_a_claim_not_supported_by_the_article(self):
+        sentence = "The violin creates a mysterious emotional colour through magic."
+        self.assertEqual(pipeline._exact_publisher_quote_for_claim(sentence, MIT_ARTICLE), "")
     def test_weekly_film_music_roundup_is_not_corroboration_for_space_cadet(self):
         self.assertFalse(
             pipeline.story_articles_cover_same_subject(
