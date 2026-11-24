@@ -143,11 +143,12 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                             "child_role": "child",
                             "blend_axis_joints": ["left_shoulder", "left_wrist"],
                             "z_index": 10,
-                            "minimum_pixels": 40,
-                            "polygon": [
-                                [-9, -7], [-4, -10], [4, -10], [9, -5],
-                                [9, 4], [4, 10], [-4, 10], [-9, 4]
-                            ],
+                            "outline": {
+                                "profile": "tapered_source_capsule",
+                                "half_length_px": 18,
+                                "half_width_px": 12,
+                                "minimum_pixels": 40,
+                            },
                         }
                     },
                 },
@@ -174,6 +175,11 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             self.assertGreater(report["prop_pixels_excluded"], 0)
             self.assertEqual(report["hand_assets_modified"], 0)
             self.assertFalse(report["hand_animation_data_modified"])
+            region_report = report["regions"]["left_elbow"]
+            self.assertEqual(region_report["outline_profile"], "tapered_source_capsule")
+            self.assertEqual(region_report["outline_half_length_px"], 18)
+            self.assertEqual(region_report["outline_half_width_px"], 12)
+            self.assertLess(region_report["blend_axis_midpoint_error_px"], 1e-6)
             self.assertEqual((root / "left_hand.png").read_bytes(), hand_bytes)
             with Image.open(root / "parent.png") as opened:
                 parent_alpha = np.asarray(opened.convert("RGBA").getchannel("A"))
