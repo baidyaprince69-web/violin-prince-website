@@ -54,7 +54,7 @@ jobs:
         env:
           PYTHONPATH: autopilot/engine
         run: |
-          python -m unittest discover -s autopilot/engine/tests -p "test_reference_sheet_rig.py" -v
+          python -m unittest discover -s autopilot/engine/tests -p "test_pose_range_visual_qa.py" -v\n          python -m unittest discover -s autopilot/engine/tests -p "test_reference_sheet_rig.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_full_body_performance_rig.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_character_rig.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_character_autorig.py" -v
@@ -448,6 +448,15 @@ jobs:
             -c:v copy -c:a aac -b:a 192k -shortest -movflags +faststart \
             work/full-body-rig/full-body-violin-performance.mp4
 
+      - name: Generate dense pose-range review evidence
+        run: |
+          python autopilot/engine/pose_range_visual_qa.py \
+            --video work/full-body-rig/full-body-violin-performance.mp4 \
+            --out-dir work/full-body-rig/pose-range-qa \
+            --duration 8 \
+            --fps 4 \
+            --columns 5
+
       - name: Create a visual review contact sheet
         run: |
           mkdir -p work/full-body-rig/frames
@@ -483,7 +492,7 @@ jobs:
           name: full-body-violin-performance-preview-${{ github.run_number }}
           path: |
             work/full-body-rig/full-body-violin-performance.mp4
-            work/full-body-rig/full-body-performance-contact-sheet.jpg
+            work/full-body-rig/full-body-performance-contact-sheet.jpg\n            work/full-body-rig/pose-range-qa/pose-range-visual-qa.json\n            work/full-body-rig/pose-range-qa/full-body-pose-range-contact-sheet.jpg
             work/full-body-rig/bundle/full-body-performance-report.json
             work/full-body-rig/bundle/reference-sheets-report.json
             work/full-body-rig/bundle/reference-part-map.json
