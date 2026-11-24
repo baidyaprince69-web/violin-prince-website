@@ -170,17 +170,17 @@ Use a source mix:
 - No claim of guaranteed reach, monetisation or copyright clearance. Check each upload's restrictions and rights status in YouTube Studio.
 - Mark synthetic elements honestly where required. Never claim AI-generated images or sampled audio show a live recording.
 
-## 8. Required automation changes before four-a-day publishing
+## 8. Four-a-day production readiness
 
 The current repository is not yet configured for this target. Before enabling public uploads, the implementation needs:
 
-1. **Four-plan batch model:** implemented on main through `.autopilot/daily-batches/YYYY-MM-DD.json`; each date has four canonical slot entries, including explicit blocked state when evidence is insufficient.
-2. **Four triggers:** implemented on main as four Asia/Kolkata cron events. Each trigger researches and commissions only its assigned category, then commits its research identity, topic/source history and updated date batch before exact-slot selection.
-3. **Per-slot duplicate protection:** publisher request IDs, external IDs and idempotency keys now include the date and slot. Confirmed-public-upload ceiling and uncertain-outcome reconciliation remain publication gates.
-4. **One publisher decision:** reconcile the Metricool and Upload-Post routes before enabling scheduling. Metricool reports YouTube, Facebook, Threads and Pinterest connected; Upload-Post currently reports YouTube only. Do not run two schedulers against the same slot.
-5. **Real performance intake:** accept a creator-selected recording, preserve its audio/video provenance, create clip candidates with timecodes, and require creator approval of the edit.
-6. **Release gates:** restore a production-ready illustration path, validate the complete rendered video/audio, keep the private Qwen3 voice proof intact, confirm synthetic-media metadata and channel settings, and only then permit public publishing.
-7. **Global analytics loop:** store a receipt per slot and measure results by pillar, language, country, traffic source and posting window. Use actual channel analytics to decide what to localise and where to focus.
+1. **Four-slot batch model:** implemented on `main` through `.autopilot/daily-batches/YYYY-MM-DD.json`, with exactly four canonical category entries and explicit ready/blocked states.
+2. **Per-trigger research:** implemented on all four Asia/Kolkata cron entries. Every trigger researches and commissions only its assigned category, records a durable research identity, and updates topic/source history before exact-slot selection.
+3. **Duplicate protection:** implemented across research history, date/slot identities, connected YouTube title history, Upload-Post idempotency identifiers and exact MP4 SHA-256 values. Uncertain outcomes must be reconciled before retry.
+4. **Public publisher:** the scheduled route uses the direct public Upload-Post YouTube publisher. No private-preview copies are part of the approved path; no parallel Metricool publishing scheduler is enabled.
+5. **Real Performance:** the dedicated slot requires source-aligned full-body violin/bow/finger animation and the creator's actual PCM violin recording. The full-body rig remains in draft PR #130 with lower-body joint surfaces awaiting artist tracing/approval.
+6. **Production release approval:** still blocked. `animation-production-approval.json` and the presenter's `production-approval.json` are absent from `main`. The technical procedural preview used synthetic placeholder audio and does not constitute measured audio-sync verification or creator visual approval.
+7. **Global analytics loop:** the next improvement cycle should store one verified receipt per slot and measure results by pillar, language, country, traffic source and posting window. Use actual channel analytics to guide subsequent topics.
 
 ## 9. Historical snapshot — verified operational status on 21 November 2026 (superseded 24 November 2026)
 
