@@ -175,7 +175,7 @@ def _persist_records(
     subprocess.run(["git", "add", "--", *relative_paths], cwd=repository_root, check=True)
     staged = subprocess.run(
         ["git", "diff", "--cached", "--quiet"],
-        cwd=REPOSITORY_ROOT,
+        cwd=repository_root,
         check=False,
     )
     if staged.returncode == 0:
@@ -188,7 +188,7 @@ def _persist_records(
             "-c", "user.email=41898282+github-actions[bot]@users.noreply.github.com",
             "commit", "-m", f"Record researched public Short slot {batch['production_date']}",
         ],
-        cwd=REPOSITORY_ROOT,
+        cwd=repository_root,
         check=True,
     )
 
@@ -196,20 +196,20 @@ def _persist_records(
     # staged and durable, matching the safe ordering in the public uploader helper.
     last_error = None
     for _attempt in range(3):
-        subprocess.run(["git", "fetch", "origin", "main"], cwd=REPOSITORY_ROOT, check=True)
+        subprocess.run(["git", "fetch", "origin", "main"], cwd=repository_root, check=True)
         rebased = subprocess.run(
             ["git", "rebase", "origin/main"],
-            cwd=REPOSITORY_ROOT,
+            cwd=repository_root,
             text=True,
             capture_output=True,
             check=False,
         )
         if rebased.returncode != 0:
-            subprocess.run(["git", "rebase", "--abort"], cwd=REPOSITORY_ROOT, check=False)
+            subprocess.run(["git", "rebase", "--abort"], cwd=repository_root, check=False)
             raise RuntimeError("Could not rebase researched slot records: " + (rebased.stderr or "")[-1200:])
         pushed = subprocess.run(
             ["git", "push", "origin", "HEAD:main"],
-            cwd=REPOSITORY_ROOT,
+            cwd=repository_root,
             text=True,
             capture_output=True,
             check=False,
