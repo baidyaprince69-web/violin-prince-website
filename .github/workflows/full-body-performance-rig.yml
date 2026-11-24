@@ -856,14 +856,19 @@ jobs:
           assert report.get("private_media") is False, report
           assert report.get("video_codec") == "h264" and report.get("audio_codec") == "aac", report
           assert abs(float(report.get("duration_seconds", 0)) - 8.0) <= 0.08, report
-          assert len(report.get("video_layers") or []) >= 2, report
+          assert len(report.get("video_layers") or []) >= 4, report
           assert any(item.get("role") == "character_performance" for item in report["video_layers"]), report
           assert any(item.get("role") == "animated_graphic" for item in report["video_layers"]), report
           camera_shots = report.get("camera_shots") or []
           framings = set(report.get("distinct_camera_framings") or [])
+          camera_moves = report.get("camera_moves") or []
+          layer_roles = {item.get("role") for item in report.get("video_layers") or []}
           assert len(camera_shots) >= 5, report
           assert {"full_body_wide", "medium_performance",
                   "instrument_hands_close_up", "face_close_up"} <= framings, report
+          assert report.get("camera_move_count") == 5, report
+          assert {item.get("type") for item in camera_moves} >= {"push_in", "pull_out", "handheld"}, report
+          assert {"atmospheric_lighting", "foreground_particles"} <= layer_roles, report
           assert any(
               item.get("shot_id") == "shot-03-instrument"
               and item.get("camera_crop") is not None
@@ -878,7 +883,9 @@ jobs:
               "duration_seconds": report["duration_seconds"],
               "video_layers": len(report["video_layers"]),
               "camera_shot_count": report["camera_shot_count"],
+              "camera_move_count": report["camera_move_count"],
               "camera_framings": report["distinct_camera_framings"],
+              "atmospheric_layers": sorted(layer_roles & {"atmospheric_lighting", "foreground_particles"}),
               "audio_roles": sorted(roles),
               "publish_enabled": report["publish_enabled"],
               "public_artifact_allowed": report["public_artifact_allowed"]

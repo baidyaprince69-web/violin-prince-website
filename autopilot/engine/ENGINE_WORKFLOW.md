@@ -564,3 +564,10 @@ The preview timeline now supports per-layer normalized camera crops, validated f
 Beat-synchronised presenter tracks distribute bow travel across the shoulder, elbow and wrist instead of leaving almost all visible articulation to the wrist. The wrist counter-rotates to preserve the bow-grip angle while the elbow contributes a visible share of each stroke. Note-driven finger bends are increased modestly and distributed across base, middle and tip sprites. Torso/head follow-through and lower-body counterbalance are also more visible while remaining restrained.
 
 The Motion report exposes presenter bow-stroke, finger-note, body-balance and weight-shift track counts separately from scene-stagecraft music-sync cues. The full-body CI gate requires 23 presenter sync tracks (3 bow, 12 finger segments, 2 body/head balance and 6 lower-body shifts) and records the audio timing source. The stagecraft `music_sync_event_count` must not be confused with presenter track counts.
+
+
+### Moving-camera and atmospheric stagecraft pass
+
+The preview compositor supports deterministic frame-seekable camera movement on each video layer: push-in, pull-out, pan, tilt and restrained handheld movement. Movement is intensity-bounded and computed from the shot frame count, so it is reproducible in CI. The cinematic fixture assigns five shot-specific moves (wide push-in, medium handheld drift, instrument push-in, face push-in and hero pull-out).
+
+The public proof render also has two independent transparent atmosphere tracks: soft volumetric stage-light beams and drifting foreground dust/bokeh particles. These sit above the stage plate and camera shots at restrained opacity. CI requires all five camera moves and both atmosphere roles, so a fixed-crop edit with only one graphic cannot pass as the updated cinematic fixture. This remains a stylized camera edit over the approved character render, not generated multi-location source footage. Publishing remains disabled.

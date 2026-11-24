@@ -112,6 +112,17 @@ def validate_timeline(data: dict[str, Any], root: str | Path) -> dict[str, Any]:
         shot_id = str(item.get("shot_id") or "")
         if shot_id and not _ID.fullmatch(shot_id):
             raise CompositionError(f"{ident}: invalid shot_id")
+        raw_move = item.get("camera_move")
+        if raw_move is not None and not isinstance(raw_move, dict):
+            raise CompositionError(f"{ident}: camera_move must be an object")
+        move_type = str((raw_move or {}).get("type") or "locked").casefold()
+        allowed_moves = {"locked", "push_in", "pull_out", "pan_left", "pan_right", "tilt_up", "tilt_down", "handheld"}
+        if move_type not in allowed_moves:
+            raise CompositionError(f"{ident}: unsupported camera_move {move_type}")
+        camera_move = None if raw_move is None or move_type == "locked" else {
+            "type": move_type,
+            "intensity": _number(raw_move.get("intensity", 0.5), f"{ident}.camera_move.intensity", 0, 1),
+        }
         layers.append({
             "id": ident, "kind": kind, "path": _path(item.get("path"), base_dir, ident),
             "start": start, "end": end, "length": end-start,
@@ -124,6 +135,7 @@ def validate_timeline(data: dict[str, Any], root: str | Path) -> dict[str, Any]:
             "fade_out": _number(item.get("fade_out_seconds", 0), f"{ident}.fade_out_seconds", 0, end-start),
             "role": str(item.get("role") or ("base" if i == 0 else "overlay")),
             "camera_crop": crop_values, "camera_framing": framing,
+            "camera_move": camera_move,
             "shot_id": shot_id, "shot_label": str(item.get("shot_label") or ""),
             "grade": grade_values,
         })
@@ -255,6 +267,43 @@ def _grade(layer: dict[str, Any]) -> str:
     )
 
 
+def _camera_move(layer: dict[str, Any], fps: int) -> str:
+    """Compile a bounded frame-seekable camera move over a trimmed shot."""
+    move = layer.get("camera_move")
+    if not move:
+        return ""
+    kind, intensity = move["type"], move["intensity"]
+    width, height = layer["width"], layer["height"]
+    frames = max(2, int(round(layer["length"] * fps)))
+    progress = f"on/{frames - 1}"
+    delta = 0.08 * intensity
+    if kind == "push_in":
+        zoom = f"1+{delta:.5f}*{progress}"
+        x = "(iw-iw/zoom)/2"
+        y = "(ih-ih/zoom)/2"
+    elif kind == "pull_out":
+        zoom = f"1+{delta:.5f}*(1-{progress})"
+        x = "(iw-iw/zoom)/2"
+        y = "(ih-ih/zoom)/2"
+    elif kind in {"pan_left", "pan_right"}:
+        zoom = f"1+{0.045 * intensity:.5f}"
+        travel = f"0.62*({progress})" if kind == "pan_left" else f"0.62*(1-({progress}))"
+        x = f"(iw-iw/zoom)*(0.19+{travel})"
+        y = "(ih-ih/zoom)/2"
+    elif kind in {"tilt_up", "tilt_down"}:
+        zoom = f"1+{0.045 * intensity:.5f}"
+        travel = f"0.62*({progress})" if kind == "tilt_down" else f"0.62*(1-({progress}))"
+        x = "(iw-iw/zoom)/2"
+        y = f"(ih-ih/zoom)*(0.19+{travel})"
+    else:
+        # Deterministic low-amplitude camera drift; no per-frame random jitter.
+        zoom = f"1+{0.025 * intensity:.5f}"
+        amplitude = 2.0 + 5.0 * intensity
+        x = f"(iw-iw/zoom)/2+{amplitude:.3f}*sin(on*0.11)"
+        y = f"(ih-ih/zoom)/2+{amplitude * 0.72:.3f}*sin(on*0.15)"
+    return f"zoompan=z='{zoom}':x='{x}':y='{y}':d=1:s={width}x{height}:fps={fps}"
+
+
 def _scale(layer: dict[str, Any]) -> str:
     w, h, fit = layer["width"], layer["height"], layer["fit"]
     if fit == "stretch":
@@ -270,7 +319,7 @@ def _filtergraph(t: dict[str, Any], audio_offset: int) -> str:
     base_filters = [
         f"[0:v]trim=start={base['source_in']:.4f}:duration={d:.4f},setpts=PTS-STARTPTS,fps={fps}"
     ]
-    for expression in (_camera_crop(base), _scale(base), _grade(base)):
+    for expression in (_camera_crop(base), _scale(base), _grade(base), _camera_move(base, fps)):
         if expression:
             base_filters.append(expression)
     base_filters.append("format=yuv420p[v0]")
@@ -282,7 +331,8 @@ def _filtergraph(t: dict[str, Any], audio_offset: int) -> str:
             f"[{n}:v]trim=start={layer['source_in']:.4f}:duration={layer['length']:.4f}",
             "setpts=PTS-STARTPTS",
         ]
-        for expression in (_camera_crop(layer), _scale(layer), _grade(layer), "format=rgba"):
+        for expression in (_camera_crop(layer), _scale(layer), _grade(layer),
+                           _camera_move(layer, fps), "format=rgba"):
             if expression:
                 video_steps.append(expression)
         video_steps.append(f"colorchannelmixer=aa={layer['opacity']:.4f}")
@@ -475,14 +525,21 @@ def compose_video(manifest_path: str | Path, output_path: str | Path,
                           "start_seconds": x["start"], "end_seconds": x["end"],
                           "shot_id": x["shot_id"], "shot_label": x["shot_label"],
                           "camera_framing": x["camera_framing"],
-                          "camera_crop": x["camera_crop"], "grade": x["grade"]} for x in t["layers"]],
+                          "camera_crop": x["camera_crop"], "camera_move": x["camera_move"],
+                          "grade": x["grade"]} for x in t["layers"]],
         "camera_shots": [
             {"shot_id": x["shot_id"], "label": x["shot_label"], "framing": x["camera_framing"],
              "start_seconds": x["start"], "end_seconds": x["end"],
-             "camera_crop": x["camera_crop"]}
+             "camera_crop": x["camera_crop"], "camera_move": x["camera_move"]}
             for x in t["layers"] if x["camera_framing"]
         ],
         "camera_shot_count": len([x for x in t["layers"] if x["camera_framing"]]),
+        "camera_moves": [
+            {"layer_id": x["id"], "shot_id": x["shot_id"], "type": x["camera_move"]["type"],
+             "intensity": x["camera_move"]["intensity"], "duration_seconds": x["length"]}
+            for x in t["layers"] if x["camera_move"]
+        ],
+        "camera_move_count": len([x for x in t["layers"] if x["camera_move"]]),
         "distinct_camera_framings": sorted({x["camera_framing"] for x in t["layers"] if x["camera_framing"]}),
         "text_layers": [{"id": x["id"], "start_seconds": x["start"], "end_seconds": x["end"],
                          "fade_in_seconds": x["fade_in"], "fade_out_seconds": x["fade_out"]}

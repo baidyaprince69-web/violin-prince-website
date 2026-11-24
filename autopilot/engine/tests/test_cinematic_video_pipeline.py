@@ -120,6 +120,30 @@ class CinematicTimelineTests(unittest.TestCase):
         with self.assertRaisesRegex(CompositionError, "inside the source frame"):
             validate_timeline(data, self.root)
 
+    def test_camera_moves_compile_as_frame_seekable_zoompan(self):
+        data = json.loads(json.dumps(self.manifest))
+        data["video_layers"][0]["camera_move"] = {"type": "push_in", "intensity": 0.65}
+        data["video_layers"][1]["camera_move"] = {"type": "pan_left", "intensity": 0.4}
+        timeline = validate_timeline(data, self.root)
+        graph = _filtergraph(timeline, audio_offset=len(timeline["layers"]))
+        self.assertIn("zoompan=z='1+0.05200*on/199'", graph)
+        self.assertIn("zoompan=z='1+0.01800'", graph)
+        self.assertIn("s=720x1280:fps=25", graph)
+        self.assertIn("s=360x640:fps=25", graph)
+        self.assertEqual(timeline["layers"][0]["camera_move"], {"type": "push_in", "intensity": 0.65})
+
+    def test_rejects_invalid_camera_move(self):
+        data = json.loads(json.dumps(self.manifest))
+        data["video_layers"][1]["camera_move"] = {"type": "teleport", "intensity": 0.5}
+        with self.assertRaisesRegex(CompositionError, "unsupported camera_move"):
+            validate_timeline(data, self.root)
+
+    def test_rejects_camera_move_intensity_out_of_range(self):
+        data = json.loads(json.dumps(self.manifest))
+        data["video_layers"][1]["camera_move"] = {"type": "push_in", "intensity": 1.5}
+        with self.assertRaisesRegex(CompositionError, "between 0 and 1"):
+            validate_timeline(data, self.root)
+
     def test_rejects_unknown_camera_framing(self):
         data = json.loads(json.dumps(self.manifest))
         data["video_layers"][1]["camera_framing"] = "extreme_zoom"

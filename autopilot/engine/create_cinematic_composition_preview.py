@@ -8,7 +8,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 
 def _run(command: list[str]) -> None:
@@ -27,6 +27,12 @@ def create_fixture(character_video: Path, music_wav: Path, output_dir: Path) -> 
     overlay_dir = output_dir / "overlay-frames"
     overlay_dir.mkdir(parents=True, exist_ok=True)
     overlay = output_dir / "independent-motion-graphic-overlay.mov"
+    lighting_dir = output_dir / "lighting-frames"
+    particles_dir = output_dir / "particle-frames"
+    lighting_dir.mkdir(parents=True, exist_ok=True)
+    particles_dir.mkdir(parents=True, exist_ok=True)
+    lighting = output_dir / "volumetric-stage-lighting.mov"
+    particles = output_dir / "foreground-dust-particles.mov"
     sfx = output_dir / "preview-whoosh.wav"
 
     espeak = shutil.which("espeak-ng")
@@ -60,6 +66,61 @@ def create_fixture(character_video: Path, music_wav: Path, output_dir: Path) -> 
     _run([ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
           "-framerate", str(fps), "-i", str(overlay_dir / "frame-%04d.png"),
           "-c:v", "qtrle", "-pix_fmt", "argb", str(overlay)])
+    # Independent volumetric beams and drifting foreground dust create
+    # atmosphere around the existing stage plate without hiding the performer.
+    for frame in range(frames):
+        progress = frame / max(1, frames - 1)
+        phase = 2 * math.pi * progress
+
+        beams = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        beam_draw = ImageDraw.Draw(beams)
+        left_top = int(130 + 55 * math.sin(phase))
+        right_top = int(590 + 42 * math.sin(phase + 1.2))
+        left_base = int(280 + 90 * math.sin(phase + 0.55))
+        right_base = int(475 + 75 * math.sin(phase + 1.75))
+        beam_draw.polygon(
+            [(left_top - 18, -40), (left_top + 18, -40),
+             (left_base + 205, 980), (left_base - 175, 980)],
+            fill=(232, 203, 151, 33),
+        )
+        beam_draw.polygon(
+            [(right_top - 12, -30), (right_top + 12, -30),
+             (right_base + 145, 910), (right_base - 145, 910)],
+            fill=(153, 195, 193, 26),
+        )
+        beam_glow = beams.filter(ImageFilter.GaussianBlur(30))
+        beams = Image.alpha_composite(beam_glow, beams)
+        beams.save(lighting_dir / f"frame-{frame:04d}.png")
+
+        particles_image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        particle_draw = ImageDraw.Draw(particles_image)
+        for index in range(34):
+            seed_x = (index * 157 + 47) % width
+            seed_y = (index * 239 + 91) % height
+            drift_x = 16 * math.sin(phase + index * 0.61)
+            drift_y = (progress * (88 + (index % 7) * 13) + 11 * math.sin(phase * 1.6 + index)) % height
+            x = int((seed_x + drift_x) % width)
+            y = int((seed_y - drift_y) % height)
+            radius = 1 + (index % 4)
+            alpha = 30 + (index * 17) % 48
+            if index % 9 == 0:
+                radius += 3
+                alpha = 24
+            particle_draw.ellipse(
+                (x - radius, y - radius, x + radius, y + radius),
+                fill=(242, 222, 182, alpha),
+            )
+        particle_glow = particles_image.filter(ImageFilter.GaussianBlur(5))
+        particles_image = Image.alpha_composite(particle_glow, particles_image)
+        particles_image.save(particles_dir / f"frame-{frame:04d}.png")
+
+    _run([ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
+          "-framerate", str(fps), "-i", str(lighting_dir / "frame-%04d.png"),
+          "-c:v", "qtrle", "-pix_fmt", "argb", str(lighting)])
+    _run([ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
+          "-framerate", str(fps), "-i", str(particles_dir / "frame-%04d.png"),
+          "-c:v", "qtrle", "-pix_fmt", "argb", str(particles)])
+
     _run([ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
           "-f", "lavfi", "-i",
           "anoisesrc=color=pink:duration=0.7:sample_rate=48000:amplitude=0.12",
@@ -79,14 +140,16 @@ def create_fixture(character_video: Path, music_wav: Path, output_dir: Path) -> 
             {"id": "full_body_character", "kind": "video", "role": "character_performance",
              "path": str(character_video), "start_seconds": 0, "end_seconds": 8,
              "x": 0, "y": 0, "width": width, "height": height, "fit": "contain",
-             "camera_framing": "full_body_wide", "shot_id": "shot-01-wide",
+             "camera_framing": "full_body_wide", "camera_move": {"type": "push_in", "intensity": 0.38},
+             "shot_id": "shot-01-wide",
              "shot_label": "Full-body establishing performance",
              "grade": {"contrast": 1.08, "saturation": 0.92, "brightness": -0.015, "gamma": 0.98}},
             {"id": "medium_performance_shot", "kind": "video", "role": "character_performance",
              "path": str(character_video), "start_seconds": 1.65, "end_seconds": 3.35,
              "source_in_seconds": 1.6, "x": 0, "y": 0, "width": width, "height": height,
              "fit": "cover", "camera_crop": {"x": 0.09, "y": 0.00, "width": 0.82, "height": 0.82},
-             "camera_framing": "medium_performance", "shot_id": "shot-02-medium",
+             "camera_framing": "medium_performance", "camera_move": {"type": "handheld", "intensity": 0.22},
+             "shot_id": "shot-02-medium",
              "shot_label": "Medium performer and instrument shot",
              "fade_in_seconds": 0.24, "fade_out_seconds": 0.24,
              "grade": {"contrast": 1.08, "saturation": 0.92, "brightness": -0.015, "gamma": 0.98}},
@@ -94,7 +157,8 @@ def create_fixture(character_video: Path, music_wav: Path, output_dir: Path) -> 
              "path": str(character_video), "start_seconds": 3.15, "end_seconds": 4.95,
              "source_in_seconds": 3.0, "x": 0, "y": 0, "width": width, "height": height,
              "fit": "cover", "camera_crop": {"x": 0.23, "y": 0.14, "width": 0.68, "height": 0.68},
-             "camera_framing": "instrument_hands_close_up", "shot_id": "shot-03-instrument",
+             "camera_framing": "instrument_hands_close_up", "camera_move": {"type": "push_in", "intensity": 0.62},
+             "shot_id": "shot-03-instrument",
              "shot_label": "Violin, bow and hand close-up",
              "fade_in_seconds": 0.22, "fade_out_seconds": 0.22,
              "grade": {"contrast": 1.08, "saturation": 0.92, "brightness": -0.015, "gamma": 0.98}},
@@ -102,7 +166,8 @@ def create_fixture(character_video: Path, music_wav: Path, output_dir: Path) -> 
              "path": str(character_video), "start_seconds": 4.75, "end_seconds": 6.45,
              "source_in_seconds": 4.2, "x": 0, "y": 0, "width": width, "height": height,
              "fit": "cover", "camera_crop": {"x": 0.19, "y": 0.02, "width": 0.62, "height": 0.62},
-             "camera_framing": "face_close_up", "shot_id": "shot-04-face",
+             "camera_framing": "face_close_up", "camera_move": {"type": "push_in", "intensity": 0.42},
+             "shot_id": "shot-04-face",
              "shot_label": "Expression and upper-body close-up",
              "fade_in_seconds": 0.22, "fade_out_seconds": 0.22,
              "grade": {"contrast": 1.08, "saturation": 0.92, "brightness": -0.015, "gamma": 0.98}},
@@ -110,14 +175,23 @@ def create_fixture(character_video: Path, music_wav: Path, output_dir: Path) -> 
              "path": str(character_video), "start_seconds": 6.25, "end_seconds": 8,
              "source_in_seconds": 6.0, "x": 0, "y": 0, "width": width, "height": height,
              "fit": "cover", "camera_crop": {"x": 0.02, "y": 0.02, "width": 0.96, "height": 0.96},
-             "camera_framing": "full_body_wide", "shot_id": "shot-05-hero",
+             "camera_framing": "full_body_wide", "camera_move": {"type": "pull_out", "intensity": 0.34},
+             "shot_id": "shot-05-hero",
              "shot_label": "Return to full-body hero performance",
              "fade_in_seconds": 0.28,
              "grade": {"contrast": 1.08, "saturation": 0.92, "brightness": -0.015, "gamma": 0.98}},
+            {"id": "volumetric_stage_lighting", "kind": "video", "role": "atmospheric_lighting",
+             "path": lighting.name, "start_seconds": 0, "end_seconds": 8,
+             "x": 0, "y": 0, "width": width, "height": height, "fit": "contain",
+             "opacity": 0.62, "fade_in_seconds": 0.4, "fade_out_seconds": 0.6},
+            {"id": "foreground_dust_particles", "kind": "video", "role": "foreground_particles",
+             "path": particles.name, "start_seconds": 0, "end_seconds": 8,
+             "x": 0, "y": 0, "width": width, "height": height, "fit": "contain",
+             "opacity": 0.85, "fade_in_seconds": 0.5, "fade_out_seconds": 0.5},
             {"id": "independent_motion_graphic", "kind": "video", "role": "animated_graphic",
              "path": overlay.name, "start_seconds": 0, "end_seconds": 8,
              "x": 0, "y": 0, "width": width, "height": height, "fit": "contain",
-             "opacity": 0.72}
+             "opacity": 0.48}
         ],
         "text_layers": [
             {"id": "opening_title", "text": "VIOLIN PRINCE", "start_seconds": 0.6,
