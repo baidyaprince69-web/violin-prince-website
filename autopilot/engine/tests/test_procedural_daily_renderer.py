@@ -144,7 +144,7 @@ class ProceduralDailyRendererTests(unittest.TestCase):
 
     def test_music_sync_refuses_missing_or_low_evidence_timing(self):
         plan = _valid_director_plan()
-        with self.assertRaisesRegex(ProceduralDailyRenderError, "no usable beat grid or transient onsets"):
+        with self.assertRaisesRegex(ProceduralDailyRenderError, "supported waveform-derived or verified arrangement timing source"):
             align_director_music_sync_cues(plan, {"duration_seconds": 24.0, "beat_times": [], "onsets": []})
 
     def test_music_sync_refuses_a_director_cue_far_from_measured_events(self):
