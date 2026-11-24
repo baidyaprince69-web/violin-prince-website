@@ -124,14 +124,16 @@ class CinematicTimelineTests(unittest.TestCase):
     def test_camera_moves_compile_as_frame_seekable_zoompan(self):
         data = json.loads(json.dumps(self.manifest))
         data["video_layers"][0]["camera_move"] = {"type": "push_in", "intensity": 0.65}
-        data["video_layers"][1]["camera_move"] = {"type": "pan_left", "intensity": 0.4}
+        data["video_layers"][1]["camera_move"] = {"type": "pan_right", "intensity": 0.4}
         timeline = validate_timeline(data, self.root)
         graph = _filtergraph(timeline, audio_offset=len(timeline["layers"]))
-        self.assertIn("zoompan=z='1+0.05200*on/199'", graph)
-        self.assertIn("zoompan=z='1+0.01800'", graph)
+        self.assertIn("zoompan=z='1+0.09100*on/199'", graph)
+        self.assertIn("zoompan=z='1+0.04800'", graph)
+        self.assertIn("(iw-iw/zoom)*(0.09+0.82*(on/149))", graph)
         self.assertIn("s=720x1280:fps=25", graph)
         self.assertIn("s=360x640:fps=25", graph)
         self.assertEqual(timeline["layers"][0]["camera_move"], {"type": "push_in", "intensity": 0.65})
+        self.assertEqual(timeline["layers"][1]["camera_move"], {"type": "pan_right", "intensity": 0.4})
 
     def test_rejects_invalid_camera_move(self):
         data = json.loads(json.dumps(self.manifest))

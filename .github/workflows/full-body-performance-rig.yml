@@ -867,7 +867,7 @@ jobs:
           assert {"full_body_wide", "medium_performance",
                   "instrument_hands_close_up", "face_close_up"} <= framings, report
           assert report.get("camera_move_count") == 5, report
-          assert {item.get("type") for item in camera_moves} >= {"push_in", "pull_out", "handheld"}, report
+          assert {item.get("type") for item in camera_moves} >= {"push_in", "pull_out", "pan_right"}, report
           assert {"atmospheric_lighting", "foreground_particles"} <= layer_roles, report
           assert any(
               item.get("shot_id") == "shot-03-instrument"

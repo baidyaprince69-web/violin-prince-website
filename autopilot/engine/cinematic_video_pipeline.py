@@ -276,7 +276,7 @@ def _camera_move(layer: dict[str, Any], fps: int) -> str:
     width, height = layer["width"], layer["height"]
     frames = max(2, int(round(layer["length"] * fps)))
     progress = f"on/{frames - 1}"
-    delta = 0.08 * intensity
+    delta = 0.14 * intensity
     if kind == "push_in":
         zoom = f"1+{delta:.5f}*{progress}"
         x = "(iw-iw/zoom)/2"
@@ -286,19 +286,19 @@ def _camera_move(layer: dict[str, Any], fps: int) -> str:
         x = "(iw-iw/zoom)/2"
         y = "(ih-ih/zoom)/2"
     elif kind in {"pan_left", "pan_right"}:
-        zoom = f"1+{0.045 * intensity:.5f}"
-        travel = f"0.62*({progress})" if kind == "pan_left" else f"0.62*(1-({progress}))"
-        x = f"(iw-iw/zoom)*(0.19+{travel})"
+        zoom = f"1+{0.12 * intensity:.5f}"
+        travel = f"0.82*(1-({progress}))" if kind == "pan_left" else f"0.82*({progress})"
+        x = f"(iw-iw/zoom)*(0.09+{travel})"
         y = "(ih-ih/zoom)/2"
     elif kind in {"tilt_up", "tilt_down"}:
-        zoom = f"1+{0.045 * intensity:.5f}"
-        travel = f"0.62*({progress})" if kind == "tilt_down" else f"0.62*(1-({progress}))"
+        zoom = f"1+{0.12 * intensity:.5f}"
+        travel = f"0.82*({progress})" if kind == "tilt_down" else f"0.82*(1-({progress}))"
         x = "(iw-iw/zoom)/2"
-        y = f"(ih-ih/zoom)*(0.19+{travel})"
+        y = f"(ih-ih/zoom)*(0.09+{travel})"
     else:
         # Deterministic low-amplitude camera drift; no per-frame random jitter.
         zoom = f"1+{0.025 * intensity:.5f}"
-        amplitude = 2.0 + 5.0 * intensity
+        amplitude = 2.0 + 9.0 * intensity
         x = f"(iw-iw/zoom)/2+{amplitude:.3f}*sin(on*0.11)"
         y = f"(ih-ih/zoom)/2+{amplitude * 0.72:.3f}*sin(on*0.15)"
     return f"zoompan=z='{zoom}':x='{x}':y='{y}':d=1:s={width}x{height}:fps={fps}"
