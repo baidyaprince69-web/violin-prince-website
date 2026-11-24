@@ -114,7 +114,7 @@ class ScheduledStoryBuilderTests(unittest.TestCase):
         research.assert_not_called()
 
     def test_failed_research_is_saved_as_a_blocked_slot_and_history(self):
-        with patch.object(engine, "recent_topics", return_value=[]),              patch.object(engine, "research", return_value=[]),              patch.object(engine, "discover_source_first_story_groups", return_value=[]):
+        with patch.object(engine, "all_researched_topics", return_value=[]),              patch.object(engine, "research", return_value=[]),              patch.object(engine, "discover_source_first_story_groups", return_value=[]):
             result = build_scheduled_batch(
                 self.root,
                 production_date="2026-11-24",
@@ -136,10 +136,34 @@ class ScheduledStoryBuilderTests(unittest.TestCase):
         self.assertEqual(history["status"], "blocked")
         self.assertIn("research_identity", history)
 
+
+    def test_previously_researched_article_headlines_are_skipped_and_recorded(self):
+        with patch.object(engine, "all_researched_topics", return_value=["Violin bridge resonance and tone"]), \\
+             patch.object(engine, "research", return_value=[{
+                 "title": "Violin bridge resonance and tone explained",
+                 "url": "https://example.org/bridge",
+                 "publisher_domain": "example.org",
+             }]), \\
+             patch.object(engine, "discover_source_first_story_groups", return_value=[]) as discover:
+            result = build_scheduled_batch(
+                self.root,
+                production_date="2026-11-24",
+                slot_id="music-secrets",
+                now=self.now,
+                dry_run=True,
+            )
+
+        self.assertEqual(result["status"], "blocked")
+        discover.assert_called_once_with([], max_seed_queries=3, max_phrases=4, as_of=self.now)
+        history = json.loads(
+            (self.root / ".autopilot" / "research-history" / "2026-11-24-music-secrets.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(history["skipped_repeat_research_items"], ["Violin bridge resonance and tone explained"])
+        self.assertEqual(history["eligible_research_record_count"], 0)
     def test_real_performance_refuses_to_substitute_sampled_audio_for_missing_creator_recording(self):
         self._write_batch()
         missing_recording = self.root / "not-present.wav"
-        with patch.dict(os.environ, {"VIOLIN_RECORDING_PATH": str(missing_recording)}),              patch.object(engine, "recent_topics", return_value=[]),              patch.object(engine, "research", return_value=[{"title": "A violin performance technique"}]),              patch.object(engine, "discover_source_first_story_groups", return_value=[{
+        with patch.dict(os.environ, {"VIOLIN_RECORDING_PATH": str(missing_recording)}),              patch.object(engine, "all_researched_topics", return_value=[]),              patch.object(engine, "research", return_value=[{"title": "A violin performance technique"}]),              patch.object(engine, "discover_source_first_story_groups", return_value=[{
                  "group_id": "PERFORMANCE-TEST",
                  "topic_hint": "A violin performance technique",
                  "source_ids": ["S001", "S002"],
