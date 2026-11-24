@@ -534,6 +534,16 @@ def run_daily_plan(
         known_downbeats=(audio_asset.get("downbeats") if isinstance(audio_asset, dict) else None),
         known_onsets=(audio_asset.get("onsets") if isinstance(audio_asset, dict) else None),
     )
+    if real_performance_slot:
+        from violin_note_analysis import analyse_violin_note_events
+        note_analysis = analyse_violin_note_events(paths["audio"])
+        if note_analysis.get("status") != "passed" or int(note_analysis.get("note_event_count") or 0) < 4:
+            raise engine.PipelineError(
+                "Real Performance note tracking could not identify at least four reliable note events "
+                "from the creator's actual PCM recording; refusing unsynchronised finger animation."
+            )
+        beat_analysis["note_events"] = note_analysis["note_events"]
+        beat_analysis["note_analysis"] = note_analysis
     (engine.PACKAGE / "music-analysis.json").write_text(
         json.dumps(beat_analysis, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
@@ -586,6 +596,12 @@ def run_daily_plan(
                 narration_path,
                 narration_info,
                 beat_analysis=beat_analysis,
+                rig_bundle_dir=(
+                    Path(os.environ.get("VIOLIN_PRINCE_FULL_BODY_RIG_DIR") or (
+                        ENGINE_DIR / "assets" / "characters" / "violin-prince-performance-rig"
+                    )).expanduser().resolve()
+                    if real_performance_slot else None
+                ),
                 director_output_dir=engine.PACKAGE / "master-director",
             )
         except ProceduralDailyRenderError as exc:
