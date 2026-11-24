@@ -1605,7 +1605,7 @@ def _extract_source_aligned_joint_surfaces(
     claimed = np.zeros((height, width), dtype=bool)
     layers: list[dict[str, Any]] = []
     report: dict[str, Any] = {
-        "method": "source_pixel_joint_caps_from_anchor_relative_authored_polygons",
+        "method": "anchor_centered_tapered_source_pixel_joint_surfaces_with_bisector_blend_axes",
         "manifest": regions_manifest_path.name,
         "coordinate_space": "joint_anchor_relative_source_pixels",
         "regions": {},
@@ -1629,10 +1629,67 @@ def _extract_source_aligned_joint_surfaces(
         if not isinstance(anchor, dict):
             raise ManualReviewRequired(f"Joint surface {joint_name} has no source joint anchor.")
         center_x, center_y = float(anchor["x"]) * width, float(anchor["y"]) * height
-        canvas_polygon = [
-            [center_x + float(point[0]), center_y + float(point[1])]
-            for point in (item.get("polygon") or [])
-        ]
+        outline = item.get("outline") or {}
+        if str(outline.get("profile") or "") == "tapered_source_capsule":
+            blend_axis_names = item.get("blend_axis_joints") or []
+            if len(blend_axis_names) != 2:
+                raise ManualReviewRequired(f"Joint surface {joint_name} needs proximal and distal axis anchors.")
+            proximal_joint, distal_joint = (
+                joints.get(str(blend_axis_names[0])),
+                joints.get(str(blend_axis_names[1])),
+            )
+            if not proximal_joint or not distal_joint:
+                raise ManualReviewRequired(f"Joint surface {joint_name} has an incomplete anatomical chain.")
+            proximal_dx = center_x - float(proximal_joint["x"]) * width
+            proximal_dy = center_y - float(proximal_joint["y"]) * height
+            distal_dx = float(distal_joint["x"]) * width - center_x
+            distal_dy = float(distal_joint["y"]) * height - center_y
+            proximal_length = float(np.hypot(proximal_dx, proximal_dy))
+            distal_length = float(np.hypot(distal_dx, distal_dy))
+            if proximal_length < 2:
+                raise ManualReviewRequired(f"Joint surface {joint_name} has no proximal bone direction.")
+            proximal_unit = np.array([proximal_dx, proximal_dy], dtype=np.float64) / proximal_length
+            if distal_length < 2:
+                # Ankles have no separate toe joint. Continue the lower-leg
+                # tangent through the ankle so the blend axis still crosses
+                # the exact ankle anchor instead of terminating on it.
+                distal_unit = proximal_unit.copy()
+            else:
+                distal_unit = np.array([distal_dx, distal_dy], dtype=np.float64) / distal_length
+            tangent = proximal_unit + distal_unit
+            tangent_length = float(np.linalg.norm(tangent))
+            if tangent_length < 0.15:
+                tangent = proximal_unit
+                tangent_length = float(np.linalg.norm(tangent))
+            tangent /= max(tangent_length, 1e-8)
+            normal = np.array([-tangent[1], tangent[0]], dtype=np.float64)
+            half_length = float(outline.get("half_length_px", 20))
+            half_width = float(outline.get("half_width_px", 16))
+            if not 8 <= half_length <= 48 or not 8 <= half_width <= 36:
+                raise ManualReviewRequired(f"Joint surface {joint_name} outline dimensions are outside safe limits.")
+            # Authored tapered capsule: elongated along the anatomical chain,
+            # with broad middle coverage and narrowed ends. Its texture comes
+            # only from the preserved source illustration.
+            shape = [
+                (-1.00, -0.45), (-0.78, -0.88), (-0.42, -1.00),
+                (0.28, -0.94), (0.76, -0.72), (1.00, -0.30),
+                (1.00, 0.30), (0.76, 0.72), (0.28, 0.94),
+                (-0.42, 1.00), (-0.78, 0.88), (-1.00, 0.45),
+            ]
+            canvas_polygon = []
+            for along, across in shape:
+                point = (
+                    np.array([center_x, center_y], dtype=np.float64)
+                    + tangent * (along * half_length)
+                    + normal * (across * half_width)
+                )
+                canvas_polygon.append([float(point[0]), float(point[1])])
+        else:
+            # Legacy polygon support remains for isolated synthetic fixtures.
+            canvas_polygon = [
+                [center_x + float(point[0]), center_y + float(point[1])]
+                for point in (item.get("polygon") or [])
+            ]
         authored = _polygon_mask((height, width), canvas_polygon)
         parent_mask = _canvas_alpha_mask_for_layer(
             bundle_dir, layer_by_role[parent_role],
@@ -1647,7 +1704,7 @@ def _extract_source_aligned_joint_surfaces(
         report["prop_pixels_excluded"] += int(prop_overlap.sum())
         eligible &= ~prop_union & ~claimed
         area = int(eligible.sum())
-        minimum = int(item.get("minimum_pixels", 80))
+        minimum = int(outline.get("minimum_pixels", item.get("minimum_pixels", 80)))
         if area < minimum:
             report["regions"][joint_name] = {
                 "status": "skipped",
@@ -1660,28 +1717,19 @@ def _extract_source_aligned_joint_surfaces(
             continue
         role = "joint_surface_" + str(joint_name)
         geometry = _save_rgba_layer(source_rgba, eligible, bundle_dir / f"{role}.png", padding=5)
-        blend_axis_names = item.get("blend_axis_joints") or []
-        if len(blend_axis_names) != 2:
-            raise ManualReviewRequired(f"Joint surface {joint_name} needs two authored blend-axis anchors.")
-        blend_start_joint, blend_end_joint = (
-            joints.get(str(blend_axis_names[0])),
-            joints.get(str(blend_axis_names[1])),
-        )
-        if not blend_start_joint or not blend_end_joint:
-            raise ManualReviewRequired(f"Joint surface {joint_name} has an incomplete blend axis.")
-        axis_dx = (float(blend_end_joint["x"]) - float(blend_start_joint["x"])) * width
-        axis_dy = (float(blend_end_joint["y"]) - float(blend_start_joint["y"])) * height
-        axis_length = float(np.hypot(axis_dx, axis_dy))
-        if axis_length < 4:
-            raise ManualReviewRequired(f"Joint surface {joint_name} blend axis is too short.")
-        unit_x, unit_y = axis_dx / axis_length, axis_dy / axis_length
+        # Blend axis is centred exactly on the joint. The direction is
+        # the bisector of the proximal and distal segment tangents, avoiding
+        # the off-anchor line that previously pushed the cap onto one segment.
+        blend_axis_half_length = (
+            float(outline.get("half_length_px", 20)) if outline else 16.0
+        ) * 1.08
         blend_axis_start = [
-            (center_x - unit_x * 16) / width,
-            (center_y - unit_y * 16) / height,
+            (center_x - tangent[0] * blend_axis_half_length) / width,
+            (center_y - tangent[1] * blend_axis_half_length) / height,
         ]
         blend_axis_end = [
-            (center_x + unit_x * 16) / width,
-            (center_y + unit_y * 16) / height,
+            (center_x + tangent[0] * blend_axis_half_length) / width,
+            (center_y + tangent[1] * blend_axis_half_length) / height,
         ]
         layer = {
             "id": role, "role": role, **geometry,
@@ -1700,6 +1748,9 @@ def _extract_source_aligned_joint_surfaces(
                 "blend_weight": 0.5,
                 "blend_axis_start": blend_axis_start,
                 "blend_axis_end": blend_axis_end,
+                "surface_outline_profile": str(outline.get("profile") or "legacy_polygon"),
+                "surface_half_length_px": float(outline.get("half_length_px", 16)),
+                "surface_half_width_px": float(outline.get("half_width_px", 12)),
             },
         }
         layers.append(layer)
@@ -1713,6 +1764,13 @@ def _extract_source_aligned_joint_surfaces(
             "child_alpha_pixels_removed": child_removed,
             "prop_pixels_excluded": int(prop_overlap.sum()),
             "joint_anchor_px": [round(center_x, 3), round(center_y, 3)],
+            "outline_profile": str(outline.get("profile") or "legacy_polygon"),
+            "outline_half_length_px": float(outline.get("half_length_px", 16)),
+            "outline_half_width_px": float(outline.get("half_width_px", 12)),
+            "blend_axis_midpoint_error_px": round(float(np.hypot(
+                ((blend_axis_start[0] + blend_axis_end[0]) * 0.5 * width) - center_x,
+                ((blend_axis_start[1] + blend_axis_end[1]) * 0.5 * height) - center_y,
+            )), 6),
         }
         report["source_pixels_transferred"] += area
         report["parent_child_alpha_pixels_removed"] += parent_removed + child_removed
