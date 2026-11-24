@@ -9,6 +9,7 @@ from unittest.mock import Mock
 
 from procedural_daily_renderer import (
     ProceduralDailyRenderError,
+    align_director_music_sync_cues,
     creator_preferences_for_slot,
     render_procedural_daily_video,
     require_approved_presenter_rig,
@@ -87,6 +88,41 @@ class ProceduralDailyRendererTests(unittest.TestCase):
             with self.assertRaisesRegex(ProceduralDailyRenderError, "does not match the current source assets"):
                 require_approved_presenter_rig(root, slot_id="music-secrets")
 
+    def test_music_sync_cues_snap_to_measured_beats_including_looped_audio(self):
+        plan = _valid_director_plan()
+        timing = {
+            "status": "analysed",
+            "duration_seconds": 24.0,
+            "bpm": 120.0,
+            "beat_times": [index * 0.5 for index in range(48)],
+            "onsets": [],
+        }
+        report = align_director_music_sync_cues(plan, timing)
+        cues = plan["edit_direction"]["music_sync_cues"]
+        self.assertEqual(report["status"], "passed")
+        self.assertEqual(report["method"], "measured_audio_beats")
+        self.assertEqual(report["cue_count"], 3)
+        self.assertEqual([cue["time_seconds"] for cue in cues], [8.0, 16.0, 28.0])
+        self.assertEqual(cues[2]["audio_loop_index"], 1)
+        self.assertEqual(cues[2]["source_time_seconds"], 4.0)
+        self.assertTrue(all(cue["timing_source"] == "decoded_audio_beat_grid" for cue in cues))
+
+    def test_music_sync_refuses_missing_or_low_evidence_timing(self):
+        plan = _valid_director_plan()
+        with self.assertRaisesRegex(ProceduralDailyRenderError, "no usable beat grid or transient onsets"):
+            align_director_music_sync_cues(plan, {"duration_seconds": 24.0, "beat_times": [], "onsets": []})
+
+    def test_music_sync_refuses_a_director_cue_far_from_measured_events(self):
+        plan = _valid_director_plan()
+        plan["edit_direction"]["music_sync_cues"][0]["time_seconds"] = 8.7
+        timing = {
+            "status": "analysed", "duration_seconds": 24.0, "bpm": 30.0,
+            "beat_times": [0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0, 22.0],
+            "onsets": [],
+        }
+        with self.assertRaisesRegex(ProceduralDailyRenderError, "no distinct measured audio event"):
+            align_director_music_sync_cues(plan, timing)
+
     def test_daily_renderer_uses_verified_story_sources_and_motion_report(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -129,6 +165,7 @@ class ProceduralDailyRendererTests(unittest.TestCase):
                         "status": "passed", "animated_stagecraft_scene_count": len(shots),
                         "animated_stagecraft_object_count": len(shots) * 3,
                         "animated_presenter_count": 5, "rendered_layer_count": 0,
+                        "music_sync_event_count": 3,
                     },
                     "final_video_qa": qa, "publish_ready": True, "output": str(video),
                 }
@@ -148,12 +185,14 @@ class ProceduralDailyRendererTests(unittest.TestCase):
                 [{"source_id": "S1", "publisher_domain": "one.example"},
                  {"source_id": "S2", "publisher_domain": "two.example"}],
                 audio, narration, {"subtitle_cues": [], "word_cues": []},
+                beat_analysis={"status":"analysed","duration_seconds":24.0,"bpm":120.0,"beat_times":[index * 0.5 for index in range(48)],"onsets":[]},
                 director_generator=generate,
                 render_function=render,
                 rig_bundle_dir=rig,
             )
             self.assertEqual(result["render_mode"], "procedural_2d")
             self.assertEqual(result["duration_seconds"], 32.0)
+            self.assertEqual(result["music_sync_report"]["rendered_motion_track_count"], 3)
             self.assertEqual(plan["procedural_director_manifest"]["rendered_layer_count"], 0)
             self.assertTrue((package / "master-director" / "master-director-plan.json").is_file())
             self.assertTrue((output / "master-director-render-report.json").is_file())

@@ -58,6 +58,54 @@ test("story-specific props are separate, moving SVG objects", () => {
   }
 });
 
+test("measured music cues create timed non-looping accents on animated props", () => {
+  const scene = {
+    id: "sync-test", start: 2, duration: 4,
+    stagecraft: {
+      environment: "concert_stage",
+      objects: [{ id: "music-note", kind: "music_note", x: .5, y: .4, motion: "float" }],
+      music_sync_cues: [{
+        time_seconds: 3.5,
+        requested_time_seconds: 3.5,
+        event: "String reveal",
+        reason: "The reveal lands on the measured beat.",
+        timing_source: "decoded_audio_beat_grid",
+        alignment_error_seconds: 0
+      }]
+    }
+  };
+  const tracks = buildStagecraftMotion(scene);
+  const pulse = tracks.find(item => item.music_sync_event === "String reveal");
+  assert.ok(pulse);
+  assert.equal(pulse.property, "filter");
+  assert.equal(pulse.start, 3.5);
+  assert.equal(pulse.loop, false);
+  assert.ok(pulse.target.includes("object-music-note"));
+  assert.equal(pulse.music_sync_timing_source, "decoded_audio_beat_grid");
+});
+
+test("music cues outside the scene or without measured timing are rejected", () => {
+  const base = {
+    id: "sync-invalid", start: 2, duration: 4,
+    stagecraft: {
+      environment: "concert_stage",
+      objects: [{ id: "note", kind: "music_note" }],
+      music_sync_cues: [{
+        time_seconds: 6.1,
+        requested_time_seconds: 6.1,
+        event: "Late cue",
+        reason: "It is outside the scene.",
+        timing_source: "decoded_audio_beat_grid",
+        alignment_error_seconds: 0
+      }]
+    }
+  };
+  assert.throws(() => buildStagecraftMotion(base), /occur inside the animated scene/);
+  base.stagecraft.music_sync_cues[0].time_seconds = 3;
+  base.stagecraft.music_sync_cues[0].timing_source = "guessed_timing";
+  assert.throws(() => buildStagecraftMotion(base), /aligned to a measured audio beat or onset/);
+});
+
 test("invalid environment, object kind, duplicate id and color are rejected", () => {
   assert.throws(() => renderStagecraftMarkup({ id:"bad", stagecraft:{ environment:"photo" } }), /Unsupported stagecraft environment/);
   assert.throws(() => renderStagecraftMarkup({ id:"bad", stagecraft:{ environment:"space", objects:[{id:"x",kind:"jpeg"}] } }), /Unsupported stagecraft object kind/);
@@ -85,6 +133,11 @@ test("stagecraft enters the real Motion composition with independent loop tracks
         caption: "The city moves around the performer",
         stagecraft: {
           environment: "city_night",
+          music_sync_cues: [{
+            time_seconds: 1.5, requested_time_seconds: 1.5,
+            event: "Beat accent", reason: "The visual reveal lands on the measured beat.",
+            timing_source: "decoded_audio_beat_grid", alignment_error_seconds: 0
+          }],
           objects: [
             { id: "foreground-note", kind: "music_note", x: .82, y: .32, size: 28, color: "#e8c98f", motion: "float" },
             { id: "passing-light", kind: "light_streak", x: .23, y: .81, size: 54, color: "#66d9d5", motion: "travel_right" }
@@ -105,11 +158,14 @@ test("stagecraft enters the real Motion composition with independent loop tracks
     assert.equal(report.animated_stagecraft_scene_count, 1);
     assert.ok(report.animated_stagecraft_environment_node_count >= 4);
     assert.equal(report.animated_stagecraft_object_count, 2);
+    assert.equal(report.music_sync_event_count, 1);
+    assert.equal(report.music_sync_events[0].event, "Beat accent");
     assert.ok(report.animated_stagecraft_node_count >= 6);
     assert.ok(html.includes("scene-stagecraft--city_night"));
     assert.ok(html.includes("night-drive-stagecraft-traffic-a"));
     assert.ok(html.includes("night-drive-stagecraft-object-foreground-note"));
     assert.ok(html.includes('"loop":true'), "composition must preserve looping track metadata");
+    assert.ok(html.includes('"music_sync_event":"Beat accent"'), "composition must preserve the timed music cue animation");
     assert.ok(html.includes('id="night-drive-camera-world"'), "the environment must be placed in a camera-controlled scene world");
     assert.ok(html.includes('"target":"night-drive-camera-world"'), "camera motion must target the complete scene world");
 

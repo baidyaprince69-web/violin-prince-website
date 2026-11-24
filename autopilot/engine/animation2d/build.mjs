@@ -344,6 +344,18 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
   });
 
   const stagecraftCounts = stagecraftNodeCounts(scene);
+  const stagecraftObjectPrefix = scene.id + "-stagecraft-object-";
+  const expectedMusicSyncCount = Array.isArray(scene.stagecraft?.music_sync_cues)
+    ? scene.stagecraft.music_sync_cues.length : 0;
+  const musicSyncTracks = project.motion_tracks.filter(track =>
+    Boolean(track.music_sync_event) &&
+    String(track.target || "").startsWith(stagecraftObjectPrefix) &&
+    track.property === "filter" && track.loop !== true
+  );
+  if (musicSyncTracks.length !== expectedMusicSyncCount) {
+    throw new Error("Scene " + scene.id + " has " + musicSyncTracks.length +
+      " measured music-sync animation tracks for " + expectedMusicSyncCount + " cues.");
+  }
   const stagecraftTargets = new Set(project.motion_tracks
     .filter(track => track.property === "transform" && track.loop === true)
     .map(track => track.target));
@@ -424,7 +436,9 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     stagecraft_environment: scene.stagecraft?.environment || "",
     animated_stagecraft_environment_nodes: stagecraftCounts.environment,
     animated_stagecraft_objects: stagecraftCounts.objects,
-    animated_stagecraft_nodes: animatedStagecraftNodeCount
+    animated_stagecraft_nodes: animatedStagecraftNodeCount,
+    music_sync_event_count: musicSyncTracks.length,
+    music_sync_events: musicSyncTracks.map(track => ({event: track.music_sync_event, time_seconds: track.start, timing_source: track.music_sync_timing_source}))
   };
 });
 const motionReport = {
@@ -441,6 +455,8 @@ const motionReport = {
   animated_stagecraft_object_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_stagecraft_objects, 0),
   animated_stagecraft_node_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_stagecraft_nodes, 0),
   animated_stagecraft_scene_count: motionSceneReports.filter(scene => scene.animated_stagecraft_nodes > 0).length,
+  music_sync_event_count: motionSceneReports.reduce((sum, scene) => sum + scene.music_sync_event_count, 0),
+  music_sync_events: motionSceneReports.flatMap(scene => scene.music_sync_events),
   scenes: motionSceneReports
 };
 

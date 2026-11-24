@@ -103,6 +103,11 @@ def build_procedural_director_project(
             "stagecraft": {
                 "environment": str(procedural["environment"]),
                 "objects": [dict(item) for item in procedural["objects"]],
+                "music_sync_cues": [
+                    dict(cue)
+                    for cue in director_plan["edit_direction"]["music_sync_cues"]
+                    if start <= float(cue["time_seconds"]) < end
+                ],
             },
             "director_camera": camera,
             "camera_motion_start_offset": round(incoming_seconds, 4),
@@ -199,6 +204,7 @@ def build_procedural_director_project(
         "director_story_understanding": dict(director_plan["story_understanding"]),
         "director_edit_direction": dict(director_plan["edit_direction"]),
         "director_music_sync_cues": list(director_plan["edit_direction"]["music_sync_cues"]),
+        "music_sync_report": dict(director_plan.get("music_sync_report") or {}),
         "director_transition_summary": transition_summary,
         "scenes": scenes,
         "characters": characters,

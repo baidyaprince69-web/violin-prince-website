@@ -370,6 +370,8 @@ def render_master_director_video(
         "transitions": project.get("director_transition_summary", []),
         "story_palette": project.get("director_palette", {}),
         "music_sync_cues": project.get("director_music_sync_cues", []),
+        "music_sync_report": project.get("music_sync_report", {}),
+        "music_sync_event_count": int(motion_report.get("music_sync_event_count") or 0),
         "motion_report": motion_report,
         "visual_only_qa": visual_qa,
         "final_video_qa": final_qa,

@@ -247,7 +247,53 @@ export function buildStagecraftMotion(scene, { fps = 25, width = 720, height = 1
   const { env, objects } = allSceneNodes(scene, width, height);
   const start = Math.max(0, Number(scene.start) || 0);
   const duration = Math.max(.1, Number(scene.duration) || 1);
-  return [...env.nodes, ...objects].flatMap(item => {
+  const sceneEnd = start + duration;
+  const cues = scene.stagecraft.music_sync_cues || [];
+  if (!Array.isArray(cues) || cues.length > 24) {
+    throw new TypeError("A stagecraft scene may contain at most 24 music-sync cues.");
+  }
+  const musicTracks = cues.map((cue, index) => {
+    const time = Number(cue?.time_seconds);
+    const event = String(cue?.event || "").trim();
+    const reason = String(cue?.reason || "").trim();
+    if (!Number.isFinite(time) || time < start - 0.001 || time >= sceneEnd - 0.08 || !event || !reason) {
+      throw new TypeError("Music-sync cues must have an event and reason, and occur inside the animated scene.");
+    }
+    if (!objects.length) {
+      throw new TypeError("Music-sync cues require at least one authored moving stagecraft object.");
+    }
+    const target = objects[index % objects.length].id;
+    const requested = Number(cue.requested_time_seconds);
+    const alignmentError = Number(cue.alignment_error_seconds);
+    const timingSource = String(cue.timing_source || "");
+    if (
+      !Number.isFinite(requested) || !Number.isFinite(alignmentError)
+      || alignmentError < 0 || alignmentError > 0.45
+      || !["decoded_audio_beat_grid", "decoded_audio_onset"].includes(timingSource)
+    ) {
+      throw new TypeError("Music-sync cue must be aligned to a measured audio beat or onset.");
+    }
+    return {
+      target,
+      property: "filter",
+      start: time,
+      duration: Math.min(0.42, sceneEnd - time),
+      easing: "ease-out",
+      offsets: [0, .2, .68, 1],
+      loop: false,
+      values: [
+        "brightness(1)",
+        "brightness(1.85) saturate(1.2)",
+        "brightness(1.14) saturate(1.04)",
+        "brightness(1)"
+      ],
+      music_sync_event: event,
+      music_sync_reason: reason,
+      music_sync_timing_source: timingSource,
+      music_sync_alignment_error_seconds: alignmentError
+    };
+  });
+  const ambientTracks = [...env.nodes, ...objects].flatMap(item => {
     const base = {
       target: item.id,
       start,
@@ -262,4 +308,5 @@ export function buildStagecraftMotion(scene, { fps = 25, width = 720, height = 1
     }
     return tracks;
   });
+  return [...ambientTracks, ...musicTracks];
 }

@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+import statistics
 from pathlib import Path
 from typing import Any, Callable
 
@@ -194,6 +196,162 @@ def _director_story_context(
     }
 
 
+
+def align_director_music_sync_cues(
+    director_plan: dict[str, Any],
+    audio_timing: dict[str, Any] | None,
+    *,
+    maximum_alignment_error_seconds: float = 0.45,
+) -> dict[str, Any]:
+    """Snap Director edit cues to measured events in the exact audio used by the render.
+
+    The finished audio bed is looped from its first sample if the Short is longer
+    than the source track. Candidate events are therefore repeated at the source
+    duration, exactly matching the renderer's audio-loop behaviour.
+    """
+    if not isinstance(director_plan, dict):
+        raise ProceduralDailyRenderError("Music synchronisation requires a valid Master Director plan.")
+    storyboard = director_plan.get("storyboard")
+    duration = storyboard.get("duration_seconds") if isinstance(storyboard, dict) else None
+    if not isinstance(duration, (int, float)) or isinstance(duration, bool) or duration <= 0:
+        raise ProceduralDailyRenderError("Music synchronisation requires a positive storyboard duration.")
+    edit = director_plan.get("edit_direction")
+    cues = edit.get("music_sync_cues") if isinstance(edit, dict) else None
+    if not isinstance(cues, list) or len(cues) < 2:
+        raise ProceduralDailyRenderError("The Director must provide at least two timed music-sync events.")
+    if not isinstance(audio_timing, dict):
+        raise ProceduralDailyRenderError("Decoded audio timing analysis is missing; refusing to invent beat positions.")
+
+    audio_duration = audio_timing.get("duration_seconds")
+    if (
+        not isinstance(audio_duration, (int, float))
+        or isinstance(audio_duration, bool)
+        or not math.isfinite(float(audio_duration))
+        or float(audio_duration) <= 0
+    ):
+        raise ProceduralDailyRenderError("Decoded audio timing has no valid source duration.")
+    audio_duration = float(audio_duration)
+
+    def valid_times(values: object) -> list[float]:
+        if not isinstance(values, list):
+            return []
+        result: list[float] = []
+        for value in values:
+            if (
+                isinstance(value, (int, float))
+                and not isinstance(value, bool)
+                and math.isfinite(float(value))
+                and 0 <= float(value) < audio_duration
+            ):
+                result.append(round(float(value), 4))
+        return sorted(set(result))
+
+    beat_times = valid_times(audio_timing.get("beat_times"))
+    onsets = valid_times(audio_timing.get("onsets"))
+    if beat_times:
+        source_events = [(time, "decoded_audio_beat_grid") for time in beat_times]
+    elif onsets:
+        source_events = [(time, "decoded_audio_onset") for time in onsets]
+    else:
+        raise ProceduralDailyRenderError(
+            "Audio analysis did not find a usable beat grid or transient onsets; music-sync rendering is blocked."
+        )
+
+    intervals = [
+        right - left for left, right in zip(beat_times, beat_times[1:])
+        if right - left > 0.08
+    ]
+    bpm = audio_timing.get("bpm")
+    beat_period = statistics.median(intervals) if intervals else (
+        60.0 / float(bpm)
+        if isinstance(bpm, (int, float)) and not isinstance(bpm, bool) and math.isfinite(float(bpm)) and float(bpm) > 0
+        else None
+    )
+    tolerance = min(
+        maximum_alignment_error_seconds,
+        max(0.12, beat_period * 0.48) if beat_period else maximum_alignment_error_seconds,
+    )
+
+    candidates: list[dict[str, Any]] = []
+    loop_count = int(math.ceil(float(duration) / audio_duration))
+    for loop_index in range(loop_count):
+        for source_time, source in source_events:
+            absolute_time = round(source_time + loop_index * audio_duration, 4)
+            if 0 <= absolute_time < float(duration) - 0.08:
+                candidates.append({
+                    "time_seconds": absolute_time,
+                    "source_time_seconds": source_time,
+                    "source": source,
+                    "audio_loop_index": loop_index,
+                })
+    candidates.sort(key=lambda item: (item["time_seconds"], item["source"]))
+
+    aligned: list[dict[str, Any]] = []
+    used_times: set[float] = set()
+    last_aligned = -1.0
+    for index, raw_cue in enumerate(cues):
+        if not isinstance(raw_cue, dict):
+            raise ProceduralDailyRenderError(f"Music-sync cue {index + 1} is not an object.")
+        requested = raw_cue.get("time_seconds")
+        event = str(raw_cue.get("event") or "").strip()
+        reason = str(raw_cue.get("reason") or "").strip()
+        if (
+            not isinstance(requested, (int, float))
+            or isinstance(requested, bool)
+            or not math.isfinite(float(requested))
+            or not 0 <= float(requested) < float(duration) - 0.08
+            or not event
+            or not reason
+        ):
+            raise ProceduralDailyRenderError(f"Music-sync cue {index + 1} has invalid timing or editorial detail.")
+
+        available = [
+            candidate for candidate in candidates
+            if candidate["time_seconds"] not in used_times
+            and candidate["time_seconds"] > last_aligned + 0.02
+            and abs(candidate["time_seconds"] - float(requested)) <= tolerance
+        ]
+        if not available:
+            raise ProceduralDailyRenderError(
+                f"Music-sync cue {index + 1} has no distinct measured audio event within "
+                f"{tolerance:.3f}s of its requested time; refusing unsynchronised animation."
+            )
+        selected = min(
+            available,
+            key=lambda item: (
+                abs(item["time_seconds"] - float(requested)),
+                0 if item["source"] == "decoded_audio_beat_grid" else 1,
+                item["time_seconds"],
+            ),
+        )
+        cue = {
+            **raw_cue,
+            "requested_time_seconds": round(float(requested), 4),
+            "time_seconds": selected["time_seconds"],
+            "timing_source": selected["source"],
+            "source_time_seconds": selected["source_time_seconds"],
+            "audio_loop_index": selected["audio_loop_index"],
+            "alignment_error_seconds": round(abs(selected["time_seconds"] - float(requested)), 4),
+        }
+        aligned.append(cue)
+        used_times.add(selected["time_seconds"])
+        last_aligned = selected["time_seconds"]
+
+    # Keep the plan's cue order and cue timing identical; the renderer and QA
+    # consume this same list, not separately reconstructed approximations.
+    edit["music_sync_cues"] = aligned
+    return {
+        "status": "passed",
+        "method": "measured_audio_beats" if beat_times else "measured_audio_transients",
+        "audio_analysis_status": str(audio_timing.get("status") or "unknown"),
+        "audio_duration_seconds": round(audio_duration, 4),
+        "storyboard_duration_seconds": round(float(duration), 4),
+        "alignment_tolerance_seconds": round(tolerance, 4),
+        "cue_count": len(aligned),
+        "rendered_motion_track_count": 0,
+        "cues": aligned,
+    }
+
 def render_procedural_daily_video(
     engine: Any,
     plan: dict[str, Any],
@@ -236,6 +394,9 @@ def render_procedural_daily_video(
     if not isinstance(provider, dict) or provider.get("contract_version") != DIRECTOR_CONTRACT_VERSION:
         raise ProceduralDailyRenderError("Master Creative Director provider metadata does not match the active contract.")
 
+    music_sync_report = align_director_music_sync_cues(director_plan, beat_analysis)
+    director_plan["music_sync_report"] = music_sync_report
+
     production_date = str(plan.get("production_date") or "")
     director_plan["production_context"] = {
         "production_date": production_date,
@@ -251,6 +412,7 @@ def render_procedural_daily_video(
             if isinstance(item, dict) and item.get("publisher_domain")
         }),
         "audio_timing": beat_analysis or {},
+        "music_sync": music_sync_report,
         "presenter_rig": rig_approval,
         "research_gate": "passed_existing_two_publisher_quote_narration_and_story_coherence_checks",
     }
@@ -300,6 +462,18 @@ def render_procedural_daily_video(
     if int(motion.get("rendered_layer_count") or 0) != 0:
         raise ProceduralDailyRenderError("Procedural daily production must not contain generated still-image layers.")
 
+    rendered_music_sync_count = int(motion.get("music_sync_event_count") or 0)
+    if rendered_music_sync_count != int(music_sync_report["cue_count"]):
+        raise ProceduralDailyRenderError(
+            "The Motion composition did not create one timed animation track for every measured music-sync cue."
+        )
+    music_sync_report["rendered_motion_track_count"] = rendered_music_sync_count
+    music_sync_report["motion_report_status"] = "passed"
+    director_plan["music_sync_report"] = music_sync_report
+
+    temporary.write_text(json.dumps(director_plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(director_path)
+
     final_qa = report.get("final_video_qa")
     if not isinstance(final_qa, dict) or final_qa.get("status") != "passed":
         raise ProceduralDailyRenderError("The final assembled MP4 did not pass independent media verification.")
@@ -323,6 +497,7 @@ def render_procedural_daily_video(
         "rendered_layer_count": 0,
         "shots": manifest_shots,
         "motion_report": motion,
+        "music_sync": music_sync_report,
         "presenter_rig": rig_approval,
         "master_director_plan": str(director_path),
     }
@@ -340,6 +515,8 @@ def render_procedural_daily_video(
         "character_count": 1,
         "character_rigging": "creator-approved, hash-pinned Violin Prince articulated presenter rig",
         "presenter_rig_approval": rig_approval,
+        "music_sync_report": music_sync_report,
+        "music_sync_event_count": rendered_music_sync_count,
         "publish_ready": True,
         "output": str(output_video),
     }
