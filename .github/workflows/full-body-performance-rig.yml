@@ -50,6 +50,11 @@ jobs:
           pip install -r autopilot/engine/requirements-character.txt
           pip install "Pillow>=10.4,<12" "numpy>=1.24,<3" "cryptography>=42,<47" "soundfile>=0.12,<1" "requests>=2.31,<3"
 
+      - name: Install eSpeak NG for synthetic voice-only preview fixture
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y espeak-ng
+
       - name: Run full-body leg and instrument rig unit tests
         env:
           PYTHONPATH: autopilot/engine
@@ -62,6 +67,7 @@ jobs:
           python -m unittest discover -s autopilot/engine/tests -p "test_full_body_performance_rig.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_character_rig.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_character_autorig.py" -v
+          python -m unittest discover -s autopilot/engine/tests -p "test_cinematic_video_pipeline.py" -v
 
       - name: Run Auto-Rig and create base articulated body layers
         env:
@@ -737,6 +743,11 @@ jobs:
             -map 0:v:0 -map 1:a:0 -t 8 \
             -c:v copy -c:a aac -b:a 192k -shortest -movflags +faststart \
             work/full-body-rig/full-body-violin-performance.mp4
+            work/full-body-rig/full-body-violin-cinematic-composition.mp4
+            work/full-body-rig/cinematic-composition-report.json
+            work/full-body-rig/cinematic-composition/cinematic-timeline.json
+            work/full-body-rig/cinematic-composition/pose-range-qa/pose-range-visual-qa.json
+            work/full-body-rig/cinematic-composition/pose-range-qa/full-body-pose-range-contact-sheet.jpg
 
       - name: Generate dense pose-range review evidence
         run: |
@@ -775,6 +786,60 @@ jobs:
               draw.text((x + 8, y + 6), label, fill=(240, 230, 210))
           canvas.save("work/full-body-rig/full-body-performance-contact-sheet.jpg", quality=94)
           PY
+
+      - name: Build a synthetic narration and independent animation-layer fixture
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python autopilot/engine/create_cinematic_composition_preview.py \
+            --character-video work/full-body-rig/full-body-violin-performance.mp4 \
+            --music-wav work/full-body-rig/audio/violin-prince-cc0-solo-violin.wav \
+            --output-dir work/full-body-rig/cinematic-composition
+
+      - name: Render the multi-layer cinematic composition preview
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python autopilot/engine/cinematic_video_pipeline.py \
+            --manifest work/full-body-rig/cinematic-composition/cinematic-timeline.json \
+            --output work/full-body-rig/full-body-violin-cinematic-composition.mp4 \
+            --report work/full-body-rig/cinematic-composition-report.json
+
+      - name: Verify full composition streams, track integration and artifact privacy
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("work/full-body-rig/cinematic-composition-report.json").read_text(encoding="utf-8"))
+          assert report.get("status") == "passed", report
+          assert report.get("preview_only") is True, report
+          assert report.get("publish_enabled") is False, report
+          assert report.get("publish_ready") is False, report
+          assert report.get("public_artifact_allowed") is True, "Private voice/media must never enter a public repository artifact."
+          assert report.get("private_media") is False, report
+          assert report.get("video_codec") == "h264" and report.get("audio_codec") == "aac", report
+          assert abs(float(report.get("duration_seconds", 0)) - 8.0) <= 0.08, report
+          assert len(report.get("video_layers") or []) >= 2, report
+          assert any(item.get("role") == "character_performance" for item in report["video_layers"]), report
+          assert any(item.get("role") == "animated_graphic" for item in report["video_layers"]), report
+          roles = {item.get("role") for item in report.get("audio_tracks") or []}
+          assert {"voice", "music", "sfx"} <= roles, report
+          assert report.get("audio_mix", {}).get("music_ducking") is True, report
+          print(json.dumps({
+              "status": report["status"],
+              "duration_seconds": report["duration_seconds"],
+              "video_layers": len(report["video_layers"]),
+              "audio_roles": sorted(roles),
+              "publish_enabled": report["publish_enabled"],
+              "public_artifact_allowed": report["public_artifact_allowed"]
+          }, indent=2))
+          PY
+          python autopilot/engine/pose_range_visual_qa.py \
+            --video work/full-body-rig/full-body-violin-cinematic-composition.mp4 \
+            --out-dir work/full-body-rig/cinematic-composition/pose-range-qa \
+            --duration 8 \
+            --fps 4 \
+            --columns 5
 
       - name: Upload preview and QA evidence only
         uses: actions/upload-artifact@v4
