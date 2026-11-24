@@ -1803,6 +1803,100 @@ def _extract_source_aligned_joint_surfaces(
         "visual_review_required": True,
     }
 
+    # Preflight every approved lower-body polygon and all inputs that can
+    # invalidate extraction before the first source layer is modified. Cache
+    # the original parent/child masks so later joints are measured against the
+    # same untouched source alpha, independent of extraction order.
+    prevalidated_polygons: dict[str, list[list[float]]] = {}
+    original_layer_masks: dict[str, np.ndarray] = {}
+    for preflight_name, preflight_item in (specification.get("regions") or {}).items():
+        if preflight_name not in allowed_joints:
+            continue
+        preflight_polygon = preflight_item.get("artist_source_polygon")
+        if (
+            preflight_item.get("artwork_status") != "artist_approved"
+            or not isinstance(preflight_polygon, list)
+            or len(preflight_polygon) < 3
+        ):
+            continue
+        preflight_parent = str(preflight_item.get("parent_role") or "")
+        preflight_child = str(preflight_item.get("child_role") or "")
+        if (preflight_parent, preflight_child) != expected_role_pairs[preflight_name]:
+            raise ManualReviewRequired(
+                f"Joint surface {preflight_name} does not use its approved lower-body parent/child pair."
+            )
+        if preflight_parent in forbidden_roles or preflight_child in forbidden_roles:
+            raise ManualReviewRequired(
+                f"Joint surface {preflight_name} references a protected hand, arm or instrument role."
+            )
+        for role in (preflight_parent, preflight_child):
+            if role not in layer_by_role:
+                raise ManualReviewRequired(
+                    f"Joint surface {preflight_name} refers to a missing body layer: {role}."
+                )
+            if role not in original_layer_masks:
+                original_layer_masks[role] = _canvas_alpha_mask_for_layer(
+                    bundle_dir, layer_by_role[role],
+                    canvas_width=width, canvas_height=height,
+                )
+
+        preflight_anchor_name = str(preflight_item.get("anchor") or preflight_name)
+        preflight_anchor = joints.get(preflight_anchor_name)
+        if not isinstance(preflight_anchor, dict):
+            raise ManualReviewRequired(
+                f"Joint surface {preflight_name} has no source joint anchor."
+            )
+        preflight_center_x = float(preflight_anchor["x"]) * width
+        preflight_center_y = float(preflight_anchor["y"]) * height
+        prevalidated_polygons[preflight_name] = _validate_artist_joint_polygon(
+            preflight_name,
+            preflight_polygon,
+            canvas_width=width,
+            canvas_height=height,
+            anchor_x=preflight_center_x,
+            anchor_y=preflight_center_y,
+        )
+
+        preflight_axis_names = preflight_item.get("blend_axis_joints") or []
+        if len(preflight_axis_names) != 2:
+            raise ManualReviewRequired(
+                f"Artist joint surface {preflight_name} needs proximal/distal blend-axis joints."
+            )
+        preflight_proximal, preflight_distal = (
+            joints.get(str(preflight_axis_names[0])),
+            joints.get(str(preflight_axis_names[1])),
+        )
+        if not isinstance(preflight_proximal, dict) or not isinstance(preflight_distal, dict):
+            raise ManualReviewRequired(
+                f"Artist joint surface {preflight_name} has incomplete blend-axis anchors."
+            )
+        preflight_axis_values = [
+            float(preflight_proximal["x"]), float(preflight_proximal["y"]),
+            float(preflight_distal["x"]), float(preflight_distal["y"]),
+        ]
+        if not all(np.isfinite(value) for value in preflight_axis_values):
+            raise ManualReviewRequired(
+                f"Artist joint surface {preflight_name} has non-finite blend-axis anchors."
+            )
+        preflight_proximal_length = float(np.hypot(
+            preflight_center_x - preflight_axis_values[0] * width,
+            preflight_center_y - preflight_axis_values[1] * height,
+        ))
+        if not np.isfinite(preflight_proximal_length) or preflight_proximal_length < 2:
+            raise ManualReviewRequired(
+                f"Artist joint surface {preflight_name} has no proximal bone direction."
+            )
+        preflight_half_length = float(
+            preflight_item.get("blend_axis_half_length_px", 18.0)
+        )
+        if not np.isfinite(preflight_half_length) or not 6 <= preflight_half_length <= 56:
+            raise ManualReviewRequired(
+                f"Joint surface {preflight_name} blend-axis length is outside safe limits."
+            )
+        int(preflight_item.get("minimum_pixels", 80))
+        max(1, int(preflight_item.get("minimum_parent_child_overlap_pixels", 4)))
+        int(preflight_item.get("z_index", 32))
+
     for joint_name, item in (specification.get("regions") or {}).items():
         parent_role = str(item.get("parent_role") or "")
         child_role = str(item.get("child_role") or "")
@@ -1843,14 +1937,7 @@ def _extract_source_aligned_joint_surfaces(
         if not isinstance(anchor, dict):
             raise ManualReviewRequired(f"Joint surface {joint_name} has no source joint anchor.")
         center_x, center_y = float(anchor["x"]) * width, float(anchor["y"]) * height
-        polygon_points = _validate_artist_joint_polygon(
-            joint_name,
-            polygon,
-            canvas_width=width,
-            canvas_height=height,
-            anchor_x=center_x,
-            anchor_y=center_y,
-        )
+        polygon_points = prevalidated_polygons[joint_name]
 
         axis_names = item.get("blend_axis_joints") or []
         if len(axis_names) != 2:
@@ -1887,14 +1974,8 @@ def _extract_source_aligned_joint_surfaces(
         tangent /= max(tangent_length, 1e-8)
 
         authored = _polygon_mask((height, width), polygon_points)
-        parent_mask = _canvas_alpha_mask_for_layer(
-            bundle_dir, layer_by_role[parent_role],
-            canvas_width=width, canvas_height=height,
-        )
-        child_mask = _canvas_alpha_mask_for_layer(
-            bundle_dir, layer_by_role[child_role],
-            canvas_width=width, canvas_height=height,
-        )
+        parent_mask = original_layer_masks[parent_role]
+        child_mask = original_layer_masks[child_role]
         parent_overlap = authored & visible & parent_mask
         child_overlap = authored & visible & child_mask
         prop_overlap = authored & visible & (parent_mask | child_mask) & prop_union
