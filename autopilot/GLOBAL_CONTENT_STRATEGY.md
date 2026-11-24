@@ -13,7 +13,13 @@ No topic, finished MP4 or upload may be repeated. A failed or uncertain upload i
 
 Private YouTube preview copies are not part of the approved publishing path. Historical commissioning notes below are retained as engineering history only and do not override the creator's public-only instruction.
 
-## Current engineering status and release gate\n\nThe code path from scheduled research to shot-led procedural rendering and public Upload-Post publishing is integrated on `main`, but public release is not yet production-approved. The repository currently has no `animation-production-approval.json` or presenter `production-approval.json`. The procedural preview used synthetic placeholder audio, so its `measured_audio_sync_verified` field is false and it is not a publishable asset. The upper-body presenter is integrated; source-aligned full-body violin/bow/finger performance is still in draft PR #130, with lower-body joint surfaces awaiting artist tracing/approval.\n\nA cron trigger, a research batch, passing software tests, or a preview MP4 does not count as a public Short. Count a daily slot only after a verified public YouTube upload receipt exists.\n\n## 1. Channel positioning
+## Current engineering status and release gate
+
+The code path from scheduled research to shot-led procedural rendering and public Upload-Post publishing is integrated on `main`, but public release is not yet production-approved. The repository currently has no `animation-production-approval.json` or presenter `production-approval.json`. The procedural preview used synthetic placeholder audio, so its `measured_audio_sync_verified` field is false and it is not a publishable asset. The upper-body presenter is integrated; source-aligned full-body violin/bow/finger performance is still in draft PR #130, with lower-body joint surfaces awaiting artist tracing/approval.
+
+A cron trigger, a research batch, passing software tests, or a preview MP4 does not count as a public Short. Count a daily slot only after a verified public YouTube upload receipt exists.
+
+## 1. Channel positioning
 
 **Violin Prince** is a globally oriented violin, music and audio-culture channel. The creator's Bengali and Indian repertoire is part of the channel's identity, not a geographic boundary. The audience strategy should welcome viewers from anywhere who enjoy violin, memorable melodies, music technology, sound and performance.
 
@@ -176,12 +182,12 @@ The current repository is not yet configured for this target. Before enabling pu
 6. **Release gates:** restore a production-ready illustration path, validate the complete rendered video/audio, keep the private Qwen3 voice proof intact, confirm synthetic-media metadata and channel settings, and only then permit public publishing.
 7. **Global analytics loop:** store a receipt per slot and measure results by pillar, language, country, traffic source and posting window. Use actual channel analytics to decide what to localise and where to focus.
 
-## 9. Verified operational status on 21 November 2026
+## 9. Historical snapshot — verified operational status on 21 November 2026 (superseded 24 November 2026)
 
 - The current .autopilot/prepare-request.json has publish_to_youtube set to false.
-- The main Autopilot workflow has four six-hour UTC cron events and ChatGPT prepares date-specific batches. Scheduled jobs remain private-preview-only.
-- The checked-in illustration approval is approved_for_preview, scoped to preview_video_only, with publishing_enabled set to false.
-- The main daily plan is a single file, .autopilot/daily-production-plan.json.
+- Historical state only: the workflow had four six-hour cron events, consumed prebuilt batches and used private previews. PR #133 later wired live per-slot research, and PR #129 restored the public-only Upload-Post route with procedural rendering behind approval gates.
+- Historical state only: the illustration approval was preview-scoped. The current production release gates are documented at the top of this file and remain closed pending valid creator approvals.
+- Historical state only: production used a single daily plan file; current scheduled runs create/update `.autopilot/daily-batches/YYYY-MM-DD.json` with a separate plan and research identity for each slot.
 - autopilot/engine/upload_post_handoff.py derives request/idempotency identifiers from production_date, so it must be redesigned before multiple same-day uploads can be safely queued.
 - The publisher references need reconciliation: the repository describes Metricool as the primary route in one place and Upload-Post in another.
 - Private fallback preview retention is six hours in the separate violin-prince-private-voice repository. It is a cleanup rule only; it does not schedule production or YouTube uploads.
