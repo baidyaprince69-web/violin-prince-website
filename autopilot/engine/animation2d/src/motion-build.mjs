@@ -686,54 +686,6 @@ function deformSourceMeshVertices(layer, specification, grid, angleDegrees) {
   });
 }
 
-function deformJointSurfaceVertices(
-  layer, surface, grid, parentWorld, childWorld, sourceWidth, sourceHeight
-) {
-  const start = surface.blend_axis_start.map(Number);
-  const end = surface.blend_axis_end.map(Number);
-  const ax = start[0] * sourceWidth;
-  const ay = start[1] * sourceHeight;
-  const dx = (end[0] - start[0]) * sourceWidth;
-  const dy = (end[1] - start[1]) * sourceHeight;
-  const axisLengthSquared = dx * dx + dy * dy;
-  if (axisLengthSquared < 1) {
-    throw new TypeError("A joint-surface blend axis is too short for deformation.");
-  }
-  const xOffset = Number(layer.x || 0);
-  const yOffset = Number(layer.y || 0);
-  const smoothStep = (value, low, high) => {
-    const t = Math.max(0, Math.min(1, (value - low) / (high - low)));
-    return t * t * (3 - 2 * t);
-  };
-
-  return grid.vertices.map(point => {
-    const sourcePoint = {
-      x: xOffset + point.x,
-      y: yOffset + point.y
-    };
-    const projection = (
-      (sourcePoint.x - ax) * dx +
-      (sourcePoint.y - ay) * dy
-    ) / axisLengthSquared;
-    // The proximal half follows the parent; the distal half follows the child.
-    // Smoothstep keeps position and first derivative continuous through the joint.
-    const blend = smoothStep(projection, 0.2, 0.8);
-    const parentPoint = transformPoint(parentWorld, sourcePoint);
-    const childPoint = transformPoint(childWorld, sourcePoint);
-    const deformedWorld = {
-      x: parentPoint.x + (childPoint.x - parentPoint.x) * blend,
-      y: parentPoint.y + (childPoint.y - parentPoint.y) * blend
-    };
-    // The outer SVG remains source-positioned and untransformed. This
-    // mesh maps the source crop directly to the blended parent/child world
-    // positions, avoiding a second transform on the joint surface.
-    return {
-      x: deformedWorld.x - xOffset,
-      y: deformedWorld.y - yOffset
-    };
-  });
-}
-
 function addHierarchicalTransformTracks(project, sourceTracks, fps) {
   const transformTracks = [];
   const width = Math.max(1, Number(project.width) || 720);
@@ -837,10 +789,10 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
 
       const rolesToAnimate = new Set();
       for (const [role, ancestors] of Object.entries(dependencies)) {
-        // Joint caps are deformed directly by their per-triangle parent/child
-        // blend mesh; adding an outer rigid transform would apply motion twice.
-        if (ancestors.some(hasRotation) && layerByRole.has(role) &&
-            !layerByRole.get(role)?.joint_surface) {
+        // Source-authored joint plates use one blended parent/child transform.
+        // Their own source pixels remain unwarped; continuous deformation is
+        // handled by the torso and eight limb-surface meshes.
+        if (ancestors.some(hasRotation) && layerByRole.has(role)) {
           rolesToAnimate.add(role);
         }
       }
@@ -1026,6 +978,38 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
           right_calf: rightCalfWorld,
           right_foot: rightFootWorld
         };
+        for (const layer of layers) {
+          const surface = layer.joint_surface;
+          if (!surface || layer.mesh_deformation) continue;
+          const parentWorld = worldByRole[String(surface.parent_role)] || torsoWorld;
+          const childWorld = worldByRole[String(surface.child_role)] || parentWorld;
+          const point = {
+            x: Number(joints[String(surface.joint)]?.x) * sourceWidth,
+            y: Number(joints[String(surface.joint)]?.y) * sourceHeight
+          };
+          const parentAngle = Math.atan2(parentWorld.b, parentWorld.a);
+          const childAngle = Math.atan2(childWorld.b, childWorld.a);
+          const delta = Math.atan2(
+            Math.sin(childAngle - parentAngle),
+            Math.cos(childAngle - parentAngle)
+          );
+          const blend = Math.max(0, Math.min(1, Number(surface.blend_weight ?? 0.5)));
+          const jointAngle = parentAngle + delta * blend;
+          const parentPoint = transformPoint(parentWorld, point);
+          const childPoint = transformPoint(childWorld, point);
+          const jointPoint = {
+            x: parentPoint.x + (childPoint.x - parentPoint.x) * blend,
+            y: parentPoint.y + (childPoint.y - parentPoint.y) * blend
+          };
+          worldByRole[layer.role] = multiplyMatrix(
+            multiplyMatrix(
+              translateMatrix(jointPoint.x, jointPoint.y),
+              rotateMatrix(jointAngle * 180 / Math.PI)
+            ),
+            translateMatrix(-point.x, -point.y)
+          );
+        }
+
         for (const [role, pivots] of Object.entries(fingerPivots)) {
           const middleRole = role + "_middle";
           const tipRole = role + "_tip";
