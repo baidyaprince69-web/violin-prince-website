@@ -22,8 +22,12 @@ class JointArtworkAuthoringTests(unittest.TestCase):
             child = Image.new("RGBA", (24, 24), (50, 60, 70, 255))
             parent.save(bundle / "parent.png")
             child.save(bundle / "child.png")
+            parent.save(bundle / "hip_parent.png")
+            child.save(bundle / "hip_child.png")
             parent_before = (bundle / "parent.png").read_bytes()
             child_before = (bundle / "child.png").read_bytes()
+            hip_parent_before = (bundle / "hip_parent.png").read_bytes()
+            hip_child_before = (bundle / "hip_child.png").read_bytes()
             lower_joints = (
                 "left_hip", "right_hip", "left_knee",
                 "right_knee", "left_ankle", "right_ankle",
@@ -32,7 +36,7 @@ class JointArtworkAuthoringTests(unittest.TestCase):
                 "canvas": {"width": 64, "height": 80},
                 "joints": {
                     name: {
-                        "x": 0.0 if name == "left_hip" else 0.25 + index * 0.1,
+                        "x": 36 / 64 if name == "left_hip" else 0.25 + index * 0.1,
                         "y": 0.5,
                     }
                     for index, name in enumerate(lower_joints)
@@ -40,6 +44,8 @@ class JointArtworkAuthoringTests(unittest.TestCase):
                 "layers": [
                     {"role": "parent", "src": "parent.png", "x": 20, "y": 26, "width": 24, "height": 24},
                     {"role": "child", "src": "child.png", "x": 20, "y": 30, "width": 24, "height": 24},
+                    {"role": "hip_parent", "src": "hip_parent.png", "x": 10, "y": 26, "width": 24, "height": 24},
+                    {"role": "hip_child", "src": "hip_child.png", "x": 38, "y": 26, "width": 24, "height": 24},
                 ],
             }
             (bundle / "character.json").write_text(json.dumps(character), encoding="utf-8")
@@ -48,8 +54,8 @@ class JointArtworkAuthoringTests(unittest.TestCase):
                     "regions": {
                         name: {
                             "anchor": name,
-                            "parent_role": "parent",
-                            "child_role": "child",
+                            "parent_role": "hip_parent" if name == "left_hip" else "parent",
+                            "child_role": "hip_child" if name == "left_hip" else "child",
                             "minimum_pixels": 20,
                             "blend_axis_joints": [name, name],
                         }
@@ -92,14 +98,14 @@ class JointArtworkAuthoringTests(unittest.TestCase):
                 & (contact[:, :, 1] < 165)
             )
             self.assertGreater(magenta_candidate_pixels, 10,
-                "shared source-pixel candidates must be outlined in magenta")
+                "shared source-pixel overlap evidence must be outlined in magenta")
             self.assertEqual(template["joint_surfaces"]["regions"]["left_knee"]["artist_source_polygon"], [])
             self.assertEqual(template["joint_surfaces"]["regions"]["left_knee"]["artwork_status"], "awaiting_artist_alignment")
             candidate = template["joint_surfaces"]["regions"]["left_knee"]
             self.assertGreater(len(candidate["candidate_source_polygon"]), 2)
             self.assertGreater(candidate["candidate_source_pixels"], 0)
             self.assertEqual(candidate["candidate_status"],
-                "shared_source_pixel_polygon_candidate_pending_artist_review")
+                "source_alpha_overlap_evidence_only_not_full_joint_surface")
             self.assertFalse(candidate["candidate_is_production_art"])
             self.assertEqual(candidate["candidate_parent_child_gap_px"], 0.0)
             hip_candidate = template["joint_surfaces"]["regions"]["left_hip"]
@@ -107,13 +113,17 @@ class JointArtworkAuthoringTests(unittest.TestCase):
             self.assertEqual(hip_candidate["candidate_status"],
                 "manual_seam_trace_required_no_shared_parent_child_pixels")
             self.assertFalse(hip_candidate["candidate_is_production_art"])
-            self.assertIsNone(hip_candidate["candidate_parent_child_gap_px"])
+            self.assertGreater(hip_candidate["candidate_parent_child_gap_px"], 0)
+            self.assertIsNotNone(hip_candidate["closest_parent_source_pixel"])
+            self.assertIsNotNone(hip_candidate["closest_child_source_pixel"])
             self.assertGreater(result["candidate_joint_polygons"], 0)
             self.assertGreater(result["manual_seam_trace_required"], 0)
             self.assertEqual(result["candidate_polygons_artist_approved"], 0)
             self.assertEqual(result["rig_layers_modified"], 0)
             self.assertEqual((bundle / "parent.png").read_bytes(), parent_before)
             self.assertEqual((bundle / "child.png").read_bytes(), child_before)
+            self.assertEqual((bundle / "hip_parent.png").read_bytes(), hip_parent_before)
+            self.assertEqual((bundle / "hip_child.png").read_bytes(), hip_child_before)
 
 
 if __name__ == "__main__":

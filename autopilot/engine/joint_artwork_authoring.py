@@ -25,6 +25,43 @@ LOWER_BODY_JOINTS = (
 )
 
 
+def _nearest_parent_child_pixels(
+    parent_mask: np.ndarray,
+    child_mask: np.ndarray,
+    *,
+    offset_x: int,
+    offset_y: int,
+) -> tuple[float | None, list[int] | None, list[int] | None]:
+    """Return exact nearest pixel coordinates for two local boolean masks."""
+    parent_points = np.argwhere(np.asarray(parent_mask, dtype=bool))
+    child_points = np.argwhere(np.asarray(child_mask, dtype=bool))
+    if not len(parent_points) or not len(child_points):
+        return None, None, None
+
+    # The joint crops are small. Chunking keeps the exact pairwise distance
+    # calculation bounded without adding a SciPy dependency to the rig tools.
+    child_points_f = child_points.astype(np.float32)
+    best_distance_sq = float("inf")
+    best_parent: np.ndarray | None = None
+    best_child: np.ndarray | None = None
+    for start in range(0, len(parent_points), 256):
+        parent_chunk = parent_points[start:start + 256].astype(np.float32)
+        delta = parent_chunk[:, None, :] - child_points_f[None, :, :]
+        distances_sq = np.einsum("ijk,ijk->ij", delta, delta)
+        flat_index = int(np.argmin(distances_sq))
+        row_index, child_index = np.unravel_index(flat_index, distances_sq.shape)
+        distance_sq = float(distances_sq[row_index, child_index])
+        if distance_sq < best_distance_sq:
+            best_distance_sq = distance_sq
+            best_parent = parent_points[start + row_index]
+            best_child = child_points[child_index]
+
+    assert best_parent is not None and best_child is not None
+    parent_xy = [int(offset_x + best_parent[1]), int(offset_y + best_parent[0])]
+    child_xy = [int(offset_x + best_child[1]), int(offset_y + best_child[0])]
+    return round(float(np.sqrt(best_distance_sq)), 3), parent_xy, child_xy
+
+
 def build_joint_artwork_review_pack(
     source_path: str | Path,
     bundle_dir: str | Path,
@@ -74,8 +111,9 @@ def build_joint_artwork_review_pack(
             "Do not use circles, capsules, ellipses, rounded rectangles or generic joint pads.",
             "The polygon must overlap both named parent_role and child_role source masks.",
             "Mark artwork_status as artist_approved only after visual review of the traced source boundary.",
-            "candidate_source_polygon is only a tracing suggestion from exact shared source-alpha pixels; never copy it to artist_source_polygon without visual approval.",
-            "Magenta contours in the contact sheet indicate draft candidates; they are not production art.",
+            "candidate_source_polygon outlines only the exact shared parent/child alpha pixels; it is overlap evidence, not a complete joint surface.",
+            "Magenta contours in the contact sheet indicate shared-pixel evidence only; they are never production art.",
+            "Yellow points and lines identify the nearest separate parent/child source pixels where no shared pixels exist.",
             "The extraction stage copies original source pixels only; it does not paint or invent texture.",
         ],
         "protected_scope": {
@@ -169,14 +207,13 @@ def build_joint_artwork_review_pack(
 
         local_parent = parent_mask[y0:y1, x0:x1]
         local_child = child_mask[y0:y1, x0:x1]
-        local_parent_child_gap_px: float | None = None
-        if local_parent.any() and local_child.any():
-            distance_to_child = cv2.distanceTransform(
-                (~local_child).astype(np.uint8), cv2.DIST_L2, 5
+        local_parent_child_gap_px, closest_parent_source_pixel, closest_child_source_pixel = (
+            _nearest_parent_child_pixels(
+                local_parent, local_child, offset_x=x0, offset_y=y0
             )
-            gap_values = distance_to_child[local_parent]
-            if gap_values.size:
-                local_parent_child_gap_px = round(float(gap_values.min()), 3)
+        )
+        if candidate_source_polygon:
+            candidate_status = "source_alpha_overlap_evidence_only_not_full_joint_surface"
         crop = source.crop((x0, y0, x1, y1))
         matte = Image.new("RGBA", crop.size, (25, 31, 42, 255))
         matte.alpha_composite(crop)
@@ -195,11 +232,34 @@ def build_joint_artwork_review_pack(
                 for point in candidate_source_polygon
             ]
             if len(proposal_points) >= 3:
-                overlay.polygon(
-                    proposal_points,
-                    fill=(230, 35, 185, 55),
-                    outline=(255, 55, 225, 255),
+                overlay.line(
+                    proposal_points + [proposal_points[0]],
+                    fill=(255, 55, 225, 255),
                     width=3,
+                )
+
+        if (
+            not candidate_source_polygon
+            and closest_parent_source_pixel
+            and closest_child_source_pixel
+        ):
+            parent_point = (
+                int(round((closest_parent_source_pixel[0] - x0) * scale)),
+                int(round((closest_parent_source_pixel[1] - y0) * scale)),
+            )
+            child_point = (
+                int(round((closest_child_source_pixel[0] - x0) * scale)),
+                int(round((closest_child_source_pixel[1] - y0) * scale)),
+            )
+            overlay.line(
+                [parent_point, child_point],
+                fill=(255, 220, 80, 255),
+                width=2,
+            )
+            for point in (parent_point, child_point):
+                overlay.ellipse(
+                    (point[0] - 5, point[1] - 5, point[0] + 5, point[1] + 5),
+                    fill=(255, 220, 80, 255),
                 )
 
         for mask, color in (
@@ -252,9 +312,13 @@ def build_joint_artwork_review_pack(
             fill=(170, 190, 204),
         )
         status_label = (
-            f"shared pixels: {candidate_source_pixels} | magenta = candidate only"
+            f"shared pixels: {candidate_source_pixels} | magenta = overlap evidence only"
             if candidate_source_polygon
-            else f"shared pixels: 0 | manual seam trace required"
+            else (
+                f"shared pixels: 0 | edge gap: {local_parent_child_gap_px}px | manual seam trace"
+                if local_parent_child_gap_px is not None
+                else "shared pixels: 0 | no local parent/child pair"
+            )
         )
         draw.text(
             (px + 10, py + 41),
@@ -276,6 +340,9 @@ def build_joint_artwork_review_pack(
             "candidate_source_pixels": candidate_source_pixels,
             "candidate_status": candidate_status,
             "candidate_parent_child_gap_px": local_parent_child_gap_px,
+            "closest_parent_source_pixel": closest_parent_source_pixel,
+            "closest_child_source_pixel": closest_child_source_pixel,
+            "candidate_geometry_kind": "shared_alpha_overlap_evidence_only_not_full_joint_surface",
             "candidate_is_production_art": False,
             "artwork_status": "awaiting_artist_alignment",
         }
@@ -291,6 +358,9 @@ def build_joint_artwork_review_pack(
             "candidate_status": candidate_status,
             "candidate_source_polygon": candidate_source_polygon,
             "candidate_parent_child_gap_px": local_parent_child_gap_px,
+            "closest_parent_source_pixel": closest_parent_source_pixel,
+            "closest_child_source_pixel": closest_child_source_pixel,
+            "candidate_geometry_kind": "shared_alpha_overlap_evidence_only_not_full_joint_surface",
             "candidate_is_production_art": False,
         })
 
@@ -313,15 +383,16 @@ def build_joint_artwork_review_pack(
         "candidate_joint_polygons": sum(bool(row["candidate_source_polygon"]) for row in review_rows),
         "manual_seam_trace_required": sum(not bool(row["candidate_source_polygon"]) for row in review_rows),
         "candidate_geometry_source": "exact_parent_child_source_alpha_intersection_only",
+        "candidate_geometry_kind": "shared_alpha_overlap_evidence_only_not_full_joint_surface",
         "candidate_polygons_artist_approved": 0,
         "rig_layers_modified": 0,
         "original_source_pixels_modified": 0,
         "upper_body_and_hand_assets_touched": False,
         "joints": review_rows,
         "limitation": (
-            "Magenta outlines are draft contours from exact shared parent/child source-alpha pixels only. "
-            "They are not approved artwork and are never copied into artist_source_polygon automatically. "
-            "Hip joints without shared source pixels require manual seam tracing. "
+            "Magenta outlines show exact shared parent/child source-alpha overlap only, not complete joint surfaces. "
+            "They are draft tracing evidence, not approved artwork, and are never copied into artist_source_polygon automatically. "
+            "Yellow markers show nearest separate parent/child source pixels where a manual seam trace is required. "
             "The rig must continue deferring joint surfaces until reviewed artist_source_polygon masks are supplied."
         ),
     }

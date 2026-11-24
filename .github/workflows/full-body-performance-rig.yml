@@ -124,11 +124,22 @@ jobs:
           assert candidate_count >= 1, report
           assert manual_trace_count >= 1, report
           assert all(
+              item.get("candidate_geometry_kind") == "shared_alpha_overlap_evidence_only_not_full_joint_surface"
+              and item["candidate_is_production_art"] is False
+              for item in joint_items
+          ), template
+          assert all(
               item.get("candidate_status") in {
-                  "shared_source_pixel_polygon_candidate_pending_artist_review",
+                  "source_alpha_overlap_evidence_only_not_full_joint_surface",
                   "manual_seam_trace_required_no_shared_parent_child_pixels",
               }
               for item in joint_items
+          ), template
+          assert all(
+              item.get("closest_parent_source_pixel") is not None
+              and item.get("closest_child_source_pixel") is not None
+              for item in joint_items
+              if item.get("candidate_status") == "manual_seam_trace_required_no_shared_parent_child_pixels"
           ), template
           print(
               f"Prepared six source-aligned joint reviews: {candidate_count} shared-pixel draft contours, "
