@@ -56,16 +56,37 @@ def animation_production_blockers(
     if evidence.get("workflow_status") != "success":
         blockers.append("The animation-generation workflow test must have succeeded.")
 
+    pipeline = str(approval.get("production_pipeline") or "generated_video_assets").strip().casefold()
     shot_count = evidence.get("director_shot_count")
     if not isinstance(shot_count, int) or not 8 <= shot_count <= 18:
         blockers.append("Animation evidence must cover the Master Director's 8–18 shot storyboard.")
         shot_count = 0
-    for field in ("generated_video_asset_count", "downloaded_video_asset_count"):
-        value = evidence.get(field)
-        if not isinstance(value, int) or value != shot_count:
-            blockers.append(f"Animation evidence {field} must match every storyboard shot.")
-    if evidence.get("all_shots_have_video_assets") is not True:
-        blockers.append("Every storyboard shot must have a downloaded video asset.")
+
+    if pipeline == "procedural_2d":
+        if evidence.get("render_mode") != "procedural_2d":
+            blockers.append("Procedural animation evidence must identify render_mode=procedural_2d.")
+        for field in ("rendered_shot_count", "animated_stagecraft_scene_count"):
+            value = evidence.get(field)
+            if not isinstance(value, int) or value != shot_count:
+                blockers.append(f"Procedural animation evidence {field} must match every storyboard shot.")
+        object_count = evidence.get("animated_stagecraft_object_count")
+        if not isinstance(object_count, int) or object_count < shot_count * 2:
+            blockers.append("Every procedural shot must contain at least two independently moving authored objects.")
+        presenter_count = evidence.get("animated_presenter_count")
+        if not isinstance(presenter_count, int) or presenter_count < 3:
+            blockers.append("Procedural animation evidence must include an articulated presenter in at least three shots.")
+        if evidence.get("rendered_layer_count") != 0:
+            blockers.append("Procedural animation evidence must contain zero generated still-image layers.")
+    elif pipeline == "generated_video_assets":
+        for field in ("generated_video_asset_count", "downloaded_video_asset_count"):
+            value = evidence.get(field)
+            if not isinstance(value, int) or value != shot_count:
+                blockers.append(f"Animation evidence {field} must match every storyboard shot.")
+        if evidence.get("all_shots_have_video_assets") is not True:
+            blockers.append("Every storyboard shot must have a downloaded video asset.")
+    else:
+        blockers.append("Animation production_pipeline must be procedural_2d or generated_video_assets.")
+
     if evidence.get("actual_motion_verified") is not True:
         blockers.append("Frame analysis must verify actual subject/scene motion, not only camera zooms.")
     if evidence.get("static_image_only_shot_count") != 0:
@@ -75,7 +96,6 @@ def animation_production_blockers(
         blockers.append("Verified moving-footage coverage must be at least 75 percent.")
     if evidence.get("final_video_verified") is not True:
         blockers.append("The final assembled animated MP4 must pass media verification.")
-
     review = approval.get("creator_review")
     if not isinstance(review, dict) or review.get("approved") is not True:
         blockers.append("The first genuine-animation sample must receive creator visual approval.")
