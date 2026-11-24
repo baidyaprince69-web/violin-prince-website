@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from cinematic_video_pipeline import CompositionError, _filtergraph, validate_timeline
+from cinematic_video_pipeline import CompositionError, _filtergraph, _rasterize_text_layers, validate_timeline
 
 
 class CinematicTimelineTests(unittest.TestCase):
@@ -20,10 +20,11 @@ class CinematicTimelineTests(unittest.TestCase):
                  "role": "character", "start_seconds": 0, "end_seconds": 8},
                 {"id": "visualizer", "path": "overlay.mov", "kind": "video",
                  "role": "motion_graphic", "start_seconds": 1, "end_seconds": 7,
-                 "width": 360, "height": 640, "x": 180, "y": 250, "opacity": 0.9}
+                 "width": 360, "height": 640, "x": 180, "y": 250, "opacity": 0.9,
+                 "fade_in_seconds": 0.3, "fade_out_seconds": 0.4}
             ],
             "text_layers": [{"id": "caption", "text": "Violin Prince", "start_seconds": 0.5,
-                             "end_seconds": 7.5, "font_size": 48}],
+                             "end_seconds": 7.5, "font_size": 48, "fade_in_seconds": 0.2, "fade_out_seconds": 0.3}],
             "audio_tracks": [
                 {"id": "narration", "path": "voice.wav", "role": "voice",
                  "start_seconds": 0, "end_seconds": 8, "private_source": True},
@@ -76,10 +77,24 @@ class CinematicTimelineTests(unittest.TestCase):
         with self.assertRaisesRegex(CompositionError, "does not exist"):
             validate_timeline(data, self.root)
 
+    def test_text_layers_are_rasterised_as_transparent_video_assets(self):
+        timeline = validate_timeline(self.manifest, self.root)
+        layers = _rasterize_text_layers(timeline, self.root)
+        self.assertEqual(len(layers), 1)
+        self.assertEqual(layers[0]["kind"], "image")
+        self.assertEqual(layers[0]["role"], "text")
+        self.assertTrue(layers[0]["path"].is_file())
+        from PIL import Image
+        with Image.open(layers[0]["path"]) as image:
+            self.assertEqual(image.mode, "RGBA")
+            self.assertEqual(image.size, (720, 1280))
+        self.assertEqual(layers[0]["fade_in"], 0.2)
+        self.assertEqual(layers[0]["fade_out"], 0.3)
+
     def test_filtergraph_has_independent_video_layers_and_audio_buses(self):
         timeline = validate_timeline(self.manifest, self.root)
         graph = _filtergraph(timeline, audio_offset=len(timeline["layers"]))
-        for required in ("sidechaincompress", "overlay=", "drawtext=", "alimiter=", "asplit=2"):
+        for required in ("sidechaincompress", "overlay=", "fade=t=in", "fade=t=out", "alimiter=", "asplit=2"):
             self.assertIn(required, graph)
 
 
