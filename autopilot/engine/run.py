@@ -2203,8 +2203,8 @@ def _exact_publisher_quote_for_claim(sentence, source):
     if not body or not claim_terms:
         return ""
     candidates = []
-    for paragraph in re.split(r"\\n{2,}|(?<=[.!?])\\s+(?=[A-Z0-9])", body):
-        quote = re.sub(r"\\s+", " ", paragraph).strip()
+    for paragraph in re.split(r"\n{2,}|(?<=[.!?])\s+(?=[A-Z0-9])", body):
+        quote = re.sub(r"\s+", " ", paragraph).strip()
         if len(quote) < 28:
             continue
         matched = claim_terms.intersection(source_tokens(quote))
