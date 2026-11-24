@@ -246,6 +246,33 @@ class JointArtworkAuthoringTests(unittest.TestCase):
                     source_path, bundle, export_path
                 )
 
+            export["source_artwork"]["sha256"] = hashlib.sha256(source_path.read_bytes()).hexdigest()
+            export["schema_version"] = 2
+            export_path.write_text(json.dumps(export), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "schema version 1"):
+                validate_reviewed_joint_artwork_export(
+                    source_path, bundle, export_path
+                )
+
+            export["schema_version"] = 1
+            export["joint_surfaces"]["schema_version"] = 2
+            export_path.write_text(json.dumps(export), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "joint-surfaces schema version 1"):
+                validate_reviewed_joint_artwork_export(
+                    source_path, bundle, export_path
+                )
+
+            export["joint_surfaces"]["schema_version"] = 1
+            export["joint_surfaces"]["regions"]["left_knee"].update({
+                "minimum_pixels": 1,
+                "artist_source_polygon": [[46, 46], [53, 46], [53, 54], [46, 54]],
+            })
+            export_path.write_text(json.dumps(export), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "only 72 usable original source pixels; minimum is 80"):
+                validate_reviewed_joint_artwork_export(
+                    source_path, bundle, export_path
+                )
+
 
 if __name__ == "__main__":
     unittest.main()
