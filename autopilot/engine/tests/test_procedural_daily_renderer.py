@@ -101,7 +101,7 @@ class ProceduralDailyRendererTests(unittest.TestCase):
         report = align_director_music_sync_cues(plan, timing)
         cues = plan["edit_direction"]["music_sync_cues"]
         self.assertEqual(report["status"], "passed")
-        self.assertEqual(report["method"], "measured_audio_beats")
+        self.assertEqual(report["method"], "decoded_audio_spectral_flux")
         self.assertEqual(report["cue_count"], 3)
         self.assertEqual([cue["time_seconds"] for cue in cues], [8.0, 16.0, 28.0])
         self.assertEqual(cues[2]["audio_loop_index"], 1)
@@ -119,7 +119,7 @@ class ProceduralDailyRendererTests(unittest.TestCase):
             "onsets": [],
         }
         report = align_director_music_sync_cues(plan, timing)
-        self.assertEqual(report["method"], "verified_arrangement_event_map")
+        self.assertEqual(report["method"], "verified_audio_arrangement_event_map")
         self.assertTrue(all(
             cue["timing_source"] == "verified_audio_arrangement_event_map"
             for cue in plan["edit_direction"]["music_sync_cues"]
@@ -136,7 +136,7 @@ class ProceduralDailyRendererTests(unittest.TestCase):
             "onsets": [],
         }
         report = align_director_music_sync_cues(plan, timing)
-        self.assertEqual(report["method"], "decoded_audio_phase")
+        self.assertEqual(report["method"], "decoded_audio_phase_with_declared_tempo")
         self.assertTrue(all(
             cue["timing_source"] == "decoded_audio_phase_grid"
             for cue in plan["edit_direction"]["music_sync_cues"]
@@ -262,7 +262,15 @@ class ProceduralDailyRendererTests(unittest.TestCase):
                     engine,
                     {"production_date":"2026-11-24","slot_id":"production-tech","title":"Title","topic":"Topic","narration_script":"Script"},
                     [{"source_id":"1"},{"source_id":"2"}], audio,narration,{},
-                    director_generator=generate,render_function=render,rig_bundle_dir=rig
+                    director_generator=generate,render_function=render,rig_bundle_dir=rig,
+                    beat_analysis={
+                        "status": "metadata_verified",
+                        "source": "declared_bpm_and_arrangement_event_map",
+                        "duration_seconds": 24.0,
+                        "bpm": 120.0,
+                        "beat_times": [index * 0.5 for index in range(48)],
+                        "onsets": [],
+                    },
                 )
 
 
