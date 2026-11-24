@@ -102,13 +102,18 @@ test("source texture meshes deform continuously and a lower-body knee surface fo
     src: "joint_surface_left_knee.png",
     x: 92, y: 540, width: 48, height: 48,
     pivot_x: 0.5, pivot_y: 0.5, z_index: 12,
+    mesh_deformation: {
+      profile: "joint_surface",
+      columns: 3,
+      rows: 3
+    },
     joint_surface: {
       joint: "left_knee",
       parent_role: "left_thigh",
       child_role: "left_calf",
       blend_weight: 0.5,
-      blend_axis_start: [0.30, 0.35],
-      blend_axis_end: [0.60, 0.65]
+      blend_axis_start: [0.14, 0.40],
+      blend_axis_end: [0.19, 0.48]
     }
   });
 
@@ -135,15 +140,19 @@ test("source texture meshes deform continuously and a lower-body knee surface fo
   assert.ok(calfTransform?.values.some(value => value !== calfTransform.values[0]),
     "the distal calf must move during the violin-performance cycle");
   const jointTransform = find("playing-violin-prince-part-joint_surface_left_knee");
-  assert.ok(jointTransform,
-    "the approved lower-body source surface must receive its blended thigh/calf transform");
-  assert.ok(jointTransform.values.some(value => value !== jointTransform.values[0]),
-    "the knee surface transform must follow changing thigh and calf poses");
+  assert.equal(jointTransform, undefined,
+    "a mesh-deformed joint surface must not also receive a rigid patch transform");
   const jointMesh = tracks.filter(track =>
     track.target.startsWith("playing-violin-prince-part-joint_surface_left_knee-mesh-triangle-")
   );
-  assert.equal(jointMesh.length, 0,
-    "source-art lower-body joint surfaces must not receive a second mesh warp");
+  assert.equal(jointMesh.length, 18,
+    "a 3-by-3 joint surface grid must produce eighteen triangle tracks");
+  assert.ok(jointMesh.some(track =>
+    track.values.some(value => value !== track.values[0])
+  ), "joint-surface triangles must follow changing thigh and calf poses");
+  const sampleIndex = Math.floor(jointMesh[0].values.length * 0.65);
+  assert.notEqual(jointMesh[0].values[sampleIndex], jointMesh.at(-1).values[sampleIndex],
+    "proximal and distal joint-surface rows must receive different parent/child blends");
   assert.ok(!meshCharacter.layers.find(layer => layer.role === "left_hand").mesh_deformation);
   assert.ok(!meshCharacter.layers.find(layer => layer.role === "finger_index").mesh_deformation);
 });

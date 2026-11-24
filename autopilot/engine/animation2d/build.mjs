@@ -679,31 +679,49 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
         !Array.isArray(polygon) || polygon.length < 3 ||
         surface.parent_role !== expectedPair[0] ||
         surface.child_role !== expectedPair[1] ||
-        Boolean(layer.mesh_deformation);
+        layer.mesh_deformation?.profile !== "joint_surface" ||
+        Number(layer.mesh_deformation?.columns) !== 3 ||
+        Number(layer.mesh_deformation?.rows) !== 3;
     });
     if (invalidJointSurfaceLayers.length !== 0 ||
         unexpectedJointSurfaceLayers.length !== jointSurfaceLayers.length) {
       throw new Error("Scene " + scene.id +
         " contains a joint surface that is not an approved lower-body source-pixel polygon; capsules and protected upper-body/hand joints are forbidden.");
     }
-    const jointSurfaceTracks = project.motion_tracks.filter(item =>
+    const jointSurfaceTransformTracks = project.motion_tracks.filter(item =>
       String(item.target || "").includes("-part-joint_surface_") &&
-      item.property === "transform"
+      item.property === "transform" &&
+      !String(item.target || "").includes("-mesh-triangle-")
     );
-    jointSurfaceTransformTrackCount = jointSurfaceTracks.length;
-    if (jointSurfaceTracks.length !== jointSurfaceLayers.length ||
-        jointSurfaceLayers.some(layer => !jointSurfaceTracks.some(track =>
-          String(track.target || "").endsWith("-part-" + layer.role)
-        ))) {
+    jointSurfaceTransformTrackCount = jointSurfaceTransformTracks.length;
+    if (jointSurfaceTransformTracks.length !== 0) {
       throw new Error("Scene " + scene.id +
-        " approved source-polygon joint surfaces must each have exactly one blended parent/child transform track.");
+        " joint surfaces must use blended per-triangle deformation, not rigid patch transforms.");
+    }
+    for (const layer of jointSurfaceLayers) {
+      const expectedPrefix = scene.id + "-" + character.id + "-part-" +
+        layer.id + "-mesh-triangle-";
+      const expectedTriangles =
+        Number(layer.mesh_deformation.columns) * Number(layer.mesh_deformation.rows) * 2;
+      const triangleTracks = project.motion_tracks.filter(item =>
+        String(item.target || "").startsWith(expectedPrefix) &&
+        item.property === "transform" && Array.isArray(item.values) && item.values.length > 1
+      );
+      if (triangleTracks.length !== expectedTriangles ||
+          !triangleTracks.some(track => track.values.some(value => value !== track.values[0]))) {
+        throw new Error("Scene " + scene.id + " joint surface " + layer.role +
+          " expected " + expectedTriangles + " changing parent/child mesh triangle tracks; got " +
+          triangleTracks.length + ".");
+      }
+      jointSurfaceMeshTriangleTrackCount += triangleTracks.length;
     }
     sourceJointSurfaceLayerCount += jointSurfaceLayers.length;
+    const expectedJointSurfaceTriangles = jointSurfaceLayers.length * 18;
     if (deformableBodyLayerCount !== 9 ||
-        jointSurfaceMeshTriangleTrackCount !== 0 ||
+        jointSurfaceMeshTriangleTrackCount !== expectedJointSurfaceTriangles ||
         deformationMeshTriangleTrackCount !== 158) {
       throw new Error("Scene " + scene.id +
-        " did not produce nine continuously deforming body surfaces while preserving the approved source-polygon joint artwork.");
+        " did not produce nine deforming body surfaces plus blended mesh deformation on all approved lower-body joint surfaces.");
     }
     if (compositeBaseMode) {
       const baseTarget = scene.id + "-" + character.id + "-base-art";

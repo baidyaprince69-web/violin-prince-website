@@ -628,6 +628,98 @@ function createSourceMeshGrid(layer, specification) {
   return { vertices, triangles, columns, rows };
 }
 
+function deformJointSurfaceVertices(
+  layer,
+  surface,
+  grid,
+  parentWorld,
+  childWorld,
+  meshDefinitionByRole,
+  localAngle,
+  sourceWidth,
+  sourceHeight
+) {
+  const axisStart = (surface.blend_axis_start || []).map(Number);
+  const axisEnd = (surface.blend_axis_end || []).map(Number);
+  if (axisStart.length !== 2 || axisEnd.length !== 2 ||
+      ![...axisStart, ...axisEnd].every(Number.isFinite) ||
+      axisStart.some(value => value < 0 || value > 1) ||
+      axisEnd.some(value => value < 0 || value > 1)) {
+    throw new TypeError("A joint-surface mesh needs finite, normalized parent/child blend-axis anchors.");
+  }
+  const start = { x: axisStart[0] * sourceWidth, y: axisStart[1] * sourceHeight };
+  const end = { x: axisEnd[0] * sourceWidth, y: axisEnd[1] * sourceHeight };
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const lengthSquared = dx * dx + dy * dy;
+  if (!Number.isFinite(lengthSquared) || lengthSquared < 4) {
+    throw new TypeError("A joint-surface mesh blend axis is degenerate.");
+  }
+
+  const mapThroughBodyLayer = (sourcePoint, role, world) => {
+    const definition = meshDefinitionByRole.get(role);
+    if (!definition) return transformPoint(world, sourcePoint);
+
+    const sourceLayer = definition.layer;
+    const x = Number(sourceLayer.x || 0);
+    const y = Number(sourceLayer.y || 0);
+    const width = Number(sourceLayer.width);
+    const height = Number(sourceLayer.height);
+    const localX = sourcePoint.x - x;
+    const localY = sourcePoint.y - y;
+
+    // Reuse the adjacent surface's local source-mesh deformation when this
+    // source point belongs to its canvas. Outside that rectangle, retain only
+    // the parent/child world transform.
+    if (localX < 0 || localY < 0 || localX > width || localY > height ||
+        width <= 0 || height <= 0) {
+      return transformPoint(world, sourcePoint);
+    }
+    const warped = deformSourceMeshVertices(
+      sourceLayer,
+      definition.specification,
+      {
+        vertices: [{
+          x: localX,
+          y: localY,
+          u: localX / width,
+          v: localY / height
+        }]
+      },
+      localAngle(role)
+    )[0];
+    return transformPoint(world, {
+      x: x + warped.x,
+      y: y + warped.y
+    });
+  };
+
+  const layerX = Number(layer.x || 0);
+  const layerY = Number(layer.y || 0);
+  const parentRole = String(surface.parent_role || "");
+  const childRole = String(surface.child_role || "");
+  return grid.vertices.map(vertex => {
+    const sourcePoint = {
+      x: layerX + vertex.x,
+      y: layerY + vertex.y
+    };
+    const projection = (
+      (sourcePoint.x - start.x) * dx +
+      (sourcePoint.y - start.y) * dy
+    ) / lengthSquared;
+    const t = Math.max(0, Math.min(1, projection));
+    // Smooth interpolation avoids a hard midpoint hinge: the proximal edge
+    // follows the parent surface and the distal edge follows the child.
+    const blend = t * t * (3 - 2 * t);
+    const parentPoint = mapThroughBodyLayer(sourcePoint, parentRole, parentWorld);
+    const childPoint = mapThroughBodyLayer(sourcePoint, childRole, childWorld);
+    return {
+      x: parentPoint.x + (childPoint.x - parentPoint.x) * blend - layerX,
+      y: parentPoint.y + (childPoint.y - parentPoint.y) * blend - layerY
+    };
+  });
+}
+
 function deformSourceMeshVertices(layer, specification, grid, angleDegrees) {
   const start = specification.axis_start.map(Number);
   const end = specification.axis_end.map(Number);
@@ -789,10 +881,11 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
 
       const rolesToAnimate = new Set();
       for (const [role, ancestors] of Object.entries(dependencies)) {
-        // Source-authored joint plates use one blended parent/child transform.
-        // Their own source pixels remain unwarped; continuous deformation is
-        // handled by the torso and eight limb-surface meshes.
-        if (ancestors.some(hasRotation) && layerByRole.has(role)) {
+        // Mesh-deformed joint surfaces receive per-triangle parent/child
+        // blending below, not a second rigid layer transform.
+        const layer = layerByRole.get(role);
+        if (ancestors.some(hasRotation) && layerByRole.has(role) &&
+            !(layer?.joint_surface && layer?.mesh_deformation)) {
           rolesToAnimate.add(role);
         }
       }
@@ -882,6 +975,9 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
           specification: layer.mesh_deformation,
           grid: createSourceMeshGrid(layer, layer.mesh_deformation)
         }));
+      const meshDefinitionByRole = new Map(
+        meshDefinitions.map(definition => [definition.layer.role, definition])
+      );
       const sampledMeshTriangleMatrices = new Map();
       for (const definition of meshDefinitions) {
         sampledMeshTriangleMatrices.set(
@@ -1037,8 +1133,12 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
             const surface = layer.joint_surface || {};
             const parentWorld = worldByRole[String(surface.parent_role)] || torsoWorld;
             const childWorld = worldByRole[String(surface.child_role)] || parentWorld;
+            const parentRole = String(surface.parent_role || "");
+            const childRole = String(surface.child_role || "");
             deformedVertices = deformJointSurfaceVertices(
               layer, surface, grid, parentWorld, childWorld,
+              meshDefinitionByRole,
+              role => localAngle(role, time),
               sourceWidth, sourceHeight
             );
           } else {
