@@ -100,7 +100,7 @@ class ExactProductionDateQueueTests(unittest.TestCase):
 
         self.assertFalse(result["ready"])
         self.assertEqual(len(result["duplicate_topic_matches"]), 1)
-        self.assertIn("previous topic", result["duplicate_topic_matches"][0])
+        self.assertIn("prior topic", result["duplicate_topic_matches"][0])
 
     def test_skips_repeated_topic_even_when_previous_slot_was_blocked(self):
         with tempfile.TemporaryDirectory() as temporary:
