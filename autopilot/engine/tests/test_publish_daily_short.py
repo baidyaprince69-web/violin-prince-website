@@ -269,6 +269,82 @@ class DailyPublicPublisherTests(unittest.TestCase):
         commit.assert_not_called()
 
 
+    def _make_procedural_bundle(self):
+        shots = [
+            {
+                "asset_type": "procedural_scene",
+                "scene_number": index + 1,
+                "shot_id": f"shot-{index + 1:02d}",
+                "environment": "laboratory",
+                "animated_object_count": 3,
+                "character_visible": index < 5,
+                "origin": "native_motion_hyperframes_procedural_scene",
+                "provider": "Violin Prince procedural 2D renderer",
+                "rights_status": "original_procedural_vector_animation",
+            }
+            for index in range(8)
+        ]
+        self.manifest.update({
+            "render_mode": "procedural_2d",
+            "shot_count": 8,
+            "duration_seconds": 32.0,
+        })
+        self.provenance["assets"].update({
+            "render_mode": "procedural_2d",
+            "scene_images": [],
+            "procedural_scenes": shots,
+            "character_rig": {
+                "character_count": 1,
+                "approval_status": "approved",
+                "bundle_sha256": "a" * 64,
+                "approval_sha256": "b" * 64,
+            },
+        })
+        self.quality["duration_seconds"] = 32.0
+        (self.output / "publish-manifest.json").write_text(json.dumps(self.manifest), encoding="utf-8")
+        (self.output / "asset-provenance.json").write_text(json.dumps(self.provenance), encoding="utf-8")
+
+    def test_public_publisher_accepts_procedural_animation_with_no_scene_images(self):
+        self._make_procedural_bundle()
+        manifest, provenance, _plan, video, _audit = self.validate()
+        self.assertEqual(manifest["render_mode"], "procedural_2d")
+        self.assertEqual(len(provenance["assets"]["procedural_scenes"]), 8)
+        self.assertEqual(provenance["assets"]["scene_images"], [])
+        self.assertEqual(video, self.video)
+
+    def test_procedural_publisher_rejects_generated_still_image_fallback(self):
+        self._make_procedural_bundle()
+        self.provenance["assets"]["scene_images"] = [{
+            "origin": "locally_generated_vector_artwork",
+            "provider": "Violin Prince local vector illustrator",
+            "model": "violin-prince-vector-illustrator-v1",
+            "rights_status": "original_locally_generated_vector_artwork",
+            "sha256": "c" * 64,
+        }]
+        (self.output / "asset-provenance.json").write_text(json.dumps(self.provenance), encoding="utf-8")
+        with self.assertRaisesRegex(daily.PublishBlocked, "must not contain generated scene-image assets"):
+            self.validate()
+
+    def test_procedural_publisher_requires_creator_approved_rig_fingerprint(self):
+        self._make_procedural_bundle()
+        self.provenance["assets"]["character_rig"]["bundle_sha256"] = ""
+        (self.output / "asset-provenance.json").write_text(json.dumps(self.provenance), encoding="utf-8")
+        with self.assertRaisesRegex(daily.PublishBlocked, "creator-approved asset fingerprint"):
+            self.validate()
+
+    def test_procedural_publisher_accepts_up_to_sixty_seconds(self):
+        self._make_procedural_bundle()
+        self.quality["duration_seconds"] = 60.0
+        manifest, *_ = self.validate()
+        self.assertEqual(manifest["duration_seconds"], 32.0)
+
+    def test_procedural_publisher_rejects_over_sixty_seconds(self):
+        self._make_procedural_bundle()
+        self.quality["duration_seconds"] = 60.5
+        with self.assertRaisesRegex(daily.PublishBlocked, "Shorts format contract"):
+            self.validate()
+
+
 class PrivatePreviewPublisherTests(unittest.TestCase):
     def setUp(self):
         self.fixture = DailyPublicPublisherTests()

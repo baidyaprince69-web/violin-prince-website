@@ -396,5 +396,67 @@ class AssetProvenanceTests(unittest.TestCase):
         self.assertTrue(any("Soundtrack origin" in item for item in manifest["publisher_preflight"]["blockers"]))
 
 
+    def test_procedural_provenance_records_eight_animated_shots_without_scene_images(self):
+        self.video_quality.update({
+            "render_mode": "procedural_2d",
+            "shot_count": 8,
+            "character_count": 1,
+            "character_rigging": "Creator-approved Violin Prince presenter rig",
+            "presenter_rig_approval": {
+                "status": "approved",
+                "bundle_sha256": "a" * 64,
+                "approval_sha256": "b" * 64,
+            },
+        })
+        self.plan["procedural_director_manifest"] = {
+            "rendered_layer_count": 0,
+            "shots": [
+                {
+                    "shot_id": f"shot-{index + 1:02d}",
+                    "environment": "laboratory",
+                    "animated_object_count": 3,
+                    "character_visible": index < 5,
+                }
+                for index in range(8)
+            ],
+        }
+        provenance = build_asset_provenance(
+            plan=self.plan,
+            verified_sources=self.sources,
+            audio_asset=self.audio_asset,
+            audio_path=self.audio,
+            narration_info=self.narration_info,
+            narration_path=self.narration,
+            image_paths=[],
+            final_video_path=self.video,
+            video_quality=self.video_quality,
+            run_id="procedural-test-run",
+        )
+        self.assertEqual(provenance["assets"]["render_mode"], "procedural_2d")
+        self.assertEqual(provenance["assets"]["scene_images"], [])
+        self.assertEqual(len(provenance["assets"]["procedural_scenes"]), 8)
+        self.assertEqual(provenance["assets"]["procedural_scenes"][0]["origin"], "native_motion_hyperframes_procedural_scene")
+        self.assertEqual(provenance["assets"]["character_rig"]["approval_status"], "approved")
+        self.assertEqual(provenance["assets"]["character_rig"]["bundle_sha256"], "a" * 64)
+
+        metadata_check = validate_publish_metadata({
+            "title": self.plan["title"],
+            "description": "A verified procedural animation explainer.",
+            "tags": ["Violin", "Music", "Acoustics"],
+            "made_for_kids": False,
+            "privacy_status": "public",
+        })
+        manifest = build_publish_manifest(
+            plan=self.plan,
+            metadata_check=metadata_check,
+            video_quality=self.video_quality,
+            provenance=provenance,
+            run_id="procedural-test-run",
+        )
+        self.assertTrue(manifest["publish_ready"])
+        self.assertEqual(manifest["render_mode"], "procedural_2d")
+        self.assertEqual(manifest["shot_count"], 8)
+
+
 if __name__ == "__main__":
     unittest.main()
