@@ -9,7 +9,7 @@ The target is four complete, independent production cycles at 05:30, 11:30, 17:3
 
 No topic, finished MP4 or upload may be repeated. A failed or uncertain upload is terminal until reconciled. A prior blocked plan still counts as a researched subject for future topic selection. An exact MP4 SHA-256 already present in any other date/slot attempt or receipt blocks another upload.
 
-**Current implementation boundary:** GitHub Actions has four IST cron entries and currently consumes a prepared date-specific batch; it does not yet perform the full live research-to-script commissioning step on every trigger. The repository contains research discovery and evidence-verification code, but the legacy text planner is disabled pending an approved provider. The Master Creative Director is separately dispatched and is not yet connected as an automatic per-trigger step. Genuine animation approval remains a hard release gate.
+**Current implementation boundary:** the scheduled workflow now calls a per-slot research builder on every cron, uses the isolated Copilot text planner, commits a durable research claim before internet discovery, writes a topic/source history and updates the date batch before selection. The Master Creative Director remains separately dispatched and is not yet connected to every scheduled render. Genuine animation approval remains a hard release gate, and Real Performance additionally requires the creator's real WAV recording.
 
 Private YouTube preview copies are not part of the approved publishing path. Historical commissioning notes below are retained as engineering history only and do not override the creator's public-only instruction.
 
