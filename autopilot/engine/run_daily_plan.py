@@ -486,14 +486,15 @@ def run_daily_plan(
     engine.WORK.mkdir(parents=True, exist_ok=True)
     engine.OUT.mkdir(parents=True, exist_ok=True)
     paths = engine._package_paths()
-    plan = enable_presenter_from_environment(plan)
-    try:
-        plan = attach_violin_prince_presenter(
-            plan,
-            package_dir=engine.PACKAGE,
-        )
-    except PresenterIntegrationError as exc:
-        raise engine.PipelineError(str(exc)) from exc
+    if not scheduled_public_upload:
+        plan = enable_presenter_from_environment(plan)
+        try:
+            plan = attach_violin_prince_presenter(
+                plan,
+                package_dir=engine.PACKAGE,
+            )
+        except PresenterIntegrationError as exc:
+            raise engine.PipelineError(str(exc)) from exc
     try:
         metadata_check = validate_publish_metadata(plan)
     except (TypeError, ValueError) as exc:
@@ -503,7 +504,16 @@ def run_daily_plan(
     # runs are uploaded only as private previews by a separate fail-closed step.
     os.environ["PUBLISH_ENABLED"] = "false"
 
-    audio_asset, audio_bytes = engine.get_audio(prefer_creator_assets=False)
+    real_performance_slot = str(plan.get("slot_id") or "") == "real-performance"
+    audio_asset, audio_bytes = engine.get_audio(
+        prefer_creator_assets=real_performance_slot,
+        allow_fallback=not real_performance_slot,
+    )
+    if real_performance_slot and str(audio_asset.get("kind") or "") != "uploaded_recording":
+        raise engine.PipelineError(
+            "Real Performance requires the creator's actual uploaded violin recording; "
+            "generated or sampled guide audio is not an acceptable substitute."
+        )
     if not audio_bytes or len(audio_bytes) < 4096:
         raise engine.PipelineError("The free CC0/ambient violin soundtrack could not be prepared.")
     paths["audio"].write_bytes(audio_bytes)
@@ -555,98 +565,155 @@ def run_daily_plan(
         json.dumps(plan["quality_control"], ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
-    from scene_timeline import scene_asset_path
-    from media_verification import verify_image_asset, verify_scene_assets
-    images = []
-    for index, scene in enumerate(plan["scenes"]):
-        image_path = scene_asset_path(str(engine.PACKAGE), scene, index, allow_legacy=False)
-        image_path.parent.mkdir(parents=True, exist_ok=True)
-        if image_path.is_file() and scene.get("_visual_asset_invalidated") is not True:
-            try:
-                with Image.open(image_path) as existing:
-                    existing.verify()
-                images.append(image_path)
-                scene.pop("_visual_asset_invalidated", None)
-                continue
-            except Exception:
-                image_path.unlink(missing_ok=True)
-        elif image_path.is_file():
-            image_path.unlink(missing_ok=True)
-
-        prompt = engine._scene_visual_prompt(scene, index=index, plan=plan)
-        try:
-            generated_image = engine.make_image(prompt, index, scene=scene, plan=plan)
-        except (engine.requests.Timeout, engine.requests.ConnectionError):
-            engine.log(f"Temporary connection issue for scene {index + 1}; retrying once.")
-            engine.time.sleep(2)
-            generated_image = engine.make_image(prompt, index, scene=scene, plan=plan)
-        image_path.write_bytes(generated_image.read_bytes())
-        image_report = verify_image_asset(image_path)
-        if image_report.get("status") == "failed":
-            raise engine.PipelineError(
-                f"Scene illustration {scene['id']} failed independent checks: "
-                + json.dumps(image_report.get("errors", []), ensure_ascii=False)
-            )
-        images.append(image_path)
-        scene.pop("_visual_asset_invalidated", None)
-
-    paths["plan"].write_text(
-        json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-    scene_media_report = verify_scene_assets(
-        plan["scenes"], images, total_seconds=24.0, narration_info=narration_info,
-        expected_narration_script=plan.get("narration_script"),
-    )
-    if scene_media_report.get("status") == "failed":
-        raise engine.PipelineError(
-            "Scene media verification failed: "
-            + json.dumps(scene_media_report.get("errors", []), ensure_ascii=False)
+    if scheduled_public_upload:
+        from procedural_daily_renderer import (
+            ProceduralDailyRenderError,
+            render_procedural_daily_video,
         )
-    (engine.PACKAGE / "media-verification.json").write_text(
-        json.dumps(scene_media_report, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
+        audio_path = engine.WORK / "approved-audio"
+        audio_path.write_bytes(audio_bytes)
+        try:
+            video_quality = render_procedural_daily_video(
+                engine,
+                plan,
+                verified_sources,
+                audio_path,
+                narration_path,
+                narration_info,
+                beat_analysis=beat_analysis,
+                director_output_dir=engine.PACKAGE / "master-director",
+            )
+        except ProceduralDailyRenderError as exc:
+            raise engine.PipelineError(str(exc)) from exc
+        images = []
+        character_assets = []
+        paths["plan"].write_text(
+            json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        metadata = {
+            "schema_version": 5,
+            "prepared_run_id": engine.RUN_ID,
+            "narration_info": narration_info,
+            "asset": audio_asset,
+            "performance_video": {
+                "available": real_performance_slot,
+                "source": "creator_uploaded_recording" if real_performance_slot else "not_applicable",
+            },
+            "topic": str(plan.get("topic") or ""),
+            "title": str(plan.get("title") or "Violin Prince"),
+            "prepared_at": datetime.now(timezone.utc).isoformat(),
+            "production_identity": production_identity,
+            "stage": "procedural_master_director_rendered",
+            "visual_engine": "Motion + HyperFrames procedural Master Director",
+            "character_count": int(video_quality.get("character_count") or 1),
+            "visuals_run_id": engine.RUN_ID,
+            "director_plan": str(engine.PACKAGE / "master-director" / "master-director-plan.json"),
+            "procedural_motion_report": video_quality.get("motion_report") or {},
+            "story_review": {
+                "status": "approved_by_existing_source_and_narration_quality_gates",
+                "approved": True,
+                "approved_at": datetime.now(timezone.utc).isoformat(),
+                "approval_method": "verified_publisher_evidence_and_claim_coherence",
+            },
+        }
+        paths["metadata"].write_text(
+            json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        engine._write_review_text(plan, engine.PACKAGE / "review.txt", {"available": False})
+    else:
+        from scene_timeline import scene_asset_path
+        from media_verification import verify_image_asset, verify_scene_assets
+        images = []
+        for index, scene in enumerate(plan["scenes"]):
+            image_path = scene_asset_path(str(engine.PACKAGE), scene, index, allow_legacy=False)
+            image_path.parent.mkdir(parents=True, exist_ok=True)
+            if image_path.is_file() and scene.get("_visual_asset_invalidated") is not True:
+                try:
+                    with Image.open(image_path) as existing:
+                        existing.verify()
+                    images.append(image_path)
+                    scene.pop("_visual_asset_invalidated", None)
+                    continue
+                except Exception:
+                    image_path.unlink(missing_ok=True)
+            elif image_path.is_file():
+                image_path.unlink(missing_ok=True)
 
-    character_assets = prepare_character_assets(
-        plan,
-        source_root=engine.PACKAGE,
-        destination_root=engine.WORK / "character-assets",
-    )
-    metadata = {
-        "schema_version": 4,
-        "prepared_run_id": engine.RUN_ID,
-        "narration_info": narration_info,
-        "asset": audio_asset,
-        "performance_video": {"available": False, "source": "not_uploaded"},
-        "topic": str(plan.get("topic") or ""),
-        "title": str(plan.get("title") or "Violin Prince"),
-        "prepared_at": datetime.now(timezone.utc).isoformat(),
-        "production_identity": production_identity,
-        "stage": "illustrations_and_character_assets_ready",
-        "visual_engine": "Motion + HyperFrames 2D",
-        "character_count": len(character_assets),
-        "visuals_run_id": engine.RUN_ID,
-        "story_review": {
-            "status": "approved_by_automated_quality_gates",
-            "approved": True,
-            "approved_at": datetime.now(timezone.utc).isoformat(),
-            "approval_method": "verified_publisher_evidence_date_freshness_and_channel_fit",
-        },
-    }
-    paths["metadata"].write_text(
-        json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-    engine._write_review_text(plan, engine.PACKAGE / "review.txt", {"available": False})
-    engine.make_storyboard_preview(
-        plan, images, engine.PACKAGE / "storyboard-preview.png"
-    )
+            prompt = engine._scene_visual_prompt(scene, index=index, plan=plan)
+            try:
+                generated_image = engine.make_image(prompt, index, scene=scene, plan=plan)
+            except (engine.requests.Timeout, engine.requests.ConnectionError):
+                engine.log(f"Temporary connection issue for scene {index + 1}; retrying once.")
+                engine.time.sleep(2)
+                generated_image = engine.make_image(prompt, index, scene=scene, plan=plan)
+            image_path.write_bytes(generated_image.read_bytes())
+            image_report = verify_image_asset(image_path)
+            if image_report.get("status") == "failed":
+                raise engine.PipelineError(
+                    f"Scene illustration {scene['id']} failed independent checks: "
+                    + json.dumps(image_report.get("errors", []), ensure_ascii=False)
+                )
+            images.append(image_path)
+            scene.pop("_visual_asset_invalidated", None)
 
-    audio_path = engine.WORK / "approved-audio"
-    audio_path.write_bytes(audio_bytes)
-    video_quality = render_daily_plan(
-        engine, plan, images, audio_path, narration_path, narration_info, character_assets,
-        beat_analysis=beat_analysis,
-    )
+        paths["plan"].write_text(
+            json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        scene_media_report = verify_scene_assets(
+            plan["scenes"], images, total_seconds=24.0, narration_info=narration_info,
+            expected_narration_script=plan.get("narration_script"),
+        )
+        if scene_media_report.get("status") == "failed":
+            raise engine.PipelineError(
+                "Scene media verification failed: "
+                + json.dumps(scene_media_report.get("errors", []), ensure_ascii=False)
+            )
+        (engine.PACKAGE / "media-verification.json").write_text(
+            json.dumps(scene_media_report, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+
+        character_assets = prepare_character_assets(
+            plan,
+            source_root=engine.PACKAGE,
+            destination_root=engine.WORK / "character-assets",
+        )
+        metadata = {
+            "schema_version": 4,
+            "prepared_run_id": engine.RUN_ID,
+            "narration_info": narration_info,
+            "asset": audio_asset,
+            "performance_video": {"available": False, "source": "not_uploaded"},
+            "topic": str(plan.get("topic") or ""),
+            "title": str(plan.get("title") or "Violin Prince"),
+            "prepared_at": datetime.now(timezone.utc).isoformat(),
+            "production_identity": production_identity,
+            "stage": "illustrations_and_character_assets_ready",
+            "visual_engine": "Motion + HyperFrames 2D",
+            "character_count": len(character_assets),
+            "visuals_run_id": engine.RUN_ID,
+            "story_review": {
+                "status": "approved_by_automated_quality_gates",
+                "approved": True,
+                "approved_at": datetime.now(timezone.utc).isoformat(),
+                "approval_method": "verified_publisher_evidence_date_freshness_and_channel_fit",
+            },
+        }
+        paths["metadata"].write_text(
+            json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        engine._write_review_text(plan, engine.PACKAGE / "review.txt", {"available": False})
+        engine.make_storyboard_preview(
+            plan, images, engine.PACKAGE / "storyboard-preview.png"
+        )
+
+        audio_path = engine.WORK / "approved-audio"
+        audio_path.write_bytes(audio_bytes)
+        video_quality = render_daily_plan(
+            engine, plan, images, audio_path, narration_path, narration_info, character_assets,
+            beat_analysis=beat_analysis,
+        )
+
     final_video = engine.OUT / "violin-prince-short.mp4"
     manifest, _provenance = write_handoff_files(
         engine.OUT,

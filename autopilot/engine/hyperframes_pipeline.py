@@ -192,6 +192,7 @@ def render_master_director_video(
     output_video: Path,
     layer_assets: dict[str, dict[str, Path]] | None = None,
     rig_bundle_dir: Path | None = None,
+    production_mode: bool = False,
 ) -> dict[str, Any]:
     """Render a Master Director composition and mix its audio.
 
@@ -380,15 +381,16 @@ def render_master_director_video(
         "animated_stagecraft_node_count": int(motion_report.get("animated_stagecraft_node_count") or 0),
         "animated_stagecraft_object_count": int(motion_report.get("animated_stagecraft_object_count") or 0),
         "animated_presenter_count": int(motion_report.get("animated_presenter_count") or 0),
-        "publish_ready": False,
+        "publish_ready": bool(production_mode),
+        "production_mode": bool(production_mode),
         "publish_blocker": (
-            "This is a preview renderer. The Master Director procedural route is not enabled for "
-            "scheduled publishing; source/narration/music production checks and creator visual "
-            "approval must pass before any public release."
-            if render_mode == "procedural_2d"
-            else "The automated cinematic image-generation provider is not connected to the scheduled "
-            "production workflow yet. This render path accepts and animates verified separated layers, "
-            "but the production pipeline still needs to generate and verify those assets automatically."
+            None if production_mode else (
+                "This is an engineering preview. Daily production approvals must pass before public release."
+                if render_mode == "procedural_2d"
+                else "The automated cinematic image-generation provider is not connected to the scheduled "
+                "production workflow yet. This render path accepts and animates verified separated layers, "
+                "but the production pipeline still needs to generate and verify those assets automatically."
+            )
         ),
         "output": str(output),
     }
