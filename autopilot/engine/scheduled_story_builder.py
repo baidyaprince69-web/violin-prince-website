@@ -298,15 +298,28 @@ def build_scheduled_batch(
     engine.WORK.mkdir(parents=True, exist_ok=True)
 
     research_items: list[dict[str, Any]] = []
+    raw_research_items: list[dict[str, Any]] = []
     discovered_story_groups: list[dict[str, Any]] = []
     eligible_story_groups: list[dict[str, Any]] = []
     all_topics = engine.all_researched_topics()
     recent_topics = all_topics[-100:]
     skipped_repeated_groups: list[str] = []
+    skipped_repeat_research_items: list[str] = []
     research_error = ""
     try:
         engine.log(f"Starting fresh internet research for {production_date}/{slot_id}.")
-        research_items = engine.research()
+        raw_research_items = engine.research()
+        from select_public_queue import _same_story_topic
+
+        for item in raw_research_items:
+            if not isinstance(item, dict):
+                continue
+            headline = str(item.get("title") or item.get("headline") or "").strip()
+            if headline and any(_same_story_topic(headline, old_topic) for old_topic in all_topics):
+                skipped_repeat_research_items.append(headline)
+                continue
+            research_items.append(item)
+
         discovered_story_groups = engine.discover_source_first_story_groups(
             research_items,
             max_seed_queries=3,
@@ -317,8 +330,6 @@ def build_scheduled_batch(
             raise engine.PipelineError(
                 "Research did not find two independent, readable and date-verified publisher sources for an eligible story."
             )
-
-        from select_public_queue import _same_story_topic
 
         for group in discovered_story_groups:
             topic_hint = str(group.get("topic_hint") or "").strip()
@@ -379,7 +390,9 @@ def build_scheduled_batch(
         "researched_at_utc": now.astimezone(timezone.utc).isoformat(),
         "status": research_status,
         "reason": research_error,
-        "research_record_count": len(research_items),
+        "research_record_count": len(raw_research_items),
+        "eligible_research_record_count": len(research_items),
+        "skipped_repeat_research_items": skipped_repeat_research_items,
         "research_items": [
             {
                 "title": item.get("title") or item.get("headline") or "",
@@ -387,7 +400,7 @@ def build_scheduled_batch(
                 "publisher_domain": item.get("publisher_domain") or item.get("domain") or item.get("source") or "",
                 "published_at": item.get("published_at") or item.get("published") or item.get("date") or "",
             }
-            for item in research_items
+            for item in raw_research_items
             if isinstance(item, dict)
         ],
         "story_groups": [
@@ -432,7 +445,8 @@ def build_scheduled_batch(
             "",
         ),
         "blocked_reason": research_error,
-        "research_record_count": len(research_items),
+        "research_record_count": len(raw_research_items),
+        "eligible_research_record_count": len(research_items),
         "verified_story_groups": len(discovered_story_groups),
         "eligible_story_groups": len(eligible_story_groups),
         "skipped_repeated_groups": len(skipped_repeated_groups),
