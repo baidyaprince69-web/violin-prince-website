@@ -148,11 +148,15 @@ jobs:
           base = report.get("composite_base", {})
           limbs = report.get("limb_report", {})
           joint_art = report.get("source_aligned_joint_surface_art", {})
-          assert joint_art.get("method") == "source_pixel_joint_caps_from_anchor_relative_authored_polygons", report
+          assert joint_art.get("method") == "anchor_centered_tapered_source_pixel_joint_surfaces_with_bisector_blend_axes", report
           assert joint_art.get("joint_surface_layer_count") == 9, report
           assert joint_art.get("joint_surface_mesh_layer_count") == 9, report
-          assert joint_art.get("source_pixels_transferred", 0) > 2500, report
+          assert joint_art.get("source_pixels_transferred", 0) > 5000, report
           assert joint_art.get("prop_pixels_excluded", 0) > 0, report
+          for name, joint_region in joint_art.get("regions", {}).items():
+              if joint_region.get("status") == "source_patch_created":
+                  assert joint_region.get("outline_profile") == "tapered_source_capsule", (name, joint_region)
+                  assert joint_region.get("blend_axis_midpoint_error_px", 1) < 0.001, (name, joint_region)
           assert joint_art.get("hand_assets_modified") == 0, report
           assert joint_art.get("hand_animation_data_modified") is False, report
           assert joint_art.get("regions", {}).get("right_shoulder", {}).get("reason") == "prop_occluded", report
