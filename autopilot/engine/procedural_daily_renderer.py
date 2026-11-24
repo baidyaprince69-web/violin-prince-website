@@ -78,14 +78,8 @@ def require_approved_presenter_rig(
     slot_id: str,
 ) -> dict[str, Any]:
     """Require creator review and an approval pinned to the exact rig bytes."""
-    if slot_id == "real-performance":
-        raise ProceduralDailyRenderError(
-            "Real Performance is not production-ready: it requires PR #130's completed "
-            "full-body rig, independently approved violin/bow props and note-synchronised "
-            "performance animation. The current daily procedural renderer only supports "
-            "the upper-body presenter rig."
-        )
-    if slot_id not in {"music-secrets", "production-tech", "melody-stories"}:
+    is_real_performance = slot_id == "real-performance"
+    if slot_id not in {"music-secrets", "production-tech", "melody-stories", "real-performance"}:
         raise ProceduralDailyRenderError(f"Unsupported daily content slot: {slot_id!r}.")
 
     root = Path(rig_bundle_dir).expanduser().resolve()
@@ -117,6 +111,79 @@ def require_approved_presenter_rig(
         raise ProceduralDailyRenderError("Presenter production approval must use schema_version 1.")
     if approval.get("status") != "approved" or approval.get("creator_approved") is not True:
         raise ProceduralDailyRenderError("The presenter has not received creator production approval.")
+
+    if is_real_performance:
+        performance = spec.get("performance")
+        props = spec.get("props")
+        report_path = root / "full-body-performance-report.json"
+        if not isinstance(performance, dict) or not report_path.is_file():
+            raise ProceduralDailyRenderError(
+                "Real Performance requires the generated full-body performance spec and QA report."
+            )
+        try:
+            performance_report = json.loads(report_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ProceduralDailyRenderError("Full-body performance QA report is unreadable JSON.") from exc
+        required_joints = {
+            "left_hip", "right_hip", "left_knee", "right_knee", "left_ankle", "right_ankle"
+        }
+        joint_art = performance_report.get("source_aligned_joint_surface_art") if isinstance(performance_report, dict) else None
+        joint_regions = joint_art.get("regions") if isinstance(joint_art, dict) else None
+        performance_slots = performance.get("joint_surface_roles")
+        quality_gate = performance_report.get("premium_character_quality_gate") if isinstance(performance_report, dict) else None
+        finger_quality = performance_report.get("finger_segment_quality") if isinstance(performance_report, dict) else None
+        finger_segments = performance.get("fingering_segment_roles")
+        if (
+            performance.get("schema") != "violin-prince-fullbody-performance-v3"
+            or performance.get("instrument_performance") is not True
+            or performance.get("review_required") is not False
+            or not isinstance(performance_slots, list)
+            or not required_joints.issubset({str(value) for value in performance_slots})
+            or not isinstance(joint_art, dict)
+            or joint_art.get("joint_surface_articulated_layer_count") != 6
+            or not isinstance(joint_regions, dict)
+            or not required_joints.issubset(set(joint_regions))
+            or any(
+                not isinstance(joint_regions[name], dict)
+                or joint_regions[name].get("status") != "created"
+                for name in required_joints
+            )
+            or not isinstance(quality_gate, dict)
+            or quality_gate.get("status") != "passed"
+            or quality_gate.get("release_blockers") not in ([], None)
+            or not isinstance(finger_quality, dict)
+            or finger_quality.get("chain_count") != 4
+            or not isinstance(finger_segments, list)
+            or len(finger_segments) != 12
+            or not isinstance(props, dict)
+            or not {"violin", "bow"}.issubset(set(props))
+        ):
+            raise ProceduralDailyRenderError(
+                "Full-body production gate is closed: six approved source-aligned hip/knee/ankle "
+                "surfaces, the premium character-quality pass, 12 validated finger segments, "
+                "and both violin/bow props are required."
+            )
+        for role in ("violin", "bow"):
+            prop = props.get(role)
+            prop_src = str(prop.get("src") or "") if isinstance(prop, dict) else ""
+            if not prop_src or not (root / Path(prop_src).name).is_file():
+                raise ProceduralDailyRenderError(
+                    f"Full-body production gate is closed: the {role} prop asset is missing."
+                )
+        required_full_body_review = (
+            "lower_body_joint_artwork_reviewed",
+            "fingerboard_fingering_artwork_reviewed",
+            "bow_hand_contact_reviewed",
+            "violin_bow_prop_alignment_reviewed",
+            "note_synchronisation_reviewed",
+            "full_frame_occlusion_reviewed",
+        )
+        review = approval.get("review")
+        if not isinstance(review, dict) or any(review.get(field) is not True for field in required_full_body_review):
+            raise ProceduralDailyRenderError(
+                "Full-body creator approval is incomplete: lower-body joints, fingers, bow contact, "
+                "instrument alignment, note sync and full-frame occlusion must all be reviewed."
+            )
 
     try:
         actual_digest = rig_bundle_sha256(root)
@@ -391,8 +458,12 @@ def render_procedural_daily_video(
     """Direct and render a daily Short with no generated scene-image fallback."""
     slot_id = str(plan.get("slot_id") or "")
     preferences = creator_preferences_for_slot(slot_id)
+    default_bundle_name = (
+        "violin-prince-performance-rig" if slot_id == "real-performance"
+        else "violin-prince-rig"
+    )
     bundle = Path(rig_bundle_dir or (
-        Path(__file__).resolve().parent / "assets" / "characters" / "violin-prince-rig"
+        Path(__file__).resolve().parent / "assets" / "characters" / default_bundle_name
     )).expanduser().resolve()
     rig_approval = require_approved_presenter_rig(bundle, slot_id=slot_id)
 
@@ -418,6 +489,86 @@ def render_procedural_daily_video(
 
     music_sync_report = align_director_music_sync_cues(director_plan, beat_analysis)
     director_plan["music_sync_report"] = music_sync_report
+
+    if slot_id == "real-performance":
+        if not isinstance(beat_analysis, dict):
+            raise ProceduralDailyRenderError("Real Performance requires measured timing from the creator's PCM recording.")
+        note_events = beat_analysis.get("note_events")
+        if not isinstance(note_events, list) or len(note_events) < 4:
+            raise ProceduralDailyRenderError(
+                "Real Performance requires at least four reliable pitch/onset events extracted from the creator's actual PCM recording."
+            )
+        audio_duration = float(beat_analysis.get("duration_seconds") or 0.0)
+        storyboard_duration = float(director_plan["storyboard"]["duration_seconds"])
+        if not math.isfinite(audio_duration) or audio_duration <= 0:
+            raise ProceduralDailyRenderError("Real Performance has no valid source-audio duration.")
+        loop_count = int(math.ceil(storyboard_duration / audio_duration))
+        def repeated_times(field: str) -> list[float]:
+            source_times = beat_analysis.get(field) or []
+            if not isinstance(source_times, list):
+                return []
+            return sorted(
+                round(float(value) + loop_index * audio_duration, 4)
+                for loop_index in range(loop_count)
+                for value in source_times
+                if isinstance(value, (int, float)) and not isinstance(value, bool)
+                and math.isfinite(float(value)) and 0 <= float(value) < audio_duration
+                and float(value) + loop_index * audio_duration < storyboard_duration
+            )
+        repeated_notes = []
+        for loop_index in range(loop_count):
+            for event in note_events:
+                if not isinstance(event, dict):
+                    continue
+                try:
+                    event_time = float(event["time"])
+                    note = int(event["note"])
+                    velocity = int(event.get("velocity", 76))
+                    note_duration = float(event["duration_seconds"])
+                except (KeyError, TypeError, ValueError):
+                    continue
+                absolute_time = event_time + loop_index * audio_duration
+                if (
+                    not math.isfinite(absolute_time) or not math.isfinite(note_duration)
+                    or not 0 <= event_time < audio_duration
+                    or not 24 <= note <= 108 or not 1 <= velocity <= 127
+                    or not 0.04 <= note_duration <= 4.0
+                    or absolute_time >= storyboard_duration
+                ):
+                    continue
+                repeated_notes.append({
+                    **event,
+                    "time": round(absolute_time, 4),
+                    "duration_seconds": round(min(note_duration, storyboard_duration - absolute_time), 4),
+                })
+        if len(repeated_notes) < 4:
+            raise ProceduralDailyRenderError("Real Performance note events failed validation after audio-loop alignment.")
+        performance_sync = {
+            "bpm": beat_analysis.get("bpm"),
+            "beat_times": repeated_times("beat_times"),
+            "downbeats": repeated_times("downbeats"),
+            "onsets": repeated_times("onsets"),
+            "note_events": repeated_notes,
+            "confidence": beat_analysis.get("confidence", 0.0),
+        }
+        if len(performance_sync["beat_times"]) < 2:
+            raise ProceduralDailyRenderError("Real Performance requires at least two measured beats from the creator's PCM recording.")
+        for shot in director_plan["storyboard"]["shots"]:
+            action = shot.get("character_action")
+            if not isinstance(action, dict):
+                action = {}
+            action["visible"] = True
+            action["gesture"] = "violin_performance"
+            action["instrument_performance"] = True
+            action["music_sync"] = performance_sync
+            shot["character_action"] = action
+        music_sync_report["finger_note_event_count"] = len(repeated_notes)
+        music_sync_report["finger_note_event_source"] = str(
+            (beat_analysis.get("note_analysis") or {}).get("source")
+            or "creator_uploaded_pcm_autocorrelation"
+        )
+        music_sync_report["finger_note_sync_status"] = "passed"
+        director_plan["music_sync_report"] = music_sync_report
 
     production_date = str(plan.get("production_date") or "")
     director_plan["production_context"] = {
