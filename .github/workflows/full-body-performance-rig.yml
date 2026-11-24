@@ -384,6 +384,7 @@ jobs:
                   region.get("parent_alpha_pixels_removed", 0)
                   + region.get("child_alpha_pixels_removed", 0)
               ) > 0, region
+              # Feather-band parent/child source pixels remain under the joint patch by design.
               assert region.get("feathered_boundary_source_pixels", 0) > 0, region
               assert region.get("opaque_core_source_pixels", 0) >= 24, region
           assert joint_art.get("edge_feathering", {}).get("method") == "inward_source_alpha_gaussian_ramp_with_parent_child_underlap", joint_art
