@@ -93,8 +93,7 @@
           "caption": "A plucked note is more than its attack",
           "visual_mode": "waveform",
           "narration_sentence_indexes": [
-            0,
-            1
+            0
           ],
           "image_prompt": "Original scientific violin-acoustics illustration: a single pizzicato note attack expands into a fading harmonic tail, clear time axis and layered overtones, deep green and warm amber, no real experimental chart or copied data."
         },
@@ -103,8 +102,8 @@
           "caption": "One acoustic string compared with one software playback",
           "visual_mode": "comparison",
           "narration_sentence_indexes": [
-            2,
-            3
+            1,
+            2
           ],
           "image_prompt": "Original two-lane comparison concept: acoustic violin E-string pizzicato above and a software-rendered pizzicato sample below, with harmonic decay curves and a restrained 66 percent third-harmonic callout; explicitly labelled illustrative, not raw measurement."
         },
@@ -202,14 +201,14 @@
                 "focus": "The short attack and the longer decay tail"
               },
               "animation": {
-                "subject_action": "concert_stage",
+                "subject_action": "The note blooms at once, then its tail gradually loses brightness.",
                 "environment_motion": "A warm halo contracts around the note.",
                 "graphic_action": "A short attack marker appears before the decay trace.",
                 "depth_motion": "Foreground motes drift past the note at a different depth.",
                 "motion_rationale": "The viewer sees the question as a moving sound envelope."
               },
               "procedural_scene": {
-                "environment": true,
+                "environment": "concert_stage",
                 "objects": [
                   {
                     "id": "pizz-1-a",
@@ -235,8 +234,8 @@
               },
               "character_action": {
                 "visible": true,
-                "gesture": "smile",
-                "expression": "The note blooms at once, then its tail gradually loses brightness.",
+                "gesture": "open_palms",
+                "expression": "smile",
                 "loop": true,
                 "cycle_duration_seconds": 1.8
               },
@@ -263,14 +262,14 @@
                 "focus": "The string's vibrating length"
               },
               "animation": {
-                "subject_action": "laboratory",
+                "subject_action": "The string oscillates and its vibration narrows as energy dissipates.",
                 "environment_motion": "A fine reflection travels along the bridge.",
                 "graphic_action": "A small E-string marker follows the string.",
                 "depth_motion": "The bridge and string move at separate parallax depths.",
                 "motion_rationale": "The string movement makes the one-string scope visible."
               },
               "procedural_scene": {
-                "environment": false,
+                "environment": "laboratory",
                 "objects": [
                   {
                     "id": "pizz-2-a",
@@ -320,14 +319,14 @@
                 "focus": "The changing brightness of upper harmonics"
               },
               "animation": {
-                "subject_action": "abstract",
+                "subject_action": "Upper harmonic traces shorten at different rates while the fundamental remains visible.",
                 "environment_motion": "Small sparks drift upward behind the ladder.",
                 "graphic_action": "Each overtone illuminates briefly before fading.",
                 "depth_motion": "Near harmonics move slower than distant ones.",
                 "motion_rationale": "The differing tails reveal why one note cannot be judged only by its attack."
               },
               "procedural_scene": {
-                "environment": true,
+                "environment": "abstract",
                 "objects": [
                   {
                     "id": "pizz-3-a",
@@ -353,8 +352,8 @@
               },
               "character_action": {
                 "visible": true,
-                "gesture": "speaking",
-                "expression": "Upper harmonic traces shorten at different rates while the fundamental remains visible.",
+                "gesture": "point_left",
+                "expression": "speaking",
                 "loop": true,
                 "cycle_duration_seconds": 1.8
               },
@@ -381,14 +380,14 @@
                 "focus": "The third-harmonic comparison marker"
               },
               "animation": {
-                "subject_action": "laboratory",
+                "subject_action": "The acoustic harmonic envelopes shrink by different amounts as the software lane stays more uniform.",
                 "environment_motion": "A soft grid slides beneath both lanes.",
                 "graphic_action": "A measured 66 percent callout appears beside the third harmonic only.",
                 "depth_motion": "Foreground tick marks pass independently of the curve.",
                 "motion_rationale": "The graphic makes the paper's reported third-harmonic difference legible without implying a universal rule."
               },
               "procedural_scene": {
-                "environment": false,
+                "environment": "laboratory",
                 "objects": [
                   {
                     "id": "pizz-4-a",
@@ -438,14 +437,14 @@
                 "focus": "The difference between the acoustic and software decay patterns"
               },
               "animation": {
-                "subject_action": "abstract",
+                "subject_action": "The software harmonic lines descend with a more uniform decay shape.",
                 "environment_motion": "Cool background particles travel in a steady rhythm.",
                 "graphic_action": "A MuseScore Basic label appears as editorial identification only.",
                 "depth_motion": "A foreground divider moves away to reveal both lanes.",
                 "motion_rationale": "The motion clarifies that the paper compared one specific software implementation."
               },
               "procedural_scene": {
-                "environment": false,
+                "environment": "abstract",
                 "objects": [
                   {
                     "id": "pizz-5-a",
@@ -495,14 +494,14 @@
                 "focus": "The one-string scope and the two sound sources"
               },
               "animation": {
-                "subject_action": "laboratory",
+                "subject_action": "The two traces move side by side while the single-string marker remains fixed.",
                 "environment_motion": "The background bench lights pulse gently.",
                 "graphic_action": "The labels acoustic E string and MuseScore Basic appear separately.",
                 "depth_motion": "A near-field ruler slides slower than the sound traces.",
                 "motion_rationale": "The scene keeps the research method bounded and prevents overgeneralisation."
               },
               "procedural_scene": {
-                "environment": true,
+                "environment": "laboratory",
                 "objects": [
                   {
                     "id": "pizz-6-a",
@@ -528,8 +527,8 @@
               },
               "character_action": {
                 "visible": true,
-                "gesture": "speaking",
-                "expression": "The two traces move side by side while the single-string marker remains fixed.",
+                "gesture": "explain",
+                "expression": "speaking",
                 "loop": true,
                 "cycle_duration_seconds": 1.8
               },
@@ -556,14 +555,14 @@
                 "focus": "The boundary between measured sound and untested listener perception"
               },
               "animation": {
-                "subject_action": "abstract",
+                "subject_action": "The measured traces stop at the boundary while a separate perception marker remains unlit.",
                 "environment_motion": "Background light dims without freezing the scene.",
                 "graphic_action": "The limitations label arrives after the measured comparison.",
                 "depth_motion": "Foreground dust moves slowly across the boundary.",
                 "motion_rationale": "The audience sees the difference between measurable acoustics and subjective preference."
               },
               "procedural_scene": {
-                "environment": false,
+                "environment": "abstract",
                 "objects": [
                   {
                     "id": "pizz-7-a",
@@ -613,14 +612,14 @@
                 "focus": "The final note tail and title"
               },
               "animation": {
-                "subject_action": "concert_stage",
+                "subject_action": "The illustrative note tail resolves into a single glowing contour.",
                 "environment_motion": "Warm stage haze rises behind the presenter.",
                 "graphic_action": "The final title appears after the decay line settles.",
                 "depth_motion": "A foreground fleck rises past the frame edge.",
                 "motion_rationale": "The final image joins the science explanation to an original Violin Prince musical identity."
               },
               "procedural_scene": {
-                "environment": true,
+                "environment": "concert_stage",
                 "objects": [
                   {
                     "id": "pizz-8-a",
@@ -646,8 +645,8 @@
               },
               "character_action": {
                 "visible": true,
-                "gesture": "smile",
-                "expression": "The illustrative note tail resolves into a single glowing contour.",
+                "gesture": "nod",
+                "expression": "smile",
                 "loop": true,
                 "cycle_duration_seconds": 1.8
               },
