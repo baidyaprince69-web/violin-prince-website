@@ -1,122 +1,2073 @@
 {
   "schema_version": 1,
   "production_date": "2026-11-26",
+  "global_director_run": {
+    "run_mode": "manual_run_now",
+    "prepared_at": "2026-11-25",
+    "reviewed_previous_day": "2026-11-24",
+    "previous_day_scheduled_runs": "No scheduled Violin Prince Autopilot run was found for 24 November 2026; no slot was classified as a failed run.",
+    "architecture": "Pre-authored ChatGPT Global Director batch consumed by the four GitHub cron slots; Copilot token is no longer required."
+  },
   "plans": [
     {
       "production_date": "2026-11-26",
       "slot_id": "music-secrets",
       "slot_status": "blocked",
-      "topic": "How the brain distinguishes speech from music: acoustic patterns and listening context",
-      "core_claim": "Speech/music categorization draws on spectrotemporal acoustic cues, while listening context can shape how ambiguous sounds are grouped.",
-      "research_sources": [
+      "editorial_plan_status": "complete",
+      "production_status": "blocked_pending_genuine_animation_and_presenter_approval",
+      "blocked_reason": "Editorial plan and source pair are complete, but scheduled rendering remains blocked because autopilot/engine/animation-production-approval.json is absent and the saved presenter rig has no production-approval.json. These gates require genuine moving-animation evidence and creator visual approval. Public YouTube publication is authorised; no private preview is required.",
+      "story_type": "sound_and_perception",
+      "title": "How the Brain Separates Speech and Music",
+      "topic": "How auditory-cortex timing and frequency patterns help listeners distinguish speech and music in a continuous mixed soundtrack.",
+      "core_claim": "The study links speech judgements mainly to rapid temporal changes and music judgements mainly to detailed spectral patterns, while not claiming these are the brain's only sound-categorisation mechanisms.",
+      "hook": "How does your brain separate speech?",
+      "description": "A recent Science Advances study examines how listeners distinguish speech and music when they overlap. Medical Xpress and Qazinform describe the research and its separate participant groups. The film soundtrack was research context only; this video uses no film footage, soundtrack audio or recognisable franchise imagery. Sources: https://medicalxpress.com/news/2026-11-harry-potter-soundtrack-brain-differentiates.html and https://qazinform.com/news/harry-potter-soundtrack-helps-scientists-study-how-the-brain-distinguishes-speech-from-music-aaed49",
+      "hashtags": [
+        "#MusicScience",
+        "#AuditoryPerception",
+        "#SoundAndMusic",
+        "#ViolinPrince"
+      ],
+      "tags": [
+        "music perception",
+        "speech and music",
+        "auditory cortex",
+        "spectrotemporal modulation",
+        "music science",
+        "sound analysis",
+        "Violin Prince"
+      ],
+      "narrative_style": "documentary",
+      "cover_payoff": "Create a cleared, original violin motif with one articulated rhythmic contour and one sustained spectral contour. Treat the sample-based phrase as an illustration, never as a claim of live creator performance.",
+      "narration_script": "How does your brain separate speech? Medical Xpress links speech to timing, music to distinct frequency patterns. Qazinform reports eleven epilepsy patients heard the film soundtrack. Nineteen other adult listeners marked speech, music, or both.",
+      "narration_evidence": [
         {
-          "publisher": "Medical Xpress",
-          "publisher_family": "medicalxpress.com",
-          "published_at": "2026-11-19",
-          "url": "https://medicalxpress.com/news/2026-11-harry-potter-soundtrack-brain-differentiates.html",
-          "verification_status": "direct_article_open_verified",
-          "note": "Direct publisher page opened. It reports that temporal modulation patterns are more associated with speech and spectral detail with music, based on a Science Advances study using overlapping soundtrack audio."
+          "sentence_number": 2,
+          "source_id": "S001",
+          "quote": "Speech judgments depended mainly on rapid changes in sound over time, while music judgments depended mainly on detailed patterns across sound frequencies."
         },
         {
-          "publisher": "Qazinform News Agency",
-          "publisher_family": "qazinform.com",
-          "published_at": "2026-11-25",
-          "url": "https://qazinform.com/news/harry-potter-soundtrack-helps-scientists-study-how-the-brain-distinguishes-speech-from-music-aaed49",
-          "verification_status": "publisher_search_text_returned_direct_open_blocked",
-          "note": "A separate agency article result dated 25 November reports on the same Science Advances study, but its direct page could not be opened during this run; it is an unverified corroborating lead, not a second verified source."
+          "sentence_number": 3,
+          "source_id": "S002",
+          "quote": "Eleven patients with epilepsy listened to the clip"
+        },
+        {
+          "sentence_number": 4,
+          "source_id": "S002",
+          "quote": "A separate group of 19 adults listened to the same recording"
         }
       ],
-      "source_limitations": "Medical Xpress's direct article was verified. A separate Qazinform News Agency article about the same study was found, but its direct page could not be opened in this run, so the two-independent-readable-publisher gate is not yet satisfied. No exact narration evidence quotes were accepted.",
-      "blocked_reason": "Production remains blocked by main-branch hard gates: autopilot/engine/animation-production-approval.json is absent, and the presenter rig bundle has no production-approval.json, so the procedural renderer refuses to run. The public YouTube approval is valid and does not require a private preview. Research also lacks a second directly verified independent publisher page and accepted narration evidence."
+      "narration_asr_hotwords": [
+        "auditory cortex",
+        "spectrotemporal",
+        "Qazinform",
+        "Medical Xpress"
+      ],
+      "timeline": [],
+      "timeline_evidence": [],
+      "sources": [
+        {
+          "source_id": "S001",
+          "title": "The Harry Potter soundtrack helps researchers test how the brain differentiates speech and background music",
+          "url": "https://medicalxpress.com/news/2026-11-harry-potter-soundtrack-brain-differentiates.html",
+          "publisher_domain": "medicalxpress.com",
+          "publisher_name": "Medical Xpress",
+          "date": "2026-11-19"
+        },
+        {
+          "source_id": "S002",
+          "title": "Harry Potter soundtrack helps scientists study how the brain distinguishes speech from music",
+          "url": "https://qazinform.com/news/harry-potter-soundtrack-helps-scientists-study-how-the-brain-distinguishes-speech-from-music-aaed49",
+          "publisher_domain": "qazinform.com",
+          "publisher_name": "Qazinform News Agency",
+          "date": "2026-11-25"
+        }
+      ],
+      "scenes": [
+        {
+          "id": "sound-ribbon",
+          "caption": "One sound, two changing dimensions",
+          "visual_mode": "waveform",
+          "narration_sentence_indexes": [
+            0
+          ],
+          "image_prompt": "Original abstract scientific music-documentary illustration: a clean sound ribbon moving through time while a separate frequency spectrum blooms beside it; deep blue atmosphere, coral signal accents, tactile light, no film references, no logos, no copied imagery."
+        },
+        {
+          "id": "timing-frequency",
+          "caption": "Timing and frequency carry different clues",
+          "visual_mode": "comparison",
+          "narration_sentence_indexes": [
+            1,
+            2
+          ],
+          "image_prompt": "A two-panel original editorial comparison: rhythmic temporal pulses on one side and fine spectral bands on the other, linked by a restrained auditory-cortex signal map; readable labels, no invented measurements, no medical scan imitation."
+        },
+        {
+          "id": "violin-contours",
+          "caption": "An original violin phrase reveals both",
+          "visual_mode": "cover_performance",
+          "narration_sentence_indexes": [
+            3
+          ],
+          "image_prompt": "Original Violin Prince musical payoff concept: a violin silhouette with two separate animated-looking contours, one articulated rhythmic ribbon and one sustained harmonic glow; premium stage lighting, original composition, no artist likeness or existing melody."
+        }
+      ],
+      "performance_feedback": {
+        "sample_window": "Metricool YouTube evolution, 2026-10-23 to 2026-11-22 (brand timezone Asia/Calcutta).",
+        "sample_count": 27,
+        "confidence": "Low for topic or format ranking: per-video views, retention, average view duration, traffic sources and country rows were not available in the returned report.",
+        "channel_observation": "The returned daily channel rows totalled 1,877 views; the subscriber values ranged from 516 to 517, with five gained and two lost across the returned rows.",
+        "strengths_to_preserve": [
+          "Keep the violin-first channel identity and an original musical payoff.",
+          "Bengali and Indian repertoire remain part of a worldwide channel rather than a geographic limit."
+        ],
+        "one_change_to_test": "Open with one clear first-second curiosity hook, use one source-backed visual explanation, then finish with a distinct original violin phrase.",
+        "measurement_for_next_upload": "Capture 24-hour and seven-day views, engaged views, average view duration, average percentage viewed, stayed-to-watch, likes, comments, shares, traffic sources and country data when available."
+      },
+      "publish_metadata": {
+        "title": "How the Brain Separates Speech and Music",
+        "description": "A source-backed look at how timing and frequency patterns help listeners distinguish overlapping speech and music. Original Violin Prince visuals and an illustrative, non-copied musical phrase. Sources: Medical Xpress and Qazinform, November 2026.",
+        "tags": [
+          "music perception",
+          "speech and music",
+          "auditory cortex",
+          "music science",
+          "Violin Prince"
+        ],
+        "privacy_status": "public"
+      },
+      "master_director_plan": {
+        "schema_version": 2,
+        "render_mode": "procedural_2d",
+        "production_binding": {
+          "production_date": "2026-11-26",
+          "slot_id": "music-secrets",
+          "title": "How the Brain Separates Speech and Music",
+          "topic": "How auditory-cortex timing and frequency patterns help listeners distinguish speech and music in a continuous mixed soundtrack.",
+          "narration_script": "How does your brain separate speech? Medical Xpress links speech to timing, music to distinct frequency patterns. Qazinform reports eleven epilepsy patients heard the film soundtrack. Nineteen other adult listeners marked speech, music, or both."
+        },
+        "story_understanding": {
+          "central_truth": "The study links speech judgements more strongly to rapid temporal changes and music judgements to fine spectral detail, while cautioning that these cues are not necessarily the brain's only mechanisms.",
+          "viewer_question": "How can listeners separate speech from music when both overlap?",
+          "emotional_arc": [
+            "Curiosity about an everyday listening mystery",
+            "A clear reveal that time and frequency provide different acoustic clues",
+            "A satisfying original violin phrase that makes those dimensions audible"
+          ],
+          "key_revelations": [
+            "Speech judgements relied mainly on rapid changes in sound over time.",
+            "Music judgements relied mainly on detailed patterns across sound frequencies.",
+            "The research combined implanted-electrode recordings from eleven epilepsy patients with listening responses from nineteen other adults."
+          ]
+        },
+        "visual_concept": {
+          "concept_name": "The Spectral Listening Lens",
+          "visual_metaphor": "A single sound ribbon separates into a moving time-line and a layered frequency field, illustrating two complementary ways the auditory system can use acoustic information.",
+          "creative_rationale": "The subject is an invisible listening process, so the visual language makes time and frequency legible without pretending to show literal brain imagery or measured neural anatomy.",
+          "art_direction": "Premium scientific music documentary: luminous signal ribbons, precise editorial overlays, controlled negative space, restrained material detail and a violin-shaped musical payoff.",
+          "palette": {
+            "dominant": "#14213D",
+            "secondary": "#547AA5",
+            "accent": "#FF765E",
+            "harmony": "complementary",
+            "reasoning": "Cool blues carry the analytical listening environment while a coral accent marks the contrasting signal cue.",
+            "contrast_strategy": "Use pale high-contrast labels on the deep dominant field; keep the coral accent limited to one signal at a time and preserve phone-size text hierarchy."
+          },
+          "lighting_plan": "Cool directional key light, subtle blue rim, and short coral pulses only at the moments when a new acoustic clue is revealed.",
+          "composition_language": "Keep timing and frequency as distinct left/right visual zones with a central bridge; reserve the right safe area for the upper-body presenter and avoid dense labels."
+        },
+        "storyboard": {
+          "duration_seconds": 32,
+          "shots": [
+            {
+              "id": "shot-01",
+              "start_seconds": 0,
+              "end_seconds": 3,
+              "purpose": "hook",
+              "visual_subject": "A mixed sound ribbon",
+              "setting": "A dark listening chamber with a single suspended audio ribbon",
+              "visual_description": "An abstract sound ribbon crosses the frame, breaking into short temporal pulses while a second translucent spectrum remains just visible behind it.",
+              "composition": "Extreme-wide vertical frame; ribbon enters low left and curves toward the upper third.",
+              "camera": {
+                "shot_size": "wide",
+                "angle": "Low three-quarter angle looking into the ribbon",
+                "movement": "dolly_in",
+                "focus": "The first pulse where the ribbon separates"
+              },
+              "animation": {
+                "subject_action": "The sound ribbon divides into distinct pulsing segments.",
+                "environment_motion": "Background particles drift toward the split.",
+                "graphic_action": "Two signal traces begin to separate.",
+                "depth_motion": "Foreground particles pass the lens at staggered depths.",
+                "motion_rationale": "Motion makes the a mixed sound ribbon legible as a changing musical or research idea rather than a still illustration."
+              },
+              "procedural_scene": {
+                "environment": "abstract",
+                "objects": [
+                  {
+                    "id": "music-obj-1-a",
+                    "kind": "light_streak",
+                    "x": 0.25,
+                    "y": 0.3,
+                    "size": 28,
+                    "color": "#547AA5",
+                    "motion": "travel_right",
+                    "period_seconds": 2.4
+                  },
+                  {
+                    "id": "music-obj-1-b",
+                    "kind": "particle",
+                    "x": 0.72,
+                    "y": 0.68,
+                    "size": 18,
+                    "color": "#FF765E",
+                    "motion": "drift",
+                    "period_seconds": 1.6
+                  }
+                ]
+              },
+              "character_action": {
+                "visible": true,
+                "gesture": "open_palms",
+                "expression": "smile",
+                "loop": true,
+                "cycle_duration_seconds": 1.8
+              },
+              "transition_to_next": "cut",
+              "narration_cue": "How does your brain separate speech?",
+              "music_cue": "A single low violin harmonic introduces the question.",
+              "sound_effects": [
+                "soft tonal reveal"
+              ]
+            },
+            {
+              "id": "shot-02",
+              "start_seconds": 3,
+              "end_seconds": 7,
+              "purpose": "context",
+              "visual_subject": "Rapid temporal changes",
+              "setting": "A narrow rhythmic corridor",
+              "visual_description": "Short bright pulses arrive in uneven but continuous intervals, leaving visible trails that show how quickly the sound changes over time.",
+              "composition": "A diagonal pulse train occupies the left two-thirds with dark negative space on the right.",
+              "camera": {
+                "shot_size": "close_up",
+                "angle": "Top-down oblique view along the pulse train",
+                "movement": "tracking",
+                "focus": "The leading edge of each pulse"
+              },
+              "animation": {
+                "subject_action": "Each pulse expands, travels forward and decays before the next arrives.",
+                "environment_motion": "A soft grid scrolls beneath the signal.",
+                "graphic_action": "The time ruler advances in sync with the moving pulses.",
+                "depth_motion": "Near-field sparks cross faster than distant grid points.",
+                "motion_rationale": "Motion makes the rapid temporal changes legible as a changing musical or research idea rather than a still illustration."
+              },
+              "procedural_scene": {
+                "environment": "laboratory",
+                "objects": [
+                  {
+                    "id": "music-obj-2-a",
+                    "kind": "spark",
+                    "x": 0.45,
+                    "y": 0.52,
+                    "size": 28,
+                    "color": "#FF765E",
+                    "motion": "travel_right",
+                    "period_seconds": 2.4
+                  },
+                  {
+                    "id": "music-obj-2-b",
+                    "kind": "ring",
+                    "x": 0.6,
+                    "y": 0.5,
+                    "size": 18,
+                    "color": "#547AA5",
+                    "motion": "pulse",
+                    "period_seconds": 1.6
+                  }
+                ]
+              },
+              "character_action": {
+                "visible": false
+              },
+              "transition_to_next": "match_cut",
+              "narration_cue": "Speech is linked to rapid timing changes.",
+              "music_cue": "A crisp plucked note marks the temporal clue.",
+              "sound_effects": [
+                "restrained transition accent"
+              ]
+            },
+            {
+              "id": "shot-03",
+              "start_seconds": 7,
+              "end_seconds": 11,
+              "purpose": "reveal",
+              "visual_subject": "Frequency detail",
+              "setting": "A cool spectral observatory",
+              "visual_description": "A thin sound line opens into layered frequency bands; each band shimmers at a different height, revealing the fine detail carried across frequencies.",
+              "composition": "Macro composition with the spectral bands stacked from lower left to upper right.",
+              "camera": {
+                "shot_size": "macro",
+                "angle": "Straight-on macro view through the spectral layers",
+                "movement": "parallax_track",
+                "focus": "The narrow high-frequency bands separating from the base"
+              },
+              "animation": {
+                "subject_action": "Individual bands widen and contract independently.",
+                "environment_motion": "A faint field of particles drifts behind the spectrum.",
+                "graphic_action": "The frequency bands illuminate one after another.",
+                "depth_motion": "Foreground bands move faster than the distant field.",
+                "motion_rationale": "Motion makes the frequency detail legible as a changing musical or research idea rather than a still illustration."
+              },
+              "procedural_scene": {
+                "environment": "space",
+                "objects": [
+                  {
+                    "id": "music-obj-3-a",
+                    "kind": "ring",
+                    "x": 0.65,
+                    "y": 0.3,
+                    "size": 28,
+                    "color": "#547AA5",
+                    "motion": "orbit",
+                    "period_seconds": 2.4
+                  },
+                  {
+                    "id": "music-obj-3-b",
+                    "kind": "orb",
+                    "x": 0.48,
+                    "y": 0.68,
+                    "size": 18,
+                    "color": "#FF765E",
+                    "motion": "pulse",
+                    "period_seconds": 1.6
+                  }
+                ]
+              },
+              "character_action": {
+                "visible": true,
+                "gesture": "point_left",
+                "expression": "speaking",
+                "loop": true,
+                "cycle_duration_seconds": 1.8
+              },
+              "transition_to_next": "whip_pan",
+              "narration_cue": "Music judgements are linked to detailed frequency patterns.",
+              "music_cue": "A sustained upper note opens above the pulse.",
+              "sound_effects": [
+                "restrained transition accent"
+              ]
+            },
+            {
+              "id": "shot-04",
+              "start_seconds": 11,
+              "end_seconds": 15,
+              "purpose": "explanation",
+              "visual_subject": "The auditory-cortex information map",
+              "setting": "An abstract neural signal hall",
+              "visual_description": "A non-literal network of luminous nodes traces the movement of the two acoustic ribbons through a simplified auditory-cortex metaphor, with no anatomical claims.",
+              "composition": "Medium portrait framing with a clear central node and generous dark margin.",
+              "camera": {
+                "shot_size": "medium",
+                "angle": "Eye-level, slightly elevated toward the network",
+                "movement": "orbit",
+                "focus": "The bridge between the two signal paths"
+              },
+              "animation": {
+                "subject_action": "Signal nodes illuminate in a traveling sequence.",
+                "environment_motion": "Fine atmospheric haze moves slowly behind the network.",
+                "graphic_action": "The two paths converge at a central information node.",
+                "depth_motion": "Foreground lines pass at a separate depth from the network.",
+                "motion_rationale": "Motion makes the the auditory-cortex information map legible as a changing musical or research idea rather than a still illustration."
+              },
+              "procedural_scene": {
+                "environment": "laboratory",
+                "objects": [
+                  {
+                    "id": "music-obj-4-a",
+                    "kind": "orb",
+                    "x": 0.25,
+                    "y": 0.52,
+                    "size": 28,
+                    "color": "#547AA5",
+                    "motion": "orbit",
+                    "period_seconds": 2.4
+                  },
+                  {
+                    "id": "music-obj-4-b",
+                    "kind": "spark",
+                    "x": 0.72,
+                    "y": 0.5,
+                    "size": 18,
+                    "color": "#FF765E",
+                    "motion": "flicker",
+                    "period_seconds": 1.6
+                  }
+                ]
+              },
+              "character_action": {
+                "visible": false
+              },
+              "transition_to_next": "dissolve",
+              "narration_cue": "The brain tracks changing sound patterns.",
+              "music_cue": "A soft shimmer supports the explanatory reveal.",
+              "sound_effects": [
+                "restrained transition accent"
+              ]
+            },
+            {
+              "id": "shot-05",
+              "start_seconds": 15,
+              "end_seconds": 19,
+              "purpose": "contrast",
+              "visual_subject": "The two research groups",
+              "setting": "A clean research-evidence gallery",
+              "visual_description": "Two restrained evidence panels appear in sequence: eleven clinical electrode participants and nineteen separate adult listeners; no patient likenesses or identifiable medical imagery.",
+              "composition": "Overhead view with two matched panels and equal visual weight.",
+              "camera": {
+                "shot_size": "overhead",
+                "angle": "Direct overhead evidence layout",
+                "movement": "crane_up",
+                "focus": "The two distinct participant-group labels"
+              },
+              "animation": {
+                "subject_action": "The first panel settles, then the second panel slides into alignment.",
+                "environment_motion": "A narrow light sweep crosses the display.",
+                "graphic_action": "The two group counts appear as separate editorial labels.",
+                "depth_motion": "Small background particles continue moving beneath the panels.",
+                "motion_rationale": "Motion makes the the two research groups legible as a changing musical or research idea rather than a still illustration."
+              },
+              "procedural_scene": {
+                "environment": "abstract",
+                "objects": [
+                  {
+                    "id": "music-obj-5-a",
+                    "kind": "gear",
+                    "x": 0.45,
+                    "y": 0.3,
+                    "size": 28,
+                    "color": "#547AA5",
+                    "motion": "rotate",
+                    "period_seconds": 2.4
+                  },
+                  {
+                    "id": "music-obj-5-b",
+                    "kind": "light_streak",
+                    "x": 0.6,
+                    "y": 0.68,
+                    "size": 18,
+                    "color": "#FF765E",
+                    "motion": "travel_left",
+                    "period_seconds": 1.6
+                  }
+                ]
+              },
+              "character_action": {
+                "visible": false
+              },
+              "transition_to_next": "luma_wipe",
+              "narration_cue": "Eleven patients and nineteen other adults took part in different parts of the study.",
+              "music_cue": "Two quiet accents separate the evidence panels.",
+              "sound_effects": [
+                "restrained transition accent"
+              ]
+            },
+            {
+              "id": "shot-06",
+              "start_seconds": 19,
+              "end_seconds": 23,
+              "purpose": "explanation",
+              "visual_subject": "Listener judgements",
+              "setting": "A listening booth with three response lights",
+              "visual_description": "Three simple response lights labeled speech, music and both illuminate independently as a moving sound ribbon passes through the listening booth.",
+              "composition": "Close framing on the response lights with the sound ribbon blurred in the background.",
+              "camera": {
+                "shot_size": "close_up",
+                "angle": "Eye-level side view across the response lights",
+                "movement": "truck_left",
+                "focus": "The alternating three response indicators"
+              },
+              "animation": {
+                "subject_action": "The three response lights pulse in response to the moving ribbon.",
+                "environment_motion": "The booth's soft acoustic panels breathe with subtle parallax.",
+                "graphic_action": "Speech, music and both labels illuminate in turn.",
+                "depth_motion": "A shallow foreground frame edge slides past the lens.",
+                "motion_rationale": "Motion makes the listener judgements legible as a changing musical or research idea rather than a still illustration."
+              },
+              "procedural_scene": {
+                "environment": "concert_stage",
+                "objects": [
+                  {
+                    "id": "music-obj-6-a",
+                    "kind": "orb",
+                    "x": 0.65,
+                    "y": 0.52,
+                    "size": 28,
+                    "color": "#FF765E",
+                    "motion": "pulse",
+                    "period_seconds": 2.4
+                  },
+                  {
+                    "id": "music-obj-6-b",
+                    "kind": "music_note",
+                    "x": 0.48,
+                    "y": 0.5,
+                    "size": 18,
+                    "color": "#547AA5",
+                    "motion": "float",
+                    "period_seconds": 1.6
+                  }
+                ]
+              },
+              "character_action": {
+                "visible": true,
+                "gesture": "explain",
+                "expression": "speaking",
+                "loop": true,
+                "cycle_duration_seconds": 1.8
+              },
+              "transition_to_next": "light_transition",
+              "narration_cue": "Listeners marked speech, music or both.",
+              "music_cue": "A three-note motif echoes the three response options.",
+              "sound_effects": [
+                "restrained transition accent"
+              ]
+            },
+            {
+              "id": "shot-07",
+              "start_seconds": 23,
+              "end_seconds": 27,
+              "purpose": "payoff",
+              "visual_subject": "One violin motif in two contours",
+              "setting": "An abstract concert stage divided by a ribbon of light",
+              "visual_description": "An original non-copied violin motif is represented by a short articulated contour that transforms into a sustained frequency-rich arc; this is illustrative, not a claim of live creator performance.",
+              "composition": "Wide diagonal stage composition with the violin silhouette as a central anchor.",
+              "camera": {
+                "shot_size": "point_of_view",
+                "angle": "Low point-of-view angle toward the illuminated violin silhouette",
+                "movement": "arc",
+                "focus": "The moment the articulated contour becomes a sustained arc"
+              },
+              "animation": {
+                "subject_action": "The two original motif contours move in sequence around the violin silhouette.",
+                "environment_motion": "Stage haze drifts from the rear plane.",
+                "graphic_action": "The temporal pulse and sustained spectral arc meet.",
+                "depth_motion": "A bright foreground streak crosses the frame on the transition.",
+                "motion_rationale": "Motion makes the one violin motif in two contours legible as a changing musical or research idea rather than a still illustration."
+              },
+              "procedural_scene": {
+                "environment": "concert_stage",
+                "objects": [
+                  {
+                    "id": "music-obj-7-a",
+                    "kind": "music_note",
+                    "x": 0.25,
+                    "y": 0.3,
+                    "size": 28,
+                    "color": "#FF765E",
+                    "motion": "travel_right",
+                    "period_seconds": 2.4
+                  },
+                  {
+                    "id": "music-obj-7-b",
+                    "kind": "light_streak",
+                    "x": 0.72,
+                    "y": 0.68,
+                    "size": 18,
+                    "color": "#547AA5",
+                    "motion": "sway",
+                    "period_seconds": 1.6
+                  }
+                ]
+              },
+              "character_action": {
+                "visible": false
+              },
+              "transition_to_next": "shape_match",
+              "narration_cue": "An original motif makes the contrast audible.",
+              "music_cue": "The original motif resolves into a warm held note.",
+              "sound_effects": [
+                "restrained transition accent"
+              ]
+            },
+            {
+              "id": "shot-08",
+              "start_seconds": 27,
+              "end_seconds": 32,
+              "purpose": "ending",
+              "visual_subject": "The presenter and resolved sound ribbon",
+              "setting": "The listening chamber opening into a clear stage",
+              "visual_description": "The presenter returns in the safe area as the two sound ribbons resolve into one clean luminous path, leaving the central violin silhouette unobstructed.",
+              "composition": "Medium-wide balanced portrait frame; presenter right, musical payoff left, clear title-safe top.",
+              "camera": {
+                "shot_size": "medium",
+                "angle": "Eye-level closing composition",
+                "movement": "crane_up",
+                "focus": "The joined ribbon and final title"
+              },
+              "animation": {
+                "subject_action": "The two ribbons merge and travel upward into a single fading arc.",
+                "environment_motion": "The background glow slowly opens around the final composition.",
+                "graphic_action": "The final title appears after the paths meet.",
+                "depth_motion": "Foreground particles rise at a slower speed than the main ribbon.",
+                "motion_rationale": "Motion makes the the presenter and resolved sound ribbon legible as a changing musical or research idea rather than a still illustration."
+              },
+              "procedural_scene": {
+                "environment": "abstract",
+                "objects": [
+                  {
+                    "id": "music-obj-8-a",
+                    "kind": "ring",
+                    "x": 0.45,
+                    "y": 0.52,
+                    "size": 28,
+                    "color": "#547AA5",
+                    "motion": "orbit",
+                    "period_seconds": 2.4
+                  },
+                  {
+                    "id": "music-obj-8-b",
+                    "kind": "particle",
+                    "x": 0.6,
+                    "y": 0.5,
+                    "size": 18,
+                    "color": "#FF765E",
+                    "motion": "float",
+                    "period_seconds": 1.6
+                  }
+                ]
+              },
+              "character_action": {
+                "visible": true,
+                "gesture": "nod",
+                "expression": "smile",
+                "loop": true,
+                "cycle_duration_seconds": 1.8
+              },
+              "transition_to_next": "none",
+              "narration_cue": "The study offers useful clues, not the only possible mechanism.",
+              "music_cue": "A clean original violin resolve closes the story.",
+              "sound_effects": [
+                "gentle final accent"
+              ]
+            }
+          ]
+        },
+        "edit_direction": {
+          "pacing": "A 32-second vertical documentary arc: hook, evidence, explanation and original musical payoff. Vary shot duration and composition; never hold a still frame as a substitute for motion.",
+          "transition_language": "Use the directed sequence of hard cut, match cut, whip pan, dissolve, luma wipe, light transition and shape match; each transition follows a change in the story rather than a fixed template.",
+          "typography": "Use short high-contrast mobile-safe labels, no more than one key idea at a time; maintain safe margins and keep the presenter's face and hands clear.",
+          "sound_design": "Use original transition accents and light percussive detail. Keep narration intelligible and duck the music under speech. Do not add movie, game, artist or product audio.",
+          "music_mood": "Curious, precise and finally lyrical; a newly composed violin phrase contrasts short rhythmic articulation with a sustained contour.",
+          "music_sync_cues": [
+            {
+              "time_seconds": 2.4,
+              "event": "Opening visual reveal and first tonal accent",
+              "reason": "Editorial target only; align to a detected transient or beat from the actual decoded audio during render."
+            },
+            {
+              "time_seconds": 11.2,
+              "event": "Main explanatory transition into the story's central reveal",
+              "reason": "Editorial target only; snap to a measured audio onset or beat, never treat this target as measured timing."
+            },
+            {
+              "time_seconds": 26.5,
+              "event": "Final musical payoff begins",
+              "reason": "Editorial target only; align this payoff to a real detected event in the supplied or licensed audio."
+            }
+          ],
+          "final_payoff": "Finish on a clear original Violin Prince musical idea and one resolved visual statement. Never imply the presenter is playing a violin with this upper-body-only rig; do not claim creator-recorded performance unless a verified creator recording is present."
+        }
+      }
     },
     {
       "production_date": "2026-11-26",
       "slot_id": "production-tech",
       "slot_status": "blocked",
-      "topic": "Cherry Audio DW-8K: a modern hybrid-synth recreation of the Korg DW-8000",
-      "core_claim": "DW-8K recreates the DW-8000's digital-waveform and analogue-filter hybrid architecture while adding dual layers, expanded polyphony, modulation and MPE.",
-      "research_sources": [
+      "editorial_plan_status": "complete",
+      "production_status": "blocked_pending_genuine_animation_and_presenter_approval",
+      "blocked_reason": "Editorial plan and two independent publisher pages are complete, but scheduled rendering remains blocked because autopilot/engine/animation-production-approval.json is absent and the saved presenter rig has no production-approval.json. These gates require genuine moving-animation evidence and creator visual approval. Public YouTube publication is authorised; no private preview is required.",
+      "story_type": "music_technology",
+      "title": "DW-8K: A New Voice for a Hybrid Synth Classic",
+      "topic": "How Cherry Audio DW-8K revisits the Korg DW-8000 hybrid synthesizer architecture with digital waveforms, analogue filtering and dual-timbral voices.",
+      "core_claim": "DW-8K recreates the Korg DW-8000 hybrid design, pairing digital waveforms with analogue filtering and amplification while adding a dual-timbral architecture with sixteen voices per layer.",
+      "hook": "Can old synths sound new again in software?",
+      "description": "Cherry Audio DW-8K revisits the Korg DW-8000 hybrid synthesizer: digital waveform generation meets analogue filtering and amplification, with two timbral layers. The visuals and sound example are original editorial illustrations, not product-interface copies or a sampled commercial preset. Sources: https://www.gearnews.com/cherry-audio-dw-8k-synths/ and https://synthanatomy.com/2026/11/cherry-audio-dw-8k-korg-dw-8000-synthesizer-emulation-with-extras-as-a-plugin.html",
+      "hashtags": [
+        "#Synthesizer",
+        "#MusicProduction",
+        "#SoundDesign",
+        "#ViolinPrince"
+      ],
+      "tags": [
+        "DW-8K",
+        "Korg DW-8000",
+        "hybrid synthesizer",
+        "digital waveforms",
+        "analogue filter",
+        "music technology",
+        "sound design",
+        "Violin Prince"
+      ],
+      "narrative_style": "documentary",
+      "cover_payoff": "Create an original, rights-cleared violin phrase that contrasts a bright digital-style attack with a warmer sustained tone. Do not imitate a factory preset, existing song or commercial recording.",
+      "narration_script": "Can old synths sound new again in software? Gearnews pairs digital oscillators with analogue filters and amplifiers. Synth Anatomy says DW-8K follows the original signal path. Dual layers now offer sixteen voices on each layer.",
+      "narration_evidence": [
         {
-          "publisher": "SYNTH ANATOMY",
-          "publisher_family": "synthanatomy.com",
-          "published_at": "2026-11-24",
-          "url": "https://synthanatomy.com/2026/11/cherry-audio-dw-8k-korg-dw-8000-synthesizer-emulation-with-extras-as-a-plugin.html",
-          "verification_status": "direct_article_open_verified",
-          "note": "Direct publisher page opened and dated 24 November. It describes the DW-8K recreation of the 1985 Korg DW-8000 hybrid architecture, including digital waveforms and analog filtering."
+          "sentence_number": 2,
+          "source_id": "S001",
+          "quote": "digital oscillators and analogue filters and amplifiers"
         },
         {
-          "publisher": "Gearnews",
-          "publisher_family": "gearnews.com",
-          "published_at": "2026-11-24",
-          "url": "https://www.gearnews.com/cherry-audio-dw-8k-synths/",
-          "verification_status": "direct_article_open_verified",
-          "note": "Direct publisher page opened and dated 24 November. It independently describes the DW-8K as a recreation/reimagining of the Korg DW-8000 and explains the hybrid digital-oscillator/analog-filter design."
+          "sentence_number": 3,
+          "source_id": "S002",
+          "quote": "The core has been modeled and follows the same signal path"
         },
         {
-          "publisher": "Cherry Audio",
-          "publisher_family": "cherryaudio.com",
-          "published_at": "2026-11-24",
-          "url": "https://cherryaudio.com/news/cherry-audio-makes-waves-new-dw-8k",
-          "verification_status": "official_manufacturer_release_only",
-          "note": "Supplementary primary announcement; not counted as an independent publisher."
+          "sentence_number": 4,
+          "source_id": "S002",
+          "quote": "each with 16 voices with split and layer functions"
         }
       ],
-      "source_limitations": "Two independent direct publisher pages and their 24 November dates were opened and verified. No ready narration plan with exact publisher quotations/evidence records was created in this run. Regardless, the animation-production and presenter-production approval files required by main are absent.",
-      "blocked_reason": "Production remains blocked by main-branch hard gates: autopilot/engine/animation-production-approval.json is absent, and the presenter rig bundle has no production-approval.json, so the procedural renderer refuses to run. The public YouTube approval is valid; no private preview is required. Research pages are verified, but this batch has no accepted 35-word narration and exact source-evidence records."
+      "narration_asr_hotwords": [
+        "DW-8K",
+        "Korg DW-8000",
+        "SYNTH ANATOMY",
+        "Gearnews"
+      ],
+      "timeline": [],
+      "timeline_evidence": [],
+      "sources": [
+        {
+          "source_id": "S001",
+          "title": "Cherry Audio DW-8K – A Classic Hybrid Synth Revisited!",
+          "url": "https://www.gearnews.com/cherry-audio-dw-8k-synths/",
+          "publisher_domain": "gearnews.com",
+          "publisher_name": "Gearnews",
+          "date": "2026-11-24"
+        },
+        {
+          "source_id": "S002",
+          "title": "Cherry Audio DW-8K: Korg DW-8000 Synthesizer emulation with extras as a plugin",
+          "url": "https://synthanatomy.com/2026/11/cherry-audio-dw-8k-korg-dw-8000-synthesizer-emulation-with-extras-as-a-plugin.html",
+          "publisher_domain": "synthanatomy.com",
+          "publisher_name": "SYNTH ANATOMY",
+          "date": "2026-11-24"
+        }
+      ],
+      "scenes": [
+        {
+          "id": "hybrid-origin",
+          "caption": "A classic hybrid idea returns",
+          "visual_mode": "macro_illustration",
+          "narration_sentence_indexes": [
+            0
+          ],
+          "image_prompt": "Original premium synthesizer-documentary macro illustration of an unbranded vintage-inspired keyboard panel emerging from shadow, brushed metal, glass controls and a glowing waveform, no product logo or copied product photography."
+        },
+        {
+          "id": "hybrid-path",
+          "caption": "Digital waveforms meet analogue shaping",
+          "visual_mode": "mechanism_illustration",
+          "narration_sentence_indexes": [
+            1,
+            2
+          ],
+          "image_prompt": "A precise original signal-flow cutaway showing digital waveform oscillators feeding analogue filter and amplifier stages; clear separated components, tasteful copper and cool steel highlights, no false circuit details or copied diagrams."
+        },
+        {
+          "id": "voice-payoff",
+          "caption": "Two layers, one original sound idea",
+          "visual_mode": "cover_performance",
+          "narration_sentence_indexes": [
+            3
+          ],
+          "image_prompt": "Original Violin Prince musical payoff: two contrasting abstract sound layers converge around a violin silhouette, one crisp and bright, one warm and rounded; cinematic contrast, no recognizable song, preset or branded instrument art."
+        }
+      ],
+      "performance_feedback": {
+        "sample_window": "Metricool YouTube evolution, 2026-10-23 to 2026-11-22 (brand timezone Asia/Calcutta).",
+        "sample_count": 27,
+        "confidence": "Low for topic or format ranking: per-video views, retention, average view duration, traffic sources and country rows were not available in the returned report.",
+        "channel_observation": "The returned daily channel rows totalled 1,877 views; the subscriber values ranged from 516 to 517, with five gained and two lost across the returned rows.",
+        "strengths_to_preserve": [
+          "Keep the violin-first channel identity and an original musical payoff.",
+          "Bengali and Indian repertoire remain part of a worldwide channel rather than a geographic limit."
+        ],
+        "one_change_to_test": "Open with one clear first-second curiosity hook, use one source-backed visual explanation, then finish with a distinct original violin phrase.",
+        "measurement_for_next_upload": "Capture 24-hour and seven-day views, engaged views, average view duration, average percentage viewed, stayed-to-watch, likes, comments, shares, traffic sources and country data when available."
+      },
+      "publish_metadata": {
+        "title": "DW-8K: A New Voice for a Hybrid Synth Classic",
+        "description": "A concise explanation of the DW-8K hybrid architecture: digital waveforms, analogue tone shaping and dual-timbral voices. Original Violin Prince sound-design illustration. Sources: Gearnews and SYNTH ANATOMY, November 2026.",
+        "tags": [
+          "DW-8K",
+          "Korg DW-8000",
+          "hybrid synthesizer",
+          "digital waveform",
+          "analogue filter",
+          "music technology",
+          "Violin Prince"
+        ],
+        "privacy_status": "public"
+      },
+      "master_director_plan": {
+        "schema_version": 2,
+        "render_mode": "procedural_2d",
+        "production_binding": {
+          "production_date": "2026-11-26",
+          "slot_id": "production-tech",
+          "title": "DW-8K: A New Voice for a Hybrid Synth Classic",
+          "topic": "How Cherry Audio DW-8K revisits the Korg DW-8000 hybrid synthesizer architecture with digital waveforms, analogue filtering and dual-timbral voices.",
+          "narration_script": "Can old synths sound new again in software? Gearnews pairs digital oscillators with analogue filters and amplifiers. Synth Anatomy says DW-8K follows the original signal path. Dual layers now offer sixteen voices on each layer."
+        },
+        "story_understanding": {
+          "central_truth": "The DW-8K revisits the Korg DW-8000 hybrid architecture: digital waveforms paired with analogue filtering, with a modern dual-timbral design offering sixteen voices per layer.",
+          "viewer_question": "What makes a hybrid synthesizer sound and behave differently?",
+          "emotional_arc": [
+            "A vintage instrument idea returns as a modern plugin",
+            "The signal path reveals the meeting of digital waveforms and analogue tone shaping",
+            "Two original timbral layers resolve into a fresh musical phrase"
+          ],
+          "key_revelations": [
+            "The original DW-8000 combined digital waveforms with an analogue resonant low-pass filter and analogue VCA.",
+            "DW-8K's modeled core follows the original signal path.",
+            "The plugin is dual-timbral, with sixteen voices per layer and split/layer functions."
+          ]
+        },
+        "visual_concept": {
+          "concept_name": "The Hybrid Signal Chamber",
+          "visual_metaphor": "A digital waveform travels through a physical-feeling filter chamber, then splits into two independently coloured timbral paths.",
+          "creative_rationale": "The story is about the combination of two synthesis traditions; a tactile signal chamber makes the architecture understandable without copying the DW-8K interface or an actual product image.",
+          "art_direction": "Industrial music-technology cinema: brushed metal, restrained control-room geometry, animated signal traces, close mechanical details and a strong warm/cool contrast.",
+          "palette": {
+            "dominant": "#20242B",
+            "secondary": "#71808A",
+            "accent": "#F2A541",
+            "harmony": "temperature_contrast",
+            "reasoning": "Cool graphite and steel establish the digital/control-room space while a warm amber accent signals analogue filtering and the final sound.",
+            "contrast_strategy": "Keep text ivory against graphite; use amber only for the filter stage and the final layer merge, with no tiny control labels."
+          },
+          "lighting_plan": "A cool steel key on the digital path, warm amber edge light around the analogue stage, and a narrow backlight when the two timbres split.",
+          "composition_language": "Build a readable left-to-right signal path with foreground hardware silhouettes, a clear midground filter chamber, and a clean title-safe upper zone."
+        },
+        "storyboard": {
+          "duration_seconds": 32,
+          "shots": [
+            {
+              "id": "shot-01",
+              "start_seconds": 0,
+              "end_seconds": 3,
+              "purpose": "hook",
+              "visual_subject": "A vintage-inspired synthesizer silhouette",
+              "setting": "A dim industrial music studio",
+              "visual_description": "An unbranded keyboard silhouette emerges from darkness as a single waveform glows above its controls, hinting at a classic design returning in software.",
+              "composition": "Low wide composition with the instrument across the bottom third.",
+              "camera": {
+                "shot_size": "wide",
+                "angle": "Low three-quarter angle across the keyboard",
+                "movement": "dolly_in",
+                "focus": "The first glowing waveform above the instrument"
+              },
+              "animation": {
+                "subject_action": "The waveform rises from the keyboard and begins to pulse.",
+                "environment_motion": "Studio haze drifts behind the instrument silhouette.",
+                "graphic_action": "A small signal trace lights up across the top edge.",
+                "depth_motion": "Foreground metal reflections slide past the lens.",
+                "motion_rationale": "Motion makes the a vintage-inspired synthesizer silhouette legible as a changing musical or research idea rather than a still illustration."
+              },
+              "procedural_scene": {
+                "environment": "concert_stage",
+                "objects": [
+                  {
+                    "id": "tech-obj-1-a",
+                    "kind": "gear",
+                    "x": 0.25,
+                    "y": 0.3,
+                    "size": 28,
+                    "color": "#71808A",
+                    "motion": "rotate",
+                    "period_seconds": 2.4
+                  },
+                  {
+                    "id": "tech-obj-1-b",
+                    "kind": "light_streak",
+                    "x": 0.72,
+                    "y": 0.68,
+                    "size": 18,
+                    "color": "#F2A541",
+                    "motion": "travel_right",
+                    "period_seconds": 1.6
+                  }
+                ]
+              },
+              "character_action": {
+                "visible": true,
+                "gesture": "open_palms",
+                "expression": "smile",
+                "loop": true,
+                "cycle_duration_seconds": 1.8
+              },
+              "transition_to_next": "cut",
+              "narration_cue": "Can old synths sound new again in software?",
+              "music_cue": "A bright digital note sparks the opening.",
+              "sound_effects": [
+                "soft tonal reveal"
+              ]
+            },
+            {
+              "id": "shot-02",
+              "start_seconds": 3,
+              "end_seconds": 7,
+              "purpose": "context",
+              "visual_subject": "Digital waveform oscillators",
+              "setting": "A precise signal-generation chamber",
+              "visual_description": "Three original waveform traces roll forward as distinct digital shapes, each changing continuously rather than appearing as a still graphic.",
+              "composition": "Vertical stack of waveform layers with a clear center line.",
+              "camera": {
+                "shot_size": "macro",
+                "angle": "Front-on macro view of the moving traces",
+                "movement": "tracking",
+                "focus": "The repeating waveform cycles"
+              },
+              "animation": {
+                "subject_action": "Waveform traces cycle and travel continuously across the screen.",
+                "environment_motion": "Cool grid marks drift slowly behind the signals.",
+                "graphic_action": "Each oscillator trace turns on in sequence.",
+                "depth_motion": "A foreground trace passes faster than the rear grid.",
+                "motion_rationale": "Motion makes the digital waveform oscillators legible as a changing musical or research idea rather than a still illustration."
+              },
+              "procedural_scene": {
+                "environment": "laboratory",
+                "objects": [
+                  {
+                    "id": "tech-obj-2-a",
+                    "kind": "ring",
+                    "x": 0.45,
+                    "y": 0.52,
+                    "size": 28,
+                    "color": "#71808A",
+                    "motion": "pulse",
+                    "period_seconds": 2.4
+                  },
+                  {
+                    "id": "tech-obj-2-b",
+                    "kind": "light_streak",
+                    "x": 0.6,
+                    "y": 0.5,
+                    "size": 18,
+                    "color": "#F2A541",
+                    "motion": "travel_left",
+                    "period_seconds": 1.6
+                  }
+                ]
+              },
+              "character_action": {
+                "visible": false
+              },
+              "transition_to_next": "match_cut",
+              "narration_cue": "Digital oscillators form the source layer.",
+              "music_cue": "Three short digital pulses establish the texture.",
+              "sound_effects": [
+                "restrained transition accent"
+              ]
+            },
+            {
+              "id": "shot-03",
+              "start_seconds": 7,
+              "end_seconds": 11,
+              "purpose": "reveal",
+              "visual_subject": "Analogue filter and amplifier stages",
+              "setting": "A warm metal filter chamber",
+              "visual_description": "The waveform enters a resonant filter chamber; a moving cutoff arc sweeps across the signal and a warm amplifier glow follows.",
+              "composition": "Close technical side view with the filter as the central mechanical subject.",
+              "camera": {
+                "shot_size": "close_up",
+                "angle": "Side-on close view through the chamber",
+                "movement": "parallax_track",
+                "focus": "The moving filter curve and its resonance peak"
+              },
+              "animation": {
+                "subject_action": "A cutoff arc sweeps upward and the filtered waveform changes shape.",
+                "environment_motion": "Amber motes drift out from the filter chamber.",
+                "graphic_action": "The filter stage illuminates before the amplifier stage.",
+                "depth_motion": "A foreground metal edge moves in parallax against the signal.",
+                "motion_rationale": "Motion makes the analogue filter and amplifier stages legible as a changing musical or research idea rather than a still illustration."
+              },
+              "procedural_scene": {
+                "environment": "abstract",
+                "objects": [
+                  {
+                    "id": "tech-obj-3-a",
+                    "kind": "gear",
+                    "x": 0.65,
+                    "y": 0.3,
+                    "size": 28,
+                    "color": "#71808A",
+                    "motion": "rotate",
+                    "period_seconds": 2.4
+                  },
+                  {
+                    "id": "tech-obj-3-b",
+                    "kind": "orb",
+                    "x": 0.48,
+                    "y": 0.68,
+                    "size": 18,
+                    "color": "#F2A541",
+                    "motion": "pulse",
+                    "period_seconds": 1.6
+                  }
+                ]
+              },
+              "character_action": {
+                "visible": true,
+                "gesture": "point_right",
+                "expression": "speaking",
+                "loop": true,
+                "cycle_duration_seconds": 1.8
+              },
+              "transition_to_next": "whip_pan",
+              "narration_cue": "Analogue filters and amplifiers shape the signal.",
+              "music_cue": "A warm sustained note follows the filter sweep.",
+              "sound_effects": [
+                "restrained transition accent"
+              ]
+            },
+            {
+              "id": "shot-04",
+              "start_seconds": 11,
+              "end_seconds": 15,
+              "purpose": "explanation",
+              "visual_subject": "The hybrid signal path",
+              "setting": "A long left-to-right signal corridor",
+              "visual_description": "The digital waveform path and analogue filter path join through a clearly labeled signal corridor, following the original hybrid architecture.",
+              "composition": "Overhead path diagram with distinct source and shaping zones.",
+              "camera": {
+                "shot_size": "overhead",
+                "angle": "Top-down view down the signal corridor",
+                "movement": "truck_right",
+                "focus": "The connection point between digital and analogue stages"
+              },
+              "animation": {
+                "subject_action": "A bright signal travels through each stage without stopping.",
+                "environment_motion": "Background path markers scroll slowly in the opposite direction.",
+                "graphic_action": "The two stage labels illuminate as the signal passes.",
+                "depth_motion": "Foreground cables move faster than the distant chamber.",
+                "motion_rationale": "Motion makes the the hybrid signal path legible as a changing musical or research idea rather than a still illustration."
+              },
+              "procedural_scene": {
+                "environment": "laboratory",
+                "objects": [
+                  {
+                    "id": "tech-obj-4-a",
+                    "kind": "light_streak",
+                    "x": 0.25,
+                    "y": 0.52,
+                    "size": 28,
+                    "color": "#71808A",
+                    "motion": "travel_right",
+                    "period_seconds": 2.4
+                  },
+                  {
+                    "id": "tech-obj-4-b",
+                    "kind": "ring",
+                    "x": 0.72,
+                    "y": 0.5,
+                    "size": 18,
+                    "color": "#F2A541",
+                    "motion": "rotate",
+                    "period_seconds": 1.6
+                  }
+                ]
+              },
+              "character_action": {
+                "visible": false
+              },
+              "transition_to_next": "dissolve",
+              "narration_cue": "The design combines digital waveforms with analogue processing.",
+              "music_cue": "A digital pulse warms into a rounded tone.",
+              "sound_effects": [
+                "restrained transition accent"
+              ]
+            },
+            {
+              "id": "shot-05",
+              "start_seconds": 15,
+              "end_seconds": 19,
+              "purpose": "contrast",
+              "visual_subject": "Two independent timbral layers",
+              "setting": "A dual-lane sound chamber",
+              "visual_description": "The single signal divides into two parallel timbral lanes, each with its own waveform colour and independent movement.",
+              "composition": "Symmetrical split frame with equal space for both lanes.",
+              "camera": {
+                "shot_size": "medium",
+                "angle": "Eye-level view directly between the two lanes",
+                "movement": "orbit",
+                "focus": "The split where one signal becomes two timbres"
+              },
+              "animation": {
+                "subject_action": "Two waveform lanes travel at contrasting rates and amplitudes.",
+                "environment_motion": "A low-contrast star field drifts behind the split lanes.",
+                "graphic_action": "Layer A and Layer B appear as separate labels.",
+                "depth_motion": "The central divider moves backward to reveal depth.",
+                "motion_rationale": "Motion makes the two independent timbral layers legible as a changing musical or research idea rather than a still illustration."
+              },
+              "procedural_scene": {
+                "environment": "space",
+                "objects": [
+                  {
+                    "id": "tech-obj-5-a",
+                    "kind": "orb",
+                    "x": 0.45,
+                    "y": 0.3,
+                    "size": 28,
+                    "color": "#71808A",
+                    "motion": "orbit",
+                    "period_seconds": 2.4
+                  },
+                  {
+                    "id": "tech-obj-5-b",
+                    "kind": "light_streak",
+                    "x": 0.6,
+                    "y": 0.68,
+                    "size": 18,
+                    "color": "#F2A541",
+                    "motion": "travel_right",
+                    "period_seconds": 1.6
+                  }
+                ]
+              },
+              "character_action": {
+                "visible": false
+              },
+              "transition_to_next": "luma_wipe",
+              "narration_cue": "The plugin can use two sounds at once.",
+              "music_cue": "A second harmony enters as the lanes divide.",
+              "sound_effects": [
+                "restrained transition accent"
+              ]
+            },
+            {
+              "id": "shot-06",
+              "start_seconds": 19,
+              "end_seconds": 23,
+              "purpose": "explanation",
+              "visual_subject": "Sixteen voices on each layer",
+              "setting": "A vertical voice-array gallery",
+              "visual_description": "Two separate arrays of sixteen slender voice strands animate in parallel, showing the dual-timbral voice capacity without inventing measured audio values.",
+              "composition": "Tall symmetrical array with a clean dividing line and large labels.",
+              "camera": {
+                "shot_size": "wide",
+                "angle": "Slightly elevated frontal angle across both arrays",
+                "movement": "crane_up",
+                "focus": "The repeated voice strands in each layer"
+              },
+              "animation": {
+                "subject_action": "The voice strands illuminate one at a time in a wave across both arrays.",
+                "environment_motion": "The deep background gradient shifts gently from cool to warm.",
+                "graphic_action": "The labels identify sixteen voices per layer.",
+                "depth_motion": "Foreground sparks pass the array in a controlled diagonal.",
+                "motion_rationale": "Motion makes the sixteen voices on each layer legible as a changing musical or research idea rather than a still illustration."
+              },
+              "procedural_scene": {
+                "environment": "abstract",
+                "objects": [
+                  {
+                    "id": "tech-obj-6-a",
+                    "kind": "particle",
+                    "x": 0.65,
+                    "y": 0.52,
+                    "size": 28,
+                    "color": "#71808A",
+                    "motion": "travel_up",
+                    "period_seconds": 2.4
+                  },
+                  {
+                    "id": "tech-obj-6-b",
+                    "kind": "spark",
+                    "x": 0.48,
+                    "y": 0.5,
+                    "size": 18,
+                    "color": "#F2A541",
+                    "motion": "flicker",
+                    "period_seconds": 1.6
+                  }
+                ]
+              },
+              "character_action": {
+                "visible": true,
+                "gesture": "explain",
+                "expression": "speaking",
+                "loop": true,
+                "cycle_duration_seconds": 1.8
+              },
+              "transition_to_next": "light_transition",
+              "narration_cue": "Each timbral layer offers sixteen voices.",
+              "music_cue": "A measured arpeggio suggests the expanded polyphony.",
+              "sound_effects": [
+                "restrained transition accent"
+              ]
+            },
+            {
+              "id": "shot-07",
+              "start_seconds": 23,
+              "end_seconds": 27,
+              "purpose": "payoff",
+              "visual_subject": "Two layers resolving into an original phrase",
+              "setting": "A dark studio stage with a central sound sculpture",
+              "visual_description": "The two original timbral lanes weave into one short non-copied motif, with no imitation of a factory preset or recognizable commercial recording.",
+              "composition": "Low diagonal close-wide composition with the converging layers centered.",
+              "camera": {
+                "shot_size": "point_of_view",
+                "angle": "Low point-of-view angle toward the converging sound sculpture",
+                "movement": "arc",
+                "focus": "The exact point where the two timbral lanes meet"
+              },
+              "animation": {
+                "subject_action": "The two waveform lanes interlace, then settle into a unified moving contour.",
+                "environment_motion": "Warm backlight blooms only as the phrase resolves.",
+                "graphic_action": "A subtle title marker follows the convergence.",
+                "depth_motion": "A near-field light streak crosses at the final transition.",
+                "motion_rationale": "Motion makes the two layers resolving into an original phrase legible as a changing musical or research idea rather than a still illustration."
+              },
+              "procedural_scene": {
+                "environment": "concert_stage",
+                "objects": [
+                  {
+                    "id": "tech-obj-7-a",
+                    "kind": "music_note",
+                    "x": 0.25,
+                    "y": 0.3,
+                    "size": 28,
+                    "color": "#71808A",
+                    "motion": "travel_right",
+                    "period_seconds": 2.4
+                  },
+                  {
+                    "id": "tech-obj-7-b",
+                    "kind": "ring",
+                    "x": 0.72,
+                    "y": 0.68,
+                    "size": 18,
+                    "color": "#F2A541",
+                    "motion": "orbit",
+                    "period_seconds": 1.6
+                  }
+                ]
+              },
+              "character_action": {
+                "visible": false
+              },
+              "transition_to_next": "shape_match",
+              "narration_cue": "An original phrase demonstrates the two-layer concept.",
+              "music_cue": "A short two-voice original phrase resolves.",
+              "sound_effects": [
+                "restrained transition accent"
+              ]
+            },
+            {
+              "id": "shot-08",
+              "start_seconds": 27,
+              "end_seconds": 32,
+              "purpose": "ending",
+              "visual_subject": "Presenter beside the completed signal path",
+              "setting": "The studio opening into a clean final frame",
+              "visual_description": "The presenter returns in the right safe area as the two coloured paths settle into a single glowing line beneath the DW-8K story title.",
+              "composition": "Medium portrait frame with clear negative space and readable title placement.",
+              "camera": {
+                "shot_size": "medium",
+                "angle": "Eye-level closing angle",
+                "movement": "crane_up",
+                "focus": "The final unified path and title"
+              },
+              "animation": {
+                "subject_action": "The final line moves forward and gently pulses once.",
+                "environment_motion": "The studio light eases from cool steel to warm amber.",
+                "graphic_action": "The final title settles after the last pulse.",
+                "depth_motion": "Foreground dust drifts more slowly than the main signal.",
+                "motion_rationale": "Motion makes the presenter beside the completed signal path legible as a changing musical or research idea rather than a still illustration."
+              },
+              "procedural_scene": {
+                "environment": "abstract",
+                "objects": [
+                  {
+                    "id": "tech-obj-8-a",
+                    "kind": "orb",
+                    "x": 0.45,
+                    "y": 0.52,
+                    "size": 28,
+                    "color": "#71808A",
+                    "motion": "pulse",
+                    "period_seconds": 2.4
+                  },
+                  {
+                    "id": "tech-obj-8-b",
+                    "kind": "spark",
+                    "x": 0.6,
+                    "y": 0.5,
+                    "size": 18,
+                    "color": "#F2A541",
+                    "motion": "float",
+                    "period_seconds": 1.6
+                  }
+                ]
+              },
+              "character_action": {
+                "visible": true,
+                "gesture": "nod",
+                "expression": "smile",
+                "loop": true,
+                "cycle_duration_seconds": 1.8
+              },
+              "transition_to_next": "none",
+              "narration_cue": "A hybrid design turns an old signal path into a modern sound tool.",
+              "music_cue": "A warm final chord closes the idea.",
+              "sound_effects": [
+                "gentle final accent"
+              ]
+            }
+          ]
+        },
+        "edit_direction": {
+          "pacing": "A 32-second vertical documentary arc: hook, evidence, explanation and original musical payoff. Vary shot duration and composition; never hold a still frame as a substitute for motion.",
+          "transition_language": "Use the directed sequence of hard cut, match cut, whip pan, dissolve, luma wipe, light transition and shape match; each transition follows a change in the story rather than a fixed template.",
+          "typography": "Use short high-contrast mobile-safe labels, no more than one key idea at a time; maintain safe margins and keep the presenter's face and hands clear.",
+          "sound_design": "Use original transition accents and light percussive detail. Keep narration intelligible and duck the music under speech. Do not add movie, game, artist or product audio.",
+          "music_mood": "Measured and tactile, shifting from crisp digital pulses to a warmer analogue-feeling original motif.",
+          "music_sync_cues": [
+            {
+              "time_seconds": 2.4,
+              "event": "Opening visual reveal and first tonal accent",
+              "reason": "Editorial target only; align to a detected transient or beat from the actual decoded audio during render."
+            },
+            {
+              "time_seconds": 11.2,
+              "event": "Main explanatory transition into the story's central reveal",
+              "reason": "Editorial target only; snap to a measured audio onset or beat, never treat this target as measured timing."
+            },
+            {
+              "time_seconds": 26.5,
+              "event": "Final musical payoff begins",
+              "reason": "Editorial target only; align this payoff to a real detected event in the supplied or licensed audio."
+            }
+          ],
+          "final_payoff": "Finish on a clear original Violin Prince musical idea and one resolved visual statement. Never imply the presenter is playing a violin with this upper-body-only rig; do not claim creator-recorded performance unless a verified creator recording is present."
+        }
+      }
     },
     {
       "production_date": "2026-11-26",
       "slot_id": "melody-stories",
       "slot_status": "blocked",
-      "topic": "Rema's E-Mortal Boy: a seven-track genre-shifting EP, with a focused arrangement story on Velvet",
-      "core_claim": "The EP moves across dancehall, rumba, R&B, electronic, grunge and house textures; BellaNaija describes Velvet's rumba drums and guitar riffs.",
-      "research_sources": [
+      "editorial_plan_status": "complete",
+      "production_status": "blocked_pending_genuine_animation_and_presenter_approval",
+      "blocked_reason": "Editorial plan and two independent publisher pages are complete, but scheduled rendering remains blocked because autopilot/engine/animation-production-approval.json is absent and the saved presenter rig has no production-approval.json. These gates require genuine moving-animation evidence and creator visual approval. Public YouTube publication is authorised; no private preview is required.",
+      "story_type": "melody_and_composition",
+      "title": "E-Mortal Boy: Rema's Seven-Track Genre Map",
+      "topic": "A concise arrangement story about Rema's E-Mortal Boy: its seven-track format, varied genre influences, two earlier singles, five new records and guest features.",
+      "core_claim": "E-Mortal Boy is a seven-track EP combining dancehall, rumba, R&B, electronic, grunge and house influences; its two previously released singles are joined by five new records and guest appearances named by the publishers.",
+      "hook": "Can Rema's new EP surprise global listeners?",
+      "description": "A music-focused look at the structure and stylistic range of Rema's seven-track E-Mortal Boy EP. Premium Times reviews its genre mixture, while WeTalkSound reports its two-plus-five release structure and guest appearances. All musical examples in this video are original and do not reproduce the EP's melodies, lyrics, recordings, cover art or game visuals. Sources: https://www.premiumtimesng.com/entertainment/music/927213-album-review-rema-tries-everything-on-e-mortal-boy-but-not-everything-works.html and https://www.wetalksound.co/blog/reviews/remas-e-mortal-boy-mortal-kombat-no-fatalities",
+      "hashtags": [
+        "#Rema",
+        "#EMortalBoy",
+        "#MusicAnalysis",
+        "#ViolinPrince"
+      ],
+      "tags": [
+        "Rema",
+        "E-Mortal Boy",
+        "Afrobeats",
+        "music arrangement",
+        "rumba",
+        "dancehall",
+        "music analysis",
+        "Violin Prince"
+      ],
+      "narrative_style": "cinematic_story",
+      "cover_payoff": "Compose an original Violin Prince motif that shifts between a rounded rhythmic pulse and a bright modern ostinato. Do not copy, sample or closely imitate any E-Mortal Boy melody, lyric, recording or artist performance.",
+      "narration_script": "Can Rema's new EP surprise global listeners? Premium Times describes seven tracks across several musical genres. WeTalkSound says five new records join two previously released singles. Wizkid, BNYX, Theodora, and Kah-Lo all feature as guests.",
+      "narration_evidence": [
         {
-          "publisher": "Premium Times",
-          "publisher_family": "premiumtimesng.com",
-          "published_at": "2026-11-22",
-          "url": "https://www.premiumtimesng.com/entertainment/music/927213-album-review-rema-tries-everything-on-e-mortal-boy-but-not-everything-works.html",
-          "verification_status": "direct_article_open_verified",
-          "note": "Direct album-review page opened. It identifies E-Mortal Boy as a seven-track EP released 20 November and describes dancehall, rumba, R&B, electronic, grunge and house influences."
+          "sentence_number": 2,
+          "source_id": "S001",
+          "quote": "The seven-track EP showcases Rema’s genre-spanning curiosity"
         },
         {
-          "publisher": "Album Talks",
-          "publisher_family": "albumtalks.com",
-          "published_at": "2026-11-25",
-          "url": "https://albumtalks.com/rema-is-a-restless-pirate-on-e-mortal-boy-ep-review/",
-          "verification_status": "publisher_search_text_returned_direct_open_blocked",
-          "note": "A separate review dated 25 November was returned with article text by search, but its direct page could not be opened in this run; do not count it as fully verified."
+          "sentence_number": 3,
+          "source_id": "S002",
+          "quote": "two previously released singles, TEA and Oh No, with five new records"
+        },
+        {
+          "sentence_number": 4,
+          "source_id": "S002",
+          "quote": "Its guest appearances include Wizkid, BNYX, Theodora and Kah-Lo"
         }
       ],
-      "source_limitations": "Premium Times's direct review page was verified. A separate Album Talks review dated 25 November was found with article text, but the direct page could not be opened, so the two-direct-page verification requirement is not yet satisfied. No exact narration evidence quotes were accepted.",
-      "blocked_reason": "Production remains blocked by main-branch hard gates: autopilot/engine/animation-production-approval.json is absent, and the presenter rig bundle has no production-approval.json, so the procedural renderer refuses to run. The public YouTube approval is valid and does not require private previews. The second publisher page and exact narration evidence are not fully verified."
+      "narration_asr_hotwords": [
+        "E-Mortal Boy",
+        "WeTalkSound",
+        "Premium Times",
+        "Wizkid",
+        "BNYX",
+        "Theodora",
+        "Kah-Lo"
+      ],
+      "timeline": [],
+      "timeline_evidence": [],
+      "sources": [
+        {
+          "source_id": "S001",
+          "title": "ALBUM REVIEW: Rema tries everything on ‘E-Mortal Boy’, but not everything works",
+          "url": "https://www.premiumtimesng.com/entertainment/music/927213-album-review-rema-tries-everything-on-e-mortal-boy-but-not-everything-works.html",
+          "publisher_domain": "premiumtimesng.com",
+          "publisher_name": "Premium Times",
+          "date": "2026-11-22"
+        },
+        {
+          "source_id": "S002",
+          "title": "Rema’s E-Mortal Boy – Mortal Kombat, No Fatalities",
+          "url": "https://www.wetalksound.co/blog/reviews/remas-e-mortal-boy-mortal-kombat-no-fatalities",
+          "publisher_domain": "wetalksound.co",
+          "publisher_name": "WeTalkSound",
+          "date": "2026-11-23"
+        }
+      ],
+      "scenes": [
+        {
+          "id": "seven-track-world",
+          "caption": "Seven tracks, several musical directions",
+          "visual_mode": "melody_map",
+          "narration_sentence_indexes": [
+            0,
+            1
+          ],
+          "image_prompt": "Original editorial score-map concept with seven abstract track markers branching into distinct rhythmic textures; violet, teal and amber palette, no album artwork, no game interface, no lyrics or copied notation."
+        },
+        {
+          "id": "release-structure",
+          "caption": "Two earlier singles meet five new records",
+          "visual_mode": "comparison",
+          "narration_sentence_indexes": [
+            2
+          ],
+          "image_prompt": "A clear seven-part release structure with two highlighted earlier-release tiles and five new-record tiles; elegant studio typography, abstract music textures, no commercial cover art or invented chart data."
+        },
+        {
+          "id": "rhythm-to-melody",
+          "caption": "A new violin phrase moves between textures",
+          "visual_mode": "cover_performance",
+          "narration_sentence_indexes": [
+            3
+          ],
+          "image_prompt": "Original Violin Prince payoff concept: a violin silhouette framed by evolving rhythmic arcs and warm string-light, moving from rounded dance pulse to a brighter modern motif; no Rema likeness, lyrics, sampled recording or borrowed melody."
+        }
+      ],
+      "performance_feedback": {
+        "sample_window": "Metricool YouTube evolution, 2026-10-23 to 2026-11-22 (brand timezone Asia/Calcutta).",
+        "sample_count": 27,
+        "confidence": "Low for topic or format ranking: per-video views, retention, average view duration, traffic sources and country rows were not available in the returned report.",
+        "channel_observation": "The returned daily channel rows totalled 1,877 views; the subscriber values ranged from 516 to 517, with five gained and two lost across the returned rows.",
+        "strengths_to_preserve": [
+          "Keep the violin-first channel identity and an original musical payoff.",
+          "Bengali and Indian repertoire remain part of a worldwide channel rather than a geographic limit."
+        ],
+        "one_change_to_test": "Open with one clear first-second curiosity hook, use one source-backed visual explanation, then finish with a distinct original violin phrase.",
+        "measurement_for_next_upload": "Capture 24-hour and seven-day views, engaged views, average view duration, average percentage viewed, stayed-to-watch, likes, comments, shares, traffic sources and country data when available."
+      },
+      "publish_metadata": {
+        "title": "E-Mortal Boy: Rema's Seven-Track Genre Map",
+        "description": "A concise music-focused review of E-Mortal Boy's seven-track structure, varied influences and guest features. Original Violin Prince arrangement illustration; no EP audio, lyrics or cover art are reproduced. Sources: Premium Times and WeTalkSound, November 2026.",
+        "tags": [
+          "Rema",
+          "E-Mortal Boy",
+          "Afrobeats",
+          "music arrangement",
+          "music analysis",
+          "Violin Prince"
+        ],
+        "privacy_status": "public"
+      },
+      "master_director_plan": {
+        "schema_version": 2,
+        "render_mode": "procedural_2d",
+        "production_binding": {
+          "production_date": "2026-11-26",
+          "slot_id": "melody-stories",
+          "title": "E-Mortal Boy: Rema's Seven-Track Genre Map",
+          "topic": "A concise arrangement story about Rema's E-Mortal Boy: its seven-track format, varied genre influences, two earlier singles, five new records and guest features.",
+          "narration_script": "Can Rema's new EP surprise global listeners? Premium Times describes seven tracks across several musical genres. WeTalkSound says five new records join two previously released singles. Wizkid, BNYX, Theodora, and Kah-Lo all feature as guests."
+        },
+        "story_understanding": {
+          "central_truth": "E-Mortal Boy is a compact seven-track EP that moves across several genres, brings two prior singles together with five new records, and includes four guest artists named by the reviewed publishers.",
+          "viewer_question": "How can one short EP move through so many musical directions?",
+          "emotional_arc": [
+            "A seven-track release opens as a compact musical world",
+            "Genre and release structure reveal its range without assuming every experiment succeeds",
+            "An original violin phrase turns that range into a coherent musical payoff"
+          ],
+          "key_revelations": [
+            "Premium Times describes the EP as seven tracks and roughly twenty-two minutes, with dancehall, rumba, R&B, electronic, grunge and house influences.",
+            "WeTalkSound reports two earlier singles and five new records.",
+            "WeTalkSound lists Wizkid, BNYX, Theodora and Kah-Lo among the guest appearances."
+          ]
+        },
+        "visual_concept": {
+          "concept_name": "Seven Rooms of Sound",
+          "visual_metaphor": "Seven floating music rooms orbit a central release timeline, each room carrying a different rhythmic material before the pieces resolve into one original violin phrase.",
+          "creative_rationale": "The EP is short but stylistically varied; the rooms make its range visible while the timeline anchors the verifiable two-plus-five release structure.",
+          "art_direction": "Contemporary music-culture documentary: rich layered colour, editorial track markers, tactile paper and stage-light materials, and rhythmic transitions without artist likeness or album/game artwork.",
+          "palette": {
+            "dominant": "#4A1D6E",
+            "secondary": "#168C8C",
+            "accent": "#FFC857",
+            "harmony": "triadic",
+            "reasoning": "Violet, teal and amber form a lively triadic relationship suited to contrasting musical textures while remaining clearly separated.",
+            "contrast_strategy": "Use warm ivory typography over the violet field, reserve teal and amber for separate track groups, and keep all seven markers individually readable on mobile."
+          },
+          "lighting_plan": "Purple-blue ambient base with teal side light on the track map and warm amber highlights for the new-record and final-motif reveals.",
+          "composition_language": "Present the seven-part structure in a clear central arc; place guest names as restrained typography and hold the lower-right safe zone open for the presenter."
+        },
+        "storyboard": {
+          "duration_seconds": 32,
+          "shots": [
+            {
+              "id": "shot-01",
+              "start_seconds": 0,
+              "end_seconds": 3,
+              "purpose": "hook",
+              "visual_subject": "Seven track markers orbiting one release",
+              "setting": "A vivid music-culture sound room",
+              "visual_description": "Seven abstract track markers rise into an orbit around a central EP title card, each carrying a different rhythm texture without using album artwork.",
+              "composition": "Wide vertical composition with the seven markers spread around a clear center.",
+              "camera": {
+                "shot_size": "wide",
+                "angle": "Low three-quarter view through the orbit",
+                "movement": "dolly_in",
+                "focus": "The seven markers as they form a single release"
+              },
+              "animation": {
+                "subject_action": "Seven markers rise and rotate into an orderly orbit.",
+                "environment_motion": "Violet and teal light planes drift behind the markers.",
+                "graphic_action": "The EP title appears after the orbit forms.",
+                "depth_motion": "Foreground track tiles cross at different depths.",
+                "motion_rationale": "Motion makes the seven track markers orbiting one release legible as a changing musical or research idea rather than a still illustration."
+              },
+              "procedural_scene": {
+                "environment": "concert_stage",
+                "objects": [
+                  {
+                    "id": "melody-obj-1-a",
+                    "kind": "music_note",
+                    "x": 0.25,
+                    "y": 0.3,
+                    "size": 28,
+                    "color": "#168C8C",
+                    "motion": "orbit",
+                    "period_seconds": 2.4
+                  },
+                  {
+                    "id": "melody-obj-1-b",
+                    "kind": "orb",
+                    "x": 0.72,
+                    "y": 0.68,
+                    "size": 18,
+                    "color": "#FFC857",
+                    "motion": "pulse",
+                    "period_seconds": 1.6
+                  }
+                ]
+              },
+              "character_action": {
+                "visible": true,
+                "gesture": "open_palms",
+                "expression": "smile",
+                "loop": true,
+                "cycle_duration_seconds": 1.8
+              },
+              "transition_to_next": "cut",
+              "narration_cue": "Can Rema's new EP surprise global listeners?",
+              "music_cue": "A new original violin phrase opens with a bright question.",
+              "sound_effects": [
+                "soft tonal reveal"
+              ]
+            },
+            {
+              "id": "shot-02",
+              "start_seconds": 3,
+              "end_seconds": 7,
+              "purpose": "context",
+              "visual_subject": "A map of genre influences",
+              "setting": "A multi-texture editorial music gallery",
+              "visual_description": "The seven markers pass through distinct abstract zones hinting at dancehall, rumba, R&B, electronic, grunge and house textures; no borrowed melody or artist imagery appears.",
+              "composition": "Diagonal journey from lower-left warm percussion forms to upper-right cool electronic lines.",
+              "camera": {
+                "shot_size": "medium",
+                "angle": "Eye-level lateral view across the genre zones",
+                "movement": "tracking",
+                "focus": "The transitions between the different texture zones"
+              },
+              "animation": {
+                "subject_action": "Markers travel from one texture zone to the next in a continuous arc.",
+                "environment_motion": "Material textures move independently in the background.",
+                "graphic_action": "Genre labels appear one at a time.",
+                "depth_motion": "Foreground tiles cross more quickly than the distant texture fields.",
+                "motion_rationale": "Motion makes the a map of genre influences legible as a changing musical or research idea rather than a still illustration."
+              },
+              "procedural_scene": {
+                "environment": "abstract",
+                "objects": [
+                  {
+                    "id": "melody-obj-2-a",
+                    "kind": "leaf",
+                    "x": 0.45,
+                    "y": 0.52,
+                    "size": 28,
+                    "color": "#168C8C",
+                    "motion": "drift",
+                    "period_seconds": 2.4
+                  },
+                  {
+                    "id": "melody-obj-2-b",
+                    "kind": "ring",
+                    "x": 0.6,
+                    "y": 0.5,
+                    "size": 18,
+                    "color": "#FFC857",
+                    "motion": "orbit",
+                    "period_seconds": 1.6
+                  }
+                ]
+              },
+              "character_action": {
+                "visible": false
+              },
+              "transition_to_next": "match_cut",
+              "narration_cue": "Premium Times describes the EP's range of musical genres.",
+              "music_cue": "A rounded pulse changes to a brighter offbeat.",
+              "sound_effects": [
+                "restrained transition accent"
+              ]
+            },
+            {
+              "id": "shot-03",
+              "start_seconds": 7,
+              "end_seconds": 11,
+              "purpose": "reveal",
+              "visual_subject": "The compact EP timeline",
+              "setting": "A minimal release-timeline studio",
+              "visual_description": "A seven-part timeline extends across a dark field and resolves into a twenty-two-minute arc, communicating the compact scale of the release.",
+              "composition": "Overhead layout with seven aligned track segments and a clear run-time marker.",
+              "camera": {
+                "shot_size": "overhead",
+                "angle": "Directly overhead with a slight perspective tilt",
+                "movement": "crane_up",
+                "focus": "The seven track segments and total runtime label"
+              },
+              "animation": {
+                "subject_action": "The seven segments illuminate sequentially and the full timeline draws forward.",
+                "environment_motion": "A subtle paper-grain plane shifts behind the timeline.",
+                "graphic_action": "The track count and approximate runtime appear as editorial text.",
+                "depth_motion": "A near-field line slides past the lens.",
+                "motion_rationale": "Motion makes the the compact ep timeline legible as a changing musical or research idea rather than a still illustration."
+              },
+              "procedural_scene": {
+                "environment": "laboratory",
+                "objects": [
+                  {
+                    "id": "melody-obj-3-a",
+                    "kind": "light_streak",
+                    "x": 0.65,
+                    "y": 0.3,
+                    "size": 28,
+                    "color": "#168C8C",
+                    "motion": "travel_right",
+                    "period_seconds": 2.4
+                  },
+                  {
+                    "id": "melody-obj-3-b",
+                    "kind": "spark",
+                    "x": 0.48,
+                    "y": 0.68,
+                    "size": 18,
+                    "color": "#FFC857",
+                    "motion": "flicker",
+                    "period_seconds": 1.6
+                  }
+                ]
+              },
+              "character_action": {
+                "visible": true,
+                "gesture": "point_left",
+                "expression": "speaking",
+                "loop": true,
+                "cycle_duration_seconds": 1.8
+              },
+              "transition_to_next": "whip_pan",
+              "narration_cue": "The release is seven tracks and about twenty-two minutes.",
+              "music_cue": "Seven measured accents lead to the timeline reveal.",
+              "sound_effects": [
+                "restrained transition accent"
+              ]
+            },
+            {
+              "id": "shot-04",
+              "start_seconds": 11,
+              "end_seconds": 15,
+              "purpose": "explanation",
+              "visual_subject": "Two earlier singles and five new records",
+              "setting": "A split release archive",
+              "visual_description": "Two highlighted track tiles sit beside five newly introduced tiles; the seven-piece structure remains readable throughout the move.",
+              "composition": "Balanced two-column composition with two earlier tiles on the left and five new tiles on the right.",
+              "camera": {
+                "shot_size": "close_up",
+                "angle": "Slightly elevated close view across the two groups",
+                "movement": "truck_left",
+                "focus": "The clear two-plus-five division"
+              },
+              "animation": {
+                "subject_action": "Two tiles settle first, then five new tiles unfold beside them.",
+                "environment_motion": "A warm highlight travels across the complete seven-tile row.",
+                "graphic_action": "Earlier singles and new records are labeled distinctly.",
+                "depth_motion": "The background archive slides backward at a slower rate.",
+                "motion_rationale": "Motion makes the two earlier singles and five new records legible as a changing musical or research idea rather than a still illustration."
+              },
+              "procedural_scene": {
+                "environment": "abstract",
+                "objects": [
+                  {
+                    "id": "melody-obj-4-a",
+                    "kind": "orb",
+                    "x": 0.25,
+                    "y": 0.52,
+                    "size": 28,
+                    "color": "#168C8C",
+                    "motion": "pulse",
+                    "period_seconds": 2.4
+                  },
+                  {
+                    "id": "melody-obj-4-b",
+                    "kind": "light_streak",
+                    "x": 0.72,
+                    "y": 0.5,
+                    "size": 18,
+                    "color": "#FFC857",
+                    "motion": "travel_left",
+                    "period_seconds": 1.6
+                  }
+                ]
+              },
+              "character_action": {
+                "visible": false
+              },
+              "transition_to_next": "dissolve",
+              "narration_cue": "WeTalkSound describes the two-plus-five structure.",
+              "music_cue": "A pair of short motifs opens into a wider sequence.",
+              "sound_effects": [
+                "restrained transition accent"
+              ]
+            },
+            {
+              "id": "shot-05",
+              "start_seconds": 15,
+              "end_seconds": 19,
+              "purpose": "reveal",
+              "visual_subject": "Guest appearances across the project",
+              "setting": "A clean contributor constellation",
+              "visual_description": "Four name cards orbit the center title in a restrained editorial constellation, with no portraits, likenesses or invented role claims.",
+              "composition": "Medium symmetrical layout with the four names distributed around a central track marker.",
+              "camera": {
+                "shot_size": "medium",
+                "angle": "Eye-level direct view across the name constellation",
+                "movement": "orbit",
+                "focus": "The four guest names as they resolve into place"
+              },
+              "animation": {
+                "subject_action": "The four name cards rotate gently into balanced positions.",
+                "environment_motion": "Small amber particles drift around the outer ring.",
+                "graphic_action": "Wizkid, BNYX, Theodora and Kah-Lo appear as guest names.",
+                "depth_motion": "The rear constellation rotates at a slower rate than the cards.",
+                "motion_rationale": "Motion makes the guest appearances across the project legible as a changing musical or research idea rather than a still illustration."
+              },
+              "procedural_scene": {
+                "environment": "space",
+                "objects": [
+                  {
+                    "id": "melody-obj-5-a",
+                    "kind": "orb",
+                    "x": 0.45,
+                    "y": 0.3,
+                    "size": 28,
+                    "color": "#168C8C",
+                    "motion": "orbit",
+                    "period_seconds": 2.4
+                  },
+                  {
+                    "id": "melody-obj-5-b",
+                    "kind": "spark",
+                    "x": 0.6,
+                    "y": 0.68,
+                    "size": 18,
+                    "color": "#FFC857",
+                    "motion": "float",
+                    "period_seconds": 1.6
+                  }
+                ]
+              },
+              "character_action": {
+                "visible": false
+              },
+              "transition_to_next": "luma_wipe",
+              "narration_cue": "The publishers list four guest appearances.",
+              "music_cue": "Four soft accents lead into the arrangement payoff.",
+              "sound_effects": [
+                "restrained transition accent"
+              ]
+            },
+            {
+              "id": "shot-06",
+              "start_seconds": 19,
+              "end_seconds": 23,
+              "purpose": "explanation",
+              "visual_subject": "Velvet's rhythmic and guitar textures",
+              "setting": "A warm abstract arrangement room",
+              "visual_description": "A rounded percussion pulse moves beneath a clean guitar-like string contour, illustrating the review's description of rumba-inspired drums and guitar riffs without playing or copying the recording.",
+              "composition": "Close side composition with percussion low and the moving string contour above.",
+              "camera": {
+                "shot_size": "macro",
+                "angle": "Low macro angle along the string contour",
+                "movement": "parallax_track",
+                "focus": "The relationship between the rhythmic pulse and string line"
+              },
+              "animation": {
+                "subject_action": "The percussion pulse advances while the string contour bends above it.",
+                "environment_motion": "The stage haze drifts behind both musical layers.",
+                "graphic_action": "A restrained Velvet label identifies the reviewed arrangement example.",
+                "depth_motion": "Foreground string-like streaks move independently from the pulse.",
+                "motion_rationale": "Motion makes the velvet's rhythmic and guitar textures legible as a changing musical or research idea rather than a still illustration."
+              },
+              "procedural_scene": {
+                "environment": "concert_stage",
+                "objects": [
+                  {
+                    "id": "melody-obj-6-a",
+                    "kind": "music_note",
+                    "x": 0.65,
+                    "y": 0.52,
+                    "size": 28,
+                    "color": "#168C8C",
+                    "motion": "bob",
+                    "period_seconds": 2.4
+                  },
+                  {
+                    "id": "melody-obj-6-b",
+                    "kind": "ring",
+                    "x": 0.48,
+                    "y": 0.5,
+                    "size": 18,
+                    "color": "#FFC857",
+                    "motion": "pulse",
+                    "period_seconds": 1.6
+                  }
+                ]
+              },
+              "character_action": {
+                "visible": true,
+                "gesture": "explain",
+                "expression": "speaking",
+                "loop": true,
+                "cycle_duration_seconds": 1.8
+              },
+              "transition_to_next": "light_transition",
+              "narration_cue": "Premium Times describes Velvet's rumba-inspired drums and guitar riffs.",
+              "music_cue": "A new rhythm cell demonstrates the texture shift.",
+              "sound_effects": [
+                "restrained transition accent"
+              ]
+            },
+            {
+              "id": "shot-07",
+              "start_seconds": 23,
+              "end_seconds": 27,
+              "purpose": "payoff",
+              "visual_subject": "An original violin motif changing texture",
+              "setting": "A vivid stage at the center of the seven-room orbit",
+              "visual_description": "An original sample-based violin motif moves through contrasting rhythmic accents, from a rounded rumba-inspired pulse to a brighter electronic-like ostinato; it does not imitate any E-Mortal Boy melody.",
+              "composition": "Low diagonal stage composition with one violin silhouette and three layers of colour.",
+              "camera": {
+                "shot_size": "point_of_view",
+                "angle": "Low point-of-view angle toward the central musical silhouette",
+                "movement": "arc",
+                "focus": "The motif as each texture joins the next"
+              },
+              "animation": {
+                "subject_action": "The original motif's three abstract contours move in sequence and then interlock.",
+                "environment_motion": "The seven-room orbit continues a slow rotation in the distance.",
+                "graphic_action": "A short text cue marks the original musical interpretation.",
+                "depth_motion": "A bright foreground streak crosses on the final rhythmic accent.",
+                "motion_rationale": "Motion makes the an original violin motif changing texture legible as a changing musical or research idea rather than a still illustration."
+              },
+              "procedural_scene": {
+                "environment": "concert_stage",
+                "objects": [
+                  {
+                    "id": "melody-obj-7-a",
+                    "kind": "music_note",
+                    "x": 0.25,
+                    "y": 0.3,
+                    "size": 28,
+                    "color": "#168C8C",
+                    "motion": "travel_right",
+                    "period_seconds": 2.4
+                  },
+                  {
+                    "id": "melody-obj-7-b",
+                    "kind": "light_streak",
+                    "x": 0.72,
+                    "y": 0.68,
+                    "size": 18,
+                    "color": "#FFC857",
+                    "motion": "sway",
+                    "period_seconds": 1.6
+                  }
+                ]
+              },
+              "character_action": {
+                "visible": false
+              },
+              "transition_to_next": "shape_match",
+              "narration_cue": "A new violin phrase turns the range into one coherent payoff.",
+              "music_cue": "The original violin motif resolves into a clear final cadence.",
+              "sound_effects": [
+                "restrained transition accent"
+              ]
+            },
+            {
+              "id": "shot-08",
+              "start_seconds": 27,
+              "end_seconds": 32,
+              "purpose": "ending",
+              "visual_subject": "The seven markers resolving around the presenter",
+              "setting": "The sound room returning to a clean final stage",
+              "visual_description": "The presenter appears in the right safe area as the seven markers draw into a single orbit and the final title holds without borrowed album or game imagery.",
+              "composition": "Balanced medium-wide portrait frame with title above and open musical space below.",
+              "camera": {
+                "shot_size": "medium",
+                "angle": "Eye-level final composition",
+                "movement": "crane_up",
+                "focus": "The final title and unified marker orbit"
+              },
+              "animation": {
+                "subject_action": "The seven markers settle into a single slowly turning ring.",
+                "environment_motion": "The background colours soften without losing their separation.",
+                "graphic_action": "The final title appears once the orbit closes.",
+                "depth_motion": "Foreground particles rise gently into the final hold.",
+                "motion_rationale": "Motion makes the the seven markers resolving around the presenter legible as a changing musical or research idea rather than a still illustration."
+              },
+              "procedural_scene": {
+                "environment": "abstract",
+                "objects": [
+                  {
+                    "id": "melody-obj-8-a",
+                    "kind": "ring",
+                    "x": 0.45,
+                    "y": 0.52,
+                    "size": 28,
+                    "color": "#168C8C",
+                    "motion": "orbit",
+                    "period_seconds": 2.4
+                  },
+                  {
+                    "id": "melody-obj-8-b",
+                    "kind": "particle",
+                    "x": 0.6,
+                    "y": 0.5,
+                    "size": 18,
+                    "color": "#FFC857",
+                    "motion": "float",
+                    "period_seconds": 1.6
+                  }
+                ]
+              },
+              "character_action": {
+                "visible": true,
+                "gesture": "nod",
+                "expression": "smile",
+                "loop": true,
+                "cycle_duration_seconds": 1.8
+              },
+              "transition_to_next": "none",
+              "narration_cue": "A compact release can still contain several musical worlds.",
+              "music_cue": "A fresh original violin cadence ends the short.",
+              "sound_effects": [
+                "gentle final accent"
+              ]
+            }
+          ]
+        },
+        "edit_direction": {
+          "pacing": "A 32-second vertical documentary arc: hook, evidence, explanation and original musical payoff. Vary shot duration and composition; never hold a still frame as a substitute for motion.",
+          "transition_language": "Use the directed sequence of hard cut, match cut, whip pan, dissolve, luma wipe, light transition and shape match; each transition follows a change in the story rather than a fixed template.",
+          "typography": "Use short high-contrast mobile-safe labels, no more than one key idea at a time; maintain safe margins and keep the presenter's face and hands clear.",
+          "sound_design": "Use original transition accents and light percussive detail. Keep narration intelligible and duck the music under speech. Do not add movie, game, artist or product audio.",
+          "music_mood": "Playful and rhythmically varied, with an original violin phrase that moves through contrasting textures without borrowing the EP's melodies.",
+          "music_sync_cues": [
+            {
+              "time_seconds": 2.4,
+              "event": "Opening visual reveal and first tonal accent",
+              "reason": "Editorial target only; align to a detected transient or beat from the actual decoded audio during render."
+            },
+            {
+              "time_seconds": 11.2,
+              "event": "Main explanatory transition into the story's central reveal",
+              "reason": "Editorial target only; snap to a measured audio onset or beat, never treat this target as measured timing."
+            },
+            {
+              "time_seconds": 26.5,
+              "event": "Final musical payoff begins",
+              "reason": "Editorial target only; align this payoff to a real detected event in the supplied or licensed audio."
+            }
+          ],
+          "final_payoff": "Finish on a clear original Violin Prince musical idea and one resolved visual statement. Never imply the presenter is playing a violin with this upper-body-only rig; do not claim creator-recorded performance unless a verified creator recording is present."
+        }
+      }
     },
     {
       "production_date": "2026-11-26",
       "slot_id": "real-performance",
       "slot_status": "blocked",
-      "topic": "Violin playing-in: separating measurable instrument change from a player's changing perception",
-      "core_claim": "A recent report describes research comparing physical changes in a violin with changes perceived by players after regular playing.",
-      "research_sources": [
+      "editorial_plan_status": "blocked_pending_creator_recording_and_full_body_rig",
+      "production_status": "blocked_pending_creator_recording_full_body_rig_and_approval",
+      "topic": "A genuine Violin Prince performance: a creator-recorded take with full-body violin, bow and finger articulation.",
+      "core_claim": "No performance claim will be made until a creator-recorded recording, a visually approved full-body violin/bow/finger rig and verified note-synchronised motion are available.",
+      "sources": [
         {
-          "publisher": "CNRS",
-          "publisher_family": "cnrs.fr",
-          "published_at": "2026-11-19",
+          "source_id": "S001",
+          "title": "Do violins’ physical characteristics really improve with regular playing?",
           "url": "https://www.cnrs.fr/en/press/do-violons-physical-characteristics-really-improve-regular-playing",
-          "verification_status": "direct_press_page_open_verified",
-          "note": "Direct CNRS page opened. It reports a six-month experiment in which measured physical/acoustic changes did not confirm the player's perceived improvement in the played-in violin."
+          "publisher_domain": "cnrs.fr",
+          "publisher_name": "CNRS",
+          "date": "2026-11-19"
         },
         {
-          "publisher": "Phys.org",
-          "publisher_family": "phys.org",
-          "published_at": "2026-11-23",
+          "source_id": "S002",
+          "title": "Do violins' physical characteristics improve with regular playing?",
           "url": "https://phys.org/news/2026-11-violin-physical-characteristics-regular-playing.html",
-          "verification_status": "syndicated_from_cnrs_not_independent",
-          "note": "The article is credited to CNRS and repeats the originating institutional report; it is not independent corroboration."
+          "publisher_domain": "phys.org",
+          "publisher_name": "Phys.org",
+          "date": "2026-11-23",
+          "verification_note": "Syndicated from CNRS; not counted as an independent publisher family."
         }
       ],
-      "source_limitations": "Only the original CNRS report was directly verified; Phys.org is credited to CNRS and is not an independent second publisher. The live-performance route also has no validated creator-recorded WAV available to the unattended runner; current main's procedural renderer explicitly refuses this slot pending the completed full-body violin/bow rig, creator approval and note synchronisation.",
-      "blocked_reason": "Production remains blocked: the global animation-production approval is absent; the real-performance renderer also requires the completed PR #130 full-body violin/bow rig, separate creator production approval and note-synchronised performance. No validated creator-recorded violin WAV is available to the unattended runner. The candidate Phys.org report is syndicated from CNRS, not an independent source. The public YouTube approval is valid; private preview is not required."
+      "blocked_reason": "No validated creator-recorded PCM WAV is available to the unattended runner. PR #130's full-body violin, bow and finger rig remains separately unapproved; the rig needs creator visual review, articulated-motion review, verified note synchronisation and a hash-pinned production approval. The global animation-production-approval.json is also absent. The Phys.org report is syndicated from CNRS and is not an independent second publisher. No synthetic or sample-based audio, avatar or generated performance will be represented as the creator's live playing. Public YouTube publication is authorised; no private preview is required.",
+      "required_creator_assets": [
+        "Creator-recorded violin PCM WAV",
+        "Full-body violin/bow/finger rig visual review and approval",
+        "Note-synchronised motion evidence",
+        "Hash-pinned real-performance production approval",
+        "Global genuine-animation production approval"
+      ]
     }
   ]
 }
