@@ -68,13 +68,11 @@ jobs:
           python -m unittest discover -s autopilot/engine/tests -p "test_scheduled_slot_date.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_select_public_queue.py" -v
 
-      - name: Verify public YouTube, private voice and scheduled Master Director credentials
+      - name: Verify public YouTube and private voice credentials
         env:
           UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
           YOUTUBE_EXPECTED_CHANNEL_ID: ${{ vars.YOUTUBE_EXPECTED_CHANNEL_ID }}
           PRIVATE_VOICE_REPO_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
         shell: bash
         run: |
           set -euo pipefail
@@ -85,12 +83,10 @@ jobs:
               "YOUTUBE_EXPECTED_CHANNEL_ID",
               "PRIVATE_VOICE_REPO_TOKEN",
           ]
-          if os.environ.get("GITHUB_EVENT_NAME") == "schedule":
-              required.append("COPILOT_GITHUB_TOKEN")
           missing = [name for name in required if not os.environ.get(name, "").strip()]
           if missing:
               raise SystemExit("Required production configuration is missing: " + ", ".join(missing))
-          print("Public YouTube, voice and scheduled Master Director credentials are configured.")
+          print("Public YouTube and private voice credentials are configured.")
           PY
 
   daily_readiness:
@@ -119,34 +115,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r autopilot/engine/requirements.txt
 
-      - name: Set up Node.js 22 for GitHub Copilot CLI
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      - name: Install GitHub Copilot CLI
-        run: npm install --global @github/copilot
-
       - name: Resolve scheduled IST batch date from the triggering cron slot
         id: schedule_context
         env:
           SCHEDULE_CRON: ${{ github.event.schedule }}
         run: python autopilot/engine/scheduled_slot_date.py --cron "$SCHEDULE_CRON"
 
-      - name: Research and author this scheduled category
-        id: research
-        env:
-          PYTHONPATH: autopilot/engine
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-          SCHEDULE_CRON: ${{ github.event.schedule }}
-          PRODUCTION_DATE: ${{ steps.schedule_context.outputs.production_date }}
-        run: |
-          python autopilot/engine/scheduled_story_builder.py \
-            --root . \
-            --cron "$SCHEDULE_CRON" \
-            --production-date "$PRODUCTION_DATE"
-
-      - name: Select the newly researched public-ready story for this exact category
+      - name: Select the pre-authored public-ready plan for this exact scheduled category
         id: batch
         env:
           PYTHONPATH: autopilot/engine
@@ -223,7 +198,7 @@ jobs:
             exit 1
           fi
 
-      - name: Check out the latest main branch, including the durable research batch
+      - name: Check out the latest main branch, including the daily Global Director batch
         uses: actions/checkout@v4
         with:
           ref: main
@@ -349,9 +324,6 @@ jobs:
         if: github.event_name == 'push' || github.event_name == 'schedule'
         working-directory: autopilot/engine/animation2d
         run: npm install --no-audit --no-fund
-      - name: Install GitHub Copilot CLI for scheduled Master Director
-        if: github.event_name == 'schedule'
-        run: npm install --global @github/copilot
 
       - name: Prepare research, story, narration and soundtrack
         if: env.PIPELINE_STAGE == 'prepare'
@@ -379,7 +351,6 @@ jobs:
           PRODUCTION_EVENT_SHA: ${{ github.sha }}
           PUBLISH_ENABLED: "false"
           PRIVATE_VOICE_REPO_TOKEN: ${{ secrets.PRIVATE_VOICE_REPO_TOKEN }}
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail

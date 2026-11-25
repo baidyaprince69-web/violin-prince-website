@@ -14,6 +14,7 @@ from procedural_daily_renderer import (
     render_procedural_daily_video,
     require_approved_presenter_rig,
     rig_bundle_sha256,
+    _validated_batch_director_plan,
 )
 
 
@@ -175,12 +176,18 @@ class ProceduralDailyRendererTests(unittest.TestCase):
             video = output / "violin-prince-short.mp4"
             video.write_bytes(b"x" * 200000)
             director = _valid_director_plan()
-
-            def generate(context, *, creator_preferences=None):
-                self.assertEqual(context["slot_id"], "production-tech")
-                self.assertEqual(len(context["verified_sources"]), 2)
-                self.assertEqual(creator_preferences["canonical_character"], "Violin Prince")
-                return director
+            plan = {
+                "production_date": "2026-11-24",
+                "slot_id": "production-tech",
+                "title": "Test studio story",
+                "topic": "A verified studio tool",
+                "narration_script": "A four sentence script.",
+            }
+            director["production_binding"] = {
+                field: plan[field]
+                for field in ("production_date", "slot_id", "title", "topic", "narration_script")
+            }
+            plan["master_director_plan"] = director
 
             def render(*args, **kwargs):
                 self.assertEqual(args[2], [])
@@ -208,20 +215,12 @@ class ProceduralDailyRendererTests(unittest.TestCase):
             engine = SimpleNamespace(
                 W=720, H=1280, FPS=25, PACKAGE=package, OUT=output, WORK=work
             )
-            plan = {
-                "production_date": "2026-11-24",
-                "slot_id": "production-tech",
-                "title": "Test studio story",
-                "topic": "A verified studio tool",
-                "narration_script": "A four sentence script.",
-            }
             result = render_procedural_daily_video(
                 engine, plan,
                 [{"source_id": "S1", "publisher_domain": "one.example"},
                  {"source_id": "S2", "publisher_domain": "two.example"}],
                 audio, narration, {"subtitle_cues": [], "word_cues": []},
                 beat_analysis={"status":"metadata_verified","source":"declared_bpm_and_arrangement_event_map","duration_seconds":24.0,"bpm":120.0,"beat_times":[index * 0.5 for index in range(48)],"onsets":[]},
-                director_generator=generate,
                 render_function=render,
                 rig_bundle_dir=rig,
             )
@@ -232,6 +231,47 @@ class ProceduralDailyRendererTests(unittest.TestCase):
             self.assertEqual(plan["procedural_director_manifest"]["rendered_layer_count"], 0)
             self.assertTrue((package / "master-director" / "master-director-plan.json").is_file())
             self.assertTrue((output / "master-director-render-report.json").is_file())
+
+
+    def test_batch_director_binding_must_match_the_exact_story_and_narration(self):
+        batch_plan = {
+            "production_date": "2026-11-26",
+            "slot_id": "production-tech",
+            "title": "Verified studio story",
+            "topic": "A specific verified audio tool",
+            "narration_script": "The approved narration script.",
+        }
+        director = _valid_director_plan()
+        director["production_binding"] = {
+            field: batch_plan[field]
+            for field in ("production_date", "slot_id", "title", "topic", "narration_script")
+        }
+        batch_plan["master_director_plan"] = director
+
+        accepted = _validated_batch_director_plan(batch_plan)
+        self.assertEqual(
+            accepted["_director_provider"]["provider"],
+            "chatgpt-global-director",
+        )
+        self.assertEqual(
+            accepted["_director_provider"]["contract_version"],
+            "violin-prince-master-director-v3",
+        )
+
+        batch_plan["narration_script"] = "A changed narration script."
+        with self.assertRaisesRegex(ProceduralDailyRenderError, "production_binding.narration_script"):
+            _validated_batch_director_plan(batch_plan)
+
+    def test_scheduled_batch_requires_pre_authored_director_plan_without_copilot_fallback(self):
+        batch_plan = {
+            "production_date": "2026-11-26",
+            "slot_id": "production-tech",
+            "title": "Verified studio story",
+            "topic": "A specific verified audio tool",
+            "narration_script": "The approved narration script.",
+        }
+        with self.assertRaisesRegex(ProceduralDailyRenderError, "does not call an external Copilot provider"): 
+            _validated_batch_director_plan(batch_plan)
 
     def test_daily_renderer_rejects_generated_picture_layers(self):
         with tempfile.TemporaryDirectory() as temporary:

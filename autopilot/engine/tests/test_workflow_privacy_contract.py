@@ -51,10 +51,10 @@ class WorkflowPublicationContractTests(unittest.TestCase):
         self.assertNotIn("Preserve stage diagnostics", self.workflow_text)
 
     def test_scheduled_ready_slots_publish_publicly_through_upload_post(self):
-        self.assertIn("Research and author this scheduled category", self.workflow_text)
-        self.assertIn("Select the newly researched public-ready story for this exact category", self.workflow_text)
+        self.assertIn("Select the pre-authored public-ready plan for this exact scheduled category", self.workflow_text)
         self.assertIn('--slot-id "$SCHEDULED_SLOT_ID"', self.workflow_text)
-        self.assertIn("scheduled_story_builder.py", self.workflow_text)
+        self.assertIn("select_public_queue.py", self.workflow_text)
+        self.assertNotIn("scheduled_story_builder.py", self.workflow_text)
         self.assertIn("group: violin-prince-public-youtube-queue", self.workflow_text)
         self.assertIn("select_public_queue.py", self.workflow_text)
         self.assertIn("Publish approved daily slot PUBLICLY to YouTube via Upload-Post", self.workflow_text)
@@ -66,14 +66,14 @@ class WorkflowPublicationContractTests(unittest.TestCase):
         self.assertIn("needs.daily_readiness.outputs.slot_status == 'ready'", self.workflow_text)
 
 
-    def test_each_cron_runs_fresh_research_before_selecting_its_assigned_category(self):
-        research = self.workflow_text.index("Research and author this scheduled category")
-        select = self.workflow_text.index("Select the newly researched public-ready story for this exact category")
-        self.assertLess(research, select)
-        self.assertIn("COPILOT_GITHUB_TOKEN", self.workflow_text)
+    def test_daily_global_director_batch_replaces_per_cron_copilot_research(self):
+        self.assertIn("daily Global Director batch", self.workflow_text)
+        self.assertIn("Select the pre-authored public-ready plan", self.workflow_text)
         self.assertIn("SCHEDULED_SLOT_ID", self.workflow_text)
         self.assertIn("ref: main", self.workflow_text)
-        self.assertIn("scheduled_story_builder.py", self.workflow_text)
+        self.assertNotIn("COPILOT_GITHUB_TOKEN", self.workflow_text)
+        self.assertNotIn("@github/copilot", self.workflow_text)
+        self.assertNotIn("scheduled_story_builder.py", self.workflow_text)
 
     def test_scheduled_handoff_is_not_named_as_a_private_preview(self):
         self.assertNotIn("violin-prince-private-preview-", self.workflow_text)
