@@ -71,7 +71,7 @@ def _audio_track_manifest(
         {
             "id": "creator_voice_recording" if creator_voice else "synthetic_voice_preview",
             "role": "voice",
-            "path": str(voice_path),
+            "path": str(voice_path.resolve()) if creator_voice else voice_path.name,
             "start_seconds": 0,
             "end_seconds": 8,
             "source_in_seconds": float(voice_source_in_seconds),
@@ -97,7 +97,7 @@ def _audio_track_manifest(
         {
             "id": "transition_whoosh",
             "role": "sfx",
-            "path": str(sfx_path),
+            "path": sfx_path.name,
             "start_seconds": 2.7,
             "end_seconds": 3.4,
             "gain_db": -16,
