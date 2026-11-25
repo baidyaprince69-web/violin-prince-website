@@ -133,7 +133,7 @@ export function buildMusicSynchronizedPerformanceTracks({
   // Put a visible share of the bow stroke through the elbow/forearm.
   // The wrist counter-rotates so the bow grip stays stable while its position travels.
   const bowShoulderStrokes=strokeTimes.map(time=>({
-    time,value:(7.2+downbeatAccentAt(time)*.55)*Math.cos(beatPhaseAt(time))
+    time,value:(10.5+downbeatAccentAt(time)*0.9)*Math.cos(beatPhaseAt(time))
   }));
   const bowElbowStrokes=strokeTimes.map((time,index)=>({
     time,value:-bowShoulderStrokes[index].value*1.1
@@ -143,11 +143,11 @@ export function buildMusicSynchronizedPerformanceTracks({
   }));
   // More visible phrase-level body and head follow-through.
   const torsoPulses=strokeTimes.map(time=>({
-    time,value:1.7*Math.sin((time/Math.max(.2,period*4))*Math.PI*2)+downbeatAccentAt(time)*.22
+    time,value:3.0*Math.sin((time/Math.max(.2,period*4))*Math.PI*2)+downbeatAccentAt(time)*.45
   }));
   const headPulses=strokeTimes.map(time=>({
-    time,value:-.78*Math.sin(((time-.065)/Math.max(.2,period*4))*Math.PI*2)+
-      .22*Math.sin((time/Math.max(.2,period*8))*Math.PI*2)
+    time,value:-1.45*Math.sin(((time-.065)/Math.max(.2,period*4))*Math.PI*2)+
+      .38*Math.sin((time/Math.max(.2,period*8))*Math.PI*2)
   }));
   const fingerNames = ["finger_index", "finger_middle", "finger_ring", "finger_little"];
   const fingerIntervals = Object.fromEntries(fingerNames.map(name => [name, []]));
@@ -252,12 +252,12 @@ export function buildMusicSynchronizedPerformanceTracks({
     // Keep the fretting wrist planted while note events articulate finger sprites.
     tag(makeTrack(prefix + "-part-torso", torsoPulses), "body_balance"),
     tag(makeTrack(prefix + "-part-head", headPulses), "body_balance"),
-    tag(weightTrack(prefix + "-part-left_thigh", 3.2, 1), "weight_shift"),
-    tag(weightTrack(prefix + "-part-right_thigh", 3.2, -1), "weight_shift"),
-    tag(weightTrack(prefix + "-part-left_calf", 2.1, -1), "weight_shift"),
-    tag(weightTrack(prefix + "-part-right_calf", 2.1, 1), "weight_shift"),
-    tag(weightTrack(prefix + "-part-left_foot", 1.15, 1), "weight_shift"),
-    tag(weightTrack(prefix + "-part-right_foot", 1.15, -1), "weight_shift"),
+    tag(weightTrack(prefix + "-part-left_thigh", 6.0, 1), "weight_shift"),
+    tag(weightTrack(prefix + "-part-right_thigh", 6.0, -1), "weight_shift"),
+    tag(weightTrack(prefix + "-part-left_calf", 4.0, -1), "weight_shift"),
+    tag(weightTrack(prefix + "-part-right_calf", 4.0, 1), "weight_shift"),
+    tag(weightTrack(prefix + "-part-left_foot", 2.2, 1), "weight_shift"),
+    tag(weightTrack(prefix + "-part-right_foot", 2.2, -1), "weight_shift"),
     ...fingerTracks.map(track => tag(track, "finger_note"))
   ];
 }

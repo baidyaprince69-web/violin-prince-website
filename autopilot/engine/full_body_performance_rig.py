@@ -2320,15 +2320,15 @@ def _configure_continuous_body_meshes(character: dict[str, Any]) -> dict[str, An
     if canvas_width <= 0 or canvas_height <= 0:
         raise AutoRigError("Continuous body mesh requires a valid source canvas.")
     profiles = [
-        ("torso", "torso", "neck", None, "center", 2.2, 2.4, 3, 5),
-        ("left_upper_arm", "left_upper_arm", "left_shoulder", "left_elbow", "distal", 2.6, 2.8, 2, 4),
-        ("left_forearm", "left_forearm", "left_elbow", "left_wrist", "proximal", 2.6, 2.8, 2, 4),
-        ("right_upper_arm", "torso", "right_shoulder", "right_elbow", "distal", 2.6, 2.8, 2, 4),
-        ("right_forearm", "torso", "right_elbow", "right_wrist", "proximal", 2.6, 2.8, 2, 4),
-        ("left_thigh", "left_thigh", "left_hip", "left_knee", "distal", 2.8, 2.6, 2, 4),
-        ("left_calf", "left_calf", "left_knee", "left_ankle", "proximal", 2.8, 2.6, 2, 4),
-        ("right_thigh", "right_thigh", "right_hip", "right_knee", "distal", 2.8, 2.6, 2, 4),
-        ("right_calf", "right_calf", "right_knee", "right_ankle", "proximal", 2.8, 2.6, 2, 4),
+        ("torso", "torso", "neck", None, "center", 3.8, 4.5, 3, 5),
+        ("left_upper_arm", "left_upper_arm", "left_shoulder", "left_elbow", "distal", 9.0, 4.5, 2, 4),
+        ("left_forearm", "left_forearm", "left_elbow", "left_wrist", "proximal", 9.0, 4.5, 2, 4),
+        ("right_upper_arm", "torso", "right_shoulder", "right_elbow", "distal", 7.5, 4.0, 2, 4),
+        ("right_forearm", "torso", "right_elbow", "right_wrist", "proximal", 7.5, 4.0, 2, 4),
+        ("left_thigh", "left_thigh", "left_hip", "left_knee", "distal", 6.0, 4.0, 2, 4),
+        ("left_calf", "left_calf", "left_knee", "left_ankle", "proximal", 6.0, 4.0, 2, 4),
+        ("right_thigh", "right_thigh", "right_hip", "right_knee", "distal", 6.0, 4.0, 2, 4),
+        ("right_calf", "right_calf", "right_knee", "right_ankle", "proximal", 6.0, 4.0, 2, 4),
     ]
     configured = []
     for role, driver_role, start_name, end_name, influence, max_angle, displacement, columns, rows in profiles:

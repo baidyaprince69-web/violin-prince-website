@@ -31,7 +31,7 @@ test("looped violin-bow joints repeat on cycle boundaries and root motion loops"
         expression: "neutral",
         loop: true,
         cycle_duration_seconds: 1.5,
-        root_motion: { type: "walk_cycle", intensity: .35 }
+        root_motion: { type: "sway", intensity: .35 }
       }
     }}],
     characters: [performer]

@@ -323,6 +323,7 @@ def build_preview_project(
                 "x": 46,
                 "y": 58,
                 "scale": 0.84,
+                "root_motion": {"type": "sway", "intensity": 0.28},
                 "loop": True,
                 "cycle_duration_seconds": 2.4,
                 "start_offset": 0.0,  # Presenter is on-stage from the first rendered frame.
