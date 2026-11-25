@@ -8,13 +8,13 @@ full-body violin/bow rig and its recording synchronisation are approved.
 from __future__ import annotations
 
 import hashlib
+import copy
 import json
 import math
 import statistics
 from pathlib import Path
 from typing import Any, Callable
 
-from copilot_director_provider import generate_director_plan
 from master_creative_director import (
     DIRECTOR_CONTRACT_VERSION,
     DirectorPlanError,
@@ -374,6 +374,51 @@ def align_director_music_sync_cues(
         "cues": aligned,
     }
 
+def _validated_batch_director_plan(plan: dict[str, Any]) -> dict[str, Any]:
+    """Validate a Master Director plan supplied by the daily ChatGPT batch.
+
+    The plan is bound to its exact production date, slot, title, topic and
+    narration script. The provider marker is assigned here, never trusted from
+    batch JSON.
+    """
+    supplied = plan.get("master_director_plan")
+    if not isinstance(supplied, dict):
+        raise ProceduralDailyRenderError(
+            "The daily batch has no pre-authored master_director_plan. "
+            "Scheduled rendering does not call an external Copilot provider."
+        )
+
+    binding = supplied.get("production_binding")
+    if not isinstance(binding, dict):
+        raise ProceduralDailyRenderError(
+            "The pre-authored Master Director plan is missing its production_binding."
+        )
+    expected = {
+        "production_date": str(plan.get("production_date") or ""),
+        "slot_id": str(plan.get("slot_id") or ""),
+        "title": str(plan.get("title") or ""),
+        "topic": str(plan.get("topic") or ""),
+        "narration_script": str(plan.get("narration_script") or ""),
+    }
+    for field, value in expected.items():
+        if not value or binding.get(field) != value:
+            raise ProceduralDailyRenderError(
+                f"Master Director production_binding.{field} does not match the selected daily batch."
+            )
+
+    director_plan = copy.deepcopy(supplied)
+    # Never accept a provider identity or contract marker from the editable
+    # daily batch. The renderer assigns a fixed, auditable source label.
+    director_plan["_director_provider"] = {
+        "provider": "chatgpt-global-director",
+        "model_selection": "pre-authored-daily-batch",
+        "contract_version": DIRECTOR_CONTRACT_VERSION,
+        "tool_access": "not-applicable",
+        "source": "validated-main-branch-daily-batch",
+    }
+    return director_plan
+
+
 def render_procedural_daily_video(
     engine: Any,
     plan: dict[str, Any],
@@ -401,14 +446,29 @@ def render_procedural_daily_video(
     if not isinstance(verified_sources, list) or len(verified_sources) < 2:
         raise ProceduralDailyRenderError("Procedural production requires at least two verified publisher sources.")
 
-    generator = director_generator or generate_director_plan
     renderer = render_function or render_master_director_video
-    story_context = _director_story_context(plan, verified_sources, beat_analysis)
+    if "master_director_plan" in plan:
+        director_plan = _validated_batch_director_plan(plan)
+    elif director_generator is not None:
+        # Explicit injection is retained for isolated tests and controlled
+        # development tools. The scheduled production path never uses it.
+        story_context = _director_story_context(plan, verified_sources, beat_analysis)
+        try:
+            director_plan = director_generator(story_context, creator_preferences=preferences)
+        except (ValueError, RuntimeError) as exc:
+            raise ProceduralDailyRenderError(
+                "Injected Master Creative Director did not produce a plan: " + str(exc)
+            ) from exc
+    else:
+        raise ProceduralDailyRenderError(
+            "The daily batch must provide master_director_plan. "
+            "Scheduled production no longer requires a Copilot token."
+        )
+
     try:
-        director_plan = generator(story_context, creator_preferences=preferences)
         require_valid_director_plan(director_plan)
     except (DirectorPlanError, ValueError, RuntimeError) as exc:
-        raise ProceduralDailyRenderError("Master Creative Director did not produce a valid plan: " + str(exc)) from exc
+        raise ProceduralDailyRenderError("Master Creative Director contract failed: " + str(exc)) from exc
 
     if director_plan.get("render_mode") != "procedural_2d":
         raise ProceduralDailyRenderError("Daily production accepts procedural_2d plans only; image/slideshow plans are rejected.")
