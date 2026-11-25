@@ -1357,7 +1357,8 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
     const visualMode = String(scene.visual_mode || "").toLowerCase();
     const isDirectorShot = visualMode === "director_shot";
     const isProceduralScene = visualMode === "procedural_2d";
-    const isDirectedScene = isDirectorShot || isProceduralScene;
+    const isFullBodyDirectorShot = visualMode === "full_body_performance";
+    const isDirectedScene = isDirectorShot || isProceduralScene || isFullBodyDirectorShot;
     tracks.push(...buildStagecraftMotion(scene, { fps }));
     const transitionIn = String(scene.transition_in || "cut").toLowerCase();
     const transitionDuration = Math.max(0, Number(scene.transition_in_duration) || 0);

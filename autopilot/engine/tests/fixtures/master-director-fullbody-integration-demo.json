@@ -1,0 +1,719 @@
+{
+  "schema_version": 2,
+  "render_mode": "procedural_2d",
+  "title": "Violin Prince Full-Body Director Integration Test",
+  "story_understanding": {
+    "central_truth": "A bowed string supplies vibration energy, the bridge transfers some of it into the violin body, and the body radiates sound into the air.",
+    "viewer_question": "How does a thin vibrating string become the sound we hear across a room?",
+    "emotional_arc": [
+      "curiosity",
+      "discovery",
+      "connection",
+      "wonder"
+    ],
+    "key_revelations": [
+      "Bowing continuously supplies energy and sustains the string's harmonic motion.",
+      "The bridge transfers vibration into the wooden plates and the connected body.",
+      "The larger resonant body moves air more effectively than the thin string alone."
+    ]
+  },
+  "visual_concept": {
+    "concept_name": "The Hidden Journey of a Violin Note",
+    "visual_metaphor": "A travelling energy pulse passes through connected structures and becomes a wave moving through air.",
+    "creative_rationale": "The metaphor reveals an invisible acoustic process while keeping abstract visualisation distinct from literal instrument footage.",
+    "art_direction": "Original procedural motion graphics, cinematic vector environments, warm source highlights and restrained editorial typography.",
+    "palette": {
+      "dominant": "#24152E",
+      "secondary": "#D6E0E8",
+      "accent": "#D95D39",
+      "harmony": "split_complementary",
+      "reasoning": "Deep plum gives the invisible process a dark field; warm coral marks energy transfer while pale silver holds the air-wave details.",
+      "contrast_strategy": "Light titles sit against dark fields; coral is reserved for key moving sources and never used as body text."
+    },
+    "lighting_plan": "Warm source lights, low-intensity cool fill and restrained atmospheric glow; no photorealistic scene plates.",
+    "composition_language": "Strong central sources, varied scale, directional movement and clean negative space for titles."
+  },
+  "storyboard": {
+    "duration_seconds": 24,
+    "shots": [
+      {
+        "id": "shot-01",
+        "start_seconds": 0,
+        "end_seconds": 3,
+        "purpose": "hook",
+        "visual_subject": "A note starts in motion",
+        "setting": "A dark concert hall transformed into a field of suspended light",
+        "visual_description": "An illuminated pulse appears at centre stage; moving light trails sweep inward while floating sparks reveal a source of energy.",
+        "composition": "Extreme-wide vertical stage view; the central pulse sits below the title safe area and the two spotlights create a deep frame.",
+        "camera": {
+          "shot_size": "extreme_wide",
+          "angle": "low stage-level angle",
+          "movement": "dolly_in",
+          "focus": "The first luminous pulse"
+        },
+        "animation": {
+          "subject_action": "The central pulse expands and contracts in a controlled rhythm.",
+          "environment_motion": "Two spotlights sweep slowly through stage haze.",
+          "graphic_action": "A small title resolves with the first pulse.",
+          "depth_motion": "Foreground dust crosses at a different speed from the rear haze.",
+          "motion_rationale": "The first movement establishes that sound begins as physical motion."
+        },
+        "procedural_scene": {
+          "environment": "concert_stage",
+          "objects": [
+            {
+              "id": "opening-pulse",
+              "kind": "orb",
+              "x": 0.5,
+              "y": 0.54,
+              "size": 56,
+              "color": "#EACB8B",
+              "motion": "pulse",
+              "period_seconds": 1.6
+            },
+            {
+              "id": "left-trail",
+              "kind": "light_streak",
+              "x": 0.13,
+              "y": 0.75,
+              "size": 34,
+              "color": "#D95D39",
+              "motion": "travel_right",
+              "period_seconds": 2.4
+            },
+            {
+              "id": "right-spark",
+              "kind": "spark",
+              "x": 0.84,
+              "y": 0.4,
+              "size": 16,
+              "color": "#D6E0E8",
+              "motion": "flicker",
+              "period_seconds": 1.4
+            }
+          ]
+        },
+        "character_action": {
+          "visible": true,
+          "gesture": "violin_performance",
+          "expression": "focused",
+          "loop": true,
+          "cycle_duration_seconds": 2.4,
+          "root_motion": {
+            "type": "sway",
+            "intensity": 0.12
+          }
+        },
+        "transition_to_next": "match_cut",
+        "narration_cue": "A stretched violin string begins vibrating when the bow moves across it.",
+        "music_cue": "Opening low pulse; first light reveal is an editorial target.",
+        "sound_effects": [
+          "soft air swell"
+        ]
+      },
+      {
+        "id": "shot-02",
+        "start_seconds": 3,
+        "end_seconds": 6,
+        "purpose": "context",
+        "visual_subject": "The bow feeds the vibration",
+        "setting": "An abstract field of repeated, moving string-like rings",
+        "visual_description": "A bright ribbon-like line oscillates between two anchor points; a repeating energy spark follows its movement and sustained waves continue to bloom.",
+        "composition": "Wide vertical composition with the moving line slightly above centre and two clear anchor points.",
+        "camera": {
+          "shot_size": "wide",
+          "angle": "slightly elevated three-quarter angle",
+          "movement": "truck_left",
+          "focus": "The repeated movement of the central line"
+        },
+        "animation": {
+          "subject_action": "The central line oscillates rapidly while a travelling spark feeds the motion.",
+          "environment_motion": "Concentric rings pulse outward in staggered cycles.",
+          "graphic_action": "A small caption marks continuous energy input.",
+          "depth_motion": "Near and far rings drift at distinct speeds.",
+          "motion_rationale": "The continuous energy input explains why bowing sustains a note."
+        },
+        "procedural_scene": {
+          "environment": "abstract",
+          "objects": [
+            {
+              "id": "string-oscillation",
+              "kind": "ring",
+              "x": 0.5,
+              "y": 0.45,
+              "size": 64,
+              "color": "#D95D39",
+              "motion": "sway",
+              "period_seconds": 1.2
+            },
+            {
+              "id": "bow-energy",
+              "kind": "comet",
+              "x": 0.16,
+              "y": 0.58,
+              "size": 32,
+              "color": "#EACB8B",
+              "motion": "travel_right",
+              "period_seconds": 1.6
+            },
+            {
+              "id": "harmonic-spark",
+              "kind": "spark",
+              "x": 0.78,
+              "y": 0.36,
+              "size": 18,
+              "color": "#D6E0E8",
+              "motion": "pulse",
+              "period_seconds": 1.1
+            }
+          ]
+        },
+        "character_action": {
+          "visible": true,
+          "gesture": "violin_performance",
+          "expression": "focused",
+          "loop": true,
+          "cycle_duration_seconds": 2.4
+        },
+        "transition_to_next": "whip_pan",
+        "narration_cue": "The bow keeps adding energy, sustaining the note and its harmonics.",
+        "music_cue": "A second harmonic layer enters as the spark crosses frame.",
+        "sound_effects": [
+          "short airy tick"
+        ]
+      },
+      {
+        "id": "shot-03",
+        "start_seconds": 6,
+        "end_seconds": 9,
+        "purpose": "reveal",
+        "visual_subject": "Shorter string, higher pitch",
+        "setting": "A precise laboratory-like grid showing a vibrating span becoming shorter",
+        "visual_description": "Two luminous nodes move closer along a measured line; the oscillation cycles tighten and a higher-position marker illuminates.",
+        "composition": "Medium close framing; a central horizontal line leaves clear space for a two-step explanatory card.",
+        "camera": {
+          "shot_size": "medium",
+          "angle": "straight-on technical view",
+          "movement": "orbit",
+          "focus": "The moving endpoints and shorter active span"
+        },
+        "animation": {
+          "subject_action": "Two endpoints slide inward, shortening the active vibrating segment.",
+          "environment_motion": "A measurement grid scrolls subtly behind the moving nodes.",
+          "graphic_action": "Two labels compare longer and shorter active string lengths.",
+          "depth_motion": "The near marker moves faster than the rear grid.",
+          "motion_rationale": "It makes the relationship between free vibrating length and pitch visible."
+        },
+        "procedural_scene": {
+          "environment": "laboratory",
+          "objects": [
+            {
+              "id": "length-marker-a",
+              "kind": "orb",
+              "x": 0.26,
+              "y": 0.43,
+              "size": 22,
+              "color": "#D6E0E8",
+              "motion": "travel_right",
+              "period_seconds": 2.6
+            },
+            {
+              "id": "length-marker-b",
+              "kind": "orb",
+              "x": 0.74,
+              "y": 0.43,
+              "size": 22,
+              "color": "#EACB8B",
+              "motion": "travel_left",
+              "period_seconds": 2.6
+            },
+            {
+              "id": "pitch-rise",
+              "kind": "spark",
+              "x": 0.52,
+              "y": 0.29,
+              "size": 22,
+              "color": "#D95D39",
+              "motion": "pulse",
+              "period_seconds": 1.5
+            }
+          ]
+        },
+        "character_action": {
+          "visible": true,
+          "gesture": "violin_performance",
+          "expression": "focused",
+          "loop": true,
+          "cycle_duration_seconds": 2.4
+        },
+        "graphic_data": {
+          "type": "comparison",
+          "title": "VIBRATING LENGTH",
+          "detail": "Shorter free length generally raises pitch.",
+          "items": [
+            "Longer span",
+            "Shorter span"
+          ]
+        },
+        "transition_to_next": "dissolve",
+        "narration_cue": "Pressing a string against the fingerboard shortens its free length and raises pitch.",
+        "music_cue": "Rising note is an editorial target aligned to the shorter span.",
+        "sound_effects": [
+          "small rising chime"
+        ]
+      },
+      {
+        "id": "shot-04",
+        "start_seconds": 9,
+        "end_seconds": 12,
+        "purpose": "explanation",
+        "visual_subject": "The bridge transfers energy",
+        "setting": "A forest-dusk metaphor for a small connection passing energy into a wider structure",
+        "visual_description": "A bright pulse crosses a narrow bridge-like line and expands into a broad, softly moving surface.",
+        "composition": "Close-up centred on the connection point; layered leaves and firefly-like particles frame the energy path.",
+        "camera": {
+          "shot_size": "close_up",
+          "angle": "low side angle",
+          "movement": "pan",
+          "focus": "The point where the pulse crosses the bridge"
+        },
+        "animation": {
+          "subject_action": "The pulse crosses a narrow connection and spreads into a broader field.",
+          "environment_motion": "Leaves sway as a warm glow passes through the scene.",
+          "graphic_action": "A restrained label identifies the bridge as a transfer point.",
+          "depth_motion": "Foreground leaves drift across the frame while distant lights remain slow.",
+          "motion_rationale": "The visual metaphor distinguishes the small string from the larger body it excites."
+        },
+        "procedural_scene": {
+          "environment": "forest_dusk",
+          "objects": [
+            {
+              "id": "bridge-pulse",
+              "kind": "comet",
+              "x": 0.18,
+              "y": 0.58,
+              "size": 28,
+              "color": "#EACB8B",
+              "motion": "travel_right",
+              "period_seconds": 1.7
+            },
+            {
+              "id": "body-resonance",
+              "kind": "orb",
+              "x": 0.75,
+              "y": 0.58,
+              "size": 46,
+              "color": "#D95D39",
+              "motion": "pulse",
+              "period_seconds": 2.2
+            },
+            {
+              "id": "leaf-edge",
+              "kind": "leaf",
+              "x": 0.86,
+              "y": 0.28,
+              "size": 30,
+              "color": "#D6E0E8",
+              "motion": "sway",
+              "period_seconds": 3
+            }
+          ]
+        },
+        "character_action": {
+          "visible": true,
+          "gesture": "violin_performance",
+          "expression": "focused",
+          "loop": true,
+          "cycle_duration_seconds": 2.4
+        },
+        "transition_to_next": "cut",
+        "narration_cue": "The bridge transfers part of that vibration into the wooden top plate.",
+        "music_cue": "Warm low resonance blooms at the transfer.",
+        "sound_effects": [
+          "soft wooden tap"
+        ]
+      },
+      {
+        "id": "shot-05",
+        "start_seconds": 12,
+        "end_seconds": 15,
+        "purpose": "reveal",
+        "visual_subject": "The plates move together",
+        "setting": "A night city of layered structures connected by moving light paths",
+        "visual_description": "Two broad structures pulse in a coordinated pattern while a smaller central connector rocks between them.",
+        "composition": "Overhead medium-wide view with the paired plates separated vertically and the connector held in the centre.",
+        "camera": {
+          "shot_size": "overhead",
+          "angle": "top-down structural view",
+          "movement": "crane_up",
+          "focus": "The connection between the two moving plates"
+        },
+        "animation": {
+          "subject_action": "The paired surfaces pulse at slightly different phases while the connecting signal rocks.",
+          "environment_motion": "City haze drifts behind the structural layers and traffic streaks move below.",
+          "graphic_action": "A small two-label marker distinguishes top and back plates.",
+          "depth_motion": "The foreground traffic line travels faster than the skyline haze.",
+          "motion_rationale": "It shows that the soundpost and bass bar help distribute and couple vibration through the structure."
+        },
+        "procedural_scene": {
+          "environment": "city_night",
+          "objects": [
+            {
+              "id": "top-plate",
+              "kind": "ring",
+              "x": 0.5,
+              "y": 0.38,
+              "size": 58,
+              "color": "#D95D39",
+              "motion": "pulse",
+              "period_seconds": 2
+            },
+            {
+              "id": "back-plate",
+              "kind": "ring",
+              "x": 0.5,
+              "y": 0.65,
+              "size": 58,
+              "color": "#D6E0E8",
+              "motion": "pulse",
+              "period_seconds": 2.4
+            },
+            {
+              "id": "soundpost-link",
+              "kind": "light_streak",
+              "x": 0.5,
+              "y": 0.51,
+              "size": 32,
+              "color": "#EACB8B",
+              "motion": "sway",
+              "period_seconds": 1.4
+            }
+          ]
+        },
+        "character_action": {
+          "visible": true,
+          "gesture": "violin_performance",
+          "expression": "focused",
+          "loop": true,
+          "cycle_duration_seconds": 2.4
+        },
+        "graphic_data": {
+          "type": "signal_path",
+          "title": "INSIDE THE BODY",
+          "items": [
+            "Top plate",
+            "Soundpost + bass bar",
+            "Back plate"
+          ]
+        },
+        "transition_to_next": "foreground_wipe",
+        "narration_cue": "The soundpost and bass bar help couple motion through the instrument's plates.",
+        "music_cue": "A short three-part visual beat lands on the connector.",
+        "sound_effects": [
+          "subtle wooden resonance"
+        ]
+      },
+      {
+        "id": "shot-06",
+        "start_seconds": 15,
+        "end_seconds": 18,
+        "purpose": "explanation",
+        "visual_subject": "A larger surface moves more air",
+        "setting": "A deep-space scene where a broad resonant body radiates outward",
+        "visual_description": "A broad central orb swells and releases expanding rings; smaller points show how a larger surface moves a greater volume of air.",
+        "composition": "Extreme close-up on the broad resonant body; leave negative space on the left for the presenter.",
+        "camera": {
+          "shot_size": "extreme_close_up",
+          "angle": "slightly low three-quarter view",
+          "movement": "tracking",
+          "focus": "The expanding resonance rings"
+        },
+        "animation": {
+          "subject_action": "The broad resonant surface pulses and releases widening wavefronts.",
+          "environment_motion": "A star field drifts slowly behind the expanding rings.",
+          "graphic_action": "Small particles show the air disturbance spreading away from the body.",
+          "depth_motion": "Near rings expand quickly while distant points remain slow.",
+          "motion_rationale": "It explains why a thin string alone radiates little sound compared with the instrument body."
+        },
+        "procedural_scene": {
+          "environment": "space",
+          "objects": [
+            {
+              "id": "soundboard-core",
+              "kind": "orb",
+              "x": 0.5,
+              "y": 0.5,
+              "size": 62,
+              "color": "#EACB8B",
+              "motion": "pulse",
+              "period_seconds": 1.8
+            },
+            {
+              "id": "air-wave-one",
+              "kind": "ring",
+              "x": 0.5,
+              "y": 0.5,
+              "size": 86,
+              "color": "#D6E0E8",
+              "motion": "orbit",
+              "period_seconds": 4.8
+            },
+            {
+              "id": "air-wave-two",
+              "kind": "comet",
+              "x": 0.18,
+              "y": 0.76,
+              "size": 26,
+              "color": "#D95D39",
+              "motion": "travel_right",
+              "period_seconds": 2.3
+            }
+          ]
+        },
+        "character_action": {
+          "visible": true,
+          "gesture": "violin_performance",
+          "expression": "focused",
+          "loop": true,
+          "cycle_duration_seconds": 2.4
+        },
+        "transition_to_next": "light_transition",
+        "narration_cue": "The broad body moves far more air than a thin string can move alone.",
+        "music_cue": "Resonant pad opens into a wider stereo field.",
+        "sound_effects": [
+          "soft expanding air"
+        ]
+      },
+      {
+        "id": "shot-07",
+        "start_seconds": 18,
+        "end_seconds": 21,
+        "purpose": "payoff",
+        "visual_subject": "Sound travels through the air",
+        "setting": "A concert stage filled with travelling pressure-wave symbols",
+        "visual_description": "A wave-like sequence of particles travels from the resonant centre toward the edges, with each moving pulse following the last.",
+        "composition": "Wide portrait frame with a central source and a clear outward path toward both sides.",
+        "camera": {
+          "shot_size": "wide",
+          "angle": "audience-level view",
+          "movement": "arc",
+          "focus": "The outward-travelling wavefront"
+        },
+        "animation": {
+          "subject_action": "The source pulses while small objects travel outward in succession.",
+          "environment_motion": "Spotlights sway in the stage haze.",
+          "graphic_action": "A simple waveform line reveals the pressure-wave sequence.",
+          "depth_motion": "Foreground sparks cross the near plane while the wave recedes.",
+          "motion_rationale": "The motion turns the sound wave into a visible travelling disturbance rather than a static symbol."
+        },
+        "procedural_scene": {
+          "environment": "concert_stage",
+          "objects": [
+            {
+              "id": "source-pulse",
+              "kind": "orb",
+              "x": 0.5,
+              "y": 0.53,
+              "size": 38,
+              "color": "#D95D39",
+              "motion": "pulse",
+              "period_seconds": 1.3
+            },
+            {
+              "id": "wavefront-left",
+              "kind": "comet",
+              "x": 0.22,
+              "y": 0.53,
+              "size": 24,
+              "color": "#D6E0E8",
+              "motion": "travel_left",
+              "period_seconds": 2
+            },
+            {
+              "id": "wavefront-right",
+              "kind": "comet",
+              "x": 0.78,
+              "y": 0.53,
+              "size": 24,
+              "color": "#EACB8B",
+              "motion": "travel_right",
+              "period_seconds": 2
+            }
+          ]
+        },
+        "character_action": {
+          "visible": true,
+          "gesture": "violin_performance",
+          "expression": "focused",
+          "loop": true,
+          "cycle_duration_seconds": 2.4
+        },
+        "graphic_data": {
+          "type": "waveform",
+          "title": "A PRESSURE WAVE IN MOTION",
+          "detail": "Air pressure changes travel outward from the vibrating body."
+        },
+        "transition_to_next": "shape_match",
+        "narration_cue": "That motion creates pressure waves that travel outward through the surrounding air.",
+        "music_cue": "Air movement reaches its widest point at the final wavefront.",
+        "sound_effects": [
+          "soft shimmer"
+        ]
+      },
+      {
+        "id": "shot-08",
+        "start_seconds": 21,
+        "end_seconds": 24,
+        "purpose": "ending",
+        "visual_subject": "The whole violin makes the sound",
+        "setting": "An abstract stage resolving the earlier pulses into one balanced composition",
+        "visual_description": "Six moving orbs settle into a single resonant orbit, and a warm centre remains pulsing after the outer rings align.",
+        "composition": "Balanced close composition; centre the final pulse and reserve clean space for the closing title.",
+        "camera": {
+          "shot_size": "close_up",
+          "angle": "straight-on composed angle",
+          "movement": "dolly_out",
+          "focus": "The resolved centre and outer ring"
+        },
+        "animation": {
+          "subject_action": "Separated pulses align into one repeating orbit around the final source.",
+          "environment_motion": "The abstract rings rotate more slowly and the field settles.",
+          "graphic_action": "The closing title arrives after the final orbit aligns.",
+          "depth_motion": "The outer ring drifts more slowly than the central pulse.",
+          "motion_rationale": "The ending resolves the sequence into one clear idea: the string starts the journey and the complete instrument radiates the sound."
+        },
+        "procedural_scene": {
+          "environment": "abstract",
+          "objects": [
+            {
+              "id": "final-source",
+              "kind": "orb",
+              "x": 0.5,
+              "y": 0.48,
+              "size": 46,
+              "color": "#EACB8B",
+              "motion": "pulse",
+              "period_seconds": 2.4
+            },
+            {
+              "id": "resolved-orbit",
+              "kind": "ring",
+              "x": 0.5,
+              "y": 0.48,
+              "size": 92,
+              "color": "#D95D39",
+              "motion": "rotate",
+              "period_seconds": 8
+            },
+            {
+              "id": "final-spark",
+              "kind": "spark",
+              "x": 0.5,
+              "y": 0.21,
+              "size": 18,
+              "color": "#D6E0E8",
+              "motion": "flicker",
+              "period_seconds": 2.8
+            }
+          ]
+        },
+        "character_action": {
+          "visible": true,
+          "gesture": "violin_performance",
+          "expression": "focused",
+          "loop": true,
+          "cycle_duration_seconds": 2.4
+        },
+        "transition_to_next": "none",
+        "narration_cue": "The string begins the journey; the whole violin helps turn it into sound.",
+        "music_cue": "Original score resolves on a warm sustained chord.",
+        "sound_effects": [
+          "gentle final chime"
+        ]
+      }
+    ]
+  },
+  "edit_direction": {
+    "pacing": "Open on a single pulse, move through the mechanism in distinct four-second beats, and resolve on one final orbit.",
+    "transition_language": "Match motion direction for continuity, use one whip-pan reveal, a restrained dissolve, then a shape match into the payoff.",
+    "typography": "Phone-readable editorial titles with short captions outside the primary motion path.",
+    "sound_design": "A light original percussive tick for reveals, soft air sweeps for travelling waves and restrained woody accents for transfer points.",
+    "music_mood": "Original warm cinematic ambient score, curious at first and more open by the final wave.",
+    "music_sync_cues": [
+      {
+        "time_seconds": 6,
+        "event": "Shorter-string reveal and upward pitch marker",
+        "reason": "The change in visual movement introduces the pitch relationship.",
+        "requested_time_seconds": 8,
+        "source_time_seconds": 8,
+        "audio_loop_index": 0,
+        "timing_source": "preview_generated_beat_grid",
+        "alignment_error_seconds": 0
+      },
+      {
+        "time_seconds": 12,
+        "event": "Soundpost connection visual",
+        "reason": "A three-part diagram reveals how motion couples through the body.",
+        "requested_time_seconds": 16,
+        "source_time_seconds": 16,
+        "audio_loop_index": 0,
+        "timing_source": "preview_generated_beat_grid",
+        "alignment_error_seconds": 0
+      },
+      {
+        "time_seconds": 21,
+        "event": "Final orbit resolves",
+        "reason": "A sustained chord supports the concise final truth.",
+        "requested_time_seconds": 28,
+        "source_time_seconds": 28,
+        "audio_loop_index": 0,
+        "timing_source": "preview_generated_beat_grid",
+        "alignment_error_seconds": 0
+      }
+    ],
+    "final_payoff": "The string initiates the process, but the complete violin body makes the note audible."
+  },
+  "production_context": {
+    "purpose": "integration_test_only",
+    "note": "A deterministic 24-second technical fixture scaled to match the CI guide track; not creator-approved final audio or production content."
+  },
+  "music_sync_report": {
+    "status": "preview_only",
+    "method": "synthetic_preview_beat_grid",
+    "cue_count": 3,
+    "rendered_motion_track_count": 0,
+    "measured_audio_sync_verified": false,
+    "cues": [
+      {
+        "time_seconds": 8,
+        "event": "Shorter-string reveal and upward pitch marker",
+        "reason": "The change in visual movement introduces the pitch relationship.",
+        "requested_time_seconds": 8,
+        "source_time_seconds": 8,
+        "audio_loop_index": 0,
+        "timing_source": "preview_generated_beat_grid",
+        "alignment_error_seconds": 0
+      },
+      {
+        "time_seconds": 16,
+        "event": "Soundpost connection visual",
+        "reason": "A three-part diagram reveals how motion couples through the body.",
+        "requested_time_seconds": 16,
+        "source_time_seconds": 16,
+        "audio_loop_index": 0,
+        "timing_source": "preview_generated_beat_grid",
+        "alignment_error_seconds": 0
+      },
+      {
+        "time_seconds": 28,
+        "event": "Final orbit resolves",
+        "reason": "A sustained chord supports the concise final truth.",
+        "requested_time_seconds": 28,
+        "source_time_seconds": 28,
+        "audio_loop_index": 0,
+        "timing_source": "preview_generated_beat_grid",
+        "alignment_error_seconds": 0
+      }
+    ]
+  }
+}

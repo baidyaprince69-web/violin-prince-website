@@ -528,12 +528,12 @@ def validate_director_plan(plan: dict[str, Any]) -> list[str]:
                 procedural_character_scenes += 1
                 gesture = str(action.get("gesture") or "").strip().casefold()
                 if gesture not in {
-                    "wave", "point", "point_left", "point_right", "open_palms", "explain",
+                    "violin_performance", "wave", "point", "point_left", "point_right", "open_palms", "explain",
                     "nod", "thinking", "idle_breath", "talking", "violin_bow", "walk_cycle", "dance_groove"
                 }:
                     errors.append(f"{prefix}.character_action.gesture is unsupported.")
                 expression = str(action.get("expression") or "").strip().casefold()
-                if expression not in {"neutral", "blink", "speaking", "smile", "shocked", "sad"}:
+                if expression not in {"neutral", "blink", "speaking", "smile", "shocked", "sad", "focused", "happy", "surprised"}:
                     errors.append(f"{prefix}.character_action.expression is unsupported.")
                 if action.get("loop") is not True:
                     errors.append(f"{prefix}.character_action.loop must be true.")
