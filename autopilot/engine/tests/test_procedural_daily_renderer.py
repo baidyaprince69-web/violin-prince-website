@@ -270,7 +270,7 @@ class ProceduralDailyRendererTests(unittest.TestCase):
             "topic": "A specific verified audio tool",
             "narration_script": "The approved narration script.",
         }
-        with self.assertRaisesRegex(ProceduralDailyRenderError, "no Copilot token"):
+        with self.assertRaisesRegex(ProceduralDailyRenderError, "does not call an external Copilot provider"): 
             _validated_batch_director_plan(batch_plan)
 
     def test_daily_renderer_rejects_generated_picture_layers(self):
