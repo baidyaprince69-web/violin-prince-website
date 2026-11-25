@@ -272,7 +272,12 @@ test("music-synchronized performance keyframes follow beat and onset timestamps"
     confidence: 1
   });
   const find = target => tracks.find(track => track.target === target);
-  const bowPropTracks = tracks.filter(track => track.target === "playing-violin-prince-prop-bow");
+  const bowPropRotationTracks = tracks.filter(track =>
+    track.target === "playing-violin-prince-prop-bow" && track.property === "rotate"
+  );
+  const bowSlide = tracks.find(track =>
+    track.target === "playing-violin-prince-prop-bow" && track.property === "translate"
+  );
   const bowShoulder = find("playing-violin-prince-part-left_upper_arm");
   const elbow = find("playing-violin-prince-part-left_forearm");
   const wrist = find("playing-violin-prince-part-left_hand");
@@ -284,8 +289,13 @@ test("music-synchronized performance keyframes follow beat and onset timestamps"
   const littleFinger = find("playing-violin-prince-part-finger_little");
 
   assert.ok(bowShoulder && elbow && wrist);
-  assert.equal(bowPropTracks.length, 0,
-    "bow motion must come from the grip's shoulder-elbow-wrist chain");
+  assert.equal(bowPropRotationTracks.length, 0,
+    "bow orientation must still follow the attached grip rather than a second rotation");
+  assert.ok(bowSlide, "the bow stick must slide through the grip on measured stroke timing");
+  assert.equal(bowSlide.music_sync_event, "performer_bow_stroke");
+  const slidePixels = bowSlide.values.map(value => Number.parseFloat(String(value)));
+  assert.ok(Math.max(...slidePixels) - Math.min(...slidePixels) >= 26,
+    "measured bow travel must span at least 26 source pixels across the strings");
   assert.equal(fingerboardArmTracks.length, 0,
     "the violin-neck arm must not drift away from its contact point");
   assert.ok(indexFinger && ringFinger && littleFinger);
@@ -293,19 +303,19 @@ test("music-synchronized performance keyframes follow beat and onset timestamps"
   assert.equal(elbow.music_sync_event, "performer_bow_stroke");
   assert.equal(indexFinger.music_sync_event, "performer_finger_note");
   assert.equal(indexFinger.music_sync_timing_source, "validated_audio_event_map");
-  assert.equal(tracks.filter(track => track.music_sync_event === "performer_bow_stroke").length, 3);
+  assert.equal(tracks.filter(track => track.music_sync_event === "performer_bow_stroke").length, 4);
   assert.equal(tracks.filter(track => track.music_sync_event === "performer_finger_note").length, 12);
   assert.equal(tracks.filter(track => track.music_sync_event === "performer_weight_shift").length, 6);
   assert.ok(indexFinger.key_times.includes(0.268));
   assert.ok(ringFinger.key_times.includes(1.286));
   assert.ok(littleFinger.key_times.includes(1.795));
-  assert.ok(Math.max(...bowShoulder.values.map(Math.abs)) <= 12.0);
-  assert.ok(Math.max(...elbow.values.map(Math.abs)) <= 13.2);
-  assert.ok(Math.max(...wrist.values.map(Math.abs)) <= 1.2);
-  assert.ok(bowShoulder.values.some(value => Math.abs(value) >= 10.0));
-  assert.ok(elbow.values.some(value => Math.abs(value) >= 11.0),
+  assert.ok(Math.max(...bowShoulder.values.map(Math.abs)) <= 18.0);
+  assert.ok(Math.max(...elbow.values.map(Math.abs)) <= 19.5);
+  assert.ok(Math.max(...wrist.values.map(Math.abs)) <= 2.2);
+  assert.ok(bowShoulder.values.some(value => Math.abs(value) >= 15.0));
+  assert.ok(elbow.values.some(value => Math.abs(value) >= 17.0),
     "the forearm must contribute a visibly larger share of each bow stroke");
-  assert.ok(wrist.values.some(value => Math.abs(value) >= 0.5));
+  assert.ok(wrist.values.some(value => Math.abs(value) >= 1.0));
   assert.equal(bowShoulder.values.length, elbow.values.length);
   assert.equal(elbow.values.length, wrist.values.length);
   assert.ok(bowShoulder.values.length > 12,
@@ -371,10 +381,10 @@ test("compileMotionTracks consumes audio beat maps for bow, arm and finger motio
   const presenterSyncTracks = musicTracks.filter(track =>
     String(track.music_sync_event || "").startsWith("performer_")
   );
-  assert.equal(presenterSyncTracks.length, 23,
+  assert.equal(presenterSyncTracks.length, 24,
     "all 23 measured presenter transforms must retain sync provenance after hierarchy compilation");
   assert.equal(presenterSyncTracks.filter(track =>
-    track.music_sync_event === "performer_bow_stroke").length, 3);
+    track.music_sync_event === "performer_bow_stroke").length, 4);
   assert.equal(presenterSyncTracks.filter(track =>
     track.music_sync_event === "performer_finger_note").length, 12);
   assert.equal(presenterSyncTracks.filter(track =>
@@ -382,15 +392,19 @@ test("compileMotionTracks consumes audio beat maps for bow, arm and finger motio
   assert.equal(presenterSyncTracks.filter(track =>
     track.music_sync_event === "performer_weight_shift").length, 6);
   assert.ok(presenterSyncTracks.every(track =>
-    track.property === "transform" &&
+    (track.property === "transform" ||
+      (track.target === "playing-violin-prince-prop-bow" && track.property === "translate")) &&
     track.music_sync_timing_source === "decoded_audio_spectral_flux_autocorrelation"
-  ), "sync provenance must survive on the final frame-seekable transform tracks");
+  ), "sync provenance must survive on all final frame-seekable presenter tracks");
 
   const bowTransform = getTrack(musicTracks, "playing-violin-prince-prop-bow", "transform");
   assert.ok(bowTransform && bowTransform.values.some(value => value !== bowTransform.values[0]),
     "bow follows the articulated bowing-hand parent");
-  assert.equal(getTrack(musicTracks, "playing-violin-prince-prop-bow", "translate"), undefined,
-    "bow must not receive a second independent slide");
+  const bowSlide = getTrack(musicTracks, "playing-violin-prince-prop-bow", "translate");
+  assert.ok(bowSlide, "the bow receives a measured cross-string slide track");
+  const slideValues = bowSlide.values.map(value => Number.parseFloat(String(value)));
+  assert.ok(Math.max(...slideValues) - Math.min(...slideValues) >= 26,
+    "the bow slide remains visibly measurable after timeline compilation");
 });
 
 test("sampled note pitches select finger layers and music cues counterbalance the full body", () => {

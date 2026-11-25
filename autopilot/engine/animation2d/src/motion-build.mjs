@@ -132,11 +132,13 @@ export function buildMusicSynchronizedPerformanceTracks({
   // counter-rotate together to keep the bow stable in the player's grip.
   // Put a visible share of the bow stroke through the elbow/forearm.
   // The wrist counter-rotates so the bow grip stays stable while its position travels.
-  const bowShoulderStrokes=strokeTimes.map(time=>({
-    time,value:(10.5+downbeatAccentAt(time)*0.9)*Math.cos(beatPhaseAt(time))
+  const bowShoulderStrokes = strokeTimes.map(time => ({
+    time,
+    value: (15.5 + downbeatAccentAt(time) * 1.2) * Math.cos(beatPhaseAt(time))
   }));
-  const bowElbowStrokes=strokeTimes.map((time,index)=>({
-    time,value:-bowShoulderStrokes[index].value*1.1
+  const bowElbowStrokes = strokeTimes.map((time, index) => ({
+    time,
+    value: -bowShoulderStrokes[index].value * 1.12
   }));
   const bowWristStrokes=strokeTimes.map((time,index)=>({
     time,value:-bowShoulderStrokes[index].value-bowElbowStrokes[index].value
@@ -169,13 +171,15 @@ export function buildMusicSynchronizedPerformanceTracks({
         : total;
       const hold = Math.min(0.82, Math.max(0.15, event.durationSeconds * 0.72));
       const release = Math.min(total, hit + hold, nextHit);
-      const settle = Math.min(total, release + 0.08, nextHit);
+      const settle = Math.min(total, release + 0.09, nextHit);
       for (let fingerPosition = 0; fingerPosition <= fingerIndex; fingerPosition += 1) {
         const finger = fingerNames[fingerPosition];
-        const amplitudes = [12.8, -11.5, 12.2, -11.2];
+        const amplitudes = [20.5, -18.5, 19.5, -18.0];
         const stagger = fingerPosition * 0.009;
+        const start = Math.min(total, hit + stagger);
         fingerIntervals[finger].push({
-          start: Math.min(total, hit + stagger),
+          start,
+          pressEnd: Math.min(total, start + 0.055, nextHit),
           end: release,
           settle,
           amplitude: amplitudes[fingerPosition] * strength
@@ -190,9 +194,13 @@ export function buildMusicSynchronizedPerformanceTracks({
         ? total : Math.min(total, attacks[index + 1] + 0.025);
       const release = Math.min(total, hit + Math.min(0.22, period * 0.3), nextHit);
       const settle = Math.min(total, release + 0.075, nextHit);
-      const amplitude = [6.0, -5.5, 5.8, -5.0][fingerIndex];
+      const amplitude = [8.0, -7.5, 7.8, -7.0][fingerIndex];
       fingerIntervals[fingerNames[fingerIndex]].push({
-        start: hit, end: release, settle, amplitude
+        start: hit,
+        pressEnd: Math.min(total, hit + 0.05, nextHit),
+        end: release,
+        settle,
+        amplitude
       });
     });
   }
@@ -201,17 +209,24 @@ export function buildMusicSynchronizedPerformanceTracks({
     const intervals = fingerIntervals[name];
     const boundaries = cleanTimes([
       0, total,
-      ...intervals.flatMap(interval => [interval.start, interval.end, interval.settle])
+      ...intervals.flatMap(interval => [
+        interval.start, interval.pressEnd, interval.end, interval.settle
+      ])
     ]);
     const points = boundaries.map(time => {
-      const active = intervals
-        .filter(interval => time >= interval.start && time < interval.end)
-        .sort((a, b) => b.start - a.start);
-      if (active.length) return { time, value: active[0].amplitude };
-      const releasing = intervals
-        .filter(interval => time >= interval.end && time < interval.settle)
-        .sort((a, b) => b.start - a.start);
-      return { time, value: releasing.length ? releasing[0].amplitude * 0.24 : 0 };
+      const selected = intervals
+        .filter(interval => time >= interval.start && time < interval.settle)
+        .sort((a, b) => b.start - a.start)[0];
+      if (!selected) return { time, value: 0 };
+      if (time < selected.pressEnd) {
+        const attack = (time - selected.start) /
+          Math.max(0.001, selected.pressEnd - selected.start);
+        return { time, value: selected.amplitude * Math.min(1, Math.max(0, attack)) };
+      }
+      if (time < selected.end) return { time, value: selected.amplitude };
+      const release = (time - selected.end) /
+        Math.max(0.001, selected.settle - selected.end);
+      return { time, value: selected.amplitude * (1 - Math.min(1, Math.max(0, release))) };
     });
     // Preserve the earlier one-sprite curl as an approximate total rotation,
     // but distribute it across MCP, PIP and DIP joints for a connected finger.
@@ -244,11 +259,26 @@ export function buildMusicSynchronizedPerformanceTracks({
     music_sync_event: "performer_" + event,
     music_sync_timing_source: timing
   });
+  // The bow must travel across the strings, not merely rotate with the camera
+  // or arm. This local horizontal slide represents the stick moving through
+  // the fixed bow-grip hand during each measured reciprocal stroke.
+  const bowSlideTrack = {
+    target: prefix + "-prop-bow",
+    property: "translate",
+    values: strokeTimes.map(time =>
+      (14 * Math.sin(beatPhaseAt(time))).toFixed(2) + "px 0px"
+    ),
+    offsets: strokeTimes.map(time => Number((time / total).toFixed(6))),
+    start: Math.max(0, Number(start) || 0),
+    duration: total,
+    easing: "linear"
+  };
   return [
     // Bowing arm: the shoulder, elbow and wrist form one continuous chain.
     tag(makeTrack(prefix + "-part-left_upper_arm", bowShoulderStrokes), "bow_stroke"),
     tag(makeTrack(prefix + "-part-left_forearm", bowElbowStrokes), "bow_stroke"),
     tag(makeTrack(prefix + "-part-left_hand", bowWristStrokes), "bow_stroke"),
+    tag(bowSlideTrack, "bow_stroke"),
     // Keep the fretting wrist planted while note events articulate finger sprites.
     tag(makeTrack(prefix + "-part-torso", torsoPulses), "body_balance"),
     tag(makeTrack(prefix + "-part-head", headPulses), "body_balance"),

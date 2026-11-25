@@ -792,6 +792,24 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
   const presenterWeightShiftTrackCount = presenterMusicSyncTracks.filter(
     track => track.music_sync_event === "performer_weight_shift"
   ).length;
+  const presenterBowSlideTracks = presenterMusicSyncTracks.filter(track =>
+    track.music_sync_event === "performer_bow_stroke" &&
+    track.target === presenterSyncPrefix + "violin-prince-prop-bow" &&
+    track.property === "translate"
+  );
+  const bowSlidePositions = presenterBowSlideTracks.flatMap(track =>
+    (track.values || []).map(value => Number.parseFloat(String(value)))
+      .filter(value => Number.isFinite(value))
+  );
+  const bowSlideTravelRangePx = bowSlidePositions.length
+    ? Math.max(...bowSlidePositions) - Math.min(...bowSlidePositions) : 0;
+  if (scene.visual_mode === "full_body_performance" &&
+      (presenterBowStrokeTrackCount < 4 || presenterBowSlideTracks.length !== 1 ||
+       bowSlideTravelRangePx < 26)) {
+    throw new Error(
+      "Full-body performance requires four synchronized bow-stroke tracks and at least 26px of measured bow travel."
+    );
+  }
   if (musicSyncTracks.length !== expectedMusicSyncCount) {
     throw new Error("Scene " + scene.id + " has " + musicSyncTracks.length +
       " measured music-sync animation tracks for " + expectedMusicSyncCount + " cues.");
@@ -897,6 +915,8 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     music_sync_events: musicSyncTracks.map(track => ({event: track.music_sync_event, time_seconds: track.start, timing_source: track.music_sync_timing_source})),
     presenter_music_sync_track_count: presenterMusicSyncTracks.length,
     presenter_bow_stroke_track_count: presenterBowStrokeTrackCount,
+    presenter_bow_slide_track_count: presenterBowSlideTracks.length,
+    bow_slide_travel_range_px: Number(bowSlideTravelRangePx.toFixed(2)),
     presenter_finger_note_track_count: presenterFingerNoteTrackCount,
     presenter_body_balance_track_count: presenterBodyBalanceTrackCount,
     presenter_weight_shift_track_count: presenterWeightShiftTrackCount,
@@ -933,6 +953,8 @@ const motionReport = {
   music_sync_events: motionSceneReports.flatMap(scene => scene.music_sync_events),
   presenter_music_sync_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.presenter_music_sync_track_count, 0),
   presenter_bow_stroke_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.presenter_bow_stroke_track_count, 0),
+  presenter_bow_slide_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.presenter_bow_slide_track_count, 0),
+  bow_slide_travel_range_px: Math.max(0, ...motionSceneReports.map(scene => scene.bow_slide_travel_range_px)),
   presenter_finger_note_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.presenter_finger_note_track_count, 0),
   presenter_body_balance_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.presenter_body_balance_track_count, 0),
   presenter_weight_shift_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.presenter_weight_shift_track_count, 0),
