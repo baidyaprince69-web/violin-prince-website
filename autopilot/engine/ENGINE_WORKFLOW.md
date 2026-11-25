@@ -598,7 +598,7 @@ The current bundle contains 34 active character composition layers plus the viol
 
 ### Full-duration creator-recording synchronization (2026-11-25)
 
-- `create_full_body_performance_preview.py` now supports a full-length performance duration from 1–600 seconds. When `--audio` is supplied without a duration override, the project duration is read from the attached PCM WAV; the eight-second CI fixture remains unchanged when no audio file is supplied.
+- `create_full_body_performance_preview.py` now supports a full-length performance duration from 1–600 seconds. When a creator `--audio` WAV is supplied without a sampled `--music-map` or explicit duration override, the project duration is read from that WAV. The public sampled-violin CI fixture retains its eight-second crop because it supplies a music map.
 - The requested project duration must fit inside the decoded recording. The builder rejects a short source instead of stretching, silently padding, or pretending it covers the complete performance.
 - When a creator recording is supplied without a sampled-arrangement map, the builder runs the existing monophonic violin pitch/onset analyzer and feeds its reliable note events into the finger-control tracks. It requires at least four reliable note events; low-confidence pitch analysis fails closed rather than inventing fingering cues.
 - The note detector is a visual timing aid, not a verified transcription or fingering model. Overlapping/polyphonic passages can be rejected or misclassified, so the note map and final hand motion still require creator review.
