@@ -193,10 +193,10 @@ def create_fixture(character_video: Path, music_wav: Path, output_dir: Path) -> 
              "x": 0, "y": 0, "width": width, "height": height, "fit": "contain",
              "opacity": 0.20}
         ],
+        # The character render already carries its canonical Violin Prince
+        # header. Avoid a second title over the same safe-area text; retain one
+        # closing brand mark after the final hero shot.
         "text_layers": [
-            {"id": "opening_title", "text": "VIOLIN PRINCE", "start_seconds": 0.6,
-             "end_seconds": 2.8, "x": 32, "y": 28, "font_size": 26,
-             "color": "#F3D7A4", "alpha": 0.95, "border_width": 1},
             {"id": "closing_tag", "text": "VIOLIN PRINCE", "start_seconds": 5.3,
              "end_seconds": 7.5, "x": 42, "y": 1165, "font_size": 24,
              "color": "#FFFFFF", "alpha": 0.88}
