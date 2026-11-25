@@ -77,6 +77,33 @@ class CinematicTimelineTests(unittest.TestCase):
         with self.assertRaisesRegex(CompositionError, "does not exist"):
             validate_timeline(data, self.root)
 
+    def test_creator_recorded_voice_and_violin_are_private_and_provenance_is_preserved(self):
+        data = json.loads(json.dumps(self.manifest))
+        data["audio_tracks"][0]["source_type"] = "creator_recorded_voice"
+        data["audio_tracks"][0]["private_source"] = True
+        data["audio_tracks"][1]["source_type"] = "creator_recorded_violin"
+        data["audio_tracks"][1]["private_source"] = True
+        data["audio_tracks"][1]["loop"] = False
+        timeline = validate_timeline(data, self.root)
+        self.assertTrue(timeline["private"])
+        self.assertEqual(timeline["audio"][0]["source_type"], "creator_recorded_voice")
+        self.assertEqual(timeline["audio"][1]["source_type"], "creator_recorded_violin")
+
+    def test_rejects_creator_voice_if_declared_public(self):
+        data = json.loads(json.dumps(self.manifest))
+        data["audio_tracks"][0]["source_type"] = "creator_recorded_voice"
+        data["audio_tracks"][0]["private_source"] = False
+        with self.assertRaisesRegex(CompositionError, "private voice track"):
+            validate_timeline(data, self.root)
+
+    def test_rejects_creator_violin_if_looped_or_declared_public(self):
+        data = json.loads(json.dumps(self.manifest))
+        data["audio_tracks"][1]["source_type"] = "creator_recorded_violin"
+        data["audio_tracks"][1]["private_source"] = True
+        data["audio_tracks"][1]["loop"] = True
+        with self.assertRaisesRegex(CompositionError, "must be private and must not loop"):
+            validate_timeline(data, self.root)
+
     def test_text_layers_are_rasterised_as_transparent_video_assets(self):
         timeline = validate_timeline(self.manifest, self.root)
         layers = _rasterize_text_layers(timeline, self.root)
