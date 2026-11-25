@@ -277,7 +277,7 @@ def build_preview_project(
     output = Path(output_dir).resolve()
     duration = (
         _read_audio_duration_seconds(audio_path)
-        if duration_seconds is None and audio_path else
+        if duration_seconds is None and audio_path and not music_map_path else
         (8.0 if duration_seconds is None else float(duration_seconds))
     )
     if not math.isfinite(duration) or not 1.0 <= duration <= 600.0:
