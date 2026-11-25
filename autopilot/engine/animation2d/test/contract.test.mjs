@@ -90,8 +90,16 @@ test("audio-synchronised violin performance has readable bow, torso and weight-s
     assert.ok(track, "missing synchronised track for " + role);
     return Math.max(...track.values.map(value => Math.abs(Number(value))));
   };
-  assert.equal(tracks.length, 23);
-  assert.ok(peak("left_upper_arm") >= 10, "bow shoulder should visibly reciprocate");
+  assert.equal(tracks.length, 24);
+  const bowSlide = tracks.find(track =>
+    track.target === "performance-violin-prince-prop-bow" &&
+    track.property === "translate"
+  );
+  assert.ok(bowSlide, "measured bow travel must be present in the synchronized performance");
+  const bowTravel = bowSlide.values.map(value => Number.parseFloat(String(value)));
+  assert.ok(Math.max(...bowTravel) - Math.min(...bowTravel) >= 26,
+    "the bow must travel a visible distance across the strings");
+  assert.ok(peak("left_upper_arm") >= 15, "bow shoulder should visibly reciprocate");
   assert.ok(peak("left_forearm") >= 11, "bow elbow should visibly reciprocate");
   assert.ok(peak("torso") >= 3, "torso should follow the phrase");
   assert.ok(peak("head") >= 1.4, "head should follow the torso with a slight delay");
