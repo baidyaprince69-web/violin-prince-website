@@ -1180,7 +1180,7 @@
                     "y": 0.52,
                     "size": 28,
                     "color": "#71808A",
-                    "motion": "travel_up",
+                    "motion": "bob",
                     "period_seconds": 2.4
                   },
                   {
