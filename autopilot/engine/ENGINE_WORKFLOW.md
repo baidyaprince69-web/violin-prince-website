@@ -578,3 +578,20 @@ The public proof render also has two independent transparent atmosphere tracks: 
 The Master Director presenter staging step now stages optional full-body assets alongside the upper-body assets: performance base artwork, violin/bow props, modular head variants and head-angle plates. The procedural project copies every staged collection into its self-contained character asset folder. Its diagnostics and README now describe the actual rig scope instead of always reporting an upper-body-only presenter.
 
 A regression assembles a synthetic full-body bundle from the checked-in illustration, with six leg roles and attached violin/bow props, and verifies that the Master Director project retains all referenced asset files. This checks the asset handoff only. It does not create or imply creator production approval; the Real Performance production approval gate remains mandatory.
+
+### Validation update — stronger full-body movement and five-shot render (2026-11-25)
+
+**Status:** Passed on the isolated full-body feature branch. The preview remains a creator-review candidate, not a production release.
+
+- Full-Body Violin Performance Rig Preview run #698: **success** (8-second render, 720×1280, 25 fps, H.264 video + AAC audio).
+- Autopilot code checks run #2457: **success**.
+- Character Auto-Rig Test run #384: **success**.
+- Private Voice Vault checks run #181: **success**.
+- The five-shot timeline has distinct full-body, medium, instrument/hands, face/upper-body and hero-return framings with five deterministic moves: push-in, pan-right, instrument push-in, face push-in and pull-out. The independent volumetric-light and foreground-particle layers, timed titles, narration, music and SFX all render in the combined MP4.
+- The final composition report records `preview_only=true`, `publish_enabled=false`, `publish_ready=false`, `private_media=false` and `public_artifact_allowed=true`. The CI fixture uses synthetic eSpeak narration and generated CC0 sampled-violin guide audio; it does not contain the creator's private voice recording or a creator-recorded violin WAV.
+
+The near-static appearance was traced to conservative synchronised movement amplitudes. The current performance track envelope now reaches approximately 10.5° bow-shoulder travel plus downbeat accent, 3° torso follow-through, 1.45° delayed head follow-through, 6° thigh, 4° calf and 2.2° foot counterbalance. The root performer group adds a restrained 0.28-intensity sway. Source-mesh deformation limits were raised modestly to make arm/torso/leg movement more legible while retaining the preserved pixel artwork and the separate joint surfaces. Tests now check the measured synchronised track envelope, not just the presence of track IDs.
+
+The current bundle contains 34 active character composition layers plus the violin and bow props, including 12 finger segments and six approved lower-body hip/knee/ankle joint surfaces. This confirms the parts are present and assembled into the performer; it does not mean that they should appear as detached pieces in the finished video.
+
+**Remaining creator-review boundaries:** the face and head still use separate angle/expression plates and crossfades rather than continuous 3D deformation; hands/fingers and the bow grip remain sprite-based; and the premium character-art gate still requires creator visual review of head/face transitions, hand/grip artwork, upper-body seams and occlusion across the entire render. The five-shot edit is a reframing of the same full-body performance source, not five newly generated performance scenes or a photorealistic 3D venue. Keep PR #130 open, draft and unmerged until that review is complete. No scheduled production or public publishing is enabled.
