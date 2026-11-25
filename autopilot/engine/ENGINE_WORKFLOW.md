@@ -604,3 +604,21 @@ The current bundle contains 34 active character composition layers plus the viol
 - The note detector is a visual timing aid, not a verified transcription or fingering model. Overlapping/polyphonic passages can be rejected or misclassified, so the note map and final hand motion still require creator review.
 - The Qwen3 own-voice narration approval remains a separate, previously verified bridge. This duration change does not retrieve or embed a private recording, create a render, upload a preview, or alter any publishing workflow. The creator-recorded violin WAV must still be supplied to a private/local render workspace before the private full-length render can run.
 - Public CI continues to use synthetic eSpeak narration and generated CC0 violin audio only. Its artifacts must never contain private-source audio or a private-source render. `PUBLISH_ENABLED=false` and `AUTOPILOT_ENABLED=false` remain unchanged.
+
+### Validation update — full-duration adapter and preview #704 (2026-11-25)
+
+**Status:** All engineering validation for the current PR head passed. This is still an isolated, non-publishing preview and not a creator-approved final music video.
+
+- Full-Body Violin Performance Rig Preview #704: **success**.
+- Autopilot code checks #2462: **success**.
+- Character Auto-Rig Test #389: **success**.
+- Private Voice Vault checks #186: **success**.
+- The full-body preview unit-test suite passed, including synthetic-PCM coverage that checks creator-WAV duration inference, note-event-driven finger cues, and rejection when a requested render exceeds the source recording.
+- The existing public CI path remains unchanged: it rendered an 8-second 720×1280, 25 fps H.264/AAC full-body MP4 and an 8-second H.264/AAC cinematic composition. The composition report confirms five camera framings/moves, separate voice/music/SFX tracks and music ducking.
+- Public CI media provenance remains safe: synthetic eSpeak narration and generated CC0 sampled-violin audio only; `private_media=false`, `public_artifact_allowed=true`, `preview_only=true`, `publish_enabled=false`, and `publish_ready=false`.
+- The creator's comment on preview #644 approved the overall visual presentation (character identity, face, costume, hands/violin/bow composition, full-length silhouette and concert-stage direction). That creative approval does **not** approve the remaining technical character-art gate or production activation.
+- The latest rig report still records `premium_character_quality_gate.status=blocked_pending_character_art_reconstruction`. Head/face deformation remains plate-based; hands and bow grip remain sprite-based; and the six source-pixel joint surfaces still require seam/silhouette/occlusion review after their blended mesh deformation. Dense pose QA has 32 samples but does not certify anatomical alignment or prop/limb occlusion.
+- The private repository currently contains the encrypted Qwen3 voice package and prior narration results, but no creator-recorded violin performance WAV. The Qwen3 narration bridge has previously passed its own transcript/timing/checksum validation; a combined full-length private render has **not** been run because the actual instrumental source is absent.
+- The full-duration creator-WAV adapter is therefore code- and synthetic-test-validated, not yet end-to-end validated against the creator's own violin recording. Add the recording only to the private rendering workspace; never place it in public source, public Actions artifacts, or public releases.
+
+Keep PR #130 open, draft and unmerged. The preview workflow remains isolated; scheduled production and public publishing are not enabled by this change.
