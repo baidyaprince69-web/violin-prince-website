@@ -324,9 +324,6 @@ jobs:
         if: github.event_name == 'push' || github.event_name == 'schedule'
         working-directory: autopilot/engine/animation2d
         run: npm install --no-audit --no-fund
-      - name: Install GitHub Copilot CLI for scheduled Master Director
-        if: github.event_name == 'schedule'
-        run: npm install --global @github/copilot
 
       - name: Prepare research, story, narration and soundtrack
         if: env.PIPELINE_STAGE == 'prepare'
