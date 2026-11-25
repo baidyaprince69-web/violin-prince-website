@@ -40,10 +40,30 @@ class ScheduledSlotDateTests(unittest.TestCase):
                 self.assertEqual(result["slot_id"], expected_slot)
                 self.assertTrue(str(result["scheduled_slot_ist"]).endswith(expected_time + " IST"))
 
-    def test_run_six_hours_late_fails_closed(self):
+    def test_run_438_minutes_late_keeps_0530_batch_date(self):
+        now = datetime(2026, 11, 25, 12, 48, tzinfo=IST)
+        result = resolve_scheduled_production_date("30 5 * * *", now=now)
+
+        self.assertEqual(result["production_date"], "2026-11-25")
+        self.assertEqual(result["scheduled_slot_ist"], "2026-11-25 05:30 IST")
+        self.assertEqual(result["slot_id"], "music-secrets")
+        self.assertEqual(result["delay_minutes"], 438)
+
+    def test_run_493_minutes_late_keeps_previous_date_for_2330_batch(self):
+        now = datetime(2026, 11, 25, 7, 43, tzinfo=IST)
+        result = resolve_scheduled_production_date("30 23 * * *", now=now)
+
+        self.assertEqual(result["production_date"], "2026-11-24")
+        self.assertEqual(result["scheduled_slot_ist"], "2026-11-24 23:30 IST")
+        self.assertEqual(result["slot_id"], "real-performance")
+        self.assertEqual(result["delay_minutes"], 493)
+
+    def test_six_hours_late_is_not_ambiguous_for_a_daily_unique_cron(self):
         now = datetime(2026, 11, 22, 11, 30, tzinfo=IST)
-        with self.assertRaisesRegex(ValueError, "at least six hours old"):
-            resolve_scheduled_production_date("30 5 * * *", now=now)
+        result = resolve_scheduled_production_date("30 5 * * *", now=now)
+
+        self.assertEqual(result["production_date"], "2026-11-22")
+        self.assertEqual(result["delay_minutes"], 360)
 
     def test_unknown_schedule_expression_fails_closed(self):
         now = datetime(2026, 11, 22, 0, 12, tzinfo=IST)
