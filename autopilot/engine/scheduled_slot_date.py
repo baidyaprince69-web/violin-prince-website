@@ -2,10 +2,16 @@
 """Resolve the intended Asia/Kolkata batch date for a delayed scheduled run.
 
 GitHub's schedule event exposes the cron expression, not the original scheduled
-timestamp. The four offset cron expressions map to fixed IST slots six hours apart.
-The nearest preceding slot is therefore unambiguous only while the run is less
-than six hours late. Older/ambiguous runs fail closed instead of choosing a
-different day's batch.
+timestamp. Each of the four cron expressions is unique to one production slot and
+repeats once per local day. The intended batch date is therefore the date of the
+most recent occurrence of that exact cron in Asia/Kolkata. A delay of several
+hours does not make the date ambiguous; rejecting it at the six-hour distance
+between different slots incorrectly discards valid delayed runs.
+
+GitHub does not expose the original enqueue timestamp in the schedule payload.
+This resolver assumes a delayed event is less than one full daily recurrence old;
+the durable date/slot attempt and research-history checks provide the duplicate
+protection after resolution.
 """
 from __future__ import annotations
 
@@ -16,7 +22,7 @@ from zoneinfo import ZoneInfo
 
 TIMEZONE = "Asia/Kolkata"
 IST = ZoneInfo(TIMEZONE)
-SLOT_INTERVAL = timedelta(hours=6)
+MAX_UNAMBIGUOUS_DELAY = timedelta(days=1)
 CRON_TO_IST_SLOT = {
     "30 5 * * *": time(5, 30),
     "30 11 * * *": time(11, 30),
@@ -37,7 +43,7 @@ def resolve_scheduled_production_date(
     *,
     now: datetime | None = None,
 ) -> dict[str, str | int]:
-    """Resolve the date of the cron slot, rejecting runs delayed by six hours."""
+    """Resolve the most recent daily occurrence of the exact cron expression."""
     cron = " ".join(str(schedule_cron or "").split())
     slot_time = CRON_TO_IST_SLOT.get(cron)
     if slot_time is None:
@@ -55,11 +61,11 @@ def resolve_scheduled_production_date(
         scheduled_local -= timedelta(days=1)
 
     delay = local_now - scheduled_local
-    if delay >= SLOT_INTERVAL:
+    if delay >= MAX_UNAMBIGUOUS_DELAY:
         raise ValueError(
-            f"Scheduled slot {cron!r} is at least six hours old "
+            f"Scheduled slot {cron!r} is at least one daily recurrence old "
             f"({int(delay.total_seconds() // 60)} minutes late). "
-            "The original occurrence is ambiguous; no production batch was selected."
+            "The original occurrence cannot be distinguished from a newer daily event."
         )
 
     return {
