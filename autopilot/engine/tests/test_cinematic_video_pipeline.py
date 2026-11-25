@@ -220,7 +220,7 @@ class CinematicTimelineTests(unittest.TestCase):
         timeline = validate_timeline(data, self.root)
         graph = _filtergraph(timeline, audio_offset=len(timeline["layers"]))
         self.assertIn("zoompan=z='1+0.09100*min(on/199,1)'", graph)
-        self.assertIn("zoompan=z='1+0.04800*min(on/149,1)'", graph)
+        self.assertIn("zoompan=z='1+0.04800'", graph)
         self.assertIn("(iw-iw/zoom)*(0.09+0.82*(min(on/149,1)))", graph)
         self.assertIn("min(on/199,1)", _camera_move(timeline["layers"][0], 25))
         short_timeline = validate_timeline(self._presenter_cut_manifest(), self.root)
