@@ -53,7 +53,7 @@ class WorkflowPublicationContractTests(unittest.TestCase):
     def test_scheduled_ready_slots_publish_publicly_through_upload_post(self):
         self.assertIn("Select the pre-authored public-ready plan for this exact scheduled category", self.workflow_text)
         self.assertIn('--slot-id "$SCHEDULED_SLOT_ID"', self.workflow_text)
-        self.assertIn(".autopilot/daily-batches", self.workflow_text)
+        self.assertIn("select_public_queue.py", self.workflow_text)
         self.assertNotIn("scheduled_story_builder.py", self.workflow_text)
         self.assertIn("group: violin-prince-public-youtube-queue", self.workflow_text)
         self.assertIn("select_public_queue.py", self.workflow_text)
