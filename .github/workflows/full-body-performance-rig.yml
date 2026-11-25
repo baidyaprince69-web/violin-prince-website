@@ -471,10 +471,12 @@ jobs:
           expected_mesh_roles = {
               "torso", "left_upper_arm", "left_forearm", "right_upper_arm", "right_forearm",
               "left_thigh", "left_calf", "right_thigh", "right_calf",
+              "left_hand", "right_hand",
           }
           assert mesh_report.get("method") == "frame_sampled_piecewise_affine_source_texture_mesh", report
           assert set(mesh_report.get("deformable_roles", [])) == expected_mesh_roles, report
-          assert mesh_report.get("deformable_layer_count") == 9, report
+          assert mesh_report.get("deformable_layer_count") == 11, report
+          assert mesh_report.get("hand_surface_mesh_deformation_count") == 2, report
           assert mesh_report.get("hand_assets_modified") == 0, report
           assert mesh_report.get("hand_animation_data_modified") is False, report
           partition = report.get("torso_surface_partition", {})
