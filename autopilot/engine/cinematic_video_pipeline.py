@@ -495,6 +495,7 @@ def _rasterize_text_layers(t: dict[str, Any], destination: Path) -> list[dict[st
         records.append({
             "id": item["id"], "kind": "image", "path": image_path,
             "start": item["start"], "end": item["end"],
+            "effective_start": item["start"], "effective_end": item["end"],
             "length": item["end"]-item["start"], "source_in": 0.0,
             "x": 0, "y": 0, "width": width, "height": height,
             "fit": "stretch", "opacity": 1.0,
