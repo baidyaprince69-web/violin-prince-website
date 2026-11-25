@@ -1,0 +1,1216 @@
+{
+  "schema_version": 1,
+  "canvas": {
+    "width": 441,
+    "height": 755
+  },
+  "coordinate_space": "source_pixels_top_left",
+  "side_convention": "left and right refer to viewer screen sides",
+  "skin_mask": {
+    "red_min": 90,
+    "red_max": 240,
+    "green_min": 45,
+    "red_minus_green_min": 20,
+    "green_minus_blue_min": 10,
+    "red_minus_blue_min": 35,
+    "blue_min": 55
+  },
+  "screen_side_split_x": 175,
+  "joints": {
+    "left_shoulder": [
+      127,
+      176
+    ],
+    "left_elbow": [
+      27,
+      252
+    ],
+    "left_wrist": [
+      116,
+      231
+    ],
+    "right_shoulder": [
+      258,
+      174
+    ],
+    "right_elbow": [
+      302,
+      279
+    ],
+    "right_wrist": [
+      350,
+      239
+    ],
+    "left_hip": [
+      132,
+      412
+    ],
+    "left_knee": [
+      118,
+      558
+    ],
+    "left_ankle": [
+      101,
+      696
+    ],
+    "right_hip": [
+      218,
+      412
+    ],
+    "right_knee": [
+      215,
+      557
+    ],
+    "right_ankle": [
+      237,
+      700
+    ]
+  },
+  "regions": {
+    "left_upper_arm": {
+      "polygon": [
+        [
+          105,
+          146
+        ],
+        [
+          136,
+          151
+        ],
+        [
+          156,
+          172
+        ],
+        [
+          155,
+          197
+        ],
+        [
+          140,
+          217
+        ],
+        [
+          120,
+          230
+        ],
+        [
+          104,
+          244
+        ],
+        [
+          81,
+          256
+        ],
+        [
+          55,
+          271
+        ],
+        [
+          26,
+          274
+        ],
+        [
+          8,
+          264
+        ],
+        [
+          6,
+          240
+        ],
+        [
+          20,
+          215
+        ],
+        [
+          44,
+          188
+        ],
+        [
+          70,
+          163
+        ]
+      ],
+      "exclude_region": "left_forearm",
+      "elbow_overlap_radius": 9,
+      "minimum_pixels": 1800,
+      "z_index": 20
+    },
+    "left_forearm": {
+      "polygon": [
+        [
+          15,
+          227
+        ],
+        [
+          35,
+          221
+        ],
+        [
+          57,
+          221
+        ],
+        [
+          83,
+          222
+        ],
+        [
+          107,
+          224
+        ],
+        [
+          129,
+          224
+        ],
+        [
+          148,
+          231
+        ],
+        [
+          159,
+          243
+        ],
+        [
+          160,
+          260
+        ],
+        [
+          147,
+          272
+        ],
+        [
+          130,
+          270
+        ],
+        [
+          112,
+          261
+        ],
+        [
+          90,
+          264
+        ],
+        [
+          67,
+          269
+        ],
+        [
+          42,
+          264
+        ],
+        [
+          20,
+          258
+        ],
+        [
+          8,
+          245
+        ]
+      ],
+      "minimum_pixels": 1200,
+      "z_index": 30
+    },
+    "left_hand": {
+      "polygon": [
+        [
+          111,
+          225
+        ],
+        [
+          130,
+          220
+        ],
+        [
+          152,
+          225
+        ],
+        [
+          174,
+          235
+        ],
+        [
+          190,
+          252
+        ],
+        [
+          185,
+          273
+        ],
+        [
+          171,
+          282
+        ],
+        [
+          151,
+          280
+        ],
+        [
+          132,
+          270
+        ],
+        [
+          117,
+          257
+        ]
+      ],
+      "material": "skin",
+      "minimum_pixels": 500,
+      "z_index": 40
+    },
+    "right_upper_arm": {
+      "polygon": [
+        [
+          227,
+          146
+        ],
+        [
+          253,
+          141
+        ],
+        [
+          274,
+          150
+        ],
+        [
+          295,
+          174
+        ],
+        [
+          308,
+          200
+        ],
+        [
+          321,
+          227
+        ],
+        [
+          322,
+          253
+        ],
+        [
+          307,
+          278
+        ],
+        [
+          289,
+          294
+        ],
+        [
+          269,
+          293
+        ],
+        [
+          255,
+          276
+        ],
+        [
+          246,
+          250
+        ],
+        [
+          238,
+          226
+        ],
+        [
+          229,
+          202
+        ],
+        [
+          219,
+          177
+        ]
+      ],
+      "exclude_region": "right_forearm",
+      "elbow_overlap_radius": 9,
+      "minimum_pixels": 1500,
+      "z_index": 21
+    },
+    "right_forearm": {
+      "polygon": [
+        [
+          284,
+          270
+        ],
+        [
+          301,
+          279
+        ],
+        [
+          319,
+          263
+        ],
+        [
+          329,
+          242
+        ],
+        [
+          339,
+          219
+        ],
+        [
+          343,
+          200
+        ],
+        [
+          330,
+          190
+        ],
+        [
+          316,
+          195
+        ],
+        [
+          304,
+          215
+        ],
+        [
+          296,
+          237
+        ],
+        [
+          284,
+          258
+        ]
+      ],
+      "minimum_pixels": 500,
+      "z_index": 31
+    },
+    "right_hand": {
+      "polygon": [
+        [
+          333,
+          184
+        ],
+        [
+          341,
+          176
+        ],
+        [
+          354,
+          172
+        ],
+        [
+          370,
+          176
+        ],
+        [
+          382,
+          185
+        ],
+        [
+          389,
+          200
+        ],
+        [
+          388,
+          213
+        ],
+        [
+          378,
+          228
+        ],
+        [
+          365,
+          240
+        ],
+        [
+          352,
+          246
+        ],
+        [
+          339,
+          240
+        ],
+        [
+          331,
+          229
+        ],
+        [
+          327,
+          216
+        ],
+        [
+          328,
+          201
+        ]
+      ],
+      "material": "skin",
+      "minimum_pixels": 700,
+      "z_index": 42
+    },
+    "left_thigh": {
+      "polygon": [
+        [
+          89,
+          402
+        ],
+        [
+          174,
+          403
+        ],
+        [
+          178,
+          440
+        ],
+        [
+          176,
+          469
+        ],
+        [
+          162,
+          511
+        ],
+        [
+          155,
+          543
+        ],
+        [
+          148,
+          565
+        ],
+        [
+          89,
+          565
+        ],
+        [
+          79,
+          551
+        ],
+        [
+          84,
+          522
+        ],
+        [
+          85,
+          480
+        ],
+        [
+          89,
+          446
+        ]
+      ],
+      "minimum_pixels": 5000,
+      "z_index": 4
+    },
+    "right_thigh": {
+      "polygon": [
+        [
+          176,
+          402
+        ],
+        [
+          260,
+          402
+        ],
+        [
+          259,
+          442
+        ],
+        [
+          256,
+          484
+        ],
+        [
+          250,
+          529
+        ],
+        [
+          246,
+          562
+        ],
+        [
+          181,
+          563
+        ],
+        [
+          175,
+          542
+        ],
+        [
+          176,
+          502
+        ],
+        [
+          172,
+          460
+        ]
+      ],
+      "minimum_pixels": 4500,
+      "knee_overlap_radius": 30,
+      "z_index": 5
+    },
+    "left_calf": {
+      "polygon": [
+        [
+          80,
+          548
+        ],
+        [
+          151,
+          550
+        ],
+        [
+          150,
+          573
+        ],
+        [
+          145,
+          604
+        ],
+        [
+          139,
+          641
+        ],
+        [
+          133,
+          674
+        ],
+        [
+          127,
+          698
+        ],
+        [
+          82,
+          698
+        ],
+        [
+          74,
+          684
+        ],
+        [
+          77,
+          650
+        ],
+        [
+          78,
+          610
+        ],
+        [
+          80,
+          576
+        ]
+      ],
+      "minimum_pixels": 3500,
+      "z_index": 6
+    },
+    "right_calf": {
+      "polygon": [
+        [
+          179,
+          548
+        ],
+        [
+          248,
+          548
+        ],
+        [
+          251,
+          579
+        ],
+        [
+          254,
+          621
+        ],
+        [
+          261,
+          662
+        ],
+        [
+          268,
+          697
+        ],
+        [
+          253,
+          706
+        ],
+        [
+          193,
+          706
+        ],
+        [
+          186,
+          692
+        ],
+        [
+          182,
+          656
+        ],
+        [
+          179,
+          613
+        ]
+      ],
+      "minimum_pixels": 3500,
+      "z_index": 7
+    },
+    "left_foot": {
+      "method": "dark_connected_bottom_component",
+      "minimum_pixels": 600,
+      "z_index": 8
+    },
+    "right_foot": {
+      "method": "dark_connected_bottom_component",
+      "minimum_pixels": 800,
+      "z_index": 9
+    }
+  },
+  "joint_surfaces": {
+    "schema_version": 1,
+    "coordinate_space": "joint_anchor_relative_source_pixels",
+    "note": "Source-pixel caps are cut from the preserved character artwork, not painted or resampled. Right shoulder is intentionally prop-protected where the violin covers the junction.",
+    "regions": {
+      "left_shoulder": {
+        "anchor": "left_shoulder",
+        "parent_role": "torso",
+        "child_role": "left_upper_arm",
+        "z_index": 22,
+        "minimum_pixels": 180,
+        "polygon": [
+          [
+            -14,
+            -4
+          ],
+          [
+            -12,
+            -10
+          ],
+          [
+            -5,
+            -14
+          ],
+          [
+            4,
+            -14
+          ],
+          [
+            11,
+            -10
+          ],
+          [
+            15,
+            -3
+          ],
+          [
+            13,
+            5
+          ],
+          [
+            7,
+            11
+          ],
+          [
+            -2,
+            12
+          ],
+          [
+            -10,
+            7
+          ]
+        ],
+        "blend_axis_joints": [
+          "neck",
+          "left_elbow"
+        ],
+        "outline": {
+          "profile": "tapered_source_capsule",
+          "half_length_px": 24,
+          "half_width_px": 18,
+          "minimum_pixels": 350
+        }
+      },
+      "right_shoulder": {
+        "anchor": "right_shoulder",
+        "parent_role": "torso",
+        "child_role": "right_upper_arm",
+        "z_index": 22,
+        "minimum_pixels": 180,
+        "polygon": [
+          [
+            -14,
+            -4
+          ],
+          [
+            -12,
+            -10
+          ],
+          [
+            -5,
+            -14
+          ],
+          [
+            4,
+            -14
+          ],
+          [
+            11,
+            -10
+          ],
+          [
+            15,
+            -3
+          ],
+          [
+            13,
+            5
+          ],
+          [
+            7,
+            11
+          ],
+          [
+            -2,
+            12
+          ],
+          [
+            -10,
+            7
+          ]
+        ],
+        "expected_prop_occlusion": "violin",
+        "blend_axis_joints": [
+          "neck",
+          "right_elbow"
+        ]
+      },
+      "left_elbow": {
+        "anchor": "left_elbow",
+        "parent_role": "left_upper_arm",
+        "child_role": "left_forearm",
+        "z_index": 33,
+        "minimum_pixels": 160,
+        "polygon": [
+          [
+            -11,
+            -4
+          ],
+          [
+            -8,
+            -10
+          ],
+          [
+            -1,
+            -12
+          ],
+          [
+            7,
+            -10
+          ],
+          [
+            11,
+            -4
+          ],
+          [
+            10,
+            4
+          ],
+          [
+            5,
+            10
+          ],
+          [
+            -3,
+            10
+          ],
+          [
+            -10,
+            4
+          ]
+        ],
+        "blend_axis_joints": [
+          "left_shoulder",
+          "left_wrist"
+        ],
+        "outline": {
+          "profile": "tapered_source_capsule",
+          "half_length_px": 23,
+          "half_width_px": 18,
+          "minimum_pixels": 300
+        }
+      },
+      "right_elbow": {
+        "anchor": "right_elbow",
+        "parent_role": "right_upper_arm",
+        "child_role": "right_forearm",
+        "z_index": 33,
+        "minimum_pixels": 120,
+        "polygon": [
+          [
+            -11,
+            -4
+          ],
+          [
+            -8,
+            -10
+          ],
+          [
+            -1,
+            -12
+          ],
+          [
+            7,
+            -10
+          ],
+          [
+            11,
+            -4
+          ],
+          [
+            10,
+            4
+          ],
+          [
+            5,
+            10
+          ],
+          [
+            -3,
+            10
+          ],
+          [
+            -10,
+            4
+          ]
+        ],
+        "blend_axis_joints": [
+          "right_shoulder",
+          "right_wrist"
+        ],
+        "outline": {
+          "profile": "tapered_source_capsule",
+          "half_length_px": 23,
+          "half_width_px": 18,
+          "minimum_pixels": 250
+        }
+      },
+      "left_hip": {
+        "anchor": "left_hip",
+        "parent_role": "torso",
+        "child_role": "left_thigh",
+        "z_index": 12,
+        "minimum_pixels": 180,
+        "polygon": [
+          [
+            -15,
+            -5
+          ],
+          [
+            -12,
+            -11
+          ],
+          [
+            -4,
+            -14
+          ],
+          [
+            6,
+            -13
+          ],
+          [
+            14,
+            -7
+          ],
+          [
+            16,
+            1
+          ],
+          [
+            11,
+            9
+          ],
+          [
+            2,
+            12
+          ],
+          [
+            -8,
+            10
+          ],
+          [
+            -15,
+            4
+          ]
+        ],
+        "blend_axis_joints": [
+          "neck",
+          "left_knee"
+        ],
+        "outline": {
+          "profile": "tapered_source_capsule",
+          "half_length_px": 27,
+          "half_width_px": 23,
+          "minimum_pixels": 500
+        }
+      },
+      "right_hip": {
+        "anchor": "right_hip",
+        "parent_role": "torso",
+        "child_role": "right_thigh",
+        "z_index": 12,
+        "minimum_pixels": 180,
+        "polygon": [
+          [
+            -15,
+            -5
+          ],
+          [
+            -12,
+            -11
+          ],
+          [
+            -4,
+            -14
+          ],
+          [
+            6,
+            -13
+          ],
+          [
+            14,
+            -7
+          ],
+          [
+            16,
+            1
+          ],
+          [
+            11,
+            9
+          ],
+          [
+            2,
+            12
+          ],
+          [
+            -8,
+            10
+          ],
+          [
+            -15,
+            4
+          ]
+        ],
+        "blend_axis_joints": [
+          "neck",
+          "right_knee"
+        ],
+        "outline": {
+          "profile": "tapered_source_capsule",
+          "half_length_px": 27,
+          "half_width_px": 23,
+          "minimum_pixels": 500
+        }
+      },
+      "left_knee": {
+        "anchor": "left_knee",
+        "parent_role": "left_thigh",
+        "child_role": "left_calf",
+        "z_index": 10,
+        "minimum_pixels": 160,
+        "polygon": [
+          [
+            -12,
+            -5
+          ],
+          [
+            -8,
+            -11
+          ],
+          [
+            0,
+            -13
+          ],
+          [
+            8,
+            -10
+          ],
+          [
+            12,
+            -3
+          ],
+          [
+            10,
+            5
+          ],
+          [
+            4,
+            11
+          ],
+          [
+            -5,
+            10
+          ],
+          [
+            -11,
+            3
+          ]
+        ],
+        "blend_axis_joints": [
+          "left_hip",
+          "left_ankle"
+        ],
+        "outline": {
+          "profile": "tapered_source_capsule",
+          "half_length_px": 23,
+          "half_width_px": 18,
+          "minimum_pixels": 350
+        }
+      },
+      "right_knee": {
+        "anchor": "right_knee",
+        "parent_role": "right_thigh",
+        "child_role": "right_calf",
+        "z_index": 10,
+        "minimum_pixels": 160,
+        "polygon": [
+          [
+            -12,
+            -5
+          ],
+          [
+            -8,
+            -11
+          ],
+          [
+            0,
+            -13
+          ],
+          [
+            8,
+            -10
+          ],
+          [
+            12,
+            -3
+          ],
+          [
+            10,
+            5
+          ],
+          [
+            4,
+            11
+          ],
+          [
+            -5,
+            10
+          ],
+          [
+            -11,
+            3
+          ]
+        ],
+        "blend_axis_joints": [
+          "right_hip",
+          "right_ankle"
+        ],
+        "outline": {
+          "profile": "tapered_source_capsule",
+          "half_length_px": 23,
+          "half_width_px": 18,
+          "minimum_pixels": 350
+        }
+      },
+      "left_ankle": {
+        "anchor": "left_ankle",
+        "parent_role": "left_calf",
+        "child_role": "left_foot",
+        "z_index": 11,
+        "minimum_pixels": 100,
+        "polygon": [
+          [
+            -9,
+            -4
+          ],
+          [
+            -6,
+            -8
+          ],
+          [
+            1,
+            -10
+          ],
+          [
+            8,
+            -6
+          ],
+          [
+            10,
+            1
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            -1,
+            9
+          ],
+          [
+            -8,
+            4
+          ]
+        ],
+        "blend_axis_joints": [
+          "left_knee",
+          "left_ankle"
+        ],
+        "outline": {
+          "profile": "tapered_source_capsule",
+          "half_length_px": 18,
+          "half_width_px": 14,
+          "minimum_pixels": 250
+        }
+      },
+      "right_ankle": {
+        "anchor": "right_ankle",
+        "parent_role": "right_calf",
+        "child_role": "right_foot",
+        "z_index": 11,
+        "minimum_pixels": 100,
+        "polygon": [
+          [
+            -9,
+            -4
+          ],
+          [
+            -6,
+            -8
+          ],
+          [
+            1,
+            -10
+          ],
+          [
+            8,
+            -6
+          ],
+          [
+            10,
+            1
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            -1,
+            9
+          ],
+          [
+            -8,
+            4
+          ]
+        ],
+        "blend_axis_joints": [
+          "right_knee",
+          "right_ankle"
+        ],
+        "outline": {
+          "profile": "tapered_source_capsule",
+          "half_length_px": 18,
+          "half_width_px": 14,
+          "minimum_pixels": 250
+        }
+      }
+    }
+  }
+}

@@ -92,6 +92,29 @@ def attach_violin_prince_presenter(
             raise PresenterIntegrationError("The saved presenter contains an invalid pose entry.")
         pose["src"] = stage_asset(pose.get("src"), "pose")
 
+    base_art = character.get("base_art")
+    if base_art is not None:
+        if not isinstance(base_art, dict):
+            raise PresenterIntegrationError("The saved presenter base_art entry must be an object.")
+        base_art["src"] = stage_asset(base_art.get("src"), "base-art")
+
+    for collection_name, label in (
+        ("props", "prop"),
+        ("head_variants", "head-variant"),
+        ("head_angles", "head-angle"),
+    ):
+        collection = character.get(collection_name) or {}
+        if not isinstance(collection, dict):
+            raise PresenterIntegrationError(
+                f"The saved presenter {collection_name} collection must be an object."
+            )
+        for asset_name, asset in collection.items():
+            if not isinstance(asset, dict):
+                raise PresenterIntegrationError(
+                    f"The saved presenter contains an invalid {label} entry: {asset_name}."
+                )
+            asset["src"] = stage_asset(asset.get("src"), f"{label} {asset_name}")
+
     characters = plan.get("characters") or []
     if not isinstance(characters, list):
         raise PresenterIntegrationError("The daily plan characters field must be an array.")

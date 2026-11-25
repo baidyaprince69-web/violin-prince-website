@@ -36,6 +36,105 @@ class CharacterRigContractTests(unittest.TestCase):
         self.assertEqual(len(result["layers"]), 9)
         self.assertIn("curious", result["expressions"])
 
+    def test_accepts_source_mesh_and_joint_surface_metadata(self):
+        character = self.valid_character()
+        torso = next(layer for layer in character["layers"] if layer["role"] == "torso")
+        torso["mesh_deformation"] = {
+            "profile": "torso",
+            "driver_role": "torso",
+            "axis_start": [0.3, 0.05],
+            "axis_end": [0.52, 0.96],
+            "influence": "center",
+            "columns": 3,
+            "rows": 5,
+            "max_angle_deg": 2.2,
+            "max_displacement_px": 2.4,
+        }
+        character["layers"].append({
+            "id": "joint_surface_left_elbow",
+            "role": "joint_surface_left_elbow",
+            "src": "joint_surface_left_elbow.png",
+            "x": 0, "y": 0, "width": 24, "height": 24,
+            "mesh_deformation": {
+                "profile": "joint_surface",
+                "columns": 2,
+                "rows": 2,
+            },
+            "joint_surface": {
+                "joint": "left_elbow",
+                "parent_role": "left_upper_arm",
+                "child_role": "left_forearm",
+                "blend_weight": 0.5,
+                "blend_axis_start": [0.35, 0.4],
+                "blend_axis_end": [0.65, 0.6],
+            },
+        })
+        result = validate_character_spec(character)
+        by_role = {layer["role"]: layer for layer in result["layers"]}
+        self.assertEqual(by_role["torso"]["mesh_deformation"]["profile"], "torso")
+        self.assertEqual(
+            by_role["joint_surface_left_elbow"]["joint_surface"]["joint"],
+            "left_elbow",
+        )
+        self.assertEqual(
+            by_role["joint_surface_left_elbow"]["mesh_deformation"]["profile"],
+            "joint_surface",
+        )
+        self.assertEqual(
+            by_role["joint_surface_left_elbow"]["joint_surface"]["blend_axis_start"],
+            [0.35, 0.4],
+        )
+
+    def test_rejects_degenerate_mesh_geometry_and_preserves_valid_layer_mesh_contract(self):
+        character = self.valid_character()
+        hand = next(layer for layer in character["layers"] if layer["role"] == "left_hand")
+        hand["mesh_deformation"] = {
+            "profile": "limb_joint",
+            "driver_role": "left_hand",
+            "axis_start": [0.1, 0.1],
+            "axis_end": [0.9, 0.9],
+            "influence": "center",
+            "columns": 2,
+            "rows": 4,
+            "max_angle_deg": 2,
+            "max_displacement_px": 2,
+        }
+        # The schema accepts valid geometry as a layer-level capability; the
+        # full-body performance builder separately enforces hand exclusion.
+        self.assertTrue(validate_character_spec(character)["layers"])
+
+        torso = next(layer for layer in character["layers"] if layer["role"] == "torso")
+        torso["mesh_deformation"] = {
+            "profile": "torso",
+            "driver_role": "torso",
+            "axis_start": [0.3, 0.1],
+            "axis_end": [0.3, 0.1],
+            "influence": "center",
+            "columns": 3,
+            "rows": 5,
+            "max_angle_deg": 2,
+            "max_displacement_px": 2,
+        }
+        with self.assertRaisesRegex(CharacterRigError, "axis is too short"):
+            validate_character_spec(character)
+
+    def test_rejects_joint_surface_with_unknown_parent_role(self):
+        character = self.valid_character()
+        character["layers"].append({
+            "id": "joint_surface_left_elbow",
+            "role": "joint_surface_left_elbow",
+            "src": "joint_surface_left_elbow.png",
+            "x": 0, "y": 0, "width": 24, "height": 24,
+            "joint_surface": {
+                "joint": "left_elbow",
+                "parent_role": "missing_arm",
+                "child_role": "left_forearm",
+                "blend_weight": 0.5,
+            },
+        })
+        with self.assertRaisesRegex(CharacterRigError, "distinct parent/child"):
+            validate_character_spec(character)
+
     def test_rejects_missing_hand_layer(self):
         character = self.valid_character()
         character["layers"] = [
@@ -106,6 +205,103 @@ class CharacterRigContractTests(unittest.TestCase):
             pose_path = Path(staged[0]["pose_assets"]["point_left"]["src"])
             self.assertTrue(pose_path.is_file())
             self.assertEqual(pose_path.name, "pose-point_left.png")
+
+
+
+    def test_full_body_leg_and_finger_roles_require_complete_joint_chains(self):
+        character = self.valid_character()
+        extra_roles = [
+            "left_thigh", "left_calf", "left_foot",
+            "right_thigh", "right_calf", "right_foot",
+            "finger_index", "finger_index_middle", "finger_index_tip",
+            "finger_middle", "finger_middle_middle", "finger_middle_tip",
+            "finger_ring", "finger_ring_middle", "finger_ring_tip",
+            "finger_little", "finger_little_middle", "finger_little_tip",
+        ]
+        for role in extra_roles:
+            character["layers"].append({
+                "id": role, "role": role, "src": role + ".png",
+                "x": 0, "y": 0, "width": 30, "height": 30,
+            })
+        for name in (
+            "left_hip", "left_knee", "left_ankle",
+            "right_hip", "right_knee", "right_ankle",
+            "right_index_base", "right_index_pip", "right_index_dip",
+            "right_middle_base", "right_middle_pip", "right_middle_dip",
+            "right_ring_base", "right_ring_pip", "right_ring_dip",
+            "right_little_base", "right_little_pip", "right_little_dip",
+        ):
+            character["joints"][name] = {"x": 0.5, "y": 0.5}
+        character["props"] = {
+            "violin": {
+                "src": "violin.webp", "x": 10, "y": 12, "width": 90, "height": 32,
+                "pivot_x": 0.2, "pivot_y": 0.5, "z_index": 25, "attach_to": "torso",
+            },
+            "bow": {
+                "src": "bow.webp", "x": 30, "y": 4, "width": 12, "height": 96,
+                "pivot_x": 0.1, "pivot_y": 0.95, "z_index": 35, "attach_to": "left_hand",
+            },
+        }
+        result = validate_character_spec(character)
+        self.assertEqual(len(result["props"]), 2)
+        self.assertEqual(result["props"]["bow"]["attach_to"], "left_hand")
+        self.assertTrue(set(extra_roles).issubset({layer["role"] for layer in result["layers"]}))
+
+    def test_rejects_partial_leg_chains_and_unknown_instrument_attachment(self):
+        character = self.valid_character()
+        character["layers"].append({
+            "id": "left_thigh", "role": "left_thigh", "src": "left_thigh.png",
+            "x": 0, "y": 0, "width": 30, "height": 60,
+        })
+        with self.assertRaisesRegex(CharacterRigError, "all six leg layers"):
+            validate_character_spec(character)
+
+        character = self.valid_character()
+        character["props"] = {
+            "bow": {
+                "src": "bow.webp", "x": 1, "y": 2, "width": 10, "height": 80,
+                "attach_to": "unknown_joint",
+            }
+        }
+        with self.assertRaisesRegex(CharacterRigError, "unknown rig role"):
+            validate_character_spec(character)
+
+    def test_asset_factory_stages_instrument_props_with_the_character(self):
+        import tempfile
+        from pathlib import Path
+        from PIL import Image
+        from illustration_asset_factory import prepare_character_assets
+
+        with tempfile.TemporaryDirectory() as folder:
+            source_root = Path(folder) / "source"
+            destination_root = Path(folder) / "staged"
+            source_root.mkdir()
+            character = self.valid_character()
+            character["props"] = {
+                "violin": {
+                    "src": "violin.webp", "x": 10, "y": 12, "width": 90, "height": 32,
+                    "pivot_x": 0.2, "pivot_y": 0.5, "z_index": 25, "attach_to": "torso",
+                },
+                "bow": {
+                    "src": "bow.webp", "x": 30, "y": 4, "width": 12, "height": 96,
+                    "pivot_x": 0.1, "pivot_y": 0.95, "z_index": 35, "attach_to": "left_hand",
+                },
+            }
+            for layer in character["layers"]:
+                Image.new("RGBA", (32, 32), (180, 120, 60, 255)).save(source_root / layer["src"])
+            for name in ("neutral.png", "curious.png"):
+                Image.new("RGBA", (32, 32), (200, 160, 130, 255)).save(source_root / name)
+            Image.new("RGBA", (90, 32), (160, 80, 30, 255)).save(source_root / "violin.webp")
+            Image.new("RGBA", (12, 96), (50, 35, 25, 255)).save(source_root / "bow.webp")
+
+            staged = prepare_character_assets(
+                {"characters": [character]},
+                source_root=source_root,
+                destination_root=destination_root,
+            )
+            self.assertEqual(set(staged[0]["props"]), {"violin", "bow"})
+            self.assertTrue(Path(staged[0]["props"]["violin"]["src"]).is_file())
+            self.assertTrue(Path(staged[0]["props"]["bow"]["src"]).is_file())
 
     def test_rejects_empty_pose_asset_sources(self):
         character = self.valid_character()

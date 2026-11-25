@@ -120,6 +120,39 @@ def prepare_character_assets(
                 "src": _copy_image(src, target, source_root, work_root),
             }
 
+        base_art = None
+        if character.get("base_art"):
+            asset = character["base_art"]
+            src = asset["src"]
+            target = character_folder / ("performance-base" + Path(src).suffix.lower())
+            base_art = {
+                **asset,
+                "src": _copy_image(src, target, source_root, work_root),
+            }
+
+        props = {}
+        for name, prop in character.get("props", {}).items():
+            src = prop["src"]
+            target = character_folder / ("prop-" + name + Path(src).suffix.lower())
+            props[name] = {
+                **prop,
+                "src": _copy_image(src, target, source_root, work_root),
+            }
+
+        modular_head_assets = {}
+        for collection_name in ("head_variants", "head_angles"):
+            staged_assets = {}
+            for name, asset in (character.get(collection_name) or {}).items():
+                src = asset["src"]
+                target = character_folder / (
+                    collection_name.replace("_", "-") + "-" + name + Path(src).suffix.lower()
+                )
+                staged_assets[name] = {
+                    **asset,
+                    "src": _copy_image(src, target, source_root, work_root),
+                }
+            modular_head_assets[collection_name] = staged_assets
+
         scene_actions = character.get("scene_actions") or {}
         if not isinstance(scene_actions, dict):
             raise IllustrationAssetError(
@@ -133,6 +166,13 @@ def prepare_character_assets(
             "joints": character["joints"],
             "expressions": expressions,
             "pose_assets": pose_assets,
+            "props": props,
+            "head_variants": modular_head_assets["head_variants"],
+            "head_angles": modular_head_assets["head_angles"],
+            "head_plate_bounds": character.get("head_plate_bounds"),
+            "base_art": base_art,
+            "performance_base_mode": character.get("performance_base_mode"),
+            "performance": character.get("performance"),
             "poses": character["poses"],
             "gestures": character["gestures"],
             "scene_actions": scene_actions,

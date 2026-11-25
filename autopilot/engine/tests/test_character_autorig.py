@@ -19,6 +19,10 @@ from character_autorig import (
     _face_expression_crop_box,
     _face_plate,
     _register_expression_to_neutral,
+    _split_arm,
+    _repair_transparent_person_holes,
+    _restore_person_holes_in_source,
+    _clean_inherited_edge_matte,
     separate_from_parsing,
 )
 
@@ -41,6 +45,132 @@ class CharacterAutoRigTests(unittest.TestCase):
         body_conf = np.full((height, width), 0.94, dtype=np.float32)
         detail_conf = np.full((height, width), 0.92, dtype=np.float32)
         return body, body_conf, detail, detail_conf
+
+
+
+    def test_neutral_expression_fallback_is_pixel_identical_and_explicit(self):
+        import tempfile
+        from pathlib import Path
+        from PIL import Image, ImageChops
+        from character_autorig import _copy_neutral_expression_fallback
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = root / "face.png"
+            destination = root / "expression-fallback.png"
+            image = Image.new("RGBA", (17, 23), (140, 90, 70, 0))
+            image.putpixel((8, 10), (210, 150, 110, 255))
+            image.save(source)
+            _copy_neutral_expression_fallback(source, destination)
+            with Image.open(source) as expected, Image.open(destination) as actual:
+                self.assertEqual(expected.mode, actual.mode)
+                self.assertEqual(expected.size, actual.size)
+                self.assertIsNone(ImageChops.difference(expected, actual).getbbox())
+
+    def test_repairs_transparent_holes_only_inside_confident_person_regions(self):
+        width, height = 40, 40
+        pixels = np.full((height, width, 3), 255, dtype=np.uint8)
+        pixels[8:32, 8:32] = (36, 44, 52)
+        alpha = np.full((height, width), 255, dtype=np.uint8)
+        alpha[16:24, 16:24] = 0
+        labels = np.zeros((height, width), dtype=np.uint8)
+        labels[8:32, 8:32] = 2
+        confidence = np.full((height, width), 0.95, dtype=np.float32)
+        image = Image.fromarray(pixels, mode="RGB")
+
+        repaired, report = _repair_transparent_person_holes(
+            image, alpha, labels, confidence, maximum_fraction=0.05
+        )
+        repaired_pixels = np.asarray(repaired, dtype=np.uint8)
+        self.assertEqual(report["method"], "opencv_telea_semantic_alpha_holes")
+        self.assertEqual(report["pixels_reconstructed"], 64)
+        self.assertLess(float(repaired_pixels[16:24, 16:24].mean()), 100)
+        self.assertTrue(np.all(repaired_pixels[0, 0] == 255),
+                        "ordinary transparent background must not be reconstructed")
+
+    def test_preserved_full_body_source_restores_only_confident_person_holes(self):
+        width, height = 32, 32
+        original = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        pixels = np.asarray(original, dtype=np.uint8).copy()
+        pixels[6:26, 6:26] = (40, 48, 58, 255)
+        pixels[14:19, 14:19] = (40, 48, 58, 0)
+        original = Image.fromarray(pixels, mode="RGBA")
+
+        repaired = Image.new("RGB", (width, height), (255, 255, 255))
+        repaired_pixels = np.asarray(repaired, dtype=np.uint8).copy()
+        repaired_pixels[14:19, 14:19] = (42, 49, 57)
+        repaired = Image.fromarray(repaired_pixels, mode="RGB")
+
+        source_alpha = pixels[:, :, 3].copy()
+        labels = np.zeros((height, width), dtype=np.uint8)
+        labels[6:26, 6:26] = 2
+        confidence = np.full((height, width), 0.05, dtype=np.float32)
+        confidence[6:26, 6:26] = 0.95
+
+        preserved, report = _restore_person_holes_in_source(
+            original, repaired, source_alpha, labels, confidence
+        )
+        result = np.asarray(preserved, dtype=np.uint8)
+        self.assertTrue(np.all(result[14:19, 14:19, 3] == 255))
+        self.assertTrue(np.all(result[14:19, 14:19, :3] == (42, 49, 57)))
+        self.assertEqual(int(result[2, 2, 3]), 0,
+            "transparent non-person background must stay transparent")
+        self.assertEqual(tuple(result[8, 8]), (40, 48, 58, 255),
+            "original non-hole body pixels must remain pixel-identical")
+        self.assertEqual(report["pixels_restored"], 25)
+        self.assertTrue(report["original_alpha_preserved_outside_holes"])
+
+    def test_edge_matte_cleanup_removes_only_small_external_neutral_specks(self):
+        pixels = np.zeros((32, 32, 4), dtype=np.uint8)
+        pixels[7:26, 7:26] = (38, 42, 46, 255)
+        # A single matte fleck and a detached two-pixel fleck on the exterior edge.
+        pixels[6, 10] = (190, 190, 190, 255)
+        pixels[6, 12:14] = (185, 185, 185, 255)
+        # Skin-coloured edge detail, interior white detail, and feathered edge
+        # pixels must not be removed by the conservative matte rule.
+        pixels[6, 16] = (220, 150, 120, 255)
+        pixels[12, 12] = (248, 246, 240, 255)
+        pixels[6, 20] = (38, 42, 46, 153)
+        # A short five-pixel neutral-grey remnant is also matte contamination,
+        # not a deliberate highlight or part of the body outline.
+        pixels[14:19, 6] = np.array([
+            (145, 145, 143, 255),
+            (152, 152, 150, 255),
+            (160, 160, 158, 255),
+            (168, 168, 166, 255),
+            (175, 175, 173, 255),
+        ], dtype=np.uint8)
+        source = Image.fromarray(pixels, mode="RGBA")
+
+        cleaned, report = _clean_inherited_edge_matte(source)
+        result = np.asarray(cleaned, dtype=np.uint8)
+
+        self.assertEqual(report["method"], "border_connected_neutral_edge_speck_cleanup")
+        self.assertEqual(report["pixels_removed"], 8)
+        self.assertEqual(report["components_removed"], 3)
+        self.assertEqual(tuple(result[6, 10]), (0, 0, 0, 0))
+        self.assertTrue(np.all(result[6, 12:14, 3] == 0))
+        self.assertTrue(np.all(result[14:19, 6, 3] == 0),
+            "small neutral-grey matte remnants on the outside alpha edge must be cleared")
+        self.assertEqual(tuple(result[6, 16]), (220, 150, 120, 255))
+        self.assertEqual(tuple(result[12, 12]), (248, 246, 240, 255))
+        self.assertEqual(tuple(result[6, 20]), (38, 42, 46, 153))
+        self.assertTrue(report["interior_details_preserved"])
+        self.assertTrue(report["partial_alpha_edge_preserved"])
+
+
+    def test_ignores_low_confidence_transparent_background(self):
+        width, height = 40, 40
+        image = Image.new("RGB", (width, height), (255, 255, 255))
+        alpha = np.zeros((height, width), dtype=np.uint8)
+        labels = np.zeros((height, width), dtype=np.uint8)
+        confidence = np.full((height, width), 0.1, dtype=np.float32)
+        repaired, report = _repair_transparent_person_holes(
+            image, alpha, labels, confidence
+        )
+        self.assertEqual(report["method"], "not_required")
+        self.assertEqual(report["pixels_reconstructed"], 0)
+        self.assertEqual(repaired.getpixel((12, 12)), (255, 255, 255))
 
     def test_creates_nine_nonempty_layers_and_seven_joint_anchors(self):
         body, body_conf, detail, detail_conf = self.synthetic_maps()
@@ -83,6 +213,29 @@ class CharacterAutoRigTests(unittest.TestCase):
             )
         self.assertTrue(report["joint_underlap"]["joint_anchors_use_unexpanded_masks"])
         self.assertEqual(report["joint_underlap"]["wrist_patch"], "localized_around_joint_anchor_only")
+        torso_overlap = report["torso_backplate_arm_overlap"]
+        self.assertEqual(
+            torso_overlap["method"],
+            "remove_source_arm_pixels_from_static_torso_keep_hidden_underlay",
+        )
+        self.assertGreaterEqual(torso_overlap["source_arm_pixels_removed"], 0)
+        self.assertEqual(
+            torso_overlap["independent_limb_assets_modified"], 0
+        )
+        self.assertFalse(torso_overlap["hand_animation_data_modified"])
+        arm_union = np.zeros_like(masks["torso"], dtype=bool)
+        for role in (
+            "left_upper_arm", "right_upper_arm",
+            "left_forearm", "right_forearm",
+            "left_hand", "right_hand",
+        ):
+            arm_union |= masks[role]
+        # The only arm pixels retained in the static torso are the explicitly
+        # reconstructed underlay, not frozen copies of the source arms.
+        self.assertEqual(
+            int((masks["torso"] & arm_union).sum()),
+            torso_overlap["hidden_underlay_pixels_retained"],
+        )
         self.assertLess(
             max(report["joint_underlap"]["overlap_pixels"].values()),
             2500,
@@ -92,6 +245,35 @@ class CharacterAutoRigTests(unittest.TestCase):
             self.assertTrue(0 <= point["x"] <= 1)
             self.assertTrue(0 <= point["y"] <= 1)
         self.assertTrue(report["needs_visual_review"])
+
+    def test_exports_exact_hidden_overlap_mask_when_requested(self):
+        import tempfile
+        from pathlib import Path
+
+        body, body_conf, detail, detail_conf = self.synthetic_maps()
+        image = Image.new("RGB", (160, 112), (30, 30, 36))
+        with tempfile.TemporaryDirectory() as folder:
+            mask_path = Path(folder) / "torso-hidden-overlap-mask.png"
+            _masks, _repaired, report, _joints = separate_from_parsing(
+                image, body, body_conf, detail, detail_conf,
+                hand_fraction=0.62,
+                max_local_inpaint_ratio=0.12,
+                hidden_mask_path=mask_path,
+            )
+            self.assertTrue(mask_path.is_file())
+            with Image.open(mask_path) as opened:
+                exported = np.asarray(opened.convert("L"), dtype=np.uint8) > 0
+            self.assertEqual(exported.shape, (112, 160))
+            self.assertGreater(int(exported.sum()), 0)
+            self.assertEqual(
+                int(exported.sum()),
+                report["hidden_area_reconstruction"]["pixels_reconstructed"],
+            )
+            self.assertEqual(
+                report["hidden_area_reconstruction"]["mask_asset"],
+                "torso-hidden-overlap-mask.png",
+            )
+            self.assertTrue(report["hidden_area_reconstruction"]["mask_saved"])
 
     def test_coarse_arm_side_fallback_when_atr_detects_only_one_side(self):
         body, body_conf, detail, detail_conf = self.synthetic_maps()
@@ -384,6 +566,36 @@ class CharacterAutoRigTests(unittest.TestCase):
                 self.assertEqual(result.getpixel((4, 4))[3], 0)
                 self.assertGreater(result.getpixel((68, 58))[3], 240)
                 self.assertGreater(result.getpixel((66, 51))[3], 240)
+
+    def test_missing_upper_arm_class_uses_only_identified_side_arm_mask(self):
+        side_mask = np.zeros((110, 80), dtype=bool)
+        side_mask[15:94, 16:34] = True
+        upper_all = np.zeros_like(side_mask)
+        lower_all = np.zeros_like(side_mask)
+        lower_all[56:94, 16:34] = True
+
+        upper, forearm, hand, used_fallback = _split_arm(
+            side_mask, upper_all, lower_all, "left", hand_fraction=0.72
+        )
+
+        self.assertTrue(used_fallback)
+        self.assertGreaterEqual(int(upper.sum()), 30)
+        self.assertGreaterEqual(int(forearm.sum()), 20)
+        self.assertGreaterEqual(int(hand.sum()), 20)
+        self.assertFalse(np.any(upper & hand))
+        self.assertTrue(np.all((upper | forearm | hand) <= side_mask))
+
+    def test_upper_arm_fallback_fails_closed_without_a_lower_arm_seed(self):
+        side_mask = np.zeros((100, 80), dtype=bool)
+        side_mask[20:85, 15:32] = True
+        with self.assertRaisesRegex(ManualReviewRequired, "upper arm"):
+            _split_arm(
+                side_mask,
+                np.zeros_like(side_mask),
+                np.zeros_like(side_mask),
+                "right",
+                hand_fraction=0.72,
+            )
 
     def test_parser_maps_must_match_master_canvas(self):
         body, body_conf, detail, detail_conf = self.synthetic_maps()

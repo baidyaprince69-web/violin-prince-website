@@ -514,3 +514,107 @@ The default YouTube Data API quota documents 100 `videos.insert` calls per day f
 - The scheduled workflow does not invoke `publish_daily_short.py`, does not create a public GitHub Release or Upload-Post queue entry, and does not persist private video IDs or URLs in public receipts or logs.
 - Blocked slots and failed production, provenance, media-quality, channel-identity or upload-visibility checks stop that slot's upload.
 - Public publishing remains the final operating goal, but enabling scheduled public visibility requires a separate implementation change after the commissioning cycle and nightly review.
+
+---
+
+## Addendum — full-body multi-layer cinematic composition preview (2026-11-25)
+
+**Status:** Implemented in the isolated full-body preview branch; end-to-end GitHub Actions validation is pending.
+
+The full-body performance MP4 is now a supported visual layer in a separate preview-only composition stage. autopilot/engine/cinematic_video_pipeline.py consumes a versioned JSON timeline and supports:
+
+- A full-frame base video, including the current Violin Prince full-body animation.
+- Additional independently timed video or still-image layers with position, dimensions, fit mode and opacity.
+- Transparent animation clips for motion graphics, plus timed text/caption layers.
+- Separate narration/voice, music and sound-effect audio tracks with trim points, start offsets, gain, fades and optional looping.
+- Voice compression, music side-chain ducking, SFX mixing and a final limiter.
+- FFprobe validation of the final MP4 dimensions, duration, frame rate, H.264 video, AAC audio and audio sample rate.
+
+create_cinematic_composition_preview.py prepares a safe CI fixture using the current full-body preview, a transparent animated accent layer, a synthetic eSpeak NG narration, the generated CC0 sampled-violin guide and a generated whoosh. The public-branch smoke test does **not** use the creator's private voice recording.
+
+**Privacy and publishing boundary:**
+- The timeline must state preview_only=true and publish_enabled=false; the compositor rejects any other configuration.
+- Any audio source marked private_source=true sets private_media=true and public_artifact_allowed=false in the render report.
+- The public Actions preview has a fail-closed artifact check. A private-voice render must not be copied into a public repository artifact.
+- The compositor has no uploader, release, scheduler or publisher integration. PUBLISH_ENABLED=false and AUTOPILOT_ENABLED=false remain set in the preview workflow.
+
+The synthetic narration is only an integration fixture. It proves that a voice track can be positioned and mixed with music/SFX; it is not a test of the creator's actual voice timbre, transcript alignment or final voice approval. Use an approved private voice source only in a private/local rendering path.
+
+**Acceptance for this stage:** the combined 8-second MP4 must contain at least the full-body character layer and a separate animated graphic layer, separate voice/music/SFX tracks, music ducking, and valid H.264/AAC streams. The combined render is sampled by the existing dense pose-range QA. This stage demonstrates video composition; it does not grant visual-quality approval to the underlying character artwork or enable publishing.
+
+
+### Source-faithful body-connection backplate
+
+The segmented performance rig adds a low-z-index source-motion backplate behind its moving arm and leg sprites. It is built from the preserved character source, limited to the neck/shoulder/arm, hip/pelvis/leg corridors and joint overlaps, and feathered only in alpha. It does not invent replacement clothing pixels or replace the articulated layers. CI verifies that every visible backplate RGB pixel is byte-for-byte identical to the preserved source and that its alpha never exceeds source alpha. The backplate is rendered below the independently animated sprites so it can restore source artwork at disconnected seams.
+
+A passing FFmpeg/HyperFrames render is an engineering result, not visual approval. The rig report's `premium_character_quality_gate.status` remains a separate release gate; a blocked character-art reconstruction status must not be described as production-ready. Cinematic approval also requires a multi-shot sequence with visible camera/scene changes and deliberate stagecraft, not merely adding titles or graphic overlays to one uninterrupted character clip.
+
+
+### Multi-shot camera edit in the preview compositor
+
+The preview timeline now supports per-layer normalized camera crops, validated framing labels, per-shot colour grading and camera-shot metadata in its render report. The CI cinematic fixture uses a full-body establishing frame, a medium performance frame, a violin/bow/hands close-up, a face/upper-body close-up and a return to the full-body hero frame. The shot layers overlap with alpha fades for dissolves. CI requires all four framing types and at least five declared shots; a title or graphic overlay on one unchanged wide shot is no longer sufficient evidence of a cinematic edit. These shots are a camera edit of the existing character performance, not newly generated source footage.
+
+
+### More visible full-body violin performance articulation
+
+Beat-synchronised presenter tracks distribute bow travel across the shoulder, elbow and wrist instead of leaving almost all visible articulation to the wrist. The wrist counter-rotates to preserve the bow-grip angle while the elbow contributes a visible share of each stroke. Note-driven finger bends are increased modestly and distributed across base, middle and tip sprites. Torso/head follow-through and lower-body counterbalance are also more visible while remaining restrained.
+
+The Motion report exposes presenter bow-stroke, finger-note, body-balance and weight-shift track counts separately from scene-stagecraft music-sync cues. The full-body CI gate requires 23 presenter sync tracks (3 bow, 12 finger segments, 2 body/head balance and 6 lower-body shifts) and records the audio timing source. The stagecraft `music_sync_event_count` must not be confused with presenter track counts.
+
+
+### Moving-camera and atmospheric stagecraft pass
+
+The preview compositor supports deterministic frame-seekable camera movement on each video layer: push-in, pull-out, pan, tilt and restrained handheld movement. Movement is intensity-bounded and computed from the shot frame count, so it is reproducible in CI. The cinematic fixture assigns five shot-specific moves (wide push-in, medium handheld drift, instrument push-in, face push-in and hero pull-out).
+
+The public proof render also has two independent transparent atmosphere tracks: soft volumetric stage-light beams and drifting foreground dust/bokeh particles. These sit above the stage plate and camera shots at restrained opacity. CI requires all five camera moves and both atmosphere roles, so a fixed-crop edit with only one graphic cannot pass as the updated cinematic fixture. This remains a stylized camera edit over the approved character render, not generated multi-location source footage. Publishing remains disabled.
+
+
+### Full-body rig asset handoff into the procedural Master Director
+
+The Master Director presenter staging step now stages optional full-body assets alongside the upper-body assets: performance base artwork, violin/bow props, modular head variants and head-angle plates. The procedural project copies every staged collection into its self-contained character asset folder. Its diagnostics and README now describe the actual rig scope instead of always reporting an upper-body-only presenter.
+
+A regression assembles a synthetic full-body bundle from the checked-in illustration, with six leg roles and attached violin/bow props, and verifies that the Master Director project retains all referenced asset files. This checks the asset handoff only. It does not create or imply creator production approval; the Real Performance production approval gate remains mandatory.
+
+### Validation update — stronger full-body movement and five-shot render (2026-11-25)
+
+**Status:** Passed on the isolated full-body feature branch. The preview remains a creator-review candidate, not a production release.
+
+- Full-Body Violin Performance Rig Preview run #698: **success** (8-second render, 720×1280, 25 fps, H.264 video + AAC audio).
+- Autopilot code checks run #2457: **success**.
+- Character Auto-Rig Test run #384: **success**.
+- Private Voice Vault checks run #181: **success**.
+- The five-shot timeline has distinct full-body, medium, instrument/hands, face/upper-body and hero-return framings with five deterministic moves: push-in, pan-right, instrument push-in, face push-in and pull-out. The independent volumetric-light and foreground-particle layers, timed titles, narration, music and SFX all render in the combined MP4.
+- The final composition report records `preview_only=true`, `publish_enabled=false`, `publish_ready=false`, `private_media=false` and `public_artifact_allowed=true`. The CI fixture uses synthetic eSpeak narration and generated CC0 sampled-violin guide audio; it does not contain the creator's private voice recording or a creator-recorded violin WAV.
+
+The near-static appearance was traced to conservative synchronised movement amplitudes. The current performance track envelope now reaches approximately 10.5° bow-shoulder travel plus downbeat accent, 3° torso follow-through, 1.45° delayed head follow-through, 6° thigh, 4° calf and 2.2° foot counterbalance. The root performer group adds a restrained 0.28-intensity sway. Source-mesh deformation limits were raised modestly to make arm/torso/leg movement more legible while retaining the preserved pixel artwork and the separate joint surfaces. Tests now check the measured synchronised track envelope, not just the presence of track IDs.
+
+The current bundle contains 34 active character composition layers plus the violin and bow props, including 12 finger segments and six approved lower-body hip/knee/ankle joint surfaces. This confirms the parts are present and assembled into the performer; it does not mean that they should appear as detached pieces in the finished video.
+
+**Remaining creator-review boundaries:** the face and head still use separate angle/expression plates and crossfades rather than continuous 3D deformation; hands/fingers and the bow grip remain sprite-based; and the premium character-art gate still requires creator visual review of head/face transitions, hand/grip artwork, upper-body seams and occlusion across the entire render. The five-shot edit is a reframing of the same full-body performance source, not five newly generated performance scenes or a photorealistic 3D venue. Keep PR #130 open, draft and unmerged until that review is complete. No scheduled production or public publishing is enabled.
+
+### Full-duration creator-recording synchronization (2026-11-25)
+
+- `create_full_body_performance_preview.py` now supports a full-length performance duration from 1–600 seconds. When a creator `--audio` WAV is supplied without a sampled `--music-map` or explicit duration override, the project duration is read from that WAV. The public sampled-violin CI fixture retains its eight-second crop because it supplies a music map.
+- The requested project duration must fit inside the decoded recording. The builder rejects a short source instead of stretching, silently padding, or pretending it covers the complete performance.
+- When a creator recording is supplied without a sampled-arrangement map, the builder runs the existing monophonic violin pitch/onset analyzer and feeds its reliable note events into the finger-control tracks. It requires at least four reliable note events; low-confidence pitch analysis fails closed rather than inventing fingering cues.
+- The note detector is a visual timing aid, not a verified transcription or fingering model. Overlapping/polyphonic passages can be rejected or misclassified, so the note map and final hand motion still require creator review.
+- The Qwen3 own-voice narration approval remains a separate, previously verified bridge. This duration change does not retrieve or embed a private recording, create a render, upload a preview, or alter any publishing workflow. The creator-recorded violin WAV must still be supplied to a private/local render workspace before the private full-length render can run.
+- Public CI continues to use synthetic eSpeak narration and generated CC0 violin audio only. Its artifacts must never contain private-source audio or a private-source render. `PUBLISH_ENABLED=false` and `AUTOPILOT_ENABLED=false` remain unchanged.
+
+### Validation update — full-duration adapter and preview #704 (2026-11-25)
+
+**Status:** All engineering validation for the current PR head passed. This is still an isolated, non-publishing preview and not a creator-approved final music video.
+
+- Full-Body Violin Performance Rig Preview #704: **success**.
+- Autopilot code checks #2462: **success**.
+- Character Auto-Rig Test #389: **success**.
+- Private Voice Vault checks #186: **success**.
+- The full-body preview unit-test suite passed, including synthetic-PCM coverage that checks creator-WAV duration inference, note-event-driven finger cues, and rejection when a requested render exceeds the source recording.
+- The existing public CI path remains unchanged: it rendered an 8-second 720×1280, 25 fps H.264/AAC full-body MP4 and an 8-second H.264/AAC cinematic composition. The composition report confirms five camera framings/moves, separate voice/music/SFX tracks and music ducking.
+- Public CI media provenance remains safe: synthetic eSpeak narration and generated CC0 sampled-violin audio only; `private_media=false`, `public_artifact_allowed=true`, `preview_only=true`, `publish_enabled=false`, and `publish_ready=false`.
+- The creator's comment on preview #644 approved the overall visual presentation (character identity, face, costume, hands/violin/bow composition, full-length silhouette and concert-stage direction). That creative approval does **not** approve the remaining technical character-art gate or production activation.
+- The latest rig report still records `premium_character_quality_gate.status=blocked_pending_character_art_reconstruction`. Head/face deformation remains plate-based; hands and bow grip remain sprite-based; and the six source-pixel joint surfaces still require seam/silhouette/occlusion review after their blended mesh deformation. Dense pose QA has 32 samples but does not certify anatomical alignment or prop/limb occlusion.
+- The private repository currently contains the encrypted Qwen3 voice package and prior narration results, but no creator-recorded violin performance WAV. The Qwen3 narration bridge has previously passed its own transcript/timing/checksum validation; a combined full-length private render has **not** been run because the actual instrumental source is absent.
+- The full-duration creator-WAV adapter is therefore code- and synthetic-test-validated, not yet end-to-end validated against the creator's own violin recording. Add the recording only to the private rendering workspace; never place it in public source, public Actions artifacts, or public releases.
+
+Keep PR #130 open, draft and unmerged. The preview workflow remains isolated; scheduled production and public publishing are not enabled by this change.
