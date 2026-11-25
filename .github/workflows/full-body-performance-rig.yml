@@ -826,13 +826,15 @@ jobs:
           canvas.save("work/full-body-rig/full-body-performance-contact-sheet.jpg", quality=94)
           PY
 
-      - name: Build a synthetic narration and independent animation-layer fixture
+      - name: Build explicit synthetic narration test fixture and independent animation layers
         env:
           PYTHONPATH: autopilot/engine
         run: |
           python autopilot/engine/create_cinematic_composition_preview.py \
             --character-video work/full-body-rig/full-body-violin-performance.mp4 \
             --music-wav work/full-body-rig/audio/violin-prince-cc0-solo-violin.wav \
+            --music-source cc0_sample \
+            --synthetic-voice-for-tests \
             --output-dir work/full-body-rig/cinematic-composition
 
       - name: Render the multi-layer cinematic composition preview
