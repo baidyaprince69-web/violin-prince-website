@@ -1,4 +1,8 @@
-"""Create safe synthetic assets for the public cinematic-composition smoke preview."""
+"""Build preview assets from private creator audio or explicitly synthetic test narration.
+
+Creator audio is referenced in place and marked private in the timeline; it is never
+copied into a public artifact by this builder.
+"""
 from __future__ import annotations
 
 import argparse
@@ -19,11 +23,136 @@ def _run(command: list[str]) -> None:
         raise RuntimeError("Unable to prepare the synthetic composition preview: " + str(detail)[-1800:]) from exc
 
 
-def create_fixture(character_video: Path, music_wav: Path, output_dir: Path) -> Path:
+def _probe_audio(path: Path, label: str, ffprobe: str) -> dict:
+    """Reject missing or undecodable creator/test audio before composing a timeline."""
+    try:
+        result = subprocess.run(
+            [ffprobe, "-v", "error", "-show_entries",
+             "format=duration:stream=codec_type,sample_rate,channels",
+             "-of", "json", str(path)],
+            check=True, capture_output=True, text=True, timeout=60,
+        )
+        metadata = json.loads(result.stdout)
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"{label} audio could not be decoded: {path.name}") from exc
+    stream = next(
+        (item for item in metadata.get("streams", []) if item.get("codec_type") == "audio"),
+        None,
+    )
+    if not stream:
+        raise RuntimeError(f"{label} input has no audio stream: {path.name}")
+    duration = float((metadata.get("format") or {}).get("duration") or 0)
+    if duration <= 0:
+        raise RuntimeError(f"{label} input has no measurable duration: {path.name}")
+    return {
+        "duration_seconds": duration,
+        "sample_rate": int(stream.get("sample_rate") or 0),
+        "channels": int(stream.get("channels") or 0),
+    }
+
+
+def _audio_track_manifest(
+    voice_path: Path,
+    music_path: Path,
+    sfx_path: Path,
+    *,
+    creator_voice: bool,
+    music_source: str,
+    voice_source_in_seconds: float = 0.0,
+) -> list[dict]:
+    """Build audio timeline records while retaining source provenance and privacy."""
+    if music_source not in {"cc0_sample", "creator_recording"}:
+        raise ValueError("music_source must be cc0_sample or creator_recording")
+    voice_type = "creator_recorded_voice" if creator_voice else "synthetic_test_fixture"
+    music_type = (
+        "creator_recorded_violin" if music_source == "creator_recording" else "cc0_sample"
+    )
+    return [
+        {
+            "id": "creator_voice_recording" if creator_voice else "synthetic_voice_preview",
+            "role": "voice",
+            "path": str(voice_path),
+            "start_seconds": 0,
+            "end_seconds": 8,
+            "source_in_seconds": float(voice_source_in_seconds),
+            "gain_db": -2,
+            "fade_in_seconds": 0.08,
+            "fade_out_seconds": 0.35,
+            "private_source": creator_voice,
+            "source_type": voice_type,
+        },
+        {
+            "id": "creator_violin_recording" if music_source == "creator_recording" else "sampled_violin_music",
+            "role": "music",
+            "path": str(music_path),
+            "start_seconds": 0,
+            "end_seconds": 8,
+            "gain_db": -15,
+            "loop": music_source == "cc0_sample",
+            "fade_in_seconds": 0.25,
+            "fade_out_seconds": 0.5,
+            "private_source": music_source == "creator_recording",
+            "source_type": music_type,
+        },
+        {
+            "id": "transition_whoosh",
+            "role": "sfx",
+            "path": str(sfx_path),
+            "start_seconds": 2.7,
+            "end_seconds": 3.4,
+            "gain_db": -16,
+            "fade_in_seconds": 0.04,
+            "fade_out_seconds": 0.2,
+            "private_source": False,
+            "source_type": "generated_preview_sfx",
+        },
+    ]
+
+
+def create_fixture(
+    character_video: Path,
+    music_wav: Path,
+    output_dir: Path,
+    *,
+    voice_wav: Path | None = None,
+    synthetic_voice_for_tests: bool = False,
+    music_source: str = "cc0_sample",
+    voice_source_in_seconds: float = 0.0,
+) -> Path:
     character_video = character_video.resolve(strict=True)
     music_wav = music_wav.resolve(strict=True)
+    if (voice_wav is None) == (not synthetic_voice_for_tests):
+        raise RuntimeError(
+            "Supply --voice-wav for creator audio, or explicitly select "
+            "--synthetic-voice-for-tests for automated fixtures."
+        )
+    if music_source not in {"cc0_sample", "creator_recording"}:
+        raise RuntimeError("Music source must be cc0_sample or creator_recording.")
+    if not math.isfinite(float(voice_source_in_seconds)) or not 0 <= float(voice_source_in_seconds) <= 600:
+        raise RuntimeError("Voice source offset must be between 0 and 600 seconds.")
     output_dir.mkdir(parents=True, exist_ok=True)
-    voice = output_dir / "synthetic-narration-preview.wav"
+    ffprobe = shutil.which("ffprobe")
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffprobe or not ffmpeg:
+        raise RuntimeError("FFprobe and FFmpeg are required to validate and render the preview.")
+    music_info = _probe_audio(music_wav, "Music", ffprobe)
+    if music_info["duration_seconds"] + 0.02 < 8.0:
+        raise RuntimeError("Music audio must cover the full eight-second cinematic preview.")
+    creator_voice = voice_wav is not None
+    if creator_voice:
+        voice = voice_wav.expanduser().resolve(strict=True)
+        voice_info = _probe_audio(voice, "Creator voice", ffprobe)
+        if voice_info["duration_seconds"] <= float(voice_source_in_seconds):
+            raise RuntimeError("Voice source offset is beyond the end of the recording.")
+    else:
+        voice = output_dir / "synthetic-narration-preview.wav"
+        espeak = shutil.which("espeak-ng")
+        if not espeak:
+            raise RuntimeError("The explicit synthetic test fixture requires espeak-ng.")
+        _run([espeak, "-v", "en-us", "-s", "154", "-w", str(voice),
+              "Violin Prince. One performance. Five camera shots. A full-body introduction, close details of the violin and bow, the performer, then the final wide shot."])
+    if music_source == "creator_recording" and music_info["duration_seconds"] + 0.02 < 8.0:
+        raise RuntimeError("Creator violin recording must cover the full performance preview.")
     overlay_dir = output_dir / "overlay-frames"
     overlay_dir.mkdir(parents=True, exist_ok=True)
     overlay = output_dir / "independent-motion-graphic-overlay.mov"
@@ -34,13 +163,6 @@ def create_fixture(character_video: Path, music_wav: Path, output_dir: Path) -> 
     lighting = output_dir / "volumetric-stage-lighting.mov"
     particles = output_dir / "foreground-dust-particles.mov"
     sfx = output_dir / "preview-whoosh.wav"
-
-    espeak = shutil.which("espeak-ng")
-    ffmpeg = shutil.which("ffmpeg")
-    if not espeak or not ffmpeg:
-        raise RuntimeError("The synthetic smoke preview requires espeak-ng and ffmpeg on PATH.")
-    _run([espeak, "-v", "en-us", "-s", "154", "-w", str(voice),
-          "Violin Prince. One performance. Five camera shots. A full-body introduction, close details of the violin and bow, the performer, then the final wide shot."])
 
     # Transparent motion-graphic video: an independent animated layer, not a
     # replacement for or edit of the current character performance.
@@ -201,18 +323,17 @@ def create_fixture(character_video: Path, music_wav: Path, output_dir: Path) -> 
              "end_seconds": 7.5, "x": 42, "y": 1165, "font_size": 24,
              "color": "#FFFFFF", "alpha": 0.88}
         ],
-        "audio_tracks": [
-            {"id": "synthetic_voice_preview", "role": "voice", "path": voice.name,
-             "start_seconds": 0, "end_seconds": 8, "gain_db": -2,
-             "fade_in_seconds": 0.08, "fade_out_seconds": 0.35,
-             "private_source": False},
-            {"id": "sampled_violin_music", "role": "music", "path": str(music_wav),
-             "start_seconds": 0, "end_seconds": 8, "gain_db": -15, "loop": True,
-             "fade_in_seconds": 0.25, "fade_out_seconds": 0.5},
-            {"id": "transition_whoosh", "role": "sfx", "path": sfx.name,
-             "start_seconds": 2.7, "end_seconds": 3.4, "gain_db": -16,
-             "fade_in_seconds": 0.04, "fade_out_seconds": 0.2}
-        ]
+        "audio_tracks": _audio_track_manifest(
+            voice, music_wav, sfx,
+            creator_voice=creator_voice,
+            music_source=music_source,
+            voice_source_in_seconds=voice_source_in_seconds,
+        ),
+        "audio_provenance": {
+            "voice_source": "creator_recorded_voice" if creator_voice else "synthetic_test_fixture",
+            "music_source": "creator_recorded_violin" if music_source == "creator_recording" else "cc0_sample",
+            "private_creator_audio": bool(creator_voice or music_source == "creator_recording"),
+        },
     }
     manifest_path = output_dir / "cinematic-timeline.json"
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -220,13 +341,32 @@ def create_fixture(character_video: Path, music_wav: Path, output_dir: Path) -> 
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Build a synthetic-voice, preview-only cinematic timeline fixture.")
+    parser = argparse.ArgumentParser(
+        description="Build a preview-only cinematic timeline using private creator audio or an explicit test voice."
+    )
     parser.add_argument("--character-video", required=True, type=Path)
     parser.add_argument("--music-wav", required=True, type=Path)
+    voice_mode = parser.add_mutually_exclusive_group(required=True)
+    voice_mode.add_argument("--voice-wav", type=Path, help="Private creator-recorded narration WAV.")
+    voice_mode.add_argument(
+        "--synthetic-voice-for-tests", action="store_true",
+        help="Use the synthetic narration fixture in automated tests only.",
+    )
+    parser.add_argument(
+        "--music-source", choices=("cc0_sample", "creator_recording"), default="cc0_sample",
+        help="Declare whether --music-wav is the CC0 test bed or a private creator violin take.",
+    )
+    parser.add_argument("--voice-source-in-seconds", type=float, default=0.0)
     parser.add_argument("--output-dir", required=True, type=Path)
     args = parser.parse_args()
     try:
-        path = create_fixture(args.character_video, args.music_wav, args.output_dir)
+        path = create_fixture(
+            args.character_video, args.music_wav, args.output_dir,
+            voice_wav=args.voice_wav,
+            synthetic_voice_for_tests=args.synthetic_voice_for_tests,
+            music_source=args.music_source,
+            voice_source_in_seconds=args.voice_source_in_seconds,
+        )
         print(f"CINEMATIC_TIMELINE={path}")
         return 0
     except Exception as exc:
