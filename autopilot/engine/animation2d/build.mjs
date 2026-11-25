@@ -647,13 +647,31 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
       deformationMeshTriangleTrackCount += triangleTracks.length;
     }
     const forbiddenMeshRoles = new Set([
-      "left_hand", "right_hand", "finger_index", "finger_middle",
-      "finger_ring", "finger_little", "left_foot", "right_foot"
+      "finger_index", "finger_index_middle", "finger_index_tip",
+      "finger_middle", "finger_middle_middle", "finger_middle_tip",
+      "finger_ring", "finger_ring_middle", "finger_ring_tip",
+      "finger_little", "finger_little_middle", "finger_little_tip",
+      "left_foot", "right_foot"
     ]);
     if ((character.layers || []).some(layer =>
       forbiddenMeshRoles.has(String(layer.role || "")) && layer.mesh_deformation
     )) {
-      throw new Error("Hand, finger and foot artwork must remain outside the continuous body mesh.");
+      throw new Error("Finger-segment and foot artwork must remain outside the continuous palm/body mesh.");
+    }
+    const invalidPalmMeshes = (character.layers || []).filter(layer => {
+      const role = String(layer.role || "");
+      if (!["left_hand", "right_hand"].includes(role) || !layer.mesh_deformation) return false;
+      const mesh = layer.mesh_deformation;
+      return mesh.profile !== "limb_joint" ||
+        String(mesh.driver_role || "") !== role ||
+        Number(mesh.columns) !== 3 ||
+        Number(mesh.rows) !== 3;
+    });
+    if (invalidPalmMeshes.length) {
+      throw new Error(
+        "Palm meshes must use their own wrist-driven 3x3 limb_joint source-texture mesh: " +
+        invalidPalmMeshes.map(layer => layer.role).join(", ")
+      );
     }
     const jointSurfaceLayers = (character.layers || []).filter(layer => layer.joint_surface);
     const unexpectedJointSurfaceLayers = (character.layers || []).filter(layer =>
