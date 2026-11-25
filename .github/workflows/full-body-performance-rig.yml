@@ -68,6 +68,7 @@ jobs:
           python -m unittest discover -s autopilot/engine/tests -p "test_character_rig.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_character_autorig.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_cinematic_video_pipeline.py" -v
+          python -m unittest discover -s autopilot/engine/tests -p "test_create_cinematic_composition_preview.py" -v
 
       - name: Run Auto-Rig and create base articulated body layers
         env:
