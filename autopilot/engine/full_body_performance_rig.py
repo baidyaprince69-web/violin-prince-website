@@ -2325,6 +2325,10 @@ def _configure_continuous_body_meshes(character: dict[str, Any]) -> dict[str, An
         ("left_forearm", "left_forearm", "left_elbow", "left_wrist", "proximal", 9.0, 4.5, 2, 4),
         ("right_upper_arm", "torso", "right_shoulder", "right_elbow", "distal", 7.5, 4.0, 2, 4),
         ("right_forearm", "torso", "right_elbow", "right_wrist", "proximal", 7.5, 4.0, 2, 4),
+        # Deform the source-pixel palm surfaces as well as rotating them at the
+        # wrist. Finger segments remain separate articulated source sprites.
+        ("left_hand", "left_hand", "left_wrist", None, "center", 8.0, 2.8, 3, 3),
+        ("right_hand", "right_hand", "right_wrist", None, "center", 8.0, 2.8, 3, 3),
         ("left_thigh", "left_thigh", "left_hip", "left_knee", "distal", 6.0, 4.0, 2, 4),
         ("left_calf", "left_calf", "left_knee", "left_ankle", "proximal", 6.0, 4.0, 2, 4),
         ("right_thigh", "right_thigh", "right_hip", "right_knee", "distal", 6.0, 4.0, 2, 4),
@@ -2344,11 +2348,13 @@ def _configure_continuous_body_meshes(character: dict[str, Any]) -> dict[str, An
                 [float(end_joint["x"]) * canvas_width, float(end_joint["y"]) * canvas_height],
             ]
         else:
-            neck = joints.get(start_name)
-            if not neck:
-                raise ManualReviewRequired("Torso mesh deformation requires the neck pivot.")
+            axis_anchor = joints.get(start_name)
+            if not axis_anchor:
+                raise ManualReviewRequired(
+                    f"Source-mesh deformation requires the {start_name} pivot."
+                )
             points = [
-                [float(neck["x"]) * canvas_width, float(neck["y"]) * canvas_height],
+                [float(axis_anchor["x"]) * canvas_width, float(axis_anchor["y"]) * canvas_height],
                 [float(layer["x"]) + float(layer["width"]) * 0.52,
                  float(layer["y"]) + float(layer["height"]) * 0.96],
             ]
@@ -2369,9 +2375,11 @@ def _configure_continuous_body_meshes(character: dict[str, Any]) -> dict[str, An
             "max_angle_deg": max_angle, "max_displacement_px": displacement,
         }
         configured.append(role)
+    # Palm meshes deform with their wrist pivots; fingers and feet keep
+    # their own segmented/rigid articulation and must never inherit a palm mesh.
     forbidden = {
-        "left_hand", "right_hand", "finger_index", "finger_middle",
-        "finger_ring", "finger_little", "left_foot", "right_foot",
+        "finger_index", "finger_middle", "finger_ring", "finger_little",
+        "left_foot", "right_foot",
     }
     accidental = sorted(
         str(layer.get("role")) for layer in character.get("layers", [])
@@ -2384,6 +2392,9 @@ def _configure_continuous_body_meshes(character: dict[str, Any]) -> dict[str, An
         "deformable_roles": configured,
         "deformable_layer_count": len(configured),
         "mesh_profiles": {role: layer_by_role[role]["mesh_deformation"] for role in configured},
+        "hand_surface_mesh_deformation_count": sum(
+            1 for role in ("left_hand", "right_hand") if role in configured
+        ),
         "hand_assets_modified": 0, "hand_animation_data_modified": False,
         "finger_layers_modified": 0, "instrument_props_modified": 0,
         "visual_review_required": True,
@@ -3183,18 +3194,18 @@ def extend_full_body_character(
             "status": "blocked_pending_character_art_reconstruction",
             "underpaint": "approximate_nonsemantic_inpaint",
             "head": "normalized_plate_crossfades_not_continuous_mesh_deformation",
-            "hands": "four_source_aligned_three_segment_finger_chains_with_joint_overlap_not_deformable_art",
+            "hands": "source-pixel left and right palm meshes deform with wrist motion; four independent three-segment finger chains remain separately articulated source sprites",
             "body": "frame_sampled_piecewise_affine_source_texture_mesh_on_torso_and_eight_limb_surfaces",
             "joint_surfaces": (
                 "six user-approved original-source pixel patches with parent/child blended mesh deformation; no generated pads; upper-body and hand assets are protected"
                 if len(joint_surface_layers) == 6
                 else "only explicitly approved absolute source-pixel polygons may be extracted; no generated joint pads; upper-body and hand assets are protected"
             ),
-            "hands": "untouched_rigid_source_sprites_with_existing_finger_animation",
+            "hand_surface_deformation": "both palm surfaces use frame-sampled source-texture meshes; four three-segment finger chains remain independently articulated and retain original source pixels",
             "release_blockers": [
                 "visual seam, silhouette and occlusion review of six approved lower-body source-pixel surfaces after blended mesh deformation; generated joint pads are not accepted",
                 "anatomically aligned head neck and facial feature deformation",
-                "deformable bow-grip and finger-surface artwork; hand animation intentionally unchanged",
+                "visual review of deformable bow-grip palm, finger-joint overlap, bow contact and violin-hand occlusion throughout the pose range",
                 "pose-range and full-frame visual QA after mesh deformation",
             ],
         },
