@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import shutil
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,19 @@ def stage_asset(bundle: Path, asset_root: Path, source: str) -> str:
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source_path, destination)
     return destination.relative_to(asset_root.parent.parent.parent).as_posix()
+
+
+def _read_audio_duration_seconds(path: str | Path) -> float:
+    """Read a creator WAV duration without changing or resampling its samples."""
+    import soundfile as sf
+
+    try:
+        duration = float(sf.info(str(path)).duration)
+    except Exception as exc:
+        raise ValueError("Could not read the attached WAV duration; supply a decoded PCM WAV.") from exc
+    if not math.isfinite(duration) or not 1.0 <= duration <= 600.0:
+        raise ValueError("Attached violin audio must be between 1 and 600 seconds.")
+    return duration
 
 
 def _build_preview_music_sync(
@@ -53,6 +67,9 @@ def _build_preview_music_sync(
             )
         else:
             analysis = analyse_audio_file(audio_path, known_bpm=bpm)
+        decoded_duration = float(analysis.get("duration_seconds") or 0.0)
+        if decoded_duration + 0.08 < duration:
+            raise ValueError("The attached audio is shorter than the requested full-body performance duration.")
         beats = [
             float(value) for value in analysis.get("beat_times", [])
             if 0 <= float(value) < duration
@@ -71,6 +88,7 @@ def _build_preview_music_sync(
                 "Supply a clearer audio source or a verified BPM."
             )
         note_events: list[dict[str, Any]] = []
+        note_analysis = None
         if music_map is not None:
             raw_events = music_map.get("note_events")
             if not isinstance(raw_events, list) or not raw_events:
@@ -101,6 +119,30 @@ def _build_preview_music_sync(
             if mapped_onsets != declared_onsets:
                 raise ValueError("The note-event times do not match the declared sampled-violin onsets.")
             note_events = [event for event in note_events if event["time"] < duration]
+        else:
+            from violin_note_analysis import analyse_violin_note_events
+
+            note_analysis = analyse_violin_note_events(audio_path)
+            if note_analysis.get("status") != "passed":
+                raise ValueError(
+                    "The attached violin take did not yield at least four reliable monophonic note events; "
+                    "refusing to invent fingering cues."
+                )
+            note_events = [
+                {
+                    "time": float(event["time"]),
+                    "note": int(event["note"]),
+                    "velocity": int(event["velocity"]),
+                    "duration_seconds": float(event["duration_seconds"]),
+                    "confidence": float(event.get("confidence", 0.0)),
+                }
+                for event in note_analysis.get("note_events", [])
+                if float(event.get("time", -1)) < duration
+            ]
+            if len(note_events) < 4:
+                raise ValueError("The attached violin take has fewer than four in-range note events.")
+            if not onsets:
+                onsets = [round(event["time"], 4) for event in note_events]
         if not onsets and beats:
             beat_period = 60.0 / float(analysis["bpm"])
             onsets = [
@@ -126,8 +168,12 @@ def _build_preview_music_sync(
             "audio_attribution": music_map.get("attribution") if music_map is not None else None,
             "event_map_source": (
                 "sampled_violin_arrangement_note_events"
-                if music_map is not None else None
+                if music_map is not None else
+                ("creator_recording_pitch_analysis" if note_analysis is not None else None)
             ),
+            "note_analysis_status": note_analysis.get("status") if note_analysis else None,
+            "note_analysis_source": note_analysis.get("source") if note_analysis else None,
+            "note_analysis_event_count": len(note_events),
             "analysis_status": analysis.get("status"),
             "analysis_source": analysis.get("source"),
             "decode_backend": analysis.get("decode_backend"),
@@ -225,9 +271,17 @@ def build_preview_project(
     audio_path: str | Path | None = None,
     bpm: float | None = None,
     music_map_path: str | Path | None = None,
+    duration_seconds: float | None = None,
 ) -> dict[str, Any]:
     bundle = Path(bundle_dir).resolve(strict=True)
     output = Path(output_dir).resolve()
+    duration = (
+        _read_audio_duration_seconds(audio_path)
+        if duration_seconds is None and audio_path else
+        (8.0 if duration_seconds is None else float(duration_seconds))
+    )
+    if not math.isfinite(duration) or not 1.0 <= duration <= 600.0:
+        raise ValueError("Full-body performance duration must be between 1 and 600 seconds.")
     asset_root = output / "assets" / "characters" / "violin-prince"
     asset_root.mkdir(parents=True, exist_ok=True)
     character_path = bundle / "character.json"
@@ -258,7 +312,7 @@ def build_preview_project(
         raise ValueError("A sampled-violin event map requires its corresponding audio file.")
 
     music_sync = _build_preview_music_sync(
-        8,
+        duration,
         bpm=bpm,
         audio_path=audio_path,
         music_map=music_map,
@@ -266,7 +320,7 @@ def build_preview_project(
     scene = {
         "id": "full-body-violin-performance",
         "start": 0,
-        "duration": 8,
+        "duration": duration,
         "visual_mode": "full_body_performance",
         "background_color": "#08111b",
         "graphic_label": "MIDNIGHT RESONANCE",
@@ -303,7 +357,7 @@ def build_preview_project(
                 },
             ],
         },
-        "camera_motion_duration": 8,
+        "camera_motion_duration": duration,
         "camera_easing": "ease-in-out",
         "character_actions": {
             "violin-prince": {
@@ -337,7 +391,7 @@ def build_preview_project(
         "width": 720,
         "height": 1280,
         "fps": 25,
-        "duration_seconds": 8,
+        "duration_seconds": duration,
         "brand_system": "violin-prince-fullbody-performance-rig-v1",
         "render_mode": "preview_only",
         "director_palette": {
@@ -427,6 +481,8 @@ def main() -> int:
     parser.add_argument("--audio", default="", help="Optional audio track used for beat/onset timing.")
     parser.add_argument("--music-map", default="",
                         help="Optional JSON arrangement/event map matching --audio.")
+    parser.add_argument("--duration-seconds", type=float, default=None,
+                        help="Optional duration override; defaults to the attached WAV duration or 8 seconds without audio.")
     parser.add_argument("--bpm", type=float, default=None,
                         help="Verified tempo for the preview grid or optional audio phase alignment.")
     args = parser.parse_args()
@@ -436,6 +492,7 @@ def main() -> int:
         audio_path=args.audio or None,
         bpm=args.bpm,
         music_map_path=args.music_map or None,
+        duration_seconds=args.duration_seconds,
     )
     print("FULL_BODY_PREVIEW_PROJECT=" + json.dumps(result, ensure_ascii=False))
     return 0
