@@ -96,14 +96,22 @@ PROCEDURAL ENGINE LIMITS:
   comet, particle. Motions: float, drift, orbit, rotate, pulse, flicker, sway,
   travel_left, travel_right, bob. Each shot needs 2–8 story-relevant objects
   with normalized coordinates, safe unique IDs, valid colours and cycle times.
-- The saved Violin Prince character is an upper-body rig: no leg joints and
-  no violin/bow prop are attached. It can gesture and move its upper body.
-  Do not claim literal violin playing or legged walking. At least three shots
-  must show the presenter with a supported looping gesture.
-- Gestures: wave, point, point_left, point_right, open_palms, explain, nod,
-  thinking, idle_breath, talking, violin_bow, walk_cycle, dance_groove.
-  The final three are upper-body motion only. Expressions: neutral, blink,
-  speaking, smile, shocked, sad. All visible character actions loop.
+- The saved Violin Prince character is a source-aligned full-body
+  violin-performance rig. It includes articulated torso/head, both arm
+  chains, six thigh/calf/foot segments, four three-joint fretting-finger
+  chains and the source-aligned violin and bow props. This is stylised 2D
+  artwork, not photorealistic 3D or a biomechanical fingering simulation.
+  Direct a violinist rather than a generic talking presenter. Every visible
+  performer shot must use gesture=violin_performance and show music-led bow,
+  fingering, torso/head phrasing and weight shifts driven by the measured
+  audio event map. Preserve original proportions, joint positions, prop
+  contact and instrument silhouette. Keep the complete performer visible in
+  wide/medium shots; use hands/instrument or face details only when motivated.
+  Keep face/head orientation source-aligned and front-facing unless a matching
+  reviewed angle plate exists. All visible character actions loop.
+- Supported visible performer action: violin_performance. Supported face
+  expressions: focused, neutral, happy, surprised. Do not request unsupported
+  walking, dancing, speaking or generic presenter gestures for this route.
 - Optional graphic_data is one of process_flow, signal_path, comparison,
   arch_heights or waveform. Use 2–4 factual items where required; omit it
   when a card would add clutter. A card automatically occupies the left column
@@ -224,8 +232,8 @@ Use this contract:
       },
       "character_action": {
         "visible": true,
-        "gesture": "talking",
-        "expression": "speaking",
+        "gesture": "violin_performance",
+        "expression": "focused",
         "loop": true,
         "cycle_duration_seconds": 1.8,
         "root_motion": {"type": "sway", "intensity": 0.25}

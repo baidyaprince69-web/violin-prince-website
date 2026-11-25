@@ -95,7 +95,7 @@ def _build_procedural_stagecraft_brief(
             "generated_scene_images": 0,
             "generated_transparent_cutouts": 0,
             "environment_renderer": "procedural SVG + Motion",
-            "character_renderer": "existing articulated Violin Prince upper-body rig",
+            "character_renderer": "source-aligned full-body articulated Violin Prince rig with six leg segments, two arm chains, four three-joint finger chains, and attached violin/bow props",
             "static_image_fallback_allowed": False,
         },
         "note": (

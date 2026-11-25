@@ -7,7 +7,7 @@
   },
   "source_artwork": {
     "filename": "preserved-full-body-source.png",
-    "sha256": "982c94d1383f25448869c52f440597c6bbc3a40ac792b6fb0b3944fea1aeafca",
+    "sha256": "a981d79de2026746f8b61589af2946df4ec8f1024130f698575608313b5c1899",
     "joint_region_sha256": {
       "left_hip": "6c6cb707af5557ce08ccfc4a67a9e97012852229996e129bbe9886a60cf48a0a",
       "right_hip": "90b54af6fdfadfc4f7b18bea3ca833ebe0822bdacc54493e7128c8c83cf0dcf9",
@@ -15,7 +15,9 @@
       "right_knee": "f170b0365893004c659b5b3754600ac5a405096419b83fffd08736e6cd7e8020",
       "left_ankle": "ada4befbf47adf6c98056304b0d25facf5595eda0d32bda539b10c6c55f24640",
       "right_ankle": "4ab78314d45e792a78b339e718e49209489103b9c39165fda17f4ca2cbd43178"
-    }
+    },
+    "sha256_scope": "unaltered raw RGBA source PNG emitted by Auto-Rig before the separately reported edge-matte RGB cleanup",
+    "provenance_note": "The previous 982c94d... digest pinned the edge-matte-cleaned derivative, not the raw preserved-full-body-source.png produced at the start of a clean Auto-Rig run. The clean CI run independently measured the raw file as a981d79d...; all six approved joint-region pixel hashes matched. Both the exact raw-file digest and six regional pixel digests are required."
   },
   "authoring_instructions": [
     "The six coordinates originated as AI-assisted source-coordinate draft outlines.",
