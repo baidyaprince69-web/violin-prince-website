@@ -13,104 +13,109 @@
       "production_date": "2026-11-26",
       "slot_id": "music-secrets",
       "slot_status": "blocked",
-      "editorial_plan_status": "complete",
+      "editorial_plan_status": "complete_pending_official_publisher_page_recheck",
       "production_status": "blocked_pending_genuine_animation_and_presenter_approval",
-      "blocked_reason": "Editorial plan and source pair are complete, but scheduled rendering remains blocked because autopilot/engine/animation-production-approval.json is absent and the saved presenter rig has no production-approval.json. These gates require genuine moving-animation evidence and creator visual approval. Public YouTube publication is authorised; no private preview is required.",
-      "story_type": "sound_and_perception",
-      "title": "How the Brain Separates Speech and Music",
-      "topic": "How auditory-cortex timing and frequency patterns help listeners distinguish speech and music in a continuous mixed soundtrack.",
-      "core_claim": "The study links speech judgements mainly to rapid temporal changes and music judgements mainly to detailed spectral patterns, while not claiming these are the brain's only sound-categorisation mechanisms.",
-      "hook": "How does your brain separate speech?",
-      "description": "A recent Science Advances study examines how listeners distinguish speech and music when they overlap. Medical Xpress and Qazinform describe the research and its separate participant groups. The film soundtrack was research context only; this video uses no film footage, soundtrack audio or recognisable franchise imagery. Sources: https://medicalxpress.com/news/2026-11-harry-potter-soundtrack-brain-differentiates.html and https://qazinform.com/news/harry-potter-soundtrack-helps-scientists-study-how-the-brain-distinguishes-speech-from-music-aaed49",
+      "blocked_reason": "The official Acoustical Society publisher article was returned with its title, date and abstract in indexed publisher content, but browser-open redirects to an inaccessible article-minimal endpoint; scheduled source enrichment must confirm the direct page before editorial readiness. Production is separately blocked because autopilot/engine/animation-production-approval.json is absent and the saved presenter rig has no production-approval.json. Creator visual approval is still required. Public YouTube publication is authorised; no private preview is required.",
+      "story_type": "violin_physics",
+      "title": "Why Real Violin Pizzicato Fades Differently from Samples",
+      "topic": "What a recent single-string study found when comparing acoustic violin pizzicato with MuseScore Basic playback.",
+      "core_claim": "A November 23 Proceedings of Meetings on Acoustics paper compares pizzicato from one acoustic violin E string with MuseScore Basic playback and reports differences in inharmonicity and harmonic decay; it does not establish universal sample quality or listener preference.",
+      "hook": "Why does violin pizzicato fade differently?",
+      "description": "A source-backed look at a November 2026 comparison of acoustic violin pizzicato and MuseScore Basic playback. The reported harmonic-decay differences are limited to one string and one software implementation; listener preference and perceived realism need separate testing. Sources: Dior Violin and the Acoustical Society of America, Proceedings of Meetings on Acoustics. No copied audio or experimental measurement is recreated.",
       "hashtags": [
+        "#ViolinAcoustics",
+        "#Pizzicato",
         "#MusicScience",
-        "#AuditoryPerception",
-        "#SoundAndMusic",
         "#ViolinPrince"
       ],
       "tags": [
-        "music perception",
-        "speech and music",
-        "auditory cortex",
-        "spectrotemporal modulation",
+        "violin pizzicato",
+        "violin acoustics",
+        "harmonic decay",
+        "overtones",
+        "MuseScore Basic",
         "music science",
-        "sound analysis",
         "Violin Prince"
       ],
       "narrative_style": "documentary",
-      "cover_payoff": "Create a cleared, original violin motif with one articulated rhythmic contour and one sustained spectral contour. Treat the sample-based phrase as an illustration, never as a claim of live creator performance.",
-      "narration_script": "How does your brain separate speech? Medical Xpress links speech to timing, music to distinct frequency patterns. Qazinform reports eleven epilepsy patients heard the film soundtrack. Nineteen other adult listeners marked speech, music, or both.",
+      "cover_payoff": "Finish with a short original non-copied Violin Prince phrase after the decay comparison. Use a pizzicato sample only if an appropriate rights-cleared asset is confirmed; otherwise keep the scientific decay graphic illustrative and do not claim a recreated experiment.",
+      "narration_script": "Why does violin pizzicato fade differently? Dior Violin reports shorter decay at higher string harmonics. The Acoustical Society paper compared one violin string with MuseScore Basic. But perceptual realism and preference still require further testing.",
       "narration_evidence": [
         {
           "sentence_number": 2,
           "source_id": "S001",
-          "quote": "Speech judgments depended mainly on rapid changes in sound over time, while music judgments depended mainly on detailed patterns across sound frequencies."
+          "quote": "The acoustic violin also exhibited a shorter decay time constant at higher harmonics."
         },
         {
           "sentence_number": 3,
           "source_id": "S002",
-          "quote": "Eleven patients with epilepsy listened to the clip"
+          "quote": "Synthesized violin pizzicato recordings of the same technique and frequencies were generated using MuseScore Basic."
         },
         {
           "sentence_number": 4,
-          "source_id": "S002",
-          "quote": "A separate group of 19 adults listened to the same recording"
+          "source_id": "S001",
+          "quote": "or that listeners necessarily prefer one recording to another."
         }
       ],
       "narration_asr_hotwords": [
-        "auditory cortex",
-        "spectrotemporal",
-        "Qazinform",
-        "Medical Xpress"
+        "pizzicato",
+        "inharmonicity",
+        "overtones",
+        "MuseScore Basic",
+        "Acoustical Society of America"
       ],
       "timeline": [],
       "timeline_evidence": [],
       "sources": [
         {
           "source_id": "S001",
-          "title": "The Harry Potter soundtrack helps researchers test how the brain differentiates speech and background music",
-          "url": "https://medicalxpress.com/news/2026-11-harry-potter-soundtrack-brain-differentiates.html",
-          "publisher_domain": "medicalxpress.com",
-          "publisher_name": "Medical Xpress",
-          "date": "2026-11-19"
+          "title": "Why Real Violin Pizzicato Fades Differently: New 2026 Study Compares MuseScore",
+          "url": "https://www.diorviolin.com/post/why-real-violin-pizzicato-fades-differently-new-2026-study-compares-musescore",
+          "publisher_domain": "diorviolin.com",
+          "publisher_name": "Dior Violin",
+          "date": "2026-11-23",
+          "verification_status": "direct_article_open_verified"
         },
         {
           "source_id": "S002",
-          "title": "Harry Potter soundtrack helps scientists study how the brain distinguishes speech from music",
-          "url": "https://qazinform.com/news/harry-potter-soundtrack-helps-scientists-study-how-the-brain-distinguishes-speech-from-music-aaed49",
-          "publisher_domain": "qazinform.com",
-          "publisher_name": "Qazinform News Agency",
-          "date": "2026-11-25"
+          "title": "A study of inharmonicity and harmonic decay in real versus synthesized violin pizzicato",
+          "url": "https://pubs.aip.org/asa/poma/article/61/1/035005/3409213/A-study-of-inharmonicity-and-harmonic-decay-in",
+          "publisher_domain": "pubs.aip.org",
+          "publisher_name": "Acoustical Society of America — Proceedings of Meetings on Acoustics",
+          "date": "2026-11-23",
+          "verification_status": "official_publisher_article_indexed_direct_open_blocked",
+          "verification_note": "Official article content and November 23 publication date were returned in the publisher-indexed search result. Browser open redirects to an inaccessible article-minimal endpoint; the automated direct-page fetch must confirm availability before editorial readiness."
         }
       ],
       "scenes": [
         {
-          "id": "sound-ribbon",
-          "caption": "One sound, two changing dimensions",
+          "id": "pizzicato-attack-tail",
+          "caption": "A plucked note is more than its attack",
           "visual_mode": "waveform",
           "narration_sentence_indexes": [
-            0
+            0,
+            1
           ],
-          "image_prompt": "Original abstract scientific music-documentary illustration: a clean sound ribbon moving through time while a separate frequency spectrum blooms beside it; deep blue atmosphere, coral signal accents, tactile light, no film references, no logos, no copied imagery."
+          "image_prompt": "Original scientific violin-acoustics illustration: a single pizzicato note attack expands into a fading harmonic tail, clear time axis and layered overtones, deep green and warm amber, no real experimental chart or copied data."
         },
         {
-          "id": "timing-frequency",
-          "caption": "Timing and frequency carry different clues",
+          "id": "acoustic-vs-sample",
+          "caption": "One acoustic string compared with one software playback",
           "visual_mode": "comparison",
           "narration_sentence_indexes": [
-            1,
-            2
+            2,
+            3
           ],
-          "image_prompt": "A two-panel original editorial comparison: rhythmic temporal pulses on one side and fine spectral bands on the other, linked by a restrained auditory-cortex signal map; readable labels, no invented measurements, no medical scan imitation."
+          "image_prompt": "Original two-lane comparison concept: acoustic violin E-string pizzicato above and a software-rendered pizzicato sample below, with harmonic decay curves and a restrained 66 percent third-harmonic callout; explicitly labelled illustrative, not raw measurement."
         },
         {
-          "id": "violin-contours",
-          "caption": "An original violin phrase reveals both",
+          "id": "original-violin-payoff",
+          "caption": "A fresh violin phrase, with its tail in focus",
           "visual_mode": "cover_performance",
           "narration_sentence_indexes": [
             3
           ],
-          "image_prompt": "Original Violin Prince musical payoff concept: a violin silhouette with two separate animated-looking contours, one articulated rhythmic ribbon and one sustained harmonic glow; premium stage lighting, original composition, no artist likeness or existing melody."
+          "image_prompt": "Original Violin Prince musical payoff concept: close-up violin silhouette and one plucked-note light trail fading into silence, premium cinematic studio lighting, no claim of creator live recording and no existing melody."
         }
       ],
       "performance_feedback": {
@@ -126,12 +131,13 @@
         "measurement_for_next_upload": "Capture 24-hour and seven-day views, engaged views, average view duration, average percentage viewed, stayed-to-watch, likes, comments, shares, traffic sources and country data when available."
       },
       "publish_metadata": {
-        "title": "How the Brain Separates Speech and Music",
-        "description": "A source-backed look at how timing and frequency patterns help listeners distinguish overlapping speech and music. Original Violin Prince visuals and an illustrative, non-copied musical phrase. Sources: Medical Xpress and Qazinform, November 2026.",
+        "title": "Why Real Violin Pizzicato Fades Differently from Samples",
+        "description": "A concise explanation of how one study compared acoustic violin pizzicato with MuseScore Basic playback. Its measured harmonic differences do not establish universal sample quality or listener preference. Sources: Dior Violin and the Acoustical Society of America, November 2026.",
         "tags": [
-          "music perception",
-          "speech and music",
-          "auditory cortex",
+          "violin pizzicato",
+          "violin acoustics",
+          "harmonic decay",
+          "overtones",
           "music science",
           "Violin Prince"
         ],
@@ -143,39 +149,39 @@
         "production_binding": {
           "production_date": "2026-11-26",
           "slot_id": "music-secrets",
-          "title": "How the Brain Separates Speech and Music",
-          "topic": "How auditory-cortex timing and frequency patterns help listeners distinguish speech and music in a continuous mixed soundtrack.",
-          "narration_script": "How does your brain separate speech? Medical Xpress links speech to timing, music to distinct frequency patterns. Qazinform reports eleven epilepsy patients heard the film soundtrack. Nineteen other adult listeners marked speech, music, or both."
+          "title": "Why Real Violin Pizzicato Fades Differently from Samples",
+          "topic": "What a recent single-string study found when comparing acoustic violin pizzicato with MuseScore Basic playback.",
+          "narration_script": "Why does violin pizzicato fade differently? Dior Violin reports shorter decay at higher string harmonics. The Acoustical Society paper compared one violin string with MuseScore Basic. But perceptual realism and preference still require further testing."
         },
         "story_understanding": {
-          "central_truth": "The study links speech judgements more strongly to rapid temporal changes and music judgements to fine spectral detail, while cautioning that these cues are not necessarily the brain's only mechanisms.",
-          "viewer_question": "How can listeners separate speech from music when both overlap?",
+          "central_truth": "A November 23 study measured differences between one acoustic violin E-string pizzicato recording and MuseScore Basic playback: the real string showed inharmonicity and harmonic-dependent decay, while the software example was more uniform. The study does not establish universal sample quality or listener preference.",
+          "viewer_question": "Why can a plucked violin note have a different fading harmonic tail from a software sample?",
           "emotional_arc": [
-            "Curiosity about an everyday listening mystery",
-            "A clear reveal that time and frequency provide different acoustic clues",
-            "A satisfying original violin phrase that makes those dimensions audible"
+            "Curiosity about the tiny sound after a pluck",
+            "A measured reveal of differing upper-harmonic decay",
+            "A careful boundary between physical measurements and listener preference"
           ],
           "key_revelations": [
-            "Speech judgements relied mainly on rapid changes in sound over time.",
-            "Music judgements relied mainly on detailed patterns across sound frequencies.",
-            "The research combined implanted-electrode recordings from eleven epilepsy patients with listening responses from nineteen other adults."
+            "The comparison examined an acoustic violin E string against MuseScore Basic pizzicato playback.",
+            "The acoustic violin showed measurable inharmonicity while the software sample's value fell below measurement resolution.",
+            "The real violin's third-harmonic decay time constant was reported 66 percent lower; the study was limited to one string and one playback implementation."
           ]
         },
         "visual_concept": {
-          "concept_name": "The Spectral Listening Lens",
-          "visual_metaphor": "A single sound ribbon separates into a moving time-line and a layered frequency field, illustrating two complementary ways the auditory system can use acoustic information.",
-          "creative_rationale": "The subject is an invisible listening process, so the visual language makes time and frequency legible without pretending to show literal brain imagery or measured neural anatomy.",
-          "art_direction": "Premium scientific music documentary: luminous signal ribbons, precise editorial overlays, controlled negative space, restrained material detail and a violin-shaped musical payoff.",
+          "concept_name": "The Overtone Tail",
+          "visual_metaphor": "A single plucked string releases a ladder of harmonic light; the upper steps fade at different rates in the acoustic lane and more uniformly in the software lane.",
+          "creative_rationale": "The research concerns measurable physical details in a very short note. The decaying light ladder makes the post-attack detail visible without claiming that a diagram is a raw measurement or that one sound is universally better.",
+          "art_direction": "High-end violin-acoustics documentary: macro string details, clean signal traces, warm wood and restrained laboratory geometry, no copied experimental figure or product interface.",
           "palette": {
-            "dominant": "#14213D",
-            "secondary": "#547AA5",
-            "accent": "#FF765E",
+            "dominant": "#153B38",
+            "secondary": "#65A99B",
+            "accent": "#F2A65A",
             "harmony": "complementary",
-            "reasoning": "Cool blues carry the analytical listening environment while a coral accent marks the contrasting signal cue.",
-            "contrast_strategy": "Use pale high-contrast labels on the deep dominant field; keep the coral accent limited to one signal at a time and preserve phone-size text hierarchy."
+            "reasoning": "Deep green carries the acoustic wood-and-laboratory mood, a lighter green differentiates the measured signal, and warm amber draws attention to the fading upper harmonics.",
+            "contrast_strategy": "Use warm ivory labels over the dark field, keep amber for measured highlights only, and preserve phone-size axis labels and clear side-by-side separation."
           },
-          "lighting_plan": "Cool directional key light, subtle blue rim, and short coral pulses only at the moments when a new acoustic clue is revealed.",
-          "composition_language": "Keep timing and frequency as distinct left/right visual zones with a central bridge; reserve the right safe area for the upper-body presenter and avoid dense labels."
+          "lighting_plan": "Warm grazing light across the string and bridge, cool green rim around the software comparison, and a narrow amber accent when the third-harmonic difference appears.",
+          "composition_language": "Keep the acoustic and software lanes separate until the measured difference is clear; reserve the right safe area for the upper-body presenter and avoid dense graph labels."
         },
         "storyboard": {
           "duration_seconds": 32,
@@ -185,60 +191,60 @@
               "start_seconds": 0,
               "end_seconds": 3,
               "purpose": "hook",
-              "visual_subject": "A mixed sound ribbon",
-              "setting": "A dark listening chamber with a single suspended audio ribbon",
-              "visual_description": "An abstract sound ribbon crosses the frame, breaking into short temporal pulses while a second translucent spectrum remains just visible behind it.",
-              "composition": "Extreme-wide vertical frame; ribbon enters low left and curves toward the upper third.",
+              "visual_subject": "A plucked violin note",
+              "setting": "A dark studio where one plucked-note glow appears and quickly begins to fade",
+              "visual_description": "A dark studio where one plucked-note glow appears and quickly begins to fade",
+              "composition": "Wide vertical frame; the note trail runs diagonally across the center",
               "camera": {
                 "shot_size": "wide",
-                "angle": "Low three-quarter angle looking into the ribbon",
+                "angle": "Low three-quarter angle along the fading trail",
                 "movement": "dolly_in",
-                "focus": "The first pulse where the ribbon separates"
+                "focus": "The short attack and the longer decay tail"
               },
               "animation": {
-                "subject_action": "The sound ribbon divides into distinct pulsing segments.",
-                "environment_motion": "Background particles drift toward the split.",
-                "graphic_action": "Two signal traces begin to separate.",
-                "depth_motion": "Foreground particles pass the lens at staggered depths.",
-                "motion_rationale": "Motion makes the a mixed sound ribbon legible as a changing musical or research idea rather than a still illustration."
+                "subject_action": "concert_stage",
+                "environment_motion": "A warm halo contracts around the note.",
+                "graphic_action": "A short attack marker appears before the decay trace.",
+                "depth_motion": "Foreground motes drift past the note at a different depth.",
+                "motion_rationale": "The viewer sees the question as a moving sound envelope."
               },
               "procedural_scene": {
-                "environment": "abstract",
+                "environment": true,
                 "objects": [
                   {
-                    "id": "music-obj-1-a",
-                    "kind": "light_streak",
-                    "x": 0.25,
-                    "y": 0.3,
+                    "id": "pizz-1-a",
+                    "kind": "music_note",
+                    "x": 0.28,
+                    "y": 0.32,
                     "size": 28,
-                    "color": "#547AA5",
+                    "color": "#168C80",
                     "motion": "travel_right",
                     "period_seconds": 2.4
                   },
                   {
-                    "id": "music-obj-1-b",
-                    "kind": "particle",
+                    "id": "pizz-1-b",
+                    "kind": "ring",
                     "x": 0.72,
                     "y": 0.68,
                     "size": 18,
-                    "color": "#FF765E",
-                    "motion": "drift",
-                    "period_seconds": 1.6
+                    "color": "#F2A65A",
+                    "motion": "pulse",
+                    "period_seconds": 1.7
                   }
                 ]
               },
               "character_action": {
                 "visible": true,
-                "gesture": "open_palms",
-                "expression": "smile",
+                "gesture": "smile",
+                "expression": "The note blooms at once, then its tail gradually loses brightness.",
                 "loop": true,
                 "cycle_duration_seconds": 1.8
               },
               "transition_to_next": "cut",
-              "narration_cue": "How does your brain separate speech?",
-              "music_cue": "A single low violin harmonic introduces the question.",
+              "narration_cue": "Why does violin pizzicato fade differently?",
+              "music_cue": "A question-shaped original violin accent introduces the note.",
               "sound_effects": [
-                "soft tonal reveal"
+                "soft plucked-note accent"
               ]
             },
             {
@@ -246,45 +252,45 @@
               "start_seconds": 3,
               "end_seconds": 7,
               "purpose": "context",
-              "visual_subject": "Rapid temporal changes",
-              "setting": "A narrow rhythmic corridor",
-              "visual_description": "Short bright pulses arrive in uneven but continuous intervals, leaving visible trails that show how quickly the sound changes over time.",
-              "composition": "A diagonal pulse train occupies the left two-thirds with dark negative space on the right.",
+              "visual_subject": "The acoustic violin E string",
+              "setting": "A close illustrative view of a single violin string and bridge, not a laboratory photograph",
+              "visual_description": "A close illustrative view of a single violin string and bridge, not a laboratory photograph",
+              "composition": "Macro diagonal frame with string and bridge separated by shallow depth",
               "camera": {
-                "shot_size": "close_up",
-                "angle": "Top-down oblique view along the pulse train",
+                "shot_size": "macro",
+                "angle": "Near-surface angle along the string",
                 "movement": "tracking",
-                "focus": "The leading edge of each pulse"
+                "focus": "The string's vibrating length"
               },
               "animation": {
-                "subject_action": "Each pulse expands, travels forward and decays before the next arrives.",
-                "environment_motion": "A soft grid scrolls beneath the signal.",
-                "graphic_action": "The time ruler advances in sync with the moving pulses.",
-                "depth_motion": "Near-field sparks cross faster than distant grid points.",
-                "motion_rationale": "Motion makes the rapid temporal changes legible as a changing musical or research idea rather than a still illustration."
+                "subject_action": "laboratory",
+                "environment_motion": "A fine reflection travels along the bridge.",
+                "graphic_action": "A small E-string marker follows the string.",
+                "depth_motion": "The bridge and string move at separate parallax depths.",
+                "motion_rationale": "The string movement makes the one-string scope visible."
               },
               "procedural_scene": {
-                "environment": "laboratory",
+                "environment": false,
                 "objects": [
                   {
-                    "id": "music-obj-2-a",
-                    "kind": "spark",
-                    "x": 0.45,
+                    "id": "pizz-2-a",
+                    "kind": "light_streak",
+                    "x": 0.44000000000000006,
                     "y": 0.52,
                     "size": 28,
-                    "color": "#FF765E",
-                    "motion": "travel_right",
+                    "color": "#65A99B",
+                    "motion": "sway",
                     "period_seconds": 2.4
                   },
                   {
-                    "id": "music-obj-2-b",
-                    "kind": "ring",
-                    "x": 0.6,
-                    "y": 0.5,
+                    "id": "pizz-2-b",
+                    "kind": "particle",
+                    "x": 0.62,
+                    "y": 0.51,
                     "size": 18,
-                    "color": "#547AA5",
-                    "motion": "pulse",
-                    "period_seconds": 1.6
+                    "color": "#F2A65A",
+                    "motion": "float",
+                    "period_seconds": 1.7
                   }
                 ]
               },
@@ -292,8 +298,8 @@
                 "visible": false
               },
               "transition_to_next": "match_cut",
-              "narration_cue": "Speech is linked to rapid timing changes.",
-              "music_cue": "A crisp plucked note marks the temporal clue.",
+              "narration_cue": "The acoustic note has a changing harmonic tail.",
+              "music_cue": "A soft string-like tremor follows the narration.",
               "sound_effects": [
                 "restrained transition accent"
               ]
@@ -303,58 +309,58 @@
               "start_seconds": 7,
               "end_seconds": 11,
               "purpose": "reveal",
-              "visual_subject": "Frequency detail",
-              "setting": "A cool spectral observatory",
-              "visual_description": "A thin sound line opens into layered frequency bands; each band shimmers at a different height, revealing the fine detail carried across frequencies.",
-              "composition": "Macro composition with the spectral bands stacked from lower left to upper right.",
+              "visual_subject": "The harmonic ladder",
+              "setting": "A vertical harmonic ladder with several bright overtones that shift as the note fades",
+              "visual_description": "A vertical harmonic ladder with several bright overtones that shift as the note fades",
+              "composition": "Close-up composition with the fundamental low and upper harmonics rising above it",
               "camera": {
-                "shot_size": "macro",
-                "angle": "Straight-on macro view through the spectral layers",
+                "shot_size": "close_up",
+                "angle": "Front-on view across the harmonic ladder",
                 "movement": "parallax_track",
-                "focus": "The narrow high-frequency bands separating from the base"
+                "focus": "The changing brightness of upper harmonics"
               },
               "animation": {
-                "subject_action": "Individual bands widen and contract independently.",
-                "environment_motion": "A faint field of particles drifts behind the spectrum.",
-                "graphic_action": "The frequency bands illuminate one after another.",
-                "depth_motion": "Foreground bands move faster than the distant field.",
-                "motion_rationale": "Motion makes the frequency detail legible as a changing musical or research idea rather than a still illustration."
+                "subject_action": "abstract",
+                "environment_motion": "Small sparks drift upward behind the ladder.",
+                "graphic_action": "Each overtone illuminates briefly before fading.",
+                "depth_motion": "Near harmonics move slower than distant ones.",
+                "motion_rationale": "The differing tails reveal why one note cannot be judged only by its attack."
               },
               "procedural_scene": {
-                "environment": "space",
+                "environment": true,
                 "objects": [
                   {
-                    "id": "music-obj-3-a",
+                    "id": "pizz-3-a",
                     "kind": "ring",
-                    "x": 0.65,
-                    "y": 0.3,
+                    "x": 0.6000000000000001,
+                    "y": 0.32,
                     "size": 28,
-                    "color": "#547AA5",
+                    "color": "#65A99B",
                     "motion": "orbit",
                     "period_seconds": 2.4
                   },
                   {
-                    "id": "music-obj-3-b",
-                    "kind": "orb",
-                    "x": 0.48,
+                    "id": "pizz-3-b",
+                    "kind": "spark",
+                    "x": 0.52,
                     "y": 0.68,
                     "size": 18,
-                    "color": "#FF765E",
-                    "motion": "pulse",
-                    "period_seconds": 1.6
+                    "color": "#F2A65A",
+                    "motion": "flicker",
+                    "period_seconds": 1.7
                   }
                 ]
               },
               "character_action": {
                 "visible": true,
-                "gesture": "point_left",
-                "expression": "speaking",
+                "gesture": "speaking",
+                "expression": "Upper harmonic traces shorten at different rates while the fundamental remains visible.",
                 "loop": true,
                 "cycle_duration_seconds": 1.8
               },
               "transition_to_next": "whip_pan",
-              "narration_cue": "Music judgements are linked to detailed frequency patterns.",
-              "music_cue": "A sustained upper note opens above the pulse.",
+              "narration_cue": "Higher harmonics decay at a different rate.",
+              "music_cue": "A short upper-register accent highlights the overtone reveal.",
               "sound_effects": [
                 "restrained transition accent"
               ]
@@ -364,45 +370,45 @@
               "start_seconds": 11,
               "end_seconds": 15,
               "purpose": "explanation",
-              "visual_subject": "The auditory-cortex information map",
-              "setting": "An abstract neural signal hall",
-              "visual_description": "A non-literal network of luminous nodes traces the movement of the two acoustic ribbons through a simplified auditory-cortex metaphor, with no anatomical claims.",
-              "composition": "Medium portrait framing with a clear central node and generous dark margin.",
+              "visual_subject": "Measured decay differences",
+              "setting": "Two clean decay curves compare the acoustic violin's changing harmonic tail with the more uniform software playback",
+              "visual_description": "Two clean decay curves compare the acoustic violin's changing harmonic tail with the more uniform software playback",
+              "composition": "Overhead data-inspired composition with two clearly separated lanes and no invented axes",
               "camera": {
-                "shot_size": "medium",
-                "angle": "Eye-level, slightly elevated toward the network",
-                "movement": "orbit",
-                "focus": "The bridge between the two signal paths"
+                "shot_size": "overhead",
+                "angle": "Direct overhead view of the paired decay lanes",
+                "movement": "crane_up",
+                "focus": "The third-harmonic comparison marker"
               },
               "animation": {
-                "subject_action": "Signal nodes illuminate in a traveling sequence.",
-                "environment_motion": "Fine atmospheric haze moves slowly behind the network.",
-                "graphic_action": "The two paths converge at a central information node.",
-                "depth_motion": "Foreground lines pass at a separate depth from the network.",
-                "motion_rationale": "Motion makes the the auditory-cortex information map legible as a changing musical or research idea rather than a still illustration."
+                "subject_action": "laboratory",
+                "environment_motion": "A soft grid slides beneath both lanes.",
+                "graphic_action": "A measured 66 percent callout appears beside the third harmonic only.",
+                "depth_motion": "Foreground tick marks pass independently of the curve.",
+                "motion_rationale": "The graphic makes the paper's reported third-harmonic difference legible without implying a universal rule."
               },
               "procedural_scene": {
-                "environment": "laboratory",
+                "environment": false,
                 "objects": [
                   {
-                    "id": "music-obj-4-a",
-                    "kind": "orb",
-                    "x": 0.25,
+                    "id": "pizz-4-a",
+                    "kind": "gear",
+                    "x": 0.28,
                     "y": 0.52,
                     "size": 28,
-                    "color": "#547AA5",
-                    "motion": "orbit",
+                    "color": "#65A99B",
+                    "motion": "rotate",
                     "period_seconds": 2.4
                   },
                   {
-                    "id": "music-obj-4-b",
-                    "kind": "spark",
+                    "id": "pizz-4-b",
+                    "kind": "light_streak",
                     "x": 0.72,
-                    "y": 0.5,
+                    "y": 0.51,
                     "size": 18,
-                    "color": "#FF765E",
-                    "motion": "flicker",
-                    "period_seconds": 1.6
+                    "color": "#F2A65A",
+                    "motion": "travel_left",
+                    "period_seconds": 1.7
                   }
                 ]
               },
@@ -410,8 +416,8 @@
                 "visible": false
               },
               "transition_to_next": "dissolve",
-              "narration_cue": "The brain tracks changing sound patterns.",
-              "music_cue": "A soft shimmer supports the explanatory reveal.",
+              "narration_cue": "The study measured a third-harmonic decay difference.",
+              "music_cue": "A restrained accent marks the third-harmonic result.",
               "sound_effects": [
                 "restrained transition accent"
               ]
@@ -421,45 +427,45 @@
               "start_seconds": 15,
               "end_seconds": 19,
               "purpose": "contrast",
-              "visual_subject": "The two research groups",
-              "setting": "A clean research-evidence gallery",
-              "visual_description": "Two restrained evidence panels appear in sequence: eleven clinical electrode participants and nineteen separate adult listeners; no patient likenesses or identifiable medical imagery.",
-              "composition": "Overhead view with two matched panels and equal visual weight.",
+              "visual_subject": "The MuseScore Basic comparison",
+              "setting": "A separate software-playback lane produces a clean, even harmonic tail",
+              "visual_description": "A separate software-playback lane produces a clean, even harmonic tail",
+              "composition": "Medium side-by-side composition with the software lane on the right",
               "camera": {
-                "shot_size": "overhead",
-                "angle": "Direct overhead evidence layout",
-                "movement": "crane_up",
-                "focus": "The two distinct participant-group labels"
+                "shot_size": "medium",
+                "angle": "Eye-level lateral angle across both examples",
+                "movement": "truck_right",
+                "focus": "The difference between the acoustic and software decay patterns"
               },
               "animation": {
-                "subject_action": "The first panel settles, then the second panel slides into alignment.",
-                "environment_motion": "A narrow light sweep crosses the display.",
-                "graphic_action": "The two group counts appear as separate editorial labels.",
-                "depth_motion": "Small background particles continue moving beneath the panels.",
-                "motion_rationale": "Motion makes the the two research groups legible as a changing musical or research idea rather than a still illustration."
+                "subject_action": "abstract",
+                "environment_motion": "Cool background particles travel in a steady rhythm.",
+                "graphic_action": "A MuseScore Basic label appears as editorial identification only.",
+                "depth_motion": "A foreground divider moves away to reveal both lanes.",
+                "motion_rationale": "The motion clarifies that the paper compared one specific software implementation."
               },
               "procedural_scene": {
-                "environment": "abstract",
+                "environment": false,
                 "objects": [
                   {
-                    "id": "music-obj-5-a",
-                    "kind": "gear",
-                    "x": 0.45,
-                    "y": 0.3,
+                    "id": "pizz-5-a",
+                    "kind": "orb",
+                    "x": 0.44000000000000006,
+                    "y": 0.32,
                     "size": 28,
-                    "color": "#547AA5",
-                    "motion": "rotate",
+                    "color": "#65A99B",
+                    "motion": "pulse",
                     "period_seconds": 2.4
                   },
                   {
-                    "id": "music-obj-5-b",
+                    "id": "pizz-5-b",
                     "kind": "light_streak",
-                    "x": 0.6,
+                    "x": 0.62,
                     "y": 0.68,
                     "size": 18,
-                    "color": "#FF765E",
-                    "motion": "travel_left",
-                    "period_seconds": 1.6
+                    "color": "#F2A65A",
+                    "motion": "travel_right",
+                    "period_seconds": 1.7
                   }
                 ]
               },
@@ -467,8 +473,8 @@
                 "visible": false
               },
               "transition_to_next": "luma_wipe",
-              "narration_cue": "Eleven patients and nineteen other adults took part in different parts of the study.",
-              "music_cue": "Two quiet accents separate the evidence panels.",
+              "narration_cue": "The software comparison had more uniform measured decay.",
+              "music_cue": "A steady soft pulse marks the software comparison.",
               "sound_effects": [
                 "restrained transition accent"
               ]
@@ -477,59 +483,59 @@
               "id": "shot-06",
               "start_seconds": 19,
               "end_seconds": 23,
-              "purpose": "explanation",
-              "visual_subject": "Listener judgements",
-              "setting": "A listening booth with three response lights",
-              "visual_description": "Three simple response lights labeled speech, music and both illuminate independently as a moving sound ribbon passes through the listening booth.",
-              "composition": "Close framing on the response lights with the sound ribbon blurred in the background.",
+              "purpose": "method",
+              "visual_subject": "One string, one playback implementation",
+              "setting": "A simplified research bench shows one E string, a plucked-note trace and a software playback trace",
+              "visual_description": "A simplified research bench shows one E string, a plucked-note trace and a software playback trace",
+              "composition": "Balanced split composition with generous labels and no simulated patient or participant imagery",
               "camera": {
                 "shot_size": "close_up",
-                "angle": "Eye-level side view across the response lights",
-                "movement": "truck_left",
-                "focus": "The alternating three response indicators"
+                "angle": "Three-quarter view across the comparison bench",
+                "movement": "orbit",
+                "focus": "The one-string scope and the two sound sources"
               },
               "animation": {
-                "subject_action": "The three response lights pulse in response to the moving ribbon.",
-                "environment_motion": "The booth's soft acoustic panels breathe with subtle parallax.",
-                "graphic_action": "Speech, music and both labels illuminate in turn.",
-                "depth_motion": "A shallow foreground frame edge slides past the lens.",
-                "motion_rationale": "Motion makes the listener judgements legible as a changing musical or research idea rather than a still illustration."
+                "subject_action": "laboratory",
+                "environment_motion": "The background bench lights pulse gently.",
+                "graphic_action": "The labels acoustic E string and MuseScore Basic appear separately.",
+                "depth_motion": "A near-field ruler slides slower than the sound traces.",
+                "motion_rationale": "The scene keeps the research method bounded and prevents overgeneralisation."
               },
               "procedural_scene": {
-                "environment": "concert_stage",
+                "environment": true,
                 "objects": [
                   {
-                    "id": "music-obj-6-a",
-                    "kind": "orb",
-                    "x": 0.65,
+                    "id": "pizz-6-a",
+                    "kind": "gear",
+                    "x": 0.6000000000000001,
                     "y": 0.52,
                     "size": 28,
-                    "color": "#FF765E",
-                    "motion": "pulse",
+                    "color": "#65A99B",
+                    "motion": "rotate",
                     "period_seconds": 2.4
                   },
                   {
-                    "id": "music-obj-6-b",
-                    "kind": "music_note",
-                    "x": 0.48,
-                    "y": 0.5,
+                    "id": "pizz-6-b",
+                    "kind": "orb",
+                    "x": 0.52,
+                    "y": 0.51,
                     "size": 18,
-                    "color": "#547AA5",
-                    "motion": "float",
-                    "period_seconds": 1.6
+                    "color": "#F2A65A",
+                    "motion": "pulse",
+                    "period_seconds": 1.7
                   }
                 ]
               },
               "character_action": {
                 "visible": true,
-                "gesture": "explain",
-                "expression": "speaking",
+                "gesture": "speaking",
+                "expression": "The two traces move side by side while the single-string marker remains fixed.",
                 "loop": true,
                 "cycle_duration_seconds": 1.8
               },
               "transition_to_next": "light_transition",
-              "narration_cue": "Listeners marked speech, music or both.",
-              "music_cue": "A three-note motif echoes the three response options.",
+              "narration_cue": "One E string was compared with one playback implementation.",
+              "music_cue": "Two light percussive accents separate the comparison inputs.",
               "sound_effects": [
                 "restrained transition accent"
               ]
@@ -538,46 +544,46 @@
               "id": "shot-07",
               "start_seconds": 23,
               "end_seconds": 27,
-              "purpose": "payoff",
-              "visual_subject": "One violin motif in two contours",
-              "setting": "An abstract concert stage divided by a ribbon of light",
-              "visual_description": "An original non-copied violin motif is represented by a short articulated contour that transforms into a sustained frequency-rich arc; this is illustrative, not a claim of live creator performance.",
-              "composition": "Wide diagonal stage composition with the violin silhouette as a central anchor.",
+              "purpose": "limitation",
+              "visual_subject": "What the study does not prove",
+              "setting": "The two trails reach a boundary marked as one string and one playback version, with listener preference left outside the frame",
+              "visual_description": "The two trails reach a boundary marked as one string and one playback version, with listener preference left outside the frame",
+              "composition": "Wide portrait composition with a clear open area for the limitation label",
               "camera": {
-                "shot_size": "point_of_view",
-                "angle": "Low point-of-view angle toward the illuminated violin silhouette",
-                "movement": "arc",
-                "focus": "The moment the articulated contour becomes a sustained arc"
+                "shot_size": "wide",
+                "angle": "Slightly elevated view toward the boundary",
+                "movement": "pan",
+                "focus": "The boundary between measured sound and untested listener perception"
               },
               "animation": {
-                "subject_action": "The two original motif contours move in sequence around the violin silhouette.",
-                "environment_motion": "Stage haze drifts from the rear plane.",
-                "graphic_action": "The temporal pulse and sustained spectral arc meet.",
-                "depth_motion": "A bright foreground streak crosses the frame on the transition.",
-                "motion_rationale": "Motion makes the one violin motif in two contours legible as a changing musical or research idea rather than a still illustration."
+                "subject_action": "abstract",
+                "environment_motion": "Background light dims without freezing the scene.",
+                "graphic_action": "The limitations label arrives after the measured comparison.",
+                "depth_motion": "Foreground dust moves slowly across the boundary.",
+                "motion_rationale": "The audience sees the difference between measurable acoustics and subjective preference."
               },
               "procedural_scene": {
-                "environment": "concert_stage",
+                "environment": false,
                 "objects": [
                   {
-                    "id": "music-obj-7-a",
-                    "kind": "music_note",
-                    "x": 0.25,
-                    "y": 0.3,
+                    "id": "pizz-7-a",
+                    "kind": "particle",
+                    "x": 0.28,
+                    "y": 0.32,
                     "size": 28,
-                    "color": "#FF765E",
-                    "motion": "travel_right",
+                    "color": "#65A99B",
+                    "motion": "drift",
                     "period_seconds": 2.4
                   },
                   {
-                    "id": "music-obj-7-b",
-                    "kind": "light_streak",
+                    "id": "pizz-7-b",
+                    "kind": "ring",
                     "x": 0.72,
                     "y": 0.68,
                     "size": 18,
-                    "color": "#547AA5",
-                    "motion": "sway",
-                    "period_seconds": 1.6
+                    "color": "#F2A65A",
+                    "motion": "pulse",
+                    "period_seconds": 1.7
                   }
                 ]
               },
@@ -585,8 +591,8 @@
                 "visible": false
               },
               "transition_to_next": "shape_match",
-              "narration_cue": "An original motif makes the contrast audible.",
-              "music_cue": "The original motif resolves into a warm held note.",
+              "narration_cue": "This does not establish listener preference or universal realism.",
+              "music_cue": "Music drops back for a short explanatory pause.",
               "sound_effects": [
                 "restrained transition accent"
               ]
@@ -596,88 +602,88 @@
               "start_seconds": 27,
               "end_seconds": 32,
               "purpose": "ending",
-              "visual_subject": "The presenter and resolved sound ribbon",
-              "setting": "The listening chamber opening into a clear stage",
-              "visual_description": "The presenter returns in the safe area as the two sound ribbons resolve into one clean luminous path, leaving the central violin silhouette unobstructed.",
-              "composition": "Medium-wide balanced portrait frame; presenter right, musical payoff left, clear title-safe top.",
+              "visual_subject": "A musical tail and the presenter",
+              "setting": "The presenter returns beside one original violin note whose decay fades into a clean line",
+              "visual_description": "The presenter returns beside one original violin note whose decay fades into a clean line",
+              "composition": "Medium balanced frame with presenter in the right safe area and the note trail at left",
               "camera": {
                 "shot_size": "medium",
                 "angle": "Eye-level closing composition",
                 "movement": "crane_up",
-                "focus": "The joined ribbon and final title"
+                "focus": "The final note tail and title"
               },
               "animation": {
-                "subject_action": "The two ribbons merge and travel upward into a single fading arc.",
-                "environment_motion": "The background glow slowly opens around the final composition.",
-                "graphic_action": "The final title appears after the paths meet.",
-                "depth_motion": "Foreground particles rise at a slower speed than the main ribbon.",
-                "motion_rationale": "Motion makes the the presenter and resolved sound ribbon legible as a changing musical or research idea rather than a still illustration."
+                "subject_action": "concert_stage",
+                "environment_motion": "Warm stage haze rises behind the presenter.",
+                "graphic_action": "The final title appears after the decay line settles.",
+                "depth_motion": "A foreground fleck rises past the frame edge.",
+                "motion_rationale": "The final image joins the science explanation to an original Violin Prince musical identity."
               },
               "procedural_scene": {
-                "environment": "abstract",
+                "environment": true,
                 "objects": [
                   {
-                    "id": "music-obj-8-a",
-                    "kind": "ring",
-                    "x": 0.45,
+                    "id": "pizz-8-a",
+                    "kind": "music_note",
+                    "x": 0.44000000000000006,
                     "y": 0.52,
                     "size": 28,
-                    "color": "#547AA5",
-                    "motion": "orbit",
+                    "color": "#65A99B",
+                    "motion": "float",
                     "period_seconds": 2.4
                   },
                   {
-                    "id": "music-obj-8-b",
-                    "kind": "particle",
-                    "x": 0.6,
-                    "y": 0.5,
+                    "id": "pizz-8-b",
+                    "kind": "spark",
+                    "x": 0.62,
+                    "y": 0.51,
                     "size": 18,
-                    "color": "#FF765E",
-                    "motion": "float",
-                    "period_seconds": 1.6
+                    "color": "#F2A65A",
+                    "motion": "flicker",
+                    "period_seconds": 1.7
                   }
                 ]
               },
               "character_action": {
                 "visible": true,
-                "gesture": "nod",
-                "expression": "smile",
+                "gesture": "smile",
+                "expression": "The illustrative note tail resolves into a single glowing contour.",
                 "loop": true,
                 "cycle_duration_seconds": 1.8
               },
               "transition_to_next": "none",
-              "narration_cue": "The study offers useful clues, not the only possible mechanism.",
-              "music_cue": "A clean original violin resolve closes the story.",
+              "narration_cue": "End on a fresh, original musical phrase.",
+              "music_cue": "End with a short non-copied musical resolve; use a pizzicato sample only if the rights-cleared asset is confirmed.",
               "sound_effects": [
-                "gentle final accent"
+                "gentle final decay"
               ]
             }
           ]
         },
         "edit_direction": {
-          "pacing": "A 32-second vertical documentary arc: hook, evidence, explanation and original musical payoff. Vary shot duration and composition; never hold a still frame as a substitute for motion.",
-          "transition_language": "Use the directed sequence of hard cut, match cut, whip pan, dissolve, luma wipe, light transition and shape match; each transition follows a change in the story rather than a fixed template.",
-          "typography": "Use short high-contrast mobile-safe labels, no more than one key idea at a time; maintain safe margins and keep the presenter's face and hands clear.",
-          "sound_design": "Use original transition accents and light percussive detail. Keep narration intelligible and duck the music under speech. Do not add movie, game, artist or product audio.",
-          "music_mood": "Curious, precise and finally lyrical; a newly composed violin phrase contrasts short rhythmic articulation with a sustained contour.",
+          "pacing": "A 32-second vertical science-and-music arc: attack, string, harmonic ladder, measured contrast, scope limitation and original musical payoff. Each cut adds a distinct fact or visual angle.",
+          "transition_language": "Move from cut to match cut, whip pan, dissolve, luma wipe, light transition and shape match as the story shifts from note to method to limitation; do not apply transitions mechanically.",
+          "typography": "Use concise mobile-safe labels. Show the 66 percent third-harmonic result only with its exact scope; avoid axis values or raw-data claims not present in the source.",
+          "sound_design": "Keep the narration clear, use only rights-cleared violin or sample assets, and duck the musical bed under speech. Do not label a generated sample as the experiment's original recording.",
+          "music_mood": "Curious and intimate, with one short original violin phrase after the measured comparison. A pizzicato illustration is used only if a suitable rights-cleared asset is present.",
           "music_sync_cues": [
             {
               "time_seconds": 2.4,
-              "event": "Opening visual reveal and first tonal accent",
-              "reason": "Editorial target only; align to a detected transient or beat from the actual decoded audio during render."
+              "event": "Opening pluck and visual decay reveal",
+              "reason": "Editorial target only; align to a real decoded onset or transient in the actual supplied audio, not an invented beat."
             },
             {
               "time_seconds": 11.2,
-              "event": "Main explanatory transition into the story's central reveal",
-              "reason": "Editorial target only; snap to a measured audio onset or beat, never treat this target as measured timing."
+              "event": "Third-harmonic measurement reveal",
+              "reason": "Editorial target only; snap to a detected audio event during render."
             },
             {
               "time_seconds": 26.5,
-              "event": "Final musical payoff begins",
-              "reason": "Editorial target only; align this payoff to a real detected event in the supplied or licensed audio."
+              "event": "Original violin payoff begins",
+              "reason": "Editorial target only; align to a measured event in the final licensed or creator-supplied audio."
             }
           ],
-          "final_payoff": "Finish on a clear original Violin Prince musical idea and one resolved visual statement. Never imply the presenter is playing a violin with this upper-body-only rig; do not claim creator-recorded performance unless a verified creator recording is present."
+          "final_payoff": "End with a concise original Violin Prince phrase and the visual tail fading away. Do not claim it reproduces the experiment or a creator-recorded live performance unless the matching source recording is verified."
         }
       }
     },
