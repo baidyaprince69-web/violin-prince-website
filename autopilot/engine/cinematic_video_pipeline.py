@@ -197,9 +197,21 @@ def validate_timeline(data: dict[str, Any], root: str | Path) -> dict[str, Any]:
             raise CompositionError(f"{ident}: invalid time range")
         length = end-start
         is_private = item.get("private_source") is True
+        source_type = str(item.get("source_type") or "unspecified").casefold()
+        if source_type == "creator_recorded_voice" and (role != "voice" or not is_private):
+            raise CompositionError(f"{ident}: creator voice must be a private voice track")
+        if source_type == "creator_recorded_violin" and (
+            role != "music" or not is_private or item.get("loop") is True
+        ):
+            raise CompositionError(f"{ident}: creator violin must be private and must not loop")
+        if source_type == "synthetic_test_fixture" and role != "voice":
+            raise CompositionError(f"{ident}: synthetic test fixture must be a voice track")
+        if source_type == "cc0_sample" and role != "music":
+            raise CompositionError(f"{ident}: CC0 sample must be a music track")
         private = private or is_private
         audio.append({
-            "id": ident, "role": role, "path": _path(item.get("path"), base_dir, ident),
+            "id": ident, "role": role, "source_type": source_type,
+            "path": _path(item.get("path"), base_dir, ident),
             "start": start, "end": end, "length": length,
             "source_in": _number(item.get("source_in_seconds", 0), f"{ident}.source_in_seconds", 0, 600),
             "gain": 10 ** (_number(item.get("gain_db", 0), f"{ident}.gain_db", -48, 18)/20),
@@ -544,11 +556,19 @@ def compose_video(manifest_path: str | Path, output_path: str | Path,
         "text_layers": [{"id": x["id"], "start_seconds": x["start"], "end_seconds": x["end"],
                          "fade_in_seconds": x["fade_in"], "fade_out_seconds": x["fade_out"]}
                         for x in text_layer_report],
-        "audio_tracks": [{"id": x["id"], "role": x["role"], "private_source": x["private"]} for x in t["audio"]],
-        "audio_mix": {"voice_present": True,
-                      "music_present": any(x["role"] == "music" for x in t["audio"]),
-                      "sfx_present": any(x["role"] == "sfx" for x in t["audio"]),
-                      "music_ducking": any(x["role"] == "music" for x in t["audio"])},
+        "audio_tracks": [
+            {"id": x["id"], "role": x["role"], "source_type": x["source_type"],
+             "private_source": x["private"]}
+            for x in t["audio"]
+        ],
+        "audio_mix": {
+            "voice_present": True,
+            "voice_source_types": sorted({x["source_type"] for x in t["audio"] if x["role"] == "voice"}),
+            "music_present": any(x["role"] == "music" for x in t["audio"]),
+            "music_source_types": sorted({x["source_type"] for x in t["audio"] if x["role"] == "music"}),
+            "sfx_present": any(x["role"] == "sfx" for x in t["audio"]),
+            "music_ducking": any(x["role"] == "music" for x in t["audio"]),
+        },
     }
     report_file = Path(report_path).expanduser().resolve() if report_path else output.with_suffix(".report.json")
     report_file.parent.mkdir(parents=True, exist_ok=True)
