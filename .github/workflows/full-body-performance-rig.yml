@@ -636,6 +636,16 @@ jobs:
         working-directory: autopilot/engine/animation2d
         run: npm test
 
+      - name: Test Master Director full-body storyboard compilation
+        env:
+          PYTHONPATH: autopilot/engine
+        run: python -m unittest discover -s autopilot/engine/tests -p "test_create_master_director_video_project.py" -v
+
+      - name: Test camera-compensated motion QA
+        env:
+          PYTHONPATH: autopilot/engine
+        run: python -m unittest discover -s autopilot/engine/tests -p "test_verify_master_director_render.py" -v
+
       - name: Build the full-body composition
         working-directory: autopilot/engine/animation2d
         run: |
@@ -797,6 +807,45 @@ jobs:
             -c:v copy -c:a aac -b:a 192k -shortest -movflags +faststart \
             work/full-body-rig/full-body-violin-performance.mp4
 
+      - name: Assemble the 8-shot full-body Master Director integration project
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python autopilot/engine/create_master_director_video_project.py \
+            --base-project work/full-body-rig/project.json \
+            --director-plan autopilot/engine/tests/fixtures/master-director-fullbody-integration-demo.json \
+            --output work/full-body-rig/master-director/project.json
+
+      - name: Build and render the complete multi-shot full-body sequence
+        working-directory: autopilot/engine/animation2d
+        run: |
+          node build.mjs \
+            --project ../../../work/full-body-rig/master-director/project.json \
+            --out-dir ../../../work/full-body-rig/master-director/composition
+          mkdir -p ../../../work/full-body-rig/master-director/composition/assets/characters
+          cp -R ../../../work/full-body-rig/assets/characters/violin-prince \
+            ../../../work/full-body-rig/master-director/composition/assets/characters/
+          cd ../../../work/full-body-rig/master-director/composition
+          $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes lint
+          $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes render \
+            --output ../full-body-master-director-video-only.mp4 --fps 25 --quality standard
+
+      - name: Mix the full-duration test violin guide and verify every Director shot
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          ffmpeg -hide_banner -loglevel error -y \
+            -i work/full-body-rig/master-director/full-body-master-director-video-only.mp4 \
+            -i work/full-body-rig/audio/violin-prince-cc0-solo-violin.wav \
+            -map 0:v:0 -map 1:a:0 -t 24 \
+            -c:v copy -c:a aac -b:a 192k -shortest -movflags +faststart \
+            work/full-body-rig/master-director/full-body-master-director-mixed.mp4
+          python autopilot/engine/verify_master_director_render.py \
+            --video work/full-body-rig/master-director/full-body-master-director-mixed.mp4 \
+            --project work/full-body-rig/master-director/project.json \
+            --motion-report work/full-body-rig/master-director/composition/motion-report.json \
+            --report-output work/full-body-rig/master-director/master-director-render-qa.json
+
       - name: Generate dense pose-range review evidence
         run: |
           python autopilot/engine/pose_range_visual_qa.py \
@@ -923,6 +972,10 @@ jobs:
             work/full-body-rig/cinematic-composition/pose-range-qa/pose-range-visual-qa.json
             work/full-body-rig/cinematic-composition/pose-range-qa/full-body-pose-range-contact-sheet.jpg
             work/full-body-rig/full-body-performance-contact-sheet.jpg
+            work/full-body-rig/master-director/full-body-master-director-mixed.mp4
+            work/full-body-rig/master-director/master-director-render-qa.json
+            work/full-body-rig/master-director/project.json
+            work/full-body-rig/master-director/composition/motion-report.json
             work/full-body-rig/pose-range-qa/pose-range-visual-qa.json
             work/full-body-rig/pose-range-qa/full-body-pose-range-contact-sheet.jpg
             work/full-body-rig/joint-artwork-review/joint-artwork-contact-sheet.jpg
