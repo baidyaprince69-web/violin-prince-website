@@ -96,6 +96,18 @@ test("source texture meshes deform continuously and a lower-body knee surface fo
     influence: "distal", columns: 2, rows: 4,
     max_angle_deg: 5, max_displacement_px: 2.8
   };
+  byRole.get("left_hand").mesh_deformation = {
+    profile: "limb_joint", driver_role: "left_hand",
+    axis_start: [0.10, 0.15], axis_end: [0.52, 0.96],
+    influence: "center", columns: 3, rows: 3,
+    max_angle_deg: 8, max_displacement_px: 2.8
+  };
+  byRole.get("right_hand").mesh_deformation = {
+    profile: "limb_joint", driver_role: "right_hand",
+    axis_start: [0.44, 0.89], axis_end: [0.52, 0.96],
+    influence: "center", columns: 3, rows: 3,
+    max_angle_deg: 8, max_displacement_px: 2.8
+  };
   // Make the knee test patch overlap the source rectangles of both leg
   // surfaces, so the joint warp exercises their actual local mesh fields.
   for (const role of ["left_thigh", "left_calf"]) {
@@ -173,8 +185,26 @@ test("source texture meshes deform continuously and a lower-body knee surface fo
   const sampleIndex = Math.floor(jointMesh[0].values.length * 0.65);
   assert.notEqual(jointMesh[0].values[sampleIndex], jointMesh.at(-1).values[sampleIndex],
     "proximal and distal joint-surface rows must receive different parent/child blends");
-  assert.ok(!meshCharacter.layers.find(layer => layer.role === "left_hand").mesh_deformation);
-  assert.ok(!meshCharacter.layers.find(layer => layer.role === "finger_index").mesh_deformation);
+  const leftPalmMesh = tracks.filter(track =>
+    track.target.startsWith("playing-violin-prince-part-left_hand-mesh-triangle-")
+  );
+  const rightPalmMesh = tracks.filter(track =>
+    track.target.startsWith("playing-violin-prince-part-right_hand-mesh-triangle-")
+  );
+  assert.equal(leftPalmMesh.length, 18, "bow-grip palm must produce an 18-triangle 3x3 mesh");
+  assert.equal(rightPalmMesh.length, 18, "fingerboard palm must produce an 18-triangle 3x3 mesh");
+  assert.ok(leftPalmMesh.some(track => track.values.some(value => value !== track.values[0])),
+    "bow-grip palm mesh must follow hand articulation");
+  for (const role of [
+    "finger_index", "finger_index_middle", "finger_index_tip",
+    "finger_middle", "finger_middle_middle", "finger_middle_tip",
+    "finger_ring", "finger_ring_middle", "finger_ring_tip",
+    "finger_little", "finger_little_middle", "finger_little_tip",
+    "left_foot", "right_foot"
+  ]) {
+    assert.ok(!meshCharacter.layers.find(layer => layer.role === role).mesh_deformation,
+      role + " must remain outside palm/body mesh deformation");
+  }
 });
 
 test("full-body performance can be fully visible on the first composition frame", () => {
