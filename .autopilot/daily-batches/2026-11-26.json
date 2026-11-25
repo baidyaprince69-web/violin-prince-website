@@ -14,20 +14,20 @@
           "publisher_family": "medicalxpress.com",
           "published_at": "2026-11-19",
           "url": "https://medicalxpress.com/news/2026-11-harry-potter-soundtrack-brain-differentiates.html",
-          "verification_status": "article_text_returned_open_failed",
-          "note": "The direct article result identifies its author, date and Science Advances study; opening the page returned a cache-miss error."
+          "verification_status": "direct_article_open_verified",
+          "note": "Direct publisher page opened. It reports that temporal modulation patterns are more associated with speech and spectral detail with music, based on a Science Advances study using overlapping soundtrack audio."
         },
         {
-          "publisher": "Springer Nature — Attention, Perception & Psychophysics",
-          "publisher_family": "springer.com",
-          "published_at": "2026-11-18",
-          "url": "https://link.springer.com/article/10.3758/s13414-026-03375-9",
-          "verification_status": "date_only_open_failed",
-          "note": "The publisher result gives 18 November but no publication time. At the 25 November 18:21 IST cutoff, the hard 168-hour freshness window cannot be confirmed."
+          "publisher": "Qazinform News Agency",
+          "publisher_family": "qazinform.com",
+          "published_at": "2026-11-25",
+          "url": "https://qazinform.com/news/harry-potter-soundtrack-helps-scientists-study-how-the-brain-distinguishes-speech-from-music-aaed49",
+          "verification_status": "publisher_search_text_returned_direct_open_blocked",
+          "note": "A separate agency article result dated 25 November reports on the same Science Advances study, but its direct page could not be opened during this run; it is an unverified corroborating lead, not a second verified source."
         }
       ],
-      "source_limitations": "No qualifying evidence pair was confirmed for the hard 168-hour gate: the Springer page exposes only a date at the cutoff boundary, and both direct-page opens failed. No narration evidence quotes were accepted.",
-      "blocked_reason": "Private-preview-only commissioning cannot be enforced on current main: the scheduled workflow invokes upload_public_short_uploadpost.py with YOUTUBE_PRIVACY_STATUS=public, and run_daily_plan.py forces privacy_status=public for --batch runs. PUBLISH_ENABLED=false does not disable that dedicated public uploader. The required autopilot/engine/animation-production-approval.json is missing, so the genuine-animation gate also fails closed. The source pair also fails the required freshness/page-verification gate."
+      "source_limitations": "Medical Xpress's direct article was verified. A separate Qazinform News Agency article about the same study was found, but its direct page could not be opened in this run, so the two-independent-readable-publisher gate is not yet satisfied. No exact narration evidence quotes were accepted.",
+      "blocked_reason": "Production remains blocked by main-branch hard gates: autopilot/engine/animation-production-approval.json is absent, and the presenter rig bundle has no production-approval.json, so the procedural renderer refuses to run. The public YouTube approval is valid and does not require a private preview. Research also lacks a second directly verified independent publisher page and accepted narration evidence."
     },
     {
       "production_date": "2026-11-26",
@@ -41,16 +41,16 @@
           "publisher_family": "synthanatomy.com",
           "published_at": "2026-11-24",
           "url": "https://synthanatomy.com/2026/11/cherry-audio-dw-8k-korg-dw-8000-synthesizer-emulation-with-extras-as-a-plugin.html",
-          "verification_status": "article_text_returned_open_failed",
-          "note": "Search result contains the article date and technical description; direct-page open returned a cache-miss error."
+          "verification_status": "direct_article_open_verified",
+          "note": "Direct publisher page opened and dated 24 November. It describes the DW-8K recreation of the 1985 Korg DW-8000 hybrid architecture, including digital waveforms and analog filtering."
         },
         {
           "publisher": "Gearnews",
           "publisher_family": "gearnews.com",
-          "published_at": "2026-11-25",
+          "published_at": "2026-11-24",
           "url": "https://www.gearnews.com/cherry-audio-dw-8k-synths/",
-          "verification_status": "article_text_returned_open_failed",
-          "note": "Search result contains the article's technical discussion; direct-page open returned a cache-miss error."
+          "verification_status": "direct_article_open_verified",
+          "note": "Direct publisher page opened and dated 24 November. It independently describes the DW-8K as a recreation/reimagining of the Korg DW-8000 and explains the hybrid digital-oscillator/analog-filter design."
         },
         {
           "publisher": "Cherry Audio",
@@ -58,11 +58,11 @@
           "published_at": "2026-11-24",
           "url": "https://cherryaudio.com/news/cherry-audio-makes-waves-new-dw-8k",
           "verification_status": "official_manufacturer_release_only",
-          "note": "Supplementary primary announcement; not counted as an independent publisher article."
+          "note": "Supplementary primary announcement; not counted as an independent publisher."
         }
       ],
-      "source_limitations": "Two separate publisher families were identified, but neither publisher page could be opened to verify contiguous narration quotes. The manufacturer announcement is not counted as independent corroboration.",
-      "blocked_reason": "Private-preview-only commissioning cannot be enforced on current main: the scheduled workflow invokes upload_public_short_uploadpost.py with YOUTUBE_PRIVACY_STATUS=public, and run_daily_plan.py forces privacy_status=public for --batch runs. PUBLISH_ENABLED=false does not disable that dedicated public uploader. The required autopilot/engine/animation-production-approval.json is missing, so the genuine-animation gate also fails closed. The two publisher candidates could not pass direct-page and exact-quote verification."
+      "source_limitations": "Two independent direct publisher pages and their 24 November dates were opened and verified. No ready narration plan with exact publisher quotations/evidence records was created in this run. Regardless, the animation-production and presenter-production approval files required by main are absent.",
+      "blocked_reason": "Production remains blocked by main-branch hard gates: autopilot/engine/animation-production-approval.json is absent, and the presenter rig bundle has no production-approval.json, so the procedural renderer refuses to run. The public YouTube approval is valid; no private preview is required. Research pages are verified, but this batch has no accepted 35-word narration and exact source-evidence records."
     },
     {
       "production_date": "2026-11-26",
@@ -72,24 +72,24 @@
       "core_claim": "The EP moves across dancehall, rumba, R&B, electronic, grunge and house textures; BellaNaija describes Velvet's rumba drums and guitar riffs.",
       "research_sources": [
         {
-          "publisher": "BellaNaija",
-          "publisher_family": "bellanaija.com",
-          "published_at": "2026-11-20",
-          "url": "https://www.bellanaija.com/2026/11/rema-e-mortal-boy-emb-ep-wizkid/",
-          "verification_status": "article_text_returned_open_failed",
-          "note": "Search result provides the article-specific date and track-level description; direct-page open returned a cache-miss error."
-        },
-        {
           "publisher": "Premium Times",
           "publisher_family": "premiumtimesng.com",
           "published_at": "2026-11-22",
           "url": "https://www.premiumtimesng.com/entertainment/music/927213-album-review-rema-tries-everything-on-e-mortal-boy-but-not-everything-works.html",
-          "verification_status": "article_text_returned_open_failed",
-          "note": "Search result provides the review date and track-by-track genre analysis; direct-page open returned a cache-miss error."
+          "verification_status": "direct_article_open_verified",
+          "note": "Direct album-review page opened. It identifies E-Mortal Boy as a seven-track EP released 20 November and describes dancehall, rumba, R&B, electronic, grunge and house influences."
+        },
+        {
+          "publisher": "Album Talks",
+          "publisher_family": "albumtalks.com",
+          "published_at": "2026-11-25",
+          "url": "https://albumtalks.com/rema-is-a-restless-pirate-on-e-mortal-boy-ep-review/",
+          "verification_status": "publisher_search_text_returned_direct_open_blocked",
+          "note": "A separate review dated 25 November was returned with article text by search, but its direct page could not be opened in this run; do not count it as fully verified."
         }
       ],
-      "source_limitations": "The two publisher families and article dates appear suitable, but both direct-page opens failed. Exact contiguous narration quotes were therefore not verified.",
-      "blocked_reason": "Private-preview-only commissioning cannot be enforced on current main: the scheduled workflow invokes upload_public_short_uploadpost.py with YOUTUBE_PRIVACY_STATUS=public, and run_daily_plan.py forces privacy_status=public for --batch runs. PUBLISH_ENABLED=false does not disable that dedicated public uploader. The required autopilot/engine/animation-production-approval.json is missing, so the genuine-animation gate also fails closed. The publisher pages could not pass direct-page and exact-quote verification."
+      "source_limitations": "Premium Times's direct review page was verified. A separate Album Talks review dated 25 November was found with article text, but the direct page could not be opened, so the two-direct-page verification requirement is not yet satisfied. No exact narration evidence quotes were accepted.",
+      "blocked_reason": "Production remains blocked by main-branch hard gates: autopilot/engine/animation-production-approval.json is absent, and the presenter rig bundle has no production-approval.json, so the procedural renderer refuses to run. The public YouTube approval is valid and does not require private previews. The second publisher page and exact narration evidence are not fully verified."
     },
     {
       "production_date": "2026-11-26",
@@ -103,8 +103,8 @@
           "publisher_family": "cnrs.fr",
           "published_at": "2026-11-19",
           "url": "https://www.cnrs.fr/en/press/do-violons-physical-characteristics-really-improve-regular-playing",
-          "verification_status": "direct_press_page_open_failed",
-          "note": "The direct CNRS page is the originating institutional report; direct-page open returned a cache-miss error."
+          "verification_status": "direct_press_page_open_verified",
+          "note": "Direct CNRS page opened. It reports a six-month experiment in which measured physical/acoustic changes did not confirm the player's perceived improvement in the played-in violin."
         },
         {
           "publisher": "Phys.org",
@@ -112,11 +112,11 @@
           "published_at": "2026-11-23",
           "url": "https://phys.org/news/2026-11-violin-physical-characteristics-regular-playing.html",
           "verification_status": "syndicated_from_cnrs_not_independent",
-          "note": "The article is credited to CNRS and is not independent corroboration of the originating release."
+          "note": "The article is credited to CNRS and repeats the originating institutional report; it is not independent corroboration."
         }
       ],
-      "source_limitations": "No qualifying independent two-publisher evidence pair was verified. The runner's real-performance gate requires kind=uploaded_recording and audio_source=creator_recorded_violin. The default assets directory contains no violin-performance.wav, and the workflow does not set VIOLIN_RECORDING_PATH.",
-      "blocked_reason": "Private-preview-only commissioning cannot be enforced on current main: the scheduled workflow invokes upload_public_short_uploadpost.py with YOUTUBE_PRIVACY_STATUS=public, and run_daily_plan.py forces privacy_status=public for --batch runs. PUBLISH_ENABLED=false does not disable that dedicated public uploader. The required autopilot/engine/animation-production-approval.json is missing, so the genuine-animation gate also fails closed. No approved creator-recorded violin clip is accessible to the unattended runner, and the candidate source pair is not independent."
+      "source_limitations": "Only the original CNRS report was directly verified; Phys.org is credited to CNRS and is not an independent second publisher. The live-performance route also has no validated creator-recorded WAV available to the unattended runner; current main's procedural renderer explicitly refuses this slot pending the completed full-body violin/bow rig, creator approval and note synchronisation.",
+      "blocked_reason": "Production remains blocked: the global animation-production approval is absent; the real-performance renderer also requires the completed PR #130 full-body violin/bow rig, separate creator production approval and note-synchronised performance. No validated creator-recorded violin WAV is available to the unattended runner. The candidate Phys.org report is syndicated from CNRS, not an independent source. The public YouTube approval is valid; private preview is not required."
     }
   ]
 }
