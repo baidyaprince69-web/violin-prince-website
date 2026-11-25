@@ -136,6 +136,10 @@ def validate_timeline(data: dict[str, Any], root: str | Path) -> dict[str, Any]:
             "role": str(item.get("role") or ("base" if i == 0 else "overlay")),
             "camera_crop": crop_values, "camera_framing": framing,
             "camera_move": camera_move,
+            "camera_move_duration": _number(
+                item.get("camera_move_duration_seconds", end-start),
+                f"{ident}.camera_move_duration_seconds", 0.05, end-start,
+            ) if camera_move else end-start,
             "shot_id": shot_id, "shot_label": str(item.get("shot_label") or ""),
             "grade": grade_values,
         })
@@ -144,6 +148,52 @@ def validate_timeline(data: dict[str, Any], root: str | Path) -> dict[str, Any]:
         raise CompositionError("First video layer must cover the complete timeline")
     if (first["x"], first["y"], first["width"], first["height"]) != (0, 0, width, height):
         raise CompositionError("First video layer must fill the output canvas")
+
+    # Overlapping alpha dissolves of time-shifted presenter crops show two
+    # copies of the performer. Use contiguous, fully opaque camera cuts.
+    for layer in layers:
+        layer["effective_start"] = layer["start"]
+        layer["effective_end"] = layer["end"]
+    presenter_shots = sorted(
+        (
+            layer for layer in layers
+            if layer["role"] == "character_performance"
+            and layer["shot_id"] and layer["camera_framing"]
+        ),
+        key=lambda layer: (layer["start"], layer["id"]),
+    )
+    if len(presenter_shots) > 1:
+        first_shot = presenter_shots[0]
+        if first_shot["start"] > 1e-6 or first_shot["end"] < duration - 1e-6:
+            raise CompositionError(
+                "The first presenter shot must provide an opaque full-timeline base."
+            )
+        if any(
+            layer["fade_in"] > 0 or layer["fade_out"] > 0
+            or abs(layer["opacity"] - 1.0) > 1e-6
+            for layer in presenter_shots
+        ):
+            raise CompositionError(
+                "Presenter camera cuts must stay fully opaque; alpha crossfades double the performance image."
+            )
+        overlay_shots = presenter_shots[1:]
+        if not overlay_shots or overlay_shots[-1]["end"] < duration - 1e-6:
+            raise CompositionError(
+                "Presenter camera cuts must cover the timeline through its final frame."
+            )
+        first_shot["effective_start"] = 0.0
+        first_shot["effective_end"] = overlay_shots[0]["start"]
+        for index, layer in enumerate(overlay_shots):
+            next_start = (
+                overlay_shots[index + 1]["start"]
+                if index + 1 < len(overlay_shots) else duration
+            )
+            if abs(layer["end"] - next_start) > 1e-6:
+                raise CompositionError(
+                    "Presenter camera shots must form contiguous opaque hard cuts without gaps or overlaps."
+                )
+            layer["effective_start"] = layer["start"]
+            layer["effective_end"] = layer["end"]
 
     text_layers, text_items = [], data.get("text_layers", [])
     if not isinstance(text_items, list):
@@ -224,6 +274,8 @@ def validate_timeline(data: dict[str, Any], root: str | Path) -> dict[str, Any]:
     return {
         "width": width, "height": height, "fps": fps, "duration": duration,
         "layers": layers, "text": text_layers, "audio": audio, "private": private,
+        "camera_cut_mode": "opaque_hard_cuts" if len(presenter_shots) > 1 else "layered",
+        "presenter_camera_shot_count": len(presenter_shots),
         "title": str(data.get("title") or "Violin Prince cinematic preview"),
     }
 
@@ -286,8 +338,8 @@ def _camera_move(layer: dict[str, Any], fps: int) -> str:
         return ""
     kind, intensity = move["type"], move["intensity"]
     width, height = layer["width"], layer["height"]
-    frames = max(2, int(round(layer["length"] * fps)))
-    progress = f"on/{frames - 1}"
+    frames = max(2, int(round(layer.get("camera_move_duration", layer["length"]) * fps)))
+    progress = f"min(on/{frames - 1},1)"
     delta = 0.14 * intensity
     if kind == "push_in":
         zoom = f"1+{delta:.5f}*{progress}"
@@ -535,23 +587,27 @@ def compose_video(manifest_path: str | Path, output_path: str | Path,
         "audio_sample_rate": int(audio.get("sample_rate") or 0),
         "video_layers": [{"id": x["id"], "role": x["role"], "kind": x["kind"],
                           "start_seconds": x["start"], "end_seconds": x["end"],
+                          "effective_start_seconds": x["effective_start"],
+                          "effective_end_seconds": x["effective_end"],
                           "shot_id": x["shot_id"], "shot_label": x["shot_label"],
                           "camera_framing": x["camera_framing"],
                           "camera_crop": x["camera_crop"], "camera_move": x["camera_move"],
                           "grade": x["grade"]} for x in t["layers"]],
         "camera_shots": [
             {"shot_id": x["shot_id"], "label": x["shot_label"], "framing": x["camera_framing"],
-             "start_seconds": x["start"], "end_seconds": x["end"],
+             "start_seconds": x["effective_start"], "end_seconds": x["effective_end"],
              "camera_crop": x["camera_crop"], "camera_move": x["camera_move"]}
             for x in t["layers"] if x["camera_framing"]
         ],
         "camera_shot_count": len([x for x in t["layers"] if x["camera_framing"]]),
         "camera_moves": [
             {"layer_id": x["id"], "shot_id": x["shot_id"], "type": x["camera_move"]["type"],
-             "intensity": x["camera_move"]["intensity"], "duration_seconds": x["length"]}
+             "intensity": x["camera_move"]["intensity"],
+             "duration_seconds": round(x["effective_end"] - x["effective_start"], 4)}
             for x in t["layers"] if x["camera_move"]
         ],
         "camera_move_count": len([x for x in t["layers"] if x["camera_move"]]),
+        "camera_cut_mode": t["camera_cut_mode"],
         "distinct_camera_framings": sorted({x["camera_framing"] for x in t["layers"] if x["camera_framing"]}),
         "text_layers": [{"id": x["id"], "start_seconds": x["start"], "end_seconds": x["end"],
                          "fade_in_seconds": x["fade_in"], "fade_out_seconds": x["fade_out"]}

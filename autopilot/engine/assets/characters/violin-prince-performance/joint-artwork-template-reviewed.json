@@ -7,7 +7,7 @@
   },
   "source_artwork": {
     "filename": "preserved-full-body-source.png",
-    "sha256": "a981d79de2026746f8b61589af2946df4ec8f1024130f698575608313b5c1899",
+    "sha256": "982c94d1383f25448869c52f440597c6bbc3a40ac792b6fb0b3944fea1aeafca",
     "joint_region_sha256": {
       "left_hip": "6c6cb707af5557ce08ccfc4a67a9e97012852229996e129bbe9886a60cf48a0a",
       "right_hip": "90b54af6fdfadfc4f7b18bea3ca833ebe0822bdacc54493e7128c8c83cf0dcf9",
@@ -529,11 +529,11 @@
     "approved_at": "2026-11-24",
     "approved_region_count": 6,
     "polygon_origin": "AI-assisted source-coordinate drafts; explicitly accepted by the user as supplied.",
-    "source_integrity": "original preserved source SHA-256 recorded for build-time verification",
-    "note": "The six lower-body outlines retain the exact coordinates explicitly approved by the user. Each region now pins its complete original RGBA pixel footprint independently. Harmless Auto-Rig RGB/alpha changes outside these six footprints are allowed; any pixel change inside an approved footprint blocks extraction. The complete presenter remains a review candidate, not premium-quality or production-ready.",
+    "source_integrity": "Current Auto-Rig preserved source SHA-256 verified against the separately uploaded preview-workflow snapshot; all six approved joint regions remain independently pixel-pinned.",
+    "note": "The six lower-body outlines retain the exact coordinates explicitly approved by the user. Each region pins its complete original RGBA pixel footprint independently. The current Auto-Rig source artifact is separately full-image SHA-256 verified; RGB-only edge-matte cleanup outside the six approved joint footprints is recorded, and any pixel change inside an approved footprint blocks extraction. The complete presenter remains a review candidate, not premium-quality or production-ready.",
     "source_hash_reconciliation": {
-      "prior_full_image_sha256": "982c94d1383f25448869c52f440597c6bbc3a40ac792b6fb0b3944fea1aeafca",
-      "current_autorig_preserved_source_sha256": "a981d79de2026746f8b61589af2946df4ec8f1024130f698575608313b5c1899",
+      "prior_full_image_sha256": "a981d79de2026746f8b61589af2946df4ec8f1024130f698575608313b5c1899",
+      "current_autorig_preserved_source_sha256": "982c94d1383f25448869c52f440597c6bbc3a40ac792b6fb0b3944fea1aeafca",
       "canvas_unchanged": [
         441,
         755
@@ -541,7 +541,13 @@
       "alpha_pixels_changed_between_snapshots": 0,
       "rgb_pixels_changed_between_snapshots": 1346,
       "changed_pixels_inside_all_six_joint_polygons": 0,
-      "activation_rule": "The six exact source-pixel footprints are independently SHA-256 pinned. Changes outside the approved footprints do not invalidate the artwork; any change inside a footprint blocks extraction."
+      "activation_rule": "The six exact source-pixel footprints are independently SHA-256 pinned. Changes outside the approved footprints do not invalidate the artwork; any change inside a footprint blocks extraction.",
+      "verification_evidence": {
+        "workflow_run_id": 45693856662,
+        "artifact_name": "current-autorig-preserved-source",
+        "artifact_sha256": "982c94d1383f25448869c52f440597c6bbc3a40ac792b6fb0b3944fea1aeafca",
+        "method": "downloaded workflow artifact and independently computed SHA-256"
+      }
     },
     "source_hash_validation_mode": "joint_region_pixel_sha256"
   }

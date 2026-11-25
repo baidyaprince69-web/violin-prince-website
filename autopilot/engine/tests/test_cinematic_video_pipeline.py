@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from cinematic_video_pipeline import CompositionError, _filtergraph, _rasterize_text_layers, validate_timeline
+from cinematic_video_pipeline import CompositionError, _camera_move, _filtergraph, _rasterize_text_layers, validate_timeline
 
 
 class CinematicTimelineTests(unittest.TestCase):
@@ -38,11 +38,76 @@ class CinematicTimelineTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
+    def _presenter_cut_manifest(self):
+        data = json.loads(json.dumps(self.manifest))
+        base = data["video_layers"][0]
+        base.update({
+            "role": "character_performance",
+            "camera_framing": "full_body_wide",
+            "shot_id": "shot-01-wide",
+            "camera_move": {"type": "push_in", "intensity": 0.55},
+            "camera_move_duration_seconds": 1.65,
+        })
+        cuts = [
+            ("medium", 1.65, 3.15, "medium_performance"),
+            ("instrument", 3.15, 4.75, "instrument_hands_close_up"),
+            ("face", 4.75, 6.25, "face_close_up"),
+            ("hero", 6.25, 8.0, "full_body_wide"),
+        ]
+        cut_layers = []
+        for name, start, end, framing in cuts:
+            cut_layers.append({
+                "id": "shot_" + name,
+                "path": "character.mp4",
+                "kind": "video",
+                "role": "character_performance",
+                "start_seconds": start,
+                "end_seconds": end,
+                "source_in_seconds": start,
+                "x": 0, "y": 0, "width": 720, "height": 1280,
+                "fit": "cover",
+                "camera_framing": framing,
+                "shot_id": "shot-" + name,
+                "camera_move": {"type": "push_in", "intensity": 0.5},
+            })
+        data["video_layers"] = [base, *cut_layers, data["video_layers"][1]]
+        return data
+
     def test_accepts_character_voice_music_sfx_and_visual_layers(self):
         result = validate_timeline(self.manifest, self.root)
         self.assertEqual([x["role"] for x in result["layers"]], ["character", "motion_graphic"])
         self.assertEqual([x["role"] for x in result["audio"]], ["voice", "music", "sfx"])
         self.assertTrue(result["private"])
+
+    def test_character_camera_shots_are_opaque_gapless_hard_cuts(self):
+        timeline = validate_timeline(self._presenter_cut_manifest(), self.root)
+        shots = [
+            layer for layer in timeline["layers"]
+            if layer["role"] == "character_performance" and layer["shot_id"]
+        ]
+        self.assertEqual(timeline["camera_cut_mode"], "opaque_hard_cuts")
+        self.assertEqual(timeline["presenter_camera_shot_count"], 5)
+        self.assertEqual(
+            [(round(x["effective_start"], 2), round(x["effective_end"], 2)) for x in shots],
+            [(0.0, 1.65), (1.65, 3.15), (3.15, 4.75), (4.75, 6.25), (6.25, 8.0)],
+        )
+        self.assertEqual(shots[0]["camera_move_duration"], 1.65)
+
+    def test_rejects_faded_presenter_camera_cuts(self):
+        data = self._presenter_cut_manifest()
+        data["video_layers"][1]["fade_in_seconds"] = 0.12
+        with self.assertRaisesRegex(CompositionError, "fully opaque"):
+            validate_timeline(data, self.root)
+
+    def test_rejects_presenter_camera_gaps_and_overlaps(self):
+        data = self._presenter_cut_manifest()
+        data["video_layers"][1]["end_seconds"] = 3.10
+        with self.assertRaisesRegex(CompositionError, "contiguous opaque hard cuts"):
+            validate_timeline(data, self.root)
+        data = self._presenter_cut_manifest()
+        data["video_layers"][1]["end_seconds"] = 3.20
+        with self.assertRaisesRegex(CompositionError, "contiguous opaque hard cuts"):
+            validate_timeline(data, self.root)
 
     def test_requires_publishing_to_be_disabled(self):
         data = dict(self.manifest, publish_enabled=True)
@@ -154,9 +219,10 @@ class CinematicTimelineTests(unittest.TestCase):
         data["video_layers"][1]["camera_move"] = {"type": "pan_right", "intensity": 0.4}
         timeline = validate_timeline(data, self.root)
         graph = _filtergraph(timeline, audio_offset=len(timeline["layers"]))
-        self.assertIn("zoompan=z='1+0.09100*on/199'", graph)
-        self.assertIn("zoompan=z='1+0.04800'", graph)
-        self.assertIn("(iw-iw/zoom)*(0.09+0.82*(on/149))", graph)
+        self.assertIn("zoompan=z='1+0.09100*min(on/199,1)'", graph)
+        self.assertIn("zoompan=z='1+0.04800*min(on/149,1)'", graph)
+        self.assertIn("(iw-iw/zoom)*(0.09+0.82*(min(on/149,1)))", graph)
+        self.assertIn("min(on/40,1)", _camera_move(timeline["layers"][0], 25))
         self.assertIn("s=720x1280:fps=25", graph)
         self.assertIn("s=360x640:fps=25", graph)
         self.assertEqual(timeline["layers"][0]["camera_move"], {"type": "push_in", "intensity": 0.65})

@@ -145,11 +145,11 @@ export function buildMusicSynchronizedPerformanceTracks({
   }));
   // More visible phrase-level body and head follow-through.
   const torsoPulses=strokeTimes.map(time=>({
-    time,value:3.0*Math.sin((time/Math.max(.2,period*4))*Math.PI*2)+downbeatAccentAt(time)*.45
+    time,value:4.8*Math.sin((time/Math.max(.2,period*4))*Math.PI*2)+downbeatAccentAt(time)*.85
   }));
   const headPulses=strokeTimes.map(time=>({
-    time,value:-1.45*Math.sin(((time-.065)/Math.max(.2,period*4))*Math.PI*2)+
-      .38*Math.sin((time/Math.max(.2,period*8))*Math.PI*2)
+    time,value:-2.25*Math.sin(((time-.065)/Math.max(.2,period*4))*Math.PI*2)+
+      .58*Math.sin((time/Math.max(.2,period*8))*Math.PI*2)
   }));
   const fingerNames = ["finger_index", "finger_middle", "finger_ring", "finger_little"];
   const fingerIntervals = Object.fromEntries(fingerNames.map(name => [name, []]));
@@ -282,12 +282,12 @@ export function buildMusicSynchronizedPerformanceTracks({
     // Keep the fretting wrist planted while note events articulate finger sprites.
     tag(makeTrack(prefix + "-part-torso", torsoPulses), "body_balance"),
     tag(makeTrack(prefix + "-part-head", headPulses), "body_balance"),
-    tag(weightTrack(prefix + "-part-left_thigh", 6.0, 1), "weight_shift"),
-    tag(weightTrack(prefix + "-part-right_thigh", 6.0, -1), "weight_shift"),
-    tag(weightTrack(prefix + "-part-left_calf", 4.0, -1), "weight_shift"),
-    tag(weightTrack(prefix + "-part-right_calf", 4.0, 1), "weight_shift"),
-    tag(weightTrack(prefix + "-part-left_foot", 2.2, 1), "weight_shift"),
-    tag(weightTrack(prefix + "-part-right_foot", 2.2, -1), "weight_shift"),
+    tag(weightTrack(prefix + "-part-left_thigh", 8.5, 1), "weight_shift"),
+    tag(weightTrack(prefix + "-part-right_thigh", 8.5, -1), "weight_shift"),
+    tag(weightTrack(prefix + "-part-left_calf", 5.4, -1), "weight_shift"),
+    tag(weightTrack(prefix + "-part-right_calf", 5.4, 1), "weight_shift"),
+    tag(weightTrack(prefix + "-part-left_foot", 2.8, 1), "weight_shift"),
+    tag(weightTrack(prefix + "-part-right_foot", 2.8, -1), "weight_shift"),
     ...fingerTracks.map(track => tag(track, "finger_note"))
   ];
 }

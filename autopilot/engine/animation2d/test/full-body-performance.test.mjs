@@ -281,6 +281,10 @@ test("music-synchronized performance keyframes follow beat and onset timestamps"
   const bowShoulder = find("playing-violin-prince-part-left_upper_arm");
   const elbow = find("playing-violin-prince-part-left_forearm");
   const wrist = find("playing-violin-prince-part-left_hand");
+  const torso = find("playing-violin-prince-part-torso");
+  const head = find("playing-violin-prince-part-head");
+  const leftThigh = find("playing-violin-prince-part-left_thigh");
+  const leftCalf = find("playing-violin-prince-part-left_calf");
   const fingerboardArmTracks = tracks.filter(track =>
     /playing-violin-prince-part-right_(upper_arm|forearm|hand)$/.test(track.target)
   );
@@ -311,6 +315,14 @@ test("music-synchronized performance keyframes follow beat and onset timestamps"
   assert.ok(littleFinger.key_times.includes(1.795));
   assert.ok(Math.max(...bowShoulder.values.map(Math.abs)) <= 18.0);
   assert.ok(Math.max(...elbow.values.map(Math.abs)) <= 19.5);
+  assert.ok(Math.max(...torso.values.map(Math.abs)) >= 4.5,
+    "phrase-led torso follow-through must be visibly stronger than the previous restrained pass");
+  assert.ok(Math.max(...head.values.map(Math.abs)) >= 2.0,
+    "the head must counter-follow the torso through the phrase");
+  assert.ok(Math.max(...leftThigh.values.map(Math.abs)) >= 8.0,
+    "weight transfer must be visible through the hips and thighs");
+  assert.ok(Math.max(...leftCalf.values.map(Math.abs)) >= 5.0,
+    "the lower legs must participate in the grounded weight shift");
   assert.ok(Math.max(...wrist.values.map(Math.abs)) <= 2.2);
   assert.ok(bowShoulder.values.some(value => Math.abs(value) >= 15.0));
   assert.ok(elbow.values.some(value => Math.abs(value) >= 17.0),
