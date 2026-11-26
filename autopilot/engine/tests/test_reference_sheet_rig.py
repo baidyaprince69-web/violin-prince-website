@@ -132,6 +132,15 @@ class ReferenceSheetRigTests(unittest.TestCase):
                 report["reference_part_count"],
             )
             self.assertTrue((root / "reference-parts-contact-sheet.png").is_file())
+            self.assertTrue((root / "facial-parts-contact-sheet.png").is_file())
+            self.assertGreater(report["facial_part_count"], 4)
+            self.assertEqual(
+                character["facial_part_catalogue"]["status"],
+                "extracted_pending_feature_alignment",
+            )
+            self.assertFalse(
+                character["facial_part_catalogue"]["production_face_overlay_enabled"]
+            )
             self.assertTrue((root / "reference-part-alignment-review.jpg").is_file())
             self.assertTrue((root / "reference-part-assembled-candidate.png").is_file())
             self.assertTrue((root / "reference-part-assembled-comparison.jpg").is_file())

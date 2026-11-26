@@ -351,6 +351,69 @@ def _save_component(component: dict[str, Any], destination: Path) -> dict[str, A
     }
 
 
+def _catalogue_facial_components(
+    sheet_path: str | Path,
+    bundle: Path,
+    *,
+    minimum_area: int = 55,
+    maximum_area: int = 16000,
+) -> tuple[list[dict[str, Any]], str]:
+    """Extract separate eye, lid, brow, mouth, nose and accessory components."""
+    components = [
+        item for item in _components(sheet_path, minimum_area=minimum_area)
+        if item["area"] <= maximum_area
+    ]
+    if not components:
+        raise ReferenceSheetError("No separate facial feature components were detected.")
+
+    records = []
+    for index, component in enumerate(components, start=1):
+        part_id = f"facial-part-{index:03d}"
+        destination = bundle / f"{part_id}.png"
+        geometry = _save_component(component, destination)
+        x, y, width, height = geometry["bbox"]
+        center_x, center_y = x + width / 2, y + height / 2
+        if center_y >= 390 and center_x < 470:
+            zone = "mouth_feature_bank"
+        elif center_y >= 390 and center_x < 850:
+            zone = "eyelid_feature_bank"
+        elif center_x >= 860 and center_y < 390:
+            zone = "brow_eye_expression_bank"
+        elif center_x >= 1100:
+            zone = "nose_glasses_accessory_bank"
+        else:
+            zone = "unclassified_face_feature"
+        records.append({
+            "part_id": part_id,
+            "path": destination,
+            "source_bbox": geometry["bbox"],
+            "width": geometry["width"],
+            "height": geometry["height"],
+            "pixel_area": geometry["pixel_area"],
+            "source_zone": zone,
+        })
+
+    columns, cell_width, cell_height = 5, 190, 175
+    rows = max(1, (len(records) + columns - 1) // columns)
+    sheet = Image.new("RGB", (columns * cell_width, rows * cell_height), (19, 27, 40))
+    draw = ImageDraw.Draw(sheet)
+    for index, record in enumerate(records):
+        row, column = divmod(index, columns)
+        x, y = column * cell_width, row * cell_height
+        with Image.open(record["path"]) as opened:
+            part = opened.convert("RGBA")
+        part.thumbnail((cell_width - 16, cell_height - 52), Image.Resampling.LANCZOS)
+        tile = Image.new("RGBA", part.size, (31, 42, 58, 255))
+        tile.alpha_composite(part)
+        sheet.paste(tile.convert("RGB"), (x + (cell_width - part.width) // 2, y + 35))
+        draw.text((x + 7, y + 5), record["part_id"], fill=(245, 238, 224))
+        draw.text((x + 7, y + 19), record["source_zone"], fill=(160, 190, 210))
+        draw.text((x + 7, y + cell_height - 14), str(record["source_bbox"]), fill=(190, 205, 220))
+    contact_path = bundle / "facial-parts-contact-sheet.png"
+    sheet.save(contact_path, format="PNG", optimize=True)
+    return records, contact_path.name
+
+
 def _four_ordered_components(
     path: str | Path,
     *,
@@ -696,6 +759,9 @@ def build_reference_sheet_rig(
         minimum_area_ratio=0.009,
         top_region_ratio=0.62,
     )
+    facial_parts, facial_parts_contact_sheet = _catalogue_facial_components(
+        head_angle_sheet_path, bundle
+    )
     assembly_png, assembly_comparison, assembly_report = _write_reference_part_assembly_candidate(
         part_records, alignment_candidates, character, bundle
     )
@@ -724,6 +790,25 @@ def build_reference_sheet_rig(
     character["head_plate_bounds"] = head_bounds
     character["head_variants"] = head_variants
     character["head_angles"] = head_angles
+    character["facial_part_catalogue"] = {
+        "status": "extracted_pending_feature_alignment",
+        "source_sheet": Path(head_angle_sheet_path).name,
+        "contact_sheet": facial_parts_contact_sheet,
+        "part_count": len(facial_parts),
+        "components": [
+            {
+                "part_id": item["part_id"],
+                "src": Path(item["path"]).name,
+                "source_bbox": item["source_bbox"],
+                "width": item["width"],
+                "height": item["height"],
+                "pixel_area": item["pixel_area"],
+                "source_zone": item["source_zone"],
+            }
+            for item in facial_parts
+        ],
+        "production_face_overlay_enabled": False,
+    }
     character["reference_part_alignment"] = {
         "status": "candidate_not_active_pending_visual_review",
         "alignment_file": alignment_path.name,
@@ -766,6 +851,9 @@ def build_reference_sheet_rig(
         "reference_part_assembly_png": assembly_png,
         "reference_part_assembly_comparison": assembly_comparison,
         "reference_part_assembly_report": assembly_report,
+        "facial_part_count": len(facial_parts),
+        "facial_parts_contact_sheet": facial_parts_contact_sheet,
+        "facial_feature_catalogue_status": "extracted_pending_feature_alignment",
         "reference_part_alignment_candidate_count": len(alignment_candidates),
         "alignment": "all 33 cut-outs have a provisional target rig role, target box, variant group and aspect-preserving transform; none are activated in production until visual review",
         "head_plate_normalization": "fixed_canvas_bottom_centre_neck_anchor",
@@ -804,6 +892,17 @@ def build_reference_sheet_rig(
             }
             for item in part_records
         ],
+        "facial_feature_catalogue": [
+            {
+                "part_id": item["part_id"],
+                "src": Path(item["path"]).name,
+                "source_bbox": item["source_bbox"],
+                "source_zone": item["source_zone"],
+            }
+            for item in facial_parts
+        ],
+        "facial_parts_contact_sheet": facial_parts_contact_sheet,
+        "facial_feature_activation": "disabled_until_feature_alignment_and_render_review",
         "alignment_policy": "explicit_candidate_not_active_pending_visual_review",
         "alignment_candidate_file": alignment_path.name,
         "alignment_preview_file": alignment_preview_file,
