@@ -689,8 +689,117 @@ def _write_reference_part_assembly_candidate(
     else:
         missing.append("bridge:bow:prop_missing")
 
-    for _z, _id, sprite, x, y in sorted(render_items, key=lambda entry: entry[0]):
+    ordered_render_items = sorted(render_items, key=lambda entry: entry[0])
+    for _z, _id, sprite, x, y in ordered_render_items:
         _alpha_composite_clipped(assembled, sprite, x, y)
+
+    # Export the assembled artwork as independent transparent sprites as well
+    # as the flattened comparison image. This is still a review-only candidate:
+    # joint pivots are hints until each attachment is visually validated.
+    placement_by_id = {item["part_id"]: item for item in placements}
+    bridge_by_render_id = {
+        "source-bridge-" + str(item["id"]): item for item in bridges
+    }
+    layer_exports: list[dict[str, Any]] = []
+    pivot_hints = {
+        "head": [0.5, 0.92],
+        "left_upper_arm": [0.5, 0.12],
+        "right_upper_arm": [0.5, 0.12],
+        "left_forearm": [0.5, 0.88],
+        "right_forearm": [0.5, 0.88],
+        "left_hand": [0.5, 0.85],
+        "right_hand": [0.5, 0.85],
+        "left_thigh": [0.5, 0.08],
+        "right_thigh": [0.5, 0.08],
+        "left_calf": [0.5, 0.08],
+        "right_calf": [0.5, 0.08],
+        "left_foot": [0.5, 0.18],
+        "right_foot": [0.5, 0.18],
+        "violin": [0.5, 0.12],
+        "bow": [0.5, 0.98],
+        "neck_bridge": [0.5, 0.9],
+        "torso": [0.5, 0.5],
+    }
+    for z_index, layer_id, sprite, x, y in ordered_render_items:
+        safe_id = "".join(
+            character.lower() if character.isalnum() else "-"
+            for character in str(layer_id)
+        ).strip("-")
+        filename = f"reference-assembly-layer-{safe_id}.png"
+        sprite.save(bundle / filename, format="PNG", optimize=True)
+        placement = placement_by_id.get(layer_id)
+        bridge = bridge_by_render_id.get(layer_id)
+        if placement is not None:
+            target_role = str(placement.get("target_role") or "unmapped")
+            layer_kind = "reference_sheet_part"
+            part_id = layer_id
+            bridge_id = None
+            transform = placement.get("transform") or {}
+            scale = transform.get("scale")
+            rotation = transform.get("rotation_deg", 0)
+        elif bridge is not None:
+            bridge_id = str(bridge.get("id") or "")
+            target_role = (
+                "neck_bridge" if bridge_id == "head_neck" else bridge_id
+            )
+            layer_kind = "approved_source_bridge"
+            part_id = None
+            scale = None
+            rotation = 0
+        else:
+            raise ReferenceSheetError(
+                f"Could not identify exported assembly layer {layer_id}."
+            )
+        alpha_bounds = sprite.getchannel("A").getbbox()
+        if alpha_bounds is None:
+            raise ReferenceSheetError(
+                f"Assembly layer {layer_id} has no visible alpha pixels."
+            )
+        layer_exports.append({
+            "layer_id": str(layer_id),
+            "src": filename,
+            "kind": layer_kind,
+            "part_id": part_id,
+            "bridge_id": bridge_id,
+            "target_role": target_role,
+            "x": int(x),
+            "y": int(y),
+            "width": int(sprite.width),
+            "height": int(sprite.height),
+            "z_index": int(z_index),
+            "rotation_deg": float(rotation),
+            "scale": scale,
+            "pivot_hint_normalized": pivot_hints.get(target_role, [0.5, 0.5]),
+            "pivot_status": "provisional_hint_not_joint_validated",
+            "visible_alpha_bounds_px": list(alpha_bounds),
+        })
+
+    layered_manifest_name = "reference-part-assembled-layer-candidate.json"
+    layered_manifest = {
+        "schema_version": 1,
+        "status": "layered_candidate_exported_pending_joint_pivot_alignment",
+        "activation_policy": "review_only_do_not_replace_live_or_production_layers",
+        "canvas": {"width": width, "height": height},
+        "layers": layer_exports,
+        "layer_count": len(layer_exports),
+        "primary_part_count": len(placements),
+        "source_bridge_count": len(bridges),
+        "missing_or_unplaced": missing,
+        "joint_pivots_validated": False,
+        "animation_ready": False,
+        "production_layer_replacement_enabled": False,
+        "facial_state_assets": {},
+        "facial_state_build_status": "not_attached",
+        "facial_state_alignment_status": "awaiting_candidate_head_alignment",
+        "note": (
+            "Each image is a separate RGBA sprite at its assembled canvas position. "
+            "Pivot hints are provisional and are not approved joint coordinates."
+        ),
+    }
+    (bundle / layered_manifest_name).write_text(
+        json.dumps(layered_manifest, ensure_ascii=False, indent=2) + "\\n",
+        encoding="utf-8",
+    )
 
     transparent_path = bundle / "reference-part-assembled-candidate.png"
     assembled.save(transparent_path, format="PNG", optimize=True)
@@ -731,7 +840,10 @@ def _write_reference_part_assembly_candidate(
         "primary_part_count": len(placements),
         "source_asset_count": len(placements) + len(bridges),
         "source_bridge_count": len(bridges),
-        "note": "Separate preview assembled from selected reference-sheet assets and three documented source bridges; it does not modify live character layers or production animation.",
+        "layered_candidate_manifest": layered_manifest_name,
+        "layer_export_count": len(layer_exports),
+        "layered_candidate_activation_enabled": False,
+        "note": "Separate preview assembled from selected reference-sheet assets and documented source bridges; independent RGBA layers are exported for later articulation review, without modifying live character layers or production animation.",
     }
     (bundle / "reference-part-assembled-candidate.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
@@ -944,6 +1056,28 @@ def build_reference_sheet_rig(
     )
     head_variants.update(facial_state_variants)
 
+    layered_manifest_path = bundle / "reference-part-assembled-layer-candidate.json"
+    if layered_manifest_path.is_file():
+        layered_manifest = json.loads(
+            layered_manifest_path.read_text(encoding="utf-8")
+        )
+        layered_manifest["facial_state_assets"] = {
+            name: {
+                "src": str(asset["src"]),
+                "alignment_status": "awaiting_candidate_head_alignment",
+            }
+            for name, asset in facial_state_variants.items()
+        }
+        layered_manifest["facial_state_build_status"] = facial_state_status
+        layered_manifest["facial_state_alignment_status"] = (
+            "awaiting_candidate_head_alignment"
+            if facial_state_variants else "not_available"
+        )
+        layered_manifest_path.write_text(
+            json.dumps(layered_manifest, ensure_ascii=False, indent=2) + "\\n",
+            encoding="utf-8",
+        )
+
     character["head_plate_bounds"] = head_bounds
     character["head_variants"] = head_variants
     character["head_angles"] = head_angles
@@ -976,6 +1110,7 @@ def build_reference_sheet_rig(
         "assembly_png": assembly_png,
         "assembly_comparison": assembly_comparison,
         "assembly_manifest": "reference-part-assembled-candidate.json",
+        "layered_assembly_manifest": "reference-part-assembled-layer-candidate.json",
         "part_count": len(alignment_candidates),
         "production_layer_replacement_enabled": False,
         "parts": alignment_candidates,
