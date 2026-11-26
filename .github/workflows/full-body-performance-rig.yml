@@ -399,11 +399,15 @@ jobs:
           assert bridges_by_id.get("head_neck", {}).get("z_index") == 45, assembly
           assert (root / bridges_by_id["head_neck"]["src"]).is_file(), assembly
           forearm_bridge = bridges_by_id.get("right_forearm", {})
-          assert (forearm_bridge.get("x"), forearm_bridge.get("y")) == (260, 161), assembly
+          assert (forearm_bridge.get("x"), forearm_bridge.get("y")) == (266, 161), assembly
           bow_hand = next(item for item in assembly.get("placements", [])
                           if item.get("part_id") == "reference-part-021")
           assert bow_hand.get("transform", {}).get("manual_alignment_offset_px") == [20, -3], assembly
           assert (bow_hand["transform"].get("x"), bow_hand["transform"].get("y")) == (155, 219), assembly
+          fingerboard_hand = next(item for item in assembly.get("placements", [])
+                                   if item.get("part_id") == "reference-part-022")
+          assert fingerboard_hand.get("transform", {}).get("manual_alignment_offset_px") == [-14, 10], assembly
+          assert (fingerboard_hand["transform"].get("x"), fingerboard_hand["transform"].get("y")) == (317, 180), assembly
           assert (root / "reference-part-assembled-candidate.png").is_file()
           assert (root / "reference-part-assembled-comparison.jpg").is_file()
           layered = json.loads((root / "reference-part-assembled-layer-candidate.json").read_text())
@@ -416,6 +420,22 @@ jobs:
           assert layered.get("source_bridge_count") == 3, layered
           assert layered.get("missing_or_unplaced") == [], layered
           assert len(layered.get("layers", [])) == 18, layered
+          expected_joints = {
+              "left_shoulder", "left_elbow", "left_wrist",
+              "right_shoulder", "right_elbow", "right_wrist",
+              "left_hip", "right_hip", "left_knee", "right_knee",
+              "left_ankle", "right_ankle",
+          }
+          assert set(layered.get("joint_pivots", {})) == expected_joints, layered
+          assert layered.get("joint_pivot_count") == 12, layered
+          for joint_name, pivot in layered["joint_pivots"].items():
+              assert pivot.get("status") == "candidate_estimate_pending_visual_joint_review", (joint_name, pivot)
+              assert pivot.get("approved") is False, (joint_name, pivot)
+              assert pivot.get("overlap_pixels", 0) >= pivot.get("minimum_overlap_pixels", 1), (joint_name, pivot)
+              assert 0 <= pivot.get("normalized", {}).get("x", -1) <= 1, (joint_name, pivot)
+              assert 0 <= pivot.get("normalized", {}).get("y", -1) <= 1, (joint_name, pivot)
+          right_wrist = layered["joint_pivots"]["right_wrist"]
+          assert right_wrist["overlap_pixels"] >= 40, right_wrist
           from PIL import Image
           for layer in layered["layers"]:
               layer_path = root / layer["src"]
@@ -424,7 +444,14 @@ jobs:
                   assert opened.mode == "RGBA", (layer, opened.mode)
                   assert opened.size == (layer["width"], layer["height"]), layer
                   assert opened.getchannel("A").getbbox() is not None, layer
-              assert layer.get("pivot_status") == "provisional_hint_not_joint_validated", layer
+              assert layer.get("pivot_status") in {
+                  "alpha_overlap_candidate_estimate_not_approved",
+                  "static_layer_no_joint_pivot",
+              }, layer
+              pivot_joint = layer.get("pivot_joint")
+              if pivot_joint:
+                  assert pivot_joint in layered["joint_pivots"], layer
+                  assert layer.get("pivot_hint_normalized") is not None, layer
           expected_facial_states = {
               "speaking_open", "speaking_closed", "blink_closed",
               "sad", "shocked_open", "smile",
@@ -1000,6 +1027,7 @@ jobs:
             work/full-body-rig/bundle/reference-part-alignment-candidate.json
             work/full-body-rig/bundle/reference-part-alignment-review.jpg
             work/full-body-rig/bundle/reference-part-assembled-candidate.json
+            work/full-body-rig/bundle/reference-part-assembled-layer-candidate.json
             work/full-body-rig/bundle/reference-part-assembled-candidate.png
             work/full-body-rig/bundle/reference-part-assembled-comparison.jpg
             work/full-body-rig/bundle/reference-parts-contact-sheet.png
