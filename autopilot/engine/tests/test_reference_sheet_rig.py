@@ -93,6 +93,8 @@ class ReferenceSheetRigTests(unittest.TestCase):
                 for name in (
                     "neck", "left_shoulder", "left_elbow", "left_wrist",
                     "right_shoulder", "right_elbow", "right_wrist",
+                    "left_hip", "right_hip", "left_knee", "right_knee",
+                    "left_ankle", "right_ankle",
                 )
             }
             character_path = root / "character.json"
