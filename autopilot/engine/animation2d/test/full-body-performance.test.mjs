@@ -80,65 +80,15 @@ const project = {
   characters: [character]
 };
 
-test("source texture meshes deform continuously and a lower-body knee surface follows thigh and calf chains", () => {
-  const meshProject = structuredClone(project);
-  const meshCharacter = meshProject.characters[0];
-  const byRole = new Map(meshCharacter.layers.map(layer => [layer.role, layer]));
-  byRole.get("torso").mesh_deformation = {
-    profile: "torso", driver_role: "torso",
-    axis_start: [0.3, 0.08], axis_end: [0.55, 0.94],
-    influence: "center", columns: 2, rows: 2,
-    max_angle_deg: 1.2, max_displacement_px: 2.4
-  };
-  byRole.get("left_upper_arm").mesh_deformation = {
-    profile: "limb_joint", driver_role: "left_upper_arm",
-    axis_start: [0.8, 0.2], axis_end: [0.2, 0.8],
-    influence: "distal", columns: 2, rows: 4,
-    max_angle_deg: 5, max_displacement_px: 2.8
-  };
-  byRole.get("left_hand").mesh_deformation = {
-    profile: "limb_joint", driver_role: "left_hand",
-    axis_start: [0.10, 0.15], axis_end: [0.52, 0.96],
-    influence: "center", columns: 3, rows: 3,
-    max_angle_deg: 8, max_displacement_px: 2.8
-  };
-  byRole.get("right_hand").mesh_deformation = {
-    profile: "limb_joint", driver_role: "right_hand",
-    axis_start: [0.44, 0.89], axis_end: [0.52, 0.96],
-    influence: "center", columns: 3, rows: 3,
-    max_angle_deg: 8, max_displacement_px: 2.8
-  };
-  // Make the knee test patch overlap the source rectangles of both leg
-  // surfaces, so the joint warp exercises their actual local mesh fields.
-  for (const role of ["left_thigh", "left_calf"]) {
-    const layer = byRole.get(role);
-    layer.x = 90;
-    layer.y = 520;
-    layer.width = 60;
-    layer.height = 80;
-    layer.mesh_deformation = {
-      profile: "limb_joint",
-      driver_role: role,
-      axis_start: [0.5, 0.1],
-      axis_end: [0.5, 0.9],
-      influence: role === "left_thigh" ? "distal" : "proximal",
-      columns: 2,
-      rows: 4,
-      max_angle_deg: 5,
-      max_displacement_px: 2.8
-    };
-  }
-  meshCharacter.layers.push({
+test("body and joint surfaces use source image sprites with hierarchical blended transforms", () => {
+  const spriteProject = structuredClone(project);
+  const spriteCharacter = spriteProject.characters[0];
+  spriteCharacter.layers.push({
     id: "joint_surface_left_knee",
     role: "joint_surface_left_knee",
     src: "joint_surface_left_knee.png",
     x: 92, y: 540, width: 48, height: 48,
     pivot_x: 0.5, pivot_y: 0.5, z_index: 12,
-    mesh_deformation: {
-      profile: "joint_surface",
-      columns: 3,
-      rows: 3
-    },
     joint_surface: {
       joint: "left_knee",
       parent_role: "left_thigh",
@@ -148,63 +98,39 @@ test("source texture meshes deform continuously and a lower-body knee surface fo
       blend_axis_end: [0.263, 0.808]
     }
   });
+  for (const layer of spriteCharacter.layers) delete layer.mesh_deformation;
 
-  const tracks = compileMotionTracks(meshProject, { fps: 25 });
+  const tracks = compileMotionTracks(spriteProject, { fps: 25 });
   const find = target => tracks.find(track =>
     track.target === target && track.property === "transform"
   );
-  const torsoMesh = tracks.filter(track =>
-    track.target.startsWith("playing-violin-prince-part-torso-mesh-triangle-")
-  );
-  const upperArmMesh = tracks.filter(track =>
-    track.target.startsWith("playing-violin-prince-part-left_upper_arm-mesh-triangle-")
-  );
-  assert.equal(torsoMesh.length, 8);
-  assert.equal(upperArmMesh.length, 16);
-  assert.ok(torsoMesh.some(track => track.values.some(value => value !== track.values[0])),
-    "torso triangle vertices must receive changing frame-sampled affine transforms");
-  assert.ok(upperArmMesh.some(track => track.values.some(value => value !== track.values[0])),
-    "limb surface must deform in addition to its parent rotation");
-  const thighTransform = find("playing-violin-prince-part-left_thigh");
-  const calfTransform = find("playing-violin-prince-part-left_calf");
-  assert.ok(thighTransform?.values.some(value => value !== thighTransform.values[0]),
-    "the proximal thigh must move during the violin-performance cycle");
-  assert.ok(calfTransform?.values.some(value => value !== calfTransform.values[0]),
-    "the distal calf must move during the violin-performance cycle");
-  const jointTransform = find("playing-violin-prince-part-joint_surface_left_knee");
-  assert.equal(jointTransform, undefined,
-    "a mesh-deformed joint surface must not also receive a rigid patch transform");
-  const jointMesh = tracks.filter(track =>
-    track.target.startsWith("playing-violin-prince-part-joint_surface_left_knee-mesh-triangle-")
-  );
-  assert.equal(jointMesh.length, 18,
-    "a 3-by-3 joint surface grid must produce eighteen triangle tracks");
-  assert.ok(jointMesh.some(track =>
-    track.values.some(value => value !== track.values[0])
-  ), "joint-surface triangles must follow changing thigh and calf poses");
-  const sampleIndex = Math.floor(jointMesh[0].values.length * 0.65);
-  assert.notEqual(jointMesh[0].values[sampleIndex], jointMesh.at(-1).values[sampleIndex],
-    "proximal and distal joint-surface rows must receive different parent/child blends");
-  const leftPalmMesh = tracks.filter(track =>
-    track.target.startsWith("playing-violin-prince-part-left_hand-mesh-triangle-")
-  );
-  const rightPalmMesh = tracks.filter(track =>
-    track.target.startsWith("playing-violin-prince-part-right_hand-mesh-triangle-")
-  );
-  assert.equal(leftPalmMesh.length, 18, "bow-grip palm must produce an 18-triangle 3x3 mesh");
-  assert.equal(rightPalmMesh.length, 18, "fingerboard palm must produce an 18-triangle 3x3 mesh");
-  assert.ok(leftPalmMesh.some(track => track.values.some(value => value !== track.values[0])),
-    "bow-grip palm mesh must follow hand articulation");
+  for (const role of [
+    "torso", "left_upper_arm", "left_forearm", "left_hand",
+    "right_upper_arm", "right_forearm", "right_hand",
+    "left_thigh", "left_calf", "left_foot",
+    "right_thigh", "right_calf", "right_foot"
+  ]) {
+    const track = find("playing-violin-prince-part-" + role);
+    assert.ok(track?.values.some(value => value !== track.values[0]),
+      role + " must receive a changing hierarchical image-sprite transform");
+  }
   for (const role of [
     "finger_index", "finger_index_middle", "finger_index_tip",
     "finger_middle", "finger_middle_middle", "finger_middle_tip",
     "finger_ring", "finger_ring_middle", "finger_ring_tip",
-    "finger_little", "finger_little_middle", "finger_little_tip",
-    "left_foot", "right_foot"
+    "finger_little", "finger_little_middle", "finger_little_tip"
   ]) {
-    assert.ok(!meshCharacter.layers.find(layer => layer.role === role).mesh_deformation,
-      role + " must remain outside palm/body mesh deformation");
+    const track = find("playing-violin-prince-part-" + role);
+    assert.ok(track?.values.some(value => value !== track.values[0]),
+      role + " must remain independently articulated as a source image sprite");
   }
+  const jointTransform = find("playing-violin-prince-part-joint_surface_left_knee");
+  assert.ok(jointTransform?.values.some(value => value !== jointTransform.values[0]),
+    "the knee patch must follow the parent/child blended rigid transform");
+  assert.equal(tracks.some(track => track.target.includes("-mesh-triangle-")), false,
+    "the character's source artwork must not be rasterized through SVG mesh triangles");
+  assert.equal(spriteCharacter.layers.some(layer => layer.mesh_deformation), false,
+    "all character layers must remain normal source image sprites");
 });
 
 test("full-body performance can be fully visible on the first composition frame", () => {

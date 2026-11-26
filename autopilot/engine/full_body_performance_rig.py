@@ -2291,98 +2291,55 @@ def _extract_source_aligned_joint_surfaces(
 
 
 def _configure_continuous_body_meshes(character: dict[str, Any]) -> dict[str, Any]:
-    """Attach frame-sampled source-mesh profiles to torso and eight limb surfaces."""
-    layer_by_role = {str(layer.get("role") or ""): layer for layer in character.get("layers", [])}
-    joints = character.get("joints") or {}
+    """Keep authored character art as image sprites with hierarchical transforms.
+
+    The prior SVG triangle-mesh path produced incomplete surfaces in browser
+    renders. Source-aligned pivots and parent/child matrices already articulate
+    the rig, so preserve the original PNGs and use those transforms instead.
+    """
     canvas = character.get("canvas") or {}
-    canvas_width, canvas_height = int(canvas.get("width", 0)), int(canvas.get("height", 0))
-    if canvas_width <= 0 or canvas_height <= 0:
-        raise AutoRigError("Continuous body mesh requires a valid source canvas.")
-    profiles = [
-        ("torso", "torso", "neck", None, "center", 3.8, 4.5, 3, 5),
-        ("left_upper_arm", "left_upper_arm", "left_shoulder", "left_elbow", "distal", 9.0, 4.5, 2, 4),
-        ("left_forearm", "left_forearm", "left_elbow", "left_wrist", "proximal", 9.0, 4.5, 2, 4),
-        ("right_upper_arm", "torso", "right_shoulder", "right_elbow", "distal", 7.5, 4.0, 2, 4),
-        ("right_forearm", "torso", "right_elbow", "right_wrist", "proximal", 7.5, 4.0, 2, 4),
-        # Deform the source-pixel palm surfaces as well as rotating them at the
-        # wrist. Finger segments remain separate articulated source sprites.
-        ("left_hand", "left_hand", "left_wrist", None, "center", 8.0, 2.8, 3, 3),
-        ("right_hand", "right_hand", "right_wrist", None, "center", 8.0, 2.8, 3, 3),
-    ]
-    configured = []
-    rigid_lower_body_roles = [
+    if int(canvas.get("width", 0)) <= 0 or int(canvas.get("height", 0)) <= 0:
+        raise AutoRigError("Source-sprite articulation requires a valid source canvas.")
+
+    layers = character.get("layers") or []
+    layer_by_role = {str(layer.get("role") or ""): layer for layer in layers}
+    rigid_roles = [
+        "torso",
+        "left_upper_arm", "left_forearm", "left_hand",
+        "right_upper_arm", "right_forearm", "right_hand",
         "left_thigh", "left_calf", "right_thigh", "right_calf",
     ]
-    for role in rigid_lower_body_roles:
-        layer = layer_by_role.get(role)
-        if layer is None:
-            raise ManualReviewRequired(f"Rigid lower-body articulation requires the {role} source layer.")
-        # Keep the source-faithful pants artwork on an ordinary image element.
-        # The existing hierarchical hip/knee/ankle matrices provide articulation;
-        # the clipped SVG mesh path currently fails visual review for these parts.
-        layer.pop("mesh_deformation", None)
-    for role, driver_role, start_name, end_name, influence, max_angle, displacement, columns, rows in profiles:
-        layer = layer_by_role.get(role)
-        if layer is None:
-            raise ManualReviewRequired(f"Continuous body mesh requires the {role} source layer.")
-        if end_name:
-            start_joint, end_joint = joints.get(start_name), joints.get(end_name)
-            if not start_joint or not end_joint:
-                raise ManualReviewRequired(f"Continuous body mesh requires {start_name} and {end_name} joints.")
-            points = [
-                [float(start_joint["x"]) * canvas_width, float(start_joint["y"]) * canvas_height],
-                [float(end_joint["x"]) * canvas_width, float(end_joint["y"]) * canvas_height],
-            ]
-        else:
-            axis_anchor = joints.get(start_name)
-            if not axis_anchor:
-                raise ManualReviewRequired(
-                    f"Source-mesh deformation requires the {start_name} pivot."
-                )
-            points = [
-                [float(axis_anchor["x"]) * canvas_width, float(axis_anchor["y"]) * canvas_height],
-                [float(layer["x"]) + float(layer["width"]) * 0.52,
-                 float(layer["y"]) + float(layer["height"]) * 0.96],
-            ]
-        local_points = [[
-            min(1.0, max(0.0, (point[0] - float(layer["x"])) / float(layer["width"]))),
-            min(1.0, max(0.0, (point[1] - float(layer["y"])) / float(layer["height"]))),
-        ] for point in points]
-        if float(np.hypot(
-            local_points[1][0] - local_points[0][0],
-            local_points[1][1] - local_points[0][1],
-        )) < 0.08:
-            raise ManualReviewRequired(f"Continuous body mesh axis is too short for {role}.")
-        layer["mesh_deformation"] = {
-            "profile": "torso" if role == "torso" else "limb_joint",
-            "driver_role": driver_role,
-            "axis_start": local_points[0], "axis_end": local_points[1],
-            "influence": influence, "columns": columns, "rows": rows,
-            "max_angle_deg": max_angle, "max_displacement_px": displacement,
-        }
-        configured.append(role)
-    # Palm meshes deform with their wrist pivots; fingers and feet keep
-    # their own segmented/rigid articulation and must never inherit a palm mesh.
-    forbidden = {
-        "finger_index", "finger_middle", "finger_ring", "finger_little",
-        "left_foot", "right_foot",
-    }
-    accidental = sorted(
-        str(layer.get("role")) for layer in character.get("layers", [])
-        if layer.get("mesh_deformation") and str(layer.get("role")) in forbidden
+    missing = [role for role in rigid_roles if role not in layer_by_role]
+    if missing:
+        raise ManualReviewRequired(
+            "Source-sprite articulation requires these image layers: " + ", ".join(missing)
+        )
+
+    mesh_roles_removed = []
+    for layer in layers:
+        if "mesh_deformation" in layer:
+            mesh_roles_removed.append(str(layer.get("role") or layer.get("id") or "unknown"))
+            layer.pop("mesh_deformation", None)
+
+    joint_surface_roles = sorted(
+        str(layer.get("role") or "") for layer in layers if layer.get("joint_surface")
     )
-    if accidental:
-        raise AutoRigError("Mesh deformation must not be attached to hands, fingers or feet: " + ", ".join(accidental))
+    if any(layer.get("mesh_deformation") for layer in layers):
+        raise AutoRigError("The source-sprite rig must not retain SVG mesh deformation metadata.")
+
     return {
-        "method": "frame_sampled_piecewise_affine_source_texture_mesh",
-        "deformable_roles": configured,
-        "deformable_layer_count": len(configured),
-        "mesh_profiles": {role: layer_by_role[role]["mesh_deformation"] for role in configured},
-        "rigid_articulation_roles": rigid_lower_body_roles,
+        "method": "hierarchical_rigid_source_sprite_articulation",
+        "deformable_roles": [],
+        "deformable_layer_count": 0,
+        "mesh_profiles": {},
+        "mesh_roles_removed": sorted(mesh_roles_removed),
+        "rigid_articulation_roles": rigid_roles,
+        "rigid_joint_surface_roles": joint_surface_roles,
         "lower_body_render_policy": "source_faithful_img_sprites_with_hierarchical_hip_knee_ankle_transforms",
-        "hand_surface_mesh_deformation_count": sum(
-            1 for role in ("left_hand", "right_hand") if role in configured
-        ),
+        "surface_render_policy": "all_character_surfaces_render_as_source_faithful_img_sprites_with_rigid_hierarchical_transforms",
+        "joint_surface_motion_policy": "parent_child_blended_rigid_source_sprite_transform",
+        "hand_surface_mesh_deformation_count": 0,
+        "source_sprite_layer_count": len(layers),
         "hand_assets_modified": 0, "hand_animation_data_modified": False,
         "finger_layers_modified": 0, "instrument_props_modified": 0,
         "visual_review_required": True,
@@ -2401,7 +2358,7 @@ def _partition_torso_and_joint_surfaces_from_base(
         None,
     )
     if torso_layer is None:
-        raise ManualReviewRequired("A separate source-aligned torso surface is required for mesh deformation.")
+        raise ManualReviewRequired("A separate source-aligned torso image surface is required for rigid articulation.")
     canvas = character.get("canvas") or {}
     width, height = int(canvas.get("width", 0)), int(canvas.get("height", 0))
     torso_mask = _canvas_alpha_mask_for_layer(
@@ -3024,6 +2981,13 @@ def extend_full_body_character(
     character["layers"].extend(joint_surface_layers)
     moving_mask |= joint_surface_mask
     continuous_body_deformation = _configure_continuous_body_meshes(character)
+    # Joint surfaces remain source-pixel image patches; motion-build computes
+    # one parent/child blended rigid transform for each patch.
+    joint_surface_report["joint_surface_mesh_layer_count"] = 0
+    joint_surface_report["joint_surface_rigid_layer_count"] = len(joint_surface_layers)
+    joint_surface_report["joint_surface_render_policy"] = (
+        "parent_child_blended_rigid_source_sprite_transform"
+    )
     source_motion_backplate_layer, source_motion_backplate_report = _build_source_motion_backplate(
         source, bundle, character.get("joints") or {},
         moving_mask=moving_mask,
@@ -3179,14 +3143,14 @@ def extend_full_body_character(
             "status": "blocked_pending_character_art_reconstruction",
             "underpaint": "approximate_nonsemantic_inpaint",
             "head": "normalized_plate_crossfades_not_continuous_mesh_deformation",
-            "hands": "source-pixel left and right palm meshes deform with wrist motion; four independent three-segment finger chains remain separately articulated source sprites",
-            "body": "frame_sampled_piecewise_affine_source_texture_mesh_on_torso_and_eight_limb_surfaces",
+            "hands": "left and right palms remain source-faithful image sprites attached to their wrist transforms; four independent three-segment finger chains remain separately articulated source sprites",
+            "body": "source-faithful torso, arm, palm and leg image sprites follow hierarchical joint transforms; SVG mesh deformation is disabled",
             "joint_surfaces": (
-                "six user-approved original-source pixel patches with parent/child blended mesh deformation; no generated pads; upper-body and hand assets are protected"
+                "six user-approved original-source pixel patches follow parent/child blended rigid transforms; no generated pads; upper-body and hand assets are protected"
                 if len(joint_surface_layers) == 6
-                else "only explicitly approved absolute source-pixel polygons may be extracted; no generated joint pads; upper-body and hand assets are protected"
+                else "only explicitly approved absolute source-pixel polygons may be extracted; they follow parent/child blended rigid transforms; no generated joint pads"
             ),
-            "hand_surface_deformation": "both palm surfaces use frame-sampled source-texture meshes; four three-segment finger chains remain independently articulated and retain original source pixels",
+            "hand_surface_deformation": "both palm surfaces use source-faithful image sprites with wrist transforms; four three-segment finger chains remain independently articulated and retain original source pixels",
             "release_blockers": [
                 "visual seam, silhouette and occlusion review of six approved lower-body source-pixel surfaces after blended mesh deformation; generated joint pads are not accepted",
                 "anatomically aligned head neck and facial feature deformation",

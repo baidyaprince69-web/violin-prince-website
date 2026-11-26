@@ -618,10 +618,7 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     // The lower body uses source-faithful IMG sprites and hierarchical
     // hip/knee/ankle transforms. Keep only torso and upper-limb surfaces on
     // the clipped SVG mesh path until those leg meshes pass rendered QA.
-    const deformableRoles = [
-      "torso",
-      "left_upper_arm", "left_forearm", "right_upper_arm", "right_forearm"
-    ];
+    const deformableRoles = [];
     for (const role of deformableRoles) {
       const layer = (character.layers || []).find(item => item.role === role);
       if (!layer?.mesh_deformation) {
@@ -700,9 +697,7 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
         !Array.isArray(polygon) || polygon.length < 3 ||
         surface.parent_role !== expectedPair[0] ||
         surface.child_role !== expectedPair[1] ||
-        layer.mesh_deformation?.profile !== "joint_surface" ||
-        Number(layer.mesh_deformation?.columns) !== 3 ||
-        Number(layer.mesh_deformation?.rows) !== 3;
+        Boolean(layer.mesh_deformation);
     });
     if (invalidJointSurfaceLayers.length !== 0 ||
         unexpectedJointSurfaceLayers.length !== jointSurfaceLayers.length) {
@@ -715,34 +710,28 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
       !String(item.target || "").includes("-mesh-triangle-")
     );
     jointSurfaceTransformTrackCount = jointSurfaceTransformTracks.length;
-    if (jointSurfaceTransformTracks.length !== 0) {
-      throw new Error("Scene " + scene.id +
-        " joint surfaces must use blended per-triangle deformation, not rigid patch transforms.");
+    if (jointSurfaceTransformTracks.length !== jointSurfaceLayers.length) {
+      throw new Error("Scene " + scene.id + " expected one parent/child blended rigid transform per approved joint surface; got " +
+        jointSurfaceTransformTracks.length + " for " + jointSurfaceLayers.length + " patches.");
     }
     for (const layer of jointSurfaceLayers) {
-      const expectedPrefix = scene.id + "-" + character.id + "-part-" +
-        layer.id + "-mesh-triangle-";
-      const expectedTriangles =
-        Number(layer.mesh_deformation.columns) * Number(layer.mesh_deformation.rows) * 2;
-      const triangleTracks = project.motion_tracks.filter(item =>
-        String(item.target || "").startsWith(expectedPrefix) &&
-        item.property === "transform" && Array.isArray(item.values) && item.values.length > 1
+      const target = scene.id + "-" + character.id + "-part-" + layer.id;
+      const transformTrack = project.motion_tracks.find(item =>
+        item.target === target && item.property === "transform" &&
+        Array.isArray(item.values) && item.values.length > 1
       );
-      if (triangleTracks.length !== expectedTriangles ||
-          !triangleTracks.some(track => track.values.some(value => value !== track.values[0]))) {
+      if (!transformTrack || !transformTrack.values.some(value => value !== transformTrack.values[0])) {
         throw new Error("Scene " + scene.id + " joint surface " + layer.role +
-          " expected " + expectedTriangles + " changing parent/child mesh triangle tracks; got " +
-          triangleTracks.length + ".");
+          " is missing its changing parent/child blended rigid transform.");
       }
-      jointSurfaceMeshTriangleTrackCount += triangleTracks.length;
     }
     sourceJointSurfaceLayerCount += jointSurfaceLayers.length;
-    const expectedJointSurfaceTriangles = jointSurfaceLayers.length * 18;
-    if (deformableBodyLayerCount !== 5 ||
-        jointSurfaceMeshTriangleTrackCount !== expectedJointSurfaceTriangles ||
-        deformationMeshTriangleTrackCount !== 94) {
+    if (deformableBodyLayerCount !== 0 ||
+        jointSurfaceMeshTriangleTrackCount !== 0 ||
+        deformationMeshTriangleTrackCount !== 0 ||
+        jointSurfaceTransformTrackCount !== jointSurfaceLayers.length) {
       throw new Error("Scene " + scene.id +
-        " did not produce five deforming torso/arm surfaces plus blended mesh deformation on all approved lower-body joint surfaces.");
+        " must render every source body and joint surface as a rigid image sprite with hierarchical transforms; SVG mesh tracks are disabled.");
     }
     if (compositeBaseMode) {
       const baseTarget = scene.id + "-" + character.id + "-base-art";

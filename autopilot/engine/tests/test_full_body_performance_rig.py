@@ -446,60 +446,55 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             self.assertFalse((root / "joint_surface_left_knee.png").exists())
             self.assertFalse((root / "joint-surface-moving-mask.png").exists())
 
-    def test_continuous_mesh_profiles_keep_lower_body_as_rigid_articulated_image_sprites(self):
+    def test_all_body_and_joint_surfaces_remain_source_faithful_rigid_image_sprites(self):
         roles = [
             "torso",
             "left_upper_arm", "left_forearm", "right_upper_arm", "right_forearm",
             "left_thigh", "left_calf", "right_thigh", "right_calf",
             "left_hand", "right_hand", "finger_index", "left_foot", "right_foot",
         ]
-        character = {
-            "canvas": {"width": 100, "height": 140},
-            "layers": [
-                {"role": role, "src": role + ".png", "x": 10, "y": 10, "width": 80, "height": 120}
-                for role in roles
-            ],
-            "joints": {
-                "neck": {"x": 0.50, "y": 0.10},
-                "left_shoulder": {"x": 0.27, "y": 0.30},
-                "left_elbow": {"x": 0.10, "y": 0.48},
-                "left_wrist": {"x": 0.27, "y": 0.54},
-                "right_shoulder": {"x": 0.72, "y": 0.30},
-                "right_elbow": {"x": 0.86, "y": 0.48},
-                "right_wrist": {"x": 0.72, "y": 0.54},
-                "left_hip": {"x": 0.35, "y": 0.60},
-                "left_knee": {"x": 0.32, "y": 0.80},
-                "left_ankle": {"x": 0.29, "y": 0.96},
-                "right_hip": {"x": 0.65, "y": 0.60},
-                "right_knee": {"x": 0.68, "y": 0.80},
-                "right_ankle": {"x": 0.71, "y": 0.96},
-            },
-        }
+        layers = [
+            {
+                "role": role, "id": role, "src": role + ".png",
+                "x": 10, "y": 10, "width": 80, "height": 120,
+                "mesh_deformation": {"profile": "legacy_test_mesh"},
+            }
+            for role in roles
+        ]
+        layers.append({
+            "role": "joint_surface_left_knee",
+            "id": "joint_surface_left_knee",
+            "src": "joint_surface_left_knee.png",
+            "x": 10, "y": 90, "width": 24, "height": 24,
+            "mesh_deformation": {"profile": "joint_surface", "columns": 3, "rows": 3},
+            "joint_surface": {"parent_role": "left_thigh", "child_role": "left_calf"},
+        })
+        character = {"canvas": {"width": 100, "height": 140}, "layers": layers}
+
         report = _configure_continuous_body_meshes(character)
         by_role = {layer["role"]: layer for layer in character["layers"]}
-        self.assertEqual(report["deformable_layer_count"], 7)
-        self.assertEqual(set(report["deformable_roles"]), {
+        expected_rigid_roles = {
             "torso", "left_upper_arm", "left_forearm", "right_upper_arm", "right_forearm",
+            "left_thigh", "left_calf", "right_thigh", "right_calf",
             "left_hand", "right_hand",
-        })
-        self.assertEqual(set(report["rigid_articulation_roles"]), {
-            "left_thigh", "left_calf", "right_thigh", "right_calf",
-        })
-        self.assertEqual(
-            report["lower_body_render_policy"],
-            "source_faithful_img_sprites_with_hierarchical_hip_knee_ankle_transforms",
-        )
-        self.assertTrue(all(by_role[role].get("mesh_deformation") for role in report["deformable_roles"]))
-        self.assertEqual(report["hand_surface_mesh_deformation_count"], 2)
-        self.assertEqual(by_role["left_hand"]["mesh_deformation"]["driver_role"], "left_hand")
-        self.assertEqual(by_role["right_hand"]["mesh_deformation"]["driver_role"], "right_hand")
-        for role in (
-            "finger_index", "left_foot", "right_foot",
-            "left_thigh", "left_calf", "right_thigh", "right_calf",
-        ):
-            self.assertNotIn("mesh_deformation", by_role[role])
+        }
+        self.assertEqual(report["method"], "hierarchical_rigid_source_sprite_articulation")
+        self.assertEqual(report["deformable_layer_count"], 0)
+        self.assertEqual(report["deformable_roles"], [])
+        self.assertEqual(set(report["rigid_articulation_roles"]), expected_rigid_roles)
+        self.assertEqual(report["rigid_joint_surface_roles"], ["joint_surface_left_knee"])
+        self.assertEqual(report["joint_surface_motion_policy"],
+            "parent_child_blended_rigid_source_sprite_transform")
+        self.assertEqual(report["lower_body_render_policy"],
+            "source_faithful_img_sprites_with_hierarchical_hip_knee_ankle_transforms")
+        self.assertEqual(report["surface_render_policy"],
+            "all_character_surfaces_render_as_source_faithful_img_sprites_with_rigid_hierarchical_transforms")
+        self.assertEqual(report["hand_surface_mesh_deformation_count"], 0)
+        self.assertEqual(len(report["mesh_roles_removed"]), len(layers))
+        self.assertTrue(all("mesh_deformation" not in layer for layer in by_role.values()))
         self.assertEqual(report["hand_assets_modified"], 0)
         self.assertFalse(report["hand_animation_data_modified"])
+
 
     def test_torso_and_joint_surface_alpha_is_partitioned_from_full_body_underpaint(self):
         import tempfile

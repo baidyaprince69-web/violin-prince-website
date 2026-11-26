@@ -490,7 +490,11 @@ jobs:
           patch_files = {path.stem for path in bundle.glob("joint_surface_*.png")}
           assert patch_files == expected_surface_roles, patch_files
           assert joint_art.get("joint_surface_layer_count") == len(created_regions), joint_art
-          assert joint_art.get("joint_surface_mesh_layer_count") == len(created_regions), joint_art
+          assert joint_art.get("joint_surface_mesh_layer_count") == 0, joint_art
+          assert joint_art.get("joint_surface_rigid_layer_count") == len(created_regions), joint_art
+          assert joint_art.get("joint_surface_render_policy") == (
+              "parent_child_blended_rigid_source_sprite_transform"
+          ), joint_art
           assert joint_art.get("joint_surface_articulated_layer_count") == len(created_regions), joint_art
           transferred_pixels = sum(
               joint_regions[name].get("source_pixels", 0) for name in created_regions
@@ -504,20 +508,29 @@ jobs:
           assert joint_art.get("moving_mask_pixels", 0) == transferred_pixels, joint_art
           assert joint_art.get("parent_child_alpha_pixels_removed", 0) == removed_pixels, joint_art
           mesh_report = report.get("continuous_body_deformation", {})
-          expected_mesh_roles = {
+          expected_rigid_roles = {
               "torso", "left_upper_arm", "left_forearm", "right_upper_arm", "right_forearm",
-              "left_hand", "right_hand",
+              "left_hand", "right_hand", "left_thigh", "left_calf", "right_thigh", "right_calf",
           }
-          assert mesh_report.get("method") == "frame_sampled_piecewise_affine_source_texture_mesh", report
-          assert set(mesh_report.get("deformable_roles", [])) == expected_mesh_roles, report
-          assert mesh_report.get("deformable_layer_count") == 7, report
-          assert set(mesh_report.get("rigid_articulation_roles", [])) == {
-              "left_thigh", "left_calf", "right_thigh", "right_calf",
+          assert mesh_report.get("method") == "hierarchical_rigid_source_sprite_articulation", report
+          assert mesh_report.get("deformable_roles") == [], report
+          assert mesh_report.get("deformable_layer_count") == 0, report
+          assert set(mesh_report.get("rigid_articulation_roles", [])) == expected_rigid_roles, report
+          assert set(mesh_report.get("rigid_joint_surface_roles", [])) == {
+              "joint_surface_left_hip", "joint_surface_right_hip",
+              "joint_surface_left_knee", "joint_surface_right_knee",
+              "joint_surface_left_ankle", "joint_surface_right_ankle",
           }, report
           assert mesh_report.get("lower_body_render_policy") == (
               "source_faithful_img_sprites_with_hierarchical_hip_knee_ankle_transforms"
           ), report
-          assert mesh_report.get("hand_surface_mesh_deformation_count") == 2, report
+          assert mesh_report.get("surface_render_policy") == (
+              "all_character_surfaces_render_as_source_faithful_img_sprites_with_rigid_hierarchical_transforms"
+          ), report
+          assert mesh_report.get("joint_surface_motion_policy") == (
+              "parent_child_blended_rigid_source_sprite_transform"
+          ), report
+          assert mesh_report.get("hand_surface_mesh_deformation_count") == 0, report
           assert mesh_report.get("hand_assets_modified") == 0, report
           assert mesh_report.get("hand_animation_data_modified") is False, report
           partition = report.get("torso_surface_partition", {})
@@ -785,15 +798,15 @@ jobs:
           assert joint_art.get("hand_animation_data_modified") is False, joint_art
           assert joint_art.get("protected_upper_body_assets_modified") == 0, joint_art
           assert report.get("source_joint_surface_layer_count") == len(joint_layers), report
-          assert report.get("deformable_body_layer_count") == 5, report
-          assert report.get("deformation_mesh_triangle_track_count") == 94, report
-          assert report.get("joint_surface_mesh_triangle_track_count") == 108, report
-          assert report.get("joint_surface_transform_track_count") == 0, report
+          assert report.get("deformable_body_layer_count") == 0, report
+          assert report.get("deformation_mesh_triangle_track_count") == 0, report
+          assert report.get("joint_surface_mesh_triangle_track_count") == 0, report
+          assert report.get("joint_surface_transform_track_count") == len(joint_layers), report
           assert scene.get("source_joint_surface_layer_count") == len(joint_layers), scene
-          assert scene.get("deformable_body_layer_count") == 5, scene
-          assert scene.get("deformation_mesh_triangle_track_count") == 94, scene
-          assert scene.get("joint_surface_mesh_triangle_track_count") == 108, scene
-          assert scene.get("joint_surface_transform_track_count") == 0, scene
+          assert scene.get("deformable_body_layer_count") == 0, scene
+          assert scene.get("deformation_mesh_triangle_track_count") == 0, scene
+          assert scene.get("joint_surface_mesh_triangle_track_count") == 0, scene
+          assert scene.get("joint_surface_transform_track_count") == len(joint_layers), scene
           assert scene.get("full_body_visual_mode") == "segmented_source_body", scene
           assert report.get("deformable_body_layer_count") == 5, report
           assert report.get("deformation_mesh_triangle_track_count") == 94, report
