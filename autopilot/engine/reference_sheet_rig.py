@@ -645,9 +645,6 @@ def build_reference_sheet_rig(
     alignment_preview_file = _write_reference_part_alignment_preview(
         part_records, alignment_candidates, bundle
     )
-    assembly_png, assembly_comparison, assembly_report = _write_reference_part_assembly_candidate(
-        part_records, alignment_candidates, character, bundle
-    )
     alignment_payload = {
         "schema_version": 1,
         "status": "candidate_not_active_pending_visual_review",
@@ -668,6 +665,9 @@ def build_reference_sheet_rig(
         head_angle_sheet_path,
         minimum_area_ratio=0.009,
         top_region_ratio=0.62,
+    )
+    assembly_png, assembly_comparison, assembly_report = _write_reference_part_assembly_candidate(
+        part_records, alignment_candidates, character, bundle
     )
     head_bounds = _head_plate_bounds(character)
     # All eight plates share one exact pixel canvas and the same bottom-centre

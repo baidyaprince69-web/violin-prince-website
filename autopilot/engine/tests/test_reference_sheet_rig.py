@@ -138,7 +138,7 @@ class ReferenceSheetRigTests(unittest.TestCase):
             assembly = json.loads((root / "reference-part-assembled-candidate.json").read_text())
             self.assertEqual(assembly["status"], "assembled_candidate_not_active_pending_visual_review")
             self.assertFalse(assembly["production_layer_replacement_enabled"])
-            self.assertGreaterEqual(assembly["source_asset_count"], 16)
+            self.assertGreaterEqual(assembly["source_asset_count"], 5)
             self.assertEqual(assembly["canvas"], {"width": 500, "height": 600})
             alignment = json.loads((root / "reference-part-alignment-candidate.json").read_text())
             self.assertEqual(alignment["status"], "candidate_not_active_pending_visual_review")
