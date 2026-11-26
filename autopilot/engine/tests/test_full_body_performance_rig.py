@@ -446,7 +446,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             self.assertFalse((root / "joint_surface_left_knee.png").exists())
             self.assertFalse((root / "joint-surface-moving-mask.png").exists())
 
-    def test_continuous_body_mesh_profiles_deform_palms_but_exclude_fingers_and_feet(self):
+    def test_continuous_mesh_profiles_keep_lower_body_as_rigid_articulated_image_sprites(self):
         roles = [
             "torso",
             "left_upper_arm", "left_forearm", "right_upper_arm", "right_forearm",
@@ -477,17 +477,26 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         }
         report = _configure_continuous_body_meshes(character)
         by_role = {layer["role"]: layer for layer in character["layers"]}
-        self.assertEqual(report["deformable_layer_count"], 11)
+        self.assertEqual(report["deformable_layer_count"], 7)
         self.assertEqual(set(report["deformable_roles"]), {
             "torso", "left_upper_arm", "left_forearm", "right_upper_arm", "right_forearm",
-            "left_thigh", "left_calf", "right_thigh", "right_calf",
             "left_hand", "right_hand",
         })
+        self.assertEqual(set(report["rigid_articulation_roles"]), {
+            "left_thigh", "left_calf", "right_thigh", "right_calf",
+        })
+        self.assertEqual(
+            report["lower_body_render_policy"],
+            "source_faithful_img_sprites_with_hierarchical_hip_knee_ankle_transforms",
+        )
         self.assertTrue(all(by_role[role].get("mesh_deformation") for role in report["deformable_roles"]))
         self.assertEqual(report["hand_surface_mesh_deformation_count"], 2)
         self.assertEqual(by_role["left_hand"]["mesh_deformation"]["driver_role"], "left_hand")
         self.assertEqual(by_role["right_hand"]["mesh_deformation"]["driver_role"], "right_hand")
-        for role in ("finger_index", "left_foot", "right_foot"):
+        for role in (
+            "finger_index", "left_foot", "right_foot",
+            "left_thigh", "left_calf", "right_thigh", "right_calf",
+        ):
             self.assertNotIn("mesh_deformation", by_role[role])
         self.assertEqual(report["hand_assets_modified"], 0)
         self.assertFalse(report["hand_animation_data_modified"])
