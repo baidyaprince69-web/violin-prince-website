@@ -1440,7 +1440,6 @@ def _build_source_motion_backplate(
     source: Image.Image,
     bundle_dir: Path,
     joints: dict[str, Any],
-    torso_layer: dict[str, Any] | None = None,
     moving_mask: np.ndarray | None = None,
     excluded_canvas_alpha: np.ndarray | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -1502,25 +1501,9 @@ def _build_source_motion_backplate(
         cx, cy = anchors[name]
         coverage |= ((xx - cx) / radius_x) ** 2 + ((yy - cy) / radius_y) ** 2 <= 1.0
 
+    # The articulated torso owns its own source pixels and violin underlay.
+    # Never duplicate the torso into this static support plate.
     torso_source_pixels = 0
-    if torso_layer:
-        torso_mask = _canvas_alpha_mask_for_layer(
-            bundle_dir, torso_layer, canvas_width=width, canvas_height=height
-        ).astype(np.uint8)
-        if torso_mask.shape != (height, width):
-            raise AutoRigError("The torso source mask does not match the full-body canvas.")
-        # A small dilation fills edge pinholes in the static jacket/torso only.
-        # Do not extend this mask into the independently moving limb sprites.
-        closed_torso = cv2.morphologyEx(
-            torso_mask, cv2.MORPH_CLOSE, np.ones((15, 15), dtype=np.uint8)
-        )
-        expanded_torso = cv2.dilate(
-            closed_torso, np.ones((5, 5), dtype=np.uint8), iterations=1
-        ) > 0
-        coverage |= expanded_torso
-        torso_source_pixels = int(np.count_nonzero(
-            expanded_torso & (pixels[:, :, 3] > 12)
-        ))
 
     moving_exclusion = np.zeros((height, width), dtype=bool)
     if moving_mask is not None:
@@ -1575,7 +1558,7 @@ def _build_source_motion_backplate(
         "joint_patch_radii_px": {name: list(radii) for name, radii in joint_radii.items()},
         "moving_source_pixels_excluded": int(moving_exclusion.sum()),
         "prop_source_pixels_excluded": int(prop_exclusion.sum()),
-        "torso_underlay_added": bool(torso_layer),
+        "torso_underlay_added": False,
         "torso_source_pixels_covered": torso_source_pixels,
         "source_pixels_preserved": visible_pixels,
         "source_alpha_respected": True,
@@ -3034,13 +3017,8 @@ def extend_full_body_character(
     character["layers"].extend(joint_surface_layers)
     moving_mask |= joint_surface_mask
     continuous_body_deformation = _configure_continuous_body_meshes(character)
-    torso_layer_for_backplate = next(
-        (layer for layer in character.get("layers", []) if layer.get("role") == "torso"),
-        None,
-    )
     source_motion_backplate_layer, source_motion_backplate_report = _build_source_motion_backplate(
         source, bundle, character.get("joints") or {},
-        torso_layer=torso_layer_for_backplate,
         moving_mask=moving_mask,
         excluded_canvas_alpha=prop_masks.get("bow"),
     )
