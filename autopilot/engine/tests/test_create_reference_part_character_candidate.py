@@ -29,7 +29,7 @@ PART_ROLES = {
 }
 BRIDGES = {
     "source-bridge-head-neck": "neck_bridge",
-    "source-bridge-right-forearm": "right_forearm",
+    "source-bridge-right_forearm": "right_forearm",
     "source-bridge-bow": "bow",
 }
 PRIMARY_IDS = [
