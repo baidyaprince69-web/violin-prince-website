@@ -797,7 +797,7 @@ def _write_reference_part_assembly_candidate(
         ),
     }
     (bundle / layered_manifest_name).write_text(
-        json.dumps(layered_manifest, ensure_ascii=False, indent=2) + "\\n",
+        json.dumps(layered_manifest, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
 
@@ -1074,7 +1074,7 @@ def build_reference_sheet_rig(
             if facial_state_variants else "not_available"
         )
         layered_manifest_path.write_text(
-            json.dumps(layered_manifest, ensure_ascii=False, indent=2) + "\\n",
+            json.dumps(layered_manifest, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
 
