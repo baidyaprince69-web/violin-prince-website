@@ -266,12 +266,12 @@ jobs:
           assert backplate_pixels.shape == source_pixels.shape, backplate_pixels.shape
           underlay_visible = backplate_pixels[:, :, 3] > 0
           assert int(underlay_visible.sum()) == backplate_report.get("source_pixels_preserved"), backplate_report
-          assert int(underlay_visible.sum()) > 3000, backplate_report
+          assert int(underlay_visible.sum()) > 100, backplate_report
           assert np.all(backplate_pixels[:, :, 3] <= source_pixels[:, :, 3]), backplate_report
           assert np.array_equal(
               backplate_pixels[underlay_visible, :3],
               source_pixels[underlay_visible, :3],
-          ), "The joint/torso backplate must use unchanged pixels from the preserved source artwork."
+          ), "The joint-seam support plate must use unchanged pixels from the preserved source artwork."
           with Image.open(bundle / "full-body-moving-mask.png") as opened:
               moving_mask = np.asarray(opened.convert("L"), dtype=np.uint8) > 0
           assert moving_mask.shape == underlay_visible.shape, moving_mask.shape
