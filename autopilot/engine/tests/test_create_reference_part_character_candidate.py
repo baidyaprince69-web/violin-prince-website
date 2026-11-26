@@ -78,6 +78,24 @@ def make_source_bundle(root: Path):
         write_image(source / f"expression-{name}.png")
     write_image(source / "pose-resting_hands.png")
     write_image(source / "base-art.png")
+    preserved_source = Image.new("RGBA", (441, 755), (0, 0, 0, 0))
+    preserved_draw = ImageDraw.Draw(preserved_source)
+    preserved_draw.rectangle((300, 181, 405, 196), fill=(115, 65, 35, 255))
+    preserved_draw.polygon(
+        [
+            (324, 169), (379, 169), (382, 173), (387, 183),
+            (389, 191), (383, 201), (377, 206), (372, 214),
+            (366, 221), (360, 230), (352, 238), (344, 246),
+            (337, 251), (330, 249), (326, 244), (324, 237),
+            (325, 229), (327, 219), (328, 209), (325, 201),
+            (321, 195), (320, 188), (322, 180),
+        ],
+        fill=(177, 123, 89, 255),
+    )
+    preserved_draw.line((337, 178, 342, 199), fill=(75, 42, 31, 255), width=2)
+    preserved_draw.line((351, 176, 356, 201), fill=(75, 42, 31, 255), width=2)
+    preserved_draw.line((365, 176, 369, 200), fill=(75, 42, 31, 255), width=2)
+    preserved_source.save(source / "preserved-full-body-source.png")
 
     original_joints = {
         name: {"x": 0.5, "y": 0.5}
@@ -245,23 +263,35 @@ class ReferencePartCharacterCandidateTests(unittest.TestCase):
             self.assertEqual(candidate["props"]["bow"]["attach_to"], "left_hand")
             self.assertEqual(candidate["props"]["violin"]["attach_to"], "torso")
             right_hand = next(layer for layer in candidate["layers"] if layer["role"] == "right_hand")
-            self.assertEqual(right_hand["src"], "preserved-right-hand.png")
             self.assertEqual(
-                (right_hand["x"], right_hand["y"], right_hand["width"], right_hand["height"]),
-                (321.0, 170.0, 67.0, 78.0),
+                right_hand["src"], "reference-source-fingerboard-grip-hand.png"
             )
-            self.assertEqual(right_hand["z_index"], 70)
+            self.assertEqual(right_hand["candidate_source_layer_id"],
+                             "preserved-full-body-source-skin-mask")
+            self.assertEqual(
+                right_hand["source_art_policy"],
+                "preserved_full_body_skin_mask_with_ink_outline",
+            )
+            self.assertGreater(right_hand["visible_alpha_pixels"], 1000)
+            self.assertGreaterEqual(right_hand["x"], 318)
+            self.assertLessEqual(right_hand["x"], 326)
+            self.assertGreaterEqual(right_hand["y"], 169)
+            self.assertLessEqual(right_hand["y"], 179)
+            self.assertGreaterEqual(right_hand["width"], 45)
+            self.assertGreaterEqual(right_hand["height"], 60)
             right_forearm = next(
                 layer for layer in candidate["layers"]
                 if layer["role"] == "right_forearm"
             )
-            self.assertEqual(right_forearm["z_index"], 64)
-            self.assertGreater(
+            self.assertLess(
                 right_forearm["z_index"], candidate["props"]["violin"]["z_index"],
-                "finger-contact pixels from the source forearm must layer above the violin neck",
+                "the forearm stays below the violin; only the isolated grip hand overlays it",
             )
-            self.assertEqual(right_hand["pivot_status"],
-                             "preserved_source_fingerboard_grip_joint_pending_visual_review")
+            self.assertEqual(right_hand["z_index"], 70)
+            self.assertEqual(
+                right_hand["pivot_status"],
+                "preserved_source_fingerboard_grip_joint_pending_visual_review",
+            )
             self.assertEqual(
                 candidate["joints"]["right_wrist"],
                 {"x": 350.8 / 441, "y": 239.3 / 755},
@@ -285,6 +315,14 @@ class ReferencePartCharacterCandidateTests(unittest.TestCase):
                 all((output / asset["src"]).is_file()
                     for asset in candidate["head_variants"].values())
             )
+            with Image.open(output / right_hand["src"]) as hand_image:
+                self.assertEqual(hand_image.mode, "RGBA")
+                self.assertIsNotNone(hand_image.getchannel("A").getbbox())
+                # A violin-neck pixel outside the hand silhouette must stay transparent.
+                neck_probe_x = 385 - int(right_hand["x"])
+                neck_probe_y = 188 - int(right_hand["y"])
+                if 0 <= neck_probe_x < hand_image.width and 0 <= neck_probe_y < hand_image.height:
+                    self.assertEqual(hand_image.getpixel((neck_probe_x, neck_probe_y))[3], 0)
             persisted = json.loads(
                 (output / "reference-part-character-candidate-report.json").read_text()
             )
