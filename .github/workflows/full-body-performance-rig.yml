@@ -400,6 +400,10 @@ jobs:
           assert (root / bridges_by_id["head_neck"]["src"]).is_file(), assembly
           forearm_bridge = bridges_by_id.get("right_forearm", {})
           assert (forearm_bridge.get("x"), forearm_bridge.get("y")) == (260, 161), assembly
+          bow_hand = next(item for item in assembly.get("placements", [])
+                          if item.get("part_id") == "reference-part-021")
+          assert bow_hand.get("transform", {}).get("manual_alignment_offset_px") == [20, -3], assembly
+          assert (bow_hand["transform"].get("x"), bow_hand["transform"].get("y")) == (155, 219), assembly
           assert (root / "reference-part-assembled-candidate.png").is_file()
           assert (root / "reference-part-assembled-comparison.jpg").is_file()
           expected_facial_states = {

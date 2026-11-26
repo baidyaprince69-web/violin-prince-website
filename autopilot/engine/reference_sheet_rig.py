@@ -553,6 +553,10 @@ ASSEMBLY_Z_ORDER = {
     21: 70, 22: 70,
     1: 90,
 }
+# Candidate-only pixel corrections bring the bow grip opening onto the bow shaft.
+ASSEMBLY_MANUAL_OFFSETS = {
+    "reference-part-021": (20, -3),
+}
 
 
 def _write_reference_part_assembly_candidate(
@@ -592,7 +596,9 @@ def _write_reference_part_assembly_candidate(
             max(1, int(round(float(transform["width"])))),
             max(1, int(round(float(transform["height"])))),
         ), Image.Resampling.LANCZOS)
-        x, y = int(round(float(transform["x"]))), int(round(float(transform["y"])))
+        base_x, base_y = int(round(float(transform["x"]))), int(round(float(transform["y"])))
+        offset_x, offset_y = ASSEMBLY_MANUAL_OFFSETS.get(part_id, (0, 0))
+        x, y = base_x + offset_x, base_y + offset_y
         z_index = ASSEMBLY_Z_ORDER.get(int(part_id.rsplit("-", 1)[-1]), 40)
         render_items.append((z_index, part_id, part, x, y))
         placements.append({
@@ -603,6 +609,7 @@ def _write_reference_part_assembly_candidate(
                 "x": x, "y": y, "width": part.width, "height": part.height,
                 "rotation_deg": rotation, "scale": transform["scale"],
                 "source_crop_px": candidate.get("source_crop_px"),
+                "manual_alignment_offset_px": [offset_x, offset_y],
             },
         })
 

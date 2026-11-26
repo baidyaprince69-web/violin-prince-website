@@ -165,6 +165,15 @@ class ReferenceSheetRigTests(unittest.TestCase):
             self.assertIn("head_neck", bridge_by_id)
             self.assertEqual(bridge_by_id["head_neck"]["z_index"], 45)
             self.assertTrue((root / bridge_by_id["head_neck"]["src"]).is_file())
+            bow_hand = next(
+                item for item in assembly["placements"]
+                if item["part_id"] == "reference-part-021"
+            )
+            self.assertEqual(bow_hand["transform"]["manual_alignment_offset_px"], [20, -3])
+            self.assertEqual(
+                (bow_hand["transform"]["x"], bow_hand["transform"]["y"]),
+                (155, 219),
+            )
             self.assertEqual(assembly["canvas"], {"width": 500, "height": 600})
             self.assertNotIn("reference-part-014", assembly["primary_part_ids"])
             self.assertNotIn("reference-part-026", assembly["primary_part_ids"])
