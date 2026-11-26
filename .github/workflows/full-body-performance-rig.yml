@@ -29,6 +29,7 @@ jobs:
     env:
       PUBLISH_ENABLED: "false"
       AUTOPILOT_ENABLED: "false"
+      MASTER_DIRECTOR_VISUAL_REVIEW_APPROVED: "false"
       HYPERFRAMES_NO_UPDATE_CHECK: "1"
       CI: "true"
     steps:
@@ -859,56 +860,6 @@ jobs:
             -c:v copy -c:a aac -b:a 192k -shortest -movflags +faststart \
             work/full-body-rig/full-body-violin-performance.mp4
 
-      - name: Build a 24-second full-body base project for the Master Director integration
-        env:
-          PYTHONPATH: autopilot/engine
-        run: |
-          python autopilot/engine/create_full_body_performance_preview.py \
-            --bundle work/full-body-rig/bundle \
-            --output work/full-body-rig/master-director-base \
-            --audio work/full-body-rig/audio/violin-prince-cc0-solo-violin.wav \
-            --music-map work/full-body-rig/audio/violin-prince-cc0-solo-violin.music-map.json \
-            --duration-seconds 24
-
-      - name: Assemble the 8-shot full-body Master Director integration project
-        env:
-          PYTHONPATH: autopilot/engine
-        run: |
-          python autopilot/engine/create_master_director_video_project.py \
-            --base-project work/full-body-rig/master-director-base/project.json \
-            --director-plan autopilot/engine/tests/fixtures/master-director-fullbody-integration-demo.json \
-            --output work/full-body-rig/master-director/project.json
-
-      - name: Build and render the complete multi-shot full-body sequence
-        working-directory: autopilot/engine/animation2d
-        run: |
-          node build.mjs \
-            --project ../../../work/full-body-rig/master-director/project.json \
-            --out-dir ../../../work/full-body-rig/master-director/composition
-          mkdir -p ../../../work/full-body-rig/master-director/composition/assets/characters
-          cp -R ../../../work/full-body-rig/master-director-base/assets/characters/violin-prince \
-            ../../../work/full-body-rig/master-director/composition/assets/characters/
-          cd ../../../work/full-body-rig/master-director/composition
-          $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes lint
-          $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes render \
-            --output ../full-body-master-director-video-only.mp4 --fps 25 --quality standard
-
-      - name: Mix the full-duration test violin guide and verify every Director shot
-        env:
-          PYTHONPATH: autopilot/engine
-        run: |
-          ffmpeg -hide_banner -loglevel error -y \
-            -i work/full-body-rig/master-director/full-body-master-director-video-only.mp4 \
-            -i work/full-body-rig/audio/violin-prince-cc0-solo-violin.wav \
-            -map 0:v:0 -map 1:a:0 -t 24 \
-            -c:v copy -c:a aac -b:a 192k -shortest -movflags +faststart \
-            work/full-body-rig/master-director/full-body-master-director-mixed.mp4
-          python autopilot/engine/verify_master_director_render.py \
-            --video work/full-body-rig/master-director/full-body-master-director-mixed.mp4 \
-            --project work/full-body-rig/master-director/project.json \
-            --motion-report work/full-body-rig/master-director/composition/motion-report.json \
-            --report-output work/full-body-rig/master-director/master-director-render-qa.json
-
       - name: Generate dense pose-range review evidence
         run: |
           python autopilot/engine/pose_range_visual_qa.py \
@@ -947,7 +898,87 @@ jobs:
           canvas.save("work/full-body-rig/full-body-performance-contact-sheet.jpg", quality=94)
           PY
 
+      - name: Upload character-only rig review evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-body-character-only-review-${{ github.run_number }}
+          path: |
+            work/full-body-rig/full-body-violin-performance.mp4
+            work/full-body-rig/full-body-performance-contact-sheet.jpg
+            work/full-body-rig/pose-range-qa/pose-range-visual-qa.json
+            work/full-body-rig/pose-range-qa/full-body-pose-range-contact-sheet.jpg
+            work/full-body-rig/joint-artwork-review/joint-artwork-contact-sheet.jpg
+            work/full-body-rig/joint-artwork-review/joint-artwork-template.json
+            work/full-body-rig/joint-artwork-review/joint-artwork-review-report.json
+            work/full-body-rig/joint-artwork-review/joint-artwork-annotator.html
+            work/full-body-rig/bundle/full-body-performance-report.json
+            work/full-body-rig/bundle/reference-sheets-report.json
+            work/full-body-rig/bundle/reference-part-map.json
+            work/full-body-rig/bundle/reference-parts-contact-sheet.png
+            work/full-body-rig/bundle/separation-report.json
+            work/full-body-rig/bundle/separation-preview.png
+            work/full-body-rig/bundle/character.json
+            work/full-body-rig/bundle/*.png
+            work/full-body-rig/bundle/*.webp
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Build a 24-second full-body base project for the Master Director integration
+        if: ${{ env.MASTER_DIRECTOR_VISUAL_REVIEW_APPROVED == 'true' }}
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python autopilot/engine/create_full_body_performance_preview.py \
+            --bundle work/full-body-rig/bundle \
+            --output work/full-body-rig/master-director-base \
+            --audio work/full-body-rig/audio/violin-prince-cc0-solo-violin.wav \
+            --music-map work/full-body-rig/audio/violin-prince-cc0-solo-violin.music-map.json \
+            --duration-seconds 24
+
+      - name: Assemble the 8-shot full-body Master Director integration project
+        if: ${{ env.MASTER_DIRECTOR_VISUAL_REVIEW_APPROVED == 'true' }}
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python autopilot/engine/create_master_director_video_project.py \
+            --base-project work/full-body-rig/master-director-base/project.json \
+            --director-plan autopilot/engine/tests/fixtures/master-director-fullbody-integration-demo.json \
+            --output work/full-body-rig/master-director/project.json
+
+      - name: Build and render the complete multi-shot full-body sequence
+        if: ${{ env.MASTER_DIRECTOR_VISUAL_REVIEW_APPROVED == 'true' }}
+        working-directory: autopilot/engine/animation2d
+        run: |
+          node build.mjs \
+            --project ../../../work/full-body-rig/master-director/project.json \
+            --out-dir ../../../work/full-body-rig/master-director/composition
+          mkdir -p ../../../work/full-body-rig/master-director/composition/assets/characters
+          cp -R ../../../work/full-body-rig/master-director-base/assets/characters/violin-prince \
+            ../../../work/full-body-rig/master-director/composition/assets/characters/
+          cd ../../../work/full-body-rig/master-director/composition
+          $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes lint
+          $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes render \
+            --output ../full-body-master-director-video-only.mp4 --fps 25 --quality standard
+
+      - name: Mix the full-duration test violin guide and verify every Director shot
+        if: ${{ env.MASTER_DIRECTOR_VISUAL_REVIEW_APPROVED == 'true' }}
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          ffmpeg -hide_banner -loglevel error -y \
+            -i work/full-body-rig/master-director/full-body-master-director-video-only.mp4 \
+            -i work/full-body-rig/audio/violin-prince-cc0-solo-violin.wav \
+            -map 0:v:0 -map 1:a:0 -t 24 \
+            -c:v copy -c:a aac -b:a 192k -shortest -movflags +faststart \
+            work/full-body-rig/master-director/full-body-master-director-mixed.mp4
+          python autopilot/engine/verify_master_director_render.py \
+            --video work/full-body-rig/master-director/full-body-master-director-mixed.mp4 \
+            --project work/full-body-rig/master-director/project.json \
+            --motion-report work/full-body-rig/master-director/composition/motion-report.json \
+            --report-output work/full-body-rig/master-director/master-director-render-qa.json
+
       - name: Build explicit synthetic narration test fixture and independent animation layers
+        if: ${{ env.MASTER_DIRECTOR_VISUAL_REVIEW_APPROVED == 'true' }}
         env:
           PYTHONPATH: autopilot/engine
         run: |
@@ -959,6 +990,7 @@ jobs:
             --output-dir work/full-body-rig/cinematic-composition
 
       - name: Render the multi-layer cinematic composition preview
+        if: ${{ env.MASTER_DIRECTOR_VISUAL_REVIEW_APPROVED == 'true' }}
         env:
           PYTHONPATH: autopilot/engine
         run: |
@@ -968,6 +1000,7 @@ jobs:
             --report work/full-body-rig/cinematic-composition-report.json
 
       - name: Verify full composition streams, track integration and artifact privacy
+        if: ${{ env.MASTER_DIRECTOR_VISUAL_REVIEW_APPROVED == 'true' }}
         run: |
           python - <<'PY'
           import json
@@ -1024,6 +1057,7 @@ jobs:
             --columns 5
 
       - name: Upload preview and QA evidence only
+        if: ${{ env.MASTER_DIRECTOR_VISUAL_REVIEW_APPROVED == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: full-body-violin-performance-preview-${{ github.run_number }}
