@@ -174,6 +174,11 @@ def make_source_bundle(root: Path):
         "reference-part-025": "violin",
         **BRIDGES,
     }
+    z_by_id = {
+        "reference-part-006": 51,
+        "source-bridge-right_forearm": 52,
+        "reference-part-025": 60,
+    }
     for index, layer_id in enumerate(PRIMARY_IDS + list(BRIDGES)):
         role = role_by_id[layer_id]
         layer_x, layer_y, layer_width, layer_height = 100, 200, 80, 80
@@ -187,7 +192,7 @@ def make_source_bundle(root: Path):
             "bridge_id": next((key for key in BRIDGES if key == layer_id), None),
             "target_role": role,
             "x": layer_x, "y": layer_y, "width": layer_width, "height": layer_height,
-            "z_index": index + 1,
+            "z_index": z_by_id.get(layer_id, index + 1),
             "rotation_deg": 0, "scale": 1,
             "pivot_hint_normalized": [0.5, 0.5],
             "pivot_status": "alpha_overlap_candidate_estimate_not_approved",
