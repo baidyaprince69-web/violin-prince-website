@@ -704,8 +704,9 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
       throw new Error("Scene " + scene.id +
         " contains a joint surface that is not an approved lower-body source-pixel polygon; capsules and protected upper-body/hand joints are forbidden.");
     }
+    const jointSurfaceTransformPrefix = scene.id + "-" + character.id + "-part-joint_surface_";
     const jointSurfaceTransformTracks = project.motion_tracks.filter(item =>
-      String(item.target || "").includes("-part-joint_surface_") &&
+      String(item.target || "").startsWith(jointSurfaceTransformPrefix) &&
       item.property === "transform" &&
       !String(item.target || "").includes("-mesh-triangle-")
     );
