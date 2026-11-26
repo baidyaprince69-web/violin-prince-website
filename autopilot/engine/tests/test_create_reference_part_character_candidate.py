@@ -76,6 +76,7 @@ def make_source_bundle(root: Path):
 
     for name in ("neutral", "happy"):
         write_image(source / f"expression-{name}.png")
+    write_image(source / "pose-resting_hands.png")
     write_image(source / "base-art.png")
 
     original_joints = {
@@ -104,6 +105,9 @@ def make_source_bundle(root: Path):
         },
         "head_variants": facial_assets,
         "head_angles": {},
+        "pose_assets": {
+            "resting_hands": {"src": "pose-resting_hands.png"},
+        },
         "props": {
             "violin": {
                 "id": "violin", "src": "reference-part-025.png",
@@ -221,6 +225,11 @@ class ReferencePartCharacterCandidateTests(unittest.TestCase):
             self.assertEqual(report["candidate_character_layer_count"], 17)
             self.assertEqual(report["candidate_prop_count"], 2)
             self.assertEqual(set(candidate["head_variants"]), REQUIRED_FACE_STATES)
+            self.assertEqual(
+                candidate["pose_assets"]["resting_hands"]["src"],
+                "pose-resting_hands.png",
+            )
+            self.assertTrue((output / "pose-resting_hands.png").is_file())
             self.assertEqual(candidate["props"]["bow"]["attach_to"], "left_hand")
             self.assertEqual(candidate["props"]["violin"]["attach_to"], "torso")
             self.assertFalse(alignment["production_layer_replacement_enabled"])
