@@ -1441,13 +1441,16 @@ def _build_source_motion_backplate(
     bundle_dir: Path,
     joints: dict[str, Any],
     torso_layer: dict[str, Any] | None = None,
+    moving_mask: np.ndarray | None = None,
+    excluded_canvas_alpha: np.ndarray | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Create a source-faithful underlay behind independently moving body sprites.
+    """Create a seam-only source underlay behind independently moving sprites.
 
-    The underlay is restricted to narrow corridors along the original arms and
-    legs plus their anatomical connections. Moving sprites stay above it. This
-    restores real source pixels at seams instead of filling visible gaps with
-    non-semantic inpainting.
+    The backplate must never contain full-length copies of arms or legs. Those
+    source pixels belong exclusively to their articulated sprites; retaining
+    them beneath the sprites creates a second, stationary set of limbs during
+    motion. Keep only compact joint-seam islands and the static torso underlay.
+    Moving-pixel and prop masks are subtracted after feather coverage is built.
     """
     try:
         import cv2
@@ -1485,45 +1488,19 @@ def _build_source_motion_backplate(
         )
     }
 
-    segments = [
-        ("neck", "left_shoulder", 18.0),
-        ("left_shoulder", "left_elbow", 17.0),
-        ("left_elbow", "left_wrist", 15.0),
-        ("neck", "right_shoulder", 18.0),
-        ("right_shoulder", "right_elbow", 17.0),
-        ("right_elbow", "right_wrist", 15.0),
-        ("left_hip", "left_knee", 22.0),
-        ("left_knee", "left_ankle", 18.0),
-        ("right_hip", "right_knee", 22.0),
-        ("right_knee", "right_ankle", 18.0),
-        ("left_hip", "right_hip", 23.0),
-    ]
-    for start_name, end_name, radius in segments:
-        ax, ay = anchors[start_name]
-        bx, by = anchors[end_name]
-        vx, vy = bx - ax, by - ay
-        denominator = max(1e-6, vx * vx + vy * vy)
-        projection = np.clip(((xx - ax) * vx + (yy - ay) * vy) / denominator, 0.0, 1.0)
-        distance_squared = (xx - (ax + projection * vx)) ** 2 + (yy - (ay + projection * vy)) ** 2
-        coverage |= distance_squared <= radius * radius
-
+    # Compact underlap only: enough source texture to seal a pivot seam, not
+    # enough to leave a visible duplicate sleeve, hand, trouser leg or shoe.
     joint_radii = {
-        "left_shoulder": (22.0, 21.0), "right_shoulder": (22.0, 21.0),
-        "left_elbow": (21.0, 20.0), "right_elbow": (21.0, 20.0),
-        "left_wrist": (18.0, 18.0), "right_wrist": (18.0, 18.0),
-        "left_hip": (29.0, 27.0), "right_hip": (29.0, 27.0),
-        "left_knee": (24.0, 22.0), "right_knee": (24.0, 22.0),
-        "left_ankle": (20.0, 19.0), "right_ankle": (20.0, 19.0),
+        "left_shoulder": (10.0, 10.0), "right_shoulder": (10.0, 10.0),
+        "left_elbow": (8.0, 8.0), "right_elbow": (8.0, 8.0),
+        "left_wrist": (7.0, 7.0), "right_wrist": (7.0, 7.0),
+        "left_hip": (11.0, 9.0), "right_hip": (11.0, 9.0),
+        "left_knee": (8.0, 8.0), "right_knee": (8.0, 8.0),
+        "left_ankle": (7.0, 7.0), "right_ankle": (7.0, 7.0),
     }
     for name, (radius_x, radius_y) in joint_radii.items():
         cx, cy = anchors[name]
         coverage |= ((xx - cx) / radius_x) ** 2 + ((yy - cy) / radius_y) ** 2 <= 1.0
-
-    # A wider, source-faithful pelvis bridge closes the jacket/trouser seam.
-    left_hip, right_hip = anchors["left_hip"], anchors["right_hip"]
-    pelvis_x = (left_hip[0] + right_hip[0]) * 0.5
-    pelvis_y = (left_hip[1] + right_hip[1]) * 0.5 + 5.0
-    coverage |= ((xx - pelvis_x) / 43.0) ** 2 + ((yy - pelvis_y) / 29.0) ** 2 <= 1.0
 
     torso_source_pixels = 0
     if torso_layer:
@@ -1532,23 +1509,40 @@ def _build_source_motion_backplate(
         ).astype(np.uint8)
         if torso_mask.shape != (height, width):
             raise AutoRigError("The torso source mask does not match the full-body canvas.")
-        # Close small parser/prop cutouts inside the jacket silhouette, then
-        # expand the underlay slightly beyond its edge. The moving torso image
-        # and violin/bow sprites remain above this source-faithful plate.
+        # A small dilation fills edge pinholes in the static jacket/torso only.
+        # Do not extend this mask into the independently moving limb sprites.
         closed_torso = cv2.morphologyEx(
-            torso_mask, cv2.MORPH_CLOSE, np.ones((31, 31), dtype=np.uint8)
+            torso_mask, cv2.MORPH_CLOSE, np.ones((15, 15), dtype=np.uint8)
         )
         expanded_torso = cv2.dilate(
-            closed_torso, np.ones((11, 11), dtype=np.uint8), iterations=1
+            closed_torso, np.ones((5, 5), dtype=np.uint8), iterations=1
         ) > 0
         coverage |= expanded_torso
         torso_source_pixels = int(np.count_nonzero(
             expanded_torso & (pixels[:, :, 3] > 12)
         ))
 
+    moving_exclusion = np.zeros((height, width), dtype=bool)
+    if moving_mask is not None:
+        moving_exclusion = np.asarray(moving_mask, dtype=bool)
+        if moving_exclusion.shape != (height, width):
+            raise AutoRigError("The moving-pixel exclusion mask does not match the source canvas.")
+    prop_exclusion = np.zeros((height, width), dtype=bool)
+    if excluded_canvas_alpha is not None:
+        excluded = np.asarray(excluded_canvas_alpha, dtype=np.uint8)
+        if excluded.shape != (height, width):
+            raise AutoRigError("The prop exclusion mask does not match the source canvas.")
+        prop_exclusion = excluded > 12
+
+    # Never put original limb/hand/bow artwork back underneath the corresponding
+    # animated sprite. This is the critical anti-ghosting compositing rule.
+    exclusion = moving_exclusion | prop_exclusion
+    coverage &= ~exclusion
+
     soft_coverage = cv2.GaussianBlur(
-        coverage.astype(np.uint8) * 255, (0, 0), sigmaX=1.25
+        coverage.astype(np.uint8) * 255, (0, 0), sigmaX=0.85
     )
+    soft_coverage[exclusion] = 0
     original_alpha = pixels[:, :, 3].copy()
     pixels[:, :, 3] = np.rint(
         original_alpha.astype(np.float32) * (soft_coverage.astype(np.float32) / 255.0)
@@ -1573,10 +1567,14 @@ def _build_source_motion_backplate(
     }
     report = {
         "status": "created",
-        "method": "source_faithful_arm_leg_corridors_and_joint_overlaps",
+        "method": "seam_only_joint_patches_and_static_torso_underlay",
         "asset": destination.name,
-        "bone_corridor_count": len(segments),
+        "bone_corridor_count": 0,
+        "limb_corridors_excluded": True,
         "joint_coverage_count": len(joint_radii),
+        "joint_patch_radii_px": {name: list(radii) for name, radii in joint_radii.items()},
+        "moving_source_pixels_excluded": int(moving_exclusion.sum()),
+        "prop_source_pixels_excluded": int(prop_exclusion.sum()),
         "torso_underlay_added": bool(torso_layer),
         "torso_source_pixels_covered": torso_source_pixels,
         "source_pixels_preserved": visible_pixels,
@@ -3043,6 +3041,8 @@ def extend_full_body_character(
     source_motion_backplate_layer, source_motion_backplate_report = _build_source_motion_backplate(
         source, bundle, character.get("joints") or {},
         torso_layer=torso_layer_for_backplate,
+        moving_mask=moving_mask,
+        excluded_canvas_alpha=prop_masks.get("bow"),
     )
     character["layers"].append(source_motion_backplate_layer)
 
