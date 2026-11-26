@@ -774,7 +774,14 @@ jobs:
           assert action.get("visible") is True, action
           assert float(action.get("start_offset", -1)) == 0.0, action
           assert not action.get("head_angle_sequence"), action
-          assert not action.get("head_expression_sequence"), action
+          facial_sequence = action.get("head_expression_sequence", [])
+          expected_facial_states = {
+              "speaking_open", "speaking_closed", "blink_closed",
+              "sad", "shocked_open", "smile",
+          }
+          assert expected_facial_states.issubset(set(facial_sequence)), action
+          assert len(facial_sequence) >= 12, action
+          assert float(action.get("head_expression_cycle_duration_seconds", 0)) >= 4.5, action
           character = json.loads(Path("work/full-body-rig/bundle/character.json").read_text())
           props = character.get("props", {})
           assert props.get("bow", {}).get("attach_to") == "left_hand", props
@@ -792,7 +799,8 @@ jobs:
           grip_x = bow["x"] + bow["pivot_x"] * bow["width"]
           grip_y = bow["y"] + bow["pivot_y"] * bow["height"]
           assert abs(grip_x - 178) <= 1.5 and abs(grip_y - 242) <= 1.5, (grip_x, grip_y)
-          assert len(character.get("head_variants", {})) == 4, character
+          assert len(character.get("head_variants", {})) == 10, character
+          assert expected_facial_states.issubset(set(character.get("head_variants", {}))), character
           assert len(character.get("head_angles", {})) == 4, character
           assert scene.get("stagecraft_environment") == "concert_stage", scene
           assert report.get("animated_stagecraft_scene_count") == 1, report
