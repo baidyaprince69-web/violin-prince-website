@@ -937,7 +937,7 @@ jobs:
           assert len(sync.get("onsets", [])) > 0, sync
           assert len(sync.get("note_events", [])) >= 4, sync
           assert action.get("head_angle") == "front", action
-          assert action.get("head_expression") == "focused", action
+          assert action.get("head_expression") == "speaking_closed", action
           assert action.get("visible") is True, action
           assert float(action.get("start_offset", -1)) == 0.0, action
           assert not action.get("head_angle_sequence"), action
