@@ -92,6 +92,8 @@ def make_source_bundle(root: Path):
         ],
         fill=(177, 123, 89, 255),
     )
+    # A small exposed violin-neck area between the fingers must remain transparent.
+    preserved_draw.rectangle((382, 185, 388, 191), fill=(87, 66, 44, 255))
     preserved_draw.line((337, 178, 342, 199), fill=(75, 42, 31, 255), width=2)
     preserved_draw.line((351, 176, 356, 201), fill=(75, 42, 31, 255), width=2)
     preserved_draw.line((365, 176, 369, 200), fill=(75, 42, 31, 255), width=2)
