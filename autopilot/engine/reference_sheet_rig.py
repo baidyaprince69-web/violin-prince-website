@@ -60,7 +60,44 @@ REFERENCE_PART_ROLE_MAP = {
 }
 
 
-def _reference_part_mapping(part_number: int) -> dict[str, str]:
+REFERENCE_PART_ALIGNMENT_RULES = {
+    1:  {"target_kind": "layer", "target_role": "head", "group": "head", "variant": "head_portrait", "rotation_deg": 0},
+    2:  {"target_kind": "layer", "target_role": "head", "group": "hair", "variant": "hair_overlay_alternative", "target_region": [0.04, 0.00, 0.92, 0.42], "rotation_deg": 0},
+    3:  {"target_kind": "layer", "target_role": "torso", "group": "torso", "variant": "jacket_primary", "target_region": [0.16, 0.02, 0.68, 0.96], "rotation_deg": 0},
+    4:  {"target_kind": "layer", "target_role": "left_upper_arm", "group": "sleeve", "variant": "left_sleeve_candidate", "rotation_deg": -16},
+    5:  {"target_kind": "layer", "target_role": "right_upper_arm", "group": "sleeve", "variant": "right_sleeve_candidate", "rotation_deg": -42},
+    6:  {"target_kind": "layer", "target_role": "left_forearm", "group": "sleeve", "variant": "sleeve_alternative", "rotation_deg": 90},
+    7:  {"target_kind": "layer", "target_role": "face", "group": "eye", "variant": "left_eye_open", "target_region": [0.08, 0.12, 0.38, 0.32], "rotation_deg": 0},
+    8:  {"target_kind": "layer", "target_role": "face", "group": "eye", "variant": "right_eye_open", "target_region": [0.54, 0.12, 0.38, 0.32], "rotation_deg": 0},
+    9:  {"target_kind": "layer", "target_role": "face", "group": "nose", "variant": "nose_primary", "target_region": [0.36, 0.34, 0.28, 0.46], "rotation_deg": 0},
+    10: {"target_kind": "layer", "target_role": "face", "group": "eye", "variant": "left_eye_alternative", "target_region": [0.08, 0.12, 0.38, 0.32], "rotation_deg": 0},
+    11: {"target_kind": "layer", "target_role": "face", "group": "eye", "variant": "right_eye_alternative", "target_region": [0.54, 0.12, 0.38, 0.32], "rotation_deg": 0},
+    12: {"target_kind": "layer", "target_role": "torso", "group": "torso", "variant": "jacket_alternative", "target_region": [0.16, 0.02, 0.68, 0.96], "rotation_deg": 0},
+    13: {"target_kind": "layer", "target_role": "face", "group": "nose", "variant": "nose_alternative", "target_region": [0.36, 0.34, 0.28, 0.46], "rotation_deg": 0},
+    14: {"target_kind": "layer", "target_role": "left_calf", "group": "lower_leg", "variant": "left_lower_leg_alternative_a", "rotation_deg": 0},
+    15: {"target_kind": "layer", "target_role": "right_calf", "group": "lower_leg", "variant": "right_lower_leg_alternative_a", "rotation_deg": 0},
+    16: {"target_kind": "layer", "target_role": "left_calf", "group": "lower_leg", "variant": "lower_leg_alternative_b", "rotation_deg": 0},
+    17: {"target_kind": "layer", "target_role": "left_hand", "group": "hand_pose", "variant": "left_open_hand", "rotation_deg": 0},
+    18: {"target_kind": "layer", "target_role": "right_hand", "group": "hand_pose", "variant": "right_open_hand", "rotation_deg": 0},
+    19: {"target_kind": "layer", "target_role": "left_hand", "group": "hand_pose", "variant": "left_cupped_hand", "rotation_deg": 0},
+    20: {"target_kind": "layer", "target_role": "right_hand", "group": "hand_pose", "variant": "right_cupped_hand", "rotation_deg": 0},
+    21: {"target_kind": "layer", "target_role": "left_hand", "group": "hand_pose", "variant": "left_grip_hand", "rotation_deg": 0},
+    22: {"target_kind": "layer", "target_role": "right_hand", "group": "hand_pose", "variant": "right_fingerboard_hand", "rotation_deg": 0},
+    23: {"target_kind": "layer", "target_role": "left_hand", "group": "hand_pose", "variant": "left_bow_grip_alternative", "rotation_deg": 0},
+    24: {"target_kind": "layer", "target_role": "torso", "group": "waist", "variant": "waist_primary", "target_region": [0.08, 0.72, 0.84, 0.28], "rotation_deg": 0},
+    25: {"target_kind": "prop", "target_prop": "violin", "group": "instrument", "variant": "reference_violin", "rotation_deg": -90},
+    26: {"target_kind": "prop", "target_prop": "bow", "group": "instrument", "variant": "reference_bow", "rotation_deg": -29},
+    27: {"target_kind": "layer", "target_role": "left_thigh", "group": "thigh", "variant": "left_thigh_primary", "rotation_deg": 0},
+    28: {"target_kind": "layer", "target_role": "right_thigh", "group": "thigh", "variant": "right_thigh_primary", "rotation_deg": 0},
+    29: {"target_kind": "layer", "target_role": "torso", "group": "waist", "variant": "waist_alternative", "target_region": [0.08, 0.72, 0.84, 0.28], "rotation_deg": 0},
+    30: {"target_kind": "layer", "target_role": "left_calf", "group": "lower_leg", "variant": "left_lower_leg_primary", "rotation_deg": 0},
+    31: {"target_kind": "layer", "target_role": "right_calf", "group": "lower_leg", "variant": "right_lower_leg_primary", "rotation_deg": 0},
+    32: {"target_kind": "layer", "target_role": "left_foot", "group": "shoe", "variant": "left_shoe", "rotation_deg": 0},
+    33: {"target_kind": "layer", "target_role": "right_foot", "group": "shoe", "variant": "right_shoe", "rotation_deg": 0},
+}
+
+
+def _reference_part_mapping(part_number: int) -> dict[str, Any]:
     reference_role, suggested_rig_role, confidence = REFERENCE_PART_ROLE_MAP.get(
         int(part_number),
         ("unclassified_reference_part", "manual_review", "low"),
@@ -69,8 +106,145 @@ def _reference_part_mapping(part_number: int) -> dict[str, str]:
         "reference_role": reference_role,
         "suggested_rig_role": suggested_rig_role,
         "mapping_confidence": confidence,
-        "use_policy": "reference_only_until_manual_alignment_review",
+        "alignment_rule": dict(REFERENCE_PART_ALIGNMENT_RULES.get(int(part_number), {})),
+        "use_policy": "alignment_candidate_created_pending_visual_review",
     }
+
+
+def _reference_part_alignment_candidates(
+    part_records: list[dict[str, Any]],
+    character: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Compute explicit fit transforms without activating unreviewed body art."""
+    layer_by_role = {
+        str(layer.get("role") or ""): layer
+        for layer in character.get("layers", [])
+    }
+    props = character.get("props") or {}
+    canvas = character.get("canvas") or {}
+    canvas_width = float(canvas.get("width", 0))
+    canvas_height = float(canvas.get("height", 0))
+    candidates = []
+    for item in part_records:
+        number = int(str(item["part_id"]).rsplit("-", 1)[-1])
+        rule = dict(REFERENCE_PART_ALIGNMENT_RULES.get(number, {}))
+        target_kind = str(rule.get("target_kind") or "layer")
+        target_role = str(rule.get("target_role") or item.get("suggested_rig_role") or "manual_review")
+        if target_kind == "prop":
+            target_id = str(rule.get("target_prop") or "")
+            target = props.get(target_id)
+            target_source = f"props.{target_id}"
+        else:
+            target_id = target_role
+            target = layer_by_role.get(target_role)
+            target_source = f"layers.role:{target_role}"
+        target_available = isinstance(target, dict)
+        if target_available:
+            tx, ty = float(target.get("x", 0)), float(target.get("y", 0))
+            tw, th = float(target.get("width", 1)), float(target.get("height", 1))
+            region = rule.get("target_region")
+            if isinstance(region, list) and len(region) == 4:
+                rx, ry, rw, rh = [float(value) for value in region]
+                original_width, original_height = tw, th
+                tx, ty = tx + original_width * rx, ty + original_height * ry
+                tw, th = original_width * rw, original_height * rh
+        else:
+            tx, ty, tw, th = 0.0, 0.0, canvas_width, canvas_height
+        source_width = float(item["source_bbox"][2] - item["source_bbox"][0])
+        source_height = float(item["source_bbox"][3] - item["source_bbox"][1])
+        rotation = float(rule.get("rotation_deg", 0))
+        radians = np.deg2rad(rotation)
+        rotated_width = abs(source_width * float(np.cos(radians))) + abs(source_height * float(np.sin(radians)))
+        rotated_height = abs(source_width * float(np.sin(radians))) + abs(source_height * float(np.cos(radians)))
+        scale = min(tw / max(rotated_width, 1.0), th / max(rotated_height, 1.0))
+        placed_width, placed_height = rotated_width * scale, rotated_height * scale
+        x, y = tx + (tw - placed_width) / 2, ty + (th - placed_height) / 2
+        candidates.append({
+            "part_id": item["part_id"],
+            "src": Path(item["path"]).name,
+            "target_kind": target_kind,
+            "target_id": target_id,
+            "target_role": target_role,
+            "target_source": target_source,
+            "target_geometry_available": target_available,
+            "target_box": [round(tx, 3), round(ty, 3), round(tw, 3), round(th, 3)],
+            "target_region": rule.get("target_region"),
+            "group": str(rule.get("group") or "unclassified"),
+            "variant": str(rule.get("variant") or item["part_id"]),
+            "rotation_deg": rotation,
+            "fit_policy": "contain_preserving_aspect_after_rotation",
+            "candidate_transform": {
+                "x": round(x, 3), "y": round(y, 3),
+                "width": round(placed_width, 3), "height": round(placed_height, 3),
+                "scale": round(scale, 6), "rotation_deg": rotation,
+                "pivot": [0.5, 0.5],
+            },
+            "alignment_status": "candidate_not_active",
+        })
+    return candidates
+
+
+def _write_reference_part_alignment_preview(
+    part_records: list[dict[str, Any]],
+    candidates: list[dict[str, Any]],
+    bundle: Path,
+) -> str:
+    """Compare each candidate cut-out over its proposed source-aligned target crop."""
+    source_path = bundle / "preserved-full-body-source.png"
+    source = None
+    if source_path.is_file():
+        with Image.open(source_path) as opened:
+            source = opened.convert("RGBA")
+    columns, cell_width, cell_height = 4, 250, 190
+    rows = max(1, (len(part_records) + columns - 1) // columns)
+    sheet = Image.new("RGB", (columns * cell_width, rows * cell_height), (18, 27, 41))
+    draw = ImageDraw.Draw(sheet)
+    by_candidate = {item["part_id"]: item for item in candidates}
+    for index, item in enumerate(part_records):
+        part_id = item["part_id"]
+        candidate = by_candidate[part_id]
+        row, column = divmod(index, columns)
+        left, top = column * cell_width, row * cell_height
+        draw.text((left + 8, top + 5), f"{part_id}  {candidate['target_role']}", fill=(245, 238, 224))
+        draw.text((left + 8, top + 19), f"{candidate['group']} / {candidate['variant']}", fill=(150, 190, 214))
+        tx, ty, tw, th = candidate["target_box"]
+        preview = Image.new("RGBA", (max(1, int(round(tw))), max(1, int(round(th)))), (30, 42, 60, 255))
+        if source is not None:
+            crop = source.crop((
+                max(0, int(round(tx))), max(0, int(round(ty))),
+                min(source.width, int(round(tx + tw))), min(source.height, int(round(ty + th))),
+            ))
+            if crop.width > 0 and crop.height > 0:
+                preview.alpha_composite(crop.resize(preview.size, Image.Resampling.LANCZOS))
+        part = Image.open(item["path"]).convert("RGBA")
+        angle = float(candidate["rotation_deg"])
+        if angle:
+            part = part.rotate(angle, expand=True, resample=Image.Resampling.BICUBIC)
+        transform = candidate["candidate_transform"]
+        part = part.resize((
+            max(1, int(round(transform["width"]))),
+            max(1, int(round(transform["height"]))),
+        ), Image.Resampling.LANCZOS)
+        part.putalpha(part.getchannel("A").point(lambda value: int(value * 0.62)))
+        overlay = Image.new("RGBA", preview.size, (0, 0, 0, 0))
+        overlay.alpha_composite(part, (
+            int(round(transform["x"] - tx)),
+            int(round(transform["y"] - ty)),
+        ))
+        preview.alpha_composite(overlay)
+        preview.thumbnail((cell_width - 16, cell_height - 48), Image.Resampling.LANCZOS)
+        sheet.paste(preview.convert("RGB"), (
+            left + (cell_width - preview.width) // 2,
+            top + 38,
+        ))
+        draw.text(
+            (left + 8, top + cell_height - 17),
+            "TARGET FOUND" if candidate["target_geometry_available"] else "TARGET ROLE MISSING",
+            fill=(130, 220, 166) if candidate["target_geometry_available"] else (238, 170, 110),
+        )
+    destination = bundle / "reference-part-alignment-review.jpg"
+    sheet.save(destination, format="JPEG", quality=93)
+    return destination.name
 
 
 class ReferenceSheetError(ValueError):
@@ -311,6 +485,22 @@ def build_reference_sheet_rig(
     _write_component_contact_sheet(
         part_records, bundle / "reference-parts-contact-sheet.png"
     )
+    alignment_candidates = _reference_part_alignment_candidates(part_records, character)
+    alignment_preview_file = _write_reference_part_alignment_preview(
+        part_records, alignment_candidates, bundle
+    )
+    alignment_payload = {
+        "schema_version": 1,
+        "status": "candidate_not_active_pending_visual_review",
+        "activation_policy": "do_not_replace_production_layers_until_candidate_review",
+        "coordinate_space": "character_canvas_top_left_pixels",
+        "parts": alignment_candidates,
+    }
+    alignment_path = bundle / "reference-part-alignment-candidate.json"
+    alignment_path.write_text(
+        json.dumps(alignment_payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
     expression_components = _four_ordered_components(
         expression_sheet_path, minimum_area_ratio=0.012
@@ -345,6 +535,14 @@ def build_reference_sheet_rig(
     character["head_plate_bounds"] = head_bounds
     character["head_variants"] = head_variants
     character["head_angles"] = head_angles
+    character["reference_part_alignment"] = {
+        "status": "candidate_not_active_pending_visual_review",
+        "alignment_file": alignment_path.name,
+        "preview_file": alignment_preview_file,
+        "part_count": len(alignment_candidates),
+        "production_layer_replacement_enabled": False,
+        "parts": alignment_candidates,
+    }
     character = validate_character_spec(character)
     character_path.write_text(
         json.dumps(character, ensure_ascii=False, indent=2) + "\n",
@@ -369,14 +567,18 @@ def build_reference_sheet_rig(
             }
             for item in part_records
         ],
-        "reference_parts_mapping": "curated_role_catalogue_review_only",
+        "reference_parts_mapping": "explicit_rig_role_and_target_geometry_candidates",
         "reference_part_mapping_file": "reference-part-map.json",
-        "alignment": "all expression and angle plates normalized to one shared canvas and bottom-centre neck anchor; body assets remain reference-only pending manual joint alignment",
+        "reference_part_alignment_file": alignment_path.name,
+        "reference_part_alignment_preview": alignment_preview_file,
+        "reference_part_alignment_candidate_count": len(alignment_candidates),
+        "alignment": "all 33 cut-outs have a provisional target rig role, target box, variant group and aspect-preserving transform; none are activated in production until visual review",
         "head_plate_normalization": "fixed_canvas_bottom_centre_neck_anchor",
         "head_plate_canvas": [
             int(head_bounds["width"]), int(head_bounds["height"])
         ],
         "automatic_body_part_replacement": False,
+        "candidate_layer_activation": "disabled_until_visual_review",
         "magenta_key": "magenta/purple guide pixels removed by hue and saturation; source alpha preserved",
         "visual_review_required": True,
         "publishing": "disabled",
@@ -400,9 +602,16 @@ def build_reference_sheet_rig(
                 "suggested_rig_role": item["suggested_rig_role"],
                 "mapping_confidence": item["mapping_confidence"],
                 "use_policy": item["use_policy"],
+                "alignment_candidate": next(
+                    candidate for candidate in alignment_candidates
+                    if candidate["part_id"] == item["part_id"]
+                ),
             }
             for item in part_records
         ],
+        "alignment_policy": "explicit_candidate_not_active_pending_visual_review",
+        "alignment_candidate_file": alignment_path.name,
+        "alignment_preview_file": alignment_preview_file,
     }
     (bundle / "reference-part-map.json").write_text(
         json.dumps(mapping_payload, ensure_ascii=False, indent=2) + "\n",

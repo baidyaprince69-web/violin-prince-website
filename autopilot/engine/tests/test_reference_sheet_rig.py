@@ -78,6 +78,8 @@ class ReferenceSheetRigTests(unittest.TestCase):
                 "torso", "head", "face",
                 "left_upper_arm", "left_forearm", "left_hand",
                 "right_upper_arm", "right_forearm", "right_hand",
+                "left_thigh", "right_thigh", "left_calf", "right_calf",
+                "left_foot", "right_foot",
             )
             layers = [
                 {"id": role, "role": role, "src": role + ".png",
@@ -119,13 +121,38 @@ class ReferenceSheetRigTests(unittest.TestCase):
                 "front", "three_quarter", "profile_right", "profile_left"
             })
             self.assertGreaterEqual(report["reference_part_count"], 12)
-            self.assertEqual(report["reference_parts_mapping"], "curated_role_catalogue_review_only")
+            self.assertEqual(
+                report["reference_parts_mapping"],
+                "explicit_rig_role_and_target_geometry_candidates",
+            )
+            self.assertEqual(
+                report["reference_part_alignment_candidate_count"],
+                report["reference_part_count"],
+            )
             self.assertTrue((root / "reference-parts-contact-sheet.png").is_file())
+            self.assertTrue((root / "reference-part-alignment-review.jpg").is_file())
+            alignment = json.loads((root / "reference-part-alignment-candidate.json").read_text())
+            self.assertEqual(alignment["status"], "candidate_not_active_pending_visual_review")
+            self.assertEqual(len(alignment["parts"]), report["reference_part_count"])
+            self.assertTrue(all(
+                item["alignment_status"] == "candidate_not_active"
+                and item["target_box"] is not None
+                and item["candidate_transform"]["scale"] > 0
+                for item in alignment["parts"]
+            ))
+            self.assertFalse(
+                character["reference_part_alignment"]["production_layer_replacement_enabled"]
+            )
             mapping = json.loads((root / "reference-part-map.json").read_text(encoding="utf-8"))
             self.assertEqual(len(mapping["parts"]), report["reference_part_count"])
             self.assertFalse(mapping["automatic_body_part_replacement"])
+            self.assertEqual(
+                mapping["alignment_policy"],
+                "explicit_candidate_not_active_pending_visual_review",
+            )
             self.assertTrue(all(
-                part["use_policy"] == "reference_only_until_manual_alignment_review"
+                part["use_policy"] == "alignment_candidate_created_pending_visual_review"
+                and part["alignment_candidate"]["alignment_status"] == "candidate_not_active"
                 for part in mapping["parts"]
             ))
             self.assertEqual(mapping["parts"][0]["reference_role"], "head_portrait")

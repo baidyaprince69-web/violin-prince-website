@@ -914,6 +914,8 @@ jobs:
             work/full-body-rig/bundle/full-body-performance-report.json
             work/full-body-rig/bundle/reference-sheets-report.json
             work/full-body-rig/bundle/reference-part-map.json
+            work/full-body-rig/bundle/reference-part-alignment-candidate.json
+            work/full-body-rig/bundle/reference-part-alignment-review.jpg
             work/full-body-rig/bundle/reference-parts-contact-sheet.png
             work/full-body-rig/bundle/separation-report.json
             work/full-body-rig/bundle/separation-preview.png
@@ -1082,6 +1084,8 @@ jobs:
             work/full-body-rig/bundle/full-body-performance-report.json
             work/full-body-rig/bundle/reference-sheets-report.json
             work/full-body-rig/bundle/reference-part-map.json
+            work/full-body-rig/bundle/reference-part-alignment-candidate.json
+            work/full-body-rig/bundle/reference-part-alignment-review.jpg
             work/full-body-rig/bundle/reference-parts-contact-sheet.png
             work/full-body-rig/bundle/separation-report.json
             work/full-body-rig/composition/motion-report.json
