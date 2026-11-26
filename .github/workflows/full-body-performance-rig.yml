@@ -250,8 +250,10 @@ jobs:
           backplate_report = report.get("source_motion_backplate", {})
           assert backplate_report.get("status") == "created", backplate_report
           assert backplate_report.get("method") == (
-              "source_faithful_arm_leg_corridors_and_joint_overlaps"
+              "seam_only_joint_patches_and_static_torso_underlay"
           ), backplate_report
+          assert backplate_report.get("bone_corridor_count") == 0, backplate_report
+          assert backplate_report.get("limb_corridors_excluded") is True, backplate_report
           assert backplate_report.get("source_alpha_respected") is True, backplate_report
           assert backplate_report.get("source_rgb_preserved") is True, backplate_report
           assert backplate_report.get("torso_underlay_added") is True, backplate_report
@@ -269,7 +271,26 @@ jobs:
           assert np.array_equal(
               backplate_pixels[underlay_visible, :3],
               source_pixels[underlay_visible, :3],
-          ), "The joint/limb backplate must use unchanged pixels from the preserved source artwork."
+          ), "The joint/torso backplate must use unchanged pixels from the preserved source artwork."
+          with Image.open(bundle / "full-body-moving-mask.png") as opened:
+              moving_mask = np.asarray(opened.convert("L"), dtype=np.uint8) > 0
+          assert moving_mask.shape == underlay_visible.shape, moving_mask.shape
+          assert not underlay_visible[moving_mask].any(), (
+              "Static backplate must not contain source pixels beneath articulated limb/hand sprites."
+          )
+          assert backplate_report.get("moving_source_pixels_excluded") == int(moving_mask.sum()), backplate_report
+          bow = character.get("props", {}).get("bow", {})
+          assert bow.get("src") and bow.get("x") is not None and bow.get("y") is not None, bow
+          with Image.open(bundle / str(bow["src"])) as opened:
+              bow_alpha = np.asarray(opened.convert("RGBA").getchannel("A"), dtype=np.uint8)
+          bow_mask = np.zeros(underlay_visible.shape, dtype=bool)
+          bx, by = int(round(float(bow["x"]))), int(round(float(bow["y"])))
+          bh, bw = bow_alpha.shape
+          bow_mask[by:by + bh, bx:bx + bw] = bow_alpha > 12
+          assert not underlay_visible[bow_mask].any(), (
+              "Animated bow artwork must not remain baked into the static source backplate."
+          )
+          assert backplate_report.get("prop_source_pixels_excluded") == int(bow_mask.sum()), backplate_report
           expected = {
               "left_hip", "right_hip", "left_knee",
               "right_knee", "left_ankle", "right_ankle",
