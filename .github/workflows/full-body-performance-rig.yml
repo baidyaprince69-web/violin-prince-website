@@ -406,6 +406,25 @@ jobs:
           assert (bow_hand["transform"].get("x"), bow_hand["transform"].get("y")) == (155, 219), assembly
           assert (root / "reference-part-assembled-candidate.png").is_file()
           assert (root / "reference-part-assembled-comparison.jpg").is_file()
+          layered = json.loads((root / "reference-part-assembled-layer-candidate.json").read_text())
+          assert layered.get("status") == "layered_candidate_exported_pending_joint_pivot_alignment", layered
+          assert layered.get("joint_pivots_validated") is False, layered
+          assert layered.get("animation_ready") is False, layered
+          assert layered.get("production_layer_replacement_enabled") is False, layered
+          assert layered.get("layer_count") == assembly.get("source_asset_count") == 18, layered
+          assert layered.get("primary_part_count") == 15, layered
+          assert layered.get("source_bridge_count") == 3, layered
+          assert layered.get("missing_or_unplaced") == [], layered
+          assert len(layered.get("layers", [])) == 18, layered
+          from PIL import Image
+          for layer in layered["layers"]:
+              layer_path = root / layer["src"]
+              assert layer_path.is_file(), layer
+              with Image.open(layer_path) as opened:
+                  assert opened.mode == "RGBA", (layer, opened.mode)
+                  assert opened.size == (layer["width"], layer["height"]), layer
+                  assert opened.getchannel("A").getbbox() is not None, layer
+              assert layer.get("pivot_status") == "provisional_hint_not_joint_validated", layer
           expected_facial_states = {
               "speaking_open", "speaking_closed", "blink_closed",
               "sad", "shocked_open", "smile",
@@ -415,7 +434,15 @@ jobs:
           assert set(report.get("facial_state_names", [])) == expected_facial_states, report
           assert report.get("facial_state_build_status") == "created_from_separate_eye_and_mouth_assets", report
           assert (root / "facial-state-head-contact-sheet.png").is_file()
+          assert layered.get("facial_state_build_status") == "created_from_separate_eye_and_mouth_assets", layered
+          assert set(layered.get("facial_state_assets", {})) == expected_facial_states, layered
+          assert layered.get("facial_state_alignment_status") == "awaiting_candidate_head_alignment", layered
           assert all((root / head_variants[name]["src"]).is_file() for name in expected_facial_states)
+          assert all(
+              (root / layered["facial_state_assets"][name]["src"]).is_file()
+              and layered["facial_state_assets"][name]["alignment_status"] == "awaiting_candidate_head_alignment"
+              for name in expected_facial_states
+          ), layered
           import hashlib
           facial_hashes = {
               hashlib.sha256((root / head_variants[name]["src"]).read_bytes()).hexdigest()
