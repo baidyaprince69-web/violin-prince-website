@@ -188,6 +188,32 @@ class ReferenceSheetRigTests(unittest.TestCase):
                     (155, 219),
                 )
             self.assertEqual(assembly["canvas"], {"width": 500, "height": 600})
+            layered = json.loads(
+                (root / "reference-part-assembled-layer-candidate.json").read_text()
+            )
+            self.assertEqual(
+                layered["status"],
+                "layered_candidate_exported_pending_joint_pivot_alignment",
+            )
+            self.assertFalse(layered["joint_pivots_validated"])
+            self.assertFalse(layered["animation_ready"])
+            self.assertFalse(layered["production_layer_replacement_enabled"])
+            self.assertEqual(layered["layer_count"], assembly["source_asset_count"])
+            self.assertEqual(layered["primary_part_count"], assembly["primary_part_count"])
+            self.assertEqual(layered["source_bridge_count"], assembly["source_bridge_count"])
+            self.assertEqual(layered["missing_or_unplaced"], assembly["missing_or_unplaced"])
+            self.assertTrue(layered["layers"])
+            for layer in layered["layers"]:
+                layer_path = root / layer["src"]
+                self.assertTrue(layer_path.is_file(), layer)
+                with Image.open(layer_path) as opened:
+                    self.assertEqual(opened.mode, "RGBA")
+                    self.assertEqual(opened.size, (layer["width"], layer["height"]))
+                    self.assertIsNotNone(opened.getchannel("A").getbbox())
+                self.assertEqual(
+                    layer["pivot_status"],
+                    "provisional_hint_not_joint_validated",
+                )
             self.assertNotIn("reference-part-014", assembly["primary_part_ids"])
             self.assertNotIn("reference-part-026", assembly["primary_part_ids"])
             self.assertIn("reference-part-030", assembly["primary_part_ids"])
