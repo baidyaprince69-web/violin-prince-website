@@ -208,7 +208,8 @@ test("float and bob motions use valid comma-separated CSS translate arguments", 
     assert.ok(track, "missing ambient motion for " + id);
     for (const value of track.values) {
       if (String(value).includes("translate(")) {
-        assert.match(String(value), /translate\\([^,()]+,\\s*[^()]+\\)/);
+        const transform = String(value).slice(String(value).indexOf("translate("), String(value).indexOf(")") + 1);
+        assert.ok(transform.includes(","), "two-axis translate must separate coordinates with a comma: " + value);
       }
     }
   }
