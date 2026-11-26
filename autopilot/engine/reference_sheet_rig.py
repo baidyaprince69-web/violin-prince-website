@@ -61,12 +61,12 @@ REFERENCE_PART_ROLE_MAP = {
 
 
 REFERENCE_PART_ALIGNMENT_RULES = {
-    1:  {"target_kind": "layer", "target_role": "head", "group": "head", "variant": "head_portrait", "rotation_deg": 0},
+    1:  {"target_kind": "layer", "target_role": "head", "group": "head", "variant": "head_portrait_with_neck", "canvas_box": [116, -8, 127, 175], "source_crop_ratio": [0.0, 0.0, 1.0, 0.85], "rotation_deg": 0, "assembly_z": 90},
     2:  {"target_kind": "layer", "target_role": "head", "group": "hair", "variant": "hair_overlay_alternative", "target_region": [0.04, 0.00, 0.92, 0.42], "rotation_deg": 0},
-    3:  {"target_kind": "layer", "target_role": "torso", "group": "torso", "variant": "jacket_primary", "target_region": [0.16, 0.02, 0.68, 0.96], "rotation_deg": 0},
-    4:  {"target_kind": "layer", "target_role": "left_upper_arm", "group": "sleeve", "variant": "left_sleeve_candidate", "rotation_deg": -16},
-    5:  {"target_kind": "layer", "target_role": "right_upper_arm", "group": "sleeve", "variant": "right_sleeve_candidate", "rotation_deg": -42},
-    6:  {"target_kind": "layer", "target_role": "left_forearm", "group": "sleeve", "variant": "sleeve_alternative", "rotation_deg": 90},
+    3:  {"target_kind": "layer", "target_role": "torso", "group": "torso", "variant": "jacket_primary", "canvas_box": [76, 122, 190, 285], "rotation_deg": 0, "assembly_z": 40},
+    4:  {"target_kind": "layer", "target_role": "left_upper_arm", "group": "sleeve", "variant": "left_sleeve_candidate", "canvas_box": [20, 141, 110, 145], "rotation_deg": -16, "assembly_z": 50},
+    5:  {"target_kind": "layer", "target_role": "right_upper_arm", "group": "sleeve", "variant": "right_sleeve_candidate", "canvas_box": [216, 137, 110, 164], "rotation_deg": -42, "assembly_z": 50},
+    6:  {"target_kind": "layer", "target_role": "left_forearm", "group": "sleeve", "variant": "left_forearm_sleeve_candidate", "canvas_box": [4, 215, 160, 64], "rotation_deg": 90, "assembly_z": 51},
     7:  {"target_kind": "layer", "target_role": "face", "group": "eye", "variant": "left_eye_open", "target_region": [0.08, 0.12, 0.38, 0.32], "rotation_deg": 0},
     8:  {"target_kind": "layer", "target_role": "face", "group": "eye", "variant": "right_eye_open", "target_region": [0.54, 0.12, 0.38, 0.32], "rotation_deg": 0},
     9:  {"target_kind": "layer", "target_role": "face", "group": "nose", "variant": "nose_primary", "target_region": [0.36, 0.34, 0.28, 0.46], "rotation_deg": 0},
@@ -84,7 +84,7 @@ REFERENCE_PART_ALIGNMENT_RULES = {
     21: {"target_kind": "layer", "target_role": "left_hand", "group": "hand_pose", "variant": "left_grip_hand", "rotation_deg": 0},
     22: {"target_kind": "layer", "target_role": "right_hand", "group": "hand_pose", "variant": "right_fingerboard_hand", "rotation_deg": 0},
     23: {"target_kind": "layer", "target_role": "left_hand", "group": "hand_pose", "variant": "left_bow_grip_alternative", "rotation_deg": 0},
-    24: {"target_kind": "layer", "target_role": "torso", "group": "waist", "variant": "waist_primary", "target_region": [0.08, 0.72, 0.84, 0.28], "rotation_deg": 0},
+    24: {"target_kind": "layer", "target_role": "torso", "group": "waist", "variant": "waist_primary", "canvas_box": [84, 372, 172, 78], "rotation_deg": 0, "assembly_z": 30},
     25: {"target_kind": "prop", "target_prop": "violin", "group": "instrument", "variant": "reference_violin", "rotation_deg": -90},
     26: {"target_kind": "prop", "target_prop": "bow", "group": "instrument", "variant": "reference_bow", "rotation_deg": -29},
     27: {"target_kind": "layer", "target_role": "left_thigh", "group": "thigh", "variant": "left_thigh_primary", "rotation_deg": 0},
@@ -139,7 +139,12 @@ def _reference_part_alignment_candidates(
             target = layer_by_role.get(target_role)
             target_source = f"layers.role:{target_role}"
         target_available = isinstance(target, dict)
-        if target_available:
+        direct_box = rule.get("canvas_box")
+        if isinstance(direct_box, list) and len(direct_box) == 4:
+            tx, ty, tw, th = [float(value) for value in direct_box]
+            target_source = "character.canvas.manual_alignment_box"
+            target_available = canvas_width > 0 and canvas_height > 0
+        elif target_available:
             tx, ty = float(target.get("x", 0)), float(target.get("y", 0))
             tw, th = float(target.get("width", 1)), float(target.get("height", 1))
             region = rule.get("target_region")
@@ -150,8 +155,21 @@ def _reference_part_alignment_candidates(
                 tw, th = original_width * rw, original_height * rh
         else:
             tx, ty, tw, th = 0.0, 0.0, canvas_width, canvas_height
+
         source_width = float(item["source_bbox"][2] - item["source_bbox"][0])
         source_height = float(item["source_bbox"][3] - item["source_bbox"][1])
+        source_crop = None
+        crop_ratio = rule.get("source_crop_ratio")
+        if isinstance(crop_ratio, list) and len(crop_ratio) == 4:
+            rx, ry, rw, rh = [float(value) for value in crop_ratio]
+            source_crop = [
+                max(0, int(round(source_width * rx))),
+                max(0, int(round(source_height * ry))),
+                min(int(source_width), int(round(source_width * (rx + rw)))),
+                min(int(source_height), int(round(source_height * (ry + rh)))),
+            ]
+            source_width = max(1, source_crop[2] - source_crop[0])
+            source_height = max(1, source_crop[3] - source_crop[1])
         rotation = float(rule.get("rotation_deg", 0))
         radians = np.deg2rad(rotation)
         rotated_width = abs(source_width * float(np.cos(radians))) + abs(source_height * float(np.sin(radians)))
@@ -169,9 +187,11 @@ def _reference_part_alignment_candidates(
             "target_geometry_available": target_available,
             "target_box": [round(tx, 3), round(ty, 3), round(tw, 3), round(th, 3)],
             "target_region": rule.get("target_region"),
+            "source_crop_px": source_crop,
             "group": str(rule.get("group") or "unclassified"),
             "variant": str(rule.get("variant") or item["part_id"]),
             "rotation_deg": rotation,
+            "assembly_z": int(rule.get("assembly_z", 40)),
             "fit_policy": "contain_preserving_aspect_after_rotation",
             "candidate_transform": {
                 "x": round(x, 3), "y": round(y, 3),
@@ -182,6 +202,16 @@ def _reference_part_alignment_candidates(
             "alignment_status": "candidate_not_active",
         })
     return candidates
+
+
+def _alpha_composite_clipped(destination: Image.Image, source: Image.Image, x: int, y: int) -> None:
+    """Alpha-composite source at x/y, safely clipping outside the destination."""
+    left, top = max(0, int(x)), max(0, int(y))
+    right, bottom = min(destination.width, int(x) + source.width), min(destination.height, int(y) + source.height)
+    if right <= left or bottom <= top:
+        return
+    sx, sy = left - int(x), top - int(y)
+    destination.alpha_composite(source.crop((sx, sy, sx + right - left, sy + bottom - top)), (left, top))
 
 
 def _write_reference_part_alignment_preview(
@@ -210,13 +240,13 @@ def _write_reference_part_alignment_preview(
         tx, ty, tw, th = candidate["target_box"]
         preview = Image.new("RGBA", (max(1, int(round(tw))), max(1, int(round(th)))), (30, 42, 60, 255))
         if source is not None:
-            crop = source.crop((
-                max(0, int(round(tx))), max(0, int(round(ty))),
-                min(source.width, int(round(tx + tw))), min(source.height, int(round(ty + th))),
-            ))
-            if crop.width > 0 and crop.height > 0:
-                preview.alpha_composite(crop.resize(preview.size, Image.Resampling.LANCZOS))
+            sx0, sy0 = max(0, int(round(tx))), max(0, int(round(ty)))
+            sx1, sy1 = min(source.width, int(round(tx + tw))), min(source.height, int(round(ty + th)))
+            if sx1 > sx0 and sy1 > sy0:
+                preview.alpha_composite(source.crop((sx0, sy0, sx1, sy1)), (sx0 - int(round(tx)), sy0 - int(round(ty))))
         part = Image.open(item["path"]).convert("RGBA")
+        if candidate.get("source_crop_px"):
+            part = part.crop(tuple(int(value) for value in candidate["source_crop_px"]))
         angle = float(candidate["rotation_deg"])
         if angle:
             part = part.rotate(angle, expand=True, resample=Image.Resampling.BICUBIC)
@@ -226,17 +256,9 @@ def _write_reference_part_alignment_preview(
             max(1, int(round(transform["height"]))),
         ), Image.Resampling.LANCZOS)
         part.putalpha(part.getchannel("A").point(lambda value: int(value * 0.62)))
-        overlay = Image.new("RGBA", preview.size, (0, 0, 0, 0))
-        overlay.alpha_composite(part, (
-            int(round(transform["x"] - tx)),
-            int(round(transform["y"] - ty)),
-        ))
-        preview.alpha_composite(overlay)
+        _alpha_composite_clipped(preview, part, int(round(transform["x"] - tx)), int(round(transform["y"] - ty)))
         preview.thumbnail((cell_width - 16, cell_height - 48), Image.Resampling.LANCZOS)
-        sheet.paste(preview.convert("RGB"), (
-            left + (cell_width - preview.width) // 2,
-            top + 38,
-        ))
+        sheet.paste(preview.convert("RGB"), (left + (cell_width - preview.width) // 2, top + 38))
         draw.text(
             (left + 8, top + cell_height - 17),
             "TARGET FOUND" if candidate["target_geometry_available"] else "TARGET ROLE MISSING",
@@ -451,23 +473,21 @@ def _write_component_contact_sheet(
 PRIMARY_ASSEMBLY_PARTS = (
     "reference-part-001", "reference-part-003",
     "reference-part-004", "reference-part-005", "reference-part-006",
-    "reference-part-014", "reference-part-015",
     "reference-part-021", "reference-part-022",
-    "reference-part-024", "reference-part-025", "reference-part-026",
+    "reference-part-024", "reference-part-025",
     "reference-part-027", "reference-part-028",
     "reference-part-030", "reference-part-031",
     "reference-part-032", "reference-part-033",
 )
 ASSEMBLY_Z_ORDER = {
     32: 5, 33: 5,
-    14: 10, 15: 10,
+    30: 10, 31: 10,
     27: 20, 28: 20,
     24: 30,
     3: 40,
     4: 50, 5: 50, 6: 51,
     25: 60,
     21: 70, 22: 70,
-    26: 80,
     1: 90,
 }
 
@@ -486,9 +506,10 @@ def _write_reference_part_assembly_candidate(
     part_by_id = {item["part_id"]: item for item in part_records}
     candidate_by_id = {item["part_id"]: item for item in candidates}
     assembled = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    placements, missing = [], []
+    placements, bridges, missing, render_items = [], [], [], []
 
-    for part_id in PRIMARY_ASSEMBLY_PARTS:
+    ordered_parts = sorted(PRIMARY_ASSEMBLY_PARTS, key=lambda pid: ASSEMBLY_Z_ORDER.get(int(pid.rsplit("-", 1)[-1]), 40))
+    for part_id in ordered_parts:
         item, candidate = part_by_id.get(part_id), candidate_by_id.get(part_id)
         if item is None or candidate is None:
             missing.append(part_id + ":not_found")
@@ -499,6 +520,8 @@ def _write_reference_part_assembly_candidate(
         transform = candidate["candidate_transform"]
         with Image.open(item["path"]) as opened:
             part = opened.convert("RGBA")
+        if candidate.get("source_crop_px"):
+            part = part.crop(tuple(int(value) for value in candidate["source_crop_px"]))
         rotation = float(candidate["rotation_deg"])
         if rotation:
             part = part.rotate(rotation, expand=True, resample=Image.Resampling.BICUBIC)
@@ -507,72 +530,72 @@ def _write_reference_part_assembly_candidate(
             max(1, int(round(float(transform["height"])))),
         ), Image.Resampling.LANCZOS)
         x, y = int(round(float(transform["x"]))), int(round(float(transform["y"])))
-        if x < 0 or y < 0 or x + part.width > width or y + part.height > height:
-            missing.append(part_id + ":outside_canvas")
-            continue
-        assembled.alpha_composite(part, (x, y))
-        number = int(part_id.rsplit("-", 1)[-1])
+        z_index = ASSEMBLY_Z_ORDER.get(int(part_id.rsplit("-", 1)[-1]), 40)
+        render_items.append((z_index, part_id, part, x, y))
         placements.append({
-            "part_id": part_id,
-            "src": Path(item["path"]).name,
-            "target_role": candidate["target_role"],
-            "variant": candidate["variant"],
-            "z_index": ASSEMBLY_Z_ORDER.get(number, 40),
+            "part_id": part_id, "src": Path(item["path"]).name,
+            "target_role": candidate["target_role"], "variant": candidate["variant"],
+            "z_index": z_index,
             "transform": {
-                "x": x, "y": y,
-                "width": part.width, "height": part.height,
-                "rotation_deg": rotation,
-                "scale": candidate["candidate_transform"]["scale"],
+                "x": x, "y": y, "width": part.width, "height": part.height,
+                "rotation_deg": rotation, "scale": transform["scale"],
+                "source_crop_px": candidate.get("source_crop_px"),
             },
         })
 
-    # The sheet has three sleeve panels, not four; retain the original right
-    # forearm as a clearly labelled bridge so the candidate does not invent art.
-    layer_by_role = {
-        str(layer.get("role") or ""): layer
-        for layer in character.get("layers", [])
-    }
-    bridges = []
-    bridge_layer = layer_by_role.get("right_forearm")
-    if bridge_layer:
-        bridge_path = bundle / str(bridge_layer.get("src") or "")
-        if bridge_path.is_file():
-            with Image.open(bridge_path) as opened:
-                bridge = opened.convert("RGBA")
-            bridge = bridge.resize((
-                max(1, int(round(float(bridge_layer["width"])))),
-                max(1, int(round(float(bridge_layer["height"])))),
-            ), Image.Resampling.LANCZOS)
-            x, y = int(round(float(bridge_layer["x"]))), int(round(float(bridge_layer["y"])))
-            if x >= 0 and y >= 0 and x + bridge.width <= width and y + bridge.height <= height:
-                assembled.alpha_composite(bridge, (x, y))
-                bridges.append({
-                    "role": "right_forearm",
-                    "src": Path(bridge_path).name,
-                    "x": x, "y": y,
-                    "width": bridge.width, "height": bridge.height,
-                    "reason": "reference sheet provides three sleeve panels but no fourth forearm segment",
-                })
-            else:
-                missing.append("bridge:right_forearm_outside_canvas")
-        else:
-            missing.append("bridge:right_forearm_asset_missing")
+    layer_by_role = {str(layer.get("role") or ""): layer for layer in character.get("layers", [])}
+    props = character.get("props") or {}
+
+    def add_source_bridge(bridge_id: str, path: Path, geometry: dict[str, Any], z: int, reason: str) -> None:
+        if not path.is_file():
+            missing.append("bridge:" + bridge_id + ":asset_missing")
+            return
+        with Image.open(path) as opened:
+            sprite = opened.convert("RGBA")
+        sprite = sprite.resize((
+            max(1, int(round(float(geometry["width"])))),
+            max(1, int(round(float(geometry["height"])))),
+        ), Image.Resampling.LANCZOS)
+        x, y = int(round(float(geometry["x"]))), int(round(float(geometry["y"])))
+        render_items.append((z, "source-bridge-" + bridge_id, sprite, x, y))
+        bridges.append({
+            "id": bridge_id, "src": path.name, "x": x, "y": y,
+            "width": sprite.width, "height": sprite.height, "z_index": z, "reason": reason,
+        })
+
+    forearm_layer = layer_by_role.get("right_forearm")
+    if forearm_layer:
+        add_source_bridge(
+            "right_forearm", bundle / str(forearm_layer.get("src") or ""),
+            forearm_layer, 52,
+            "the sheet has three sleeve panels, so the fourth forearm keeps its approved source sprite",
+        )
     else:
-        missing.append("bridge:right_forearm_layer_missing")
+        missing.append("bridge:right_forearm:layer_missing")
+
+    bow_prop = props.get("bow")
+    if bow_prop:
+        add_source_bridge(
+            "bow", bundle / str(bow_prop.get("src") or ""),
+            bow_prop, 65,
+            "the extracted bow retains magenta guide colour; the approved wooden bow is retained",
+        )
+    else:
+        missing.append("bridge:bow:prop_missing")
+
+    for _z, _id, sprite, x, y in sorted(render_items, key=lambda entry: entry[0]):
+        _alpha_composite_clipped(assembled, sprite, x, y)
 
     transparent_path = bundle / "reference-part-assembled-candidate.png"
     assembled.save(transparent_path, format="PNG", optimize=True)
-
     background = (26, 35, 50, 255)
     source_view = Image.new("RGBA", (width, height), background)
     source_path = bundle / "preserved-full-body-source.png"
     if source_path.is_file():
         with Image.open(source_path) as opened:
-            source = opened.convert("RGBA")
-        source_view.alpha_composite(source.resize((width, height), Image.Resampling.LANCZOS))
+            source_view.alpha_composite(opened.convert("RGBA").resize((width, height), Image.Resampling.LANCZOS))
     candidate_view = Image.new("RGBA", (width, height), background)
     candidate_view.alpha_composite(assembled)
-
     comparison = Image.new("RGB", (width * 2 + 48, height + 48), (12, 19, 31))
     draw = ImageDraw.Draw(comparison)
     comparison.paste(source_view.convert("RGB"), (12, 34))
@@ -588,17 +611,24 @@ def _write_reference_part_assembly_candidate(
         "production_layer_replacement_enabled": False,
         "canvas": {"width": width, "height": height},
         "primary_part_ids": list(PRIMARY_ASSEMBLY_PARTS),
-        "placements": sorted(placements, key=lambda item: item["z_index"]),
+        "placements": placements,
         "source_bridge_layers": bridges,
+        "review_exclusions": {
+            "reference-part-014": "alternate trouser lower leg; primary parts are 030 and 031",
+            "reference-part-015": "alternate trouser lower leg; primary parts are 030 and 031",
+            "reference-part-016": "alternate lower-leg variant",
+            "reference-part-026": "magenta guide-coloured bow; approved wooden bow retained as a source bridge",
+            "reference-part-002": "hair overlay is redundant with the complete head portrait",
+            "reference-part-007_to_013": "eye/nose details are reserved for the facial-expression rig",
+        },
         "missing_or_unplaced": missing,
-        "source_asset_count": len(placements),
+        "primary_part_count": len(placements),
+        "source_asset_count": len(placements) + len(bridges),
         "source_bridge_count": len(bridges),
-        "note": "Separate preview assembled from selected reference-sheet assets; it does not modify the live character spec or production layers.",
+        "note": "Separate preview assembled from selected reference-sheet assets and two documented source bridges; it does not modify live character layers or production animation.",
     }
-    manifest_path = bundle / "reference-part-assembled-candidate.json"
-    manifest_path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
+    (bundle / "reference-part-assembled-candidate.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
     return transparent_path.name, comparison_path.name, payload
 
