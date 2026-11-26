@@ -862,6 +862,7 @@ def _write_reference_part_assembly_candidate(
     }
     joint_for_role = {
         "head": "neck",
+        "neck_bridge": "neck",
         "left_upper_arm": "left_shoulder",
         "left_forearm": "left_elbow",
         "left_hand": "left_wrist",
