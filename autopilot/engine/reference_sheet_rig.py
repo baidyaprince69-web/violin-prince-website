@@ -697,9 +697,15 @@ def _write_reference_part_assembly_candidate(
     # as the flattened comparison image. This is still a review-only candidate:
     # joint pivots are hints until each attachment is visually validated.
     placement_by_id = {item["part_id"]: item for item in placements}
-    bridge_by_render_id = {
-        "source-bridge-" + str(item["id"]): item for item in bridges
-    }
+    bridge_by_render_id = {}
+    for item in bridges:
+        bridge_key = str(item["id"])
+        bridge_by_render_id["source-bridge-" + bridge_key] = item
+        # Some source bridge IDs contain underscores while the render IDs
+        # normalize them to hyphens (for example head_neck -> head-neck).
+        bridge_by_render_id[
+            "source-bridge-" + bridge_key.replace("_", "-")
+        ] = item
     layer_exports: list[dict[str, Any]] = []
     pivot_hints = {
         "head": [0.5, 0.92],
