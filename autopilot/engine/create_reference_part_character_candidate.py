@@ -12,7 +12,8 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from PIL import Image
+import numpy as np
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 from character_rig import validate_character_spec
 
@@ -75,6 +76,85 @@ def _copy_asset(source_bundle: Path, output_bundle: Path, src: str) -> str:
     if source.resolve() != destination.resolve():
         shutil.copy2(source, destination)
     return destination.name
+
+
+def _extract_preserved_fingerboard_grip_hand(
+    source_bundle: Path,
+    output_bundle: Path,
+) -> dict[str, Any]:
+    """Extract the original fingerboard hand without copying violin pixels.
+
+    The source hand is drawn over the violin neck in the preserved full-body
+    plate. Keep only skin-coloured pixels inside a hand silhouette, then use a
+    one-pixel alpha dilation to retain its dark ink outline.
+    """
+    source_path = source_bundle / "preserved-full-body-source.png"
+    if not source_path.is_file():
+        raise FileNotFoundError(
+            "The preserved full-body source is required for the fingerboard hand."
+        )
+    source_image = Image.open(source_path).convert("RGBA")
+    if source_image.size != (441, 755):
+        raise ValueError(
+            "The preserved fingerboard-hand source must use the 441x755 character canvas."
+        )
+
+    rgba = np.asarray(source_image, dtype=np.uint8)
+    red = rgba[:, :, 0].astype(np.int16)
+    green = rgba[:, :, 1].astype(np.int16)
+    blue = rgba[:, :, 2].astype(np.int16)
+    alpha = rgba[:, :, 3] > 0
+
+    silhouette = Image.new("L", source_image.size, 0)
+    ImageDraw.Draw(silhouette).polygon(
+        [
+            (324, 169), (379, 169), (382, 173), (387, 183),
+            (389, 191), (383, 201), (377, 206), (372, 214),
+            (366, 221), (360, 230), (352, 238), (344, 246),
+            (337, 251), (330, 249), (326, 244), (324, 237),
+            (325, 229), (327, 219), (328, 209), (325, 201),
+            (321, 195), (320, 188), (322, 180),
+        ],
+        fill=255,
+    )
+    hand_region = np.asarray(silhouette, dtype=np.uint8) > 0
+    # The skin range excludes the orange violin, dark strings and transparent
+    # background. The surrounding silhouette prevents other skin areas from
+    # entering this hand cutout.
+    skin = (
+        alpha
+        & hand_region
+        & (red >= 125)
+        & (green >= 75)
+        & (blue >= 48)
+        & ((red - green) >= 25)
+        & ((green - blue) >= 10)
+        & ((red - blue) >= 35)
+    )
+    raw_mask = Image.fromarray((skin * 255).astype(np.uint8), mode="L")
+    outlined_mask = raw_mask.filter(ImageFilter.MaxFilter(3))
+    final_mask = ImageChops.multiply(
+        outlined_mask, source_image.getchannel("A")
+    )
+    bounds = final_mask.getbbox()
+    if bounds is None or bounds[2] - bounds[0] < 35 or bounds[3] - bounds[1] < 55:
+        raise ValueError(
+            "Could not isolate the complete source fingerboard hand from the preserved artwork."
+        )
+
+    hand_sprite = source_image.crop(bounds)
+    hand_sprite.putalpha(final_mask.crop(bounds))
+    filename = "reference-source-fingerboard-grip-hand.png"
+    hand_sprite.save(output_bundle / filename, format="PNG", optimize=True)
+    return {
+        "src": filename,
+        "x": int(bounds[0]),
+        "y": int(bounds[1]),
+        "width": int(bounds[2] - bounds[0]),
+        "height": int(bounds[3] - bounds[1]),
+        "visible_alpha_pixels": int(np.count_nonzero(np.asarray(hand_sprite.getchannel("A")))),
+        "extraction_method": "preserved_full_body_skin_mask_with_ink_outline",
+    }
 
 
 def _layer_from_export(
@@ -197,10 +277,6 @@ def build_reference_part_character_candidate(
             layer["pivot_y"] = (float(pivot["y"]) - layer["y"]) / layer["height"]
             layer["pivot_joint"] = "right_elbow"
             layer["pivot_status"] = pivot["status"]
-            # This source bridge contains the upper finger/contact pixels that
-            # wrap over the violin neck. Keep it above the violin, matching the
-            # preserved source rig's right-forearm (z=31) > violin (z=25) order.
-            layer["z_index"] = 64
         layers.append(layer)
 
     # Preserve the original source-rig fingerboard hand instead of activating
@@ -220,20 +296,21 @@ def build_reference_part_character_candidate(
         source_joint = (original.get("joints") or {}).get("right_wrist")
         if not isinstance(source_joint, dict):
             raise ValueError("The preserved source character has no right-wrist anchor.")
-        x = float(original_layer["x"])
-        y = float(original_layer["y"])
-        width = float(original_layer["width"])
-        height = float(original_layer["height"])
+        extracted_hand = _extract_preserved_fingerboard_grip_hand(source, output)
+        x = float(extracted_hand["x"])
+        y = float(extracted_hand["y"])
+        width = float(extracted_hand["width"])
+        height = float(extracted_hand["height"])
         wrist_x = float(source_joint["x"]) * canvas_width
         wrist_y = float(source_joint["y"]) * canvas_height
         pivot_x = (wrist_x - x) / width
         pivot_y = (wrist_y - y) / height
         if not 0 <= pivot_x <= 1 or not 0 <= pivot_y <= 1:
-            raise ValueError("The preserved source right-wrist joint falls outside its hand sprite.")
+            raise ValueError("The preserved source right-wrist joint falls outside its extracted hand sprite.")
         source_hand = {
             "id": candidate_role,
             "role": candidate_role,
-            "src": _copy_asset(source, output, str(original_layer["src"])),
+            "src": extracted_hand["src"],
             "x": x,
             "y": y,
             "width": width,
@@ -241,10 +318,11 @@ def build_reference_part_character_candidate(
             "pivot_x": pivot_x,
             "pivot_y": pivot_y,
             "z_index": 70,
-            "candidate_source_layer_id": "preserved-original-right-hand",
+            "candidate_source_layer_id": "preserved-full-body-source-skin-mask",
             "pivot_joint": "right_wrist",
             "pivot_status": "preserved_source_fingerboard_grip_joint_pending_visual_review",
-            "source_art_policy": "preserved_original_fingerboard_grip",
+            "source_art_policy": extracted_hand["extraction_method"],
+            "visible_alpha_pixels": extracted_hand["visible_alpha_pixels"],
         }
         layers.append(source_hand)
         used_ids.add(candidate_role)
@@ -404,13 +482,13 @@ def build_reference_part_character_candidate(
             "candidate_character_layer_count": len(layers),
             "candidate_prop_count": len(props),
             "source_character_layer_roles_used": sorted(SOURCE_CHARACTER_LAYER_ROLES),
-            "right_hand_art_source": "preserved_original_fingerboard_grip",
+            "right_hand_art_source": "preserved_full_body_skin_mask_with_ink_outline",
             "joint_pivot_count": len(pivots),
             "joint_pivots_validated": False,
             "facial_state_count": len(REQUIRED_FACE_STATES),
             "facial_states_alignment": "positioned_on_candidate_head_pending_visual_review",
             "finger_articulation_enabled": False,
-            "finger_articulation_status": "intact_preserved_source_fingerboard_grip_without_independent_finger_layers",
+            "finger_articulation_status": "intact_source_skin_mask_fingerboard_grip_without_independent_finger_layers",
             "production_layer_replacement_enabled": False,
             "activation_policy": "review_only_do_not_replace_live_rig_or_publish",
         },
@@ -437,7 +515,7 @@ def build_reference_part_character_candidate(
         "source_parts_used": sorted(PART_ROLES),
         "source_bridges_used": sorted(BRIDGE_ROLES),
         "source_character_layers_used": sorted(SOURCE_CHARACTER_LAYER_ROLES),
-        "right_hand_art_source": "preserved_original_fingerboard_grip",
+        "right_hand_art_source": "preserved_full_body_skin_mask_with_ink_outline",
         "props": sorted(props),
         "facial_states": sorted(REQUIRED_FACE_STATES),
         "joint_pivots": {
