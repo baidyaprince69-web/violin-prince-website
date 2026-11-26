@@ -553,10 +553,133 @@ ASSEMBLY_Z_ORDER = {
     21: 70, 22: 70,
     1: 90,
 }
-# Candidate-only pixel corrections bring the bow grip opening onto the bow shaft.
+# Candidate-only pixel corrections bring the bow grip opening onto the bow shaft
+# and close the fingerboard wrist gap without altering the preserved live rig.
 ASSEMBLY_MANUAL_OFFSETS = {
     "reference-part-021": (20, -3),
+    "reference-part-022": (-14, 10),
 }
+
+
+def _reference_assembly_joint_pivots(
+    render_items: list[tuple[int, str, Image.Image, int, int]],
+    width: int,
+    height: int,
+    character: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
+    """Estimate candidate pivots from the shared opaque pixels at each seam.
+
+    These are assembly-specific estimates, not artist approvals. The evidence
+    records the exact overlapping parts and pixel count so a later reviewer can
+    confirm or correct every pivot before the candidate is animated.
+    """
+    masks: dict[str, np.ndarray] = {}
+    for _z, layer_id, sprite, x, y in render_items:
+        alpha = np.asarray(sprite.getchannel("A"), dtype=np.uint8) > 8
+        canvas_mask = np.zeros((height, width), dtype=bool)
+        left, top = max(0, int(x)), max(0, int(y))
+        right = min(width, int(x) + sprite.width)
+        bottom = min(height, int(y) + sprite.height)
+        if right > left and bottom > top:
+            crop = alpha[top - int(y):bottom - int(y), left - int(x):right - int(x)]
+            canvas_mask[top:bottom, left:right] = crop
+        masks[str(layer_id)] = canvas_mask
+
+    connections = {
+        "left_shoulder": (
+            "reference-part-003", "reference-part-004", 100,
+        ),
+        "left_elbow": (
+            "reference-part-004", "reference-part-006", 100,
+        ),
+        "left_wrist": (
+            "reference-part-006", "reference-part-021", 40,
+        ),
+        "right_shoulder": (
+            "reference-part-003", "reference-part-005", 100,
+        ),
+        "right_elbow": (
+            "reference-part-005", "source-bridge-right-forearm", 100,
+        ),
+        "right_wrist": (
+            "source-bridge-right-forearm", "reference-part-022", 40,
+        ),
+        "left_hip": (
+            "reference-part-024", "reference-part-027", 100,
+        ),
+        "right_hip": (
+            "reference-part-024", "reference-part-028", 100,
+        ),
+        "left_knee": (
+            "reference-part-027", "reference-part-030", 40,
+        ),
+        "right_knee": (
+            "reference-part-028", "reference-part-031", 40,
+        ),
+        "left_ankle": (
+            "reference-part-030", "reference-part-032", 30,
+        ),
+        "right_ankle": (
+            "reference-part-031", "reference-part-033", 30,
+        ),
+    }
+    pivots: dict[str, dict[str, Any]] = {}
+    for joint_name, (parent_id, child_id, minimum_overlap) in connections.items():
+        parent_mask = masks.get(parent_id)
+        child_mask = masks.get(child_id)
+        if parent_mask is None or child_mask is None:
+            raise ReferenceSheetError(
+                f"Cannot estimate {joint_name}: missing assembly layer "
+                f"{parent_id if parent_mask is None else child_id}."
+            )
+        overlap = parent_mask & child_mask
+        ys, xs = np.where(overlap)
+        overlap_pixels = int(xs.size)
+        if overlap_pixels < minimum_overlap:
+            raise ReferenceSheetError(
+                f"Candidate {joint_name} has only {overlap_pixels} shared pixels; "
+                f"requires at least {minimum_overlap}."
+            )
+        x, y = float(xs.mean()), float(ys.mean())
+        pivots[joint_name] = {
+            "x": round(x, 3),
+            "y": round(y, 3),
+            "normalized": {
+                "x": round(x / width, 6),
+                "y": round(y / height, 6),
+            },
+            "parent_layer": parent_id,
+            "child_layer": child_id,
+            "overlap_pixels": overlap_pixels,
+            "minimum_overlap_pixels": minimum_overlap,
+            "method": "centroid_of_intersection_of_source_alpha_masks",
+            "status": "candidate_estimate_pending_visual_joint_review",
+            "approved": False,
+        }
+
+    # The head's neck anchor already comes from the preserved source rig. Keep
+    # that author-authored coordinate rather than replacing it with a broad
+    # overlap centroid between the cropped head and the neck backplate.
+    neck = (character.get("joints") or {}).get("neck")
+    if isinstance(neck, dict):
+        x = float(neck["x"]) * width
+        y = float(neck["y"]) * height
+        pivots["neck"] = {
+            "x": round(x, 3),
+            "y": round(y, 3),
+            "normalized": {
+                "x": round(x / width, 6),
+                "y": round(y / height, 6),
+            },
+            "parent_layer": "reference-part-001",
+            "child_layer": "source-bridge-head-neck",
+            "overlap_pixels": None,
+            "minimum_overlap_pixels": None,
+            "method": "preserved_source_rig_neck_joint",
+            "status": "source_coordinate_preserved_pending_candidate_visual_review",
+            "approved": False,
+        }
+    return pivots
 
 
 def _write_reference_part_assembly_candidate(
@@ -669,12 +792,12 @@ def _write_reference_part_assembly_candidate(
     forearm_layer = layer_by_role.get("right_forearm")
     if forearm_layer:
         forearm_geometry = dict(forearm_layer)
-        forearm_geometry["x"] = float(forearm_layer.get("x", 0)) - 18
+        forearm_geometry["x"] = float(forearm_layer.get("x", 0)) - 12
         forearm_geometry["y"] = float(forearm_layer.get("y", 0)) - 28
         add_source_bridge(
             "right_forearm", bundle / str(forearm_layer.get("src") or ""),
             forearm_geometry, 52,
-            "the approved source forearm is shifted up and left to meet the reference-sheet right sleeve beneath the fingerboard hand",
+            "the approved source forearm is shifted up and left, with a small rightward correction to overlap the fingerboard hand wrist",
         )
     else:
         missing.append("bridge:right_forearm:layer_missing")
@@ -690,6 +813,9 @@ def _write_reference_part_assembly_candidate(
         missing.append("bridge:bow:prop_missing")
 
     ordered_render_items = sorted(render_items, key=lambda entry: entry[0])
+    joint_pivots = _reference_assembly_joint_pivots(
+        ordered_render_items, width, height, character
+    )
     for _z, _id, sprite, x, y in ordered_render_items:
         _alpha_composite_clipped(assembled, sprite, x, y)
 
@@ -726,6 +852,21 @@ def _write_reference_part_assembly_candidate(
         "neck_bridge": [0.5, 0.9],
         "torso": [0.5, 0.5],
     }
+    joint_for_role = {
+        "head": "neck",
+        "left_upper_arm": "left_shoulder",
+        "left_forearm": "left_elbow",
+        "left_hand": "left_wrist",
+        "right_upper_arm": "right_shoulder",
+        "right_forearm": "right_elbow",
+        "right_hand": "right_wrist",
+        "left_thigh": "left_hip",
+        "right_thigh": "right_hip",
+        "left_calf": "left_knee",
+        "right_calf": "right_knee",
+        "left_foot": "left_ankle",
+        "right_foot": "right_ankle",
+    }
     for z_index, layer_id, sprite, x, y in ordered_render_items:
         safe_id = "".join(
             character.lower() if character.isalnum() else "-"
@@ -761,6 +902,18 @@ def _write_reference_part_assembly_candidate(
             raise ReferenceSheetError(
                 f"Assembly layer {layer_id} has no visible alpha pixels."
             )
+        joint_name = joint_for_role.get(target_role)
+        pivot_record = joint_pivots.get(joint_name) if joint_name else None
+        if pivot_record:
+            pivot_x = (float(pivot_record["x"]) - int(x)) / max(1, sprite.width)
+            pivot_y = (float(pivot_record["y"]) - int(y)) / max(1, sprite.height)
+            layer_pivot_hint = [
+                round(pivot_x, 6), round(pivot_y, 6)
+            ]
+            pivot_status = "alpha_overlap_candidate_estimate_not_approved"
+        else:
+            layer_pivot_hint = pivot_hints.get(target_role, [0.5, 0.5])
+            pivot_status = "static_layer_no_joint_pivot"
         layer_exports.append({
             "layer_id": str(layer_id),
             "src": filename,
@@ -775,8 +928,9 @@ def _write_reference_part_assembly_candidate(
             "z_index": int(z_index),
             "rotation_deg": float(rotation),
             "scale": scale,
-            "pivot_hint_normalized": pivot_hints.get(target_role, [0.5, 0.5]),
-            "pivot_status": "provisional_hint_not_joint_validated",
+            "pivot_hint_normalized": layer_pivot_hint,
+            "pivot_joint": joint_name,
+            "pivot_status": pivot_status,
             "visible_alpha_bounds_px": list(alpha_bounds),
         })
 
@@ -788,6 +942,9 @@ def _write_reference_part_assembly_candidate(
         "canvas": {"width": width, "height": height},
         "layers": layer_exports,
         "layer_count": len(layer_exports),
+        "joint_pivots": joint_pivots,
+        "joint_pivot_count": len(joint_pivots),
+        "joint_pivot_method": "alpha_overlap_centroids_with_preserved_source_neck_anchor",
         "primary_part_count": len(placements),
         "source_bridge_count": len(bridges),
         "missing_or_unplaced": missing,
