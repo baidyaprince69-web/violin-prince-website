@@ -133,6 +133,33 @@ test("body and joint surfaces use source image sprites with hierarchical blended
     "all character layers must remain normal source image sprites");
 });
 
+test("waist and neck-support reference layers inherit their parent body transforms", () => {
+  const candidateProject = structuredClone(project);
+  candidateProject.characters[0].layers.push(
+    {
+      id: "waist", role: "waist", src: "waist.png",
+      x: 100, y: 370, width: 120, height: 48,
+      pivot_x: .5, pivot_y: .5, z_index: 30
+    },
+    {
+      id: "neck_bridge", role: "neck_bridge", src: "neck-bridge.png",
+      x: 116, y: 132, width: 127, height: 66,
+      pivot_x: .5, pivot_y: .03, z_index: 45
+    }
+  );
+  const tracks = compileMotionTracks(candidateProject, { fps: 25 });
+  const find = role => tracks.find(track =>
+    track.target === "playing-violin-prince-part-" + role &&
+    track.property === "transform"
+  );
+  for (const role of ["waist", "neck_bridge"]) {
+    const track = find(role);
+    assert.ok(track, role + " must receive a hierarchical transform track");
+    assert.ok(track.values.some(value => value !== track.values[0]),
+      role + " must follow its torso/head parent motion");
+  }
+});
+
 test("full-body performance can be fully visible on the first composition frame", () => {
   const immediateProject = structuredClone(project);
   const action = immediateProject.scenes[0].character_actions["violin-prince"];
