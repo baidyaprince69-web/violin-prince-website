@@ -90,6 +90,11 @@ class MasterDirectorVideoProjectTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder); base=make_base_project(); plan=make_plan()
             plan["storyboard"]["duration_seconds"]=32
+            # Keep the mismatch fixture internally valid: eight contiguous four-second
+            # shots cover the 32-second storyboard while the decoded base audio stays 24s.
+            for index, shot in enumerate(plan["storyboard"]["shots"]):
+                shot["start_seconds"]=index*4
+                shot["end_seconds"]=(index+1)*4
             bp=root/"base.json"; pp=root/"plan.json"
             bp.write_text(json.dumps(base)); pp.write_text(json.dumps(plan))
             with self.assertRaisesRegex(DirectorVideoProjectError,"must match decoded audio"):
