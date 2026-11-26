@@ -829,6 +829,9 @@ jobs:
           project = json.loads(project_path.read_text())
           scene = project["scenes"][0]
           scene.pop("stagecraft", None)
+          # Keep this a source-composite appearance review, not the separate
+          # animated bow-performance gate enforced by the full rig preview.
+          scene["visual_mode"] = "character_source_review"
           scene["background_color"] = "#182330"
           scene["graphic_label"] = ""
           scene["title"] = ""
@@ -851,6 +854,7 @@ jobs:
           }
           project_path.write_text(json.dumps(project, ensure_ascii=False, indent=2) + "\n")
           assert "stagecraft" not in scene, scene
+          assert scene["visual_mode"] == "character_source_review", scene
           assert scene["director_camera"]["movement"] == "locked_off", scene
           character = project["characters"][0]
           assert len(character["layers"]) == 9, character
