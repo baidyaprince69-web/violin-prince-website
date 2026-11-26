@@ -319,6 +319,7 @@ def build_reference_part_character_candidate(
         "fingering_parts": [],
         "fingering_segment_roles": [],
         "fingering_joint_count": 0,
+        "fingering_articulation_enabled": False,
         "joint_surface_roles": [],
         "review_required": True,
         "compositing_mode": "reference_sheet_layered_candidate",
