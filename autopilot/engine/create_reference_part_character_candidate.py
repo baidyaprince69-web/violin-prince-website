@@ -197,6 +197,10 @@ def build_reference_part_character_candidate(
             layer["pivot_y"] = (float(pivot["y"]) - layer["y"]) / layer["height"]
             layer["pivot_joint"] = "right_elbow"
             layer["pivot_status"] = pivot["status"]
+            # This source bridge contains the upper finger/contact pixels that
+            # wrap over the violin neck. Keep it above the violin, matching the
+            # preserved source rig's right-forearm (z=31) > violin (z=25) order.
+            layer["z_index"] = 64
         layers.append(layer)
 
     # Preserve the original source-rig fingerboard hand instead of activating
