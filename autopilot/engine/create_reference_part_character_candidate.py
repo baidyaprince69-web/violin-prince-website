@@ -290,6 +290,15 @@ def build_reference_part_character_candidate(
         src = asset.get("src") if isinstance(asset, dict) else asset
         expressions[str(name)] = {"src": _copy_asset(source, output, str(src))}
 
+    # The animation preview stages every pose asset referenced by the candidate
+    # character, so copy those source files into the isolated bundle as well.
+    pose_assets: dict[str, dict[str, Any]] = {}
+    for name, asset in (original.get("pose_assets") or {}).items():
+        src = asset.get("src") if isinstance(asset, dict) else asset
+        entry = dict(asset) if isinstance(asset, dict) else {"src": str(src)}
+        entry["src"] = _copy_asset(source, output, str(src))
+        pose_assets[str(name)] = entry
+
     candidate_joints = json.loads(json.dumps(original.get("joints") or {}))
     canvas = original.get("canvas") or {}
     canvas_width = float(canvas.get("width", 0))
@@ -322,6 +331,7 @@ def build_reference_part_character_candidate(
         "layers": layers,
         "joints": candidate_joints,
         "expressions": expressions,
+        "pose_assets": pose_assets,
         "head_variants": head_variants,
         "head_angles": {},
         "props": props,
