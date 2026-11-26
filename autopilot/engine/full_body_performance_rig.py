@@ -2308,12 +2308,19 @@ def _configure_continuous_body_meshes(character: dict[str, Any]) -> dict[str, An
         # wrist. Finger segments remain separate articulated source sprites.
         ("left_hand", "left_hand", "left_wrist", None, "center", 8.0, 2.8, 3, 3),
         ("right_hand", "right_hand", "right_wrist", None, "center", 8.0, 2.8, 3, 3),
-        ("left_thigh", "left_thigh", "left_hip", "left_knee", "distal", 6.0, 4.0, 2, 4),
-        ("left_calf", "left_calf", "left_knee", "left_ankle", "proximal", 6.0, 4.0, 2, 4),
-        ("right_thigh", "right_thigh", "right_hip", "right_knee", "distal", 6.0, 4.0, 2, 4),
-        ("right_calf", "right_calf", "right_knee", "right_ankle", "proximal", 6.0, 4.0, 2, 4),
     ]
     configured = []
+    rigid_lower_body_roles = [
+        "left_thigh", "left_calf", "right_thigh", "right_calf",
+    ]
+    for role in rigid_lower_body_roles:
+        layer = layer_by_role.get(role)
+        if layer is None:
+            raise ManualReviewRequired(f"Rigid lower-body articulation requires the {role} source layer.")
+        # Keep the source-faithful pants artwork on an ordinary image element.
+        # The existing hierarchical hip/knee/ankle matrices provide articulation;
+        # the clipped SVG mesh path currently fails visual review for these parts.
+        layer.pop("mesh_deformation", None)
     for role, driver_role, start_name, end_name, influence, max_angle, displacement, columns, rows in profiles:
         layer = layer_by_role.get(role)
         if layer is None:
@@ -2371,6 +2378,8 @@ def _configure_continuous_body_meshes(character: dict[str, Any]) -> dict[str, An
         "deformable_roles": configured,
         "deformable_layer_count": len(configured),
         "mesh_profiles": {role: layer_by_role[role]["mesh_deformation"] for role in configured},
+        "rigid_articulation_roles": rigid_lower_body_roles,
+        "lower_body_render_policy": "source_faithful_img_sprites_with_hierarchical_hip_knee_ankle_transforms",
         "hand_surface_mesh_deformation_count": sum(
             1 for role in ("left_hand", "right_hand") if role in configured
         ),
