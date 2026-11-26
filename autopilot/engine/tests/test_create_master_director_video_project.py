@@ -80,7 +80,12 @@ class MasterDirectorVideoProjectTests(unittest.TestCase):
         self.assertEqual(project["scenes"][3]["character_actions"]["violin-prince"]["gesture"],"violin_performance")
         self.assertEqual(project["scenes"][3]["character_actions"]["violin-prince"]["music_sync"]["beat_times"][0],0)
         self.assertEqual(project["scenes"][0]["stagecraft"]["music_sync_cues"],[])
-        self.assertEqual(project["scenes"][2]["stagecraft"]["music_sync_cues"][0]["time_seconds"],6)
+        cue=project["scenes"][2]["stagecraft"]["music_sync_cues"][0]
+        self.assertEqual(cue["time_seconds"],6)
+        self.assertEqual(cue["requested_time_seconds"],6)
+        self.assertEqual(cue["source_time_seconds"],6)
+        self.assertEqual(cue["alignment_error_seconds"],0)
+        self.assertEqual(cue["timing_source"],"decoded_audio_beat_grid")
         self.assertEqual(project["diagnostics"]["music_sync_cue_count"],3)
         self.assertTrue(project["diagnostics"]["measured_audio_sync_verified"])
         self.assertTrue(project["diagnostics"]["test_only_audio"])
