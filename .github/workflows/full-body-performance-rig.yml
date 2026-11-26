@@ -256,8 +256,8 @@ jobs:
           assert backplate_report.get("limb_corridors_excluded") is True, backplate_report
           assert backplate_report.get("source_alpha_respected") is True, backplate_report
           assert backplate_report.get("source_rgb_preserved") is True, backplate_report
-          assert backplate_report.get("torso_underlay_added") is True, backplate_report
-          assert backplate_report.get("torso_source_pixels_covered", 0) > 5000, backplate_report
+          assert backplate_report.get("torso_underlay_added") is False, backplate_report
+          assert backplate_report.get("torso_source_pixels_covered", 0) == 0, backplate_report
           assert backplate_layers[0].get("z_index") == 2, backplate_layers[0]
           with Image.open(bundle / backplate_layers[0]["src"]) as opened:
               backplate_pixels = np.asarray(opened.convert("RGBA"), dtype=np.uint8)
