@@ -188,3 +188,28 @@ test("stagecraft enters the real Motion composition with independent loop tracks
     rmSync(temporary, { recursive: true, force: true });
   }
 });
+
+test("float and bob motions use valid comma-separated CSS translate arguments", () => {
+  const scene = {
+    id: "motion-css-test",
+    start: 0,
+    duration: 4,
+    stagecraft: {
+      environment: "abstract",
+      objects: [
+        { id: "float-note", kind: "music_note", x: .35, y: .35, motion: "float", amplitude: 24 },
+        { id: "bob-orb", kind: "orb", x: .65, y: .65, motion: "bob", amplitude: 18 }
+      ]
+    }
+  };
+  const tracks = buildStagecraftMotion(scene);
+  for (const id of stagecraftMotionNodeIds(scene).filter(value => value.includes("-object-"))) {
+    const track = tracks.find(item => item.target === id && item.property === "transform");
+    assert.ok(track, "missing ambient motion for " + id);
+    for (const value of track.values) {
+      if (String(value).includes("translate(")) {
+        assert.match(String(value), /translate\\([^,()]+,\\s*[^()]+\\)/);
+      }
+    }
+  }
+});
