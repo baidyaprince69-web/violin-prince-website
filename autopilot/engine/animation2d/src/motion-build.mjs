@@ -865,6 +865,8 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
       const hasRotation = role => (rotationTracks.get(role) || []).length > 0;
       const dependencies = {
         torso: ["torso"],
+        waist: ["torso"],
+        neck_bridge: ["torso", "head"],
         head: ["torso", "head"],
         face: ["torso", "head"],
         left_upper_arm: ["torso", "left_upper_arm"],
@@ -1093,6 +1095,8 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
 
         const worldByRole = {
           torso: torsoWorld,
+          waist: torsoWorld,
+          neck_bridge: headWorld,
           head: headWorld,
           face: headWorld,
           left_upper_arm: leftUpperWorld,
