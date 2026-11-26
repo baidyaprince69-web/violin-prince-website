@@ -102,7 +102,7 @@ def align_cues(plan:dict[str,Any],sync:dict[str,Any],duration:float)->list[dict[
         aligned.append({"time_seconds":round(beat,5),"event":event,"reason":reason,
                         "requested_time_seconds":round(float(requested),5),
                         "source_time_seconds":round(beat,5),"alignment_error_seconds":round(error,5),
-                        "timing_source":"decoded_audio_beat_map"})
+                        "timing_source":"decoded_audio_beat_grid"})
     aligned.sort(key=lambda item:item["time_seconds"])
     if any(aligned[i]["time_seconds"]<=aligned[i-1]["time_seconds"] for i in range(1,len(aligned))):
         raise DirectorVideoProjectError("Music cues must resolve to distinct measured beats.")
@@ -153,7 +153,7 @@ def create_master_director_video_project(base_project_path:str|Path,director_pla
         objects=copy.deepcopy(procedural["objects"])
         if environment not in ENVIRONMENTS: raise DirectorVideoProjectError(f"{shot_id} has an unsupported stagecraft environment.")
         if not 2<=len(objects)<=8: raise DirectorVideoProjectError(f"{shot_id} needs 2–8 animated stagecraft objects.")
-        scene_cues=[{key:cue[key] for key in ("time_seconds","event","reason")}
+        scene_cues=[copy.deepcopy(cue)
                     for cue in cues if start-1e-5<=cue["time_seconds"]<end-1e-5]
         transition="cut" if index==0 else str(shots[index-1]["transition_to_next"])
         action=copy.deepcopy(base_action)
