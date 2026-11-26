@@ -1324,19 +1324,14 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         self.assertEqual(report["moving_source_pixels_excluded"], int(moving.sum()))
         self.assertEqual(report["prop_source_pixels_excluded"], int((bow > 12).sum()))
 
-    def test_segmented_source_base_preserves_untouched_pixels_and_alpha(self):
+    def test_segmented_source_base_cuts_moving_head_and_bow_source_pixels(self):
         import tempfile
         from pathlib import Path
-        import cv2
 
         source = Image.new("RGBA", (80, 80), (42, 48, 55, 255))
         pixels = np.asarray(source, dtype=np.uint8).copy()
         pixels[12:68, 12:68, :3] = (30, 35, 40)
         pixels[12:68, 12:68, 3] = 255
-        source = Image.fromarray(pixels, mode="RGBA")
-        original = np.asarray(source, dtype=np.uint8)
-
-        # A source-colour head patch is replaced by modular reference head plates.
         pixels[10:24, 10:24, :3] = (214, 168, 132)
         source = Image.fromarray(pixels, mode="RGBA")
         original = np.asarray(source, dtype=np.uint8)
@@ -1361,72 +1356,48 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             with Image.open(Path(folder) / report["src"]) as opened:
                 output = np.asarray(opened.convert("RGBA"), dtype=np.uint8)
 
+        cut = (moving | (bow > 12) | (head > 12)) & (original[:, :, 3] > 12)
         self.assertEqual(report["mode"], "segmented_source_body")
-        self.assertLess(report["z_index"], 4,
-            "the underpaint must remain behind the thigh/calf/foot sprites")
+        self.assertLess(report["z_index"], 4)
         self.assertGreaterEqual(report["pixels_cut_from_source"], 500)
-        np.testing.assert_array_equal(output[:, :, 3], original[:, :, 3])
-        untouched = np.ones((80, 80), dtype=bool)
-        cut = (moving | (bow > 12))
-        cut &= original[:, :, 3] > 12
-        untouched &= ~cut
-        np.testing.assert_array_equal(output[untouched], original[untouched])
-        np.testing.assert_array_equal(
-            output[violin > 12],
-            original[violin > 12],
-            "the torso-mounted violin must remain original source artwork, not inpainted pixels",
-        )
+        self.assertTrue(np.all(output[cut, 3] == 0),
+            "Moving body, head and bow source pixels must be completely erased from the underlay.")
+        np.testing.assert_array_equal(output[~cut], original[~cut])
+        safe_violin = (violin > 12) & ~cut & (original[:, :, 3] > 12)
+        np.testing.assert_array_equal(output[safe_violin], original[safe_violin])
         self.assertEqual(report["violin_pixels_reconstructed"], 0)
         self.assertTrue(report["violin_source_underlay_preserved"])
         self.assertGreater(report["violin_source_pixels_preserved"], 100)
-        self.assertGreater(report["bow_pixels_reconstructed"], 0)
+        self.assertEqual(report["bow_pixels_reconstructed"], 0)
         self.assertEqual(report["head_pixels_reconstructed"], 0)
-        self.assertEqual(
-            tuple(output[16, 16, :3]),
-            tuple(original[16, 16, :3]),
-            "the preserved source head backplate must retain its original artwork",
-        )
-        self.assertGreater(report["head_backplate_pixels_preserved"], 100)
-        self.assertTrue(report["head_source_backplate_preserved"])
+        self.assertEqual(report["head_backplate_pixels_preserved"], 0)
+        self.assertFalse(report["head_source_backplate_preserved"])
         self.assertTrue(report["head_plate_replacement_enabled"])
-        self.assertEqual(report["head_cutout_method"], "source_aligned_head_backplate_preserved")
+        self.assertEqual(report["head_cutout_method"], "source_aligned_head_cutout_no_original_underlay")
         self.assertEqual(report["cutout_mask_dilation_px"], 0)
-        self.assertEqual(
-            report["cutout_boundary_method"],
-            "exact_source_aligned_alpha_union",
-        )
+        self.assertEqual(report["cutout_boundary_method"], "exact_source_aligned_alpha_union")
         self.assertGreater(report["expanded_halo_pixels_excluded"], 0)
+        self.assertEqual(report["inpaint"], "none_alpha_cutout_only")
         self.assertEqual(
             report["underpaint_quality"],
-            "source_aligned_static_violin_preserved_no_violin_inpaint",
-            "the parent plate must not inpaint a halo beyond the extracted source masks",
-        )
-        np.testing.assert_array_equal(
-            output[16, 16, :3],
-            original[16, 16, :3],
-            "the original source head artwork must remain as the clean backplate",
+            "source_aligned_static_remainder_transparent_moving_head_bow_cutouts",
         )
         self.assertTrue(report["source_alpha_preserved"])
         self.assertTrue(report["source_pixels_outside_cut_mask_preserved"])
 
-
-    def test_segmented_underpaint_does_not_sample_white_transparent_matte_pixels(self):
+    def test_segmented_source_base_never_reconstructs_moving_cutouts_from_transparent_matte(self):
         import tempfile
         from pathlib import Path
 
         pixels = np.full((64, 64, 4), (246, 246, 246, 0), dtype=np.uint8)
-        # A dark source character sits directly against transparent white RGB.
         yy, xx = np.mgrid[:64, :64]
         visible = (xx >= 4) & (xx < 60) & (yy >= 4) & (yy < 60)
         shade = (30 + ((xx + yy) % 18)).astype(np.uint8)
         pixels[visible, 0] = shade[visible]
-        pixels[visible, 1] = (shade[visible] + 5)
-        pixels[visible, 2] = (shade[visible] + 9)
+        pixels[visible, 1] = shade[visible] + 5
+        pixels[visible, 2] = shade[visible] + 9
         pixels[visible, 3] = 255
         source = Image.fromarray(pixels, mode="RGBA")
-        
-        # The cut reaches the outer silhouette, where transparent white RGB
-        # used to seed Telea and create a pale streak in the reconstructed plate.
         bow = np.zeros((64, 64), dtype=np.uint8)
         bow[8:56, 4:27] = 255
         violin = np.zeros((64, 64), dtype=np.uint8)
@@ -1443,15 +1414,15 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             with Image.open(Path(folder) / report["src"]) as opened:
                 result = np.asarray(opened.convert("RGBA"), dtype=np.uint8)
 
-        # Check all visible pixels reconstructed from the cut; they should
-        # remain in the dark character range, never pick up the white matte.
-        import cv2
-        cut = (bow > 12) & (pixels[:, :, 3] > 12)
+        original = np.asarray(source, dtype=np.uint8)
+        cut = (bow > 12) & (original[:, :, 3] > 12)
         self.assertGreater(int(cut.sum()), 100)
-        self.assertLess(float(result[cut, :3].mean()), 100.0)
-        np.testing.assert_array_equal(result[:, :, 3], pixels[:, :, 3])
+        self.assertTrue(np.all(result[cut, 3] == 0))
+        np.testing.assert_array_equal(result[~cut], original[~cut])
         self.assertTrue(report["transparent_rgb_excluded_from_reconstruction"])
+        self.assertEqual(report["inpaint"], "none_alpha_cutout_only")
         self.assertGreater(report["transparent_source_pixels_excluded_from_inpaint"], 500)
+
 
     def test_shoe_mask_isolated_from_trouser_and_connected_to_bottom(self):
         width, height, split_x = 100, 120, 50
