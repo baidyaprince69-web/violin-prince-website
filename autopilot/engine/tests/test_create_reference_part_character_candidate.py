@@ -19,7 +19,6 @@ PART_ROLES = {
     "reference-part-005": "right_upper_arm",
     "reference-part-006": "left_forearm",
     "reference-part-021": "left_hand",
-    "reference-part-022": "right_hand",
     "reference-part-027": "left_thigh",
     "reference-part-028": "right_thigh",
     "reference-part-030": "left_calf",
@@ -57,6 +56,7 @@ def make_source_bundle(root: Path):
         "reference-part-001", "reference-part-003", "reference-part-004",
         "reference-part-005", "reference-part-006", "reference-part-021",
         "reference-part-022", "reference-part-024", "reference-part-025",
+        "preserved-right-hand",
         "reference-part-027", "reference-part-028", "reference-part-030",
         "reference-part-031", "reference-part-032", "reference-part-033",
         "source-bridge-head-neck", "source-bridge-right_forearm",
@@ -88,16 +88,27 @@ def make_source_bundle(root: Path):
             "left_ankle", "right_ankle",
         )
     }
+    original_joints["right_wrist"] = {
+        "x": 350.8 / 441,
+        "y": 239.3 / 755,
+    }
     original = {
         "id": "violin-prince",
         "canvas": {"width": 441, "height": 755},
         "base_art": {"src": "base-art.png"},
         "performance_base_mode": "segmented_source_body",
-        "layers": [{
-            "id": "torso", "role": "torso", "src": "base-art.png",
-            "x": 100, "y": 200, "width": 80, "height": 80,
-            "pivot_x": 0.5, "pivot_y": 0.5,
-        }],
+        "layers": [
+            {
+                "id": "torso", "role": "torso", "src": "base-art.png",
+                "x": 100, "y": 200, "width": 80, "height": 80,
+                "pivot_x": 0.5, "pivot_y": 0.5,
+            },
+            {
+                "id": "right_hand", "role": "right_hand", "src": "preserved-right-hand.png",
+                "x": 321, "y": 170, "width": 67, "height": 78,
+                "pivot_x": 0.5, "pivot_y": 0.5, "z_index": 42,
+            },
+        ],
         "joints": original_joints,
         "expressions": {
             "neutral": {"src": "expression-neutral.png"},
@@ -139,6 +150,7 @@ def make_source_bundle(root: Path):
     role_by_id = {
         **PART_ROLES,
         "reference-part-001": "head",
+        "reference-part-022": "unused_reference_hand_variant",
         "reference-part-025": "violin",
         **BRIDGES,
     }
@@ -232,6 +244,23 @@ class ReferencePartCharacterCandidateTests(unittest.TestCase):
             self.assertTrue((output / "pose-resting_hands.png").is_file())
             self.assertEqual(candidate["props"]["bow"]["attach_to"], "left_hand")
             self.assertEqual(candidate["props"]["violin"]["attach_to"], "torso")
+            right_hand = next(layer for layer in candidate["layers"] if layer["role"] == "right_hand")
+            self.assertEqual(right_hand["src"], "preserved-right-hand.png")
+            self.assertEqual(
+                (right_hand["x"], right_hand["y"], right_hand["width"], right_hand["height"]),
+                (321.0, 170.0, 67.0, 78.0),
+            )
+            self.assertEqual(right_hand["z_index"], 70)
+            self.assertEqual(right_hand["pivot_status"],
+                             "preserved_source_fingerboard_grip_joint_pending_visual_review")
+            self.assertEqual(
+                candidate["joints"]["right_wrist"],
+                {"x": 350.8 / 441, "y": 239.3 / 755},
+            )
+            self.assertEqual(report["right_hand_art_source"],
+                             "preserved_original_fingerboard_grip")
+            self.assertNotIn("reference-part-022", report["source_parts_used"])
+            self.assertEqual(report["source_character_layers_used"], ["right_hand"])
             self.assertFalse(alignment["production_layer_replacement_enabled"])
             self.assertFalse(alignment["joint_pivots_validated"])
             self.assertFalse(alignment["finger_articulation_enabled"])
