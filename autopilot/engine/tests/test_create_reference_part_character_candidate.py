@@ -59,7 +59,7 @@ def make_source_bundle(root: Path):
         "reference-part-022", "reference-part-024", "reference-part-025",
         "reference-part-027", "reference-part-028", "reference-part-030",
         "reference-part-031", "reference-part-032", "reference-part-033",
-        "source-bridge-head-neck", "source-bridge-right-forearm",
+        "source-bridge-head-neck", "source-bridge-right_forearm",
         "source-bridge-bow",
     ):
         write_image(source / f"{name}.png")
