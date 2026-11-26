@@ -1128,8 +1128,8 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
 
 
 
-    def test_head_expression_sequence_stays_neutral_with_only_an_occasional_blink(self):
-        expected = ["neutral", "neutral", "neutral", "blink_closed", "neutral", "neutral"]
+    def test_head_expression_sequence_stays_calm_with_only_an_occasional_blink(self):
+        expected = ["speaking_closed", "speaking_closed", "blink_closed", "speaking_closed"]
         self.assertEqual(
             _build_head_expression_sequence({
                 "note_events": [

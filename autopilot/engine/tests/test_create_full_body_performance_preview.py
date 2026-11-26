@@ -154,7 +154,7 @@ class FullBodyPreviewVisibilityTests(unittest.TestCase):
             output = root / "output"
             bundle.mkdir()
             Image.new("RGBA", (8, 8), (40, 50, 60, 255)).save(bundle / "torso.png")
-            Image.new("RGBA", (8, 8), (80, 70, 60, 255)).save(bundle / "neutral-head.png")
+            Image.new("RGBA", (8, 8), (80, 70, 60, 255)).save(bundle / "closed-head.png")
             Image.new("RGBA", (8, 8), (80, 70, 60, 255)).save(bundle / "blink-head.png")
             character = {
                 "id": "violin-prince-test",
@@ -166,8 +166,8 @@ class FullBodyPreviewVisibilityTests(unittest.TestCase):
                 }],
                 "props": {},
                 "head_variants": {
-                    "neutral": {
-                        "src": "neutral-head.png",
+                    "speaking_closed": {
+                        "src": "closed-head.png",
                         "x": 0, "y": 0, "width": 8, "height": 8,
                     },
                     "blink_closed": {
@@ -185,10 +185,10 @@ class FullBodyPreviewVisibilityTests(unittest.TestCase):
             action = project["scenes"][0]["character_actions"]["violin-prince"]
 
         self.assertEqual(action["expression"], "neutral")
-        self.assertEqual(action["head_expression"], "neutral")
+        self.assertEqual(action["head_expression"], "speaking_closed")
         self.assertEqual(
             action["head_expression_sequence"],
-            ["neutral", "neutral", "neutral", "blink_closed", "neutral", "neutral"],
+            ["speaking_closed", "speaking_closed", "blink_closed", "speaking_closed"],
         )
         self.assertEqual(action["head_expression_cycle_duration_seconds"], 8.0)
         self.assertFalse(

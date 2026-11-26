@@ -209,7 +209,7 @@ def _build_preview_music_sync(
 def _build_head_expression_sequence(music_sync: dict[str, Any]) -> list[str]:
     """Keep an instrumental violin performance calm, with only an occasional blink."""
     del music_sync  # Pitch jumps and note velocity are not facial-emotion signals.
-    return ["neutral", "neutral", "neutral", "blink_closed", "neutral", "neutral"]
+    return ["speaking_closed", "speaking_closed", "blink_closed", "speaking_closed"]
 
 
 def build_preview_project(
@@ -316,9 +316,9 @@ def build_preview_project(
                 "expression": "neutral",
                 "head_expression_sequence": [
                     name for name in (
-                        "neutral", "neutral", "neutral",
+                        "speaking_closed", "speaking_closed",
                         "blink_closed",
-                        "neutral", "neutral",
+                        "speaking_closed",
                     )
                     if name in (character.get("head_variants") or {})
                 ],
@@ -330,7 +330,7 @@ def build_preview_project(
                 # Subtle head rotation still comes from the neck-pivot rig.
                 **({} if (composite_base_mode and not segmented_body_mode) else {
                     "head_angle": "front",
-                    "head_expression": "neutral",
+                    "head_expression": "speaking_closed",
                 }),
                 "x": 46,
                 "y": 58,
