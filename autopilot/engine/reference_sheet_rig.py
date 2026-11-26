@@ -702,7 +702,7 @@ def _build_facial_state_head_variants(
     bundle: Path,
 ) -> tuple[dict[str, dict[str, Any]], str | None, str]:
     """Composite real eye and mouth cut-outs into distinct full-head state plates."""
-    required = {3, 4, 15, 16, 17, 20, 21, 22, 28, 31, 34}
+    required = {15, 16, 17, 20, 28, 31, 32, 33, 34}
     by_number = {
         int(str(item["part_id"]).rsplit("-", 1)[-1]): item
         for item in facial_parts
@@ -727,8 +727,10 @@ def _build_facial_state_head_variants(
         skin = (181, 122, 83, 255)
 
     eye_open_boxes = ((42, 68, 60, 80), (80, 68, 98, 80))
-    eye_closed_boxes = ((42, 71, 60, 77), (80, 71, 98, 77))
-    eye_hole_boxes = ((42, 68, 60, 80), (80, 68, 98, 80))
+    # The supplied closed-eye plates include the full eyelid and surrounding
+    # skin, so give them a slightly taller target than the narrow open-eye crop.
+    eye_closed_boxes = ((40, 66, 62, 82), (78, 66, 100, 82))
+    eye_hole_boxes = ((38, 65, 63, 84), (77, 65, 102, 84))
     mouth_box = (50, 98, 89, 119)
 
     def load_part(number: int) -> Image.Image:
@@ -772,14 +774,14 @@ def _build_facial_state_head_variants(
         return {**head_variants["neutral"], "src": filename}
 
     states = {
-        "speaking_open": compose_state("speaking_open", mouth_id=17),
+        "speaking_open": compose_state("speaking_open", mouth_id=31),
         "speaking_closed": compose_state("speaking_closed", mouth_id=20),
         "blink_closed": compose_state(
-            "blink_closed", eye_ids=(21, 22), mouth_id=20, closed_eye=True
+            "blink_closed", eye_ids=(32, 33), closed_eye=True
         ),
         "sad": compose_state("sad", mouth_id=28),
         "shocked_open": compose_state(
-            "shocked_open", eye_ids=(15, 16), mouth_id=31
+            "shocked_open", eye_ids=(15, 16), mouth_id=17
         ),
         "smile": compose_state("smile", mouth_id=34),
     }

@@ -232,21 +232,31 @@ class ReferenceSheetRigTests(unittest.TestCase):
             draw.ellipse((50, 99, 88, 120), fill=(70, 20, 20, 255))
             base.save(root / "head-variant-neutral.png")
 
-            for number in (3, 4, 15, 16, 17, 20, 21, 22, 28, 31, 34):
+            # Distinct shapes model the separately extracted eye, eyelid and
+            # mouth assets; do not make different expressions share one fixture.
+            for number in (15, 16, 17, 20, 28, 31, 32, 33, 34):
                 asset = Image.new("RGBA", (46, 26), (0, 0, 0, 0))
                 marker = ImageDraw.Draw(asset)
-                color = (250, 250, 240, 255) if number in (3, 4, 15, 16) else (80, 20, 30, 255)
-                if number in (21, 22):
-                    marker.arc((3, 9, 43, 22), start=180, end=355, fill=color, width=4)
-                elif number in (17, 31):
-                    marker.ellipse((6, 2, 40, 24), fill=color)
-                else:
-                    marker.rounded_rectangle((5, 6, 41, 20), radius=5, fill=color)
+                if number in (15, 16):
+                    marker.ellipse((4, 3, 42, 23), fill=(250, 250, 240, 255))
+                    marker.ellipse((17, 7, 29, 20), fill=(35, 30, 28, 255))
+                elif number in (32, 33):
+                    marker.arc((3, 3, 43, 24), start=8, end=172, fill=(65, 28, 31, 255), width=4)
+                elif number == 17:
+                    marker.ellipse((4, 1, 42, 25), fill=(80, 20, 30, 255))
+                elif number == 31:
+                    marker.ellipse((12, 1, 34, 25), fill=(80, 20, 30, 255))
+                elif number == 20:
+                    marker.rounded_rectangle((5, 7, 41, 19), radius=5, fill=(80, 20, 30, 255))
+                elif number == 28:
+                    marker.arc((5, 2, 41, 25), start=195, end=345, fill=(80, 20, 30, 255), width=5)
+                else:  # 34: a broad smile curve, unlike the speaking/sad mouths.
+                    marker.arc((3, 0, 43, 27), start=20, end=160, fill=(80, 20, 30, 255), width=5)
                 asset.save(root / f"facial-part-{number:03d}.png")
 
             parts = [
                 {"part_id": f"facial-part-{number:03d}", "path": root / f"facial-part-{number:03d}.png"}
-                for number in (3, 4, 15, 16, 17, 20, 21, 22, 28, 31, 34)
+                for number in (15, 16, 17, 20, 28, 31, 32, 33, 34)
             ]
             bounds = {
                 "x": 0, "y": 0, "width": 136, "height": 159,
