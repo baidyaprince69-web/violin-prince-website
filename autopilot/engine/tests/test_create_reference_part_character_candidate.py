@@ -235,6 +235,7 @@ class ReferencePartCharacterCandidateTests(unittest.TestCase):
             self.assertFalse(alignment["production_layer_replacement_enabled"])
             self.assertFalse(alignment["joint_pivots_validated"])
             self.assertFalse(alignment["finger_articulation_enabled"])
+            self.assertFalse(candidate["performance"]["fingering_articulation_enabled"])
             self.assertNotIn("base_art", candidate)
             self.assertNotIn("performance_base_mode", candidate)
             self.assertTrue(candidate["performance"]["instrument_performance"])
