@@ -284,7 +284,7 @@ function motionFrames(type, amount) {
   const a = Math.max(2, Number(amount) || 16);
   switch (type) {
     case "float": case "bob":
-      return ["translate(0px " + a + "px) rotate(-1deg)", "translate(" + a * .15 + "px -" + a + "px) rotate(1deg)", "translate(0px " + a + "px) rotate(-1deg)"];
+      return ["translate(0px, " + a + "px) rotate(-1deg)", "translate(" + a * .15 + "px, -" + a + "px) rotate(1deg)", "translate(0px, " + a + "px) rotate(-1deg)"];
     case "drift":
       return ["translateX(-" + a + "px)", "translateX(" + a + "px)", "translateX(-" + a + "px)"];
     case "orbit":
