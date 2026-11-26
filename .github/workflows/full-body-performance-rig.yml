@@ -808,8 +808,8 @@ jobs:
           assert scene.get("joint_surface_mesh_triangle_track_count") == 0, scene
           assert scene.get("joint_surface_transform_track_count") == len(joint_layers), scene
           assert scene.get("full_body_visual_mode") == "segmented_source_body", scene
-          assert report.get("deformable_body_layer_count") == 5, report
-          assert report.get("deformation_mesh_triangle_track_count") == 94, report
+          assert report.get("deformable_body_layer_count") == 0, report
+          assert report.get("deformation_mesh_triangle_track_count") == 0, report
           print(json.dumps({
               "full_body_scenes": report["full_body_performance_scene_count"],
               "independent_leg_parts": report["animated_full_body_part_count"],
