@@ -807,12 +807,23 @@ jobs:
             -c:v copy -c:a aac -b:a 192k -shortest -movflags +faststart \
             work/full-body-rig/full-body-violin-performance.mp4
 
+      - name: Build a 24-second full-body base project for the Master Director integration
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python autopilot/engine/create_full_body_performance_preview.py \
+            --bundle work/full-body-rig/bundle \
+            --output work/full-body-rig/master-director-base \
+            --audio work/full-body-rig/audio/violin-prince-cc0-solo-violin.wav \
+            --music-map work/full-body-rig/audio/violin-prince-cc0-solo-violin.music-map.json \
+            --duration-seconds 24
+
       - name: Assemble the 8-shot full-body Master Director integration project
         env:
           PYTHONPATH: autopilot/engine
         run: |
           python autopilot/engine/create_master_director_video_project.py \
-            --base-project work/full-body-rig/project.json \
+            --base-project work/full-body-rig/master-director-base/project.json \
             --director-plan autopilot/engine/tests/fixtures/master-director-fullbody-integration-demo.json \
             --output work/full-body-rig/master-director/project.json
 
@@ -823,7 +834,7 @@ jobs:
             --project ../../../work/full-body-rig/master-director/project.json \
             --out-dir ../../../work/full-body-rig/master-director/composition
           mkdir -p ../../../work/full-body-rig/master-director/composition/assets/characters
-          cp -R ../../../work/full-body-rig/assets/characters/violin-prince \
+          cp -R ../../../work/full-body-rig/master-director-base/assets/characters/violin-prince \
             ../../../work/full-body-rig/master-director/composition/assets/characters/
           cd ../../../work/full-body-rig/master-director/composition
           $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes lint
