@@ -1222,7 +1222,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             self.assertEqual(timing["note_events"][0]["note"], 62)
             self.assertEqual(timing["note_events"][-1]["time"], 7.5)
 
-    def test_source_motion_backplate_uses_original_pixels_along_body_connections(self):
+    def test_source_motion_backplate_preserves_joint_seams_without_limb_corridors(self):
         import tempfile
         from pathlib import Path
         from PIL import ImageDraw
@@ -1262,15 +1262,62 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         visible = underlay[:, :, 3] > 0
         self.assertEqual(layer["role"], "source_motion_backplate")
         self.assertEqual(layer["z_index"], 2)
-        self.assertEqual(report["bone_corridor_count"], 11)
+        self.assertEqual(report["bone_corridor_count"], 0)
+        self.assertTrue(report["limb_corridors_excluded"])
         self.assertEqual(report["joint_coverage_count"], 12)
-        self.assertGreater(report["source_pixels_preserved"], 1500)
+        self.assertGreater(report["source_pixels_preserved"], 300)
+        # Small source-pixel islands remain at real anatomical pivots.
         self.assertTrue(bool(visible[66, 34]))
         self.assertTrue(bool(visible[137, 43]))
+        # Mid-sections of the original limbs must not survive under the rig.
+        for y, x in [
+            (50, 47), (77, 29), (50, 73), (77, 91),
+            (118, 45), (150, 41), (118, 75), (150, 79),
+        ]:
+            self.assertFalse(bool(visible[y, x]), f"Unexpected static limb overlay at {(x, y)}")
         self.assertFalse(bool(visible[6, 110]))
         np.testing.assert_array_equal(underlay[visible, :3], original[visible, :3])
         self.assertTrue(np.all(underlay[:, :, 3] <= original[:, :, 3]))
 
+    def test_source_motion_backplate_excludes_moving_pixels_and_animated_bow(self):
+        import tempfile
+        from pathlib import Path
+
+        source = Image.new("RGBA", (80, 100), (35, 40, 48, 255))
+        joints = {
+            "neck": {"x": 0.5, "y": 0.18},
+            "left_shoulder": {"x": 0.4, "y": 0.25},
+            "left_elbow": {"x": 0.3, "y": 0.4},
+            "left_wrist": {"x": 0.2, "y": 0.5},
+            "right_shoulder": {"x": 0.6, "y": 0.25},
+            "right_elbow": {"x": 0.7, "y": 0.4},
+            "right_wrist": {"x": 0.8, "y": 0.5},
+            "left_hip": {"x": 0.4, "y": 0.6},
+            "left_knee": {"x": 0.38, "y": 0.78},
+            "left_ankle": {"x": 0.35, "y": 0.92},
+            "right_hip": {"x": 0.6, "y": 0.6},
+            "right_knee": {"x": 0.62, "y": 0.78},
+            "right_ankle": {"x": 0.65, "y": 0.92},
+        }
+        moving = np.zeros((100, 80), dtype=bool)
+        moving[35:48, 20:34] = True
+        bow = np.zeros((100, 80), dtype=np.uint8)
+        bow[15:70, 48:51] = 255
+
+        with tempfile.TemporaryDirectory() as folder:
+            layer, report = _build_source_motion_backplate(
+                source, Path(folder), joints,
+                moving_mask=moving,
+                excluded_canvas_alpha=bow,
+            )
+            with Image.open(Path(folder) / layer["src"]) as opened:
+                underlay = np.asarray(opened.convert("RGBA"), dtype=np.uint8)
+
+        visible = underlay[:, :, 3] > 0
+        self.assertFalse(bool(visible[moving].any()))
+        self.assertFalse(bool(visible[bow > 12].any()))
+        self.assertEqual(report["moving_source_pixels_excluded"], int(moving.sum()))
+        self.assertEqual(report["prop_source_pixels_excluded"], int((bow > 12).sum()))
 
     def test_segmented_source_base_preserves_untouched_pixels_and_alpha(self):
         import tempfile
