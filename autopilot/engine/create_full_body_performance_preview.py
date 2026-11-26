@@ -207,62 +207,10 @@ def _build_preview_music_sync(
 
 
 def _build_head_expression_sequence(music_sync: dict[str, Any]) -> list[str]:
-    """Turn phrase-level note changes into restrained live facial expression cues.
+    """Keep an instrumental violin performance calm, with only an occasional blink."""
+    del music_sync  # Pitch jumps and note velocity are not facial-emotion signals.
+    return ["neutral", "neutral", "neutral", "blink_closed", "neutral", "neutral"]
 
-    These are performance-direction cues rather than emotion inference: phrase
-    peaks can receive a brief surprised accent, sustained notes a warm smile,
-    low-energy notes a neutral rest, and the remaining time stays focused.
-    """
-    raw_events = music_sync.get("note_events") if isinstance(music_sync, dict) else None
-    events = []
-    for event in raw_events if isinstance(raw_events, list) else []:
-        try:
-            note = int(event["note"])
-            velocity = int(event.get("velocity", 76))
-            duration = float(event.get("duration_seconds", 0.2))
-        except (KeyError, TypeError, ValueError):
-            continue
-        if 0 <= note <= 127 and 1 <= velocity <= 127 and duration > 0:
-            events.append({
-                "note": note,
-                "velocity": velocity,
-                "duration": duration,
-            })
-    if not events:
-        return ["focused", "neutral", "focused", "happy"]
-
-    velocity_order = sorted(item["velocity"] for item in events)
-    low_velocity_threshold = velocity_order[int((len(velocity_order) - 1) * 0.2)]
-    peak_velocity = max(velocity_order)
-    sequence = ["focused"]
-    previous_note = None
-    for event in events:
-        note = event["note"]
-        velocity = event["velocity"]
-        duration = event["duration"]
-        if (
-            previous_note is not None
-            and abs(note - previous_note) >= 7
-            and velocity >= max(74, peak_velocity - 2)
-        ):
-            expression = "surprised"
-        elif duration >= 0.85 and velocity >= 70:
-            expression = "happy"
-        elif velocity <= low_velocity_threshold:
-            expression = "neutral"
-        else:
-            expression = "focused"
-        if expression != sequence[-1]:
-            sequence.append(expression)
-        previous_note = note
-
-    if "neutral" not in sequence:
-        sequence.insert(1, "neutral")
-    if "happy" not in sequence:
-        sequence.append("happy")
-    if len(set(sequence)) < 3:
-        sequence.append("surprised")
-    return sequence[:8]
 
 def build_preview_project(
     bundle_dir: str | Path,
@@ -365,20 +313,16 @@ def build_preview_project(
                 "appear_immediately": True,
                 "gesture": "violin_performance",
                 "instrument_performance": True,
-                "expression": "focused",
+                "expression": "neutral",
                 "head_expression_sequence": [
                     name for name in (
-                        "focused", "focused",
-                        "speaking_open", "speaking_closed",
-                        "speaking_open", "speaking_closed",
-                        "focused", "focused",
+                        "neutral", "neutral", "neutral",
                         "blink_closed",
-                        "focused", "focused",
-                        "happy", "smile", "sad", "shocked_open", "neutral",
+                        "neutral", "neutral",
                     )
                     if name in (character.get("head_variants") or {})
                 ],
-                "head_expression_cycle_duration_seconds": 5.4,
+                "head_expression_cycle_duration_seconds": 8.0,
                 "head_expression_loop": True,
                 # Keep one aligned front-facing plate in this preview. The
                 # supplied side-angle plates are complete static drawings;
@@ -386,7 +330,7 @@ def build_preview_project(
                 # Subtle head rotation still comes from the neck-pivot rig.
                 **({} if (composite_base_mode and not segmented_body_mode) else {
                     "head_angle": "front",
-                    "head_expression": "focused",
+                    "head_expression": "neutral",
                 }),
                 "x": 46,
                 "y": 58,

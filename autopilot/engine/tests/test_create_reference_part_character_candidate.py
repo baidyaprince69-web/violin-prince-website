@@ -245,91 +245,76 @@ def make_source_bundle(root: Path):
 
 
 class ReferencePartCharacterCandidateTests(unittest.TestCase):
-    def test_builds_isolated_character_spec_from_assembled_reference_parts(self):
+    def test_uses_one_coherent_master_artwork_and_keeps_mismatched_cutouts_inactive(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             source = make_source_bundle(root)
             output = root / "candidate"
 
+            expected_source_bytes = (source / "preserved-full-body-source.png").read_bytes()
             report = build_reference_part_character_candidate(source, output)
             candidate = json.loads((output / "character.json").read_text())
             alignment = candidate["reference_part_alignment"]
 
             self.assertEqual(
                 report["status"],
-                "candidate_character_spec_validated_pending_animation_visual_review",
+                "candidate_source_composite_validated_pending_animation_visual_review",
             )
-            self.assertEqual(report["candidate_character_layer_count"], 17)
-            self.assertEqual(report["candidate_prop_count"], 2)
-            self.assertEqual(set(candidate["head_variants"]), REQUIRED_FACE_STATES)
+            self.assertEqual(report["candidate_character_layer_count"], 9)
+            self.assertEqual(report["candidate_prop_count"], 0)
+            self.assertEqual(report["visible_composite_count"], 1)
+            self.assertEqual(report["source_parts_used"], [])
+            self.assertEqual(report["source_bridges_used"], [])
+            self.assertEqual(report["reference_cutouts_activated"], False)
+            self.assertEqual(candidate["base_art"]["src"], "preserved-full-body-source.png")
+            self.assertEqual(candidate["performance_base_mode"], "intact_full_body_source_composite")
+            self.assertEqual((output / candidate["base_art"]["src"]).read_bytes(), expected_source_bytes)
+            self.assertEqual(candidate["base_art"]["x"], 0)
+            self.assertEqual(candidate["base_art"]["y"], 0)
+            self.assertEqual(candidate["base_art"]["width"], 441)
+            self.assertEqual(candidate["base_art"]["height"], 755)
+            self.assertEqual(candidate["head_variants"], {})
+            self.assertEqual(candidate["head_angles"], {})
+            self.assertEqual(candidate["props"], {})
+            self.assertEqual(candidate["pose_assets"], {})
             self.assertEqual(
-                candidate["pose_assets"]["resting_hands"]["src"],
-                "pose-resting_hands.png",
+                {layer["role"] for layer in candidate["layers"]},
+                {
+                    "torso", "head", "face",
+                    "left_upper_arm", "left_forearm", "left_hand",
+                    "right_upper_arm", "right_forearm", "right_hand",
+                },
             )
-            self.assertTrue((output / "pose-resting_hands.png").is_file())
-            self.assertEqual(candidate["props"]["bow"]["attach_to"], "left_hand")
-            self.assertEqual(candidate["props"]["violin"]["attach_to"], "torso")
-            right_hand = next(layer for layer in candidate["layers"] if layer["role"] == "right_hand")
+            self.assertTrue(all(
+                layer["src"] == "transparent-character-anchor.png"
+                and layer["activation_policy"] == "transparent_no_duplicate_body_art"
+                for layer in candidate["layers"]
+            ))
+            with Image.open(output / "transparent-character-anchor.png") as anchor:
+                self.assertEqual(anchor.size, (1, 1))
+                self.assertEqual(anchor.getpixel((0, 0))[3], 0)
+            self.assertEqual(set(candidate["expressions"]), {"neutral", "alternate"})
+            self.assertTrue(all(
+                value["src"] == "transparent-character-anchor.png"
+                for value in candidate["expressions"].values()
+            ))
             self.assertEqual(
-                right_hand["src"], "reference-source-fingerboard-grip-hand.png"
+                alignment["assembly_method"],
+                "single_source_preserved_full_body_composite_no_pose_mismatched_cutouts",
             )
-            self.assertEqual(right_hand["candidate_source_layer_id"],
-                             "preserved-full-body-source-skin-mask")
+            self.assertEqual(alignment["reference_parts_activated"], 0)
             self.assertEqual(
-                right_hand["source_art_policy"],
-                "preserved_full_body_skin_mask_with_ink_outline",
+                alignment["right_hand_art_source"],
+                "integrated_original_full_body_art_with_authored_fingerboard_grip",
             )
-            self.assertGreater(right_hand["visible_alpha_pixels"], 1000)
-            self.assertGreaterEqual(right_hand["x"], 318)
-            self.assertLessEqual(right_hand["x"], 326)
-            self.assertGreaterEqual(right_hand["y"], 169)
-            self.assertLessEqual(right_hand["y"], 179)
-            self.assertGreaterEqual(right_hand["width"], 45)
-            self.assertGreaterEqual(right_hand["height"], 60)
-            right_forearm = next(
-                layer for layer in candidate["layers"]
-                if layer["role"] == "right_forearm"
-            )
-            self.assertLess(
-                right_forearm["z_index"], candidate["props"]["violin"]["z_index"],
-                "the forearm stays below the violin; only the isolated grip hand overlays it",
-            )
-            self.assertEqual(right_hand["z_index"], 70)
-            self.assertEqual(
-                right_hand["pivot_status"],
-                "preserved_source_fingerboard_grip_joint_pending_visual_review",
-            )
-            self.assertEqual(
-                candidate["joints"]["right_wrist"],
-                {"x": 350.8 / 441, "y": 239.3 / 755},
-            )
-            self.assertEqual(report["right_hand_art_source"],
-                             "preserved_full_body_skin_mask_with_ink_outline")
-            self.assertNotIn("reference-part-022", report["source_parts_used"])
-            self.assertEqual(report["source_character_layers_used"], ["right_hand"])
             self.assertFalse(alignment["production_layer_replacement_enabled"])
             self.assertFalse(alignment["joint_pivots_validated"])
             self.assertFalse(alignment["finger_articulation_enabled"])
             self.assertFalse(candidate["performance"]["fingering_articulation_enabled"])
-            self.assertNotIn("base_art", candidate)
-            self.assertNotIn("performance_base_mode", candidate)
-            self.assertTrue(candidate["performance"]["instrument_performance"])
-            self.assertTrue(
-                all((output / layer["src"]).is_file()
-                    for layer in candidate["layers"])
+            self.assertEqual(
+                candidate["performance"]["compositing_mode"],
+                "intact_source_full_body_composite",
             )
-            self.assertTrue(
-                all((output / asset["src"]).is_file()
-                    for asset in candidate["head_variants"].values())
-            )
-            with Image.open(output / right_hand["src"]) as hand_image:
-                self.assertEqual(hand_image.mode, "RGBA")
-                self.assertIsNotNone(hand_image.getchannel("A").getbbox())
-                # A violin-neck pixel outside the hand silhouette must stay transparent.
-                neck_probe_x = 385 - int(right_hand["x"])
-                neck_probe_y = 188 - int(right_hand["y"])
-                if 0 <= neck_probe_x < hand_image.width and 0 <= neck_probe_y < hand_image.height:
-                    self.assertEqual(hand_image.getpixel((neck_probe_x, neck_probe_y))[3], 0)
             persisted = json.loads(
                 (output / "reference-part-character-candidate-report.json").read_text()
             )
@@ -348,6 +333,8 @@ class ReferencePartCharacterCandidateTests(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "12 limb pivots plus the preserved neck"):
                 build_reference_part_character_candidate(source, root / "candidate")
+
+
 
 
 if __name__ == "__main__":

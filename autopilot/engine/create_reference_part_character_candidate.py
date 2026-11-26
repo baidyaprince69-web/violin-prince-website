@@ -186,7 +186,12 @@ def build_reference_part_character_candidate(
     source_bundle: str | Path,
     output_bundle: str | Path,
 ) -> dict[str, Any]:
-    """Create a review-only character spec using all aligned non-prop body parts."""
+    """Build a review-only character from one coherent, preserved source pose.
+
+    The reference-sheet cutouts are deliberately retained as review material.
+    They are not assembled onto the master performance art because their
+    front-facing pose does not match the master's three-quarter violin pose.
+    """
     source = Path(source_bundle).resolve(strict=True)
     output = Path(output_bundle).resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -202,8 +207,8 @@ def build_reference_part_character_candidate(
     assembly = json.loads(assembly_path.read_text(encoding="utf-8"))
     original = json.loads(character_path.read_text(encoding="utf-8"))
     canvas = original.get("canvas") or {}
-    canvas_width = float(canvas.get("width", 0))
-    canvas_height = float(canvas.get("height", 0))
+    canvas_width = int(canvas.get("width", 0))
+    canvas_height = int(canvas.get("height", 0))
     if canvas_width <= 0 or canvas_height <= 0:
         raise ValueError("The candidate character needs a valid source canvas.")
 
@@ -212,289 +217,117 @@ def build_reference_part_character_candidate(
     if layered.get("production_layer_replacement_enabled") is not False:
         raise ValueError("Production layer replacement must remain disabled.")
     if layered.get("missing_or_unplaced") != []:
-        raise ValueError("All supplied assembly parts must be placed before building the rig.")
+        raise ValueError("All supplied assembly parts must be present in the review catalogue.")
     if int(layered.get("layer_count", 0)) != 18:
-        raise ValueError("The reference candidate must contain exactly 18 exported source layers.")
+        raise ValueError("The reference catalogue must contain exactly 18 exported source layers.")
     pivots = layered.get("joint_pivots") or {}
     if set(pivots) != REQUIRED_JOINT_PIVOTS:
         raise ValueError("The candidate does not contain all 12 limb pivots plus the preserved neck.")
-    for joint_name in REQUIRED_JOINT_PIVOTS - {"neck"}:
-        item = pivots[joint_name]
-        if item.get("approved") is not False:
-            raise ValueError(f"{joint_name} must remain a review-only pivot estimate.")
-        if int(item.get("overlap_pixels", 0)) < int(item.get("minimum_overlap_pixels", 1)):
-            raise ValueError(f"{joint_name} does not have enough source-alpha overlap evidence.")
 
-    exported = {str(item["layer_id"]): item for item in layered.get("layers", [])}
-    layers: list[dict[str, Any]] = []
-    used_ids: set[str] = set()
-    for part_id, role in PART_ROLES.items():
-        entry = exported.get(part_id)
-        if entry is None:
-            raise ValueError(f"The layered candidate is missing required body part {part_id}.")
-        layer = _layer_from_export(entry, role, source, output)
-        joint_name = PIVOT_JOINT_FOR_ROLE.get(role)
-        if joint_name:
-            pivot = pivots[joint_name]["normalized"]
-            x, y = float(entry["x"]), float(entry["y"])
-            layer["pivot_x"] = (float(pivots[joint_name]["x"]) - x) / float(entry["width"])
-            layer["pivot_y"] = (float(pivots[joint_name]["y"]) - y) / float(entry["height"])
-            layer["pivot_joint"] = joint_name
-            layer["pivot_status"] = pivots[joint_name]["status"]
-            if not 0 <= layer["pivot_x"] <= 1 or not 0 <= layer["pivot_y"] <= 1:
-                raise ValueError(f"The {joint_name} pivot falls outside the {role} sprite.")
-        elif role == "torso":
-            old_torso = next(
-                (item for item in original.get("layers", []) if item.get("role") == "torso"),
-                None,
-            )
-            if old_torso:
-                root_x = float(old_torso["x"]) + float(old_torso["width"]) * float(old_torso.get("pivot_x", .5))
-                root_y = float(old_torso["y"]) + float(old_torso["height"]) * float(old_torso.get("pivot_y", .5))
-                layer["pivot_x"] = (root_x - layer["x"]) / layer["width"]
-                layer["pivot_y"] = (root_y - layer["y"]) / layer["height"]
-        if role in used_ids:
-            raise ValueError(f"Duplicate candidate rig role: {role}")
-        used_ids.add(role)
-        layers.append(layer)
+    preserved_path = source / "preserved-full-body-source.png"
+    if not preserved_path.is_file():
+        raise FileNotFoundError("The preserved full-body source illustration is required.")
+    with Image.open(preserved_path) as preserved_image:
+        if preserved_image.size != (canvas_width, canvas_height):
+            raise ValueError("The preserved full-body source must match the original character canvas.")
+        preserved_rgba = preserved_image.convert("RGBA")
+        if preserved_rgba.getchannel("A").getbbox() is None:
+            raise ValueError("The preserved full-body source illustration is fully transparent.")
+    integrated_source = _copy_asset(source, output, preserved_path.name)
 
-    for bridge_id, role in BRIDGE_ROLES.items():
-        candidate_layer_ids = (
-            "source-bridge-" + bridge_id,
-            "source-bridge-" + bridge_id.replace("_", "-"),
-        )
-        layer_id = next(
-            (candidate_id for candidate_id in candidate_layer_ids if candidate_id in exported),
-            candidate_layer_ids[0],
-        )
-        entry = exported.get(layer_id)
-        if entry is None:
-            raise ValueError(f"The layered candidate is missing source bridge {bridge_id}.")
-        layer = _layer_from_export(entry, role, source, output)
-        if role == "right_forearm":
-            pivot = pivots["right_elbow"]
-            layer["pivot_x"] = (float(pivot["x"]) - layer["x"]) / layer["width"]
-            layer["pivot_y"] = (float(pivot["y"]) - layer["y"]) / layer["height"]
-            layer["pivot_joint"] = "right_elbow"
-            layer["pivot_status"] = pivot["status"]
-        layers.append(layer)
-
-    # Preserve the original source-rig fingerboard hand instead of activating
-    # reference-part-022: that isolated hand drawing drops below the fingerboard
-    # in the rendered performance. The original source hand already wraps the
-    # neck and uses its authored right-wrist anchor.
-    original_layers_by_role = {
-        str(item.get("role") or ""): item
-        for item in original.get("layers", [])
-    }
-    for source_role, candidate_role in SOURCE_CHARACTER_LAYER_ROLES.items():
-        original_layer = original_layers_by_role.get(source_role)
-        if original_layer is None:
-            raise ValueError(
-                f"The preserved source character is missing its {source_role} layer."
-            )
-        source_joint = (original.get("joints") or {}).get("right_wrist")
-        if not isinstance(source_joint, dict):
-            raise ValueError("The preserved source character has no right-wrist anchor.")
-        extracted_hand = _extract_preserved_fingerboard_grip_hand(source, output)
-        x = float(extracted_hand["x"])
-        y = float(extracted_hand["y"])
-        width = float(extracted_hand["width"])
-        height = float(extracted_hand["height"])
-        wrist_x = float(source_joint["x"]) * canvas_width
-        wrist_y = float(source_joint["y"]) * canvas_height
-        pivot_x = (wrist_x - x) / width
-        pivot_y = (wrist_y - y) / height
-        if not 0 <= pivot_x <= 1 or not 0 <= pivot_y <= 1:
-            raise ValueError("The preserved source right-wrist joint falls outside its extracted hand sprite.")
-        source_hand = {
-            "id": candidate_role,
-            "role": candidate_role,
-            "src": extracted_hand["src"],
-            "x": x,
-            "y": y,
-            "width": width,
-            "height": height,
-            "pivot_x": pivot_x,
-            "pivot_y": pivot_y,
-            "z_index": 70,
-            "candidate_source_layer_id": "preserved-full-body-source-skin-mask",
-            "pivot_joint": "right_wrist",
-            "pivot_status": "preserved_source_fingerboard_grip_joint_pending_visual_review",
-            "source_art_policy": extracted_hand["extraction_method"],
-            "visible_alpha_pixels": extracted_hand["visible_alpha_pixels"],
-        }
-        layers.append(source_hand)
-        used_ids.add(candidate_role)
-
-    # The supplied head portrait is retained as a hidden anchor. The visible
-    # head is replaced by the six aligned full-head expression plates.
-    head_entry = exported.get("reference-part-001")
-    if head_entry is None:
-        raise ValueError("The assembled candidate has no head portrait anchor.")
-    head_x = float(head_entry["x"])
-    head_y = float(head_entry["y"])
-    head_width = float(head_entry["width"])
-    head_height = float(head_entry["height"])
-    neck = pivots["neck"]
-    head_pivot_x = (float(neck["x"]) - head_x) / head_width
-    head_pivot_y = (float(neck["y"]) - head_y) / head_height
-    if not 0 <= head_pivot_x <= 1 or not 0 <= head_pivot_y <= 1:
-        raise ValueError("The preserved neck pivot is outside the assembled head anchor.")
-
-    anchor_path = output / "reference-candidate-transparent-anchor.png"
+    # The renderer's rig contract still requires these role anchors. They are
+    # intentionally transparent: all visible anatomy, violin, bow and face
+    # remain in the one source-aligned master image, with no duplicate overlays.
+    anchor_path = output / "transparent-character-anchor.png"
     Image.new("RGBA", (1, 1), (0, 0, 0, 0)).save(anchor_path, format="PNG")
-    for anchor_role, anchor_id, z_index in (
-        ("head", "head", 80),
-        ("face", "face", 81),
-    ):
-        layers.append({
-            "id": anchor_id,
-            "role": anchor_role,
+    required_roles = (
+        "torso", "head", "face",
+        "left_upper_arm", "left_forearm", "left_hand",
+        "right_upper_arm", "right_forearm", "right_hand",
+    )
+    layers = [
+        {
+            "id": role,
+            "role": role,
             "src": anchor_path.name,
-            "x": head_x,
-            "y": head_y,
-            "width": head_width,
-            "height": head_height,
-            "pivot_x": head_pivot_x,
-            "pivot_y": head_pivot_y,
-            "z_index": z_index,
-            "candidate_source_layer_id": "reference-part-001",
-            "pivot_joint": "neck",
-            "pivot_status": "source_coordinate_preserved_pending_candidate_visual_review",
-        })
-
-    layers.sort(key=lambda item: item["z_index"])
-
-    source_props = original.get("props") or {}
-    violin_entry = exported.get("reference-part-025")
-    bow_entry = exported.get("source-bridge-bow")
-    if violin_entry is None or bow_entry is None:
-        raise ValueError("The candidate must include both the violin and the approved bow.")
-    violin_source = source_props.get("violin") or {}
-    bow_source = source_props.get("bow") or {}
-    props = {
-        "violin": {
-            "id": "violin",
-            "src": _copy_asset(source, output, str(violin_entry["src"])),
-            "x": float(violin_entry["x"]),
-            "y": float(violin_entry["y"]),
-            "width": float(violin_entry["width"]),
-            "height": float(violin_entry["height"]),
-            "pivot_x": float(violin_source.get("pivot_x", .5)),
-            "pivot_y": float(violin_source.get("pivot_y", .5)),
-            "z_index": int(violin_entry["z_index"]),
-            "attach_to": "torso",
-        },
-        "bow": {
-            "id": "bow",
-            "src": _copy_asset(source, output, str(bow_entry["src"])),
-            "x": float(bow_entry["x"]),
-            "y": float(bow_entry["y"]),
-            "width": float(bow_entry["width"]),
-            "height": float(bow_entry["height"]),
-            "pivot_x": float(bow_source.get("pivot_x", .5)),
-            "pivot_y": float(bow_source.get("pivot_y", .5)),
-            "z_index": int(bow_entry["z_index"]),
-            "attach_to": "left_hand",
-        },
-    }
-
-    # The face variants are full-head plates. They replace the static portrait
-    # instead of being layered over it, which prevents a doubled/ghosted face.
-    head_variants: dict[str, dict[str, Any]] = {}
-    source_head_variants = original.get("head_variants") or {}
-    for name, asset in source_head_variants.items():
-        if not isinstance(asset, dict):
-            continue
-        entry = dict(asset)
-        entry["src"] = _copy_asset(source, output, str(asset["src"]))
-        entry.update({
-            "x": head_x,
-            "y": head_y,
-            "width": head_width,
-            "height": head_height,
-            "pivot_x": head_pivot_x,
-            "pivot_y": head_pivot_y,
-            "z_index": 90,
-        })
-        head_variants[str(name)] = entry
-    if not REQUIRED_FACE_STATES.issubset(set(head_variants)):
-        raise ValueError("The candidate head is missing one or more of the six required facial states.")
-
-    expressions: dict[str, dict[str, str]] = {}
-    for name, asset in (original.get("expressions") or {}).items():
-        src = asset.get("src") if isinstance(asset, dict) else asset
-        expressions[str(name)] = {"src": _copy_asset(source, output, str(src))}
-
-    # The animation preview stages every pose asset referenced by the candidate
-    # character, so copy those source files into the isolated bundle as well.
-    pose_assets: dict[str, dict[str, Any]] = {}
-    for name, asset in (original.get("pose_assets") or {}).items():
-        src = asset.get("src") if isinstance(asset, dict) else asset
-        entry = dict(asset) if isinstance(asset, dict) else {"src": str(src)}
-        entry["src"] = _copy_asset(source, output, str(src))
-        pose_assets[str(name)] = entry
-
-    candidate_joints = json.loads(json.dumps(original.get("joints") or {}))
-    for name, pivot in pivots.items():
-        if name == "right_wrist":
-            # The active candidate right hand is preserved original grip art,
-            # so retain its matching authored wrist coordinate.
-            continue
-        candidate_joints[name] = {
-            "x": float(pivot["x"]) / canvas_width,
-            "y": float(pivot["y"]) / canvas_height,
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1,
+            "pivot_x": 0.5,
+            "pivot_y": 0.5,
+            "z_index": index + 1,
+            "candidate_source_layer_id": "transparent_compatibility_anchor",
+            "activation_policy": "transparent_no_duplicate_body_art",
         }
+        for index, role in enumerate(required_roles)
+    ]
 
+    # The integrated master already contains the correct face and violin grip.
+    # Empty head plates prevent the oversized expression crops from replacing it.
+    transparent_expression = {"src": anchor_path.name}
+    original_joints = json.loads(json.dumps(original.get("joints") or {}))
     performance = dict(original.get("performance") or {})
     performance.update({
         "instrument_performance": True,
-        "continuous_body_deformation": "alpha_overlap_pivot_hierarchy_review_candidate",
-        "independent_limb_layer_count": 12,
+        "continuous_body_deformation": "preserved_single_source_composite",
+        "independent_limb_layer_count": 0,
         "fingering_parts": [],
         "fingering_segment_roles": [],
         "fingering_joint_count": 0,
         "fingering_articulation_enabled": False,
         "joint_surface_roles": [],
         "review_required": True,
-        "compositing_mode": "reference_sheet_layered_candidate",
+        "compositing_mode": "intact_source_full_body_composite",
     })
 
     candidate = {
         **original,
         "id": "violin-prince",
-        "canvas": dict(canvas),
+        "canvas": {"width": canvas_width, "height": canvas_height},
+        "base_art": {
+            "src": integrated_source,
+            "x": 0,
+            "y": 0,
+            "width": canvas_width,
+            "height": canvas_height,
+            "z_index": 10,
+        },
+        "performance_base_mode": "intact_full_body_source_composite",
         "layers": layers,
-        "joints": candidate_joints,
-        "expressions": expressions,
-        "pose_assets": pose_assets,
-        "head_variants": head_variants,
+        "joints": original_joints,
+        "expressions": {
+            "neutral": dict(transparent_expression),
+            "alternate": dict(transparent_expression),
+        },
+        "poses": {},
+        "gestures": {},
+        "pose_assets": {},
+        "head_variants": {},
         "head_angles": {},
-        "props": props,
+        "props": {},
         "performance": performance,
         "reference_part_alignment": {
-            "status": "candidate_layered_rig_built_pending_animation_visual_review",
-            "manifest": "reference-part-assembled-layer-candidate.json",
-            "primary_part_count": int(layered.get("primary_part_count", 0)),
-            "source_bridge_count": int(layered.get("source_bridge_count", 0)),
-            "exported_source_layer_count": int(layered.get("layer_count", 0)),
+            "status": "intact_master_art_selected_reference_cutouts_not_activated",
+            "assembly_method": "single_source_preserved_full_body_composite_no_pose_mismatched_cutouts",
+            "source_art": integrated_source,
+            "source_pose": "original_three_quarter_violin_performance",
+            "reference_sheet_pose": "front_facing_catalogue_not_compatible_with_master_pose",
+            "reference_parts_reviewed": len(layered.get("layers", [])),
+            "reference_parts_activated": 0,
             "candidate_character_layer_count": len(layers),
-            "candidate_prop_count": len(props),
-            "source_character_layer_roles_used": sorted(SOURCE_CHARACTER_LAYER_ROLES),
-            "right_hand_art_source": "preserved_full_body_skin_mask_with_ink_outline",
+            "visible_composite_count": 1,
+            "transparent_compatibility_anchor_count": len(layers),
+            "right_hand_art_source": "integrated_original_full_body_art_with_authored_fingerboard_grip",
             "joint_pivot_count": len(pivots),
             "joint_pivots_validated": False,
-            "facial_state_count": len(REQUIRED_FACE_STATES),
-            "facial_states_alignment": "positioned_on_candidate_head_pending_visual_review",
+            "facial_state_count": 0,
+            "facial_states_alignment": "original_face_preserved_inside_full_body_art",
             "finger_articulation_enabled": False,
-            "finger_articulation_status": "intact_source_skin_mask_fingerboard_grip_without_independent_finger_layers",
             "production_layer_replacement_enabled": False,
             "activation_policy": "review_only_do_not_replace_live_rig_or_publish",
         },
     }
-    candidate.pop("base_art", None)
-    candidate.pop("performance_base_mode", None)
 
     validate_character_spec(candidate)
     (output / "character.json").write_text(
@@ -506,42 +339,31 @@ def build_reference_part_character_candidate(
     _copy_asset(source, output, "reference-part-assembled-candidate.png")
 
     report = {
-        "status": "candidate_character_spec_validated_pending_animation_visual_review",
-        "canvas": dict(canvas),
+        "status": "candidate_source_composite_validated_pending_animation_visual_review",
+        "canvas": {"width": canvas_width, "height": canvas_height},
+        "assembly_method": "single_source_preserved_full_body_composite_no_pose_mismatched_cutouts",
         "candidate_character_layer_count": len(layers),
-        "candidate_prop_count": len(props),
-        "visible_body_layers": len(layers) - 2,
-        "head_anchor_layers": 2,
-        "source_parts_used": sorted(PART_ROLES),
-        "source_bridges_used": sorted(BRIDGE_ROLES),
-        "source_character_layers_used": sorted(SOURCE_CHARACTER_LAYER_ROLES),
-        "right_hand_art_source": "preserved_full_body_skin_mask_with_ink_outline",
-        "props": sorted(props),
-        "facial_states": sorted(REQUIRED_FACE_STATES),
-        "joint_pivots": {
-            name: (
-                {
-                    "x": float(candidate_joints[name]["x"]) * canvas_width,
-                    "y": float(candidate_joints[name]["y"]) * canvas_height,
-                    "overlap_pixels": None,
-                    "method": "preserved_original_source_fingerboard_grip_wrist",
-                    "approved": False,
-                }
-                if name == "right_wrist" else
-                {
-                    "x": value["x"],
-                    "y": value["y"],
-                    "overlap_pixels": value.get("overlap_pixels"),
-                    "method": value.get("method"),
-                    "approved": False,
-                }
-            )
-            for name, value in pivots.items()
-        },
+        "candidate_prop_count": 0,
+        "visible_body_layers": 0,
+        "visible_composite_count": 1,
+        "transparent_compatibility_anchor_count": len(layers),
+        "source_parts_used": [],
+        "source_bridges_used": [],
+        "source_parts_reviewed": sorted(
+            str(item.get("layer_id")) for item in layered.get("layers", [])
+        ),
+        "source_bridges_reviewed": sorted(BRIDGE_ROLES),
+        "right_hand_art_source": "integrated_original_full_body_art_with_authored_fingerboard_grip",
+        "facial_states": [],
+        "joint_pivot_count": len(pivots),
+        "joint_pivots_validated": False,
         "finger_articulation_enabled": False,
         "production_layer_replacement_enabled": False,
         "publishing_enabled": False,
         "live_character_modified": False,
+        "reference_cutouts_activated": False,
+        "reference_sheet_pose_mismatch": True,
+        "assembly_source_asset_count": int(assembly.get("source_asset_count", 0)),
     }
     (output / "reference-part-character-candidate-report.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2) + "\n",

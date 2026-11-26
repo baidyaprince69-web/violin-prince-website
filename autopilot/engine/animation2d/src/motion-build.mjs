@@ -1648,18 +1648,31 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
       }
 
       if (action.root_motion) {
-        const kind = typeof action.root_motion === "string" ? action.root_motion : String(action.root_motion.type || "");
-        const intensity = typeof action.root_motion === "object"
-          ? Math.max(0, Math.min(1, Number(action.root_motion.intensity) || 0.45)) : 0.45;
-        const distance = Math.round(12 + intensity * 44);
+        const options = typeof action.root_motion === "object" ? action.root_motion : {};
+        const kind = typeof action.root_motion === "string" ? action.root_motion : String(options.type || "");
+        const rawIntensity = Number(options.intensity);
+        const intensity = Number.isFinite(rawIntensity)
+          ? Math.max(0, Math.min(1, rawIntensity)) : 0.45;
+        const defaultDistance = Math.round(12 + intensity * 44);
+        const configuredDistance = Number(options.distance_px);
+        const distance = Number.isFinite(configuredDistance)
+          ? Math.max(0, Math.min(80, configuredDistance)) : defaultDistance;
+        const configuredRotation = Number(options.rotation_deg);
+        const rotation = Number.isFinite(configuredRotation)
+          ? Math.max(0, Math.min(6, configuredRotation)) : 1.5;
+        const swayX = Number((distance * .35).toFixed(2));
+        const swayRotation = Number(rotation.toFixed(2));
         let rootFrames = null;
         if (kind === "walk" || kind === "walk_cycle") {
           rootFrames = ["translateX(0px) translateY(0px)", "translateX(" + distance + "px) translateY(-7px)",
             "translateX(0px) translateY(0px)", "translateX(-" + distance + "px) translateY(-7px)",
             "translateX(0px) translateY(0px)"];
         } else if (kind === "sway") {
-          rootFrames = ["translateX(-" + distance * .35 + "px) rotate(-1.5deg)",
-            "translateX(" + distance * .35 + "px) rotate(1.5deg)", "translateX(-" + distance * .35 + "px) rotate(-1.5deg)"];
+          rootFrames = [
+            "translateX(-" + swayX + "px) rotate(-" + swayRotation + "deg)",
+            "translateX(" + swayX + "px) rotate(" + swayRotation + "deg)",
+            "translateX(-" + swayX + "px) rotate(-" + swayRotation + "deg)"
+          ];
         } else if (kind === "float" || kind === "hover") {
           rootFrames = ["translateY(7px)", "translateY(-" + distance + "px)", "translateY(7px)"];
         } else {

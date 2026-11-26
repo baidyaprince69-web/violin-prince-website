@@ -70,3 +70,36 @@ test("non-looped gestures still settle rather than wrapping", () => {
   assert.equal(arm.values[35], arm.values.at(-1), "the non-looping gesture must settle at its final pose");
   assert.equal(arm.duration, 4);
 });
+
+
+test("intact source composites can use a low-amplitude, non-puppet sway", () => {
+  const project = {
+    duration_seconds: 4,
+    fps: 25,
+    scenes: [{ id: "composite", start: 0, duration: 4, character_actions: {
+      performer: {
+        visible: true,
+        root_motion: {
+          type: "sway",
+          intensity: 0.1,
+          distance_px: 2,
+          rotation_deg: 0.18
+        }
+      }
+    }}],
+    characters: [performer]
+  };
+  const tracks = compileMotionTracks(project, { fps: 25 });
+  const root = tracks.find(track =>
+    track.target === "composite-performer-motion" && track.property === "transform"
+  );
+  assert.ok(root, "the source composite should retain one whole-character motion track");
+  assert.ok(
+    root.values.some(value => String(value).includes("translateX(-0.7px) rotate(-0.18deg)")),
+    "the left sway should stay within the configured low-amplitude range"
+  );
+  assert.ok(
+    root.values.some(value => String(value).includes("translateX(0.7px) rotate(0.18deg)")),
+    "the right sway should stay within the configured low-amplitude range"
+  );
+});

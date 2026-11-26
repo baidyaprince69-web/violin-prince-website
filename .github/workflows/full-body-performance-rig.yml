@@ -498,22 +498,21 @@ jobs:
           report = json.loads((root / "reference-part-character-candidate-report.json").read_text())
           character = json.loads((root / "character.json").read_text())
           alignment = character["reference_part_alignment"]
-          assert report["status"] == "candidate_character_spec_validated_pending_animation_visual_review", report
-          assert len(character["layers"]) == 17, character
-          required_faces = {
-              "speaking_open", "speaking_closed", "blink_closed",
-              "sad", "shocked_open", "smile",
-          }
-          assert required_faces.issubset(set(character["head_variants"])), character
-          assert set(character["props"]) == {"violin", "bow"}, character
-          assert character["props"]["bow"]["attach_to"] == "left_hand", character
-          assert character["props"]["violin"]["attach_to"] == "torso", character
-          assert "base_art" not in character and "performance_base_mode" not in character, character
+          assert report["status"] == "candidate_source_composite_validated_pending_animation_visual_review", report
+          assert len(character["layers"]) == 9, character
+          assert character["base_art"]["src"] == "preserved-full-body-source.png", character
+          assert character["performance_base_mode"] == "intact_full_body_source_composite", character
+          assert character.get("head_variants") == {}, character
+          assert character.get("head_angles") == {}, character
+          assert character.get("props") == {}, character
+          assert alignment["assembly_method"] == "single_source_preserved_full_body_composite_no_pose_mismatched_cutouts", alignment
+          assert alignment["reference_parts_activated"] == 0, alignment
           assert alignment["production_layer_replacement_enabled"] is False, alignment
           assert alignment["joint_pivots_validated"] is False, alignment
           assert alignment["finger_articulation_enabled"] is False, alignment
+          assert report["reference_cutouts_activated"] is False, report
           assert report["live_character_modified"] is False, report
-          print("Built an isolated 17-layer candidate with six full-head states and two attached instrument props; live rig remains untouched.")
+          print("Built a source-coherent full-body review candidate; the mismatched reference-sheet cutouts remain inactive.")
           PY
 
       - name: Verify source-aligned limb segmentation and preserve the violin
@@ -836,21 +835,35 @@ jobs:
           scene["caption"] = ""
           scene["director_camera"] = {"movement": "locked_off", "shot_size": "wide"}
           action = scene["character_actions"]["violin-prince"]
-          action["root_motion"] = {"type": "sway", "intensity": 0.12}
+          action.pop("music_sync", None)
+          action.pop("gesture", None)
+          action.pop("head_expression_sequence", None)
+          action["expression"] = "neutral"
+          action["head_expression"] = "neutral"
+          action["root_motion"] = {
+              "type": "sway",
+              "intensity": 0.10,
+              "distance_px": 2,
+              "rotation_deg": 0.18,
+          }
           project_path.write_text(json.dumps(project, ensure_ascii=False, indent=2) + "\n")
           assert "stagecraft" not in scene, scene
           assert scene["director_camera"]["movement"] == "locked_off", scene
           character = project["characters"][0]
-          assert len(character["layers"]) == 17, character
-          assert {
-              "speaking_open", "speaking_closed", "blink_closed",
-              "sad", "shocked_open", "smile",
-          }.issubset(set(character.get("head_variants", {}))), character
-          assert len(character.get("props", {})) == 2, character
-          assert not character.get("base_art"), character
-          assert not character.get("performance_base_mode"), character
+          assert len(character["layers"]) == 9, character
+          assert character["base_art"]["src"].endswith("preserved-full-body-source.png"), character
+          assert character["performance_base_mode"] == "intact_full_body_source_composite", character
+          assert character.get("head_variants") == {}, character
+          assert character.get("head_angles") == {}, character
+          assert character.get("props") == {}, character
+          assert character["reference_part_alignment"]["reference_parts_activated"] == 0, character
           assert character["reference_part_alignment"]["finger_articulation_enabled"] is False, character
-          print("Candidate preview is neutral-background, locked-camera and non-cinematic.")
+          assert action.get("expression") == "neutral", action
+          assert action.get("music_sync") is None, action
+          assert action.get("gesture") is None, action
+          assert action["root_motion"]["distance_px"] <= 2, action
+          assert action["root_motion"]["rotation_deg"] <= 0.25, action
+          print("Candidate preview keeps the complete source pose and face intact with only a very subtle whole-character sway.")
           PY
 
       - name: Set up Node.js 22
@@ -925,13 +938,13 @@ jobs:
           assert float(action.get("start_offset", -1)) == 0.0, action
           assert not action.get("head_angle_sequence"), action
           facial_sequence = action.get("head_expression_sequence", [])
-          expected_facial_states = {
-              "speaking_open", "speaking_closed", "blink_closed",
-              "sad", "shocked_open", "smile",
-          }
-          assert expected_facial_states.issubset(set(facial_sequence)), action
-          assert len(facial_sequence) >= 12, action
-          assert float(action.get("head_expression_cycle_duration_seconds", 0)) >= 4.5, action
+          expected_facial_states = {"neutral", "blink_closed"}
+          assert set(facial_sequence) == expected_facial_states, action
+          assert len(facial_sequence) == 6, action
+          assert action.get("expression") == "neutral", action
+          assert action.get("head_expression") == "neutral", action
+          assert not ({"happy", "smile", "sad", "shocked_open", "speaking_open", "speaking_closed"} & set(facial_sequence)), action
+          assert float(action.get("head_expression_cycle_duration_seconds", 0)) >= 7.5, action
           character = json.loads(Path("work/full-body-rig/bundle/character.json").read_text())
           props = character.get("props", {})
           assert props.get("bow", {}).get("attach_to") == "left_hand", props

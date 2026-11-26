@@ -147,5 +147,55 @@ class FullBodyPreviewVisibilityTests(unittest.TestCase):
                 )
 
 
+    def test_instrumental_performance_uses_neutral_face_and_only_an_occasional_blink(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            bundle = root / "bundle"
+            output = root / "output"
+            bundle.mkdir()
+            Image.new("RGBA", (8, 8), (40, 50, 60, 255)).save(bundle / "torso.png")
+            Image.new("RGBA", (8, 8), (80, 70, 60, 255)).save(bundle / "neutral-head.png")
+            Image.new("RGBA", (8, 8), (80, 70, 60, 255)).save(bundle / "blink-head.png")
+            character = {
+                "id": "violin-prince-test",
+                "canvas": {"width": 8, "height": 8},
+                "performance": {"instrument_performance": True},
+                "layers": [{
+                    "id": "torso", "role": "torso", "src": "torso.png",
+                    "x": 0, "y": 0, "width": 8, "height": 8,
+                }],
+                "props": {},
+                "head_variants": {
+                    "neutral": {
+                        "src": "neutral-head.png",
+                        "x": 0, "y": 0, "width": 8, "height": 8,
+                    },
+                    "blink_closed": {
+                        "src": "blink-head.png",
+                        "x": 0, "y": 0, "width": 8, "height": 8,
+                    },
+                },
+            }
+            (bundle / "character.json").write_text(
+                json.dumps(character), encoding="utf-8"
+            )
+
+            build_preview_project(bundle, output)
+            project = json.loads((output / "project.json").read_text())
+            action = project["scenes"][0]["character_actions"]["violin-prince"]
+
+        self.assertEqual(action["expression"], "neutral")
+        self.assertEqual(action["head_expression"], "neutral")
+        self.assertEqual(
+            action["head_expression_sequence"],
+            ["neutral", "neutral", "neutral", "blink_closed", "neutral", "neutral"],
+        )
+        self.assertEqual(action["head_expression_cycle_duration_seconds"], 8.0)
+        self.assertFalse(
+            {"happy", "smile", "sad", "shocked_open", "speaking_open", "speaking_closed"}
+            & set(action["head_expression_sequence"])
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
