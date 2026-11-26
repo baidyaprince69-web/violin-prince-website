@@ -1550,7 +1550,7 @@ def _build_source_motion_backplate(
     }
     report = {
         "status": "created",
-        "method": "seam_only_joint_patches_and_static_torso_underlay",
+        "method": "joint_seam_support_only_no_static_body_copy",
         "asset": destination.name,
         "bone_corridor_count": 0,
         "limb_corridors_excluded": True,
