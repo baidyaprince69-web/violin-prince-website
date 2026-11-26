@@ -65,6 +65,7 @@ jobs:
           python -m unittest discover -s autopilot/engine/tests -p "test_violin_note_analysis.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_joint_artwork_authoring.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_reference_sheet_rig.py" -v
+          python -m unittest discover -s autopilot/engine/tests -p "test_create_reference_part_character_candidate.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_full_body_performance_rig.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_character_rig.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_character_autorig.py" -v
@@ -424,14 +425,18 @@ jobs:
               "left_shoulder", "left_elbow", "left_wrist",
               "right_shoulder", "right_elbow", "right_wrist",
               "left_hip", "right_hip", "left_knee", "right_knee",
-              "left_ankle", "right_ankle",
+              "left_ankle", "right_ankle", "neck",
           }
           assert set(layered.get("joint_pivots", {})) == expected_joints, layered
-          assert layered.get("joint_pivot_count") == 12, layered
+          assert layered.get("joint_pivot_count") == 13, layered
           for joint_name, pivot in layered["joint_pivots"].items():
-              assert pivot.get("status") == "candidate_estimate_pending_visual_joint_review", (joint_name, pivot)
               assert pivot.get("approved") is False, (joint_name, pivot)
-              assert pivot.get("overlap_pixels", 0) >= pivot.get("minimum_overlap_pixels", 1), (joint_name, pivot)
+              if joint_name == "neck":
+                  assert pivot.get("status") == "source_coordinate_preserved_pending_candidate_visual_review", pivot
+                  assert pivot.get("method") == "preserved_source_rig_neck_joint", pivot
+              else:
+                  assert pivot.get("status") == "candidate_estimate_pending_visual_joint_review", (joint_name, pivot)
+                  assert pivot.get("overlap_pixels", 0) >= pivot.get("minimum_overlap_pixels", 1), (joint_name, pivot)
               assert 0 <= pivot.get("normalized", {}).get("x", -1) <= 1, (joint_name, pivot)
               assert 0 <= pivot.get("normalized", {}).get("y", -1) <= 1, (joint_name, pivot)
           right_wrist = layered["joint_pivots"]["right_wrist"]
@@ -477,6 +482,37 @@ jobs:
           }
           assert len(facial_hashes) == len(expected_facial_states), report
           print(f"Validated {len(parts)} reference assets, {assembly['source_asset_count']} assembled body layers and {len(expected_facial_states)} distinct facial states.")
+          PY
+
+      - name: Build isolated character candidate from assembled reference parts
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python autopilot/engine/create_reference_part_character_candidate.py \
+            --source-bundle work/full-body-rig/bundle \
+            --output-bundle work/reference-part-character-candidate/bundle
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("work/reference-part-character-candidate/bundle")
+          report = json.loads((root / "reference-part-character-candidate-report.json").read_text())
+          character = json.loads((root / "character.json").read_text())
+          alignment = character["reference_part_alignment"]
+          assert report["status"] == "candidate_character_spec_validated_pending_animation_visual_review", report
+          assert len(character["layers"]) == 17, character
+          assert set(character["head_variants"]) == {
+              "speaking_open", "speaking_closed", "blink_closed",
+              "sad", "shocked_open", "smile",
+          }, character
+          assert set(character["props"]) == {"violin", "bow"}, character
+          assert character["props"]["bow"]["attach_to"] == "left_hand", character
+          assert character["props"]["violin"]["attach_to"] == "torso", character
+          assert "base_art" not in character and "performance_base_mode" not in character, character
+          assert alignment["production_layer_replacement_enabled"] is False, alignment
+          assert alignment["joint_pivots_validated"] is False, alignment
+          assert alignment["finger_articulation_enabled"] is False, alignment
+          assert report["live_character_modified"] is False, report
+          print("Built an isolated 17-layer candidate with six full-head states and two attached instrument props; live rig remains untouched.")
           PY
 
       - name: Verify source-aligned limb segmentation and preserve the violin
@@ -776,6 +812,43 @@ jobs:
             --audio work/full-body-rig/audio/violin-prince-cc0-solo-violin.wav \
             --music-map work/full-body-rig/audio/violin-prince-cc0-solo-violin.music-map.json
 
+      - name: Build candidate-only neutral-background animation project
+        env:
+          PYTHONPATH: autopilot/engine
+        run: |
+          python autopilot/engine/create_full_body_performance_preview.py \
+            --bundle work/reference-part-character-candidate/bundle \
+            --output work/reference-part-character-candidate \
+            --audio work/full-body-rig/audio/violin-prince-cc0-solo-violin.wav \
+            --music-map work/full-body-rig/audio/violin-prince-cc0-solo-violin.music-map.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("work/reference-part-character-candidate")
+          project_path = root / "project.json"
+          project = json.loads(project_path.read_text())
+          scene = project["scenes"][0]
+          scene.pop("stagecraft", None)
+          scene["background_color"] = "#182330"
+          scene["graphic_label"] = ""
+          scene["title"] = ""
+          scene["caption"] = ""
+          scene["director_camera"] = {"movement": "locked_off", "shot_size": "wide"}
+          action = scene["character_actions"]["violin-prince"]
+          action["root_motion"] = {"type": "sway", "intensity": 0.12}
+          project_path.write_text(json.dumps(project, ensure_ascii=False, indent=2) + "\\n")
+          assert "stagecraft" not in scene, scene
+          assert scene["director_camera"]["movement"] == "locked_off", scene
+          character = project["characters"][0]
+          assert len(character["layers"]) == 17, character
+          assert len(character.get("head_variants", {})) == 6, character
+          assert len(character.get("props", {})) == 2, character
+          assert not character.get("base_art"), character
+          assert not character.get("performance_base_mode"), character
+          assert character["reference_part_alignment"]["finger_articulation_enabled"] is False, character
+          print("Candidate preview is neutral-background, locked-camera and non-cinematic.")
+          PY
+
       - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
@@ -810,6 +883,16 @@ jobs:
             ../../../work/full-body-rig/composition/assets/characters/
           cp ../../../work/full-body-rig/bundle/full-body-performance-report.json \
             ../../../work/full-body-rig/
+
+      - name: Build the isolated assembled-character composition
+        working-directory: autopilot/engine/animation2d
+        run: |
+          node build.mjs \
+            --project ../../../work/reference-part-character-candidate/project.json \
+            --out-dir ../../../work/reference-part-character-candidate/composition
+          mkdir -p ../../../work/reference-part-character-candidate/composition/assets/characters
+          cp -R ../../../work/reference-part-character-candidate/assets/characters/violin-prince \
+            ../../../work/reference-part-character-candidate/composition/assets/characters/
 
       - name: Verify full-body motion QA gate
         run: |
@@ -961,6 +1044,67 @@ jobs:
             --fps 25 \
             --quality standard
 
+      - name: Render the assembled reference-part character-only performance
+        working-directory: work/reference-part-character-candidate/composition
+        run: |
+          $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes render \
+            --output ../reference-part-character-performance-video-only.mp4 \
+            --fps 25 \
+            --quality standard
+
+      - name: Mix the assembled-character preview with synchronized violin guide
+        run: |
+          ffmpeg -hide_banner -loglevel error -y \
+            -i work/reference-part-character-candidate/reference-part-character-performance-video-only.mp4 \
+            -i work/full-body-rig/audio/violin-prince-cc0-solo-violin.wav \
+            -map 0:v:0 -map 1:a:0 -t 8 \
+            -c:v copy -c:a aac -b:a 192k -shortest -movflags +faststart \
+            work/reference-part-character-candidate/reference-part-character-performance.mp4
+
+      - name: Run dense pose QA on the assembled-character performance
+        run: |
+          python autopilot/engine/pose_range_visual_qa.py \
+            --video work/reference-part-character-candidate/reference-part-character-performance.mp4 \
+            --out-dir work/reference-part-character-candidate/pose-range-qa \
+            --duration 8 --fps 4 --columns 5
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("work/reference-part-character-candidate/pose-range-qa/pose-range-visual-qa.json").read_text())
+          assert report.get("status") == "passed", report
+          assert report.get("sample_count") == 32, report
+          assert report.get("distinct_frame_count") == 32, report
+          print("Assembled-character motion QA passed 32/32 dense samples.")
+          PY
+
+      - name: Create assembled-character performance contact sheet
+        run: |
+          mkdir -p work/reference-part-character-candidate/frames
+          for t in 0.5 2.0 3.5 5.0 6.5 7.5; do
+            ffmpeg -hide_banner -loglevel error \
+              -ss "$t" -i work/reference-part-character-candidate/reference-part-character-performance.mp4 \
+              -frames:v 1 -q:v 2 "work/reference-part-character-candidate/frames/frame-$t.jpg"
+          done
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageDraw
+          files = sorted(Path("work/reference-part-character-candidate/frames").glob("*.jpg"))
+          if len(files) != 6:
+              raise SystemExit(f"Expected six candidate samples, got {len(files)}")
+          thumbs = []
+          for path in files:
+              image = Image.open(path).convert("RGB")
+              image.thumbnail((240, 426))
+              thumbs.append((path.stem, image.copy()))
+          canvas = Image.new("RGB", (720, 904), (12, 18, 28))
+          draw = ImageDraw.Draw(canvas)
+          for index, (label, image) in enumerate(thumbs):
+              x, y = (index % 3) * 240, (index // 3) * 452
+              canvas.paste(image, (x, y + 24))
+              draw.text((x + 8, y + 6), label, fill=(240, 230, 210))
+          canvas.save("work/reference-part-character-candidate/reference-part-character-performance-contact-sheet.jpg", quality=94)
+          PY
+
       - name: Mix the synchronized sampled violin audio into the review MP4
         run: |
           ffmpeg -hide_banner -loglevel error -y \
@@ -1029,6 +1173,13 @@ jobs:
             work/full-body-rig/bundle/reference-part-assembled-candidate.json
             work/full-body-rig/bundle/reference-part-assembled-layer-candidate.json
             work/full-body-rig/bundle/reference-part-assembled-candidate.png
+            work/reference-part-character-candidate/reference-part-character-performance.mp4
+            work/reference-part-character-candidate/reference-part-character-performance-contact-sheet.jpg
+            work/reference-part-character-candidate/pose-range-qa/pose-range-visual-qa.json
+            work/reference-part-character-candidate/pose-range-qa/full-body-pose-range-contact-sheet.jpg
+            work/reference-part-character-candidate/bundle/character.json
+            work/reference-part-character-candidate/bundle/reference-part-character-candidate-report.json
+            work/reference-part-character-candidate/bundle/reference-part-assembled-layer-candidate.json
             work/full-body-rig/bundle/reference-part-assembled-comparison.jpg
             work/full-body-rig/bundle/reference-parts-contact-sheet.png
             work/full-body-rig/bundle/separation-report.json
