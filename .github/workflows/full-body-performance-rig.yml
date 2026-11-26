@@ -533,23 +533,24 @@ jobs:
           assert base.get("mode") == "segmented_source_body", report
           assert base.get("source_alpha_preserved") is True, report
           assert base.get("source_pixels_outside_cut_mask_preserved") is True, report
-          assert base.get("inpaint") == "opencv_telea_radius_5_alpha_aware", report
+          assert base.get("cutout_alpha_zeroed_pixels", 0) == base.get("pixels_cut_from_source", -1), report
+          assert base.get("inpaint") == "none_alpha_cutout_only", report
           assert base.get("cutout_mask_dilation_px") == 0, report
           assert base.get("cutout_boundary_method") == "exact_source_aligned_alpha_union", report
           assert base.get("expanded_halo_pixels_excluded", 0) > 0, report
-          assert base.get("underpaint_quality") == "source_aligned_static_violin_preserved_no_violin_inpaint", report
+          assert base.get("underpaint_quality") == "source_aligned_static_remainder_transparent_moving_head_bow_cutouts", report
           assert base.get("transparent_rgb_excluded_from_reconstruction") is True, report
           assert base.get("transparent_source_pixels_excluded_from_inpaint", 0) > 100000, report
           assert base.get("pixels_cut_from_source", 0) > 25000, report
-          assert base.get("bow_pixels_reconstructed", 0) > 0, report
+          assert base.get("bow_pixels_reconstructed", 999) == 0, report
           assert base.get("violin_pixels_reconstructed", 0) == 0, report
           assert base.get("violin_source_underlay_preserved") is True, report
           assert base.get("violin_source_pixels_preserved", 0) > 5000, report
           assert base.get("head_plate_replacement_enabled") is True, report
-          assert base.get("head_cutout_method") == "source_aligned_head_backplate_preserved", report
+          assert base.get("head_cutout_method") == "source_aligned_head_cutout_no_original_underlay", report
           assert base.get("head_pixels_reconstructed", 0) == 0, report
-          assert base.get("head_source_backplate_preserved") is True, report
-          assert base.get("head_backplate_pixels_preserved", 0) > 500, report
+          assert base.get("head_source_backplate_preserved") is False, report
+          assert base.get("head_backplate_pixels_preserved", 999) == 0, report
           bow_hair = report.get("bow_hair_restoration", {})
           assert bow_hair.get("method") == "largest_neutral_source_component_recovered_into_animated_bow", report
           assert bow_hair.get("pixels_added", 0) > 250, report
