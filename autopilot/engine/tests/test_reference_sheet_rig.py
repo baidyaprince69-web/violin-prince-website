@@ -170,6 +170,9 @@ class ReferenceSheetRigTests(unittest.TestCase):
             self.assertEqual(
                 ASSEMBLY_MANUAL_OFFSETS["reference-part-021"], (20, -3)
             )
+            self.assertEqual(
+                ASSEMBLY_MANUAL_OFFSETS["reference-part-022"], (-14, 10)
+            )
             bow_hand = next(
                 (
                     item for item in assembly["placements"]
@@ -186,6 +189,18 @@ class ReferenceSheetRigTests(unittest.TestCase):
                 self.assertEqual(
                     (bow_hand["transform"]["x"], bow_hand["transform"]["y"]),
                     (155, 219),
+                )
+            fingerboard_hand = next(
+                (
+                    item for item in assembly["placements"]
+                    if item["part_id"] == "reference-part-022"
+                ),
+                None,
+            )
+            if fingerboard_hand is not None:
+                self.assertEqual(
+                    fingerboard_hand["transform"]["manual_alignment_offset_px"],
+                    [-14, 10],
                 )
             self.assertEqual(assembly["canvas"], {"width": 500, "height": 600})
             layered = json.loads(
@@ -210,10 +225,19 @@ class ReferenceSheetRigTests(unittest.TestCase):
                     self.assertEqual(opened.mode, "RGBA")
                     self.assertEqual(opened.size, (layer["width"], layer["height"]))
                     self.assertIsNotNone(opened.getchannel("A").getbbox())
-                self.assertEqual(
+                self.assertIn(
                     layer["pivot_status"],
-                    "provisional_hint_not_joint_validated",
+                    {
+                        "alpha_overlap_candidate_estimate_not_approved",
+                        "static_layer_no_joint_pivot",
+                    },
                 )
+                if layer.get("pivot_joint"):
+                    self.assertIn(layer["pivot_joint"], layered["joint_pivots"])
+            self.assertTrue(all(
+                item.get("approved") is False
+                for item in layered["joint_pivots"].values()
+            ))
             self.assertNotIn("reference-part-014", assembly["primary_part_ids"])
             self.assertNotIn("reference-part-026", assembly["primary_part_ids"])
             self.assertIn("reference-part-030", assembly["primary_part_ids"])
