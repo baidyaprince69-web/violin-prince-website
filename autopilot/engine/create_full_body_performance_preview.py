@@ -374,7 +374,7 @@ def build_preview_project(
                         "focused", "focused",
                         "blink_closed",
                         "focused", "focused",
-                        "happy", "sad", "shocked_open", "neutral",
+                        "happy", "smile", "sad", "shocked_open", "neutral",
                     )
                     if name in (character.get("head_variants") or {})
                 ],
