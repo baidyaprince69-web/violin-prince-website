@@ -615,10 +615,12 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
       [...articulatedArmRoles, ...requiredLegs].includes(role)
     ).length;
 
+    // The lower body uses source-faithful IMG sprites and hierarchical
+    // hip/knee/ankle transforms. Keep only torso and upper-limb surfaces on
+    // the clipped SVG mesh path until those leg meshes pass rendered QA.
     const deformableRoles = [
       "torso",
-      "left_upper_arm", "left_forearm", "right_upper_arm", "right_forearm",
-      "left_thigh", "left_calf", "right_thigh", "right_calf"
+      "left_upper_arm", "left_forearm", "right_upper_arm", "right_forearm"
     ];
     for (const role of deformableRoles) {
       const layer = (character.layers || []).find(item => item.role === role);
@@ -736,11 +738,11 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     }
     sourceJointSurfaceLayerCount += jointSurfaceLayers.length;
     const expectedJointSurfaceTriangles = jointSurfaceLayers.length * 18;
-    if (deformableBodyLayerCount !== 9 ||
+    if (deformableBodyLayerCount !== 5 ||
         jointSurfaceMeshTriangleTrackCount !== expectedJointSurfaceTriangles ||
-        deformationMeshTriangleTrackCount !== 158) {
+        deformationMeshTriangleTrackCount !== 94) {
       throw new Error("Scene " + scene.id +
-        " did not produce nine deforming body surfaces plus blended mesh deformation on all approved lower-body joint surfaces.");
+        " did not produce five deforming torso/arm surfaces plus blended mesh deformation on all approved lower-body joint surfaces.");
     }
     if (compositeBaseMode) {
       const baseTarget = scene.id + "-" + character.id + "-base-art";
