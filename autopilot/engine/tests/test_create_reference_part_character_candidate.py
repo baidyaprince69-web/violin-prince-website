@@ -304,7 +304,7 @@ class ReferencePartCharacterCandidateTests(unittest.TestCase):
                 {"x": 350.8 / 441, "y": 239.3 / 755},
             )
             self.assertEqual(report["right_hand_art_source"],
-                             "preserved_original_fingerboard_grip")
+                             "preserved_full_body_skin_mask_with_ink_outline")
             self.assertNotIn("reference-part-022", report["source_parts_used"])
             self.assertEqual(report["source_character_layers_used"], ["right_hand"])
             self.assertFalse(alignment["production_layer_replacement_enabled"])
