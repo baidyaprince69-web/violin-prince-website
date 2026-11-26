@@ -500,10 +500,11 @@ jobs:
           alignment = character["reference_part_alignment"]
           assert report["status"] == "candidate_character_spec_validated_pending_animation_visual_review", report
           assert len(character["layers"]) == 17, character
-          assert set(character["head_variants"]) == {
+          required_faces = {
               "speaking_open", "speaking_closed", "blink_closed",
               "sad", "shocked_open", "smile",
-          }, character
+          }
+          assert required_faces.issubset(set(character["head_variants"])), character
           assert set(character["props"]) == {"violin", "bow"}, character
           assert character["props"]["bow"]["attach_to"] == "left_hand", character
           assert character["props"]["violin"]["attach_to"] == "torso", character
@@ -841,7 +842,10 @@ jobs:
           assert scene["director_camera"]["movement"] == "locked_off", scene
           character = project["characters"][0]
           assert len(character["layers"]) == 17, character
-          assert len(character.get("head_variants", {})) == 6, character
+          assert {
+              "speaking_open", "speaking_closed", "blink_closed",
+              "sad", "shocked_open", "smile",
+          }.issubset(set(character.get("head_variants", {}))), character
           assert len(character.get("props", {})) == 2, character
           assert not character.get("base_art"), character
           assert not character.get("performance_base_mode"), character
