@@ -250,7 +250,7 @@ jobs:
           backplate_report = report.get("source_motion_backplate", {})
           assert backplate_report.get("status") == "created", backplate_report
           assert backplate_report.get("method") == (
-              "seam_only_joint_patches_and_static_torso_underlay"
+              "joint_seam_support_only_no_static_body_copy"
           ), backplate_report
           assert backplate_report.get("bone_corridor_count") == 0, backplate_report
           assert backplate_report.get("limb_corridors_excluded") is True, backplate_report
