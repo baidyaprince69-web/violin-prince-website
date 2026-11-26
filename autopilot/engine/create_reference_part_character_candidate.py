@@ -170,7 +170,14 @@ def build_reference_part_character_candidate(
         layers.append(layer)
 
     for bridge_id, role in BRIDGE_ROLES.items():
-        layer_id = "source-bridge-" + bridge_id.replace("_", "-")
+        candidate_layer_ids = (
+            "source-bridge-" + bridge_id,
+            "source-bridge-" + bridge_id.replace("_", "-"),
+        )
+        layer_id = next(
+            (candidate_id for candidate_id in candidate_layer_ids if candidate_id in exported),
+            candidate_layer_ids[0],
+        )
         entry = exported.get(layer_id)
         if entry is None:
             raise ValueError(f"The layered candidate is missing source bridge {bridge_id}.")
