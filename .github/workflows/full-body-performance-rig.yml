@@ -838,6 +838,9 @@ jobs:
           action.pop("music_sync", None)
           action.pop("gesture", None)
           action.pop("head_expression_sequence", None)
+          # This candidate is a coherent single-source visual proof, not the
+          # separately validated articulated-performance rig.
+          action["instrument_performance"] = False
           action["expression"] = "neutral"
           action["head_expression"] = "neutral"
           action["root_motion"] = {
@@ -861,6 +864,7 @@ jobs:
           assert action.get("expression") == "neutral", action
           assert action.get("music_sync") is None, action
           assert action.get("gesture") is None, action
+          assert action.get("instrument_performance") is False, action
           assert action["root_motion"]["distance_px"] <= 2, action
           assert action["root_motion"]["rotation_deg"] <= 0.25, action
           print("Candidate preview keeps the complete source pose and face intact with only a very subtle whole-character sway.")
