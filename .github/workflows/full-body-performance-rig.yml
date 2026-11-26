@@ -836,7 +836,7 @@ jobs:
           scene["director_camera"] = {"movement": "locked_off", "shot_size": "wide"}
           action = scene["character_actions"]["violin-prince"]
           action["root_motion"] = {"type": "sway", "intensity": 0.12}
-          project_path.write_text(json.dumps(project, ensure_ascii=False, indent=2) + "\\n")
+          project_path.write_text(json.dumps(project, ensure_ascii=False, indent=2) + "\n")
           assert "stagecraft" not in scene, scene
           assert scene["director_camera"]["movement"] == "locked_off", scene
           character = project["characters"][0]
@@ -1073,7 +1073,7 @@ jobs:
           report = json.loads(Path("work/reference-part-character-candidate/pose-range-qa/pose-range-visual-qa.json").read_text())
           assert report.get("status") == "passed", report
           assert report.get("sample_count") == 32, report
-          assert report.get("distinct_frame_count") == 32, report
+          assert report.get("unique_frame_count") == 32, report
           print("Assembled-character motion QA passed 32/32 dense samples.")
           PY
 
