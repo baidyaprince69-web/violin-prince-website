@@ -1128,28 +1128,32 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
 
 
 
-    def test_head_expression_sequence_uses_phrase_peaks_and_note_energy(self):
-        sequence = _build_head_expression_sequence({
-            "note_events": [
-                {"time": 0.0, "note": 60, "velocity": 72, "duration_seconds": 0.3},
-                {"time": 0.7, "note": 61, "velocity": 55, "duration_seconds": 0.25},
-                {"time": 1.5, "note": 72, "velocity": 90, "duration_seconds": 0.3},
-                {"time": 2.2, "note": 74, "velocity": 80, "duration_seconds": 1.0},
-            ]
-        })
-        self.assertEqual(sequence, ["focused", "neutral", "surprised", "happy"])
-        self.assertLessEqual(len(sequence), 8)
+    def test_head_expression_sequence_stays_neutral_with_only_an_occasional_blink(self):
+        expected = ["neutral", "neutral", "neutral", "blink_closed", "neutral", "neutral"]
+        self.assertEqual(
+            _build_head_expression_sequence({
+                "note_events": [
+                    {"time": 0.0, "note": 60, "velocity": 72, "duration_seconds": 0.3},
+                    {"time": 0.7, "note": 61, "velocity": 55, "duration_seconds": 0.25},
+                    {"time": 1.5, "note": 72, "velocity": 90, "duration_seconds": 0.3},
+                    {"time": 2.2, "note": 74, "velocity": 80, "duration_seconds": 1.0},
+                ]
+            }),
+            expected,
+        )
         self.assertEqual(
             _build_head_expression_sequence({"note_events": []}),
-            ["focused", "neutral", "focused", "happy"],
+            expected,
         )
-        short_phrase = _build_head_expression_sequence({
-            "note_events": [
-                {"time": 0.0, "note": 64, "velocity": 110, "duration_seconds": 0.2},
-                {"time": 0.5, "note": 65, "velocity": 100, "duration_seconds": 0.2},
-            ]
-        })
-        self.assertEqual(short_phrase, ["focused", "neutral", "happy"])
+        self.assertEqual(
+            _build_head_expression_sequence({
+                "note_events": [
+                    {"time": 0.0, "note": 64, "velocity": 110, "duration_seconds": 0.2},
+                    {"time": 0.5, "note": 65, "velocity": 100, "duration_seconds": 0.2},
+                ]
+            }),
+            expected,
+        )
 
     def test_preview_music_sync_uses_explicit_tempo_grid_when_no_audio_is_attached(self):
         timing = _build_preview_music_sync(8, bpm=100)
