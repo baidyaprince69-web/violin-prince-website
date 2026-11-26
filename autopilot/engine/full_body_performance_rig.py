@@ -1271,6 +1271,13 @@ def _extend_torso_layer_with_violin_backplate(
         raise ManualReviewRequired("The original torso crop lies outside the source canvas.")
     old_view[:, :, :] = np.asarray(original_torso, dtype=np.uint8)
 
+    # The parser's broad upper-body torso crop also contains original arm and
+    # hand pixels. Those pixels are owned by the independently animated limb
+    # sprites and must not remain underneath them as a hazy duplicate.
+    moving_body_copy_mask = moving & (full_canvas[:, :, 3] > 12)
+    moving_body_pixels_removed = int(moving_body_copy_mask.sum())
+    full_canvas[moving_body_copy_mask, :] = 0
+
     previous_alpha = full_canvas[:, :, 3].copy()
     added_mask = backplate_mask & (previous_alpha <= 12)
     full_canvas[backplate_mask, :3] = source_pixels[backplate_mask, :3]
@@ -1306,6 +1313,7 @@ def _extend_torso_layer_with_violin_backplate(
         "pixels_added": int(added_mask.sum()),
         "bow_pixels_excluded": bow_overlap_pixels,
         "moving_part_pixels_excluded": moving_overlap_pixels,
+        "moving_body_pixels_removed_from_torso_plate": moving_body_pixels_removed,
         "alpha_pinholes_closed": int(np.count_nonzero(closed_violin & ~violin)),
         "original_bbox": [old_x, old_y, old_x + old_width, old_y + old_height],
         "extended_bbox": [x0, y0, x1, y1],
@@ -1579,12 +1587,15 @@ def _build_segmented_source_base(
     moving_mask: np.ndarray,
     head_canvas_alpha: np.ndarray | None = None,
 ) -> dict[str, Any]:
-    """Inpaint limb cutouts into a source-aligned parent plate behind moving layers."""
-    try:
-        import cv2
-    except ImportError as exc:
-        raise AutoRigError("OpenCV is required to create the segmented source parent plate.") from exc
+    """Create a static source remainder with moving body/head/prop pixels removed.
 
+    The original full-body artwork is not a second character layer. Articulated
+    limbs, hands, the live head plates and the animated bow own those pixels.
+    Keeping reconstructed RGB under an unchanged alpha plane creates a hazy,
+    stationary duplicate whenever the foreground rig moves. Cut the pixels
+    fully out instead; the live rig layers, torso/violin plate and tiny joint
+    seam supports provide the visible character.
+    """
     rgba = np.asarray(source.convert("RGBA"), dtype=np.uint8).copy()
     height, width = rgba.shape[:2]
     bow = np.asarray(bow_canvas_alpha, dtype=np.uint8) > 12
@@ -1597,40 +1608,23 @@ def _build_segmented_source_base(
     )
     if any(mask.shape != (height, width) for mask in (bow, violin, moving, head)):
         raise AutoRigError("Bow, violin, head and moving-region masks must match the source canvas.")
-    # Keep the original source head/face artwork as a static backplate behind
-    # the source-aligned head and face plates. Their artwork comes from this
-    # same image, so retaining it fills any small plate-alpha gaps with real
-    # illustration pixels instead of a broad inpainted face/neck smear.
-    # The moving limbs and props still need their own parent underpaint.
-    # The violin is fixed to the torso and has an exact source-pixel underlay
-    # in the extended torso plate. Do not erase or inpaint it in this parent
-    # plate: the original pixels remain a clean fallback beneath the prop and
-    # close any mask pinholes without smudged reconstruction.
+
     source_aligned_cut = moving | bow | head
-    cut = (moving | bow) & (rgba[:, :, 3] > 12)
-    legacy_expanded = _morph(source_aligned_cut, 2, "dilate") & (rgba[:, :, 3] > 12)
-    exact_source_union = source_aligned_cut & (rgba[:, :, 3] > 12)
-    expanded_halo_pixels_excluded = int(np.count_nonzero(legacy_expanded & ~exact_source_union))
-    head_backplate_pixels_preserved = int(np.count_nonzero(head & (rgba[:, :, 3] > 12)))
-    violin_source_pixels_preserved = int(np.count_nonzero(violin & (rgba[:, :, 3] > 12)))
-    if int(exact_source_union.sum()) < 1000:
-        raise ManualReviewRequired("The complete source-aligned limb/prop/head coverage is unexpectedly small.")
-    # Fully transparent pixels may still retain white/striped RGB from the
-    # original matte. Never allow those pixels to seed inpainting at a cutout
-    # near the silhouette edge: classify them as unknown during reconstruction.
-    # Keep the original alpha plane untouched and copy reconstructed RGB only
-    # into the visible cut region.
     visible_source = rgba[:, :, 3] > 12
-    reconstruction_mask = cut | ~visible_source
-    repaired = cv2.inpaint(
-        rgba[:, :, :3],
-        reconstruction_mask.astype(np.uint8) * 255,
-        5,
-        cv2.INPAINT_TELEA,
-    )
-    rgba[cut, :3] = repaired[cut]
+    cut = source_aligned_cut & visible_source
+    legacy_expanded = _morph(source_aligned_cut, 2, "dilate") & visible_source
+    exact_source_union = source_aligned_cut & visible_source
+    expanded_halo_pixels_excluded = int(np.count_nonzero(legacy_expanded & ~exact_source_union))
+
+    # The torso-mounted violin has a separate source-faithful underlay in the
+    # torso plate. Keep only violin pixels not owned by a moving part/head/bow.
+    violin_source_preserved = violin & ~source_aligned_cut & visible_source
+    rgba[cut, :] = 0
+
     destination = bundle_dir / "performance-segmented-base.png"
     Image.fromarray(rgba, mode="RGBA").save(destination, format="PNG", optimize=True)
+    remaining_alpha = rgba[:, :, 3]
+    untouched = ~source_aligned_cut
     return {
         "src": destination.name,
         "x": 0,
@@ -1644,23 +1638,27 @@ def _build_segmented_source_base(
         "cutout_mask_dilation_px": 0,
         "expanded_halo_pixels_excluded": expanded_halo_pixels_excluded,
         "cutout_boundary_method": "exact_source_aligned_alpha_union",
-        "bow_pixels_reconstructed": int((bow & cut).sum()),
+        "cutout_alpha_zeroed_pixels": int(cut.sum()),
+        "bow_pixels_reconstructed": 0,
         "violin_pixels_reconstructed": 0,
         "violin_source_underlay_preserved": True,
-        "violin_source_pixels_preserved": violin_source_pixels_preserved,
+        "violin_source_pixels_preserved": int(violin_source_preserved.sum()),
         "head_pixels_reconstructed": 0,
-        "head_backplate_pixels_preserved": head_backplate_pixels_preserved,
-        "head_source_backplate_preserved": bool(head_backplate_pixels_preserved > 0),
+        "head_backplate_pixels_preserved": 0,
+        "head_source_backplate_preserved": False,
         "head_plate_replacement_enabled": bool(head.any()),
-        "head_cutout_method": "source_aligned_head_backplate_preserved",
-        "source_alpha_preserved": True,
-        "source_pixels_outside_cut_mask_preserved": True,
-        "inpaint": "opencv_telea_radius_5_alpha_aware",
-        "underpaint_quality": "source_aligned_static_violin_preserved_no_violin_inpaint",
+        "head_cutout_method": "source_aligned_head_cutout_no_original_underlay",
+        "source_alpha_preserved": bool(np.array_equal(
+            remaining_alpha[untouched], np.asarray(source.convert("RGBA"), dtype=np.uint8)[:, :, 3][untouched]
+        )),
+        "source_pixels_outside_cut_mask_preserved": bool(np.array_equal(
+            rgba[untouched], np.asarray(source.convert("RGBA"), dtype=np.uint8)[untouched]
+        )),
+        "inpaint": "none_alpha_cutout_only",
+        "underpaint_quality": "source_aligned_static_remainder_transparent_moving_head_bow_cutouts",
         "transparent_source_pixels_excluded_from_inpaint": int((~visible_source).sum()),
         "transparent_rgb_excluded_from_reconstruction": True,
     }
-
 
 
 def _canvas_alpha_mask_for_layer(
