@@ -1237,6 +1237,9 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             ((47, 100), (73, 100)),
         ]:
             draw.line((start, end), fill=(24, 30, 38, 255), width=22)
+        # The source contains a solid torso. It belongs to the animated torso
+        # sprite and must never be copied into the static seam-support plate.
+        draw.rectangle((40, 94, 80, 118), fill=(24, 30, 38, 255))
         draw.ellipse((108, 4, 112, 8), fill=(200, 20, 20, 255))
         joints = {
             "neck": {"x": 0.5, "y": 0.18},
@@ -1269,6 +1272,8 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
         # Small source-pixel islands remain at real anatomical pivots.
         self.assertTrue(bool(visible[66, 34]))
         self.assertTrue(bool(visible[137, 43]))
+        self.assertFalse(bool(visible[110, 60]), "The torso must not be duplicated in the static backplate.")
+        self.assertFalse(bool(visible[105, 60]), "The static backplate must contain no second torso.")
         # Mid-sections of the original limbs must not survive under the rig.
         for y, x in [
             (50, 47), (77, 29), (50, 73), (77, 91),
