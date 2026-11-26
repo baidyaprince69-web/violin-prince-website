@@ -24,7 +24,6 @@ PART_ROLES = {
     "reference-part-005": "right_upper_arm",
     "reference-part-006": "left_forearm",
     "reference-part-021": "left_hand",
-    "reference-part-022": "right_hand",
     "reference-part-027": "left_thigh",
     "reference-part-028": "right_thigh",
     "reference-part-030": "left_calf",
@@ -35,6 +34,11 @@ PART_ROLES = {
 BRIDGE_ROLES = {
     "head_neck": "neck_bridge",
     "right_forearm": "right_forearm",
+}
+SOURCE_CHARACTER_LAYER_ROLES = {
+    # This original source hand is already posed around the violin fingerboard.
+    # The extracted reference-part-022 variant hangs below the neck in motion.
+    "right_hand": "right_hand",
 }
 PIVOT_JOINT_FOR_ROLE = {
     "head": "neck",
@@ -117,6 +121,11 @@ def build_reference_part_character_candidate(
     layered = json.loads(layered_path.read_text(encoding="utf-8"))
     assembly = json.loads(assembly_path.read_text(encoding="utf-8"))
     original = json.loads(character_path.read_text(encoding="utf-8"))
+    canvas = original.get("canvas") or {}
+    canvas_width = float(canvas.get("width", 0))
+    canvas_height = float(canvas.get("height", 0))
+    if canvas_width <= 0 or canvas_height <= 0:
+        raise ValueError("The candidate character needs a valid source canvas.")
 
     if layered.get("status") != "layered_candidate_exported_pending_joint_pivot_alignment":
         raise ValueError("The source bundle is not an assembled layered candidate.")
@@ -189,6 +198,52 @@ def build_reference_part_character_candidate(
             layer["pivot_joint"] = "right_elbow"
             layer["pivot_status"] = pivot["status"]
         layers.append(layer)
+
+    # Preserve the original source-rig fingerboard hand instead of activating
+    # reference-part-022: that isolated hand drawing drops below the fingerboard
+    # in the rendered performance. The original source hand already wraps the
+    # neck and uses its authored right-wrist anchor.
+    original_layers_by_role = {
+        str(item.get("role") or ""): item
+        for item in original.get("layers", [])
+    }
+    for source_role, candidate_role in SOURCE_CHARACTER_LAYER_ROLES.items():
+        original_layer = original_layers_by_role.get(source_role)
+        if original_layer is None:
+            raise ValueError(
+                f"The preserved source character is missing its {source_role} layer."
+            )
+        source_joint = (original.get("joints") or {}).get("right_wrist")
+        if not isinstance(source_joint, dict):
+            raise ValueError("The preserved source character has no right-wrist anchor.")
+        x = float(original_layer["x"])
+        y = float(original_layer["y"])
+        width = float(original_layer["width"])
+        height = float(original_layer["height"])
+        wrist_x = float(source_joint["x"]) * canvas_width
+        wrist_y = float(source_joint["y"]) * canvas_height
+        pivot_x = (wrist_x - x) / width
+        pivot_y = (wrist_y - y) / height
+        if not 0 <= pivot_x <= 1 or not 0 <= pivot_y <= 1:
+            raise ValueError("The preserved source right-wrist joint falls outside its hand sprite.")
+        source_hand = {
+            "id": candidate_role,
+            "role": candidate_role,
+            "src": _copy_asset(source, output, str(original_layer["src"])),
+            "x": x,
+            "y": y,
+            "width": width,
+            "height": height,
+            "pivot_x": pivot_x,
+            "pivot_y": pivot_y,
+            "z_index": 70,
+            "candidate_source_layer_id": "preserved-original-right-hand",
+            "pivot_joint": "right_wrist",
+            "pivot_status": "preserved_source_fingerboard_grip_joint_pending_visual_review",
+            "source_art_policy": "preserved_original_fingerboard_grip",
+        }
+        layers.append(source_hand)
+        used_ids.add(candidate_role)
 
     # The supplied head portrait is retained as a hidden anchor. The visible
     # head is replaced by the six aligned full-head expression plates.
@@ -300,12 +355,11 @@ def build_reference_part_character_candidate(
         pose_assets[str(name)] = entry
 
     candidate_joints = json.loads(json.dumps(original.get("joints") or {}))
-    canvas = original.get("canvas") or {}
-    canvas_width = float(canvas.get("width", 0))
-    canvas_height = float(canvas.get("height", 0))
-    if canvas_width <= 0 or canvas_height <= 0:
-        raise ValueError("The candidate character needs a valid source canvas.")
     for name, pivot in pivots.items():
+        if name == "right_wrist":
+            # The active candidate right hand is preserved original grip art,
+            # so retain its matching authored wrist coordinate.
+            continue
         candidate_joints[name] = {
             "x": float(pivot["x"]) / canvas_width,
             "y": float(pivot["y"]) / canvas_height,
@@ -345,12 +399,14 @@ def build_reference_part_character_candidate(
             "exported_source_layer_count": int(layered.get("layer_count", 0)),
             "candidate_character_layer_count": len(layers),
             "candidate_prop_count": len(props),
+            "source_character_layer_roles_used": sorted(SOURCE_CHARACTER_LAYER_ROLES),
+            "right_hand_art_source": "preserved_original_fingerboard_grip",
             "joint_pivot_count": len(pivots),
             "joint_pivots_validated": False,
             "facial_state_count": len(REQUIRED_FACE_STATES),
             "facial_states_alignment": "positioned_on_candidate_head_pending_visual_review",
             "finger_articulation_enabled": False,
-            "finger_articulation_status": "not_reconstructed_from_reference_hand_art",
+            "finger_articulation_status": "intact_preserved_source_fingerboard_grip_without_independent_finger_layers",
             "production_layer_replacement_enabled": False,
             "activation_policy": "review_only_do_not_replace_live_rig_or_publish",
         },
@@ -376,15 +432,28 @@ def build_reference_part_character_candidate(
         "head_anchor_layers": 2,
         "source_parts_used": sorted(PART_ROLES),
         "source_bridges_used": sorted(BRIDGE_ROLES),
+        "source_character_layers_used": sorted(SOURCE_CHARACTER_LAYER_ROLES),
+        "right_hand_art_source": "preserved_original_fingerboard_grip",
         "props": sorted(props),
         "facial_states": sorted(REQUIRED_FACE_STATES),
         "joint_pivots": {
-            name: {
-                "x": value["x"],
-                "y": value["y"],
-                "overlap_pixels": value.get("overlap_pixels"),
-                "approved": False,
-            }
+            name: (
+                {
+                    "x": float(candidate_joints[name]["x"]) * canvas_width,
+                    "y": float(candidate_joints[name]["y"]) * canvas_height,
+                    "overlap_pixels": None,
+                    "method": "preserved_original_source_fingerboard_grip_wrist",
+                    "approved": False,
+                }
+                if name == "right_wrist" else
+                {
+                    "x": value["x"],
+                    "y": value["y"],
+                    "overlap_pixels": value.get("overlap_pixels"),
+                    "method": value.get("method"),
+                    "approved": False,
+                }
+            )
             for name, value in pivots.items()
         },
         "finger_articulation_enabled": False,
