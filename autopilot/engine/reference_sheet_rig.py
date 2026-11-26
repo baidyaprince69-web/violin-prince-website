@@ -696,6 +696,113 @@ def _write_reference_part_assembly_candidate(
     return transparent_path.name, comparison_path.name, payload
 
 
+def _build_facial_state_head_variants(
+    facial_parts: list[dict[str, Any]],
+    head_variants: dict[str, dict[str, Any]],
+    bundle: Path,
+) -> tuple[dict[str, dict[str, Any]], str | None, str]:
+    """Composite real eye and mouth cut-outs into distinct full-head state plates."""
+    required = {3, 4, 15, 16, 17, 20, 21, 22, 28, 31, 34}
+    by_number = {
+        int(str(item["part_id"]).rsplit("-", 1)[-1]): item
+        for item in facial_parts
+    }
+    missing = sorted(required - set(by_number))
+    if missing or "neutral" not in head_variants:
+        return {}, None, "skipped_missing_required_components:" + ",".join(map(str, missing))
+
+    neutral_path = bundle / str(head_variants["neutral"]["src"])
+    with Image.open(neutral_path) as opened:
+        neutral = opened.convert("RGBA")
+
+    samples = [
+        neutral.getpixel((x, y))[:3]
+        for x, y in ((34, 91), (100, 91), (48, 96), (88, 96), (68, 93))
+        if 0 <= x < neutral.width and 0 <= y < neutral.height
+        and neutral.getpixel((x, y))[3] > 180
+    ]
+    if samples:
+        skin = tuple(int(value) for value in np.median(np.asarray(samples), axis=0)) + (255,)
+    else:
+        skin = (181, 122, 83, 255)
+
+    eye_open_boxes = ((42, 68, 60, 80), (80, 68, 98, 80))
+    eye_closed_boxes = ((42, 71, 60, 77), (80, 71, 98, 77))
+    eye_hole_boxes = ((42, 68, 60, 80), (80, 68, 98, 80))
+    mouth_box = (50, 98, 89, 119)
+
+    def load_part(number: int) -> Image.Image:
+        with Image.open(by_number[number]["path"]) as opened:
+            return opened.convert("RGBA")
+
+    def compose_state(
+        name: str,
+        *,
+        eye_ids: tuple[int, int] | None = None,
+        mouth_id: int | None = None,
+        closed_eye: bool = False,
+    ) -> dict[str, Any]:
+        image = neutral.copy()
+        draw = ImageDraw.Draw(image)
+
+        if eye_ids:
+            for box in eye_hole_boxes:
+                draw.rounded_rectangle(box, radius=4, fill=skin)
+            target_boxes = eye_closed_boxes if closed_eye else eye_open_boxes
+            for number, box in zip(eye_ids, target_boxes, strict=True):
+                feature = load_part(number)
+                feature = feature.resize(
+                    (box[2] - box[0], box[3] - box[1]),
+                    Image.Resampling.LANCZOS,
+                )
+                image.alpha_composite(feature, (box[0], box[1]))
+
+        if mouth_id is not None:
+            draw = ImageDraw.Draw(image)
+            draw.rounded_rectangle(mouth_box, radius=7, fill=skin)
+            mouth = load_part(mouth_id)
+            mouth = mouth.resize(
+                (mouth_box[2] - mouth_box[0], mouth_box[3] - mouth_box[1]),
+                Image.Resampling.LANCZOS,
+            )
+            image.alpha_composite(mouth, (mouth_box[0], mouth_box[1]))
+
+        filename = f"head-variant-{name}.png"
+        image.save(bundle / filename, format="PNG", optimize=True)
+        return {**head_variants["neutral"], "src": filename}
+
+    states = {
+        "speaking_open": compose_state("speaking_open", mouth_id=17),
+        "speaking_closed": compose_state("speaking_closed", mouth_id=20),
+        "blink_closed": compose_state(
+            "blink_closed", eye_ids=(21, 22), mouth_id=20, closed_eye=True
+        ),
+        "sad": compose_state("sad", mouth_id=28),
+        "shocked_open": compose_state(
+            "shocked_open", eye_ids=(15, 16), mouth_id=31
+        ),
+        "smile": compose_state("smile", mouth_id=34),
+    }
+
+    columns, cell_width, cell_height = 4, 190, 205
+    rows = max(1, (len(states) + columns - 1) // columns)
+    contact = Image.new("RGB", (columns * cell_width, rows * cell_height), (18, 27, 41))
+    draw = ImageDraw.Draw(contact)
+    for index, (name, asset) in enumerate(states.items()):
+        row, column = divmod(index, columns)
+        x, y = column * cell_width, row * cell_height
+        with Image.open(bundle / asset["src"]) as opened:
+            plate = opened.convert("RGBA")
+        plate.thumbnail((cell_width - 18, cell_height - 42), Image.Resampling.LANCZOS)
+        tile = Image.new("RGBA", plate.size, (30, 42, 58, 255))
+        tile.alpha_composite(plate)
+        contact.paste(tile.convert("RGB"), (x + (cell_width - plate.width) // 2, y + 34))
+        draw.text((x + 8, y + 8), name, fill=(245, 238, 224))
+    contact_path = bundle / "facial-state-head-contact-sheet.png"
+    contact.save(contact_path, format="PNG", optimize=True)
+    return states, contact_path.name, "created_from_separate_eye_and_mouth_assets"
+
+
 def build_reference_sheet_rig(
     character_path: str | Path,
     bundle_dir: str | Path,
@@ -787,6 +894,11 @@ def build_reference_sheet_rig(
         )
         head_angles[name] = {"src": filename, **head_bounds}
 
+    facial_state_variants, facial_state_contact_sheet, facial_state_status = (
+        _build_facial_state_head_variants(facial_parts, head_variants, bundle)
+    )
+    head_variants.update(facial_state_variants)
+
     character["head_plate_bounds"] = head_bounds
     character["head_variants"] = head_variants
     character["head_angles"] = head_angles
@@ -807,6 +919,9 @@ def build_reference_sheet_rig(
             }
             for item in facial_parts
         ],
+        "state_variant_names": list(facial_state_variants),
+        "state_contact_sheet": facial_state_contact_sheet,
+        "state_build_status": facial_state_status,
         "production_face_overlay_enabled": False,
     }
     character["reference_part_alignment"] = {
@@ -830,6 +945,9 @@ def build_reference_sheet_rig(
         "status": "modular_head_plates_and_reference_catalogue_created",
         "head_variant_names": list(head_variants),
         "head_angle_names": list(head_angles),
+        "facial_state_names": list(facial_state_variants),
+        "facial_state_build_status": facial_state_status,
+        "facial_state_contact_sheet": facial_state_contact_sheet,
         "head_plate_bounds": head_bounds,
         "reference_part_count": len(part_records),
         "reference_parts": [
@@ -902,7 +1020,10 @@ def build_reference_sheet_rig(
             for item in facial_parts
         ],
         "facial_parts_contact_sheet": facial_parts_contact_sheet,
-        "facial_feature_activation": "disabled_until_feature_alignment_and_render_review",
+        "facial_state_names": list(facial_state_variants),
+        "facial_state_build_status": facial_state_status,
+        "facial_state_contact_sheet": facial_state_contact_sheet,
+        "facial_feature_activation": "composited_head_state_variants_available_for_preview_sequence",
         "alignment_policy": "explicit_candidate_not_active_pending_visual_review",
         "alignment_candidate_file": alignment_path.name,
         "alignment_preview_file": alignment_preview_file,

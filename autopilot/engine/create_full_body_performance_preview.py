@@ -366,6 +366,20 @@ def build_preview_project(
                 "gesture": "violin_performance",
                 "instrument_performance": True,
                 "expression": "focused",
+                "head_expression_sequence": [
+                    name for name in (
+                        "focused", "focused",
+                        "speaking_open", "speaking_closed",
+                        "speaking_open", "speaking_closed",
+                        "focused", "focused",
+                        "blink_closed",
+                        "focused", "focused",
+                        "happy", "sad", "shocked_open", "neutral",
+                    )
+                    if name in (character.get("head_variants") or {})
+                ],
+                "head_expression_cycle_duration_seconds": 5.4,
+                "head_expression_loop": True,
                 # Keep one aligned front-facing plate in this preview. The
                 # supplied side-angle plates are complete static drawings;
                 # dissolving between them creates visible double-face ghosting.

@@ -365,6 +365,7 @@ jobs:
           report = json.loads((root / "reference-sheets-report.json").read_text())
           mapping = json.loads((root / "reference-part-map.json").read_text())
           candidates = json.loads((root / "reference-part-alignment-candidate.json").read_text())
+          character = json.loads((root / "character.json").read_text())
           assert report.get("reference_parts_mapping") == "explicit_rig_role_and_target_geometry_candidates", report
           assert report.get("reference_part_alignment_candidate_count") == 33, report
           parts = mapping.get("parts", [])
@@ -396,7 +397,23 @@ jobs:
           assert assembly.get("source_asset_count", 0) >= 17, assembly
           assert (root / "reference-part-assembled-candidate.png").is_file()
           assert (root / "reference-part-assembled-comparison.jpg").is_file()
-          print(f"Validated {len(parts)} reference assets with explicit target roles and a {assembly['source_asset_count']}-part assembled preview; none are auto-applied.")
+          expected_facial_states = {
+              "speaking_open", "speaking_closed", "blink_closed",
+              "sad", "shocked_open", "smile",
+          }
+          head_variants = character.get("head_variants", {})
+          assert expected_facial_states.issubset(set(head_variants)), character
+          assert set(report.get("facial_state_names", [])) == expected_facial_states, report
+          assert report.get("facial_state_build_status") == "created_from_separate_eye_and_mouth_assets", report
+          assert (root / "facial-state-head-contact-sheet.png").is_file()
+          assert all((root / head_variants[name]["src"]).is_file() for name in expected_facial_states)
+          import hashlib
+          facial_hashes = {
+              hashlib.sha256((root / head_variants[name]["src"]).read_bytes()).hexdigest()
+              for name in expected_facial_states
+          }
+          assert len(facial_hashes) == len(expected_facial_states), report
+          print(f"Validated {len(parts)} reference assets, {assembly['source_asset_count']} assembled body layers and {len(expected_facial_states)} distinct facial states.")
           PY
 
       - name: Verify source-aligned limb segmentation and preserve the violin

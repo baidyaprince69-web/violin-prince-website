@@ -138,6 +138,11 @@ class ReferenceSheetRigTests(unittest.TestCase):
                 character["facial_part_catalogue"]["status"],
                 "extracted_pending_feature_alignment",
             )
+            self.assertTrue(
+                character["facial_part_catalogue"]["state_build_status"].startswith(
+                    "skipped_missing_required_components:"
+                )
+            )
             self.assertFalse(
                 character["facial_part_catalogue"]["production_face_overlay_enabled"]
             )
@@ -211,6 +216,60 @@ class ReferenceSheetRigTests(unittest.TestCase):
                 len(set(plate_sizes)), 1,
                 "all expression and head-angle plates must use the same pixel canvas",
             )
+
+    def test_builds_distinct_speaking_blink_sad_and_shocked_head_variants(self):
+        from reference_sheet_rig import _build_facial_state_head_variants
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            base = Image.new("RGBA", (136, 159), (180, 122, 84, 255))
+            draw = ImageDraw.Draw(base)
+            draw.ellipse((22, 10, 115, 145), fill=(180, 122, 84, 255))
+            draw.ellipse((38, 64, 62, 84), fill=(245, 245, 235, 255))
+            draw.ellipse((76, 64, 100, 84), fill=(245, 245, 235, 255))
+            draw.ellipse((47, 70, 56, 80), fill=(30, 25, 22, 255))
+            draw.ellipse((85, 70, 94, 80), fill=(30, 25, 22, 255))
+            draw.ellipse((50, 99, 88, 120), fill=(70, 20, 20, 255))
+            base.save(root / "head-variant-neutral.png")
+
+            for number in (3, 4, 15, 16, 17, 20, 21, 22, 28, 31, 34):
+                asset = Image.new("RGBA", (46, 26), (0, 0, 0, 0))
+                marker = ImageDraw.Draw(asset)
+                color = (250, 250, 240, 255) if number in (3, 4, 15, 16) else (80, 20, 30, 255)
+                if number in (21, 22):
+                    marker.arc((3, 9, 43, 22), start=180, end=355, fill=color, width=4)
+                elif number in (17, 31):
+                    marker.ellipse((6, 2, 40, 24), fill=color)
+                else:
+                    marker.rounded_rectangle((5, 6, 41, 20), radius=5, fill=color)
+                asset.save(root / f"facial-part-{number:03d}.png")
+
+            parts = [
+                {"part_id": f"facial-part-{number:03d}", "path": root / f"facial-part-{number:03d}.png"}
+                for number in (3, 4, 15, 16, 17, 20, 21, 22, 28, 31, 34)
+            ]
+            bounds = {
+                "x": 0, "y": 0, "width": 136, "height": 159,
+                "pivot_x": 0.5, "pivot_y": 0.92, "z_index": 85,
+            }
+            variants, contact, status = _build_facial_state_head_variants(
+                parts, {"neutral": {"src": "head-variant-neutral.png", **bounds}}, root
+            )
+            self.assertEqual(status, "created_from_separate_eye_and_mouth_assets")
+            self.assertEqual(set(variants), {
+                "speaking_open", "speaking_closed", "blink_closed",
+                "sad", "shocked_open", "smile",
+            })
+            self.assertTrue((root / str(contact)).is_file())
+            hashes = {
+                (root / variant["src"]).read_bytes()
+                for variant in variants.values()
+            }
+            self.assertGreaterEqual(len(hashes), 5)
+            for variant in variants.values():
+                image = Image.open(root / variant["src"]).convert("RGBA")
+                self.assertEqual(image.size, (136, 159))
+
 
     def test_rejects_expression_sheet_without_four_separate_heads(self):
         with tempfile.TemporaryDirectory() as temporary:
