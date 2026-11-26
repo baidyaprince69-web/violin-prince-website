@@ -447,6 +447,162 @@ def _write_component_contact_sheet(
     sheet.save(destination, format="PNG", optimize=True)
 
 
+
+PRIMARY_ASSEMBLY_PARTS = (
+    "reference-part-001", "reference-part-003",
+    "reference-part-004", "reference-part-005", "reference-part-006",
+    "reference-part-014", "reference-part-015",
+    "reference-part-021", "reference-part-022",
+    "reference-part-024", "reference-part-025", "reference-part-026",
+    "reference-part-027", "reference-part-028",
+    "reference-part-030", "reference-part-031",
+    "reference-part-032", "reference-part-033",
+)
+ASSEMBLY_Z_ORDER = {
+    32: 5, 33: 5,
+    14: 10, 15: 10,
+    27: 20, 28: 20,
+    24: 30,
+    3: 40,
+    4: 50, 5: 50, 6: 51,
+    25: 60,
+    21: 70, 22: 70,
+    26: 80,
+    1: 90,
+}
+
+
+def _write_reference_part_assembly_candidate(
+    part_records: list[dict[str, Any]],
+    candidates: list[dict[str, Any]],
+    character: dict[str, Any],
+    bundle: Path,
+) -> tuple[str, str, dict[str, Any]]:
+    """Assemble selected reference-sheet parts into a separate review-only character."""
+    canvas = character.get("canvas") or {}
+    width, height = int(canvas.get("width", 0)), int(canvas.get("height", 0))
+    if width <= 0 or height <= 0:
+        raise ReferenceSheetError("Reference-part assembly requires a valid character canvas.")
+    part_by_id = {item["part_id"]: item for item in part_records}
+    candidate_by_id = {item["part_id"]: item for item in candidates}
+    assembled = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    placements, missing = [], []
+
+    for part_id in PRIMARY_ASSEMBLY_PARTS:
+        item, candidate = part_by_id.get(part_id), candidate_by_id.get(part_id)
+        if item is None or candidate is None:
+            missing.append(part_id + ":not_found")
+            continue
+        if not candidate.get("target_geometry_available"):
+            missing.append(part_id + ":target_geometry_missing")
+            continue
+        transform = candidate["candidate_transform"]
+        with Image.open(item["path"]) as opened:
+            part = opened.convert("RGBA")
+        rotation = float(candidate["rotation_deg"])
+        if rotation:
+            part = part.rotate(rotation, expand=True, resample=Image.Resampling.BICUBIC)
+        part = part.resize((
+            max(1, int(round(float(transform["width"])))),
+            max(1, int(round(float(transform["height"])))),
+        ), Image.Resampling.LANCZOS)
+        x, y = int(round(float(transform["x"]))), int(round(float(transform["y"])))
+        if x < 0 or y < 0 or x + part.width > width or y + part.height > height:
+            missing.append(part_id + ":outside_canvas")
+            continue
+        assembled.alpha_composite(part, (x, y))
+        number = int(part_id.rsplit("-", 1)[-1])
+        placements.append({
+            "part_id": part_id,
+            "src": Path(item["path"]).name,
+            "target_role": candidate["target_role"],
+            "variant": candidate["variant"],
+            "z_index": ASSEMBLY_Z_ORDER.get(number, 40),
+            "transform": {
+                "x": x, "y": y,
+                "width": part.width, "height": part.height,
+                "rotation_deg": rotation,
+                "scale": candidate["candidate_transform"]["scale"],
+            },
+        })
+
+    # The sheet has three sleeve panels, not four; retain the original right
+    # forearm as a clearly labelled bridge so the candidate does not invent art.
+    layer_by_role = {
+        str(layer.get("role") or ""): layer
+        for layer in character.get("layers", [])
+    }
+    bridges = []
+    bridge_layer = layer_by_role.get("right_forearm")
+    if bridge_layer:
+        bridge_path = bundle / str(bridge_layer.get("src") or "")
+        if bridge_path.is_file():
+            with Image.open(bridge_path) as opened:
+                bridge = opened.convert("RGBA")
+            bridge = bridge.resize((
+                max(1, int(round(float(bridge_layer["width"])))),
+                max(1, int(round(float(bridge_layer["height"])))),
+            ), Image.Resampling.LANCZOS)
+            x, y = int(round(float(bridge_layer["x"]))), int(round(float(bridge_layer["y"])))
+            if x >= 0 and y >= 0 and x + bridge.width <= width and y + bridge.height <= height:
+                assembled.alpha_composite(bridge, (x, y))
+                bridges.append({
+                    "role": "right_forearm",
+                    "src": Path(bridge_path).name,
+                    "x": x, "y": y,
+                    "width": bridge.width, "height": bridge.height,
+                    "reason": "reference sheet provides three sleeve panels but no fourth forearm segment",
+                })
+            else:
+                missing.append("bridge:right_forearm_outside_canvas")
+        else:
+            missing.append("bridge:right_forearm_asset_missing")
+    else:
+        missing.append("bridge:right_forearm_layer_missing")
+
+    transparent_path = bundle / "reference-part-assembled-candidate.png"
+    assembled.save(transparent_path, format="PNG", optimize=True)
+
+    background = (26, 35, 50, 255)
+    source_view = Image.new("RGBA", (width, height), background)
+    source_path = bundle / "preserved-full-body-source.png"
+    if source_path.is_file():
+        with Image.open(source_path) as opened:
+            source = opened.convert("RGBA")
+        source_view.alpha_composite(source.resize((width, height), Image.Resampling.LANCZOS))
+    candidate_view = Image.new("RGBA", (width, height), background)
+    candidate_view.alpha_composite(assembled)
+
+    comparison = Image.new("RGB", (width * 2 + 48, height + 48), (12, 19, 31))
+    draw = ImageDraw.Draw(comparison)
+    comparison.paste(source_view.convert("RGB"), (12, 34))
+    comparison.paste(candidate_view.convert("RGB"), (width + 36, 34))
+    draw.text((12, 10), "SOURCE REFERENCE", fill=(240, 235, 224))
+    draw.text((width + 36, 10), "REFERENCE-PART ASSEMBLY CANDIDATE", fill=(240, 235, 224))
+    comparison_path = bundle / "reference-part-assembled-comparison.jpg"
+    comparison.save(comparison_path, format="JPEG", quality=94)
+
+    payload = {
+        "schema_version": 1,
+        "status": "assembled_candidate_not_active_pending_visual_review",
+        "production_layer_replacement_enabled": False,
+        "canvas": {"width": width, "height": height},
+        "primary_part_ids": list(PRIMARY_ASSEMBLY_PARTS),
+        "placements": sorted(placements, key=lambda item: item["z_index"]),
+        "source_bridge_layers": bridges,
+        "missing_or_unplaced": missing,
+        "source_asset_count": len(placements),
+        "source_bridge_count": len(bridges),
+        "note": "Separate preview assembled from selected reference-sheet assets; it does not modify the live character spec or production layers.",
+    }
+    manifest_path = bundle / "reference-part-assembled-candidate.json"
+    manifest_path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return transparent_path.name, comparison_path.name, payload
+
+
 def build_reference_sheet_rig(
     character_path: str | Path,
     bundle_dir: str | Path,
@@ -488,6 +644,9 @@ def build_reference_sheet_rig(
     alignment_candidates = _reference_part_alignment_candidates(part_records, character)
     alignment_preview_file = _write_reference_part_alignment_preview(
         part_records, alignment_candidates, bundle
+    )
+    assembly_png, assembly_comparison, assembly_report = _write_reference_part_assembly_candidate(
+        part_records, alignment_candidates, character, bundle
     )
     alignment_payload = {
         "schema_version": 1,
@@ -539,6 +698,9 @@ def build_reference_sheet_rig(
         "status": "candidate_not_active_pending_visual_review",
         "alignment_file": alignment_path.name,
         "preview_file": alignment_preview_file,
+        "assembly_png": assembly_png,
+        "assembly_comparison": assembly_comparison,
+        "assembly_manifest": "reference-part-assembled-candidate.json",
         "part_count": len(alignment_candidates),
         "production_layer_replacement_enabled": False,
         "parts": alignment_candidates,
@@ -571,6 +733,9 @@ def build_reference_sheet_rig(
         "reference_part_mapping_file": "reference-part-map.json",
         "reference_part_alignment_file": alignment_path.name,
         "reference_part_alignment_preview": alignment_preview_file,
+        "reference_part_assembly_png": assembly_png,
+        "reference_part_assembly_comparison": assembly_comparison,
+        "reference_part_assembly_report": assembly_report,
         "reference_part_alignment_candidate_count": len(alignment_candidates),
         "alignment": "all 33 cut-outs have a provisional target rig role, target box, variant group and aspect-preserving transform; none are activated in production until visual review",
         "head_plate_normalization": "fixed_canvas_bottom_centre_neck_anchor",

@@ -388,7 +388,13 @@ jobs:
           assert any(part.get("reference_role") == "violin_prop" for part in parts), mapping
           assert any(part.get("reference_role") == "bow_prop" for part in parts), mapping
           assert (root / "reference-part-alignment-review.jpg").is_file()
-          print(f"Validated {len(parts)} reference assets with explicit target roles and candidate transforms; none are auto-applied.")
+          assembly = json.loads((root / "reference-part-assembled-candidate.json").read_text())
+          assert assembly.get("status") == "assembled_candidate_not_active_pending_visual_review", assembly
+          assert assembly.get("production_layer_replacement_enabled") is False, assembly
+          assert assembly.get("source_asset_count", 0) >= 16, assembly
+          assert (root / "reference-part-assembled-candidate.png").is_file()
+          assert (root / "reference-part-assembled-comparison.jpg").is_file()
+          print(f"Validated {len(parts)} reference assets with explicit target roles and a {assembly['source_asset_count']}-part assembled preview; none are auto-applied.")
           PY
 
       - name: Verify source-aligned limb segmentation and preserve the violin
@@ -930,6 +936,9 @@ jobs:
             work/full-body-rig/bundle/reference-part-map.json
             work/full-body-rig/bundle/reference-part-alignment-candidate.json
             work/full-body-rig/bundle/reference-part-alignment-review.jpg
+            work/full-body-rig/bundle/reference-part-assembled-candidate.json
+            work/full-body-rig/bundle/reference-part-assembled-candidate.png
+            work/full-body-rig/bundle/reference-part-assembled-comparison.jpg
             work/full-body-rig/bundle/reference-parts-contact-sheet.png
             work/full-body-rig/bundle/separation-report.json
             work/full-body-rig/bundle/separation-preview.png
@@ -1100,6 +1109,9 @@ jobs:
             work/full-body-rig/bundle/reference-part-map.json
             work/full-body-rig/bundle/reference-part-alignment-candidate.json
             work/full-body-rig/bundle/reference-part-alignment-review.jpg
+            work/full-body-rig/bundle/reference-part-assembled-candidate.json
+            work/full-body-rig/bundle/reference-part-assembled-candidate.png
+            work/full-body-rig/bundle/reference-part-assembled-comparison.jpg
             work/full-body-rig/bundle/reference-parts-contact-sheet.png
             work/full-body-rig/bundle/separation-report.json
             work/full-body-rig/composition/motion-report.json
