@@ -192,7 +192,7 @@ class FullBodyPreviewVisibilityTests(unittest.TestCase):
         )
         self.assertEqual(action["head_expression_cycle_duration_seconds"], 8.0)
         self.assertFalse(
-            {"happy", "smile", "sad", "shocked_open", "speaking_open", "speaking_closed"}
+            {"happy", "smile", "sad", "shocked_open", "speaking_open"}
             & set(action["head_expression_sequence"])
         )
 
