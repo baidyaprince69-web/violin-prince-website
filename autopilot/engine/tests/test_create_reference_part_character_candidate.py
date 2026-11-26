@@ -251,6 +251,15 @@ class ReferencePartCharacterCandidateTests(unittest.TestCase):
                 (321.0, 170.0, 67.0, 78.0),
             )
             self.assertEqual(right_hand["z_index"], 70)
+            right_forearm = next(
+                layer for layer in candidate["layers"]
+                if layer["role"] == "right_forearm"
+            )
+            self.assertEqual(right_forearm["z_index"], 64)
+            self.assertGreater(
+                right_forearm["z_index"], candidate["props"]["violin"]["z_index"],
+                "finger-contact pixels from the source forearm must layer above the violin neck",
+            )
             self.assertEqual(right_hand["pivot_status"],
                              "preserved_source_fingerboard_grip_joint_pending_visual_review")
             self.assertEqual(
