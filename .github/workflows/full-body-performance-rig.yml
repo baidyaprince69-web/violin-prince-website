@@ -393,8 +393,13 @@ jobs:
           assert assembly.get("status") == "assembled_candidate_not_active_pending_visual_review", assembly
           assert assembly.get("production_layer_replacement_enabled") is False, assembly
           assert assembly.get("primary_part_count", 0) == 15, assembly
-          assert assembly.get("source_bridge_count", 0) == 2, assembly
-          assert assembly.get("source_asset_count", 0) >= 17, assembly
+          assert assembly.get("source_bridge_count", 0) == 3, assembly
+          assert assembly.get("source_asset_count", 0) >= 18, assembly
+          bridges_by_id = {item["id"]: item for item in assembly.get("source_bridge_layers", [])}
+          assert bridges_by_id.get("head_neck", {}).get("z_index") == 45, assembly
+          assert (root / bridges_by_id["head_neck"]["src"]).is_file(), assembly
+          forearm_bridge = bridges_by_id.get("right_forearm", {})
+          assert (forearm_bridge.get("x"), forearm_bridge.get("y")) == (260, 161), assembly
           assert (root / "reference-part-assembled-candidate.png").is_file()
           assert (root / "reference-part-assembled-comparison.jpg").is_file()
           expected_facial_states = {

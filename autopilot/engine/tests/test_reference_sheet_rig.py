@@ -161,6 +161,10 @@ class ReferenceSheetRigTests(unittest.TestCase):
                 assembly["source_asset_count"],
                 assembly["primary_part_count"] + assembly["source_bridge_count"],
             )
+            bridge_by_id = {item["id"]: item for item in assembly["source_bridge_layers"]}
+            self.assertIn("head_neck", bridge_by_id)
+            self.assertEqual(bridge_by_id["head_neck"]["z_index"], 45)
+            self.assertTrue((root / bridge_by_id["head_neck"]["src"]).is_file())
             self.assertEqual(assembly["canvas"], {"width": 500, "height": 600})
             self.assertNotIn("reference-part-014", assembly["primary_part_ids"])
             self.assertNotIn("reference-part-026", assembly["primary_part_ids"])

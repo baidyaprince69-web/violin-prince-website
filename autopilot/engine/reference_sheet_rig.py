@@ -61,7 +61,7 @@ REFERENCE_PART_ROLE_MAP = {
 
 
 REFERENCE_PART_ALIGNMENT_RULES = {
-    1:  {"target_kind": "layer", "target_role": "head", "group": "head", "variant": "head_portrait_with_neck", "canvas_box": [116, -8, 127, 175], "source_crop_ratio": [0.0, 0.0, 1.0, 0.85], "rotation_deg": 0, "assembly_z": 90},
+    1:  {"target_kind": "layer", "target_role": "head", "group": "head", "variant": "head_portrait_with_neck", "canvas_box": [116, -8, 127, 154], "source_crop_ratio": [0.0, 0.0, 1.0, 0.75], "rotation_deg": 0, "assembly_z": 90},
     2:  {"target_kind": "layer", "target_role": "head", "group": "hair", "variant": "hair_overlay_alternative", "target_region": [0.04, 0.00, 0.92, 0.42], "rotation_deg": 0},
     3:  {"target_kind": "layer", "target_role": "torso", "group": "torso", "variant": "jacket_primary", "canvas_box": [76, 122, 190, 285], "rotation_deg": 0, "assembly_z": 40},
     4:  {"target_kind": "layer", "target_role": "left_upper_arm", "group": "sleeve", "variant": "left_sleeve_candidate", "canvas_box": [20, 141, 110, 145], "rotation_deg": -16, "assembly_z": 50},
@@ -626,12 +626,48 @@ def _write_reference_part_assembly_candidate(
             "width": sprite.width, "height": sprite.height, "z_index": z, "reason": reason,
         })
 
+    # The portrait sheet supplies a full neck, while the jacket and violin
+    # must pass in front of its lower portion. Split the same supplied head
+    # artwork into an upper portrait and a neck backplate so the neck is not
+    # visibly cut off at the crop edge.
+    head_record = part_by_id.get("reference-part-001")
+    head_candidate = candidate_by_id.get("reference-part-001")
+    if head_record is not None and head_candidate is not None:
+        with Image.open(head_record["path"]) as opened:
+            full_head = opened.convert("RGBA")
+        source_width, source_height = full_head.size
+        neck_top = max(1, min(source_height - 1, int(round(source_height * 0.68))))
+        head_transform = head_candidate["candidate_transform"]
+        head_scale = float(head_transform["width"]) / max(1, source_width)
+        neck_sprite = full_head.crop((0, neck_top, source_width, source_height))
+        neck_width = max(1, int(round(float(head_transform["width"]))))
+        neck_height = max(1, int(round(neck_sprite.height * head_scale)))
+        neck_sprite = neck_sprite.resize(
+            (neck_width, neck_height), Image.Resampling.LANCZOS
+        )
+        neck_filename = "reference-part-001-neck-backplate.png"
+        neck_sprite.save(bundle / neck_filename, format="PNG", optimize=True)
+        neck_x = int(round(float(head_transform["x"])))
+        neck_y = int(round(float(head_transform["y"]) + neck_top * head_scale))
+        render_items.append((45, "source-bridge-head-neck", neck_sprite, neck_x, neck_y))
+        bridges.append({
+            "id": "head_neck", "src": neck_filename,
+            "x": neck_x, "y": neck_y, "width": neck_sprite.width,
+            "height": neck_sprite.height, "z_index": 45,
+            "reason": "lower neck crop from the supplied head portrait; drawn above the jacket and behind the violin to preserve a continuous neck",
+        })
+    else:
+        missing.append("bridge:head_neck:part_missing")
+
     forearm_layer = layer_by_role.get("right_forearm")
     if forearm_layer:
+        forearm_geometry = dict(forearm_layer)
+        forearm_geometry["x"] = float(forearm_layer.get("x", 0)) - 18
+        forearm_geometry["y"] = float(forearm_layer.get("y", 0)) - 28
         add_source_bridge(
             "right_forearm", bundle / str(forearm_layer.get("src") or ""),
-            forearm_layer, 52,
-            "the sheet has three sleeve panels, so the fourth forearm keeps its approved source sprite",
+            forearm_geometry, 52,
+            "the approved source forearm is shifted up and left to meet the reference-sheet right sleeve beneath the fingerboard hand",
         )
     else:
         missing.append("bridge:right_forearm:layer_missing")
@@ -688,7 +724,7 @@ def _write_reference_part_assembly_candidate(
         "primary_part_count": len(placements),
         "source_asset_count": len(placements) + len(bridges),
         "source_bridge_count": len(bridges),
-        "note": "Separate preview assembled from selected reference-sheet assets and two documented source bridges; it does not modify live character layers or production animation.",
+        "note": "Separate preview assembled from selected reference-sheet assets and three documented source bridges; it does not modify live character layers or production animation.",
     }
     (bundle / "reference-part-assembled-candidate.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
