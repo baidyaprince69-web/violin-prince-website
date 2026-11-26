@@ -331,7 +331,7 @@ jobs:
           assert surface_roles == expected_roles, surface_roles
           patch_files = {path.stem for path in bundle.glob("joint_surface_*.png")}
           assert patch_files == expected_roles, patch_files
-          print("Verified six approved lower-body joint patches: 5,114 original pixels transferred; protected hands, fingers, arms and props unchanged.")
+          print("Verified six user-approved lower-body joint regions by exact source-pixel hashes; full-image SHA-256 match is retained as provenance only.")
           PY
 
       - name: Verify mapped character reference catalogue
@@ -363,9 +363,9 @@ jobs:
           bundle = Path("work/full-body-rig/bundle")
           report = json.loads((bundle / "full-body-performance-report.json").read_text())
           character = json.loads((bundle / "character.json").read_text())
-          # The build verifies the exact Auto-Rig source bytes before edge-matte
-          # cleanup. The preserved PNG is intentionally rewritten after extraction,
-          # so its post-build file hash is not the approved input hash.
+          # The whole-image digest is diagnostic provenance, not the joint-artwork
+          # authorization test. The six exact approved lower-body pixel-region hashes
+          # must pass; source changes outside those pinned polygons do not alter approval.
           approval = report.get("joint_artwork_approval", {})
           assert approval.get("status") == "six_user_approved_source_polygons_activated", report
           assert approval.get("approved_joint_count") == 6, report
