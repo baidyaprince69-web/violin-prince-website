@@ -4,6 +4,7 @@ import { build as bundle } from "esbuild";
 import { compileMotionTracks } from "./src/motion-build.mjs";
 import { gestureKeyframes } from "./src/contract.mjs";
 import { fitCharacterToCanvas } from "./src/character-layout.mjs";
+import { fingeringRolesForPerformanceCharacter } from "./src/full-body-performance-contract.mjs";
 import { renderStagecraftMarkup, renderStagecraftForegroundMarkup, stagecraftMotionNodeIds, stagecraftNodeCounts } from "./src/stagecraft.mjs";
 
 function parseArgs(argv) {
@@ -530,12 +531,9 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
       "left_thigh", "left_calf", "left_foot",
       "right_thigh", "right_calf", "right_foot"
     ];
-    const requiredFingers = [
-      "finger_index", "finger_middle", "finger_ring", "finger_little"
-    ];
-    const requiredFingerSegments = requiredFingers.flatMap(role => [
-      role, role + "_middle", role + "_tip"
-    ]);
+    const fingeringContract = fingeringRolesForPerformanceCharacter(character);
+    const requiredFingers = fingeringContract.controlRoles;
+    const requiredFingerSegments = fingeringContract.segmentRoles;
     const articulatedArmRoles = [
       "left_upper_arm", "left_forearm", "left_hand",
       "right_upper_arm", "right_forearm", "right_hand"
