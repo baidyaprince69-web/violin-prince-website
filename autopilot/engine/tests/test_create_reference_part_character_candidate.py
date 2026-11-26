@@ -139,6 +139,9 @@ def make_source_bundle(root: Path):
     }
     for index, layer_id in enumerate(PRIMARY_IDS + list(BRIDGES)):
         role = role_by_id[layer_id]
+        layer_x, layer_y, layer_width, layer_height = 100, 200, 80, 80
+        if layer_id == "reference-part-001":
+            layer_x, layer_y, layer_width, layer_height = 100, 100, 80, 100
         exports.append({
             "layer_id": layer_id,
             "src": f"{layer_id}.png",
@@ -146,7 +149,7 @@ def make_source_bundle(root: Path):
             "part_id": layer_id if layer_id.startswith("reference-part-") else None,
             "bridge_id": next((key for key in BRIDGES if key == layer_id), None),
             "target_role": role,
-            "x": 100, "y": 200, "width": 80, "height": 80,
+            "x": layer_x, "y": layer_y, "width": layer_width, "height": layer_height,
             "z_index": index + 1,
             "rotation_deg": 0, "scale": 1,
             "pivot_hint_normalized": [0.5, 0.5],
