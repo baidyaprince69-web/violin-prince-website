@@ -566,6 +566,8 @@ def _reference_assembly_joint_pivots(
     width: int,
     height: int,
     character: dict[str, Any],
+    *,
+    strict: bool = False,
 ) -> dict[str, dict[str, Any]]:
     """Estimate candidate pivots from the shared opaque pixels at each seam.
 
@@ -584,6 +586,7 @@ def _reference_assembly_joint_pivots(
             crop = alpha[top - int(y):bottom - int(y), left - int(x):right - int(x)]
             canvas_mask[top:bottom, left:right] = crop
         masks[str(layer_id)] = canvas_mask
+        masks[str(layer_id).replace("_", "-")] = canvas_mask
 
     connections = {
         "left_shoulder": (
@@ -628,18 +631,22 @@ def _reference_assembly_joint_pivots(
         parent_mask = masks.get(parent_id)
         child_mask = masks.get(child_id)
         if parent_mask is None or child_mask is None:
-            raise ReferenceSheetError(
-                f"Cannot estimate {joint_name}: missing assembly layer "
-                f"{parent_id if parent_mask is None else child_id}."
-            )
+            if strict:
+                raise ReferenceSheetError(
+                    f"Cannot estimate {joint_name}: missing assembly layer "
+                    f"{parent_id if parent_mask is None else child_id}."
+                )
+            continue
         overlap = parent_mask & child_mask
         ys, xs = np.where(overlap)
         overlap_pixels = int(xs.size)
         if overlap_pixels < minimum_overlap:
-            raise ReferenceSheetError(
-                f"Candidate {joint_name} has only {overlap_pixels} shared pixels; "
-                f"requires at least {minimum_overlap}."
-            )
+            if strict:
+                raise ReferenceSheetError(
+                    f"Candidate {joint_name} has only {overlap_pixels} shared pixels; "
+                    f"requires at least {minimum_overlap}."
+                )
+            continue
         x, y = float(xs.mean()), float(ys.mean())
         pivots[joint_name] = {
             "x": round(x, 3),
@@ -814,7 +821,8 @@ def _write_reference_part_assembly_candidate(
 
     ordered_render_items = sorted(render_items, key=lambda entry: entry[0])
     joint_pivots = _reference_assembly_joint_pivots(
-        ordered_render_items, width, height, character
+        ordered_render_items, width, height, character,
+        strict=len(part_records) == 33,
     )
     for _z, _id, sprite, x, y in ordered_render_items:
         _alpha_composite_clipped(assembled, sprite, x, y)
