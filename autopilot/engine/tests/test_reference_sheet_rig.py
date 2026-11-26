@@ -138,7 +138,11 @@ class ReferenceSheetRigTests(unittest.TestCase):
             assembly = json.loads((root / "reference-part-assembled-candidate.json").read_text())
             self.assertEqual(assembly["status"], "assembled_candidate_not_active_pending_visual_review")
             self.assertFalse(assembly["production_layer_replacement_enabled"])
-            self.assertEqual(assembly["primary_part_count"], len(assembly["primary_part_ids"]))
+            expected_fixture_parts = sum(
+                (root / f"{part_id}.png").is_file()
+                for part_id in assembly["primary_part_ids"]
+            )
+            self.assertEqual(assembly["primary_part_count"], expected_fixture_parts)
             self.assertEqual(
                 assembly["source_asset_count"],
                 assembly["primary_part_count"] + assembly["source_bridge_count"],
