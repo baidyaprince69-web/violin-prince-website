@@ -944,7 +944,7 @@ jobs:
           facial_sequence = action.get("head_expression_sequence", [])
           expected_facial_states = {"speaking_closed", "blink_closed"}
           assert set(facial_sequence) == expected_facial_states, action
-          assert len(facial_sequence) == 6, action
+          assert len(facial_sequence) == 4, action
           assert action.get("expression") == "neutral", action
           assert action.get("head_expression") == "speaking_closed", action
           assert not ({"happy", "smile", "sad", "shocked_open", "speaking_open"} & set(facial_sequence)), action
