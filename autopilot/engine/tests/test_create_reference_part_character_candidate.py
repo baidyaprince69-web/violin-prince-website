@@ -129,6 +129,7 @@ def make_source_bundle(root: Path):
         }),
         encoding="utf-8",
     )
+    write_image(source / "reference-part-assembled-candidate.png")
 
     exports = []
     role_by_id = {
