@@ -558,10 +558,13 @@ jobs:
           moving_mask = Image.open(bundle / moving_report["asset"]).convert("L")
           assert sum(value > 0 for value in moving_mask.getdata()) == moving_report.get("pixels"), report
           restoration = report.get("torso_reference_restoration", {})
-          assert restoration.get("method") == "aligned_supplied_jacket_reference_on_authored_moving_and_hidden_torso_masks", report
+          assert restoration.get("method") == "aligned_jacket_reference_underlay_on_authored_moving_and_hidden_torso_masks", report
           assert restoration.get("reference_asset") == "reference-part-003.png", report
           assert restoration.get("pixels_restored", 0) >= 100, report
-          assert restoration.get("layer_alpha_preserved") is True, report
+          assert restoration.get("underlay_pixels_added", 0) >= 100, report
+          assert restoration.get("new_underlay_limited_to_restoration_mask") is True, report
+          assert restoration.get("existing_torso_alpha_preserved") is True, report
+          assert restoration.get("layer_alpha_preserved_outside_underlay_mask") is True, report
           assert restoration.get("torso_crop_geometry_preserved") is True, report
           assert restoration.get("hand_forearm_assets_modified") == 0, report
           assert restoration.get("hand_animation_data_modified") is False, report
