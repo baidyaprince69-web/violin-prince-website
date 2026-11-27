@@ -52,6 +52,7 @@ jobs:
           pip install "Pillow>=10.4,<12" "numpy>=1.24,<3" "cryptography>=42,<47" "soundfile>=0.12,<1" "requests>=2.31,<3"
 
       - name: Install eSpeak NG for synthetic voice-only preview fixture
+        if: ${{ env.MASTER_DIRECTOR_VISUAL_REVIEW_APPROVED == 'true' }}
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y espeak-ng
