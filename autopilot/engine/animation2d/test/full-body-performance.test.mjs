@@ -554,6 +554,35 @@ test("segmented source base keeps twelve independent limb/hand layers and the bo
   assert.ok(violin.values.some(value => value !== violin.values[0]));
 });
 
+test("segmented source violin underlay is not duplicated by a second animated prop", () => {
+  const segmentedCharacter = {
+    ...character,
+    performance_base_mode: "segmented_source_body",
+    base_art: {
+      src: "performance-segmented-base.png",
+      x: 0, y: 0, width: 441, height: 755,
+      z_index: 1,
+      mode: "segmented_source_body",
+      source_alpha_preserved: true,
+      source_pixels_outside_cut_mask_preserved: true,
+      violin_source_underlay_preserved: true
+    }
+  };
+  const segmentedProject = {
+    ...project,
+    characters: [segmentedCharacter]
+  };
+  const tracks = compileMotionTracks(segmentedProject, { fps: 25 });
+  const findTrack = target => tracks.find(track =>
+    track.target === target && track.property === "transform"
+  );
+
+  assert.ok(findTrack("playing-violin-prince-prop-bow"),
+    "the moving bow remains a separate animated prop");
+  assert.equal(findTrack("playing-violin-prince-prop-violin"), undefined,
+    "the source violin already belongs to the torso underlay and must render only once");
+});
+
 test("modular head expressions and angle plates are separately rendered and frame-seekable", () => {
   const tracks = compileMotionTracks(project, { fps: 25 });
   assert.equal(tracks.some(track =>
