@@ -127,3 +127,89 @@ jobs:
             work/remotion-output/remotion-composited.report.json
           if-no-files-found: error
           retention-days: 7
+
+  # Temporary real-source integration proof for the current full-body rig artifact.
+  # The normal publishing workflow is not called; this job is review-only.
+  fullbody-real-footage-preview:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+    env:
+      AUTOPILOT_ENABLED: "false"
+      PUBLISH_ENABLED: "false"
+      YOUTUBE_UPLOAD_ENABLED: "false"
+      REMOTION_PUBLISHING_ENABLED: "false"
+      SOURCE_RUN_ID: "45982461130"
+      SOURCE_ARTIFACT_NAME: "full-body-character-only-review-837"
+      TITLE: "A Violin Performance"
+      SUBTITLE: "VIOLIN PRINCE"
+    steps:
+      - name: Check out the isolated Remotion branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install FFmpeg and FFprobe for source/output verification
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          ffmpeg -version | head -n 1
+          ffprobe -version | head -n 1
+
+      - name: Download the existing full-body performance artifact
+        uses: actions/download-artifact@v4
+        with:
+          repository: ${{ github.repository }}
+          run-id: ${{ env.SOURCE_RUN_ID }}
+          name: ${{ env.SOURCE_ARTIFACT_NAME }}
+          path: work/remotion-input
+          github-token: ${{ github.token }}
+
+      - name: Resolve and validate the real performance file
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          INPUT_VIDEO="$(find work/remotion-input -type f -name 'full-body-violin-performance.mp4' -print -quit)"
+          if [[ -z "$INPUT_VIDEO" || ! -s "$INPUT_VIDEO" ]]; then
+            echo "The selected artifact does not contain full-body-violin-performance.mp4." >&2
+            find work/remotion-input -maxdepth 5 -type f -print || true
+            exit 1
+          fi
+          echo "input_video=$INPUT_VIDEO" >> "$GITHUB_OUTPUT"
+          ffprobe -v error -show_entries format=duration:stream=codec_type,width,height,avg_frame_rate -of json "$INPUT_VIDEO"
+
+      - name: Install the isolated Remotion package
+        working-directory: autopilot/engine/remotion
+        run: npm install --no-audit --no-fund
+
+      - name: Render a separate candidate from the actual violin performance
+        working-directory: autopilot/engine/remotion
+        env:
+          INPUT_VIDEO: ${{ steps.source.outputs.input_video }}
+          OUTPUT_VIDEO: ${{ github.workspace }}/work/remotion-real-output/remotion-fullbody-composited.mp4
+          TITLE: ${{ env.TITLE }}
+          SUBTITLE: ${{ env.SUBTITLE }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$(dirname "$OUTPUT_VIDEO")"
+          npm test
+          npm run render -- --input "$GITHUB_WORKSPACE/$INPUT_VIDEO" \
+            --output "$OUTPUT_VIDEO" --title "$TITLE" --subtitle "$SUBTITLE"
+
+      - name: Upload the real-footage candidate for visual review only
+        uses: actions/upload-artifact@v4
+        with:
+          name: remotion-real-footage-review-${{ github.run_number }}
+          path: |
+            work/remotion-real-output/remotion-fullbody-composited.mp4
+            work/remotion-real-output/remotion-fullbody-composited.report.json
+          if-no-files-found: error
+          retention-days: 7
+
