@@ -171,12 +171,14 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
     const pivotY = joint
       ? ((Number(joint.y) * layout.sourceHeight - Number(layer.y)) / Number(layer.height)) * 100
       : Number(layer.pivot_y ?? 0.5) * 100;
+    // Motion tracks are precomputed layer-local matrices with pivot compensation.
+    // Keep the CSS transform origin at the sprite origin to avoid applying pivots twice.
     const style = [
       "left:" + (layout.offsetX + Number(layer.x) * layout.scale) + "px",
       "top:" + (layout.offsetY + Number(layer.y) * layout.scale) + "px",
       "width:" + (Number(layer.width) * layout.scale) + "px",
       "height:" + (Number(layer.height) * layout.scale) + "px",
-      "transform-origin:" + pivotX + "% " + pivotY + "%",
+      "transform-origin:0 0",
       "z-index:" + Number(layer.z_index ?? 1)
     ];
     if (hasHeadPlates && (layer.role === "head" || layer.role === "face")) {

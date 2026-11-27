@@ -8,11 +8,11 @@ import {
 
 const rendererSource = readFileSync(new URL("../build.mjs", import.meta.url), "utf8");
 
-test("articulated source sprites rotate around their calculated anatomical joint pivots", () => {
+test("precomputed articulated matrices retain the sprite-origin CSS transform origin", () => {
   assert.match(
     rendererSource,
-    /"transform-origin:" \+ pivotX \+ "% " \+ pivotY \+ "%"/,
-    "rendered body sprites must use their calculated joint origin, not the image's top-left corner"
+    /"transform-origin:0 0"/,
+    "joint compensation is already encoded in layer-local matrices; CSS must not apply a second pivot"
   );
 });
 
