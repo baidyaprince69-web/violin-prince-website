@@ -838,7 +838,10 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
       const segmentedBodyBaseMode = compositeBaseMode &&
         character.performance_base_mode === "segmented_source_body";
       const layers = character.layers || [];
-      const props = Object.values(character.props || {});
+      const props = Object.values(character.props || {}).filter(prop =>
+        !(prop.id === "violin" &&
+          character.base_art?.violin_source_underlay_preserved === true)
+      );
       const layerByRole = new Map(layers.map(layer => [layer.role, layer]));
       const propById = new Map(props.map(prop => [prop.id, prop]));
       const sourceWidth = Number(character.canvas?.width) || width;
@@ -1592,6 +1595,8 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
         Number(syncCandidate.confidence) >= 0.28 &&
         Array.isArray(syncCandidate.beat_times) && syncCandidate.beat_times.length >= 2;
       for (const prop of Object.values(character.props || {})) {
+        if (prop.id === "violin" &&
+            character.base_art?.violin_source_underlay_preserved === true) continue;
         const authored = (action.prop_keyframes || {})[prop.id];
         let propFrames = authored;
         if (!propFrames && instrumentPerformance && prop.id === "bow") {
