@@ -99,13 +99,13 @@ test("audio-synchronised violin performance has readable bow, torso and weight-s
   const bowTravel = bowSlide.values.map(value => Number.parseFloat(String(value)));
   assert.ok(Math.max(...bowTravel) - Math.min(...bowTravel) >= 26,
     "the bow must travel a visible distance across the strings");
-  assert.ok(peak("left_upper_arm") >= 15, "bow shoulder should visibly reciprocate");
-  assert.ok(peak("left_forearm") >= 11, "bow elbow should visibly reciprocate");
+  assert.ok(peak("left_upper_arm") >= 6.0 && peak("left_upper_arm") <= 7.0, "bow shoulder should visibly reciprocate without pulling the sleeve away from the source silhouette");
+  assert.ok(peak("left_forearm") >= 6.8 && peak("left_forearm") <= 8.2, "bow elbow should reciprocate within the connected-source-art range");
   assert.ok(peak("torso") >= 3, "torso should follow the phrase");
   assert.ok(peak("head") >= 1.4, "head should follow the torso with a slight delay");
-  assert.ok(peak("left_thigh") >= 5.9, "left thigh should show weight transfer");
-  assert.ok(peak("left_calf") >= 3.9, "left calf should counterbalance");
-  assert.ok(peak("left_foot") >= 2.1, "left foot should participate in weight transfer");
+  assert.ok(peak("left_thigh") >= 4.0 && peak("left_thigh") <= 5.0, "left thigh should show restrained weight transfer");
+  assert.ok(peak("left_calf") >= 2.7 && peak("left_calf") <= 3.5, "left calf should counterbalance without opening the source silhouette");
+  assert.ok(peak("left_foot") >= 1.3 && peak("left_foot") <= 1.7, "left foot should participate in restrained weight transfer");
 });
 
 test("gesture presets include arms and head movement", () => {
