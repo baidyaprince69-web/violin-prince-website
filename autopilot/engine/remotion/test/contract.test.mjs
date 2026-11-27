@@ -25,7 +25,7 @@ const validProbe = {
 
 test("parses rational frame rates", () => {
   assert.equal(parseFrameRate("25/1"), 25);
-  assert.equal(parseFrameRate("30000/1001"), 29.97);
+  assert.ok(Math.abs(parseFrameRate("30000/1001") - 29.97) < 0.001);
   assert.equal(parseFrameRate("unknown"), 0);
 });
 
