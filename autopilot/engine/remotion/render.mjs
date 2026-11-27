@@ -5,6 +5,10 @@ import { spawnSync } from "node:child_process";
 import { dirname, extname, resolve, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  AUDIO_ANALYSIS_SAMPLE_RATE,
+  buildAudioEnvelope,
+} from "./src/audioAnalysis.mjs";
+import {
   buildCompositionProps,
   COMPOSITION_ID,
   validateSourceProbe,
@@ -61,6 +65,30 @@ function probeMedia(filePath) {
   return JSON.parse(stdout);
 }
 
+function extractAudioPcm(filePath) {
+  const result = spawnSync("ffmpeg", [
+    "-v", "error",
+    "-i", filePath,
+    "-vn",
+    "-ac", "1",
+    "-ar", String(AUDIO_ANALYSIS_SAMPLE_RATE),
+    "-f", "f32le",
+    "pipe:1",
+  ], {
+    cwd: PACKAGE_DIR,
+    maxBuffer: 16 * 1024 * 1024,
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    const detail = String(result.stderr || "").slice(-5000);
+    throw new Error(`FFmpeg audio analysis failed (exit ${result.status}):\n${detail}`);
+  }
+  if (!Buffer.isBuffer(result.stdout) || result.stdout.length === 0) {
+    throw new Error("FFmpeg returned no decoded audio samples for analysis.");
+  }
+  return result.stdout;
+}
+
 function sha256(filePath) {
   return createHash("sha256").update(readFileSync(filePath)).digest("hex");
 }
@@ -107,9 +135,14 @@ async function main() {
   }
 
   const sourceMedia = validateSourceProbe(probeMedia(inputPath));
+  const audioEnvelope = buildAudioEnvelope(extractAudioPcm(inputPath), {
+    durationSeconds: sourceMedia.durationSeconds,
+    sampleRate: AUDIO_ANALYSIS_SAMPLE_RATE,
+  });
   const compositionProps = buildCompositionProps(sourceMedia, {
     title: args.title,
     subtitle: args.subtitle,
+    audioEnvelope,
   });
 
   mkdirSync(PUBLIC_DIR, { recursive: true });
@@ -174,6 +207,12 @@ async function main() {
       title: compositionProps.title,
       subtitle: compositionProps.subtitle,
       brand_name: compositionProps.brandName,
+      audio_reactive_visualizer: true,
+    },
+    audio_analysis: {
+      method: "FFmpeg-decoded mono PCM, per-frame RMS envelope",
+      sample_rate_hz: AUDIO_ANALYSIS_SAMPLE_RATE,
+      frequency_bands_analyzed: false,
     },
     publishing: {
       enabled: false,

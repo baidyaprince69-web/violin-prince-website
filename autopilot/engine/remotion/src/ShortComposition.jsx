@@ -9,6 +9,7 @@ export const ShortComposition = ({
   showIntro,
   introDurationFrames,
   visualDirection,
+  audioEnvelope,
 }) => {
   const sansFont = staticFile("fonts/DMSans.woff2");
   const serifFont = staticFile("fonts/DMSerifDisplay-Regular.woff2");
@@ -55,6 +56,7 @@ export const ShortComposition = ({
           brandName={brandName}
           directionId={visualDirection}
           introDurationFrames={introDurationFrames}
+          audioEnvelope={audioEnvelope}
         />
       ) : null}
     </AbsoluteFill>

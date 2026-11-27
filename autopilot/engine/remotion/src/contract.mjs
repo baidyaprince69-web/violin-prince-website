@@ -67,6 +67,12 @@ export function buildCompositionProps(media, options = {}) {
   const durationInFrames = Math.ceil(media.durationSeconds * FPS);
   const visualDirection = String(options.visualDirection ?? DEFAULT_VISUAL_DIRECTION);
   resolveVisualDirection(visualDirection);
+  const suppliedEnvelope = Array.isArray(options.audioEnvelope) ? options.audioEnvelope : [];
+  const audioEnvelope = Array.from({ length: durationInFrames }, (_, index) => {
+    const value = Number(suppliedEnvelope[index] ?? 0.18);
+    const finiteValue = Number.isFinite(value) ? value : 0.18;
+    return Math.round(Math.min(1, Math.max(0, finiteValue)) * 1000) / 1000;
+  });
 
   return {
     durationInFrames,
@@ -74,6 +80,7 @@ export function buildCompositionProps(media, options = {}) {
     subtitle,
     brandName: "VIOLIN PRINCE",
     visualDirection,
+    audioEnvelope,
     showIntro: Boolean(title || subtitle),
     introDurationFrames: Math.min(75, Math.max(24, Math.floor(durationInFrames * 0.3))),
   };

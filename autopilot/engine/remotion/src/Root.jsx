@@ -9,6 +9,7 @@ const defaultProps = {
   subtitle: "VIOLIN PRINCE",
   brandName: "VIOLIN PRINCE",
   visualDirection: "midnight-resonance",
+  audioEnvelope: [],
   showIntro: true,
   introDurationFrames: 60,
 };

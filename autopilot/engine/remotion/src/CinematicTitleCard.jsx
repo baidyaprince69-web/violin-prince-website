@@ -16,6 +16,7 @@ export const CinematicTitleCard = ({
   brandName,
   directionId,
   introDurationFrames,
+  audioEnvelope,
 }) => {
   const frame = useCurrentFrame();
   const theme = resolveVisualDirection(directionId);
@@ -48,10 +49,15 @@ export const CinematicTitleCard = ({
     easing: Easing.inOut(Easing.cubic),
   });
 
+  const levelAt = (targetFrame) => {
+    const value = Number(audioEnvelope?.[Math.max(0, targetFrame)]);
+    return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0.18;
+  };
+  const audioLevel = levelAt(frame);
   const bars = Array.from({ length: BAR_COUNT }, (_, index) => {
     const centreWeight = 1 - Math.abs(index - (BAR_COUNT - 1) / 2) / (BAR_COUNT / 2);
-    const pulse = Math.abs(Math.sin(frame * 0.19 + index * 0.66));
-    return Math.round(4 + pulse * (8 + centreWeight * 11));
+    const delayedLevel = levelAt(frame - (index % 4));
+    return Math.round(4 + delayedLevel * (8 + centreWeight * 11));
   });
 
   return (
@@ -125,7 +131,7 @@ export const CinematicTitleCard = ({
           marginTop: 10,
           marginBottom: 13,
           background: `linear-gradient(90deg, ${theme.accentGold}, ${theme.accentCool})`,
-          boxShadow: `0 0 12px ${theme.accentGoldSoft}`,
+          boxShadow: `0 0 ${Math.round(8 + audioLevel * 8)}px ${theme.accentGoldSoft}`,
         }}
       />
 
@@ -206,7 +212,9 @@ export const CinematicTitleCard = ({
                 borderRadius: 3,
                 background: index % 3 === 0 ? theme.accentCool : theme.accentGold,
                 opacity: 0.55 + (height / 24) * 0.45,
-                boxShadow: index % 3 === 0 ? "0 0 7px rgba(142,215,228,.3)" : "none",
+                boxShadow: index % 3 === 0
+                  ? `0 0 ${Math.round(2 + audioLevel * 5)}px rgba(142,215,228,.3)`
+                  : "none",
               }}
             />
           ))}

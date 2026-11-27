@@ -73,7 +73,17 @@ test("generates bounded, JSON-safe Remotion composition props", () => {
   assert.equal(props.subtitle, "A short music explainer");
   assert.equal(props.brandName, "VIOLIN PRINCE");
   assert.equal(props.showIntro, true);
+  assert.equal(props.audioEnvelope.length, 200);
+  assert.ok(props.audioEnvelope.every((value) => value === 0.18));
   assert.ok(props.introDurationFrames > 0 && props.introDurationFrames < props.durationInFrames);
+});
+
+test("bounds and sanitizes the source-audio envelope before passing it to Remotion", () => {
+  const media = validateSourceProbe(validProbe);
+  const props = buildCompositionProps(media, {
+    audioEnvelope: [0.12, 1.3, -0.4, Number.NaN],
+  });
+  assert.deepEqual(props.audioEnvelope.slice(0, 4), [0.12, 1, 0, 0.18]);
 });
 
 test("exposes the Midnight Resonance direction tokens", () => {

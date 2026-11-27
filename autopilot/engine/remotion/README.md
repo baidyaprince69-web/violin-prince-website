@@ -42,7 +42,8 @@ make publishing decisions.
   approximately 25 fps, and a duration between 2 and 180 seconds.
 - The compositor preserves the source audio and video duration. It adds an optional Violin Prince opening title treatment driven by a reusable visual-direction preset.
   The first preset, Midnight Resonance, uses a glass title card, animated reveal, travelling light accent,
-  and a restrained rhythm-bar motif. The bars are decorative time-driven motion, not an audio-reactive waveform.
+  and a restrained rhythm-bar motif driven by a per-frame RMS analysis of the original soundtrack.
+  This is time-domain loudness reactivity, not frequency-band analysis or beat detection.
 - The output is a **candidate**, not a production-approved video. It is not put into the
   daily publish manifest and it is never sent to YouTube by this package.
 - The separate GitHub Actions workflow is manually dispatchable after it reaches the
@@ -85,7 +86,18 @@ artifact expires.
 - The opening treatment lives in `src/CinematicTitleCard.jsx`, separate from the source-video composition.
 - `contract.mjs` validates the selected direction before rendering; an unknown direction fails before Remotion starts.
 - The opening graphic does not alter the underlying full-body character, source soundtrack, source MP4, daily workflow, or publisher.
-- This first brick establishes one preset only. Additional story-specific palettes and scene graphics should be added as separate reviewed steps.
+- The first preset establishes a reviewed title-card visual foundation. Additional story-specific palettes and scene graphics should be added as separate reviewed steps.
+
+## Visual direction brick 2 — soundtrack-reactive title motif
+
+- `src/audioAnalysis.mjs` decodes no media itself; `render.mjs` asks FFmpeg for mono float32 PCM from the source soundtrack and calculates a smoothed RMS level for each 25 fps frame.
+- The fourteen title-card bars use those measured frame values, with a tiny stagger for visual flow. The card's accent glow also responds to the current measured level.
+- The video continues to play its original embedded soundtrack at its original level. The analysis stream is used only as animation data; it is not mixed back into the rendered audio.
+- The report records the analysis method and explicitly states that frequency bands and beat detection are not being claimed.
+- Tests cover changing loudness, silence, malformed PCM, and safe Remotion prop bounds.
+
+This is a soundtrack-responsive accent, not a full audio visualizer or a replacement for
+the final audio mix.
 
 ## Dependency and licensing note
 
