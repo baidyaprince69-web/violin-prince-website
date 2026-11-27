@@ -1,0 +1,129 @@
+name: Remotion Optional Compositor Preview
+
+on:
+  push:
+    branches:
+      - feat/remotion-optional-compositor
+    paths:
+      - "autopilot/engine/remotion/**"
+      - ".github/workflows/remotion-compositor-preview.yml"
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "GitHub Actions run containing the source MP4 artifact"
+        required: true
+        type: string
+        default: "45982461130"
+      artifact_name:
+        description: "Artifact containing full-body-violin-performance.mp4"
+        required: true
+        type: string
+        default: "full-body-character-only-review-837"
+      title:
+        description: "Optional opening title"
+        required: true
+        type: string
+        default: "A Violin Performance"
+      subtitle:
+        description: "Optional opening subtitle"
+        required: true
+        type: string
+        default: "VIOLIN PRINCE"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: remotion-compositor-preview-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  compositor-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      AUTOPILOT_ENABLED: "false"
+      PUBLISH_ENABLED: "false"
+      YOUTUBE_UPLOAD_ENABLED: "false"
+      REMOTION_PUBLISHING_ENABLED: "false"
+    steps:
+      - name: Check out the isolated Remotion branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install FFmpeg and FFprobe for source/output verification
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          ffmpeg -version | head -n 1
+          ffprobe -version | head -n 1
+
+      - name: Install the isolated Remotion package
+        working-directory: autopilot/engine/remotion
+        run: npm install --no-audit --no-fund
+
+      - name: Create a local-only source for the feature-branch smoke test
+        if: github.event_name == 'push'
+        run: |
+          mkdir -p work/remotion-input
+          ffmpeg -hide_banner -loglevel error -y \
+            -f lavfi -i "testsrc2=size=720x1280:rate=25" \
+            -f lavfi -i "sine=frequency=440:sample_rate=48000" \
+            -t 4 -c:v libx264 -preset veryfast -pix_fmt yuv420p \
+            -c:a aac -b:a 128k work/remotion-input/compositor-smoke-source.mp4
+
+      - name: Download the selected existing video artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/download-artifact@v4
+        with:
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.source_run_id }}
+          name: ${{ inputs.artifact_name }}
+          path: work/remotion-input
+          github-token: ${{ github.token }}
+
+      - name: Resolve the source MP4 without modifying it
+        id: source
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [[ "$EVENT_NAME" == "push" ]]; then
+            INPUT_VIDEO="work/remotion-input/compositor-smoke-source.mp4"
+          else
+            INPUT_VIDEO="$(find work/remotion-input -type f -name 'full-body-violin-performance.mp4' -print -quit)"
+          fi
+          if [[ -z "$INPUT_VIDEO" || ! -s "$INPUT_VIDEO" ]]; then
+            echo "Could not find the expected source MP4 in the selected artifact." >&2
+            find work/remotion-input -maxdepth 5 -type f -print || true
+            exit 1
+          fi
+          echo "input_video=$INPUT_VIDEO" >> "$GITHUB_OUTPUT"
+
+      - name: Render a separate Remotion candidate and verify media integrity
+        working-directory: autopilot/engine/remotion
+        env:
+          INPUT_VIDEO: ${{ steps.source.outputs.input_video }}
+          OUTPUT_VIDEO: ${{ github.workspace }}/work/remotion-output/remotion-composited.mp4
+          TITLE: ${{ inputs.title || 'A Violin Performance' }}
+          SUBTITLE: ${{ inputs.subtitle || 'VIOLIN PRINCE' }}
+        run: |
+          mkdir -p "$(dirname "$OUTPUT_VIDEO")"
+          npm test
+          npm run render -- --input "$GITHUB_WORKSPACE/$INPUT_VIDEO" \
+            --output "$OUTPUT_VIDEO" --title "$TITLE" --subtitle "$SUBTITLE"
+
+      - name: Upload Remotion candidate for review only
+        uses: actions/upload-artifact@v4
+        with:
+          name: remotion-compositor-review-${{ github.run_number }}
+          path: |
+            work/remotion-output/remotion-composited.mp4
+            work/remotion-output/remotion-composited.report.json
+          if-no-files-found: error
+          retention-days: 7
