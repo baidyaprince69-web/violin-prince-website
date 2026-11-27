@@ -230,6 +230,8 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             character = {
                 "canvas": {"width": size, "height": size},
                 "joints": {
+                    "left_shoulder": {"x": 0.27, "y": 0.07},
+                    "right_shoulder": {"x": 0.77, "y": 0.07},
                     "left_elbow": {"x": 0.27, "y": 0.27},
                     "right_elbow": {"x": 0.77, "y": 0.27},
                     "left_wrist": {"x": 0.27, "y": 0.77},
@@ -267,6 +269,15 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                 self.assertGreater(region["child_alpha_pixels_removed"], 0)
                 self.assertEqual(region["source_pixels_created_outside_intersection"], 0)
                 self.assertEqual(layer["joint_surface"]["blend_weight"], 0.5)
+                axis_start = layer["joint_surface"]["blend_axis_start"]
+                axis_end = layer["joint_surface"]["blend_axis_end"]
+                self.assertEqual(len(axis_start), 2)
+                self.assertEqual(len(axis_end), 2)
+                self.assertTrue(all(0.0 <= value <= 1.0 for value in axis_start + axis_end))
+                self.assertGreaterEqual(
+                    float(np.hypot(axis_end[0] - axis_start[0], axis_end[1] - axis_start[1])),
+                    0.03,
+                )
                 self.assertEqual(layer["joint_surface"]["synthetic_geometry_added"], False)
 
                 patch_mask = _canvas_alpha_mask_for_layer(

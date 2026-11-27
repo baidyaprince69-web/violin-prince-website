@@ -2425,6 +2425,52 @@ def _extract_source_alpha_intersection_arm_surfaces(
                 f"Arm seam bridge {joint_name} has too little opaque source core after edge feathering."
             )
 
+        side = joint_name.split("_", 1)[0]
+        if joint_name.endswith("_elbow"):
+            proximal_anchor = joints.get(side + "_shoulder")
+            distal_anchor = joints.get(side + "_wrist")
+            if not isinstance(proximal_anchor, dict) or not isinstance(distal_anchor, dict):
+                raise ManualReviewRequired(
+                    f"Arm elbow bridge {joint_name} requires shoulder and wrist axis anchors."
+                )
+            blend_axis_start = [
+                float(proximal_anchor["x"]), float(proximal_anchor["y"])
+            ]
+            blend_axis_end = [
+                float(distal_anchor["x"]), float(distal_anchor["y"])
+            ]
+        else:
+            proximal_anchor = joints.get(side + "_elbow")
+            if not isinstance(proximal_anchor, dict):
+                raise ManualReviewRequired(
+                    f"Arm wrist bridge {joint_name} requires its elbow axis anchor."
+                )
+            hand_y, hand_x = np.where(child_mask)
+            if not hand_x.size:
+                raise ManualReviewRequired(
+                    f"Arm wrist bridge {joint_name} has no source hand pixels for its axis."
+                )
+            blend_axis_start = [
+                float(proximal_anchor["x"]), float(proximal_anchor["y"])
+            ]
+            blend_axis_end = [
+                float(hand_x.mean() / width), float(hand_y.mean() / height)
+            ]
+        axis_length = float(np.hypot(
+            blend_axis_end[0] - blend_axis_start[0],
+            blend_axis_end[1] - blend_axis_start[1],
+        ))
+        if (
+            not np.isfinite(axis_length) or axis_length < 0.03
+            or not all(
+                np.isfinite(value) and 0.0 <= value <= 1.0
+                for value in blend_axis_start + blend_axis_end
+            )
+        ):
+            raise ManualReviewRequired(
+                f"Arm seam bridge {joint_name} has invalid normalized source-bone axis anchors."
+            )
+
         role = "joint_surface_arm_" + joint_name
         destination = bundle_dir / f"{role}.png"
         geometry = _save_rgba_layer(
@@ -2471,6 +2517,8 @@ def _extract_source_alpha_intersection_arm_surfaces(
                 "parent_role": parent_role,
                 "child_role": child_role,
                 "blend_weight": 0.5,
+                "blend_axis_start": blend_axis_start,
+                "blend_axis_end": blend_axis_end,
                 "surface_outline_profile": "exact_parent_child_source_alpha_intersection",
                 "source_pixel_provenance": (
                     "untouched_source_pixels_inside_exact_parent_child_alpha_intersection"
