@@ -93,7 +93,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                 **common,
             )
 
-    def test_restores_only_hidden_torso_pixels_from_aligned_reference(self):
+    def test_adds_jacket_underlay_only_under_authored_moving_and_hidden_regions(self):
         import json
         import tempfile
         from pathlib import Path
@@ -156,13 +156,22 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             local_mask = restoration_mask[4:34, 4:34]
 
             self.assertGreater(result["pixels_restored"], 100)
+            self.assertGreater(result["underlay_pixels_added"], 100)
+            self.assertEqual(
+                result["underlay_pixels_added"],
+                int(np.count_nonzero((before[:, :, 3] <= 12) & (after[:, :, 3] >= 240))),
+            )
             self.assertEqual(result["hand_forearm_assets_modified"], 0)
             self.assertFalse(result["hand_animation_data_modified"])
-            self.assertTrue(result["layer_alpha_preserved"])
+            self.assertTrue(result["existing_torso_alpha_preserved"])
+            self.assertTrue(result["layer_alpha_preserved_outside_underlay_mask"])
+            self.assertTrue(result["new_underlay_limited_to_restoration_mask"])
             self.assertTrue(result["source_pixels_outside_restoration_mask_preserved"])
-            self.assertTrue(np.array_equal(after[:, :, 3], before[:, :, 3]))
-            self.assertTrue(np.array_equal(after[~local_mask], before[~local_mask]))
+            self.assertFalse(np.array_equal(after[:, :, 3], before[:, :, 3]))
+            self.assertTrue(np.array_equal(after[:, :, 3][~local_mask], before[:, :, 3][~local_mask]))
             self.assertGreater(int(np.count_nonzero(after[local_mask, 0] == 210)), 100)
+            # A reference patch may never replace the violin footprint.
+            self.assertTrue(np.array_equal(after[10:14, 10:14], before[10:14, 10:14]))
             self.assertEqual((root / "left_hand.png").read_bytes(), hand_bytes)
             self.assertEqual(result["prop_pixels_excluded"], 16)
 
