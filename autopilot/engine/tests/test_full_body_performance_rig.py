@@ -231,7 +231,7 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
                 "joints": {
                     "left_elbow": {"x": 0.27, "y": 0.27},
                     "right_elbow": {"x": 0.77, "y": 0.27},
-                    "left_wrist": {"x": 0.77, "y": 0.27},
+                    "left_wrist": {"x": 0.27, "y": 0.77},
                     "right_wrist": {"x": 0.77, "y": 0.77},
                 },
                 "layers": layers,
