@@ -102,6 +102,11 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             root = Path(folder)
             torso = Image.new("RGBA", (30, 30), (20, 40, 60, 255))
             torso.putpixel((5, 5), (20, 40, 60, 0))
+            # Leave an opaque-reference-covered hole beneath the moving arm
+            # region so the test proves that the new underlay alpha is added.
+            for y in range(4, 20):
+                for x in range(12, 20):
+                    torso.putpixel((x, y), (20, 40, 60, 0))
             torso.save(root / "torso.png")
             hand_bytes = b"hand-animation-asset-must-remain-untouched"
             (root / "left_hand.png").write_bytes(hand_bytes)
