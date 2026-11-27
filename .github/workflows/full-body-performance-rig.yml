@@ -686,11 +686,14 @@ jobs:
           assert mesh_report.get("deformable_roles") == [], report
           assert mesh_report.get("deformable_layer_count") == 0, report
           assert set(mesh_report.get("rigid_articulation_roles", [])) == expected_rigid_roles, report
-          assert set(mesh_report.get("rigid_joint_surface_roles", [])) == {
+          expected_rigid_joint_surface_roles = {
               "joint_surface_left_hip", "joint_surface_right_hip",
               "joint_surface_left_knee", "joint_surface_right_knee",
               "joint_surface_left_ankle", "joint_surface_right_ankle",
-          }, report
+              "joint_surface_arm_left_elbow", "joint_surface_arm_right_elbow",
+              "joint_surface_arm_left_wrist", "joint_surface_arm_right_wrist",
+          }
+          assert set(mesh_report.get("rigid_joint_surface_roles", [])) == expected_rigid_joint_surface_roles, report
           assert mesh_report.get("lower_body_render_policy") == (
               "source_faithful_img_sprites_with_hierarchical_hip_knee_ankle_transforms"
           ), report
