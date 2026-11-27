@@ -717,7 +717,11 @@ jobs:
           partition = report.get("torso_surface_partition", {})
           if created_regions:
               assert partition.get("method") == "source_alpha_partitioned_into_static_torso_and_joint_surfaces", report
-              assert partition.get("joint_surface_source_pixels_transferred") == transferred_pixels, report
+              arm_bridge_report = joint_art.get("arm_source_alpha_intersection_bridges", {})
+              expected_joint_transfer_pixels = transferred_pixels + int(
+                  arm_bridge_report.get("source_pixels_transferred", 0)
+              )
+              assert partition.get("joint_surface_source_pixels_transferred") == expected_joint_transfer_pixels, report
               assert partition.get("transfer_mask_asset") == "torso-joint-surface-transfer-mask.png", report
           else:
               assert partition.get("method") == "source_alpha_partitioned_into_live_torso_surface", report
