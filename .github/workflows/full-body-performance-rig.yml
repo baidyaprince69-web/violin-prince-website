@@ -669,7 +669,7 @@ jobs:
           assert patch_files == expected_surface_roles, patch_files
           assert joint_art.get("joint_surface_layer_count") == len(created_regions), joint_art
           assert joint_art.get("joint_surface_mesh_layer_count") == 0, joint_art
-          assert joint_art.get("joint_surface_rigid_layer_count") == len(created_regions), joint_art
+          assert joint_art.get("joint_surface_rigid_layer_count") == len(created_regions) + 4, joint_art
           assert joint_art.get("joint_surface_render_policy") == (
               "parent_child_blended_rigid_source_sprite_transform"
           ), joint_art
@@ -1047,33 +1047,54 @@ jobs:
           assert scene.get("bow_slide_travel_range_px", 0) >= 26, scene
           rig_report = json.loads(Path("work/full-body-rig/bundle/full-body-performance-report.json").read_text())
           joint_art = rig_report.get("source_aligned_joint_surface_art", {})
-          joint_layers = [layer for layer in character.get("layers", []) if layer.get("joint_surface")]
-          allowed_joint_roles = {
+          all_joint_layers = [layer for layer in character.get("layers", []) if layer.get("joint_surface")]
+          lower_body_joint_layers = [
+              layer for layer in all_joint_layers
+              if not str(layer.get("role") or "").startswith("joint_surface_arm_")
+          ]
+          arm_bridge_layers = [
+              layer for layer in all_joint_layers
+              if str(layer.get("role") or "").startswith("joint_surface_arm_")
+          ]
+          allowed_lower_body_roles = {
               "joint_surface_left_hip", "joint_surface_right_hip",
               "joint_surface_left_knee", "joint_surface_right_knee",
               "joint_surface_left_ankle", "joint_surface_right_ankle",
           }
-          assert all(layer.get("role") in allowed_joint_roles for layer in joint_layers), joint_layers
+          allowed_arm_bridge_roles = {
+              "joint_surface_arm_left_elbow", "joint_surface_arm_right_elbow",
+              "joint_surface_arm_left_wrist", "joint_surface_arm_right_wrist",
+          }
+          assert {layer.get("role") for layer in lower_body_joint_layers} == allowed_lower_body_roles, lower_body_joint_layers
+          assert {layer.get("role") for layer in arm_bridge_layers} == allowed_arm_bridge_roles, arm_bridge_layers
+          assert len(all_joint_layers) == 10, all_joint_layers
           assert all(
               layer["joint_surface"].get("surface_outline_profile") == "artist_source_polygon"
               and layer["joint_surface"].get("artist_artwork_status") == "artist_approved"
               and len(layer["joint_surface"].get("source_space_polygon", [])) >= 3
-              for layer in joint_layers
-          ), joint_layers
-          assert joint_art.get("joint_surface_layer_count") == len(joint_layers), joint_art
+              for layer in lower_body_joint_layers
+          ), lower_body_joint_layers
+          assert all(
+              layer["joint_surface"].get("surface_outline_profile") == "exact_parent_child_source_alpha_intersection"
+              and layer["joint_surface"].get("source_pixel_provenance") == "untouched_source_pixels_inside_exact_parent_child_alpha_intersection"
+              and layer["joint_surface"].get("synthetic_geometry_added") is False
+              and layer["joint_surface"].get("edge_feather_px") == 0.5
+              for layer in arm_bridge_layers
+          ), arm_bridge_layers
+          assert joint_art.get("joint_surface_layer_count") == len(lower_body_joint_layers), joint_art
           assert joint_art.get("hand_assets_modified") == 0, joint_art
           assert joint_art.get("hand_animation_data_modified") is False, joint_art
           assert joint_art.get("protected_upper_body_assets_modified") == 0, joint_art
-          assert report.get("source_joint_surface_layer_count") == len(joint_layers), report
+          assert report.get("source_joint_surface_layer_count") == len(all_joint_layers), report
           assert report.get("deformable_body_layer_count") == 0, report
           assert report.get("deformation_mesh_triangle_track_count") == 0, report
           assert report.get("joint_surface_mesh_triangle_track_count") == 0, report
-          assert report.get("joint_surface_transform_track_count") == len(joint_layers), report
-          assert scene.get("source_joint_surface_layer_count") == len(joint_layers), scene
+          assert report.get("joint_surface_transform_track_count") == len(all_joint_layers), report
+          assert scene.get("source_joint_surface_layer_count") == len(all_joint_layers), scene
           assert scene.get("deformable_body_layer_count") == 0, scene
           assert scene.get("deformation_mesh_triangle_track_count") == 0, scene
           assert scene.get("joint_surface_mesh_triangle_track_count") == 0, scene
-          assert scene.get("joint_surface_transform_track_count") == len(joint_layers), scene
+          assert scene.get("joint_surface_transform_track_count") == len(all_joint_layers), scene
           assert scene.get("full_body_visual_mode") == "segmented_source_body", scene
           assert report.get("deformable_body_layer_count") == 0, report
           assert report.get("deformation_mesh_triangle_track_count") == 0, report
