@@ -1,3 +1,4 @@
+import { DEFAULT_VISUAL_DIRECTION, listVisualDirections, resolveVisualDirection } from "../src/visualDirection.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -73,4 +74,30 @@ test("generates bounded, JSON-safe Remotion composition props", () => {
   assert.equal(props.brandName, "VIOLIN PRINCE");
   assert.equal(props.showIntro, true);
   assert.ok(props.introDurationFrames > 0 && props.introDurationFrames < props.durationInFrames);
+});
+
+test("exposes the Midnight Resonance direction tokens", () => {
+  assert.equal(DEFAULT_VISUAL_DIRECTION, "midnight-resonance");
+  assert.deepEqual(listVisualDirections(), ["midnight-resonance"]);
+  const theme = resolveVisualDirection();
+  assert.equal(theme.accentGold, "#d9bd8b");
+  assert.equal(theme.accentCool, "#8ed7e4");
+  assert.ok(theme.panelStart && theme.panelEnd && theme.textPrimary);
+});
+
+test("rejects an unsupported visual-direction identifier", () => {
+  assert.throws(
+    () => resolveVisualDirection("unknown-theme"),
+    /Unknown Violin Prince visual direction/,
+  );
+});
+
+test("composition props include a validated visual direction", () => {
+  const media = validateSourceProbe(validProbe);
+  const props = buildCompositionProps(media, { visualDirection: "midnight-resonance" });
+  assert.equal(props.visualDirection, "midnight-resonance");
+  assert.throws(
+    () => buildCompositionProps(media, { visualDirection: "unsupported" }),
+    /Unknown Violin Prince visual direction/,
+  );
 });

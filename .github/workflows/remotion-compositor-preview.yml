@@ -28,7 +28,7 @@ on:
         description: "Optional opening subtitle"
         required: true
         type: string
-        default: "VIOLIN PRINCE"
+        default: "SOLO VIOLIN"
 
 permissions:
   contents: read
@@ -145,7 +145,7 @@ jobs:
       SOURCE_RUN_ID: "46047995951"
       SOURCE_ARTIFACT_NAME: "full-body-character-only-review-863"
       TITLE: "A Violin Performance"
-      SUBTITLE: "VIOLIN PRINCE"
+      SUBTITLE: "SOLO VIOLIN"
     steps:
       - name: Check out the isolated Remotion branch
         uses: actions/checkout@v7.0.1

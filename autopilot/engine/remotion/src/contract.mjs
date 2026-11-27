@@ -1,3 +1,5 @@
+import { DEFAULT_VISUAL_DIRECTION, resolveVisualDirection } from "./visualDirection.mjs";
+
 export const COMPOSITION_ID = "violin-prince-remotion-compositor";
 export const FPS = 25;
 export const WIDTH = 720;
@@ -63,12 +65,15 @@ export function buildCompositionProps(media, options = {}) {
   const title = String(options.title ?? "A Violin Performance").trim().slice(0, 100);
   const subtitle = String(options.subtitle ?? "VIOLIN PRINCE").trim().slice(0, 140);
   const durationInFrames = Math.ceil(media.durationSeconds * FPS);
+  const visualDirection = String(options.visualDirection ?? DEFAULT_VISUAL_DIRECTION);
+  resolveVisualDirection(visualDirection);
 
   return {
     durationInFrames,
     title,
     subtitle,
     brandName: "VIOLIN PRINCE",
+    visualDirection,
     showIntro: Boolean(title || subtitle),
     introDurationFrames: Math.min(75, Math.max(24, Math.floor(durationInFrames * 0.3))),
   };

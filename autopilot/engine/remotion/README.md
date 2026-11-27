@@ -40,8 +40,9 @@ make publishing decisions.
   never edited or overwritten.
 - Input is checked before rendering: MP4 video and audio streams, portrait 720x1280,
   approximately 25 fps, and a duration between 2 and 180 seconds.
-- The compositor preserves the source audio and video duration. It adds only the optional
-  Violin Prince opening title treatment.
+- The compositor preserves the source audio and video duration. It adds an optional Violin Prince opening title treatment driven by a reusable visual-direction preset.
+  The first preset, Midnight Resonance, uses a glass title card, animated reveal, travelling light accent,
+  and a restrained rhythm-bar motif. The bars are decorative time-driven motion, not an audio-reactive waveform.
 - The output is a **candidate**, not a production-approved video. It is not put into the
   daily publish manifest and it is never sent to YouTube by this package.
 - The separate GitHub Actions workflow is manually dispatchable after it reaches the
@@ -77,6 +78,14 @@ For the current full-body rig test, the initial manual-dispatch defaults point t
 `46047995951` and artifact `full-body-character-only-review-863`. GitHub artifact
 retention is finite; supply a newer run ID and matching artifact name after that test
 artifact expires.
+
+## Visual direction brick 1 — Midnight Resonance
+
+- Palette tokens live in `src/visualDirection.mjs`, separate from layout code.
+- The opening treatment lives in `src/CinematicTitleCard.jsx`, separate from the source-video composition.
+- `contract.mjs` validates the selected direction before rendering; an unknown direction fails before Remotion starts.
+- The opening graphic does not alter the underlying full-body character, source soundtrack, source MP4, daily workflow, or publisher.
+- This first brick establishes one preset only. Additional story-specific palettes and scene graphics should be added as separate reviewed steps.
 
 ## Dependency and licensing note
 

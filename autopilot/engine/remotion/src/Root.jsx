@@ -8,6 +8,7 @@ const defaultProps = {
   title: "A Violin Performance",
   subtitle: "VIOLIN PRINCE",
   brandName: "VIOLIN PRINCE",
+  visualDirection: "midnight-resonance",
   showIntro: true,
   introDurationFrames: 60,
 };
