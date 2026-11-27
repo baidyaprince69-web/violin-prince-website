@@ -278,21 +278,25 @@ test("music-synchronized performance keyframes follow beat and onset timestamps"
   assert.ok(indexFinger.key_times.includes(0.268));
   assert.ok(ringFinger.key_times.includes(1.286));
   assert.ok(littleFinger.key_times.includes(1.795));
-  assert.ok(Math.max(...bowShoulder.values.map(Math.abs)) <= 20.0);
-  assert.ok(Math.max(...elbow.values.map(Math.abs)) <= 22.5);
-  assert.ok(Math.max(...torso.values.map(Math.abs)) >= 5.8,
-    "phrase-led torso follow-through must be visibly stronger than the previous restrained pass");
-  assert.ok(Math.max(...head.values.map(Math.abs)) >= 2.6,
-    "the head must counter-follow the torso through the phrase");
-  assert.ok(Math.max(...leftThigh.values.map(Math.abs)) >= 9.0,
-    "weight transfer must be visible through the hips and thighs");
-  assert.ok(Math.max(...leftCalf.values.map(Math.abs)) >= 5.8,
-    "the lower legs must participate in the grounded weight shift");
+  assert.ok(Math.max(...bowShoulder.values.map(Math.abs)) <= 7.0);
+  assert.ok(Math.max(...elbow.values.map(Math.abs)) <= 8.2);
+  assert.ok(Math.max(...torso.values.map(Math.abs)) <= 3.4 &&
+    Math.max(...torso.values.map(Math.abs)) >= 2.5,
+    "torso follow-through must remain subtle enough to preserve the single-pose source artwork");
+  assert.ok(Math.max(...head.values.map(Math.abs)) <= 2.3 &&
+    Math.max(...head.values.map(Math.abs)) >= 1.7,
+    "head follow-through must stay restrained and visibly respond to the phrase");
+  assert.ok(Math.max(...leftThigh.values.map(Math.abs)) <= 5.0 &&
+    Math.max(...leftThigh.values.map(Math.abs)) >= 4.0,
+    "weight transfer must remain small enough to keep the source silhouette connected");
+  assert.ok(Math.max(...leftCalf.values.map(Math.abs)) <= 3.5 &&
+    Math.max(...leftCalf.values.map(Math.abs)) >= 2.7,
+    "lower-leg balance must remain subtle relative to the source pose");
   assert.ok(Math.max(...wrist.values.map(Math.abs)) <= 2.5);
-  assert.ok(bowShoulder.values.some(value => Math.abs(value) >= 17.0));
-  assert.ok(elbow.values.some(value => Math.abs(value) >= 17.0),
-    "the forearm must contribute a visibly larger share of each bow stroke");
-  assert.ok(wrist.values.some(value => Math.abs(value) >= 1.0));
+  assert.ok(bowShoulder.values.some(value => Math.abs(value) >= 6.0));
+  assert.ok(elbow.values.some(value => Math.abs(value) >= 6.8),
+    "the forearm must continue contributing to each controlled bow stroke");
+  assert.ok(wrist.values.some(value => Math.abs(value) >= 0.8));
   assert.equal(bowShoulder.values.length, elbow.values.length);
   assert.equal(elbow.values.length, wrist.values.length);
   assert.ok(bowShoulder.values.length > 12,
