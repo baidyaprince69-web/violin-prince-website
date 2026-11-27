@@ -115,6 +115,65 @@ class ReferenceSheetRigTests(unittest.TestCase):
             self.assertEqual(assembled.getpixel((30, 6)), colours["head"])
             self.assertEqual(assembled.getpixel((32, 12)), colours["face"])
 
+    def test_source_aligned_bow_is_restored_without_duplicate_violin_overlay(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            width, height = 80, 120
+
+            base = Image.new("RGBA", (width, height), (24, 35, 52, 255))
+            base.save(root / "base.png")
+            bow = Image.new("RGBA", (10, 20), (0, 0, 0, 0))
+            ImageDraw.Draw(bow).rectangle((4, 0, 5, 19), fill=(180, 90, 30, 255))
+            bow.save(root / "bow.png")
+            violin = Image.new("RGBA", (8, 8), (0, 220, 220, 255))
+            violin.save(root / "violin.png")
+
+            roles = (
+                "torso", "head", "face",
+                "left_upper_arm", "right_upper_arm",
+                "left_thigh", "right_thigh", "left_foot", "right_foot",
+            )
+            layers = []
+            for index, role in enumerate(roles):
+                sprite = Image.new("RGBA", (12, 12), (80 + index, 100, 150, 255))
+                filename = f"{role}.png"
+                sprite.save(root / filename)
+                layers.append({
+                    "id": role, "role": role, "src": filename,
+                    "x": index * 2, "y": 90, "width": 12, "height": 12,
+                    "z_index": 10 + index,
+                })
+
+            character = {
+                "canvas": {"width": width, "height": height},
+                "base_art": {
+                    "src": "base.png", "x": 0, "y": 0,
+                    "width": width, "height": height, "z_index": 1,
+                    "violin_source_underlay_preserved": True,
+                },
+                "layers": layers,
+                "props": {
+                    "violin": {
+                        "src": "violin.png", "x": 3, "y": 3,
+                        "width": 8, "height": 8, "z_index": 25,
+                    },
+                    "bow": {
+                        "src": "bow.png", "x": 55, "y": 60,
+                        "width": 10, "height": 20, "z_index": 35,
+                    },
+                },
+            }
+            assembled, report = _source_aligned_character_assembly(character, root)
+
+            self.assertIsNotNone(assembled)
+            self.assertEqual(assembled.getpixel((59, 60)), (180, 90, 30, 255))
+            self.assertEqual(assembled.getpixel((4, 4)), (24, 35, 52, 255))
+            self.assertEqual(report["visible_prop_ids"], ["bow"])
+            self.assertEqual(report["source_props_used"], ["bow"])
+            self.assertTrue(report["violin_source_underlay_preserved"])
+            self.assertNotIn("violin.png", report["source_assets"])
+            self.assertIn("bow.png", report["source_assets"])
+
     def test_removes_magenta_cutline_on_non_magenta_transparent_canvas(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
