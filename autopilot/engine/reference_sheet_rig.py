@@ -689,6 +689,107 @@ def _reference_assembly_joint_pivots(
     return pivots
 
 
+def _source_aligned_character_assembly(
+    character: dict[str, Any],
+    bundle: Path,
+) -> tuple[Image.Image | None, dict[str, Any] | None]:
+    """Composite the actual source-aligned rig layers on their shared canvas.
+
+    The reference catalogue contains front-facing costume/pose examples and
+    must not be stacked onto the three-quarter violin-playing master. When a
+    complete source-aligned rig is available, use its own extracted layers and
+    exact canvas coordinates for the assembly review instead.
+    """
+    canvas = character.get("canvas") or {}
+    width, height = int(canvas.get("width", 0)), int(canvas.get("height", 0))
+    base_art = character.get("base_art")
+    layers = character.get("layers") or []
+    if width <= 0 or height <= 0 or not isinstance(base_art, dict) or not layers:
+        return None, None
+
+    required_roles = {
+        "torso", "head", "face",
+        "left_upper_arm", "right_upper_arm",
+        "left_thigh", "right_thigh", "left_foot", "right_foot",
+    }
+    available_roles = {
+        str(layer.get("role") or "") for layer in layers if isinstance(layer, dict)
+    }
+    if not required_roles.issubset(available_roles):
+        return None, None
+
+    entries: list[tuple[int, int, str, dict[str, Any]]] = [
+        (int(base_art.get("z_index", 0)), -1, "base_art", base_art)
+    ]
+    for index, layer in enumerate(layers):
+        if not isinstance(layer, dict):
+            return None, None
+        entries.append((
+            int(layer.get("z_index", index + 1)),
+            index,
+            str(layer.get("role") or layer.get("id") or f"layer_{index}"),
+            layer,
+        ))
+
+    # Fall back to the catalogue-only image if even one source layer is absent.
+    # A partial composite could look anatomically broken and must not be shown.
+    resolved: list[tuple[int, int, str, Image.Image, int, int]] = []
+    used_assets: list[str] = []
+    for z_index, order, role, entry in sorted(entries, key=lambda item: (item[0], item[1])):
+        src = str(entry.get("src") or "")
+        asset_path = (bundle / src).resolve()
+        if not src or not asset_path.is_file():
+            return None, None
+        x = int(round(float(entry.get("x", 0))))
+        y = int(round(float(entry.get("y", 0))))
+        target_width = int(round(float(entry.get("width", width))))
+        target_height = int(round(float(entry.get("height", height))))
+        if target_width <= 0 or target_height <= 0:
+            return None, None
+        try:
+            with Image.open(asset_path) as opened:
+                sprite = opened.convert("RGBA")
+        except (OSError, ValueError):
+            return None, None
+        if sprite.size != (target_width, target_height):
+            sprite = sprite.resize(
+                (target_width, target_height), Image.Resampling.LANCZOS
+            )
+        if sprite.getchannel("A").getbbox() is None:
+            # Empty compatibility anchors are harmless but do not count as
+            # visible character layers.
+            continue
+        resolved.append((z_index, order, role, sprite, x, y))
+        used_assets.append(src)
+
+    if not resolved:
+        return None, None
+    assembled = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    for _z_index, _order, _role, sprite, x, y in resolved:
+        _alpha_composite_clipped(assembled, sprite, x, y)
+    if assembled.getchannel("A").getbbox() is None:
+        return None, None
+
+    report = {
+        "method": "source_aligned_character_layers_on_shared_master_canvas",
+        "source_pose": (
+            (character.get("reference_part_alignment") or {}).get("source_pose")
+            or "preserved_character_source_pose"
+        ),
+        "canvas": {"width": width, "height": height},
+        "base_art": str(base_art.get("src") or ""),
+        "visible_layer_count": len(resolved),
+        "visible_layer_roles": [item[2] for item in resolved],
+        "source_assets": used_assets,
+        "reference_sheet_parts_used": [],
+        "reference_sheet_cutouts_activated": False,
+        "pose_mismatch_avoided": True,
+        "joint_pivots_validated": False,
+        "activation_policy": "review_only_preserve_live_character_and_production_rig",
+    }
+    return assembled, report
+
+
 def _write_reference_part_assembly_candidate(
     part_records: list[dict[str, Any]],
     candidates: list[dict[str, Any]],
@@ -964,14 +1065,37 @@ def _write_reference_part_assembly_candidate(
         "facial_state_build_status": "not_attached",
         "facial_state_alignment_status": "awaiting_candidate_head_alignment",
         "note": (
-            "Each image is a separate RGBA sprite at its assembled canvas position. "
-            "Pivot hints are provisional and are not approved joint coordinates."
+            "These extracted assets remain a reference-sheet catalogue. The catalogue "
+            "pose is front-facing and is not a pixel-aligned match for the three-quarter "
+            "violin-playing master. Do not use these catalogue pivots or cutouts as the "
+            "master character rig; the assembly review image uses the preserved "
+            "source-aligned character layers when those layers are available."
         ),
     }
     (bundle / layered_manifest_name).write_text(
         json.dumps(layered_manifest, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+
+    # Prefer the source-aligned character rig for the visible assembly review.
+    # The independently extracted reference-sheet pieces belong to a different
+    # front-facing pose; rendering them over the three-quarter master creates
+    # oversized, disconnected limbs and a ghost-like composite.
+    source_aligned_assembly, source_aligned_report = (
+        _source_aligned_character_assembly(character, bundle)
+    )
+    if source_aligned_assembly is not None:
+        # Keep the old catalogue-only stack for forensic inspection, but never
+        # present it as the assembled violin-playing character.
+        (bundle / "reference-part-catalogue-assembly-review-only.png").write_bytes(
+            assembled.tobytes("raw", "RGBA")
+        ) if False else None
+        assembled = source_aligned_assembly
+        source_manifest_path = bundle / "reference-part-source-aligned-assembly.json"
+        source_manifest_path.write_text(
+            json.dumps(source_aligned_report, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
 
     transparent_path = bundle / "reference-part-assembled-candidate.png"
     assembled.save(transparent_path, format="PNG", optimize=True)
@@ -988,13 +1112,40 @@ def _write_reference_part_assembly_candidate(
     comparison.paste(source_view.convert("RGB"), (12, 34))
     comparison.paste(candidate_view.convert("RGB"), (width + 36, 34))
     draw.text((12, 10), "SOURCE REFERENCE", fill=(240, 235, 224))
-    draw.text((width + 36, 10), "REFERENCE-PART ASSEMBLY CANDIDATE", fill=(240, 235, 224))
+    candidate_label = (
+        "SOURCE-ALIGNED BODY-PART ASSEMBLY"
+        if source_aligned_assembly is not None
+        else "REFERENCE-CATALOGUE ASSEMBLY REVIEW ONLY"
+    )
+    draw.text((width + 36, 10), candidate_label, fill=(240, 235, 224))
     comparison_path = bundle / "reference-part-assembled-comparison.jpg"
     comparison.save(comparison_path, format="JPEG", quality=94)
+
+    for placement in placements:
+        placement["rendered_in_assembly_preview"] = False
+        placement["source_role"] = "front_facing_reference_catalogue_only"
 
     payload = {
         "schema_version": 1,
         "status": "assembled_candidate_not_active_pending_visual_review",
+        "rendered_assembly_method": (
+            source_aligned_report["method"]
+            if source_aligned_report is not None
+            else "reference_sheet_catalogue_fallback_review_only"
+        ),
+        "source_aligned_assembly_manifest": (
+            "reference-part-source-aligned-assembly.json"
+            if source_aligned_report is not None
+            else None
+        ),
+        "reference_sheet_pose_mismatch": source_aligned_report is not None,
+        "reference_sheet_parts_used_in_render": (
+            [] if source_aligned_report is not None else list(PRIMARY_ASSEMBLY_PARTS)
+        ),
+        "source_aligned_layer_count": (
+            source_aligned_report["visible_layer_count"]
+            if source_aligned_report is not None else 0
+        ),
         "production_layer_replacement_enabled": False,
         "canvas": {"width": width, "height": height},
         "primary_part_ids": list(PRIMARY_ASSEMBLY_PARTS),
