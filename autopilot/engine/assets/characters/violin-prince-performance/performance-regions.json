@@ -131,7 +131,7 @@
         ]
       ],
       "exclude_region": "left_forearm",
-      "elbow_overlap_radius": 9,
+      "elbow_overlap_radius": 15,
       "minimum_pixels": 1800,
       "z_index": 20
     },
@@ -215,7 +215,8 @@
         ]
       ],
       "minimum_pixels": 1200,
-      "z_index": 30
+      "z_index": 30,
+      "wrist_overlap_radius": 18
     },
     "left_hand": {
       "polygon": [
@@ -328,7 +329,7 @@
         ]
       ],
       "exclude_region": "right_forearm",
-      "elbow_overlap_radius": 9,
+      "elbow_overlap_radius": 15,
       "minimum_pixels": 1500,
       "z_index": 21
     },
@@ -380,7 +381,8 @@
         ]
       ],
       "minimum_pixels": 500,
-      "z_index": 31
+      "z_index": 31,
+      "wrist_overlap_radius": 18
     },
     "right_hand": {
       "polygon": [
