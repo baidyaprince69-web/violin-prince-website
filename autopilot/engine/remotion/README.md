@@ -11,45 +11,24 @@ character-rendering work, followed by FFmpeg finishing and media QA. Remotion is
 as an independent final-look experiment for optional title and brand overlays on a
 copy of an existing MP4.
 
-The boundary is:
-
-```text
-Existing Motion + HyperFrames + FFmpeg production
-                  |
-                  v
-          Existing verified MP4
-                  |
-          (manual opt-in only)
-                  v
-       Remotion compositor candidate
-                  |
-          separate review artifact
-                  |
-        creator review / approval
-                  |
-       existing publisher remains separate
-```
-
-Remotion does not replace the articulated Violin Prince rig, create realistic violin
-performance from a still image, change story research, alter the existing audio mix, or
-make publishing decisions.
-
 ## Safety and compatibility rules
 
 - The source MP4 is copied into Remotion's temporary public assets. The source file is
   never edited or overwritten.
 - Input is checked before rendering: MP4 video and audio streams, portrait 720x1280,
   approximately 25 fps, and a duration between 2 and 180 seconds.
-- The compositor preserves the source audio and video duration. It adds an optional Violin Prince opening treatment directly over the footage, with **no title card, panel, box, or backing shape**.
-- The Midnight Resonance direction retains the approved entrance motion, animated gold/cool-cyan accent, and soundtrack-reactive rhythm bars. Typography is rendered directly over the image with shadow for readability.
-- The rhythm bars are driven by per-frame RMS loudness from the original soundtrack. This is time-domain loudness reactivity, not frequency-band analysis or beat detection.
+- The compositor preserves source audio and video duration. The title and subtitle are
+  rendered directly over the footage. There is no card, panel, box, backing rectangle,
+  or filled shape behind the text.
+- The Midnight Resonance treatment uses expressive display-serif title typography,
+  compact tracked brand typography, a cool-cyan supporting line, an animated gold/cyan
+  accent rule, and soundtrack-reactive rhythm bars.
+- The rhythm bars and accent glow respond to per-frame RMS loudness from the original
+  soundtrack. This is time-domain loudness reactivity, not frequency-band analysis or
+  beat detection.
 - The output is a **candidate**, not a production-approved video. It is not put into the
   daily publish manifest and it is never sent to YouTube by this package.
-- The separate GitHub Actions workflow is manually dispatchable after it reaches the
-  default branch. Its feature-branch push check uses a synthetic local video only.
-- The existing daily queue and upload workflow are intentionally unchanged. There is no
-  new schedule, no automatic dependency installation in the daily job, and no shared
-  concurrency group with the daily queue.
+- The existing daily queue and upload workflow are intentionally unchanged.
 
 ## Local use
 
@@ -59,50 +38,23 @@ Requirements: Node.js 22+, FFmpeg and FFprobe.
 cd autopilot/engine/remotion
 npm install --no-audit --no-fund
 npm test
-npm run render -- --input ../../../work/source.mp4 --output ../../../work/remotion-preview.mp4 --title "A Violin Performance" --subtitle "VIOLIN PRINCE"
+npm run render -- --input ../../../work/source.mp4 --output ../../../work/remotion-preview.mp4 --title "A Violin Performance" --subtitle "SOLO VIOLIN"
 ```
 
 The generated MP4 and its adjacent `.report.json` are separate from the input.
 
-## Cloud review
+## Review boundary
 
-The workflow `.github/workflows/remotion-compositor-preview.yml` has two modes:
-
-1. A feature-branch push creates a short synthetic MP4 and verifies that Remotion can
-   render and validate an isolated candidate.
-2. A manual dispatch accepts a GitHub Actions run ID and artifact name. It downloads
-   the selected MP4 artifact, renders a separate candidate, and uploads the result as a
-   new review artifact. This mode does not invoke the publisher.
-
-For the current full-body rig test, the initial manual-dispatch defaults point to run
-`46047995951` and artifact `full-body-character-only-review-863`. GitHub artifact
-retention is finite; supply a newer run ID and matching artifact name after that test
-artifact expires.
-
-## Visual direction brick 1 — Midnight Resonance foundation
-
-- Palette tokens live in `src/visualDirection.mjs`, separate from layout code.
-- The title treatment is implemented as `src/CinematicTextOverlay.jsx` and is composited directly on the source footage; it has no panel, card, border, or background block.
-- `contract.mjs` validates the selected direction before rendering; an unknown direction fails before Remotion starts.
-- Creator approval applies to the motion-graphics behaviour and palette only. The no-card text layout is a separate review item.
-- The overlay does not alter the underlying full-body character, source soundtrack, source MP4, daily workflow, or publisher.
-
-## Visual direction brick 2 — soundtrack-reactive title motif
-
-- `src/audioAnalysis.mjs` decodes no media itself; `render.mjs` asks FFmpeg for mono float32 PCM from the source soundtrack and calculates a smoothed RMS level for each 25 fps frame.
-- The fourteen overlay bars use those measured frame values, with a tiny stagger for visual flow. A restrained accent glow also responds to the current measured level.
-- The video continues to play its original embedded soundtrack at its original level. The analysis stream is used only as animation data; it is not mixed back into the rendered audio.
-- The report records the analysis method and explicitly states that frequency bands and beat detection are not being claimed.
-- Tests cover changing loudness, silence, malformed PCM, and safe Remotion prop bounds.
-
-This is a soundtrack-responsive accent, not a full audio visualizer or a replacement for
-the final audio mix.
+The motion-graphics behaviour and soundtrack-reactive accent have creator approval.
+The no-card typography styling is an iterative visual treatment and remains subject to
+creator review. Keep this PR open and draft until the typography and a separate
+integration decision are approved. Never route this isolated compositor into the daily
+production workflow or publisher as part of a visual-preview change.
 
 ## Dependency and licensing note
 
 Remotion and `@remotion/cli` are pinned to the same exact version (`4.0.547`) to avoid
-version skew. React and React DOM are pinned to `18.3.1`; Remotion's package metadata
-declares React and React DOM peer dependencies of `>=16.8.0`.
+version skew. React and React DOM are pinned to `18.3.1`.
 
 Review Remotion's current license terms before scaling deployment beyond an individual
 or team of up to three people.
