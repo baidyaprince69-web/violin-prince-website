@@ -694,12 +694,36 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
       left_ankle: ["left_calf", "left_foot"],
       right_ankle: ["right_calf", "right_foot"]
     };
+    const allowedArmJointPairs = {
+      arm_left_elbow: ["left_upper_arm", "left_forearm"],
+      arm_right_elbow: ["right_upper_arm", "right_forearm"],
+      arm_left_wrist: ["left_forearm", "left_hand"],
+      arm_right_wrist: ["right_forearm", "right_hand"]
+    };
     const invalidJointSurfaceLayers = jointSurfaceLayers.filter(layer => {
       const surface = layer.joint_surface || {};
       const role = String(layer.role || "");
       const jointName = role.startsWith("joint_surface_")
         ? role.slice("joint_surface_".length) : "";
       const expectedPair = allowedJointPairs[jointName];
+      const expectedArmPair = allowedArmJointPairs[jointName];
+      if (expectedArmPair) {
+        const overlapPixels = Number(surface.source_overlap_pixels);
+        const opaqueCorePixels = Number(surface.opaque_core_source_pixels);
+        return surface.surface_outline_profile !==
+            "exact_parent_child_source_alpha_intersection" ||
+          surface.source_pixel_provenance !==
+            "untouched_source_pixels_inside_exact_parent_child_alpha_intersection" ||
+          surface.synthetic_geometry_added !== false ||
+          !Number.isInteger(overlapPixels) ||
+          overlapPixels < 120 || overlapPixels > 900 ||
+          !Number.isInteger(opaqueCorePixels) ||
+          opaqueCorePixels < 24 || opaqueCorePixels > overlapPixels ||
+          Number(surface.edge_feather_px) !== 0.5 ||
+          surface.parent_role !== expectedArmPair[0] ||
+          surface.child_role !== expectedArmPair[1] ||
+          Boolean(layer.mesh_deformation);
+      }
       const polygon = surface.source_space_polygon;
       return !expectedPair ||
         surface.surface_outline_profile !== "artist_source_polygon" ||
@@ -712,7 +736,7 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     if (invalidJointSurfaceLayers.length !== 0 ||
         unexpectedJointSurfaceLayers.length !== jointSurfaceLayers.length) {
       throw new Error("Scene " + scene.id +
-        " contains a joint surface that is not an approved lower-body source-pixel polygon; capsules and protected upper-body/hand joints are forbidden.");
+        " contains a joint surface that is not an approved lower-body source-pixel polygon or an exact parent/child arm source-alpha intersection; synthetic capsules and unapproved surfaces are forbidden.");
     }
     const jointSurfaceTransformPrefix = scene.id + "-" + character.id + "-part-joint_surface_";
     const jointSurfaceTransformTracks = project.motion_tracks.filter(item =>
