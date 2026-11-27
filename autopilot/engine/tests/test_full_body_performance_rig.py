@@ -1064,6 +1064,74 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             self.assertEqual(int(head_after[12, 8, 3]), 0,
                 "source bow pixels must be cleared from the static head plate")
 
+    def test_integrated_torso_backplate_clears_bow_shaft_and_hair_from_static_layer(self):
+        import cv2
+        import tempfile
+        from pathlib import Path
+
+        # Model the wooden stick and the pale horsehair as two parallel parts
+        # of one prop mask. Both must be removed from the torso underlay after
+        # the violin backplate has been extended.
+        source_pixels = np.full((100, 120, 4), (42, 58, 71, 255), dtype=np.uint8)
+        bow = np.zeros((100, 120), dtype=np.uint8)
+        cv2.line(bow, (14, 86), (92, 14), 255, 3)  # wooden shaft
+        cv2.line(bow, (18, 89), (96, 17), 255, 2)  # horsehair strand
+        violin = np.zeros_like(bow)
+        violin[20:76, 20:108] = 255
+        moving = np.zeros_like(bow, dtype=bool)
+        source = Image.fromarray(source_pixels, mode="RGBA")
+        torso = source.crop((10, 10, 90, 90))
+
+        character = {"layers": [{
+            "id": "torso", "role": "torso", "src": "torso.png",
+            "x": 10, "y": 10, "width": 80, "height": 80,
+            "pivot_x": 0.5, "pivot_y": 0.5, "z_index": 10,
+        }]}
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            torso.save(root / "torso.png")
+            extension = _extend_torso_layer_with_violin_backplate(
+                source,
+                root,
+                character,
+                {"violin": violin, "bow": bow},
+                moving_mask=moving,
+            )
+            cleanup = _remove_embedded_props_from_static_layers(
+                root,
+                character,
+                {"violin": violin, "bow": bow},
+            )
+
+            layer = character["layers"][0]
+            with Image.open(root / layer["src"]) as opened:
+                local_alpha = np.asarray(
+                    opened.convert("RGBA").getchannel("A"), dtype=np.uint8
+                )
+            full_alpha = np.zeros((100, 120), dtype=np.uint8)
+            x, y = int(layer["x"]), int(layer["y"])
+            height, width = local_alpha.shape
+            full_alpha[y:y + height, x:x + width] = local_alpha
+
+        expanded_bow = cv2.dilate(
+            bow,
+            cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)),
+            iterations=1,
+        ) > 0
+        self.assertGreater(extension["violin_backplate_pixels"], 1000)
+        self.assertGreater(cleanup["layers"]["torso"]["bow_pixels_removed"], 0)
+        self.assertEqual(
+            int(np.count_nonzero(full_alpha[expanded_bow])),
+            0,
+            "neither the bow shaft nor its hair may remain in the static torso underlay",
+        )
+        self.assertGreater(
+            int(np.count_nonzero(full_alpha)),
+            1000,
+            "the cleanup must preserve the torso and source-faithful violin underlay",
+        )
+
     def test_source_aligned_manifest_extracts_twelve_independent_limb_layers(self):
         import json
         import tempfile
