@@ -731,6 +731,26 @@ def _source_aligned_character_assembly(
             layer,
         ))
 
+    props = character.get("props") or {}
+    if not isinstance(props, dict):
+        return None, None
+    # The source composition deliberately preserves the original violin in
+    # the segmented base plate. Re-overlaying the extracted violin prop would
+    # double the instrument. The bow, however, is removed from that plate and
+    # must be restored from its approved source asset at its authored geometry.
+    violin_is_preserved = bool(base_art.get("violin_source_underlay_preserved"))
+    for index, (prop_id, prop) in enumerate(props.items()):
+        if not isinstance(prop, dict):
+            return None, None
+        if str(prop_id) == "violin" and violin_is_preserved:
+            continue
+        entries.append((
+            int(prop.get("z_index", 30 + index)),
+            len(layers) + index,
+            f"prop_{prop_id}",
+            prop,
+        ))
+
     # Fall back to the catalogue-only image if even one source layer is absent.
     # A partial composite could look anatomically broken and must not be shown.
     resolved: list[tuple[int, int, str, Image.Image, int, int]] = []
@@ -770,17 +790,27 @@ def _source_aligned_character_assembly(
     if assembled.getchannel("A").getbbox() is None:
         return None, None
 
+    visible_props = [
+        item[2][5:] for item in resolved if item[2].startswith("prop_")
+    ]
+    visible_layers = [
+        item[2] for item in resolved if not item[2].startswith("prop_")
+    ]
     report = {
-        "method": "source_aligned_character_layers_on_shared_master_canvas",
+        "method": "source_aligned_character_layers_and_props_on_shared_master_canvas",
         "source_pose": (
             (character.get("reference_part_alignment") or {}).get("source_pose")
             or "preserved_character_source_pose"
         ),
         "canvas": {"width": width, "height": height},
         "base_art": str(base_art.get("src") or ""),
-        "visible_layer_count": len(resolved),
-        "visible_layer_roles": [item[2] for item in resolved],
+        "visible_layer_count": len(visible_layers),
+        "visible_layer_roles": visible_layers,
+        "visible_prop_count": len(visible_props),
+        "visible_prop_ids": visible_props,
+        "source_props_used": visible_props,
         "source_assets": used_assets,
+        "violin_source_underlay_preserved": violin_is_preserved,
         "reference_sheet_parts_used": [],
         "reference_sheet_cutouts_activated": False,
         "pose_mismatch_avoided": True,
