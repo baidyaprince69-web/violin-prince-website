@@ -347,11 +347,38 @@ jobs:
           assert joint_art.get("edge_feathering", {}).get(
               "parent_child_underlap_retained_in_feather_band"
           ) is True, joint_art
+          arm_bridges = report.get("arm_source_alpha_intersection_bridges", {})
+          expected_arm = {"left_elbow", "right_elbow", "left_wrist", "right_wrist"}
+          assert arm_bridges.get("status") == "created", arm_bridges
+          assert arm_bridges.get("method") == (
+              "exact_parent_child_source_alpha_intersection_no_synthetic_caps"
+          ), arm_bridges
+          assert arm_bridges.get("joint_surface_layer_count") == 4, arm_bridges
+          assert set(arm_bridges.get("regions", {})) == expected_arm, arm_bridges
+          assert arm_bridges.get("source_pixels_created_outside_intersection") == 0, arm_bridges
+          assert arm_bridges.get("source_rgb_modified") is False, arm_bridges
+          assert arm_bridges.get("prop_pixels_excluded") == 0, arm_bridges
+          assert arm_bridges.get("hand_assets_modified") == 2, arm_bridges
+          assert arm_bridges.get("hand_animation_data_modified") is False, arm_bridges
+          assert arm_bridges.get("hand_alpha_pixels_removed", 0) > 0, arm_bridges
+          for name in sorted(expected_arm):
+              item = arm_bridges["regions"][name]
+              assert item.get("status") == "exact_source_alpha_intersection_patch_created", (name, item)
+              assert 120 <= item.get("source_overlap_pixels", 0) <= 900, (name, item)
+              assert item.get("parent_alpha_pixels_removed", 0) > 0, (name, item)
+              assert item.get("child_alpha_pixels_removed", 0) > 0, (name, item)
+              assert item.get("source_pixels_created_outside_intersection") == 0, (name, item)
+              assert item.get("prop_pixels_excluded") == 0, (name, item)
+              assert item.get("edge_feather_px") == 0.5, (name, item)
+              assert item.get("blend_weight") == 0.5, (name, item)
           surface_roles = {
               layer["role"] for layer in character.get("layers", [])
               if layer.get("joint_surface")
           }
-          expected_roles = {"joint_surface_" + name for name in expected}
+          expected_roles = (
+              {"joint_surface_" + name for name in expected}
+              | {"joint_surface_arm_" + name for name in expected_arm}
+          )
           assert surface_roles == expected_roles, surface_roles
           patch_files = {path.stem for path in bundle.glob("joint_surface_*.png")}
           assert patch_files == expected_roles, patch_files

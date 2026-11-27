@@ -23,6 +23,7 @@ from full_body_performance_rig import (
     _canvas_alpha_mask_for_layers,
     _restore_torso_hidden_overlap_from_reference,
     _extract_source_aligned_joint_surfaces,
+    _extract_source_alpha_intersection_arm_surfaces,
     _validate_artist_joint_polygon,
     _configure_continuous_body_meshes,
     _partition_torso_and_joint_surfaces_from_base,
@@ -179,6 +180,125 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             self.assertTrue(np.array_equal(after[10:14, 10:14], before[10:14, 10:14]))
             self.assertEqual((root / "left_hand.png").read_bytes(), hand_bytes)
             self.assertEqual(result["prop_pixels_excluded"], 16)
+
+    def test_arm_joint_bridges_transfer_only_exact_shared_source_alpha_pixels(self):
+        import tempfile
+        from pathlib import Path
+
+        size = 100
+        source_pixels = np.full((size, size, 4), (86, 54, 38, 255), dtype=np.uint8)
+        source = Image.fromarray(source_pixels, mode="RGBA")
+
+        masks = {}
+        masks["left_upper_arm"] = np.zeros((size, size), dtype=bool)
+        masks["left_upper_arm"][10:35, 10:35] = True
+        masks["left_forearm"] = np.zeros((size, size), dtype=bool)
+        masks["left_forearm"][22:47, 22:47] = True
+        masks["left_forearm"][60:85, 10:35] = True
+        masks["left_hand"] = np.zeros((size, size), dtype=bool)
+        masks["left_hand"][72:97, 22:47] = True
+
+        masks["right_upper_arm"] = np.zeros((size, size), dtype=bool)
+        masks["right_upper_arm"][10:35, 60:85] = True
+        masks["right_forearm"] = np.zeros((size, size), dtype=bool)
+        masks["right_forearm"][22:47, 72:97] = True
+        masks["right_forearm"][60:85, 60:85] = True
+        masks["right_hand"] = np.zeros((size, size), dtype=bool)
+        masks["right_hand"][72:97, 72:97] = True
+
+        roles = [
+            ("left_upper_arm", 20), ("left_forearm", 30), ("left_hand", 40),
+            ("right_upper_arm", 21), ("right_forearm", 31), ("right_hand", 42),
+        ]
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            layers = []
+            for role, z_index in roles:
+                pixels = source_pixels.copy()
+                pixels[~masks[role], 3] = 0
+                asset = role + ".png"
+                Image.fromarray(pixels, mode="RGBA").save(root / asset)
+                layers.append({
+                    "id": role, "role": role, "src": asset,
+                    "x": 0, "y": 0, "width": size, "height": size,
+                    "z_index": z_index,
+                })
+
+            prop = np.zeros((size, size), dtype=np.uint8)
+            prop[23:25, 23:25] = 255  # Four prop pixels inside the left-elbow overlap.
+            character = {
+                "canvas": {"width": size, "height": size},
+                "joints": {
+                    "left_elbow": {"x": 0.27, "y": 0.27},
+                    "right_elbow": {"x": 0.27, "y": 0.77},
+                    "left_wrist": {"x": 0.77, "y": 0.27},
+                    "right_wrist": {"x": 0.77, "y": 0.77},
+                },
+                "layers": layers,
+            }
+            bridge_layers, moving, report = _extract_source_alpha_intersection_arm_surfaces(
+                source, root, character=character, prop_masks={"violin": prop},
+            )
+
+            expected_regions = {"left_elbow", "right_elbow", "left_wrist", "right_wrist"}
+            self.assertEqual(
+                {item["joint_surface"]["joint"] for item in bridge_layers},
+                expected_regions,
+            )
+            self.assertEqual(report["method"], "exact_parent_child_source_alpha_intersection_no_synthetic_caps")
+            self.assertEqual(report["joint_surface_layer_count"], 4)
+            self.assertEqual(report["regions"]["left_elbow"]["source_overlap_pixels"], 165)
+            self.assertEqual(report["prop_pixels_excluded"], 4)
+            self.assertEqual(report["source_pixels_created_outside_intersection"], 0)
+            self.assertFalse(report["source_rgb_modified"])
+            self.assertEqual(report["hand_assets_modified"], 2)
+            self.assertGreater(report["hand_alpha_pixels_removed"], 0)
+            self.assertFalse(report["hand_animation_data_modified"])
+            self.assertEqual(int(moving.sum()), 165 + 169 * 3)
+
+            source_array = np.asarray(source, dtype=np.uint8)
+            for layer in bridge_layers:
+                joint_name = layer["joint_surface"]["joint"]
+                region = report["regions"][joint_name]
+                self.assertGreaterEqual(region["source_overlap_pixels"], 120)
+                self.assertLessEqual(region["source_overlap_pixels"], 900)
+                self.assertGreater(region["parent_alpha_pixels_removed"], 0)
+                self.assertGreater(region["child_alpha_pixels_removed"], 0)
+                self.assertEqual(region["source_pixels_created_outside_intersection"], 0)
+                self.assertEqual(layer["joint_surface"]["blend_weight"], 0.5)
+                self.assertEqual(layer["joint_surface"]["synthetic_geometry_added"], False)
+
+                patch_mask = _canvas_alpha_mask_for_layer(
+                    root, layer, canvas_width=size, canvas_height=size
+                )
+                # Feathering is inward-only: every nontransparent patch pixel
+                # must already belong to the exact original parent/child mask intersection.
+                parent_role = layer["joint_surface"]["parent_role"]
+                child_role = layer["joint_surface"]["child_role"]
+                original_intersection = masks[parent_role] & masks[child_role]
+                if joint_name == "left_elbow":
+                    original_intersection &= ~(prop > 12)
+                self.assertFalse(np.any(patch_mask & ~original_intersection))
+
+                with Image.open(root / layer["src"]) as opened:
+                    patch = np.asarray(opened.convert("RGBA"), dtype=np.uint8)
+                x, y = int(layer["x"]), int(layer["y"])
+                yy, xx = np.where(patch[:, :, 3] > 0)
+                self.assertTrue(np.array_equal(
+                    patch[yy, xx, :3],
+                    source_array[y + yy, x + xx, :3],
+                ), "Bridge RGB must be copied unchanged from the preserved source.")
+
+            # Transfer is surgical: every segment keeps its other source pixels.
+            for role, _z in roles:
+                after = _canvas_alpha_mask_for_layer(
+                    root,
+                    next(layer for layer in layers if layer["role"] == role),
+                    canvas_width=size,
+                    canvas_height=size,
+                )
+                self.assertLess(int(after.sum()), int(masks[role].sum()))
+                self.assertGreater(int(after.sum()), 0)
 
     def test_joint_surface_caps_are_deferred_and_original_source_pixels_stay_on_body_layers(self):
         import json

@@ -2290,6 +2290,243 @@ def _extract_source_aligned_joint_surfaces(
     return layers, claimed, report
 
 
+def _extract_source_alpha_intersection_arm_surfaces(
+    source: Image.Image,
+    bundle_dir: Path,
+    *,
+    character: dict[str, Any],
+    prop_masks: dict[str, np.ndarray],
+) -> tuple[list[dict[str, Any]], np.ndarray, dict[str, Any]]:
+    """Bridge articulated arm joints using only pixels already shared by both sprites.
+
+    The bridge mask is the exact intersection of the parent and child source-alpha
+    masks. It is not a capsule, painted pad or extrapolated polygon. Its source
+    pixels are transferred out of both sprites' opaque cores and follow the
+    blended parent/child transform used by the approved lower-body joint surfaces.
+    """
+    canvas = character.get("canvas") or {}
+    width, height = int(canvas.get("width", 0)), int(canvas.get("height", 0))
+    if width <= 0 or height <= 0 or source.size != (width, height):
+        raise ManualReviewRequired(
+            "Arm seam bridges require the exact preserved source canvas."
+        )
+
+    source_rgba = source.convert("RGBA")
+    source_pixels = np.asarray(source_rgba, dtype=np.uint8)
+    visible = source_pixels[:, :, 3] > 12
+    prop_union = np.zeros((height, width), dtype=bool)
+    for prop_mask in prop_masks.values():
+        candidate = np.asarray(prop_mask, dtype=np.uint8)
+        if candidate.shape != (height, width):
+            raise AutoRigError("An instrument mask does not match the arm-joint bridge canvas.")
+        prop_union |= candidate > 12
+
+    layer_by_role = {
+        str(layer.get("role") or ""): layer
+        for layer in character.get("layers", [])
+    }
+    joints = character.get("joints") or {}
+    definitions = (
+        ("left_elbow", "left_upper_arm", "left_forearm", 120),
+        ("right_elbow", "right_upper_arm", "right_forearm", 120),
+        ("left_wrist", "left_forearm", "left_hand", 120),
+        ("right_wrist", "right_forearm", "right_hand", 120),
+    )
+    report: dict[str, Any] = {
+        "status": "created",
+        "method": "exact_parent_child_source_alpha_intersection_no_synthetic_caps",
+        "coordinate_space": "absolute_preserved_source_pixels",
+        "regions": {},
+        "joint_surface_layer_count": 0,
+        "source_pixels_transferred": 0,
+        "parent_child_alpha_pixels_removed": 0,
+        "prop_pixels_excluded": 0,
+        "source_pixels_created_outside_intersection": 0,
+        "source_rgb_modified": False,
+        "hand_assets_modified": 0,
+        "hand_alpha_pixels_removed": 0,
+        "hand_animation_data_modified": False,
+        "visual_review_required": True,
+    }
+    layers: list[dict[str, Any]] = []
+    claimed = np.zeros((height, width), dtype=bool)
+    modified_hand_roles: set[str] = set()
+    import cv2
+
+    yy, xx = np.indices((height, width))
+    for joint_name, parent_role, child_role, minimum_area in definitions:
+        parent_layer = layer_by_role.get(parent_role)
+        child_layer = layer_by_role.get(child_role)
+        if parent_layer is None or child_layer is None:
+            raise ManualReviewRequired(
+                f"Arm seam bridge {joint_name} is missing {parent_role} or {child_role}."
+            )
+        anchor = joints.get(joint_name)
+        if not isinstance(anchor, dict):
+            raise ManualReviewRequired(
+                f"Arm seam bridge {joint_name} has no source joint anchor."
+            )
+        try:
+            anchor_x = float(anchor["x"]) * width
+            anchor_y = float(anchor["y"]) * height
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ManualReviewRequired(
+                f"Arm seam bridge {joint_name} has an incomplete source joint anchor."
+            ) from exc
+        if (
+            not np.isfinite(anchor_x) or not np.isfinite(anchor_y)
+            or not (0 <= anchor_x < width and 0 <= anchor_y < height)
+        ):
+            raise ManualReviewRequired(
+                f"Arm seam bridge {joint_name} has an out-of-canvas source joint anchor."
+            )
+
+        parent_mask = _canvas_alpha_mask_for_layer(
+            bundle_dir, parent_layer, canvas_width=width, canvas_height=height
+        )
+        child_mask = _canvas_alpha_mask_for_layer(
+            bundle_dir, child_layer, canvas_width=width, canvas_height=height
+        )
+        source_intersection = parent_mask & child_mask & visible
+        prop_overlap = source_intersection & prop_union
+        eligible = source_intersection & ~prop_union
+        area = int(eligible.sum())
+        if area < minimum_area:
+            raise ManualReviewRequired(
+                f"Arm seam bridge {joint_name} has only {area} eligible shared source pixels; "
+                f"at least {minimum_area} are required."
+            )
+        if area > 900:
+            raise ManualReviewRequired(
+                f"Arm seam bridge {joint_name} has {area} shared pixels; the 900-pixel "
+                "limit prevents a broad duplicated limb fragment."
+            )
+        components, _labels = cv2.connectedComponents(
+            eligible.astype(np.uint8), connectivity=8
+        )
+        if components != 2:
+            raise ManualReviewRequired(
+                f"Arm seam bridge {joint_name} must be one contiguous source-alpha intersection."
+            )
+        distances = np.hypot(xx[eligible] - anchor_x, yy[eligible] - anchor_y)
+        maximum_joint_radius = float(distances.max())
+        nearest_joint_radius = float(distances.min())
+        if nearest_joint_radius > 10.0 or maximum_joint_radius > 36.0:
+            raise ManualReviewRequired(
+                f"Arm seam bridge {joint_name} is not tightly aligned to its mapped joint pivot."
+            )
+
+        edge_feather_px = 0.5
+        feather_alpha = _feather_source_mask_inside_polygon(eligible, edge_feather_px)
+        core_eligible = eligible & (feather_alpha >= 0.995)
+        core_area = int(core_eligible.sum())
+        if core_area < max(24, minimum_area // 3):
+            raise ManualReviewRequired(
+                f"Arm seam bridge {joint_name} has too little opaque source core after edge feathering."
+            )
+
+        role = "joint_surface_arm_" + joint_name
+        destination = bundle_dir / f"{role}.png"
+        geometry = _save_rgba_layer(
+            source_rgba, eligible, destination, padding=0
+        )
+        with Image.open(destination) as opened:
+            patch_pixels = np.asarray(opened.convert("RGBA"), dtype=np.uint8).copy()
+        patch_x, patch_y = int(geometry["x"]), int(geometry["y"])
+        patch_height, patch_width = patch_pixels.shape[:2]
+        local_source_alpha = source_pixels[
+            patch_y:patch_y + patch_height,
+            patch_x:patch_x + patch_width,
+            3,
+        ].astype(np.float32)
+        local_feather = feather_alpha[
+            patch_y:patch_y + patch_height,
+            patch_x:patch_x + patch_width,
+        ]
+        patch_pixels[:, :, 3] = np.rint(
+            local_source_alpha * local_feather
+        ).clip(0, 255).astype(np.uint8)
+        Image.fromarray(patch_pixels, mode="RGBA").save(
+            destination, format="PNG", optimize=True
+        )
+
+        parent_removed = _erase_canvas_mask_from_layer(
+            bundle_dir, parent_layer, core_eligible
+        )
+        child_removed = _erase_canvas_mask_from_layer(
+            bundle_dir, child_layer, core_eligible
+        )
+        parent_z = int(parent_layer.get("z_index", 20))
+        child_z = int(child_layer.get("z_index", parent_z + 10))
+        patch_z = min(child_z - 1, parent_z + 6)
+        patch_layer = {
+            "id": role,
+            "role": role,
+            **geometry,
+            "pivot_x": min(1.0, max(0.0, (anchor_x - patch_x) / patch_width)),
+            "pivot_y": min(1.0, max(0.0, (anchor_y - patch_y) / patch_height)),
+            "z_index": patch_z,
+            "joint_surface": {
+                "joint": joint_name,
+                "parent_role": parent_role,
+                "child_role": child_role,
+                "blend_weight": 0.5,
+                "surface_outline_profile": "exact_parent_child_source_alpha_intersection",
+                "source_pixel_provenance": (
+                    "untouched_source_pixels_inside_exact_parent_child_alpha_intersection"
+                ),
+                "source_overlap_pixels": area,
+                "opaque_core_source_pixels": core_area,
+                "edge_feather_px": edge_feather_px,
+                "edge_blend": "original_parent_child_underlap_retained_in_feather_band",
+                "synthetic_geometry_added": False,
+            },
+        }
+        layers.append(patch_layer)
+        claimed |= eligible
+        if parent_role.endswith("_hand") and parent_removed:
+            modified_hand_roles.add(parent_role)
+        if child_role.endswith("_hand") and child_removed:
+            modified_hand_roles.add(child_role)
+        hand_removed = (
+            (parent_removed if parent_role.endswith("_hand") else 0)
+            + (child_removed if child_role.endswith("_hand") else 0)
+        )
+        report["regions"][joint_name] = {
+            "status": "exact_source_alpha_intersection_patch_created",
+            "role": role,
+            "parent_role": parent_role,
+            "child_role": child_role,
+            "source_overlap_pixels": area,
+            "opaque_core_source_pixels": core_area,
+            "feathered_boundary_source_pixels": area - core_area,
+            "edge_feather_px": edge_feather_px,
+            "parent_alpha_pixels_removed": parent_removed,
+            "child_alpha_pixels_removed": child_removed,
+            "hand_alpha_pixels_removed": hand_removed,
+            "prop_pixels_excluded": int(prop_overlap.sum()),
+            "source_pixels_created_outside_intersection": 0,
+            "joint_anchor_px": [round(anchor_x, 3), round(anchor_y, 3)],
+            "nearest_joint_radius_px": round(nearest_joint_radius, 3),
+            "maximum_joint_radius_px": round(maximum_joint_radius, 3),
+            "blend_weight": 0.5,
+            "z_index": patch_z,
+        }
+        report["source_pixels_transferred"] += area
+        report["parent_child_alpha_pixels_removed"] += parent_removed + child_removed
+        report["prop_pixels_excluded"] += int(prop_overlap.sum())
+        report["hand_alpha_pixels_removed"] += hand_removed
+
+    report["joint_surface_layer_count"] = len(layers)
+    report["hand_assets_modified"] = len(modified_hand_roles)
+    Image.fromarray(claimed.astype(np.uint8) * 255, mode="L").save(
+        bundle_dir / "arm-joint-source-alpha-intersection-mask.png",
+        format="PNG",
+        optimize=True,
+    )
+    return layers, claimed, report
+
+
 def _configure_continuous_body_meshes(character: dict[str, Any]) -> dict[str, Any]:
     """Keep authored character art as image sprites with hierarchical transforms.
 
@@ -3003,13 +3240,22 @@ def extend_full_body_character(
             character=character, prop_masks=prop_masks,
         )
     )
-    character["layers"].extend(joint_surface_layers)
+    arm_bridge_layers, arm_bridge_mask, arm_bridge_report = (
+        _extract_source_alpha_intersection_arm_surfaces(
+            source, bundle, character=character, prop_masks=prop_masks,
+        )
+    )
+    all_joint_surface_layers = joint_surface_layers + arm_bridge_layers
+    character["layers"].extend(all_joint_surface_layers)
+    joint_surface_mask |= arm_bridge_mask
     moving_mask |= joint_surface_mask
     continuous_body_deformation = _configure_continuous_body_meshes(character)
-    # Joint surfaces remain source-pixel image patches; motion-build computes
-    # one parent/child blended rigid transform for each patch.
+    # Both the six approved lower-body surfaces and four source-alpha arm
+    # bridges follow their respective parent/child blended rigid transforms.
     joint_surface_report["joint_surface_mesh_layer_count"] = 0
-    joint_surface_report["joint_surface_rigid_layer_count"] = len(joint_surface_layers)
+    joint_surface_report["joint_surface_rigid_layer_count"] = len(all_joint_surface_layers)
+    joint_surface_report["joint_surface_total_rigid_layer_count"] = len(all_joint_surface_layers)
+    joint_surface_report["arm_source_alpha_intersection_bridges"] = arm_bridge_report
     joint_surface_report["joint_surface_render_policy"] = (
         "parent_child_blended_rigid_source_sprite_transform"
     )
@@ -3070,7 +3316,7 @@ def extend_full_body_character(
     character["performance"] = {
         "schema": "violin-prince-fullbody-performance-v3",
         "instrument_performance": True,
-        "joint_surface_roles": sorted(layer["role"] for layer in joint_surface_layers),
+        "joint_surface_roles": sorted(layer["role"] for layer in all_joint_surface_layers),
         "continuous_body_deformation": continuous_body_deformation["method"],
         "fingering_parts": sorted(finger_areas),
         "fingering_segment_roles": sorted(layer["role"] for layer in finger_layers),
@@ -3118,6 +3364,7 @@ def extend_full_body_character(
         "joint_additions": sorted(limb_joints.keys() | finger_joints.keys()),
         "limb_report": limb_report,
         "source_aligned_joint_surface_art": joint_surface_report,
+        "arm_source_alpha_intersection_bridges": arm_bridge_report,
         "joint_artwork_approval": {
             "status": (
                 "six_user_approved_source_polygons_activated"
@@ -3154,7 +3401,7 @@ def extend_full_body_character(
         "full_body_moving_mask": {
             "asset": moving_mask_path.name,
             "pixels": int(moving_mask.sum()),
-            "source": "authored_performance_polygons_and_finger_manifest",
+            "source": "authored_performance_polygons_finger_manifest_and_exact_arm_joint_source_alpha_intersections",
             "hand_animation_data_modified": False,
         },
         "neutral_apose_reference": neutral_report,
@@ -3171,13 +3418,14 @@ def extend_full_body_character(
             "hands": "left and right palms remain source-faithful image sprites attached to their wrist transforms; four independent three-segment finger chains remain separately articulated source sprites",
             "body": "source-faithful torso, arm, palm and leg image sprites follow hierarchical joint transforms; SVG mesh deformation is disabled",
             "joint_surfaces": (
-                "six user-approved original-source pixel patches follow parent/child blended rigid transforms; no generated pads; upper-body and hand assets are protected"
-                if len(joint_surface_layers) == 6
-                else "only explicitly approved absolute source-pixel polygons may be extracted; they follow parent/child blended rigid transforms; no generated joint pads"
+                "six user-approved lower-body source polygons plus four exact upper-body parent/child source-alpha intersections follow blended rigid transforms; no synthetic pads or pixels outside the original intersections are created"
+                if len(joint_surface_layers) == 6 and len(arm_bridge_layers) == 4
+                else "only approved lower-body polygons and validated exact source-alpha arm intersections may be extracted; no generated joint pads"
             ),
             "hand_surface_deformation": "both palm surfaces use source-faithful image sprites with wrist transforms; four three-segment finger chains remain independently articulated and retain original source pixels",
             "release_blockers": [
                 "visual seam, silhouette and occlusion review of six approved lower-body source-pixel surfaces after blended mesh deformation; generated joint pads are not accepted",
+                "visual review of four exact source-alpha elbow and wrist bridges across the full arm motion range",
                 "anatomically aligned head neck and facial feature deformation",
                 "visual review of deformable bow-grip palm, finger-joint overlap, bow contact and violin-hand occlusion throughout the pose range",
                 "pose-range and full-frame visual QA after mesh deformation",
