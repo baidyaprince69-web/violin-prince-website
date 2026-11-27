@@ -651,7 +651,15 @@ jobs:
           assert joint_art.get("edge_feathering", {}).get("method") == "inward_source_alpha_gaussian_ramp_with_parent_child_underlap", joint_art
           assert joint_art.get("edge_feathering", {}).get("source_rgb_modified") is False, joint_art
           assert joint_art.get("edge_feathering", {}).get("parent_child_underlap_retained_in_feather_band") is True, joint_art
-          expected_surface_roles = {"joint_surface_" + name for name in created_regions}
+          expected_surface_roles = (
+              {"joint_surface_" + name for name in created_regions}
+              | {
+                  "joint_surface_arm_left_elbow",
+                  "joint_surface_arm_right_elbow",
+                  "joint_surface_arm_left_wrist",
+                  "joint_surface_arm_right_wrist",
+              }
+          )
           surface_roles = {
               layer["role"] for layer in character.get("layers", [])
               if layer.get("joint_surface")
