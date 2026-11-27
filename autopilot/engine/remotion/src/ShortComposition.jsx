@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, OffthreadVideo, staticFile } from "remotion";
-import { CinematicTitleCard } from "./CinematicTitleCard.jsx";
+import { CinematicTextOverlay } from "./CinematicTextOverlay.jsx";
 
 export const ShortComposition = ({
   title,
@@ -50,7 +50,7 @@ export const ShortComposition = ({
       />
 
       {showIntro ? (
-        <CinematicTitleCard
+        <CinematicTextOverlay
           title={title}
           subtitle={subtitle}
           brandName={brandName}
