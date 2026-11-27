@@ -796,7 +796,7 @@ def _write_reference_part_assembly_candidate(
     character: dict[str, Any],
     bundle: Path,
 ) -> tuple[str, str, dict[str, Any]]:
-    """Assemble selected reference-sheet parts into a separate review-only character."""
+    """Create a review-only assembly preview without mixing incompatible poses."""
     canvas = character.get("canvas") or {}
     width, height = int(canvas.get("width", 0)), int(canvas.get("height", 0))
     if width <= 0 or height <= 0:
@@ -1085,11 +1085,8 @@ def _write_reference_part_assembly_candidate(
         _source_aligned_character_assembly(character, bundle)
     )
     if source_aligned_assembly is not None:
-        # Keep the old catalogue-only stack for forensic inspection, but never
-        # present it as the assembled violin-playing character.
-        (bundle / "reference-part-catalogue-assembly-review-only.png").write_bytes(
-            assembled.tobytes("raw", "RGBA")
-        ) if False else None
+        # The catalogue layers remain exported separately for inspection, but
+        # are not mixed into this assembled violin-playing character.
         assembled = source_aligned_assembly
         source_manifest_path = bundle / "reference-part-source-aligned-assembly.json"
         source_manifest_path.write_text(
@@ -1166,7 +1163,13 @@ def _write_reference_part_assembly_candidate(
         "layered_candidate_manifest": layered_manifest_name,
         "layer_export_count": len(layer_exports),
         "layered_candidate_activation_enabled": False,
-        "note": "Separate preview assembled from selected reference-sheet assets and documented source bridges; independent RGBA layers are exported for later articulation review, without modifying live character layers or production animation.",
+        "note": (
+            "The visible assembly preview uses the original source-aligned character "
+            "layers on their shared master canvas when available. Front-facing reference "
+            "catalogue cutouts are not mixed into the three-quarter violin-playing pose. "
+            "The reference catalogue and its provisional pivots remain review-only; no "
+            "live character layer or production animation is modified."
+        ),
     }
     (bundle / "reference-part-assembled-candidate.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
