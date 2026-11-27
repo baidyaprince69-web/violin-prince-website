@@ -961,6 +961,24 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             })
             self.assertEqual(len(joints), 12)
             self.assertGreater(int(moving.sum()), 30000)
+            # The original left sleeve has a source-faithful lower cuff beneath
+            # the old polygon boundary. Those pixels must belong to the moving
+            # forearm, not remain as a stationary ghost in the segmented base.
+            self.assertTrue(moving[280, 50], "left forearm must own the lower sleeve cuff")
+            self.assertTrue(moving[285, 90], "left forearm must own the feathered cuff edge")
+            _build_segmented_source_base(
+                source,
+                Path(folder),
+                bow_canvas_alpha=prop_masks["bow"],
+                violin_canvas_alpha=prop_masks["violin"],
+                moving_mask=moving,
+            )
+            with Image.open(Path(folder) / "performance-segmented-base.png") as base_image:
+                base_alpha = np.asarray(base_image.convert("RGBA").getchannel("A"), dtype=np.uint8)
+            self.assertEqual(int(base_alpha[280, 50]), 0,
+                "the original lower cuff must not remain beneath the moving forearm")
+            self.assertEqual(int(base_alpha[285, 90]), 0,
+                "the semi-transparent sleeve edge must not remain as a duplicate")
             self.assertLessEqual(max(report["joint_overlap_pixels"].values()), 900)
             self.assertGreaterEqual(report["joint_overlap_pixels"]["right_knee"], 700)
             self.assertLessEqual(report["joint_overlap_pixels"]["left_ankle"], 200)
