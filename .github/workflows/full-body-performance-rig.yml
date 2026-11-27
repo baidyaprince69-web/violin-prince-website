@@ -582,7 +582,7 @@ jobs:
           moving_report = report.get("full_body_moving_mask", {})
           assert moving_report.get("asset") == "full-body-moving-mask.png", report
           assert moving_report.get("pixels", 0) > 10000, report
-          assert moving_report.get("source") == "authored_performance_polygons_and_finger_manifest", report
+          assert moving_report.get("source") == "authored_performance_polygons_finger_manifest_and_exact_arm_joint_source_alpha_intersections", report
           moving_mask = Image.open(bundle / moving_report["asset"]).convert("L")
           assert sum(value > 0 for value in moving_mask.getdata()) == moving_report.get("pixels"), report
           restoration = report.get("torso_reference_restoration", {})
