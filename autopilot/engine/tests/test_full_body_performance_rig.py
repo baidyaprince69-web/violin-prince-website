@@ -20,6 +20,7 @@ from full_body_performance_rig import (
     _restore_bow_hair_in_prop_asset,
     _prepare_fingers,
     _largest_component,
+    _canvas_alpha_mask_for_layer,
     _canvas_alpha_mask_for_layers,
     _restore_torso_hidden_overlap_from_reference,
     _extract_source_aligned_joint_surfaces,
