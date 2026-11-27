@@ -11,7 +11,7 @@ const rendererSource = readFileSync(new URL("../build.mjs", import.meta.url), "u
 test("articulated source sprites rotate around their calculated anatomical joint pivots", () => {
   assert.match(
     rendererSource,
-    /"transform-origin:" \\+ pivotX \\+ "% " \\+ pivotY \\+ "%"/,
+    /"transform-origin:" \+ pivotX \+ "% " \+ pivotY \+ "%"/,
     "rendered body sprites must use their calculated joint origin, not the image's top-left corner"
   );
 });
