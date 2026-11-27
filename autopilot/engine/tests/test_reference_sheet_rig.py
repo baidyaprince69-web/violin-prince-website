@@ -106,7 +106,7 @@ class ReferenceSheetRigTests(unittest.TestCase):
             self.assertIsNotNone(assembled)
             self.assertIsNotNone(report)
             self.assertEqual(assembled.size, (width, height))
-            self.assertEqual(report["method"], "source_aligned_character_layers_on_shared_master_canvas")
+            self.assertEqual(report["method"], "source_aligned_character_layers_and_props_on_shared_master_canvas")
             self.assertEqual(report["visible_layer_count"], len(roles) + 1)
             self.assertIn("base_art", report["visible_layer_roles"])
             self.assertEqual(report["reference_sheet_parts_used"], [])
