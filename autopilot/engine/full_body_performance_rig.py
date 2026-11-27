@@ -2413,13 +2413,13 @@ def _restore_torso_hidden_overlap_from_reference(
     *,
     reference_transform: tuple[int, int, int, int] = (76, 148, 210, 262),
 ) -> dict[str, Any]:
-    """Replace locally inpainted hidden jacket pixels with aligned source artwork.
+    """Restore aligned jacket artwork beneath moving upper-body parts.
 
-    The patch is restricted to the union of the exact parser hidden-overlap
-    mask and the authored full-body moving-limb mask, and to opaque pixels from
-    the supplied jacket reference. The violin and bow footprints are excluded.
-    Only torso RGB is changed: alpha, crop geometry, limb/hand sprites and
-    their animation data stay intact.
+    The underlay is limited to the union of the exact parser hidden-overlap mask
+    and authored moving-limb mask, clipped to opaque supplied jacket-reference
+    pixels. Violin and bow footprints are excluded. Existing torso alpha is
+    preserved; new alpha is added only inside this audited restoration mask.
+    Limb/hand sprites and their animation data remain untouched.
     """
     canvas_spec = character.get("canvas", {})
     canvas_width = int(canvas_spec.get("width", 0))
@@ -2531,12 +2531,14 @@ def _restore_torso_hidden_overlap_from_reference(
     local_reference_alpha = reference_canvas[y0:y1, x0:x1, 3]
     local_reference_rgb = reference_canvas[y0:y1, x0:x1, :3]
     local_prop_mask = prop_mask[y0:y1, x0:x1]
-    local_visible_torso = original_alpha > 12
 
+    # The arm cut-outs are transformed away from their source positions. Without
+    # jacket pixels beneath them, the stage backplate becomes visible through
+    # the newly opened negative space. Restore only where the authored moving
+    # or hidden masks and the supplied jacket reference agree, never over props.
     restoration_mask = (
         local_source_mask
         & (local_reference_alpha >= 240)
-        & local_visible_torso
         & ~local_prop_mask
     )
     restored_pixels = int(restoration_mask.sum())
@@ -2545,13 +2547,20 @@ def _restore_torso_hidden_overlap_from_reference(
             f"Only {restored_pixels} hidden or moving torso pixels align with the jacket reference; refusing a weak patch."
         )
 
+    underlay_mask = restoration_mask & (original_alpha <= 12)
+    existing_torso_mask = restoration_mask & ~underlay_mask
+    underlay_pixels_added = int(underlay_mask.sum())
     torso_pixels[restoration_mask, :3] = local_reference_rgb[restoration_mask]
-    if not np.array_equal(torso_pixels[:, :, 3], original_alpha):
-        raise AutoRigError("Torso source-art restoration unexpectedly changed the layer alpha.")
+    torso_pixels[underlay_mask, 3] = local_reference_alpha[underlay_mask]
+
+    if not np.array_equal(torso_pixels[:, :, 3][~underlay_mask], original_alpha[~underlay_mask]):
+        raise AutoRigError("Torso underlay restoration changed alpha outside newly restored pixels.")
     if not np.array_equal(
         torso_pixels[~restoration_mask], original_pixels[~restoration_mask]
     ):
         raise AutoRigError("Torso source-art restoration modified pixels outside its approved mask.")
+    if np.any(torso_pixels[:, :, 3][underlay_mask] < 240):
+        raise AutoRigError("New torso underlay pixels must have opaque reference alpha.")
 
     Image.fromarray(torso_pixels, mode="RGBA").save(
         torso_path, format="PNG", optimize=True
@@ -2565,7 +2574,7 @@ def _restore_torso_hidden_overlap_from_reference(
     )
 
     return {
-        "method": "aligned_supplied_jacket_reference_on_authored_moving_and_hidden_torso_masks",
+        "method": "aligned_jacket_reference_underlay_on_authored_moving_and_hidden_torso_masks",
         "reference_asset": reference_path.name,
         "reference_transform": {
             "x": ref_x, "y": ref_y,
@@ -2580,7 +2589,23 @@ def _restore_torso_hidden_overlap_from_reference(
         ),
         "prop_pixels_excluded": int(np.count_nonzero(restoration_source_mask & prop_mask)),
         "pixels_restored": restored_pixels,
-        "layer_alpha_preserved": True,
+        "underlay_pixels_added": underlay_pixels_added,
+        "existing_torso_pixels_retextured": int(existing_torso_mask.sum()),
+        "new_underlay_limited_to_restoration_mask": bool(
+            np.all(~underlay_mask | restoration_mask)
+        ),
+        "existing_torso_alpha_preserved": bool(
+            np.array_equal(
+                torso_pixels[:, :, 3][~underlay_mask],
+                original_alpha[~underlay_mask],
+            )
+        ),
+        "layer_alpha_preserved_outside_underlay_mask": bool(
+            np.array_equal(
+                torso_pixels[:, :, 3][~underlay_mask],
+                original_alpha[~underlay_mask],
+            )
+        ),
         "torso_crop_geometry_preserved": True,
         "hand_forearm_assets_modified": 0,
         "hand_animation_data_modified": False,
