@@ -1,9 +1,21 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   buildMusicSynchronizedPerformanceTracks,
   compileMotionTracks
 } from "../src/motion-build.mjs";
+
+const rendererSource = readFileSync(new URL("../build.mjs", import.meta.url), "utf8");
+
+test("articulated source sprites rotate around their calculated anatomical joint pivots", () => {
+  assert.match(
+    rendererSource,
+    /"transform-origin:" \\+ pivotX \\+ "% " \\+ pivotY \\+ "%"/,
+    "rendered body sprites must use their calculated joint origin, not the image's top-left corner"
+  );
+});
+
 
 const roles = [
   "torso", "head", "face",

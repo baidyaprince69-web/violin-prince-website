@@ -176,7 +176,7 @@ function renderCharacter(character, scene, sceneIndex, characterIndex, canvasWid
       "top:" + (layout.offsetY + Number(layer.y) * layout.scale) + "px",
       "width:" + (Number(layer.width) * layout.scale) + "px",
       "height:" + (Number(layer.height) * layout.scale) + "px",
-      "transform-origin:0 0",
+      "transform-origin:" + pivotX + "% " + pivotY + "%",
       "z-index:" + Number(layer.z_index ?? 1)
     ];
     if (hasHeadPlates && (layer.role === "head" || layer.role === "face")) {
