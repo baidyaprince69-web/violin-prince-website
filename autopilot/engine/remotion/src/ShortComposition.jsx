@@ -16,6 +16,8 @@ export const ShortComposition = ({
   introDurationFrames,
 }) => {
   const frame = useCurrentFrame();
+  const sansFont = staticFile("fonts/DMSans.woff2");
+  const serifFont = staticFile("fonts/DMSerifDisplay-Regular.woff2");
   const introEnd = Math.max(24, Number(introDurationFrames) || 60);
   const introOpacity = interpolate(
     frame,
@@ -40,6 +42,20 @@ export const ShortComposition = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#050b13" }}>
+      <style>{`
+        @font-face {
+          font-family: VP-Sans;
+          src: url('${sansFont}') format('woff2');
+          font-weight: 400 700;
+          font-style: normal;
+        }
+        @font-face {
+          font-family: VP-Serif;
+          src: url('${serifFont}') format('woff2');
+          font-weight: 400;
+          font-style: normal;
+        }
+      `}</style>
       <OffthreadVideo
         src={staticFile("source-video.mp4")}
         volume={1}
