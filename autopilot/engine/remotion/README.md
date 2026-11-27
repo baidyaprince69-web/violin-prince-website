@@ -38,8 +38,8 @@ make publishing decisions.
 
 - The source MP4 is copied into Remotion's temporary public assets. The source file is
   never edited or overwritten.
-- Input is checked before rendering: H.264-compatible MP4 handling, portrait 720x1280,
-  approximately 25 fps, a retained audio stream, and a duration between 2 and 180 seconds.
+- Input is checked before rendering: MP4 video and audio streams, portrait 720x1280,
+  approximately 25 fps, and a duration between 2 and 180 seconds.
 - The compositor preserves the source audio and video duration. It adds only the optional
   Violin Prince opening title treatment.
 - The output is a **candidate**, not a production-approved video. It is not put into the
@@ -58,7 +58,7 @@ Requirements: Node.js 22+, FFmpeg and FFprobe.
 cd autopilot/engine/remotion
 npm install --no-audit --no-fund
 npm test
-npm run render -- --input ../path/to/source.mp4 --output ../../../../work/remotion-preview.mp4 --title "A Violin Performance" --subtitle "VIOLIN PRINCE"
+npm run render -- --input ../../../work/source.mp4 --output ../../../work/remotion-preview.mp4 --title "A Violin Performance" --subtitle "VIOLIN PRINCE"
 ```
 
 The generated MP4 and its adjacent `.report.json` are separate from the input.
