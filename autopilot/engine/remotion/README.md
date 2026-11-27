@@ -74,7 +74,7 @@ The workflow `.github/workflows/remotion-compositor-preview.yml` has two modes:
    new review artifact. This mode does not invoke the publisher.
 
 For the current full-body rig test, the initial manual-dispatch defaults point to run
-`45982461130` and artifact `full-body-character-only-review-837`. GitHub artifact
+`46047995951` and artifact `full-body-character-only-review-863`. GitHub artifact
 retention is finite; supply a newer run ID and matching artifact name after that test
 artifact expires.
 
