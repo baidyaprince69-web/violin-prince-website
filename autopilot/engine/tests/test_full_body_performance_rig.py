@@ -994,6 +994,12 @@ class FullBodyPerformanceRigTests(unittest.TestCase):
             self.assertEqual(int(base_alpha[285, 90]), 0,
                 "the semi-transparent sleeve edge must not remain as a duplicate")
             self.assertLessEqual(max(report["joint_overlap_pixels"].values()), 900)
+            # Arm joints need enough shared source pixels to remain sealed during articulation,
+            # while the global ceiling prevents oversized duplicated limb fragments.
+            self.assertGreaterEqual(report["joint_overlap_pixels"]["left_elbow"], 650)
+            self.assertGreaterEqual(report["joint_overlap_pixels"]["right_elbow"], 150)
+            self.assertGreaterEqual(report["joint_overlap_pixels"]["left_wrist"], 200)
+            self.assertGreaterEqual(report["joint_overlap_pixels"]["right_wrist"], 230)
             self.assertGreaterEqual(report["joint_overlap_pixels"]["right_knee"], 700)
             self.assertLessEqual(report["joint_overlap_pixels"]["left_ankle"], 200)
             self.assertLessEqual(report["joint_overlap_pixels"]["right_ankle"], 200)
