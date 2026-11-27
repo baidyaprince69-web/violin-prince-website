@@ -7,6 +7,7 @@ from PIL import Image, ImageDraw
 
 from reference_sheet_rig import (
     build_reference_sheet_rig, _keyed_sheet, ASSEMBLY_MANUAL_OFFSETS,
+    _source_aligned_character_assembly,
 )
 
 
@@ -48,6 +49,71 @@ def make_parts_sheet(path):
 
 
 class ReferenceSheetRigTests(unittest.TestCase):
+    def test_source_aligned_body_parts_assemble_on_the_original_canvas(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            width, height = 80, 120
+
+            base = Image.new("RGBA", (width, height), (24, 35, 52, 255))
+            base.save(root / "base.png")
+
+            roles = (
+                "torso", "head", "face",
+                "left_upper_arm", "right_upper_arm",
+                "left_thigh", "right_thigh", "left_foot", "right_foot",
+            )
+            colours = {
+                "torso": (20, 180, 70, 255),
+                "head": (210, 40, 40, 255),
+                "face": (240, 210, 30, 255),
+            }
+            layers = []
+            for index, role in enumerate(roles):
+                sprite = Image.new("RGBA", (12, 12), (0, 0, 0, 0))
+                draw = ImageDraw.Draw(sprite)
+                draw.rectangle(
+                    (0, 0, 11, 11),
+                    fill=colours.get(role, (80 + index, 100, 150, 255)),
+                )
+                filename = f"{role}.png"
+                sprite.save(root / filename)
+                x, y = {
+                    "torso": (20, 25),
+                    "head": (29, 5),
+                    "face": (31, 10),
+                }.get(role, (index * 2, 90))
+                layers.append({
+                    "id": role,
+                    "role": role,
+                    "src": filename,
+                    "x": x,
+                    "y": y,
+                    "width": 12,
+                    "height": 12,
+                    "z_index": 10 + index,
+                })
+
+            character = {
+                "canvas": {"width": width, "height": height},
+                "base_art": {
+                    "src": "base.png", "x": 0, "y": 0,
+                    "width": width, "height": height, "z_index": 1,
+                },
+                "layers": layers,
+            }
+            assembled, report = _source_aligned_character_assembly(character, root)
+
+            self.assertIsNotNone(assembled)
+            self.assertIsNotNone(report)
+            self.assertEqual(assembled.size, (width, height))
+            self.assertEqual(report["method"], "source_aligned_character_layers_on_shared_master_canvas")
+            self.assertEqual(report["visible_layer_count"], len(roles))
+            self.assertEqual(report["reference_sheet_parts_used"], [])
+            self.assertTrue(report["pose_mismatch_avoided"])
+            self.assertEqual(assembled.getpixel((21, 26)), colours["torso"])
+            self.assertEqual(assembled.getpixel((30, 6)), colours["head"])
+            self.assertEqual(assembled.getpixel((32, 12)), colours["face"])
+
     def test_removes_magenta_cutline_on_non_magenta_transparent_canvas(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
