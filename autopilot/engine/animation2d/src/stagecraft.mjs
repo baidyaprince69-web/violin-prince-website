@@ -22,8 +22,9 @@ function createNode(sceneId, id, x, y, content, motion, amplitude, period) {
   return { id: sceneId + "-stagecraft-" + safeId(id), x, y, content, motion, amplitude, period };
 }
 function nodeMarkup(item) {
-  return '<g transform="translate(' + item.x.toFixed(1) + ' ' + item.y.toFixed(1) + ')"><g class="stagecraft-node" id="' +
-    escape(item.id) + '">' + item.content + '</g></g>';
+  const depth = item.id.includes("-depth-foreground-") ? "foreground" : "midground";
+  return '<g transform="translate(' + item.x.toFixed(1) + ' ' + item.y.toFixed(1) + ')"><g class="stagecraft-node stagecraft-node--' + depth +
+    '" data-depth-plane="' + depth + '" id="' + escape(item.id) + '">' + item.content + '</g></g>';
 }
 function environmentFor(scene, width, height) {
   const theme = String(scene.stagecraft.environment || "").toLowerCase();
@@ -177,6 +178,63 @@ function environmentFor(scene, width, height) {
     }
     add("abstract-wave", .5, .79, '<path d="M-300 0 Q-220 -45 -140 0 T20 0 T180 0 T340 0" fill="none" stroke="#f0cd8d" stroke-width="4"/>', "float", 24, 3.6);
   }
+  
+  // Near-field details provide a separate, higher-parallax plane in every
+  // environment. They stay behind the performer but move independently from
+  // the slower architecture and atmospheric midground.
+  if (theme === "city_night") {
+    add("depth-foreground-traffic", .48, .89,
+      '<g opacity=".78"><path d="M-230 0 H230" stroke="#e6fff5" stroke-width="5" stroke-linecap="round"/>' +
+      '<path d="M-190 0 H190" stroke="#55d8dc" stroke-width="15" stroke-linecap="round" opacity=".3" filter="url(#' + sceneId + '-blur)"/></g>',
+      "travel_left", width * .44, 4.9);
+    add("depth-foreground-bokeh", .86, .76,
+      '<circle r="7" fill="#fff0c8"/><circle r="28" fill="#e8a36d" opacity=".18" filter="url(#' + sceneId + '-blur)"/>',
+      "drift", width * .14, 6.4);
+  } else if (theme === "forest_dusk") {
+    add("depth-foreground-leaf-left", .015, .83,
+      '<path d="M-78 8 Q-6 -88 72 -18 Q36 62 -78 8Z" fill="#b6cd86" opacity=".34"/>' +
+      '<path d="M-65 5 Q0 -42 56 -20" fill="none" stroke="#d9e8b1" stroke-width="3" opacity=".3"/>',
+      "sway", 4.2, 5.1);
+    add("depth-foreground-leaf-right", .985, .76,
+      '<path d="M-68 -8 Q12 -94 84 -10 Q42 62 -68 -8Z" fill="#79a56c" opacity=".32"/>' +
+      '<path d="M-52 -8 Q16 -48 64 -10" fill="none" stroke="#d9e8b1" stroke-width="3" opacity=".28"/>',
+      "sway", 3.4, 5.8);
+  } else if (theme === "space") {
+    add("depth-foreground-dust-left", .13, .75,
+      '<g fill="#f1f0ff"><circle cx="-28" cy="-18" r="3"/><circle cx="8" cy="14" r="5" opacity=".72"/>' +
+      '<circle cx="34" cy="-28" r="2.5"/><circle cx="-4" cy="-42" r="2" opacity=".64"/></g>',
+      "drift", width * .2, 7.2);
+    add("depth-foreground-dust-right", .87, .83,
+      '<g fill="#d6e9ff"><circle cx="-24" cy="12" r="3"/><circle cx="18" cy="-14" r="4" opacity=".7"/>' +
+      '<circle cx="38" cy="30" r="2.5"/><circle cx="-6" cy="-32" r="2" opacity=".62"/></g>',
+      "drift", width * .17, 8.4);
+  } else if (theme === "concert_stage") {
+    add("depth-foreground-stage-glow", .5, .91,
+      '<ellipse rx="' + width * .24 + '" ry="' + height * .014 +
+      '" fill="#e8c58d" opacity=".22" filter="url(#' + sceneId + '-soft-glow)"/>',
+      "float", 12, 5.4);
+    add("depth-foreground-audience-glint", .28, .87,
+      '<circle r="5" fill="#f5e4c6" opacity=".8"/><circle r="22" fill="#eac990" opacity=".18" filter="url(#' + sceneId + '-soft-glow)"/>',
+      "drift", 34, 7.1);
+  } else if (theme === "laboratory") {
+    add("depth-foreground-measurement-sweep", .5, .9,
+      '<g opacity=".32" stroke="#b6f3e6" fill="none"><path d="M-250 0 H250" stroke-width="3"/>' +
+      '<path d="M-220 -13 V13 M-165 -8 V8 M-110 -13 V13 M-55 -8 V8 M0 -15 V15 M55 -8 V8 M110 -13 V13 M165 -8 V8 M220 -13 V13" stroke-width="2"/></g>',
+      "travel_right", width * .075, 8.2);
+    add("depth-foreground-signal", .12, .83,
+      '<circle r="5" fill="#b6f3e6"/><circle r="20" fill="none" stroke="#62d7d1" stroke-width="2" opacity=".55"/>',
+      "pulse", 9, 2.9);
+  } else if (theme === "abstract") {
+    add("depth-foreground-wave", .5, .9,
+      '<path d="M-340 0 Q-255 -34 -170 0 T0 0 T170 0 T340 0" fill="none" stroke="#f0cd8d" stroke-width="5" opacity=".5"/>' +
+      '<path d="M-300 12 Q-225 -11 -150 12 T0 12 T150 12 T300 12" fill="none" stroke="#62d7d1" stroke-width="2" opacity=".34"/>',
+      "float", 14, 4.6);
+    add("depth-foreground-light", .11, .68,
+      '<path d="M-52 0 H52" stroke="#d9fffa" stroke-width="6" stroke-linecap="round" opacity=".55"/>' +
+      '<circle r="13" fill="#68d2cd" opacity=".22"/>',
+      "travel_right", width * .18, 7.5);
+  }
+
 
   const defs = '<defs>' +
     '<linearGradient id="' + sceneId + '-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + top + '"/><stop offset="100%" stop-color="' + bottom + '"/></linearGradient>' +
@@ -245,9 +303,15 @@ export function stagecraftMotionNodeIds(scene) {
   return [...env.nodes, ...objects].map(item => item.id);
 }
 export function stagecraftNodeCounts(scene) {
-  if (!scene?.stagecraft) return { environment: 0, objects: 0, total: 0 };
+  if (!scene?.stagecraft) return { environment: 0, objects: 0, foreground_depth: 0, total: 0 };
   const { env, objects } = allSceneNodes(scene, 720, 1280);
-  return { environment: env.nodes.length, objects: objects.length, total: env.nodes.length + objects.length };
+  const foregroundDepth = env.nodes.filter(item => item.id.includes("-depth-foreground-")).length;
+  return {
+    environment: env.nodes.length,
+    objects: objects.length,
+    foreground_depth: foregroundDepth,
+    total: env.nodes.length + objects.length
+  };
 }
 export function renderStagecraftMarkup(scene, width = 720, height = 1280, sceneIndex = 0) {
   if (!scene?.stagecraft) return "";
