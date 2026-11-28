@@ -74,20 +74,21 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/environment-depth-review"
           ffprobe -v error -select_streams v:0 \
-            -show_entries stream=codec_name,width,height,r_frame_rate,duration \
+            -show_entries stream=codec_name,width,height,r_frame_rate:format=duration \
             -of json "$RUNNER_TEMP/cinematic-environment-depth-preview.mp4" \
             > "$RUNNER_TEMP/environment-depth-review/video-probe.json"
-          python - <<'PY'
+          PROBE_REPORT="$RUNNER_TEMP/environment-depth-review/video-probe.json" python - <<'PY'
           import json
+          import os
           from pathlib import Path
-          report = json.loads(Path("$RUNNER_TEMP/environment-depth-review/video-probe.json").read_text())
+          report = json.loads(Path(os.environ["PROBE_REPORT"]).read_text())
           assert len(report.get("streams", [])) == 1, report
           stream = report["streams"][0]
           assert stream.get("codec_name") == "h264", stream
           assert (stream.get("width"), stream.get("height")) == (720, 1280), stream
           assert stream.get("r_frame_rate") == "25/1", stream
-          duration = float(stream.get("duration") or 0)
-          assert abs(duration - 18.0) <= .12, stream
+          duration = float(report.get("format", {}).get("duration") or 0)
+          assert abs(duration - 18.0) <= .12, report
           print("Verified 18-second, 720x1280, 25 fps H.264 environment-only preview.")
           PY
           ffmpeg -hide_banner -loglevel error -y \
