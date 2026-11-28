@@ -9,6 +9,9 @@ import shutil
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+from PIL import Image
+
 
 def stage_asset(bundle: Path, asset_root: Path, source: str) -> str:
     source_path = (bundle / str(source)).resolve(strict=True)
@@ -18,6 +21,31 @@ def stage_asset(bundle: Path, asset_root: Path, source: str) -> str:
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source_path, destination)
     return destination.relative_to(asset_root.parent.parent.parent).as_posix()
+
+
+def derive_bow_stroke_axis(asset_path: str | Path, bow_prop: dict[str, Any]) -> dict[str, float]:
+    """Estimate the bow's longitudinal motion axis from its alpha silhouette and grip pivot."""
+    source = Path(asset_path)
+    if not source.is_file():
+        raise FileNotFoundError(f"Bow prop asset does not exist: {source}")
+    with Image.open(source) as opened:
+        rgba = np.asarray(opened.convert("RGBA"), dtype=np.uint8)
+    ys, xs = np.where(rgba[:, :, 3] > 12)
+    if len(xs) < 40:
+        raise ValueError("Bow prop alpha silhouette is too small to derive a stroke axis.")
+    width, height = rgba.shape[1], rgba.shape[0]
+    pivot = np.array([
+        float(bow_prop.get("pivot_x", 0.16)) * max(1, width - 1),
+        float(bow_prop.get("pivot_y", 0.78)) * max(1, height - 1),
+    ], dtype=np.float64)
+    points = np.column_stack((xs.astype(np.float64), ys.astype(np.float64)))
+    tip = points[int(np.argmax(np.sum((points - pivot) ** 2, axis=1)))]
+    vector = tip - pivot
+    length = float(np.linalg.norm(vector))
+    if not np.isfinite(length) or length < max(width, height) * 0.35:
+        raise ValueError("Bow grip pivot and tip do not define a reliable longitudinal axis.")
+    axis = vector / length
+    return {"x": round(float(axis[0]), 6), "y": round(float(axis[1]), 6)}
 
 
 def _read_audio_duration_seconds(path: str | Path) -> float:
@@ -248,6 +276,12 @@ def build_preview_project(
     for collection_name in ("expressions", "pose_assets", "props", "head_variants", "head_angles"):
         for asset in (character.get(collection_name) or {}).values():
             asset["src"] = stage_asset(bundle, asset_root, asset["src"])
+
+    bow_prop = (character.get("props") or {}).get("bow")
+    if isinstance(bow_prop, dict) and bow_prop.get("src"):
+        bow_asset_path = output / str(bow_prop["src"])
+        if bow_asset_path.is_file():
+            bow_prop["stroke_axis"] = derive_bow_stroke_axis(bow_asset_path, bow_prop)
 
     music_map = None
     if music_map_path:

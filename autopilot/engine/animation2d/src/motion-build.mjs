@@ -33,6 +33,43 @@ export function sampleMotionSpring(from, to, fps = 25, maxMs = 1400) {
   };
 }
 
+export function mapViolinFirstPositionPitch(note) {
+  const midi = Number(note);
+  if (!Number.isInteger(midi) || midi < 0 || midi > 127) {
+    return { status: "invalid_note", note: midi, string: null, finger: null, finger_number: null };
+  }
+  const strings = [
+    { name: "G", open_note: 55 },
+    { name: "D", open_note: 62 },
+    { name: "A", open_note: 69 },
+    { name: "E", open_note: 76 }
+  ];
+  const open = strings.find(item => item.open_note === midi);
+  if (open) {
+    return {
+      status: "open_string", note: midi, string: open.name,
+      open_string_note: open.open_note, semitones_above_open: 0,
+      finger: null, finger_number: 0, position: 1
+    };
+  }
+  const selected = strings.find(item => midi > item.open_note && midi - item.open_note <= 7);
+  if (!selected) {
+    return {
+      status: "outside_first_position", note: midi, string: null,
+      open_string_note: null, semitones_above_open: null,
+      finger: null, finger_number: null, position: null
+    };
+  }
+  const offset = midi - selected.open_note;
+  const fingerNumber = offset <= 2 ? 1 : offset <= 4 ? 2 : offset <= 6 ? 3 : 4;
+  const finger = ["finger_index", "finger_middle", "finger_ring", "finger_little"][fingerNumber - 1];
+  return {
+    status: "first_position", note: midi, string: selected.name,
+    open_string_note: selected.open_note, semitones_above_open: offset,
+    finger, finger_number: fingerNumber, position: 1
+  };
+}
+
 export function buildMusicSynchronizedPerformanceTracks({
   targetPrefix,
   start = 0,
@@ -77,6 +114,22 @@ export function buildMusicSynchronizedPerformanceTracks({
       Number.isFinite(event.durationSeconds) && event.durationSeconds > 0
     )
     .sort((a, b) => a.time - b.time);
+
+  const fingeringMap = events.map(event => ({
+    time: event.time,
+    duration_seconds: event.durationSeconds,
+    velocity: event.velocity,
+    ...mapViolinFirstPositionPitch(event.note)
+  }));
+  const fingeringSummary = {
+    method: "standard_violin_tuning_first_position",
+    mapped_note_count: fingeringMap.filter(item => item.status === "first_position").length,
+    open_string_note_count: fingeringMap.filter(item => item.status === "open_string").length,
+    unsupported_note_count: fingeringMap.filter(item => item.status === "outside_first_position").length,
+    invalid_note_count: fingeringMap.filter(item => item.status === "invalid_note").length,
+    status: fingeringMap.some(item => !["first_position", "open_string"].includes(item.status))
+      ? "manual_review_required" : (fingeringMap.length ? "first_position_mapped" : "no_note_events")
+  };
 
   const makeTrack = (target, points) => {
     const valuesByTime = new Map([[0, 0], [total, 0]]);
@@ -154,16 +207,16 @@ export function buildMusicSynchronizedPerformanceTracks({
   const fingerNames = ["finger_index", "finger_middle", "finger_ring", "finger_little"];
   const fingerIntervals = Object.fromEntries(fingerNames.map(name => [name, []]));
   if (events.length) {
-    const pitches = events.map(event => event.note);
-    const minimumPitch = Math.min(...pitches);
-    const pitchRange = Math.max(1, Math.max(...pitches) - minimumPitch);
+    const amplitudes = {
+      finger_index: 20.5, finger_middle: -18.5,
+      finger_ring: 19.5, finger_little: -18.0
+    };
     for (let eventIndex = 0; eventIndex < events.length; eventIndex += 1) {
       const event = events[eventIndex];
-      // Relative pitch register chooses a first-position-like visual hand shape.
-      // Lower fingers remain softly prepared as higher fingers are added; this
-      // is a phrase-specific illustration cue, not a formal fingering chart.
-      const fingerIndex = Math.min(3, Math.max(0,
-        Math.round(((event.note - minimumPitch) / pitchRange) * 3)));
+      const assignment = fingeringMap[eventIndex];
+      // One measured pitch selects one string and one finger. Open strings do
+      // not curl a finger; notes beyond first position are flagged, not guessed.
+      if (!assignment || assignment.status !== "first_position" || !assignment.finger) continue;
       const strength = 0.88 + (event.velocity / 127) * 0.2;
       const hit = Math.min(total, event.time + 0.018);
       const nextHit = events[eventIndex + 1]
@@ -172,38 +225,17 @@ export function buildMusicSynchronizedPerformanceTracks({
       const hold = Math.min(0.82, Math.max(0.15, event.durationSeconds * 0.72));
       const release = Math.min(total, hit + hold, nextHit);
       const settle = Math.min(total, release + 0.09, nextHit);
-      for (let fingerPosition = 0; fingerPosition <= fingerIndex; fingerPosition += 1) {
-        const finger = fingerNames[fingerPosition];
-        const amplitudes = [20.5, -18.5, 19.5, -18.0];
-        const stagger = fingerPosition * 0.009;
-        const start = Math.min(total, hit + stagger);
-        fingerIntervals[finger].push({
-          start,
-          pressEnd: Math.min(total, start + 0.055, nextHit),
-          end: release,
-          settle,
-          amplitude: amplitudes[fingerPosition] * strength
-        });
-      }
-    }
-  } else {
-    attacks.forEach((time, index) => {
-      const fingerIndex = index % fingerNames.length;
-      const hit = Math.min(total, time + 0.025);
-      const nextHit = attacks[index + 1] === undefined
-        ? total : Math.min(total, attacks[index + 1] + 0.025);
-      const release = Math.min(total, hit + Math.min(0.22, period * 0.3), nextHit);
-      const settle = Math.min(total, release + 0.075, nextHit);
-      const amplitude = [8.0, -7.5, 7.8, -7.0][fingerIndex];
-      fingerIntervals[fingerNames[fingerIndex]].push({
+      fingerIntervals[assignment.finger].push({
         start: hit,
-        pressEnd: Math.min(total, hit + 0.05, nextHit),
+        pressEnd: Math.min(total, hit + 0.055, nextHit),
         end: release,
         settle,
-        amplitude
+        amplitude: amplitudes[assignment.finger] * strength
       });
-    });
+    }
   }
+  // Without a measured note map, keep the fingers neutral. Do not cycle
+  // through arbitrary fingers just because an onset detector fired.
 
   const fingerTracks = fingerNames.flatMap(name => {
     const intervals = fingerIntervals[name];
@@ -236,9 +268,12 @@ export function buildMusicSynchronizedPerformanceTracks({
     }));
     const prefix = String(targetPrefix) + "-part-";
     return [
-      makeTrack(prefix + name, scalePoints(0.52)),
-      makeTrack(prefix + name + "_middle", scalePoints(0.30)),
-      makeTrack(prefix + name + "_tip", scalePoints(0.18))
+      { ...makeTrack(prefix + name, scalePoints(0.52)),
+        music_sync_fingering_map: fingeringMap, music_sync_fingering_summary: fingeringSummary },
+      { ...makeTrack(prefix + name + "_middle", scalePoints(0.30)),
+        music_sync_fingering_map: fingeringMap, music_sync_fingering_summary: fingeringSummary },
+      { ...makeTrack(prefix + name + "_tip", scalePoints(0.18)),
+        music_sync_fingering_map: fingeringMap, music_sync_fingering_summary: fingeringSummary }
     ];
   });
 
@@ -259,26 +294,13 @@ export function buildMusicSynchronizedPerformanceTracks({
     music_sync_event: "performer_" + event,
     music_sync_timing_source: timing
   });
-  // The bow must travel across the strings, not merely rotate with the camera
-  // or arm. This local horizontal slide represents the stick moving through
-  // the fixed bow-grip hand during each measured reciprocal stroke.
-  const bowSlideTrack = {
-    target: prefix + "-prop-bow",
-    property: "translate",
-    values: strokeTimes.map(time =>
-      (24 * Math.sin(beatPhaseAt(time))).toFixed(2) + "px 0px"
-    ),
-    offsets: strokeTimes.map(time => Number((time / total).toFixed(6))),
-    start: Math.max(0, Number(start) || 0),
-    duration: total,
-    easing: "linear"
-  };
+  // The bow remains locked to its bowing-hand grip. Reciprocal movement is
+  // produced by the shoulder, elbow and wrist chain, never by sliding the prop.
   return [
     // Bowing arm: the shoulder, elbow and wrist form one continuous chain.
     tag(makeTrack(prefix + "-part-left_upper_arm", bowShoulderStrokes), "bow_stroke"),
     tag(makeTrack(prefix + "-part-left_forearm", bowElbowStrokes), "bow_stroke"),
     tag(makeTrack(prefix + "-part-left_hand", bowWristStrokes), "bow_stroke"),
-    tag(bowSlideTrack, "bow_stroke"),
     // Keep the fretting wrist planted while note events articulate finger sprites.
     tag(makeTrack(prefix + "-part-torso", torsoPulses), "body_balance"),
     tag(makeTrack(prefix + "-part-head", headPulses), "body_balance"),
@@ -1254,7 +1276,11 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
           easing: "linear",
           ...(sourceSyncTrack ? {
             music_sync_event: sourceSyncTrack.music_sync_event,
-            music_sync_timing_source: sourceSyncTrack.music_sync_timing_source
+            music_sync_timing_source: sourceSyncTrack.music_sync_timing_source,
+            ...(Array.isArray(sourceSyncTrack.music_sync_fingering_map) ? {
+              music_sync_fingering_map: sourceSyncTrack.music_sync_fingering_map,
+              music_sync_fingering_summary: sourceSyncTrack.music_sync_fingering_summary
+            } : {})
           } : {})
         });
       }
@@ -1311,6 +1337,10 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
         }
       }
       for (const prop of animatedProps) {
+        const attachmentSyncTrack = prop.id === "bow"
+          ? [...(rotationTracks.get(String(prop.attach_to || "left_hand")) || [])]
+            .reverse().find(track => track.music_sync_event === "performer_bow_stroke")
+          : null;
         transformTracks.push({
           target: prefix + "-prop-" + prop.id,
           property: "transform",
@@ -1318,7 +1348,11 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
           offsets: sampleOffsets,
           start: sceneStart,
           duration: sceneDuration,
-          easing: "linear"
+          easing: "linear",
+          ...(attachmentSyncTrack ? {
+            music_sync_event: attachmentSyncTrack.music_sync_event,
+            music_sync_timing_source: attachmentSyncTrack.music_sync_timing_source
+          } : {})
         });
       }
     }

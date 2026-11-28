@@ -3,10 +3,45 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   buildMusicSynchronizedPerformanceTracks,
-  compileMotionTracks
+  compileMotionTracks,
+  mapViolinFirstPositionPitch
 } from "../src/motion-build.mjs";
+import { fitCharacterToCanvas } from "../src/character-layout.mjs";
 
 const rendererSource = readFileSync(new URL("../build.mjs", import.meta.url), "utf8");
+
+test("violin MIDI pitches resolve to standard-tuning strings and first-position fingers", () => {
+  assert.equal(mapViolinFirstPositionPitch(55).status, "open_string");
+  assert.equal(mapViolinFirstPositionPitch(55).string, "G");
+  assert.equal(mapViolinFirstPositionPitch(62).string, "D");
+  assert.equal(mapViolinFirstPositionPitch(64).finger, "finger_index");
+  assert.equal(mapViolinFirstPositionPitch(67).finger, "finger_ring");
+  assert.equal(mapViolinFirstPositionPitch(72).finger, "finger_middle");
+  assert.equal(mapViolinFirstPositionPitch(83).finger, "finger_little");
+  assert.equal(mapViolinFirstPositionPitch(54).status, "outside_first_position");
+  assert.equal(mapViolinFirstPositionPitch(84).status, "outside_first_position");
+});
+
+test("notes outside first position are flagged without inventing a finger", () => {
+  const tracks = buildMusicSynchronizedPerformanceTracks({
+    targetPrefix: "fingering-boundary",
+    duration: 2,
+    bpm: 120,
+    beatTimes: [0, 0.5, 1, 1.5],
+    noteEvents: [
+      { time: 0.25, note: 84, velocity: 70, duration_seconds: 0.5 },
+      { time: 1.25, note: 54, velocity: 70, duration_seconds: 0.5 }
+    ],
+    confidence: 1
+  });
+  const index = tracks.find(track => track.target === "fingering-boundary-part-finger_index");
+  assert.ok(index);
+  assert.equal(index.music_sync_fingering_summary.status, "manual_review_required");
+  assert.equal(index.music_sync_fingering_summary.unsupported_note_count, 2);
+  assert.deepEqual(index.music_sync_fingering_map.map(item => item.finger), [null, null]);
+  assert.ok(index.values.every(value => value === 0),
+    "unsupported positions must not be assigned to a guessed first-position finger");
+});
 
 test("precomputed articulated matrices retain the sprite-origin CSS transform origin", () => {
   assert.match(
@@ -67,10 +102,24 @@ const character = {
     bow: {
       id: "bow", src: "bow.webp",
       x: 173, y: 39, width: 172, height: 254,
-      pivot_x: .035, pivot_y: .976, z_index: 35, attach_to: "left_hand"
+      pivot_x: .035, pivot_y: .976, z_index: 35, attach_to: "left_hand",
+      stroke_axis: { x: 0.58, y: -0.81 }
     }
   }
 };
+
+const bowHandFixture = character.layers.find(layer => layer.role === "left_hand");
+Object.assign(bowHandFixture, { x: 107, y: 222, width: 90, height: 59, pivot_x: 0.5, pivot_y: 0.5 });
+Object.assign(character.joints, {
+  left_shoulder: { x: 127 / 441, y: 176 / 755 },
+  left_elbow: { x: 27 / 441, y: 252 / 755 },
+  left_wrist: { x: 116 / 441, y: 231 / 755 }
+});
+Object.assign(character.props.bow, {
+  x: 147, y: 44, width: 191, height: 254,
+  pivot_x: 0.1623036649, pivot_y: 0.78,
+  stroke_axis: { x: 0.627793, y: -0.77838 }
+});
 
 const project = {
   width: 720, height: 1280, fps: 25, duration_seconds: 4,
@@ -232,16 +281,15 @@ test("music-synchronized performance keyframes follow beat and onset timestamps"
       { time: 0.25, note: 62, velocity: 60, duration_seconds: 0.75 },
       { time: 0.75, note: 67, velocity: 64, duration_seconds: 0.75 },
       { time: 1.25, note: 72, velocity: 78, duration_seconds: 1.5 },
-      { time: 1.75, note: 77, velocity: 88, duration_seconds: 0.75 }
+      { time: 1.75, note: 77, velocity: 88, duration_seconds: 0.75 },
+      { time: 2.25, note: 83, velocity: 92, duration_seconds: 0.65 }
     ],
+    bowTravelAxis: { x: 0.58, y: -0.81 },
     confidence: 1
   });
   const find = target => tracks.find(track => track.target === target);
-  const bowPropRotationTracks = tracks.filter(track =>
-    track.target === "playing-violin-prince-prop-bow" && track.property === "rotate"
-  );
-  const bowSlide = tracks.find(track =>
-    track.target === "playing-violin-prince-prop-bow" && track.property === "translate"
+  const bowPropMotionTracks = tracks.filter(track =>
+    track.target === "playing-violin-prince-prop-bow"
   );
   const bowShoulder = find("playing-violin-prince-part-left_upper_arm");
   const elbow = find("playing-violin-prince-part-left_forearm");
@@ -254,30 +302,38 @@ test("music-synchronized performance keyframes follow beat and onset timestamps"
     /playing-violin-prince-part-right_(upper_arm|forearm|hand)$/.test(track.target)
   );
   const indexFinger = find("playing-violin-prince-part-finger_index");
+  const middleFinger = find("playing-violin-prince-part-finger_middle");
   const ringFinger = find("playing-violin-prince-part-finger_ring");
   const littleFinger = find("playing-violin-prince-part-finger_little");
 
   assert.ok(bowShoulder && elbow && wrist);
-  assert.equal(bowPropRotationTracks.length, 0,
-    "bow orientation must still follow the attached grip rather than a second rotation");
-  assert.ok(bowSlide, "the bow stick must slide through the grip on measured stroke timing");
-  assert.equal(bowSlide.music_sync_event, "performer_bow_stroke");
-  const slidePixels = bowSlide.values.map(value => Number.parseFloat(String(value)));
-  assert.ok(Math.max(...slidePixels) - Math.min(...slidePixels) >= 38,
-    "measured bow travel must span at least 38 source pixels across the strings");
+  assert.equal(bowPropMotionTracks.length, 0,
+    "the bow must not receive an independent rotation or translation that can break its grip");
+  assert.equal(tracks.filter(track => track.music_sync_event === "performer_bow_stroke").length, 3,
+    "the three bow-stroke cues belong to the shoulder, elbow and wrist chain");
   assert.equal(fingerboardArmTracks.length, 0,
     "the violin-neck arm must not drift away from its contact point");
-  assert.ok(indexFinger && ringFinger && littleFinger);
+  assert.ok(indexFinger && middleFinger && ringFinger && littleFinger);
+  const noteAssignments = indexFinger.music_sync_fingering_map;
+  assert.deepEqual(noteAssignments.map(item => item.status),
+    ["open_string", "first_position", "first_position", "first_position", "first_position"]);
+  assert.deepEqual(noteAssignments.map(item => item.string), ["D", "D", "A", "E", "E"]);
+  assert.deepEqual(noteAssignments.map(item => item.finger),
+    [null, "finger_ring", "finger_middle", "finger_index", "finger_little"]);
+  assert.equal(indexFinger.music_sync_fingering_summary.status, "first_position_mapped");
+  assert.equal(indexFinger.music_sync_fingering_summary.open_string_note_count, 1);
   assert.equal(bowShoulder.music_sync_event, "performer_bow_stroke");
   assert.equal(elbow.music_sync_event, "performer_bow_stroke");
   assert.equal(indexFinger.music_sync_event, "performer_finger_note");
   assert.equal(indexFinger.music_sync_timing_source, "validated_audio_event_map");
-  assert.equal(tracks.filter(track => track.music_sync_event === "performer_bow_stroke").length, 4);
+  assert.equal(tracks.filter(track => track.music_sync_event === "performer_bow_stroke").length, 3,
+    "the source builder emits shoulder, elbow and wrist cues; the attached prop transform is added by the hierarchy compiler");
   assert.equal(tracks.filter(track => track.music_sync_event === "performer_finger_note").length, 12);
   assert.equal(tracks.filter(track => track.music_sync_event === "performer_weight_shift").length, 6);
-  assert.ok(indexFinger.key_times.includes(0.268));
-  assert.ok(ringFinger.key_times.includes(1.286));
-  assert.ok(littleFinger.key_times.includes(1.795));
+  assert.ok(ringFinger.key_times.includes(0.768));
+  assert.ok(middleFinger.key_times.includes(1.268));
+  assert.ok(indexFinger.key_times.includes(1.768));
+  assert.ok(littleFinger.key_times.includes(2.268));
   assert.ok(Math.max(...bowShoulder.values.map(Math.abs)) <= 7.0);
   assert.ok(Math.max(...elbow.values.map(Math.abs)) <= 8.2);
   assert.ok(Math.max(...torso.values.map(Math.abs)) <= 3.4 &&
@@ -373,19 +429,61 @@ test("compileMotionTracks consumes audio beat maps for bow, arm and finger motio
   assert.equal(presenterSyncTracks.filter(track =>
     track.music_sync_event === "performer_weight_shift").length, 6);
   assert.ok(presenterSyncTracks.every(track =>
-    (track.property === "transform" ||
-      (track.target === "playing-violin-prince-prop-bow" && track.property === "translate")) &&
+    track.property === "transform" &&
     track.music_sync_timing_source === "decoded_audio_spectral_flux_autocorrelation"
-  ), "sync provenance must survive on all final frame-seekable presenter tracks");
+  ), "sync provenance must survive on all final frame-seekable presenter transforms");
+  assert.equal(presenterSyncTracks.filter(track =>
+    track.target === "playing-violin-prince-prop-bow" && track.property === "translate"
+  ).length, 0, "the bow must not translate independently of the bowing hand");
 
   const bowTransform = getTrack(musicTracks, "playing-violin-prince-prop-bow", "transform");
+  const bowHandTransform = getTrack(musicTracks, "playing-violin-prince-part-left_hand", "transform");
   assert.ok(bowTransform && bowTransform.values.some(value => value !== bowTransform.values[0]),
     "bow follows the articulated bowing-hand parent");
-  const bowSlide = getTrack(musicTracks, "playing-violin-prince-prop-bow", "translate");
-  assert.ok(bowSlide, "the bow receives a measured cross-string slide track");
-  const slideValues = bowSlide.values.map(value => Number.parseFloat(String(value)));
-  assert.ok(Math.max(...slideValues) - Math.min(...slideValues) >= 26,
-    "the bow slide remains visibly measurable after timeline compilation");
+  assert.equal(bowTransform.music_sync_event, "performer_bow_stroke");
+  assert.ok(bowHandTransform, "the hand transform is available for the grip-attachment check");
+
+  const matrixPoint = (value, point, scale, layer) => {
+    const match = String(value).match(/^matrix\(([^)]+)\)$/);
+    assert.ok(match, "hierarchical transforms must be affine CSS matrices");
+    const [a,b,c,d,e,f] = match[1].split(",").map(Number);
+    return {
+      x: Number(layer.x) * scale + a * point.x * scale + c * point.y * scale + e,
+      y: Number(layer.y) * scale + b * point.x * scale + d * point.y * scale + f
+    };
+  };
+  const character = project.characters[0];
+  const bow = character.props.bow;
+  const hand = character.layers.find(layer => layer.role === "left_hand");
+  const scale = fitCharacterToCanvas(character, project.width, project.height).scale;
+  const grip = { x: bow.pivot_x * bow.width, y: bow.pivot_y * bow.height };
+  const handGrip = {
+    x: bow.x + grip.x - hand.x,
+    y: bow.y + grip.y - hand.y
+  };
+  const gripErrors = bowTransform.values.map((value, index) => {
+    const bowPoint = matrixPoint(value, grip, scale, bow);
+    const handPoint = matrixPoint(bowHandTransform.values[index], handGrip, scale, hand);
+    return Math.hypot(bowPoint.x - handPoint.x, bowPoint.y - handPoint.y);
+  });
+  assert.ok(Math.max(...gripErrors) < 0.05,
+    "the bow grip must stay locked to the same point on the bowing hand in every frame");
+
+  const rawAxis = bow.stroke_axis;
+  const axisLength = Math.hypot(rawAxis.x, rawAxis.y);
+  const axis = { x: rawAxis.x / axisLength, y: rawAxis.y / axisLength };
+  const limits = [];
+  if (axis.x > 1e-6) limits.push((bow.width - grip.x) / axis.x);
+  if (axis.x < -1e-6) limits.push((0 - grip.x) / axis.x);
+  if (axis.y > 1e-6) limits.push((bow.height - grip.y) / axis.y);
+  if (axis.y < -1e-6) limits.push((0 - grip.y) / axis.y);
+  const tipDistance = Math.min(...limits.filter(value => Number.isFinite(value) && value > 0));
+  const tip = { x: grip.x + axis.x * tipDistance, y: grip.y + axis.y * tipDistance };
+  const tipPositions = bowTransform.values.map(value => matrixPoint(value, tip, scale, bow));
+  const tipXRange = Math.max(...tipPositions.map(point => point.x)) - Math.min(...tipPositions.map(point => point.x));
+  const tipYRange = Math.max(...tipPositions.map(point => point.y)) - Math.min(...tipPositions.map(point => point.y));
+  assert.ok(Math.hypot(tipXRange, tipYRange) >= 26,
+    "the attached bow tip must travel visibly through the arm chain across the strings");
 });
 
 test("sampled note pitches select finger layers and music cues counterbalance the full body", () => {
@@ -718,7 +816,7 @@ test("segmented composite body keeps modular head plates attached to neck motion
 });
 
 
-test("fingerboard notes retain lower-finger contact and sustain presses for note duration", () => {
+test("fingerboard notes select the mapped string and one finger, then sustain that press", () => {
   const tracks = buildMusicSynchronizedPerformanceTracks({
     targetPrefix: "finger-test",
     duration: 2,
@@ -743,25 +841,28 @@ test("fingerboard notes retain lower-finger contact and sustain presses for note
   ]);
   assert.ok(fingerSegments.every(Boolean), "all four fingers need base, middle and tip tracks");
 
-  // The high register note prepares/presses the index, middle, ring and
-  // little fingers together rather than flicking a single arbitrary finger.
-  for (const track of fingerSegments) {
-    assert.ok(track.key_times.some(time => time >= 0.60 && time <= 0.66));
-    assert.ok(track.values.some(value => Math.abs(Number(value)) > 0.5));
-  }
-  for (const digit of digits) {
+  const map = getFinger("finger_index").music_sync_fingering_map;
+  assert.deepEqual(map.map(item => ({ string: item.string, finger: item.finger })),
+    [{ string: "G", finger: "finger_ring" }, { string: "A", finger: "finger_middle" }]);
+
+  for (const digit of ["ring", "middle"]) {
     const base = getFinger("finger_" + digit);
     const middle = getFinger("finger_" + digit + "_middle");
     const tip = getFinger("finger_" + digit + "_tip");
+    assert.ok(base.key_times.some(time => time >= (digit === "ring" ? 0.10 : 0.60) &&
+      time <= (digit === "ring" ? 0.16 : 0.66)));
     const maxCombinedCurl = Math.max(...base.values.map((value, i) =>
       Math.abs(Number(value)) + Math.abs(Number(middle.values[i] || 0)) +
       Math.abs(Number(tip.values[i] || 0))
     ));
     assert.ok(maxCombinedCurl > 4, digit + " phalanges should combine to a visible press");
   }
-  const index = getFinger("finger_index");
-  // The second note is sustained; its press/release cycle must outlast the short note.
-  const indexLateKeys = index.key_times.filter(time => time > 0.7);
-  assert.ok(indexLateKeys.some(time => time > 1.1),
-    "long note holds the finger position before the release and settle");
+  for (const digit of ["index", "little"]) {
+    assert.ok(getFinger("finger_" + digit).values.every(value => Number(value) === 0),
+      digit + " must not be curled for notes assigned to other fingers");
+  }
+
+  const middle = getFinger("finger_middle");
+  assert.ok(middle.key_times.some(time => time > 1.1),
+    "the long A-string second-finger note holds before its release and settle");
 });
