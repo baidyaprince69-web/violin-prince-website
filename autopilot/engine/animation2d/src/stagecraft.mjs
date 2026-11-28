@@ -18,11 +18,14 @@ function color(value, fallback) {
   if (!/^#[0-9a-fA-F]{6}$/.test(String(value))) throw new TypeError("Stagecraft colours must be six-digit hexadecimal values.");
   return String(value);
 }
-function createNode(sceneId, id, x, y, content, motion, amplitude, period) {
-  return { id: sceneId + "-stagecraft-" + safeId(id), x, y, content, motion, amplitude, period };
+function createNode(sceneId, id, x, y, content, motion, amplitude, period, depthPlane = "midground") {
+  return {
+    id: sceneId + "-stagecraft-" + safeId(id),
+    x, y, content, motion, amplitude, period, depthPlane
+  };
 }
 function nodeMarkup(item) {
-  const depth = item.id.includes("-depth-foreground-") ? "foreground" : "midground";
+  const depth = item.depthPlane || "midground";
   return '<g transform="translate(' + item.x.toFixed(1) + ' ' + item.y.toFixed(1) + ')"><g class="stagecraft-node stagecraft-node--' + depth +
     '" data-depth-plane="' + depth + '" id="' + escape(item.id) + '">' + item.content + '</g></g>';
 }
@@ -32,7 +35,10 @@ function environmentFor(scene, width, height) {
   const sceneId = safeId(scene.id);
   const nodes = [];
   const add = (id, x, y, content, motion, amplitude = 22, period = 3.5) =>
-    nodes.push(createNode(sceneId, id, x * width, y * height, content, motion, amplitude, period));
+    nodes.push(createNode(
+      sceneId, id, x * width, y * height, content, motion, amplitude, period,
+      String(id).includes("depth-foreground-") ? "foreground" : "midground"
+    ));
   let top, bottom, accent, base = "";
 
   if (theme === "city_night") {
@@ -285,6 +291,10 @@ function allSceneNodes(scene, width, height) {
     if (!MOTIONS.has(motion)) throw new TypeError("Unsupported stagecraft object motion: " + motion);
     const colour = color(item.color, "#79d6d0");
     const size = bounded(item.size, 24, 8, 260);
+    const depthPlane = String(item.depth_plane || "midground").toLowerCase();
+    if (!["background", "midground", "foreground"].includes(depthPlane)) {
+      throw new TypeError("Stagecraft object depth_plane must be background, midground or foreground.");
+    }
     return createNode(
       safeId(scene.id), "object-" + key,
       bounded(item.x, .5, 0, 1) * width,
@@ -292,7 +302,8 @@ function allSceneNodes(scene, width, height) {
       objectShape(kind, size, colour),
       motion,
       bounded(item.amplitude, Math.max(16, size), 2, Math.max(width, height) * .8),
-      bounded(item.period_seconds, 3.5, .6, 30)
+      bounded(item.period_seconds, 3.5, .6, 30),
+      depthPlane
     );
   });
   return { env, objects };
@@ -303,28 +314,43 @@ export function stagecraftMotionNodeIds(scene) {
   return [...env.nodes, ...objects].map(item => item.id);
 }
 export function stagecraftNodeCounts(scene) {
-  if (!scene?.stagecraft) return { environment: 0, objects: 0, foreground_depth: 0, total: 0 };
+  if (!scene?.stagecraft) return {
+    environment: 0, objects: 0, background_depth: 0, midground_depth: 0,
+    foreground_depth: 0, total: 0
+  };
   const { env, objects } = allSceneNodes(scene, 720, 1280);
-  const foregroundDepth = env.nodes.filter(item => item.id.includes("-depth-foreground-")).length;
+  const nodes = [...env.nodes, ...objects];
   return {
     environment: env.nodes.length,
     objects: objects.length,
-    foreground_depth: foregroundDepth,
-    total: env.nodes.length + objects.length
+    background_depth: 1 + nodes.filter(item => item.depthPlane === "background").length,
+    midground_depth: nodes.filter(item => item.depthPlane === "midground").length,
+    foreground_depth: nodes.filter(item => item.depthPlane === "foreground").length,
+    total: nodes.length
   };
 }
 export function renderStagecraftMarkup(scene, width = 720, height = 1280, sceneIndex = 0) {
   if (!scene?.stagecraft) return "";
   const { env, objects } = allSceneNodes(scene, width, height);
-  const nodes = [...env.nodes, ...objects].map(nodeMarkup).join("");
+  const nodes = [...env.nodes, ...objects];
+  const sceneId = safeId(scene.id);
   const start = Math.max(0, Number(scene.start) || 0);
   const duration = Math.max(.1, Number(scene.duration) || 1);
-  const elementId = safeId(scene.id) + "-stagecraft";
+  const elementId = sceneId + "-stagecraft";
+  const depthPlane = (plane, content) =>
+    '<g class="stagecraft-depth-plane stagecraft-depth-plane--' + plane +
+    '" data-depth-plane="' + plane + '" id="' + sceneId + '-stagecraft-plane-' + plane + '">' +
+    content + '</g>';
+  const background = depthPlane("background", env.base);
+  const midground = depthPlane("midground",
+    nodes.filter(item => item.depthPlane === "midground").map(nodeMarkup).join(""));
+  const foreground = depthPlane("foreground",
+    nodes.filter(item => item.depthPlane === "foreground").map(nodeMarkup).join(""));
   return '<div class="clip scene-stagecraft scene-stagecraft--' + env.theme +
     '" id="' + elementId + '" data-start="' + start + '" data-duration="' + duration +
     '" data-track-index="' + (5 + sceneIndex * 3) + '" aria-hidden="true">' +
     '<svg viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="xMidYMid slice">' +
-    env.defs + env.base + nodes + '</svg></div>';
+    env.defs + background + midground + foreground + '</svg></div>';
 }
 export function renderStagecraftForegroundMarkup(scene, width = 720, height = 1280, sceneIndex = 0) {
   if (String(scene?.stagecraft?.environment || "").toLowerCase() !== "concert_stage") return "";
