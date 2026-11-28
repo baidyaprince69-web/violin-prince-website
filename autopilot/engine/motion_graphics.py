@@ -544,7 +544,7 @@ def make_motion_graphic_frames(
     font: Callable[..., object],
     word_events: list[dict] | None = None,
 ) -> Path:
-    """Render a scene-specific, word-driven graphic with deterministic spring motion."""
+    """Render a transparent, direct-on-footage graphic with word-driven motion."""
     target = Path(target_dir)
     target.mkdir(parents=True, exist_ok=True)
     width, height = 620, 260
@@ -619,41 +619,14 @@ def make_motion_graphic_frames(
         headline_reveal = _spring_response(local_time - headline_at, 16.0, 0.94)
         detail_reveal = _spring_response(local_time - detail_at, 13.0, 0.98)
 
-        # A compact, restrained light pool adds separation inside the panel only.
-        haze = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-        haze_draw = ImageDraw.Draw(haze)
-        glow_x = int(470 + math.sin(phase * 0.7) * 12)
-        glow_alpha = int(18 + pulse * 8)
-        haze_draw.ellipse(
-            (glow_x - 100, 8, glow_x + 100, 172),
-            fill=(70, 184, 181, glow_alpha),
-        )
-        haze = haze.filter(ImageFilter.GaussianBlur(38))
-
+        # Keep the canvas transparent: no backing plate, glow plate, border, or fill.
+        # The graphic and typography remain separate marks composited over footage.
         image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
         draw = ImageDraw.Draw(image)
-        draw.rounded_rectangle(
-            (4, 4, width - 4, height - 4),
-            radius=22,
-            fill=(5, 11, 23, 206),
-            outline=(174, 194, 207, 112),
-            width=1,
-        )
-        draw.line((28, 12, width - 28, 12), fill=(235, 202, 139, 100), width=1)
-        draw.rounded_rectangle((28, 30, 32, 57), radius=2, fill=(74, 190, 185, 235))
-        image = Image.alpha_composite(image, haze)
-        draw = ImageDraw.Draw(image)
 
-        # The illustration remains in one fixed visual stage; its focus moves on
-        # selected spoken words. Each mode keeps its own source-grounded diagram.
-        draw.rounded_rectangle(
-            (350, 25, 590, 139),
-            radius=16,
-            fill=(11, 22, 37, 115),
-            outline=(160, 184, 200, 80),
-            width=1,
-        )
-        left, right = 372, 568
+        # The illustration sits directly on the scene in a clear right-side area.
+        # Its focus moves on selected spoken words without any backing container.
+        left, right = 372, 588
         top, bottom = 42, 122
         teal = (74, 190, 185, 235)
         gold = (235, 202, 139, 245)
@@ -773,13 +746,15 @@ def make_motion_graphic_frames(
         label_alpha = int(230 * label_reveal)
         label_x = 48 - int(5 * (1.0 - label_reveal))
         draw.text((label_x, 31 + int(5 * (1.0 - label_reveal))), label,
-                  font=label_font, fill=(235, 202, 139, label_alpha))
+                  font=label_font, fill=(235, 202, 139, label_alpha),
+                  stroke_width=1, stroke_fill=(5, 11, 23, 170))
         headline_alpha = int(255 * headline_reveal)
         headline_x = 48 - int(9 * (1.0 - headline_reveal))
         headline_y = 76 + int(8 * (1.0 - headline_reveal))
         for line in headline_lines:
             draw.text((headline_x, headline_y), line, font=headline_font,
-                      fill=(255, 250, 241, headline_alpha))
+                      fill=(255, 250, 241, headline_alpha),
+                      stroke_width=1, stroke_fill=(5, 11, 23, 190))
             headline_y += 34
 
         detail_alpha = int(245 * detail_reveal)
@@ -789,7 +764,8 @@ def make_motion_graphic_frames(
             if detail_y > 218:
                 break
             draw.text((detail_x, detail_y), line, font=detail_font,
-                      fill=(191, 202, 214, detail_alpha))
+                      fill=(191, 202, 214, detail_alpha),
+                      stroke_width=1, stroke_fill=(5, 11, 23, 180))
             detail_y += 19
 
         # The indicator advances at chosen spoken content words and settles smoothly.

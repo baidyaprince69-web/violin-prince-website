@@ -4166,19 +4166,16 @@ def make_card(source, caption, index, title="", total_scenes=3):
     canvas.convert("RGB").save(p, "PNG", optimize=True)
     return p
 
-def make_motion_graphic_card(scene, index, plan, target):
-    """Create a transparent, source-grounded infographic panel for one story beat."""
+def make_motion_graphic_overlay(scene, index, plan, target):
+    """Create a transparent, direct-on-footage information overlay for one story beat."""
     width, height = 620, 245
     image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
     gold = (235, 202, 139, 255)
     ivory = (255, 250, 241, 255)
     muted = (191, 202, 214, 255)
-    draw.rounded_rectangle(
-        (4, 4, width - 4, height - 4), radius=24,
-        fill=(7, 13, 24, 222), outline=(235, 202, 139, 220), width=2
-    )
-    draw.rounded_rectangle((24, 26, 32, height - 26), radius=4, fill=gold)
+    # Keep the overlay transparent; accent rules and text float directly over footage.
+    draw.line((30, 28, 30, height - 28), fill=gold, width=2)
     label = re.sub(r"\s+", " ", str(scene.get("graphic_label") or ("STORY BEAT " + str(index + 1)))).strip().upper()
     label = textwrap.shorten(label, width=30, placeholder="…")
     draw.text((54, 25), f"{index + 1:02d}  /  03     {label}", font=font(16, "medium"), fill=gold)
