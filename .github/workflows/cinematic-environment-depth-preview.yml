@@ -1,0 +1,108 @@
+name: Cinematic Environment Depth Preview
+
+on:
+  pull_request:
+    branches:
+      - feat/violin-performance-fidelity
+    paths:
+      - "autopilot/engine/animation2d/src/stagecraft.mjs"
+      - "autopilot/engine/animation2d/test/stagecraft-animation.test.mjs"
+      - "autopilot/engine/animation2d/test/fixtures/environment-depth-preview.json"
+      - ".github/workflows/cinematic-environment-depth-preview.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cinematic-environment-depth-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  render-environment-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PUBLISH_ENABLED: "false"
+      AUTOPILOT_ENABLED: "false"
+      MASTER_DIRECTOR_VISUAL_REVIEW_APPROVED: "false"
+      HYPERFRAMES_NO_UPDATE_CHECK: "1"
+      CI: "true"
+    steps:
+      - name: Check out preview source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Motion and HyperFrames
+        working-directory: autopilot/engine/animation2d
+        run: npm install --no-audit --no-fund
+
+      - name: Build the six-environment composition
+        working-directory: autopilot/engine/animation2d
+        run: |
+          node build.mjs \
+            --project test/fixtures/environment-depth-preview.json \
+            --out-dir "$RUNNER_TEMP/environment-depth-composition"
+          "$GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes" lint \
+            "$RUNNER_TEMP/environment-depth-composition"
+
+      - name: Install bundled FFmpeg and FFprobe
+        run: |
+          TOOLS_DIR="$RUNNER_TEMP/media-tools"
+          mkdir -p "$TOOLS_DIR"
+          npm install --prefix "$TOOLS_DIR" --no-save --no-package-lock ffmpeg-static ffprobe-static
+          FFMPEG_EXE="$(node -p "require('$TOOLS_DIR/node_modules/ffmpeg-static')")"
+          FFPROBE_EXE="$(node -p "require('$TOOLS_DIR/node_modules/ffprobe-static').path")"
+          ln -sf "$FFMPEG_EXE" "$TOOLS_DIR/ffmpeg"
+          ln -sf "$FFPROBE_EXE" "$TOOLS_DIR/ffprobe"
+          echo "$TOOLS_DIR" >> "$GITHUB_PATH"
+          "$TOOLS_DIR/ffmpeg" -version | head -n 1
+          "$TOOLS_DIR/ffprobe" -version | head -n 1
+
+      - name: Render environment-only review video
+        working-directory: ${{ runner.temp }}/environment-depth-composition
+        run: |
+          "$GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes" render \
+            --output "$RUNNER_TEMP/cinematic-environment-depth-preview.mp4" \
+            --fps 25 \
+            --quality standard
+
+      - name: Verify video and create six-scene contact sheet
+        run: |
+          mkdir -p "$RUNNER_TEMP/environment-depth-review"
+          ffprobe -v error -select_streams v:0 \
+            -show_entries stream=codec_name,width,height,r_frame_rate,duration \
+            -of json "$RUNNER_TEMP/cinematic-environment-depth-preview.mp4" \
+            > "$RUNNER_TEMP/environment-depth-review/video-probe.json"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("$RUNNER_TEMP/environment-depth-review/video-probe.json").read_text())
+          assert len(report.get("streams", [])) == 1, report
+          stream = report["streams"][0]
+          assert stream.get("codec_name") == "h264", stream
+          assert (stream.get("width"), stream.get("height")) == (720, 1280), stream
+          assert stream.get("r_frame_rate") == "25/1", stream
+          duration = float(stream.get("duration") or 0)
+          assert abs(duration - 18.0) <= .12, stream
+          print("Verified 18-second, 720x1280, 25 fps H.264 environment-only preview.")
+          PY
+          ffmpeg -hide_banner -loglevel error -y \
+            -i "$RUNNER_TEMP/cinematic-environment-depth-preview.mp4" \
+            -vf "fps=1/3,scale=360:-1,tile=3x2:padding=12:margin=12" \
+            -frames:v 1 "$RUNNER_TEMP/environment-depth-review/six-scene-contact-sheet.jpg"
+          cp "$RUNNER_TEMP/cinematic-environment-depth-preview.mp4" \
+            "$RUNNER_TEMP/environment-depth-review/"
+          cp "$RUNNER_TEMP/environment-depth-composition/motion-report.json" \
+            "$RUNNER_TEMP/environment-depth-review/"
+
+      - name: Upload environment-only review evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: cinematic-environment-depth-review-${{ github.run_number }}
+          path: ${{ runner.temp }}/environment-depth-review/
+          if-no-files-found: error
+          retention-days: 3
