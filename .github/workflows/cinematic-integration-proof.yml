@@ -6,6 +6,7 @@ on:
       - feat/premium-cinematic-integration-proof
     paths:
       - ".github/workflows/cinematic-integration-proof.yml"
+      - "autopilot/engine/**"
   workflow_dispatch:
 
 permissions:
