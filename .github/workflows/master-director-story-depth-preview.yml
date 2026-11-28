@@ -229,6 +229,19 @@ jobs:
         working-directory: autopilot/engine/animation2d
         run: npm test
 
+      - name: Install bundled FFmpeg and FFprobe
+        run: |
+          TOOLS_DIR="$RUNNER_TEMP/media-tools"
+          mkdir -p "$TOOLS_DIR"
+          npm install --prefix "$TOOLS_DIR" --no-save --no-package-lock ffmpeg-static ffprobe-static
+          FFMPEG_EXE="$(node -p "require('$TOOLS_DIR/node_modules/ffmpeg-static')")"
+          FFPROBE_EXE="$(node -p "require('$TOOLS_DIR/node_modules/ffprobe-static').path")"
+          ln -sf "$FFMPEG_EXE" "$TOOLS_DIR/ffmpeg"
+          ln -sf "$FFPROBE_EXE" "$TOOLS_DIR/ffprobe"
+          echo "$TOOLS_DIR" >> "$GITHUB_PATH"
+          "$TOOLS_DIR/ffmpeg" -version | head -n 1
+          "$TOOLS_DIR/ffprobe" -version | head -n 1
+
       - name: Build and lint the story-specific multi-plane composition
         working-directory: autopilot/engine/animation2d
         run: |
@@ -247,19 +260,6 @@ jobs:
           $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes lint
           $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes render \
             --output ../full-body-master-director-video-only.mp4 --fps 25 --quality standard
-
-      - name: Install bundled FFmpeg and FFprobe
-        run: |
-          TOOLS_DIR="$RUNNER_TEMP/media-tools"
-          mkdir -p "$TOOLS_DIR"
-          npm install --prefix "$TOOLS_DIR" --no-save --no-package-lock ffmpeg-static ffprobe-static
-          FFMPEG_EXE="$(node -p "require('$TOOLS_DIR/node_modules/ffmpeg-static')")"
-          FFPROBE_EXE="$(node -p "require('$TOOLS_DIR/node_modules/ffprobe-static').path")"
-          ln -sf "$FFMPEG_EXE" "$TOOLS_DIR/ffmpeg"
-          ln -sf "$FFPROBE_EXE" "$TOOLS_DIR/ffprobe"
-          echo "$TOOLS_DIR" >> "$GITHUB_PATH"
-          "$TOOLS_DIR/ffmpeg" -version | head -n 1
-          "$TOOLS_DIR/ffprobe" -version | head -n 1
 
       - name: Mix the CC0 guide and verify the complete Director sequence
         env:
