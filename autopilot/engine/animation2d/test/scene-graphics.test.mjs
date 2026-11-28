@@ -107,6 +107,16 @@ try {
   assert.ok(html.includes("DMSans"), "Premium supporting typography must be bundled into the composition");
   assert.ok(html.includes("scene-caption--intro"), "The opening hook should use its own caption treatment");
   assert.ok(html.includes("motion-graphic--with-presenter"), "The explainer should use the editorial split layout");
+  const graphicRule = html.match(new RegExp("\\.motion-graphic\\{([^}]*)\\}"))?.[1] || "";
+  assert.ok(graphicRule.includes("background:none"), "Graphics must sit directly over the footage");
+  assert.ok(graphicRule.includes("border:0"), "The graphic treatment must not draw a backing border");
+  assert.ok(graphicRule.includes("box-shadow:none"), "The graphic treatment must not create a panel shadow");
+  assert.ok(!graphicRule.includes("background:linear-gradient"), "No glass or filled information panel is allowed");
+  const indexRule = html.match(new RegExp("\\.graphic-node-index\\{([^}]*)\\}"))?.[1] || "";
+  assert.ok(indexRule.includes("background:none") && indexRule.includes("border:0"),
+    "Step numbers must be unboxed editorial typography, not badge cards");
+  assert.ok(html.includes(".scene-background--presenter-layout{filter:none}"),
+    "A presenter split must not blur or dim the cinematic environment");
   assert.ok(html.includes("visual-motif--rings"), "Macro illustration scenes should get the animated motif layer");
   assert.ok(html.includes("explainer-violin-prince"), "The presenter must render in the combined explanatory scene");
   assert.ok(html.includes("motion-graphic--with-presenter"), "The diagram must use the presenter-aware split layout");

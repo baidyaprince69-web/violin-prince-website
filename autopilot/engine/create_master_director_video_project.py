@@ -156,15 +156,18 @@ def create_master_director_video_project(base_project_path:str|Path,director_pla
         scene_cues=[copy.deepcopy(cue)
                     for cue in cues if start-1e-5<=cue["time_seconds"]<end-1e-5]
         transition="cut" if index==0 else str(shots[index-1]["transition_to_next"])
+        shot_action=shot.get("character_action")
+        if not isinstance(shot_action,dict) or not isinstance(shot_action.get("visible"),bool):
+            raise DirectorVideoProjectError(f"{shot_id} needs an explicit character_action.visible decision.")
         action=copy.deepcopy(base_action)
+        action.update(copy.deepcopy(shot_action))
         action.update({
-          "visible":True,"appear_immediately":True,"gesture":"violin_performance",
-          "instrument_performance":True,"expression":"focused","head_angle":"front","head_expression":"focused",
-          "loop":True,"cycle_duration_seconds":2.4,"start_offset":0.0,
+          "instrument_performance":True,
           "music_sync":slice_sync(sync,start,end),
         })
-        for field in ("x","y","scale","root_motion"):
-            if field in base_action: action[field]=copy.deepcopy(base_action[field])
+        action.setdefault("start_offset",0.0)
+        if action["visible"] is True:
+            action["appear_immediately"]=True
         scene={
           "id":"director-"+shot_id,"start":start,"duration":duration,
           "visual_mode":"full_body_performance","background_color":plan["visual_concept"]["palette"]["dominant"],
@@ -183,7 +186,14 @@ def create_master_director_video_project(base_project_path:str|Path,director_pla
           "music_cue":str(shot.get("music_cue") or ""),
           "transition_to_next":str(shot.get("transition_to_next") or "none"),
         }
-        if shot.get("graphic_data") is not None: scene["graphic_data"]=copy.deepcopy(shot["graphic_data"])
+        if shot.get("graphic_data") is not None:
+            scene["graphic_data"]=copy.deepcopy(shot["graphic_data"])
+            if action["visible"] is True:
+                scene["visual_composition"]={"layout":"graphic_left_presenter_right"}
+                if "x" not in shot_action: action["x"]=315
+                if "scale" not in shot_action: action["scale"]=0.56
+            else:
+                scene["visual_composition"]={"layout":"graphic_full_overlay"}
         scenes.append(scene)
     project["scenes"]=scenes
     project["render_mode"]="preview_only"

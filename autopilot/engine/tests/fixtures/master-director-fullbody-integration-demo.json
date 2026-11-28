@@ -190,7 +190,7 @@
         "visual_subject": "Shorter string, higher pitch",
         "setting": "A precise laboratory-like grid showing a vibrating span becoming shorter",
         "visual_description": "Two luminous nodes move closer along a measured line; the oscillation cycles tighten and a higher-position marker illuminates.",
-        "composition": "Medium close framing; a central horizontal line leaves clear space for a two-step explanatory card.",
+        "composition": "Medium close framing; a central horizontal line leaves clean negative space for a two-step explanatory typography treatment directly over the laboratory grid.",
         "camera": {
           "shot_size": "medium",
           "angle": "straight-on technical view",
@@ -200,7 +200,7 @@
         "animation": {
           "subject_action": "Two endpoints slide inward, shortening the active vibrating segment.",
           "environment_motion": "A measurement grid scrolls subtly behind the moving nodes.",
-          "graphic_action": "Two labels compare longer and shorter active string lengths.",
+          "graphic_action": "Two concise labels resolve directly over the moving grid; no backing panel or box.",
           "depth_motion": "The near marker moves faster than the rear grid.",
           "motion_rationale": "It makes the relationship between free vibrating length and pitch visible."
         },
@@ -240,7 +240,7 @@
           ]
         },
         "character_action": {
-          "visible": true,
+          "visible": false,
           "gesture": "violin_performance",
           "expression": "focused",
           "loop": true,
@@ -320,7 +320,7 @@
           ]
         },
         "character_action": {
-          "visible": true,
+          "visible": false,
           "gesture": "violin_performance",
           "expression": "focused",
           "loop": true,
@@ -341,7 +341,7 @@
         "visual_subject": "The plates move together",
         "setting": "A night city of layered structures connected by moving light paths",
         "visual_description": "Two broad structures pulse in a coordinated pattern while a smaller central connector rocks between them.",
-        "composition": "Overhead medium-wide view with the paired plates separated vertically and the connector held in the centre.",
+        "composition": "Overhead medium-wide view with paired plates separated vertically and the connector centred; unboxed labels sit in clear negative space.",
         "camera": {
           "shot_size": "overhead",
           "angle": "top-down structural view",
@@ -351,7 +351,7 @@
         "animation": {
           "subject_action": "The paired surfaces pulse at slightly different phases while the connecting signal rocks.",
           "environment_motion": "City haze drifts behind the structural layers and traffic streaks move below.",
-          "graphic_action": "A small two-label marker distinguishes top and back plates.",
+          "graphic_action": "Unboxed labels identify the top and back plates while the connecting signal remains visible.",
           "depth_motion": "The foreground traffic line travels faster than the skyline haze.",
           "motion_rationale": "It shows that the soundpost and bass bar help distribute and couple vibration through the structure."
         },
@@ -391,7 +391,7 @@
           ]
         },
         "character_action": {
-          "visible": true,
+          "visible": false,
           "gesture": "violin_performance",
           "expression": "focused",
           "loop": true,
@@ -471,7 +471,7 @@
           ]
         },
         "character_action": {
-          "visible": true,
+          "visible": false,
           "gesture": "violin_performance",
           "expression": "focused",
           "loop": true,
@@ -492,7 +492,7 @@
         "visual_subject": "Sound travels through the air",
         "setting": "A concert stage filled with travelling pressure-wave symbols",
         "visual_description": "A wave-like sequence of particles travels from the resonant centre toward the edges, with each moving pulse following the last.",
-        "composition": "Wide portrait frame with a central source and a clear outward path toward both sides.",
+        "composition": "Wide portrait frame with a central source and a clear outward path; reserve open space above the wave for direct-on-footage typography.",
         "camera": {
           "shot_size": "wide",
           "angle": "audience-level view",
@@ -502,7 +502,7 @@
         "animation": {
           "subject_action": "The source pulses while small objects travel outward in succession.",
           "environment_motion": "Spotlights sway in the stage haze.",
-          "graphic_action": "A simple waveform line reveals the pressure-wave sequence.",
+          "graphic_action": "A thin waveform line and one direct title reveal the travelling pressure wave.",
           "depth_motion": "Foreground sparks cross the near plane while the wave recedes.",
           "motion_rationale": "The motion turns the sound wave into a visible travelling disturbance rather than a static symbol."
         },
@@ -542,7 +542,7 @@
           ]
         },
         "character_action": {
-          "visible": true,
+          "visible": false,
           "gesture": "violin_performance",
           "expression": "focused",
           "loop": true,
@@ -636,7 +636,7 @@
   "edit_direction": {
     "pacing": "Open on a single pulse, move through the mechanism in distinct four-second beats, and resolve on one final orbit.",
     "transition_language": "Match motion direction for continuity, use one whip-pan reveal, a restrained dissolve, then a shape match into the payoff.",
-    "typography": "Phone-readable editorial titles with short captions outside the primary motion path.",
+    "typography": "Phone-readable editorial typography and animated line graphics directly over the footage; no cards, glass panels, backing boxes, filled containers or information plates. Use negative space and restrained text shadows only.",
     "sound_design": "A light original percussive tick for reveals, soft air sweeps for travelling waves and restrained woody accents for transfer points.",
     "music_mood": "Original warm cinematic ambient score, curious at first and more open by the final wave.",
     "music_sync_cues": [

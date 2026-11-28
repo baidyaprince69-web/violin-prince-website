@@ -197,6 +197,8 @@ class MasterCreativeDirectorTests(unittest.TestCase):
         })
         self.assertIn("colour theory", request["system"])
         self.assertIn("Do not blindly reuse a fixed", request["system"])
+        self.assertIn("Never create a card, panel, glass surface, backing box", request["system"])
+        self.assertIn("character_action.visible is a per-shot editorial decision", request["system"])
         self.assertIn('"creator_preferences":{}', request["user"])
 
     def test_request_requires_verified_sources(self):

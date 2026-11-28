@@ -113,10 +113,18 @@ PROCEDURAL ENGINE LIMITS:
   expressions: focused, neutral, happy, surprised. Do not request unsupported
   walking, dancing, speaking or generic presenter gestures for this route.
 - Optional graphic_data is one of process_flow, signal_path, comparison,
-  arch_heights or waveform. Use 2–4 factual items where required; omit it
-  when a card would add clutter. A card automatically occupies the left column
-  while the presenter is moved to the right safe area; point across to the card
-  when useful and never overlap the presenter with essential labels.
+  arch_heights or waveform. Use 2–4 factual items where required. Render every
+  graphic as typography, lines, markers, bars or a waveform directly over the
+  moving scene. Never create a card, panel, glass surface, backing box, filled
+  container or rectangular information plate. Keep numbers and labels unboxed;
+  use only restrained text shadow/outline for contrast. Place overlays in
+  genuine negative space and never cover the subject or instrument.
+- character_action.visible is a per-shot editorial decision, not a default.
+  Show the Violin Prince only when the story benefits from seeing the actual
+  performer or instrument; use environment, mechanism and abstract shots
+  without the character when those communicate the beat more clearly. Do not
+  force the performer into every shot. At least three shots must feature the
+  articulated violin performance, but they need not be consecutive.
 - Do not invent visual_layers or picture-generation instructions.
 
 DIRECTORIAL THINKING:
