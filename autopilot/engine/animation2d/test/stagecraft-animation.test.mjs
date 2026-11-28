@@ -151,6 +151,8 @@ test("stagecraft enters the real Motion composition with independent loop tracks
         id: "night-drive",
         start: 0,
         duration: 4,
+        visual_mode: "full_body_performance",
+        director_camera: { movement: "truck_left", shot_size: "wide", direction: "left" },
         caption: "The city moves around the performer",
         stagecraft: {
           environment: "city_night",
@@ -160,8 +162,8 @@ test("stagecraft enters the real Motion composition with independent loop tracks
             timing_source: "decoded_audio_beat_grid", alignment_error_seconds: 0
           }],
           objects: [
-            { id: "foreground-note", kind: "music_note", x: .82, y: .32, size: 28, color: "#e8c98f", motion: "float" },
-            { id: "passing-light", kind: "light_streak", x: .23, y: .81, size: 54, color: "#66d9d5", motion: "travel_right" }
+            { id: "foreground-note", kind: "music_note", x: .82, y: .32, size: 28, color: "#e8c98f", motion: "float", depth_plane: "midground" },
+            { id: "passing-light", kind: "light_streak", x: .23, y: .81, size: 54, color: "#66d9d5", motion: "travel_right", depth_plane: "foreground" }
           ]
         }
       }],
@@ -182,9 +184,20 @@ test("stagecraft enters the real Motion composition with independent loop tracks
     assert.equal(report.music_sync_event_count, 1);
     assert.equal(report.music_sync_events[0].event, "Beat accent");
     assert.ok(report.animated_stagecraft_node_count >= 6);
+    assert.equal(report.stagecraft_camera_parallax_track_count, 3);
+    assert.equal(report.stagecraft_camera_parallax_scene_count, 1);
+    assert.deepEqual(report.stagecraft_camera_parallax_depth_planes,
+      ["background", "midground", "foreground"]);
+    assert.ok(report.scenes[0].stagecraft_depth_plane_node_counts.background >= 1);
+    assert.ok(report.scenes[0].stagecraft_depth_plane_node_counts.midground >= 1);
+    assert.ok(report.scenes[0].stagecraft_depth_plane_node_counts.foreground >= 3);
     assert.ok(html.includes("scene-stagecraft--city_night"));
+    assert.ok(html.includes("night-drive-stagecraft-plane-background"));
+    assert.ok(html.includes("night-drive-stagecraft-plane-midground"));
+    assert.ok(html.includes("night-drive-stagecraft-plane-foreground"));
     assert.ok(html.includes("night-drive-stagecraft-traffic-a"));
     assert.ok(html.includes("night-drive-stagecraft-object-foreground-note"));
+    assert.ok(html.includes('"camera_parallax_depth_plane":"foreground"'));
     assert.ok(html.includes('"loop":true'), "composition must preserve looping track metadata");
     assert.ok(html.includes('"music_sync_event":"Beat accent"'), "composition must preserve the timed music cue animation");
     assert.ok(html.includes('id="night-drive-camera-world"'), "the environment must be placed in a camera-controlled scene world");
