@@ -317,7 +317,7 @@ jobs:
           audio = next(stream for stream in probe["streams"] if stream.get("codec_type") == "audio")
           assert video["codec_name"] == "h264" and audio["codec_name"] == "aac", probe
           assert (video["width"], video["height"]) == (720, 1280), probe
-          assert video.get("avg_frame_rate") == "25/1", probe
+          assert video.get("r_frame_rate") == "25/1", probe
           assert abs(float(probe["format"]["duration"]) - 24.0) <= .08, probe
           print(json.dumps({
               "status": "passed",
