@@ -153,6 +153,8 @@ test("stagecraft enters the real Motion composition with independent loop tracks
         duration: 4,
         visual_mode: "full_body_performance",
         director_camera: { movement: "truck_left", shot_size: "wide", direction: "left" },
+        editorial_index: 1,
+        editorial_total: 8,
         caption: "The city moves around the performer",
         stagecraft: {
           environment: "city_night",
@@ -192,6 +194,8 @@ test("stagecraft enters the real Motion composition with independent loop tracks
     assert.ok(report.scenes[0].stagecraft_depth_plane_node_counts.midground >= 1);
     assert.ok(report.scenes[0].stagecraft_depth_plane_node_counts.foreground >= 3);
     assert.ok(html.includes("scene-stagecraft--city_night"));
+    assert.ok(html.includes(">02 / 08</span>"),
+      "zero-based Director editorial index 1 must display as shot 02 of 08");
     assert.ok(html.includes("night-drive-stagecraft-plane-background"));
     assert.ok(html.includes("night-drive-stagecraft-plane-midground"));
     assert.ok(html.includes("night-drive-stagecraft-plane-foreground"));
