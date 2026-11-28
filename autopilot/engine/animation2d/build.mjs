@@ -1080,10 +1080,8 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '<meta name="viewport" content="width=device-width,initial-scale=1">' +
   '<title>' + escapeHtml(project.title || "Violin Prince") + '</title>' +
   '<style>' +
-  '@font-face{font-family:DMSerifDisplay;src:url("./assets/fonts/DMSerifDisplay-Regular.ttf") format("truetype");font-display:swap}' +
-  '@font-face{font-family:DMSans;src:url("./assets/fonts/DMSans-Regular.ttf") format("truetype");font-weight:400;font-display:swap}' +
-  '@font-face{font-family:DMSans;src:url("./assets/fonts/DMSans-Medium.ttf") format("truetype");font-weight:500;font-display:swap}' +
-  '@font-face{font-family:DMSans;src:url("./assets/fonts/DMSans-Bold.ttf") format("truetype");font-weight:700;font-display:swap}' +
+  '@font-face{font-family:DMSerifDisplay;src:url("./assets/fonts/DMSerifDisplay-Regular.woff2") format("woff2");font-weight:400;font-display:swap}' +
+  '@font-face{font-family:DMSans;src:url("./assets/fonts/DMSans.woff2") format("woff2");font-weight:100 900;font-style:normal;font-display:swap}' +
   'html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050b13}' +
   '#root{position:relative;width:' + width + 'px;height:' + height + 'px;overflow:hidden;background:var(--vp-dominant,#050b13);color:var(--vp-secondary,#f4ead9)}' +
   '.scene-background{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.06);will-change:transform,opacity}' +

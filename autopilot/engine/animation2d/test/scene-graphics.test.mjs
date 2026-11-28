@@ -105,6 +105,9 @@ try {
     "The cinematic grade must have its own entrance animation");
   assert.ok(html.includes("DMSerifDisplay"), "Premium display typography must be bundled into the composition");
   assert.ok(html.includes("DMSans"), "Premium supporting typography must be bundled into the composition");
+  assert.ok(html.includes("DMSerifDisplay-Regular.woff2"), "The approved display font must load from the checked-in WOFF2 asset");
+  assert.ok(html.includes("DMSans.woff2"), "The approved supporting font must load from the checked-in WOFF2 asset");
+  assert.ok(!html.includes(".ttf"), "The renderer must not reference unshipped TTF files");
   assert.ok(html.includes("scene-caption--intro"), "The opening hook should use its own caption treatment");
   assert.ok(html.includes("motion-graphic--with-presenter"), "The explainer should use the editorial split layout");
   const graphicRule = html.match(new RegExp("\\.motion-graphic\\{([^}]*)\\}"))?.[1] || "";

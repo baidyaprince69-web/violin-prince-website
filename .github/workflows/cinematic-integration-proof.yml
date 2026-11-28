@@ -950,9 +950,14 @@ jobs:
           node build.mjs \
             --project ../../../work/full-body-rig/project.json \
             --out-dir ../../../work/full-body-rig/composition
-          mkdir -p ../../../work/full-body-rig/composition/assets/characters
+          mkdir -p ../../../work/full-body-rig/composition/assets/characters ../../../work/full-body-rig/composition/assets/fonts
           cp -R ../../../work/full-body-rig/assets/characters/violin-prince \
             ../../../work/full-body-rig/composition/assets/characters/
+          cp ../assets/fonts/DMSans.woff2 ../assets/fonts/DMSerifDisplay-Regular.woff2 \
+            ../assets/fonts/DM-Sans-OFL.txt ../assets/fonts/DM-Serif-Display-OFL.txt \
+            ../../../work/full-body-rig/composition/assets/fonts/
+          test -s ../../../work/full-body-rig/composition/assets/fonts/DMSans.woff2
+          test -s ../../../work/full-body-rig/composition/assets/fonts/DMSerifDisplay-Regular.woff2
           cp ../../../work/full-body-rig/bundle/full-body-performance-report.json \
             ../../../work/full-body-rig/
 
@@ -962,9 +967,14 @@ jobs:
           node build.mjs \
             --project ../../../work/reference-part-character-candidate/project.json \
             --out-dir ../../../work/reference-part-character-candidate/composition
-          mkdir -p ../../../work/reference-part-character-candidate/composition/assets/characters
+          mkdir -p ../../../work/reference-part-character-candidate/composition/assets/characters ../../../work/reference-part-character-candidate/composition/assets/fonts
           cp -R ../../../work/reference-part-character-candidate/assets/characters/violin-prince \
             ../../../work/reference-part-character-candidate/composition/assets/characters/
+          cp ../assets/fonts/DMSans.woff2 ../assets/fonts/DMSerifDisplay-Regular.woff2 \
+            ../assets/fonts/DM-Sans-OFL.txt ../assets/fonts/DM-Serif-Display-OFL.txt \
+            ../../../work/reference-part-character-candidate/composition/assets/fonts/
+          test -s ../../../work/reference-part-character-candidate/composition/assets/fonts/DMSans.woff2
+          test -s ../../../work/reference-part-character-candidate/composition/assets/fonts/DMSerifDisplay-Regular.woff2
 
       - name: Verify full-body motion QA gate
         run: |
@@ -1318,9 +1328,14 @@ jobs:
           node build.mjs \
             --project ../../../work/full-body-rig/master-director/project.json \
             --out-dir ../../../work/full-body-rig/master-director/composition
-          mkdir -p ../../../work/full-body-rig/master-director/composition/assets/characters
+          mkdir -p ../../../work/full-body-rig/master-director/composition/assets/characters ../../../work/full-body-rig/master-director/composition/assets/fonts
           cp -R ../../../work/full-body-rig/master-director-base/assets/characters/violin-prince \
             ../../../work/full-body-rig/master-director/composition/assets/characters/
+          cp ../assets/fonts/DMSans.woff2 ../assets/fonts/DMSerifDisplay-Regular.woff2 \
+            ../assets/fonts/DM-Sans-OFL.txt ../assets/fonts/DM-Serif-Display-OFL.txt \
+            ../../../work/full-body-rig/master-director/composition/assets/fonts/
+          test -s ../../../work/full-body-rig/master-director/composition/assets/fonts/DMSans.woff2
+          test -s ../../../work/full-body-rig/master-director/composition/assets/fonts/DMSerifDisplay-Regular.woff2
           cd ../../../work/full-body-rig/master-director/composition
           $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes lint
           $GITHUB_WORKSPACE/autopilot/engine/animation2d/node_modules/.bin/hyperframes render \
