@@ -12,6 +12,10 @@ import {
   stagecraftMotionNodeIds,
   stagecraftNodeCounts
 } from "../src/stagecraft.mjs";
+import {
+  compileMotionTracks,
+  directorDepthPlaneParallaxKeyframes
+} from "../src/motion-build.mjs";
 
 for (const environment of ["city_night", "forest_dusk", "space", "concert_stage", "laboratory", "abstract"]) {
   test(environment + " produces a moving vector environment", () => {
@@ -243,5 +247,78 @@ test("every environment has its own moving near-camera depth plane", () => {
       assert.ok(track.duration <= scene.duration);
     }
   }
+});
+
+
+
+test("story objects render into explicit background, midground and foreground planes", () => {
+  const scene = {
+    id: "story-depth-planes", start: 0, duration: 4,
+    stagecraft: {
+      environment: "concert_stage",
+      objects: [
+        { id: "far-lights", kind: "spark", x: .2, y: .2, depth_plane: "background" },
+        { id: "story-core", kind: "orb", x: .5, y: .5, depth_plane: "midground" },
+        { id: "lens-trail", kind: "light_streak", x: .8, y: .8, depth_plane: "foreground" }
+      ]
+    }
+  };
+  const html = renderStagecraftMarkup(scene);
+  const counts = stagecraftNodeCounts(scene);
+  assert.ok(html.includes('id="story-depth-planes-stagecraft-plane-background"'));
+  assert.ok(html.includes('id="story-depth-planes-stagecraft-plane-midground"'));
+  assert.ok(html.includes('id="story-depth-planes-stagecraft-plane-foreground"'));
+  assert.ok(html.includes('data-depth-plane="background"'));
+  assert.ok(html.includes('id="story-depth-planes-stagecraft-object-far-lights"'));
+  assert.ok(html.includes('id="story-depth-planes-stagecraft-object-story-core"'));
+  assert.ok(html.includes('id="story-depth-planes-stagecraft-object-lens-trail"'));
+  assert.equal(counts.background_depth, 2);
+  assert.equal(counts.midground_depth, 1);
+  assert.equal(counts.foreground_depth, 1);
+  assert.equal(counts.objects, 3);
+  assert.throws(() => renderStagecraftMarkup({
+    id: "bad-depth", stagecraft: { environment: "space", objects: [
+      { id: "bad", kind: "spark", depth_plane: "foreground-ish" }
+    ]}
+  }), /depth_plane must be background, midground or foreground/);
+});
+
+test("shot camera movement drives graduated background, midground and foreground parallax", () => {
+  const camera = { movement: "truck_left", shot_size: "wide" };
+  const background = directorDepthPlaneParallaxKeyframes(camera, 0, "background");
+  const midground = directorDepthPlaneParallaxKeyframes(camera, 0, "midground");
+  const foreground = directorDepthPlaneParallaxKeyframes(camera, 0, "foreground");
+  const firstTranslate = values => Number(String(values[0]).match(/translateX\((-?[0-9.]+)px\)/)?.[1]);
+  assert.equal(background.length, 2);
+  assert.equal(midground.length, 2);
+  assert.equal(foreground.length, 2);
+  assert.ok(Math.abs(firstTranslate(background)) < Math.abs(firstTranslate(midground)));
+  assert.ok(Math.abs(firstTranslate(midground)) < Math.abs(firstTranslate(foreground)));
+
+  const scene = {
+    id: "director-parallax-shot",
+    start: 2,
+    duration: 3,
+    visual_mode: "full_body_performance",
+    editorial_index: 1,
+    director_camera: camera,
+    stagecraft: { environment: "forest_dusk", objects: [
+      { id: "far-beacon", kind: "spark", depth_plane: "background" },
+      { id: "story-pulse", kind: "orb", depth_plane: "midground" },
+      { id: "near-leaf", kind: "leaf", depth_plane: "foreground" }
+    ]}
+  };
+  const tracks = compileMotionTracks({ scenes: [scene], characters: [] }, { fps: 25 });
+  const planeTracks = ["background", "midground", "foreground"].map(plane =>
+    tracks.find(track =>
+      track.target === "director-parallax-shot-stagecraft-plane-" + plane &&
+      track.property === "transform"
+    )
+  );
+  assert.ok(planeTracks.every(Boolean), "all depth planes must receive camera-linked transform tracks");
+  assert.deepEqual(planeTracks.map(track => track.camera_parallax_depth_plane),
+    ["background", "midground", "foreground"]);
+  assert.ok(planeTracks.every(track => track.camera_parallax_source === "master_director_shot_camera"));
+  assert.ok(planeTracks.every(track => track.start === 2 && track.duration === 3));
 });
 
