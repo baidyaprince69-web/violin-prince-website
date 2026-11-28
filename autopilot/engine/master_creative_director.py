@@ -96,6 +96,12 @@ PROCEDURAL ENGINE LIMITS:
   comet, particle. Motions: float, drift, orbit, rotate, pulse, flicker, sway,
   travel_left, travel_right, bob. Each shot needs 2–8 story-relevant objects
   with normalized coordinates, safe unique IDs, valid colours and cycle times.
+  Each object may set depth_plane to background, midground or foreground.
+  Assign planes by story purpose: distant architecture/atmosphere behind the
+  subject, explanatory objects in the middle plane, and only motivated
+  near-camera details in the foreground. The renderer separates these planes
+  and links their movement to that shot's camera at graduated parallax rates.
+  Do not place labels, cards or opaque panels in the foreground to fake depth.
 - The saved Violin Prince character is a source-aligned full-body
   violin-performance rig. It includes articulated torso/head, both arm
   chains, six thigh/calf/foot segments, four three-joint fretting-finger
@@ -224,6 +230,7 @@ Use this contract:
             "size": 28,
             "color": "#RRGGBB",
             "motion": "float|drift|orbit|rotate|pulse|flicker|sway|travel_left|travel_right|bob",
+            "depth_plane": "background|midground|foreground (optional)",
             "period_seconds": 2.8
           },
           {
@@ -514,6 +521,11 @@ def validate_director_plan(plan: dict[str, Any]) -> list[str]:
                     "travel_left", "travel_right", "bob"
                 }:
                     errors.append(f"{item_prefix}.motion is unsupported.")
+                depth_plane = item.get("depth_plane")
+                if depth_plane is not None and str(depth_plane).strip().casefold() not in {
+                    "background", "midground", "foreground"
+                }:
+                    errors.append(f"{item_prefix}.depth_plane must be background, midground or foreground.")
                 for coordinate in ("x", "y"):
                     value = item.get(coordinate)
                     if not _is_number(value) or not 0 <= float(value) <= 1:

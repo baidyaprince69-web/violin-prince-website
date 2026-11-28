@@ -12,6 +12,10 @@ import {
   stagecraftMotionNodeIds,
   stagecraftNodeCounts
 } from "../src/stagecraft.mjs";
+import {
+  compileMotionTracks,
+  directorDepthPlaneParallaxKeyframes
+} from "../src/motion-build.mjs";
 
 for (const environment of ["city_night", "forest_dusk", "space", "concert_stage", "laboratory", "abstract"]) {
   test(environment + " produces a moving vector environment", () => {
@@ -147,6 +151,10 @@ test("stagecraft enters the real Motion composition with independent loop tracks
         id: "night-drive",
         start: 0,
         duration: 4,
+        visual_mode: "full_body_performance",
+        director_camera: { movement: "truck_left", shot_size: "wide", direction: "left" },
+        editorial_index: 1,
+        editorial_total: 8,
         caption: "The city moves around the performer",
         stagecraft: {
           environment: "city_night",
@@ -156,8 +164,8 @@ test("stagecraft enters the real Motion composition with independent loop tracks
             timing_source: "decoded_audio_beat_grid", alignment_error_seconds: 0
           }],
           objects: [
-            { id: "foreground-note", kind: "music_note", x: .82, y: .32, size: 28, color: "#e8c98f", motion: "float" },
-            { id: "passing-light", kind: "light_streak", x: .23, y: .81, size: 54, color: "#66d9d5", motion: "travel_right" }
+            { id: "foreground-note", kind: "music_note", x: .82, y: .32, size: 28, color: "#e8c98f", motion: "float", depth_plane: "midground" },
+            { id: "passing-light", kind: "light_streak", x: .23, y: .81, size: 54, color: "#66d9d5", motion: "travel_right", depth_plane: "foreground" }
           ]
         }
       }],
@@ -178,9 +186,22 @@ test("stagecraft enters the real Motion composition with independent loop tracks
     assert.equal(report.music_sync_event_count, 1);
     assert.equal(report.music_sync_events[0].event, "Beat accent");
     assert.ok(report.animated_stagecraft_node_count >= 6);
+    assert.equal(report.stagecraft_camera_parallax_track_count, 3);
+    assert.equal(report.stagecraft_camera_parallax_scene_count, 1);
+    assert.deepEqual(report.stagecraft_camera_parallax_depth_planes,
+      ["background", "midground", "foreground"]);
+    assert.ok(report.scenes[0].stagecraft_depth_plane_node_counts.background >= 1);
+    assert.ok(report.scenes[0].stagecraft_depth_plane_node_counts.midground >= 1);
+    assert.ok(report.scenes[0].stagecraft_depth_plane_node_counts.foreground >= 3);
     assert.ok(html.includes("scene-stagecraft--city_night"));
+    assert.ok(html.includes(">02 / 08</span>"),
+      "zero-based Director editorial index 1 must display as shot 02 of 08");
+    assert.ok(html.includes("night-drive-stagecraft-plane-background"));
+    assert.ok(html.includes("night-drive-stagecraft-plane-midground"));
+    assert.ok(html.includes("night-drive-stagecraft-plane-foreground"));
     assert.ok(html.includes("night-drive-stagecraft-traffic-a"));
     assert.ok(html.includes("night-drive-stagecraft-object-foreground-note"));
+    assert.ok(html.includes('"camera_parallax_depth_plane":"foreground"'));
     assert.ok(html.includes('"loop":true'), "composition must preserve looping track metadata");
     assert.ok(html.includes('"music_sync_event":"Beat accent"'), "composition must preserve the timed music cue animation");
     assert.ok(html.includes('id="night-drive-camera-world"'), "the environment must be placed in a camera-controlled scene world");
@@ -243,5 +264,87 @@ test("every environment has its own moving near-camera depth plane", () => {
       assert.ok(track.duration <= scene.duration);
     }
   }
+});
+
+
+
+test("story objects render into explicit background, midground and foreground planes", () => {
+  const scene = {
+    id: "story-depth-planes", start: 0, duration: 4,
+    stagecraft: {
+      environment: "concert_stage",
+      objects: [
+        { id: "far-lights", kind: "spark", x: .2, y: .2, depth_plane: "background" },
+        { id: "story-core", kind: "orb", x: .5, y: .5, depth_plane: "midground" },
+        { id: "lens-trail", kind: "light_streak", x: .8, y: .8, depth_plane: "foreground" }
+      ]
+    }
+  };
+  const html = renderStagecraftMarkup(scene);
+  const counts = stagecraftNodeCounts(scene);
+  assert.ok(html.includes('id="story-depth-planes-stagecraft-plane-background"'));
+  assert.ok(html.includes('id="story-depth-planes-stagecraft-plane-midground"'));
+  assert.ok(html.includes('id="story-depth-planes-stagecraft-plane-foreground"'));
+  assert.ok(html.includes('data-depth-plane="background"'));
+  const backgroundStart = html.indexOf('id="story-depth-planes-stagecraft-plane-background"');
+  const midgroundStart = html.indexOf('id="story-depth-planes-stagecraft-plane-midground"');
+  const foregroundStart = html.indexOf('id="story-depth-planes-stagecraft-plane-foreground"');
+  const backgroundObject = html.indexOf('id="story-depth-planes-stagecraft-object-far-lights"');
+  const midgroundObject = html.indexOf('id="story-depth-planes-stagecraft-object-story-core"');
+  const foregroundObject = html.indexOf('id="story-depth-planes-stagecraft-object-lens-trail"');
+  assert.ok(backgroundObject > backgroundStart && backgroundObject < midgroundStart,
+    "background-authored story object must be inside the background plane");
+  assert.ok(midgroundObject > midgroundStart && midgroundObject < foregroundStart,
+    "midground-authored story object must be inside the midground plane");
+  assert.ok(foregroundObject > foregroundStart,
+    "foreground-authored story object must be inside the foreground plane");
+  assert.equal(counts.background_depth, 2);
+  assert.ok(counts.midground_depth >= 1, "the concert environment also contributes midground nodes");
+  assert.ok(counts.foreground_depth >= 1, "the story foreground object must be counted");
+  assert.equal(counts.objects, 3);
+  assert.throws(() => renderStagecraftMarkup({
+    id: "bad-depth", stagecraft: { environment: "space", objects: [
+      { id: "bad", kind: "spark", depth_plane: "foreground-ish" }
+    ]}
+  }), /depth_plane must be background, midground or foreground/);
+});
+
+test("shot camera movement drives graduated background, midground and foreground parallax", () => {
+  const camera = { movement: "truck_left", shot_size: "wide" };
+  const background = directorDepthPlaneParallaxKeyframes(camera, 0, "background");
+  const midground = directorDepthPlaneParallaxKeyframes(camera, 0, "midground");
+  const foreground = directorDepthPlaneParallaxKeyframes(camera, 0, "foreground");
+  const firstTranslate = values => Number(String(values[0]).match(/translateX\((-?[0-9.]+)px\)/)?.[1]);
+  assert.equal(background.length, 2);
+  assert.equal(midground.length, 2);
+  assert.equal(foreground.length, 2);
+  assert.ok(Math.abs(firstTranslate(background)) < Math.abs(firstTranslate(midground)));
+  assert.ok(Math.abs(firstTranslate(midground)) < Math.abs(firstTranslate(foreground)));
+
+  const scene = {
+    id: "director-parallax-shot",
+    start: 2,
+    duration: 3,
+    visual_mode: "full_body_performance",
+    editorial_index: 1,
+    director_camera: camera,
+    stagecraft: { environment: "forest_dusk", objects: [
+      { id: "far-beacon", kind: "spark", depth_plane: "background" },
+      { id: "story-pulse", kind: "orb", depth_plane: "midground" },
+      { id: "near-leaf", kind: "leaf", depth_plane: "foreground" }
+    ]}
+  };
+  const tracks = compileMotionTracks({ scenes: [scene], characters: [] }, { fps: 25 });
+  const planeTracks = ["background", "midground", "foreground"].map(plane =>
+    tracks.find(track =>
+      track.target === "director-parallax-shot-stagecraft-plane-" + plane &&
+      track.property === "transform"
+    )
+  );
+  assert.ok(planeTracks.every(Boolean), "all depth planes must receive camera-linked transform tracks");
+  assert.deepEqual(planeTracks.map(track => track.camera_parallax_depth_plane),
+    ["background", "midground", "foreground"]);
+  assert.ok(planeTracks.every(track => track.camera_parallax_source === "master_director_shot_camera"));
+  assert.ok(planeTracks.every(track => track.start === 2 && track.duration === 3));
 });
 

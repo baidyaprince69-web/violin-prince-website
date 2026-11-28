@@ -409,6 +409,38 @@ export function directorCameraKeyframes(camera, shotIndex = 0) {
   }
 }
 
+function cameraTransformComponents(value) {
+  const text = String(value || "");
+  const translate3d = text.match(/translate3d\(\s*(-?[\d.]+)px\s*,\s*(-?[\d.]+)px/);
+  const translateX = text.match(/translateX\(\s*(-?[\d.]+)px\s*\)/);
+  const translateY = text.match(/translateY\(\s*(-?[\d.]+)px\s*\)/);
+  const scale = text.match(/(?:^|\s)scale\(\s*(-?[\d.]+)/);
+  const rotate = text.match(/rotate\(\s*(-?[\d.]+)deg\s*\)/);
+  return {
+    x: translate3d ? Number(translate3d[1]) : (translateX ? Number(translateX[1]) : 0),
+    y: translate3d ? Number(translate3d[2]) : (translateY ? Number(translateY[1]) : 0),
+    scale: scale ? Number(scale[1]) : 1,
+    rotate: rotate ? Number(rotate[1]) : 0
+  };
+}
+
+export function directorDepthPlaneParallaxKeyframes(camera, shotIndex = 0, depthPlane = "midground") {
+  const factors = { background: 0.10, midground: 0.32, foreground: 0.58 };
+  if (!Object.hasOwn(factors, depthPlane)) {
+    throw new TypeError("Depth-plane parallax requires a background, midground or foreground plane.");
+  }
+  const factor = factors[depthPlane];
+  return directorCameraKeyframes(camera, shotIndex).map(value => {
+    const motion = cameraTransformComponents(value);
+    const x = Number((motion.x * factor).toFixed(2));
+    const y = Number((motion.y * factor).toFixed(2));
+    const rotation = Number((motion.rotate * factor).toFixed(3));
+    const scale = Number((1 + (motion.scale - 1) * factor).toFixed(4));
+    return "translateX(" + x + "px) translateY(" + y + "px) rotate(" + rotation +
+      "deg) scale(" + scale + ")";
+  });
+}
+
 export function directorTransitionSpec(transition, duration) {
   const kind = String(transition || "cut").toLowerCase();
   const seconds = Math.max(0, Number(duration) || 0);
@@ -1429,6 +1461,25 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
         cameraDuration,
         scene.camera_easing || "ease-in-out"
       );
+
+      if (scene.stagecraft) {
+        for (const depthPlane of ["background", "midground", "foreground"]) {
+          const values = directorDepthPlaneParallaxKeyframes(
+            camera, Number(scene.editorial_index) || 0, depthPlane
+          );
+          if (new Set(values).size < 2) continue;
+          const target = scene.id + "-stagecraft-plane-" + depthPlane;
+          addKeyframes(
+            target,
+            { transform: values },
+            cameraStart,
+            cameraDuration,
+            scene.camera_easing || "ease-in-out"
+          );
+          tracks.at(-1).camera_parallax_depth_plane = depthPlane;
+          tracks.at(-1).camera_parallax_source = "master_director_shot_camera";
+        }
+      }
 
       const visualLayers = isDirectorShot && Array.isArray(scene.visual_layers)
         ? scene.visual_layers : [];

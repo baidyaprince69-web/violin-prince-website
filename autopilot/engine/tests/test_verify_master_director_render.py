@@ -1,5 +1,5 @@
 import unittest
-from verify_master_director_render import scene_for_interval, presenter_visible_in_scene
+from verify_master_director_render import scene_for_interval, presenter_visible_in_scene, bow_slide_motion_verified
 
 class MasterDirectorRenderVerifierTests(unittest.TestCase):
     def test_intervals_never_cross_shot_boundaries(self):
@@ -17,5 +17,25 @@ class MasterDirectorRenderVerifierTests(unittest.TestCase):
     def test_missing_visibility_is_rejected_instead_of_defaulting_to_visible(self):
         with self.assertRaisesRegex(Exception,"explicit character visibility"):
             presenter_visible_in_scene({"id":"missing","character_actions":{}},"violin-prince")
+
+    def test_measured_bow_slide_requires_travel_attachment_grip_and_no_free_translation(self):
+        valid = {
+            "bow_attached_tip_travel_range_px": 31.5,
+            "presenter_bow_attached_transform_track_count": 1,
+            "bow_grip_attachment_error_max_px": 0.25,
+            "presenter_bow_translation_track_count": 0,
+        }
+        self.assertTrue(bow_slide_motion_verified(valid))
+
+        for key, value in (
+            ("bow_attached_tip_travel_range_px", 25.99),
+            ("presenter_bow_attached_transform_track_count", 0),
+            ("bow_grip_attachment_error_max_px", 0.51),
+            ("bow_grip_attachment_error_max_px", None),
+            ("presenter_bow_translation_track_count", 1),
+        ):
+            candidate = {**valid, key: value}
+            with self.subTest(key=key, value=value):
+                self.assertFalse(bow_slide_motion_verified(candidate))
 
 if __name__=="__main__": unittest.main()

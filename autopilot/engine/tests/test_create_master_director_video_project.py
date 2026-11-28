@@ -20,8 +20,8 @@ def make_plan():
                        "graphic_action":"","depth_motion":"Foreground and background move at different rates.",
                        "motion_rationale":"Movement follows the phrase."},
           "procedural_scene":{"environment":"concert_stage","objects":[
-            {"id":f"orb-{i}","kind":"orb","x":.25,"y":.35,"size":22,"color":"#DDAA55","motion":"pulse","period_seconds":1.8},
-            {"id":f"spark-{i}","kind":"spark","x":.75,"y":.62,"size":16,"color":"#AABBCC","motion":"float","period_seconds":2.2}]},
+            {"id":f"orb-{i}","kind":"orb","x":.25,"y":.35,"size":22,"color":"#DDAA55","motion":"pulse","period_seconds":1.8,"depth_plane":"midground"},
+            {"id":f"spark-{i}","kind":"spark","x":.75,"y":.62,"size":16,"color":"#AABBCC","motion":"float","period_seconds":2.2,"depth_plane":"foreground"}]},
           "character_action":{"visible":i in {0, 1, 4, 7},"gesture":"violin_performance","expression":"happy" if i == 4 else "focused","loop":True,"cycle_duration_seconds":2.4},
           "transition_to_next":"match_cut" if i==0 else "whip_pan" if i==1 else "cut" if i<7 else "none",
           "narration_cue":f"Approved narration beat {i+1}","music_cue":f"Measured violin phrase {i+1}","graphic_data":({"type":"comparison","title":"STRING LENGTH","items":["Longer span","Shorter span"]} if i==2 else {"type":"signal_path","title":"VIBRATION PATH","items":["Bridge","Top plate","Body"]} if i==4 else None),
@@ -68,7 +68,8 @@ class MasterDirectorVideoProjectTests(unittest.TestCase):
     def test_compiles_eight_full_body_scenes_and_local_audio_maps(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder); base=root/"base.json"; plan=root/"plan.json"; out=root/"project.json"
-            base.write_text(json.dumps(make_base_project()),encoding="utf-8")
+            base_project=make_base_project()
+            base.write_text(json.dumps(base_project),encoding="utf-8")
             plan.write_text(json.dumps(make_plan()),encoding="utf-8")
             result=create_master_director_video_project(base,plan,out)
             project=json.loads(out.read_text(encoding="utf-8"))
@@ -76,6 +77,13 @@ class MasterDirectorVideoProjectTests(unittest.TestCase):
         self.assertFalse(result["published"]); self.assertFalse(result["production_approved"])
         self.assertEqual(len(project["scenes"]),8)
         self.assertTrue(all(s["visual_mode"]=="full_body_performance" for s in project["scenes"]))
+        self.assertEqual(project["characters"],base_project["characters"])
+        self.assertTrue(project["diagnostics"]["character_rig_manifest_preserved"])
+        self.assertTrue(project["diagnostics"]["camera_linked_environment_depth"])
+        self.assertEqual(project["diagnostics"]["story_depth_plane_object_count"],16)
+        self.assertTrue(project["diagnostics"]["story_depth_plane_assignments_complete"])
+        self.assertEqual(project["scenes"][0]["stagecraft"]["objects"][0]["depth_plane"],"midground")
+        self.assertEqual(project["scenes"][0]["stagecraft"]["objects"][1]["depth_plane"],"foreground")
         self.assertEqual(project["scenes"][-1]["start"]+project["scenes"][-1]["duration"],24)
         self.assertEqual(project["scenes"][3]["character_actions"]["violin-prince"]["gesture"],"violin_performance")
         self.assertEqual(project["scenes"][3]["character_actions"]["violin-prince"]["music_sync"]["beat_times"][0],0)
