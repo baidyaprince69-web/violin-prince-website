@@ -38,6 +38,52 @@ copied into the generated timeline folder. The render report then states
 `private_media=true` and `public_artifact_allowed=false`. Do not upload that render,
 its timeline, logs, or source WAV files to public repository artifacts.
 
+## Full-body performance test with a creator-approved violin WAV
+
+Run this stage on your own machine or another private workspace. Use an isolated
+eight-second excerpt first; the analysis and motion project are built from the same WAV.
+
+```bash
+python autopilot/engine/character_autorig.py \
+  --source autopilot/engine/assets/characters/violin-prince-performance/master-character-performance.webp \
+  --reference-dir autopilot/engine/assets/characters/violin-prince-reference \
+  --output /private/rig/full-body-rig-bundle \
+  --id violin-prince \
+  --allow-expression-fallback
+
+python autopilot/engine/create_full_body_performance_preview.py \
+  --bundle /private/rig/full-body-rig-bundle \
+  --output /private/render/creator-performance \
+  --audio /private/audio/creator-violin-take.wav \
+  --duration-seconds 8
+
+cd autopilot/engine/animation2d
+npm install --no-audit --no-fund
+node build.mjs \
+  --project /private/render/creator-performance/project.json \
+  --out-dir /private/render/creator-performance/composition
+./node_modules/.bin/hyperframes render \
+  --project /private/render/creator-performance/composition/index.html \
+  --output /private/render/creator-performance/video-only.mp4 \
+  --fps 25 --quality standard
+
+ffmpeg -hide_banner -loglevel error -y \
+  -i /private/render/creator-performance/video-only.mp4 \
+  -i /private/audio/creator-violin-take.wav \
+  -map 0:v:0 -map 1:a:0 -t 8 -c:v copy -c:a aac -b:a 192k -shortest \
+  /private/render/creator-performance/creator-performance-review.mp4
+```
+
+The rig derives the bow's travel axis from the approved bow asset and maps measured MIDI
+pitches to G/D/A/E strings and first-position fingers. Notes outside that modeled range
+are reported as `manual_review_required`; they are not forced onto a guessed finger.
+This is not score-aware bowing or a complete multi-position fingering engine.
+
+Only after the character performance is reviewed should the same take be used as the
+music layer in the cinematic composition step above. Keep the WAV, the render, the
+timeline, and QA logs in the private workspace. The public GitHub Actions preview
+continues to use CC0 fixtures only.
+
 ## Automated test mode
 
 The public GitHub Actions rig workflow intentionally uses the CC0 violin sample and a

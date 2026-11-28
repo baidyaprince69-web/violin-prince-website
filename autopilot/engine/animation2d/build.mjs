@@ -824,11 +824,31 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     track.property === "translate"
   );
   const bowSlidePositions = presenterBowSlideTracks.flatMap(track =>
-    (track.values || []).map(value => Number.parseFloat(String(value)))
-      .filter(value => Number.isFinite(value))
+    (track.values || []).map(value => {
+      const match = String(value).match(/^\\s*(-?\\d+(?:\\.\\d+)?)px\\s+(-?\\d+(?:\\.\\d+)?)px\\s*$/);
+      if (!match) return null;
+      const point = { x: Number(match[1]), y: Number(match[2]) };
+      return Number.isFinite(point.x) && Number.isFinite(point.y) ? point : null;
+    }).filter(Boolean)
   );
-  const bowSlideTravelRangePx = bowSlidePositions.length
-    ? Math.max(...bowSlidePositions) - Math.min(...bowSlidePositions) : 0;
+  const bowSlideXRange = bowSlidePositions.length
+    ? Math.max(...bowSlidePositions.map(point => point.x)) - Math.min(...bowSlidePositions.map(point => point.x)) : 0;
+  const bowSlideYRange = bowSlidePositions.length
+    ? Math.max(...bowSlidePositions.map(point => point.y)) - Math.min(...bowSlidePositions.map(point => point.y)) : 0;
+  const bowSlideTravelRangePx = Math.hypot(bowSlideXRange, bowSlideYRange);
+  const presenterFingeringTrack = presenterMusicSyncTracks.find(track =>
+    track.music_sync_event === "performer_finger_note" &&
+    Array.isArray(track.music_sync_fingering_map)
+  );
+  const presenterFingeringMap = presenterFingeringTrack?.music_sync_fingering_map || [];
+  const presenterFingeringSummary = presenterFingeringTrack?.music_sync_fingering_summary || {
+    method: "unavailable", status: "missing_map", mapped_note_count: 0,
+    open_string_note_count: 0, unsupported_note_count: 0, invalid_note_count: 0
+  };
+  if (scene.visual_mode === "full_body_performance" &&
+      presenterFingerNoteTrackCount > 0 && presenterFingeringMap.length === 0) {
+    throw new Error("Full-body performance fingering tracks require pitch-to-string provenance.");
+  }
   if (scene.visual_mode === "full_body_performance" &&
       fullBodyPerformanceCharacters.length > 0 &&
       (presenterBowStrokeTrackCount < 4 || presenterBowSlideTracks.length !== 1 ||
@@ -944,7 +964,11 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     presenter_bow_stroke_track_count: presenterBowStrokeTrackCount,
     presenter_bow_slide_track_count: presenterBowSlideTracks.length,
     bow_slide_travel_range_px: Number(bowSlideTravelRangePx.toFixed(2)),
+    bow_slide_x_range_px: Number(bowSlideXRange.toFixed(2)),
+    bow_slide_y_range_px: Number(bowSlideYRange.toFixed(2)),
     presenter_finger_note_track_count: presenterFingerNoteTrackCount,
+    presenter_fingering_map: presenterFingeringMap,
+    presenter_fingering_summary: presenterFingeringSummary,
     presenter_body_balance_track_count: presenterBodyBalanceTrackCount,
     presenter_weight_shift_track_count: presenterWeightShiftTrackCount,
     presenter_sync_timing_sources: [...new Set(presenterMusicSyncTracks.map(track => track.music_sync_timing_source))]
@@ -982,6 +1006,12 @@ const motionReport = {
   presenter_bow_stroke_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.presenter_bow_stroke_track_count, 0),
   presenter_bow_slide_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.presenter_bow_slide_track_count, 0),
   bow_slide_travel_range_px: Math.max(0, ...motionSceneReports.map(scene => scene.bow_slide_travel_range_px)),
+  presenter_fingering_map_status: motionSceneReports.some(scene => scene.presenter_fingering_summary?.status === "manual_review_required")
+    ? "manual_review_required" : (motionSceneReports.some(scene => scene.presenter_fingering_map?.length)
+      ? "first_position_mapped" : "unavailable"),
+  presenter_fingering_unsupported_note_count: motionSceneReports.reduce(
+    (sum, scene) => sum + Number(scene.presenter_fingering_summary?.unsupported_note_count || 0) +
+      Number(scene.presenter_fingering_summary?.invalid_note_count || 0), 0),
   presenter_finger_note_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.presenter_finger_note_track_count, 0),
   presenter_body_balance_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.presenter_body_balance_track_count, 0),
   presenter_weight_shift_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.presenter_weight_shift_track_count, 0),
