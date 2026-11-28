@@ -326,7 +326,8 @@ test("music-synchronized performance keyframes follow beat and onset timestamps"
   assert.equal(elbow.music_sync_event, "performer_bow_stroke");
   assert.equal(indexFinger.music_sync_event, "performer_finger_note");
   assert.equal(indexFinger.music_sync_timing_source, "validated_audio_event_map");
-  assert.equal(tracks.filter(track => track.music_sync_event === "performer_bow_stroke").length, 4);
+  assert.equal(tracks.filter(track => track.music_sync_event === "performer_bow_stroke").length, 3,
+    "the source builder emits shoulder, elbow and wrist cues; the attached prop transform is added by the hierarchy compiler");
   assert.equal(tracks.filter(track => track.music_sync_event === "performer_finger_note").length, 12);
   assert.equal(tracks.filter(track => track.music_sync_event === "performer_weight_shift").length, 6);
   assert.ok(ringFinger.key_times.includes(0.768));
