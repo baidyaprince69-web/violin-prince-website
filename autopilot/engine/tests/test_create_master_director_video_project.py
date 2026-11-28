@@ -22,9 +22,9 @@ def make_plan():
           "procedural_scene":{"environment":"concert_stage","objects":[
             {"id":f"orb-{i}","kind":"orb","x":.25,"y":.35,"size":22,"color":"#DDAA55","motion":"pulse","period_seconds":1.8},
             {"id":f"spark-{i}","kind":"spark","x":.75,"y":.62,"size":16,"color":"#AABBCC","motion":"float","period_seconds":2.2}]},
-          "character_action":{"visible":True,"gesture":"violin_performance","expression":"focused","loop":True,"cycle_duration_seconds":2.4},
+          "character_action":{"visible":i in {0, 1, 4, 7},"gesture":"violin_performance","expression":"happy" if i == 4 else "focused","loop":True,"cycle_duration_seconds":2.4},
           "transition_to_next":"match_cut" if i==0 else "whip_pan" if i==1 else "cut" if i<7 else "none",
-          "narration_cue":f"Approved narration beat {i+1}","music_cue":f"Measured violin phrase {i+1}","graphic_data":None,
+          "narration_cue":f"Approved narration beat {i+1}","music_cue":f"Measured violin phrase {i+1}","graphic_data":({"type":"comparison","title":"STRING LENGTH","items":["Longer span","Shorter span"]} if i==2 else {"type":"signal_path","title":"VIBRATION PATH","items":["Bridge","Top plate","Body"]} if i==4 else None),
         })
     return {
       "schema_version":2,"render_mode":"procedural_2d",
@@ -79,6 +79,14 @@ class MasterDirectorVideoProjectTests(unittest.TestCase):
         self.assertEqual(project["scenes"][-1]["start"]+project["scenes"][-1]["duration"],24)
         self.assertEqual(project["scenes"][3]["character_actions"]["violin-prince"]["gesture"],"violin_performance")
         self.assertEqual(project["scenes"][3]["character_actions"]["violin-prince"]["music_sync"]["beat_times"][0],0)
+        hidden=project["scenes"][2]["character_actions"]["violin-prince"]
+        self.assertFalse(hidden["visible"])
+        self.assertEqual(project["scenes"][2]["visual_composition"]["layout"],"graphic_full_overlay")
+        self.assertTrue(project["scenes"][4]["character_actions"]["violin-prince"]["visible"])
+        self.assertEqual(project["scenes"][4]["character_actions"]["violin-prince"]["expression"],"happy")
+        self.assertEqual(project["scenes"][4]["visual_composition"]["layout"],"graphic_left_presenter_right")
+        self.assertEqual(project["scenes"][4]["character_actions"]["violin-prince"]["x"],315)
+        self.assertEqual(project["scenes"][4]["character_actions"]["violin-prince"]["scale"],0.56)
         self.assertEqual(project["scenes"][0]["stagecraft"]["music_sync_cues"],[])
         cue=project["scenes"][2]["stagecraft"]["music_sync_cues"][0]
         self.assertEqual(cue["time_seconds"],6)

@@ -46,6 +46,12 @@ class MotionGraphicsDataTests(unittest.TestCase):
                 self.assertEqual(frame.size, (620, 260))
                 self.assertEqual(frame.mode, "RGBA")
                 self.assertGreater(frame.getbbox()[2], 500)
+                # The overlay must stay transparent outside its text and diagram marks.
+                self.assertEqual(frame.getpixel((5, 5))[3], 0)
+                self.assertEqual(frame.getpixel((320, 220))[3], 0)
+                alpha = frame.getchannel("A")
+                transparent_pixels = sum(1 for value in alpha.getdata() if value == 0)
+                self.assertGreater(transparent_pixels, 0.72 * frame.width * frame.height)
 
     def test_arch_height_chart_renders_sourced_measurements(self):
         self._render({

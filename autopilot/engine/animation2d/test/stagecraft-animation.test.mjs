@@ -22,6 +22,12 @@ for (const environment of ["city_night", "forest_dusk", "space", "concert_stage"
     assert.ok(markup.includes("<svg"));
     assert.ok(markup.includes("scene-stagecraft--" + environment));
     assert.ok(markup.includes('class="clip scene-stagecraft'));
+    if (environment === "laboratory") {
+      assert.ok(markup.includes('stroke="#9ad7d5"'), "laboratory should retain its full-frame grid");
+      assert.ok(markup.includes('fill="#62d7d1"'), "laboratory should retain soft atmospheric light");
+      assert.ok(!markup.includes('rx="26"'), "laboratory must not render a rounded display card");
+      assert.ok(!markup.includes('fill="#092a3a"'), "laboratory must not render a filled information panel");
+    }
     if (environment === "concert_stage") {
       assert.ok(markup.includes('class="concert-stage-architecture"'));
       assert.ok(markup.includes("beam-teal"), "concert hall must include volumetric light shafts");

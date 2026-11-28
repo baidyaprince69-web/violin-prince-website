@@ -112,6 +112,15 @@ def measure_subject_motion(video_path:str|Path,scenes:list[dict[str,Any]],sample
       "camera_motion_compensated":True,"subject_region":"central 17–83% width / 9–89% height",
       "actual_motion_verified":bool(coverage>=.75 and active_shots>=max(3,math.ceil(len(scenes)*.80)))}
 
+def presenter_visible_in_scene(scene:dict[str,Any],character_id:str)->bool:
+    """Read the director's explicit per-shot visibility choice."""
+    actions=scene.get("character_actions") or {}
+    action=actions.get(character_id)
+    if not isinstance(action,dict) or not isinstance(action.get("visible"),bool):
+        raise RenderVerificationError(f"Shot {scene.get('id')} is missing an explicit character visibility decision.")
+    return action["visible"]
+
+
 def verify_master_director_render(video_path:str|Path,project_path:str|Path,motion_report_path:str|Path,
                                   report_output:str|Path)->dict[str,Any]:
     project=read_json(project_path,"Director Motion project"); motion=read_json(motion_report_path,"Motion build report")
@@ -127,28 +136,55 @@ def verify_master_director_render(video_path:str|Path,project_path:str|Path,moti
         if scene.get("visual_mode")!="full_body_performance": raise RenderVerificationError(f"Shot {i+1} does not use the full-body rig.")
         if len(scene.get("stagecraft",{}).get("objects") or [])<2: raise RenderVerificationError(f"Shot {i+1} has fewer than two moving stagecraft objects.")
     if abs(cursor-duration)>.05: raise RenderVerificationError("Final shot does not end at the audio/project duration.")
+    characters=project.get("characters") or []
+    if not characters or not isinstance(characters[0],dict):
+        raise RenderVerificationError("The project is missing its approved Violin Prince character definition.")
+    character_id=str(characters[0].get("id") or "violin-prince")
     scene_reports={str(x.get("scene_id")):x for x in motion.get("scenes",[]) if isinstance(x,dict)}
+    visibility={}
+    visible_scene_count=0
     for scene in scenes:
         item=scene_reports.get(str(scene["id"]))
         if not item: raise RenderVerificationError("Motion report missing "+str(scene["id"]))
-        gates={
-          "presenter":int(item.get("animated_presenter_count") or 0)>=1,
-          "full_body":int(item.get("full_body_performance_character_count") or 0)>=1,
+        is_visible=presenter_visible_in_scene(scene,character_id)
+        visibility[str(scene["id"])]=is_visible
+        visible_scene_count+=int(is_visible)
+        common_gates={
           "stagecraft_objects":int(item.get("animated_stagecraft_objects") or 0)>=2,
           "stagecraft_nodes":int(item.get("animated_stagecraft_nodes") or 0)>0,
-          "bow_strokes":int(item.get("presenter_bow_stroke_track_count") or 0)>=4,
-          "bow_slide":int(item.get("presenter_bow_slide_track_count") or 0)>=1,
-          "finger_note_tracks":int(item.get("presenter_finger_note_track_count") or 0)>=12,
-          "weight_shift_tracks":int(item.get("presenter_weight_shift_track_count") or 0)>=6,
         }
-        failed=[k for k,v in gates.items() if not v]
-        if failed: raise RenderVerificationError(f"Shot {scene['id']} missing full-body evidence: "+", ".join(failed))
+        if is_visible:
+            performer_gates={
+              "presenter":int(item.get("animated_presenter_count") or 0)>=1,
+              "full_body":int(item.get("full_body_performance_character_count") or 0)>=1,
+              "bow_strokes":int(item.get("presenter_bow_stroke_track_count") or 0)>=4,
+              "bow_slide":int(item.get("presenter_bow_slide_track_count") or 0)>=1,
+              "finger_note_tracks":int(item.get("presenter_finger_note_track_count") or 0)>=12,
+              "weight_shift_tracks":int(item.get("presenter_weight_shift_track_count") or 0)>=6,
+            }
+        else:
+            performer_gates={
+              "presenter_hidden":int(item.get("animated_presenter_count") or 0)==0
+                and int(item.get("visible_character_count") or 0)==0,
+              "full_body_tracks_absent":int(item.get("full_body_performance_character_count") or 0)==0,
+              "bow_tracks_absent":int(item.get("presenter_bow_stroke_track_count") or 0)==0
+                and int(item.get("presenter_bow_slide_track_count") or 0)==0,
+              "finger_tracks_absent":int(item.get("presenter_finger_note_track_count") or 0)==0,
+              "weight_tracks_absent":int(item.get("presenter_weight_shift_track_count") or 0)==0,
+            }
+        failed=[k for k,v in {**common_gates,**performer_gates}.items() if not v]
+        if failed:
+            raise RenderVerificationError(
+                f"Shot {scene['id']} violates its directed visibility or motion requirements: "+", ".join(failed)
+            )
+    if visible_scene_count<3:
+        raise RenderVerificationError("At least three story-directed full-body performance shots are required.")
     n=len(scenes)
     totals={
-      "full_body_performance_scene_count":int(motion.get("full_body_performance_scene_count") or 0)==n,
+      "full_body_performance_scene_count":int(motion.get("full_body_performance_scene_count") or 0)==visible_scene_count,
       "animated_stagecraft_scene_count":int(motion.get("animated_stagecraft_scene_count") or 0)==n,
       "animated_stagecraft_object_count":int(motion.get("animated_stagecraft_object_count") or 0)>=2*n,
-      "animated_presenter_count":int(motion.get("animated_presenter_count") or 0)>=3,
+      "animated_presenter_count":int(motion.get("animated_presenter_count") or 0)==visible_scene_count,
       "rendered_layer_count":int(motion.get("rendered_layer_count") or 0)==0,
     }
     failed=[k for k,v in totals.items() if not v]
@@ -173,6 +209,10 @@ def verify_master_director_render(video_path:str|Path,project_path:str|Path,moti
       "animated_stagecraft_scene_count":int(motion["animated_stagecraft_scene_count"]),
       "animated_stagecraft_object_count":int(motion["animated_stagecraft_object_count"]),
       "animated_presenter_count":int(motion["animated_presenter_count"]),
+      "presenter_visible_scene_count":visible_scene_count,
+      "performer_hidden_scene_count":n-visible_scene_count,
+      "shot_performer_visibility":visibility,
+      "shot_visibility_contract_verified":True,
       "rendered_layer_count":int(motion["rendered_layer_count"]),
       "music_sync_cue_count":cue_count,"music_sync_event_count":int(motion.get("music_sync_event_count") or 0),
       "measured_audio_sync_verified":audio_sync,"actual_motion_verified":flow["actual_motion_verified"],

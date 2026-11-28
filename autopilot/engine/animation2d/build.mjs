@@ -335,7 +335,7 @@ function renderMotionGraphic(scene) {
   const start = Number(scene.start) || 0;
   const duration = Number(scene.duration) || 1;
   const withPresenter = scene.visual_composition?.layout === "graphic_left_presenter_right";
-  const panelClass = withPresenter ? "motion-graphic motion-graphic--with-presenter" : "motion-graphic motion-graphic--full";
+  const layoutClass = withPresenter ? "motion-graphic motion-graphic--with-presenter" : "motion-graphic motion-graphic--full";
   const heading = escapeHtml(data.title || scene.graphic_label || "KEY DETAIL");
   const detail = escapeHtml(data.detail || scene.graphic_detail || "");
   const itemLabel = (item) => typeof item === "string"
@@ -363,7 +363,7 @@ function renderMotionGraphic(scene) {
         '<span class="graphic-node-index">' + number + '</span>' +
         '<span class="graphic-step-label">' + label + '</span></div>';
     }).join("");
-    return '<div class="clip ' + panelClass + ' graphic-flow-panel" id="' + prefix +
+    return '<div class="clip ' + layoutClass + ' graphic-flow-overlay" id="' + prefix +
       '" data-start="' + start + '" data-duration="' + duration +
       '" data-track-index="30">' +
       '<p class="graphic-eyebrow">VISUAL EXPLANATION</p>' +
@@ -396,7 +396,7 @@ function renderMotionGraphic(scene) {
         '<div class="graphic-bar-label">' + escapeHtml(item.label || ("ITEM " + (index + 1))) + '</div>' +
         '</div>';
     }).join("");
-    return '<div class="clip ' + panelClass + ' graphic-bars-panel" id="' + prefix +
+    return '<div class="clip ' + layoutClass + ' graphic-bars-overlay" id="' + prefix +
       '" data-start="' + start + '" data-duration="' + duration +
       '" data-track-index="30"><p class="graphic-eyebrow">VISUAL COMPARISON</p>' +
       '<h3 class="graphic-heading" id="' + prefix + '-heading">' + heading + '</h3>' +
@@ -411,7 +411,7 @@ function renderMotionGraphic(scene) {
       const y = 76 + Math.sin(index / 48 * Math.PI * 8) * 27 * envelope;
       points.push((index === 0 ? "M " : "L ") + x.toFixed(1) + " " + y.toFixed(1));
     }
-    return '<div class="clip ' + panelClass + ' graphic-wave-panel" id="' + prefix +
+    return '<div class="clip ' + layoutClass + ' graphic-wave-overlay" id="' + prefix +
       '" data-start="' + start + '" data-duration="' + duration +
       '" data-track-index="30"><p class="graphic-eyebrow">SIGNAL IN MOTION</p>' +
       '<h3 class="graphic-heading" id="' + prefix + '-heading">' + heading + '</h3>' +
@@ -830,6 +830,7 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
   const bowSlideTravelRangePx = bowSlidePositions.length
     ? Math.max(...bowSlidePositions) - Math.min(...bowSlidePositions) : 0;
   if (scene.visual_mode === "full_body_performance" &&
+      fullBodyPerformanceCharacters.length > 0 &&
       (presenterBowStrokeTrackCount < 4 || presenterBowSlideTracks.length !== 1 ||
        bowSlideTravelRangePx < 26)) {
     throw new Error(
@@ -1079,17 +1080,15 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '<meta name="viewport" content="width=device-width,initial-scale=1">' +
   '<title>' + escapeHtml(project.title || "Violin Prince") + '</title>' +
   '<style>' +
-  '@font-face{font-family:DMSerifDisplay;src:url("./assets/fonts/DMSerifDisplay-Regular.ttf") format("truetype");font-display:swap}' +
-  '@font-face{font-family:DMSans;src:url("./assets/fonts/DMSans-Regular.ttf") format("truetype");font-weight:400;font-display:swap}' +
-  '@font-face{font-family:DMSans;src:url("./assets/fonts/DMSans-Medium.ttf") format("truetype");font-weight:500;font-display:swap}' +
-  '@font-face{font-family:DMSans;src:url("./assets/fonts/DMSans-Bold.ttf") format("truetype");font-weight:700;font-display:swap}' +
+  '@font-face{font-family:DMSerifDisplay;src:url("./assets/fonts/DMSerifDisplay-Regular.woff2") format("woff2");font-weight:400;font-display:swap}' +
+  '@font-face{font-family:DMSans;src:url("./assets/fonts/DMSans.woff2") format("woff2");font-weight:100 900;font-style:normal;font-display:swap}' +
   'html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050b13}' +
   '#root{position:relative;width:' + width + 'px;height:' + height + 'px;overflow:hidden;background:var(--vp-dominant,#050b13);color:var(--vp-secondary,#f4ead9)}' +
   '.scene-background{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.06);will-change:transform,opacity}' +
   '.scene-camera-world{position:absolute;inset:0;width:100%;height:100%;z-index:1;transform-origin:50% 50%;will-change:transform}' +
   '.scene-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;will-change:transform,opacity,filter;transform-origin:50% 50%}' +
   '.scene-layer:not(.scene-layer--background){opacity:0;object-position:center center}' +
-  '.scene-background--presenter-layout{filter:brightness(.42) saturate(.90) blur(1.5px)}' +
+  '.scene-background--presenter-layout{filter:none}' +
   '.scene-grade{position:absolute;inset:0;z-index:5;pointer-events:none;background:radial-gradient(ellipse at 50% 43%,rgba(238,199,143,.10) 0%,rgba(238,199,143,0) 40%),radial-gradient(ellipse at 18% 61%,rgba(78,145,154,.09) 0%,rgba(78,145,154,0) 42%),radial-gradient(ellipse at 84% 57%,rgba(177,122,82,.09) 0%,rgba(177,122,82,0) 40%),radial-gradient(ellipse at 50% 44%,rgba(0,0,0,0) 34%,rgba(2,5,12,.42) 100%),linear-gradient(180deg,rgba(3,7,14,.25) 0%,rgba(3,8,15,.02) 34%,rgba(3,8,15,.08) 68%,rgba(3,8,15,.44) 100%)}' +
   '.scene-brand{position:absolute;left:0;right:0;top:0;height:112px;z-index:48;display:flex;align-items:flex-start;gap:12px;padding:36px 7% 0;box-sizing:border-box;background:linear-gradient(180deg,rgba(4,8,16,.66) 0%,rgba(4,10,18,.24) 58%,rgba(4,10,18,0) 100%);color:var(--vp-accent,#e7d4ad);font:700 10px/1 DMSans,Arial,sans-serif;letter-spacing:.22em;text-transform:uppercase;text-shadow:0 2px 12px rgba(0,0,0,.75);opacity:0}' +
   '.scene-brand__name{color:var(--vp-secondary,#f6ead6)}' +
@@ -1112,17 +1111,17 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.rig-base-art{position:absolute;object-fit:contain;max-width:none;pointer-events:none;will-change:transform}' +
   '.rig-part,.rig-expression,.rig-pose,.rig-prop{position:absolute;object-fit:contain;max-width:none;pointer-events:none}' +
   '.rig-part--mesh{display:block;overflow:visible}' +
-  '.motion-graphic{position:absolute;left:auto;top:auto;right:auto;bottom:auto;width:86%;height:auto;z-index:34;overflow:visible;color:#f4ead9;opacity:0;padding:24px 20px;border:1px solid rgba(190,151,91,.48);border-left:3px solid #bf985e;background:linear-gradient(145deg,rgba(5,13,22,.97),rgba(9,27,35,.95));box-shadow:0 22px 64px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,244,220,.07);border-radius:9px}' +
-  '.motion-graphic--full{left:7%;top:23%;width:86%;min-height:380px}' +
-  '.motion-graphic--with-presenter{left:5%;top:25%;width:41%;min-height:400px;padding:20px 16px}' +
+  '.motion-graphic{position:absolute;left:auto;top:auto;right:auto;bottom:auto;width:86%;height:auto;z-index:34;overflow:visible;color:#f4ead9;opacity:0;padding:0;border:0;background:none;box-shadow:none;border-radius:0;text-shadow:0 3px 16px rgba(0,0,0,.82),0 1px 3px rgba(0,0,0,.95)}' +
+  '.motion-graphic--full{left:7%;top:27%;width:86%;min-height:0}' +
+  '.motion-graphic--with-presenter{left:5%;top:27%;width:40%;min-height:0;padding:0}' +
   '.graphic-eyebrow{margin:0 0 11px;color:var(--vp-secondary,#70b9b2);font:700 11px/1.2 DMSans,Arial,sans-serif;letter-spacing:.21em;text-transform:uppercase}' +
   '.graphic-heading{margin:0;color:var(--vp-secondary,#fbf0df);font:400 25px/1.08 DMSerifDisplay,Georgia,serif;letter-spacing:-.01em}' +
   '.graphic-detail{margin:12px 0 0;color:#b9c7c9;font:400 14px/1.38 DMSans,Arial,sans-serif;letter-spacing:.01em}' +
-  '.graphic-flow{position:relative;height:330px;margin-top:16px}' +
+  '.graphic-flow{position:relative;height:290px;margin-top:14px}' +
   '.graphic-flow-lines{position:absolute;inset:0;width:100%;height:100%;overflow:visible}' +
   '.graphic-connector{fill:none;stroke:#6ab7b0;stroke-width:2;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;filter:drop-shadow(0 0 5px rgba(106,183,176,.28))}' +
   '.graphic-step{position:absolute;left:0;right:0;display:flex;align-items:center;gap:13px;min-height:54px;opacity:0;transform:translateY(18px) scale(.96)}' +
-  '.graphic-node-index{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;border:1px solid rgba(194,155,93,.85);border-radius:7px;background:rgba(194,155,93,.08);color:#d6b47c;font:700 13px/1 DMSans,Arial,sans-serif;letter-spacing:.04em;box-shadow:inset 0 0 18px rgba(194,155,93,.06)}' +
+  '.graphic-node-index{display:inline-block;flex:0 0 28px;width:28px;height:auto;border:0;border-radius:0;background:none;color:#eacb8b;font:700 12px/1.2 DMSans,Arial,sans-serif;letter-spacing:.06em;box-shadow:none;text-shadow:0 2px 9px rgba(0,0,0,.9)}' +
   '.graphic-step-label{color:#f5ecde;font:500 17px/1.2 DMSans,Arial,sans-serif;letter-spacing:.025em;overflow-wrap:anywhere}' +
   '.graphic-bars{display:flex;align-items:flex-end;justify-content:space-around;gap:12px;height:280px;margin-top:24px;padding:12px 4px 0;border-bottom:1px solid rgba(183,199,214,.35)}' +
   '.graphic-bar-column{display:flex;flex:1;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:9px;opacity:0}' +
