@@ -69,7 +69,8 @@
               "size": 56,
               "color": "#EACB8B",
               "motion": "pulse",
-              "period_seconds": 1.6
+              "period_seconds": 1.6,
+              "depth_plane": "midground"
             },
             {
               "id": "left-trail",
@@ -79,7 +80,8 @@
               "size": 34,
               "color": "#D95D39",
               "motion": "travel_right",
-              "period_seconds": 2.4
+              "period_seconds": 2.4,
+              "depth_plane": "foreground"
             },
             {
               "id": "right-spark",
@@ -89,7 +91,8 @@
               "size": 16,
               "color": "#D6E0E8",
               "motion": "flicker",
-              "period_seconds": 1.4
+              "period_seconds": 1.4,
+              "depth_plane": "background"
             }
           ]
         },
@@ -144,7 +147,8 @@
               "size": 64,
               "color": "#D95D39",
               "motion": "sway",
-              "period_seconds": 1.2
+              "period_seconds": 1.2,
+              "depth_plane": "midground"
             },
             {
               "id": "bow-energy",
@@ -154,7 +158,8 @@
               "size": 32,
               "color": "#EACB8B",
               "motion": "travel_right",
-              "period_seconds": 1.6
+              "period_seconds": 1.6,
+              "depth_plane": "foreground"
             },
             {
               "id": "harmonic-spark",
@@ -164,7 +169,8 @@
               "size": 18,
               "color": "#D6E0E8",
               "motion": "pulse",
-              "period_seconds": 1.1
+              "period_seconds": 1.1,
+              "depth_plane": "background"
             }
           ]
         },
@@ -215,7 +221,8 @@
               "size": 22,
               "color": "#D6E0E8",
               "motion": "travel_right",
-              "period_seconds": 2.6
+              "period_seconds": 2.6,
+              "depth_plane": "midground"
             },
             {
               "id": "length-marker-b",
@@ -225,7 +232,8 @@
               "size": 22,
               "color": "#EACB8B",
               "motion": "travel_left",
-              "period_seconds": 2.6
+              "period_seconds": 2.6,
+              "depth_plane": "midground"
             },
             {
               "id": "pitch-rise",
@@ -235,7 +243,8 @@
               "size": 22,
               "color": "#D95D39",
               "motion": "pulse",
-              "period_seconds": 1.5
+              "period_seconds": 1.5,
+              "depth_plane": "foreground"
             }
           ]
         },
@@ -295,7 +304,8 @@
               "size": 28,
               "color": "#EACB8B",
               "motion": "travel_right",
-              "period_seconds": 1.7
+              "period_seconds": 1.7,
+              "depth_plane": "midground"
             },
             {
               "id": "body-resonance",
@@ -305,7 +315,8 @@
               "size": 46,
               "color": "#D95D39",
               "motion": "pulse",
-              "period_seconds": 2.2
+              "period_seconds": 2.2,
+              "depth_plane": "midground"
             },
             {
               "id": "leaf-edge",
@@ -315,7 +326,8 @@
               "size": 30,
               "color": "#D6E0E8",
               "motion": "sway",
-              "period_seconds": 3
+              "period_seconds": 3,
+              "depth_plane": "foreground"
             }
           ]
         },
@@ -366,7 +378,8 @@
               "size": 58,
               "color": "#D95D39",
               "motion": "pulse",
-              "period_seconds": 2
+              "period_seconds": 2,
+              "depth_plane": "midground"
             },
             {
               "id": "back-plate",
@@ -376,7 +389,8 @@
               "size": 58,
               "color": "#D6E0E8",
               "motion": "pulse",
-              "period_seconds": 2.4
+              "period_seconds": 2.4,
+              "depth_plane": "background"
             },
             {
               "id": "soundpost-link",
@@ -386,7 +400,8 @@
               "size": 32,
               "color": "#EACB8B",
               "motion": "sway",
-              "period_seconds": 1.4
+              "period_seconds": 1.4,
+              "depth_plane": "foreground"
             }
           ]
         },
@@ -446,7 +461,8 @@
               "size": 62,
               "color": "#EACB8B",
               "motion": "pulse",
-              "period_seconds": 1.8
+              "period_seconds": 1.8,
+              "depth_plane": "midground"
             },
             {
               "id": "air-wave-one",
@@ -456,7 +472,8 @@
               "size": 86,
               "color": "#D6E0E8",
               "motion": "orbit",
-              "period_seconds": 4.8
+              "period_seconds": 4.8,
+              "depth_plane": "foreground"
             },
             {
               "id": "air-wave-two",
@@ -466,7 +483,8 @@
               "size": 26,
               "color": "#D95D39",
               "motion": "travel_right",
-              "period_seconds": 2.3
+              "period_seconds": 2.3,
+              "depth_plane": "background"
             }
           ]
         },
@@ -517,7 +535,8 @@
               "size": 38,
               "color": "#D95D39",
               "motion": "pulse",
-              "period_seconds": 1.3
+              "period_seconds": 1.3,
+              "depth_plane": "midground"
             },
             {
               "id": "wavefront-left",
@@ -527,7 +546,8 @@
               "size": 24,
               "color": "#D6E0E8",
               "motion": "travel_left",
-              "period_seconds": 2
+              "period_seconds": 2,
+              "depth_plane": "foreground"
             },
             {
               "id": "wavefront-right",
@@ -537,7 +557,8 @@
               "size": 24,
               "color": "#EACB8B",
               "motion": "travel_right",
-              "period_seconds": 2
+              "period_seconds": 2,
+              "depth_plane": "foreground"
             }
           ]
         },
@@ -593,7 +614,8 @@
               "size": 46,
               "color": "#EACB8B",
               "motion": "pulse",
-              "period_seconds": 2.4
+              "period_seconds": 2.4,
+              "depth_plane": "midground"
             },
             {
               "id": "resolved-orbit",
@@ -603,7 +625,8 @@
               "size": 92,
               "color": "#D95D39",
               "motion": "rotate",
-              "period_seconds": 8
+              "period_seconds": 8,
+              "depth_plane": "foreground"
             },
             {
               "id": "final-spark",
@@ -613,7 +636,8 @@
               "size": 18,
               "color": "#D6E0E8",
               "motion": "flicker",
-              "period_seconds": 2.8
+              "period_seconds": 2.8,
+              "depth_plane": "background"
             }
           ]
         },
