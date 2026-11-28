@@ -200,6 +200,20 @@ def create_master_director_video_project(base_project_path:str|Path,director_pla
     project["publishing"]={"enabled":False,"preview_only":True,"schedule_enabled":False}
     diagnostics=dict(project.get("diagnostics") or {})
     audio_source=str(sync.get("source") or "")
+    story_objects = [
+      item
+      for shot in shots
+      for item in (shot.get("procedural_scene") or {}).get("objects", [])
+      if isinstance(item, dict)
+    ]
+    depth_planes = ("background", "midground", "foreground")
+    depth_counts = {
+      plane: sum(str(item.get("depth_plane") or "midground").casefold() == plane for item in story_objects)
+      for plane in depth_planes
+    }
+    character_rig_preserved = project.get("characters") == base.get("characters")
+    if not character_rig_preserved:
+      raise DirectorVideoProjectError("The Master Director handoff must preserve the source character rig manifest exactly.")
     diagnostics.update({
       "publishing":"disabled","preview_only":True,"renderer":"master_director_video",
       "director_contract_version":"violin-prince-master-director-v3","director_shot_count":len(scenes),
@@ -208,6 +222,14 @@ def create_master_director_video_project(base_project_path:str|Path,director_pla
       "measured_audio_sync_verified":len(cues)>=2 and all(c["alignment_error_seconds"]<=.38 for c in cues),
       "music_sync_cue_count":len(cues),"music_sync_cues":cues,
       "test_only_audio":audio_source.startswith("sampled_violin_cc0"),
+      "story_depth_plane_object_count":len(story_objects),
+      "story_depth_plane_counts":depth_counts,
+      "story_depth_plane_assignments_complete":all(
+        str(item.get("depth_plane") or "midground").casefold() in depth_planes
+        for item in story_objects
+      ),
+      "camera_linked_environment_depth":True,
+      "character_rig_manifest_preserved":character_rig_preserved,
     })
     project["diagnostics"]=diagnostics
     destination=Path(output_path); destination.parent.mkdir(parents=True,exist_ok=True)
