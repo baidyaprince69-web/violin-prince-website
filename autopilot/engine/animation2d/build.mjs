@@ -846,7 +846,8 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     open_string_note_count: 0, unsupported_note_count: 0, invalid_note_count: 0
   };
   if (scene.visual_mode === "full_body_performance" &&
-      presenterFingerNoteTrackCount > 0 && presenterFingeringMap.length === 0) {
+      presenterFingerNoteTrackCount > 0 &&
+      (!presenterFingeringTrack || presenterFingeringSummary.status === "missing_map")) {
     throw new Error("Full-body performance fingering tracks require pitch-to-string provenance.");
   }
   if (scene.visual_mode === "full_body_performance" &&
