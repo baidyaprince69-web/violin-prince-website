@@ -220,3 +220,28 @@ test("float and bob motions use valid comma-separated CSS translate arguments", 
     }
   }
 });
+
+
+test("every environment has its own moving near-camera depth plane", () => {
+  for (const environment of ["city_night", "forest_dusk", "space", "concert_stage", "laboratory", "abstract"]) {
+    const scene = { id: "depth-" + environment, start: 0, duration: 8, stagecraft: { environment } };
+    const ids = stagecraftMotionNodeIds(scene);
+    const nearIds = ids.filter(value => value.includes("-depth-foreground-"));
+    const markup = renderStagecraftMarkup(scene);
+    const counts = stagecraftNodeCounts(scene);
+    const tracks = buildStagecraftMotion(scene);
+
+    assert.ok(nearIds.length >= 1, environment + " must define a near-camera element");
+    assert.equal(counts.foreground_depth, nearIds.length);
+    assert.ok(markup.includes('data-depth-plane="foreground"'), environment + " must mark the near plane");
+    assert.ok(markup.includes("stagecraft-node--foreground"), environment + " must render a distinct foreground node class");
+    for (const id of nearIds) {
+      const track = tracks.find(item => item.target === id && item.property === "transform");
+      assert.ok(track, environment + " is missing independent foreground motion for " + id);
+      assert.equal(track.loop, true);
+      assert.equal(track.start, 0);
+      assert.ok(track.duration <= scene.duration);
+    }
+  }
+});
+
