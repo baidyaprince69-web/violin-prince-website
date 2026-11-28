@@ -151,8 +151,10 @@ function environmentFor(scene, width, height) {
     top = "#071a29"; bottom = "#17404a"; accent = "#62d7d1";
     for (let x = 0; x <= width; x += 48) base += '<path d="M' + x + ' 0 V' + height + '" stroke="#9ad7d5" stroke-opacity=".12"/>';
     for (let y = 0; y <= height; y += 48) base += '<path d="M0 ' + y + ' H' + width + '" stroke="#9ad7d5" stroke-opacity=".12"/>';
-    base += '<rect x="' + width * .08 + '" y="' + height * .2 + '" width="' + width * .84 +
-      '" height="' + height * .5 + '" rx="26" fill="#092a3a" fill-opacity=".55" stroke="#80d7d2" stroke-opacity=".38"/>';
+    // Keep the laboratory as a full-frame grid and atmospheric field, not a display card.
+    base += '<ellipse cx="' + width * .5 + '" cy="' + height * .44 +
+      '" rx="' + width * .44 + '" ry="' + height * .30 +
+      '" fill="#62d7d1" fill-opacity=".045"/>';
     add("molecule-core", .5, .44, '<circle r="24" fill="#f0d08d"/><circle r="52" fill="none" stroke="#65d4d0" stroke-width="4"/>', "pulse", 13, 2.8);
     add("molecule-orbit-a", .5, .44, '<ellipse rx="132" ry="54" fill="none" stroke="#74d2cc" stroke-width="3"/><circle cx="132" cy="0" r="13" fill="#baf3e6"/>', "rotate", 360, 5.2);
     add("molecule-orbit-b", .5, .44, '<ellipse rx="184" ry="78" fill="none" stroke="#dfc58c" stroke-width="3"/><circle cx="-184" cy="0" r="11" fill="#efd398"/>', "rotate", -360, 6.5);
