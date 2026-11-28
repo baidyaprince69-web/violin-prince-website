@@ -341,7 +341,8 @@ export function renderStagecraftMarkup(scene, width = 720, height = 1280, sceneI
     '<g class="stagecraft-depth-plane stagecraft-depth-plane--' + plane +
     '" data-depth-plane="' + plane + '" id="' + sceneId + '-stagecraft-plane-' + plane + '">' +
     content + '</g>';
-  const background = depthPlane("background", env.base);
+  const background = depthPlane("background",
+    env.base + nodes.filter(item => item.depthPlane === "background").map(nodeMarkup).join(""));
   const midground = depthPlane("midground",
     nodes.filter(item => item.depthPlane === "midground").map(nodeMarkup).join(""));
   const foreground = depthPlane("foreground",
