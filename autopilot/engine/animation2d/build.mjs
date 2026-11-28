@@ -1169,7 +1169,10 @@ const markup = project.scenes.map((scene, index) => {
     ? "clip scene-caption scene-caption--with-presenter"
     : (index === 0 ? "clip scene-caption scene-caption--intro" : "clip scene-caption");
   const chapter = escapeHtml(scene.graphic_label || (index === 0 ? "THE HOOK" : index === project.scenes.length - 1 ? "THE PAYOFF" : "THE DETAIL"));
-  const editorialIndex = String(scene.editorial_index || index + 1).padStart(2, "0");
+  const editorialPosition = Number(scene.editorial_index);
+  const editorialIndex = String(
+    Number.isFinite(editorialPosition) ? editorialPosition + 1 : index + 1
+  ).padStart(2, "0");
   const editorialTotal = String(scene.editorial_total || project.scenes.length).padStart(2, "0");
   const brand = '<div class="clip scene-brand" id="' + escapeHtml(scene.id) +
     '-brand" data-start="' + (start + 0.04) + '" data-duration="' +
