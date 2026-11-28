@@ -802,6 +802,12 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
   );
   const expectedMusicSyncCount = Array.isArray(scene.stagecraft?.music_sync_cues)
     ? scene.stagecraft.music_sync_cues.length : 0;
+  if (scene.stagecraft && scene.director_camera?.movement &&
+      String(scene.director_camera.movement).toLowerCase() !== "locked_off" &&
+      stagecraftCameraParallaxTracks.length !== 3) {
+    throw new Error("Scene " + scene.id +
+      " requires camera-linked background, midground and foreground parallax tracks.");
+  }
   const musicSyncTracks = project.motion_tracks.filter(track =>
     Boolean(track.music_sync_event) &&
     String(track.target || "").startsWith(stagecraftObjectPrefix) &&
@@ -1082,6 +1088,9 @@ const motionReport = {
   animated_stagecraft_scene_count: motionSceneReports.filter(scene => scene.animated_stagecraft_nodes > 0).length,
   stagecraft_camera_parallax_track_count: motionSceneReports.reduce(
     (sum, scene) => sum + scene.stagecraft_camera_parallax_track_count, 0),
+  stagecraft_camera_parallax_scene_count: motionSceneReports.filter(
+    scene => scene.stagecraft_camera_parallax_track_count === 3
+  ).length,
   stagecraft_camera_parallax_depth_planes: [...new Set(
     motionSceneReports.flatMap(scene => scene.stagecraft_camera_parallax_depth_planes)
   )],
