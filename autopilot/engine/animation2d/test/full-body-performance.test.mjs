@@ -301,7 +301,7 @@ test("music-synchronized performance keyframes follow beat and onset timestamps"
   assert.ok(bowSlide, "the bow stick must slide through the grip on measured stroke timing");
   assert.equal(bowSlide.music_sync_event, "performer_bow_stroke");
   const slidePoints = bowSlide.values.map(value => {
-    const match = String(value).match(/^(-?\\d+(?:\\.\\d+)?)px\\s+(-?\\d+(?:\\.\\d+)?)px$/);
+    const match = String(value).match(/^(-?\d+(?:\.\d+)?)px\s+(-?\d+(?:\.\d+)?)px$/);
     assert.ok(match, "bow translation must be a two-dimensional local-axis vector");
     return { x: Number(match[1]), y: Number(match[2]) };
   });

@@ -825,7 +825,7 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
   );
   const bowSlidePositions = presenterBowSlideTracks.flatMap(track =>
     (track.values || []).map(value => {
-      const match = String(value).match(/^\\s*(-?\\d+(?:\\.\\d+)?)px\\s+(-?\\d+(?:\\.\\d+)?)px\\s*$/);
+      const match = String(value).match(/^\s*(-?\d+(?:\.\d+)?)px\s+(-?\d+(?:\.\d+)?)px\s*$/);
       if (!match) return null;
       const point = { x: Number(match[1]), y: Number(match[2]) };
       return Number.isFinite(point.x) && Number.isFinite(point.y) ? point : null;

@@ -63,6 +63,7 @@ jobs:
         run: |
           python -m unittest discover -s autopilot/engine/tests -p "test_pose_range_visual_qa.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_create_full_body_performance_preview.py" -v
+          python -m unittest discover -s autopilot/engine/tests -p "test_bow_stroke_axis.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_violin_note_analysis.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_joint_artwork_authoring.py" -v
           python -m unittest discover -s autopilot/engine/tests -p "test_reference_sheet_rig.py" -v

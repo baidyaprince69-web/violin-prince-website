@@ -278,9 +278,10 @@ def build_preview_project(
             asset["src"] = stage_asset(bundle, asset_root, asset["src"])
 
     bow_prop = (character.get("props") or {}).get("bow")
-    if not isinstance(bow_prop, dict):
-        raise ValueError("The full-body performance character is missing its separate bow prop.")
-    bow_prop["stroke_axis"] = derive_bow_stroke_axis(output / str(bow_prop["src"]), bow_prop)
+    if isinstance(bow_prop, dict) and bow_prop.get("src"):
+        bow_asset_path = output / str(bow_prop["src"])
+        if bow_asset_path.is_file():
+            bow_prop["stroke_axis"] = derive_bow_stroke_axis(bow_asset_path, bow_prop)
 
     music_map = None
     if music_map_path:
