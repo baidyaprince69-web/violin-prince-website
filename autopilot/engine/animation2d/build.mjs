@@ -830,6 +830,7 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
   const bowSlideTravelRangePx = bowSlidePositions.length
     ? Math.max(...bowSlidePositions) - Math.min(...bowSlidePositions) : 0;
   if (scene.visual_mode === "full_body_performance" &&
+      fullBodyPerformanceCharacters.length > 0 &&
       (presenterBowStrokeTrackCount < 4 || presenterBowSlideTracks.length !== 1 ||
        bowSlideTravelRangePx < 26)) {
     throw new Error(
