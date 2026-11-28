@@ -323,7 +323,7 @@ jobs:
               "status": "passed",
               "duration_seconds": float(probe["format"]["duration"]),
               "resolution": [video["width"], video["height"]],
-              "fps": video["avg_frame_rate"],
+              "fps": video["r_frame_rate"],
               "codec": [video["codec_name"], audio["codec_name"]],
               "story_shots": len(project["scenes"]),
               "parallax_tracks": report["stagecraft_camera_parallax_track_count"],
