@@ -90,15 +90,12 @@ test("audio-synchronised violin performance has readable bow, torso and weight-s
     assert.ok(track, "missing synchronised track for " + role);
     return Math.max(...track.values.map(value => Math.abs(Number(value))));
   };
-  assert.equal(tracks.length, 24);
-  const bowSlide = tracks.find(track =>
-    track.target === "performance-violin-prince-prop-bow" &&
-    track.property === "translate"
-  );
-  assert.ok(bowSlide, "measured bow travel must be present in the synchronized performance");
-  const bowTravel = bowSlide.values.map(value => Number.parseFloat(String(value)));
-  assert.ok(Math.max(...bowTravel) - Math.min(...bowTravel) >= 26,
-    "the bow must travel a visible distance across the strings");
+  assert.equal(tracks.length, 23);
+  assert.equal(tracks.filter(track => track.music_sync_event === "performer_bow_stroke").length, 3,
+    "bow-stroke cues should animate the connected shoulder, elbow and wrist chain");
+  assert.equal(tracks.filter(track =>
+    track.target === "performance-violin-prince-prop-bow"
+  ).length, 0, "the bow prop must not receive a separate motion track outside its hand attachment");
   assert.ok(peak("left_upper_arm") >= 6.0 && peak("left_upper_arm") <= 7.0, "bow shoulder should visibly reciprocate without pulling the sleeve away from the source silhouette");
   assert.ok(peak("left_forearm") >= 6.8 && peak("left_forearm") <= 8.2, "bow elbow should reciprocate within the connected-source-art range");
   assert.ok(peak("torso") >= 2.5 && peak("torso") <= 3.3, "torso should follow the phrase with restrained source-safe sway");

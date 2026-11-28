@@ -4,9 +4,9 @@ import { readFileSync } from "node:fs";
 import {
   buildMusicSynchronizedPerformanceTracks,
   compileMotionTracks,
-  mapViolinFirstPositionPitch,
-  fitCharacterToCanvas
+  mapViolinFirstPositionPitch
 } from "../src/motion-build.mjs";
+import { fitCharacterToCanvas } from "../src/character-layout.mjs";
 
 const rendererSource = readFileSync(new URL("../build.mjs", import.meta.url), "utf8");
 
