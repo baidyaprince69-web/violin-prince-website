@@ -773,7 +773,7 @@ test("segmented composite body keeps modular head plates attached to neck motion
 });
 
 
-test("fingerboard notes retain lower-finger contact and sustain presses for note duration", () => {
+test("fingerboard notes select the mapped string and one finger, then sustain that press", () => {
   const tracks = buildMusicSynchronizedPerformanceTracks({
     targetPrefix: "finger-test",
     duration: 2,
@@ -798,25 +798,28 @@ test("fingerboard notes retain lower-finger contact and sustain presses for note
   ]);
   assert.ok(fingerSegments.every(Boolean), "all four fingers need base, middle and tip tracks");
 
-  // The high register note prepares/presses the index, middle, ring and
-  // little fingers together rather than flicking a single arbitrary finger.
-  for (const track of fingerSegments) {
-    assert.ok(track.key_times.some(time => time >= 0.60 && time <= 0.66));
-    assert.ok(track.values.some(value => Math.abs(Number(value)) > 0.5));
-  }
-  for (const digit of digits) {
+  const map = getFinger("finger_index").music_sync_fingering_map;
+  assert.deepEqual(map.map(item => ({ string: item.string, finger: item.finger })),
+    [{ string: "G", finger: "finger_ring" }, { string: "A", finger: "finger_middle" }]);
+
+  for (const digit of ["ring", "middle"]) {
     const base = getFinger("finger_" + digit);
     const middle = getFinger("finger_" + digit + "_middle");
     const tip = getFinger("finger_" + digit + "_tip");
+    assert.ok(base.key_times.some(time => time >= (digit === "ring" ? 0.10 : 0.60) &&
+      time <= (digit === "ring" ? 0.16 : 0.66)));
     const maxCombinedCurl = Math.max(...base.values.map((value, i) =>
       Math.abs(Number(value)) + Math.abs(Number(middle.values[i] || 0)) +
       Math.abs(Number(tip.values[i] || 0))
     ));
     assert.ok(maxCombinedCurl > 4, digit + " phalanges should combine to a visible press");
   }
-  const index = getFinger("finger_index");
-  // The second note is sustained; its press/release cycle must outlast the short note.
-  const indexLateKeys = index.key_times.filter(time => time > 0.7);
-  assert.ok(indexLateKeys.some(time => time > 1.1),
-    "long note holds the finger position before the release and settle");
+  for (const digit of ["index", "little"]) {
+    assert.ok(getFinger("finger_" + digit).values.every(value => Number(value) === 0),
+      digit + " must not be curled for notes assigned to other fingers");
+  }
+
+  const middle = getFinger("finger_middle");
+  assert.ok(middle.key_times.some(time => time > 1.1),
+    "the long A-string second-finger note holds before its release and settle");
 });

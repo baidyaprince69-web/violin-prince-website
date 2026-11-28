@@ -240,24 +240,9 @@ export function buildMusicSynchronizedPerformanceTracks({
         amplitude: amplitudes[assignment.finger] * strength
       });
     }
-  } else {
-    attacks.forEach((time, index) => {
-      const fingerIndex = index % fingerNames.length;
-      const hit = Math.min(total, time + 0.025);
-      const nextHit = attacks[index + 1] === undefined
-        ? total : Math.min(total, attacks[index + 1] + 0.025);
-      const release = Math.min(total, hit + Math.min(0.22, period * 0.3), nextHit);
-      const settle = Math.min(total, release + 0.075, nextHit);
-      const amplitude = [8.0, -7.5, 7.8, -7.0][fingerIndex];
-      fingerIntervals[fingerNames[fingerIndex]].push({
-        start: hit,
-        pressEnd: Math.min(total, hit + 0.05, nextHit),
-        end: release,
-        settle,
-        amplitude
-      });
-    });
   }
+  // Without a measured note map, keep the fingers neutral. Do not cycle
+  // through arbitrary fingers just because an onset detector fired.
 
   const fingerTracks = fingerNames.flatMap(name => {
     const intervals = fingerIntervals[name];
