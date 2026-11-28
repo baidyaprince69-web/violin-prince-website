@@ -794,6 +794,12 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
 
   const stagecraftCounts = stagecraftNodeCounts(scene);
   const stagecraftObjectPrefix = scene.id + "-stagecraft-object-";
+  const stagecraftCameraParallaxTracks = project.motion_tracks.filter(track =>
+    track.camera_parallax_depth_plane &&
+    ["background", "midground", "foreground"].includes(track.camera_parallax_depth_plane) &&
+    track.target === scene.id + "-stagecraft-plane-" + track.camera_parallax_depth_plane &&
+    track.property === "transform"
+  );
   const expectedMusicSyncCount = Array.isArray(scene.stagecraft?.music_sync_cues)
     ? scene.stagecraft.music_sync_cues.length : 0;
   const musicSyncTracks = project.motion_tracks.filter(track =>
@@ -1021,6 +1027,14 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     animated_stagecraft_environment_nodes: stagecraftCounts.environment,
     animated_stagecraft_objects: stagecraftCounts.objects,
     animated_stagecraft_nodes: animatedStagecraftNodeCount,
+    stagecraft_depth_plane_node_counts: {
+      background: stagecraftCounts.background_depth,
+      midground: stagecraftCounts.midground_depth,
+      foreground: stagecraftCounts.foreground_depth
+    },
+    stagecraft_camera_parallax_track_count: stagecraftCameraParallaxTracks.length,
+    stagecraft_camera_parallax_depth_planes: stagecraftCameraParallaxTracks
+      .map(track => track.camera_parallax_depth_plane),
     music_sync_event_count: musicSyncTracks.length,
     music_sync_events: musicSyncTracks.map(track => ({event: track.music_sync_event, time_seconds: track.start, timing_source: track.music_sync_timing_source})),
     presenter_music_sync_track_count: presenterMusicSyncTracks.length,
@@ -1066,6 +1080,11 @@ const motionReport = {
   animated_stagecraft_object_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_stagecraft_objects, 0),
   animated_stagecraft_node_count: motionSceneReports.reduce((sum, scene) => sum + scene.animated_stagecraft_nodes, 0),
   animated_stagecraft_scene_count: motionSceneReports.filter(scene => scene.animated_stagecraft_nodes > 0).length,
+  stagecraft_camera_parallax_track_count: motionSceneReports.reduce(
+    (sum, scene) => sum + scene.stagecraft_camera_parallax_track_count, 0),
+  stagecraft_camera_parallax_depth_planes: [...new Set(
+    motionSceneReports.flatMap(scene => scene.stagecraft_camera_parallax_depth_planes)
+  )],
   music_sync_event_count: motionSceneReports.reduce((sum, scene) => sum + scene.music_sync_event_count, 0),
   music_sync_events: motionSceneReports.flatMap(scene => scene.music_sync_events),
   presenter_music_sync_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.presenter_music_sync_track_count, 0),
@@ -1208,6 +1227,9 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
   '.scene-stagecraft svg{display:block;width:100%;height:100%;overflow:visible}' +
   '.scene-stagecraft-foreground{position:absolute;inset:0;width:100%;height:100%;z-index:45;overflow:hidden;pointer-events:none}' +
   '.scene-stagecraft-foreground svg{display:block;width:100%;height:100%;overflow:visible}' +
+  '.stagecraft-depth-plane{transform-box:view-box;transform-origin:50% 50%;will-change:transform}' +
+  '.stagecraft-depth-plane--background{isolation:isolate}' +
+  '.stagecraft-depth-plane--midground,.stagecraft-depth-plane--foreground{pointer-events:none}' +
   '.stagecraft-node{transform-box:fill-box;transform-origin:center;will-change:transform,opacity}' +
   '.rig-base-art{position:absolute;object-fit:contain;max-width:none;pointer-events:none;will-change:transform}' +
   '.rig-part,.rig-expression,.rig-pose,.rig-prop{position:absolute;object-fit:contain;max-width:none;pointer-events:none}' +
