@@ -1040,16 +1040,20 @@ jobs:
           assert report.get("presenter_music_sync_track_count") == 24, report
           assert report.get("presenter_bow_stroke_track_count") == 4, report
           assert report.get("presenter_finger_note_track_count") == 12, report
-          assert report.get("presenter_bow_slide_track_count") == 1, report
-          assert report.get("bow_slide_travel_range_px", 0) >= 26, report
+          assert report.get("presenter_bow_attached_transform_track_count") == 1, report
+          assert report.get("bow_attached_tip_travel_range_px", 0) >= 26, report
+          assert report.get("bow_grip_attachment_error_max_px", 999) <= 0.5, report
+          assert report.get("presenter_bow_translation_track_count") == 0, report
           assert report.get("presenter_body_balance_track_count") == 2, report
           assert report.get("presenter_weight_shift_track_count") == 6, report
           assert report.get("presenter_sync_timing_sources") == ["sampled_violin_cc0"], report
           assert scene.get("presenter_music_sync_track_count") == 24, scene
           assert scene.get("presenter_bow_stroke_track_count") == 4, scene
           assert scene.get("presenter_finger_note_track_count") == 12, scene
-          assert scene.get("presenter_bow_slide_track_count") == 1, scene
-          assert scene.get("bow_slide_travel_range_px", 0) >= 26, scene
+          assert scene.get("presenter_bow_attached_transform_track_count") == 1, scene
+          assert scene.get("bow_attached_tip_travel_range_px", 0) >= 26, scene
+          assert scene.get("bow_grip_attachment_error_max_px", 999) <= 0.5, scene
+          assert scene.get("presenter_bow_translation_track_count") == 0, scene
           rig_report = json.loads(Path("work/full-body-rig/bundle/full-body-performance-report.json").read_text())
           joint_art = rig_report.get("source_aligned_joint_surface_art", {})
           all_joint_layers = [layer for layer in character.get("layers", []) if layer.get("joint_surface")]

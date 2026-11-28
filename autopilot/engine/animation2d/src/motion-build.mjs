@@ -81,7 +81,6 @@ export function buildMusicSynchronizedPerformanceTracks({
   noteEvents = [],
   confidence = 1,
   timingSource = "validated_audio_event_map",
-  bowTravelAxis = { x: 0.58, y: -0.81 },
   fps = 25
 } = {}) {
   const total = Math.max(0.08, Number(duration) || 0.08);
@@ -116,12 +115,6 @@ export function buildMusicSynchronizedPerformanceTracks({
     )
     .sort((a, b) => a.time - b.time);
 
-  const axisX = Number(Array.isArray(bowTravelAxis) ? bowTravelAxis[0] : bowTravelAxis?.x);
-  const axisY = Number(Array.isArray(bowTravelAxis) ? bowTravelAxis[1] : bowTravelAxis?.y);
-  const axisLength = Math.hypot(axisX, axisY);
-  const bowAxis = Number.isFinite(axisLength) && axisLength > 0.01
-    ? { x: axisX / axisLength, y: axisY / axisLength }
-    : { x: 0.58, y: -0.81 };
   const fingeringMap = events.map(event => ({
     time: event.time,
     duration_seconds: event.durationSeconds,
@@ -301,28 +294,13 @@ export function buildMusicSynchronizedPerformanceTracks({
     music_sync_event: "performer_" + event,
     music_sync_timing_source: timing
   });
-  // The bow must travel across the strings, not merely rotate with the camera
-  // or arm. This local horizontal slide represents the stick moving through
-  // the fixed bow-grip hand during each measured reciprocal stroke.
-  const bowSlideTrack = {
-    target: prefix + "-prop-bow",
-    property: "translate",
-    values: strokeTimes.map(time => {
-      const travel = 24 * Math.sin(beatPhaseAt(time));
-      return (travel * bowAxis.x).toFixed(2) + "px " +
-        (travel * bowAxis.y).toFixed(2) + "px";
-    }),
-    offsets: strokeTimes.map(time => Number((time / total).toFixed(6))),
-    start: Math.max(0, Number(start) || 0),
-    duration: total,
-    easing: "linear"
-  };
+  // The bow remains locked to its bowing-hand grip. Reciprocal movement is
+  // produced by the shoulder, elbow and wrist chain, never by sliding the prop.
   return [
     // Bowing arm: the shoulder, elbow and wrist form one continuous chain.
     tag(makeTrack(prefix + "-part-left_upper_arm", bowShoulderStrokes), "bow_stroke"),
     tag(makeTrack(prefix + "-part-left_forearm", bowElbowStrokes), "bow_stroke"),
     tag(makeTrack(prefix + "-part-left_hand", bowWristStrokes), "bow_stroke"),
-    tag(bowSlideTrack, "bow_stroke"),
     // Keep the fretting wrist planted while note events articulate finger sprites.
     tag(makeTrack(prefix + "-part-torso", torsoPulses), "body_balance"),
     tag(makeTrack(prefix + "-part-head", headPulses), "body_balance"),
@@ -1359,6 +1337,10 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
         }
       }
       for (const prop of animatedProps) {
+        const attachmentSyncTrack = prop.id === "bow"
+          ? [...(rotationTracks.get(String(prop.attach_to || "left_hand")) || [])]
+            .reverse().find(track => track.music_sync_event === "performer_bow_stroke")
+          : null;
         transformTracks.push({
           target: prefix + "-prop-" + prop.id,
           property: "transform",
@@ -1366,7 +1348,11 @@ function addHierarchicalTransformTracks(project, sourceTracks, fps) {
           offsets: sampleOffsets,
           start: sceneStart,
           duration: sceneDuration,
-          easing: "linear"
+          easing: "linear",
+          ...(attachmentSyncTrack ? {
+            music_sync_event: attachmentSyncTrack.music_sync_event,
+            music_sync_timing_source: attachmentSyncTrack.music_sync_timing_source
+          } : {})
         });
       }
     }
@@ -1695,7 +1681,6 @@ export function compileMotionTracks(project, { fps = 25 } = {}) {
           })),
           confidence: sync.confidence,
           timingSource: sync.source || sync.analysis_source || "validated_audio_event_map",
-          bowTravelAxis: character.props?.bow?.stroke_axis || sync.bow_travel_axis,
           fps
         });
         tracks.push(...timedPerformanceTracks);

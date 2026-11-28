@@ -818,23 +818,84 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
   const presenterWeightShiftTrackCount = presenterMusicSyncTracks.filter(
     track => track.music_sync_event === "performer_weight_shift"
   ).length;
-  const presenterBowSlideTracks = presenterMusicSyncTracks.filter(track =>
+  const presenterBowTransformTracks = presenterMusicSyncTracks.filter(track =>
     track.music_sync_event === "performer_bow_stroke" &&
     track.target === presenterSyncPrefix + "violin-prince-prop-bow" &&
+    track.property === "transform"
+  );
+  const presenterBowHandTransform = presenterMusicSyncTracks.find(track =>
+    track.music_sync_event === "performer_bow_stroke" &&
+    track.target === presenterSyncPrefix + "violin-prince-part-left_hand" &&
+    track.property === "transform"
+  );
+  const presenterCharacter = (project.characters || []).find(character => character.id === "violin-prince");
+  const presenterBowProp = presenterCharacter?.props?.bow;
+  const presenterBowHand = (presenterCharacter?.layers || []).find(layer => layer.role === "left_hand");
+  const bowTranslationTrackCount = project.motion_tracks.filter(track =>
+    track.target === presenterSyncPrefix + "violin-prince-prop-bow" &&
     track.property === "translate"
-  );
-  const bowSlidePositions = presenterBowSlideTracks.flatMap(track =>
-    (track.values || []).map(value => {
-      const match = String(value).match(/^\s*(-?\d+(?:\.\d+)?)px\s+(-?\d+(?:\.\d+)?)px\s*$/);
-      if (!match) return null;
-      const point = { x: Number(match[1]), y: Number(match[2]) };
-      return Number.isFinite(point.x) && Number.isFinite(point.y) ? point : null;
-    }).filter(Boolean)
-  );
-  const bowSlideXRange = bowSlidePositions.length
-    ? Math.max(...bowSlidePositions.map(point => point.x)) - Math.min(...bowSlidePositions.map(point => point.x)) : 0;
-  const bowSlideYRange = bowSlidePositions.length
-    ? Math.max(...bowSlidePositions.map(point => point.y)) - Math.min(...bowSlidePositions.map(point => point.y)) : 0;
+  ).length;
+  const parseCssMatrix = value => {
+    const match = String(value).match(/^matrix\(([^)]+)\)$/);
+    if (!match) return null;
+    const values = match[1].split(",").map(Number);
+    return values.length === 6 && values.every(Number.isFinite)
+      ? { a: values[0], b: values[1], c: values[2], d: values[3], e: values[4], f: values[5] }
+      : null;
+  };
+  const transformLocalPoint = (matrix, point, scale, layer) => ({
+    x: Number(layer.x || 0) * scale + matrix.a * point.x * scale +
+      matrix.c * point.y * scale + matrix.e,
+    y: Number(layer.y || 0) * scale + matrix.b * point.x * scale +
+      matrix.d * point.y * scale + matrix.f
+  });
+  let bowTipPositions = [];
+  let bowGripAttachmentErrorMaxPx = Number.POSITIVE_INFINITY;
+  if (presenterBowTransformTracks.length === 1 && presenterBowHandTransform &&
+      presenterBowProp && presenterBowHand) {
+    const fitted = fitCharacterToCanvas(presenterCharacter, project.width, project.height);
+    const scale = Number(fitted.scale) || 1;
+    const width = Number(presenterBowProp.width) || 1;
+    const height = Number(presenterBowProp.height) || 1;
+    const grip = {
+      x: Number(presenterBowProp.pivot_x ?? 0.5) * width,
+      y: Number(presenterBowProp.pivot_y ?? 0.5) * height
+    };
+    const gripOnHand = {
+      x: Number(presenterBowProp.x || 0) + grip.x - Number(presenterBowHand.x || 0),
+      y: Number(presenterBowProp.y || 0) + grip.y - Number(presenterBowHand.y || 0)
+    };
+    const rawAxis = presenterBowProp.stroke_axis || { x: 0.58, y: -0.81 };
+    const axisLength = Math.hypot(Number(rawAxis.x), Number(rawAxis.y));
+    const axis = axisLength > 0.001
+      ? { x: Number(rawAxis.x) / axisLength, y: Number(rawAxis.y) / axisLength }
+      : { x: 0.58, y: -0.81 };
+    const edgeLimits = [];
+    if (axis.x > 1e-6) edgeLimits.push((width - grip.x) / axis.x);
+    else if (axis.x < -1e-6) edgeLimits.push((0 - grip.x) / axis.x);
+    if (axis.y > 1e-6) edgeLimits.push((height - grip.y) / axis.y);
+    else if (axis.y < -1e-6) edgeLimits.push((0 - grip.y) / axis.y);
+    const tipDistance = Math.min(...edgeLimits.filter(value => Number.isFinite(value) && value > 0));
+    const bowTip = { x: grip.x + axis.x * tipDistance, y: grip.y + axis.y * tipDistance };
+    const bowMatrices = presenterBowTransformTracks[0].values || [];
+    const handMatrices = presenterBowHandTransform.values || [];
+    const count = Math.min(bowMatrices.length, handMatrices.length);
+    const errors = [];
+    for (let index = 0; index < count; index += 1) {
+      const bowMatrix = parseCssMatrix(bowMatrices[index]);
+      const handMatrix = parseCssMatrix(handMatrices[index]);
+      if (!bowMatrix || !handMatrix) continue;
+      const bowGripPoint = transformLocalPoint(bowMatrix, grip, scale, presenterBowProp);
+      const handGripPoint = transformLocalPoint(handMatrix, gripOnHand, scale, presenterBowHand);
+      errors.push(Math.hypot(bowGripPoint.x - handGripPoint.x, bowGripPoint.y - handGripPoint.y));
+      bowTipPositions.push(transformLocalPoint(bowMatrix, bowTip, scale, presenterBowProp));
+    }
+    bowGripAttachmentErrorMaxPx = errors.length ? Math.max(...errors) : Number.POSITIVE_INFINITY;
+  }
+  const bowSlideXRange = bowTipPositions.length
+    ? Math.max(...bowTipPositions.map(point => point.x)) - Math.min(...bowTipPositions.map(point => point.x)) : 0;
+  const bowSlideYRange = bowTipPositions.length
+    ? Math.max(...bowTipPositions.map(point => point.y)) - Math.min(...bowTipPositions.map(point => point.y)) : 0;
   const bowSlideTravelRangePx = Math.hypot(bowSlideXRange, bowSlideYRange);
   const presenterFingeringTrack = presenterMusicSyncTracks.find(track =>
     track.music_sync_event === "performer_finger_note" &&
@@ -852,10 +913,11 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
   }
   if (scene.visual_mode === "full_body_performance" &&
       fullBodyPerformanceCharacters.length > 0 &&
-      (presenterBowStrokeTrackCount < 4 || presenterBowSlideTracks.length !== 1 ||
-       bowSlideTravelRangePx < 26)) {
+      (presenterBowStrokeTrackCount < 4 || presenterBowTransformTracks.length !== 1 ||
+       !presenterBowHandTransform || bowSlideTravelRangePx < 26 ||
+       bowGripAttachmentErrorMaxPx > 0.5 || bowTranslationTrackCount !== 0)) {
     throw new Error(
-      "Full-body performance requires four synchronized bow-stroke tracks and at least 26px of measured bow travel."
+      "Full-body performance requires a hand-attached bow transform, at least 26px of measured bow-tip travel, a grip error no greater than 0.5px, and no independent bow translation."
     );
   }
   if (musicSyncTracks.length !== expectedMusicSyncCount) {
@@ -963,10 +1025,13 @@ const motionSceneReports = (project.scenes || []).map((scene) => {
     music_sync_events: musicSyncTracks.map(track => ({event: track.music_sync_event, time_seconds: track.start, timing_source: track.music_sync_timing_source})),
     presenter_music_sync_track_count: presenterMusicSyncTracks.length,
     presenter_bow_stroke_track_count: presenterBowStrokeTrackCount,
-    presenter_bow_slide_track_count: presenterBowSlideTracks.length,
-    bow_slide_travel_range_px: Number(bowSlideTravelRangePx.toFixed(2)),
-    bow_slide_x_range_px: Number(bowSlideXRange.toFixed(2)),
-    bow_slide_y_range_px: Number(bowSlideYRange.toFixed(2)),
+    presenter_bow_attached_transform_track_count: presenterBowTransformTracks.length,
+    bow_attached_tip_travel_range_px: Number(bowSlideTravelRangePx.toFixed(2)),
+    bow_attached_tip_x_range_px: Number(bowSlideXRange.toFixed(2)),
+    bow_attached_tip_y_range_px: Number(bowSlideYRange.toFixed(2)),
+    bow_grip_attachment_error_max_px: Number.isFinite(bowGripAttachmentErrorMaxPx)
+      ? Number(bowGripAttachmentErrorMaxPx.toFixed(4)) : null,
+    presenter_bow_translation_track_count: bowTranslationTrackCount,
     presenter_finger_note_track_count: presenterFingerNoteTrackCount,
     presenter_fingering_map: presenterFingeringMap,
     presenter_fingering_summary: presenterFingeringSummary,
@@ -1005,8 +1070,13 @@ const motionReport = {
   music_sync_events: motionSceneReports.flatMap(scene => scene.music_sync_events),
   presenter_music_sync_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.presenter_music_sync_track_count, 0),
   presenter_bow_stroke_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.presenter_bow_stroke_track_count, 0),
-  presenter_bow_slide_track_count: motionSceneReports.reduce((sum, scene) => sum + scene.presenter_bow_slide_track_count, 0),
-  bow_slide_travel_range_px: Math.max(0, ...motionSceneReports.map(scene => scene.bow_slide_travel_range_px)),
+  presenter_bow_attached_transform_track_count: motionSceneReports.reduce(
+    (sum, scene) => sum + scene.presenter_bow_attached_transform_track_count, 0),
+  bow_attached_tip_travel_range_px: Math.max(0, ...motionSceneReports.map(scene => scene.bow_attached_tip_travel_range_px)),
+  bow_grip_attachment_error_max_px: Math.max(0, ...motionSceneReports.map(scene =>
+    Number(scene.bow_grip_attachment_error_max_px ?? 999))),
+  presenter_bow_translation_track_count: motionSceneReports.reduce(
+    (sum, scene) => sum + scene.presenter_bow_translation_track_count, 0),
   presenter_fingering_map_status: motionSceneReports.some(scene => scene.presenter_fingering_summary?.status === "manual_review_required")
     ? "manual_review_required" : (motionSceneReports.some(scene => scene.presenter_fingering_map?.length)
       ? "first_position_mapped" : "unavailable"),

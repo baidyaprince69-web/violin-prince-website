@@ -4,7 +4,8 @@ import { readFileSync } from "node:fs";
 import {
   buildMusicSynchronizedPerformanceTracks,
   compileMotionTracks,
-  mapViolinFirstPositionPitch
+  mapViolinFirstPositionPitch,
+  fitCharacterToCanvas
 } from "../src/motion-build.mjs";
 
 const rendererSource = readFileSync(new URL("../build.mjs", import.meta.url), "utf8");
@@ -106,6 +107,19 @@ const character = {
     }
   }
 };
+
+const bowHandFixture = character.layers.find(layer => layer.role === "left_hand");
+Object.assign(bowHandFixture, { x: 107, y: 222, width: 90, height: 59, pivot_x: 0.5, pivot_y: 0.5 });
+Object.assign(character.joints, {
+  left_shoulder: { x: 127 / 441, y: 176 / 755 },
+  left_elbow: { x: 27 / 441, y: 252 / 755 },
+  left_wrist: { x: 116 / 441, y: 231 / 755 }
+});
+Object.assign(character.props.bow, {
+  x: 147, y: 44, width: 191, height: 254,
+  pivot_x: 0.1623036649, pivot_y: 0.78,
+  stroke_axis: { x: 0.627793, y: -0.77838 }
+});
 
 const project = {
   width: 720, height: 1280, fps: 25, duration_seconds: 4,
@@ -274,11 +288,8 @@ test("music-synchronized performance keyframes follow beat and onset timestamps"
     confidence: 1
   });
   const find = target => tracks.find(track => track.target === target);
-  const bowPropRotationTracks = tracks.filter(track =>
-    track.target === "playing-violin-prince-prop-bow" && track.property === "rotate"
-  );
-  const bowSlide = tracks.find(track =>
-    track.target === "playing-violin-prince-prop-bow" && track.property === "translate"
+  const bowPropMotionTracks = tracks.filter(track =>
+    track.target === "playing-violin-prince-prop-bow"
   );
   const bowShoulder = find("playing-violin-prince-part-left_upper_arm");
   const elbow = find("playing-violin-prince-part-left_forearm");
@@ -296,21 +307,10 @@ test("music-synchronized performance keyframes follow beat and onset timestamps"
   const littleFinger = find("playing-violin-prince-part-finger_little");
 
   assert.ok(bowShoulder && elbow && wrist);
-  assert.equal(bowPropRotationTracks.length, 0,
-    "bow orientation must still follow the attached grip rather than a second rotation");
-  assert.ok(bowSlide, "the bow stick must slide through the grip on measured stroke timing");
-  assert.equal(bowSlide.music_sync_event, "performer_bow_stroke");
-  const slidePoints = bowSlide.values.map(value => {
-    const match = String(value).match(/^(-?\d+(?:\.\d+)?)px\s+(-?\d+(?:\.\d+)?)px$/);
-    assert.ok(match, "bow translation must be a two-dimensional local-axis vector");
-    return { x: Number(match[1]), y: Number(match[2]) };
-  });
-  const slideXRange = Math.max(...slidePoints.map(point => point.x)) - Math.min(...slidePoints.map(point => point.x));
-  const slideYRange = Math.max(...slidePoints.map(point => point.y)) - Math.min(...slidePoints.map(point => point.y));
-  assert.ok(Math.hypot(slideXRange, slideYRange) >= 38,
-    "measured bow travel must span at least 38 source pixels along the bow shaft");
-  assert.ok(slideYRange > slideXRange,
-    "the bow stroke must follow the diagonal bow axis instead of sliding horizontally across the frame");
+  assert.equal(bowPropMotionTracks.length, 0,
+    "the bow must not receive an independent rotation or translation that can break its grip");
+  assert.equal(tracks.filter(track => track.music_sync_event === "performer_bow_stroke").length, 3,
+    "the three bow-stroke cues belong to the shoulder, elbow and wrist chain");
   assert.equal(fingerboardArmTracks.length, 0,
     "the violin-neck arm must not drift away from its contact point");
   assert.ok(indexFinger && middleFinger && ringFinger && littleFinger);
@@ -428,19 +428,61 @@ test("compileMotionTracks consumes audio beat maps for bow, arm and finger motio
   assert.equal(presenterSyncTracks.filter(track =>
     track.music_sync_event === "performer_weight_shift").length, 6);
   assert.ok(presenterSyncTracks.every(track =>
-    (track.property === "transform" ||
-      (track.target === "playing-violin-prince-prop-bow" && track.property === "translate")) &&
+    track.property === "transform" &&
     track.music_sync_timing_source === "decoded_audio_spectral_flux_autocorrelation"
-  ), "sync provenance must survive on all final frame-seekable presenter tracks");
+  ), "sync provenance must survive on all final frame-seekable presenter transforms");
+  assert.equal(presenterSyncTracks.filter(track =>
+    track.target === "playing-violin-prince-prop-bow" && track.property === "translate"
+  ).length, 0, "the bow must not translate independently of the bowing hand");
 
   const bowTransform = getTrack(musicTracks, "playing-violin-prince-prop-bow", "transform");
+  const bowHandTransform = getTrack(musicTracks, "playing-violin-prince-part-left_hand", "transform");
   assert.ok(bowTransform && bowTransform.values.some(value => value !== bowTransform.values[0]),
     "bow follows the articulated bowing-hand parent");
-  const bowSlide = getTrack(musicTracks, "playing-violin-prince-prop-bow", "translate");
-  assert.ok(bowSlide, "the bow receives a measured cross-string slide track");
-  const slideValues = bowSlide.values.map(value => Number.parseFloat(String(value)));
-  assert.ok(Math.max(...slideValues) - Math.min(...slideValues) >= 26,
-    "the bow slide remains visibly measurable after timeline compilation");
+  assert.equal(bowTransform.music_sync_event, "performer_bow_stroke");
+  assert.ok(bowHandTransform, "the hand transform is available for the grip-attachment check");
+
+  const matrixPoint = (value, point, scale, layer) => {
+    const match = String(value).match(/^matrix\(([^)]+)\)$/);
+    assert.ok(match, "hierarchical transforms must be affine CSS matrices");
+    const [a,b,c,d,e,f] = match[1].split(",").map(Number);
+    return {
+      x: Number(layer.x) * scale + a * point.x * scale + c * point.y * scale + e,
+      y: Number(layer.y) * scale + b * point.x * scale + d * point.y * scale + f
+    };
+  };
+  const character = project.characters[0];
+  const bow = character.props.bow;
+  const hand = character.layers.find(layer => layer.role === "left_hand");
+  const scale = fitCharacterToCanvas(character, project.width, project.height).scale;
+  const grip = { x: bow.pivot_x * bow.width, y: bow.pivot_y * bow.height };
+  const handGrip = {
+    x: bow.x + grip.x - hand.x,
+    y: bow.y + grip.y - hand.y
+  };
+  const gripErrors = bowTransform.values.map((value, index) => {
+    const bowPoint = matrixPoint(value, grip, scale, bow);
+    const handPoint = matrixPoint(bowHandTransform.values[index], handGrip, scale, hand);
+    return Math.hypot(bowPoint.x - handPoint.x, bowPoint.y - handPoint.y);
+  });
+  assert.ok(Math.max(...gripErrors) < 0.05,
+    "the bow grip must stay locked to the same point on the bowing hand in every frame");
+
+  const rawAxis = bow.stroke_axis;
+  const axisLength = Math.hypot(rawAxis.x, rawAxis.y);
+  const axis = { x: rawAxis.x / axisLength, y: rawAxis.y / axisLength };
+  const limits = [];
+  if (axis.x > 1e-6) limits.push((bow.width - grip.x) / axis.x);
+  if (axis.x < -1e-6) limits.push((0 - grip.x) / axis.x);
+  if (axis.y > 1e-6) limits.push((bow.height - grip.y) / axis.y);
+  if (axis.y < -1e-6) limits.push((0 - grip.y) / axis.y);
+  const tipDistance = Math.min(...limits.filter(value => Number.isFinite(value) && value > 0));
+  const tip = { x: grip.x + axis.x * tipDistance, y: grip.y + axis.y * tipDistance };
+  const tipPositions = bowTransform.values.map(value => matrixPoint(value, tip, scale, bow));
+  const tipXRange = Math.max(...tipPositions.map(point => point.x)) - Math.min(...tipPositions.map(point => point.x));
+  const tipYRange = Math.max(...tipPositions.map(point => point.y)) - Math.min(...tipPositions.map(point => point.y));
+  assert.ok(Math.hypot(tipXRange, tipYRange) >= 26,
+    "the attached bow tip must travel visibly through the arm chain across the strings");
 });
 
 test("sampled note pitches select finger layers and music cues counterbalance the full body", () => {
