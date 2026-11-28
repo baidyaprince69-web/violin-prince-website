@@ -158,7 +158,13 @@ def verify_master_director_render(video_path:str|Path,project_path:str|Path,moti
               "presenter":int(item.get("animated_presenter_count") or 0)>=1,
               "full_body":int(item.get("full_body_performance_character_count") or 0)>=1,
               "bow_strokes":int(item.get("presenter_bow_stroke_track_count") or 0)>=4,
-              "bow_slide":int(item.get("presenter_bow_slide_track_count") or 0)>=1,
+              "bow_slide":float(item.get("bow_attached_tip_travel_range_px") or 0)>=26,
+              "bow_attached_transform":int(item.get("presenter_bow_attached_transform_track_count") or 0)>=1,
+              "bow_grip_attachment":(
+                item.get("bow_grip_attachment_error_max_px") is not None
+                and float(item["bow_grip_attachment_error_max_px"])<=0.5
+              ),
+              "no_independent_bow_translation":int(item.get("presenter_bow_translation_track_count") or 0)==0,
               "finger_note_tracks":int(item.get("presenter_finger_note_track_count") or 0)>=12,
               "weight_shift_tracks":int(item.get("presenter_weight_shift_track_count") or 0)>=6,
             }
@@ -168,7 +174,8 @@ def verify_master_director_render(video_path:str|Path,project_path:str|Path,moti
                 and int(item.get("visible_character_count") or 0)==0,
               "full_body_tracks_absent":int(item.get("full_body_performance_character_count") or 0)==0,
               "bow_tracks_absent":int(item.get("presenter_bow_stroke_track_count") or 0)==0
-                and int(item.get("presenter_bow_slide_track_count") or 0)==0,
+                and int(item.get("presenter_bow_attached_transform_track_count") or 0)==0
+                and int(item.get("presenter_bow_translation_track_count") or 0)==0,
               "finger_tracks_absent":int(item.get("presenter_finger_note_track_count") or 0)==0,
               "weight_tracks_absent":int(item.get("presenter_weight_shift_track_count") or 0)==0,
             }
