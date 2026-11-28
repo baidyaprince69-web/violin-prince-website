@@ -160,7 +160,9 @@ class MasterCreativeDirectorTests(unittest.TestCase):
         self.assertTrue(any("reasoning is required" in item for item in issues))
 
     def test_story_object_depth_plane_is_optional_but_validated(self):
-        plan = valid_director_plan()
+        fixture = ENGINE / "tests" / "fixtures" / "master-director-procedural-demo.json"
+        plan = json.loads(fixture.read_text(encoding="utf-8"))
+        self.assertEqual(validate_director_plan(plan), [])
         plan["storyboard"]["shots"][0]["procedural_scene"]["objects"][0]["depth_plane"] = "foreground"
         self.assertEqual(validate_director_plan(plan), [])
         plan["storyboard"]["shots"][0]["procedural_scene"]["objects"][0]["depth_plane"] = "front-of-camera"
