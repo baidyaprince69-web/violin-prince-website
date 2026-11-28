@@ -1,6 +1,14 @@
 name: Cinematic Environment Depth Preview
 
 on:
+  push:
+    branches:
+      - feat/cinematic-environment-depth
+    paths:
+      - "autopilot/engine/animation2d/src/stagecraft.mjs"
+      - "autopilot/engine/animation2d/test/stagecraft-animation.test.mjs"
+      - "autopilot/engine/animation2d/test/fixtures/environment-depth-preview.json"
+      - ".github/workflows/cinematic-environment-depth-preview.yml"
   pull_request:
     branches:
       - feat/violin-performance-fidelity
