@@ -159,6 +159,16 @@ class MasterCreativeDirectorTests(unittest.TestCase):
         self.assertTrue(any("colour-theory" in item for item in issues))
         self.assertTrue(any("reasoning is required" in item for item in issues))
 
+    def test_story_object_depth_plane_is_optional_but_validated(self):
+        plan = valid_director_plan()
+        plan["storyboard"]["shots"][0]["procedural_scene"]["objects"][0]["depth_plane"] = "foreground"
+        self.assertEqual(validate_director_plan(plan), [])
+        plan["storyboard"]["shots"][0]["procedural_scene"]["objects"][0]["depth_plane"] = "front-of-camera"
+        self.assertTrue(any(
+            "depth_plane must be background, midground or foreground" in item
+            for item in validate_director_plan(plan)
+        ))
+
     def test_camera_zoom_without_animated_scene_layer_is_rejected(self):
         plan = valid_director_plan()
         shot = plan["storyboard"]["shots"][0]
@@ -198,6 +208,8 @@ class MasterCreativeDirectorTests(unittest.TestCase):
         self.assertIn("colour theory", request["system"])
         self.assertIn("Do not blindly reuse a fixed", request["system"])
         self.assertIn("Never create a card, panel, glass surface, backing box", request["system"])
+        self.assertIn("depth_plane to background, midground or foreground", request["system"])
+        self.assertIn("graduated parallax rates", request["system"])
         self.assertIn("character_action.visible is a per-shot editorial decision", request["system"])
         self.assertIn('"creator_preferences":{}', request["user"])
 
