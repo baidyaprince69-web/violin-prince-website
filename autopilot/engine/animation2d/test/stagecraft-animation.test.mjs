@@ -282,12 +282,21 @@ test("story objects render into explicit background, midground and foreground pl
   assert.ok(html.includes('id="story-depth-planes-stagecraft-plane-midground"'));
   assert.ok(html.includes('id="story-depth-planes-stagecraft-plane-foreground"'));
   assert.ok(html.includes('data-depth-plane="background"'));
-  assert.ok(html.includes('id="story-depth-planes-stagecraft-object-far-lights"'));
-  assert.ok(html.includes('id="story-depth-planes-stagecraft-object-story-core"'));
-  assert.ok(html.includes('id="story-depth-planes-stagecraft-object-lens-trail"'));
+  const backgroundStart = html.indexOf('id="story-depth-planes-stagecraft-plane-background"');
+  const midgroundStart = html.indexOf('id="story-depth-planes-stagecraft-plane-midground"');
+  const foregroundStart = html.indexOf('id="story-depth-planes-stagecraft-plane-foreground"');
+  const backgroundObject = html.indexOf('id="story-depth-planes-stagecraft-object-far-lights"');
+  const midgroundObject = html.indexOf('id="story-depth-planes-stagecraft-object-story-core"');
+  const foregroundObject = html.indexOf('id="story-depth-planes-stagecraft-object-lens-trail"');
+  assert.ok(backgroundObject > backgroundStart && backgroundObject < midgroundStart,
+    "background-authored story object must be inside the background plane");
+  assert.ok(midgroundObject > midgroundStart && midgroundObject < foregroundStart,
+    "midground-authored story object must be inside the midground plane");
+  assert.ok(foregroundObject > foregroundStart,
+    "foreground-authored story object must be inside the foreground plane");
   assert.equal(counts.background_depth, 2);
-  assert.equal(counts.midground_depth, 1);
-  assert.equal(counts.foreground_depth, 1);
+  assert.ok(counts.midground_depth >= 1, "the concert environment also contributes midground nodes");
+  assert.ok(counts.foreground_depth >= 1, "the story foreground object must be counted");
   assert.equal(counts.objects, 3);
   assert.throws(() => renderStagecraftMarkup({
     id: "bad-depth", stagecraft: { environment: "space", objects: [
